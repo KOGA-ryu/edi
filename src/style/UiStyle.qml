@@ -19,34 +19,34 @@ QtObject {
     readonly property int statusBarHeight: 28
 
     // Colors
-    readonly property color colorBase: "#101418"
-    readonly property color colorSurface: "#171d24"
-    readonly property color colorSurfaceRaised: "#202832"
-    readonly property color colorWindow: colorBase
-    readonly property color colorRail: "#121920"
-    readonly property color colorPanel: colorSurface
-    readonly property color colorPanelAlt: "#1b232d"
-    readonly property color colorPanelRaised: colorSurfaceRaised
-    readonly property color colorWorkspace: "#111821"
-    readonly property color colorWorkspaceBody: "#18222d"
-    readonly property color colorBottomPanel: "#121920"
-    readonly property color colorStatusBar: "#0c1116"
-    readonly property color colorControl: "#202a35"
-    readonly property color colorControlHover: "#283542"
-    readonly property color colorSelected: "#304052"
-    readonly property color colorAccent: "#8fb4d8"
-    readonly property color colorAccentSoft: "#3a5168"
-    readonly property color colorText: "#dce5ee"
-    readonly property color colorTextMuted: "#9aa8b6"
-    readonly property color colorTextFaint: "#708090"
-    readonly property color colorBorderMajor: "#31404f"
-    readonly property color colorBorderMinor: "#24313e"
-    readonly property color colorBorderFocus: "#5e7892"
-    readonly property color colorSuccess: "#91c89b"
-    readonly property color colorWarning: "#d5bb78"
-    readonly property color colorDanger: "#d98b8b"
-    readonly property color colorPending: "#8aa4bf"
-    readonly property color colorDisabled: "#55616e"
+    property color colorBase: "#101418"
+    property color colorSurface: "#171d24"
+    property color colorSurfaceRaised: "#202832"
+    property color colorWindow: colorBase
+    property color colorRail: "#121920"
+    property color colorPanel: colorSurface
+    property color colorPanelAlt: "#1b232d"
+    property color colorPanelRaised: colorSurfaceRaised
+    property color colorWorkspace: "#111821"
+    property color colorWorkspaceBody: "#18222d"
+    property color colorBottomPanel: "#121920"
+    property color colorStatusBar: "#0c1116"
+    property color colorControl: "#202a35"
+    property color colorControlHover: "#283542"
+    property color colorSelected: "#304052"
+    property color colorAccent: "#8fb4d8"
+    property color colorAccentSoft: "#3a5168"
+    property color colorText: "#dce5ee"
+    property color colorTextMuted: "#9aa8b6"
+    property color colorTextFaint: "#708090"
+    property color colorBorderMajor: "#31404f"
+    property color colorBorderMinor: "#24313e"
+    property color colorBorderFocus: "#5e7892"
+    property color colorSuccess: "#91c89b"
+    property color colorWarning: "#d5bb78"
+    property color colorDanger: "#d98b8b"
+    property color colorPending: "#8aa4bf"
+    property color colorDisabled: "#55616e"
     readonly property color colorTransparent: "transparent"
 
     // Spacing
@@ -78,12 +78,102 @@ QtObject {
     // Typography
     readonly property string fontSans: "Avenir Next"
     readonly property string fontMono: "Menlo"
-    readonly property int fontSizeXs: 10
-    readonly property int fontSizeSm: 11
-    readonly property int fontSizeBody: 12
-    readonly property int fontSizeEditor: 13
-    readonly property int fontSizeTitle: 13
+    property int fontSizeXs: 10
+    property int fontSizeSm: 11
+    property int fontSizeBody: 12
+    property int fontSizeEditor: 13
+    property int fontSizeTitle: 13
     readonly property int fontWeightRegular: 400
     readonly property int fontWeightMedium: 500
     readonly property int fontWeightSemiBold: 600
+
+    function clamp(value, low, high) {
+        return Math.max(low, Math.min(high, value))
+    }
+
+    function componentToHex(value) {
+        var text = clamp(Math.round(value), 0, 255).toString(16)
+        return text.length === 1 ? "0" + text : text
+    }
+
+    function normalizeHex(value, fallback) {
+        var text = String(value || "").trim()
+        if (text.charAt(0) !== "#") {
+            text = "#" + text
+        }
+        return /^#[0-9a-fA-F]{6}$/.test(text) ? text.toUpperCase() : fallback
+    }
+
+    function mix(hex, targetHex, ratio) {
+        var source = normalizeHex(hex, "#000000")
+        var target = normalizeHex(targetHex, "#000000")
+        var amount = clamp(ratio, 0, 1)
+        var sr = parseInt(source.slice(1, 3), 16)
+        var sg = parseInt(source.slice(3, 5), 16)
+        var sb = parseInt(source.slice(5, 7), 16)
+        var tr = parseInt(target.slice(1, 3), 16)
+        var tg = parseInt(target.slice(3, 5), 16)
+        var tb = parseInt(target.slice(5, 7), 16)
+        return "#" + componentToHex(sr + (tr - sr) * amount)
+            + componentToHex(sg + (tg - sg) * amount)
+            + componentToHex(sb + (tb - sb) * amount)
+    }
+
+    function applyTheme(theme) {
+        var colors = theme && theme.colors ? theme.colors : ({})
+        var typography = theme && theme.typography ? theme.typography : ({})
+        var base = normalizeHex(colors.base, "#101418")
+        var surface = normalizeHex(colors.surface, "#171D24")
+        var accent = normalizeHex(colors.accent, "#8FB4D8")
+        var text = normalizeHex(colors.text, "#DCE5EE")
+
+        colorBase = base
+        colorSurface = surface
+        colorSurfaceRaised = mix(surface, text, 0.08)
+        colorWindow = base
+        colorRail = mix(base, surface, 0.35)
+        colorPanel = surface
+        colorPanelAlt = mix(surface, text, 0.04)
+        colorPanelRaised = colorSurfaceRaised
+        colorWorkspace = mix(base, surface, 0.42)
+        colorWorkspaceBody = mix(surface, text, 0.06)
+        colorBottomPanel = mix(base, surface, 0.32)
+        colorStatusBar = mix(base, "#000000", 0.22)
+        colorControl = mix(surface, text, 0.08)
+        colorControlHover = mix(surface, accent, 0.18)
+        colorSelected = mix(surface, accent, 0.28)
+        colorAccent = accent
+        colorAccentSoft = mix(surface, accent, 0.36)
+        colorText = text
+        colorTextMuted = mix(surface, text, 0.62)
+        colorTextFaint = mix(surface, text, 0.38)
+        colorBorderMajor = mix(surface, accent, 0.26)
+        colorBorderMinor = mix(surface, text, 0.10)
+        colorBorderFocus = mix(surface, accent, 0.58)
+        colorPending = mix(surface, accent, 0.62)
+        colorDisabled = mix(surface, text, 0.30)
+
+        var uiSize = Number(typography.ui_font_size || fontSizeBody)
+        var codeSize = Number(typography.code_font_size || fontSizeEditor)
+        fontSizeBody = clamp(uiSize, 10, 22)
+        fontSizeSm = clamp(fontSizeBody - 1, 9, 21)
+        fontSizeXs = clamp(fontSizeBody - 2, 8, 20)
+        fontSizeTitle = clamp(fontSizeBody + 1, 11, 24)
+        fontSizeEditor = clamp(codeSize, 10, 24)
+    }
+
+    function currentTheme() {
+        return {
+            colors: {
+                base: String(colorBase),
+                surface: String(colorSurface),
+                accent: String(colorAccent),
+                text: String(colorText)
+            },
+            typography: {
+                ui_font_size: fontSizeBody,
+                code_font_size: fontSizeEditor
+            }
+        }
+    }
 }

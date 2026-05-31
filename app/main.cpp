@@ -59,6 +59,14 @@ int main(int argc, char *argv[]) {
         QStringList() << "review-subject",
         "Load review subject JSON from <path>.",
         "path");
+    const QCommandLineOption themeOption(
+        QStringList() << "theme",
+        "Load UI theme JSON from <path>.",
+        "path");
+    const QCommandLineOption activityOption(
+        QStringList() << "activity",
+        "Select an activity mode before screenshot capture.",
+        "mode_id");
     parser.addOption(screenshotOption);
     parser.addOption(routeOption);
     parser.addOption(widthOption);
@@ -67,26 +75,46 @@ int main(int argc, char *argv[]) {
     parser.addOption(noteOption);
     parser.addOption(noteStatusOption);
     parser.addOption(reviewSubjectOption);
+    parser.addOption(themeOption);
+    parser.addOption(activityOption);
     parser.process(app);
+
+    auto absolutePath = [](const QString &path) {
+        if (QFileInfo(path).isRelative()) {
+            return QDir::current().absoluteFilePath(path);
+        }
+        return path;
+    };
+
+    auto loadJsonObject = [](const QString &path) {
+        QVariant result = QVariantMap();
+        QFile file(path);
+        if (file.open(QIODevice::ReadOnly)) {
+            const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+            if (document.isObject()) {
+                result = document.object().toVariantMap();
+            }
+        }
+        return result;
+    };
 
     QString reviewSubjectPath = parser.isSet(reviewSubjectOption)
         ? parser.value(reviewSubjectOption)
         : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/review_subjects/draftsman_ui_taxonomy.json");
-    if (QFileInfo(reviewSubjectPath).isRelative()) {
-        reviewSubjectPath = QDir::current().absoluteFilePath(reviewSubjectPath);
-    }
-    QVariant reviewSubject = QVariantMap();
-    QFile reviewSubjectFile(reviewSubjectPath);
-    if (reviewSubjectFile.open(QIODevice::ReadOnly)) {
-        const QJsonDocument document = QJsonDocument::fromJson(reviewSubjectFile.readAll());
-        if (document.isObject()) {
-            reviewSubject = document.object().toVariantMap();
-        }
-    }
+    reviewSubjectPath = absolutePath(reviewSubjectPath);
+    const QVariant reviewSubject = loadJsonObject(reviewSubjectPath);
+
+    QString themePath = parser.isSet(themeOption)
+        ? parser.value(themeOption)
+        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/ui_theme.json");
+    themePath = absolutePath(themePath);
+    const QVariant uiTheme = loadJsonObject(themePath);
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubject"), reviewSubject);
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubjectPath"), reviewSubjectPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialUiTheme"), uiTheme);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialUiThemePath"), themePath);
     const QUrl mainUrl = QUrl::fromLocalFile(QStringLiteral(QML_SOURCE_DIR) + QStringLiteral("/Main.qml"));
     QObject::connect(
         &engine,
@@ -126,6 +154,13 @@ int main(int argc, char *argv[]) {
     }
 
     if (auto *runtime = window->findChild<QObject *>(QStringLiteral("runtimeController"))) {
+        if (parser.isSet(activityOption)) {
+            QMetaObject::invokeMethod(
+                runtime,
+                "setActivityMode",
+                Q_ARG(QVariant, QVariant(parser.value(activityOption))));
+        }
+
         if (parser.isSet(noteOption)) {
             const QString routeId = parser.isSet(routeOption)
                 ? parser.value(routeOption)

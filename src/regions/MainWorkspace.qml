@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../style"
 import "../features/ui_taxonomy"
+import "../features/settings"
 
 Rectangle {
     id: workspace
@@ -18,7 +19,13 @@ Rectangle {
 
     UiTaxonomyWorkspace {
         anchors.fill: parent
+        visible: !workspace.controller || workspace.controller.activityMode !== "settings"
+        controller: workspace.controller
+    }
+
+    ThemeSettingsWorkspace {
+        anchors.fill: parent
+        visible: workspace.controller && workspace.controller.activityMode === "settings"
         controller: workspace.controller
     }
 }
-

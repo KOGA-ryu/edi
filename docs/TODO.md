@@ -35,6 +35,12 @@ This file tracks the first clean QML shell pass. Future persistence, agent write
 - [x] Add `--review-subject <path>` launch option for worker-provided subjects.
 - [x] Add `scripts/validate_review_subjects.js`.
 - [x] Add low-glare style tokens for base, surface, raised surface, accent, text, muted text, borders, focus, disabled, and statuses.
+- [x] Add `data/ui_theme.json`.
+- [x] Load theme JSON through C++ before QML startup.
+- [x] Add `--theme <path>` launch option.
+- [x] Add Settings workspace for four-color palette and font sizes.
+- [x] Add live in-memory theme preview.
+- [x] Add `scripts/validate_ui_theme.js`.
 - [x] Replace missing external fonts with common macOS/Linux fallbacks.
 - [x] Compose activity rail, left panel, main workspace, right panel, bottom panel, and status bar.
 - [x] Add reusable buttons, icon buttons, tabs, status chips, list rows, cards, breadcrumbs, note cards, text field/area, toggle, code ref row, and splitter placeholder.
@@ -58,6 +64,7 @@ This file tracks the first clean QML shell pass. Future persistence, agent write
 - [x] Capture default shell proof.
 - [x] Capture activity rail drilldown proof.
 - [x] Capture note entry proof.
+- [x] Capture settings theme proof.
 - [x] Capture minimum-size proof.
 
 ## Deferred By Contract
@@ -69,7 +76,7 @@ This file tracks the first clean QML shell pass. Future persistence, agent write
 - [ ] Add agent read/write integration only after the agent boundary is approved.
 - [ ] Add open-in-editor and copy-path commands only after command execution rules are approved.
 - [ ] Add real draggable panel resizing and saved layout only after the layout contract is approved.
-- [ ] Add user-configurable theme controls once settings persistence exists.
+- [ ] Add Save Theme once settings persistence, backup, validation, and receipt behavior are approved.
 
 ## Verification
 

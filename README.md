@@ -47,6 +47,12 @@ Load a specific review subject JSON:
 ./build/qt_qml_region_split --review-subject data/review_subjects/draftsman_ui_taxonomy.json
 ```
 
+Load a specific theme JSON:
+
+```sh
+./build/qt_qml_region_split --theme data/ui_theme.json
+```
+
 For quick source-mode QML iteration:
 
 ```sh
@@ -76,7 +82,22 @@ The source authority is `src/`. Do not create a competing `qml/` tree unless the
 
 ## How To Change Colors
 
-Edit `src/style/UiStyle.qml`. The current shell uses one low-glare dark palette. Keep new colors in the style singleton instead of hardcoding colors in region files.
+Theme defaults live in `data/ui_theme.json`. Open Settings in the activity rail to preview changes to:
+
+- base color
+- surface color
+- accent color
+- text/font color
+- UI font size
+- code font size
+
+The running UI updates live. Saving is intentionally disabled until the backup, validation, and receipt contract is approved.
+
+Validate a theme file:
+
+```sh
+scripts/validate_ui_theme.js data/ui_theme.json
+```
 
 ## How To Add A Region
 

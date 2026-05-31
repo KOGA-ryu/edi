@@ -1,4 +1,5 @@
 import QtQuick
+import "../style"
 
 QtObject {
     id: runtimeController
@@ -18,6 +19,8 @@ QtObject {
     property var statusOverrides: ({})
     property var notes: []
     property var reviewSubjectDocument: ({})
+    property var uiThemeDocument: ({})
+    property string uiThemePath: ""
 
     readonly property var activityModes: [
         { id: "binder", label: "Binder", icon: "B", tooltip: "Binder workspace" },
@@ -33,6 +36,10 @@ QtObject {
     property string rootRouteId: "draftsman_ui"
 
     Component.onCompleted: {
+        uiThemeDocument = typeof initialUiTheme === "undefined" ? ({}) : initialUiTheme
+        uiThemePath = typeof initialUiThemePath === "undefined" ? "" : String(initialUiThemePath)
+        UiStyle.applyTheme(uiThemeDocument)
+
         var document = typeof initialReviewSubject === "undefined" ? ({}) : initialReviewSubject
         reviewSubjectDocument = document
         loadReviewSubject(reviewSubjectDocument)
@@ -202,6 +209,12 @@ QtObject {
 
     function setActivityMode(modeId) {
         activityMode = modeId
+        revision += 1
+    }
+
+    function applyTheme(theme) {
+        uiThemeDocument = theme
+        UiStyle.applyTheme(theme)
         revision += 1
     }
 

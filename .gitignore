@@ -1,0 +1,6 @@
+build*/
+.qtcreator/*.user
+.DS_Store
+*.qmlc
+*.jsc
+

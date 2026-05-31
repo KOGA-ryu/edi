@@ -1,0 +1,1043 @@
+{
+  "schema_version": 1,
+  "subject": {
+    "subject_id": "draftsman_ui_taxonomy",
+    "label": "Draftsman UI Taxonomy",
+    "status": "draft",
+    "summary": "Meta review subject for the Draftsman shell itself. Each route maps a UI region, panel, object, behavior, or code reference into a reviewable focus panel.",
+    "root_route_id": "draftsman_ui"
+  },
+  "routes": [
+    {
+      "route_id": "draftsman_ui",
+      "parent": "",
+      "label": "Draftsman UI",
+      "type": "root",
+      "status": "pending",
+      "summary": "Root route for reviewing the clean Draftsman QML shell.",
+      "purpose": "Give the human one navigable map of every UI region, panel, object, behavior, and code reference.",
+      "objects": [
+        "Activity rail",
+        "Left panel",
+        "Main workspace",
+        "Right panel",
+        "Bottom panel",
+        "Status bar"
+      ],
+      "children": [
+        "top_chrome",
+        "activity_rail",
+        "left_panel",
+        "main_workspace",
+        "right_panel",
+        "bottom_panel",
+        "status_bar",
+        "settings",
+        "feature_surfaces",
+        "data_contracts",
+        "proof_review"
+      ],
+      "code_refs": [
+        "src/Main.qml",
+        "src/runtime/RuntimeController.qml",
+        "src/style/UiStyle.qml"
+      ],
+      "prompts": [
+        "Does the shell read as a draftsman table?",
+        "Can the human find each region quickly?",
+        "Is the UI quiet enough for long review sessions?"
+      ]
+    },
+    {
+      "route_id": "top_chrome",
+      "parent": "draftsman_ui",
+      "label": "Top Chrome",
+      "type": "region",
+      "status": "pending",
+      "summary": "Reserved top-level app identity and global command area.",
+      "purpose": "Define what global chrome should contain before it is added.",
+      "objects": [
+        "App title",
+        "Location label",
+        "Global actions",
+        "Mode indicator"
+      ],
+      "children": [
+        "top_chrome/app_title",
+        "top_chrome/location_label",
+        "top_chrome/shell_toggles"
+      ],
+      "code_refs": [
+        "src/Main.qml",
+        "src/regions/StatusBar.qml"
+      ],
+      "prompts": [
+        "Do we need a top bar, or is the status bar enough?",
+        "Should global actions be icons only?"
+      ]
+    },
+    {
+      "route_id": "top_chrome/app_title",
+      "parent": "top_chrome",
+      "label": "App Title",
+      "type": "object",
+      "status": "pending",
+      "summary": "Name of the current shell or project.",
+      "purpose": "Keep the app identity visible without becoming a marketing header.",
+      "objects": [
+        "Title text",
+        "Project name",
+        "Optional route location"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/Main.qml",
+        "src/regions/StatusBar.qml"
+      ],
+      "prompts": [
+        "Should title live in top chrome or status bar?",
+        "Does it waste vertical space?"
+      ]
+    },
+    {
+      "route_id": "top_chrome/location_label",
+      "parent": "top_chrome",
+      "label": "Location Label",
+      "type": "object",
+      "status": "pending",
+      "summary": "Human-readable path to the selected review route.",
+      "purpose": "Make current context obvious when the user drills deep.",
+      "objects": [
+        "Subject label",
+        "Route breadcrumb",
+        "Local tab"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/ReviewBreadcrumb.qml",
+        "src/regions/StatusBar.qml"
+      ],
+      "prompts": [
+        "Is the breadcrumb enough?",
+        "Should this also show project name?"
+      ]
+    },
+    {
+      "route_id": "top_chrome/shell_toggles",
+      "parent": "top_chrome",
+      "label": "Shell Toggles",
+      "type": "object",
+      "status": "pending",
+      "summary": "Future show/hide controls for major panels.",
+      "purpose": "Let the human control density later without losing the base layout.",
+      "objects": [
+        "Left panel toggle",
+        "Right panel toggle",
+        "Bottom shelf toggle"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/Main.qml",
+        "src/style/UiStyle.qml"
+      ],
+      "prompts": [
+        "Are toggles needed now?",
+        "Should panel visibility persist?"
+      ]
+    },
+    {
+      "route_id": "activity_rail",
+      "parent": "draftsman_ui",
+      "label": "Activity Rail",
+      "type": "region",
+      "status": "accepted",
+      "summary": "Compact global mode switcher on the far left.",
+      "purpose": "Provide stable mode navigation without taking over project navigation.",
+      "objects": [
+        "Binder button",
+        "Review button",
+        "Settings button",
+        "Proof button",
+        "Help button"
+      ],
+      "children": [
+        "activity_rail/binder",
+        "activity_rail/review",
+        "activity_rail/settings",
+        "activity_rail/proof"
+      ],
+      "code_refs": [
+        "src/regions/ActivityRail.qml",
+        "src/components/UiIconButton.qml"
+      ],
+      "prompts": [
+        "Are labels/icons clear?",
+        "Should the rail be hideable?",
+        "Does selected state read at a glance?"
+      ]
+    },
+    {
+      "route_id": "activity_rail/binder",
+      "parent": "activity_rail",
+      "label": "Binder Mode",
+      "type": "mode",
+      "status": "pending",
+      "summary": "Future project binder mode.",
+      "purpose": "Reserve navigation for binder/project organization.",
+      "objects": [
+        "Binder icon",
+        "Selected state",
+        "Tooltip"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/ActivityRail.qml"
+      ],
+      "prompts": [
+        "Should binder be default later?",
+        "What opens in center when selected?"
+      ]
+    },
+    {
+      "route_id": "activity_rail/review",
+      "parent": "activity_rail",
+      "label": "Review Mode",
+      "type": "mode",
+      "status": "accepted",
+      "summary": "Current UI taxonomy review gate mode.",
+      "purpose": "Open review routes and comments.",
+      "objects": [
+        "Review icon",
+        "Selected state",
+        "Tooltip"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/ActivityRail.qml",
+        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+      ],
+      "prompts": [
+        "Is review mode clearly different from binder mode?"
+      ]
+    },
+    {
+      "route_id": "activity_rail/settings",
+      "parent": "activity_rail",
+      "label": "Settings Mode",
+      "type": "mode",
+      "status": "pending",
+      "summary": "Future layout/theme/settings mode.",
+      "purpose": "Reserve a top-level settings entry.",
+      "objects": [
+        "Settings icon",
+        "Selected state",
+        "Tooltip"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/ActivityRail.qml"
+      ],
+      "prompts": [
+        "Should settings also be in the left panel?"
+      ]
+    },
+    {
+      "route_id": "activity_rail/proof",
+      "parent": "activity_rail",
+      "label": "Proof Mode",
+      "type": "mode",
+      "status": "pending",
+      "summary": "Future proof screenshot and receipt view.",
+      "purpose": "Keep proof visible as a first-class workflow.",
+      "objects": [
+        "Proof icon",
+        "Receipt count",
+        "Tooltip"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/ActivityRail.qml",
+        "docs/proof/"
+      ],
+      "prompts": [
+        "Should proof be a shelf or a mode?"
+      ]
+    },
+    {
+      "route_id": "left_panel",
+      "parent": "draftsman_ui",
+      "label": "Left Panel",
+      "type": "region",
+      "status": "needs_rework",
+      "summary": "Project, workflow, and review-subject navigation.",
+      "purpose": "Make project organization permanent and keep review routes easy to enter.",
+      "objects": [
+        "Project navigator",
+        "Workflow navigator",
+        "Review subject picker",
+        "Settings entry"
+      ],
+      "children": [
+        "left_panel/project_navigator",
+        "left_panel/workflow",
+        "left_panel/review_subjects",
+        "left_panel/settings_entry"
+      ],
+      "code_refs": [
+        "src/regions/LeftPanel.qml",
+        "src/components/UiListRow.qml"
+      ],
+      "prompts": [
+        "Is this project organization or just placeholder rows?",
+        "Should each section collapse?",
+        "Are route counts useful?"
+      ]
+    },
+    {
+      "route_id": "left_panel/project_navigator",
+      "parent": "left_panel",
+      "label": "Project Navigator",
+      "type": "section",
+      "status": "pending",
+      "summary": "Project slots and future project list.",
+      "purpose": "Select the active project/context.",
+      "objects": [
+        "Project slot",
+        "Scratch",
+        "Final"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/LeftPanel.qml"
+      ],
+      "prompts": [
+        "Should project slots come from JSON?",
+        "Should scratch/final be user renameable?"
+      ]
+    },
+    {
+      "route_id": "left_panel/workflow",
+      "parent": "left_panel",
+      "label": "Workflow Navigator",
+      "type": "section",
+      "status": "pending",
+      "summary": "Workflow buckets for planning, review, proof, and output.",
+      "purpose": "Keep the human oriented during repeated work.",
+      "objects": [
+        "Plan",
+        "Review",
+        "Proof",
+        "Archive"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/LeftPanel.qml"
+      ],
+      "prompts": [
+        "Which workflow states are real?",
+        "Should this mirror project config?"
+      ]
+    },
+    {
+      "route_id": "left_panel/review_subjects",
+      "parent": "left_panel",
+      "label": "Review Subjects",
+      "type": "section",
+      "status": "accepted",
+      "summary": "Entry point for UI taxonomy and future review subjects.",
+      "purpose": "Select the active review subject without leaving the shell.",
+      "objects": [
+        "Draftsman UI Taxonomy",
+        "Future project artifact subjects"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/LeftPanel.qml",
+        "data/review_subjects/draftsman_ui_taxonomy.json"
+      ],
+      "prompts": [
+        "How many subjects can this list handle?",
+        "Should subjects show note/status counts?"
+      ]
+    },
+    {
+      "route_id": "left_panel/settings_entry",
+      "parent": "left_panel",
+      "label": "Settings Entry",
+      "type": "object",
+      "status": "pending",
+      "summary": "Secondary settings entry inside project navigation.",
+      "purpose": "Provide discoverable settings without relying only on activity rail.",
+      "objects": [
+        "Settings row",
+        "Click target",
+        "Disabled write notice"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/LeftPanel.qml"
+      ],
+      "prompts": [
+        "Duplicate with activity rail or useful?",
+        "Should it open a settings route?"
+      ]
+    },
+    {
+      "route_id": "main_workspace",
+      "parent": "draftsman_ui",
+      "label": "Main Workspace",
+      "type": "region",
+      "status": "pending",
+      "summary": "Primary route review surface.",
+      "purpose": "Show the selected route as a focus panel with child routes, notes, code refs, and prompts.",
+      "objects": [
+        "Workspace header",
+        "Breadcrumb",
+        "Local tabs",
+        "Focus panel",
+        "Route cards",
+        "Comment thread"
+      ],
+      "children": [
+        "main_workspace/header",
+        "main_workspace/breadcrumb",
+        "main_workspace/focus_panel",
+        "main_workspace/route_cards",
+        "main_workspace/comments"
+      ],
+      "code_refs": [
+        "src/regions/MainWorkspace.qml",
+        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+      ],
+      "prompts": [
+        "Is one selected route clearly dominant?",
+        "Are cards useful without becoming clutter?"
+      ]
+    },
+    {
+      "route_id": "main_workspace/header",
+      "parent": "main_workspace",
+      "label": "Workspace Header",
+      "type": "object",
+      "status": "pending",
+      "summary": "Current subject and route summary.",
+      "purpose": "Make context clear before the focus content.",
+      "objects": [
+        "Subject title",
+        "Route status",
+        "Current tab"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+      ],
+      "prompts": [
+        "Is the header too large?",
+        "Does it repeat the status bar?"
+      ]
+    },
+    {
+      "route_id": "main_workspace/breadcrumb",
+      "parent": "main_workspace",
+      "label": "Breadcrumb",
+      "type": "object",
+      "status": "accepted",
+      "summary": "Route path from root to current focus.",
+      "purpose": "Let deep review routes stay understandable.",
+      "objects": [
+        "Clickable route parts",
+        "Current route emphasis"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/ReviewBreadcrumb.qml"
+      ],
+      "prompts": [
+        "Should breadcrumb segments be clickable?",
+        "Does it wrap cleanly?"
+      ]
+    },
+    {
+      "route_id": "main_workspace/focus_panel",
+      "parent": "main_workspace",
+      "label": "Focus Panel",
+      "type": "object",
+      "status": "needs_rework",
+      "summary": "Main selected route details.",
+      "purpose": "Give the human one route/object to review at a time.",
+      "objects": [
+        "Purpose",
+        "Objects",
+        "Prompts",
+        "Status",
+        "Notes"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/UiTaxonomyFocusPanel.qml"
+      ],
+      "prompts": [
+        "Is the review prompt direct enough?",
+        "Should code refs live here or right panel only?"
+      ]
+    },
+    {
+      "route_id": "main_workspace/route_cards",
+      "parent": "main_workspace",
+      "label": "Route Cards",
+      "type": "object",
+      "status": "pending",
+      "summary": "Drilldown cards for child routes.",
+      "purpose": "Let the human browse one compression layer at a time.",
+      "objects": [
+        "Child route card",
+        "Status chip",
+        "Note count"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/ReviewRouteCards.qml",
+        "src/components/UiRouteCard.qml"
+      ],
+      "prompts": [
+        "Are cards scannable?",
+        "Should they show code refs or keep that for the inspector?"
+      ]
+    },
+    {
+      "route_id": "main_workspace/comments",
+      "parent": "main_workspace",
+      "label": "Comment Thread",
+      "type": "object",
+      "status": "pending",
+      "summary": "In-memory human notes attached to this exact route.",
+      "purpose": "Let the human leave precise feedback without persistence risk.",
+      "objects": [
+        "Note textarea",
+        "Status selector",
+        "Add note button",
+        "Note cards"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/ReviewCommentThread.qml",
+        "src/runtime/RuntimeController.qml"
+      ],
+      "prompts": [
+        "Is in-memory clearly marked?",
+        "What should the eventual save contract require?"
+      ]
+    },
+    {
+      "route_id": "right_panel",
+      "parent": "draftsman_ui",
+      "label": "Right Panel",
+      "type": "region",
+      "status": "pending",
+      "summary": "Context inspector for selected route and object facts.",
+      "purpose": "Show route facts, code refs, notes, and receipts without duplicating the whole center page.",
+      "objects": [
+        "Route facts",
+        "Code references",
+        "Notes preview",
+        "Receipt",
+        "Write boundary"
+      ],
+      "children": [
+        "right_panel/route_facts",
+        "right_panel/code_refs",
+        "right_panel/notes",
+        "right_panel/write_boundary"
+      ],
+      "code_refs": [
+        "src/regions/RightPanel.qml",
+        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+      ],
+      "prompts": [
+        "Does it follow the selected center route?",
+        "What belongs here versus the bottom shelf?"
+      ]
+    },
+    {
+      "route_id": "right_panel/route_facts",
+      "parent": "right_panel",
+      "label": "Route Facts",
+      "type": "section",
+      "status": "accepted",
+      "summary": "Current route id, type, status, and child count.",
+      "purpose": "Expose structured facts for review and future agent reads.",
+      "objects": [
+        "Route id",
+        "Route type",
+        "Status",
+        "Children"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+      ],
+      "prompts": [
+        "Are facts enough for an agent handoff?"
+      ]
+    },
+    {
+      "route_id": "right_panel/code_refs",
+      "parent": "right_panel",
+      "label": "Code References",
+      "type": "section",
+      "status": "pending",
+      "summary": "Source paths tied to the selected route.",
+      "purpose": "Connect UI review notes to the actual files humans or agents should inspect.",
+      "objects": [
+        "File path",
+        "Role",
+        "Future open/copy actions"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/components/UiCodeRefRow.qml",
+        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+      ],
+      "prompts": [
+        "Should code refs validate file existence?",
+        "Should click open Qt Creator?"
+      ]
+    },
+    {
+      "route_id": "right_panel/notes",
+      "parent": "right_panel",
+      "label": "Notes Preview",
+      "type": "section",
+      "status": "pending",
+      "summary": "Recent notes for the selected route.",
+      "purpose": "Keep human feedback visible while browsing.",
+      "objects": [
+        "Note count",
+        "Recent note",
+        "Status"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+      ],
+      "prompts": [
+        "Should this preview all route notes or only the latest?"
+      ]
+    },
+    {
+      "route_id": "right_panel/write_boundary",
+      "parent": "right_panel",
+      "label": "Write Boundary",
+      "type": "section",
+      "status": "accepted",
+      "summary": "Explicit notice that this pass does not write files.",
+      "purpose": "Prevent accidental persistence while the UI model is still forming.",
+      "objects": [
+        "Write disabled flag",
+        "Future receipt fields"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/runtime/RuntimeController.qml",
+        "data/review_notes/draftsman_ui_taxonomy_notes.json"
+      ],
+      "prompts": [
+        "What must be true before writes are allowed?"
+      ]
+    },
+    {
+      "route_id": "bottom_panel",
+      "parent": "draftsman_ui",
+      "label": "Bottom Panel",
+      "type": "region",
+      "status": "pending",
+      "summary": "Secondary shelf for output, proof, receipts, and logs.",
+      "purpose": "Show session feedback without stealing focus from the main route.",
+      "objects": [
+        "Output shelf",
+        "Proof shelf",
+        "Receipt shelf",
+        "Log shelf"
+      ],
+      "children": [
+        "bottom_panel/output",
+        "bottom_panel/proof",
+        "bottom_panel/receipts",
+        "bottom_panel/log"
+      ],
+      "code_refs": [
+        "src/regions/BottomPanel.qml"
+      ],
+      "prompts": [
+        "Should this be collapsible?",
+        "Which feature owns each shelf?"
+      ]
+    },
+    {
+      "route_id": "bottom_panel/output",
+      "parent": "bottom_panel",
+      "label": "Output Shelf",
+      "type": "shelf",
+      "status": "pending",
+      "summary": "Current session output.",
+      "purpose": "Show low-priority operational feedback.",
+      "objects": [
+        "Selected route",
+        "Note count",
+        "Mode"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/BottomPanel.qml"
+      ],
+      "prompts": [
+        "Is this useful enough to keep visible?"
+      ]
+    },
+    {
+      "route_id": "bottom_panel/proof",
+      "parent": "bottom_panel",
+      "label": "Proof Shelf",
+      "type": "shelf",
+      "status": "pending",
+      "summary": "Future screenshot/proof output.",
+      "purpose": "Reserve proof as a visible workflow.",
+      "objects": [
+        "Proof placeholder",
+        "Screenshot command"
+      ],
+      "children": [],
+      "code_refs": [
+        "docs/proof/"
+      ],
+      "prompts": [
+        "Should proof be stored by route?"
+      ]
+    },
+    {
+      "route_id": "bottom_panel/receipts",
+      "parent": "bottom_panel",
+      "label": "Receipt Shelf",
+      "type": "shelf",
+      "status": "pending",
+      "summary": "Future write/action receipts.",
+      "purpose": "Show what changed and who/what did it.",
+      "objects": [
+        "Write disabled notice",
+        "Session receipt placeholder"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/runtime/RuntimeController.qml"
+      ],
+      "prompts": [
+        "What should a receipt contain?"
+      ]
+    },
+    {
+      "route_id": "bottom_panel/log",
+      "parent": "bottom_panel",
+      "label": "Log Shelf",
+      "type": "shelf",
+      "status": "pending",
+      "summary": "Future runtime log view.",
+      "purpose": "Expose app events without cluttering right context.",
+      "objects": [
+        "Route changes",
+        "Note additions",
+        "Status changes"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/BottomPanel.qml"
+      ],
+      "prompts": [
+        "Should log persist?"
+      ]
+    },
+    {
+      "route_id": "status_bar",
+      "parent": "draftsman_ui",
+      "label": "Status Bar",
+      "type": "region",
+      "status": "accepted",
+      "summary": "Always-visible session state.",
+      "purpose": "Show current mode, subject, route, note count, and write status.",
+      "objects": [
+        "Mode",
+        "Subject",
+        "Route",
+        "Notes",
+        "Write state"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/regions/StatusBar.qml"
+      ],
+      "prompts": [
+        "Is this too dense?",
+        "Does it help recover context?"
+      ]
+    },
+    {
+      "route_id": "settings",
+      "parent": "draftsman_ui",
+      "label": "Settings",
+      "type": "area",
+      "status": "pending",
+      "summary": "Future human customization surfaces.",
+      "purpose": "Reserve theme, layout, feature, and project settings.",
+      "objects": [
+        "Theme settings",
+        "Layout settings",
+        "Feature settings",
+        "Save/cancel rules"
+      ],
+      "children": [
+        "settings/theme",
+        "settings/layout",
+        "settings/features",
+        "settings/write_rules"
+      ],
+      "code_refs": [
+        "src/style/UiStyle.qml",
+        "docs/coding_methods.md"
+      ],
+      "prompts": [
+        "What settings are mandatory before persistence?",
+        "Should settings be a route?"
+      ]
+    },
+    {
+      "route_id": "settings/theme",
+      "parent": "settings",
+      "label": "Theme Settings",
+      "type": "settings",
+      "status": "needs_rework",
+      "summary": "Low-glare palette and typography controls.",
+      "purpose": "Let the human control base, surface, accent, text, and fonts.",
+      "objects": [
+        "Base color",
+        "Surface color",
+        "Accent color",
+        "Text color",
+        "Font sizes"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/style/UiStyle.qml"
+      ],
+      "prompts": [
+        "Should colors be editable in-app now?",
+        "Are current colors eye-safe?"
+      ]
+    },
+    {
+      "route_id": "settings/layout",
+      "parent": "settings",
+      "label": "Layout Settings",
+      "type": "settings",
+      "status": "pending",
+      "summary": "Panel widths, shelf height, and visibility.",
+      "purpose": "Make the shell customizable later.",
+      "objects": [
+        "Rail width",
+        "Left width",
+        "Right width",
+        "Bottom height"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/style/UiStyle.qml",
+        "src/Main.qml"
+      ],
+      "prompts": [
+        "Should splitters write settings?",
+        "What is the default compact layout?"
+      ]
+    },
+    {
+      "route_id": "settings/features",
+      "parent": "settings",
+      "label": "Feature Settings",
+      "type": "settings",
+      "status": "pending",
+      "summary": "Enable/disable project-specific workspaces.",
+      "purpose": "Keep custom UIs modular.",
+      "objects": [
+        "UI taxonomy",
+        "Review gate",
+        "Future text editor"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/runtime/FeatureRegistry.qml"
+      ],
+      "prompts": [
+        "Should feature settings exist before multiple features?"
+      ]
+    },
+    {
+      "route_id": "settings/write_rules",
+      "parent": "settings",
+      "label": "Write Rules",
+      "type": "settings",
+      "status": "accepted",
+      "summary": "No file writes until approved.",
+      "purpose": "Protect project data while the UI foundation is forming.",
+      "objects": [
+        "Save button contract",
+        "Receipt contract",
+        "Human confirmation"
+      ],
+      "children": [],
+      "code_refs": [
+        "docs/coding_methods.md",
+        "data/review_notes/draftsman_ui_taxonomy_notes.json"
+      ],
+      "prompts": [
+        "What exact file should notes save to?",
+        "Should each save produce a receipt?"
+      ]
+    },
+    {
+      "route_id": "feature_surfaces",
+      "parent": "draftsman_ui",
+      "label": "Feature Surfaces",
+      "type": "area",
+      "status": "pending",
+      "summary": "Reusable custom workspaces hosted by the shell.",
+      "purpose": "Keep project-specific UI separate from core regions.",
+      "objects": [
+        "UI taxonomy feature",
+        "Review gate feature",
+        "Future text editor feature"
+      ],
+      "children": [
+        "feature_surfaces/ui_taxonomy",
+        "feature_surfaces/review_gate",
+        "feature_surfaces/text_editor"
+      ],
+      "code_refs": [
+        "src/features/"
+      ],
+      "prompts": [
+        "Does feature code stay isolated?",
+        "How does a feature target a region?"
+      ]
+    },
+    {
+      "route_id": "feature_surfaces/ui_taxonomy",
+      "parent": "feature_surfaces",
+      "label": "UI Taxonomy Feature",
+      "type": "feature",
+      "status": "accepted",
+      "summary": "The first meta review feature.",
+      "purpose": "Review this shell panel by panel.",
+      "objects": [
+        "Workspace",
+        "Focus panel",
+        "Inspector",
+        "Notes"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/ui_taxonomy/"
+      ],
+      "prompts": [
+        "Is this enough to review the UI itself?"
+      ]
+    },
+    {
+      "route_id": "feature_surfaces/review_gate",
+      "parent": "feature_surfaces",
+      "label": "Review Gate Feature",
+      "type": "feature",
+      "status": "pending",
+      "summary": "Generic route-attached review pattern.",
+      "purpose": "Reuse the review gate for non-UI artifacts later.",
+      "objects": [
+        "Routes",
+        "Comments",
+        "Statuses",
+        "Receipts"
+      ],
+      "children": [],
+      "code_refs": [
+        "src/features/review_gate/"
+      ],
+      "prompts": [
+        "What parts should be generic versus UI taxonomy-specific?"
+      ]
+    },
+    {
+      "route_id": "feature_surfaces/text_editor",
+      "parent": "feature_surfaces",
+      "label": "Text Editor Feature",
+      "type": "future_feature",
+      "status": "pending",
+      "summary": "Future local scratch/text review feature.",
+      "purpose": "Reserve the concept without importing old C++ code.",
+      "objects": [
+        "Editor",
+        "Status line",
+        "Output shelf"
+      ],
+      "children": [],
+      "code_refs": [
+        "docs/TODO.md"
+      ],
+      "prompts": [
+        "Do we need this in QML now?"
+      ]
+    },
+    {
+      "route_id": "data_contracts",
+      "parent": "draftsman_ui",
+      "label": "Data Contracts",
+      "type": "area",
+      "status": "pending",
+      "summary": "Human/agent editable JSON contracts.",
+      "purpose": "Separate app behavior from project-specific data.",
+      "objects": [
+        "Review subject JSON",
+        "Review notes JSON",
+        "Future theme JSON",
+        "Future features JSON"
+      ],
+      "children": [],
+      "code_refs": [
+        "data/review_subjects/draftsman_ui_taxonomy.json",
+        "data/review_notes/draftsman_ui_taxonomy_notes.json"
+      ],
+      "prompts": [
+        "Which contracts need schemas?",
+        "Which contracts can agents fill?"
+      ]
+    },
+    {
+      "route_id": "proof_review",
+      "parent": "draftsman_ui",
+      "label": "Proof / Review",
+      "type": "area",
+      "status": "pending",
+      "summary": "Visual proof and review receipts.",
+      "purpose": "Capture evidence for UI changes.",
+      "objects": [
+        "Default screenshot",
+        "Route screenshot",
+        "Notes screenshot",
+        "Minimum viewport screenshot"
+      ],
+      "children": [],
+      "code_refs": [
+        "docs/proof/",
+        "README.md"
+      ],
+      "prompts": [
+        "What proof is enough for a UI change?",
+        "Should proof be generated from CMake?"
+      ]
+    }
+  ]
+}

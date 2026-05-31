@@ -76,8 +76,8 @@ QtObject {
     readonly property int radiusLg: 12
 
     // Typography
-    readonly property string fontSans: "Avenir Next"
-    readonly property string fontMono: "Menlo"
+    property string fontSans: "Avenir Next"
+    property string fontMono: "Menlo"
     property int fontSizeXs: 10
     property int fontSizeSm: 11
     property int fontSizeBody: 12
@@ -120,12 +120,12 @@ QtObject {
     }
 
     function applyTheme(theme) {
-        var colors = theme && theme.colors ? theme.colors : ({})
-        var typography = theme && theme.typography ? theme.typography : ({})
-        var base = normalizeHex(colors.base, "#101418")
-        var surface = normalizeHex(colors.surface, "#171D24")
-        var accent = normalizeHex(colors.accent, "#8FB4D8")
-        var text = normalizeHex(colors.text, "#DCE5EE")
+        var colors = theme && theme.colors ? theme.colors : theme || ({})
+        var typography = theme && theme.typography ? theme.typography : theme || ({})
+        var base = normalizeHex(colors.base, "#333039")
+        var surface = normalizeHex(colors.surface, "#373B4F")
+        var accent = normalizeHex(colors.accent, "#D46CA1")
+        var text = normalizeHex(colors.text, "#577DD1")
 
         colorBase = base
         colorSurface = surface
@@ -153,27 +153,31 @@ QtObject {
         colorPending = mix(surface, accent, 0.62)
         colorDisabled = mix(surface, text, 0.30)
 
-        var uiSize = Number(typography.ui_font_size || fontSizeBody)
-        var codeSize = Number(typography.code_font_size || fontSizeEditor)
-        fontSizeBody = clamp(uiSize, 10, 22)
-        fontSizeSm = clamp(fontSizeBody - 1, 9, 21)
-        fontSizeXs = clamp(fontSizeBody - 2, 8, 20)
-        fontSizeTitle = clamp(fontSizeBody + 1, 11, 24)
-        fontSizeEditor = clamp(codeSize, 10, 24)
+        var uiFontName = String(typography.ui_font || "").trim()
+        var codeFontName = String(typography.code_font || "").trim()
+        fontSans = uiFontName.length > 0 ? uiFontName : "Avenir Next"
+        fontMono = codeFontName.length > 0 ? codeFontName : "Menlo"
+
+        var uiSize = Number(typography.ui_font_size || 13)
+        var codeSize = Number(typography.code_font_size || 12)
+        fontSizeBody = clamp(uiSize, 9, 28)
+        fontSizeSm = clamp(fontSizeBody - 1, 8, 27)
+        fontSizeXs = clamp(fontSizeBody - 2, 8, 26)
+        fontSizeTitle = clamp(fontSizeBody + 1, 10, 29)
+        fontSizeEditor = clamp(codeSize, 9, 28)
     }
 
     function currentTheme() {
         return {
-            colors: {
-                base: String(colorBase),
-                surface: String(colorSurface),
-                accent: String(colorAccent),
-                text: String(colorText)
-            },
-            typography: {
-                ui_font_size: fontSizeBody,
-                code_font_size: fontSizeEditor
-            }
+            theme_mode: "dark",
+            base: String(colorBase),
+            surface: String(colorSurface),
+            accent: String(colorAccent),
+            text: String(colorText),
+            ui_font: fontSans === "Avenir Next" ? "" : fontSans,
+            code_font: fontMono === "Menlo" ? "" : fontMono,
+            ui_font_size: fontSizeBody,
+            code_font_size: fontSizeEditor
         }
     }
 }

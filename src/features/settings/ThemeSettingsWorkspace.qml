@@ -9,6 +9,7 @@ Rectangle {
 
     property var controller: null
     property bool ready: false
+    property string selectedThemeMode: "dark"
 
     color: UiStyle.colorWorkspace
 
@@ -18,16 +19,15 @@ Rectangle {
 
     function fieldTheme() {
         return {
-            colors: {
-                base: baseField.text.trim(),
-                surface: surfaceField.text.trim(),
-                accent: accentField.text.trim(),
-                text: textField.text.trim()
-            },
-            typography: {
-                ui_font_size: Number(uiFontField.text),
-                code_font_size: Number(codeFontField.text)
-            }
+            theme_mode: selectedThemeMode,
+            base: baseField.text.trim(),
+            surface: surfaceField.text.trim(),
+            accent: accentField.text.trim(),
+            text: textField.text.trim(),
+            ui_font: uiFontNameField.text.trim(),
+            code_font: codeFontNameField.text.trim(),
+            ui_font_size: Number(uiFontField.text),
+            code_font_size: Number(codeFontField.text)
         }
     }
 
@@ -36,10 +36,10 @@ Rectangle {
             && validHex(surfaceField.text)
             && validHex(accentField.text)
             && validHex(textField.text)
-            && Number(uiFontField.text) >= 10
-            && Number(uiFontField.text) <= 24
-            && Number(codeFontField.text) >= 10
-            && Number(codeFontField.text) <= 24
+            && Number(uiFontField.text) >= 9
+            && Number(uiFontField.text) <= 28
+            && Number(codeFontField.text) >= 9
+            && Number(codeFontField.text) <= 28
     }
 
     function applyPreview() {
@@ -50,14 +50,18 @@ Rectangle {
     }
 
     function loadTheme(theme) {
-        var colors = theme && theme.colors ? theme.colors : ({})
-        var typography = theme && theme.typography ? theme.typography : ({})
-        baseField.text = String(colors.base || "#101418").toUpperCase()
-        surfaceField.text = String(colors.surface || "#171D24").toUpperCase()
-        accentField.text = String(colors.accent || "#8FB4D8").toUpperCase()
-        textField.text = String(colors.text || "#DCE5EE").toUpperCase()
-        uiFontField.text = String(typography.ui_font_size || 12)
-        codeFontField.text = String(typography.code_font_size || 13)
+        var colors = theme && theme.colors ? theme.colors : theme || ({})
+        var typography = theme && theme.typography ? theme.typography : theme || ({})
+        var mode = String(theme && theme.theme_mode ? theme.theme_mode : "dark")
+        selectedThemeMode = ["dark", "light", "system"].indexOf(mode) >= 0 ? mode : "dark"
+        baseField.text = String(colors.base || "#333039").toUpperCase()
+        surfaceField.text = String(colors.surface || "#373B4F").toUpperCase()
+        accentField.text = String(colors.accent || "#D46CA1").toUpperCase()
+        textField.text = String(colors.text || "#577DD1").toUpperCase()
+        uiFontNameField.text = String(typography.ui_font || "")
+        codeFontNameField.text = String(typography.code_font || "")
+        uiFontField.text = String(typography.ui_font_size || 13)
+        codeFontField.text = String(typography.code_font_size || 12)
     }
 
     Component.onCompleted: {
@@ -101,7 +105,7 @@ Rectangle {
 
                 UiPanel {
                     Layout.fillWidth: true
-                    implicitHeight: 112
+                    implicitHeight: 154
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -123,6 +127,39 @@ Rectangle {
                             Layout.fillWidth: true
                             label: "Persistence"
                             meta: "disabled"
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                Layout.preferredWidth: 120
+                                text: "Mode"
+                                color: UiStyle.colorTextMuted
+                                font.family: UiStyle.fontSans
+                                font.pixelSize: UiStyle.fontSizeBody
+                            }
+                            RowLayout {
+                                spacing: UiStyle.space6
+                                Repeater {
+                                    model: ["dark", "light", "system"]
+                                    delegate: UiButton {
+                                        label: modelData
+                                        selected: root.selectedThemeMode === modelData
+                                        implicitWidth: 72
+                                        onClicked: {
+                                            root.selectedThemeMode = modelData
+                                            root.applyPreview()
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "stored for parity"
+                                color: UiStyle.colorTextFaint
+                                font.family: UiStyle.fontSans
+                                font.pixelSize: UiStyle.fontSizeSm
+                            }
                         }
                     }
                 }
@@ -177,7 +214,7 @@ Rectangle {
 
                 UiPanel {
                     Layout.fillWidth: true
-                    implicitHeight: 128
+                    implicitHeight: 220
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -187,6 +224,18 @@ Rectangle {
                         UiSectionHeader {
                             title: "Typography"
                             Layout.fillWidth: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { Layout.preferredWidth: 120; text: "UI font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
+                            UiTextField { id: uiFontNameField; Layout.fillWidth: true; placeholderText: "system default"; onTextChanged: root.applyPreview() }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { Layout.preferredWidth: 120; text: "Code font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
+                            UiTextField { id: codeFontNameField; Layout.fillWidth: true; placeholderText: "system default"; onTextChanged: root.applyPreview() }
                         }
 
                         RowLayout {

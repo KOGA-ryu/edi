@@ -84,10 +84,13 @@ The source authority is `src/`. Do not create a competing `qml/` tree unless the
 
 Theme defaults live in `data/ui_theme.json`. Open Settings in the activity rail to preview changes to:
 
+- theme mode
 - base color
 - surface color
 - accent color
 - text/font color
+- UI font
+- code font
 - UI font size
 - code font size
 

@@ -4,6 +4,17 @@ const fs = require("fs");
 
 const file = process.argv[2] || "data/ui_theme.json";
 const hex = /^#[0-9a-fA-F]{6}$/;
+const supportedFields = new Set([
+  "theme_mode",
+  "base",
+  "surface",
+  "accent",
+  "text",
+  "ui_font",
+  "code_font",
+  "ui_font_size",
+  "code_font_size",
+]);
 const errors = [];
 
 let theme;
@@ -18,30 +29,32 @@ if (!theme || typeof theme !== "object") {
   errors.push("theme must be an object");
 }
 
-for (const key of ["theme_id", "label"]) {
-  if (typeof theme[key] !== "string" || theme[key].trim().length === 0) {
-    errors.push(`missing string ${key}`);
+if (!["light", "dark", "system"].includes(theme.theme_mode)) {
+  errors.push("theme_mode must be light, dark, or system");
+}
+
+for (const key of ["base", "surface", "accent", "text"]) {
+  if (typeof theme[key] !== "string" || !hex.test(theme[key])) {
+    errors.push(`${key} must be #RRGGBB`);
   }
 }
 
-if (!theme.colors || typeof theme.colors !== "object") {
-  errors.push("missing colors object");
-} else {
-  for (const key of ["base", "surface", "accent", "text"]) {
-    if (typeof theme.colors[key] !== "string" || !hex.test(theme.colors[key])) {
-      errors.push(`colors.${key} must be #RRGGBB`);
-    }
+for (const key of ["ui_font", "code_font"]) {
+  if (typeof theme[key] !== "string") {
+    errors.push(`${key} must be a string`);
   }
 }
 
-if (!theme.typography || typeof theme.typography !== "object") {
-  errors.push("missing typography object");
-} else {
-  for (const key of ["ui_font_size", "code_font_size"]) {
-    const value = theme.typography[key];
-    if (!Number.isInteger(value) || value < 10 || value > 24) {
-      errors.push(`typography.${key} must be an integer from 10 to 24`);
-    }
+for (const key of ["ui_font_size", "code_font_size"]) {
+  const value = theme[key];
+  if (!Number.isInteger(value) || value < 9 || value > 28) {
+    errors.push(`${key} must be an integer from 9 to 28`);
+  }
+}
+
+for (const key of Object.keys(theme)) {
+  if (!supportedFields.has(key)) {
+    errors.push(`${key} is not a supported theme field`);
   }
 }
 

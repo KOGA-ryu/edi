@@ -38,7 +38,7 @@ This file tracks the first clean QML shell pass. Future persistence, agent write
 - [x] Add `data/ui_theme.json`.
 - [x] Load theme JSON through C++ before QML startup.
 - [x] Add `--theme <path>` launch option.
-- [x] Add Settings workspace for four-color palette and font sizes.
+- [x] Add Settings workspace for theme mode, four-color palette, font names, and font sizes.
 - [x] Add live in-memory theme preview.
 - [x] Add `scripts/validate_ui_theme.js`.
 - [x] Replace missing external fonts with common macOS/Linux fallbacks.

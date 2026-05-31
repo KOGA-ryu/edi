@@ -1,20 +1,11 @@
 {
-  "schema_version": 1,
-  "theme_id": "low_glare_default",
-  "label": "Low Glare Default",
-  "colors": {
-    "base": "#101418",
-    "surface": "#171D24",
-    "accent": "#8FB4D8",
-    "text": "#DCE5EE"
-  },
-  "typography": {
-    "ui_font_size": 12,
-    "code_font_size": 13
-  },
-  "write_contract": {
-    "persistence": "disabled",
-    "save_requires_human_confirmation": true,
-    "receipt_required": true
-  }
+  "accent": "#d46ca1",
+  "base": "#333039",
+  "code_font": "",
+  "code_font_size": 12,
+  "surface": "#373b4f",
+  "text": "#577dd1",
+  "theme_mode": "dark",
+  "ui_font": "",
+  "ui_font_size": 13
 }

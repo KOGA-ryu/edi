@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Layouts
 import "../style"
 import "../components"
+import "../features/ui_taxonomy"
+import "../features/settings"
 
 Rectangle {
     id: leftPanel
@@ -39,57 +41,34 @@ Rectangle {
             UiButton { label: "New"; implicitWidth: 54; enabled: false }
         }
 
-        UiSectionHeader { title: "Project"; Layout.fillWidth: true }
-        UiListRow { label: "Project slot"; meta: "blank"; Layout.fillWidth: true }
-        UiListRow { label: "Scratch"; meta: "workflow"; Layout.fillWidth: true }
-        UiListRow { label: "Final"; meta: "workflow"; Layout.fillWidth: true }
-
-        UiSectionHeader { title: "Review Subject"; Layout.fillWidth: true }
-        UiListRow {
-            label: "Draftsman UI Taxonomy"
-            meta: leftPanel.controller ? leftPanel.controller.routeStatus("draftsman_ui") : "pending"
-            selected: leftPanel.controller && leftPanel.controller.selectedRouteId === "draftsman_ui"
-            clickable: true
+        ReviewLeftNav {
+            controller: leftPanel.controller
+            visible: !leftPanel.controller || leftPanel.controller.activityMode === "review"
             Layout.fillWidth: true
-            onClicked: leftPanel.controller.selectRoute("draftsman_ui")
+            Layout.fillHeight: visible
         }
 
-        UiSectionHeader { title: "UI Regions"; Layout.fillWidth: true }
-        Repeater {
-            model: leftPanel.controller ? leftPanel.controller.childRoutes("draftsman_ui", leftPanel.controller.revision) : []
-            delegate: UiListRow {
-                label: modelData.label
-                meta: leftPanel.controller.routeStatus(modelData.id)
-                selected: leftPanel.controller.selectedRouteId === modelData.id
-                clickable: true
-                Layout.fillWidth: true
-                onClicked: leftPanel.controller.selectRoute(modelData.id)
+        SettingsLeftNav {
+            controller: leftPanel.controller
+            visible: leftPanel.controller && leftPanel.controller.activityMode === "settings"
+            Layout.fillWidth: true
+            Layout.fillHeight: visible
+        }
+
+        Item {
+            visible: leftPanel.controller && leftPanel.controller.activityMode !== "review" && leftPanel.controller.activityMode !== "settings"
+            Layout.fillWidth: true
+            Layout.fillHeight: visible
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: UiStyle.space8
+                UiSectionHeader { title: "Mode"; Layout.fillWidth: true }
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: leftPanel.controller ? leftPanel.controller.activityMode : "binder"
+                    meta: "reserved"
+                }
             }
         }
-
-        UiSectionHeader { title: "Nearby Routes"; Layout.fillWidth: true }
-        Repeater {
-            model: leftPanel.controller ? leftPanel.controller.siblingRoutes(leftPanel.controller.selectedRouteId) : []
-            delegate: UiListRow {
-                label: modelData.label
-                meta: modelData.type
-                selected: leftPanel.controller.selectedRouteId === modelData.id
-                clickable: true
-                indent: UiStyle.space8
-                Layout.fillWidth: true
-                onClicked: leftPanel.controller.selectRoute(modelData.id)
-            }
-        }
-
-        UiSectionHeader { title: "Settings"; Layout.fillWidth: true }
-        UiListRow {
-            label: "Theme and layout"
-            meta: "reserved"
-            clickable: true
-            Layout.fillWidth: true
-            onClicked: leftPanel.controller.selectRoute("settings")
-        }
-
-        Item { Layout.fillHeight: true }
     }
 }

@@ -10,6 +10,7 @@ Rectangle {
     property var controller: null
     property bool ready: false
     property string selectedThemeMode: "dark"
+    property string selectedPage: controller ? controller.selectedSettingsPage : "theme"
 
     color: UiStyle.colorWorkspace
 
@@ -95,6 +96,7 @@ Rectangle {
         }
 
         ScrollView {
+            visible: root.selectedPage === "theme"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -282,6 +284,43 @@ Rectangle {
                         horizontalAlignment: Text.AlignRight
                     }
                 }
+            }
+        }
+
+        UiPanel {
+            visible: root.selectedPage !== "theme"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: UiStyle.space12
+                spacing: UiStyle.space8
+
+                UiSectionHeader {
+                    title: "Reserved Settings Page"
+                    Layout.fillWidth: true
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: "Page"
+                    meta: root.selectedPage
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: "Status"
+                    meta: "reserved"
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: "Writes"
+                    meta: "disabled"
+                }
+
+                Item { Layout.fillHeight: true }
             }
         }
     }

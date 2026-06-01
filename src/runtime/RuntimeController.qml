@@ -11,6 +11,7 @@ QtObject {
     property string selectedRouteId: "draftsman_ui"
     property string selectedLocalTab: "Overview"
     property string selectedShelfTab: "Output"
+    property string selectedSettingsPage: "theme"
     property bool writeDisabled: true
     property int revision: 0
 
@@ -209,6 +210,15 @@ QtObject {
 
     function setActivityMode(modeId) {
         activityMode = modeId
+        if (modeId === "settings" && !selectedSettingsPage.length) {
+            selectedSettingsPage = "theme"
+        }
+        revision += 1
+    }
+
+    function setSettingsPage(pageId) {
+        selectedSettingsPage = pageId
+        activityMode = "settings"
         revision += 1
     }
 

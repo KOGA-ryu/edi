@@ -94,18 +94,18 @@ ApplicationWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.SplitHCursor
-                    onPressed: {
+                    onPressed: function(mouse) {
                         dragging = true
-                        window.dragStartX = mapToItem(window, mouse.x, mouse.y).x
+                        window.dragStartX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
                         window.dragStartSize = runtimeController.leftPanelWidth
                     }
                     onReleased: dragging = false
                     onCanceled: dragging = false
-                    onPositionChanged: {
+                    onPositionChanged: function(mouse) {
                         if (!dragging) {
                             return
                         }
-                        var currentX = mapToItem(window, mouse.x, mouse.y).x
+                        var currentX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
                         runtimeController.setLeftPanelWidth(window.dragStartSize + currentX - window.dragStartX)
                     }
                 }
@@ -145,18 +145,18 @@ ApplicationWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.SplitVCursor
-                        onPressed: {
+                        onPressed: function(mouse) {
                             dragging = true
-                            window.dragStartY = mapToItem(window, mouse.x, mouse.y).y
+                            window.dragStartY = bottomResizeHandle.mapToItem(null, mouse.x, mouse.y).y
                             window.dragStartSize = runtimeController.bottomPanelHeight
                         }
                         onReleased: dragging = false
                         onCanceled: dragging = false
-                        onPositionChanged: {
+                        onPositionChanged: function(mouse) {
                             if (!dragging) {
                                 return
                             }
-                            var currentY = mapToItem(window, mouse.x, mouse.y).y
+                            var currentY = bottomResizeHandle.mapToItem(null, mouse.x, mouse.y).y
                             runtimeController.setBottomPanelHeight(window.dragStartSize - (currentY - window.dragStartY))
                         }
                     }
@@ -192,18 +192,18 @@ ApplicationWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.SplitHCursor
-                    onPressed: {
+                    onPressed: function(mouse) {
                         dragging = true
-                        window.dragStartX = mapToItem(window, mouse.x, mouse.y).x
+                        window.dragStartX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
                         window.dragStartSize = runtimeController.rightPanelWidth
                     }
                     onReleased: dragging = false
                     onCanceled: dragging = false
-                    onPositionChanged: {
+                    onPositionChanged: function(mouse) {
                         if (!dragging) {
                             return
                         }
-                        var currentX = mapToItem(window, mouse.x, mouse.y).x
+                        var currentX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
                         runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
                     }
                 }

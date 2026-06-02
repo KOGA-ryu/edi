@@ -159,7 +159,7 @@ QtObject {
             return windowWidth() < 640
         }
         if (panelId === "right") {
-            return windowWidth() < 980
+            return windowWidth() < 520
         }
         if (panelId === "bottom") {
             return windowHeight() < 520
@@ -197,7 +197,7 @@ QtObject {
             return panelAutoHidden(panelId) ? "auto-hidden below 640px width" : String(leftPanelWidth) + " px"
         }
         if (panelId === "right") {
-            return panelAutoHidden(panelId) ? "auto-hidden below 980px width" : String(rightPanelWidth) + " px"
+            return panelAutoHidden(panelId) ? "auto-hidden below 520px width" : String(rightPanelWidth) + " px"
         }
         if (panelId === "bottom") {
             return panelAutoHidden(panelId) ? "auto-hidden below 520px height" : String(bottomPanelHeight) + " px"

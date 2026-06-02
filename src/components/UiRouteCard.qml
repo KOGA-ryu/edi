@@ -11,17 +11,17 @@ Rectangle {
     property int noteCount: 0
     signal clicked()
 
-    implicitHeight: 104
-    radius: UiStyle.radiusMd
+    implicitHeight: 84
+    radius: UiStyle.radiusSm
     color: hovered ? UiStyle.colorPanelRaised : UiStyle.colorPanel
-    border.width: UiStyle.borderThin
+    border.width: hovered ? UiStyle.borderThin : UiStyle.borderNone
     border.color: hovered ? UiStyle.colorBorderFocus : UiStyle.colorBorderMinor
     property bool hovered: false
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: UiStyle.space10
-        spacing: UiStyle.space6
+        anchors.margins: UiStyle.space8
+        spacing: UiStyle.space4
         RowLayout {
             Layout.fillWidth: true
             Text {
@@ -29,7 +29,7 @@ Rectangle {
                 text: card.title
                 color: UiStyle.colorText
                 font.family: UiStyle.fontSans
-                font.pixelSize: UiStyle.fontSizeTitle
+                font.pixelSize: UiStyle.fontSizeBody
                 font.weight: UiStyle.fontWeightSemiBold
                 elide: Text.ElideRight
             }
@@ -43,6 +43,7 @@ Rectangle {
             font.family: UiStyle.fontSans
             font.pixelSize: UiStyle.fontSizeSm
             wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
         Text {
@@ -64,4 +65,3 @@ Rectangle {
         onClicked: card.clicked()
     }
 }
-

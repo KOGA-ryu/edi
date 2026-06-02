@@ -10,10 +10,11 @@ UiPanel {
 
     panelColor: UiStyle.colorPanel
     panelBorder: UiStyle.colorBorderMinor
+    panelPadding: UiStyle.space6
 
     RowLayout {
         anchors.fill: parent
-        spacing: UiStyle.space8
+        spacing: UiStyle.space6
         UiStatusChip { status: "pending"; label: "pending " + (panel.counts.pending || 0) }
         UiStatusChip { status: "accepted"; label: "accepted " + (panel.counts.accepted || 0) }
         UiStatusChip { status: "needs_rework"; label: "rework " + (panel.counts.needs_rework || 0) }
@@ -21,4 +22,3 @@ UiPanel {
         Item { Layout.fillWidth: true }
     }
 }
-

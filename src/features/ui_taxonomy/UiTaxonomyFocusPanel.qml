@@ -9,11 +9,12 @@ UiPanel {
     property var route: controller ? controller.currentRoute() : ({})
     panelColor: UiStyle.colorPanelRaised
     panelBorder: UiStyle.colorBorderMinor
-    panelRadius: UiStyle.radiusMd
+    panelRadius: UiStyle.radiusSm
+    panelPadding: UiStyle.space8
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: UiStyle.space8
+        spacing: UiStyle.space6
 
         Text {
             Layout.fillWidth: true
@@ -24,34 +25,26 @@ UiPanel {
             wrapMode: Text.WordWrap
         }
 
-        Rectangle {
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 88
-            color: UiStyle.colorWorkspaceBody
-            radius: UiStyle.radiusMd
-            border.width: UiStyle.borderThin
-            border.color: UiStyle.colorBorderMinor
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: UiStyle.space10
-                spacing: UiStyle.space6
-                Text {
-                    Layout.fillWidth: true
-                    text: "Purpose"
-                    color: UiStyle.colorAccent
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                    font.weight: UiStyle.fontWeightSemiBold
-                }
-                Text {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    text: route.purpose || ""
-                    color: UiStyle.colorText
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeBody
-                    wrapMode: Text.WordWrap
-                }
+            spacing: UiStyle.space2
+
+            Text {
+                Layout.fillWidth: true
+                text: "Purpose"
+                color: UiStyle.colorAccent
+                font.family: UiStyle.fontSans
+                font.pixelSize: UiStyle.fontSizeXs
+                font.weight: UiStyle.fontWeightSemiBold
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: route.purpose || ""
+                color: UiStyle.colorText
+                font.family: UiStyle.fontSans
+                font.pixelSize: UiStyle.fontSizeBody
+                wrapMode: Text.WordWrap
             }
         }
 
@@ -59,13 +52,13 @@ UiPanel {
             Layout.fillWidth: true
             columns: 2
             columnSpacing: UiStyle.space8
-            rowSpacing: UiStyle.space8
+            rowSpacing: UiStyle.space4
 
             Repeater {
                 model: route.objects || []
                 delegate: Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: UiStyle.rowHeight
+                    Layout.preferredHeight: 24
                     color: UiStyle.colorControl
                     radius: UiStyle.radiusSm
                     Text {

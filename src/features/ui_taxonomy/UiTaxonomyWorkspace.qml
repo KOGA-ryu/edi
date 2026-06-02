@@ -13,7 +13,7 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: UiStyle.space10
-        spacing: UiStyle.space10
+        spacing: UiStyle.space8
 
         RowLayout {
             Layout.fillWidth: true
@@ -38,17 +38,17 @@ Rectangle {
 
             ColumnLayout {
                 width: Math.max(parent.width - 18, 320)
-                spacing: UiStyle.space10
+                spacing: UiStyle.space8
 
                 UiTaxonomyFocusPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 172
+                    Layout.preferredHeight: 148
                     controller: workspace.controller
                 }
 
                 ReviewStatusPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 46
+                    Layout.preferredHeight: 30
                     controller: workspace.controller
                 }
 

@@ -6,8 +6,8 @@ Rectangle {
     property string status: "pending"
     property string label: status === "needs_rework" ? "needs rework" : status
 
-    implicitHeight: 22
-    implicitWidth: Math.max(76, text.implicitWidth + UiStyle.space16)
+    implicitHeight: 20
+    implicitWidth: Math.max(56, text.implicitWidth + UiStyle.space12)
     radius: UiStyle.radiusSm
     color: {
         if (status === "accepted") return Qt.rgba(0.36, 0.61, 0.42, 0.24)
@@ -32,8 +32,7 @@ Rectangle {
         font.pixelSize: UiStyle.fontSizeXs
         font.weight: UiStyle.fontWeightSemiBold
         elide: Text.ElideRight
-        width: parent.width - UiStyle.space8
+        width: parent.width - UiStyle.space6
         horizontalAlignment: Text.AlignHCenter
     }
 }
-

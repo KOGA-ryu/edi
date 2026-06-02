@@ -1,7 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
 import "../style"
+import "../components"
 import "../features/ui_taxonomy"
+import "../features/settings"
 
 Rectangle {
     id: rightPanel
@@ -15,9 +17,32 @@ Rectangle {
     color: UiStyle.colorPanel
     border.width: UiStyle.borderNone
 
-    UiTaxonomyInspector {
+    ReviewRightContext {
         anchors.fill: parent
         anchors.margins: UiStyle.space10
+        visible: !rightPanel.controller || rightPanel.controller.activityMode === "review"
         controller: rightPanel.controller
+    }
+
+    SettingsRightContext {
+        anchors.fill: parent
+        anchors.margins: UiStyle.space10
+        visible: rightPanel.controller && rightPanel.controller.activityMode === "settings"
+        controller: rightPanel.controller
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: UiStyle.space10
+        visible: rightPanel.controller && rightPanel.controller.activityMode !== "review" && rightPanel.controller.activityMode !== "settings"
+        spacing: UiStyle.space8
+
+        UiSectionHeader { title: "Context"; Layout.fillWidth: true }
+        UiListRow {
+            Layout.fillWidth: true
+            label: rightPanel.controller ? rightPanel.controller.activityMode : "binder"
+            meta: "reserved"
+        }
+        Item { Layout.fillHeight: true }
     }
 }

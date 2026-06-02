@@ -55,32 +55,36 @@ Rectangle {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: UiStyle.space8
-            spacing: UiStyle.space2
+            Layout.margins: UiStyle.space6
+            spacing: UiStyle.space0
 
             UiListRow {
                 label: "Selected route"
                 meta: bottomPanel.controller ? bottomPanel.controller.currentRoute().label : ""
                 metaMaxWidth: 360
                 Layout.fillWidth: true
+                Layout.preferredHeight: 20
             }
             UiListRow {
                 label: "Breadcrumb"
                 meta: bottomPanel.controller ? bottomPanel.controller.breadcrumbText(bottomPanel.controller.selectedRouteId) : ""
                 metaMaxWidth: 420
                 Layout.fillWidth: true
+                Layout.preferredHeight: 20
             }
             UiListRow {
                 label: "Notes in memory"
                 meta: bottomPanel.controller ? String(bottomPanel.controller.allNotes(bottomPanel.controller.revision).length) : "0"
                 metaMaxWidth: 120
                 Layout.fillWidth: true
+                Layout.preferredHeight: 20
             }
             UiListRow {
                 label: "Persistence"
                 meta: bottomPanel.controller && bottomPanel.controller.writeDisabled ? "disabled" : "enabled"
                 metaMaxWidth: 160
                 Layout.fillWidth: true
+                Layout.preferredHeight: 20
             }
         }
     }

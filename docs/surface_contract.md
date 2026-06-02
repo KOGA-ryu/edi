@@ -6,6 +6,8 @@ Do not begin by reading the whole repo. Start with:
 
 ```text
 data/shell_surface_map.json
+data/design_principles.json
+docs/design_philosophy.md
 docs/project_profile_contract.md
 docs/reusable_shell_contract.md
 docs/right_inspector_contract.md
@@ -17,6 +19,8 @@ docs/work_orders/feature_integration_template.md
 The shell owns layout. Features own content.
 
 Project-specific UI should enter through project profile data and feature modules. Do not fork shared shell files for one project.
+
+The design philosophy owns taste and quality. Every feature plan should inherit `docs/design_philosophy.md` and `data/design_principles.json`, then declare which design profile it follows.
 
 ## Surface Names
 
@@ -81,6 +85,7 @@ The only always-visible blank surfaces are the shell controls, activity rail, le
 A feature integration plan must answer:
 
 ```text
+Which design profile governs it?
 Which profile enables it?
 Which activity mode opens it?
 Which surfaces does it fill?
@@ -104,6 +109,7 @@ Run these before handing work back:
 
 ```sh
 scripts/validate_shell_surface_map.js data/shell_surface_map.json
+scripts/validate_design_principles.js data/design_principles.json
 scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json

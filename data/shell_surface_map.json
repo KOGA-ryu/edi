@@ -10,6 +10,8 @@
     "Builder agents should plan from this map before reading broad QML context."
   ],
   "entry_documents": [
+    "docs/design_philosophy.md",
+    "data/design_principles.json",
     "docs/surface_contract.md",
     "docs/project_profile_contract.md",
     "docs/reusable_shell_contract.md",
@@ -371,6 +373,7 @@
   ],
   "integration_workflow": [
     "Read docs/surface_contract.md.",
+    "Read docs/design_philosophy.md and data/design_principles.json.",
     "Read this JSON map and select target surfaces.",
     "Read only the owner files for selected surfaces.",
     "Write a feature integration plan using docs/work_orders/feature_integration_template.md.",

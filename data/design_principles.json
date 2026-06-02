@@ -1,0 +1,300 @@
+{
+  "schema_version": 1,
+  "principles_id": "draftsman_design_principles",
+  "source_document": "docs/design_philosophy.md",
+  "core_philosophy": [
+    {
+      "id": "dense_not_decorative",
+      "rule": "Prefer dense, scannable tools over decorative layouts.",
+      "avoid": [
+        "marketing-style hero sections",
+        "large empty title zones",
+        "cards inside cards",
+        "visual decoration without task value"
+      ]
+    },
+    {
+      "id": "one_title_is_enough",
+      "rule": "Do not repeat the same title across chrome, panel, workspace, and card.",
+      "avoid": [
+        "duplicate page headings",
+        "breadcrumb plus title plus card title for the same object",
+        "section headers where row labels already explain the content"
+      ]
+    },
+    {
+      "id": "no_dead_controls",
+      "rule": "Do not show disabled or placeholder controls unless they explain a real unavailable state.",
+      "avoid": [
+        "hidden future buttons in visible UI",
+        "disabled New/Add/Help buttons with no implementation",
+        "reserved tabs that do not open useful surfaces"
+      ]
+    },
+    {
+      "id": "blank_stays_blank",
+      "rule": "The blank profile must contain no project content, review route state, sample data, or default taxonomy.",
+      "avoid": [
+        "fallback project names inside runtime state",
+        "review data loaded by default",
+        "placeholder notes or route cards"
+      ]
+    },
+    {
+      "id": "low_light_first",
+      "rule": "Design for long low-light work sessions and sensitive eyes.",
+      "avoid": [
+        "large white surfaces",
+        "high-glare contrast",
+        "uncontrolled bright accents",
+        "theme colors hard-coded outside style tokens"
+      ]
+    },
+    {
+      "id": "panels_are_tools",
+      "rule": "Panels exist to hold useful tools, navigation, inspection, or logs.",
+      "avoid": [
+        "filler content",
+        "explanatory prose inside the app",
+        "panel chrome that consumes more space than panel content"
+      ]
+    },
+    {
+      "id": "content_must_have_a_job",
+      "rule": "Every visible object should support navigation, inspection, action, review, or feedback.",
+      "avoid": [
+        "ornamental text",
+        "status chips without consequence",
+        "labels that restate adjacent content"
+      ]
+    },
+    {
+      "id": "shared_shell_first",
+      "rule": "Reusable improvements belong in the shared shell; project-specific demands belong in profiles, data, or feature modules.",
+      "avoid": [
+        "forking shell regions per project",
+        "hard-coding one project's vocabulary in shell files",
+        "one-off layout hacks that bypass surface contracts"
+      ]
+    }
+  ],
+  "dex_roles": [
+    {
+      "role_id": "architect_dex",
+      "purpose": "Define boundaries, contracts, and integration plans.",
+      "must_read": [
+        "docs/design_philosophy.md",
+        "data/design_principles.json",
+        "data/shell_surface_map.json",
+        "docs/surface_contract.md"
+      ],
+      "must_produce": [
+        "surface list",
+        "data contract",
+        "edit boundaries",
+        "proof requirements"
+      ],
+      "must_not_do": [
+        "code without a target surface",
+        "invent a new aesthetic",
+        "leave ambiguous ownership"
+      ]
+    },
+    {
+      "role_id": "builder_dex",
+      "purpose": "Implement scoped UI and data changes.",
+      "must_read": [
+        "the work order",
+        "data/shell_surface_map.json entries for target surfaces",
+        "docs/design_philosophy.md"
+      ],
+      "must_produce": [
+        "working code",
+        "validation output",
+        "proof screenshots",
+        "sign-off summary"
+      ],
+      "must_not_do": [
+        "read the whole repo unless blocked",
+        "edit unrelated surfaces",
+        "add placeholder UI"
+      ]
+    },
+    {
+      "role_id": "review_dex",
+      "purpose": "Find regressions, slop, and contract violations.",
+      "must_read": [
+        "docs/design_philosophy.md",
+        "data/design_principles.json",
+        "docs/surface_contract.md"
+      ],
+      "must_produce": [
+        "findings by severity",
+        "file and line references",
+        "missing proof or validation gaps"
+      ],
+      "must_not_do": [
+        "summarize before findings",
+        "approve duplicated titles",
+        "approve dead controls"
+      ]
+    },
+    {
+      "role_id": "research_dex",
+      "purpose": "Extract project knowledge and classify it for UI integration.",
+      "must_read": [
+        "docs/design_philosophy.md",
+        "docs/work_orders/feature_integration_template.md"
+      ],
+      "must_produce": [
+        "feature candidates",
+        "surface classification",
+        "data inputs",
+        "risks and unknowns"
+      ],
+      "must_not_do": [
+        "dump raw repo context into the shell",
+        "recommend UI content without a surface target",
+        "blur project data with shared shell behavior"
+      ]
+    },
+    {
+      "role_id": "theme_dex",
+      "purpose": "Maintain color, typography, and low-light comfort.",
+      "must_read": [
+        "docs/design_philosophy.md",
+        "data/ui_theme.json",
+        "src/style/UiStyle.qml"
+      ],
+      "must_produce": [
+        "token changes",
+        "low-light proof",
+        "affected surface list"
+      ],
+      "must_not_do": [
+        "hard-code colors in feature QML",
+        "introduce bright default surfaces",
+        "create one-note palettes"
+      ]
+    }
+  ],
+  "design_profiles": [
+    {
+      "profile_id": "blank_shell",
+      "purpose": "Reusable empty shell for a new project.",
+      "inherits": [
+        "dense_not_decorative",
+        "blank_stays_blank",
+        "low_light_first"
+      ],
+      "defaults": {
+        "left_panel": "open",
+        "right_panel": "closed",
+        "bottom_panel": "closed",
+        "main_workspace": "empty"
+      }
+    },
+    {
+      "profile_id": "dense_review",
+      "purpose": "Route, artifact, or decision review with notes and inspector data.",
+      "inherits": [
+        "dense_not_decorative",
+        "one_title_is_enough",
+        "panels_are_tools"
+      ],
+      "defaults": {
+        "left_panel": "open",
+        "right_panel": "optional",
+        "bottom_panel": "closed",
+        "main_workspace": "review surface"
+      }
+    },
+    {
+      "profile_id": "repo_knowledge_binder",
+      "purpose": "Project knowledge, agent notes, code snippets, and docs.",
+      "inherits": [
+        "content_must_have_a_job",
+        "shared_shell_first",
+        "panels_are_tools"
+      ],
+      "defaults": {
+        "left_panel": "project navigation",
+        "right_panel": "inspector",
+        "bottom_panel": "logs or receipts",
+        "main_workspace": "selected artifact"
+      }
+    },
+    {
+      "profile_id": "visual_asset_review",
+      "purpose": "Image, palette, layer, and generated-asset review.",
+      "inherits": [
+        "low_light_first",
+        "panels_are_tools",
+        "content_must_have_a_job"
+      ],
+      "defaults": {
+        "left_panel": "asset navigation",
+        "right_panel": "properties and review notes",
+        "bottom_panel": "generation receipts",
+        "main_workspace": "visual preview"
+      }
+    },
+    {
+      "profile_id": "text_editor_workbench",
+      "purpose": "Read-only or scratch text/code review workspace.",
+      "inherits": [
+        "dense_not_decorative",
+        "one_title_is_enough",
+        "low_light_first"
+      ],
+      "defaults": {
+        "left_panel": "document navigation",
+        "right_panel": "context inspector",
+        "bottom_panel": "output or notes",
+        "main_workspace": "editor/read surface"
+      }
+    },
+    {
+      "profile_id": "settings_admin",
+      "purpose": "Configure theme, panels, features, and project behavior.",
+      "inherits": [
+        "content_must_have_a_job",
+        "no_dead_controls",
+        "low_light_first"
+      ],
+      "defaults": {
+        "left_panel": "settings navigation",
+        "right_panel": "setting context",
+        "bottom_panel": "closed",
+        "main_workspace": "settings controls"
+      }
+    }
+  ],
+  "review_checks": [
+    {
+      "check_id": "duplicate_titles",
+      "question": "Does more than one visible title name the same selected object?",
+      "fail_if": "The left panel, top chrome, workspace, and focus panel repeat the same title."
+    },
+    {
+      "check_id": "dead_controls",
+      "question": "Are there visible controls that do nothing or exist only for future work?",
+      "fail_if": "A disabled placeholder control is visible without a real current state."
+    },
+    {
+      "check_id": "box_nesting",
+      "question": "Are there boxes inside boxes where background color alone would separate content?",
+      "fail_if": "A surface uses panels/cards as decoration instead of grouping active content."
+    },
+    {
+      "check_id": "blank_leak",
+      "question": "Does the blank profile show or load project/review content?",
+      "fail_if": "Blank mode has route data, sample rows, review text, or placeholder documents."
+    },
+    {
+      "check_id": "theme_escape",
+      "question": "Did a feature hard-code visual colors instead of using theme tokens?",
+      "fail_if": "Feature QML introduces project colors without a theme contract."
+    }
+  ]
+}

@@ -11,6 +11,7 @@ scripts/validate_project_profiles.js \
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
 scripts/validate_shell_surface_map.js data/shell_surface_map.json
+scripts/validate_design_principles.js data/design_principles.json
 cmake --build build
 
 ./build/qt_qml_region_split \

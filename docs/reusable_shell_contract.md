@@ -58,4 +58,4 @@ If a project needs a shell improvement, make it in the shared source first. If i
 
 ## Dex Planning Entry Point
 
-Any Dex preparing an integration plan should read `data/shell_surface_map.json` and `docs/surface_contract.md` before inspecting QML. The map defines stable surface ids, owner files, proof hooks, and edit boundaries.
+Any Dex preparing an integration plan should read `docs/design_philosophy.md`, `data/design_principles.json`, `data/shell_surface_map.json`, and `docs/surface_contract.md` before inspecting QML. The design files define taste and review checks; the map defines stable surface ids, owner files, proof hooks, and edit boundaries.

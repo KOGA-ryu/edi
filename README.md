@@ -6,7 +6,7 @@ Main rule: `src/Main.qml` composes major regions only. Region internals live in 
 
 Reuse rule: other apps should consume this shell source instead of copying it. See `docs/reusable_shell_contract.md`.
 
-Dex planning rule: start feature plans from `data/shell_surface_map.json` and `docs/surface_contract.md`.
+Dex planning rule: start feature plans from `docs/design_philosophy.md`, `data/design_principles.json`, `data/shell_surface_map.json`, and `docs/surface_contract.md`.
 
 ## Edit map
 
@@ -99,7 +99,9 @@ The source authority is `src/`. Do not create a competing `qml/` tree unless the
 - Optional UI taxonomy review feature: `src/features/ui_taxonomy/`
 - Runtime state and navigation: `src/runtime/RuntimeController.qml`
 - Machine-readable surface map: `data/shell_surface_map.json`
+- Machine-readable design principles: `data/design_principles.json`
 - Builder surface contract: `docs/surface_contract.md`
+- Design philosophy: `docs/design_philosophy.md`
 
 ## How To Change Colors
 

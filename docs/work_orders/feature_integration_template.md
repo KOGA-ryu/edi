@@ -12,6 +12,10 @@ Owning project/profile:
 
 Human goal:
 
+Design profile:
+
+Design principles inherited:
+
 ## Surface Plan
 
 Target surfaces:
@@ -63,12 +67,23 @@ Theme behavior:
 
 Small-window behavior:
 
+Slop checks:
+
+```text
+duplicate_titles:
+dead_controls:
+box_nesting:
+blank_leak:
+theme_escape:
+```
+
 ## Verification
 
 Commands:
 
 ```sh
 scripts/validate_shell_surface_map.js data/shell_surface_map.json
+scripts/validate_design_principles.js data/design_principles.json
 scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json

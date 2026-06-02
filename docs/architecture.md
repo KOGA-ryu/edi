@@ -8,7 +8,7 @@ The default app starts from `data/project_profiles/draftsman_blank.json`, a true
 
 The UI taxonomy review gate is an optional meta profile at `data/project_profiles/draftsman_ui_taxonomy.json`. That profile loads the route taxonomy from `data/review_subjects/draftsman_ui_taxonomy.json` unless `--review-subject` overrides it. Route navigation, status overrides, and notes remain in-memory during the session and are not written to disk.
 
-Future integrations should start from `data/shell_surface_map.json`. That file is the machine-readable index of shell surfaces, owner files, allowed feature slots, and proof coverage.
+Future integrations should start from `docs/design_philosophy.md`, `data/design_principles.json`, and `data/shell_surface_map.json`. The design files define the shared aesthetic and Dex role expectations; the surface map is the machine-readable index of shell surfaces, owner files, allowed feature slots, and proof coverage.
 
 ## Boundaries
 

@@ -99,6 +99,10 @@ int main(int argc, char *argv[]) {
         QStringList() << "project-profile",
         "Load project profile JSON from <path>.",
         "path");
+    const QCommandLineOption shellLayoutOption(
+        QStringList() << "shell-layout",
+        "Load shell layout JSON from <path>.",
+        "path");
     const QCommandLineOption activityOption(
         QStringList() << "activity",
         "Select an activity mode before screenshot capture.",
@@ -117,6 +121,7 @@ int main(int argc, char *argv[]) {
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
+    parser.addOption(shellLayoutOption);
     parser.addOption(activityOption);
     parser.addOption(settingsPageOption);
     parser.process(app);
@@ -172,7 +177,9 @@ int main(int argc, char *argv[]) {
     themePath = absolutePath(themePath);
     const QVariant uiTheme = loadJsonObject(themePath);
 
-    QString shellLayoutPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/shell_layout.json");
+    QString shellLayoutPath = parser.isSet(shellLayoutOption)
+        ? parser.value(shellLayoutOption)
+        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/shell_layout.json");
     shellLayoutPath = absolutePath(shellLayoutPath);
     const QVariant shellLayout = loadJsonObject(shellLayoutPath);
     ShellLayoutStore shellLayoutStore(shellLayoutPath);

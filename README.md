@@ -4,6 +4,8 @@ This is a clean editable QML shell foundation for Draftsman.
 
 Main rule: `src/Main.qml` composes major regions only. Region internals live in `src/regions/`. Shared styling lives in `src/style/UiStyle.qml`.
 
+Reuse rule: other apps should consume this shell source instead of copying it. See `docs/reusable_shell_contract.md`.
+
 ## Edit map
 
 - Change colors, spacing, fonts, region widths: `src/style/UiStyle.qml`
@@ -51,6 +53,20 @@ Load a specific theme JSON:
 
 ```sh
 ./build/qt_qml_region_split --theme data/ui_theme.json
+```
+
+Load a specific shell layout JSON:
+
+```sh
+./build/qt_qml_region_split --shell-layout data/shell_layout.json
+```
+
+Build another app against this shared UI source:
+
+```cmake
+set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "/Users/kogaryu/draft/draftsman/qt_qml_region_split/src" CACHE PATH "" FORCE)
+set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "" FORCE)
+add_subdirectory("/Users/kogaryu/draft/draftsman/qt_qml_region_split" draftsman_shell_build)
 ```
 
 For quick source-mode QML iteration:

@@ -8,16 +8,20 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick)
 
-qt_add_executable(qt_qml_region_split
+set(DRAFTSMAN_SHELL_TARGET_NAME "qt_qml_region_split" CACHE STRING "Draftsman shell executable target name.")
+set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Shared Draftsman QML shell source directory.")
+set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
+
+qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
 )
 
-target_compile_definitions(qt_qml_region_split PRIVATE
-    QML_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src"
-    PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
+    QML_SOURCE_DIR="${DRAFTSMAN_SHELL_QML_SOURCE_DIR}"
+    PROJECT_SOURCE_DIR="${DRAFTSMAN_SHELL_DATA_ROOT_DIR}"
 )
 
-target_link_libraries(qt_qml_region_split
+target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
         Qt6::Core
         Qt6::Gui

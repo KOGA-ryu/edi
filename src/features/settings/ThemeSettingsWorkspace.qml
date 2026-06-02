@@ -11,8 +11,9 @@ Rectangle {
     property bool ready: false
     property string selectedThemeMode: "dark"
     property string selectedPage: controller ? controller.selectedSettingsPage : "theme"
+    property int settingsLabelWidth: 64
 
-    color: UiStyle.colorWorkspace
+    color: UiStyle.colorBase
 
     function validHex(value) {
         return /^#[0-9a-fA-F]{6}$/.test(String(value || "").trim())
@@ -73,29 +74,8 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: UiStyle.space12
-        spacing: UiStyle.space10
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: UiStyle.space10
-
-            Text {
-                Layout.fillWidth: true
-                text: "Settings"
-                color: UiStyle.colorText
-                font.family: UiStyle.fontSans
-                font.pixelSize: 22
-                font.weight: UiStyle.fontWeightSemiBold
-            }
-
-            UiStatusChip {
-                status: "pending"
-                label: root.selectedPage === "panels"
-                    ? (root.controller && root.controller.shellLayoutDirty ? "unsaved" : "saved")
-                    : "preview only"
-            }
-        }
+        anchors.margins: UiStyle.space8
+        spacing: UiStyle.space8
 
         ScrollView {
             visible: root.selectedPage === "theme"
@@ -104,167 +84,152 @@ Rectangle {
             clip: true
 
             ColumnLayout {
-                width: Math.max(parent.width - 18, 520)
-                spacing: UiStyle.space10
+                width: Math.max(Math.min(parent.width - 14, 620), 320)
+                spacing: UiStyle.space12
 
-                UiPanel {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    implicitHeight: 154
+                    spacing: UiStyle.space4
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: UiStyle.space12
+                    RowLayout {
+                        Layout.fillWidth: true
                         spacing: UiStyle.space8
 
-                        UiSectionHeader {
-                            title: "Theme Source"
-                            Layout.fillWidth: true
-                        }
-
-                        UiListRow {
-                            Layout.fillWidth: true
-                            label: "Loaded file"
-                            meta: root.controller ? root.controller.uiThemePath : ""
-                        }
-
-                        UiListRow {
-                            Layout.fillWidth: true
-                            label: "Persistence"
-                            meta: "disabled"
+                        Text {
+                            Layout.minimumWidth: root.settingsLabelWidth
+                            Layout.preferredWidth: root.settingsLabelWidth
+                            Layout.maximumWidth: root.settingsLabelWidth
+                            text: "Mode"
+                            color: UiStyle.colorTextMuted
+                            font.family: UiStyle.fontSans
+                            font.pixelSize: UiStyle.fontSizeSm
                         }
 
                         RowLayout {
-                            Layout.fillWidth: true
-                            Text {
-                                Layout.preferredWidth: 120
-                                text: "Mode"
-                                color: UiStyle.colorTextMuted
-                                font.family: UiStyle.fontSans
-                                font.pixelSize: UiStyle.fontSizeBody
-                            }
-                            RowLayout {
-                                spacing: UiStyle.space6
-                                Repeater {
-                                    model: ["dark", "light", "system"]
-                                    delegate: UiButton {
-                                        label: modelData
-                                        selected: root.selectedThemeMode === modelData
-                                        implicitWidth: 72
-                                        onClicked: {
-                                            root.selectedThemeMode = modelData
-                                            root.applyPreview()
-                                        }
+                            spacing: UiStyle.space4
+                            Repeater {
+                                model: ["dark", "light", "system"]
+                                delegate: UiButton {
+                                    label: modelData
+                                    selected: root.selectedThemeMode === modelData
+                                    implicitWidth: 66
+                                    implicitHeight: 26
+                                    onClicked: {
+                                        root.selectedThemeMode = modelData
+                                        root.applyPreview()
                                     }
                                 }
                             }
-                            Text {
-                                Layout.fillWidth: true
-                                text: "stored for parity"
-                                color: UiStyle.colorTextFaint
-                                font.family: UiStyle.fontSans
-                                font.pixelSize: UiStyle.fontSizeSm
-                            }
                         }
+
+                        Item { Layout.fillWidth: true }
                     }
                 }
 
-                UiPanel {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    implicitHeight: 244
+                    spacing: UiStyle.space4
+
+                    UiSectionHeader {
+                        title: "Palette"
+                        Layout.fillWidth: true
+                    }
 
                     ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: UiStyle.space12
-                        spacing: UiStyle.space8
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space4
 
-                        UiSectionHeader {
-                            title: "Four Color Palette"
+                        RowLayout {
                             Layout.fillWidth: true
+                            spacing: UiStyle.space8
+                            Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Base"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                            Rectangle { Layout.preferredWidth: 18; Layout.preferredHeight: 18; radius: 3; color: UiStyle.colorControl; Rectangle { anchors.centerIn: parent; width: 12; height: 12; radius: 2; color: root.validHex(baseField.text) ? baseField.text : UiStyle.colorDanger } }
+                            UiTextField { id: baseField; Layout.fillWidth: true; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
                         }
 
-                        GridLayout {
+                        RowLayout {
                             Layout.fillWidth: true
-                            columns: 3
-                            columnSpacing: UiStyle.space10
-                            rowSpacing: UiStyle.space8
-
-                            Text { text: "Base"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(baseField.text) ? baseField.text : UiStyle.colorDanger; border.width: root.validHex(baseField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
-                            UiTextField { id: baseField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
-
-                            Text { text: "Surface"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(surfaceField.text) ? surfaceField.text : UiStyle.colorDanger; border.width: root.validHex(surfaceField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
-                            UiTextField { id: surfaceField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
-
-                            Text { text: "Accent"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(accentField.text) ? accentField.text : UiStyle.colorDanger; border.width: root.validHex(accentField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
-                            UiTextField { id: accentField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
-
-                            Text { text: "Text"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(textField.text) ? textField.text : UiStyle.colorDanger; border.width: root.validHex(textField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
-                            UiTextField { id: textField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
+                            spacing: UiStyle.space8
+                            Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Surface"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                            Rectangle { Layout.preferredWidth: 18; Layout.preferredHeight: 18; radius: 3; color: UiStyle.colorControl; Rectangle { anchors.centerIn: parent; width: 12; height: 12; radius: 2; color: root.validHex(surfaceField.text) ? surfaceField.text : UiStyle.colorDanger } }
+                            UiTextField { id: surfaceField; Layout.fillWidth: true; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
                         }
 
-                        Text {
+                        RowLayout {
                             Layout.fillWidth: true
-                            text: root.fieldsValid() ? "Valid #RRGGBB palette. Derived controls, borders, hover, selection, and muted text update from these four colors." : "Use #RRGGBB values for all colors."
-                            color: root.fieldsValid() ? UiStyle.colorSuccess : UiStyle.colorWarning
-                            font.family: UiStyle.fontSans
-                            font.pixelSize: UiStyle.fontSizeSm
-                            wrapMode: Text.WordWrap
+                            spacing: UiStyle.space8
+                            Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Accent"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                            Rectangle { Layout.preferredWidth: 18; Layout.preferredHeight: 18; radius: 3; color: UiStyle.colorControl; Rectangle { anchors.centerIn: parent; width: 12; height: 12; radius: 2; color: root.validHex(accentField.text) ? accentField.text : UiStyle.colorDanger } }
+                            UiTextField { id: accentField; Layout.fillWidth: true; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
                         }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: UiStyle.space8
+                            Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Text"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                            Rectangle { Layout.preferredWidth: 18; Layout.preferredHeight: 18; radius: 3; color: UiStyle.colorControl; Rectangle { anchors.centerIn: parent; width: 12; height: 12; radius: 2; color: root.validHex(textField.text) ? textField.text : UiStyle.colorDanger } }
+                            UiTextField { id: textField; Layout.fillWidth: true; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
+                        }
+                    }
+
+                    Text {
+                        visible: !root.fieldsValid()
+                        Layout.fillWidth: true
+                        text: "invalid #RRGGBB or font size"
+                        color: UiStyle.colorWarning
+                        font.family: UiStyle.fontSans
+                        font.pixelSize: UiStyle.fontSizeXs
                     }
                 }
 
-                UiPanel {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    implicitHeight: 220
+                    spacing: UiStyle.space4
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: UiStyle.space12
+                    UiSectionHeader {
+                        title: "Typography"
+                        Layout.fillWidth: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
                         spacing: UiStyle.space8
+                        Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "UI font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                        UiTextField { id: uiFontNameField; Layout.fillWidth: true; Layout.preferredHeight: 26; placeholderText: "system default"; onTextChanged: root.applyPreview() }
+                    }
 
-                        UiSectionHeader {
-                            title: "Typography"
-                            Layout.fillWidth: true
-                        }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space8
+                        Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Code font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                        UiTextField { id: codeFontNameField; Layout.fillWidth: true; Layout.preferredHeight: 26; placeholderText: "system default"; onTextChanged: root.applyPreview() }
+                    }
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { Layout.preferredWidth: 120; text: "UI font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            UiTextField { id: uiFontNameField; Layout.fillWidth: true; placeholderText: "system default"; onTextChanged: root.applyPreview() }
-                        }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space8
+                        Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "UI size"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                        UiTextField { id: uiFontField; Layout.preferredWidth: 76; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
+                        Text { Layout.fillWidth: true; text: "px"; color: UiStyle.colorTextFaint; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                    }
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { Layout.preferredWidth: 120; text: "Code font"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            UiTextField { id: codeFontNameField; Layout.fillWidth: true; placeholderText: "system default"; onTextChanged: root.applyPreview() }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { Layout.preferredWidth: 120; text: "UI font size"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            UiTextField { id: uiFontField; Layout.preferredWidth: 92; onTextChanged: root.applyPreview() }
-                            Text { Layout.fillWidth: true; text: "px"; color: UiStyle.colorTextFaint; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { Layout.preferredWidth: 120; text: "Code font size"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            UiTextField { id: codeFontField; Layout.preferredWidth: 92; onTextChanged: root.applyPreview() }
-                            Text { Layout.fillWidth: true; text: "px"; color: UiStyle.colorTextFaint; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                        }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space8
+                        Text { Layout.minimumWidth: root.settingsLabelWidth; Layout.preferredWidth: root.settingsLabelWidth; Layout.maximumWidth: root.settingsLabelWidth; text: "Code size"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
+                        UiTextField { id: codeFontField; Layout.preferredWidth: 76; Layout.preferredHeight: 26; onTextChanged: root.applyPreview() }
+                        Text { Layout.fillWidth: true; text: "px"; color: UiStyle.colorTextFaint; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeSm }
                     }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: UiStyle.space8
+                    spacing: UiStyle.space6
 
                     UiButton {
-                        label: "Reset Loaded"
-                        implicitWidth: 120
+                        label: "Reset"
+                        implicitWidth: 76
+                        implicitHeight: 26
                         onClicked: {
                             root.loadTheme(root.controller ? root.controller.uiThemeDocument : ({}))
                             root.applyPreview()
@@ -272,17 +237,18 @@ Rectangle {
                     }
 
                     UiButton {
-                        label: "Save Theme"
+                        label: "Save"
                         enabled: false
-                        implicitWidth: 120
+                        implicitWidth: 76
+                        implicitHeight: 26
                     }
 
                     Text {
                         Layout.fillWidth: true
-                        text: "Save disabled until receipt and backup behavior are approved."
+                        text: "save disabled"
                         color: UiStyle.colorTextFaint
                         font.family: UiStyle.fontSans
-                        font.pixelSize: UiStyle.fontSizeSm
+                        font.pixelSize: UiStyle.fontSizeXs
                         horizontalAlignment: Text.AlignRight
                     }
                 }
@@ -296,41 +262,36 @@ Rectangle {
             Layout.fillHeight: true
         }
 
-        UiPanel {
+        ColumnLayout {
             visible: root.selectedPage !== "theme" && root.selectedPage !== "panels"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            spacing: UiStyle.space4
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: UiStyle.space12
-                spacing: UiStyle.space8
-
-                UiSectionHeader {
-                    title: "Reserved Settings Page"
-                    Layout.fillWidth: true
-                }
-
-                UiListRow {
-                    Layout.fillWidth: true
-                    label: "Page"
-                    meta: root.selectedPage
-                }
-
-                UiListRow {
-                    Layout.fillWidth: true
-                    label: "Status"
-                    meta: "reserved"
-                }
-
-                UiListRow {
-                    Layout.fillWidth: true
-                    label: "Writes"
-                    meta: "disabled"
-                }
-
-                Item { Layout.fillHeight: true }
+            UiSectionHeader {
+                title: "Reserved Settings Page"
+                Layout.fillWidth: true
             }
+
+            UiListRow {
+                Layout.fillWidth: true
+                label: "Page"
+                meta: root.selectedPage
+            }
+
+            UiListRow {
+                Layout.fillWidth: true
+                label: "Status"
+                meta: "reserved"
+            }
+
+            UiListRow {
+                Layout.fillWidth: true
+                label: "Writes"
+                meta: "disabled"
+            }
+
+            Item { Layout.fillHeight: true }
         }
     }
 }

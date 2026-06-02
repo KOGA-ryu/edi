@@ -5,9 +5,10 @@ Rectangle {
     id: chip
     property string status: "pending"
     property string label: status === "needs_rework" ? "needs rework" : status
+    property bool compact: false
 
-    implicitHeight: 20
-    implicitWidth: Math.max(56, text.implicitWidth + UiStyle.space12)
+    implicitHeight: compact ? 18 : 20
+    implicitWidth: Math.max(compact ? 42 : 56, text.implicitWidth + (compact ? UiStyle.space8 : UiStyle.space12))
     radius: UiStyle.radiusSm
     color: {
         if (status === "accepted") return Qt.rgba(0.36, 0.61, 0.42, 0.24)

@@ -805,6 +805,15 @@ QtObject {
     }
 
     function setLocalTab(tabName) {
+        var requested = String(tabName || "").toLowerCase()
+        for (var index = 0; index < localTabs.length; ++index) {
+            if (String(localTabs[index].id).toLowerCase() === requested
+                    || String(localTabs[index].label).toLowerCase() === requested) {
+                selectedLocalTab = localTabs[index].id
+                revision += 1
+                return
+            }
+        }
         selectedLocalTab = tabName
         revision += 1
     }

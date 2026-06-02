@@ -9,65 +9,55 @@ UiPanel {
     property var route: controller ? controller.currentRoute() : ({})
     panelColor: UiStyle.colorPanelRaised
     panelRadius: UiStyle.radiusSm
-    panelPadding: UiStyle.space8
+    panelPadding: UiStyle.space6
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: UiStyle.space6
+        spacing: UiStyle.space4
 
         Text {
             Layout.fillWidth: true
             text: route.summary || ""
             color: UiStyle.colorTextMuted
             font.family: UiStyle.fontSans
-            font.pixelSize: UiStyle.fontSizeBody
+            font.pixelSize: UiStyle.fontSizeSm
             wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
         }
 
-        ColumnLayout {
+        Text {
             Layout.fillWidth: true
-            spacing: UiStyle.space2
-
-            Text {
-                Layout.fillWidth: true
-                text: "Purpose"
-                color: UiStyle.colorAccent
-                font.family: UiStyle.fontSans
-                font.pixelSize: UiStyle.fontSizeXs
-                font.weight: UiStyle.fontWeightSemiBold
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: route.purpose || ""
-                color: UiStyle.colorText
-                font.family: UiStyle.fontSans
-                font.pixelSize: UiStyle.fontSizeBody
-                wrapMode: Text.WordWrap
-            }
+            text: route.purpose || ""
+            color: UiStyle.colorText
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeSm
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
         }
 
         GridLayout {
             Layout.fillWidth: true
-            columns: 2
-            columnSpacing: UiStyle.space8
-            rowSpacing: UiStyle.space4
+            columns: width > 540 ? 3 : 2
+            columnSpacing: UiStyle.space6
+            rowSpacing: UiStyle.space2
 
             Repeater {
                 model: route.objects || []
                 delegate: Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 24
+                    Layout.preferredHeight: 18
                     color: UiStyle.colorTransparent
                     radius: UiStyle.radiusSm
                     Text {
                         anchors.fill: parent
-                        anchors.leftMargin: UiStyle.space8
-                        anchors.rightMargin: UiStyle.space8
+                        anchors.leftMargin: UiStyle.space2
+                        anchors.rightMargin: UiStyle.space2
                         text: modelData
                         color: UiStyle.colorTextMuted
                         font.family: UiStyle.fontSans
-                        font.pixelSize: UiStyle.fontSizeSm
+                        font.pixelSize: UiStyle.fontSizeXs
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
                     }

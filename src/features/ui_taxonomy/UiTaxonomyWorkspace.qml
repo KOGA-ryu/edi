@@ -12,8 +12,8 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: UiStyle.space10
-        spacing: UiStyle.space8
+        anchors.margins: UiStyle.space8
+        spacing: UiStyle.space6
 
         Flickable {
             id: localTabStrip
@@ -68,17 +68,17 @@ Rectangle {
 
             ColumnLayout {
                 width: Math.max(parent.width - 18, 320)
-                spacing: UiStyle.space8
+                spacing: UiStyle.space6
 
                 UiTaxonomyFocusPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 148
+                    Layout.preferredHeight: 108
                     controller: workspace.controller
                 }
 
                 ReviewStatusPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 30
+                    Layout.preferredHeight: 24
                     controller: workspace.controller
                 }
 
@@ -97,12 +97,12 @@ Rectangle {
                 ColumnLayout {
                     visible: workspace.controller && workspace.controller.selectedLocalTab === "prompts"
                     Layout.fillWidth: true
-                    spacing: UiStyle.space6
-                    UiSectionHeader { title: "Review Prompts"; Layout.fillWidth: true }
+                    spacing: UiStyle.space2
                     Repeater {
                         model: workspace.controller ? workspace.controller.currentRoute().prompts : []
                         delegate: UiListRow {
                             Layout.fillWidth: true
+                            Layout.preferredHeight: 22
                             label: modelData
                             meta: "prompt"
                         }

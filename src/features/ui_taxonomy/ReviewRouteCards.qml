@@ -6,18 +6,13 @@ import "../../components"
 ColumnLayout {
     id: root
     property var controller: null
-    spacing: UiStyle.space4
-
-    UiSectionHeader {
-        title: "Route Drilldown"
-        Layout.fillWidth: true
-    }
+    spacing: UiStyle.space2
 
     GridLayout {
         Layout.fillWidth: true
-        columns: width > 760 ? 3 : width > 480 ? 2 : 1
-        columnSpacing: UiStyle.space6
-        rowSpacing: UiStyle.space6
+        columns: width > 820 ? 2 : 1
+        columnSpacing: UiStyle.space4
+        rowSpacing: UiStyle.space2
 
         Repeater {
             model: root.controller ? root.controller.childRoutes(root.controller.selectedRouteId, root.controller.revision) : []

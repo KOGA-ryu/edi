@@ -11,7 +11,7 @@ Rectangle {
     property int noteCount: 0
     signal clicked()
 
-    implicitHeight: 84
+    implicitHeight: 58
     radius: UiStyle.radiusSm
     color: hovered ? UiStyle.colorControlHover : UiStyle.colorTransparent
     border.width: UiStyle.borderNone
@@ -19,8 +19,11 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: UiStyle.space8
-        spacing: UiStyle.space4
+        anchors.leftMargin: UiStyle.space6
+        anchors.rightMargin: UiStyle.space6
+        anchors.topMargin: UiStyle.space4
+        anchors.bottomMargin: UiStyle.space4
+        spacing: UiStyle.space2
         RowLayout {
             Layout.fillWidth: true
             Text {
@@ -28,21 +31,20 @@ Rectangle {
                 text: card.title
                 color: UiStyle.colorText
                 font.family: UiStyle.fontSans
-                font.pixelSize: UiStyle.fontSizeBody
+                font.pixelSize: UiStyle.fontSizeSm
                 font.weight: UiStyle.fontWeightSemiBold
                 elide: Text.ElideRight
             }
-            UiStatusChip { status: card.status }
+            UiStatusChip { status: card.status; compact: true }
         }
         Text {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             text: card.summary
             color: UiStyle.colorTextMuted
             font.family: UiStyle.fontSans
-            font.pixelSize: UiStyle.fontSizeSm
+            font.pixelSize: UiStyle.fontSizeXs
             wrapMode: Text.WordWrap
-            maximumLineCount: 2
+            maximumLineCount: 1
             elide: Text.ElideRight
         }
         Text {

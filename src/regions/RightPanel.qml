@@ -19,23 +19,23 @@ Rectangle {
 
     ReviewRightContext {
         anchors.fill: parent
-        anchors.margins: UiStyle.space10
+        anchors.margins: UiStyle.space8
         visible: !rightPanel.controller || rightPanel.controller.activityMode === "review"
         controller: rightPanel.controller
     }
 
     SettingsRightContext {
         anchors.fill: parent
-        anchors.margins: UiStyle.space10
+        anchors.margins: UiStyle.space8
         visible: rightPanel.controller && rightPanel.controller.activityMode === "settings"
         controller: rightPanel.controller
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: UiStyle.space10
+        anchors.margins: UiStyle.space8
         visible: rightPanel.controller && rightPanel.controller.activityMode !== "review" && rightPanel.controller.activityMode !== "settings"
-        spacing: UiStyle.space8
+        spacing: UiStyle.space4
 
         UiSectionHeader { title: "Context"; Layout.fillWidth: true }
         UiListRow {

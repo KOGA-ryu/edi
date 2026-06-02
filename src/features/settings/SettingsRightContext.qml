@@ -7,7 +7,7 @@ ColumnLayout {
     id: root
 
     property var controller: null
-    spacing: UiStyle.space8
+    spacing: UiStyle.space4
 
     function currentPageId() {
         return root.controller ? root.controller.selectedSettingsPage : "theme"
@@ -57,21 +57,25 @@ ColumnLayout {
         Layout.fillWidth: true
         label: "Page"
         meta: root.pageLabel(root.currentPageId())
+        metaMaxWidth: 140
     }
     UiListRow {
         Layout.fillWidth: true
         label: "Id"
         meta: root.currentPageId()
+        metaMaxWidth: 140
     }
     UiListRow {
         Layout.fillWidth: true
         label: "Status"
         meta: root.pageStatus(root.currentPageId())
+        metaMaxWidth: 140
     }
     UiListRow {
         Layout.fillWidth: true
         label: "Writes"
         meta: root.controller && root.controller.writeDisabled ? "disabled" : "enabled"
+        metaMaxWidth: 90
     }
 
     UiSectionHeader { title: "Source"; Layout.fillWidth: true }
@@ -84,6 +88,7 @@ ColumnLayout {
         Layout.fillWidth: true
         label: "Persistence"
         meta: root.pagePersistence(root.currentPageId())
+        metaMaxWidth: 140
     }
 
     UiSectionHeader {
@@ -96,18 +101,21 @@ ColumnLayout {
         Layout.fillWidth: true
         label: "Left"
         meta: root.controller ? root.controller.panelStateLabel("left") : ""
+        metaMaxWidth: 140
     }
     UiListRow {
         visible: root.currentPageId() === "panels"
         Layout.fillWidth: true
         label: "Right"
         meta: root.controller ? root.controller.panelStateLabel("right") : ""
+        metaMaxWidth: 140
     }
     UiListRow {
         visible: root.currentPageId() === "panels"
         Layout.fillWidth: true
         label: "Bottom"
         meta: root.controller ? root.controller.panelStateLabel("bottom") : ""
+        metaMaxWidth: 140
     }
 
     UiSectionHeader { title: "Review Context"; Layout.fillWidth: true }
@@ -115,11 +123,13 @@ ColumnLayout {
         Layout.fillWidth: true
         label: "Subject"
         meta: root.controller ? root.controller.selectedSubjectLabel : ""
+        metaMaxWidth: 150
     }
     UiListRow {
         Layout.fillWidth: true
         label: "Route"
         meta: root.controller ? root.controller.currentRoute().label : ""
+        metaMaxWidth: 150
     }
 
     Item { Layout.fillHeight: true }

@@ -6,18 +6,19 @@ Rectangle {
     id: row
     property string path: ""
     property string role: "code"
+    property bool hovered: false
 
-    implicitHeight: UiStyle.rowHeight
-    color: UiStyle.colorControl
+    implicitHeight: 24
+    color: hovered ? UiStyle.colorControlHover : UiStyle.colorControl
     radius: UiStyle.radiusSm
-    border.width: UiStyle.borderThin
+    border.width: hovered ? UiStyle.borderThin : UiStyle.borderNone
     border.color: UiStyle.colorBorderMinor
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: UiStyle.space8
-        anchors.rightMargin: UiStyle.space8
-        spacing: UiStyle.space8
+        anchors.leftMargin: UiStyle.space6
+        anchors.rightMargin: UiStyle.space6
+        spacing: UiStyle.space6
         Text {
             Layout.fillWidth: true
             text: row.path
@@ -27,11 +28,19 @@ Rectangle {
             elide: Text.ElideMiddle
         }
         Text {
+            Layout.maximumWidth: 52
             text: row.role
             color: UiStyle.colorTextFaint
             font.family: UiStyle.fontSans
             font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
         }
     }
-}
 
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        onEntered: row.hovered = true
+        onExited: row.hovered = false
+    }
+}

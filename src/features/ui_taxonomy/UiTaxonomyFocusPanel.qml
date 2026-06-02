@@ -58,7 +58,7 @@ UiPanel {
                 delegate: Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 24
-                    color: UiStyle.colorControl
+                    color: UiStyle.colorTransparent
                     radius: UiStyle.radiusSm
                     Text {
                         anchors.fill: parent

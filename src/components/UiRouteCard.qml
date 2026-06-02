@@ -13,7 +13,7 @@ Rectangle {
 
     implicitHeight: 84
     radius: UiStyle.radiusSm
-    color: hovered ? UiStyle.colorPanelRaised : UiStyle.colorPanel
+    color: hovered ? UiStyle.colorControlHover : UiStyle.colorTransparent
     border.width: UiStyle.borderNone
     property bool hovered: false
 

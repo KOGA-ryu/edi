@@ -16,7 +16,7 @@ Rectangle {
     radius: UiStyle.radiusSm
     color: mouseArea.containsMouse ? UiStyle.colorControlHover
         : panelState === "auto_hidden" ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorWarning, 0.18)
-        : panelState === "collapsed" ? UiStyle.colorControl
+        : panelState === "collapsed" ? UiStyle.colorTransparent
         : UiStyle.colorTransparent
     border.width: UiStyle.borderNone
 
@@ -25,7 +25,7 @@ Rectangle {
         visible: panelState === "visible" && !mouseArea.containsMouse
         radius: parent.radius
         color: UiStyle.mix(UiStyle.colorControl, UiStyle.colorAccent, 0.12)
-        opacity: 0.45
+        opacity: 0.32
     }
 
     Rectangle {
@@ -45,7 +45,7 @@ Rectangle {
         width: 16
         height: 14
         radius: 2
-        color: UiStyle.mix(UiStyle.colorControl, UiStyle.colorText, 0.06)
+        color: UiStyle.mix(UiStyle.colorBase, UiStyle.colorText, 0.08)
         border.width: UiStyle.borderNone
     }
 

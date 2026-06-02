@@ -16,7 +16,9 @@ Rectangle {
 
     implicitHeight: UiStyle.tabHeight
     implicitWidth: Math.max(58, labelText.implicitWidth + UiStyle.space16)
-    color: active ? UiStyle.colorPanelRaised : UiStyle.colorControl
+    color: active ? UiStyle.colorSelected
+        : mouseArea.containsMouse && clickable ? UiStyle.colorControlHover
+        : UiStyle.colorTransparent
     border.width: UiStyle.borderNone
     radius: UiStyle.radiusSm
 

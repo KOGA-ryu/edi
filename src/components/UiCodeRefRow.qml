@@ -9,7 +9,7 @@ Rectangle {
     property bool hovered: false
 
     implicitHeight: 24
-    color: hovered ? UiStyle.colorControlHover : UiStyle.colorControl
+    color: hovered ? UiStyle.colorControlHover : UiStyle.colorTransparent
     radius: UiStyle.radiusSm
     border.width: UiStyle.borderNone
 

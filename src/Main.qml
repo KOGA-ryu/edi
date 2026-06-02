@@ -112,16 +112,69 @@ ApplicationWindow {
             }
 
             ColumnLayout {
-                id: centerColumn
+                id: workAreaColumn
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 0
 
-                MainWorkspace {
-                    id: mainWorkspace
-                    controller: runtimeController
+                RowLayout {
+                    id: upperWorkArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    spacing: 0
+
+                    MainWorkspace {
+                        id: mainWorkspace
+                        controller: runtimeController
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                    }
+
+                    Rectangle {
+                        id: rightResizeHandle
+                        visible: window.effectiveRightPanelVisible
+                        Layout.preferredWidth: visible ? 6 : 0
+                        Layout.fillHeight: true
+                        color: UiStyle.colorTransparent
+
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: 1
+                            color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                        }
+
+                        MouseArea {
+                            id: rightResizeMouse
+                            property bool dragging: false
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.SplitHCursor
+                            onPressed: function(mouse) {
+                                dragging = true
+                                window.dragStartX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                                window.dragStartSize = runtimeController.rightPanelWidth
+                            }
+                            onReleased: dragging = false
+                            onCanceled: dragging = false
+                            onPositionChanged: function(mouse) {
+                                if (!dragging) {
+                                    return
+                                }
+                                var currentX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                                runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
+                            }
+                        }
+                    }
+
+                    RightPanel {
+                        id: rightPanel
+                        controller: runtimeController
+                        visible: window.effectiveRightPanelVisible
+                        Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
+                        Layout.fillHeight: true
+                    }
                 }
 
                 Rectangle {
@@ -169,52 +222,6 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: visible ? runtimeController.bottomPanelHeight : 0
                 }
-            }
-
-            Rectangle {
-                id: rightResizeHandle
-                visible: window.effectiveRightPanelVisible
-                Layout.preferredWidth: visible ? 6 : 0
-                Layout.fillHeight: true
-                color: UiStyle.colorTransparent
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 1
-                    color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
-                }
-
-                MouseArea {
-                    id: rightResizeMouse
-                    property bool dragging: false
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.SplitHCursor
-                    onPressed: function(mouse) {
-                        dragging = true
-                        window.dragStartX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                        window.dragStartSize = runtimeController.rightPanelWidth
-                    }
-                    onReleased: dragging = false
-                    onCanceled: dragging = false
-                    onPositionChanged: function(mouse) {
-                        if (!dragging) {
-                            return
-                        }
-                        var currentX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                        runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
-                    }
-                }
-            }
-
-            RightPanel {
-                id: rightPanel
-                controller: runtimeController
-                visible: window.effectiveRightPanelVisible
-                Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
-                Layout.fillHeight: true
             }
         }
 

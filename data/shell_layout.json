@@ -1,4 +1,25 @@
 {
+  "window": {
+    "width": 900,
+    "height": 760
+  },
+  "policy": {
+    "left": {
+      "min_width": 180,
+      "max_width": 520,
+      "auto_hide_below_width": 640
+    },
+    "right": {
+      "min_width": 240,
+      "max_width": 460,
+      "auto_hide_below_width": 520
+    },
+    "bottom": {
+      "min_height": 96,
+      "max_height": 360,
+      "auto_hide_below_height": 520
+    }
+  },
   "panels": {
     "left": {
       "collapsed": false,

@@ -16,8 +16,8 @@ ApplicationWindow {
 
     title: "Editable UI Shell"
     flags: Qt.Window | Qt.FramelessWindowHint
-    width: UiStyle.windowWidth
-    height: UiStyle.windowHeight
+    width: initialWindowDimension("width", UiStyle.windowWidth, 520, 2400)
+    height: initialWindowDimension("height", UiStyle.windowHeight, 420, 1800)
     visible: true
 
     property string dataUi: "window"
@@ -29,6 +29,13 @@ ApplicationWindow {
     property bool effectiveLeftPanelVisible: runtimeController.panelVisible("left")
     property bool effectiveRightPanelVisible: runtimeController.panelVisible("right")
     property bool effectiveBottomPanelVisible: runtimeController.panelVisible("bottom")
+
+    function initialWindowDimension(key, fallback, low, high) {
+        var document = typeof initialShellLayout === "undefined" ? ({}) : initialShellLayout
+        var settings = document && document.window ? document.window : ({})
+        var value = Number(settings[key] || fallback)
+        return Math.max(low, Math.min(high, Math.round(value)))
+    }
 
     RuntimeController {
         id: runtimeController

@@ -58,6 +58,10 @@ ScrollView {
         return controller && controller.panelManualCollapsed(panelId) ? "Show" : "Hide"
     }
 
+    function sizeRangeLabel(minimum, maximum) {
+        return String(minimum) + "-" + String(maximum)
+    }
+
     ColumnLayout {
         width: Math.max(parent.width - 18, 520)
         spacing: UiStyle.space10
@@ -317,7 +321,7 @@ ScrollView {
                     }
                     UiListRow {
                         label: String(root.controller ? root.controller.leftPanelWidth : 0) + " px"
-                        meta: "180-520"
+                        meta: root.controller ? root.sizeRangeLabel(root.controller.leftPanelMinWidth, root.controller.leftPanelMaxWidth) : ""
                         Layout.preferredWidth: 170
                     }
                     UiButton {
@@ -343,7 +347,7 @@ ScrollView {
                     }
                     UiListRow {
                         label: String(root.controller ? root.controller.rightPanelWidth : 0) + " px"
-                        meta: "240-460"
+                        meta: root.controller ? root.sizeRangeLabel(root.controller.rightPanelMinWidth, root.controller.rightPanelMaxWidth) : ""
                         Layout.preferredWidth: 170
                     }
                     UiButton {
@@ -369,7 +373,7 @@ ScrollView {
                     }
                     UiListRow {
                         label: String(root.controller ? root.controller.bottomPanelHeight : 0) + " px"
-                        meta: "96-360"
+                        meta: root.controller ? root.sizeRangeLabel(root.controller.bottomPanelMinHeight, root.controller.bottomPanelMaxHeight) : ""
                         Layout.preferredWidth: 170
                     }
                     UiButton {

@@ -19,6 +19,15 @@ QtObject {
     property int leftPanelWidth: UiStyle.leftPanelWidth
     property int rightPanelWidth: UiStyle.rightPanelWidth
     property int bottomPanelHeight: UiStyle.bottomPanelHeight
+    property int leftPanelMinWidth: 180
+    property int leftPanelMaxWidth: 520
+    property int rightPanelMinWidth: 240
+    property int rightPanelMaxWidth: 460
+    property int bottomPanelMinHeight: 96
+    property int bottomPanelMaxHeight: 360
+    property int leftPanelAutoHideWidth: 640
+    property int rightPanelAutoHideWidth: 520
+    property int bottomPanelAutoHideHeight: 520
     property bool shellLayoutDirty: false
     property bool shellLayoutSaveOk: true
     property string shellLayoutPath: ""
@@ -67,29 +76,68 @@ QtObject {
         return Math.max(low, Math.min(high, Math.round(Number(value))))
     }
 
+    function policyInt(source, key, fallback, low, high) {
+        var value = source && Number.isFinite(Number(source[key])) ? Number(source[key]) : fallback
+        return clamp(value, low, high)
+    }
+
     function markShellLayoutDirty() {
         shellLayoutDirty = true
         revision += 1
     }
 
     function loadShellLayout(document) {
+        var policy = document && document.policy ? document.policy : ({})
+        var leftPolicy = policy.left || ({})
+        var rightPolicy = policy.right || ({})
+        var bottomPolicy = policy.bottom || ({})
         var panels = document && document.panels ? document.panels : ({})
         var left = panels.left || ({})
         var right = panels.right || ({})
         var bottom = panels.bottom || ({})
 
+        leftPanelMinWidth = policyInt(leftPolicy, "min_width", 180, 120, 900)
+        leftPanelMaxWidth = policyInt(leftPolicy, "max_width", 520, leftPanelMinWidth, 1200)
+        rightPanelMinWidth = policyInt(rightPolicy, "min_width", 240, 120, 900)
+        rightPanelMaxWidth = policyInt(rightPolicy, "max_width", 460, rightPanelMinWidth, 1200)
+        bottomPanelMinHeight = policyInt(bottomPolicy, "min_height", 96, 60, 700)
+        bottomPanelMaxHeight = policyInt(bottomPolicy, "max_height", 360, bottomPanelMinHeight, 1000)
+        leftPanelAutoHideWidth = policyInt(leftPolicy, "auto_hide_below_width", 640, 0, 2400)
+        rightPanelAutoHideWidth = policyInt(rightPolicy, "auto_hide_below_width", 520, 0, 2400)
+        bottomPanelAutoHideHeight = policyInt(bottomPolicy, "auto_hide_below_height", 520, 0, 1800)
         leftPanelCollapsed = !!left.collapsed
         rightPanelCollapsed = typeof right.collapsed === "boolean" ? right.collapsed : true
         bottomPanelCollapsed = typeof bottom.collapsed === "boolean" ? bottom.collapsed : true
-        leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, 180, 520)
-        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, 240, 460)
-        bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, 96, 360)
+        leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, leftPanelMinWidth, leftPanelMaxWidth)
+        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, rightPanelMinWidth, rightPanelMaxWidth)
+        bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, bottomPanelMinHeight, bottomPanelMaxHeight)
         shellLayoutDirty = false
         shellLayoutSaveOk = true
     }
 
     function shellLayoutDocument() {
         return {
+            window: {
+                width: Math.round(windowWidth()),
+                height: Math.round(windowHeight())
+            },
+            policy: {
+                left: {
+                    min_width: leftPanelMinWidth,
+                    max_width: leftPanelMaxWidth,
+                    auto_hide_below_width: leftPanelAutoHideWidth
+                },
+                right: {
+                    min_width: rightPanelMinWidth,
+                    max_width: rightPanelMaxWidth,
+                    auto_hide_below_width: rightPanelAutoHideWidth
+                },
+                bottom: {
+                    min_height: bottomPanelMinHeight,
+                    max_height: bottomPanelMaxHeight,
+                    auto_hide_below_height: bottomPanelAutoHideHeight
+                }
+            },
             panels: {
                 left: {
                     collapsed: leftPanelCollapsed,
@@ -124,10 +172,14 @@ QtObject {
         leftPanelCollapsed = false
         rightPanelCollapsed = true
         bottomPanelCollapsed = true
-        leftPanelWidth = UiStyle.leftPanelWidth
-        rightPanelWidth = UiStyle.rightPanelWidth
-        bottomPanelHeight = UiStyle.bottomPanelHeight
+        resetPanelSizes()
         markShellLayoutDirty()
+    }
+
+    function resetPanelSizes() {
+        leftPanelWidth = clamp(UiStyle.leftPanelWidth, leftPanelMinWidth, leftPanelMaxWidth)
+        rightPanelWidth = clamp(UiStyle.rightPanelWidth, rightPanelMinWidth, rightPanelMaxWidth)
+        bottomPanelHeight = clamp(UiStyle.bottomPanelHeight, bottomPanelMinHeight, bottomPanelMaxHeight)
     }
 
     function windowWidth() {
@@ -156,13 +208,13 @@ QtObject {
             return false
         }
         if (panelId === "left") {
-            return windowWidth() < 640
+            return windowWidth() < leftPanelAutoHideWidth
         }
         if (panelId === "right") {
-            return windowWidth() < 520
+            return windowWidth() < rightPanelAutoHideWidth
         }
         if (panelId === "bottom") {
-            return windowHeight() < 520
+            return windowHeight() < bottomPanelAutoHideHeight
         }
         return false
     }
@@ -194,13 +246,13 @@ QtObject {
 
     function panelStateDetail(panelId) {
         if (panelId === "left") {
-            return panelAutoHidden(panelId) ? "auto-hidden below 640px width" : String(leftPanelWidth) + " px"
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(leftPanelAutoHideWidth) + "px width" : String(leftPanelWidth) + " px"
         }
         if (panelId === "right") {
-            return panelAutoHidden(panelId) ? "auto-hidden below 520px width" : String(rightPanelWidth) + " px"
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(rightPanelAutoHideWidth) + "px width" : String(rightPanelWidth) + " px"
         }
         if (panelId === "bottom") {
-            return panelAutoHidden(panelId) ? "auto-hidden below 520px height" : String(bottomPanelHeight) + " px"
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(bottomPanelAutoHideHeight) + "px height" : String(bottomPanelHeight) + " px"
         }
         return ""
     }
@@ -210,9 +262,7 @@ QtObject {
             leftPanelCollapsed = false
             rightPanelCollapsed = false
             bottomPanelCollapsed = false
-            leftPanelWidth = UiStyle.leftPanelWidth
-            rightPanelWidth = UiStyle.rightPanelWidth
-            bottomPanelHeight = UiStyle.bottomPanelHeight
+            resetPanelSizes()
         } else if (presetId === "focus") {
             leftPanelCollapsed = true
             rightPanelCollapsed = true
@@ -221,15 +271,12 @@ QtObject {
             leftPanelCollapsed = false
             rightPanelCollapsed = true
             bottomPanelCollapsed = true
-            leftPanelWidth = UiStyle.leftPanelWidth
-            rightPanelWidth = UiStyle.rightPanelWidth
+            resetPanelSizes()
         } else if (presetId === "tiny") {
             leftPanelCollapsed = true
             rightPanelCollapsed = true
             bottomPanelCollapsed = true
-            leftPanelWidth = UiStyle.leftPanelWidth
-            rightPanelWidth = UiStyle.rightPanelWidth
-            bottomPanelHeight = UiStyle.bottomPanelHeight
+            resetPanelSizes()
         }
         markShellLayoutDirty()
     }
@@ -441,17 +488,17 @@ QtObject {
     }
 
     function setLeftPanelWidth(width) {
-        leftPanelWidth = clamp(width, 180, 520)
+        leftPanelWidth = clamp(width, leftPanelMinWidth, leftPanelMaxWidth)
         markShellLayoutDirty()
     }
 
     function setRightPanelWidth(width) {
-        rightPanelWidth = clamp(width, 240, 460)
+        rightPanelWidth = clamp(width, rightPanelMinWidth, rightPanelMaxWidth)
         markShellLayoutDirty()
     }
 
     function setBottomPanelHeight(height) {
-        bottomPanelHeight = clamp(height, 96, 360)
+        bottomPanelHeight = clamp(height, bottomPanelMinHeight, bottomPanelMaxHeight)
         markShellLayoutDirty()
     }
 

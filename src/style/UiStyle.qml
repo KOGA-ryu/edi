@@ -22,14 +22,14 @@ QtObject {
     property color colorSurface: "#171d24"
     property color colorSurfaceRaised: "#202832"
     property color colorWindow: colorBase
-    property color colorRail: "#121920"
-    property color colorPanel: colorSurface
-    property color colorPanelAlt: "#1b232d"
-    property color colorPanelRaised: colorSurfaceRaised
-    property color colorWorkspace: "#111821"
+    property color colorRail: colorBase
+    property color colorPanel: colorBase
+    property color colorPanelAlt: colorBase
+    property color colorPanelRaised: colorBase
+    property color colorWorkspace: colorBase
     property color colorWorkspaceBody: "#18222d"
-    property color colorBottomPanel: "#121920"
-    property color colorStatusBar: "#0c1116"
+    property color colorBottomPanel: colorBase
+    property color colorStatusBar: colorBase
     property color colorControl: "#202a35"
     property color colorControlHover: "#283542"
     property color colorSelected: "#304052"
@@ -132,14 +132,14 @@ QtObject {
         colorSurface = surface
         colorSurfaceRaised = mix(surface, text, 0.08)
         colorWindow = base
-        colorRail = mix(base, surface, 0.35)
-        colorPanel = surface
-        colorPanelAlt = mix(surface, text, 0.04)
-        colorPanelRaised = colorSurfaceRaised
-        colorWorkspace = mix(base, surface, 0.42)
+        colorRail = base
+        colorPanel = base
+        colorPanelAlt = base
+        colorPanelRaised = base
+        colorWorkspace = base
         colorWorkspaceBody = mix(surface, text, 0.06)
-        colorBottomPanel = mix(base, surface, 0.32)
-        colorStatusBar = mix(base, "#000000", 0.22)
+        colorBottomPanel = base
+        colorStatusBar = base
         colorControl = mix(surface, text, 0.08)
         colorControlHover = mix(surface, text, 0.10)
         colorSelected = mix(surface, accent, 0.22)

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../style"
 import "../components"
@@ -40,32 +41,67 @@ Rectangle {
             UiButton { label: "New"; implicitWidth: 54; enabled: false }
         }
 
-        ReviewLeftNav {
-            controller: leftPanel.controller
-            visible: !leftPanel.controller || leftPanel.controller.activityMode === "review"
+        Flickable {
+            id: navScroll
             Layout.fillWidth: true
-            Layout.fillHeight: visible
-        }
+            Layout.fillHeight: true
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: navContent.implicitHeight
+            interactive: contentHeight > height
 
-        SettingsLeftNav {
-            controller: leftPanel.controller
-            visible: leftPanel.controller && leftPanel.controller.activityMode === "settings"
-            Layout.fillWidth: true
-            Layout.fillHeight: visible
-        }
+            ScrollBar.vertical: ScrollBar {
+                id: verticalScrollBar
+                policy: ScrollBar.AlwaysOn
+                active: visible
+                visible: navScroll.contentHeight > navScroll.height
+                width: 5
+                contentItem: Rectangle {
+                    implicitWidth: 5
+                    radius: 2
+                    color: verticalScrollBar.pressed || verticalScrollBar.hovered ? UiStyle.colorAccentSoft : UiStyle.colorBorderMajor
+                    opacity: verticalScrollBar.active ? 0.85 : 0.55
+                }
+                background: Rectangle {
+                    color: UiStyle.colorTransparent
+                }
+            }
 
-        Item {
-            visible: leftPanel.controller && leftPanel.controller.activityMode !== "review" && leftPanel.controller.activityMode !== "settings"
-            Layout.fillWidth: true
-            Layout.fillHeight: visible
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: UiStyle.space8
-                UiSectionHeader { title: "Mode"; Layout.fillWidth: true }
-                UiListRow {
-                    Layout.fillWidth: true
-                    label: leftPanel.controller ? leftPanel.controller.activityMode : "binder"
-                    meta: "reserved"
+            Item {
+                width: navScroll.width - (verticalScrollBar.visible ? verticalScrollBar.width + UiStyle.space4 : 0)
+                height: navContent.implicitHeight
+
+                ColumnLayout {
+                    id: navContent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    spacing: UiStyle.space6
+
+                    ReviewLeftNav {
+                        controller: leftPanel.controller
+                        visible: !leftPanel.controller || leftPanel.controller.activityMode === "review"
+                        Layout.fillWidth: true
+                    }
+
+                    SettingsLeftNav {
+                        controller: leftPanel.controller
+                        visible: leftPanel.controller && leftPanel.controller.activityMode === "settings"
+                        Layout.fillWidth: true
+                    }
+
+                    ColumnLayout {
+                        visible: leftPanel.controller && leftPanel.controller.activityMode !== "review" && leftPanel.controller.activityMode !== "settings"
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space8
+                        UiSectionHeader { title: "Mode"; Layout.fillWidth: true }
+                        UiListRow {
+                            Layout.fillWidth: true
+                            label: leftPanel.controller ? leftPanel.controller.activityMode : "binder"
+                            meta: "reserved"
+                        }
+                    }
                 }
             }
         }

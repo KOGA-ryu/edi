@@ -15,18 +15,48 @@ Rectangle {
         anchors.margins: UiStyle.space10
         spacing: UiStyle.space8
 
-        RowLayout {
+        Flickable {
+            id: localTabStrip
             Layout.fillWidth: true
-            spacing: UiStyle.space2
+            Layout.preferredHeight: UiStyle.tabHeight
+            clip: true
+            contentWidth: localTabRow.implicitWidth
+            contentHeight: height
+            boundsBehavior: Flickable.StopAtBounds
 
-            Repeater {
-                model: workspace.controller ? workspace.controller.localTabs : []
-                delegate: UiTab {
-                    label: modelData.label
-                    tooltip: modelData.tooltip
-                    active: workspace.controller.selectedLocalTab === modelData.id
-                    clickable: true
-                    onClicked: workspace.controller.setLocalTab(modelData.id)
+            function revealTab(tabItem) {
+                if (!tabItem || contentWidth <= width) {
+                    contentX = 0
+                    return
+                }
+                var leftEdge = tabItem.x
+                var rightEdge = tabItem.x + tabItem.width
+                if (leftEdge < contentX) {
+                    contentX = Math.max(0, leftEdge - UiStyle.space8)
+                } else if (rightEdge > contentX + width) {
+                    contentX = Math.min(contentWidth - width, rightEdge - width + UiStyle.space8)
+                }
+            }
+
+            Row {
+                id: localTabRow
+                height: parent.height
+                spacing: UiStyle.space2
+
+                Repeater {
+                    model: workspace.controller ? workspace.controller.localTabs : []
+                    delegate: UiTab {
+                        height: localTabRow.height
+                        label: modelData.label
+                        tooltip: modelData.tooltip
+                        active: workspace.controller.selectedLocalTab === modelData.id
+                        clickable: true
+                        onActiveChanged: if (active) localTabStrip.revealTab(this)
+                        onClicked: {
+                            workspace.controller.setLocalTab(modelData.id)
+                            localTabStrip.revealTab(this)
+                        }
+                    }
                 }
             }
         }

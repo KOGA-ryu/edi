@@ -13,24 +13,7 @@ UiPanel {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: UiStyle.space10
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: UiStyle.space10
-            Text {
-                Layout.fillWidth: true
-                text: route.label || "Route"
-                color: UiStyle.colorText
-                font.family: UiStyle.fontSans
-                font.pixelSize: 20
-                font.weight: UiStyle.fontWeightSemiBold
-                elide: Text.ElideRight
-            }
-            UiStatusChip {
-                status: controller ? controller.routeStatus(route.id) : "pending"
-            }
-        }
+        spacing: UiStyle.space8
 
         Text {
             Layout.fillWidth: true

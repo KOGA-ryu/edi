@@ -134,27 +134,8 @@ Rectangle {
             }
         }
 
-        Text {
+        Item {
             Layout.fillWidth: true
-            visible: !titleBar.hostWindow || titleBar.hostWindow.width >= 420
-            text: titleBar.controller ? titleBar.controller.selectedSubjectLabel + " / " + titleBar.controller.currentRoute().label : "Draftsman"
-            color: UiStyle.colorText
-            font.family: UiStyle.fontSans
-            font.pixelSize: UiStyle.fontSizeTitle
-            font.weight: UiStyle.fontWeightSemiBold
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton
-                onDoubleClicked: titleBar.toggleZoom()
-                onPressed: {
-                    if (titleBar.hostWindow && titleBar.hostWindow.startSystemMove) {
-                        titleBar.hostWindow.startSystemMove()
-                    }
-                }
-            }
         }
 
         RowLayout {

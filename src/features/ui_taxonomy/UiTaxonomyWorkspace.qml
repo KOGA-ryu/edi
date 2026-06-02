@@ -17,28 +17,6 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: UiStyle.space8
-            Text {
-                Layout.fillWidth: true
-                text: controller ? controller.selectedSubjectLabel : "UI Taxonomy"
-                color: UiStyle.colorText
-                font.family: UiStyle.fontSans
-                font.pixelSize: 22
-                font.weight: UiStyle.fontWeightSemiBold
-                elide: Text.ElideRight
-            }
-            UiStatusChip {
-                status: controller ? controller.routeStatus(controller.selectedRouteId) : "pending"
-            }
-        }
-
-        ReviewBreadcrumb {
-            Layout.fillWidth: true
-            controller: workspace.controller
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
             spacing: UiStyle.space6
             UiIconButton {
                 iconText: "<"
@@ -84,7 +62,7 @@ Rectangle {
 
                 UiTaxonomyFocusPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 250
+                    Layout.preferredHeight: 172
                     controller: workspace.controller
                 }
 

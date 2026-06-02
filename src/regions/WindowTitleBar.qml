@@ -116,22 +116,6 @@ Rectangle {
                 selected: panelState === "visible"
                 onClicked: titleBar.controller.toggleLeftPanel()
             }
-
-            UiPanelToggleButton {
-                edge: "bottom"
-                panelState: titleBar.controller ? titleBar.controller.panelState("bottom") : "visible"
-                tooltip: titleBar.panelTooltip("bottom", "Bottom panel")
-                selected: panelState === "visible"
-                onClicked: titleBar.controller.toggleBottomPanel()
-            }
-
-            UiPanelToggleButton {
-                edge: "right"
-                panelState: titleBar.controller ? titleBar.controller.panelState("right") : "visible"
-                tooltip: titleBar.panelTooltip("right", "Right panel")
-                selected: panelState === "visible"
-                onClicked: titleBar.controller.toggleRightPanel()
-            }
         }
 
         RowLayout {
@@ -191,6 +175,26 @@ Rectangle {
                 label: "..."
                 tooltip: "More"
                 enabled: false
+            }
+        }
+
+        RowLayout {
+            spacing: UiStyle.space6
+
+            UiPanelToggleButton {
+                edge: "bottom"
+                panelState: titleBar.controller ? titleBar.controller.panelState("bottom") : "visible"
+                tooltip: titleBar.panelTooltip("bottom", "Bottom panel")
+                selected: panelState === "visible"
+                onClicked: titleBar.controller.toggleBottomPanel()
+            }
+
+            UiPanelToggleButton {
+                edge: "right"
+                panelState: titleBar.controller ? titleBar.controller.panelState("right") : "visible"
+                tooltip: titleBar.panelTooltip("right", "Right panel")
+                selected: panelState === "visible"
+                onClicked: titleBar.controller.toggleRightPanel()
             }
         }
     }

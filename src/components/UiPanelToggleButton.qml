@@ -15,13 +15,34 @@ Rectangle {
     implicitHeight: 30
     radius: UiStyle.radiusSm
     color: mouseArea.containsMouse ? UiStyle.colorControlHover
-        : panelState === "visible" ? UiStyle.colorSelected
         : panelState === "auto_hidden" ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorWarning, 0.18)
-        : UiStyle.colorControl
-    border.color: panelState === "visible" ? UiStyle.colorBorderFocus
+        : panelState === "collapsed" ? UiStyle.colorControl
+        : UiStyle.colorTransparent
+    border.color: mouseArea.containsMouse ? UiStyle.colorBorderMinor
         : panelState === "auto_hidden" ? UiStyle.colorWarning
-        : UiStyle.colorBorderMinor
-    border.width: UiStyle.borderThin
+        : panelState === "collapsed" ? UiStyle.colorBorderMinor
+        : UiStyle.colorTransparent
+    border.width: mouseArea.containsMouse || panelState !== "visible" ? UiStyle.borderThin : UiStyle.borderNone
+
+    Rectangle {
+        anchors.fill: parent
+        visible: panelState === "visible" && !mouseArea.containsMouse
+        radius: parent.radius
+        color: UiStyle.colorTransparent
+        border.color: UiStyle.colorBorderMinor
+        border.width: UiStyle.borderThin
+        opacity: 0.28
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: panelState === "visible" && mouseArea.containsMouse
+        radius: parent.radius
+        color: UiStyle.colorTransparent
+        border.color: UiStyle.colorBorderFocus
+        border.width: UiStyle.borderThin
+        opacity: 0.75
+    }
 
     ToolTip.visible: mouseArea.containsMouse && tooltip.length > 0
     ToolTip.text: tooltip

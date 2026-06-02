@@ -18,8 +18,6 @@ ApplicationWindow {
     flags: Qt.Window | Qt.FramelessWindowHint
     width: UiStyle.windowWidth
     height: UiStyle.windowHeight
-    minimumWidth: UiStyle.windowMinWidth
-    minimumHeight: UiStyle.windowMinHeight
     visible: true
 
     property string dataUi: "window"
@@ -28,6 +26,9 @@ ApplicationWindow {
     property int dragStartX: 0
     property int dragStartY: 0
     property int dragStartSize: 0
+    property bool effectiveLeftPanelVisible: !runtimeController.leftPanelCollapsed && width >= 640
+    property bool effectiveRightPanelVisible: !runtimeController.rightPanelCollapsed && width >= 1040
+    property bool effectiveBottomPanelVisible: !runtimeController.bottomPanelCollapsed && height >= 520
 
     RuntimeController {
         id: runtimeController
@@ -67,14 +68,14 @@ ApplicationWindow {
             LeftPanel {
                 id: leftPanel
                 controller: runtimeController
-                visible: !runtimeController.leftPanelCollapsed
+                visible: window.effectiveLeftPanelVisible
                 Layout.preferredWidth: visible ? runtimeController.leftPanelWidth : 0
                 Layout.fillHeight: true
             }
 
             Rectangle {
                 id: leftResizeHandle
-                visible: !runtimeController.leftPanelCollapsed
+                visible: window.effectiveLeftPanelVisible
                 Layout.preferredWidth: visible ? 6 : 0
                 Layout.fillHeight: true
                 color: UiStyle.colorTransparent
@@ -125,7 +126,7 @@ ApplicationWindow {
 
                 Rectangle {
                     id: bottomResizeHandle
-                    visible: !runtimeController.bottomPanelCollapsed
+                    visible: window.effectiveBottomPanelVisible
                     Layout.fillWidth: true
                     Layout.preferredHeight: visible ? 6 : 0
                     color: UiStyle.colorTransparent
@@ -164,7 +165,7 @@ ApplicationWindow {
                 BottomPanel {
                     id: bottomPanel
                     controller: runtimeController
-                    visible: !runtimeController.bottomPanelCollapsed
+                    visible: window.effectiveBottomPanelVisible
                     Layout.fillWidth: true
                     Layout.preferredHeight: visible ? runtimeController.bottomPanelHeight : 0
                 }
@@ -172,7 +173,7 @@ ApplicationWindow {
 
             Rectangle {
                 id: rightResizeHandle
-                visible: window.width >= 1160 && !runtimeController.rightPanelCollapsed
+                visible: window.effectiveRightPanelVisible
                 Layout.preferredWidth: visible ? 6 : 0
                 Layout.fillHeight: true
                 color: UiStyle.colorTransparent
@@ -211,7 +212,7 @@ ApplicationWindow {
             RightPanel {
                 id: rightPanel
                 controller: runtimeController
-                visible: window.width >= 1160 && !runtimeController.rightPanelCollapsed
+                visible: window.effectiveRightPanelVisible
                 Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
                 Layout.fillHeight: true
             }

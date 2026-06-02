@@ -8,8 +8,6 @@ QtObject {
     // Window geometry
     readonly property int windowWidth: 1280
     readonly property int windowHeight: 820
-    readonly property int windowMinWidth: 960
-    readonly property int windowMinHeight: 620
 
     // Major region sizes
     readonly property int railWidth: 52

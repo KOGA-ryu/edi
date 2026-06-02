@@ -46,3 +46,8 @@ cmake --build build
   --screenshot docs/proof/minimum_shell_960x620.png \
   --width 960 \
   --height 620
+
+./build/qt_qml_region_split \
+  --screenshot docs/proof/tiny_shell_420x320.png \
+  --width 420 \
+  --height 320

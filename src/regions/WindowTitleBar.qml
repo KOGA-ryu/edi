@@ -112,6 +112,7 @@ Rectangle {
 
         Text {
             Layout.fillWidth: true
+            visible: !titleBar.hostWindow || titleBar.hostWindow.width >= 420
             text: titleBar.controller ? titleBar.controller.selectedSubjectLabel + " / " + titleBar.controller.currentRoute().label : "Draftsman"
             color: UiStyle.colorText
             font.family: UiStyle.fontSans
@@ -134,7 +135,8 @@ Rectangle {
 
         RowLayout {
             spacing: UiStyle.space6
-            Layout.preferredWidth: 126
+            visible: !titleBar.hostWindow || titleBar.hostWindow.width >= 560
+            Layout.preferredWidth: visible ? 126 : 0
 
             UiIconButton {
                 label: "S"

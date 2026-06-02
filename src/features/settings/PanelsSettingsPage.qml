@@ -293,6 +293,65 @@ ScrollView {
 
         UiPanel {
             Layout.fillWidth: true
+            implicitHeight: 176
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: UiStyle.space12
+                spacing: UiStyle.space8
+
+                UiSectionHeader {
+                    title: "Right Inspector Sections"
+                    Layout.fillWidth: true
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: width > 390 ? 3 : 2
+                    columnSpacing: UiStyle.space6
+                    rowSpacing: UiStyle.space6
+
+                    UiToggle {
+                        label: "Facts"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("facts") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("facts", checked) }
+                    }
+
+                    UiToggle {
+                        label: "Selection"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("selection") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("selection", checked) }
+                    }
+
+                    UiToggle {
+                        label: "Code"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("code_refs") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("code_refs", checked) }
+                    }
+
+                    UiToggle {
+                        label: "Notes"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("notes") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("notes", checked) }
+                    }
+
+                    UiToggle {
+                        label: "Receipts"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("receipts") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("receipts", checked) }
+                    }
+
+                    UiToggle {
+                        label: "Actions"
+                        checked: root.controller ? root.controller.inspectorSectionVisible("actions") : true
+                        onToggled: function(checked) { root.controller.setInspectorSectionVisible("actions", checked) }
+                    }
+                }
+            }
+        }
+
+        UiPanel {
+            Layout.fillWidth: true
             implicitHeight: 184
 
             ColumnLayout {

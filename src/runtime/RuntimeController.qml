@@ -28,6 +28,14 @@ QtObject {
     property int leftPanelAutoHideWidth: 640
     property int rightPanelAutoHideWidth: 520
     property int bottomPanelAutoHideHeight: 520
+    property var rightInspectorSections: ({
+        facts: true,
+        selection: true,
+        code_refs: true,
+        notes: true,
+        receipts: true,
+        actions: true
+    })
     property bool shellLayoutDirty: false
     property bool shellLayoutSaveOk: true
     property string shellLayoutPath: ""
@@ -91,6 +99,7 @@ QtObject {
         var leftPolicy = policy.left || ({})
         var rightPolicy = policy.right || ({})
         var bottomPolicy = policy.bottom || ({})
+        var rightPanel = document && document.right_panel ? document.right_panel : ({})
         var panels = document && document.panels ? document.panels : ({})
         var left = panels.left || ({})
         var right = panels.right || ({})
@@ -108,6 +117,7 @@ QtObject {
         leftPanelCollapsed = !!left.collapsed
         rightPanelCollapsed = typeof right.collapsed === "boolean" ? right.collapsed : true
         bottomPanelCollapsed = typeof bottom.collapsed === "boolean" ? bottom.collapsed : true
+        rightInspectorSections = normalizedInspectorSections(rightPanel.sections)
         leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, leftPanelMinWidth, leftPanelMaxWidth)
         rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, rightPanelMinWidth, rightPanelMaxWidth)
         bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, bottomPanelMinHeight, bottomPanelMaxHeight)
@@ -138,6 +148,9 @@ QtObject {
                     auto_hide_below_height: bottomPanelAutoHideHeight
                 }
             },
+            right_panel: {
+                sections: rightInspectorSections
+            },
             panels: {
                 left: {
                     collapsed: leftPanelCollapsed,
@@ -153,6 +166,29 @@ QtObject {
                 }
             }
         }
+    }
+
+    function normalizedInspectorSections(source) {
+        var defaults = {
+            facts: true,
+            selection: true,
+            code_refs: true,
+            notes: true,
+            receipts: true,
+            actions: true
+        }
+        if (!source) {
+            return defaults
+        }
+        var result = Object.assign({}, defaults)
+        var keys = Object.keys(defaults)
+        for (var index = 0; index < keys.length; ++index) {
+            var key = keys[index]
+            if (typeof source[key] === "boolean") {
+                result[key] = source[key]
+            }
+        }
+        return result
     }
 
     function saveShellLayout() {
@@ -402,6 +438,93 @@ QtObject {
         return notes
     }
 
+    function inspectorSectionVisible(sectionId) {
+        var sections = normalizedInspectorSections(rightInspectorSections)
+        return sections[String(sectionId)] !== false
+    }
+
+    function setInspectorSectionVisible(sectionId, visible) {
+        var next = normalizedInspectorSections(rightInspectorSections)
+        next[String(sectionId)] = !!visible
+        rightInspectorSections = next
+        markShellLayoutDirty()
+    }
+
+    function rightInspectorDocument(unusedRevision) {
+        var route = currentRoute()
+        var notesForRoute = routeNotes(route.id, revision)
+        return {
+            id: "route_inspector",
+            targetId: route.id,
+            targetLabel: route.label,
+            targetType: route.type,
+            status: routeStatus(route.id),
+            sections: [
+                {
+                    id: "facts",
+                    label: "Facts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("facts"),
+                    rows: [
+                        { label: "Route", value: route.label },
+                        { label: "Type", value: route.type },
+                        { label: "Status", value: routeStatus(route.id) },
+                        { label: "Children", value: String((route.children || []).length) },
+                        { label: "Notes", value: String(noteCount(route.id)) }
+                    ]
+                },
+                {
+                    id: "selection",
+                    label: "Selection",
+                    type: "text",
+                    visible: inspectorSectionVisible("selection"),
+                    items: [
+                        { label: "Summary", value: route.summary || "" },
+                        { label: "Purpose", value: route.purpose || "" },
+                        { label: "Path", value: breadcrumbText(route.id) }
+                    ]
+                },
+                {
+                    id: "code_refs",
+                    label: "Code Refs",
+                    type: "code_refs",
+                    visible: inspectorSectionVisible("code_refs"),
+                    items: route.codeRefs || []
+                },
+                {
+                    id: "notes",
+                    label: "Notes",
+                    type: "notes",
+                    visible: inspectorSectionVisible("notes"),
+                    items: notesForRoute.slice(-2)
+                },
+                {
+                    id: "receipts",
+                    label: "Receipts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("receipts"),
+                    rows: [
+                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
+                        { label: "Storage", value: "in memory" },
+                        { label: "Subject", value: selectedSubjectId }
+                    ]
+                },
+                {
+                    id: "actions",
+                    label: "Actions",
+                    type: "actions",
+                    visible: inspectorSectionVisible("actions"),
+                    actions: [
+                        { id: "status_pending", label: "Pending", kind: "status", value: "pending" },
+                        { id: "status_accepted", label: "Accept", kind: "status", value: "accepted" },
+                        { id: "status_needs_rework", label: "Rework", kind: "status", value: "needs_rework" },
+                        { id: "status_rejected", label: "Reject", kind: "status", value: "rejected" }
+                    ]
+                }
+            ]
+        }
+    }
+
     function childRoutes(routeId, unusedRevision) {
         var route = routeById(routeId)
         var result = []
@@ -567,6 +690,14 @@ QtObject {
         next[routeId] = status
         statusOverrides = next
         revision += 1
+    }
+
+    function runInspectorAction(actionId, targetId) {
+        var text = String(actionId || "")
+        if (text.indexOf("status_") !== 0) {
+            return
+        }
+        setStatus(targetId || selectedRouteId, text.slice(7))
     }
 
     function addNote(routeId, status, body) {

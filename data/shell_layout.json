@@ -20,6 +20,16 @@
       "auto_hide_below_height": 520
     }
   },
+  "right_panel": {
+    "sections": {
+      "facts": true,
+      "selection": true,
+      "code_refs": true,
+      "notes": true,
+      "receipts": true,
+      "actions": true
+    }
+  },
   "panels": {
     "left": {
       "collapsed": false,

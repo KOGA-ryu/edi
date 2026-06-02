@@ -7,6 +7,7 @@ const filePath = process.argv[2] || path.join(__dirname, "..", "data", "shell_la
 const document = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const windowSettings = document.window || {};
 const policy = document.policy || {};
+const rightPanel = document.right_panel || {};
 const panels = document.panels || {};
 
 function assertInteger(pathName, value, min, max) {
@@ -48,6 +49,21 @@ function assertPanel(name, sizeKey, min, max) {
   assertInteger(`panels.${name}.${sizeKey}`, panel[sizeKey], min, max);
 }
 
+function assertRightPanelSections() {
+  if (!rightPanel || typeof rightPanel !== "object") {
+    throw new Error("right_panel must be an object");
+  }
+  if (!rightPanel.sections || typeof rightPanel.sections !== "object") {
+    throw new Error("right_panel.sections must be an object");
+  }
+
+  for (const section of ["facts", "selection", "code_refs", "notes", "receipts", "actions"]) {
+    if (typeof rightPanel.sections[section] !== "boolean") {
+      throw new Error(`right_panel.sections.${section} must be boolean`);
+    }
+  }
+}
+
 assertWindow();
 
 const leftPolicy = assertPolicy("left", "width", "auto_hide_below_width", 120, 1200, 2400);
@@ -57,5 +73,6 @@ const bottomPolicy = assertPolicy("bottom", "height", "auto_hide_below_height", 
 assertPanel("left", "width", leftPolicy.min_width, leftPolicy.max_width);
 assertPanel("right", "width", rightPolicy.min_width, rightPolicy.max_width);
 assertPanel("bottom", "height", bottomPolicy.min_height, bottomPolicy.max_height);
+assertRightPanelSections();
 
 console.log(`${filePath}: ok`);

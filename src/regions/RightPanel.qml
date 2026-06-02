@@ -5,6 +5,7 @@ import "../components"
 import "../features/blank"
 import "../features/ui_taxonomy"
 import "../features/settings"
+import "../features/csv_map_editor"
 
 Rectangle {
     id: rightPanel
@@ -32,10 +33,20 @@ Rectangle {
         controller: rightPanel.controller
     }
 
+    CsvMapEditorRightContext {
+        anchors.fill: parent
+        anchors.margins: UiStyle.space6
+        visible: rightPanel.controller && rightPanel.controller.activityMode === "map_editor"
+        controller: rightPanel.controller
+    }
+
     BlankPanel {
         anchors.fill: parent
         anchors.margins: UiStyle.space6
-        visible: rightPanel.controller && rightPanel.controller.activityMode !== "review" && rightPanel.controller.activityMode !== "settings"
+        visible: rightPanel.controller
+            && rightPanel.controller.activityMode !== "review"
+            && rightPanel.controller.activityMode !== "settings"
+            && rightPanel.controller.activityMode !== "map_editor"
         controller: rightPanel.controller
     }
 }

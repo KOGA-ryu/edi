@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "profile": {
+    "profile_id": "draftsman_game_guy_map_editor",
+    "label": "Game Guy Maps",
+    "type": "map_editor",
+    "root_path": "",
+    "summary": "Schematic CSV map editor for game guy dungeon maps.",
+    "default_activity": "map_editor"
+  },
+  "activity_modes": [
+    {
+      "id": "map_editor",
+      "label": "Map",
+      "icon": "M",
+      "tooltip": "CSV map editor",
+      "enabled": true
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "S",
+      "tooltip": "Settings surface",
+      "enabled": true
+    }
+  ],
+  "left_panel": {
+    "project_rows": [
+      {
+        "label": "Starter grid",
+        "meta": "8x6"
+      },
+      {
+        "label": "Layer",
+        "meta": "schematic"
+      },
+      {
+        "label": "Palette",
+        "meta": "6 tokens"
+      }
+    ],
+    "settings_label": "Theme and layout"
+  },
+  "main_workspace": {
+    "feature": "csv_map_editor"
+  },
+  "panel_defaults": {
+    "left_collapsed": false,
+    "right_collapsed": false,
+    "bottom_collapsed": false
+  },
+  "right_inspector": {
+    "source": "selected_map_cell",
+    "sections": {
+      "facts": true,
+      "selection": true,
+      "code_refs": true,
+      "notes": false,
+      "receipts": true,
+      "actions": false
+    }
+  },
+  "bottom_panel": {
+    "tabs": [
+      "Validation",
+      "Log"
+    ]
+  },
+  "data_sources": {
+    "review_subject": "",
+    "review_notes": "",
+    "map_csv": "data/maps/game_guy/starter_grid.csv",
+    "cell_metadata": "data/maps/game_guy/starter_cells.jsonl"
+  },
+  "write_policy": {
+    "writes_enabled": false,
+    "note_storage": "memory"
+  }
+}

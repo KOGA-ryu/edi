@@ -38,6 +38,7 @@ status_bar
 settings
 blank_canvas
 ui_taxonomy_review
+csv_map_editor
 ```
 
 ## Edit Boundaries
@@ -114,6 +115,7 @@ scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json 
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
 scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
+scripts/validate_csv_map_editor.js data/project_profiles/draftsman_game_guy_map_editor.json
 cmake --build build
 scripts/capture_proof.sh
 ```

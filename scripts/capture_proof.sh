@@ -7,11 +7,12 @@ cd "$repo_root"
 scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
 scripts/validate_project_profiles.js \
   data/project_profiles/draftsman_blank.json \
-  data/project_profiles/draftsman_ui_taxonomy.json
+  data/project_profiles/draftsman_ui_taxonomy.json \
+  data/project_profiles/draftsman_game_guy_map_editor.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
 scripts/validate_design_principles.js data/design_principles.json
+scripts/validate_csv_map_editor.js data/project_profiles/draftsman_game_guy_map_editor.json
 cmake --build build
 
 ./build/qt_qml_region_split \
@@ -57,6 +58,12 @@ cmake --build build
   --height 460
 
 ./build/qt_qml_region_split \
+  --screenshot docs/proof/csv_map_editor_1280x820.png \
+  --project-profile data/project_profiles/draftsman_game_guy_map_editor.json \
+  --width 1280 \
+  --height 820
+
+./build/qt_qml_region_split \
   --screenshot docs/proof/minimum_shell_960x620.png \
   --width 960 \
   --height 620
@@ -65,3 +72,5 @@ cmake --build build
   --screenshot docs/proof/tiny_shell_420x320.png \
   --width 420 \
   --height 320
+
+scripts/validate_shell_surface_map.js data/shell_surface_map.json

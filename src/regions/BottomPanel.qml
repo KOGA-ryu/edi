@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../style"
 import "../components"
+import "../features/csv_map_editor"
 
 Rectangle {
     id: bottomPanel
@@ -90,10 +91,20 @@ Rectangle {
             }
         }
 
+        CsvMapEditorBottomPanel {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.margins: UiStyle.space6
+            visible: bottomPanel.controller && bottomPanel.controller.activityMode === "map_editor"
+            controller: bottomPanel.controller
+        }
+
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !bottomPanel.controller || bottomPanel.controller.activityMode !== "review"
+            visible: !bottomPanel.controller
+                || (bottomPanel.controller.activityMode !== "review"
+                    && bottomPanel.controller.activityMode !== "map_editor")
         }
     }
 }

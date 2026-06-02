@@ -25,6 +25,16 @@ QtObject {
     property string mainWorkspaceFeature: "blank_canvas"
     property string rightInspectorSource: "none"
     property var leftProjectRows: []
+    property var projectPanelDefaults: ({})
+    property string mapCsvPath: ""
+    property string cellMetadataPath: ""
+    property string mapCsvText: ""
+    property string cellMetadataText: ""
+    property var mapGrid: []
+    property var cellMetadataByKey: ({})
+    property int selectedMapRow: 0
+    property int selectedMapCol: 0
+    property var mapTokenPalette: ["wall", "floor", "door", "start", "secret", "encounter"]
     property bool leftPanelCollapsed: false
     property bool rightPanelCollapsed: true
     property bool bottomPanelCollapsed: true
@@ -88,10 +98,17 @@ QtObject {
         UiStyle.applyTheme(uiThemeDocument)
         shellLayoutPath = typeof initialShellLayoutPath === "undefined" ? "" : String(initialShellLayoutPath)
         loadShellLayout(typeof initialShellLayout === "undefined" ? ({}) : initialShellLayout)
+        applyProjectPanelDefaults()
 
         var document = typeof initialReviewSubject === "undefined" ? ({}) : initialReviewSubject
         reviewSubjectDocument = document
         loadReviewSubject(reviewSubjectDocument)
+
+        mapCsvPath = typeof initialMapCsvPath === "undefined" ? "" : String(initialMapCsvPath)
+        mapCsvText = typeof initialMapCsvText === "undefined" ? "" : String(initialMapCsvText)
+        cellMetadataPath = typeof initialCellMetadataPath === "undefined" ? "" : String(initialCellMetadataPath)
+        cellMetadataText = typeof initialCellMetadataText === "undefined" ? "" : String(initialCellMetadataText)
+        loadMapData(mapCsvText, cellMetadataText)
     }
 
     function clamp(value, low, high) {
@@ -298,6 +315,7 @@ QtObject {
         var mainWorkspace = document && document.main_workspace ? document.main_workspace : ({})
         var rightInspector = document && document.right_inspector ? document.right_inspector : ({})
         var bottomPanel = document && document.bottom_panel ? document.bottom_panel : ({})
+        var panelDefaults = document && document.panel_defaults ? document.panel_defaults : ({})
         var writePolicy = document && document.write_policy ? document.write_policy : ({})
 
         projectId = String(profile.profile_id || "draftsman_blank")
@@ -308,6 +326,7 @@ QtObject {
         settingsNavLabel = String(leftPanel.settings_label || "Theme and layout")
         mainWorkspaceFeature = String(mainWorkspace.feature || "blank_canvas")
         rightInspectorSource = String(rightInspector.source || "none")
+        projectPanelDefaults = panelDefaults
         writeDisabled = typeof writePolicy.writes_enabled === "boolean" ? !writePolicy.writes_enabled : true
         activityModes = normalizeActivityModes(document && document.activity_modes)
         leftProjectRows = normalizeProjectRows(leftPanel.project_rows)
@@ -317,6 +336,21 @@ QtObject {
 
         var defaultActivity = String(profile.default_activity || activityMode)
         activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : activityModes[0].id
+    }
+
+    function applyProjectPanelDefaults() {
+        if (!projectPanelDefaults) {
+            return
+        }
+        if (typeof projectPanelDefaults.left_collapsed === "boolean") {
+            leftPanelCollapsed = projectPanelDefaults.left_collapsed
+        }
+        if (typeof projectPanelDefaults.right_collapsed === "boolean") {
+            rightPanelCollapsed = projectPanelDefaults.right_collapsed
+        }
+        if (typeof projectPanelDefaults.bottom_collapsed === "boolean") {
+            bottomPanelCollapsed = projectPanelDefaults.bottom_collapsed
+        }
     }
 
     function saveShellLayout() {
@@ -460,6 +494,263 @@ QtObject {
             return result
         }
         return []
+    }
+
+    function cellKey(row, col) {
+        return String(row) + ":" + String(col)
+    }
+
+    function parseCsvRow(line) {
+        var parts = String(line || "").split(",")
+        var row = []
+        for (var index = 0; index < parts.length; ++index) {
+            row.push(String(parts[index] || "").trim())
+        }
+        return row
+    }
+
+    function parseCsvGrid(text) {
+        var rows = []
+        var lines = String(text || "").split(/\r?\n/)
+        for (var lineIndex = 0; lineIndex < lines.length; ++lineIndex) {
+            var line = String(lines[lineIndex] || "").trim()
+            if (line.length > 0) {
+                rows.push(parseCsvRow(line))
+            }
+        }
+        return rows
+    }
+
+    function parseCellMetadata(text) {
+        var result = ({})
+        var lines = String(text || "").split(/\r?\n/)
+        for (var lineIndex = 0; lineIndex < lines.length; ++lineIndex) {
+            var line = String(lines[lineIndex] || "").trim()
+            if (!line.length) {
+                continue
+            }
+            try {
+                var item = JSON.parse(line)
+                var row = Number(item.row)
+                var col = Number(item.col)
+                if (Number.isFinite(row) && Number.isFinite(col)) {
+                    result[cellKey(row, col)] = item
+                }
+            } catch (error) {
+            }
+        }
+        return result
+    }
+
+    function loadMapData(csvText, metadataText) {
+        mapGrid = parseCsvGrid(csvText)
+        cellMetadataByKey = parseCellMetadata(metadataText)
+        if (mapGrid.length > 0 && mapGrid[0].length > 0) {
+            var start = firstMapCellWithToken("start")
+            selectedMapRow = start.row
+            selectedMapCol = start.col
+        } else {
+            selectedMapRow = 0
+            selectedMapCol = 0
+        }
+        revision += 1
+    }
+
+    function firstMapCellWithToken(token) {
+        for (var row = 0; row < mapGrid.length; ++row) {
+            for (var col = 0; col < mapGrid[row].length; ++col) {
+                if (mapTokenAt(row, col) === token) {
+                    return { row: row, col: col }
+                }
+            }
+        }
+        return { row: 0, col: 0 }
+    }
+
+    function displayDataPath(path) {
+        var text = String(path || "")
+        var marker = "/qt_qml_region_split/"
+        var index = text.indexOf(marker)
+        if (index >= 0) {
+            return text.slice(index + marker.length)
+        }
+        return text
+    }
+
+    function mapRowCount() {
+        return mapGrid.length
+    }
+
+    function mapColCount() {
+        var maxColumns = 0
+        for (var row = 0; row < mapGrid.length; ++row) {
+            maxColumns = Math.max(maxColumns, mapGrid[row].length)
+        }
+        return maxColumns
+    }
+
+    function mapTokenAt(row, col) {
+        if (row < 0 || row >= mapGrid.length) {
+            return ""
+        }
+        var gridRow = mapGrid[row] || []
+        if (col < 0 || col >= gridRow.length) {
+            return ""
+        }
+        return String(gridRow[col] || "")
+    }
+
+    function selectedMapToken() {
+        return mapTokenAt(selectedMapRow, selectedMapCol)
+    }
+
+    function selectedMapMetadata() {
+        return cellMetadataByKey[cellKey(selectedMapRow, selectedMapCol)] || ({})
+    }
+
+    function selectMapCell(row, col) {
+        var requestedRow = Number(row)
+        var requestedCol = Number(col)
+        selectedMapRow = Math.max(0, Math.min(Number.isFinite(requestedRow) ? requestedRow : 0, Math.max(0, mapRowCount() - 1)))
+        selectedMapCol = Math.max(0, Math.min(Number.isFinite(requestedCol) ? requestedCol : 0, Math.max(0, mapColCount() - 1)))
+        revision += 1
+    }
+
+    function mapTokenCounts(unusedRevision) {
+        var counts = ({})
+        for (var row = 0; row < mapGrid.length; ++row) {
+            for (var col = 0; col < mapGrid[row].length; ++col) {
+                var token = mapTokenAt(row, col)
+                counts[token] = Number(counts[token] || 0) + 1
+            }
+        }
+        return counts
+    }
+
+    function mapPaletteRows(unusedRevision) {
+        var counts = mapTokenCounts(revision)
+        var rows = []
+        for (var index = 0; index < mapTokenPalette.length; ++index) {
+            var token = mapTokenPalette[index]
+            rows.push({ label: token, meta: String(counts[token] || 0) })
+        }
+        return rows
+    }
+
+    function selectedCellIntent() {
+        var metadata = selectedMapMetadata()
+        return String(metadata.intent || defaultIntentForToken(selectedMapToken()))
+    }
+
+    function selectedCellTags() {
+        var tags = selectedMapMetadata().tags || []
+        if (!Array.isArray(tags)) {
+            return []
+        }
+        return tags
+    }
+
+    function selectedCellStatus() {
+        return String(selectedMapMetadata().status || "unreviewed")
+    }
+
+    function selectedCellCodeRefs() {
+        var refs = selectedMapMetadata().code_refs || selectedMapMetadata().codeRefs || []
+        if (!Array.isArray(refs) || refs.length === 0) {
+            return [displayDataPath(mapCsvPath)]
+        }
+        return refs
+    }
+
+    function defaultIntentForToken(token) {
+        if (token === "wall") return "boundary or blocker"
+        if (token === "floor") return "walkable path"
+        if (token === "door") return "transition or gate"
+        if (token === "start") return "entry point"
+        if (token === "secret") return "hidden optional branch"
+        if (token === "encounter") return "combat, puzzle, or hazard beat"
+        return "unclassified cell"
+    }
+
+    function mapValidationRows(unusedRevision) {
+        var rows = [
+            { label: "Rows", value: String(mapRowCount()) },
+            { label: "Columns", value: String(mapColCount()) },
+            { label: "Metadata rows", value: String(Object.keys(cellMetadataByKey).length) },
+            { label: "Writes", value: writeDisabled ? "disabled" : "enabled" }
+        ]
+        if (mapRowCount() === 0 || mapColCount() === 0) {
+            rows.push({ label: "Grid", value: "missing map data" })
+        } else {
+            rows.push({ label: "Grid", value: "loaded" })
+        }
+        return rows
+    }
+
+    function mapLogRows(unusedRevision) {
+        return [
+            { label: "Storage", value: "read only" },
+            { label: "CSV", value: displayDataPath(mapCsvPath) },
+            { label: "Metadata", value: displayDataPath(cellMetadataPath) },
+            { label: "Selected", value: String(selectedMapRow) + "," + String(selectedMapCol) }
+        ]
+    }
+
+    function mapCellInspectorDocument(unusedRevision) {
+        var token = selectedMapToken()
+        var tags = selectedCellTags()
+        var tagText = tags.length > 0 ? tags.join(", ") : "none"
+        var codeRefs = selectedCellCodeRefs()
+        return {
+            id: "csv_map_cell_inspector",
+            targetId: "cell_" + String(selectedMapRow) + "_" + String(selectedMapCol),
+            targetLabel: "cell " + String(selectedMapRow) + "," + String(selectedMapCol),
+            targetType: "map_cell",
+            status: selectedCellStatus(),
+            sections: [
+                {
+                    id: "facts",
+                    label: "Facts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("facts"),
+                    rows: [
+                        { label: "Coordinate", value: String(selectedMapRow) + "," + String(selectedMapCol) },
+                        { label: "Token", value: token },
+                        { label: "Status", value: selectedCellStatus() },
+                        { label: "Tags", value: tagText }
+                    ]
+                },
+                {
+                    id: "selection",
+                    label: "Selection",
+                    type: "text",
+                    visible: inspectorSectionVisible("selection"),
+                    items: [
+                        { label: "Intent", value: selectedCellIntent() },
+                        { label: "Map", value: projectTitle },
+                        { label: "Validation", value: mapRowCount() > 0 ? "grid loaded; persistence disabled" : "missing grid data" }
+                    ]
+                },
+                {
+                    id: "code_refs",
+                    label: "Code Refs",
+                    type: "code_refs",
+                    visible: inspectorSectionVisible("code_refs"),
+                    items: codeRefs
+                },
+                {
+                    id: "receipts",
+                    label: "Receipts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("receipts"),
+                    rows: [
+                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
+                        { label: "CSV", value: displayDataPath(mapCsvPath) },
+                        { label: "Metadata", value: displayDataPath(cellMetadataPath) }
+                    ]
+                }
+            ]
+        }
     }
 
     function normalizeRoute(route) {

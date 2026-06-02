@@ -12,4 +12,8 @@ Current proof set:
 - `activity_rail_drilldown_1280x820.png`
 - `note_entry_1280x820.png`
 - `settings_theme_1280x820.png`
+- `settings_panels_1280x820.png`
+- `settings_panels_compact_620x460.png`
+- `csv_map_editor_1280x820.png`
 - `minimum_shell_960x620.png`
+- `tiny_shell_420x320.png`

@@ -38,6 +38,16 @@
         "ui_taxonomy_review",
         "settings"
       ]
+    },
+    {
+      "profile_id": "draftsman_game_guy_map_editor",
+      "path": "data/project_profiles/draftsman_game_guy_map_editor.json",
+      "purpose": "CSV schematic dungeon map editor profile.",
+      "default_activity": "map_editor",
+      "enabled_features": [
+        "csv_map_editor",
+        "settings"
+      ]
     }
   ],
   "surfaces": [
@@ -49,6 +59,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -78,6 +89,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -108,6 +120,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -135,6 +148,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -145,6 +159,7 @@
       "feature_slots": [
         "blank_panel",
         "review_left_nav",
+        "csv_map_editor_left_nav",
         "settings_left_nav"
       ],
       "may_edit": [
@@ -170,6 +185,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -179,6 +195,7 @@
       "feature_slots": [
         "blank_workspace",
         "ui_taxonomy_workspace",
+        "csv_map_editor_workspace",
         "theme_settings_workspace"
       ],
       "may_edit": [
@@ -204,6 +221,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -214,6 +232,7 @@
       "feature_slots": [
         "blank_panel",
         "review_right_context",
+        "csv_map_editor_right_context",
         "settings_right_context"
       ],
       "may_edit": [
@@ -237,6 +256,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -246,7 +266,8 @@
       ],
       "feature_slots": [
         "blank_panel",
-        "review_shelf"
+        "review_shelf",
+        "csv_map_editor_shelf"
       ],
       "may_edit": [
         "bottom shelf routing",
@@ -269,6 +290,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "map_editor",
         "settings"
       ],
       "inputs": [
@@ -368,6 +390,37 @@
       "proof": [
         "docs/proof/activity_rail_drilldown_1280x820.png",
         "docs/proof/note_entry_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "csv_map_editor",
+      "kind": "feature_surface",
+      "owner_file": "src/features/csv_map_editor/CsvMapEditorWorkspace.qml",
+      "activity_modes": [
+        "map_editor"
+      ],
+      "profile": "data/project_profiles/draftsman_game_guy_map_editor.json",
+      "inputs": [
+        "data/maps/game_guy/starter_grid.csv",
+        "data/maps/game_guy/starter_cells.jsonl",
+        "controller.mapGrid",
+        "controller.selectedMapRow",
+        "controller.selectedMapCol",
+        "controller.mapCellInspectorDocument"
+      ],
+      "may_edit": [
+        "map editor feature internals",
+        "cell presentation",
+        "selected cell inspector document",
+        "map validation rows"
+      ],
+      "must_not_edit": [
+        "default blank profile",
+        "generator behavior",
+        "broad shell layout unless routing requires it"
+      ],
+      "proof": [
+        "docs/proof/csv_map_editor_1280x820.png"
       ]
     }
   ],

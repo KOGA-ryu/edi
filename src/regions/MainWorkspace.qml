@@ -4,6 +4,7 @@ import "../style"
 import "../features/blank"
 import "../features/ui_taxonomy"
 import "../features/settings"
+import "../features/csv_map_editor"
 
 Rectangle {
     id: workspace
@@ -29,11 +30,18 @@ Rectangle {
         controller: workspace.controller
     }
 
+    CsvMapEditorWorkspace {
+        anchors.fill: parent
+        visible: workspace.controller && workspace.controller.activityMode === "map_editor"
+        controller: workspace.controller
+    }
+
     BlankWorkspace {
         anchors.fill: parent
         visible: !workspace.controller
             || (workspace.controller.activityMode !== "review"
-                && workspace.controller.activityMode !== "settings")
+                && workspace.controller.activityMode !== "settings"
+                && workspace.controller.activityMode !== "map_editor")
         controller: workspace.controller
     }
 }

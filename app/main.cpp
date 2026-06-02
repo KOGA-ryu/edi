@@ -127,6 +127,9 @@ int main(int argc, char *argv[]) {
     parser.process(app);
 
     auto absolutePath = [](const QString &path) {
+        if (path.isEmpty()) {
+            return QString();
+        }
         if (QFileInfo(path).isRelative()) {
             return QDir::current().absoluteFilePath(path);
         }
@@ -134,6 +137,9 @@ int main(int argc, char *argv[]) {
     };
 
     auto projectSourcePath = [](const QString &path) {
+        if (path.isEmpty()) {
+            return QString();
+        }
         if (QFileInfo(path).isRelative()) {
             return QDir(QStringLiteral(PROJECT_SOURCE_DIR)).absoluteFilePath(path);
         }
@@ -150,6 +156,14 @@ int main(int argc, char *argv[]) {
             }
         }
         return result;
+    };
+
+    auto loadTextFile = [](const QString &path) {
+        QFile file(path);
+        if (!path.isEmpty() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return QString::fromUtf8(file.readAll());
+        }
+        return QString();
     };
 
     QString projectProfilePath = parser.isSet(projectProfileOption)
@@ -171,6 +185,11 @@ int main(int argc, char *argv[]) {
         reviewSubject = loadJsonObject(reviewSubjectPath);
     }
 
+    const QString mapCsvPath = projectSourcePath(dataSources.value(QStringLiteral("map_csv")).toString().trimmed());
+    const QString cellMetadataPath = projectSourcePath(dataSources.value(QStringLiteral("cell_metadata")).toString().trimmed());
+    const QString mapCsvText = loadTextFile(mapCsvPath);
+    const QString cellMetadataText = loadTextFile(cellMetadataPath);
+
     QString themePath = parser.isSet(themeOption)
         ? parser.value(themeOption)
         : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/ui_theme.json");
@@ -191,6 +210,10 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialUiThemePath"), themePath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfile"), projectProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfilePath"), projectProfilePath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialMapCsvPath"), mapCsvPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialMapCsvText"), mapCsvText);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataPath"), cellMetadataPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataText"), cellMetadataText);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);

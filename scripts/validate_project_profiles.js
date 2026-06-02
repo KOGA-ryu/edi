@@ -115,6 +115,14 @@ for (const file of files) {
     }
   }
 
+  if (document.panel_defaults) {
+    for (const key of ["left_collapsed", "right_collapsed", "bottom_collapsed"]) {
+      if (document.panel_defaults[key] !== undefined && typeof document.panel_defaults[key] !== "boolean") {
+        errors.push(`panel_defaults.${key} must be boolean when present`);
+      }
+    }
+  }
+
   if (document.bottom_panel) {
     requireArray(errors, document.bottom_panel, "tabs", "bottom_panel");
     for (const tab of Array.isArray(document.bottom_panel.tabs) ? document.bottom_panel.tabs : []) {
@@ -125,18 +133,25 @@ for (const file of files) {
   }
 
   if (document.data_sources) {
-    const usesBlankCanvas = document.main_workspace && document.main_workspace.feature === "blank_canvas";
-    if (usesBlankCanvas) {
+    const feature = document.main_workspace ? document.main_workspace.feature : "";
+    const doesNotRequireReviewSubject = feature === "blank_canvas" || feature === "csv_map_editor";
+    if (doesNotRequireReviewSubject) {
       optionalString(errors, document.data_sources, "review_subject", "data_sources");
     } else {
       requireString(errors, document.data_sources, "review_subject", "data_sources");
     }
     optionalString(errors, document.data_sources, "review_notes", "data_sources");
-    if (!usesBlankCanvas && typeof document.data_sources.review_notes === "string" && document.data_sources.review_notes.trim().length === 0) {
-      errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas");
+    optionalString(errors, document.data_sources, "map_csv", "data_sources");
+    optionalString(errors, document.data_sources, "cell_metadata", "data_sources");
+    if (!doesNotRequireReviewSubject && typeof document.data_sources.review_notes === "string" && document.data_sources.review_notes.trim().length === 0) {
+      errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas or csv_map_editor");
     }
-    if (!usesBlankCanvas && typeof document.data_sources.review_subject === "string" && document.data_sources.review_subject.trim().length === 0) {
-      errors.push("data_sources: review_subject is required unless main_workspace.feature is blank_canvas");
+    if (!doesNotRequireReviewSubject && typeof document.data_sources.review_subject === "string" && document.data_sources.review_subject.trim().length === 0) {
+      errors.push("data_sources: review_subject is required unless main_workspace.feature is blank_canvas or csv_map_editor");
+    }
+    if (feature === "csv_map_editor") {
+      requireString(errors, document.data_sources, "map_csv", "data_sources");
+      requireString(errors, document.data_sources, "cell_metadata", "data_sources");
     }
   }
 

@@ -6,6 +6,7 @@ import "../components"
 import "../features/blank"
 import "../features/ui_taxonomy"
 import "../features/settings"
+import "../features/csv_map_editor"
 
 Rectangle {
     id: leftPanel
@@ -90,8 +91,17 @@ Rectangle {
                         Layout.fillWidth: true
                     }
 
+                    CsvMapEditorLeftNav {
+                        controller: leftPanel.controller
+                        visible: leftPanel.controller && leftPanel.controller.activityMode === "map_editor"
+                        Layout.fillWidth: true
+                    }
+
                     BlankPanel {
-                        visible: leftPanel.controller && leftPanel.controller.activityMode !== "review" && leftPanel.controller.activityMode !== "settings"
+                        visible: leftPanel.controller
+                            && leftPanel.controller.activityMode !== "review"
+                            && leftPanel.controller.activityMode !== "settings"
+                            && leftPanel.controller.activityMode !== "map_editor"
                         Layout.fillWidth: true
                     }
                 }

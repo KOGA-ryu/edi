@@ -76,6 +76,7 @@ The meta UI taxonomy review is still available as an explicit profile:
 - Keep profile files data-only.
 - Use profile paths for project-specific review subjects.
 - Keep `draftsman_blank` free of project content.
+- Feature profiles that do not use review routes can leave `review_subject` empty when their feature validator covers their own data sources.
 - Keep theme colors in `data/ui_theme.json`.
 - Keep panel geometry in `data/shell_layout.json`.
 - Keep project-specific right-panel content shaped by `docs/right_inspector_contract.md`.

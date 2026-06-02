@@ -1,0 +1,5 @@
+{"row":1,"col":1,"intent":"player entry point","tags":["spawn","required"],"status":"valid","code_refs":["data/maps/game_guy/starter_grid.csv"]}
+{"row":1,"col":4,"intent":"soft gate from entry lane to east wing","tags":["gate","flow"],"status":"valid","code_refs":["data/maps/game_guy/starter_grid.csv"]}
+{"row":1,"col":6,"intent":"optional hidden reward branch","tags":["secret","reward"],"status":"review","code_refs":["data/maps/game_guy/starter_cells.jsonl"]}
+{"row":3,"col":1,"intent":"first combat or hazard check","tags":["encounter","pressure"],"status":"review","code_refs":["data/maps/game_guy/starter_cells.jsonl"]}
+{"row":3,"col":4,"intent":"second door creates loop choice","tags":["gate","loop"],"status":"valid","code_refs":["data/maps/game_guy/starter_grid.csv"]}

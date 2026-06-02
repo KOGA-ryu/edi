@@ -66,6 +66,8 @@ QtObject {
     readonly property int tabHeight: 30
     readonly property int railButtonSize: 34
     readonly property int sectionHeaderHeight: 20
+    readonly property int splitterHitSize: 8
+    readonly property int splitterLineSize: 1
 
     // Borders and radius
     readonly property int borderNone: 0

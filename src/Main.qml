@@ -76,7 +76,7 @@ ApplicationWindow {
             Rectangle {
                 id: leftResizeHandle
                 visible: window.effectiveLeftPanelVisible
-                Layout.preferredWidth: visible ? 6 : 0
+                Layout.preferredWidth: visible ? UiStyle.splitterHitSize : 0
                 Layout.fillHeight: true
                 color: UiStyle.colorTransparent
 
@@ -84,8 +84,9 @@ ApplicationWindow {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    width: 1
+                    width: UiStyle.splitterLineSize
                     color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                    opacity: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? 0.9 : 0.55
                 }
 
                 MouseArea {
@@ -133,7 +134,7 @@ ApplicationWindow {
                     Rectangle {
                         id: rightResizeHandle
                         visible: window.effectiveRightPanelVisible
-                        Layout.preferredWidth: visible ? 6 : 0
+                        Layout.preferredWidth: visible ? UiStyle.splitterHitSize : 0
                         Layout.fillHeight: true
                         color: UiStyle.colorTransparent
 
@@ -141,8 +142,9 @@ ApplicationWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: 1
+                            width: UiStyle.splitterLineSize
                             color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                            opacity: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? 0.9 : 0.55
                         }
 
                         MouseArea {
@@ -181,15 +183,16 @@ ApplicationWindow {
                     id: bottomResizeHandle
                     visible: window.effectiveBottomPanelVisible
                     Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? 6 : 0
+                    Layout.preferredHeight: visible ? UiStyle.splitterHitSize : 0
                     color: UiStyle.colorTransparent
 
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        height: 1
+                        height: UiStyle.splitterLineSize
                         color: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                        opacity: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? 0.9 : 0.55
                     }
 
                     MouseArea {

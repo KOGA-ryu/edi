@@ -65,7 +65,7 @@ QtObject {
     readonly property int toolbarHeight: 34
     readonly property int tabHeight: 30
     readonly property int railButtonSize: 34
-    readonly property int sectionHeaderHeight: 24
+    readonly property int sectionHeaderHeight: 20
 
     // Borders and radius
     readonly property int borderNone: 0

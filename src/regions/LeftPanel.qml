@@ -20,7 +20,7 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: UiStyle.space10
-        spacing: UiStyle.space8
+        spacing: UiStyle.space6
 
         RowLayout {
             Layout.fillWidth: true

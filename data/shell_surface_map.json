@@ -1,0 +1,380 @@
+{
+  "schema_version": 1,
+  "map_id": "draftsman_shell_surface_map",
+  "default_profile": "data/project_profiles/draftsman_blank.json",
+  "principles": [
+    "The shell owns layout and panel behavior.",
+    "Project profiles choose activity modes and feature surfaces.",
+    "Feature code fills declared surfaces; it does not fork shell regions.",
+    "Blank mode must stay free of project content and review taxonomy state.",
+    "Builder agents should plan from this map before reading broad QML context."
+  ],
+  "entry_documents": [
+    "docs/surface_contract.md",
+    "docs/project_profile_contract.md",
+    "docs/reusable_shell_contract.md",
+    "docs/right_inspector_contract.md",
+    "docs/work_orders/feature_integration_template.md"
+  ],
+  "profiles": [
+    {
+      "profile_id": "draftsman_blank",
+      "path": "data/project_profiles/draftsman_blank.json",
+      "purpose": "True blank reusable shell.",
+      "default_activity": "blank",
+      "enabled_features": [
+        "blank_canvas",
+        "settings"
+      ]
+    },
+    {
+      "profile_id": "draftsman_ui_taxonomy",
+      "path": "data/project_profiles/draftsman_ui_taxonomy.json",
+      "purpose": "Optional meta review profile for the Draftsman shell itself.",
+      "default_activity": "review",
+      "enabled_features": [
+        "ui_taxonomy_review",
+        "settings"
+      ]
+    }
+  ],
+  "surfaces": [
+    {
+      "surface_id": "window",
+      "kind": "shell_root",
+      "owner_file": "src/Main.qml",
+      "data_ui": "window",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "initialShellLayout.window",
+        "RuntimeController.panelVisible"
+      ],
+      "may_edit": [
+        "composition of top-level regions",
+        "splitter placement",
+        "root window sizing policy"
+      ],
+      "must_not_edit": [
+        "project-specific feature content",
+        "theme literal colors outside UiStyle"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png",
+        "docs/proof/minimum_shell_960x620.png",
+        "docs/proof/tiny_shell_420x320.png"
+      ]
+    },
+    {
+      "surface_id": "top_chrome",
+      "kind": "region",
+      "owner_file": "src/regions/WindowTitleBar.qml",
+      "data_ui": "top_chrome",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.hasActivityMode",
+        "controller.panelState"
+      ],
+      "may_edit": [
+        "global navigation buttons",
+        "panel collapse buttons",
+        "window controls"
+      ],
+      "must_not_edit": [
+        "feature-specific tabs",
+        "large titles",
+        "project document content"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png",
+        "docs/proof/activity_rail_drilldown_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "activity_rail",
+      "kind": "region",
+      "owner_file": "src/regions/ActivityRail.qml",
+      "data_ui": "activity_rail",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityModes",
+        "controller.activityMode"
+      ],
+      "may_edit": [
+        "mode switcher presentation",
+        "activity button density"
+      ],
+      "must_not_edit": [
+        "hard-coded project modes",
+        "disabled placeholder buttons"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png",
+        "docs/proof/activity_rail_drilldown_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "left_panel",
+      "kind": "region_host",
+      "owner_file": "src/regions/LeftPanel.qml",
+      "data_ui": "left_panel",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.leftProjectRows",
+        "controller.settingsNavLabel"
+      ],
+      "feature_slots": [
+        "blank_panel",
+        "review_left_nav",
+        "settings_left_nav"
+      ],
+      "may_edit": [
+        "left-panel routing",
+        "project navigation density",
+        "scroll behavior"
+      ],
+      "must_not_edit": [
+        "center workspace feature content",
+        "right inspector content",
+        "hidden placeholder commands"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png",
+        "docs/proof/settings_theme_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "main_workspace",
+      "kind": "region_host",
+      "owner_file": "src/regions/MainWorkspace.qml",
+      "data_ui": "main_workspace",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.mainWorkspaceFeature"
+      ],
+      "feature_slots": [
+        "blank_workspace",
+        "ui_taxonomy_workspace",
+        "theme_settings_workspace"
+      ],
+      "may_edit": [
+        "activity-to-feature routing",
+        "workspace host behavior"
+      ],
+      "must_not_edit": [
+        "left navigation",
+        "right inspector",
+        "feature internals unless the work order targets them"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png",
+        "docs/proof/activity_rail_drilldown_1280x820.png",
+        "docs/proof/settings_theme_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "right_panel",
+      "kind": "region_host",
+      "owner_file": "src/regions/RightPanel.qml",
+      "data_ui": "right_panel",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.rightInspectorSource",
+        "controller.rightInspectorDocument"
+      ],
+      "feature_slots": [
+        "blank_panel",
+        "review_right_context",
+        "settings_right_context"
+      ],
+      "may_edit": [
+        "right-panel routing",
+        "inspector host density",
+        "blank inspector behavior"
+      ],
+      "must_not_edit": [
+        "center workspace layout",
+        "project-specific inspector data without a contract"
+      ],
+      "proof": [
+        "docs/proof/settings_panels_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "bottom_panel",
+      "kind": "region_host",
+      "owner_file": "src/regions/BottomPanel.qml",
+      "data_ui": "bottom_panel",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.shelfTabs",
+        "controller.selectedShelfTab"
+      ],
+      "feature_slots": [
+        "blank_panel",
+        "review_shelf"
+      ],
+      "may_edit": [
+        "bottom shelf routing",
+        "tab density",
+        "review output rows"
+      ],
+      "must_not_edit": [
+        "right inspector width policy",
+        "persistent log writing without a receipt contract"
+      ],
+      "proof": [
+        "docs/proof/settings_panels_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "status_bar",
+      "kind": "region",
+      "owner_file": "src/regions/StatusBar.qml",
+      "data_ui": "status_bar",
+      "activity_modes": [
+        "blank",
+        "review",
+        "settings"
+      ],
+      "inputs": [
+        "controller.activityMode",
+        "controller.hasReviewSubject",
+        "controller.writeDisabled"
+      ],
+      "may_edit": [
+        "global low-priority status",
+        "review-only counters"
+      ],
+      "must_not_edit": [
+        "large labels",
+        "project document content"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "settings",
+      "kind": "feature_surface",
+      "owner_file": "src/features/settings/ThemeSettingsWorkspace.qml",
+      "activity_modes": [
+        "settings"
+      ],
+      "inputs": [
+        "controller.selectedSettingsPage",
+        "controller.uiThemeDocument",
+        "controller.shellLayoutPath"
+      ],
+      "feature_slots": [
+        "settings_theme",
+        "settings_panels",
+        "settings_planned_pages"
+      ],
+      "may_edit": [
+        "theme controls",
+        "panel layout controls",
+        "planned settings pages"
+      ],
+      "must_not_edit": [
+        "review taxonomy content",
+        "project-specific settings without project profile data"
+      ],
+      "proof": [
+        "docs/proof/settings_theme_1280x820.png",
+        "docs/proof/settings_panels_1280x820.png",
+        "docs/proof/settings_panels_compact_620x460.png"
+      ]
+    },
+    {
+      "surface_id": "blank_canvas",
+      "kind": "feature_surface",
+      "owner_file": "src/features/blank/BlankWorkspace.qml",
+      "data_ui": "blank_workspace",
+      "activity_modes": [
+        "blank"
+      ],
+      "inputs": [
+        "controller.activityMode"
+      ],
+      "may_edit": [
+        "blank visual surface only"
+      ],
+      "must_not_edit": [
+        "project content",
+        "placeholder titles",
+        "review route state"
+      ],
+      "proof": [
+        "docs/proof/default_shell_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "ui_taxonomy_review",
+      "kind": "feature_surface",
+      "owner_file": "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml",
+      "activity_modes": [
+        "review"
+      ],
+      "profile": "data/project_profiles/draftsman_ui_taxonomy.json",
+      "inputs": [
+        "data/review_subjects/draftsman_ui_taxonomy.json",
+        "controller.hasReviewSubject",
+        "controller.selectedRouteId"
+      ],
+      "may_edit": [
+        "meta review feature internals",
+        "route cards",
+        "review notes surface"
+      ],
+      "must_not_edit": [
+        "default blank profile",
+        "shell layout unless routing requires it"
+      ],
+      "proof": [
+        "docs/proof/activity_rail_drilldown_1280x820.png",
+        "docs/proof/note_entry_1280x820.png"
+      ]
+    }
+  ],
+  "integration_workflow": [
+    "Read docs/surface_contract.md.",
+    "Read this JSON map and select target surfaces.",
+    "Read only the owner files for selected surfaces.",
+    "Write a feature integration plan using docs/work_orders/feature_integration_template.md.",
+    "Implement through project profile data and feature modules first; edit shell regions only for routing or shared behavior.",
+    "Run validators, build, and capture proof screenshots for every touched surface."
+  ]
+}

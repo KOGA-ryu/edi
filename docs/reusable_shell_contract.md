@@ -55,3 +55,7 @@ For a true blank app, set `main_workspace.feature` to `blank_canvas` and leave `
 - Consumer app custom features: add as new feature surfaces with data contracts, not by forking shared shell files.
 
 If a project needs a shell improvement, make it in the shared source first. If it needs project-specific content, put it in the consumer data or a feature module with a clear contract.
+
+## Dex Planning Entry Point
+
+Any Dex preparing an integration plan should read `data/shell_surface_map.json` and `docs/surface_contract.md` before inspecting QML. The map defines stable surface ids, owner files, proof hooks, and edit boundaries.

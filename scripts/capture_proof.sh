@@ -10,6 +10,7 @@ scripts/validate_project_profiles.js \
   data/project_profiles/draftsman_ui_taxonomy.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
+scripts/validate_shell_surface_map.js data/shell_surface_map.json
 cmake --build build
 
 ./build/qt_qml_region_split \

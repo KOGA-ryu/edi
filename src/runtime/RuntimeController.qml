@@ -36,12 +36,12 @@ QtObject {
     property int bottomPanelHeight: UiStyle.bottomPanelHeight
     property int leftPanelMinWidth: 180
     property int leftPanelMaxWidth: 520
-    property int rightPanelMinWidth: 240
-    property int rightPanelMaxWidth: 460
+    property int rightPanelMinWidth: 160
+    property int rightPanelMaxWidth: 1200
     property int bottomPanelMinHeight: 96
     property int bottomPanelMaxHeight: 360
     property int leftPanelAutoHideWidth: 640
-    property int rightPanelAutoHideWidth: 520
+    property int rightPanelAutoHideWidth: 0
     property int bottomPanelAutoHideHeight: 520
     property var rightInspectorSections: ({
         facts: true,
@@ -126,12 +126,12 @@ QtObject {
 
         leftPanelMinWidth = policyInt(leftPolicy, "min_width", 180, 120, 900)
         leftPanelMaxWidth = policyInt(leftPolicy, "max_width", 520, leftPanelMinWidth, 1200)
-        rightPanelMinWidth = policyInt(rightPolicy, "min_width", 240, 120, 900)
-        rightPanelMaxWidth = policyInt(rightPolicy, "max_width", 460, rightPanelMinWidth, 1200)
+        rightPanelMinWidth = policyInt(rightPolicy, "min_width", 160, 120, 900)
+        rightPanelMaxWidth = policyInt(rightPolicy, "max_width", 1200, rightPanelMinWidth, 1200)
         bottomPanelMinHeight = policyInt(bottomPolicy, "min_height", 96, 60, 700)
         bottomPanelMaxHeight = policyInt(bottomPolicy, "max_height", 360, bottomPanelMinHeight, 1000)
         leftPanelAutoHideWidth = policyInt(leftPolicy, "auto_hide_below_width", 640, 0, 2400)
-        rightPanelAutoHideWidth = policyInt(rightPolicy, "auto_hide_below_width", 520, 0, 2400)
+        rightPanelAutoHideWidth = policyInt(rightPolicy, "auto_hide_below_width", 0, 0, 2400)
         bottomPanelAutoHideHeight = policyInt(bottomPolicy, "auto_hide_below_height", 520, 0, 1800)
         leftPanelCollapsed = !!left.collapsed
         rightPanelCollapsed = typeof right.collapsed === "boolean" ? right.collapsed : true
@@ -621,7 +621,7 @@ QtObject {
                     id: "notes",
                     label: "Notes",
                     type: "notes",
-                    visible: inspectorSectionVisible("notes"),
+                    visible: inspectorSectionVisible("notes") && notesForRoute.length > 0,
                     items: notesForRoute.slice(-2)
                 },
                 {

@@ -8,7 +8,7 @@ Rectangle {
     property string role: "code"
     property bool hovered: false
 
-    implicitHeight: 24
+    implicitHeight: 22
     color: hovered ? UiStyle.colorControlHover : UiStyle.colorTransparent
     radius: UiStyle.radiusSm
     border.width: UiStyle.borderNone
@@ -27,7 +27,7 @@ Rectangle {
             elide: Text.ElideMiddle
         }
         Text {
-            Layout.maximumWidth: 52
+            Layout.maximumWidth: 44
             text: row.role
             color: UiStyle.colorTextFaint
             font.family: UiStyle.fontSans

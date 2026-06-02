@@ -52,33 +52,35 @@ ColumnLayout {
         return "reserved"
     }
 
-    UiSectionHeader { title: "Selected Page"; Layout.fillWidth: true }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Page"
         meta: root.pageLabel(root.currentPageId())
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Id"
         meta: root.currentPageId()
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Status"
         meta: root.pageStatus(root.currentPageId())
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Writes"
         meta: root.controller && root.controller.writeDisabled ? "disabled" : "enabled"
-        metaMaxWidth: 90
+        metaMaxWidth: Math.max(64, Math.min(180, width * 0.48))
     }
 
-    UiSectionHeader { title: "Source"; Layout.fillWidth: true }
     UiCodeRefRow {
         Layout.fillWidth: true
         path: root.pageSource(root.currentPageId()) || root.pageContract(root.currentPageId())
@@ -86,50 +88,49 @@ ColumnLayout {
     }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Persistence"
         meta: root.pagePersistence(root.currentPageId())
-        metaMaxWidth: 140
-    }
-
-    UiSectionHeader {
-        visible: root.currentPageId() === "panels"
-        title: "Panel State"
-        Layout.fillWidth: true
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         visible: root.currentPageId() === "panels"
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Left"
         meta: root.controller ? root.controller.panelStateLabel("left") : ""
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         visible: root.currentPageId() === "panels"
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Right"
         meta: root.controller ? root.controller.panelStateLabel("right") : ""
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         visible: root.currentPageId() === "panels"
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Bottom"
         meta: root.controller ? root.controller.panelStateLabel("bottom") : ""
-        metaMaxWidth: 140
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
 
-    UiSectionHeader { title: "Review Context"; Layout.fillWidth: true }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Subject"
         meta: root.controller ? root.controller.selectedSubjectLabel : ""
-        metaMaxWidth: 150
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
         Layout.fillWidth: true
+        Layout.preferredHeight: 22
         label: "Route"
         meta: root.controller ? root.controller.currentRoute().label : ""
-        metaMaxWidth: 150
+        metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
 
     Item { Layout.fillHeight: true }

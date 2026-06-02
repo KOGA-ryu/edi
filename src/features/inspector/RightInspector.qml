@@ -45,9 +45,38 @@ ScrollView {
         return action && action.kind === "status" && inspector.document && action.value === inspector.document.status
     }
 
+    function sectionItems(section) {
+        if (!section) {
+            return []
+        }
+        if (section.type === "rows") {
+            return inspector.asArray(section.rows)
+        }
+        if (section.type === "actions") {
+            return inspector.asArray(section.actions)
+        }
+        return inspector.asArray(section.items)
+    }
+
+    function sectionHasContent(section) {
+        if (!section || section.visible === false) {
+            return false
+        }
+        if (section.type === "text") {
+            var items = inspector.asArray(section.items)
+            for (var index = 0; index < items.length; ++index) {
+                if (inspector.textValue(items[index].value).length > 0) {
+                    return true
+                }
+            }
+            return false
+        }
+        return inspector.sectionItems(section).length > 0
+    }
+
     ColumnLayout {
-        width: Math.max(parent.width - 28, 220)
-        spacing: UiStyle.space6
+        width: Math.max(parent.width - 12, 148)
+        spacing: UiStyle.space8
 
         Repeater {
             model: inspector.asArray(inspector.document.sections)
@@ -57,28 +86,24 @@ ScrollView {
 
                 property var sectionData: modelData
 
-                visible: sectionData.visible !== false
+                visible: inspector.sectionHasContent(sectionData)
                 Layout.fillWidth: true
-                spacing: UiStyle.space4
-
-                UiSectionHeader {
-                    title: inspector.textValue(section.sectionData.label || section.sectionData.id)
-                    Layout.fillWidth: true
-                }
+                spacing: UiStyle.space2
 
                 ColumnLayout {
                     visible: section.sectionData.type === "rows"
                     Layout.fillWidth: true
-                    spacing: UiStyle.space2
+                    spacing: UiStyle.space0
 
                     Repeater {
                         model: inspector.asArray(section.sectionData.rows)
                         delegate: UiListRow {
                             Layout.fillWidth: true
+                            Layout.preferredHeight: 22
                             label: inspector.textValue(modelData.label)
                             meta: inspector.textValue(modelData.value)
-                            metaMaxWidth: 150
-                            hideMetaBelowWidth: 210
+                            metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
+                            hideMetaBelowWidth: 0
                         }
                     }
                 }
@@ -86,11 +111,12 @@ ScrollView {
                 ColumnLayout {
                     visible: section.sectionData.type === "text"
                     Layout.fillWidth: true
-                    spacing: UiStyle.space4
+                    spacing: UiStyle.space6
 
                     Repeater {
                         model: inspector.asArray(section.sectionData.items)
                         delegate: ColumnLayout {
+                            visible: inspector.textValue(modelData.value).length > 0
                             Layout.fillWidth: true
                             spacing: UiStyle.space2
 
@@ -119,7 +145,7 @@ ScrollView {
                 ColumnLayout {
                     visible: section.sectionData.type === "code_refs"
                     Layout.fillWidth: true
-                    spacing: UiStyle.space4
+                    spacing: UiStyle.space0
 
                     Repeater {
                         model: inspector.asArray(section.sectionData.items)
@@ -145,19 +171,12 @@ ScrollView {
                             createdAt: inspector.textValue(modelData.createdAt)
                         }
                     }
-
-                    UiListRow {
-                        visible: inspector.asArray(section.sectionData.items).length === 0
-                        Layout.fillWidth: true
-                        label: "No notes"
-                        meta: "empty"
-                    }
                 }
 
                 GridLayout {
                     visible: section.sectionData.type === "actions"
                     Layout.fillWidth: true
-                    columns: width > 260 ? 2 : 1
+                    columns: width > 220 ? 2 : 1
                     columnSpacing: UiStyle.space4
                     rowSpacing: UiStyle.space4
 
@@ -175,7 +194,7 @@ ScrollView {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: UiStyle.space4
+                    Layout.preferredHeight: UiStyle.space2
                 }
             }
         }

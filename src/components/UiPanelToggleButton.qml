@@ -7,14 +7,20 @@ Rectangle {
 
     property string edge: "left"
     property bool selected: false
+    property string panelState: selected ? "visible" : "collapsed"
     property string tooltip: ""
     signal clicked()
 
     implicitWidth: 30
     implicitHeight: 30
     radius: UiStyle.radiusSm
-    color: mouseArea.containsMouse ? UiStyle.colorControlHover : selected ? UiStyle.colorSelected : UiStyle.colorControl
-    border.color: selected ? UiStyle.colorBorderFocus : UiStyle.colorBorderMinor
+    color: mouseArea.containsMouse ? UiStyle.colorControlHover
+        : panelState === "visible" ? UiStyle.colorSelected
+        : panelState === "auto_hidden" ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorWarning, 0.18)
+        : UiStyle.colorControl
+    border.color: panelState === "visible" ? UiStyle.colorBorderFocus
+        : panelState === "auto_hidden" ? UiStyle.colorWarning
+        : UiStyle.colorBorderMinor
     border.width: UiStyle.borderThin
 
     ToolTip.visible: mouseArea.containsMouse && tooltip.length > 0
@@ -27,7 +33,7 @@ Rectangle {
         height: 14
         radius: 2
         color: UiStyle.colorTransparent
-        border.color: UiStyle.colorTextMuted
+        border.color: panelState === "auto_hidden" ? UiStyle.colorWarning : UiStyle.colorTextMuted
         border.width: UiStyle.borderThin
     }
 
@@ -38,7 +44,7 @@ Rectangle {
         width: 5
         height: frame.height - 2
         radius: 1
-        color: selected ? UiStyle.colorAccent : UiStyle.colorTextFaint
+        color: panelState === "visible" ? UiStyle.colorAccent : panelState === "auto_hidden" ? UiStyle.colorWarning : UiStyle.colorTextFaint
     }
 
     Rectangle {
@@ -48,7 +54,7 @@ Rectangle {
         width: 5
         height: frame.height - 2
         radius: 1
-        color: selected ? UiStyle.colorAccent : UiStyle.colorTextFaint
+        color: panelState === "visible" ? UiStyle.colorAccent : panelState === "auto_hidden" ? UiStyle.colorWarning : UiStyle.colorTextFaint
     }
 
     Rectangle {
@@ -58,7 +64,7 @@ Rectangle {
         width: frame.width - 2
         height: 4
         radius: 1
-        color: selected ? UiStyle.colorAccent : UiStyle.colorTextFaint
+        color: panelState === "visible" ? UiStyle.colorAccent : panelState === "auto_hidden" ? UiStyle.colorWarning : UiStyle.colorTextFaint
     }
 
     MouseArea {

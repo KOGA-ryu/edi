@@ -25,6 +25,20 @@ Rectangle {
         }
     }
 
+    function panelTooltip(panelId, label) {
+        if (!controller) {
+            return label
+        }
+        var state = controller.panelState(panelId)
+        if (state === "auto_hidden") {
+            return label + " is auto-hidden by window size"
+        }
+        if (state === "collapsed") {
+            return "Show " + label.toLowerCase()
+        }
+        return "Collapse " + label.toLowerCase()
+    }
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
@@ -90,22 +104,25 @@ Rectangle {
 
             UiPanelToggleButton {
                 edge: "left"
-                tooltip: titleBar.controller && titleBar.controller.leftPanelCollapsed ? "Show left panel" : "Collapse left panel"
-                selected: titleBar.controller && !titleBar.controller.leftPanelCollapsed
+                panelState: titleBar.controller ? titleBar.controller.panelState("left") : "visible"
+                tooltip: titleBar.panelTooltip("left", "Left panel")
+                selected: panelState === "visible"
                 onClicked: titleBar.controller.toggleLeftPanel()
             }
 
             UiPanelToggleButton {
                 edge: "bottom"
-                tooltip: titleBar.controller && titleBar.controller.bottomPanelCollapsed ? "Show bottom panel" : "Collapse bottom panel"
-                selected: titleBar.controller && !titleBar.controller.bottomPanelCollapsed
+                panelState: titleBar.controller ? titleBar.controller.panelState("bottom") : "visible"
+                tooltip: titleBar.panelTooltip("bottom", "Bottom panel")
+                selected: panelState === "visible"
                 onClicked: titleBar.controller.toggleBottomPanel()
             }
 
             UiPanelToggleButton {
                 edge: "right"
-                tooltip: titleBar.controller && titleBar.controller.rightPanelCollapsed ? "Show right panel" : "Collapse right panel"
-                selected: titleBar.controller && !titleBar.controller.rightPanelCollapsed
+                panelState: titleBar.controller ? titleBar.controller.panelState("right") : "visible"
+                tooltip: titleBar.panelTooltip("right", "Right panel")
+                selected: panelState === "visible"
                 onClicked: titleBar.controller.toggleRightPanel()
             }
         }

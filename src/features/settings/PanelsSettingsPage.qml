@@ -8,6 +8,8 @@ ScrollView {
     id: root
 
     property var controller: null
+    property int windowWidth: controller && controller.targetRoot ? controller.targetRoot.width : 0
+    property int windowHeight: controller && controller.targetRoot ? controller.targetRoot.height : 0
 
     clip: true
 
@@ -21,9 +23,78 @@ ScrollView {
         return controller.shellLayoutDirty ? "Save Layout" : "Saved"
     }
 
+    function panelState(panelId) {
+        if (!controller) {
+            return "visible"
+        }
+        windowWidth
+        windowHeight
+        return controller.panelState(panelId)
+    }
+
+    function panelMeta(panelId) {
+        if (!controller) {
+            return ""
+        }
+        windowWidth
+        windowHeight
+        return controller.panelStateLabel(panelId) + " / " + controller.panelStateDetail(panelId)
+    }
+
+    function panelStateRowLabel(panelId, label) {
+        return label + ": " + panelState(panelId).replace("_", "-")
+    }
+
+    function panelStateRowMeta(panelId) {
+        if (!controller) {
+            return ""
+        }
+        windowWidth
+        windowHeight
+        return controller.panelStateDetail(panelId)
+    }
+
+    function panelButtonLabel(panelId) {
+        return controller && controller.panelManualCollapsed(panelId) ? "Show" : "Hide"
+    }
+
     ColumnLayout {
         width: Math.max(parent.width - 18, 520)
         spacing: UiStyle.space10
+
+        UiPanel {
+            Layout.fillWidth: true
+            implicitHeight: 164
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: UiStyle.space12
+                spacing: UiStyle.space8
+
+                UiSectionHeader {
+                    title: "Current Panel State"
+                    Layout.fillWidth: true
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: root.panelStateRowLabel("left", "Left")
+                    meta: root.panelStateRowMeta("left")
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: root.panelStateRowLabel("right", "Right")
+                    meta: root.panelStateRowMeta("right")
+                }
+
+                UiListRow {
+                    Layout.fillWidth: true
+                    label: root.panelStateRowLabel("bottom", "Bottom")
+                    meta: root.panelStateRowMeta("bottom")
+                }
+            }
+        }
 
         UiPanel {
             Layout.fillWidth: true
@@ -82,7 +153,61 @@ ScrollView {
 
         UiPanel {
             Layout.fillWidth: true
-            implicitHeight: 184
+            implicitHeight: 142
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: UiStyle.space12
+                spacing: UiStyle.space8
+
+                UiSectionHeader {
+                    title: "Layout Presets"
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: UiStyle.space8
+
+                    UiButton {
+                        label: "Full"
+                        implicitWidth: 96
+                        onClicked: root.controller.applyLayoutPreset("full")
+                    }
+
+                    UiButton {
+                        label: "Focus"
+                        implicitWidth: 96
+                        onClicked: root.controller.applyLayoutPreset("focus")
+                    }
+
+                    UiButton {
+                        label: "Review"
+                        implicitWidth: 96
+                        onClicked: root.controller.applyLayoutPreset("review")
+                    }
+
+                    UiButton {
+                        label: "Tiny"
+                        implicitWidth: 96
+                        onClicked: root.controller.applyLayoutPreset("tiny")
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Presets change the working layout only. Use Save Layout to make one the startup layout."
+                    color: UiStyle.colorTextFaint
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeSm
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
+        UiPanel {
+            Layout.fillWidth: true
+            implicitHeight: 208
 
             ColumnLayout {
                 anchors.fill: parent
@@ -103,9 +228,14 @@ ScrollView {
                         font.family: UiStyle.fontSans
                         font.pixelSize: UiStyle.fontSizeBody
                     }
+                    UiListRow {
+                        label: root.panelState("left")
+                        meta: root.panelMeta("left")
+                        Layout.preferredWidth: 310
+                    }
                     UiButton {
-                        label: root.controller && root.controller.leftPanelCollapsed ? "Show" : "Hide"
-                        selected: root.controller && !root.controller.leftPanelCollapsed
+                        label: root.panelButtonLabel("left")
+                        selected: root.panelState("left") === "visible"
                         implicitWidth: 96
                         onClicked: root.controller.toggleLeftPanel()
                     }
@@ -120,9 +250,14 @@ ScrollView {
                         font.family: UiStyle.fontSans
                         font.pixelSize: UiStyle.fontSizeBody
                     }
+                    UiListRow {
+                        label: root.panelState("right")
+                        meta: root.panelMeta("right")
+                        Layout.preferredWidth: 310
+                    }
                     UiButton {
-                        label: root.controller && root.controller.rightPanelCollapsed ? "Show" : "Hide"
-                        selected: root.controller && !root.controller.rightPanelCollapsed
+                        label: root.panelButtonLabel("right")
+                        selected: root.panelState("right") === "visible"
                         implicitWidth: 96
                         onClicked: root.controller.toggleRightPanel()
                     }
@@ -137,9 +272,14 @@ ScrollView {
                         font.family: UiStyle.fontSans
                         font.pixelSize: UiStyle.fontSizeBody
                     }
+                    UiListRow {
+                        label: root.panelState("bottom")
+                        meta: root.panelMeta("bottom")
+                        Layout.preferredWidth: 310
+                    }
                     UiButton {
-                        label: root.controller && root.controller.bottomPanelCollapsed ? "Show" : "Hide"
-                        selected: root.controller && !root.controller.bottomPanelCollapsed
+                        label: root.panelButtonLabel("bottom")
+                        selected: root.panelState("bottom") === "visible"
                         implicitWidth: 96
                         onClicked: root.controller.toggleBottomPanel()
                     }

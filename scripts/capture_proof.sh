@@ -43,6 +43,13 @@ cmake --build build
   --height 820
 
 ./build/qt_qml_region_split \
+  --screenshot docs/proof/settings_panels_compact_620x460.png \
+  --activity settings \
+  --settings-page panels \
+  --width 620 \
+  --height 460
+
+./build/qt_qml_region_split \
   --screenshot docs/proof/minimum_shell_960x620.png \
   --width 960 \
   --height 620

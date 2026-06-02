@@ -26,9 +26,9 @@ ApplicationWindow {
     property int dragStartX: 0
     property int dragStartY: 0
     property int dragStartSize: 0
-    property bool effectiveLeftPanelVisible: !runtimeController.leftPanelCollapsed && width >= 640
-    property bool effectiveRightPanelVisible: !runtimeController.rightPanelCollapsed && width >= 1040
-    property bool effectiveBottomPanelVisible: !runtimeController.bottomPanelCollapsed && height >= 520
+    property bool effectiveLeftPanelVisible: runtimeController.panelVisible("left")
+    property bool effectiveRightPanelVisible: runtimeController.panelVisible("right")
+    property bool effectiveBottomPanelVisible: runtimeController.panelVisible("bottom")
 
     RuntimeController {
         id: runtimeController

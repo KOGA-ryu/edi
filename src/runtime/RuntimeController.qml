@@ -124,6 +124,110 @@ QtObject {
         markShellLayoutDirty()
     }
 
+    function windowWidth() {
+        return targetRoot ? Number(targetRoot.width) : UiStyle.windowWidth
+    }
+
+    function windowHeight() {
+        return targetRoot ? Number(targetRoot.height) : UiStyle.windowHeight
+    }
+
+    function panelManualCollapsed(panelId) {
+        if (panelId === "left") {
+            return leftPanelCollapsed
+        }
+        if (panelId === "right") {
+            return rightPanelCollapsed
+        }
+        if (panelId === "bottom") {
+            return bottomPanelCollapsed
+        }
+        return false
+    }
+
+    function panelAutoHidden(panelId) {
+        if (panelManualCollapsed(panelId)) {
+            return false
+        }
+        if (panelId === "left") {
+            return windowWidth() < 640
+        }
+        if (panelId === "right") {
+            return windowWidth() < 1040
+        }
+        if (panelId === "bottom") {
+            return windowHeight() < 520
+        }
+        return false
+    }
+
+    function panelVisible(panelId) {
+        return !panelManualCollapsed(panelId) && !panelAutoHidden(panelId)
+    }
+
+    function panelState(panelId) {
+        if (panelManualCollapsed(panelId)) {
+            return "collapsed"
+        }
+        if (panelAutoHidden(panelId)) {
+            return "auto_hidden"
+        }
+        return "visible"
+    }
+
+    function panelStateLabel(panelId) {
+        var state = panelState(panelId)
+        if (state === "collapsed") {
+            return "manual collapsed"
+        }
+        if (state === "auto_hidden") {
+            return "auto-hidden"
+        }
+        return "visible"
+    }
+
+    function panelStateDetail(panelId) {
+        if (panelId === "left") {
+            return panelAutoHidden(panelId) ? "auto-hidden below 640px width" : String(leftPanelWidth) + " px"
+        }
+        if (panelId === "right") {
+            return panelAutoHidden(panelId) ? "auto-hidden below 1040px width" : String(rightPanelWidth) + " px"
+        }
+        if (panelId === "bottom") {
+            return panelAutoHidden(panelId) ? "auto-hidden below 520px height" : String(bottomPanelHeight) + " px"
+        }
+        return ""
+    }
+
+    function applyLayoutPreset(presetId) {
+        if (presetId === "full") {
+            leftPanelCollapsed = false
+            rightPanelCollapsed = false
+            bottomPanelCollapsed = false
+            leftPanelWidth = UiStyle.leftPanelWidth
+            rightPanelWidth = UiStyle.rightPanelWidth
+            bottomPanelHeight = UiStyle.bottomPanelHeight
+        } else if (presetId === "focus") {
+            leftPanelCollapsed = true
+            rightPanelCollapsed = true
+            bottomPanelCollapsed = true
+        } else if (presetId === "review") {
+            leftPanelCollapsed = false
+            rightPanelCollapsed = false
+            bottomPanelCollapsed = true
+            leftPanelWidth = UiStyle.leftPanelWidth
+            rightPanelWidth = UiStyle.rightPanelWidth
+        } else if (presetId === "tiny") {
+            leftPanelCollapsed = true
+            rightPanelCollapsed = true
+            bottomPanelCollapsed = true
+            leftPanelWidth = UiStyle.leftPanelWidth
+            rightPanelWidth = UiStyle.rightPanelWidth
+            bottomPanelHeight = UiStyle.bottomPanelHeight
+        }
+        markShellLayoutDirty()
+    }
+
     function asArray(value) {
         if (!value) {
             return []

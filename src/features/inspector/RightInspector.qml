@@ -97,13 +97,10 @@ ScrollView {
 
                     Repeater {
                         model: inspector.asArray(section.sectionData.rows)
-                        delegate: UiListRow {
+                        delegate: UiInspectorRow {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 22
                             label: inspector.textValue(modelData.label)
-                            meta: inspector.textValue(modelData.value)
-                            metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
-                            hideMetaBelowWidth: 0
+                            value: inspector.textValue(modelData.value)
                         }
                     }
                 }
@@ -135,8 +132,10 @@ ScrollView {
                                 text: inspector.textValue(modelData.value)
                                 color: UiStyle.colorTextMuted
                                 font.family: UiStyle.fontSans
-                                font.pixelSize: UiStyle.fontSizeSm
+                                font.pixelSize: UiStyle.fontSizeXs
                                 wrapMode: Text.WordWrap
+                                maximumLineCount: 4
+                                elide: Text.ElideRight
                             }
                         }
                     }
@@ -173,17 +172,14 @@ ScrollView {
                     }
                 }
 
-                GridLayout {
+                Flow {
                     visible: section.sectionData.type === "actions"
                     Layout.fillWidth: true
-                    columns: width > 220 ? 2 : 1
-                    columnSpacing: UiStyle.space4
-                    rowSpacing: UiStyle.space4
+                    spacing: UiStyle.space4
 
                     Repeater {
                         model: inspector.asArray(section.sectionData.actions)
-                        delegate: UiButton {
-                            Layout.fillWidth: true
+                        delegate: UiInspectorAction {
                             label: inspector.textValue(modelData.label)
                             selected: inspector.actionSelected(modelData)
                             enabled: inspector.controller !== null

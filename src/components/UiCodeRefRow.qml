@@ -27,6 +27,7 @@ Rectangle {
             elide: Text.ElideMiddle
         }
         Text {
+            visible: row.role.length > 0 && row.role !== "source"
             Layout.maximumWidth: 44
             text: row.role
             color: UiStyle.colorTextFaint

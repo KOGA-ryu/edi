@@ -29,6 +29,7 @@ ColumnLayout {
         id: noteText
         Layout.fillWidth: true
         Layout.preferredHeight: 86
+        fillColor: UiStyle.colorSurface
         placeholderText: "Attach a note to this exact route. This first pass is in-memory only."
     }
 

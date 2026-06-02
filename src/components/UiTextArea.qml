@@ -4,6 +4,8 @@ import "../style"
 
 TextArea {
     id: area
+    property color fillColor: UiStyle.colorControl
+
     color: UiStyle.colorText
     placeholderTextColor: UiStyle.colorTextFaint
     font.family: UiStyle.fontSans
@@ -12,9 +14,9 @@ TextArea {
     selectionColor: UiStyle.colorAccent
     wrapMode: TextArea.Wrap
     background: Rectangle {
-        color: area.activeFocus ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorAccent, 0.12) : UiStyle.colorControl
-        border.width: area.activeFocus ? UiStyle.borderThin : UiStyle.borderNone
-        border.color: area.activeFocus ? UiStyle.colorBorderFocus : UiStyle.colorTransparent
+        color: area.fillColor
+        border.width: UiStyle.borderNone
+        border.color: UiStyle.colorTransparent
         radius: UiStyle.radiusSm
     }
 }

@@ -13,6 +13,9 @@ QtObject {
     property string selectedShelfTab: "Output"
     property string selectedSettingsPage: "theme"
     property bool writeDisabled: true
+    property bool leftPanelCollapsed: false
+    property bool rightPanelCollapsed: false
+    property bool bottomPanelCollapsed: false
     property int revision: 0
 
     property var backStack: []
@@ -219,6 +222,21 @@ QtObject {
     function setSettingsPage(pageId) {
         selectedSettingsPage = pageId
         activityMode = "settings"
+        revision += 1
+    }
+
+    function toggleLeftPanel() {
+        leftPanelCollapsed = !leftPanelCollapsed
+        revision += 1
+    }
+
+    function toggleRightPanel() {
+        rightPanelCollapsed = !rightPanelCollapsed
+        revision += 1
+    }
+
+    function toggleBottomPanel() {
+        bottomPanelCollapsed = !bottomPanelCollapsed
         revision += 1
     }
 

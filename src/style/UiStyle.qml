@@ -16,6 +16,7 @@ QtObject {
     readonly property int leftPanelWidth: 260
     readonly property int rightPanelWidth: 330
     readonly property int bottomPanelHeight: 184
+    readonly property int titleBarHeight: 42
     readonly property int statusBarHeight: 28
 
     // Colors

@@ -15,6 +15,7 @@ ApplicationWindow {
     id: window
 
     title: "Editable UI Shell"
+    flags: Qt.Window | Qt.FramelessWindowHint
     width: UiStyle.windowWidth
     height: UiStyle.windowHeight
     minimumWidth: UiStyle.windowMinWidth
@@ -39,6 +40,14 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
+        WindowTitleBar {
+            id: windowTitleBar
+            controller: runtimeController
+            hostWindow: window
+            Layout.fillWidth: true
+            Layout.preferredHeight: UiStyle.titleBarHeight
+        }
+
         RowLayout {
             id: shellBody
             Layout.fillWidth: true
@@ -55,7 +64,8 @@ ApplicationWindow {
             LeftPanel {
                 id: leftPanel
                 controller: runtimeController
-                Layout.preferredWidth: UiStyle.leftPanelWidth
+                visible: !runtimeController.leftPanelCollapsed
+                Layout.preferredWidth: visible ? UiStyle.leftPanelWidth : 0
                 Layout.fillHeight: true
             }
 
@@ -75,15 +85,16 @@ ApplicationWindow {
                 BottomPanel {
                     id: bottomPanel
                     controller: runtimeController
+                    visible: !runtimeController.bottomPanelCollapsed
                     Layout.fillWidth: true
-                    Layout.preferredHeight: UiStyle.bottomPanelHeight
+                    Layout.preferredHeight: visible ? UiStyle.bottomPanelHeight : 0
                 }
             }
 
             RightPanel {
                 id: rightPanel
                 controller: runtimeController
-                visible: window.width >= 1160
+                visible: window.width >= 1160 && !runtimeController.rightPanelCollapsed
                 Layout.preferredWidth: visible ? UiStyle.rightPanelWidth : 0
                 Layout.fillHeight: true
             }

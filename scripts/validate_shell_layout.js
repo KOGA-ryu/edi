@@ -21,7 +21,7 @@ function assertPanel(name, sizeKey, min, max) {
 }
 
 assertPanel("left", "width", 180, 520);
-assertPanel("right", "width", 220, 560);
+assertPanel("right", "width", 240, 460);
 assertPanel("bottom", "height", 96, 360);
 
 console.log(`${filePath}: ok`);

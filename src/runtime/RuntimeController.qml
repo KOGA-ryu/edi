@@ -14,8 +14,8 @@ QtObject {
     property string selectedSettingsPage: "theme"
     property bool writeDisabled: true
     property bool leftPanelCollapsed: false
-    property bool rightPanelCollapsed: false
-    property bool bottomPanelCollapsed: false
+    property bool rightPanelCollapsed: true
+    property bool bottomPanelCollapsed: true
     property int leftPanelWidth: UiStyle.leftPanelWidth
     property int rightPanelWidth: UiStyle.rightPanelWidth
     property int bottomPanelHeight: UiStyle.bottomPanelHeight
@@ -79,10 +79,10 @@ QtObject {
         var bottom = panels.bottom || ({})
 
         leftPanelCollapsed = !!left.collapsed
-        rightPanelCollapsed = !!right.collapsed
-        bottomPanelCollapsed = !!bottom.collapsed
+        rightPanelCollapsed = typeof right.collapsed === "boolean" ? right.collapsed : true
+        bottomPanelCollapsed = typeof bottom.collapsed === "boolean" ? bottom.collapsed : true
         leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, 180, 520)
-        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, 220, 560)
+        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, 240, 460)
         bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, 96, 360)
         shellLayoutDirty = false
         shellLayoutSaveOk = true
@@ -122,8 +122,8 @@ QtObject {
 
     function resetShellLayout() {
         leftPanelCollapsed = false
-        rightPanelCollapsed = false
-        bottomPanelCollapsed = false
+        rightPanelCollapsed = true
+        bottomPanelCollapsed = true
         leftPanelWidth = UiStyle.leftPanelWidth
         rightPanelWidth = UiStyle.rightPanelWidth
         bottomPanelHeight = UiStyle.bottomPanelHeight
@@ -159,7 +159,7 @@ QtObject {
             return windowWidth() < 640
         }
         if (panelId === "right") {
-            return windowWidth() < 1040
+            return windowWidth() < 980
         }
         if (panelId === "bottom") {
             return windowHeight() < 520
@@ -197,7 +197,7 @@ QtObject {
             return panelAutoHidden(panelId) ? "auto-hidden below 640px width" : String(leftPanelWidth) + " px"
         }
         if (panelId === "right") {
-            return panelAutoHidden(panelId) ? "auto-hidden below 1040px width" : String(rightPanelWidth) + " px"
+            return panelAutoHidden(panelId) ? "auto-hidden below 980px width" : String(rightPanelWidth) + " px"
         }
         if (panelId === "bottom") {
             return panelAutoHidden(panelId) ? "auto-hidden below 520px height" : String(bottomPanelHeight) + " px"
@@ -219,7 +219,7 @@ QtObject {
             bottomPanelCollapsed = true
         } else if (presetId === "review") {
             leftPanelCollapsed = false
-            rightPanelCollapsed = false
+            rightPanelCollapsed = true
             bottomPanelCollapsed = true
             leftPanelWidth = UiStyle.leftPanelWidth
             rightPanelWidth = UiStyle.rightPanelWidth
@@ -446,7 +446,7 @@ QtObject {
     }
 
     function setRightPanelWidth(width) {
-        rightPanelWidth = clamp(width, 220, 560)
+        rightPanelWidth = clamp(width, 240, 460)
         markShellLayoutDirty()
     }
 

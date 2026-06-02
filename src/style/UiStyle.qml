@@ -6,13 +6,13 @@ QtObject {
     id: style
 
     // Window geometry
-    readonly property int windowWidth: 1280
-    readonly property int windowHeight: 820
+    readonly property int windowWidth: 900
+    readonly property int windowHeight: 760
 
     // Major region sizes
     readonly property int railWidth: 52
     readonly property int leftPanelWidth: 260
-    readonly property int rightPanelWidth: 330
+    readonly property int rightPanelWidth: 300
     readonly property int bottomPanelHeight: 132
     readonly property int titleBarHeight: 42
     readonly property int statusBarHeight: 28

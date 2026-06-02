@@ -5,11 +5,11 @@
       "width": 260
     },
     "right": {
-      "collapsed": false,
-      "width": 330
+      "collapsed": true,
+      "width": 300
     },
     "bottom": {
-      "collapsed": false,
+      "collapsed": true,
       "height": 132
     }
   }

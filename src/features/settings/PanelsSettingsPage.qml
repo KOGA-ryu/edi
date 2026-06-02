@@ -343,7 +343,7 @@ ScrollView {
                     }
                     UiListRow {
                         label: String(root.controller ? root.controller.rightPanelWidth : 0) + " px"
-                        meta: "220-560"
+                        meta: "240-460"
                         Layout.preferredWidth: 170
                     }
                     UiButton {

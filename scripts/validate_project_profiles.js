@@ -34,6 +34,12 @@ function requireBoolean(errors, object, key, context) {
   }
 }
 
+function optionalString(errors, object, key, context) {
+  if (object[key] !== undefined && typeof object[key] !== "string") {
+    errors.push(`${context}: ${key} must be a string when present`);
+  }
+}
+
 for (const file of files) {
   const errors = [];
   const fullPath = path.resolve(file);
@@ -119,8 +125,19 @@ for (const file of files) {
   }
 
   if (document.data_sources) {
-    requireString(errors, document.data_sources, "review_subject", "data_sources");
-    requireString(errors, document.data_sources, "review_notes", "data_sources");
+    const usesBlankCanvas = document.main_workspace && document.main_workspace.feature === "blank_canvas";
+    if (usesBlankCanvas) {
+      optionalString(errors, document.data_sources, "review_subject", "data_sources");
+    } else {
+      requireString(errors, document.data_sources, "review_subject", "data_sources");
+    }
+    optionalString(errors, document.data_sources, "review_notes", "data_sources");
+    if (!usesBlankCanvas && typeof document.data_sources.review_notes === "string" && document.data_sources.review_notes.trim().length === 0) {
+      errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas");
+    }
+    if (!usesBlankCanvas && typeof document.data_sources.review_subject === "string" && document.data_sources.review_subject.trim().length === 0) {
+      errors.push("data_sources: review_subject is required unless main_workspace.feature is blank_canvas");
+    }
   }
 
   if (document.write_policy) {

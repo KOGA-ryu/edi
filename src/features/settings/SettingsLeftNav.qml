@@ -18,11 +18,21 @@ ColumnLayout {
         { id: "write_rules", label: "Write Rules", meta: "disabled" }
     ]
 
+    function reviewAvailable() {
+        return root.controller && root.controller.hasActivityMode("review")
+    }
+
+    function pageVisible(pageId) {
+        return pageId !== "subjects" || reviewAvailable()
+    }
+
     UiSectionHeader { title: "Settings"; Layout.fillWidth: true }
     Repeater {
         model: root.pages
         delegate: UiListRow {
+            visible: root.pageVisible(modelData.id)
             Layout.fillWidth: true
+            Layout.preferredHeight: visible ? implicitHeight : 0
             label: modelData.label
             meta: modelData.meta
             clickable: true
@@ -31,26 +41,34 @@ ColumnLayout {
         }
     }
 
-    UiSectionHeader { title: "Current Context"; Layout.fillWidth: true }
+    UiSectionHeader { title: "Current Context"; visible: root.reviewAvailable(); Layout.fillWidth: true }
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
+        Layout.preferredHeight: visible ? implicitHeight : 0
         label: "Subject"
         meta: root.controller ? root.controller.selectedSubjectLabel : ""
     }
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
+        Layout.preferredHeight: visible ? implicitHeight : 0
         label: "Route"
         meta: root.controller ? root.controller.currentRoute().label : ""
     }
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
+        Layout.preferredHeight: visible ? implicitHeight : 0
         label: "Writes"
         meta: root.controller && root.controller.writeDisabled ? "disabled" : "enabled"
     }
 
-    UiSectionHeader { title: "Return"; Layout.fillWidth: true }
+    UiSectionHeader { title: "Return"; visible: root.reviewAvailable(); Layout.fillWidth: true }
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
+        Layout.preferredHeight: visible ? implicitHeight : 0
         label: "Review workspace"
         meta: "routes"
         clickable: true

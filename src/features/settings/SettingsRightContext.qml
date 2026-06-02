@@ -13,6 +13,10 @@ ColumnLayout {
         return root.controller ? root.controller.selectedSettingsPage : "theme"
     }
 
+    function reviewAvailable() {
+        return root.controller && root.controller.hasActivityMode("review")
+    }
+
     function pageLabel(pageId) {
         if (pageId === "layout") return "Layout"
         if (pageId === "panels") return "Panels"
@@ -32,7 +36,7 @@ ColumnLayout {
     function pageSource(pageId) {
         if (pageId === "theme") return root.controller ? root.controller.uiThemePath : ""
         if (pageId === "panels") return root.controller ? root.controller.shellLayoutPath : ""
-        if (pageId === "subjects") return root.controller ? root.controller.selectedSubjectId : ""
+        if (pageId === "subjects" && root.reviewAvailable()) return root.controller ? root.controller.selectedSubjectId : ""
         return ""
     }
 
@@ -119,15 +123,17 @@ ColumnLayout {
     }
 
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
-        Layout.preferredHeight: 22
+        Layout.preferredHeight: visible ? 22 : 0
         label: "Subject"
         meta: root.controller ? root.controller.selectedSubjectLabel : ""
         metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))
     }
     UiListRow {
+        visible: root.reviewAvailable()
         Layout.fillWidth: true
-        Layout.preferredHeight: 22
+        Layout.preferredHeight: visible ? 22 : 0
         label: "Route"
         meta: root.controller ? root.controller.currentRoute().label : ""
         metaMaxWidth: Math.max(64, Math.min(220, width * 0.56))

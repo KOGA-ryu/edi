@@ -4,7 +4,9 @@
 
 The shell is intended to be consumed as shared source by other project apps. Those apps should point CMake at this `src/` tree and keep their own data root for project profiles, review subjects, themes, and shell layout. Do not fork or copy the shell when a project needs the same UI foundation.
 
-The first feature is the UI taxonomy review gate. The active project profile is loaded from `data/project_profiles/draftsman_blank.json`; it defines project identity, enabled activity modes, left-panel project rows, bottom tabs, write policy, and the review subject data source. The route taxonomy is loaded from the profile data source unless `--review-subject` overrides it. Route navigation, status overrides, and notes remain in-memory during the session and are not written to disk.
+The default app starts from `data/project_profiles/draftsman_blank.json`, a true blank shell profile. It defines project identity, enabled activity modes, panel defaults, write policy, and optional data sources. The blank profile renders no review subject by default.
+
+The UI taxonomy review gate is an optional meta profile at `data/project_profiles/draftsman_ui_taxonomy.json`. That profile loads the route taxonomy from `data/review_subjects/draftsman_ui_taxonomy.json` unless `--review-subject` overrides it. Route navigation, status overrides, and notes remain in-memory during the session and are not written to disk.
 
 ## Boundaries
 

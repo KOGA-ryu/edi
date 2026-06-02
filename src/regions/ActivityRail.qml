@@ -34,7 +34,7 @@ Rectangle {
 
         Item { Layout.fillHeight: true }
 
-        UiIconButton { iconText: "+"; label: "Add"; tooltip: "Reserved add action"; enabled: false; Layout.alignment: Qt.AlignHCenter }
-        UiIconButton { iconText: "?"; label: "Help"; tooltip: "Help / docs"; Layout.alignment: Qt.AlignHCenter }
+        UiIconButton { iconText: "+"; label: "Add"; tooltip: "Reserved add action"; visible: false; enabled: false; Layout.alignment: Qt.AlignHCenter }
+        UiIconButton { iconText: "?"; label: "Help"; tooltip: "Help / docs"; visible: false; Layout.alignment: Qt.AlignHCenter }
     }
 }

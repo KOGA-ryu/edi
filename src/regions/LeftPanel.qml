@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../style"
 import "../components"
+import "../features/blank"
 import "../features/ui_taxonomy"
 import "../features/settings"
 
@@ -38,7 +39,7 @@ Rectangle {
                 elide: Text.ElideRight
             }
 
-            UiButton { label: "New"; implicitWidth: 54; enabled: false }
+            UiButton { label: "New"; implicitWidth: 54; visible: false; enabled: false }
         }
 
         Flickable {
@@ -81,7 +82,7 @@ Rectangle {
 
                     ReviewLeftNav {
                         controller: leftPanel.controller
-                        visible: !leftPanel.controller || leftPanel.controller.activityMode === "review"
+                        visible: leftPanel.controller && leftPanel.controller.activityMode === "review"
                         Layout.fillWidth: true
                     }
 
@@ -91,16 +92,9 @@ Rectangle {
                         Layout.fillWidth: true
                     }
 
-                    ColumnLayout {
+                    BlankPanel {
                         visible: leftPanel.controller && leftPanel.controller.activityMode !== "review" && leftPanel.controller.activityMode !== "settings"
                         Layout.fillWidth: true
-                        spacing: UiStyle.space8
-                        UiSectionHeader { title: "Mode"; Layout.fillWidth: true }
-                        UiListRow {
-                            Layout.fillWidth: true
-                            label: leftPanel.controller ? leftPanel.controller.activityMode : "binder"
-                            meta: "reserved"
-                        }
                     }
                 }
             }

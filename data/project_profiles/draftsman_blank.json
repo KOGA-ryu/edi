@@ -6,21 +6,14 @@
     "type": "blank_shell",
     "root_path": "",
     "summary": "Reusable blank Draftsman shell for project-specific review workspaces.",
-    "default_activity": "review"
+    "default_activity": "blank"
   },
   "activity_modes": [
     {
-      "id": "binder",
-      "label": "Binder",
+      "id": "blank",
+      "label": "Blank",
       "icon": "B",
-      "tooltip": "Binder workspace",
-      "enabled": true
-    },
-    {
-      "id": "review",
-      "label": "Review",
-      "icon": "R",
-      "tooltip": "Review gate workspace",
+      "tooltip": "Blank workspace",
       "enabled": true
     },
     {
@@ -29,57 +22,34 @@
       "icon": "S",
       "tooltip": "Settings surface",
       "enabled": true
-    },
-    {
-      "id": "proof",
-      "label": "Proof",
-      "icon": "P",
-      "tooltip": "Proof and receipts",
-      "enabled": true
     }
   ],
   "left_panel": {
     "project_rows": [
-      {
-        "label": "Project slot",
-        "meta": "blank"
-      },
-      {
-        "label": "Scratch",
-        "meta": "workflow"
-      },
-      {
-        "label": "Final",
-        "meta": "workflow"
-      }
     ],
     "settings_label": "Theme and layout"
   },
   "main_workspace": {
-    "feature": "ui_taxonomy_review"
+    "feature": "blank_canvas"
   },
   "right_inspector": {
-    "source": "selected_route",
+    "source": "none",
     "sections": {
-      "facts": true,
-      "selection": true,
-      "code_refs": true,
-      "notes": true,
-      "receipts": true,
-      "actions": true
+      "facts": false,
+      "selection": false,
+      "code_refs": false,
+      "notes": false,
+      "receipts": false,
+      "actions": false
     }
   },
   "bottom_panel": {
     "tabs": [
-      "Output",
-      "Proof",
-      "Receipts",
-      "Log"
     ]
   },
   "data_sources": {
-    "review_subject": "data/review_subjects/draftsman_ui_taxonomy.json",
-    "review_notes": "data/review_notes/draftsman_ui_taxonomy_notes.json"
+    "review_subject": "",
+    "review_notes": ""
   },
   "write_policy": {
     "writes_enabled": false,

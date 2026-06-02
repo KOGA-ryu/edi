@@ -46,6 +46,8 @@ my_project_shell \
   --shell-layout /path/to/app/data/shell_layout.json
 ```
 
+For a true blank app, set `main_workspace.feature` to `blank_canvas` and leave `data_sources.review_subject` empty. Review features should be enabled by an explicit project profile, not by the default shell.
+
 ## Ownership
 
 - Shared shell source: regions, controls, runtime shell behavior, settings surfaces.

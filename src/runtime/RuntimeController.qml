@@ -5,7 +5,7 @@ QtObject {
     id: runtimeController
 
     property var targetRoot: null
-    property string activityMode: "review"
+    property string activityMode: "blank"
     property string selectedSubjectId: "draftsman_ui_taxonomy"
     property string selectedSubjectLabel: "Draftsman UI Taxonomy"
     property string selectedRouteId: "draftsman_ui"
@@ -21,8 +21,8 @@ QtObject {
     property string projectRootPath: ""
     property string projectSummary: "Reusable blank Draftsman shell."
     property string settingsNavLabel: "Theme and layout"
-    property string mainWorkspaceFeature: "ui_taxonomy_review"
-    property string rightInspectorSource: "selected_route"
+    property string mainWorkspaceFeature: "blank_canvas"
+    property string rightInspectorSource: "none"
     property var leftProjectRows: [
         { label: "Project slot", meta: "blank" },
         { label: "Scratch", meta: "workflow" },
@@ -65,10 +65,8 @@ QtObject {
     property string uiThemePath: ""
 
     property var activityModes: [
-        { id: "binder", label: "Binder", icon: "B", tooltip: "Binder workspace" },
-        { id: "review", label: "Review", icon: "R", tooltip: "UI taxonomy review gate" },
-        { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface" },
-        { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts" }
+        { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace" },
+        { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface" }
     ]
 
     readonly property var localTabs: [
@@ -226,7 +224,7 @@ QtObject {
 
     function defaultActivityModes() {
         return [
-            { id: "binder", label: "Binder", icon: "B", tooltip: "Binder workspace" },
+            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace" },
             { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace" },
             { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface" },
             { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts" }
@@ -271,6 +269,9 @@ QtObject {
 
     function normalizeShelfTabs(source) {
         var result = []
+        if (Array.isArray(source) && source.length === 0) {
+            return result
+        }
         var tabs = asArray(source)
         for (var index = 0; index < tabs.length; ++index) {
             var tab = String(tabs[index] || "").trim()
@@ -290,6 +291,10 @@ QtObject {
         return false
     }
 
+    function hasActivityMode(modeId) {
+        return activityModeAvailable(modeId)
+    }
+
     function loadProjectProfile(document) {
         var profile = document && document.profile ? document.profile : ({})
         var leftPanel = document && document.left_panel ? document.left_panel : ({})
@@ -304,13 +309,13 @@ QtObject {
         projectRootPath = String(profile.root_path || "")
         projectSummary = String(profile.summary || "Reusable blank Draftsman shell.")
         settingsNavLabel = String(leftPanel.settings_label || "Theme and layout")
-        mainWorkspaceFeature = String(mainWorkspace.feature || "ui_taxonomy_review")
-        rightInspectorSource = String(rightInspector.source || "selected_route")
+        mainWorkspaceFeature = String(mainWorkspace.feature || "blank_canvas")
+        rightInspectorSource = String(rightInspector.source || "none")
         writeDisabled = typeof writePolicy.writes_enabled === "boolean" ? !writePolicy.writes_enabled : true
         activityModes = normalizeActivityModes(document && document.activity_modes)
         leftProjectRows = normalizeProjectRows(leftPanel.project_rows)
         shelfTabs = normalizeShelfTabs(bottomPanel.tabs)
-        selectedShelfTab = shelfTabs.indexOf(selectedShelfTab) >= 0 ? selectedShelfTab : shelfTabs[0]
+        selectedShelfTab = shelfTabs.length > 0 && shelfTabs.indexOf(selectedShelfTab) >= 0 ? selectedShelfTab : (shelfTabs[0] || "")
         rightInspectorSections = normalizedInspectorSections(rightInspector.sections)
 
         var defaultActivity = String(profile.default_activity || activityMode)

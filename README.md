@@ -43,10 +43,10 @@ From the built app:
 ./build/qt_qml_region_split
 ```
 
-Load a specific review subject JSON:
+Launch the optional Draftsman UI taxonomy review profile:
 
 ```sh
-./build/qt_qml_region_split --review-subject data/review_subjects/draftsman_ui_taxonomy.json
+./build/qt_qml_region_split --project-profile data/project_profiles/draftsman_ui_taxonomy.json
 ```
 
 Load a specific theme JSON:
@@ -82,7 +82,7 @@ The C++ launcher is required for JSON review-subject loading. Direct `qml` runs 
 Open this folder or `CMakeLists.txt` in Qt Creator:
 
 ```text
-/Users/kogaryu/draft/qt_qml_region_split
+/Users/kogaryu/draft/draftsman/qt_qml_region_split
 ```
 
 The source authority is `src/`. Do not create a competing `qml/` tree unless the imports are moved intentionally.
@@ -93,7 +93,8 @@ The source authority is `src/`. Do not create a competing `qml/` tree unless the
 - Shared colors, sizing, fonts: `src/style/UiStyle.qml`
 - Left/right/main/bottom/status regions: `src/regions/`
 - Reusable controls: `src/components/`
-- UI taxonomy review feature: `src/features/ui_taxonomy/`
+- Blank canvas feature: `src/features/blank/`
+- Optional UI taxonomy review feature: `src/features/ui_taxonomy/`
 - Runtime state and navigation: `src/runtime/RuntimeController.qml`
 
 ## How To Change Colors
@@ -128,6 +129,8 @@ scripts/validate_ui_theme.js data/ui_theme.json
 ## How To Add A Review Subject
 
 Review subject taxonomy lives in JSON under `data/review_subjects/`. The app reads the selected JSON at launch and normalizes it into the runtime route model.
+
+The default project profile is intentionally blank. Use `data/project_profiles/draftsman_ui_taxonomy.json` when you want the meta review UI.
 
 Do not add persistence or file writes until the write contract is approved.
 

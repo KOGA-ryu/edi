@@ -22,6 +22,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 32
+            visible: bottomPanel.controller && bottomPanel.controller.shelfTabs.length > 0
             color: UiStyle.colorPanelAlt
             border.width: UiStyle.borderNone
 
@@ -56,6 +57,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: UiStyle.space6
+            visible: bottomPanel.controller && bottomPanel.controller.activityMode === "review"
             spacing: UiStyle.space0
 
             UiListRow {
@@ -86,6 +88,12 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 20
             }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !bottomPanel.controller || bottomPanel.controller.activityMode !== "review"
         }
     }
 }

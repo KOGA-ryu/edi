@@ -9,10 +9,14 @@ Default profile:
 Validation:
 
 ```sh
-scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json
+scripts/validate_project_profiles.js \
+  data/project_profiles/draftsman_blank.json \
+  data/project_profiles/draftsman_ui_taxonomy.json
 ```
 
 ## Contract
+
+The default profile is a true blank shell. It starts in `blank` activity, renders no review subject, and keeps project-specific content out of the startup canvas.
 
 ```js
 {
@@ -23,37 +27,36 @@ scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json
     type: "blank_shell",
     root_path: "",
     summary: "Reusable blank Draftsman shell.",
-    default_activity: "review"
+    default_activity: "blank"
   },
   activity_modes: [
-    { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace", enabled: true }
+    { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace", enabled: true },
+    { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface", enabled: true }
   ],
   left_panel: {
-    project_rows: [
-      { label: "Scratch", meta: "workflow" }
-    ],
+    project_rows: [],
     settings_label: "Theme and layout"
   },
   main_workspace: {
-    feature: "ui_taxonomy_review"
+    feature: "blank_canvas"
   },
   right_inspector: {
-    source: "selected_route",
+    source: "none",
     sections: {
-      facts: true,
-      selection: true,
-      code_refs: true,
-      notes: true,
-      receipts: true,
-      actions: true
+      facts: false,
+      selection: false,
+      code_refs: false,
+      notes: false,
+      receipts: false,
+      actions: false
     }
   },
   bottom_panel: {
-    tabs: ["Output", "Proof", "Receipts", "Log"]
+    tabs: []
   },
   data_sources: {
-    review_subject: "data/review_subjects/draftsman_ui_taxonomy.json",
-    review_notes: "data/review_notes/draftsman_ui_taxonomy_notes.json"
+    review_subject: "",
+    review_notes: ""
   },
   write_policy: {
     writes_enabled: false,
@@ -62,10 +65,17 @@ scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json
 }
 ```
 
+The meta UI taxonomy review is still available as an explicit profile:
+
+```sh
+./build/qt_qml_region_split --project-profile data/project_profiles/draftsman_ui_taxonomy.json
+```
+
 ## Builder Rules
 
 - Keep profile files data-only.
 - Use profile paths for project-specific review subjects.
+- Keep `draftsman_blank` free of project content.
 - Keep theme colors in `data/ui_theme.json`.
 - Keep panel geometry in `data/shell_layout.json`.
 - Keep project-specific right-panel content shaped by `docs/right_inspector_contract.md`.

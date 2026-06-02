@@ -159,17 +159,17 @@ int main(int argc, char *argv[]) {
     const QVariant projectProfile = loadJsonObject(projectProfilePath);
     const QVariantMap projectProfileMap = projectProfile.toMap();
     const QVariantMap dataSources = projectProfileMap.value(QStringLiteral("data_sources")).toMap();
-    const QString profileReviewSubjectPath = dataSources.value(
-        QStringLiteral("review_subject"),
-        QStringLiteral("data/review_subjects/draftsman_ui_taxonomy.json")).toString();
+    const QString profileReviewSubjectPath = dataSources.value(QStringLiteral("review_subject")).toString().trimmed();
 
-    QString reviewSubjectPath = parser.isSet(reviewSubjectOption)
-        ? parser.value(reviewSubjectOption)
-        : profileReviewSubjectPath;
-    reviewSubjectPath = parser.isSet(reviewSubjectOption)
-        ? absolutePath(reviewSubjectPath)
-        : projectSourcePath(reviewSubjectPath);
-    const QVariant reviewSubject = loadJsonObject(reviewSubjectPath);
+    QString reviewSubjectPath;
+    QVariant reviewSubject = QVariantMap();
+    if (parser.isSet(reviewSubjectOption)) {
+        reviewSubjectPath = absolutePath(parser.value(reviewSubjectOption));
+        reviewSubject = loadJsonObject(reviewSubjectPath);
+    } else if (!profileReviewSubjectPath.isEmpty()) {
+        reviewSubjectPath = projectSourcePath(profileReviewSubjectPath);
+        reviewSubject = loadJsonObject(reviewSubjectPath);
+    }
 
     QString themePath = parser.isSet(themeOption)
         ? parser.value(themeOption)

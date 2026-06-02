@@ -156,11 +156,11 @@ Rectangle {
         RowLayout {
             spacing: UiStyle.space6
             visible: !titleBar.hostWindow || titleBar.hostWindow.width >= 560
-            Layout.preferredWidth: visible ? 126 : 0
 
             UiIconButton {
                 label: "S"
                 tooltip: "Settings"
+                visible: titleBar.controller && titleBar.controller.hasActivityMode("settings")
                 selected: titleBar.controller && titleBar.controller.activityMode === "settings"
                 onClicked: titleBar.controller.setActivityMode("settings")
             }
@@ -168,12 +168,14 @@ Rectangle {
             UiIconButton {
                 label: "P"
                 tooltip: "Proof"
+                visible: titleBar.controller && titleBar.controller.hasActivityMode("proof")
                 enabled: false
             }
 
             UiIconButton {
                 label: "..."
                 tooltip: "More"
+                visible: false
                 enabled: false
             }
         }

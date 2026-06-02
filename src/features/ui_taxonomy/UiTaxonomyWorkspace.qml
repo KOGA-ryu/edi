@@ -17,15 +17,16 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: UiStyle.space6
+            spacing: UiStyle.space2
 
             Repeater {
                 model: workspace.controller ? workspace.controller.localTabs : []
                 delegate: UiTab {
-                    label: modelData
-                    active: workspace.controller.selectedLocalTab === modelData
+                    label: modelData.label
+                    tooltip: modelData.tooltip
+                    active: workspace.controller.selectedLocalTab === modelData.id
                     clickable: true
-                    onClicked: workspace.controller.setLocalTab(modelData)
+                    onClicked: workspace.controller.setLocalTab(modelData.id)
                 }
             }
         }
@@ -52,19 +53,19 @@ Rectangle {
                 }
 
                 ReviewRouteCards {
-                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "Overview" || workspace.controller.selectedLocalTab === "Objects")
+                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "overview" || workspace.controller.selectedLocalTab === "objects")
                     Layout.fillWidth: true
                     controller: workspace.controller
                 }
 
                 ReviewCodeRefs {
-                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "Overview" || workspace.controller.selectedLocalTab === "Code")
+                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "overview" || workspace.controller.selectedLocalTab === "code")
                     Layout.fillWidth: true
                     controller: workspace.controller
                 }
 
                 ColumnLayout {
-                    visible: workspace.controller && workspace.controller.selectedLocalTab === "Prompts"
+                    visible: workspace.controller && workspace.controller.selectedLocalTab === "prompts"
                     Layout.fillWidth: true
                     spacing: UiStyle.space6
                     UiSectionHeader { title: "Review Prompts"; Layout.fillWidth: true }
@@ -79,7 +80,7 @@ Rectangle {
                 }
 
                 ReviewCommentThread {
-                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "Overview" || workspace.controller.selectedLocalTab === "Notes")
+                    visible: workspace.controller && (workspace.controller.selectedLocalTab === "overview" || workspace.controller.selectedLocalTab === "notes")
                     Layout.fillWidth: true
                     controller: workspace.controller
                 }

@@ -9,7 +9,7 @@ QtObject {
     property string selectedSubjectId: "draftsman_ui_taxonomy"
     property string selectedSubjectLabel: "Draftsman UI Taxonomy"
     property string selectedRouteId: "draftsman_ui"
-    property string selectedLocalTab: "Overview"
+    property string selectedLocalTab: "overview"
     property string selectedShelfTab: "Output"
     property string selectedSettingsPage: "theme"
     property bool writeDisabled: true
@@ -39,7 +39,13 @@ QtObject {
         { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts" }
     ]
 
-    readonly property var localTabs: ["Overview", "Objects", "Code", "Prompts", "Notes"]
+    readonly property var localTabs: [
+        { id: "overview", label: "Overview", tooltip: "Summary of the selected review route, including purpose, status counts, and nearby route cards." },
+        { id: "objects", label: "Objects", tooltip: "Review the child routes, UI regions, panels, and objects attached to the selected route." },
+        { id: "code", label: "Code", tooltip: "Show the source references and implementation files tied to the selected route." },
+        { id: "prompts", label: "Prompts", tooltip: "Show the human and agent prompts that define what should be reviewed or changed." },
+        { id: "notes", label: "Notes", tooltip: "Show review notes, decisions, and comments attached to the selected route." }
+    ]
     readonly property var shelfTabs: ["Output", "Proof", "Receipts", "Log"]
 
     property var routes: []

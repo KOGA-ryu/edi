@@ -29,7 +29,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                text: "Draftsman"
+                text: leftPanel.controller ? leftPanel.controller.projectTitle : "Draftsman"
                 color: UiStyle.colorText
                 font.family: UiStyle.fontSans
                 font.pixelSize: UiStyle.fontSizeTitle

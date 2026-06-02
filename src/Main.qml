@@ -14,7 +14,7 @@ import "runtime"
 ApplicationWindow {
     id: window
 
-    title: "Editable UI Shell"
+    title: runtimeController.projectTitle
     flags: Qt.Window | Qt.FramelessWindowHint
     width: initialWindowDimension("width", UiStyle.windowWidth, 520, 2400)
     height: initialWindowDimension("height", UiStyle.windowHeight, 420, 1800)

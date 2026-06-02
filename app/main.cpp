@@ -95,6 +95,10 @@ int main(int argc, char *argv[]) {
         QStringList() << "theme",
         "Load UI theme JSON from <path>.",
         "path");
+    const QCommandLineOption projectProfileOption(
+        QStringList() << "project-profile",
+        "Load project profile JSON from <path>.",
+        "path");
     const QCommandLineOption activityOption(
         QStringList() << "activity",
         "Select an activity mode before screenshot capture.",
@@ -112,6 +116,7 @@ int main(int argc, char *argv[]) {
     parser.addOption(noteStatusOption);
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
+    parser.addOption(projectProfileOption);
     parser.addOption(activityOption);
     parser.addOption(settingsPageOption);
     parser.process(app);
@@ -119,6 +124,13 @@ int main(int argc, char *argv[]) {
     auto absolutePath = [](const QString &path) {
         if (QFileInfo(path).isRelative()) {
             return QDir::current().absoluteFilePath(path);
+        }
+        return path;
+    };
+
+    auto projectSourcePath = [](const QString &path) {
+        if (QFileInfo(path).isRelative()) {
+            return QDir(QStringLiteral(PROJECT_SOURCE_DIR)).absoluteFilePath(path);
         }
         return path;
     };
@@ -135,10 +147,23 @@ int main(int argc, char *argv[]) {
         return result;
     };
 
+    QString projectProfilePath = parser.isSet(projectProfileOption)
+        ? parser.value(projectProfileOption)
+        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/project_profiles/draftsman_blank.json");
+    projectProfilePath = absolutePath(projectProfilePath);
+    const QVariant projectProfile = loadJsonObject(projectProfilePath);
+    const QVariantMap projectProfileMap = projectProfile.toMap();
+    const QVariantMap dataSources = projectProfileMap.value(QStringLiteral("data_sources")).toMap();
+    const QString profileReviewSubjectPath = dataSources.value(
+        QStringLiteral("review_subject"),
+        QStringLiteral("data/review_subjects/draftsman_ui_taxonomy.json")).toString();
+
     QString reviewSubjectPath = parser.isSet(reviewSubjectOption)
         ? parser.value(reviewSubjectOption)
-        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/review_subjects/draftsman_ui_taxonomy.json");
-    reviewSubjectPath = absolutePath(reviewSubjectPath);
+        : profileReviewSubjectPath;
+    reviewSubjectPath = parser.isSet(reviewSubjectOption)
+        ? absolutePath(reviewSubjectPath)
+        : projectSourcePath(reviewSubjectPath);
     const QVariant reviewSubject = loadJsonObject(reviewSubjectPath);
 
     QString themePath = parser.isSet(themeOption)
@@ -157,6 +182,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubjectPath"), reviewSubjectPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialUiTheme"), uiTheme);
     engine.rootContext()->setContextProperty(QStringLiteral("initialUiThemePath"), themePath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfile"), projectProfile);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfilePath"), projectProfilePath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);

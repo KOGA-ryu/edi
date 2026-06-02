@@ -10,13 +10,19 @@ ColumnLayout {
     spacing: UiStyle.space4
 
     UiSectionHeader { title: "Project"; Layout.fillWidth: true }
-    UiListRow { label: "Project slot"; meta: "blank"; hideMetaBelowWidth: 220; Layout.fillWidth: true }
-    UiListRow { label: "Scratch"; meta: "workflow"; hideMetaBelowWidth: 220; Layout.fillWidth: true }
-    UiListRow { label: "Final"; meta: "workflow"; hideMetaBelowWidth: 220; Layout.fillWidth: true }
+    Repeater {
+        model: root.controller ? root.controller.leftProjectRows : []
+        delegate: UiListRow {
+            label: modelData.label
+            meta: modelData.meta
+            hideMetaBelowWidth: 220
+            Layout.fillWidth: true
+        }
+    }
 
     UiSectionHeader { title: "Review Subject"; Layout.fillWidth: true }
     UiListRow {
-        label: "Draftsman UI Taxonomy"
+        label: root.controller ? root.controller.selectedSubjectLabel : "Review Subject"
         meta: root.controller ? root.controller.routeStatus(root.controller.rootRouteId) : "pending"
         hideMetaBelowWidth: 220
         selected: root.controller && root.controller.selectedRouteId === root.controller.rootRouteId
@@ -56,7 +62,7 @@ ColumnLayout {
 
     UiSectionHeader { title: "Settings"; Layout.fillWidth: true }
     UiListRow {
-        label: "Theme and layout"
+        label: root.controller ? root.controller.settingsNavLabel : "Theme and layout"
         meta: "settings"
         hideMetaBelowWidth: 220
         clickable: true

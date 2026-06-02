@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
+scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
 cmake --build build

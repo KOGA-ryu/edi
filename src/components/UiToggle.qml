@@ -12,8 +12,7 @@ Rectangle {
     implicitWidth: 132
     radius: UiStyle.radiusSm
     color: checked ? UiStyle.colorSelected : UiStyle.colorControl
-    border.width: UiStyle.borderThin
-    border.color: checked ? UiStyle.colorBorderFocus : UiStyle.colorBorderMinor
+    border.width: UiStyle.borderNone
 
     RowLayout {
         anchors.fill: parent
@@ -32,7 +31,7 @@ Rectangle {
             width: 28
             height: 14
             radius: 7
-            color: checked ? UiStyle.colorAccentSoft : UiStyle.colorBorderMinor
+            color: checked ? UiStyle.colorAccentSoft : UiStyle.colorPanelRaised
             Rectangle {
                 width: 10
                 height: 10
@@ -53,4 +52,3 @@ Rectangle {
         }
     }
 }
-

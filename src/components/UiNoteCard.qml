@@ -9,10 +9,9 @@ Rectangle {
     property string createdAt: ""
 
     implicitHeight: Math.max(84, content.implicitHeight + UiStyle.space20)
-    color: UiStyle.colorPanel
+    color: UiStyle.colorPanelAlt
     radius: UiStyle.radiusMd
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMinor
+    border.width: UiStyle.borderNone
 
     ColumnLayout {
         id: content
@@ -40,4 +39,3 @@ Rectangle {
         }
     }
 }
-

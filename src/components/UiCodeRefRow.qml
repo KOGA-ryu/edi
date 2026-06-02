@@ -11,8 +11,7 @@ Rectangle {
     implicitHeight: 24
     color: hovered ? UiStyle.colorControlHover : UiStyle.colorControl
     radius: UiStyle.radiusSm
-    border.width: hovered ? UiStyle.borderThin : UiStyle.borderNone
-    border.color: UiStyle.colorBorderMinor
+    border.width: UiStyle.borderNone
 
     RowLayout {
         anchors.fill: parent

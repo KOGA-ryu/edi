@@ -12,10 +12,9 @@ TextArea {
     selectionColor: UiStyle.colorAccent
     wrapMode: TextArea.Wrap
     background: Rectangle {
-        color: UiStyle.colorControl
-        border.width: UiStyle.borderThin
-        border.color: area.activeFocus ? UiStyle.colorBorderFocus : UiStyle.colorBorderMinor
+        color: area.activeFocus ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorAccent, 0.12) : UiStyle.colorControl
+        border.width: area.activeFocus ? UiStyle.borderThin : UiStyle.borderNone
+        border.color: area.activeFocus ? UiStyle.colorBorderFocus : UiStyle.colorTransparent
         radius: UiStyle.radiusSm
     }
 }
-

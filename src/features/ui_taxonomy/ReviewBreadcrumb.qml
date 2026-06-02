@@ -9,8 +9,7 @@ Rectangle {
     implicitHeight: 34
     color: UiStyle.colorPanelAlt
     radius: UiStyle.radiusSm
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMinor
+    border.width: UiStyle.borderNone
 
     UiBreadcrumb {
         anchors.fill: parent
@@ -20,4 +19,3 @@ Rectangle {
         controller: root.controller
     }
 }
-

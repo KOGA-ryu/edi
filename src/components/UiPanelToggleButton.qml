@@ -18,30 +18,22 @@ Rectangle {
         : panelState === "auto_hidden" ? UiStyle.mix(UiStyle.colorControl, UiStyle.colorWarning, 0.18)
         : panelState === "collapsed" ? UiStyle.colorControl
         : UiStyle.colorTransparent
-    border.color: mouseArea.containsMouse ? UiStyle.colorBorderMinor
-        : panelState === "auto_hidden" ? UiStyle.colorWarning
-        : panelState === "collapsed" ? UiStyle.colorBorderMinor
-        : UiStyle.colorTransparent
-    border.width: mouseArea.containsMouse || panelState !== "visible" ? UiStyle.borderThin : UiStyle.borderNone
+    border.width: UiStyle.borderNone
 
     Rectangle {
         anchors.fill: parent
         visible: panelState === "visible" && !mouseArea.containsMouse
         radius: parent.radius
-        color: UiStyle.colorTransparent
-        border.color: UiStyle.colorBorderMinor
-        border.width: UiStyle.borderThin
-        opacity: 0.28
+        color: UiStyle.mix(UiStyle.colorControl, UiStyle.colorAccent, 0.12)
+        opacity: 0.45
     }
 
     Rectangle {
         anchors.fill: parent
         visible: panelState === "visible" && mouseArea.containsMouse
         radius: parent.radius
-        color: UiStyle.colorTransparent
-        border.color: UiStyle.colorBorderFocus
-        border.width: UiStyle.borderThin
-        opacity: 0.75
+        color: UiStyle.mix(UiStyle.colorControlHover, UiStyle.colorAccent, 0.14)
+        opacity: 0.9
     }
 
     ToolTip.visible: mouseArea.containsMouse && tooltip.length > 0
@@ -53,9 +45,8 @@ Rectangle {
         width: 16
         height: 14
         radius: 2
-        color: UiStyle.colorTransparent
-        border.color: panelState === "auto_hidden" ? UiStyle.colorWarning : UiStyle.colorTextMuted
-        border.width: UiStyle.borderThin
+        color: UiStyle.mix(UiStyle.colorControl, UiStyle.colorText, 0.06)
+        border.width: UiStyle.borderNone
     }
 
     Rectangle {

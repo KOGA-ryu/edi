@@ -19,8 +19,7 @@ Rectangle {
     radius: UiStyle.radiusSm
     opacity: enabled ? 1.0 : 0.42
     color: selected ? UiStyle.colorSelected : hovered && enabled ? UiStyle.colorControlHover : UiStyle.colorTransparent
-    border.width: selected ? UiStyle.borderThin : UiStyle.borderNone
-    border.color: selected ? UiStyle.colorAccentSoft : UiStyle.colorTransparent
+    border.width: UiStyle.borderNone
 
     property bool hovered: false
 

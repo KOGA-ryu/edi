@@ -189,19 +189,19 @@ Rectangle {
                             rowSpacing: UiStyle.space8
 
                             Text { text: "Base"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(baseField.text) ? baseField.text : UiStyle.colorDanger; border.width: UiStyle.borderThin; border.color: UiStyle.colorBorderMajor }
+                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(baseField.text) ? baseField.text : UiStyle.colorDanger; border.width: root.validHex(baseField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
                             UiTextField { id: baseField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
 
                             Text { text: "Surface"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(surfaceField.text) ? surfaceField.text : UiStyle.colorDanger; border.width: UiStyle.borderThin; border.color: UiStyle.colorBorderMajor }
+                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(surfaceField.text) ? surfaceField.text : UiStyle.colorDanger; border.width: root.validHex(surfaceField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
                             UiTextField { id: surfaceField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
 
                             Text { text: "Accent"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(accentField.text) ? accentField.text : UiStyle.colorDanger; border.width: UiStyle.borderThin; border.color: UiStyle.colorBorderMajor }
+                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(accentField.text) ? accentField.text : UiStyle.colorDanger; border.width: root.validHex(accentField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
                             UiTextField { id: accentField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
 
                             Text { text: "Text"; color: UiStyle.colorTextMuted; font.family: UiStyle.fontSans; font.pixelSize: UiStyle.fontSizeBody }
-                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(textField.text) ? textField.text : UiStyle.colorDanger; border.width: UiStyle.borderThin; border.color: UiStyle.colorBorderMajor }
+                            Rectangle { Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: UiStyle.radiusSm; color: root.validHex(textField.text) ? textField.text : UiStyle.colorDanger; border.width: root.validHex(textField.text) ? UiStyle.borderNone : UiStyle.borderThin; border.color: UiStyle.colorDanger }
                             UiTextField { id: textField; Layout.fillWidth: true; onTextChanged: root.applyPreview() }
                         }
 

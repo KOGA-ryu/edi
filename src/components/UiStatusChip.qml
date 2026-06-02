@@ -15,8 +15,9 @@ Rectangle {
         if (status === "rejected") return Qt.rgba(0.74, 0.33, 0.33, 0.24)
         return Qt.rgba(0.42, 0.55, 0.70, 0.20)
     }
-    border.width: UiStyle.borderThin
-    border.color: {
+    border.width: UiStyle.borderNone
+
+    property color statusColor: {
         if (status === "accepted") return UiStyle.colorSuccess
         if (status === "needs_rework") return UiStyle.colorWarning
         if (status === "rejected") return UiStyle.colorDanger
@@ -27,7 +28,7 @@ Rectangle {
         id: text
         anchors.centerIn: parent
         text: chip.label
-        color: chip.border.color
+        color: chip.statusColor
         font.family: UiStyle.fontSans
         font.pixelSize: UiStyle.fontSizeXs
         font.weight: UiStyle.fontWeightSemiBold

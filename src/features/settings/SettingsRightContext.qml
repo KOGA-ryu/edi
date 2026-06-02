@@ -30,7 +30,7 @@ ColumnLayout {
         if (pageId === "theme") return "preview only"
         if (pageId === "panels") return root.controller && root.controller.shellLayoutDirty ? "unsaved" : "saved"
         if (pageId === "write_rules") return "disabled"
-        return "reserved"
+        return "planned"
     }
 
     function pageSource(pageId) {
@@ -53,7 +53,7 @@ ColumnLayout {
         if (pageId === "theme") return "disabled"
         if (pageId === "panels") return root.controller && root.controller.shellLayoutDirty ? "pending save" : "saved"
         if (pageId === "write_rules") return "disabled"
-        return "reserved"
+        return "planned"
     }
 
     UiListRow {

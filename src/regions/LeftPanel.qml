@@ -38,8 +38,6 @@ Rectangle {
                 font.weight: UiStyle.fontWeightSemiBold
                 elide: Text.ElideRight
             }
-
-            UiButton { label: "New"; implicitWidth: 54; visible: false; enabled: false }
         }
 
         Flickable {

@@ -6,11 +6,12 @@ QtObject {
 
     property var targetRoot: null
     property string activityMode: "blank"
-    property string selectedSubjectId: "draftsman_ui_taxonomy"
-    property string selectedSubjectLabel: "Draftsman UI Taxonomy"
-    property string selectedRouteId: "draftsman_ui"
+    property bool hasReviewSubject: false
+    property string selectedSubjectId: ""
+    property string selectedSubjectLabel: ""
+    property string selectedRouteId: ""
     property string selectedLocalTab: "overview"
-    property string selectedShelfTab: "Output"
+    property string selectedShelfTab: ""
     property string selectedSettingsPage: "theme"
     property bool writeDisabled: true
     property string projectProfilePath: ""
@@ -23,11 +24,7 @@ QtObject {
     property string settingsNavLabel: "Theme and layout"
     property string mainWorkspaceFeature: "blank_canvas"
     property string rightInspectorSource: "none"
-    property var leftProjectRows: [
-        { label: "Project slot", meta: "blank" },
-        { label: "Scratch", meta: "workflow" },
-        { label: "Final", meta: "workflow" }
-    ]
+    property var leftProjectRows: []
     property bool leftPanelCollapsed: false
     property bool rightPanelCollapsed: true
     property bool bottomPanelCollapsed: true
@@ -76,10 +73,10 @@ QtObject {
         { id: "prompts", label: "Prompts", tooltip: "Show the human and agent prompts that define what should be reviewed or changed." },
         { id: "notes", label: "Notes", tooltip: "Show review notes, decisions, and comments attached to the selected route." }
     ]
-    property var shelfTabs: ["Output", "Proof", "Receipts", "Log"]
+    property var shelfTabs: []
 
     property var routes: []
-    property string rootRouteId: "draftsman_ui"
+    property string rootRouteId: ""
 
     Component.onCompleted: {
         projectProfilePath = typeof initialProjectProfilePath === "undefined" ? "" : String(initialProjectProfilePath)
@@ -484,28 +481,65 @@ QtObject {
 
     function fallbackRootRoute() {
         return {
-            id: "draftsman_ui",
+            id: "missing_review_subject",
             parent: "",
-            label: "Draftsman UI",
+            label: "Missing Review Subject",
             type: "root",
             status: "pending",
             summary: "Review subject data could not be loaded.",
-            purpose: "Check data/review_subjects/draftsman_ui_taxonomy.json.",
+            purpose: "Check the active project profile data_sources.review_subject path.",
             objects: [],
             children: [],
-            codeRefs: ["data/review_subjects/draftsman_ui_taxonomy.json"],
+            codeRefs: [],
             prompts: ["Is the review subject JSON present and valid?"]
         }
     }
 
+    function blankRoute() {
+        return {
+            id: "",
+            parent: "",
+            label: "",
+            type: "",
+            status: "",
+            summary: "",
+            purpose: "",
+            objects: [],
+            children: [],
+            codeRefs: [],
+            prompts: []
+        }
+    }
+
+    function clearReviewSubject() {
+        hasReviewSubject = false
+        selectedSubjectId = ""
+        selectedSubjectLabel = ""
+        rootRouteId = ""
+        selectedRouteId = ""
+        routes = []
+        backStack = []
+        forwardStack = []
+        statusOverrides = ({})
+        notes = []
+        revision += 1
+    }
+
     function loadReviewSubject(document) {
+        var reviewModeEnabled = hasActivityMode("review")
         var subject = document && document.subject ? document.subject : ({})
-        selectedSubjectId = String(subject.subject_id || "draftsman_ui_taxonomy")
-        selectedSubjectLabel = String(subject.label || "Draftsman UI Taxonomy")
-        rootRouteId = String(subject.root_route_id || "draftsman_ui")
+        var sourceRoutes = asArray(document && document.routes ? document.routes : [])
+
+        if (!reviewModeEnabled && !subject.subject_id && sourceRoutes.length === 0) {
+            clearReviewSubject()
+            return
+        }
+
+        selectedSubjectId = String(subject.subject_id || "")
+        selectedSubjectLabel = String(subject.label || selectedSubjectId)
+        rootRouteId = String(subject.root_route_id || "")
 
         var nextRoutes = []
-        var sourceRoutes = asArray(document && document.routes ? document.routes : [])
         for (var index = 0; index < sourceRoutes.length; ++index) {
             var normalized = normalizeRoute(sourceRoutes[index])
             if (normalized.id.length > 0) {
@@ -514,6 +548,7 @@ QtObject {
         }
 
         routes = nextRoutes.length > 0 ? nextRoutes : [fallbackRootRoute()]
+        hasReviewSubject = nextRoutes.length > 0
         if (!findRouteById(rootRouteId)) {
             rootRouteId = routes[0].id
         }
@@ -533,6 +568,9 @@ QtObject {
     }
 
     function routeById(routeId) {
+        if (!hasReviewSubject && routes.length === 0) {
+            return blankRoute()
+        }
         return findRouteById(routeId) || routes[0] || fallbackRootRoute()
     }
 
@@ -582,6 +620,16 @@ QtObject {
     }
 
     function rightInspectorDocument(unusedRevision) {
+        if (!hasReviewSubject) {
+            return {
+                id: "empty_inspector",
+                targetId: "",
+                targetLabel: "",
+                targetType: "",
+                status: "",
+                sections: []
+            }
+        }
         var route = currentRoute()
         var notesForRoute = routeNotes(route.id, revision)
         return {
@@ -657,6 +705,9 @@ QtObject {
     }
 
     function childRoutes(routeId, unusedRevision) {
+        if (!hasReviewSubject) {
+            return []
+        }
         var route = routeById(routeId)
         var result = []
         for (var index = 0; index < route.children.length; ++index) {
@@ -666,6 +717,9 @@ QtObject {
     }
 
     function siblingRoutes(routeId) {
+        if (!hasReviewSubject) {
+            return []
+        }
         var route = routeById(routeId)
         if (!route.parent) {
             return childRoutes(rootRouteId, revision)
@@ -674,6 +728,9 @@ QtObject {
     }
 
     function breadcrumb(routeId) {
+        if (!hasReviewSubject) {
+            return []
+        }
         var result = []
         var guard = 0
         var route = routeById(routeId)
@@ -766,6 +823,9 @@ QtObject {
     }
 
     function selectRoute(routeId) {
+        if (!hasReviewSubject) {
+            return
+        }
         if (routeId === selectedRouteId || !findRouteById(routeId)) {
             return
         }
@@ -844,6 +904,9 @@ QtObject {
     }
 
     function addNote(routeId, status, body) {
+        if (!hasReviewSubject) {
+            return
+        }
         var text = String(body || "").trim()
         if (!text.length) {
             return

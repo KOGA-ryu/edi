@@ -269,7 +269,7 @@ Rectangle {
             spacing: UiStyle.space4
 
             UiSectionHeader {
-                title: "Reserved Settings Page"
+                title: "Planned Settings Page"
                 Layout.fillWidth: true
             }
 
@@ -282,7 +282,7 @@ Rectangle {
             UiListRow {
                 Layout.fillWidth: true
                 label: "Status"
-                meta: "reserved"
+                meta: "planned"
             }
 
             UiListRow {

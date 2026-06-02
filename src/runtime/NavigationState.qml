@@ -1,8 +1,7 @@
 import QtQuick
 
 QtObject {
-    property string currentRouteId: "draftsman_ui"
+    property string currentRouteId: ""
     property var backStack: []
     property var forwardStack: []
 }
-

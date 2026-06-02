@@ -11,10 +11,10 @@ ColumnLayout {
 
     readonly property var pages: [
         { id: "theme", label: "Theme", meta: "colors/fonts" },
-        { id: "layout", label: "Layout", meta: "reserved" },
+        { id: "layout", label: "Layout", meta: "planned" },
         { id: "panels", label: "Panels", meta: "resize/save" },
-        { id: "features", label: "Features", meta: "reserved" },
-        { id: "subjects", label: "Review Subjects", meta: "reserved" },
+        { id: "features", label: "Features", meta: "planned" },
+        { id: "subjects", label: "Review Subjects", meta: "planned" },
         { id: "write_rules", label: "Write Rules", meta: "disabled" }
     ]
 

@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
         if (parser.isSet(noteOption)) {
             const QString routeId = parser.isSet(routeOption)
                 ? parser.value(routeOption)
-                : QStringLiteral("draftsman_ui");
+                : runtime->property("rootRouteId").toString();
             const QString status = parser.isSet(noteStatusOption)
                 ? parser.value(noteStatusOption)
                 : QStringLiteral("pending");

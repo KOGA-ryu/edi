@@ -18,28 +18,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: UiStyle.space6
-            UiIconButton {
-                iconText: "<"
-                label: "Back"
-                tooltip: "Back"
-                enabled: workspace.controller && workspace.controller.backStack.length > 0
-                onClicked: workspace.controller.goBack()
-            }
-            UiIconButton {
-                iconText: ">"
-                label: "Forward"
-                tooltip: "Forward"
-                enabled: workspace.controller && workspace.controller.forwardStack.length > 0
-                onClicked: workspace.controller.goForward()
-            }
-            UiIconButton {
-                iconText: "H"
-                label: "Home"
-                tooltip: "Home"
-                selected: true
-                onClicked: workspace.controller.goHome()
-            }
-            Item { Layout.fillWidth: true }
+
             Repeater {
                 model: workspace.controller ? workspace.controller.localTabs : []
                 delegate: UiTab {

@@ -134,6 +134,37 @@ Rectangle {
             }
         }
 
+        RowLayout {
+            spacing: UiStyle.space6
+            visible: titleBar.controller && titleBar.controller.activityMode === "review"
+
+            UiIconButton {
+                iconText: "<"
+                label: "Back"
+                tooltip: "Back"
+                selected: false
+                enabled: titleBar.controller && titleBar.controller.backStack.length > 0
+                onClicked: titleBar.controller.goBack()
+            }
+
+            UiIconButton {
+                iconText: ">"
+                label: "Forward"
+                tooltip: "Forward"
+                selected: false
+                enabled: titleBar.controller && titleBar.controller.forwardStack.length > 0
+                onClicked: titleBar.controller.goForward()
+            }
+
+            UiIconButton {
+                iconText: "H"
+                label: "Home"
+                tooltip: "Home"
+                selected: false
+                onClicked: titleBar.controller.goHome()
+            }
+        }
+
         Item {
             Layout.fillWidth: true
         }

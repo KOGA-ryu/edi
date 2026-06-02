@@ -21,7 +21,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: UiStyle.toolbarHeight
+            Layout.preferredHeight: 32
             color: UiStyle.colorPanelAlt
             border.width: UiStyle.borderNone
 
@@ -35,9 +35,9 @@ Rectangle {
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: UiStyle.space10
-                anchors.rightMargin: UiStyle.space10
-                spacing: UiStyle.space6
+                anchors.leftMargin: UiStyle.space8
+                anchors.rightMargin: UiStyle.space8
+                spacing: UiStyle.space2
 
                 Repeater {
                     model: bottomPanel.controller ? bottomPanel.controller.shelfTabs : []
@@ -55,27 +55,31 @@ Rectangle {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: UiStyle.space10
-            spacing: UiStyle.space4
+            Layout.margins: UiStyle.space8
+            spacing: UiStyle.space2
 
             UiListRow {
                 label: "Selected route"
                 meta: bottomPanel.controller ? bottomPanel.controller.currentRoute().label : ""
+                metaMaxWidth: 360
                 Layout.fillWidth: true
             }
             UiListRow {
                 label: "Breadcrumb"
                 meta: bottomPanel.controller ? bottomPanel.controller.breadcrumbText(bottomPanel.controller.selectedRouteId) : ""
+                metaMaxWidth: 420
                 Layout.fillWidth: true
             }
             UiListRow {
                 label: "Notes in memory"
                 meta: bottomPanel.controller ? String(bottomPanel.controller.allNotes(bottomPanel.controller.revision).length) : "0"
+                metaMaxWidth: 120
                 Layout.fillWidth: true
             }
             UiListRow {
                 label: "Persistence"
                 meta: bottomPanel.controller && bottomPanel.controller.writeDisabled ? "disabled" : "enabled"
+                metaMaxWidth: 160
                 Layout.fillWidth: true
             }
         }

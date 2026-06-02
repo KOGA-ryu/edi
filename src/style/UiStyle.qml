@@ -13,7 +13,7 @@ QtObject {
     readonly property int railWidth: 52
     readonly property int leftPanelWidth: 260
     readonly property int rightPanelWidth: 330
-    readonly property int bottomPanelHeight: 184
+    readonly property int bottomPanelHeight: 132
     readonly property int titleBarHeight: 42
     readonly property int statusBarHeight: 28
 

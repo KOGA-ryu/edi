@@ -139,16 +139,16 @@ QtObject {
         colorBottomPanel = mix(base, surface, 0.32)
         colorStatusBar = mix(base, "#000000", 0.22)
         colorControl = mix(surface, text, 0.08)
-        colorControlHover = mix(surface, accent, 0.18)
-        colorSelected = mix(surface, accent, 0.28)
+        colorControlHover = mix(surface, text, 0.10)
+        colorSelected = mix(surface, accent, 0.22)
         colorAccent = accent
-        colorAccentSoft = mix(surface, accent, 0.36)
+        colorAccentSoft = mix(surface, accent, 0.26)
         colorText = text
         colorTextMuted = mix(surface, text, 0.62)
         colorTextFaint = mix(surface, text, 0.38)
-        colorBorderMajor = mix(surface, accent, 0.26)
-        colorBorderMinor = mix(surface, text, 0.10)
-        colorBorderFocus = mix(surface, accent, 0.58)
+        colorBorderMajor = mix(surface, text, 0.12)
+        colorBorderMinor = mix(surface, text, 0.055)
+        colorBorderFocus = mix(surface, accent, 0.36)
         colorPending = mix(surface, accent, 0.62)
         colorDisabled = mix(surface, text, 0.30)
 

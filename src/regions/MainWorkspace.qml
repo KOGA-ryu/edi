@@ -14,8 +14,7 @@ Rectangle {
     property var controller: null
 
     color: UiStyle.colorWorkspace
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderFocus
+    border.width: UiStyle.borderNone
 
     UiTaxonomyWorkspace {
         anchors.fill: parent

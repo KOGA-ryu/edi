@@ -15,8 +15,7 @@ Rectangle {
     property var controller: null
 
     color: UiStyle.colorPanel
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMajor
+    border.width: UiStyle.borderNone
 
     ColumnLayout {
         anchors.fill: parent

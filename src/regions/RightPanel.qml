@@ -13,8 +13,7 @@ Rectangle {
     property var controller: null
 
     color: UiStyle.colorPanel
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMajor
+    border.width: UiStyle.borderNone
 
     UiTaxonomyInspector {
         anchors.fill: parent
@@ -22,4 +21,3 @@ Rectangle {
         controller: rightPanel.controller
     }
 }
-

@@ -7,8 +7,15 @@ Rectangle {
     property var controller: null
 
     color: UiStyle.colorStatusBar
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMajor
+    border.width: UiStyle.borderNone
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: UiStyle.colorBorderMinor
+    }
 
     RowLayout {
         anchors.fill: parent

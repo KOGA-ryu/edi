@@ -11,8 +11,15 @@ Rectangle {
     property var hostWindow: null
 
     color: UiStyle.colorPanel
-    border.color: UiStyle.colorBorderMajor
-    border.width: UiStyle.borderThin
+    border.width: UiStyle.borderNone
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: UiStyle.colorBorderMinor
+    }
 
     function toggleZoom() {
         if (!hostWindow) {

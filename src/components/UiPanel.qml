@@ -9,13 +9,14 @@ Rectangle {
     property string dataState: "secondary"
     property string surfaceRecipeId: "panel_surface"
     property color panelColor: UiStyle.colorPanel
-    property color panelBorder: UiStyle.colorBorderMajor
+    property color panelBorder: UiStyle.colorBorderMinor
+    property int panelBorderWidth: UiStyle.borderNone
     property int panelRadius: UiStyle.radiusSm
     property int panelPadding: UiStyle.space10
     default property alias content: contentSlot.data
 
     color: panelColor
-    border.width: UiStyle.borderThin
+    border.width: panelBorderWidth
     border.color: panelBorder
     radius: panelRadius
     clip: true

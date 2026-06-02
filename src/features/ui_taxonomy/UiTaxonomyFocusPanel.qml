@@ -8,7 +8,7 @@ UiPanel {
     property var controller: null
     property var route: controller ? controller.currentRoute() : ({})
     panelColor: UiStyle.colorPanelRaised
-    panelBorder: UiStyle.colorBorderFocus
+    panelBorder: UiStyle.colorBorderMinor
     panelRadius: UiStyle.radiusMd
 
     ColumnLayout {
@@ -101,4 +101,3 @@ UiPanel {
         }
     }
 }
-

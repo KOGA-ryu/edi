@@ -13,8 +13,7 @@ Rectangle {
     property var controller: null
 
     color: UiStyle.colorBottomPanel
-    border.width: UiStyle.borderThin
-    border.color: UiStyle.colorBorderMajor
+    border.width: UiStyle.borderNone
 
     ColumnLayout {
         anchors.fill: parent
@@ -24,8 +23,15 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: UiStyle.toolbarHeight
             color: UiStyle.colorPanelAlt
-            border.width: UiStyle.borderThin
-            border.color: UiStyle.colorBorderMinor
+            border.width: UiStyle.borderNone
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: UiStyle.colorBorderMinor
+            }
 
             RowLayout {
                 anchors.fill: parent

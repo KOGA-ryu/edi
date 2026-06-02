@@ -18,7 +18,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: 1
-        color: UiStyle.colorBorderMinor
+        color: UiStyle.colorPanelAlt
     }
 
     function toggleZoom() {

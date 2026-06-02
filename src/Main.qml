@@ -92,7 +92,7 @@ ApplicationWindow {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     width: UiStyle.splitterLineSize
-                    color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                    color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorBorderMajor
                     opacity: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? 0.9 : 0.55
                 }
 
@@ -150,7 +150,7 @@ ApplicationWindow {
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
                             width: UiStyle.splitterLineSize
-                            color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                            color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorPanelRaised
                             opacity: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? 0.9 : 0.55
                         }
 
@@ -198,7 +198,7 @@ ApplicationWindow {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: UiStyle.splitterLineSize
-                        color: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                        color: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorPanelRaised
                         opacity: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? 0.9 : 0.55
                     }
 

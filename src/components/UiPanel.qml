@@ -9,7 +9,7 @@ Rectangle {
     property string dataState: "secondary"
     property string surfaceRecipeId: "panel_surface"
     property color panelColor: UiStyle.colorPanel
-    property color panelBorder: UiStyle.colorBorderMinor
+    property color panelBorder: UiStyle.colorTransparent
     property int panelBorderWidth: UiStyle.borderNone
     property int panelRadius: UiStyle.radiusSm
     property int panelPadding: UiStyle.space10

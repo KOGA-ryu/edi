@@ -9,7 +9,6 @@ UiPanel {
     property var counts: controller ? controller.statusCounts(controller.revision) : ({})
 
     panelColor: UiStyle.colorPanel
-    panelBorder: UiStyle.colorBorderMinor
     panelPadding: UiStyle.space6
 
     RowLayout {

@@ -14,7 +14,7 @@ Rectangle {
     property string surfaceRecipeId: "right_panel_surface"
     property var controller: null
 
-    color: UiStyle.colorPanel
+    color: UiStyle.colorPanelAlt
     border.width: UiStyle.borderNone
 
     ReviewRightContext {

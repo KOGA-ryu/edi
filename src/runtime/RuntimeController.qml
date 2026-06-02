@@ -16,6 +16,12 @@ QtObject {
     property bool leftPanelCollapsed: false
     property bool rightPanelCollapsed: false
     property bool bottomPanelCollapsed: false
+    property int leftPanelWidth: UiStyle.leftPanelWidth
+    property int rightPanelWidth: UiStyle.rightPanelWidth
+    property int bottomPanelHeight: UiStyle.bottomPanelHeight
+    property bool shellLayoutDirty: false
+    property bool shellLayoutSaveOk: true
+    property string shellLayoutPath: ""
     property int revision: 0
 
     property var backStack: []
@@ -43,10 +49,79 @@ QtObject {
         uiThemeDocument = typeof initialUiTheme === "undefined" ? ({}) : initialUiTheme
         uiThemePath = typeof initialUiThemePath === "undefined" ? "" : String(initialUiThemePath)
         UiStyle.applyTheme(uiThemeDocument)
+        shellLayoutPath = typeof initialShellLayoutPath === "undefined" ? "" : String(initialShellLayoutPath)
+        loadShellLayout(typeof initialShellLayout === "undefined" ? ({}) : initialShellLayout)
 
         var document = typeof initialReviewSubject === "undefined" ? ({}) : initialReviewSubject
         reviewSubjectDocument = document
         loadReviewSubject(reviewSubjectDocument)
+    }
+
+    function clamp(value, low, high) {
+        return Math.max(low, Math.min(high, Math.round(Number(value))))
+    }
+
+    function markShellLayoutDirty() {
+        shellLayoutDirty = true
+        revision += 1
+    }
+
+    function loadShellLayout(document) {
+        var panels = document && document.panels ? document.panels : ({})
+        var left = panels.left || ({})
+        var right = panels.right || ({})
+        var bottom = panels.bottom || ({})
+
+        leftPanelCollapsed = !!left.collapsed
+        rightPanelCollapsed = !!right.collapsed
+        bottomPanelCollapsed = !!bottom.collapsed
+        leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, 180, 520)
+        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, 220, 560)
+        bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, 96, 360)
+        shellLayoutDirty = false
+        shellLayoutSaveOk = true
+    }
+
+    function shellLayoutDocument() {
+        return {
+            panels: {
+                left: {
+                    collapsed: leftPanelCollapsed,
+                    width: leftPanelWidth
+                },
+                right: {
+                    collapsed: rightPanelCollapsed,
+                    width: rightPanelWidth
+                },
+                bottom: {
+                    collapsed: bottomPanelCollapsed,
+                    height: bottomPanelHeight
+                }
+            }
+        }
+    }
+
+    function saveShellLayout() {
+        if (typeof shellLayoutStore === "undefined" || !shellLayoutStore) {
+            shellLayoutSaveOk = false
+            return false
+        }
+        shellLayoutSaveOk = shellLayoutStore.save(shellLayoutDocument())
+        if (shellLayoutSaveOk) {
+            shellLayoutDirty = false
+        }
+        revision += 1
+        return shellLayoutSaveOk
+    }
+
+    function resetShellLayout() {
+        leftPanelCollapsed = false
+        rightPanelCollapsed = false
+        bottomPanelCollapsed = false
+        leftPanelWidth = UiStyle.leftPanelWidth
+        rightPanelWidth = UiStyle.rightPanelWidth
+        bottomPanelHeight = UiStyle.bottomPanelHeight
+        markShellLayoutDirty()
     }
 
     function asArray(value) {
@@ -227,17 +302,47 @@ QtObject {
 
     function toggleLeftPanel() {
         leftPanelCollapsed = !leftPanelCollapsed
-        revision += 1
+        markShellLayoutDirty()
     }
 
     function toggleRightPanel() {
         rightPanelCollapsed = !rightPanelCollapsed
-        revision += 1
+        markShellLayoutDirty()
     }
 
     function toggleBottomPanel() {
         bottomPanelCollapsed = !bottomPanelCollapsed
-        revision += 1
+        markShellLayoutDirty()
+    }
+
+    function setLeftPanelCollapsed(collapsed) {
+        leftPanelCollapsed = !!collapsed
+        markShellLayoutDirty()
+    }
+
+    function setRightPanelCollapsed(collapsed) {
+        rightPanelCollapsed = !!collapsed
+        markShellLayoutDirty()
+    }
+
+    function setBottomPanelCollapsed(collapsed) {
+        bottomPanelCollapsed = !!collapsed
+        markShellLayoutDirty()
+    }
+
+    function setLeftPanelWidth(width) {
+        leftPanelWidth = clamp(width, 180, 520)
+        markShellLayoutDirty()
+    }
+
+    function setRightPanelWidth(width) {
+        rightPanelWidth = clamp(width, 220, 560)
+        markShellLayoutDirty()
+    }
+
+    function setBottomPanelHeight(height) {
+        bottomPanelHeight = clamp(height, 96, 360)
+        markShellLayoutDirty()
     }
 
     function applyTheme(theme) {

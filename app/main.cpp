@@ -8,12 +8,44 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
+#include <QObject>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QSaveFile>
 #include <QTimer>
 #include <QtGlobal>
 #include <QUrl>
+#include <QVariantMap>
+#include <utility>
+
+class ShellLayoutStore final : public QObject {
+    Q_OBJECT
+
+public:
+    explicit ShellLayoutStore(QString path, QObject *parent = nullptr)
+        : QObject(parent),
+          m_path(std::move(path)) {}
+
+    Q_INVOKABLE bool save(const QVariantMap &layout) const {
+        QSaveFile file(m_path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+
+        const QJsonObject object = QJsonObject::fromVariantMap(layout);
+        const QJsonDocument document(object);
+        file.write(document.toJson(QJsonDocument::Indented));
+        return file.commit();
+    }
+
+    Q_INVOKABLE QString path() const {
+        return m_path;
+    }
+
+private:
+    QString m_path;
+};
 
 int main(int argc, char *argv[]) {
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
@@ -67,6 +99,10 @@ int main(int argc, char *argv[]) {
         QStringList() << "activity",
         "Select an activity mode before screenshot capture.",
         "mode_id");
+    const QCommandLineOption settingsPageOption(
+        QStringList() << "settings-page",
+        "Select a settings page before screenshot capture.",
+        "page_id");
     parser.addOption(screenshotOption);
     parser.addOption(routeOption);
     parser.addOption(widthOption);
@@ -77,6 +113,7 @@ int main(int argc, char *argv[]) {
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(activityOption);
+    parser.addOption(settingsPageOption);
     parser.process(app);
 
     auto absolutePath = [](const QString &path) {
@@ -110,11 +147,19 @@ int main(int argc, char *argv[]) {
     themePath = absolutePath(themePath);
     const QVariant uiTheme = loadJsonObject(themePath);
 
+    QString shellLayoutPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/shell_layout.json");
+    shellLayoutPath = absolutePath(shellLayoutPath);
+    const QVariant shellLayout = loadJsonObject(shellLayoutPath);
+    ShellLayoutStore shellLayoutStore(shellLayoutPath);
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubject"), reviewSubject);
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubjectPath"), reviewSubjectPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialUiTheme"), uiTheme);
     engine.rootContext()->setContextProperty(QStringLiteral("initialUiThemePath"), themePath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     const QUrl mainUrl = QUrl::fromLocalFile(QStringLiteral(QML_SOURCE_DIR) + QStringLiteral("/Main.qml"));
     QObject::connect(
         &engine,
@@ -161,6 +206,13 @@ int main(int argc, char *argv[]) {
                 Q_ARG(QVariant, QVariant(parser.value(activityOption))));
         }
 
+        if (parser.isSet(settingsPageOption)) {
+            QMetaObject::invokeMethod(
+                runtime,
+                "setSettingsPage",
+                Q_ARG(QVariant, QVariant(parser.value(settingsPageOption))));
+        }
+
         if (parser.isSet(noteOption)) {
             const QString routeId = parser.isSet(routeOption)
                 ? parser.value(routeOption)
@@ -199,3 +251,5 @@ int main(int argc, char *argv[]) {
 
     return app.exec();
 }
+
+#include "main.moc"

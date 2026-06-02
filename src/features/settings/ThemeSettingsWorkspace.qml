@@ -91,7 +91,9 @@ Rectangle {
 
             UiStatusChip {
                 status: "pending"
-                label: "preview only"
+                label: root.selectedPage === "panels"
+                    ? (root.controller && root.controller.shellLayoutDirty ? "unsaved" : "saved")
+                    : "preview only"
             }
         }
 
@@ -287,8 +289,15 @@ Rectangle {
             }
         }
 
+        PanelsSettingsPage {
+            controller: root.controller
+            visible: root.selectedPage === "panels"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
         UiPanel {
-            visible: root.selectedPage !== "theme"
+            visible: root.selectedPage !== "theme" && root.selectedPage !== "panels"
             Layout.fillWidth: true
             Layout.fillHeight: true
 

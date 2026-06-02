@@ -25,6 +25,9 @@ ApplicationWindow {
     property string dataUi: "window"
     property string dataState: "active"
     property string surfaceRecipeId: "shell_surface"
+    property int dragStartX: 0
+    property int dragStartY: 0
+    property int dragStartSize: 0
 
     RuntimeController {
         id: runtimeController
@@ -65,8 +68,46 @@ ApplicationWindow {
                 id: leftPanel
                 controller: runtimeController
                 visible: !runtimeController.leftPanelCollapsed
-                Layout.preferredWidth: visible ? UiStyle.leftPanelWidth : 0
+                Layout.preferredWidth: visible ? runtimeController.leftPanelWidth : 0
                 Layout.fillHeight: true
+            }
+
+            Rectangle {
+                id: leftResizeHandle
+                visible: !runtimeController.leftPanelCollapsed
+                Layout.preferredWidth: visible ? 6 : 0
+                Layout.fillHeight: true
+                color: UiStyle.colorTransparent
+
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                }
+
+                MouseArea {
+                    id: leftResizeMouse
+                    property bool dragging: false
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.SplitHCursor
+                    onPressed: {
+                        dragging = true
+                        window.dragStartX = mapToItem(window, mouse.x, mouse.y).x
+                        window.dragStartSize = runtimeController.leftPanelWidth
+                    }
+                    onReleased: dragging = false
+                    onCanceled: dragging = false
+                    onPositionChanged: {
+                        if (!dragging) {
+                            return
+                        }
+                        var currentX = mapToItem(window, mouse.x, mouse.y).x
+                        runtimeController.setLeftPanelWidth(window.dragStartSize + currentX - window.dragStartX)
+                    }
+                }
             }
 
             ColumnLayout {
@@ -82,12 +123,88 @@ ApplicationWindow {
                     Layout.fillHeight: true
                 }
 
+                Rectangle {
+                    id: bottomResizeHandle
+                    visible: !runtimeController.bottomPanelCollapsed
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: visible ? 6 : 0
+                    color: UiStyle.colorTransparent
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 1
+                        color: bottomResizeMouse.containsMouse || bottomResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                    }
+
+                    MouseArea {
+                        id: bottomResizeMouse
+                        property bool dragging: false
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitVCursor
+                        onPressed: {
+                            dragging = true
+                            window.dragStartY = mapToItem(window, mouse.x, mouse.y).y
+                            window.dragStartSize = runtimeController.bottomPanelHeight
+                        }
+                        onReleased: dragging = false
+                        onCanceled: dragging = false
+                        onPositionChanged: {
+                            if (!dragging) {
+                                return
+                            }
+                            var currentY = mapToItem(window, mouse.x, mouse.y).y
+                            runtimeController.setBottomPanelHeight(window.dragStartSize - (currentY - window.dragStartY))
+                        }
+                    }
+                }
+
                 BottomPanel {
                     id: bottomPanel
                     controller: runtimeController
                     visible: !runtimeController.bottomPanelCollapsed
                     Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? UiStyle.bottomPanelHeight : 0
+                    Layout.preferredHeight: visible ? runtimeController.bottomPanelHeight : 0
+                }
+            }
+
+            Rectangle {
+                id: rightResizeHandle
+                visible: window.width >= 1160 && !runtimeController.rightPanelCollapsed
+                Layout.preferredWidth: visible ? 6 : 0
+                Layout.fillHeight: true
+                color: UiStyle.colorTransparent
+
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorBorderFocus : UiStyle.colorBorderMajor
+                }
+
+                MouseArea {
+                    id: rightResizeMouse
+                    property bool dragging: false
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.SplitHCursor
+                    onPressed: {
+                        dragging = true
+                        window.dragStartX = mapToItem(window, mouse.x, mouse.y).x
+                        window.dragStartSize = runtimeController.rightPanelWidth
+                    }
+                    onReleased: dragging = false
+                    onCanceled: dragging = false
+                    onPositionChanged: {
+                        if (!dragging) {
+                            return
+                        }
+                        var currentX = mapToItem(window, mouse.x, mouse.y).x
+                        runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
+                    }
                 }
             }
 
@@ -95,7 +212,7 @@ ApplicationWindow {
                 id: rightPanel
                 controller: runtimeController
                 visible: window.width >= 1160 && !runtimeController.rightPanelCollapsed
-                Layout.preferredWidth: visible ? UiStyle.rightPanelWidth : 0
+                Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
                 Layout.fillHeight: true
             }
         }

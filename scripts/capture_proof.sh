@@ -6,6 +6,7 @@ cd "$repo_root"
 
 scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
 scripts/validate_ui_theme.js data/ui_theme.json
+scripts/validate_shell_layout.js data/shell_layout.json
 cmake --build build
 
 ./build/qt_qml_region_split \
@@ -31,6 +32,13 @@ cmake --build build
 ./build/qt_qml_region_split \
   --screenshot docs/proof/settings_theme_1280x820.png \
   --activity settings \
+  --width 1280 \
+  --height 820
+
+./build/qt_qml_region_split \
+  --screenshot docs/proof/settings_panels_1280x820.png \
+  --activity settings \
+  --settings-page panels \
   --width 1280 \
   --height 820
 

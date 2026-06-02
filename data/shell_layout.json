@@ -1,0 +1,16 @@
+{
+  "panels": {
+    "left": {
+      "collapsed": false,
+      "width": 260
+    },
+    "right": {
+      "collapsed": false,
+      "width": 330
+    },
+    "bottom": {
+      "collapsed": false,
+      "height": 184
+    }
+  }
+}

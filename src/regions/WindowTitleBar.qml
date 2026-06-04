@@ -119,6 +119,140 @@ Rectangle {
         }
 
         RowLayout {
+            Layout.preferredHeight: UiStyle.toolbarHeight
+            visible: !titleBar.hostWindow || titleBar.hostWindow.width >= 720
+            spacing: UiStyle.space2
+
+            UiMenuButton {
+                label: "File"
+
+                Action {
+                    text: "Save Layout"
+                    enabled: titleBar.controller && titleBar.controller.shellLayoutDirty
+                    onTriggered: titleBar.controller.saveShellLayout()
+                }
+                Action {
+                    text: "Reset Layout"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.resetShellLayout()
+                }
+                MenuSeparator {}
+                Action {
+                    text: "Close Window"
+                    enabled: titleBar.hostWindow
+                    onTriggered: titleBar.hostWindow.close()
+                }
+            }
+
+            UiMenuButton {
+                label: "Edit"
+
+                Action {
+                    text: "Mark Pending"
+                    enabled: titleBar.controller && titleBar.controller.hasReviewSubject
+                    onTriggered: titleBar.controller.runInspectorAction("status_pending", titleBar.controller.selectedRouteId)
+                }
+                Action {
+                    text: "Accept Selection"
+                    enabled: titleBar.controller && titleBar.controller.hasReviewSubject
+                    onTriggered: titleBar.controller.runInspectorAction("status_accepted", titleBar.controller.selectedRouteId)
+                }
+                Action {
+                    text: "Mark Rework"
+                    enabled: titleBar.controller && titleBar.controller.hasReviewSubject
+                    onTriggered: titleBar.controller.runInspectorAction("status_needs_rework", titleBar.controller.selectedRouteId)
+                }
+                Action {
+                    text: "Reject Selection"
+                    enabled: titleBar.controller && titleBar.controller.hasReviewSubject
+                    onTriggered: titleBar.controller.runInspectorAction("status_rejected", titleBar.controller.selectedRouteId)
+                }
+            }
+
+            UiMenuButton {
+                label: "View"
+
+                Action {
+                    text: titleBar.controller && titleBar.controller.panelManualCollapsed("left") ? "Show Left Panel" : "Hide Left Panel"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.toggleLeftPanel()
+                }
+                Action {
+                    text: titleBar.controller && titleBar.controller.panelManualCollapsed("right") ? "Show Right Panel" : "Hide Right Panel"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.toggleRightPanel()
+                }
+                Action {
+                    text: titleBar.controller && titleBar.controller.panelManualCollapsed("bottom") ? "Show Bottom Panel" : "Hide Bottom Panel"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.toggleBottomPanel()
+                }
+                MenuSeparator {}
+                Action {
+                    text: "Full Layout"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.applyLayoutPreset("full")
+                }
+                Action {
+                    text: "Review Layout"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.applyLayoutPreset("review")
+                }
+                Action {
+                    text: "Focus Layout"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.applyLayoutPreset("focus")
+                }
+                Action {
+                    text: "Tiny Layout"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.applyLayoutPreset("tiny")
+                }
+            }
+
+            UiMenuButton {
+                label: "Tools"
+
+                Action {
+                    text: "Settings"
+                    enabled: titleBar.controller && titleBar.controller.hasActivityMode("settings")
+                    onTriggered: titleBar.controller.setActivityMode("settings")
+                }
+                Action {
+                    text: "Theme"
+                    enabled: titleBar.controller && titleBar.controller.hasActivityMode("settings")
+                    onTriggered: {
+                        titleBar.controller.setActivityMode("settings")
+                        titleBar.controller.setSettingsPage("theme")
+                    }
+                }
+                Action {
+                    text: "Panels"
+                    enabled: titleBar.controller && titleBar.controller.hasActivityMode("settings")
+                    onTriggered: {
+                        titleBar.controller.setActivityMode("settings")
+                        titleBar.controller.setSettingsPage("panels")
+                    }
+                }
+            }
+
+            UiMenuButton {
+                label: "Window"
+
+                Action {
+                    text: "Minimize"
+                    enabled: titleBar.hostWindow
+                    onTriggered: titleBar.hostWindow.showMinimized()
+                }
+                Action {
+                    text: "Zoom"
+                    enabled: titleBar.hostWindow
+                    onTriggered: titleBar.toggleZoom()
+                }
+            }
+        }
+
+        RowLayout {
             spacing: UiStyle.space6
             visible: titleBar.controller && titleBar.controller.activityMode === "review"
 

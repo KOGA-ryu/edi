@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import "../style"
 import "../components"
 import "../features/csv_map_editor"
+import "../features/drawing_tool"
 
 Rectangle {
     id: bottomPanel
@@ -99,12 +100,21 @@ Rectangle {
             controller: bottomPanel.controller
         }
 
+        DrawingToolBottomPanel {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.margins: UiStyle.space6
+            visible: bottomPanel.controller && bottomPanel.controller.activityMode === "drawing_tool"
+            controller: bottomPanel.controller
+        }
+
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !bottomPanel.controller
                 || (bottomPanel.controller.activityMode !== "review"
-                    && bottomPanel.controller.activityMode !== "map_editor")
+                    && bottomPanel.controller.activityMode !== "map_editor"
+                    && bottomPanel.controller.activityMode !== "drawing_tool")
         }
     }
 }

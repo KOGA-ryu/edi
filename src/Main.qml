@@ -134,6 +134,7 @@ ApplicationWindow {
                     MainWorkspace {
                         id: mainWorkspace
                         controller: runtimeController
+                        Layout.minimumWidth: 0
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                     }
@@ -181,7 +182,9 @@ ApplicationWindow {
                         id: rightPanel
                         controller: runtimeController
                         visible: window.effectiveRightPanelVisible
+                        Layout.minimumWidth: visible ? runtimeController.rightPanelMinWidth : 0
                         Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
+                        Layout.maximumWidth: visible ? runtimeController.rightPanelWidth : 0
                         Layout.fillHeight: true
                     }
                 }

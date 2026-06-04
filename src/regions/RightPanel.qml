@@ -6,6 +6,7 @@ import "../features/blank"
 import "../features/ui_taxonomy"
 import "../features/settings"
 import "../features/csv_map_editor"
+import "../features/drawing_tool"
 
 Rectangle {
     id: rightPanel
@@ -40,6 +41,13 @@ Rectangle {
         controller: rightPanel.controller
     }
 
+    DrawingToolRightContext {
+        anchors.fill: parent
+        anchors.margins: UiStyle.space6
+        visible: rightPanel.controller && rightPanel.controller.activityMode === "drawing_tool"
+        controller: rightPanel.controller
+    }
+
     BlankPanel {
         anchors.fill: parent
         anchors.margins: UiStyle.space6
@@ -47,6 +55,7 @@ Rectangle {
             && rightPanel.controller.activityMode !== "review"
             && rightPanel.controller.activityMode !== "settings"
             && rightPanel.controller.activityMode !== "map_editor"
+            && rightPanel.controller.activityMode !== "drawing_tool"
         controller: rightPanel.controller
     }
 }

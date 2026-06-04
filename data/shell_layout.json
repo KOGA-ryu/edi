@@ -11,7 +11,7 @@
     },
     "right": {
       "min_width": 160,
-      "max_width": 1200,
+      "max_width": 2400,
       "auto_hide_below_width": 0
     },
     "bottom": {

@@ -134,7 +134,7 @@ for (const file of files) {
 
   if (document.data_sources) {
     const feature = document.main_workspace ? document.main_workspace.feature : "";
-    const doesNotRequireReviewSubject = feature === "blank_canvas" || feature === "csv_map_editor";
+    const doesNotRequireReviewSubject = feature === "blank_canvas" || feature === "csv_map_editor" || feature === "drawing_tool_blank";
     if (doesNotRequireReviewSubject) {
       optionalString(errors, document.data_sources, "review_subject", "data_sources");
     } else {
@@ -144,10 +144,10 @@ for (const file of files) {
     optionalString(errors, document.data_sources, "map_csv", "data_sources");
     optionalString(errors, document.data_sources, "cell_metadata", "data_sources");
     if (!doesNotRequireReviewSubject && typeof document.data_sources.review_notes === "string" && document.data_sources.review_notes.trim().length === 0) {
-      errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas or csv_map_editor");
+      errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas, csv_map_editor, or drawing_tool_blank");
     }
     if (!doesNotRequireReviewSubject && typeof document.data_sources.review_subject === "string" && document.data_sources.review_subject.trim().length === 0) {
-      errors.push("data_sources: review_subject is required unless main_workspace.feature is blank_canvas or csv_map_editor");
+      errors.push("data_sources: review_subject is required unless main_workspace.feature is blank_canvas, csv_map_editor, or drawing_tool_blank");
     }
     if (feature === "csv_map_editor") {
       requireString(errors, document.data_sources, "map_csv", "data_sources");

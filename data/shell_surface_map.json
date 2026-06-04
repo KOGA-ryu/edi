@@ -40,6 +40,16 @@
       ]
     },
     {
+      "profile_id": "draftsman_drawing_tool_blank",
+      "path": "data/project_profiles/draftsman_drawing_tool_blank.json",
+      "purpose": "Blank reusable shell copy for a drawing tool.",
+      "default_activity": "drawing_tool",
+      "enabled_features": [
+        "drawing_tool_blank",
+        "settings"
+      ]
+    },
+    {
       "profile_id": "draftsman_game_guy_map_editor",
       "path": "data/project_profiles/draftsman_game_guy_map_editor.json",
       "purpose": "CSV schematic dungeon map editor profile.",
@@ -59,6 +69,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -89,6 +100,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -120,6 +132,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -148,6 +161,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -159,6 +173,7 @@
       "feature_slots": [
         "blank_panel",
         "review_left_nav",
+        "drawing_tool_left_panel",
         "csv_map_editor_left_nav",
         "settings_left_nav"
       ],
@@ -185,6 +200,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -195,6 +211,7 @@
       "feature_slots": [
         "blank_workspace",
         "ui_taxonomy_workspace",
+        "drawing_tool_workspace",
         "csv_map_editor_workspace",
         "theme_settings_workspace"
       ],
@@ -221,6 +238,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -232,6 +250,7 @@
       "feature_slots": [
         "blank_panel",
         "review_right_context",
+        "drawing_tool_right_context",
         "csv_map_editor_right_context",
         "settings_right_context"
       ],
@@ -256,6 +275,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -267,6 +287,7 @@
       "feature_slots": [
         "blank_panel",
         "review_shelf",
+        "drawing_tool_shelf",
         "csv_map_editor_shelf"
       ],
       "may_edit": [
@@ -290,6 +311,7 @@
       "activity_modes": [
         "blank",
         "review",
+        "drawing_tool",
         "map_editor",
         "settings"
       ],
@@ -390,6 +412,32 @@
       "proof": [
         "docs/proof/activity_rail_drilldown_1280x820.png",
         "docs/proof/note_entry_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "drawing_tool_blank",
+      "kind": "feature_surface",
+      "owner_file": "src/features/drawing_tool/DrawingToolWorkspace.qml",
+      "data_ui": "drawing_tool_workspace",
+      "activity_modes": [
+        "drawing_tool"
+      ],
+      "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+      "inputs": [
+        "controller.activityMode"
+      ],
+      "may_edit": [
+        "drawing-tool feature internals",
+        "blank drawing canvas host",
+        "future drawing controls after behavior contracts exist"
+      ],
+      "must_not_edit": [
+        "default blank profile",
+        "fake drawing controls",
+        "broad shell layout unless routing requires it"
+      ],
+      "proof": [
+        "docs/proof/drawing_tool_blank_1280x820.png"
       ]
     },
     {

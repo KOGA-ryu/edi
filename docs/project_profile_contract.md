@@ -130,4 +130,6 @@ Custom actions can also be triggered for proof/automation runs:
   --action export_dex_handoff
 ```
 
+Export packets include `index.txt` and SHA-256 file records for handoff verification.
+
 `packet_type: "dex_handoff"` adds `AGENT_README.txt`, `prompt.txt`, and `context.txt` to the normal export packet.

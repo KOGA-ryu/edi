@@ -65,6 +65,7 @@ Implemented behavior:
 - plain text document bodies under `data/text_editor/docs/`
 - plain-text export packets under `data/text_editor/exports/`
 - Dex handoff packets include `AGENT_README.txt`, `prompt.txt`, and `context.txt`
+- export packets include `index.txt` and SHA-256 checksums in `manifest.json`
 
 Explicit non-goals:
 

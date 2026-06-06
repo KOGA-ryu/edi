@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -207,6 +208,7 @@ public:
         }
 
         QJsonArray manifestDocuments;
+        QJsonArray packetFiles;
         QString combined;
         QString promptText;
         QString contextText;
@@ -238,6 +240,8 @@ public:
                 result.insert(QStringLiteral("message"), QStringLiteral("document export commit failed"));
                 return result;
             }
+            const QString documentHash = sha256Hex(text.toUtf8());
+            packetFiles.append(packetFileRecord(relativePath, documentHash, text.toUtf8().size()));
 
             combined += QStringLiteral("===== ") + name + QStringLiteral(" [") + id + QStringLiteral("] =====\n");
             combined += text;
@@ -274,6 +278,7 @@ public:
             manifestDocument.insert(QStringLiteral("active"), id == activeId);
             manifestDocument.insert(QStringLiteral("chars"), text.length());
             manifestDocument.insert(QStringLiteral("lines"), text.isEmpty() ? 1 : text.count(QLatin1Char('\n')) + 1);
+            manifestDocument.insert(QStringLiteral("sha256"), documentHash);
             manifestDocuments.append(manifestDocument);
             exportedCount += 1;
         }
@@ -287,6 +292,7 @@ public:
             result.insert(QStringLiteral("message"), QStringLiteral("combined export failed"));
             return result;
         }
+        packetFiles.append(packetFileRecord(QStringLiteral("all_documents.txt"), sha256Hex(combined.toUtf8()), combined.toUtf8().size()));
 
         if (dexHandoff) {
             if (promptDocumentId.isEmpty() && manifestDocuments.size() > 0) {
@@ -325,6 +331,9 @@ public:
                 result.insert(QStringLiteral("message"), QStringLiteral("handoff export failed"));
                 return result;
             }
+            packetFiles.append(packetFileRecord(QStringLiteral("prompt.txt"), sha256Hex(promptFile.toUtf8()), promptFile.toUtf8().size()));
+            packetFiles.append(packetFileRecord(QStringLiteral("context.txt"), sha256Hex(contextFile.toUtf8()), contextFile.toUtf8().size()));
+            packetFiles.append(packetFileRecord(QStringLiteral("AGENT_README.txt"), sha256Hex(agentReadme.toUtf8()), agentReadme.toUtf8().size()));
         }
 
         QJsonObject manifest;
@@ -336,6 +345,7 @@ public:
         manifest.insert(QStringLiteral("profile_label"), metadata.value(QStringLiteral("profile_label")).toString());
         manifest.insert(QStringLiteral("active_document_id"), activeId);
         manifest.insert(QStringLiteral("documents"), manifestDocuments);
+        manifest.insert(QStringLiteral("files"), packetFiles);
         if (dexHandoff) {
             QJsonObject handoffFiles;
             handoffFiles.insert(QStringLiteral("agent_readme"), QStringLiteral("AGENT_README.txt"));
@@ -355,16 +365,33 @@ public:
             result.insert(QStringLiteral("message"), QStringLiteral("manifest export commit failed"));
             return result;
         }
+        const QByteArray manifestBytes = QJsonDocument(manifest).toJson(QJsonDocument::Indented);
+        packetFiles.append(packetFileRecord(QStringLiteral("manifest.json"), sha256Hex(manifestBytes), manifestBytes.size()));
 
-        QSaveFile readmeFile(packetDir.absoluteFilePath(QStringLiteral("README.txt")));
-        if (readmeFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-            QString readme;
-            readme += QStringLiteral("Draftsman text editor export bundle\n");
-            readme += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n");
-            readme += QStringLiteral("Documents: ") + QString::number(exportedCount) + QStringLiteral("\n\n");
-            readme += QStringLiteral("Read manifest.json first. Document bodies are in documents/. all_documents.txt is a combined plain-text copy.\n");
-            readmeFile.write(readme.toUtf8());
-            readmeFile.commit();
+        QString readme;
+        readme += QStringLiteral("Draftsman text editor export bundle\n");
+        readme += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n");
+        readme += QStringLiteral("Documents: ") + QString::number(exportedCount) + QStringLiteral("\n\n");
+        readme += QStringLiteral("Read manifest.json first. Document bodies are in documents/. all_documents.txt is a combined plain-text copy.\n");
+        readme += QStringLiteral("Use index.txt for a quick packet file list with SHA-256 checksums.\n");
+        if (writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("README.txt")), readme)) {
+            packetFiles.append(packetFileRecord(QStringLiteral("README.txt"), sha256Hex(readme.toUtf8()), readme.toUtf8().size()));
+        }
+
+        QString indexText;
+        indexText += QStringLiteral("Draftsman packet index\n");
+        indexText += QStringLiteral("Packet: ") + packetName + QStringLiteral("\n");
+        indexText += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n\n");
+        for (const QJsonValue &value : packetFiles) {
+            const QJsonObject file = value.toObject();
+            indexText += file.value(QStringLiteral("sha256")).toString()
+                + QStringLiteral("  ")
+                + file.value(QStringLiteral("path")).toString()
+                + QStringLiteral("\n");
+        }
+        if (!writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("index.txt")), indexText)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("index export failed"));
+            return result;
         }
 
         result.insert(QStringLiteral("ok"), true);
@@ -526,6 +553,18 @@ private:
         }
         file.write(text.toUtf8());
         return file.commit();
+    }
+
+    static QString sha256Hex(const QByteArray &data) {
+        return QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
+    }
+
+    static QJsonObject packetFileRecord(const QString &path, const QString &sha256, qsizetype bytes) {
+        QJsonObject record;
+        record.insert(QStringLiteral("path"), path);
+        record.insert(QStringLiteral("sha256"), sha256);
+        record.insert(QStringLiteral("bytes"), static_cast<double>(bytes));
+        return record;
     }
 
     static QVariantMap normalizeEditorState(const QVariantMap &source) {

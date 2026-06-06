@@ -1384,10 +1384,14 @@ void DrawingDocumentController::deleteSelectedObject() {
 
 void DrawingDocumentController::beginMoveGesture() {
     m_moveGestureActive = true;
+    m_moveGestureUndoCaptured = false;
+    m_moveGestureStartCommandCount = m_commands.size();
 }
 
 void DrawingDocumentController::endMoveGesture() {
     m_moveGestureActive = false;
+    m_moveGestureUndoCaptured = false;
+    m_moveGestureStartCommandCount = m_commands.size();
 }
 
 void DrawingDocumentController::moveObjectBy(const QString &objectId, double dx, double dy) {
@@ -1539,6 +1543,23 @@ void DrawingDocumentController::applyCommand(const QJsonObject &command) {
         }
     }
 
+    const bool gestureFieldUpdate = m_moveGestureActive && name == QStringLiteral("update_object");
+    if (gestureFieldUpdate) {
+        const int firstGestureIndex = std::clamp(m_moveGestureStartCommandCount, 0, static_cast<int>(m_commands.size()));
+        for (int index = m_commands.size() - 1; index >= firstGestureIndex; --index) {
+            QJsonObject previous = m_commands.at(index).toObject();
+            if (stringAt(previous, QStringLiteral("cmd")) == QStringLiteral("update_object")
+                    && stringAt(previous, QStringLiteral("object_id")) == stringAt(command, QStringLiteral("object_id"))
+                    && stringAt(previous, QStringLiteral("field")) == stringAt(command, QStringLiteral("field"))) {
+                previous.insert(QStringLiteral("value"), numberAt(command, QStringLiteral("value")));
+                m_commands[index] = previous;
+                m_redoSnapshots.clear();
+                publish();
+                return;
+            }
+        }
+    }
+
     m_commands.append(command);
     publish();
 
@@ -1553,7 +1574,13 @@ void DrawingDocumentController::applyCommand(const QJsonObject &command) {
         && nowPending
         && afterObjectCount == beforeObjectCount;
     if (!pendingOnlyClick) {
+        if (gestureFieldUpdate && m_moveGestureUndoCaptured) {
+            return;
+        }
         m_undoSnapshots.append(undoSnapshot);
+        if (gestureFieldUpdate) {
+            m_moveGestureUndoCaptured = true;
+        }
     }
 }
 

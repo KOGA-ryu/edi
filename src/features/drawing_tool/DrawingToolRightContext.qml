@@ -65,6 +65,86 @@ Item {
         return id.length > 0 ? kind + " / " + id : kind
     }
 
+    function compactNumber(value) {
+        var number = Number(value)
+        if (!Number.isFinite(number)) {
+            return "0"
+        }
+        var rounded = Math.round(number * 1000) / 1000
+        return String(rounded)
+    }
+
+    function objectPointValue(object, pointField, index, fallbackField) {
+        var point = asArray(object[pointField])
+        if (point.length > index) {
+            return compactNumber(point[index])
+        }
+        return compactNumber(Number(object[fallbackField] || 0) * Number(drawingRightContext.controller ? drawingRightContext.controller.drawingCanvasSizePx : 512))
+    }
+
+    function objectRectValue(object, index, fallbackField) {
+        var rect = asArray(object.rect_px)
+        if (rect.length > index) {
+            return compactNumber(rect[index])
+        }
+        return compactNumber(Number(object[fallbackField] || 0) * Number(drawingRightContext.controller ? drawingRightContext.controller.drawingCanvasSizePx : 512))
+    }
+
+    function objectEditRows() {
+        var object = selectedGeneratedObject()
+        var kind = String(object.kind || "")
+        if (kind === "point" || kind === "tone_probe") {
+            return [
+                { label: "x", field: "x_px", value: objectPointValue(object, "point_px", 0, "x"), suffix: "px" },
+                { label: "y", field: "y_px", value: objectPointValue(object, "point_px", 1, "y"), suffix: "px" }
+            ]
+        }
+        if (kind === "line" || kind === "glyph_baseline") {
+            return [
+                { label: "x1", field: "x1_px", value: objectPointValue(object, "from_px", 0, "x1"), suffix: "px" },
+                { label: "y1", field: "y1_px", value: objectPointValue(object, "from_px", 1, "y1"), suffix: "px" },
+                { label: "x2", field: "x2_px", value: objectPointValue(object, "to_px", 0, "x2"), suffix: "px" },
+                { label: "y2", field: "y2_px", value: objectPointValue(object, "to_px", 1, "y2"), suffix: "px" }
+            ]
+        }
+        if (kind === "circle" || kind === "arc") {
+            var rows = [
+                { label: "cx", field: "cx_px", value: objectPointValue(object, "center_px", 0, "cx"), suffix: "px" },
+                { label: "cy", field: "cy_px", value: objectPointValue(object, "center_px", 1, "cy"), suffix: "px" },
+                { label: "r", field: "radius_px", value: compactNumber(object.radius_px || 0), suffix: "px" }
+            ]
+            if (kind === "arc") {
+                rows.push({ label: "start", field: "start_angle_deg", value: compactNumber(object.start_angle_deg || 0), suffix: "deg" })
+                rows.push({ label: "end", field: "end_angle_deg", value: compactNumber(object.end_angle_deg || 0), suffix: "deg" })
+            }
+            return rows
+        }
+        if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+            return [
+                { label: "x", field: "x_px", value: objectRectValue(object, 0, "x"), suffix: "px" },
+                { label: "y", field: "y_px", value: objectRectValue(object, 1, "y"), suffix: "px" },
+                { label: "w", field: "width_px", value: objectRectValue(object, 2, "width"), suffix: "px" },
+                { label: "h", field: "height_px", value: objectRectValue(object, 3, "height"), suffix: "px" }
+            ]
+        }
+        if (kind === "polygon") {
+            return [
+                { label: "cx", field: "cx_px", value: objectPointValue(object, "center_px", 0, "cx"), suffix: "px" },
+                { label: "cy", field: "cy_px", value: objectPointValue(object, "center_px", 1, "cy"), suffix: "px" },
+                { label: "r", field: "radius_px", value: compactNumber(object.radius_px || 0), suffix: "px" },
+                { label: "sides", field: "sides", value: compactNumber(object.sides || 6), suffix: "" },
+                { label: "rot", field: "rotation_deg", value: compactNumber(object.rotation_deg || 0), suffix: "deg" }
+            ]
+        }
+        return []
+    }
+
+    function setObjectField(field, value) {
+        if (drawingRightContext.controller) {
+            drawingRightContext.controller.updateSelectedDrawingObjectField(String(field || ""), value)
+        }
+    }
+
     function selectedToolLabel() {
         return shortToolLabel(selectedToolId(), (selectedTool() || {}).label)
     }
@@ -457,6 +537,58 @@ Item {
         onEditingFinished: commit()
     }
 
+    component ObjectNumberField: RowLayout {
+        property string label: ""
+        property string field: ""
+        property string valueText: ""
+        property string suffix: ""
+
+        spacing: UiStyle.space4
+
+        Text {
+            Layout.preferredWidth: 36
+            text: parent.label
+            color: UiStyle.colorTextMuted
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        UiTextField {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 22
+            property string boundValueText: parent.valueText
+            property string lastCommittedText: boundValueText
+            text: boundValueText
+
+            onBoundValueTextChanged: {
+                text = boundValueText
+                lastCommittedText = boundValueText
+            }
+
+            function commit() {
+                if (text === lastCommittedText) {
+                    return
+                }
+                lastCommittedText = text
+                drawingRightContext.setObjectField(parent.field, text)
+            }
+
+            onAccepted: commit()
+            onEditingFinished: commit()
+        }
+
+        Text {
+            Layout.preferredWidth: parent.suffix.length > 0 ? 24 : 0
+            visible: parent.suffix.length > 0
+            text: parent.suffix
+            color: UiStyle.colorTextFaint
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+    }
+
     Flickable {
         anchors.fill: parent
         clip: true
@@ -514,7 +646,7 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 68
+                Layout.preferredHeight: 68 + drawingRightContext.objectEditRows().length * 26
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
@@ -559,6 +691,17 @@ Item {
                             label: "Delete"
                             tooltip: "Delete selected generated object."
                             onClicked: drawingRightContext.controller.deleteSelectedDrawingObject()
+                        }
+                    }
+
+                    Repeater {
+                        model: drawingRightContext.objectEditRows()
+                        delegate: ObjectNumberField {
+                            Layout.fillWidth: true
+                            label: modelData.label
+                            field: modelData.field
+                            valueText: modelData.value
+                            suffix: modelData.suffix
                         }
                     }
                 }

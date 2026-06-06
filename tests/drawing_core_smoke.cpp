@@ -5,6 +5,8 @@
 #include <QJsonObject>
 #include <QTextStream>
 
+#include <cmath>
+
 namespace {
 
 QJsonArray point(double x, double y) {
@@ -99,6 +101,11 @@ bool expectKindCount(const QJsonArray &objects, const QString &kind, int expecte
                       .arg(expected)
                       .arg(kind)
                       .arg(kindCount(objects, kind)));
+}
+
+bool expectNear(double actual, double expected, const QString &message) {
+    return expect(std::abs(actual - expected) < 0.0001,
+                  QStringLiteral("%1; expected %2, got %3").arg(message).arg(expected).arg(actual));
 }
 
 bool runVisibleToolCreationSmoke() {
@@ -307,6 +314,75 @@ bool runControllerMoveCoalescingSmoke() {
     return ok;
 }
 
+bool runControllerObjectFieldUpdateSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    controller.selectObject(QStringLiteral("script_rectangle_01"));
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("width_px"), 192.0);
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("x_px"), 96.0);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonObject rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    const QJsonArray editedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
+
+    bool ok = true;
+    ok &= expect(editedRect.size() == 4, QStringLiteral("edited rectangle should keep rect_px geometry"));
+    ok &= expectNear(editedRect.at(0).toDouble(), 96.0, QStringLiteral("right-panel x edit should update rectangle x"));
+    ok &= expectNear(editedRect.at(2).toDouble(), 192.0, QStringLiteral("right-panel width edit should update rectangle width"));
+    ok &= expect(controller.canUndo(), QStringLiteral("object field edits should be undoable"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    const QJsonArray revertedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
+    ok &= expectNear(revertedRect.at(0).toDouble(), 128.0, QStringLiteral("first undo should revert only the x edit"));
+    ok &= expectNear(revertedRect.at(2).toDouble(), 192.0, QStringLiteral("first undo should keep the earlier width edit"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    const QJsonArray fullyRevertedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
+    ok &= expectNear(fullyRevertedRect.at(0).toDouble(), 128.0, QStringLiteral("second undo should revert the x edit"));
+    ok &= expectNear(fullyRevertedRect.at(2).toDouble(), 128.0, QStringLiteral("second undo should revert the width edit"));
+    return ok;
+}
+
+bool runControllerObjectFieldGestureCoalescingSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    controller.selectObject(QStringLiteral("script_rectangle_01"));
+    controller.beginMoveGesture();
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("width_px"), 160.0);
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("height_px"), 176.0);
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("width_px"), 192.0);
+    controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("height_px"), 208.0);
+    controller.endMoveGesture();
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("update_object")) == 2,
+                 QStringLiteral("handle drag should keep only the final update per field"));
+
+    QJsonObject rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    QJsonArray rect = rectangle.value(QStringLiteral("rect_px")).toArray();
+    ok &= expectNear(rect.at(2).toDouble(), 192.0, QStringLiteral("gesture width should use final dragged value"));
+    ok &= expectNear(rect.at(3).toDouble(), 208.0, QStringLiteral("gesture height should use final dragged value"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    rect = rectangle.value(QStringLiteral("rect_px")).toArray();
+    ok &= expectNear(rect.at(2).toDouble(), 128.0, QStringLiteral("one undo should revert handle-drag width"));
+    ok &= expectNear(rect.at(3).toDouble(), 128.0, QStringLiteral("one undo should revert handle-drag height"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -317,5 +393,7 @@ int main(int argc, char **argv) {
     ok &= runClickSnapOverrideSmoke();
     ok &= runControllerUndoRedoSmoke();
     ok &= runControllerMoveCoalescingSmoke();
+    ok &= runControllerObjectFieldUpdateSmoke();
+    ok &= runControllerObjectFieldGestureCoalescingSmoke();
     return ok ? 0 : 1;
 }

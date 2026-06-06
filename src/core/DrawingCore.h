@@ -70,5 +70,7 @@ private:
     QJsonArray m_lastStableCommands;
     QJsonObject m_model;
     bool m_moveGestureActive = false;
+    bool m_moveGestureUndoCaptured = false;
+    int m_moveGestureStartCommandCount = 0;
     int m_revision = 0;
 };

@@ -179,6 +179,73 @@ QtObject {
         return bounds.y + Number(normalizedY) * bounds.size
     }
 
+    function pointFromArray(value, fallbackX, fallbackY) {
+        var point = asArray(value)
+        return {
+            x: point.length > 0 ? Number(point[0]) : Number(fallbackX || 0),
+            y: point.length > 1 ? Number(point[1]) : Number(fallbackY || 0)
+        }
+    }
+
+    function objectEditHandles(object) {
+        var kind = String(object.kind || "")
+        if (kind === "line" || kind === "glyph_baseline") {
+            return [
+                { id: "line_start", x: Number(object.x1 || 0), y: Number(object.y1 || 0) },
+                { id: "line_end", x: Number(object.x2 || 0), y: Number(object.y2 || 0) }
+            ]
+        }
+        if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+            var x = Number(object.x || 0)
+            var y = Number(object.y || 0)
+            var width = Number(object.width || 0)
+            var height = Number(object.height || 0)
+            return [
+                { id: "rect_nw", x: x, y: y },
+                { id: "rect_ne", x: x + width, y: y },
+                { id: "rect_sw", x: x, y: y + height },
+                { id: "rect_se", x: x + width, y: y + height }
+            ]
+        }
+        if (kind === "circle" || kind === "arc") {
+            var center = pointFromArray(object.center_px, Number(object.cx || 0) * 512, Number(object.cy || 0) * 512)
+            var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
+            var cx = Number(object.cx || (center.x / canvasPx))
+            var cy = Number(object.cy || (center.y / canvasPx))
+            var radius = Number(object.radius || 0)
+            return [
+                { id: "circle_center", x: cx, y: cy },
+                { id: "circle_radius", x: Math.min(1, cx + radius), y: cy }
+            ]
+        }
+        return []
+    }
+
+    function drawEditHandle(ctx, bounds, handle, primary) {
+        var x = pxX(bounds, handle.x)
+        var y = pxY(bounds, handle.y)
+        var size = primary ? 9 : 7
+        ctx.save()
+        ctx.fillStyle = primary ? UiStyle.colorWarning : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.72)
+        ctx.strokeStyle = UiStyle.colorWorkspace
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.rect(x - size / 2, y - size / 2, size, size)
+        ctx.fill()
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    function drawSelectedEditHandles(ctx, bounds, object) {
+        var handles = objectEditHandles(object)
+        if (handles.length <= 0 || String(object.id || "").indexOf("script_") !== 0) {
+            return
+        }
+        for (var index = 0; index < handles.length; ++index) {
+            drawEditHandle(ctx, bounds, handles[index], index === 0)
+        }
+    }
+
     function selectedObject(doc, objectId) {
         return String(doc.selected_object_id || "") === String(objectId || "")
     }
@@ -566,6 +633,9 @@ QtObject {
         var renderer = rendererName.length > 0 ? canvasObjectRenderer[rendererName] : null
         if (renderer) {
             renderer(ctx, bounds, object, layerSelected, objectSelected)
+        }
+        if (objectSelected) {
+            drawSelectedEditHandles(ctx, bounds, object)
         }
     }
 }

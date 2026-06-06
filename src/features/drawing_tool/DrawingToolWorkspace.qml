@@ -199,6 +199,9 @@ Rectangle {
                 hoverEnabled: true
                 z: 2
                 property string dragAnchorId: ""
+                property string dragHandleId: ""
+                property string dragHandleObjectId: ""
+                property bool dragHandleMoved: false
                 property string dragObjectId: ""
                 property bool dragObjectMoved: false
                 property real dragObjectLastX: 0
@@ -222,6 +225,146 @@ Rectangle {
                     return {
                         x: (mouseX - bounds.x) / bounds.size,
                         y: (mouseY - bounds.y) / bounds.size
+                    }
+                }
+
+                function asArray(value) {
+                    if (!value) {
+                        return []
+                    }
+                    if (Array.isArray(value)) {
+                        return value
+                    }
+                    if (typeof value.length === "number") {
+                        var values = []
+                        for (var index = 0; index < value.length; ++index) {
+                            values.push(value[index])
+                        }
+                        return values
+                    }
+                    return []
+                }
+
+                function selectedGeneratedObject() {
+                    if (!drawingWorkspace.controller) {
+                        return ({})
+                    }
+                    var object = drawingWorkspace.controller.selectedDrawingObject() || ({})
+                    return String(object.id || "").indexOf("script_") === 0 ? object : ({})
+                }
+
+                function objectEditHandles(object) {
+                    var kind = String(object.kind || "")
+                    if (kind === "line" || kind === "glyph_baseline") {
+                        return [
+                            { id: "line_start", x: Number(object.x1 || 0), y: Number(object.y1 || 0) },
+                            { id: "line_end", x: Number(object.x2 || 0), y: Number(object.y2 || 0) }
+                        ]
+                    }
+                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+                        var x = Number(object.x || 0)
+                        var y = Number(object.y || 0)
+                        var width = Number(object.width || 0)
+                        var height = Number(object.height || 0)
+                        return [
+                            { id: "rect_nw", x: x, y: y },
+                            { id: "rect_ne", x: x + width, y: y },
+                            { id: "rect_sw", x: x, y: y + height },
+                            { id: "rect_se", x: x + width, y: y + height }
+                        ]
+                    }
+                    if (kind === "circle" || kind === "arc") {
+                        var cx = Number(object.cx || 0)
+                        var cy = Number(object.cy || 0)
+                        var radius = Number(object.radius || 0)
+                        return [
+                            { id: "circle_center", x: cx, y: cy },
+                            { id: "circle_radius", x: Math.min(1, cx + radius), y: cy }
+                        ]
+                    }
+                    return []
+                }
+
+                function hitSelectedHandle(mouseX, mouseY) {
+                    var object = selectedGeneratedObject()
+                    if (String(object.id || "").length === 0) {
+                        return ({})
+                    }
+                    var bounds = boardBounds()
+                    var handles = objectEditHandles(object)
+                    var best = ({})
+                    var bestDistance = 14
+                    for (var index = 0; index < handles.length; ++index) {
+                        var handle = handles[index]
+                        var x = bounds.x + Number(handle.x || 0) * bounds.size
+                        var y = bounds.y + Number(handle.y || 0) * bounds.size
+                        var dx = Number(mouseX) - x
+                        var dy = Number(mouseY) - y
+                        var distance = Math.sqrt(dx * dx + dy * dy)
+                        if (distance <= bestDistance) {
+                            bestDistance = distance
+                            best = handle
+                        }
+                    }
+                    return best
+                }
+
+                function updateObjectFieldPx(field, normalizedValue) {
+                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
+                    drawingWorkspace.controller.updateSelectedDrawingObjectField(field, Math.round(Number(normalizedValue || 0) * canvasPx * 1000) / 1000)
+                }
+
+                function updateObjectRawField(field, value) {
+                    drawingWorkspace.controller.updateSelectedDrawingObjectField(field, value)
+                }
+
+                function applySelectedHandleDrag(handleId, point) {
+                    var object = selectedGeneratedObject()
+                    var kind = String(object.kind || "")
+                    if (String(object.id || "") !== dragHandleObjectId || String(handleId || "").length === 0) {
+                        return
+                    }
+                    var x = Math.max(0, Math.min(1, Number(point.x || 0)))
+                    var y = Math.max(0, Math.min(1, Number(point.y || 0)))
+                    if ((kind === "line" || kind === "glyph_baseline") && handleId === "line_start") {
+                        updateObjectFieldPx("x1_px", x)
+                        updateObjectFieldPx("y1_px", y)
+                        return
+                    }
+                    if ((kind === "line" || kind === "glyph_baseline") && handleId === "line_end") {
+                        updateObjectFieldPx("x2_px", x)
+                        updateObjectFieldPx("y2_px", y)
+                        return
+                    }
+                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+                        var left = Number(object.x || 0)
+                        var top = Number(object.y || 0)
+                        var right = left + Number(object.width || 0)
+                        var bottom = top + Number(object.height || 0)
+                        var fixedX = handleId === "rect_nw" || handleId === "rect_sw" ? right : left
+                        var fixedY = handleId === "rect_nw" || handleId === "rect_ne" ? bottom : top
+                        var nextLeft = Math.min(fixedX, x)
+                        var nextTop = Math.min(fixedY, y)
+                        var nextWidth = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedX - x))
+                        var nextHeight = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedY - y))
+                        updateObjectFieldPx("x_px", nextLeft)
+                        updateObjectFieldPx("y_px", nextTop)
+                        updateObjectFieldPx("width_px", nextWidth)
+                        updateObjectFieldPx("height_px", nextHeight)
+                        return
+                    }
+                    if ((kind === "circle" || kind === "arc") && handleId === "circle_center") {
+                        updateObjectFieldPx("cx_px", x)
+                        updateObjectFieldPx("cy_px", y)
+                        return
+                    }
+                    if ((kind === "circle" || kind === "arc") && handleId === "circle_radius") {
+                        var cx = Number(object.cx || 0)
+                        var cy = Number(object.cy || 0)
+                        var dx = x - cx
+                        var dy = y - cy
+                        var radius = Math.sqrt(dx * dx + dy * dy)
+                        updateObjectFieldPx("radius_px", radius)
                     }
                 }
 
@@ -266,6 +409,15 @@ Rectangle {
                     var rawPoint = normalizedPoint(mouse.x, mouse.y)
                     var point = updatePreviewPoint(mouse.x, mouse.y)
                     if (drawingWorkspace.controller.selectedDrawingToolId === "select_move") {
+                        var handle = hitSelectedHandle(mouse.x, mouse.y)
+                        if (String(handle.id || "").length > 0) {
+                            dragHandleId = String(handle.id || "")
+                            dragHandleObjectId = String(selectedGeneratedObject().id || "")
+                            dragHandleMoved = false
+                            drawingWorkspace.controller.beginDrawingObjectMove()
+                            mouse.accepted = true
+                            return
+                        }
                         var objectId = drawingWorkspace.controller.selectDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
                         dragObjectId = String(objectId || "")
                         dragObjectMoved = false
@@ -288,6 +440,13 @@ Rectangle {
 
                 onPositionChanged: function(mouse) {
                     updatePreviewPoint(mouse.x, mouse.y)
+                    if (drawingWorkspace.controller && pressed && dragHandleId.length > 0) {
+                        var handlePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
+                        applySelectedHandleDrag(dragHandleId, handlePoint)
+                        dragHandleMoved = true
+                        constructionCanvas.requestPaint()
+                        return
+                    }
                     if (drawingWorkspace.controller && pressed && dragObjectId.length > 0) {
                         var movePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
                         var dx = movePoint.x - dragObjectLastX
@@ -310,10 +469,13 @@ Rectangle {
                 }
 
                 onReleased: {
-                    if (dragAnchorId.length > 0 || dragObjectMoved) {
+                    if (dragAnchorId.length > 0 || dragHandleMoved || dragObjectMoved) {
                         suppressClickOnce = true
                     }
                     dragAnchorId = ""
+                    dragHandleId = ""
+                    dragHandleObjectId = ""
+                    dragHandleMoved = false
                     dragObjectId = ""
                     dragObjectMoved = false
                     if (drawingWorkspace.controller) {

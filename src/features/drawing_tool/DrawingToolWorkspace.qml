@@ -1,8 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "../../style"
-import "../../components"
 
 Rectangle {
     id: drawingWorkspace
@@ -16,243 +14,17 @@ Rectangle {
     color: UiStyle.colorWorkspace
     border.width: UiStyle.borderNone
 
-    function asArray(value) {
-        if (!value) {
-            return []
-        }
-        if (Array.isArray(value)) {
-            return value
-        }
-        return []
-    }
-
-    function isWorkingToolId(toolId) {
-        return ["select_move", "anchor_points", "line_polyline", "circle_arc", "rectangle_polygon", "regular_polygon", "image_reference_frame", "ascii_crop_frame"].indexOf(String(toolId || "")) >= 0
-    }
-
-    function workingTools() {
-        var result = []
-        if (!drawingWorkspace.controller) {
-            return result
-        }
-        var modes = asArray(drawingWorkspace.controller.drawingToolModes)
-        for (var index = 0; index < modes.length; ++index) {
-            var mode = modes[index]
-            if (isWorkingToolId(mode.id)) {
-                result.push(mode)
-            }
-        }
-        return result
-    }
-
-    function selectedObjectId() {
-        if (!drawingWorkspace.controller) {
-            return ""
-        }
-        return String(drawingWorkspace.controller.selectedDrawingObjectId || "")
-    }
-
-    function hasSelectedObject() {
-        return selectedObjectId().length > 0
-    }
-
-    function hasSelectedGeneratedObject() {
-        var objectId = selectedObjectId()
-        return objectId.length > 0 && objectId.indexOf("script_") === 0
-    }
-
-    ColumnLayout {
+    Rectangle {
+        id: canvasFrame
         anchors.fill: parent
-        anchors.margins: UiStyle.space4
-        spacing: UiStyle.space6
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 34
-            color: UiStyle.colorPanelAlt
-            radius: UiStyle.radiusSm
-            border.width: UiStyle.borderNone
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: UiStyle.space6
-                anchors.rightMargin: UiStyle.space6
-                spacing: UiStyle.space4
-
-                Repeater {
-                    model: drawingWorkspace.workingTools()
-                    delegate: UiButton {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: Math.max(66, implicitWidth + UiStyle.space6)
-                        label: modelData.label
-                        tooltip: modelData.label + " tool"
-                        selected: drawingWorkspace.controller && drawingWorkspace.controller.selectedDrawingToolId === modelData.id
-                        onClicked: if (drawingWorkspace.controller) drawingWorkspace.controller.selectDrawingTool(modelData.id)
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                UiIconButton {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 24
-                    label: "Delete"
-                    iconText: "X"
-                    enabled: drawingWorkspace.hasSelectedGeneratedObject()
-                    tooltip: drawingWorkspace.hasSelectedGeneratedObject() ? "Delete selected object" : "No deletable selected object"
-                    onClicked: if (drawingWorkspace.hasSelectedGeneratedObject() && drawingWorkspace.controller) {
-                        drawingWorkspace.controller.deleteSelectedDrawingObject()
-                    }
-                }
-
-                UiIconButton {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 24
-                    label: "Reset"
-                    iconText: "↺"
-                    enabled: drawingWorkspace.controller && drawingWorkspace.controller.drawingGeneratedObjects.length > 0
-                    tooltip: drawingWorkspace.controller && drawingWorkspace.controller.drawingGeneratedObjects.length > 0 ? "Reset drawing document" : "No generated geometry"
-                    onClicked: if (drawingWorkspace.controller) {
-                        drawingWorkspace.controller.resetNativeDrawingDocument()
-                    }
-                }
-
-                UiIconButton {
-                    Layout.preferredWidth: 30
-                    Layout.preferredHeight: 24
-                    label: "Fit"
-                    iconText: "↔"
-                    tooltip: "Reset canvas view"
-                    onClicked: if (drawingWorkspace.controller) drawingWorkspace.controller.resetDrawingCanvasZoom()
-                }
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 22
-            color: UiStyle.colorTransparent
-            border.width: UiStyle.borderNone
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: UiStyle.space4
-                anchors.rightMargin: UiStyle.space4
-                spacing: UiStyle.space8
-
-                Text {
-                    Layout.fillWidth: true
-                    text: canvasFrame.selectedToolLabel()
-                    color: UiStyle.colorTextMuted
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "selected: " + (drawingWorkspace.hasSelectedObject() ? selectedObjectId() : "none")
-                    color: UiStyle.colorTextMuted
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: canvasFrame.toolStateText()
-                    color: UiStyle.colorTextMuted
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    Layout.preferredWidth: 150
-                    text: canvasFrame.coordinateText()
-                    color: UiStyle.colorTextFaint
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                    horizontalAlignment: Text.AlignRight
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    Layout.preferredWidth: 84
-                    text: canvasFrame.viewText()
-                    color: UiStyle.colorTextFaint
-                    font.family: UiStyle.fontSans
-                    font.pixelSize: UiStyle.fontSizeXs
-                    horizontalAlignment: Text.AlignRight
-                }
-            }
-        }
-
-        Rectangle {
-            id: canvasFrame
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: UiStyle.colorWorkspace
-            border.width: UiStyle.borderNone
-            radius: 0
-            clip: true
-            focus: true
+        color: UiStyle.colorWorkspace
+        border.width: UiStyle.borderNone
+        radius: 0
+        clip: true
+        focus: true
 
             function selectedToolId() {
                 return drawingWorkspace.controller ? String(drawingWorkspace.controller.selectedDrawingToolId || "") : ""
-            }
-
-            function selectedToolLabel() {
-                if (!drawingWorkspace.controller) {
-                    return "No tool"
-                }
-                var tool = drawingWorkspace.controller.selectedDrawingTool()
-                return String(tool.label || drawingWorkspace.controller.selectedDrawingToolId || "Tool")
-            }
-
-            function hasPendingPoint() {
-                if (!drawingWorkspace.controller) {
-                    return false
-                }
-                var pending = drawingWorkspace.controller.drawingPendingPoint || ({})
-                return Number.isFinite(Number(pending.x)) && Number.isFinite(Number(pending.y))
-            }
-
-            function twoPointToolActive() {
-                return previewRenderer.previewSupported(selectedToolId())
-            }
-
-            function toolStateText() {
-                var toolId = selectedToolId()
-                if (hasPendingPoint() && twoPointToolActive()) {
-                    return "Preview active: move mouse, click to finish"
-                }
-                if (twoPointToolActive()) {
-                    return "Click first point"
-                }
-                if (toolId === "anchor_points" || toolId === "tone_probe") {
-                    return "Click to place point"
-                }
-                if (toolId === "select_move") {
-                    return "Select mode"
-                }
-                return "Ready"
-            }
-
-            function coordinateText() {
-                if (!canvasInput.hoverInside) {
-                    return "cursor outside artboard"
-                }
-                var canvasPx = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasSizePx || 512) : 512
-                var px = Math.round(canvasInput.hoverSnapX * canvasPx)
-                var py = Math.round(canvasInput.hoverSnapY * canvasPx)
-                return "cursor " + px + "," + py + " / " + canvasInput.hoverSnapX.toFixed(3) + "," + canvasInput.hoverSnapY.toFixed(3)
-            }
-
-            function viewText() {
-                if (!drawingWorkspace.controller) {
-                    return ""
-                }
-                return "zoom " + Math.round(Number(drawingWorkspace.controller.drawingCanvasZoom || 1) * 100) + "%"
             }
 
             Shortcut {
@@ -572,4 +344,3 @@ Rectangle {
             }
         }
     }
-}

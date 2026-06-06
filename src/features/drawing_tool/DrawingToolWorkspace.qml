@@ -164,6 +164,7 @@ Rectangle {
                     }
                     previewRenderer.drawLivePreview(ctx, bounds, doc, previewActive, previewX, previewY)
                     drawSnapIndicator(ctx, bounds)
+                    navigationRenderer.drawNavigation(ctx, bounds, width, height, canvasInput.hoverRawX, canvasInput.hoverRawY, canvasInput.hoverInside)
                 }
 
                 Component.onCompleted: requestPaint()
@@ -193,6 +194,11 @@ Rectangle {
                 controller: drawingWorkspace.controller
             }
 
+            DrawingCanvasNavigationRenderer {
+                id: navigationRenderer
+                controller: drawingWorkspace.controller
+            }
+
             MouseArea {
                 id: canvasInput
                 anchors.fill: constructionCanvas
@@ -215,6 +221,79 @@ Rectangle {
                 property string hoverSnapKind: "none"
                 property string hoverSnapLabel: "none"
                 property real hoverSnapStepPx: 32
+
+                function selectedToolLabel() {
+                    var id = String(drawingWorkspace.controller ? drawingWorkspace.controller.selectedDrawingToolId : "")
+                    if (id === "select_move") {
+                        return "select"
+                    }
+                    if (id === "anchor_points") {
+                        return "point"
+                    }
+                    if (id === "line_polyline") {
+                        return "line"
+                    }
+                    if (id === "circle_arc") {
+                        return "circle"
+                    }
+                    if (id === "rectangle_polygon") {
+                        return "rect"
+                    }
+                    if (id === "regular_polygon") {
+                        return "polygon"
+                    }
+                    if (id === "image_reference_frame") {
+                        return "image"
+                    }
+                    if (id === "ascii_crop_frame") {
+                        return "ascii"
+                    }
+                    return id.length > 0 ? id : "tool"
+                }
+
+                function actionLabel() {
+                    if (dragHandleId.length > 0) {
+                        return "drag handle"
+                    }
+                    if (dragObjectId.length > 0) {
+                        return "move object"
+                    }
+                    if (dragAnchorId.length > 0) {
+                        return "drag anchor"
+                    }
+                    return selectedToolLabel()
+                }
+
+                function coordinateLabel() {
+                    if (!hoverInside || !drawingWorkspace.controller) {
+                        return "x --  y --"
+                    }
+                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512))
+                    var x = Math.round(Math.max(0, Math.min(1, hoverRawX)) * canvasPx * 100) / 100
+                    var y = Math.round(Math.max(0, Math.min(1, hoverRawY)) * canvasPx * 100) / 100
+                    return "x " + x + "  y " + y
+                }
+
+                function snapLabel() {
+                    if (!hoverInside) {
+                        return "snap --"
+                    }
+                    if (hoverSnapKind === "grid") {
+                        return "grid " + Math.round(hoverSnapStepPx) + "px"
+                    }
+                    if (hoverSnapKind === "free") {
+                        return "free"
+                    }
+                    return hoverSnapLabel.length > 0 ? hoverSnapLabel : hoverSnapKind
+                }
+
+                function selectionLabel() {
+                    if (!drawingWorkspace.controller) {
+                        return "none"
+                    }
+                    var id = String(drawingWorkspace.controller.selectedDrawingObjectId || "")
+                    return id.length > 0 && id.indexOf("script_") === 0 ? id : "none"
+                }
 
                 function boardBounds() {
                     return constructionCanvas.boardBounds()
@@ -542,6 +621,67 @@ Rectangle {
                         constructionCanvas.requestPaint()
                         wheel.accepted = true
                     }
+                }
+            }
+
+            Rectangle {
+                id: canvasStatusStrip
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 24
+                z: 3
+                color: UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorBase, 0.52)
+                opacity: 0.94
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(110, parent.width * 0.22)
+                    text: canvasInput.coordinateLabel()
+                    color: UiStyle.colorTextMuted
+                    font.family: UiStyle.fontMono
+                    font.pixelSize: UiStyle.fontSizeXs
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Math.max(120, parent.width * 0.24)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(90, parent.width * 0.18)
+                    text: canvasInput.snapLabel()
+                    color: UiStyle.colorText
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    font.weight: UiStyle.fontWeightSemiBold
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(100, parent.width * 0.18)
+                    text: canvasInput.actionLabel()
+                    color: UiStyle.colorTextMuted
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(110, parent.width * 0.22)
+                    text: "selected " + canvasInput.selectionLabel()
+                    color: UiStyle.colorTextFaint
+                    font.family: UiStyle.fontMono
+                    font.pixelSize: UiStyle.fontSizeXs
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideRight
                 }
             }
 

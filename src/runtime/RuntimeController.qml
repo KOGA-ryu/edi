@@ -1076,7 +1076,7 @@ QtObject {
             revision += 1
             return false
         }
-        var result = drawingDocumentStore.exportBlenderSvgBundle(url, currentDrawingSvgText())
+        var result = drawingDocumentStore.exportBlenderSvgBundle(url, currentDrawingSvgText(), currentDrawingModelDocument())
         drawingDocumentIoOk = !!result.ok
         drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "exported Blender SVG bundle" : "Blender SVG bundle failed"))
         revision += 1

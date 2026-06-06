@@ -16,6 +16,7 @@
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QSaveFile>
+#include <QStringList>
 #include <QTimer>
 #include <QtGlobal>
 #include <QUrl>
@@ -180,7 +181,7 @@ public:
         return result;
     }
 
-    Q_INVOKABLE QVariantMap exportBlenderSvgBundle(const QUrl &url, const QString &svg) const {
+    Q_INVOKABLE QVariantMap exportBlenderSvgBundle(const QUrl &url, const QString &svg, const QVariantMap &model) const {
         QVariantMap result;
         result.insert(QStringLiteral("ok"), false);
         result.insert(QStringLiteral("message"), QStringLiteral("Blender SVG bundle unavailable"));
@@ -205,9 +206,15 @@ public:
         const QString svgPath = bundleDir.filePath(QStringLiteral("drawing.svg"));
         const QString scriptPath = bundleDir.filePath(QStringLiteral("import_drawing_svg.py"));
         const QString readmePath = bundleDir.filePath(QStringLiteral("README.txt"));
+        const QString manifestPath = bundleDir.filePath(QStringLiteral("manifest.json"));
+        const QJsonObject manifest = blenderSvgBundleManifest(bundlePath, QJsonObject::fromVariantMap(model));
 
         if (!writeTextFile(svgPath, svg)) {
             result.insert(QStringLiteral("message"), QStringLiteral("bundle svg write failed"));
+            return result;
+        }
+        if (!writeTextFile(manifestPath, QString::fromUtf8(QJsonDocument(manifest).toJson(QJsonDocument::Indented)))) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle manifest write failed"));
             return result;
         }
         if (!writeTextFile(scriptPath, blenderSvgImportScript())) {
@@ -223,6 +230,7 @@ public:
         result.insert(QStringLiteral("message"), QStringLiteral("exported Blender SVG bundle"));
         result.insert(QStringLiteral("path"), bundlePath);
         result.insert(QStringLiteral("svg_path"), svgPath);
+        result.insert(QStringLiteral("manifest_path"), manifestPath);
         result.insert(QStringLiteral("script_path"), scriptPath);
         result.insert(QStringLiteral("readme_path"), readmePath);
         return result;
@@ -257,17 +265,111 @@ private:
         return file.commit();
     }
 
+    static void copyIfPresent(QJsonObject &target, const QJsonObject &source, const QString &key) {
+        if (source.contains(key) && !source.value(key).isUndefined()) {
+            target.insert(key, source.value(key));
+        }
+    }
+
+    static QJsonObject objectStyleManifest(const QJsonObject &object) {
+        QJsonObject style;
+        copyIfPresent(style, object, QStringLiteral("stroke_color"));
+        copyIfPresent(style, object, QStringLiteral("fill_color"));
+        copyIfPresent(style, object, QStringLiteral("line_thickness"));
+        copyIfPresent(style, object, QStringLiteral("line_style"));
+        copyIfPresent(style, object, QStringLiteral("stroke_opacity"));
+        copyIfPresent(style, object, QStringLiteral("fill_opacity"));
+        return style;
+    }
+
+    static QJsonObject objectCoordinateManifest(const QJsonObject &object) {
+        QJsonObject coordinates;
+        const QStringList keys = {
+            QStringLiteral("point_px"),
+            QStringLiteral("points"),
+            QStringLiteral("x"),
+            QStringLiteral("y"),
+            QStringLiteral("width"),
+            QStringLiteral("height"),
+            QStringLiteral("x1"),
+            QStringLiteral("y1"),
+            QStringLiteral("x2"),
+            QStringLiteral("y2"),
+            QStringLiteral("cx"),
+            QStringLiteral("cy"),
+            QStringLiteral("radius"),
+            QStringLiteral("start_angle_deg"),
+            QStringLiteral("end_angle_deg"),
+            QStringLiteral("rotation_deg"),
+            QStringLiteral("sides")
+        };
+        for (const QString &key : keys) {
+            copyIfPresent(coordinates, object, key);
+        }
+        return coordinates;
+    }
+
+    static QJsonObject objectManifestEntry(const QJsonObject &object) {
+        QJsonObject entry;
+        entry.insert(QStringLiteral("id"), object.value(QStringLiteral("id")).toString());
+        entry.insert(QStringLiteral("type"), object.value(QStringLiteral("kind")).toString(QStringLiteral("unknown")));
+        copyIfPresent(entry, object, QStringLiteral("layer_id"));
+        copyIfPresent(entry, object, QStringLiteral("line_variant"));
+        copyIfPresent(entry, object, QStringLiteral("circle_arc_mode"));
+        entry.insert(QStringLiteral("style"), objectStyleManifest(object));
+        entry.insert(QStringLiteral("source_coordinates"), objectCoordinateManifest(object));
+        return entry;
+    }
+
+    static QJsonObject blenderSvgBundleManifest(const QString &bundlePath, const QJsonObject &model) {
+        const QFileInfo bundleInfo(bundlePath);
+        const QJsonArray canvas = model.value(QStringLiteral("canvas_px")).toArray();
+        const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+
+        QJsonArray manifestObjects;
+        for (const QJsonValue &value : objects) {
+            const QJsonObject object = value.toObject();
+            if (!object.isEmpty()) {
+                manifestObjects.append(objectManifestEntry(object));
+            }
+        }
+
+        QJsonObject importHints;
+        importHints.insert(QStringLiteral("svg_file"), QStringLiteral("drawing.svg"));
+        importHints.insert(QStringLiteral("scale"), 0.01);
+        importHints.insert(QStringLiteral("collection_name"), QStringLiteral("Draftsman SVG"));
+        importHints.insert(QStringLiteral("origin_mode"), QStringLiteral("svg_top_left_canvas_space"));
+
+        QJsonObject manifest;
+        manifest.insert(QStringLiteral("schema"), QStringLiteral("draftsman_blender_svg_bundle_manifest_v1"));
+        manifest.insert(QStringLiteral("document_name"), bundleInfo.completeBaseName().isEmpty() ? bundleInfo.fileName() : bundleInfo.completeBaseName());
+        manifest.insert(QStringLiteral("exported_at_utc"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        manifest.insert(QStringLiteral("canvas_px"), canvas);
+        manifest.insert(QStringLiteral("object_count"), manifestObjects.size());
+        manifest.insert(QStringLiteral("objects"), manifestObjects);
+        manifest.insert(QStringLiteral("blender_import"), importHints);
+        return manifest;
+    }
+
     static QString blenderSvgImportScript() {
         return QString::fromUtf8(R"PY(# Draftsman Blender SVG bundle importer.
 # Run in Blender with: blender --python import_drawing_svg.py
 
 import bpy
+import json
 from pathlib import Path
 
 BUNDLE_DIR = Path(__file__).resolve().parent
-SVG_PATH = BUNDLE_DIR / "drawing.svg"
-COLLECTION_NAME = "Draftsman SVG"
-SCALE = 0.01
+MANIFEST_PATH = BUNDLE_DIR / "manifest.json"
+
+manifest = {}
+if MANIFEST_PATH.exists():
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+import_hints = manifest.get("blender_import", {})
+SVG_PATH = BUNDLE_DIR / import_hints.get("svg_file", "drawing.svg")
+COLLECTION_NAME = import_hints.get("collection_name", "Draftsman SVG")
+SCALE = float(import_hints.get("scale", 0.01))
 
 if not SVG_PATH.exists():
     raise FileNotFoundError(f"Missing SVG file: {SVG_PATH}")
@@ -300,7 +402,9 @@ for obj in imported:
     obj.location.z = 0.0
     obj.scale = (SCALE, SCALE, SCALE)
 
+manifest_count = manifest.get("object_count", len(imported))
 print(f"Imported {len(imported)} SVG object(s) into collection '{COLLECTION_NAME}' from {SVG_PATH}")
+print(f"Manifest object count: {manifest_count}")
 )PY");
     }
 
@@ -309,6 +413,7 @@ print(f"Imported {len(imported)} SVG object(s) into collection '{COLLECTION_NAME
 
 Files:
 - drawing.svg: exported Draftsman vector drawing.
+- manifest.json: compact object metadata and Blender import hints.
 - import_drawing_svg.py: Blender script that imports drawing.svg as curves.
 
 Run:

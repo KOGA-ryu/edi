@@ -44,6 +44,14 @@ RowLayout {
         return toolbar.controller && toolbar.controller.activityMode === "drawing_tool"
     }
 
+    function requestOpenDrawing() {
+        if (toolbar.controller && toolbar.controller.drawingDocumentDirty) {
+            discardOpenDialog.open()
+            return
+        }
+        drawingOpenDialog.open()
+    }
+
     FileDialog {
         id: drawingOpenDialog
         title: "Open Drawing"
@@ -58,6 +66,33 @@ RowLayout {
         fileMode: FileDialog.SaveFile
         nameFilters: ["Draftsman drawing (*.json)", "JSON files (*.json)", "All files (*)"]
         onAccepted: if (toolbar.controller) toolbar.controller.saveDrawingDocument(selectedFile)
+    }
+
+    FileDialog {
+        id: drawingSvgExportDialog
+        title: "Export SVG"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["SVG files (*.svg)", "All files (*)"]
+        onAccepted: if (toolbar.controller) toolbar.controller.exportDrawingSvg(selectedFile)
+    }
+
+    Dialog {
+        id: discardOpenDialog
+        title: "Discard unsaved drawing?"
+        modal: true
+        width: 380
+        standardButtons: Dialog.Cancel | Dialog.Discard
+
+        Text {
+            text: "Opening another drawing will replace the current unsaved drawing."
+            color: UiStyle.colorText
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeSm
+            width: 320
+            wrapMode: Text.WordWrap
+        }
+
+        onDiscarded: drawingOpenDialog.open()
     }
 
     spacing: 0
@@ -155,7 +190,7 @@ RowLayout {
             Action {
                 text: "Open Drawing..."
                 enabled: toolbar.controller
-                onTriggered: drawingOpenDialog.open()
+                onTriggered: toolbar.requestOpenDrawing()
             }
             Action {
                 text: toolbar.controller && toolbar.controller.drawingDocumentPath.length > 0 ? "Save Drawing" : "Save Drawing..."
@@ -172,6 +207,12 @@ RowLayout {
                 text: "Save Drawing As..."
                 enabled: toolbar.controller
                 onTriggered: drawingSaveDialog.open()
+            }
+            MenuSeparator {}
+            Action {
+                text: "Export SVG..."
+                enabled: toolbar.controller
+                onTriggered: drawingSvgExportDialog.open()
             }
             MenuSeparator {}
             Action {

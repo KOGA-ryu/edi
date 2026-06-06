@@ -139,6 +139,47 @@ public:
         return result;
     }
 
+    Q_INVOKABLE QVariantMap exportSvg(const QUrl &url, const QString &svg) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("svg export unavailable"));
+
+        QString path = localPath(url);
+        if (path.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg path missing"));
+            return result;
+        }
+        if (QFileInfo(path).suffix().isEmpty()) {
+            path += QStringLiteral(".svg");
+        }
+
+        const QFileInfo info(path);
+        if (!info.absoluteDir().exists() && !QDir().mkpath(info.absolutePath())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg directory unavailable"));
+            return result;
+        }
+        if (svg.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg output empty"));
+            return result;
+        }
+
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg write failed"));
+            return result;
+        }
+        file.write(svg.toUtf8());
+        if (!file.commit()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg commit failed"));
+            return result;
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("exported svg"));
+        result.insert(QStringLiteral("path"), path);
+        return result;
+    }
+
 private:
     static QString localPath(const QUrl &url) {
         if (url.isLocalFile()) {

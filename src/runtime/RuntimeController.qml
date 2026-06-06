@@ -1048,6 +1048,27 @@ QtObject {
         return saveDrawingDocument(drawingDocumentPath)
     }
 
+    function currentDrawingSvgText() {
+        if (drawingNativeController && typeof drawingNativeController.exportSvg === "function") {
+            return drawingNativeController.exportSvg()
+        }
+        return ""
+    }
+
+    function exportDrawingSvg(url) {
+        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.exportSvg !== "function") {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "svg export unavailable"
+            revision += 1
+            return false
+        }
+        var result = drawingDocumentStore.exportSvg(url, currentDrawingSvgText())
+        drawingDocumentIoOk = !!result.ok
+        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "exported svg" : "svg export failed"))
+        revision += 1
+        return drawingDocumentIoOk
+    }
+
     function openDrawingDocument(url) {
         if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.open !== "function") {
             drawingDocumentIoOk = false

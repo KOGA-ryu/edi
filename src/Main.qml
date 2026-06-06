@@ -26,6 +26,7 @@ ApplicationWindow {
     property int dragStartX: 0
     property int dragStartY: 0
     property int dragStartSize: 0
+    property bool closeDiscardConfirmed: false
     property bool effectiveLeftPanelVisible: runtimeController.panelVisible("left")
     property bool effectiveRightPanelVisible: runtimeController.panelVisible("right")
     property bool effectiveBottomPanelVisible: runtimeController.panelVisible("bottom")
@@ -41,6 +42,39 @@ ApplicationWindow {
         id: runtimeController
         objectName: "runtimeController"
         targetRoot: window
+    }
+
+    onClosing: function(close) {
+        if (window.closeDiscardConfirmed) {
+            return
+        }
+        if (runtimeController.activityMode === "drawing_tool" && runtimeController.drawingDocumentDirty) {
+            close.accepted = false
+            discardCloseDialog.open()
+        }
+    }
+
+    Dialog {
+        id: discardCloseDialog
+        title: "Discard unsaved drawing?"
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        standardButtons: Dialog.Cancel | Dialog.Discard
+
+        Text {
+            text: "The current drawing has unsaved changes."
+            color: UiStyle.colorText
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeSm
+            width: 300
+            wrapMode: Text.WordWrap
+        }
+
+        onDiscarded: {
+            window.closeDiscardConfirmed = true
+            window.close()
+        }
     }
 
     background: Rectangle {

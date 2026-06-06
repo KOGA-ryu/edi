@@ -499,6 +499,21 @@ QtObject {
         return textEditorSaveOk
     }
 
+    function exportTextEditorBundle(metadata) {
+        commitActiveTextEditorDocument()
+        if (typeof textEditorStore === "undefined" || !textEditorStore
+                || typeof textEditorStore.exportBundle !== "function") {
+            textEditorSaveOk = false
+            textEditorSaveStatus = "export unavailable"
+            return ({ ok: false, message: textEditorSaveStatus, path: "" })
+        }
+
+        var result = textEditorStore.exportBundle(textEditorDocuments, activeTextEditorDocumentId, metadata || ({}))
+        textEditorSaveOk = !!result.ok
+        textEditorSaveStatus = String(result.message || (textEditorSaveOk ? "exported" : "export failed"))
+        return result
+    }
+
     function textEditorLineCount(unusedRevision) {
         if (!textEditorText.length) {
             return 1

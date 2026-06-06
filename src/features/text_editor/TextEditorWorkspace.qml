@@ -15,7 +15,7 @@ Rectangle {
     property int controllerRevision: controller ? controller.revision : 0
     property int commandRevision: controller ? controller.textEditorCommandRevision : 0
     property bool findActive: false
-    property string secondaryPaneDocumentId: controller ? controller.secondaryTextEditorDocumentId : ""
+    property string secondaryPaneDocumentId: ""
 
     color: UiStyle.colorWorkspace
     border.width: UiStyle.borderNone
@@ -66,6 +66,13 @@ Rectangle {
             return
         }
         secondaryEditor.text = root.controller.secondaryTextEditorText(root.controller.revision)
+    }
+
+    function syncSecondaryPaneDocumentId() {
+        var nextId = root.controller ? String(root.controller.secondaryTextEditorDocumentId || "") : ""
+        if (nextId !== root.secondaryPaneDocumentId) {
+            root.secondaryPaneDocumentId = nextId
+        }
     }
 
     function toggleSplit() {
@@ -228,6 +235,7 @@ Rectangle {
 
     onSecondaryPaneDocumentIdChanged: root.refreshSecondaryEditor()
     onControllerRevisionChanged: {
+        root.syncSecondaryPaneDocumentId()
         if (root.controller && root.controller.textEditorSplitEnabled
                 && secondaryEditor && secondaryEditor.text.length === 0) {
             root.refreshSecondaryEditor()

@@ -58,6 +58,19 @@
       "Receipt"
     ]
   },
+  "custom_actions": [
+    {
+      "id": "export_text_editor_bundle",
+      "label": "Export Bundle",
+      "menu": "File",
+      "activity": "text_editor",
+      "handler": "export_text_bundle",
+      "enabled": true,
+      "args": {
+        "packet_type": "text_editor_bundle"
+      }
+    }
+  ],
   "data_sources": {
     "review_subject": "",
     "review_notes": "",

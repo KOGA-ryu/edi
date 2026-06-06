@@ -49,6 +49,8 @@ RowLayout {
         UiMenuButton {
             label: "File"
             visible: toolbar.textEditorActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("File", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "New Document"
@@ -97,6 +99,8 @@ RowLayout {
         UiMenuButton {
             label: "File"
             visible: !toolbar.textEditorActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("File", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "Save Layout"
@@ -119,6 +123,8 @@ RowLayout {
         UiMenuButton {
             label: "Edit"
             visible: toolbar.textEditorActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Edit", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "Undo"
@@ -167,6 +173,8 @@ RowLayout {
         UiMenuButton {
             label: "Edit"
             visible: !toolbar.textEditorActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Edit", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "Mark Pending"
@@ -192,6 +200,8 @@ RowLayout {
 
         UiMenuButton {
             label: "View"
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("View", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: toolbar.controller && toolbar.controller.panelManualCollapsed("left") ? "Show Left Panel" : "Hide Left Panel"
@@ -238,6 +248,8 @@ RowLayout {
 
         UiMenuButton {
             label: "Tools"
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Tools", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "Settings"
@@ -264,6 +276,8 @@ RowLayout {
 
         UiMenuButton {
             label: "Window"
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Window", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
                 text: "Minimize"

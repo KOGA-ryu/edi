@@ -54,6 +54,7 @@ The default profile is a true blank shell. It starts in `blank` activity, render
   bottom_panel: {
     tabs: []
   },
+  custom_actions: [],
   data_sources: {
     review_subject: "",
     review_notes: ""
@@ -80,4 +81,40 @@ The meta UI taxonomy review is still available as an explicit profile:
 - Keep theme colors in `data/ui_theme.json`.
 - Keep panel geometry in `data/shell_layout.json`.
 - Keep project-specific right-panel content shaped by `docs/right_inspector_contract.md`.
+- Add project commands through `custom_actions` when a known safe handler exists; do not use arbitrary scripts for first-pass integrations.
 - Do not enable writes until a persistence and receipt contract is approved.
+
+## Custom Actions
+
+`custom_actions` are optional declarative menu actions. They let a profile add project commands without forking shell QML.
+
+```js
+custom_actions: [
+  {
+    id: "export_text_editor_bundle",
+    label: "Export Bundle",
+    menu: "File",
+    activity: "text_editor",
+    handler: "export_text_bundle",
+    enabled: true,
+    args: {
+      packet_type: "text_editor_bundle"
+    }
+  }
+]
+```
+
+Supported first-pass handlers:
+
+- `export_text_bundle`: exports the open text editor documents into a timestamped packet.
+- `text_editor_command`: routes `args.command` through the existing text editor command bridge.
+- `switch_activity`: switches to `args.activity`.
+
+Custom actions can also be triggered for proof/automation runs:
+
+```sh
+./build/qt_qml_region_split \
+  --project-profile data/project_profiles/draftsman_text_editor.json \
+  --activity text_editor \
+  --action export_text_editor_bundle
+```

@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -163,6 +164,153 @@ public:
         return m_manifestPath;
     }
 
+    Q_INVOKABLE QVariantMap exportBundle(const QVariantList &documents, const QString &activeId, const QVariantMap &metadata) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("storage unavailable"));
+
+        if (m_manifestPath.isEmpty()) {
+            return result;
+        }
+
+        const QFileInfo manifestInfo(m_manifestPath);
+        QDir manifestDir(manifestInfo.absoluteDir());
+        if (!manifestDir.exists() && !QDir().mkpath(manifestDir.absolutePath())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("manifest directory unavailable"));
+            return result;
+        }
+
+        const QString packetType = safeFileStem(metadata.value(QStringLiteral("packet_type")).toString().trimmed().isEmpty()
+            ? QStringLiteral("text_editor_bundle")
+            : metadata.value(QStringLiteral("packet_type")).toString());
+        const QString timestamp = QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_HHmmss"));
+        const QString exportRoot = manifestDir.absoluteFilePath(QStringLiteral("exports"));
+        if (!QDir().mkpath(exportRoot)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("export directory unavailable"));
+            return result;
+        }
+
+        QString packetName = packetType + QStringLiteral("_") + timestamp;
+        QString packetPath = QDir(exportRoot).absoluteFilePath(packetName);
+        int suffix = 2;
+        while (QFileInfo::exists(packetPath)) {
+            packetName = packetType + QStringLiteral("_") + timestamp + QStringLiteral("_") + QString::number(suffix);
+            packetPath = QDir(exportRoot).absoluteFilePath(packetName);
+            suffix += 1;
+        }
+
+        QDir packetDir(packetPath);
+        if (!QDir().mkpath(packetPath) || !packetDir.mkpath(QStringLiteral("documents"))) {
+            result.insert(QStringLiteral("message"), QStringLiteral("packet directory unavailable"));
+            return result;
+        }
+
+        QJsonArray manifestDocuments;
+        QString combined;
+        int exportedCount = 0;
+        for (const QVariant &entry : documents) {
+            const QVariantMap document = entry.toMap();
+            const QString id = document.value(QStringLiteral("id")).toString().trimmed();
+            if (id.isEmpty()) {
+                continue;
+            }
+
+            const QString name = document.value(QStringLiteral("name")).toString().trimmed().isEmpty()
+                ? id + QStringLiteral(".txt")
+                : document.value(QStringLiteral("name")).toString().trimmed();
+            const QString fileName = safeExportFileName(name, id);
+            const QString relativePath = QStringLiteral("documents/") + fileName;
+            const QString text = document.value(QStringLiteral("text")).toString();
+
+            QSaveFile textFile(packetDir.absoluteFilePath(relativePath));
+            if (!textFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+                result.insert(QStringLiteral("message"), QStringLiteral("document export failed"));
+                return result;
+            }
+            textFile.write(text.toUtf8());
+            if (!textFile.commit()) {
+                result.insert(QStringLiteral("message"), QStringLiteral("document export commit failed"));
+                return result;
+            }
+
+            combined += QStringLiteral("===== ") + name + QStringLiteral(" [") + id + QStringLiteral("] =====\n");
+            combined += text;
+            if (!combined.endsWith(QLatin1Char('\n'))) {
+                combined += QLatin1Char('\n');
+            }
+            combined += QLatin1Char('\n');
+
+            QJsonObject manifestDocument;
+            manifestDocument.insert(QStringLiteral("id"), id);
+            manifestDocument.insert(QStringLiteral("name"), name);
+            const QString language = document.value(QStringLiteral("language")).toString().trimmed().isEmpty()
+                ? QStringLiteral("text")
+                : document.value(QStringLiteral("language")).toString().trimmed();
+            manifestDocument.insert(QStringLiteral("language"), language);
+            manifestDocument.insert(QStringLiteral("source_path"), document.value(QStringLiteral("path")).toString());
+            manifestDocument.insert(QStringLiteral("exported_path"), relativePath);
+            manifestDocument.insert(QStringLiteral("active"), id == activeId);
+            manifestDocument.insert(QStringLiteral("chars"), text.length());
+            manifestDocument.insert(QStringLiteral("lines"), text.isEmpty() ? 1 : text.count(QLatin1Char('\n')) + 1);
+            manifestDocuments.append(manifestDocument);
+            exportedCount += 1;
+        }
+
+        if (exportedCount <= 0) {
+            result.insert(QStringLiteral("message"), QStringLiteral("no documents to export"));
+            return result;
+        }
+
+        QSaveFile combinedFile(packetDir.absoluteFilePath(QStringLiteral("all_documents.txt")));
+        if (!combinedFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("combined export failed"));
+            return result;
+        }
+        combinedFile.write(combined.toUtf8());
+        if (!combinedFile.commit()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("combined export commit failed"));
+            return result;
+        }
+
+        QJsonObject manifest;
+        manifest.insert(QStringLiteral("schema_version"), 1);
+        manifest.insert(QStringLiteral("packet_type"), packetType);
+        manifest.insert(QStringLiteral("created_at_utc"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+        manifest.insert(QStringLiteral("app"), QStringLiteral("Draftsman"));
+        manifest.insert(QStringLiteral("profile_id"), metadata.value(QStringLiteral("profile_id")).toString());
+        manifest.insert(QStringLiteral("profile_label"), metadata.value(QStringLiteral("profile_label")).toString());
+        manifest.insert(QStringLiteral("active_document_id"), activeId);
+        manifest.insert(QStringLiteral("documents"), manifestDocuments);
+
+        QSaveFile manifestFile(packetDir.absoluteFilePath(QStringLiteral("manifest.json")));
+        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("manifest export failed"));
+            return result;
+        }
+        manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
+        if (!manifestFile.commit()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("manifest export commit failed"));
+            return result;
+        }
+
+        QSaveFile readmeFile(packetDir.absoluteFilePath(QStringLiteral("README.txt")));
+        if (readmeFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            QString readme;
+            readme += QStringLiteral("Draftsman text editor export bundle\n");
+            readme += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n");
+            readme += QStringLiteral("Documents: ") + QString::number(exportedCount) + QStringLiteral("\n\n");
+            readme += QStringLiteral("Read manifest.json first. Document bodies are in documents/. all_documents.txt is a combined plain-text copy.\n");
+            readmeFile.write(readme.toUtf8());
+            readmeFile.commit();
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("exported bundle"));
+        result.insert(QStringLiteral("path"), packetPath);
+        result.insert(QStringLiteral("documents"), exportedCount);
+        return result;
+    }
+
     QVariantList load() const {
         QVariantList documents;
         if (m_manifestPath.isEmpty()) {
@@ -295,6 +443,19 @@ private:
         return result.isEmpty() ? QStringLiteral("untitled") : result;
     }
 
+    static QString safeExportFileName(const QString &name, const QString &fallbackId) {
+        QString base = QFileInfo(name).completeBaseName();
+        QString suffix = QFileInfo(name).suffix();
+        if (base.trimmed().isEmpty()) {
+            base = fallbackId;
+        }
+        if (suffix.trimmed().isEmpty()) {
+            suffix = QStringLiteral("txt");
+        }
+        const QString safeId = safeFileStem(fallbackId);
+        return safeFileStem(base) + QStringLiteral("_") + safeId + QStringLiteral(".") + safeFileStem(suffix);
+    }
+
     static QVariantMap normalizeEditorState(const QVariantMap &source) {
         QVariantMap state;
         state.insert(QStringLiteral("active_document_id"), source.value(QStringLiteral("active_document_id")).toString().trimmed());
@@ -372,6 +533,10 @@ int main(int argc, char *argv[]) {
         QStringList() << "settings-page",
         "Select a settings page before screenshot capture.",
         "page_id");
+    const QCommandLineOption actionOption(
+        QStringList() << "action",
+        "Run a profile custom action after startup.",
+        "action_id");
     parser.addOption(screenshotOption);
     parser.addOption(routeOption);
     parser.addOption(widthOption);
@@ -385,6 +550,7 @@ int main(int argc, char *argv[]) {
     parser.addOption(shellLayoutOption);
     parser.addOption(activityOption);
     parser.addOption(settingsPageOption);
+    parser.addOption(actionOption);
     parser.process(app);
 
     auto absolutePath = [](const QString &path) {
@@ -559,6 +725,13 @@ int main(int argc, char *argv[]) {
                 runtime,
                 "setLocalTab",
                 Q_ARG(QVariant, QVariant(parser.value(tabOption))));
+        }
+
+        if (parser.isSet(actionOption)) {
+            QMetaObject::invokeMethod(
+                runtime,
+                "runCustomAction",
+                Q_ARG(QVariant, QVariant(parser.value(actionOption))));
         }
     }
 

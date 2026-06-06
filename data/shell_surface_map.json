@@ -119,7 +119,8 @@
       "inputs": [
         "controller.activityMode",
         "controller.hasActivityMode",
-        "controller.panelState"
+        "controller.panelState",
+        "controller.customActions"
       ],
       "may_edit": [
         "global navigation buttons",
@@ -473,8 +474,10 @@
       "profile": "data/project_profiles/draftsman_text_editor.json",
       "inputs": [
         "data/project_profiles/draftsman_text_editor.json:data_sources.text_documents",
+        "data/project_profiles/draftsman_text_editor.json:custom_actions",
         "data/text_editor/documents.json",
         "data/text_editor/docs/*.txt",
+        "data/text_editor/exports/",
         "controller.textEditorText",
         "controller.textEditorCursorPosition",
         "controller.textEditorSelectionStart",

@@ -6,7 +6,9 @@ Rectangle {
     id: menuButton
 
     property string label: "Menu"
+    property var dynamicActions: []
     default property alias menuItems: popup.contentData
+    signal dynamicActionTriggered(var action)
 
     implicitWidth: labelText.implicitWidth + UiStyle.space16
     implicitHeight: 28
@@ -67,6 +69,23 @@ Rectangle {
             background: Rectangle {
                 color: item.highlighted && item.enabled ? UiStyle.colorControlHover : UiStyle.colorTransparent
                 radius: UiStyle.radiusSm
+            }
+        }
+
+        Instantiator {
+            model: menuButton.dynamicActions
+
+            delegate: MenuItem {
+                text: modelData.label || ""
+                enabled: modelData.enabled !== false
+                onTriggered: menuButton.dynamicActionTriggered(modelData)
+            }
+
+            onObjectAdded: function(index, object) {
+                popup.insertItem(popup.count, object)
+            }
+            onObjectRemoved: function(index, object) {
+                popup.removeItem(object)
             }
         }
     }

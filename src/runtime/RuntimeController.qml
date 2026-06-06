@@ -24,6 +24,9 @@ QtObject {
     property string settingsNavLabel: "Theme and layout"
     property string mainWorkspaceFeature: "blank_canvas"
     property string rightInspectorSource: "none"
+    property var customActions: []
+    property string customActionStatus: ""
+    property string customActionOutputPath: ""
     property var leftProjectRows: []
     property var projectPanelDefaults: ({})
     property MapSession mapSession: MapSession { id: mapSession }
@@ -361,11 +364,105 @@ QtObject {
         activityModes = normalizeActivityModes(document && document.activity_modes)
         leftProjectRows = normalizeProjectRows(leftPanel.project_rows)
         shelfTabs = normalizeShelfTabs(bottomPanel.tabs)
+        customActions = normalizeCustomActions(document && document.custom_actions)
         selectedShelfTab = shelfTabs.length > 0 && shelfTabs.indexOf(selectedShelfTab) >= 0 ? selectedShelfTab : (shelfTabs[0] || "")
         rightInspectorSections = normalizedInspectorSections(rightInspector.sections)
 
         var defaultActivity = String(profile.default_activity || activityMode)
         activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : activityModes[0].id
+    }
+
+    function normalizeCustomActions(source) {
+        var actions = asArray(source)
+        var result = []
+        var seen = ({})
+        for (var index = 0; index < actions.length; ++index) {
+            var action = actions[index] || ({})
+            var id = String(action.id || "").trim()
+            var label = String(action.label || "").trim()
+            var handler = String(action.handler || "").trim()
+            if (!id.length || !label.length || !handler.length || seen[id]) {
+                continue
+            }
+            seen[id] = true
+            result.push({
+                id: id,
+                label: label,
+                menu: String(action.menu || "Tools").trim() || "Tools",
+                activity: String(action.activity || "").trim(),
+                handler: handler,
+                enabled: action.enabled !== false,
+                args: action.args || ({})
+            })
+        }
+        return result
+    }
+
+    function customActionVisible(action) {
+        if (!action || action.enabled === false) {
+            return false
+        }
+        if (action.activity && action.activity !== activityMode) {
+            return false
+        }
+        return true
+    }
+
+    function menuCustomActions(menuName, unusedRevision) {
+        var menu = String(menuName || "")
+        var result = []
+        for (var index = 0; index < customActions.length; ++index) {
+            var action = customActions[index]
+            if (String(action.menu || "") === menu && customActionVisible(action)) {
+                result.push(action)
+            }
+        }
+        return result
+    }
+
+    function customActionById(actionId) {
+        var id = String(actionId || "")
+        for (var index = 0; index < customActions.length; ++index) {
+            if (customActions[index].id === id) {
+                return customActions[index]
+            }
+        }
+        return null
+    }
+
+    function runCustomAction(actionId) {
+        var action = customActionById(actionId)
+        if (!customActionVisible(action)) {
+            customActionStatus = "action unavailable"
+            customActionOutputPath = ""
+            revision += 1
+            return false
+        }
+
+        var handler = String(action.handler || "")
+        var args = action.args || ({})
+        if (handler === "text_editor_command") {
+            requestTextEditorCommand(String(args.command || ""))
+            customActionStatus = "ran " + action.label
+            customActionOutputPath = ""
+            revision += 1
+            return true
+        }
+        if (handler === "switch_activity") {
+            setActivityMode(String(args.activity || ""))
+            customActionStatus = "ran " + action.label
+            customActionOutputPath = ""
+            revision += 1
+            return true
+        }
+        if (handler === "export_text_bundle") {
+            return exportTextEditorBundle(args)
+        }
+
+        customActionStatus = "unsupported action"
+        customActionOutputPath = ""
+        revision += 1
+        return false
     }
 
     function applyProjectPanelDefaults() {
@@ -708,6 +805,22 @@ QtObject {
         var result = textEditorSession.saveTextEditorDocuments(saveAll)
         revision += 1
         return result
+    }
+
+    function exportTextEditorBundle(args) {
+        var source = args || ({})
+        var metadata = Object.assign({}, source)
+        metadata.profile_id = projectId
+        metadata.profile_label = projectTitle
+        if (!String(metadata.packet_type || "").length) {
+            metadata.packet_type = "text_editor_bundle"
+        }
+
+        var result = textEditorSession.exportTextEditorBundle(metadata)
+        customActionStatus = String(result.message || (result.ok ? "exported bundle" : "export failed"))
+        customActionOutputPath = String(result.path || "")
+        revision += 1
+        return !!result.ok
     }
 
     function textEditorLineCount(unusedRevision) {

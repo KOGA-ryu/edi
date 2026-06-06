@@ -132,6 +132,29 @@ for (const file of files) {
     }
   }
 
+  if (document.custom_actions !== undefined) {
+    requireArray(errors, document, "custom_actions", "document");
+    const actionIds = new Set();
+    for (const action of Array.isArray(document.custom_actions) ? document.custom_actions : []) {
+      const context = `custom action ${action && action.id ? action.id : "<unknown>"}`;
+      requireString(errors, action, "id", context);
+      requireString(errors, action, "label", context);
+      requireString(errors, action, "menu", context);
+      optionalString(errors, action, "activity", context);
+      requireString(errors, action, "handler", context);
+      requireBoolean(errors, action, "enabled", context);
+      if (action.id) {
+        if (actionIds.has(action.id)) {
+          errors.push(`${context}: duplicate id`);
+        }
+        actionIds.add(action.id);
+      }
+      if (action.args !== undefined && (typeof action.args !== "object" || Array.isArray(action.args) || action.args === null)) {
+        errors.push(`${context}: args must be an object when present`);
+      }
+    }
+  }
+
   if (document.data_sources) {
     const feature = document.main_workspace ? document.main_workspace.feature : "";
     const doesNotRequireReviewSubject = feature === "blank_canvas" || feature === "csv_map_editor" || feature === "drawing_tool_blank" || feature === "text_editor";

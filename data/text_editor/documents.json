@@ -1,11 +1,17 @@
 {
-  "schema_version": 1,
-  "documents": [
-    {
-      "id": "scratch",
-      "name": "scratch.txt",
-      "language": "text",
-      "path": "docs/scratch.txt"
-    }
-  ]
+    "documents": [
+        {
+            "id": "scratch",
+            "language": "text",
+            "name": "fsd fsaf",
+            "path": "docs/scratch.txt"
+        },
+        {
+            "id": "draft-2",
+            "language": "text",
+            "name": "fuku",
+            "path": "docs/draft-2.txt"
+        }
+    ],
+    "schema_version": 1
 }

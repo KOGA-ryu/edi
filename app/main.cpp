@@ -180,6 +180,54 @@ public:
         return result;
     }
 
+    Q_INVOKABLE QVariantMap exportBlenderSvgBundle(const QUrl &url, const QString &svg) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("Blender SVG bundle unavailable"));
+
+        const QString selectedPath = localPath(url);
+        if (selectedPath.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle path missing"));
+            return result;
+        }
+        if (svg.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("svg output empty"));
+            return result;
+        }
+
+        const QString bundlePath = bundleDirectoryPath(selectedPath);
+        if (!QDir().mkpath(bundlePath)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle directory unavailable"));
+            return result;
+        }
+
+        const QDir bundleDir(bundlePath);
+        const QString svgPath = bundleDir.filePath(QStringLiteral("drawing.svg"));
+        const QString scriptPath = bundleDir.filePath(QStringLiteral("import_drawing_svg.py"));
+        const QString readmePath = bundleDir.filePath(QStringLiteral("README.txt"));
+
+        if (!writeTextFile(svgPath, svg)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle svg write failed"));
+            return result;
+        }
+        if (!writeTextFile(scriptPath, blenderSvgImportScript())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle script write failed"));
+            return result;
+        }
+        if (!writeTextFile(readmePath, blenderSvgBundleReadme())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle readme write failed"));
+            return result;
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("exported Blender SVG bundle"));
+        result.insert(QStringLiteral("path"), bundlePath);
+        result.insert(QStringLiteral("svg_path"), svgPath);
+        result.insert(QStringLiteral("script_path"), scriptPath);
+        result.insert(QStringLiteral("readme_path"), readmePath);
+        return result;
+    }
+
 private:
     static QString localPath(const QUrl &url) {
         if (url.isLocalFile()) {
@@ -190,6 +238,84 @@ private:
             return QUrl(text).toLocalFile();
         }
         return text;
+    }
+
+    static QString bundleDirectoryPath(const QString &selectedPath) {
+        const QFileInfo selectedInfo(selectedPath);
+        if (selectedInfo.suffix().isEmpty()) {
+            return selectedInfo.absoluteFilePath();
+        }
+        return selectedInfo.absoluteDir().filePath(selectedInfo.completeBaseName());
+    }
+
+    static bool writeTextFile(const QString &path, const QString &text) {
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            return false;
+        }
+        file.write(text.toUtf8());
+        return file.commit();
+    }
+
+    static QString blenderSvgImportScript() {
+        return QString::fromUtf8(R"PY(# Draftsman Blender SVG bundle importer.
+# Run in Blender with: blender --python import_drawing_svg.py
+
+import bpy
+from pathlib import Path
+
+BUNDLE_DIR = Path(__file__).resolve().parent
+SVG_PATH = BUNDLE_DIR / "drawing.svg"
+COLLECTION_NAME = "Draftsman SVG"
+SCALE = 0.01
+
+if not SVG_PATH.exists():
+    raise FileNotFoundError(f"Missing SVG file: {SVG_PATH}")
+
+try:
+    bpy.ops.preferences.addon_enable(module="io_curve_svg")
+except Exception:
+    pass
+
+scene_collection_names = {collection.name for collection in bpy.context.scene.collection.children}
+collection = bpy.data.collections.get(COLLECTION_NAME)
+if collection is None:
+    collection = bpy.data.collections.new(COLLECTION_NAME)
+if collection.name not in scene_collection_names:
+    bpy.context.scene.collection.children.link(collection)
+
+before_names = set(bpy.data.objects.keys())
+
+try:
+    bpy.ops.import_curve.svg(filepath=str(SVG_PATH))
+except Exception as exc:
+    raise RuntimeError("Blender SVG import failed. Enable SVG import support, then rerun this script.") from exc
+
+imported = [obj for obj in bpy.data.objects if obj.name not in before_names]
+for obj in imported:
+    for existing_collection in list(obj.users_collection):
+        existing_collection.objects.unlink(obj)
+    collection.objects.link(obj)
+    obj.name = "draftsman_" + obj.name
+    obj.location.z = 0.0
+    obj.scale = (SCALE, SCALE, SCALE)
+
+print(f"Imported {len(imported)} SVG object(s) into collection '{COLLECTION_NAME}' from {SVG_PATH}")
+)PY");
+    }
+
+    static QString blenderSvgBundleReadme() {
+        return QString::fromUtf8(R"TXT(Draftsman Blender SVG Bundle
+
+Files:
+- drawing.svg: exported Draftsman vector drawing.
+- import_drawing_svg.py: Blender script that imports drawing.svg as curves.
+
+Run:
+blender --python import_drawing_svg.py
+
+Or open Blender, load import_drawing_svg.py in the Text Editor, and run it.
+)TXT");
     }
 };
 

@@ -76,6 +76,14 @@ RowLayout {
         onAccepted: if (toolbar.controller) toolbar.controller.exportDrawingSvg(selectedFile)
     }
 
+    FileDialog {
+        id: drawingBlenderSvgBundleDialog
+        title: "Export Blender SVG Bundle"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Bundle folder or marker file (*)"]
+        onAccepted: if (toolbar.controller) toolbar.controller.exportDrawingBlenderSvgBundle(selectedFile)
+    }
+
     Dialog {
         id: discardOpenDialog
         title: "Discard unsaved drawing?"
@@ -213,6 +221,11 @@ RowLayout {
                 text: "Export SVG..."
                 enabled: toolbar.controller
                 onTriggered: drawingSvgExportDialog.open()
+            }
+            Action {
+                text: "Export Blender SVG Bundle..."
+                enabled: toolbar.controller
+                onTriggered: drawingBlenderSvgBundleDialog.open()
             }
             MenuSeparator {}
             Action {

@@ -1069,6 +1069,20 @@ QtObject {
         return drawingDocumentIoOk
     }
 
+    function exportDrawingBlenderSvgBundle(url) {
+        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.exportBlenderSvgBundle !== "function") {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "Blender SVG bundle unavailable"
+            revision += 1
+            return false
+        }
+        var result = drawingDocumentStore.exportBlenderSvgBundle(url, currentDrawingSvgText())
+        drawingDocumentIoOk = !!result.ok
+        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "exported Blender SVG bundle" : "Blender SVG bundle failed"))
+        revision += 1
+        return drawingDocumentIoOk
+    }
+
     function openDrawingDocument(url) {
         if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.open !== "function") {
             drawingDocumentIoOk = false

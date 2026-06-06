@@ -39,6 +39,69 @@ QtObject {
     property alias selectedMapRow: mapSession.selectedMapRow
     property alias selectedMapCol: mapSession.selectedMapCol
     property alias mapTokenPalette: mapSession.mapTokenPalette
+    property DrawingSession drawingSession: DrawingSession {
+        id: drawingSession
+        writeDisabled: runtimeController.writeDisabled
+        onChanged: runtimeController.revision += 1
+    }
+    property alias selectedDrawingToolId: drawingSession.selectedDrawingToolId
+    property alias selectedDrawingExternalToolId: drawingSession.selectedDrawingExternalToolId
+    property alias selectedDrawingLayerId: drawingSession.selectedDrawingLayerId
+    property alias selectedDrawingObjectId: drawingSession.selectedDrawingObjectId
+    property alias selectedDrawingPresetId: drawingSession.selectedDrawingPresetId
+    property alias drawingToolPaletteOpen: drawingSession.drawingToolPaletteOpen
+    property alias drawingToolPaletteX: drawingSession.drawingToolPaletteX
+    property alias drawingToolPaletteY: drawingSession.drawingToolPaletteY
+    property alias drawingToolModes: drawingSession.drawingToolModes
+    property alias drawingToolSettingsById: drawingSession.drawingToolSettingsById
+    property alias drawingPrecisionTools: drawingSession.drawingPrecisionTools
+    property alias drawingDataTools: drawingSession.drawingDataTools
+    property alias drawingImageTools: drawingSession.drawingImageTools
+    property alias drawingExternalToolSettingsById: drawingSession.drawingExternalToolSettingsById
+    property alias drawingAssetSources: drawingSession.drawingAssetSources
+    property alias drawingPatternFamilies: drawingSession.drawingPatternFamilies
+    property alias drawingToolPresets: drawingSession.drawingToolPresets
+    property alias drawingLayerStack: drawingSession.drawingLayerStack
+    property alias drawingSidebarSections: drawingSession.drawingSidebarSections
+    property alias drawingNativeController: drawingSession.drawingNativeController
+    property alias drawingExternalModelDocument: drawingSession.drawingExternalModelDocument
+    property alias drawingGeneratedObjects: drawingSession.drawingGeneratedObjects
+    property alias drawingPendingPoint: drawingSession.drawingPendingPoint
+    property alias drawingSnapGridEnabled: drawingSession.drawingSnapGridEnabled
+    property alias drawingSnapGridStepPx: drawingSession.drawingSnapGridStepPx
+    property alias drawingObjectSnapEnabled: drawingSession.drawingObjectSnapEnabled
+    property alias drawingObjectSnapTolerancePx: drawingSession.drawingObjectSnapTolerancePx
+    property alias drawingObjectSnapEndpointEnabled: drawingSession.drawingObjectSnapEndpointEnabled
+    property alias drawingObjectSnapMidpointEnabled: drawingSession.drawingObjectSnapMidpointEnabled
+    property alias drawingObjectSnapCenterEnabled: drawingSession.drawingObjectSnapCenterEnabled
+    property alias drawingObjectSnapVertexEnabled: drawingSession.drawingObjectSnapVertexEnabled
+    property alias drawingCircleArcMode: drawingSession.drawingCircleArcMode
+    property alias drawingCircleArcStartAngleDeg: drawingSession.drawingCircleArcStartAngleDeg
+    property alias drawingCircleArcEndAngleDeg: drawingSession.drawingCircleArcEndAngleDeg
+    property alias drawingRegularPolygonSides: drawingSession.drawingRegularPolygonSides
+    property alias drawingRegularPolygonRotationDeg: drawingSession.drawingRegularPolygonRotationDeg
+    property alias drawingGridVisible: drawingSession.drawingGridVisible
+    property alias drawingGridMode: drawingSession.drawingGridMode
+    property alias drawingGridDivisions: drawingSession.drawingGridDivisions
+    property alias drawingGridMajorEvery: drawingSession.drawingGridMajorEvery
+    property alias drawingAsciiCellGridVisible: drawingSession.drawingAsciiCellGridVisible
+    property alias drawingAsciiColumns: drawingSession.drawingAsciiColumns
+    property alias drawingAsciiRows: drawingSession.drawingAsciiRows
+    property alias drawingAsciiMajorEvery: drawingSession.drawingAsciiMajorEvery
+    property alias drawingCenterAxesVisible: drawingSession.drawingCenterAxesVisible
+    property alias drawingDiagonalGuidesVisible: drawingSession.drawingDiagonalGuidesVisible
+    property alias drawingRadialGuidesVisible: drawingSession.drawingRadialGuidesVisible
+    property alias drawingRadialGuideCount: drawingSession.drawingRadialGuideCount
+    property alias drawingArtboardBorderVisible: drawingSession.drawingArtboardBorderVisible
+    property alias drawingCanvasSizePx: drawingSession.drawingCanvasSizePx
+    property alias drawingCanvasZoom: drawingSession.drawingCanvasZoom
+    property alias drawingCanvasZoomMin: drawingSession.drawingCanvasZoomMin
+    property alias drawingCanvasZoomMax: drawingSession.drawingCanvasZoomMax
+    property alias drawingCanvasPanXPx: drawingSession.drawingCanvasPanXPx
+    property alias drawingCanvasPanYPx: drawingSession.drawingCanvasPanYPx
+    property alias drawingLastScriptId: drawingSession.drawingLastScriptId
+    property alias drawingLastScriptStatus: drawingSession.drawingLastScriptStatus
+    property alias drawingLastScriptErrors: drawingSession.drawingLastScriptErrors
     property TextEditorSession textEditorSession: TextEditorSession { id: textEditorSession }
     property alias textEditorDocuments: textEditorSession.textEditorDocuments
     property alias activeTextEditorDocumentId: textEditorSession.activeTextEditorDocumentId
@@ -142,6 +205,13 @@ QtObject {
         textEditorSession.textEditorStoragePath = typeof initialTextEditorManifestPath === "undefined" ? "" : String(initialTextEditorManifestPath)
         textEditorSession.loadTextEditorDocuments(typeof initialTextEditorDocuments === "undefined" ? [] : initialTextEditorDocuments)
         textEditorSession.loadTextEditorSessionState(typeof initialTextEditorState === "undefined" ? ({}) : initialTextEditorState)
+
+        drawingNativeController = typeof nativeDrawingController === "undefined" ? null : nativeDrawingController
+        drawingSession.loadDrawingToolRegistry(
+            typeof initialDrawingToolRegistry === "undefined" ? ({}) : initialDrawingToolRegistry,
+            typeof initialDrawingToolRegistryPath === "undefined" ? "" : String(initialDrawingToolRegistryPath))
+        drawingExternalModelDocument = drawingNativeController ? drawingNativeController.modelDocument() : (typeof initialDrawingModel === "undefined" ? ({}) : initialDrawingModel)
+        drawingSession.loadInitialDrawingModel(drawingExternalModelDocument)
     }
 
     function clamp(value, low, high) {
@@ -862,6 +932,346 @@ QtObject {
 
     function textEditorModifiedState(unusedRevision) {
         return textEditorSession.textEditorModifiedState(unusedRevision)
+    }
+
+    function drawingFindById(items, id, fallback) {
+        return drawingSession.drawingFindById(items, id, fallback)
+    }
+
+    function selectedDrawingTool() {
+        return drawingSession.selectedDrawingTool()
+    }
+
+    function selectedDrawingExternalTool() {
+        return drawingSession.selectedDrawingExternalTool()
+    }
+
+    function selectedDrawingLayer() {
+        return drawingSession.selectedDrawingLayer()
+    }
+
+    function selectedDrawingObject() {
+        return drawingSession.selectedDrawingObject()
+    }
+
+    function drawingAnchorPoint(anchorId) {
+        return drawingSession.drawingAnchorPoint(anchorId)
+    }
+
+    function setDrawingAnchorPosition(anchorId, x, y) {
+        drawingSession.setDrawingAnchorPosition(anchorId, x, y)
+    }
+
+    function selectNearestDrawingAnchor(x, y, tolerance) {
+        return drawingSession.selectNearestDrawingAnchor(x, y, tolerance)
+    }
+
+    function selectDrawingTool(toolId) {
+        drawingSession.selectDrawingTool(toolId)
+    }
+
+    function selectDrawingExternalTool(toolId) {
+        drawingSession.selectDrawingExternalTool(toolId)
+    }
+
+    function selectDrawingPreset(presetId) {
+        drawingSession.selectDrawingPreset(presetId)
+    }
+
+    function selectedDrawingPreset() {
+        return drawingSession.selectedDrawingPreset()
+    }
+
+    function toggleDrawingToolPalette() {
+        drawingSession.toggleDrawingToolPalette()
+    }
+
+    function closeDrawingToolPalette() {
+        drawingSession.closeDrawingToolPalette()
+    }
+
+    function moveDrawingToolPalette(x, y) {
+        drawingSession.moveDrawingToolPalette(x, y)
+    }
+
+    function setDrawingGridVisible(visible) {
+        drawingSession.setDrawingGridVisible(visible)
+    }
+
+    function setDrawingGridMode(mode) {
+        drawingSession.setDrawingGridMode(mode)
+    }
+
+    function setDrawingGridDivisions(divisions) {
+        drawingSession.setDrawingGridDivisions(divisions)
+    }
+
+    function setDrawingGridMajorEvery(value) {
+        drawingSession.setDrawingGridMajorEvery(value)
+    }
+
+    function setDrawingAsciiCellGridVisible(visible) {
+        drawingSession.setDrawingAsciiCellGridVisible(visible)
+    }
+
+    function setDrawingAsciiColumns(columns) {
+        drawingSession.setDrawingAsciiColumns(columns)
+    }
+
+    function setDrawingAsciiRows(rows) {
+        drawingSession.setDrawingAsciiRows(rows)
+    }
+
+    function setDrawingAsciiMajorEvery(value) {
+        drawingSession.setDrawingAsciiMajorEvery(value)
+    }
+
+    function setDrawingCenterAxesVisible(visible) {
+        drawingSession.setDrawingCenterAxesVisible(visible)
+    }
+
+    function setDrawingDiagonalGuidesVisible(visible) {
+        drawingSession.setDrawingDiagonalGuidesVisible(visible)
+    }
+
+    function setDrawingRadialGuidesVisible(visible) {
+        drawingSession.setDrawingRadialGuidesVisible(visible)
+    }
+
+    function setDrawingRadialGuideCount(count) {
+        drawingSession.setDrawingRadialGuideCount(count)
+    }
+
+    function setDrawingArtboardBorderVisible(visible) {
+        drawingSession.setDrawingArtboardBorderVisible(visible)
+    }
+
+    function setDrawingSnapGrid(enabled) {
+        drawingSession.setDrawingSnapGrid(enabled)
+    }
+
+    function setDrawingSnapGridStepPx(stepPx) {
+        drawingSession.setDrawingSnapGridStepPx(stepPx)
+    }
+
+    function setDrawingObjectSnapEnabled(enabled) {
+        drawingSession.setDrawingObjectSnapEnabled(enabled)
+    }
+
+    function setDrawingObjectSnapTolerancePx(value) {
+        drawingSession.setDrawingObjectSnapTolerancePx(value)
+    }
+
+    function setDrawingObjectSnapEndpointEnabled(enabled) {
+        drawingSession.setDrawingObjectSnapEndpointEnabled(enabled)
+    }
+
+    function setDrawingObjectSnapMidpointEnabled(enabled) {
+        drawingSession.setDrawingObjectSnapMidpointEnabled(enabled)
+    }
+
+    function setDrawingObjectSnapCenterEnabled(enabled) {
+        drawingSession.setDrawingObjectSnapCenterEnabled(enabled)
+    }
+
+    function setDrawingObjectSnapVertexEnabled(enabled) {
+        drawingSession.setDrawingObjectSnapVertexEnabled(enabled)
+    }
+
+    function setDrawingToolParameter(parameter, value) {
+        drawingSession.setDrawingToolParameter(parameter, value)
+    }
+
+    function setDrawingRegularPolygonSides(value) {
+        drawingSession.setDrawingRegularPolygonSides(value)
+    }
+
+    function setDrawingRegularPolygonRotationDeg(value) {
+        drawingSession.setDrawingRegularPolygonRotationDeg(value)
+    }
+
+    function updateDrawingToolParameterField(field, rawValue) {
+        drawingSession.updateDrawingToolParameterField(field, rawValue)
+    }
+
+    function setDrawingCanvasZoom(zoom) {
+        drawingSession.setDrawingCanvasZoom(zoom)
+    }
+
+    function drawingCanvasBaseViewSize(viewWidth, viewHeight) {
+        return drawingSession.drawingCanvasBaseViewSize(viewWidth, viewHeight)
+    }
+
+    function zoomDrawingCanvasAt(factor, focusX, focusY, viewWidth, viewHeight) {
+        drawingSession.zoomDrawingCanvasAt(factor, focusX, focusY, viewWidth, viewHeight)
+    }
+
+    function panDrawingCanvasBy(dx, dy) {
+        drawingSession.panDrawingCanvasBy(dx, dy)
+    }
+
+    function zoomDrawingCanvasIn() {
+        drawingSession.zoomDrawingCanvasIn()
+    }
+
+    function zoomDrawingCanvasOut() {
+        drawingSession.zoomDrawingCanvasOut()
+    }
+
+    function resetDrawingCanvasZoom() {
+        drawingSession.resetDrawingCanvasZoom()
+    }
+
+    function fitDrawingCanvasToView() {
+        drawingSession.fitDrawingCanvasToView()
+    }
+
+    function selectDrawingLayer(layerId) {
+        drawingSession.selectDrawingLayer(layerId)
+    }
+
+    function selectDrawingObject(objectId) {
+        drawingSession.selectDrawingObject(objectId)
+    }
+
+    function clearDrawingObjectSelection() {
+        drawingSession.clearDrawingObjectSelection()
+    }
+
+    function deleteSelectedDrawingObject() {
+        drawingSession.deleteSelectedDrawingObject()
+    }
+
+    function moveDrawingObjectBy(objectId, dx, dy) {
+        drawingSession.moveDrawingObjectBy(objectId, dx, dy)
+    }
+
+    function moveSelectedDrawingObjectBy(dx, dy) {
+        drawingSession.moveSelectedDrawingObjectBy(dx, dy)
+    }
+
+    function updateSelectedDrawingObjectField(field, rawValue) {
+        drawingSession.updateSelectedDrawingObjectField(field, rawValue)
+    }
+
+    function selectDrawingObjectAtNormalized(x, y) {
+        return drawingSession.selectDrawingObjectAtNormalized(x, y)
+    }
+
+    function syncNativeDrawingModel() {
+        drawingSession.syncNativeDrawingModel()
+    }
+
+    function handleDrawingCanvasClick(x, y) {
+        drawingSession.handleDrawingCanvasClick(x, y)
+    }
+
+    function cancelDrawingPendingShape() {
+        drawingSession.cancelDrawingPendingShape()
+    }
+
+    function resetNativeDrawingDocument() {
+        drawingSession.resetNativeDrawingDocument()
+    }
+
+    function loadInitialDrawingModel(document) {
+        drawingSession.loadInitialDrawingModel(document)
+    }
+
+    function drawingCanvasObjects(unusedRevision) {
+        return drawingSession.drawingCanvasObjects(unusedRevision)
+    }
+
+    function drawingCanvasDocument(unusedRevision) {
+        return drawingSession.drawingCanvasDocument(unusedRevision)
+    }
+
+    function drawingCanvasExportDocument(unusedRevision) {
+        return drawingSession.drawingCanvasExportDocument(unusedRevision)
+    }
+
+    function drawingCanvasExportJson(unusedRevision) {
+        return drawingSession.drawingCanvasExportJson(unusedRevision)
+    }
+
+    function drawingObjectCounts(unusedRevision) {
+        return drawingSession.drawingObjectCounts(unusedRevision)
+    }
+
+    function drawingModelValidationRows(unusedRevision) {
+        return drawingSession.drawingModelValidationRows(unusedRevision)
+    }
+
+    function drawingFitTransform(unusedRevision) {
+        return drawingSession.drawingFitTransform(unusedRevision)
+    }
+
+    function drawingEditNumber(value) {
+        return drawingSession.drawingEditNumber(value)
+    }
+
+    function drawingObjectEditRows(unusedRevision) {
+        return drawingSession.drawingObjectEditRows(unusedRevision)
+    }
+
+    function drawingInspectorRows(unusedRevision) {
+        return drawingSession.drawingInspectorRows(unusedRevision)
+    }
+
+    function drawingToolSettingsRows(unusedRevision) {
+        return drawingSession.drawingToolSettingsRows(unusedRevision)
+    }
+
+    function drawingToolParameterEditRows(unusedRevision) {
+        return drawingSession.drawingToolParameterEditRows(unusedRevision)
+    }
+
+    function hasSelectedDrawingExternalTool(unusedRevision) {
+        return drawingSession.hasSelectedDrawingExternalTool(unusedRevision)
+    }
+
+    function drawingExternalToolRows(unusedRevision) {
+        return drawingSession.drawingExternalToolRows(unusedRevision)
+    }
+
+    function drawingSidebarRows(section, unusedRevision) {
+        return drawingSession.drawingSidebarRows(section, unusedRevision)
+    }
+
+    function drawingSidebarRowSelected(section, row, unusedRevision) {
+        return drawingSession.drawingSidebarRowSelected(section, row, unusedRevision)
+    }
+
+    function drawingSidebarRowClickable(section, unusedRevision) {
+        return drawingSession.drawingSidebarRowClickable(section, unusedRevision)
+    }
+
+    function drawingSidebarRowClicked(section, row) {
+        drawingSession.drawingSidebarRowClicked(section, row)
+    }
+
+    function drawingToolPaletteRows(unusedRevision) {
+        return drawingSession.drawingToolPaletteRows(unusedRevision)
+    }
+
+    function drawingValidationRows(unusedRevision) {
+        return drawingSession.drawingValidationRows(unusedRevision)
+    }
+
+    function drawingModelObjectRows(unusedRevision) {
+        return drawingSession.drawingModelObjectRows(unusedRevision)
+    }
+
+    function drawingLogRows(unusedRevision) {
+        return drawingSession.drawingLogRows(unusedRevision)
+    }
+
+    function drawingExportRows(unusedRevision) {
+        return drawingSession.drawingExportRows(unusedRevision)
+    }
+
+    function drawingManifestRows(unusedRevision) {
+        return drawingSession.drawingManifestRows(unusedRevision)
     }
 
     function displayDataPath(path) {

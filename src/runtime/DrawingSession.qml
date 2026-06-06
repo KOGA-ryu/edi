@@ -1,0 +1,899 @@
+import QtQuick
+import "DrawingCanvasHitTest.js" as DrawingCanvasHitTest
+import "DrawingToolCatalog.js" as DrawingToolCatalog
+import "DrawingRuntimeRows.js" as DrawingRuntimeRows
+
+QtObject {
+    id: drawingSession
+
+    property int revision: 0
+    property bool writeDisabled: true
+    property string selectedDrawingToolId: "anchor_points"
+    property string selectedDrawingExternalToolId: ""
+    property string selectedDrawingLayerId: "layer_00_canvas"
+    property string selectedDrawingObjectId: "artboard_bounds"
+    property string selectedDrawingPresetId: "lotus_petal_fit"
+    property bool drawingToolPaletteOpen: true
+    property real drawingToolPaletteX: 258
+    property real drawingToolPaletteY: 26
+    property var drawingToolRegistryDocument: ({})
+    property string drawingToolRegistryPath: ""
+    property var drawingToolModes: DrawingToolCatalog.toolModes()
+    property var drawingToolSettingsById: DrawingToolCatalog.toolSettingsById()
+    property var drawingPrecisionTools: DrawingToolCatalog.precisionTools()
+    property var drawingDataTools: DrawingToolCatalog.dataTools()
+    property var drawingImageTools: DrawingToolCatalog.imageTools()
+    property var drawingExternalToolSettingsById: DrawingToolCatalog.externalToolSettingsById()
+    property var drawingAssetSources: DrawingToolCatalog.assetSources()
+    property var drawingPatternFamilies: DrawingToolCatalog.patternFamilies()
+    property var drawingToolPresets: DrawingToolCatalog.toolPresets()
+    property var drawingLayerStack: DrawingToolCatalog.layerStack()
+    property var drawingSidebarSections: DrawingToolCatalog.sidebarSections()
+    property real drawingAnchorRootX: 0.50
+    property real drawingAnchorRootY: 0.50
+    property real drawingAnchorTipX: 0.50
+    property real drawingAnchorTipY: 0.20
+    property real drawingAnchorRightX: 0.80
+    property real drawingAnchorRightY: 0.50
+    property real drawingAnchorBottomX: 0.50
+    property real drawingAnchorBottomY: 0.80
+    property real drawingAnchorLeftX: 0.20
+    property real drawingAnchorLeftY: 0.50
+    property var drawingNativeController: null
+    property var drawingExternalModelDocument: ({})
+    property var drawingGeneratedObjects: []
+    property var drawingPendingPoint: ({})
+    property bool drawingSnapGridEnabled: true
+    property int drawingSnapGridStepPx: 32
+    property bool drawingObjectSnapEnabled: true
+    property int drawingObjectSnapTolerancePx: 14
+    property bool drawingObjectSnapEndpointEnabled: true
+    property bool drawingObjectSnapMidpointEnabled: true
+    property bool drawingObjectSnapCenterEnabled: true
+    property bool drawingObjectSnapVertexEnabled: true
+    property string drawingCircleArcMode: "circle"
+    property real drawingCircleArcStartAngleDeg: 0
+    property real drawingCircleArcEndAngleDeg: 90
+    property int drawingRegularPolygonSides: 6
+    property real drawingRegularPolygonRotationDeg: 30
+    property bool drawingGridVisible: true
+    property string drawingGridMode: "square"
+    property int drawingGridDivisions: 16
+    property int drawingGridMajorEvery: 4
+    property bool drawingAsciiCellGridVisible: false
+    property int drawingAsciiColumns: 80
+    property int drawingAsciiRows: 40
+    property int drawingAsciiMajorEvery: 10
+    property bool drawingCenterAxesVisible: true
+    property bool drawingDiagonalGuidesVisible: false
+    property bool drawingRadialGuidesVisible: false
+    property int drawingRadialGuideCount: 8
+    property bool drawingArtboardBorderVisible: true
+    property int drawingCanvasSizePx: 512
+    property real drawingCanvasZoom: 1.0
+    property real drawingCanvasZoomMin: 0.25
+    property real drawingCanvasZoomMax: 4.0
+    property real drawingCanvasPanXPx: 0
+    property real drawingCanvasPanYPx: 0
+    property string drawingLastScriptId: ""
+    property string drawingLastScriptStatus: "not_run"
+    property var drawingLastScriptErrors: []
+
+    signal changed()
+
+    function markChanged() {
+        revision += 1
+        changed()
+    }
+
+    function asArray(value) {
+        if (!value) {
+            return []
+        }
+        if (Array.isArray(value)) {
+            return value
+        }
+        if (typeof value.length === "number") {
+            var result = []
+            for (var index = 0; index < value.length; ++index) {
+                result.push(value[index])
+            }
+            return result
+        }
+        return []
+    }
+
+    function toolRegistryItems() {
+        return asArray(drawingToolRegistryDocument.tools)
+    }
+
+    function toolRegistryEnabled(toolId) {
+        var tools = toolRegistryItems()
+        if (tools.length === 0) {
+            return true
+        }
+        var id = String(toolId || "")
+        for (var index = 0; index < tools.length; ++index) {
+            if (String(tools[index].tool_id || "") === id) {
+                return tools[index].enabled !== false
+            }
+        }
+        return true
+    }
+
+    function filterEnabledDrawingTools(source) {
+        var result = []
+        var items = asArray(source)
+        for (var index = 0; index < items.length; ++index) {
+            var item = items[index] || ({})
+            if (toolRegistryEnabled(item.id)) {
+                result.push(item)
+            }
+        }
+        return result
+    }
+
+    function loadDrawingToolRegistry(document, path) {
+        drawingToolRegistryDocument = document || ({})
+        drawingToolRegistryPath = String(path || "")
+        drawingToolModes = filterEnabledDrawingTools(DrawingToolCatalog.toolModes())
+        if (!drawingFindById(drawingToolModes, selectedDrawingToolId, null) && drawingToolModes.length > 0) {
+            selectedDrawingToolId = String(drawingToolModes[0].id || "")
+        }
+        markChanged()
+    }
+
+    function drawingFindById(items, id, fallback) {
+        var list = asArray(items)
+        for (var index = 0; index < list.length; ++index) {
+            if (String(list[index].id || "") === String(id || "")) {
+                return list[index]
+            }
+        }
+        return fallback || ({})
+    }
+
+    function selectedDrawingTool() {
+        return drawingFindById(drawingToolModes, selectedDrawingToolId, drawingToolModes[0] || ({}))
+    }
+
+    function selectedDrawingExternalTool() {
+        return drawingFindById(drawingImageTools, selectedDrawingExternalToolId, ({}))
+    }
+
+    function selectedDrawingLayer() {
+        return drawingFindById(drawingLayerStack, selectedDrawingLayerId, drawingLayerStack[0] || ({}))
+    }
+
+    function selectedDrawingObject() {
+        var objects = drawingCanvasObjects(revision)
+        return drawingFindById(objects, selectedDrawingObjectId, objects[0] || ({}))
+    }
+
+    function drawingAnchorPoint(anchorId) {
+        if (anchorId === "anchor_root") {
+            return { id: "anchor_root", label: "anchor_root", x: drawingAnchorRootX, y: drawingAnchorRootY }
+        }
+        if (anchorId === "anchor_tip") {
+            return { id: "anchor_tip", label: "anchor_tip", x: drawingAnchorTipX, y: drawingAnchorTipY }
+        }
+        if (anchorId === "anchor_right") {
+            return { id: "anchor_right", label: "anchor_right", x: drawingAnchorRightX, y: drawingAnchorRightY }
+        }
+        if (anchorId === "anchor_bottom") {
+            return { id: "anchor_bottom", label: "anchor_bottom", x: drawingAnchorBottomX, y: drawingAnchorBottomY }
+        }
+        if (anchorId === "anchor_left") {
+            return { id: "anchor_left", label: "anchor_left", x: drawingAnchorLeftX, y: drawingAnchorLeftY }
+        }
+        return { id: anchorId, label: anchorId, x: 0.5, y: 0.5 }
+    }
+
+    function setDrawingAnchorPosition(anchorId, x, y) {
+        var clampedX = Math.max(0.02, Math.min(0.98, Number(x)))
+        var clampedY = Math.max(0.02, Math.min(0.98, Number(y)))
+        if (anchorId === "anchor_root") {
+            drawingAnchorRootX = clampedX
+            drawingAnchorRootY = clampedY
+        } else if (anchorId === "anchor_tip") {
+            drawingAnchorTipX = clampedX
+            drawingAnchorTipY = clampedY
+        } else if (anchorId === "anchor_right") {
+            drawingAnchorRightX = clampedX
+            drawingAnchorRightY = clampedY
+        } else if (anchorId === "anchor_bottom") {
+            drawingAnchorBottomX = clampedX
+            drawingAnchorBottomY = clampedY
+        } else if (anchorId === "anchor_left") {
+            drawingAnchorLeftX = clampedX
+            drawingAnchorLeftY = clampedY
+        } else {
+            return
+        }
+        selectedDrawingObjectId = anchorId
+        selectedDrawingLayerId = "layer_00_canvas"
+        markChanged()
+    }
+
+    function selectNearestDrawingAnchor(x, y, tolerance) {
+        var anchors = ["anchor_root", "anchor_tip", "anchor_right", "anchor_bottom", "anchor_left"]
+        var bestId = ""
+        var bestDistance = Number(tolerance || 0.035)
+        for (var index = 0; index < anchors.length; ++index) {
+            var anchor = drawingAnchorPoint(anchors[index])
+            var dx = Number(anchor.x) - Number(x)
+            var dy = Number(anchor.y) - Number(y)
+            var distance = Math.sqrt(dx * dx + dy * dy)
+            if (distance <= bestDistance) {
+                bestDistance = distance
+                bestId = anchor.id
+            }
+        }
+        if (bestId.length > 0) {
+            selectDrawingObject(bestId)
+            return bestId
+        }
+        return ""
+    }
+
+    function selectDrawingTool(toolId) {
+        var tool = drawingFindById(drawingToolModes, toolId, null)
+        if (!tool) {
+            return
+        }
+        selectedDrawingExternalToolId = ""
+        selectedDrawingToolId = String(tool.id)
+        if (drawingNativeController) {
+            drawingNativeController.selectTool(String(tool.id))
+            syncNativeDrawingModel()
+            drawingToolPaletteOpen = true
+            return
+        }
+        drawingToolPaletteOpen = true
+        markChanged()
+    }
+
+    function selectDrawingExternalTool(toolId) {
+        var tool = drawingFindById(drawingImageTools, toolId, null)
+        if (!tool) {
+            return
+        }
+        selectedDrawingExternalToolId = String(tool.id)
+        markChanged()
+    }
+
+    function selectDrawingPreset(presetId) {
+        var preset = drawingFindById(drawingToolPresets, presetId, null)
+        if (!preset) {
+            return
+        }
+        selectedDrawingPresetId = String(preset.id)
+        markChanged()
+    }
+
+    function selectedDrawingPreset() {
+        return drawingFindById(drawingToolPresets, selectedDrawingPresetId, drawingToolPresets[0] || ({}))
+    }
+
+    function toggleDrawingToolPalette() {
+        drawingToolPaletteOpen = !drawingToolPaletteOpen
+        markChanged()
+    }
+
+    function closeDrawingToolPalette() {
+        drawingToolPaletteOpen = false
+        markChanged()
+    }
+
+    function moveDrawingToolPalette(x, y) {
+        drawingToolPaletteX = Number(x)
+        drawingToolPaletteY = Number(y)
+        markChanged()
+    }
+
+    function setDrawingGridVisible(visible) {
+        drawingGridVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingGridMode(mode) {
+        var allowed = ["square", "isometric", "hex"]
+        var value = String(mode || "square")
+        drawingGridMode = allowed.indexOf(value) >= 0 ? value : "square"
+        markChanged()
+    }
+
+    function setDrawingGridDivisions(divisions) {
+        drawingGridDivisions = Math.max(2, Math.min(128, Math.round(Number(divisions) || 16)))
+        markChanged()
+    }
+
+    function setDrawingGridMajorEvery(value) {
+        drawingGridMajorEvery = Math.max(1, Math.min(32, Math.round(Number(value) || 4)))
+        markChanged()
+    }
+
+    function setDrawingAsciiCellGridVisible(visible) {
+        drawingAsciiCellGridVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingAsciiColumns(columns) {
+        drawingAsciiColumns = Math.max(8, Math.min(320, Math.round(Number(columns) || 80)))
+        markChanged()
+    }
+
+    function setDrawingAsciiRows(rows) {
+        drawingAsciiRows = Math.max(4, Math.min(240, Math.round(Number(rows) || 40)))
+        markChanged()
+    }
+
+    function setDrawingAsciiMajorEvery(value) {
+        drawingAsciiMajorEvery = Math.max(1, Math.min(64, Math.round(Number(value) || 10)))
+        markChanged()
+    }
+
+    function setDrawingCenterAxesVisible(visible) {
+        drawingCenterAxesVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingDiagonalGuidesVisible(visible) {
+        drawingDiagonalGuidesVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingRadialGuidesVisible(visible) {
+        drawingRadialGuidesVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingRadialGuideCount(count) {
+        drawingRadialGuideCount = Math.max(2, Math.min(64, Math.round(Number(count) || 8)))
+        markChanged()
+    }
+
+    function setDrawingArtboardBorderVisible(visible) {
+        drawingArtboardBorderVisible = visible === true
+        markChanged()
+    }
+
+    function setDrawingSnapGrid(enabled) {
+        drawingSnapGridEnabled = enabled === true
+        if (drawingNativeController) {
+            drawingNativeController.setSnap(drawingSnapGridEnabled, drawingSnapGridStepPx)
+            syncNativeDrawingModel()
+            return
+        }
+        markChanged()
+    }
+
+    function setDrawingSnapGridStepPx(stepPx) {
+        drawingSnapGridStepPx = Math.max(1, Math.min(drawingCanvasSizePx, Math.round(Number(stepPx) || 32)))
+        if (drawingNativeController) {
+            drawingNativeController.setSnap(drawingSnapGridEnabled, drawingSnapGridStepPx)
+            syncNativeDrawingModel()
+            return
+        }
+        markChanged()
+    }
+
+    function setDrawingObjectSnapEnabled(enabled) {
+        drawingObjectSnapEnabled = enabled === true
+        markChanged()
+    }
+
+    function setDrawingObjectSnapTolerancePx(value) {
+        drawingObjectSnapTolerancePx = Math.max(2, Math.min(64, Math.round(Number(value) || 14)))
+        markChanged()
+    }
+
+    function setDrawingObjectSnapEndpointEnabled(enabled) {
+        drawingObjectSnapEndpointEnabled = enabled === true
+        markChanged()
+    }
+
+    function setDrawingObjectSnapMidpointEnabled(enabled) {
+        drawingObjectSnapMidpointEnabled = enabled === true
+        markChanged()
+    }
+
+    function setDrawingObjectSnapCenterEnabled(enabled) {
+        drawingObjectSnapCenterEnabled = enabled === true
+        markChanged()
+    }
+
+    function setDrawingObjectSnapVertexEnabled(enabled) {
+        drawingObjectSnapVertexEnabled = enabled === true
+        markChanged()
+    }
+
+    function setDrawingToolParameter(parameter, value) {
+        var parameterId = String(parameter || "")
+        if (parameterId.length === 0) {
+            return
+        }
+        if (parameterId === "circle_arc_mode") {
+            var mode = String(value || "").trim().toLowerCase()
+            if (mode !== "circle" && mode !== "arc") {
+                return
+            }
+            if (drawingNativeController) {
+                drawingNativeController.setToolParameter(parameterId, mode)
+                syncNativeDrawingModel()
+                return
+            }
+            drawingCircleArcMode = mode
+            markChanged()
+            return
+        }
+        var numericValue = Number(value)
+        if (!Number.isFinite(numericValue)) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter(parameterId, numericValue)
+            syncNativeDrawingModel()
+            return
+        }
+        if (parameterId === "circle_arc_start_angle_deg") {
+            drawingCircleArcStartAngleDeg = numericValue
+        } else if (parameterId === "circle_arc_end_angle_deg") {
+            drawingCircleArcEndAngleDeg = numericValue
+        } else if (parameterId === "regular_polygon_sides") {
+            drawingRegularPolygonSides = Math.max(3, Math.min(64, Math.round(numericValue)))
+        } else if (parameterId === "regular_polygon_rotation_deg") {
+            drawingRegularPolygonRotationDeg = numericValue
+        }
+        markChanged()
+    }
+
+    function setDrawingRegularPolygonSides(value) {
+        setDrawingToolParameter("regular_polygon_sides", value)
+    }
+
+    function setDrawingRegularPolygonRotationDeg(value) {
+        setDrawingToolParameter("regular_polygon_rotation_deg", value)
+    }
+
+    function updateDrawingToolParameterField(field, rawValue) {
+        setDrawingToolParameter(field, rawValue)
+    }
+
+    function setDrawingCanvasZoom(zoom) {
+        drawingCanvasZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, Number(zoom) || 1.0))
+        markChanged()
+    }
+
+    function drawingCanvasBaseViewSize(viewWidth, viewHeight) {
+        return Math.max(32, Math.min(Number(viewWidth) || 0, Number(viewHeight) || 0) - 16)
+    }
+
+    function zoomDrawingCanvasAt(factor, focusX, focusY, viewWidth, viewHeight) {
+        var oldZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, Number(drawingCanvasZoom) || 1.0))
+        var zoomFactor = Number(factor) || 1.0
+        var newZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, oldZoom * zoomFactor))
+        if (Math.abs(newZoom - oldZoom) < 0.0001) {
+            return
+        }
+        var base = drawingCanvasBaseViewSize(viewWidth, viewHeight)
+        var oldBoard = base * oldZoom
+        var newBoard = base * newZoom
+        var fx = Number.isFinite(Number(focusX)) ? Number(focusX) : Number(viewWidth) / 2
+        var fy = Number.isFinite(Number(focusY)) ? Number(focusY) : Number(viewHeight) / 2
+        var oldX = (Number(viewWidth) - oldBoard) / 2 + drawingCanvasPanXPx
+        var oldY = (Number(viewHeight) - oldBoard) / 2 + drawingCanvasPanYPx
+        var unitX = oldBoard > 0 ? (fx - oldX) / oldBoard : 0.5
+        var unitY = oldBoard > 0 ? (fy - oldY) / oldBoard : 0.5
+        drawingCanvasPanXPx = fx - unitX * newBoard - (Number(viewWidth) - newBoard) / 2
+        drawingCanvasPanYPx = fy - unitY * newBoard - (Number(viewHeight) - newBoard) / 2
+        drawingCanvasZoom = newZoom
+        markChanged()
+    }
+
+    function panDrawingCanvasBy(dx, dy) {
+        drawingCanvasPanXPx += Number(dx) || 0
+        drawingCanvasPanYPx += Number(dy) || 0
+        markChanged()
+    }
+
+    function zoomDrawingCanvasIn() {
+        setDrawingCanvasZoom(drawingCanvasZoom * 1.25)
+    }
+
+    function zoomDrawingCanvasOut() {
+        setDrawingCanvasZoom(drawingCanvasZoom / 1.25)
+    }
+
+    function resetDrawingCanvasZoom() {
+        drawingCanvasZoom = 1.0
+        drawingCanvasPanXPx = 0
+        drawingCanvasPanYPx = 0
+        markChanged()
+    }
+
+    function fitDrawingCanvasToView() {
+        resetDrawingCanvasZoom()
+    }
+
+    function selectDrawingLayer(layerId) {
+        var layer = drawingFindById(drawingLayerStack, layerId, null)
+        if (!layer) {
+            return
+        }
+        selectedDrawingLayerId = String(layer.id)
+        var objects = drawingCanvasObjects(revision)
+        for (var index = 0; index < objects.length; ++index) {
+            if (String(objects[index].layer_id || "") === selectedDrawingLayerId) {
+                selectedDrawingObjectId = String(objects[index].id)
+                break
+            }
+        }
+        markChanged()
+    }
+
+    function selectDrawingObject(objectId) {
+        if (drawingNativeController && String(objectId || "").indexOf("script_") === 0) {
+            drawingNativeController.selectObject(String(objectId))
+            syncNativeDrawingModel()
+            return
+        }
+        var object = drawingFindById(drawingCanvasObjects(revision), objectId, null)
+        if (!object) {
+            return
+        }
+        selectedDrawingObjectId = String(object.id)
+        selectedDrawingLayerId = String(object.layer_id || selectedDrawingLayerId)
+        markChanged()
+    }
+
+    function clearDrawingObjectSelection() {
+        if (drawingNativeController) {
+            drawingNativeController.selectObject("")
+            syncNativeDrawingModel()
+            return
+        }
+        selectedDrawingObjectId = ""
+        markChanged()
+    }
+
+    function deleteSelectedDrawingObject() {
+        var objectId = String(selectedDrawingObjectId || "")
+        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.deleteObject(objectId)
+            syncNativeDrawingModel()
+            return
+        }
+        var kept = []
+        var generated = asArray(drawingGeneratedObjects)
+        for (var index = 0; index < generated.length; ++index) {
+            if (String(generated[index].id || "") !== objectId) {
+                kept.push(generated[index])
+            }
+        }
+        drawingGeneratedObjects = kept
+        selectedDrawingObjectId = ""
+        markChanged()
+    }
+
+    function moveDrawingObjectBy(objectId, dx, dy) {
+        var id = String(objectId || "")
+        var moveX = Number(dx) || 0
+        var moveY = Number(dy) || 0
+        if (id.length === 0 || id.indexOf("script_") !== 0 || (Math.abs(moveX) < 0.000001 && Math.abs(moveY) < 0.000001)) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.moveObjectBy(id, moveX, moveY)
+            syncNativeDrawingModel()
+            return
+        }
+        markChanged()
+    }
+
+    function moveSelectedDrawingObjectBy(dx, dy) {
+        moveDrawingObjectBy(selectedDrawingObjectId, dx, dy)
+    }
+
+    function updateSelectedDrawingObjectField(field, rawValue) {
+        var objectId = String(selectedDrawingObjectId || "")
+        var fieldId = String(field || "")
+        var value = Number(rawValue)
+        if (objectId.indexOf("script_") !== 0 || fieldId.length === 0 || !Number.isFinite(value)) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.updateObjectField(objectId, fieldId, value)
+            syncNativeDrawingModel()
+            return
+        }
+    }
+
+    function selectDrawingObjectAtNormalized(x, y) {
+        var tolerance = 0.025
+        var generated = asArray(drawingGeneratedObjects)
+        var bestId = ""
+        var bestScore = tolerance
+        for (var index = generated.length - 1; index >= 0; --index) {
+            var object = generated[index]
+            var score = DrawingCanvasHitTest.objectHitScore(object, Number(x), Number(y), tolerance)
+            if (score <= bestScore) {
+                bestScore = score
+                bestId = String(object.id || "")
+            }
+        }
+        if (bestId.length > 0) {
+            selectDrawingObject(bestId)
+            return bestId
+        }
+        clearDrawingObjectSelection()
+        return ""
+    }
+
+    function syncNativeDrawingModel() {
+        if (!drawingNativeController) {
+            return
+        }
+        loadInitialDrawingModel(drawingNativeController.modelDocument())
+    }
+
+    function handleDrawingCanvasClick(x, y) {
+        if (selectedDrawingToolId === "select_move") {
+            selectDrawingObjectAtNormalized(x, y)
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.clickCanvasNormalized(Number(x), Number(y))
+            syncNativeDrawingModel()
+            return
+        }
+    }
+
+    function cancelDrawingPendingShape() {
+        if (drawingNativeController) {
+            drawingNativeController.cancelPending()
+            syncNativeDrawingModel()
+            return
+        }
+        drawingPendingPoint = ({})
+        markChanged()
+    }
+
+    function resetNativeDrawingDocument() {
+        if (drawingNativeController) {
+            drawingNativeController.reset()
+            syncNativeDrawingModel()
+            return
+        }
+        drawingGeneratedObjects = []
+        drawingLastScriptId = ""
+        drawingLastScriptStatus = "not_run"
+        drawingLastScriptErrors = []
+        selectedDrawingObjectId = "artboard_bounds"
+        selectedDrawingLayerId = "layer_00_canvas"
+        markChanged()
+    }
+
+    function loadInitialDrawingModel(document) {
+        if (!document || String(document.export_kind || "") !== "pattern_lab_2d_native_model_v0") {
+            return
+        }
+        drawingGeneratedObjects = asArray(document.generated_objects)
+        drawingLastScriptId = String(document.script_id || "")
+        drawingLastScriptStatus = String(document.script_status || "not_run")
+        drawingLastScriptErrors = asArray(document.script_errors)
+        drawingPendingPoint = document.pending_point || ({})
+        var canvas = asArray(document.canvas_px)
+        if (canvas.length >= 2 && Number(canvas[0]) === Number(canvas[1]) && Number(canvas[0]) > 0) {
+            drawingCanvasSizePx = Math.round(Number(canvas[0]))
+        }
+        var snap = document.snap || ({})
+        if (typeof snap.grid_enabled === "boolean") {
+            drawingSnapGridEnabled = snap.grid_enabled
+        }
+        if (Number.isFinite(Number(snap.grid_step_px))) {
+            drawingSnapGridStepPx = Math.max(1, Math.round(Number(snap.grid_step_px)))
+        }
+        var toolParameters = document.tool_parameters || ({})
+        var circleArcMode = String(toolParameters.circle_arc_mode || "").toLowerCase()
+        if (circleArcMode === "circle" || circleArcMode === "arc") {
+            drawingCircleArcMode = circleArcMode
+        }
+        if (Number.isFinite(Number(toolParameters.circle_arc_start_angle_deg))) {
+            drawingCircleArcStartAngleDeg = Number(toolParameters.circle_arc_start_angle_deg)
+        }
+        if (Number.isFinite(Number(toolParameters.circle_arc_end_angle_deg))) {
+            drawingCircleArcEndAngleDeg = Number(toolParameters.circle_arc_end_angle_deg)
+        }
+        if (Number.isFinite(Number(toolParameters.regular_polygon_sides))) {
+            drawingRegularPolygonSides = Math.max(3, Math.min(64, Math.round(Number(toolParameters.regular_polygon_sides))))
+        }
+        if (Number.isFinite(Number(toolParameters.regular_polygon_rotation_deg))) {
+            drawingRegularPolygonRotationDeg = Number(toolParameters.regular_polygon_rotation_deg)
+        }
+        selectedDrawingToolId = String(document.selected_tool_id || selectedDrawingToolId)
+        selectedDrawingLayerId = String(document.selected_layer_id || selectedDrawingLayerId)
+        selectedDrawingObjectId = String(document.selected_object_id || selectedDrawingObjectId)
+        markChanged()
+    }
+
+    function drawingCanvasObjects(unusedRevision) {
+        var objects = [
+            { id: "artboard_bounds", label: "Artboard bounds", kind: "rect", layer_id: "layer_00_canvas", detail: "normalized square artboard" },
+            { id: "major_grid", label: "Major grid", kind: "grid", layer_id: "layer_01_grid", detail: drawingGridMode + " / " + String(drawingGridDivisions) + " divisions" }
+        ]
+        var generated = asArray(drawingGeneratedObjects)
+        for (var index = 0; index < generated.length; ++index) {
+            objects.push(generated[index])
+        }
+        return objects
+    }
+
+    function drawingCanvasDocument(unusedRevision) {
+        return {
+            canvas_id: "pattern_lab_2d_native_canvas_v0",
+            coordinate_space: "normalized_artboard",
+            selected_tool_id: selectedDrawingToolId,
+            selected_layer_id: selectedDrawingLayerId,
+            selected_object_id: selectedDrawingObjectId,
+            pending_point: drawingPendingPoint,
+            layers: [
+                { id: "layer_00_canvas", visible: true, objects: [
+                    { id: "artboard_bounds", kind: "rect", border_visible: drawingArtboardBorderVisible }
+                ] },
+                { id: "layer_01_grid", visible: drawingGridVisible, objects: [
+                    {
+                        id: "major_grid",
+                        kind: "grid",
+                        mode: drawingGridMode,
+                        divisions: drawingGridDivisions,
+                        major_every: drawingGridMajorEvery,
+                        ascii_cell_grid_visible: drawingAsciiCellGridVisible,
+                        ascii_columns: drawingAsciiColumns,
+                        ascii_rows: drawingAsciiRows,
+                        ascii_major_every: drawingAsciiMajorEvery,
+                        center_axes_visible: drawingCenterAxesVisible,
+                        diagonal_guides_visible: drawingDiagonalGuidesVisible,
+                        radial_guides_visible: drawingRadialGuidesVisible,
+                        radial_guide_count: drawingRadialGuideCount
+                    }
+                ] },
+                { id: "layer_09_script_geometry", visible: true, objects: asArray(drawingGeneratedObjects) },
+                { id: "layer_08_metadata", visible: false, objects: [
+                    { id: "last_script_status", kind: "metadata", value: drawingLastScriptStatus }
+                ] }
+            ]
+        }
+    }
+
+    function drawingCanvasExportDocument(unusedRevision) {
+        if (drawingNativeController) {
+            return drawingNativeController.modelDocument()
+        }
+        return {
+            export_kind: "pattern_lab_2d_native_model_v0",
+            script_id: drawingLastScriptId,
+            script_status: drawingLastScriptStatus,
+            script_errors: drawingLastScriptErrors,
+            canvas_px: [drawingCanvasSizePx, drawingCanvasSizePx],
+            snap: {
+                grid_enabled: drawingSnapGridEnabled,
+                grid_step_px: drawingSnapGridStepPx
+            },
+            selected_tool_id: selectedDrawingToolId,
+            selected_layer_id: selectedDrawingLayerId,
+            selected_object_id: selectedDrawingObjectId,
+            generated_objects: asArray(drawingGeneratedObjects),
+            object_counts: drawingObjectCounts(revision),
+            validation: drawingModelValidationRows(revision)
+        }
+    }
+
+    function drawingCanvasExportJson(unusedRevision) {
+        if (drawingNativeController) {
+            return drawingNativeController.exportJson()
+        }
+        return JSON.stringify(drawingCanvasExportDocument(revision), null, 2) + "\n"
+    }
+
+    function drawingObjectCounts(unusedRevision) {
+        var counts = ({})
+        var objects = drawingCanvasObjects(revision)
+        for (var index = 0; index < objects.length; ++index) {
+            var kind = String(objects[index].kind || "unknown")
+            counts[kind] = Number(counts[kind] || 0) + 1
+        }
+        return counts
+    }
+
+    function drawingModelValidationRows(unusedRevision) {
+        return DrawingRuntimeRows.modelValidationRows(drawingSession)
+    }
+
+    function drawingFitTransform(unusedRevision) {
+        return DrawingRuntimeRows.fitTransform(drawingSession)
+    }
+
+    function drawingEditNumber(value) {
+        return DrawingRuntimeRows.editNumber(value)
+    }
+
+    function drawingObjectEditRows(unusedRevision) {
+        return DrawingRuntimeRows.objectEditRows(drawingSession)
+    }
+
+    function drawingInspectorRows(unusedRevision) {
+        return DrawingRuntimeRows.inspectorRows(drawingSession)
+    }
+
+    function drawingToolSettingsRows(unusedRevision) {
+        return DrawingRuntimeRows.toolSettingsRows(drawingSession)
+    }
+
+    function drawingToolParameterEditRows(unusedRevision) {
+        return DrawingRuntimeRows.toolParameterEditRows(drawingSession)
+    }
+
+    function hasSelectedDrawingExternalTool(unusedRevision) {
+        return String(selectedDrawingExternalToolId || "").length > 0
+    }
+
+    function drawingExternalToolRows(unusedRevision) {
+        return DrawingRuntimeRows.externalToolRows(drawingSession)
+    }
+
+    function drawingSidebarRows(section, unusedRevision) {
+        return DrawingRuntimeRows.sidebarRows(drawingSession, section)
+    }
+
+    function drawingSidebarRowSelected(section, row, unusedRevision) {
+        return DrawingRuntimeRows.sidebarRowSelected(drawingSession, section, row)
+    }
+
+    function drawingSidebarRowClickable(section, unusedRevision) {
+        return DrawingRuntimeRows.sidebarRowClickable(section)
+    }
+
+    function drawingSidebarRowClicked(section, row) {
+        if (!section || !row) {
+            return
+        }
+        var actionHandlers = ({
+            tool: function(item) { selectDrawingTool(item.id) },
+            preset: function(item) { selectDrawingPreset(item.id) },
+            external_tool: function(item) { selectDrawingExternalTool(item.id) },
+            layer: function(item) { selectDrawingLayer(item.id) }
+        })
+        var handler = actionHandlers[String(section.action || "")]
+        if (handler) {
+            handler(row)
+        }
+    }
+
+    function drawingToolPaletteRows(unusedRevision) {
+        return DrawingRuntimeRows.toolPaletteRows(drawingSession)
+    }
+
+    function drawingValidationRows(unusedRevision) {
+        return DrawingRuntimeRows.validationRows(drawingSession)
+    }
+
+    function drawingModelObjectRows(unusedRevision) {
+        return DrawingRuntimeRows.modelObjectRows(drawingSession)
+    }
+
+    function drawingLogRows(unusedRevision) {
+        return DrawingRuntimeRows.logRows(drawingSession)
+    }
+
+    function drawingExportRows(unusedRevision) {
+        return DrawingRuntimeRows.exportRows(drawingSession)
+    }
+
+    function drawingManifestRows(unusedRevision) {
+        return DrawingRuntimeRows.manifestRows(drawingSession)
+    }
+}

@@ -23,6 +23,8 @@
 #include <QVariantMap>
 #include <utility>
 
+#include "core/DrawingCore.h"
+
 class ShellLayoutStore final : public QObject {
     Q_OBJECT
 
@@ -779,6 +781,10 @@ int main(int argc, char *argv[]) {
     TextEditorStore textEditorStore(textEditorManifestPath);
     const QVariantList textEditorDocuments = textEditorStore.load();
     const QVariantMap textEditorState = textEditorStore.loadState();
+    const QString drawingToolRegistryPath = QStringLiteral(PROJECT_SOURCE_DIR)
+        + QStringLiteral("/data/features/drawing_tool/tool_registry.json");
+    const QVariant drawingToolRegistry = loadJsonObject(drawingToolRegistryPath);
+    DrawingDocumentController drawingController;
 
     QString themePath = parser.isSet(themeOption)
         ? parser.value(themeOption)
@@ -807,6 +813,10 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorDocuments"), textEditorDocuments);
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorState"), textEditorState);
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorManifestPath"), textEditorManifestPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistry"), drawingToolRegistry);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistryPath"), drawingToolRegistryPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingModel"), drawingController.modelDocument());
+    engine.rootContext()->setContextProperty(QStringLiteral("nativeDrawingController"), &drawingController);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);

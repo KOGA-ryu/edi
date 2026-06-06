@@ -14,6 +14,12 @@ set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Proj
 
 qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingCore.cpp
+)
+
+target_include_directories(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE

@@ -1,0 +1,62 @@
+#pragma once
+
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QObject>
+#include <QString>
+#include <QVariantMap>
+
+struct DrawingCoreResult {
+    QJsonObject model;
+    QString svg;
+};
+
+class DrawingCore final {
+public:
+    static DrawingCoreResult runScript(const QJsonObject &script);
+    static QString modelToJson(const QJsonObject &model);
+    static QString modelToSvg(const QJsonObject &model);
+};
+
+class DrawingDocumentController final : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int revision READ revision NOTIFY modelChanged)
+
+public:
+    explicit DrawingDocumentController(QObject *parent = nullptr);
+
+    int revision() const;
+
+    Q_INVOKABLE QVariantMap modelDocument() const;
+    Q_INVOKABLE QString exportJson() const;
+    Q_INVOKABLE QString exportSvg() const;
+    Q_INVOKABLE bool loadModel(const QVariantMap &model);
+    Q_INVOKABLE void reset();
+    Q_INVOKABLE void selectTool(const QString &toolId);
+    Q_INVOKABLE void selectObject(const QString &objectId);
+    Q_INVOKABLE void deleteObject(const QString &objectId);
+    Q_INVOKABLE void deleteSelectedObject();
+    Q_INVOKABLE void moveObjectBy(const QString &objectId, double dx, double dy);
+    Q_INVOKABLE void moveSelectedObjectBy(double dx, double dy);
+    Q_INVOKABLE void updateObjectField(const QString &objectId, const QString &field, double value);
+    Q_INVOKABLE void updateSelectedObjectField(const QString &field, double value);
+    Q_INVOKABLE void setToolParameter(const QString &parameter, const QVariant &value);
+    Q_INVOKABLE void cancelPending();
+    Q_INVOKABLE void setSnap(bool enabled, int gridStepPx);
+    Q_INVOKABLE void clickCanvasNormalized(double x, double y);
+    Q_INVOKABLE void runScript(const QVariantMap &script);
+    Q_INVOKABLE QString selectedToolId() const;
+    Q_INVOKABLE QString selectedObjectId() const;
+
+signals:
+    void modelChanged();
+
+private:
+    void applyCommand(const QJsonObject &command);
+    void publish();
+    QJsonObject scriptEnvelope() const;
+
+    QJsonArray m_commands;
+    QJsonObject m_model;
+    int m_revision = 0;
+};

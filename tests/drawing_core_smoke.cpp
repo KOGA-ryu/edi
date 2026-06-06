@@ -1,0 +1,221 @@
+#include "core/DrawingCore.h"
+
+#include <QCoreApplication>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QTextStream>
+
+namespace {
+
+QJsonArray point(double x, double y) {
+    QJsonArray result;
+    result.append(x);
+    result.append(y);
+    return result;
+}
+
+QJsonObject command(const QString &name) {
+    QJsonObject result;
+    result.insert(QStringLiteral("cmd"), name);
+    return result;
+}
+
+QJsonObject selectTool(const QString &toolId) {
+    QJsonObject result = command(QStringLiteral("select_tool"));
+    result.insert(QStringLiteral("tool"), toolId);
+    return result;
+}
+
+QJsonObject setToolParameter(const QString &parameter, const QJsonValue &value) {
+    QJsonObject result = command(QStringLiteral("set_tool_parameter"));
+    result.insert(QStringLiteral("parameter"), parameter);
+    result.insert(QStringLiteral("value"), value);
+    return result;
+}
+
+QJsonObject click(double x, double y) {
+    QJsonObject result = command(QStringLiteral("click_canvas"));
+    result.insert(QStringLiteral("x"), x);
+    result.insert(QStringLiteral("y"), y);
+    return result;
+}
+
+QJsonObject script(QJsonArray commands) {
+    QJsonObject result;
+    result.insert(QStringLiteral("script_id"), QStringLiteral("drawing_core_visible_tools_smoke"));
+    result.insert(QStringLiteral("canvas_px"), point(512, 512));
+    result.insert(QStringLiteral("commands"), commands);
+    result.insert(QStringLiteral("allow_pending"), false);
+    return result;
+}
+
+bool expect(bool condition, const QString &message) {
+    if (!condition) {
+        QTextStream(stderr) << "FAIL: " << message << "\n";
+        return false;
+    }
+    return true;
+}
+
+QJsonObject firstObjectOfKind(const QJsonArray &objects, const QString &kind) {
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("kind")).toString() == kind) {
+            return object;
+        }
+    }
+    return {};
+}
+
+int kindCount(const QJsonArray &objects, const QString &kind) {
+    int count = 0;
+    for (const QJsonValue value : objects) {
+        if (value.toObject().value(QStringLiteral("kind")).toString() == kind) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool expectKindCount(const QJsonArray &objects, const QString &kind, int expected) {
+    return expect(kindCount(objects, kind) == expected,
+                  QStringLiteral("expected %1 %2 object(s), got %3")
+                      .arg(expected)
+                      .arg(kind)
+                      .arg(kindCount(objects, kind)));
+}
+
+bool runVisibleToolCreationSmoke() {
+    QJsonArray commands;
+    commands.append(selectTool(QStringLiteral("anchor_points")));
+    commands.append(click(64, 64));
+
+    commands.append(selectTool(QStringLiteral("line_polyline")));
+    commands.append(setToolParameter(QStringLiteral("line_variant"), QStringLiteral("straight")));
+    commands.append(click(96, 64));
+    commands.append(click(192, 64));
+
+    commands.append(setToolParameter(QStringLiteral("line_variant"), QStringLiteral("polyline")));
+    commands.append(click(96, 96));
+    commands.append(click(192, 128));
+
+    commands.append(selectTool(QStringLiteral("circle_arc")));
+    commands.append(setToolParameter(QStringLiteral("circle_arc_mode"), QStringLiteral("circle")));
+    commands.append(click(256, 128));
+    commands.append(click(320, 128));
+
+    commands.append(setToolParameter(QStringLiteral("circle_arc_mode"), QStringLiteral("arc")));
+    commands.append(setToolParameter(QStringLiteral("circle_arc_start_angle_deg"), 15));
+    commands.append(setToolParameter(QStringLiteral("circle_arc_end_angle_deg"), 120));
+    commands.append(click(256, 192));
+    commands.append(click(320, 192));
+
+    commands.append(selectTool(QStringLiteral("rectangle_polygon")));
+    commands.append(setToolParameter(QStringLiteral("stroke_color"), QStringLiteral("#abcdef")));
+    commands.append(setToolParameter(QStringLiteral("fill_color"), QStringLiteral("#123456")));
+    commands.append(setToolParameter(QStringLiteral("line_thickness"), 4));
+    commands.append(setToolParameter(QStringLiteral("line_style"), QStringLiteral("dashed")));
+    commands.append(setToolParameter(QStringLiteral("stroke_opacity"), 0.5));
+    commands.append(click(64, 224));
+    commands.append(click(160, 288));
+
+    commands.append(selectTool(QStringLiteral("regular_polygon")));
+    commands.append(setToolParameter(QStringLiteral("regular_polygon_sides"), 5));
+    commands.append(setToolParameter(QStringLiteral("regular_polygon_rotation_deg"), 18));
+    commands.append(click(256, 256));
+    commands.append(click(320, 256));
+
+    commands.append(selectTool(QStringLiteral("image_reference_frame")));
+    commands.append(click(64, 320));
+    commands.append(click(160, 384));
+
+    commands.append(selectTool(QStringLiteral("ascii_crop_frame")));
+    commands.append(click(192, 320));
+    commands.append(click(320, 416));
+
+    const DrawingCoreResult result = DrawingCore::runScript(script(commands));
+    const QJsonObject model = result.model;
+    bool ok = true;
+    ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
+                 QStringLiteral("visible tool script should pass"));
+
+    const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    ok &= expectKindCount(objects, QStringLiteral("point"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("line"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("polyline"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("circle"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("arc"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("rectangle"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("polygon"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("image_reference_frame"), 1);
+    ok &= expectKindCount(objects, QStringLiteral("ascii_crop_frame"), 1);
+
+    const QJsonObject line = firstObjectOfKind(objects, QStringLiteral("line"));
+    ok &= expect(line.value(QStringLiteral("line_variant")).toString() == QStringLiteral("straight"),
+                 QStringLiteral("straight line should keep straight variant"));
+
+    const QJsonObject polyline = firstObjectOfKind(objects, QStringLiteral("polyline"));
+    ok &= expect(polyline.value(QStringLiteral("line_variant")).toString() == QStringLiteral("polyline"),
+                 QStringLiteral("polyline variant should create polyline object"));
+
+    const QJsonObject arc = firstObjectOfKind(objects, QStringLiteral("arc"));
+    ok &= expect(arc.value(QStringLiteral("start_angle_deg")).toDouble() == 15.0,
+                 QStringLiteral("arc start angle should be stamped"));
+    ok &= expect(arc.value(QStringLiteral("end_angle_deg")).toDouble() == 120.0,
+                 QStringLiteral("arc end angle should be stamped"));
+
+    const QJsonObject rectangle = firstObjectOfKind(objects, QStringLiteral("rectangle"));
+    ok &= expect(rectangle.value(QStringLiteral("stroke_color")).toString() == QStringLiteral("#abcdef"),
+                 QStringLiteral("rectangle should stamp stroke color"));
+    ok &= expect(rectangle.value(QStringLiteral("fill_color")).toString() == QStringLiteral("#123456"),
+                 QStringLiteral("rectangle should stamp fill color"));
+    ok &= expect(rectangle.value(QStringLiteral("line_style")).toString() == QStringLiteral("dashed"),
+                 QStringLiteral("rectangle should stamp line style"));
+    ok &= expect(rectangle.value(QStringLiteral("line_thickness")).toDouble() == 4.0,
+                 QStringLiteral("rectangle should stamp line thickness"));
+    ok &= expect(rectangle.value(QStringLiteral("stroke_opacity")).toDouble() == 0.5,
+                 QStringLiteral("rectangle should stamp stroke opacity"));
+
+    const QJsonObject polygon = firstObjectOfKind(objects, QStringLiteral("polygon"));
+    ok &= expect(polygon.value(QStringLiteral("sides")).toInt() == 5,
+                 QStringLiteral("polygon should respect side count"));
+    ok &= expect(polygon.value(QStringLiteral("points")).toArray().size() == 5,
+                 QStringLiteral("polygon should generate one point per side"));
+    ok &= expect(polygon.value(QStringLiteral("rotation_deg")).toDouble() == 18.0,
+                 QStringLiteral("polygon should respect rotation"));
+
+    return ok;
+}
+
+bool runSelectDeleteSmoke() {
+    QJsonArray commands;
+    commands.append(selectTool(QStringLiteral("line_polyline")));
+    commands.append(click(64, 64));
+    commands.append(click(128, 64));
+
+    QJsonObject select = command(QStringLiteral("select_object"));
+    select.insert(QStringLiteral("object_id"), QStringLiteral("script_line_01"));
+    commands.append(select);
+
+    QJsonObject erase = command(QStringLiteral("delete_object"));
+    erase.insert(QStringLiteral("object_id"), QStringLiteral("script_line_01"));
+    commands.append(erase);
+
+    const QJsonObject model = DrawingCore::runScript(script(commands)).model;
+    bool ok = true;
+    ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
+                 QStringLiteral("select/delete script should pass"));
+    ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
+                 QStringLiteral("delete should remove selected/generated line object"));
+    return ok;
+}
+
+} // namespace
+
+int main(int argc, char **argv) {
+    QCoreApplication app(argc, argv);
+    bool ok = true;
+    ok &= runVisibleToolCreationSmoke();
+    ok &= runSelectDeleteSmoke();
+    return ok ? 0 : 1;
+}

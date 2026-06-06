@@ -56,6 +56,8 @@ Implemented behavior:
 - line/column cursor and selection status in the editor surface
 - hidden-by-default find field with previous/next match selection
 - in-memory wrap and line-number visibility options
+- optional split editor pane using the same profile-bound document model
+- secondary split pane document selection without changing the primary command target
 - modified/clean state tracking against each document's initial text
 - bottom event shelf with no mirrored inspector facts
 - profile-bound persistence through `data/text_editor/documents.json`

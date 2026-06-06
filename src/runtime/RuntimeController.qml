@@ -52,6 +52,8 @@ QtObject {
     property alias textEditorCloseStatus: textEditorSession.textEditorCloseStatus
     property alias textEditorWrapEnabled: textEditorSession.textEditorWrapEnabled
     property alias textEditorLineNumbersVisible: textEditorSession.textEditorLineNumbersVisible
+    property alias textEditorSplitEnabled: textEditorSession.textEditorSplitEnabled
+    property alias secondaryTextEditorDocumentId: textEditorSession.secondaryTextEditorDocumentId
     property alias textEditorRequestedCommand: textEditorSession.textEditorRequestedCommand
     property alias textEditorCommandRevision: textEditorSession.textEditorCommandRevision
     property alias textEditorStoragePath: textEditorSession.textEditorStoragePath
@@ -663,6 +665,29 @@ QtObject {
 
     function toggleTextEditorLineNumbers() {
         textEditorSession.toggleTextEditorLineNumbers()
+        revision += 1
+    }
+
+    function toggleTextEditorSplit() {
+        textEditorSession.toggleTextEditorSplit()
+        revision += 1
+    }
+
+    function selectSecondaryTextEditorDocument(id) {
+        textEditorSession.selectSecondaryTextEditorDocument(id)
+        revision += 1
+    }
+
+    function secondaryTextEditorDocument(unusedRevision) {
+        return textEditorSession.secondaryTextEditorDocument(unusedRevision)
+    }
+
+    function secondaryTextEditorText(unusedRevision) {
+        return textEditorSession.secondaryTextEditorText(unusedRevision)
+    }
+
+    function updateSecondaryTextEditorState(text, cursorPosition, selectionStart, selectionEnd) {
+        textEditorSession.updateSecondaryTextEditorState(text, cursorPosition, selectionStart, selectionEnd)
         revision += 1
     }
 

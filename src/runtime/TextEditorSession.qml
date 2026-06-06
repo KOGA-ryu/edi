@@ -31,6 +31,8 @@ QtObject {
     property string textEditorCloseStatus: ""
     property bool textEditorWrapEnabled: true
     property bool textEditorLineNumbersVisible: true
+    property bool textEditorSplitEnabled: false
+    property string secondaryTextEditorDocumentId: ""
     property string textEditorRequestedCommand: ""
     property int textEditorCommandRevision: 0
     property string textEditorStoragePath: ""
@@ -171,6 +173,7 @@ QtObject {
         textEditorDocuments = normalized
         textEditorDocumentCounter = Math.max(highestCounter, normalized.length)
         loadTextEditorDocument(normalized[0])
+        ensureSecondaryTextEditorDocument()
         textEditorSaveOk = true
         textEditorSaveStatus = "loaded"
     }
@@ -184,6 +187,7 @@ QtObject {
         textEditorRenameActive = false
         textEditorCloseStatus = ""
         loadTextEditorDocument(textEditorDocuments[index])
+        ensureSecondaryTextEditorDocument()
     }
 
     function nextTextEditorDocumentName(prefix) {
@@ -209,6 +213,7 @@ QtObject {
         textEditorRenameActive = false
         textEditorCloseStatus = ""
         loadTextEditorDocument(document)
+        ensureSecondaryTextEditorDocument()
     }
 
     function duplicateTextEditorDocument() {
@@ -230,6 +235,7 @@ QtObject {
         textEditorRenameActive = false
         textEditorCloseStatus = ""
         loadTextEditorDocument(document)
+        ensureSecondaryTextEditorDocument()
     }
 
     function renameActiveTextEditorDocument() {
@@ -273,6 +279,7 @@ QtObject {
         textEditorRenameActive = false
         textEditorCloseStatus = ""
         loadTextEditorDocument(textEditorDocuments[nextIndex])
+        ensureSecondaryTextEditorDocument()
     }
 
     function toggleTextEditorWrap() {
@@ -281,6 +288,71 @@ QtObject {
 
     function toggleTextEditorLineNumbers() {
         textEditorLineNumbersVisible = !textEditorLineNumbersVisible
+    }
+
+    function toggleTextEditorSplit() {
+        textEditorSplitEnabled = !textEditorSplitEnabled
+        ensureSecondaryTextEditorDocument()
+    }
+
+    function ensureSecondaryTextEditorDocument() {
+        if (!textEditorDocuments.length) {
+            secondaryTextEditorDocumentId = ""
+            return
+        }
+        if (textEditorDocumentIndex(secondaryTextEditorDocumentId) >= 0
+                && (secondaryTextEditorDocumentId !== activeTextEditorDocumentId
+                    || textEditorDocuments.length === 1)) {
+            return
+        }
+        for (var index = 0; index < textEditorDocuments.length; ++index) {
+            if (textEditorDocuments[index].id !== activeTextEditorDocumentId) {
+                secondaryTextEditorDocumentId = textEditorDocuments[index].id
+                return
+            }
+        }
+        secondaryTextEditorDocumentId = textEditorDocuments[0].id
+    }
+
+    function selectSecondaryTextEditorDocument(id) {
+        var index = textEditorDocumentIndex(id)
+        if (index >= 0) {
+            secondaryTextEditorDocumentId = textEditorDocuments[index].id
+        }
+    }
+
+    function secondaryTextEditorDocument(unusedRevision) {
+        ensureSecondaryTextEditorDocument()
+        var index = textEditorDocumentIndex(secondaryTextEditorDocumentId)
+        if (index < 0) {
+            return cloneTextEditorDocument({})
+        }
+        return cloneTextEditorDocument(textEditorDocuments[index])
+    }
+
+    function secondaryTextEditorText(unusedRevision) {
+        return secondaryTextEditorDocument(unusedRevision).text
+    }
+
+    function updateSecondaryTextEditorState(text, cursorPosition, selectionStart, selectionEnd) {
+        ensureSecondaryTextEditorDocument()
+        if (secondaryTextEditorDocumentId === activeTextEditorDocumentId) {
+            updateTextEditorState(text, cursorPosition, selectionStart, selectionEnd)
+            return
+        }
+
+        var index = textEditorDocumentIndex(secondaryTextEditorDocumentId)
+        if (index < 0) {
+            return
+        }
+        var copy = textEditorDocuments.slice()
+        var current = cloneTextEditorDocument(copy[index])
+        current.text = String(text || "")
+        current.cursorPosition = Math.max(0, Number(cursorPosition) || 0)
+        current.selectionStart = Math.max(0, Number(selectionStart) || 0)
+        current.selectionEnd = Math.max(0, Number(selectionEnd) || 0)
+        copy[index] = current
+        textEditorDocuments = copy
     }
 
     function requestTextEditorCommand(command) {

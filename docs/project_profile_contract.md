@@ -133,3 +133,9 @@ Custom actions can also be triggered for proof/automation runs:
 Export packets include `index.txt` and SHA-256 file records for handoff verification.
 
 `packet_type: "dex_handoff"` adds `AGENT_README.txt`, `prompt.txt`, and `context.txt` to the normal export packet.
+
+Validate a generated packet before handing it to another worker:
+
+```sh
+scripts/validate_export_packet.js data/text_editor/exports/<packet-dir>
+```

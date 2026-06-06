@@ -98,6 +98,12 @@ cmake --build build
   --height 820
 ```
 
+For exported packets:
+
+```sh
+scripts/validate_export_packet.js data/text_editor/exports/<packet-dir>
+```
+
 Proof screenshot:
 
 ```text

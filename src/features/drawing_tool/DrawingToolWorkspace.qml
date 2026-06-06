@@ -62,6 +62,18 @@ Rectangle {
             }
 
             Shortcut {
+                sequences: ["Meta+D", "Ctrl+D"]
+                context: Qt.ApplicationShortcut
+                onActivated: {
+                    if (drawingWorkspace.controller) {
+                        drawingWorkspace.controller.duplicateSelectedDrawingObject()
+                    }
+                    constructionCanvas.previewActive = false
+                    constructionCanvas.requestPaint()
+                }
+            }
+
+            Shortcut {
                 sequence: "Del"
                 context: Qt.ApplicationShortcut
                 onActivated: {

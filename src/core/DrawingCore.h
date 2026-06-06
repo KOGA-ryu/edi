@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE void selectObject(const QString &objectId);
     Q_INVOKABLE void deleteObject(const QString &objectId);
     Q_INVOKABLE void deleteSelectedObject();
+    Q_INVOKABLE void duplicateObject(const QString &objectId, double dx = 0.03125, double dy = 0.03125);
+    Q_INVOKABLE void duplicateSelectedObject();
     Q_INVOKABLE void beginMoveGesture();
     Q_INVOKABLE void endMoveGesture();
     Q_INVOKABLE void moveObjectBy(const QString &objectId, double dx, double dy);

@@ -1242,6 +1242,10 @@ QtObject {
         drawingSession.deleteSelectedDrawingObject()
     }
 
+    function duplicateSelectedDrawingObject() {
+        drawingSession.duplicateSelectedDrawingObject()
+    }
+
     function moveDrawingObjectBy(objectId, dx, dy) {
         drawingSession.moveDrawingObjectBy(objectId, dx, dy)
     }

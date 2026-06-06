@@ -77,6 +77,7 @@ bool undoableInteractiveCommand(const QJsonObject &command) {
     const QString name = stringAt(command, QStringLiteral("cmd"));
     return name == QStringLiteral("click_canvas")
         || name == QStringLiteral("delete_object")
+        || name == QStringLiteral("duplicate_object")
         || name == QStringLiteral("move_object")
         || name == QStringLiteral("update_object")
         || name == QStringLiteral("set_tool_parameter")
@@ -362,6 +363,42 @@ void deleteObject(State &state, const QString &objectId) {
         state.selectedObject.clear();
     }
     state.pendingPoint = {};
+}
+
+void duplicateObject(State &state, const QString &objectId, double dxN, double dyN) {
+    if (objectId.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    for (const QJsonValue value : state.generatedObjects) {
+        QJsonObject object = value.toObject();
+        if (object.value("id").toString() != objectId) {
+            continue;
+        }
+        const QString kind = object.value("kind").toString();
+        if (kind.isEmpty()) {
+            state.errors.append("duplicate_object missing object kind: " + objectId);
+            return;
+        }
+        const Bounds bounds = normalizedBounds(object);
+        if (!bounds.ok) {
+            state.errors.append("duplicate_object could not compute bounds for: " + objectId);
+            return;
+        }
+        double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
+        double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
+        if (std::abs(clampedDxN) < 0.000001 && std::abs(clampedDyN) < 0.000001) {
+            clampedDxN = clampedMoveDelta(-dxN, bounds.minX, bounds.maxX);
+            clampedDyN = clampedMoveDelta(-dyN, bounds.minY, bounds.maxY);
+        }
+        object.insert("id", nextId(state, kind));
+        object.insert("duplicate_of", objectId);
+        translateObject(object, clampedDxN, clampedDyN, clampedDxN * state.canvasPx, clampedDyN * state.canvasPx);
+        pushObject(state, object);
+        state.pendingPoint = {};
+        return;
+    }
+    state.errors.append("duplicate_object could not find generated object: " + objectId);
 }
 
 void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
@@ -1137,6 +1174,15 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
             {"delete_object", [&]() {
                  deleteObject(state, stringAt(command, "object_id", state.selectedObject));
              }},
+            {"duplicate_object", [&]() {
+                 const double dxN = command.contains("dx_px")
+                     ? numberAt(command, "dx_px") / state.canvasPx
+                     : numberAt(command, "dx", 16.0 / state.canvasPx);
+                 const double dyN = command.contains("dy_px")
+                     ? numberAt(command, "dy_px") / state.canvasPx
+                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 duplicateObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
+             }},
             {"move_object", [&]() {
                  const double dxN = command.contains("dx_px")
                      ? numberAt(command, "dx_px") / state.canvasPx
@@ -1380,6 +1426,22 @@ void DrawingDocumentController::deleteObject(const QString &objectId) {
 
 void DrawingDocumentController::deleteSelectedObject() {
     deleteObject(selectedObjectId());
+}
+
+void DrawingDocumentController::duplicateObject(const QString &objectId, double dx, double dy) {
+    if (objectId.isEmpty() || (!std::isfinite(dx) && !std::isfinite(dy))) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "duplicate_object");
+    command.insert("object_id", objectId);
+    command.insert("dx", std::isfinite(dx) ? dx : 0.03125);
+    command.insert("dy", std::isfinite(dy) ? dy : 0.03125);
+    applyCommand(command);
+}
+
+void DrawingDocumentController::duplicateSelectedObject() {
+    duplicateObject(selectedObjectId());
 }
 
 void DrawingDocumentController::beginMoveGesture() {

@@ -383,6 +383,48 @@ bool runControllerObjectFieldGestureCoalescingSmoke() {
     return ok;
 }
 
+bool runControllerDuplicateSelectedObjectSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    controller.selectObject(QStringLiteral("script_rectangle_01"));
+    controller.duplicateSelectedObject();
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    bool ok = true;
+    ok &= expect(kindCount(objects, QStringLiteral("rectangle")) == 2,
+                 QStringLiteral("duplicate selected object should create a second rectangle"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_02"),
+                 QStringLiteral("duplicate should select the copied object"));
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("duplicate_object")) == 1,
+                 QStringLiteral("duplicate should be recorded as one command"));
+
+    QJsonObject duplicate;
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toString() == QStringLiteral("script_rectangle_02")) {
+            duplicate = object;
+            break;
+        }
+    }
+    const QJsonArray rect = duplicate.value(QStringLiteral("rect_px")).toArray();
+    ok &= expect(duplicate.value(QStringLiteral("duplicate_of")).toString() == QStringLiteral("script_rectangle_01"),
+                 QStringLiteral("duplicate should record source object"));
+    ok &= expectNear(rect.at(0).toDouble(), 144.0, QStringLiteral("duplicate should offset x by 16px"));
+    ok &= expectNear(rect.at(1).toDouble(), 144.0, QStringLiteral("duplicate should offset y by 16px"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle")) == 1,
+                 QStringLiteral("undo should remove duplicated rectangle"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_01"),
+                 QStringLiteral("undo should restore original selection"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -395,5 +437,6 @@ int main(int argc, char **argv) {
     ok &= runControllerMoveCoalescingSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
+    ok &= runControllerDuplicateSelectedObjectSmoke();
     return ok ? 0 : 1;
 }

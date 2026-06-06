@@ -870,6 +870,29 @@ QtObject {
         markChanged()
     }
 
+    function duplicateSelectedDrawingObject() {
+        var objectId = String(selectedDrawingObjectId || "")
+        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+            return
+        }
+        if (drawingNativeController && typeof drawingNativeController.duplicateObject === "function") {
+            drawingNativeController.duplicateObject(objectId, 16 / Math.max(1, drawingCanvasSizePx), 16 / Math.max(1, drawingCanvasSizePx))
+            syncNativeDrawingModel()
+            return
+        }
+        var source = drawingFindById(drawingGeneratedObjects, objectId, null)
+        if (!source) {
+            return
+        }
+        var duplicate = JSON.parse(JSON.stringify(source))
+        duplicate.id = String(source.id || "script_object") + "_copy"
+        duplicate.duplicate_of = objectId
+        drawingGeneratedObjects.push(duplicate)
+        selectedDrawingObjectId = duplicate.id
+        selectedDrawingLayerId = String(duplicate.layer_id || selectedDrawingLayerId)
+        markChanged()
+    }
+
     function moveDrawingObjectBy(objectId, dx, dy) {
         var id = String(objectId || "")
         var moveX = Number(dx) || 0

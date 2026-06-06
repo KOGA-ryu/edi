@@ -44,6 +44,7 @@ QtObject {
     property var drawingExternalModelDocument: ({})
     property var drawingGeneratedObjects: []
     property var drawingPendingPoint: ({})
+    property bool drawingPendingShapeActive: false
     property bool drawingSnapGridEnabled: true
     property int drawingSnapGridStepPx: 32
     property bool drawingObjectSnapEnabled: true
@@ -158,6 +159,12 @@ QtObject {
         return variant === "polyline" || variant === "straight" ? variant : "straight"
     }
 
+    function pendingPointActive(point) {
+        var source = point || drawingPendingPoint || ({})
+        return source.ok === true
+            || (Number.isFinite(Number(source.x)) && Number.isFinite(Number(source.y)))
+    }
+
     function drawingVariantToolId(variantId) {
         var id = String(variantId || "")
         if (id === "select") {
@@ -235,6 +242,10 @@ QtObject {
         var toolId = drawingVariantToolId(id)
         if (toolId.length === 0) {
             return
+        }
+        var changingVariant = selectedDrawingVariantId !== id
+        if (changingVariant && pendingPointActive()) {
+            cancelDrawingPendingShape()
         }
         if (selectedDrawingToolId !== toolId) {
             selectDrawingTool(toolId)
@@ -501,11 +512,15 @@ QtObject {
         if (!tool) {
             return
         }
+        var nextToolId = String(tool.id)
+        if (selectedDrawingToolId !== nextToolId && pendingPointActive()) {
+            cancelDrawingPendingShape()
+        }
         selectedDrawingExternalToolId = ""
-        selectedDrawingToolId = String(tool.id)
+        selectedDrawingToolId = nextToolId
         normalizeSelectedDrawingVariant()
         if (drawingNativeController) {
-            drawingNativeController.selectTool(String(tool.id))
+            drawingNativeController.selectTool(nextToolId)
             syncNativeDrawingModel()
             normalizeSelectedDrawingVariant()
             drawingToolPaletteOpen = true
@@ -870,6 +885,18 @@ QtObject {
         markChanged()
     }
 
+    function beginDrawingObjectMove() {
+        if (drawingNativeController && typeof drawingNativeController.beginMoveGesture === "function") {
+            drawingNativeController.beginMoveGesture()
+        }
+    }
+
+    function endDrawingObjectMove() {
+        if (drawingNativeController && typeof drawingNativeController.endMoveGesture === "function") {
+            drawingNativeController.endMoveGesture()
+        }
+    }
+
     function moveSelectedDrawingObjectBy(dx, dy) {
         moveDrawingObjectBy(selectedDrawingObjectId, dx, dy)
     }
@@ -932,12 +959,16 @@ QtObject {
     }
 
     function cancelDrawingPendingShape() {
+        if (!pendingPointActive()) {
+            return
+        }
         if (drawingNativeController) {
             drawingNativeController.cancelPending()
             syncNativeDrawingModel()
             return
         }
         drawingPendingPoint = ({})
+        drawingPendingShapeActive = false
         markChanged()
     }
 
@@ -985,6 +1016,7 @@ QtObject {
         drawingLastScriptStatus = String(document.script_status || "not_run")
         drawingLastScriptErrors = asArray(document.script_errors)
         drawingPendingPoint = document.pending_point || ({})
+        drawingPendingShapeActive = pendingPointActive(drawingPendingPoint)
         var canvas = asArray(document.canvas_px)
         if (canvas.length >= 2 && Number(canvas[0]) === Number(canvas[1]) && Number(canvas[0]) > 0) {
             drawingCanvasSizePx = Math.round(Number(canvas[0]))

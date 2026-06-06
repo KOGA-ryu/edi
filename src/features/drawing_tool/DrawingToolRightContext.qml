@@ -37,6 +37,34 @@ Item {
         return drawingRightContext.controller ? drawingRightContext.controller.selectedDrawingTool() : ({})
     }
 
+    function pendingActive() {
+        return !!(drawingRightContext.controller && drawingRightContext.controller.drawingPendingShapeActive)
+    }
+
+    function selectedGeneratedObject() {
+        if (!drawingRightContext.controller) {
+            return ({})
+        }
+        var object = drawingRightContext.controller.selectedDrawingObject() || ({})
+        return String(object.id || "").indexOf("script_") === 0 ? object : ({})
+    }
+
+    function selectedGeneratedObjectActive() {
+        return String(selectedGeneratedObject().id || "").length > 0
+    }
+
+    function selectedGeneratedObjectLabel() {
+        var object = selectedGeneratedObject()
+        return String(object.label || object.kind || object.id || "object")
+    }
+
+    function selectedGeneratedObjectMeta() {
+        var object = selectedGeneratedObject()
+        var kind = String(object.kind || "object")
+        var id = String(object.id || "")
+        return id.length > 0 ? kind + " / " + id : kind
+    }
+
     function selectedToolLabel() {
         return shortToolLabel(selectedToolId(), (selectedTool() || {}).label)
     }
@@ -448,7 +476,7 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: drawingRightContext.sectionCollapsed("tools") ? 40 : 44 + toolRows().length * 26
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("tools") ? 40 : 44 + toolRows().length * 26 + (drawingRightContext.pendingActive() ? 30 : 0)
                 panelPadding: UiStyle.space8
 
                 ColumnLayout {
@@ -470,6 +498,67 @@ Item {
                             selected: selectedToolId() === modelData.id
                             clickable: true
                             onClicked: drawingRightContext.controller.selectDrawingTool(modelData.id)
+                        }
+                    }
+
+                    UiButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 24
+                        visible: drawingRightContext.pendingActive() && !drawingRightContext.sectionCollapsed("tools")
+                        label: "Cancel"
+                        tooltip: "Cancel the active pending shape."
+                        onClicked: drawingRightContext.controller.cancelDrawingPendingShape()
+                    }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 68
+                panelPadding: UiStyle.space8
+                visible: drawingRightContext.selectedGeneratedObjectActive()
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space4
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: drawingRightContext.selectedGeneratedObjectLabel()
+                        color: UiStyle.colorText
+                        font.family: UiStyle.fontSans
+                        font.pixelSize: UiStyle.fontSizeSm
+                        font.weight: UiStyle.fontWeightSemiBold
+                        elide: Text.ElideRight
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space4
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: drawingRightContext.selectedGeneratedObjectMeta()
+                            color: UiStyle.colorTextFaint
+                            font.family: UiStyle.fontSans
+                            font.pixelSize: UiStyle.fontSizeXs
+                            elide: Text.ElideRight
+                        }
+
+                        UiButton {
+                            Layout.preferredWidth: 48
+                            Layout.preferredHeight: 22
+                            label: "Clear"
+                            tooltip: "Clear selected object."
+                            onClicked: drawingRightContext.controller.clearDrawingObjectSelection()
+                        }
+
+                        UiButton {
+                            Layout.preferredWidth: 48
+                            Layout.preferredHeight: 22
+                            label: "Delete"
+                            tooltip: "Delete selected generated object."
+                            onClicked: drawingRightContext.controller.deleteSelectedDrawingObject()
                         }
                     }
                 }

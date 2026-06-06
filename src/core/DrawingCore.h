@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE void selectObject(const QString &objectId);
     Q_INVOKABLE void deleteObject(const QString &objectId);
     Q_INVOKABLE void deleteSelectedObject();
+    Q_INVOKABLE void beginMoveGesture();
+    Q_INVOKABLE void endMoveGesture();
     Q_INVOKABLE void moveObjectBy(const QString &objectId, double dx, double dy);
     Q_INVOKABLE void moveSelectedObjectBy(double dx, double dy);
     Q_INVOKABLE void updateObjectField(const QString &objectId, const QString &field, double value);
@@ -67,5 +69,6 @@ private:
     QVector<QJsonArray> m_redoSnapshots;
     QJsonArray m_lastStableCommands;
     QJsonObject m_model;
+    bool m_moveGestureActive = false;
     int m_revision = 0;
 };

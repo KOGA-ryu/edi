@@ -1382,6 +1382,14 @@ void DrawingDocumentController::deleteSelectedObject() {
     deleteObject(selectedObjectId());
 }
 
+void DrawingDocumentController::beginMoveGesture() {
+    m_moveGestureActive = true;
+}
+
+void DrawingDocumentController::endMoveGesture() {
+    m_moveGestureActive = false;
+}
+
 void DrawingDocumentController::moveObjectBy(const QString &objectId, double dx, double dy) {
     if (objectId.isEmpty() || (!std::isfinite(dx) && !std::isfinite(dy))) {
         return;
@@ -1515,6 +1523,21 @@ void DrawingDocumentController::applyCommand(const QJsonObject &command) {
     const int beforeObjectCount = generatedObjectCount(m_model);
     const QJsonArray beforeCommands = m_commands;
     const QJsonArray undoSnapshot = wasPending ? m_lastStableCommands : beforeCommands;
+    const QString name = stringAt(command, QStringLiteral("cmd"));
+
+    if (m_moveGestureActive && name == QStringLiteral("move_object") && !m_commands.isEmpty()) {
+        const int lastIndex = m_commands.size() - 1;
+        QJsonObject previous = m_commands.at(lastIndex).toObject();
+        if (stringAt(previous, QStringLiteral("cmd")) == QStringLiteral("move_object")
+                && stringAt(previous, QStringLiteral("object_id")) == stringAt(command, QStringLiteral("object_id"))) {
+            previous.insert(QStringLiteral("dx"), numberAt(previous, QStringLiteral("dx")) + numberAt(command, QStringLiteral("dx")));
+            previous.insert(QStringLiteral("dy"), numberAt(previous, QStringLiteral("dy")) + numberAt(command, QStringLiteral("dy")));
+            m_commands[lastIndex] = previous;
+            m_redoSnapshots.clear();
+            publish();
+            return;
+        }
+    }
 
     m_commands.append(command);
     publish();
@@ -1526,7 +1549,6 @@ void DrawingDocumentController::applyCommand(const QJsonObject &command) {
     m_redoSnapshots.clear();
     const bool nowPending = pendingPointActive(m_model);
     const int afterObjectCount = generatedObjectCount(m_model);
-    const QString name = stringAt(command, QStringLiteral("cmd"));
     const bool pendingOnlyClick = name == QStringLiteral("click_canvas")
         && nowPending
         && afterObjectCount == beforeObjectCount;

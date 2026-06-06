@@ -88,10 +88,10 @@ QtObject {
         }
         var scaled = clampThickness(thickness)
         if (selected) {
-            return Math.max(1.6, scaled * 1.5)
+            return Math.max(1.4, scaled + 0.65)
         }
         if (layerSelected) {
-            return Math.max(1.4, scaled * 1.2)
+            return Math.max(1.25, scaled + 0.25)
         }
         return scaled
     }
@@ -136,7 +136,12 @@ QtObject {
     }
 
     function beginStyle(ctx, object, selected, layerSelected) {
-        var strokeColor = selected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
+        var baseStroke = styleStrokeColor(object)
+        var strokeColor = selected
+                ? UiStyle.mix(baseStroke, UiStyle.colorWarning, 0.42)
+                : layerSelected
+                    ? UiStyle.mix(baseStroke, UiStyle.colorAccent, 0.28)
+                    : baseStroke
         ctx.save()
         ctx.strokeStyle = strokeColor
         ctx.lineWidth = styleLineThickness(object, selected, layerSelected)
@@ -434,7 +439,11 @@ QtObject {
         ctx.moveTo(x1, y1)
         ctx.lineTo(x2, y2)
         ctx.stroke()
-        ctx.fillStyle = objectSelected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
+        ctx.fillStyle = objectSelected
+                ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorWarning, 0.42)
+                : layerSelected
+                    ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorAccent, 0.28)
+                    : styleStrokeColor(object)
         ctx.setLineDash([])
         ctx.beginPath()
         ctx.arc(x1, y1, objectSelected ? 5 : 3, 0, Math.PI * 2)
@@ -448,7 +457,11 @@ QtObject {
     function drawPoint(ctx, bounds, object, layerSelected, objectSelected) {
         var x = pxX(bounds, object.x || 0)
         var y = pxY(bounds, object.y || 0)
-        ctx.fillStyle = objectSelected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
+        ctx.fillStyle = objectSelected
+                ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorWarning, 0.42)
+                : layerSelected
+                    ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorAccent, 0.28)
+                    : styleStrokeColor(object)
         ctx.strokeStyle = UiStyle.colorWorkspace
         ctx.lineWidth = 1
         ctx.beginPath()

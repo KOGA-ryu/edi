@@ -83,6 +83,16 @@ int kindCount(const QJsonArray &objects, const QString &kind) {
     return count;
 }
 
+int commandCount(const QJsonArray &commands, const QString &name) {
+    int count = 0;
+    for (const QJsonValue value : commands) {
+        if (value.toObject().value(QStringLiteral("cmd")).toString() == name) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 bool expectKindCount(const QJsonArray &objects, const QString &kind, int expected) {
     return expect(kindCount(objects, kind) == expected,
                   QStringLiteral("expected %1 %2 object(s), got %3")
@@ -269,6 +279,34 @@ bool runControllerUndoRedoSmoke() {
     return ok;
 }
 
+bool runControllerMoveCoalescingSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+
+    controller.selectObject(QStringLiteral("script_point_01"));
+    controller.beginMoveGesture();
+    controller.moveObjectBy(QStringLiteral("script_point_01"), 0.125, 0.0);
+    controller.moveObjectBy(QStringLiteral("script_point_01"), 0.125, 0.0);
+    controller.endMoveGesture();
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("move_object")) == 1,
+                 QStringLiteral("drag move should coalesce into one move command"));
+
+    QJsonObject point = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point"));
+    ok &= expect(point.value(QStringLiteral("x")).toDouble() == 0.5,
+                 QStringLiteral("coalesced move should preserve total dx"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    point = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point"));
+    ok &= expect(point.value(QStringLiteral("x")).toDouble() == 0.25,
+                 QStringLiteral("undo should revert the entire drag move at once"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -278,5 +316,6 @@ int main(int argc, char **argv) {
     ok &= runSelectDeleteSmoke();
     ok &= runClickSnapOverrideSmoke();
     ok &= runControllerUndoRedoSmoke();
+    ok &= runControllerMoveCoalescingSmoke();
     return ok ? 0 : 1;
 }

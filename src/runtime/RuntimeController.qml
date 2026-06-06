@@ -68,6 +68,7 @@ QtObject {
     property alias drawingExternalModelDocument: drawingSession.drawingExternalModelDocument
     property alias drawingGeneratedObjects: drawingSession.drawingGeneratedObjects
     property alias drawingPendingPoint: drawingSession.drawingPendingPoint
+    property alias drawingPendingShapeActive: drawingSession.drawingPendingShapeActive
     property alias drawingSnapGridEnabled: drawingSession.drawingSnapGridEnabled
     property alias drawingSnapGridStepPx: drawingSession.drawingSnapGridStepPx
     property alias drawingObjectSnapEnabled: drawingSession.drawingObjectSnapEnabled
@@ -1243,6 +1244,14 @@ QtObject {
 
     function moveDrawingObjectBy(objectId, dx, dy) {
         drawingSession.moveDrawingObjectBy(objectId, dx, dy)
+    }
+
+    function beginDrawingObjectMove() {
+        drawingSession.beginDrawingObjectMove()
+    }
+
+    function endDrawingObjectMove() {
+        drawingSession.endDrawingObjectMove()
     }
 
     function moveSelectedDrawingObjectBy(dx, dy) {

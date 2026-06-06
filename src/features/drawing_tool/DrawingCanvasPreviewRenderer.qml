@@ -45,35 +45,28 @@ QtObject {
         ctx.save()
         var style = normalizeLineStyle(controller ? controller.drawingLineStyle : "solid")
         if (style === "dotted") {
-            ctx.setLineDash([2, 5])
+            ctx.setLineDash([1, 5])
         } else {
-            ctx.setLineDash([9, 5])
+            ctx.setLineDash([6, 5])
         }
         var width = Number.isFinite(Number(controller && controller.drawingLineThickness))
             ? Number(controller.drawingLineThickness)
             : 2
-        ctx.lineWidth = Math.max(2, width + 1)
-        ctx.strokeStyle = UiStyle.colorWarning
-        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.22)
-        ctx.globalAlpha = 0.96
+        ctx.lineWidth = Math.max(1, Math.min(1.6, width))
+        ctx.strokeStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.66)
+        ctx.fillStyle = UiStyle.colorTransparent
+        ctx.globalAlpha = 0.78
     }
 
     function drawPendingHandle(ctx, x, y) {
         ctx.setLineDash([])
         ctx.save()
-        ctx.globalAlpha = 1
-        ctx.lineWidth = 2
-        ctx.strokeStyle = UiStyle.colorWarning
-        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.34)
+        ctx.globalAlpha = 0.82
+        ctx.lineWidth = 1.25
+        ctx.strokeStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.72)
+        ctx.fillStyle = UiStyle.colorTransparent
         ctx.beginPath()
-        ctx.arc(x, y, 9, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(x - 13, y)
-        ctx.lineTo(x + 13, y)
-        ctx.moveTo(x, y - 13)
-        ctx.lineTo(x, y + 13)
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2)
         ctx.stroke()
         ctx.restore()
     }
@@ -81,13 +74,12 @@ QtObject {
     function drawPreviewHandle(ctx, x, y) {
         ctx.setLineDash([])
         ctx.save()
-        ctx.globalAlpha = 0.92
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = UiStyle.colorAccent
-        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, 0.24)
+        ctx.globalAlpha = 0.72
+        ctx.lineWidth = 1
+        ctx.strokeStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, 0.62)
+        ctx.fillStyle = UiStyle.colorTransparent
         ctx.beginPath()
-        ctx.arc(x, y, 6, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.arc(x, y, 3, 0, Math.PI * 2)
         ctx.stroke()
         ctx.restore()
     }

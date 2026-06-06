@@ -169,7 +169,12 @@ Rectangle {
                 Component.onCompleted: requestPaint()
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
-                onStateRevisionChanged: requestPaint()
+                onStateRevisionChanged: {
+                    if (drawingWorkspace.controller && !drawingWorkspace.controller.drawingPendingShapeActive) {
+                        previewActive = false
+                    }
+                    requestPaint()
+                }
             }
 
             DrawingCanvasSnapResolver {
@@ -268,6 +273,7 @@ Rectangle {
                         dragObjectLastX = dragStart.x
                         dragObjectLastY = dragStart.y
                         if (dragObjectId.length > 0) {
+                            drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
                         }
                         return
@@ -310,6 +316,9 @@ Rectangle {
                     dragAnchorId = ""
                     dragObjectId = ""
                     dragObjectMoved = false
+                    if (drawingWorkspace.controller) {
+                        drawingWorkspace.controller.endDrawingObjectMove()
+                    }
                 }
 
                 onClicked: function(mouse) {

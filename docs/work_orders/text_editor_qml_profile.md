@@ -42,7 +42,7 @@ Implemented behavior:
 - editable in-memory text surface
 - in-memory document model owned by `RuntimeController.qml`
 - active document tabs in the main workspace
-- workspace-local `Undo`, `Redo`, `All`, `Clear`, `Find`, `Wrap`, and `Lines` icon controls
+- workspace-local `Undo`, `Redo`, `All`, `Clear`, `Find`, `Replace`, `Wrap`, and `Lines` icon controls
 - local `New`, `Rename`, `Dup`, and `Close` icon controls
 - delayed hover tooltips for text editor icon controls
 - keyboard shortcuts for undo, redo, select all, find, and escape-close-find
@@ -54,7 +54,7 @@ Implemented behavior:
 - close guard that blocks closing a modified in-memory document
 - document facts in the right inspector
 - line/column cursor and selection status in the editor surface
-- hidden-by-default find field with previous/next match selection
+- hidden-by-default find/replace fields with previous/next, replace current, and replace all actions
 - in-memory wrap and line-number visibility options
 - optional split editor pane using the same profile-bound document model
 - secondary split pane document selection without changing the primary command target

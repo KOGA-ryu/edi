@@ -82,7 +82,7 @@ Rectangle {
     function selectFindMatch(direction) {
         var query = findField.text
         if (!query.length || !editor.text.length) {
-            return
+            return false
         }
 
         var haystack = editor.text.toLowerCase()
@@ -106,7 +106,68 @@ Rectangle {
             editor.forceActiveFocus()
             editor.select(index, index + query.length)
             root.syncController()
+            return true
         }
+        return false
+    }
+
+    function selectionMatchesFind() {
+        var query = findField.text
+        if (!query.length || editor.selectionStart === editor.selectionEnd) {
+            return false
+        }
+        var selected = editor.text.slice(editor.selectionStart, editor.selectionEnd)
+        return selected.toLowerCase() === query.toLowerCase()
+    }
+
+    function replaceCurrentMatch() {
+        var query = findField.text
+        if (!query.length || !editor.text.length) {
+            return
+        }
+        if (!root.selectionMatchesFind() && !root.selectFindMatch(1)) {
+            return
+        }
+
+        var start = editor.selectionStart
+        var end = editor.selectionEnd
+        var replacement = replaceField.text
+        editor.text = editor.text.slice(0, start) + replacement + editor.text.slice(end)
+        editor.forceActiveFocus()
+        editor.select(start, start + replacement.length)
+        root.syncController()
+    }
+
+    function replaceAllMatches() {
+        var query = findField.text
+        if (!query.length || !editor.text.length) {
+            return
+        }
+
+        var source = editor.text
+        var lowerSource = source.toLowerCase()
+        var lowerQuery = query.toLowerCase()
+        var replacement = replaceField.text
+        var cursor = 0
+        var result = ""
+        var count = 0
+        var index = lowerSource.indexOf(lowerQuery)
+        while (index >= 0) {
+            result += source.slice(cursor, index) + replacement
+            cursor = index + query.length
+            count += 1
+            index = lowerSource.indexOf(lowerQuery, cursor)
+        }
+
+        if (count <= 0) {
+            return
+        }
+
+        result += source.slice(cursor)
+        editor.text = result
+        editor.forceActiveFocus()
+        editor.cursorPosition = Math.min(result.length, cursor)
+        root.syncController()
     }
 
     function toggleFind() {
@@ -135,6 +196,12 @@ Rectangle {
                 findField.forceActiveFocus()
                 findField.selectAll()
             }
+        } else if (command === "find_replace") {
+            if (!root.findActive) {
+                root.toggleFind()
+            }
+            findField.forceActiveFocus()
+            findField.selectAll()
         } else if (command === "split") {
             root.toggleSplit()
         }
@@ -268,7 +335,7 @@ Rectangle {
 
                 UiTextField {
                     id: findField
-                    Layout.preferredWidth: 138
+                    Layout.preferredWidth: 118
                     Layout.preferredHeight: 24
                     visible: root.findActive
                     placeholderText: "find"
@@ -277,8 +344,19 @@ Rectangle {
                     Keys.onEscapePressed: root.toggleFind()
                 }
 
+                UiTextField {
+                    id: replaceField
+                    Layout.preferredWidth: 118
+                    Layout.preferredHeight: 24
+                    visible: root.findActive
+                    placeholderText: "replace"
+                    selectByMouse: true
+                    onAccepted: root.replaceCurrentMatch()
+                    Keys.onEscapePressed: root.toggleFind()
+                }
+
                 UiButton {
-                    Layout.preferredWidth: 36
+                    Layout.preferredWidth: 32
                     Layout.preferredHeight: 24
                     visible: root.findActive
                     label: "Prev"
@@ -286,11 +364,27 @@ Rectangle {
                 }
 
                 UiButton {
-                    Layout.preferredWidth: 36
+                    Layout.preferredWidth: 32
                     Layout.preferredHeight: 24
                     visible: root.findActive
                     label: "Next"
                     onClicked: root.selectFindMatch(1)
+                }
+
+                UiButton {
+                    Layout.preferredWidth: 56
+                    Layout.preferredHeight: 24
+                    visible: root.findActive
+                    label: "Replace"
+                    onClicked: root.replaceCurrentMatch()
+                }
+
+                UiButton {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 24
+                    visible: root.findActive
+                    label: "All"
+                    onClicked: root.replaceAllMatches()
                 }
 
                 UiIconButton {

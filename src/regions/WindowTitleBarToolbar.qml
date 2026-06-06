@@ -137,9 +137,9 @@ RowLayout {
                 onTriggered: toolbar.controller.requestTextEditorCommand("clear")
             }
             Action {
-                text: "Find"
+                text: "Find / Replace"
                 enabled: toolbar.controller
-                onTriggered: toolbar.controller.requestTextEditorCommand("find")
+                onTriggered: toolbar.controller.requestTextEditorCommand("find_replace")
             }
             MenuSeparator {}
             Action {

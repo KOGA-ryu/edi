@@ -254,6 +254,109 @@ QtObject {
         return String(doc.selected_object_id || "") === String(objectId || "")
     }
 
+    function includePointInBounds(bounds, x, y) {
+        var px = Number(x)
+        var py = Number(y)
+        if (!Number.isFinite(px) || !Number.isFinite(py)) {
+            return bounds
+        }
+        if (!bounds.ok) {
+            bounds.ok = true
+            bounds.minX = px
+            bounds.maxX = px
+            bounds.minY = py
+            bounds.maxY = py
+            return bounds
+        }
+        bounds.minX = Math.min(bounds.minX, px)
+        bounds.maxX = Math.max(bounds.maxX, px)
+        bounds.minY = Math.min(bounds.minY, py)
+        bounds.maxY = Math.max(bounds.maxY, py)
+        return bounds
+    }
+
+    function normalizedObjectBounds(object) {
+        var result = ({ ok: false, minX: 0, minY: 0, maxX: 0, maxY: 0 })
+        var kind = String(object.kind || "")
+        if (kind === "point" || kind === "tone_probe") {
+            return includePointInBounds(result, object.x, object.y)
+        }
+        if (kind === "line" || kind === "glyph_baseline") {
+            includePointInBounds(result, object.x1, object.y1)
+            return includePointInBounds(result, object.x2, object.y2)
+        }
+        if (kind === "circle" || kind === "arc") {
+            var cx = Number(object.cx || 0)
+            var cy = Number(object.cy || 0)
+            var radius = Number(object.radius || 0)
+            includePointInBounds(result, cx - radius, cy - radius)
+            return includePointInBounds(result, cx + radius, cy + radius)
+        }
+        if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+            var x = Number(object.x || 0)
+            var y = Number(object.y || 0)
+            includePointInBounds(result, x, y)
+            return includePointInBounds(result, x + Number(object.width || 0), y + Number(object.height || 0))
+        }
+        if (kind === "polyline" || kind === "polygon") {
+            var points = asArray(object.points)
+            for (var index = 0; index < points.length; ++index) {
+                var point = asArray(points[index])
+                if (point.length >= 2) {
+                    includePointInBounds(result, point[0], point[1])
+                }
+            }
+        }
+        return result
+    }
+
+    function drawCombinedSelectionOutline(ctx, bounds, doc) {
+        var selectedIds = asArray(doc.selected_object_ids)
+        if (selectedIds.length <= 1) {
+            return
+        }
+        var selectedBounds = ({ ok: false, minX: 0, minY: 0, maxX: 0, maxY: 0 })
+        var layers = asArray(doc.layers)
+        for (var layerIndex = 0; layerIndex < layers.length; ++layerIndex) {
+            var layer = layers[layerIndex] || ({})
+            if (layer.visible === false) {
+                continue
+            }
+            var objects = asArray(layer.objects)
+            for (var objectIndex = 0; objectIndex < objects.length; ++objectIndex) {
+                var object = objects[objectIndex] || ({})
+                var objectId = String(object.id || "")
+                if (objectId.indexOf("script_") !== 0 || selectedIds.indexOf(objectId) < 0) {
+                    continue
+                }
+                var objectBounds = normalizedObjectBounds(object)
+                if (!objectBounds.ok) {
+                    continue
+                }
+                includePointInBounds(selectedBounds, objectBounds.minX, objectBounds.minY)
+                includePointInBounds(selectedBounds, objectBounds.maxX, objectBounds.maxY)
+            }
+        }
+        if (!selectedBounds.ok) {
+            return
+        }
+        var pad = 8
+        var x1 = pxX(bounds, selectedBounds.minX) - pad
+        var y1 = pxY(bounds, selectedBounds.minY) - pad
+        var x2 = pxX(bounds, selectedBounds.maxX) + pad
+        var y2 = pxY(bounds, selectedBounds.maxY) + pad
+        ctx.save()
+        ctx.strokeStyle = UiStyle.mix(UiStyle.colorAccent, UiStyle.colorWarning, 0.28)
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, 0.12)
+        ctx.lineWidth = 1
+        ctx.setLineDash([7, 5])
+        ctx.globalAlpha = 0.34
+        ctx.fillRect(x1, y1, Math.max(1, x2 - x1), Math.max(1, y2 - y1))
+        ctx.globalAlpha = 0.92
+        ctx.strokeRect(x1, y1, Math.max(1, x2 - x1), Math.max(1, y2 - y1))
+        ctx.restore()
+    }
+
     function selectedLayer(doc, layerId) {
         return String(doc.selected_layer_id || "") === String(layerId || "")
     }

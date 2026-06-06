@@ -1073,6 +1073,13 @@ QtObject {
         moveDrawingObjectBy(selectedDrawingObjectId, dx, dy)
     }
 
+    function nudgeSelectedDrawingObjectByPx(dxPx, dyPx) {
+        var canvas = Math.max(1, Number(drawingCanvasSizePx || 512))
+        var moveX = (Number(dxPx) || 0) / canvas
+        var moveY = (Number(dyPx) || 0) / canvas
+        moveSelectedDrawingObjectBy(moveX, moveY)
+    }
+
     function updateSelectedDrawingObjectField(field, rawValue) {
         var objectId = String(selectedDrawingObjectId || "")
         var fieldId = String(field || "")

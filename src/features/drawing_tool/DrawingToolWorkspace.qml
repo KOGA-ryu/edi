@@ -220,6 +220,7 @@ Rectangle {
                             objectRenderer.drawObject(ctx, bounds, doc, layer, objects[objectIndex])
                         }
                     }
+                    objectRenderer.drawCombinedSelectionOutline(ctx, bounds, doc)
                     previewRenderer.drawLivePreview(ctx, bounds, doc, previewActive, previewX, previewY)
                     drawSnapIndicator(ctx, bounds)
                     navigationRenderer.drawNavigation(ctx, bounds, width, height, canvasInput.hoverRawX, canvasInput.hoverRawY, canvasInput.hoverInside)
@@ -359,10 +360,15 @@ Rectangle {
                     }
                     var ids = asArray(drawingWorkspace.controller.selectedDrawingObjectIds)
                     if (ids.length > 1) {
-                        return String(ids.length) + " objects"
+                        return String(ids.length) + " selected"
                     }
                     var id = String(drawingWorkspace.controller.selectedDrawingObjectId || "")
                     return id.length > 0 && id.indexOf("script_") === 0 ? id : "none"
+                }
+
+                function selectionStatusLabel() {
+                    var label = selectionLabel()
+                    return label.indexOf(" selected") > 0 ? label : "selected " + label
                 }
 
                 function selectedObjectIdList() {
@@ -864,7 +870,7 @@ Rectangle {
                     anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.max(110, parent.width * 0.22)
-                    text: "selected " + canvasInput.selectionLabel()
+                    text: canvasInput.selectionStatusLabel()
                     color: UiStyle.colorTextFaint
                     font.family: UiStyle.fontMono
                     font.pixelSize: UiStyle.fontSizeXs

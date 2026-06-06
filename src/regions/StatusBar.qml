@@ -5,6 +5,7 @@ import "../style"
 Rectangle {
     id: statusBar
     property var controller: null
+    property bool quietMode: controller && controller.activityMode === "drawing_tool"
 
     color: UiStyle.colorStatusBar
     border.width: UiStyle.borderNone
@@ -25,6 +26,7 @@ Rectangle {
 
         Text {
             text: "mode: " + (statusBar.controller ? statusBar.controller.activityMode : "unknown")
+            visible: !statusBar.quietMode
             color: UiStyle.colorTextMuted
             font.family: UiStyle.fontMono
             font.pixelSize: UiStyle.fontSizeXs
@@ -34,6 +36,7 @@ Rectangle {
             text: statusBar.controller && statusBar.controller.activityMode === "review"
                 ? statusBar.controller.breadcrumbText(statusBar.controller.selectedRouteId)
                 : ""
+            visible: !statusBar.quietMode
             color: UiStyle.colorText
             font.family: UiStyle.fontSans
             font.pixelSize: UiStyle.fontSizeXs

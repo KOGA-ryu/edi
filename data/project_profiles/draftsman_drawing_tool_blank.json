@@ -34,9 +34,9 @@
     "feature": "drawing_tool_blank"
   },
   "panel_defaults": {
-    "left_collapsed": false,
+    "left_collapsed": true,
     "right_collapsed": false,
-    "bottom_collapsed": false
+    "bottom_collapsed": true
   },
   "right_inspector": {
     "source": "none",

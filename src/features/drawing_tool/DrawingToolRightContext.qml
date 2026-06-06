@@ -10,6 +10,24 @@ Item {
     property string dataUi: "drawing_tool_right_context"
     property string dataState: "draftsman_native_drawing"
     property var controller: null
+    property var collapsedSections: ({
+        format: true,
+        precision: true
+    })
+
+    function asArray(value) {
+        if (!value) {
+            return []
+        }
+        if (Array.isArray(value)) {
+            return value
+        }
+        return []
+    }
+
+    function isWorkingToolId(toolId) {
+        return ["select_move", "anchor_points", "line_polyline", "circle_arc", "rectangle_polygon", "regular_polygon", "image_reference_frame", "ascii_crop_frame"].indexOf(String(toolId || "")) >= 0
+    }
 
     function selectedToolId() {
         return drawingRightContext.controller ? String(drawingRightContext.controller.selectedDrawingToolId || "") : ""
@@ -20,49 +38,94 @@ Item {
     }
 
     function selectedToolLabel() {
-        return String((selectedTool() || {}).label || selectedToolId() || "")
+        return shortToolLabel(selectedToolId(), (selectedTool() || {}).label)
     }
 
-    function activeVariantLabel() {
-        if (!drawingRightContext.controller) {
-            return ""
+    function sectionCollapsed(sectionId) {
+        return collapsedSections[String(sectionId)] === true
+    }
+
+    function toggleSection(sectionId) {
+        var next = Object.assign({}, collapsedSections)
+        next[String(sectionId)] = !sectionCollapsed(sectionId)
+        collapsedSections = next
+    }
+
+    function shortToolLabel(toolId, fallback) {
+        var id = String(toolId || "")
+        if (id === "select_move") {
+            return "Select"
         }
-        var toolId = selectedToolId()
-        if (toolId === "line_polyline") {
-            return drawingRightContext.controller.drawingLineVariant === "polyline" ? "Polyline" : "Straight"
-        }
-        if (toolId === "circle_arc") {
-            return drawingRightContext.controller.drawingCircleArcMode === "arc" ? "Arc" : "Circle"
-        }
-        if (toolId === "rectangle_polygon") {
-            return "Rect"
-        }
-        if (toolId === "image_reference_frame") {
-            return "Image Frame"
-        }
-        if (toolId === "ascii_crop_frame") {
-            return "ASCII Crop"
-        }
-        if (toolId === "regular_polygon") {
-            return String(drawingRightContext.controller.drawingRegularPolygonSides || 6) + " sides"
-        }
-        if (toolId === "anchor_points") {
+        if (id === "anchor_points") {
             return "Point"
         }
-        return ""
+        if (id === "line_polyline") {
+            return "Line"
+        }
+        if (id === "circle_arc") {
+            return "Circle"
+        }
+        if (id === "rectangle_polygon") {
+            return "Rect"
+        }
+        if (id === "regular_polygon") {
+            return "Polygon"
+        }
+        if (id === "image_reference_frame") {
+            return "Image"
+        }
+        if (id === "ascii_crop_frame") {
+            return "ASCII"
+        }
+        return String(fallback || id)
     }
 
-    function panelTooltip() {
-        var variant = activeVariantLabel()
-        var help = optionHelpText()
-        var parts = []
-        if (variant.length > 0 && variant !== selectedToolLabel()) {
-            parts.push(variant)
+    function toolTooltip(toolId, fallback) {
+        var id = String(toolId || "")
+        if (id === "select_move") {
+            return "Select and move generated canvas objects."
         }
-        if (help.length > 0) {
-            parts.push(help)
+        if (id === "anchor_points") {
+            return "Place a point marker."
         }
-        return parts.join(" - ")
+        if (id === "line_polyline") {
+            return "Draw straight lines or polyline variants."
+        }
+        if (id === "circle_arc") {
+            return "Draw circles or arcs."
+        }
+        if (id === "rectangle_polygon") {
+            return "Draw two-corner rectangles."
+        }
+        if (id === "regular_polygon") {
+            return "Draw regular polygons using side count and rotation."
+        }
+        if (id === "image_reference_frame") {
+            return "Place an image reference frame."
+        }
+        if (id === "ascii_crop_frame") {
+            return "Mark an ASCII crop/export region."
+        }
+        return String(fallback || id)
+    }
+
+    function toolRows() {
+        if (!drawingRightContext.controller) {
+            return []
+        }
+        var rows = []
+        var modes = asArray(drawingRightContext.controller.drawingToolModes)
+        for (var index = 0; index < modes.length; ++index) {
+            var mode = modes[index]
+            if (isWorkingToolId(mode.id)) {
+                rows.push({
+                    id: String(mode.id),
+                    label: shortToolLabel(mode.id, mode.label),
+                    tooltip: toolTooltip(mode.id, mode.label)
+                })
+            }
+        }
+        return rows
     }
 
     function variantRows() {
@@ -72,69 +135,39 @@ Item {
         var rows = []
         var toolId = selectedToolId()
         if (toolId === "line_polyline") {
-            rows.push({ id: "line_straight", kind: "line_variant", label: "Straight", value: "straight", tooltip: "Draw straight line segments" })
-            rows.push({ id: "line_polyline", kind: "line_variant", label: "Polyline", value: "polyline", tooltip: "Switch to polyline entry mode" })
+            rows.push({ id: "line_straight", label: "Straight", tooltip: "Draw straight line segments." })
+            rows.push({ id: "line_polyline", label: "Polyline", tooltip: "Draw connected polyline segments." })
+            rows.push({ id: "line_arrow", label: "Arrow", tooltip: "Arrow variant state. Arrowhead rendering is a later core pass." })
             return rows
         }
         if (toolId === "circle_arc") {
-            rows.push({ id: "circle_mode", kind: "circle_arc", label: "Circle", value: "circle", tooltip: "Circle mode" })
-            rows.push({ id: "arc_mode", kind: "circle_arc", label: "Arc", value: "arc", tooltip: "Arc mode" })
+            rows.push({ id: "circle_full", label: "Full", tooltip: "Draw full circles." })
+            rows.push({ id: "circle_arc", label: "Arc", tooltip: "Draw arc objects using start/end angles." })
             return rows
         }
-        if (toolId === "rectangle_polygon" || toolId === "image_reference_frame" || toolId === "ascii_crop_frame") {
-            rows.push({ id: "rectangle_polygon", kind: "tool", label: "Rect", value: "rectangle_polygon", tooltip: "Rectangle tool" })
-            rows.push({ id: "image_reference_frame", kind: "tool", label: "Image Frame", value: "image_reference_frame", tooltip: "Image frame tool" })
-            rows.push({ id: "ascii_crop_frame", kind: "tool", label: "ASCII Crop", value: "ascii_crop_frame", tooltip: "ASCII crop frame" })
+        if (toolId === "rectangle_polygon") {
+            rows.push({ id: "rect_box", label: "Box", tooltip: "Draw a two-corner rectangle." })
+            rows.push({ id: "rect_rounded", label: "Rounded", tooltip: "Rounded rectangle variant state. Rounded rendering is a later core pass." })
+            rows.push({ id: "rect_frame", label: "Frame", tooltip: "Frame rectangle variant state for drafting bounds." })
             return rows
         }
         if (toolId === "regular_polygon") {
-            rows.push({ id: "regular_polygon", kind: "tool", label: "Polygon", value: "regular_polygon", tooltip: "Regular polygon tool" })
+            rows.push({ id: "polygon_triangle", label: "Triangle", tooltip: "Draw a three-sided polygon." })
+            rows.push({ id: "polygon_hex", label: "Hex", tooltip: "Draw a six-sided polygon." })
+            rows.push({ id: "polygon_free", label: "Free", tooltip: "Use custom side count and rotation." })
             return rows
         }
-        if (toolId === "anchor_points") {
-            rows.push({ id: "anchor_point", kind: "point_variant", label: "Point", value: "point", tooltip: "Place a simple point marker" })
+        if (toolId === "image_reference_frame") {
+            rows.push({ id: "image_frame", label: "Frame", tooltip: "Place an image reference frame." })
+            rows.push({ id: "image_crop", label: "Crop", tooltip: "Image crop-box variant state for later image binding." })
+            return rows
+        }
+        if (toolId === "ascii_crop_frame") {
+            rows.push({ id: "ascii_crop", label: "Crop", tooltip: "Mark an ASCII export crop region." })
+            rows.push({ id: "ascii_glyph_block", label: "Glyph", tooltip: "Glyph block variant state for later ASCII tooling." })
             return rows
         }
         return []
-    }
-
-    function isVariantSelected(variant) {
-        if (!drawingRightContext.controller || !variant) {
-            return false
-        }
-        var kind = String(variant.kind || "")
-        if (kind === "line_variant") {
-            return String(drawingRightContext.controller.drawingLineVariant || "straight") === String(variant.value || "")
-        }
-        if (kind === "circle_arc") {
-            return String(drawingRightContext.controller.drawingCircleArcMode || "circle") === String(variant.value || "")
-        }
-        if (kind === "tool") {
-            return selectedToolId() === String(variant.value || "")
-        }
-        if (kind === "point_variant") {
-            return true
-        }
-        return false
-    }
-
-    function setVariant(variant) {
-        if (!drawingRightContext.controller || !variant) {
-            return
-        }
-        var kind = String(variant.kind || "")
-        var value = String(variant.value || "")
-        if (kind === "line_variant") {
-            drawingRightContext.controller.setDrawingLineVariant(value)
-            return
-        }
-        if (kind === "circle_arc") {
-            drawingRightContext.controller.setDrawingCircleArcMode(value)
-            return
-        }
-        if (kind === "tool") {
-            drawingRightContext.controller.selectDrawingTool(value)
-        }
     }
 
     function optionRows() {
@@ -148,7 +181,7 @@ Item {
                 { id: "arc_end", label: "End", field: "circle_arc_end_angle_deg", value: String(Number(drawingRightContext.controller.drawingCircleArcEndAngleDeg || 90)), suffix: "deg", visible: drawingRightContext.controller.drawingCircleArcMode === "arc" }
             ]
         }
-        if (toolId === "regular_polygon") {
+        if (toolId === "regular_polygon" && String(drawingRightContext.controller.selectedDrawingVariantId || "") === "polygon_free") {
             return [
                 { id: "polygon_sides", label: "Sides", field: "regular_polygon_sides", value: String(Number(drawingRightContext.controller.drawingRegularPolygonSides || 6)), suffix: "", visible: true },
                 { id: "polygon_rotation", label: "Rotate", field: "regular_polygon_rotation_deg", value: String(Number(drawingRightContext.controller.drawingRegularPolygonRotationDeg || 30)), suffix: "deg", visible: true }
@@ -157,52 +190,140 @@ Item {
         return []
     }
 
-    function visibleOptionCount() {
+    function visibleOptionRows() {
+        var result = []
         var rows = optionRows()
-        var count = 0
         for (var index = 0; index < rows.length; ++index) {
             if (rows[index].visible !== false) {
-                count += 1
+                result.push(rows[index])
             }
         }
-        return count
+        return result
     }
 
-    function optionHelpText() {
+    function activeVariantText() {
+        var rows = variantRows()
+        var selectedVariantId = String(drawingRightContext.controller ? drawingRightContext.controller.selectedDrawingVariantId : "")
+        for (var index = 0; index < rows.length; ++index) {
+            if (String(rows[index].id || "") === selectedVariantId) {
+                return String(rows[index].label || "")
+            }
+        }
         var toolId = selectedToolId()
         if (toolId === "line_polyline") {
-            return drawingRightContext.controller && drawingRightContext.controller.drawingLineVariant === "polyline"
-                ? "Creates connected path objects from two clicks for now."
-                : "Creates one straight segment from two clicks."
+            return drawingRightContext.controller && drawingRightContext.controller.drawingLineVariant === "polyline" ? "Polyline" : "Straight"
         }
         if (toolId === "circle_arc") {
-            return drawingRightContext.controller && drawingRightContext.controller.drawingCircleArcMode === "arc"
-                ? "Arc uses center, radius, start angle, and end angle."
-                : "Circle uses center and radius."
+            return drawingRightContext.controller && drawingRightContext.controller.drawingCircleArcMode === "arc" ? "Arc" : "Circle"
         }
         if (toolId === "regular_polygon") {
-            return "Polygon uses center, radius, side count, and rotation."
+            var polygonVariant = String(drawingRightContext.controller ? drawingRightContext.controller.selectedDrawingVariantId : "")
+            if (polygonVariant === "polygon_triangle") {
+                return "Triangle"
+            }
+            if (polygonVariant === "polygon_hex") {
+                return "Hex"
+            }
+            return String(drawingRightContext.controller ? drawingRightContext.controller.drawingRegularPolygonSides : 6) + " sides"
         }
-        if (toolId === "rectangle_polygon") {
-            return "Rect uses two corners."
+        return selectedToolLabel()
+    }
+
+    function isVariantSelected(variant) {
+        if (!drawingRightContext.controller || !variant) {
+            return false
         }
-        if (toolId === "image_reference_frame") {
-            return "Image frame reserves source-image bounds."
+        return String(drawingRightContext.controller.selectedDrawingVariantId || "") === String(variant.id || "")
+    }
+
+    function setVariant(variant) {
+        if (!drawingRightContext.controller || !variant) {
+            return
         }
-        if (toolId === "ascii_crop_frame") {
-            return "ASCII crop marks the future export region."
-        }
-        if (toolId === "anchor_points") {
-            return "Point places a simple marker on the canvas."
-        }
-        return ""
+        drawingRightContext.controller.setSelectedDrawingVariantId(String(variant.id || ""))
     }
 
     function setNumericOption(field, value) {
+        if (drawingRightContext.controller) {
+            drawingRightContext.controller.updateDrawingToolParameterField(String(field || ""), value)
+        }
+    }
+
+    function setStyleField(fieldId, value) {
         if (!drawingRightContext.controller) {
             return
         }
-        drawingRightContext.controller.updateDrawingToolParameterField(String(field || ""), value)
+        if (fieldId === "stroke") {
+            drawingRightContext.controller.setDrawingStrokeColor(value)
+        } else if (fieldId === "fill") {
+            drawingRightContext.controller.setDrawingFillColor(value)
+        } else if (fieldId === "width") {
+            drawingRightContext.controller.setDrawingLineThickness(value)
+        } else if (fieldId === "opacity") {
+            drawingRightContext.controller.setDrawingStrokeOpacity(value)
+        }
+    }
+
+    function styleLineStyle() {
+        return String(drawingRightContext.controller ? drawingRightContext.controller.drawingLineStyle : "solid")
+    }
+
+    function snapEnabled() {
+        return !!(drawingRightContext.controller && drawingRightContext.controller.drawingSnapGridEnabled)
+    }
+
+    function gridVisible() {
+        return !!(drawingRightContext.controller && drawingRightContext.controller.drawingGridVisible)
+    }
+
+    function objectSnapEnabled() {
+        return !!(drawingRightContext.controller && drawingRightContext.controller.drawingObjectSnapEnabled)
+    }
+
+    function swatchColor(value, fallback) {
+        var raw = String(value || "").trim()
+        return raw.length > 0 ? raw : fallback
+    }
+
+    component SectionHeader: Rectangle {
+        property string sectionId: ""
+        property string title: ""
+        property string meta: ""
+
+        Layout.fillWidth: true
+        implicitHeight: 24
+        color: UiStyle.colorTransparent
+        border.width: UiStyle.borderNone
+
+        RowLayout {
+            anchors.fill: parent
+            spacing: UiStyle.space6
+
+            Text {
+                Layout.fillWidth: true
+                text: (drawingRightContext.sectionCollapsed(parent.parent.sectionId) ? "+ " : "- ") + parent.parent.title
+                color: UiStyle.colorText
+                font.family: UiStyle.fontSans
+                font.pixelSize: UiStyle.fontSizeSm
+                font.weight: UiStyle.fontWeightSemiBold
+                elide: Text.ElideRight
+            }
+
+            Text {
+                text: parent.parent.meta
+                visible: parent.parent.meta.length > 0
+                color: UiStyle.colorTextFaint
+                font.family: UiStyle.fontSans
+                font.pixelSize: UiStyle.fontSizeXs
+                elide: Text.ElideRight
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: drawingRightContext.toggleSection(parent.sectionId)
+        }
     }
 
     component OptionField: RowLayout {
@@ -251,6 +372,63 @@ Item {
         }
     }
 
+    component ColorField: RowLayout {
+        property string fieldId: ""
+        property string valueText: ""
+        property string fallbackColor: UiStyle.colorControl
+
+        spacing: UiStyle.space4
+
+        Rectangle {
+            Layout.preferredWidth: 20
+            Layout.preferredHeight: 20
+            radius: UiStyle.radiusSm
+            color: drawingRightContext.swatchColor(parent.valueText, parent.fallbackColor)
+            border.width: UiStyle.borderThin
+            border.color: UiStyle.colorPanelRaised
+        }
+
+        UiTextField {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 24
+            text: parent.valueText
+            property string lastCommittedText: parent.valueText
+
+            function commit() {
+                if (text === lastCommittedText) {
+                    return
+                }
+                lastCommittedText = text
+                drawingRightContext.setStyleField(parent.fieldId, text)
+            }
+
+            onAccepted: commit()
+            onEditingFinished: commit()
+        }
+    }
+
+    component StyleNumberField: UiTextField {
+        property string fieldId: ""
+        property string valueText: ""
+
+        Layout.preferredWidth: 56
+        Layout.preferredHeight: 24
+        horizontalAlignment: TextInput.AlignHCenter
+        text: valueText
+        property string lastCommittedText: valueText
+
+        function commit() {
+            if (text === lastCommittedText) {
+                return
+            }
+            lastCommittedText = text
+            drawingRightContext.setStyleField(fieldId, text)
+        }
+
+        onAccepted: commit()
+        onEditingFinished: commit()
+    }
+
     Flickable {
         anchors.fill: parent
         clip: true
@@ -270,43 +448,58 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(88, 44 + (variantRows().length > 0 ? 28 : 0) + visibleOptionCount() * 30)
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("tools") ? 40 : 44 + toolRows().length * 26
+                panelPadding: UiStyle.space8
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space4
+
+                    SectionHeader {
+                        sectionId: "tools"
+                        title: "Tools"
+                        meta: selectedToolLabel()
+                    }
+
+                    Repeater {
+                        model: drawingRightContext.sectionCollapsed("tools") ? [] : toolRows()
+                        delegate: UiListRow {
+                            Layout.fillWidth: true
+                            label: modelData.label
+                            tooltip: modelData.tooltip
+                            selected: selectedToolId() === modelData.id
+                            clickable: true
+                            onClicked: drawingRightContext.controller.selectDrawingTool(modelData.id)
+                        }
+                    }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("variants") ? 40 : 74
+                panelPadding: UiStyle.space8
+                visible: variantRows().length > 0
 
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: UiStyle.space6
 
-                    Text {
-                        id: selectedToolTitle
-                        Layout.fillWidth: true
-                        text: selectedToolLabel()
-                        color: UiStyle.colorText
-                        font.family: UiStyle.fontSans
-                        font.pixelSize: UiStyle.fontSizeBody
-                        font.weight: UiStyle.fontWeightSemiBold
-                        elide: Text.ElideRight
-
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.NoButton
-
-                            ToolTip.visible: containsMouse && drawingRightContext.panelTooltip().length > 0
-                            ToolTip.text: drawingRightContext.panelTooltip()
-                            ToolTip.delay: 2400
-                            ToolTip.timeout: 8000
-                        }
+                    SectionHeader {
+                        sectionId: "variants"
+                        title: "Variant"
+                        meta: activeVariantText()
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: UiStyle.space4
-                        visible: variantRows().length > 0
+                        visible: !drawingRightContext.sectionCollapsed("variants") && variantRows().length > 0
 
                         Repeater {
                             model: variantRows()
                             delegate: UiButton {
-                                Layout.preferredWidth: Math.max(64, implicitWidth)
+                                Layout.preferredWidth: Math.max(58, implicitWidth)
                                 Layout.preferredHeight: 24
                                 label: modelData.label
                                 tooltip: modelData.tooltip
@@ -315,19 +508,161 @@ Item {
                             }
                         }
                     }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("params") ? 40 : 40 + visibleOptionRows().length * 30
+                panelPadding: UiStyle.space8
+                visible: visibleOptionRows().length > 0
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space6
+
+                    SectionHeader {
+                        sectionId: "params"
+                        title: "Params"
+                    }
 
                     Repeater {
-                        model: optionRows()
+                        model: drawingRightContext.sectionCollapsed("params") ? [] : visibleOptionRows()
                         delegate: OptionField {
                             Layout.fillWidth: true
-                            visible: modelData.visible !== false
                             label: modelData.label
                             field: modelData.field
                             valueText: modelData.value
                             suffix: modelData.suffix
                         }
                     }
+                }
+            }
 
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("format") ? 40 : 168
+                panelPadding: UiStyle.space8
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space6
+
+                    SectionHeader {
+                        sectionId: "format"
+                        title: "Format"
+                        meta: styleLineStyle()
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: !drawingRightContext.sectionCollapsed("format")
+                        spacing: UiStyle.space6
+
+                        ColorField {
+                            Layout.fillWidth: true
+                            fieldId: "stroke"
+                            valueText: String(drawingRightContext.controller ? (drawingRightContext.controller.drawingStrokeColor || "") : "")
+                            fallbackColor: UiStyle.colorAccent
+                        }
+
+                        ColorField {
+                            Layout.fillWidth: true
+                            fieldId: "fill"
+                            valueText: String(drawingRightContext.controller ? (drawingRightContext.controller.drawingFillColor || "") : "")
+                            fallbackColor: UiStyle.colorControl
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: UiStyle.space6
+
+                            StyleNumberField {
+                                fieldId: "width"
+                                valueText: String(Number(drawingRightContext.controller ? drawingRightContext.controller.drawingLineThickness : 2))
+                            }
+
+                            StyleNumberField {
+                                fieldId: "opacity"
+                                valueText: String(Number(drawingRightContext.controller ? drawingRightContext.controller.drawingStrokeOpacity : 1))
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: UiStyle.space4
+
+                            UiButton {
+                                Layout.preferredWidth: 48
+                                Layout.preferredHeight: 24
+                                label: "Line"
+                                selected: drawingRightContext.styleLineStyle() === "solid"
+                                onClicked: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingLineStyle("solid")
+                            }
+
+                            UiButton {
+                                Layout.preferredWidth: 48
+                                Layout.preferredHeight: 24
+                                label: "Dash"
+                                selected: drawingRightContext.styleLineStyle() === "dashed"
+                                onClicked: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingLineStyle("dashed")
+                            }
+
+                            UiButton {
+                                Layout.preferredWidth: 44
+                                Layout.preferredHeight: 24
+                                label: "Dot"
+                                selected: drawingRightContext.styleLineStyle() === "dotted"
+                                onClicked: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingLineStyle("dotted")
+                            }
+                        }
+                    }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("precision") ? 40 : 142
+                panelPadding: UiStyle.space8
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space6
+
+                    SectionHeader {
+                        sectionId: "precision"
+                        title: "Precision"
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space6
+                        visible: !drawingRightContext.sectionCollapsed("precision")
+
+                        UiToggle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 24
+                            label: "Snap"
+                            checked: drawingRightContext.snapEnabled()
+                            onToggled: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingSnapGrid(checked)
+                        }
+
+                        UiToggle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 24
+                            label: "Grid"
+                            checked: drawingRightContext.gridVisible()
+                            onToggled: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingGridVisible(checked)
+                        }
+
+                        UiToggle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 24
+                            label: "Obj"
+                            checked: drawingRightContext.objectSnapEnabled()
+                            onToggled: if (drawingRightContext.controller) drawingRightContext.controller.setDrawingObjectSnapEnabled(checked)
+                        }
+                    }
                 }
             }
         }

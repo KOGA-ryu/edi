@@ -9,6 +9,7 @@ QtObject {
     property int revision: 0
     property bool writeDisabled: true
     property string selectedDrawingToolId: "anchor_points"
+    property string selectedDrawingVariantId: "point"
     property string selectedDrawingExternalToolId: ""
     property string selectedDrawingLayerId: "layer_00_canvas"
     property string selectedDrawingObjectId: "artboard_bounds"
@@ -153,6 +154,106 @@ QtObject {
     function normalizeLineVariant(value) {
         var variant = String(value || "straight").trim().toLowerCase()
         return variant === "polyline" || variant === "straight" ? variant : "straight"
+    }
+
+    function drawingVariantToolId(variantId) {
+        var id = String(variantId || "")
+        if (id === "select") {
+            return "select_move"
+        }
+        if (id === "point") {
+            return "anchor_points"
+        }
+        if (id === "line_straight" || id === "line_polyline" || id === "line_arrow") {
+            return "line_polyline"
+        }
+        if (id === "circle_full" || id === "circle_arc") {
+            return "circle_arc"
+        }
+        if (id === "rect_box" || id === "rect_rounded" || id === "rect_frame") {
+            return "rectangle_polygon"
+        }
+        if (id === "polygon_triangle" || id === "polygon_hex" || id === "polygon_free") {
+            return "regular_polygon"
+        }
+        if (id === "image_frame" || id === "image_crop") {
+            return "image_reference_frame"
+        }
+        if (id === "ascii_crop" || id === "ascii_glyph_block") {
+            return "ascii_crop_frame"
+        }
+        return ""
+    }
+
+    function defaultDrawingVariantIdForTool(toolId) {
+        var id = String(toolId || "")
+        if (id === "select_move") {
+            return "select"
+        }
+        if (id === "anchor_points") {
+            return "point"
+        }
+        if (id === "line_polyline") {
+            return drawingLineVariant === "polyline" ? "line_polyline" : "line_straight"
+        }
+        if (id === "circle_arc") {
+            return drawingCircleArcMode === "arc" ? "circle_arc" : "circle_full"
+        }
+        if (id === "rectangle_polygon") {
+            return "rect_box"
+        }
+        if (id === "regular_polygon") {
+            if (drawingRegularPolygonSides === 3) {
+                return "polygon_triangle"
+            }
+            if (drawingRegularPolygonSides === 6) {
+                return "polygon_hex"
+            }
+            return "polygon_free"
+        }
+        if (id === "image_reference_frame") {
+            return "image_frame"
+        }
+        if (id === "ascii_crop_frame") {
+            return "ascii_crop"
+        }
+        return ""
+    }
+
+    function normalizeSelectedDrawingVariant() {
+        var variantToolId = drawingVariantToolId(selectedDrawingVariantId)
+        if (variantToolId === selectedDrawingToolId && selectedDrawingVariantId.length > 0) {
+            return
+        }
+        selectedDrawingVariantId = defaultDrawingVariantIdForTool(selectedDrawingToolId)
+    }
+
+    function setSelectedDrawingVariantId(variantId) {
+        var id = String(variantId || "")
+        var toolId = drawingVariantToolId(id)
+        if (toolId.length === 0) {
+            return
+        }
+        if (selectedDrawingToolId !== toolId) {
+            selectDrawingTool(toolId)
+        }
+        selectedDrawingVariantId = id
+        if (id === "line_straight" || id === "line_arrow") {
+            setDrawingLineVariant("straight")
+        } else if (id === "line_polyline") {
+            setDrawingLineVariant("polyline")
+        } else if (id === "circle_full") {
+            setDrawingCircleArcMode("circle")
+        } else if (id === "circle_arc") {
+            setDrawingCircleArcMode("arc")
+        } else if (id === "polygon_triangle") {
+            setDrawingRegularPolygonSides(3)
+            setDrawingRegularPolygonRotationDeg(30)
+        } else if (id === "polygon_hex") {
+            setDrawingRegularPolygonSides(6)
+            setDrawingRegularPolygonRotationDeg(30)
+        }
+        markChanged()
     }
 
     function setDrawingLineVariant(value) {
@@ -400,9 +501,11 @@ QtObject {
         }
         selectedDrawingExternalToolId = ""
         selectedDrawingToolId = String(tool.id)
+        normalizeSelectedDrawingVariant()
         if (drawingNativeController) {
             drawingNativeController.selectTool(String(tool.id))
             syncNativeDrawingModel()
+            normalizeSelectedDrawingVariant()
             drawingToolPaletteOpen = true
             return
         }
@@ -957,6 +1060,8 @@ QtObject {
             }
         }
         selectedDrawingToolId = String(document.selected_tool_id || selectedDrawingToolId)
+        selectedDrawingVariantId = String(document.selected_variant_id || selectedDrawingVariantId)
+        normalizeSelectedDrawingVariant()
         var incomingLayerId = String(document.selected_layer_id || selectedDrawingLayerId)
         selectedDrawingLayerId = String(drawingFindById(drawingLayerStack, incomingLayerId, drawingLayerStack[0] || ({})).id || incomingLayerId)
         var incomingObjectId = String(document.selected_object_id || "")
@@ -984,6 +1089,7 @@ QtObject {
             canvas_id: "pattern_lab_2d_native_canvas_v0",
             coordinate_space: "normalized_artboard",
             selected_tool_id: selectedDrawingToolId,
+            selected_variant_id: selectedDrawingVariantId,
             selected_layer_id: selectedDrawingLayerId,
             selected_object_id: selectedDrawingObjectId,
             pending_point: drawingPendingPoint,
@@ -1044,10 +1150,12 @@ QtObject {
                 grid_step_px: drawingSnapGridStepPx
             },
             selected_tool_id: selectedDrawingToolId,
+            selected_variant_id: selectedDrawingVariantId,
             selected_layer_id: selectedDrawingLayerId,
             selected_object_id: selectedDrawingObjectId,
             tool_parameters: toolParameters,
             drawing_style: {
+                selected_variant_id: selectedDrawingVariantId,
                 line_variant: drawingLineVariant,
                 line_thickness: drawingLineThickness,
                 line_style: drawingLineStyle,

@@ -45,6 +45,7 @@ QtObject {
         onChanged: runtimeController.revision += 1
     }
     property alias selectedDrawingToolId: drawingSession.selectedDrawingToolId
+    property alias selectedDrawingVariantId: drawingSession.selectedDrawingVariantId
     property alias selectedDrawingExternalToolId: drawingSession.selectedDrawingExternalToolId
     property alias selectedDrawingLayerId: drawingSession.selectedDrawingLayerId
     property alias selectedDrawingObjectId: drawingSession.selectedDrawingObjectId
@@ -1064,6 +1065,10 @@ QtObject {
 
     function setDrawingLineVariant(variant) {
         drawingSession.setDrawingLineVariant(variant)
+    }
+
+    function setSelectedDrawingVariantId(variantId) {
+        drawingSession.setSelectedDrawingVariantId(variantId)
     }
 
     function setDrawingCircleArcMode(mode) {

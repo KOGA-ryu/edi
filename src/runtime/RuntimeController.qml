@@ -40,6 +40,7 @@ QtObject {
             id: "scratch",
             name: "scratch.txt",
             language: "text",
+            path: "docs/scratch.txt",
             initialText: "",
             text: "",
             cursorPosition: 0,
@@ -64,6 +65,9 @@ QtObject {
     property bool textEditorLineNumbersVisible: true
     property string textEditorRequestedCommand: ""
     property int textEditorCommandRevision: 0
+    property string textEditorStoragePath: ""
+    property bool textEditorSaveOk: true
+    property string textEditorSaveStatus: "not saved"
     property bool leftPanelCollapsed: false
     property bool rightPanelCollapsed: true
     property bool bottomPanelCollapsed: true
@@ -138,6 +142,9 @@ QtObject {
         cellMetadataPath = typeof initialCellMetadataPath === "undefined" ? "" : String(initialCellMetadataPath)
         cellMetadataText = typeof initialCellMetadataText === "undefined" ? "" : String(initialCellMetadataText)
         loadMapData(mapCsvText, cellMetadataText)
+
+        textEditorStoragePath = typeof initialTextEditorManifestPath === "undefined" ? "" : String(initialTextEditorManifestPath)
+        loadTextEditorDocuments(typeof initialTextEditorDocuments === "undefined" ? [] : initialTextEditorDocuments)
     }
 
     function clamp(value, low, high) {
@@ -601,6 +608,7 @@ QtObject {
             id: String(source && source.id ? source.id : ""),
             name: String(source && source.name ? source.name : "untitled.txt"),
             language: String(source && source.language ? source.language : "text"),
+            path: String(source && source.path ? source.path : ""),
             initialText: String(source && source.initialText ? source.initialText : ""),
             text: String(source && source.text ? source.text : ""),
             cursorPosition: Math.max(0, Number(source && source.cursorPosition) || 0),
@@ -648,6 +656,7 @@ QtObject {
         var current = cloneTextEditorDocument(copy[index])
         current.name = textEditorDocumentName
         current.language = textEditorLanguage
+        current.path = current.path || textEditorPathForId(current.id)
         current.initialText = textEditorInitialText
         current.text = textEditorText
         current.cursorPosition = textEditorCursorPosition
@@ -662,12 +671,47 @@ QtObject {
         activeTextEditorDocumentId = item.id
         textEditorDocumentName = item.name
         textEditorLanguage = item.language
+        if (!item.path.length) {
+            item.path = textEditorPathForId(item.id)
+        }
         textEditorInitialText = item.initialText
         textEditorText = item.text
         textEditorCursorPosition = item.cursorPosition
         textEditorSelectionStart = item.selectionStart
         textEditorSelectionEnd = item.selectionEnd
         textEditorModified = textEditorDocumentModified(item)
+    }
+
+    function loadTextEditorDocuments(documents) {
+        var sourceDocuments = asArray(documents)
+        if (!sourceDocuments.length) {
+            return
+        }
+        var normalized = []
+        var highestCounter = textEditorDocumentCounter
+        for (var index = 0; index < sourceDocuments.length; ++index) {
+            var document = cloneTextEditorDocument(sourceDocuments[index])
+            if (!document.id.length) {
+                continue
+            }
+            if (!document.path.length) {
+                document.path = textEditorPathForId(document.id)
+            }
+            normalized.push(document)
+            var match = document.id.match(/(\d+)$/)
+            if (match) {
+                highestCounter = Math.max(highestCounter, Number(match[1]))
+            }
+        }
+        if (!normalized.length) {
+            return
+        }
+        textEditorDocuments = normalized
+        textEditorDocumentCounter = Math.max(highestCounter, normalized.length)
+        loadTextEditorDocument(normalized[0])
+        textEditorSaveOk = true
+        textEditorSaveStatus = "loaded"
+        revision += 1
     }
 
     function selectTextEditorDocument(id) {
@@ -694,6 +738,7 @@ QtObject {
             id: id,
             name: nextTextEditorDocumentName("draft"),
             language: "text",
+            path: textEditorPathForId(id),
             initialText: "",
             text: "",
             cursorPosition: 0,
@@ -715,6 +760,7 @@ QtObject {
             id: id,
             name: nextTextEditorDocumentName("copy"),
             language: source.language,
+            path: textEditorPathForId(id),
             initialText: source.text,
             text: source.text,
             cursorPosition: source.cursorPosition,
@@ -791,6 +837,43 @@ QtObject {
         textEditorRequestedCommand = String(command || "")
         textEditorCommandRevision += 1
         revision += 1
+    }
+
+    function textEditorPathForId(id) {
+        return "docs/" + String(id || "untitled").replace(/[^A-Za-z0-9_-]/g, "_") + ".txt"
+    }
+
+    function saveTextEditorDocument() {
+        return saveTextEditorDocuments(false)
+    }
+
+    function saveAllTextEditorDocuments() {
+        return saveTextEditorDocuments(true)
+    }
+
+    function saveTextEditorDocuments(saveAll) {
+        commitActiveTextEditorDocument()
+        if (typeof textEditorStore === "undefined" || !textEditorStore) {
+            textEditorSaveOk = false
+            textEditorSaveStatus = "storage unavailable"
+            revision += 1
+            return false
+        }
+        var result = textEditorStore.save(textEditorDocuments, activeTextEditorDocumentId, !!saveAll)
+        textEditorSaveOk = !!result.ok
+        textEditorSaveStatus = String(result.message || (textEditorSaveOk ? "saved" : "save failed"))
+        if (textEditorSaveOk) {
+            var activeId = activeTextEditorDocumentId
+            textEditorDocuments = asArray(result.documents)
+            var activeIndex = textEditorDocumentIndex(activeId)
+            if (activeIndex >= 0) {
+                loadTextEditorDocument(textEditorDocuments[activeIndex])
+            } else if (textEditorDocuments.length > 0) {
+                loadTextEditorDocument(textEditorDocuments[0])
+            }
+        }
+        revision += 1
+        return textEditorSaveOk
     }
 
     function textEditorLineCount(unusedRevision) {

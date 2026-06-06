@@ -472,20 +472,24 @@
       ],
       "profile": "data/project_profiles/draftsman_text_editor.json",
       "inputs": [
+        "data/project_profiles/draftsman_text_editor.json:data_sources.text_documents",
+        "data/text_editor/documents.json",
+        "data/text_editor/docs/*.txt",
         "controller.textEditorText",
         "controller.textEditorCursorPosition",
         "controller.textEditorSelectionStart",
-        "controller.textEditorSelectionEnd"
+        "controller.textEditorSelectionEnd",
+        "controller.textEditorStoragePath"
       ],
       "may_edit": [
         "text editor feature internals",
         "local editor presentation",
-        "document/cursor/selection inspector",
-        "read-only output and receipt shelf"
+        "profile-bound text editor manifest",
+        "profile-bound text document bodies"
       ],
       "must_not_edit": [
         "default blank profile",
-        "source file persistence without a contract",
+        "source file persistence outside data/text_editor",
         "clipboard write behavior without an explicit setting",
         "external command runner wiring"
       ],

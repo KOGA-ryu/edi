@@ -47,6 +47,7 @@ Implemented behavior:
 - delayed hover tooltips for text editor icon controls
 - keyboard shortcuts for undo, redo, select all, find, and escape-close-find
 - top `File` menu routes to document commands when `activityMode` is `text_editor`
+- top `File` menu exposes `Save Document` and `Save All` for profile-bound storage
 - top `Edit` menu routes to editor commands and editor options when `activityMode` is `text_editor`
 - menu-driven editor actions use a controller command bridge consumed by `TextEditorWorkspace.qml`
 - inline rename field in the left panel
@@ -57,12 +58,13 @@ Implemented behavior:
 - in-memory wrap and line-number visibility options
 - modified/clean state tracking against each document's initial text
 - bottom event shelf with no mirrored inspector facts
-- no persistence or runner claims
+- profile-bound persistence through `data/text_editor/documents.json`
+- plain text document bodies under `data/text_editor/docs/`
 
 Explicit non-goals:
 
 - no source file editing
-- no file persistence
+- no arbitrary file open/save outside the text-editor manifest
 - no external command runner
 - no clipboard write behavior
 - no syntax-highlighting dependency yet
@@ -78,6 +80,7 @@ If project persistence is needed, add a data contract first. Do not write arbitr
 
 ```sh
 scripts/validate_project_profiles.js data/project_profiles/draftsman_text_editor.json
+scripts/validate_text_editor_documents.js data/text_editor/documents.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
 scripts/validate_shell_surface_map.js data/shell_surface_map.json

@@ -153,6 +153,17 @@ Rectangle {
                 }
                 MenuSeparator {}
                 Action {
+                    text: "Save Document"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.saveTextEditorDocument()
+                }
+                Action {
+                    text: "Save All"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.saveAllTextEditorDocuments()
+                }
+                MenuSeparator {}
+                Action {
                     text: "Close Window"
                     enabled: titleBar.hostWindow
                     onTriggered: titleBar.hostWindow.close()

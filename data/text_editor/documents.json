@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "documents": [
+    {
+      "id": "scratch",
+      "name": "scratch.txt",
+      "language": "text",
+      "path": "docs/scratch.txt"
+    }
+  ]
+}

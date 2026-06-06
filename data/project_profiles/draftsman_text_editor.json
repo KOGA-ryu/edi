@@ -60,10 +60,11 @@
   },
   "data_sources": {
     "review_subject": "",
-    "review_notes": ""
+    "review_notes": "",
+    "text_documents": "data/text_editor/documents.json"
   },
   "write_policy": {
-    "writes_enabled": false,
-    "note_storage": "memory"
+    "writes_enabled": true,
+    "note_storage": "text_editor_store"
   }
 }

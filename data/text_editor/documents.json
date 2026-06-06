@@ -4,13 +4,15 @@
             "id": "scratch",
             "language": "text",
             "name": "fsd fsaf",
-            "path": "docs/scratch.txt"
+            "path": "docs/scratch.txt",
+            "pinned": false
         },
         {
             "id": "draft-2",
             "language": "text",
             "name": "fuku",
-            "path": "docs/draft-2.txt"
+            "path": "docs/draft-2.txt",
+            "pinned": false
         }
     ],
     "schema_version": 1

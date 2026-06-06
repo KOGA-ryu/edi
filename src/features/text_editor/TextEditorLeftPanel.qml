@@ -18,13 +18,13 @@ ColumnLayout {
     }
 
     Repeater {
-        model: root.controller ? root.controller.textEditorDocuments : []
+        model: root.controller ? root.controller.textEditorOrderedDocuments(root.controller.revision) : []
 
         delegate: UiListRow {
             Layout.fillWidth: true
             label: (modelData.name || "untitled.txt")
                 + (root.controller && root.controller.textEditorDocumentModified(modelData) ? " *" : "")
-            meta: ""
+            meta: modelData.pinned ? "pin" : ""
             selected: root.controller && modelData.id === root.controller.activeTextEditorDocumentId
             clickable: true
             metaMaxWidth: 80

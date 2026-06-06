@@ -66,6 +66,11 @@ RowLayout {
                 onTriggered: toolbar.controller.duplicateTextEditorDocument()
             }
             Action {
+                text: toolbar.controller && toolbar.controller.textEditorActiveDocumentPinned() ? "Unpin Document" : "Pin Document"
+                enabled: toolbar.controller
+                onTriggered: toolbar.controller.toggleTextEditorActiveDocumentPin()
+            }
+            Action {
                 text: "Close Document"
                 enabled: toolbar.controller && toolbar.controller.textEditorDocuments.length > 1
                 onTriggered: toolbar.controller.closeActiveTextEditorDocument()

@@ -551,6 +551,23 @@ QtObject {
         return textEditorSession.textEditorDocumentState(document)
     }
 
+    function textEditorOrderedDocuments(unusedRevision) {
+        return textEditorSession.textEditorOrderedDocuments(unusedRevision)
+    }
+
+    function textEditorActiveDocumentPinned() {
+        return textEditorSession.activeTextEditorDocumentPinned()
+    }
+
+    function toggleTextEditorActiveDocumentPin() {
+        textEditorSession.toggleActiveTextEditorDocumentPin()
+        revision += 1
+    }
+
+    function isTextEditorDocumentPinned(id) {
+        return textEditorSession.isTextEditorDocumentPinned(id)
+    }
+
     function commitActiveTextEditorDocument() {
         textEditorSession.commitActiveTextEditorDocument()
         revision += 1

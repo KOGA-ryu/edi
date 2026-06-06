@@ -11,6 +11,7 @@ QtObject {
             path: "docs/scratch.txt",
             initialText: "",
             text: "",
+            pinned: false,
             cursorPosition: 0,
             selectionStart: 0,
             selectionEnd: 0
@@ -65,6 +66,7 @@ QtObject {
             path: String(source && source.path ? source.path : ""),
             initialText: String(source && source.initialText ? source.initialText : ""),
             text: String(source && source.text ? source.text : ""),
+            pinned: !!(source && source.pinned),
             cursorPosition: Math.max(0, Number(source && source.cursorPosition) || 0),
             selectionStart: Math.max(0, Number(source && source.selectionStart) || 0),
             selectionEnd: Math.max(0, Number(source && source.selectionEnd) || 0)
@@ -100,6 +102,44 @@ QtObject {
             return cloneTextEditorDocument({})
         }
         return cloneTextEditorDocument(textEditorDocuments[index])
+    }
+
+    function textEditorOrderedDocuments(unusedRevision) {
+        var pinned = []
+        var unpinned = []
+        for (var index = 0; index < textEditorDocuments.length; ++index) {
+            var document = cloneTextEditorDocument(textEditorDocuments[index])
+            if (document.pinned) {
+                pinned.push(document)
+            } else {
+                unpinned.push(document)
+            }
+        }
+        return pinned.concat(unpinned)
+    }
+
+    function isTextEditorDocumentPinned(id) {
+        var index = textEditorDocumentIndex(id)
+        if (index < 0) {
+            return false
+        }
+        return !!textEditorDocuments[index].pinned
+    }
+
+    function activeTextEditorDocumentPinned() {
+        return isTextEditorDocumentPinned(activeTextEditorDocumentId)
+    }
+
+    function toggleActiveTextEditorDocumentPin() {
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0) {
+            return
+        }
+        var copy = textEditorDocuments.slice()
+        var current = cloneTextEditorDocument(copy[index])
+        current.pinned = !current.pinned
+        copy[index] = current
+        textEditorDocuments = copy
     }
 
     function textEditorDocumentModified(document) {
@@ -206,6 +246,7 @@ QtObject {
             path: textEditorPathForId(id),
             initialText: "",
             text: "",
+            pinned: false,
             cursorPosition: 0,
             selectionStart: 0,
             selectionEnd: 0
@@ -228,6 +269,7 @@ QtObject {
             path: textEditorPathForId(id),
             initialText: source.text,
             text: source.text,
+            pinned: false,
             cursorPosition: source.cursorPosition,
             selectionStart: source.selectionStart,
             selectionEnd: source.selectionEnd

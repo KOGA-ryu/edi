@@ -282,12 +282,12 @@ Rectangle {
                 spacing: UiStyle.space4
 
                 Repeater {
-                    model: root.controller ? root.controller.textEditorDocuments : []
+                    model: root.controller ? root.controller.textEditorOrderedDocuments(root.controller.revision) : []
 
                     delegate: UiTab {
                         Layout.preferredWidth: Math.min(144, Math.max(76, implicitWidth))
                         Layout.preferredHeight: 24
-                        label: modelData.name || "untitled.txt"
+                        label: (modelData.name || "untitled.txt") + (modelData.pinned ? " [P]" : "")
                         active: root.controller && modelData.id === root.controller.activeTextEditorDocumentId
                         clickable: true
                         tooltip: (modelData.name || "untitled.txt") + " - "
@@ -544,12 +544,12 @@ Rectangle {
                             spacing: UiStyle.space4
 
                             Repeater {
-                                model: root.controller ? root.controller.textEditorDocuments : []
+                                model: root.controller ? root.controller.textEditorOrderedDocuments(root.controller.revision) : []
 
                                 delegate: UiTab {
                                     Layout.preferredWidth: Math.min(128, Math.max(68, implicitWidth))
                                     Layout.preferredHeight: 22
-                                    label: modelData.name || "untitled.txt"
+                                    label: (modelData.name || "untitled.txt") + (modelData.pinned ? " [P]" : "")
                                     active: root.controller && modelData.id === root.controller.secondaryTextEditorDocumentId
                                     clickable: true
                                     tooltip: "Split pane: " + (modelData.name || "untitled.txt")

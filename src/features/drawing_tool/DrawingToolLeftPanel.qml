@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../../style"
 import "../../components"
@@ -9,7 +10,6 @@ Item {
     property string dataUi: "drawing_tool_left_panel"
     property string dataState: "draftsman_native_drawing"
     property var controller: null
-    property var collapsedSections: ({})
 
     implicitHeight: content.implicitHeight
 
@@ -27,20 +27,6 @@ Item {
         return ["select_move", "anchor_points", "line_polyline", "circle_arc", "rectangle_polygon", "regular_polygon", "image_reference_frame", "ascii_crop_frame"].indexOf(String(toolId || "")) >= 0
     }
 
-    function sectionCollapsed(sectionId) {
-        return collapsedSections[String(sectionId)] === true
-    }
-
-    function setSectionCollapsed(sectionId, collapsed) {
-        var next = Object.assign({}, collapsedSections)
-        next[String(sectionId)] = !!collapsed
-        collapsedSections = next
-    }
-
-    function toggleSection(sectionId) {
-        setSectionCollapsed(sectionId, !sectionCollapsed(sectionId))
-    }
-
     function toolRows() {
         if (!drawingLeftPanel.controller) {
             return []
@@ -52,8 +38,8 @@ Item {
             if (isWorkingToolId(mode.id)) {
                 rows.push({
                     id: String(mode.id),
-                    label: String(mode.label || mode.id),
-                    meta: String(mode.meta || ""),
+                    label: shortToolLabel(mode.id, mode.label),
+                    tooltip: toolTooltip(mode.id, mode.label),
                     action: "tool"
                 })
             }
@@ -61,24 +47,72 @@ Item {
         return rows
     }
 
-    function sectionRows(sectionId) {
-        if (sectionId === "tools") {
-            return toolRows()
+    function shortToolLabel(toolId, fallback) {
+        var id = String(toolId || "")
+        if (id === "select_move") {
+            return "Select"
         }
-        return []
+        if (id === "anchor_points") {
+            return "Point"
+        }
+        if (id === "line_polyline") {
+            return "Line"
+        }
+        if (id === "circle_arc") {
+            return "Circle"
+        }
+        if (id === "rectangle_polygon") {
+            return "Rect"
+        }
+        if (id === "regular_polygon") {
+            return "Polygon"
+        }
+        if (id === "image_reference_frame") {
+            return "Image"
+        }
+        if (id === "ascii_crop_frame") {
+            return "ASCII"
+        }
+        return String(fallback || id)
     }
 
-    function isSelected(sectionId, row) {
+    function toolTooltip(toolId, fallback) {
+        var id = String(toolId || "")
+        if (id === "select_move") {
+            return "Select and move generated canvas objects."
+        }
+        if (id === "anchor_points") {
+            return "Place a point marker."
+        }
+        if (id === "line_polyline") {
+            return "Draw straight lines or polyline variants."
+        }
+        if (id === "circle_arc") {
+            return "Draw circles or arcs."
+        }
+        if (id === "rectangle_polygon") {
+            return "Draw two-corner rectangles."
+        }
+        if (id === "regular_polygon") {
+            return "Draw regular polygons using side count and rotation."
+        }
+        if (id === "image_reference_frame") {
+            return "Place an image reference frame."
+        }
+        if (id === "ascii_crop_frame") {
+            return "Mark an ASCII crop/export region."
+        }
+        return String(fallback || id)
+    }
+
+    function isSelected(row) {
         if (!drawingLeftPanel.controller || !row) {
             return false
         }
-        if (sectionId === "tools") {
-            return String(drawingLeftPanel.controller.selectedDrawingToolId || "") === String(row.id || "")
-        }
-        return false
+        return String(drawingLeftPanel.controller.selectedDrawingToolId || "") === String(row.id || "")
     }
 
-    function handleRowClicked(sectionId, row) {
+    function handleRowClicked(row) {
         if (!drawingLeftPanel.controller || !row) {
             return
         }
@@ -92,42 +126,18 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: UiStyle.space6
+        spacing: UiStyle.space2
 
         Repeater {
-            model: [
-                { id: "tools", title: "Tools", hint: "drawing" }
-            ]
-
-            delegate: ColumnLayout {
-                id: sectionGroup
-                property var section: modelData
+            model: toolRows()
+            delegate: UiListRow {
                 Layout.fillWidth: true
-                spacing: UiStyle.space2
-                property var rows: sectionRows(section.id)
-
-                UiListRow {
-                    Layout.fillWidth: true
-                    label: (drawingLeftPanel.sectionCollapsed(section.id) ? "▸ " : "▾ ") + section.title
-                    meta: String(rows.length) + " " + section.hint
-                    selected: false
-                    clickable: rows.length > 0
-                    metaMaxWidth: 84
-                    onClicked: drawingLeftPanel.toggleSection(section.id)
-                }
-
-                Repeater {
-                    model: drawingLeftPanel.sectionCollapsed(section.id) ? [] : sectionGroup.rows
-                    delegate: UiListRow {
-                        Layout.fillWidth: true
-                        Layout.leftMargin: UiStyle.space2
-                        label: modelData.label
-                        meta: modelData.meta
-                        selected: isSelected(section.id, modelData)
-                        clickable: String(modelData.action || "").length > 0
-                        onClicked: handleRowClicked(section.id, modelData)
-                    }
-                }
+                label: modelData.label
+                meta: ""
+                tooltip: modelData.tooltip
+                selected: isSelected(modelData)
+                clickable: true
+                onClicked: handleRowClicked(modelData)
             }
         }
     }

@@ -30,6 +30,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: UiStyle.toolbarHeight
+            visible: !leftPanel.controller || leftPanel.controller.activityMode !== "drawing_tool"
             spacing: UiStyle.space8
 
             Text {

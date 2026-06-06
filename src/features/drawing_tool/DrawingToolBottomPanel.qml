@@ -44,25 +44,28 @@ Rectangle {
         }
     }
 
-    component FormatField: RowLayout {
-        property string label: ""
+    function swatchColor(value, fallback) {
+        var raw = String(value || "").trim()
+        return raw.length > 0 ? raw : fallback
+    }
+
+    component ColorField: RowLayout {
         property string fieldId: ""
         property string valueText: ""
-        property int fieldWidth: 86
-        property int labelWidth: 36
+        property string fallbackColor: UiStyle.colorControl
         spacing: UiStyle.space2
 
-        Text {
-            Layout.preferredWidth: parent.labelWidth
-            text: parent.label
-            color: UiStyle.colorTextFaint
-            font.family: UiStyle.fontSans
-            font.pixelSize: UiStyle.fontSizeXs
-            elide: Text.ElideRight
+        Rectangle {
+            Layout.preferredWidth: 20
+            Layout.preferredHeight: 20
+            radius: UiStyle.radiusSm
+            color: drawingBottomPanel.swatchColor(parent.valueText, parent.fallbackColor)
+            border.width: UiStyle.borderThin
+            border.color: UiStyle.colorPanelRaised
         }
 
         UiTextField {
-            Layout.preferredWidth: parent.fieldWidth
+            Layout.preferredWidth: 72
             Layout.preferredHeight: 24
             text: parent.valueText
             property string lastCommittedText: parent.valueText
@@ -80,42 +83,54 @@ Rectangle {
         }
     }
 
+    component NumericField: UiTextField {
+        property string fieldId: ""
+        property string valueText: ""
+
+        Layout.preferredWidth: 42
+        Layout.preferredHeight: 24
+        horizontalAlignment: TextInput.AlignHCenter
+        text: valueText
+        property string lastCommittedText: valueText
+
+        function commit() {
+            if (text === lastCommittedText) {
+                return
+            }
+            lastCommittedText = text
+            drawingBottomPanel.setFieldValue(fieldId, text)
+        }
+
+        onAccepted: commit()
+        onEditingFinished: commit()
+    }
+
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: UiStyle.space6
         anchors.rightMargin: UiStyle.space6
         spacing: UiStyle.space4
 
-        FormatField {
-            label: "Stroke"
+        ColorField {
             fieldId: "stroke"
             valueText: String(drawingBottomPanel.controller ? (drawingBottomPanel.controller.drawingStrokeColor || "") : "")
-            fieldWidth: 70
-            labelWidth: 42
+            fallbackColor: UiStyle.colorAccent
         }
 
-        FormatField {
-            label: "Fill"
+        ColorField {
             fieldId: "fill"
             valueText: String(drawingBottomPanel.controller ? (drawingBottomPanel.controller.drawingFillColor || "") : "")
-            fieldWidth: 60
-            labelWidth: 22
+            fallbackColor: UiStyle.colorControl
         }
 
-        FormatField {
-            label: "W"
+        NumericField {
             fieldId: "width"
             valueText: String(Number(drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingLineThickness : 2))
-            fieldWidth: 38
-            labelWidth: 12
         }
 
-        FormatField {
-            label: "O"
+        NumericField {
             fieldId: "opacity"
             valueText: String(Number(drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingStrokeOpacity : 1))
-            fieldWidth: 38
-            labelWidth: 12
         }
 
         Rectangle {
@@ -126,15 +141,15 @@ Rectangle {
         }
 
         UiButton {
-            Layout.preferredWidth: 56
+            Layout.preferredWidth: 48
             Layout.preferredHeight: 24
-            label: "Solid"
+            label: "Line"
             selected: drawingBottomPanel.styleLineStyle() === "solid"
             onClicked: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingLineStyle("solid")
         }
 
         UiButton {
-            Layout.preferredWidth: 52
+            Layout.preferredWidth: 48
             Layout.preferredHeight: 24
             label: "Dash"
             selected: drawingBottomPanel.styleLineStyle() === "dashed"
@@ -149,12 +164,7 @@ Rectangle {
             onClicked: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingLineStyle("dotted")
         }
 
-        Rectangle {
-            Layout.preferredWidth: 1
-            Layout.fillHeight: true
-            color: UiStyle.colorPanelRaised
-            opacity: 0.7
-        }
+        Item { Layout.fillWidth: true }
 
         UiToggle {
             Layout.preferredWidth: 104
@@ -179,7 +189,5 @@ Rectangle {
             checked: drawingBottomPanel.objectSnapEnabled()
             onToggled: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingObjectSnapEnabled(checked)
         }
-
-        Item { Layout.fillWidth: true }
     }
 }

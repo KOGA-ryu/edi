@@ -1366,6 +1366,58 @@ QString pointsToSvg(const QJsonArray &points) {
     }
     return values.join(" ");
 }
+
+QString svgEscaped(const QString &value) {
+    return value.toHtmlEscaped();
+}
+
+QString svgDashArray(const QString &lineStyle, double strokeWidth) {
+    const QString style = normalizedLineStyle(lineStyle);
+    const double width = std::max(1.0, strokeWidth);
+    if (style == QStringLiteral("dashed")) {
+        return svgNumber(width * 3.2) + QStringLiteral(" ") + svgNumber(width * 2.1);
+    }
+    if (style == QStringLiteral("dotted")) {
+        return svgNumber(width) + QStringLiteral(" ") + svgNumber(width * 2.0);
+    }
+    return {};
+}
+
+QString svgCommonAttributes(const QJsonObject &object, bool fillAllowed, const QString &fallbackStroke = QStringLiteral("#f4d46f")) {
+    const QString strokeColor = normalizedHexColor(stringAt(object, QStringLiteral("stroke_color"), fallbackStroke));
+    const QString fillColor = fillAllowed ? normalizedHexColor(stringAt(object, QStringLiteral("fill_color"))) : QString();
+    const double strokeWidth = std::clamp(numberAt(object, QStringLiteral("line_thickness"), 2.0), 0.25, 64.0);
+    const double strokeOpacity = std::clamp(numberAt(object, QStringLiteral("stroke_opacity"), 1.0), 0.0, 1.0);
+    const QString dash = svgDashArray(stringAt(object, QStringLiteral("line_style"), QStringLiteral("solid")), strokeWidth);
+
+    QString attributes;
+    attributes += QStringLiteral(" stroke=\"%1\"").arg(svgEscaped(strokeColor.isEmpty() ? fallbackStroke : strokeColor));
+    attributes += QStringLiteral(" stroke-width=\"%1\"").arg(svgNumber(strokeWidth));
+    attributes += QStringLiteral(" stroke-linecap=\"round\" stroke-linejoin=\"round\"");
+    attributes += QStringLiteral(" stroke-opacity=\"%1\"").arg(svgNumber(strokeOpacity));
+    attributes += QStringLiteral(" fill=\"%1\"").arg(fillColor.isEmpty() ? QStringLiteral("none") : svgEscaped(fillColor));
+    if (!fillColor.isEmpty()) {
+        attributes += QStringLiteral(" fill-opacity=\"%1\"").arg(svgNumber(strokeOpacity));
+    }
+    if (!dash.isEmpty()) {
+        attributes += QStringLiteral(" stroke-dasharray=\"%1\"").arg(svgEscaped(dash));
+    }
+    return attributes;
+}
+
+QString svgPointAttributes(const QJsonObject &object, const QString &fallbackStroke = QStringLiteral("#f4d46f")) {
+    const QString strokeColor = normalizedHexColor(stringAt(object, QStringLiteral("stroke_color"), fallbackStroke));
+    const QString fillColor = normalizedHexColor(stringAt(object, QStringLiteral("fill_color")));
+    const double strokeWidth = std::clamp(numberAt(object, QStringLiteral("line_thickness"), 2.0), 0.25, 64.0);
+    const double strokeOpacity = std::clamp(numberAt(object, QStringLiteral("stroke_opacity"), 1.0), 0.0, 1.0);
+    const QString resolvedStroke = strokeColor.isEmpty() ? fallbackStroke : strokeColor;
+    QString attributes;
+    attributes += QStringLiteral(" fill=\"%1\"").arg(svgEscaped(fillColor.isEmpty() ? resolvedStroke : fillColor));
+    attributes += QStringLiteral(" stroke=\"%1\"").arg(svgEscaped(resolvedStroke));
+    attributes += QStringLiteral(" stroke-width=\"%1\"").arg(svgNumber(std::max(1.0, strokeWidth * 0.5)));
+    attributes += QStringLiteral(" opacity=\"%1\"").arg(svgNumber(strokeOpacity));
+    return attributes;
+}
 } // namespace
 
 DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
@@ -1533,8 +1585,7 @@ QString DrawingCore::modelToSvg(const QJsonObject &model) {
     const int canvas = model.value("canvas_px").toArray().at(0).toInt(kDefaultCanvasPx);
     QString svg;
     svg += QStringLiteral("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %1 %1\" width=\"%1\" height=\"%1\">\n").arg(canvas);
-    svg += QStringLiteral("  <rect width=\"100%\" height=\"100%\" fill=\"#25232d\"/>\n");
-    svg += QStringLiteral("  <g id=\"script_geometry\" fill=\"none\" stroke=\"#f4d46f\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n");
+    svg += QStringLiteral("  <g id=\"script_geometry\">\n");
     const QJsonArray objects = model.value("generated_objects").toArray();
     struct ObjectRenderer {
         const char *kind;
@@ -1543,34 +1594,34 @@ QString DrawingCore::modelToSvg(const QJsonObject &model) {
     const std::vector<ObjectRenderer> renderers = {
         {"point", [&](const QJsonObject &object) {
              const QJsonArray point = object.value("point_px").toArray();
-             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"5\" fill=\"#f4d46f\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(point.at(0).toDouble()), svgNumber(point.at(1).toDouble()));
+             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"5\"%4/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(point.at(0).toDouble()), svgNumber(point.at(1).toDouble()), svgPointAttributes(object));
          }},
         {"tone_probe", [&](const QJsonObject &object) {
              const QJsonArray point = object.value("point_px").toArray();
-             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"7\" fill=\"#70d6ff\" stroke=\"#f4d46f\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(point.at(0).toDouble()), svgNumber(point.at(1).toDouble()));
+             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"7\"%4/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(point.at(0).toDouble()), svgNumber(point.at(1).toDouble()), svgPointAttributes(object, QStringLiteral("#70d6ff")));
          }},
         {"line", [&](const QJsonObject &object) {
              const QJsonArray from = object.value("from_px").toArray();
              const QJsonArray to = object.value("to_px").toArray();
-             svg += QStringLiteral("    <line id=\"%1\" x1=\"%2\" y1=\"%3\" x2=\"%4\" y2=\"%5\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(from.at(0).toDouble()), svgNumber(from.at(1).toDouble()), svgNumber(to.at(0).toDouble()), svgNumber(to.at(1).toDouble()));
+             svg += QStringLiteral("    <line id=\"%1\" x1=\"%2\" y1=\"%3\" x2=\"%4\" y2=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(from.at(0).toDouble()), svgNumber(from.at(1).toDouble()), svgNumber(to.at(0).toDouble()), svgNumber(to.at(1).toDouble()), svgCommonAttributes(object, false));
          }},
         {"glyph_baseline", [&](const QJsonObject &object) {
              const QJsonArray from = object.value("from_px").toArray();
              const QJsonArray to = object.value("to_px").toArray();
-             svg += QStringLiteral("    <line id=\"%1\" x1=\"%2\" y1=\"%3\" x2=\"%4\" y2=\"%5\" stroke=\"#70d6ff\" stroke-dasharray=\"8 5\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(from.at(0).toDouble()), svgNumber(from.at(1).toDouble()), svgNumber(to.at(0).toDouble()), svgNumber(to.at(1).toDouble()));
+             svg += QStringLiteral("    <line id=\"%1\" x1=\"%2\" y1=\"%3\" x2=\"%4\" y2=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(from.at(0).toDouble()), svgNumber(from.at(1).toDouble()), svgNumber(to.at(0).toDouble()), svgNumber(to.at(1).toDouble()), svgCommonAttributes(object, false, QStringLiteral("#70d6ff")));
          }},
         {"polyline", [&](const QJsonObject &object) {
-             svg += QStringLiteral("    <polyline id=\"%1\" points=\"%2\"/>\n")
-                 .arg(object.value("id").toString(), pointsToSvg(object.value("points_px").toArray()));
+             svg += QStringLiteral("    <polyline id=\"%1\" points=\"%2\"%3/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgEscaped(pointsToSvg(object.value("points_px").toArray())), svgCommonAttributes(object, false));
          }},
         {"circle", [&](const QJsonObject &object) {
              const QJsonArray center = object.value("center_px").toArray();
-             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"%4\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(center.at(0).toDouble()), svgNumber(center.at(1).toDouble()), svgNumber(object.value("radius_px").toDouble()));
+             svg += QStringLiteral("    <circle id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"%4\"%5/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(center.at(0).toDouble()), svgNumber(center.at(1).toDouble()), svgNumber(object.value("radius_px").toDouble()), svgCommonAttributes(object, true));
          }},
         {"arc", [&](const QJsonObject &object) {
              const QJsonArray center = object.value("center_px").toArray();
@@ -1582,32 +1633,32 @@ QString DrawingCore::modelToSvg(const QJsonObject &model) {
              const double x2 = center.at(0).toDouble() + std::cos(end) * radius;
              const double y2 = center.at(1).toDouble() + std::sin(end) * radius;
              const int largeArc = std::abs(object.value("end_angle_deg").toDouble() - object.value("start_angle_deg").toDouble()) > 180.0 ? 1 : 0;
-             svg += QStringLiteral("    <path id=\"%1\" d=\"M %2 %3 A %4 %4 0 %5 1 %6 %7\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(x1), svgNumber(y1), svgNumber(radius), QString::number(largeArc), svgNumber(x2), svgNumber(y2));
+             svg += QStringLiteral("    <path id=\"%1\" d=\"M %2 %3 A %4 %4 0 %5 1 %6 %7\"%8/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(x1), svgNumber(y1), svgNumber(radius), QString::number(largeArc), svgNumber(x2), svgNumber(y2), svgCommonAttributes(object, false));
          }},
         {"rectangle", [&](const QJsonObject &object) {
              const QJsonArray rect = object.value("rect_px").toArray();
-             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()));
+             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()), svgCommonAttributes(object, true));
          }},
         {"image_reference_frame", [&](const QJsonObject &object) {
              const QJsonArray rect = object.value("rect_px").toArray();
-             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\" stroke=\"#70d6ff\" stroke-dasharray=\"10 6\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()));
+             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()), svgCommonAttributes(object, true, QStringLiteral("#70d6ff")));
          }},
         {"ascii_crop_frame", [&](const QJsonObject &object) {
              const QJsonArray rect = object.value("rect_px").toArray();
-             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\" stroke=\"#ffcc66\" stroke-width=\"4\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()));
+             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()), svgCommonAttributes(object, true, QStringLiteral("#ffcc66")));
          }},
         {"ascii_cell_region", [&](const QJsonObject &object) {
              const QJsonArray rect = object.value("rect_px").toArray();
-             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\" stroke=\"#c084fc\" stroke-dasharray=\"5 5\"/>\n")
-                 .arg(object.value("id").toString(), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()));
+             svg += QStringLiteral("    <rect id=\"%1\" x=\"%2\" y=\"%3\" width=\"%4\" height=\"%5\"%6/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgNumber(rect.at(0).toDouble()), svgNumber(rect.at(1).toDouble()), svgNumber(rect.at(2).toDouble()), svgNumber(rect.at(3).toDouble()), svgCommonAttributes(object, true, QStringLiteral("#c084fc")));
          }},
         {"polygon", [&](const QJsonObject &object) {
-             svg += QStringLiteral("    <polygon id=\"%1\" points=\"%2\"/>\n")
-                 .arg(object.value("id").toString(), pointsToSvg(object.value("points_px").toArray()));
+             svg += QStringLiteral("    <polygon id=\"%1\" points=\"%2\"%3/>\n")
+                 .arg(svgEscaped(object.value("id").toString()), svgEscaped(pointsToSvg(object.value("points_px").toArray())), svgCommonAttributes(object, true));
          }},
     };
     for (const QJsonValue value : objects) {

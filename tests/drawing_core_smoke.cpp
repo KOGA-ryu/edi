@@ -208,6 +208,20 @@ bool runVisibleToolCreationSmoke() {
                  QStringLiteral("rectangle should stamp line thickness"));
     ok &= expect(rectangle.value(QStringLiteral("stroke_opacity")).toDouble() == 0.5,
                  QStringLiteral("rectangle should stamp stroke opacity"));
+    ok &= expect(!result.svg.contains(QStringLiteral("fill=\"#25232d\"")),
+                 QStringLiteral("svg export should not include the canvas background helper"));
+    ok &= expect(result.svg.contains(QStringLiteral("id=\"script_rectangle_01\"")),
+                 QStringLiteral("svg export should preserve object ids"));
+    ok &= expect(result.svg.contains(QStringLiteral("stroke=\"#abcdef\"")),
+                 QStringLiteral("svg export should include stamped stroke color"));
+    ok &= expect(result.svg.contains(QStringLiteral("fill=\"#123456\"")),
+                 QStringLiteral("svg export should include stamped fill color"));
+    ok &= expect(result.svg.contains(QStringLiteral("stroke-width=\"4\"")),
+                 QStringLiteral("svg export should include stamped stroke width"));
+    ok &= expect(result.svg.contains(QStringLiteral("stroke-opacity=\"0.5\"")),
+                 QStringLiteral("svg export should include stamped stroke opacity"));
+    ok &= expect(result.svg.contains(QStringLiteral("stroke-dasharray=\"12.8 8.4\"")),
+                 QStringLiteral("svg export should include stamped dashed line style"));
 
     const QJsonObject polygon = firstObjectOfKind(objects, QStringLiteral("polygon"));
     ok &= expect(polygon.value(QStringLiteral("sides")).toInt() == 5,

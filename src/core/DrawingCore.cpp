@@ -79,9 +79,13 @@ bool undoableInteractiveCommand(const QJsonObject &command) {
     const QString name = stringAt(command, QStringLiteral("cmd"));
     return name == QStringLiteral("click_canvas")
         || name == QStringLiteral("delete_object")
+        || name == QStringLiteral("delete_objects")
         || name == QStringLiteral("duplicate_object")
+        || name == QStringLiteral("duplicate_objects")
         || name == QStringLiteral("paste_object")
+        || name == QStringLiteral("paste_objects")
         || name == QStringLiteral("move_object")
+        || name == QStringLiteral("move_objects")
         || name == QStringLiteral("update_object")
         || name == QStringLiteral("set_tool_parameter")
         || name == QStringLiteral("add_point")
@@ -217,6 +221,23 @@ Bounds normalizedBounds(const QJsonObject &object) {
         includePoint(bounds, x + object.value("width").toDouble(), y + object.value("height").toDouble());
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
         includePointList(bounds, object.value("points").toArray());
+    }
+    return bounds;
+}
+
+Bounds normalizedBoundsForObjects(const QJsonArray &objects, const QStringList &objectIds) {
+    Bounds bounds;
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        if (!objectIds.contains(object.value("id").toString())) {
+            continue;
+        }
+        const Bounds objectBounds = normalizedBounds(object);
+        if (!objectBounds.ok) {
+            continue;
+        }
+        includePoint(bounds, objectBounds.minX, objectBounds.minY);
+        includePoint(bounds, objectBounds.maxX, objectBounds.maxY);
     }
     return bounds;
 }
@@ -420,16 +441,55 @@ void deleteObject(State &state, const QString &objectId) {
     state.pendingPoint = {};
 }
 
-void pushClonedObject(State &state, QJsonObject object, const QString &sourceId, double dxN, double dyN, const QString &sourceKey) {
+void deleteObjects(State &state, const QStringList &objectIds) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList ids;
+    for (const QString &objectId : objectIds) {
+        if (!objectId.isEmpty() && !ids.contains(objectId)) {
+            ids.append(objectId);
+        }
+    }
+    QJsonArray keptObjects;
+    int deleted = 0;
+    for (const QJsonValue value : state.generatedObjects) {
+        const QJsonObject object = value.toObject();
+        const QString objectId = object.value("id").toString();
+        if (ids.contains(objectId)) {
+            ++deleted;
+            continue;
+        }
+        keptObjects.append(object);
+    }
+    if (deleted == 0) {
+        state.errors.append("delete_objects could not find selected generated objects");
+        return;
+    }
+    state.generatedObjects = keptObjects;
+    for (const QString &objectId : ids) {
+        state.selectedObjects.removeAll(objectId);
+        if (state.selectedObject == objectId) {
+            state.selectedObject.clear();
+        }
+    }
+    if (state.selectedObject.isEmpty() && !state.selectedObjects.isEmpty()) {
+        state.selectedObject = state.selectedObjects.last();
+    }
+    state.pendingPoint = {};
+}
+
+QString pushClonedObject(State &state, QJsonObject object, const QString &sourceId, double dxN, double dyN, const QString &sourceKey) {
     const QString kind = object.value("kind").toString();
     if (kind.isEmpty()) {
         state.errors.append(sourceKey + " missing object kind");
-        return;
+        return {};
     }
     const Bounds bounds = normalizedBounds(object);
     if (!bounds.ok) {
         state.errors.append(sourceKey + " could not compute bounds");
-        return;
+        return {};
     }
     double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
     double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
@@ -437,13 +497,15 @@ void pushClonedObject(State &state, QJsonObject object, const QString &sourceId,
         clampedDxN = clampedMoveDelta(-dxN, bounds.minX, bounds.maxX);
         clampedDyN = clampedMoveDelta(-dyN, bounds.minY, bounds.maxY);
     }
-    object.insert("id", nextId(state, kind));
+    const QString nextObjectId = nextId(state, kind);
+    object.insert("id", nextObjectId);
     if (!sourceId.isEmpty()) {
         object.insert(sourceKey, sourceId);
     }
     translateObject(object, clampedDxN, clampedDyN, clampedDxN * state.canvasPx, clampedDyN * state.canvasPx);
     pushObject(state, object);
     state.pendingPoint = {};
+    return nextObjectId;
 }
 
 void duplicateObject(State &state, const QString &objectId, double dxN, double dyN) {
@@ -462,6 +524,36 @@ void duplicateObject(State &state, const QString &objectId, double dxN, double d
     state.errors.append("duplicate_object could not find generated object: " + objectId);
 }
 
+void duplicateObjects(State &state, const QStringList &objectIds, double dxN, double dyN) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    const QJsonArray sourceObjects = state.generatedObjects;
+    QStringList duplicateIds;
+    for (const QString &objectId : objectIds) {
+        bool found = false;
+        for (const QJsonValue value : sourceObjects) {
+            QJsonObject object = value.toObject();
+            if (object.value("id").toString() != objectId) {
+                continue;
+            }
+            const QString duplicateId = pushClonedObject(state, object, objectId, dxN, dyN, QStringLiteral("duplicate_of"));
+            if (!duplicateId.isEmpty()) {
+                duplicateIds.append(duplicateId);
+            }
+            found = true;
+            break;
+        }
+        if (!found) {
+            state.errors.append("duplicate_objects could not find generated object: " + objectId);
+        }
+    }
+    if (!duplicateIds.isEmpty()) {
+        selectObjects(state, duplicateIds);
+    }
+}
+
 void pasteObject(State &state, const QJsonObject &snapshot, double dxN, double dyN) {
     const QString sourceId = snapshot.value("id").toString();
     if (sourceId.isEmpty() || sourceId.indexOf(QStringLiteral("script_")) != 0) {
@@ -469,6 +561,29 @@ void pasteObject(State &state, const QJsonObject &snapshot, double dxN, double d
         return;
     }
     pushClonedObject(state, snapshot, sourceId, dxN, dyN, QStringLiteral("pasted_from"));
+}
+
+void pasteObjects(State &state, const QJsonArray &snapshots, double dxN, double dyN) {
+    if (snapshots.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList pastedIds;
+    for (const QJsonValue value : snapshots) {
+        const QJsonObject snapshot = value.toObject();
+        const QString sourceId = snapshot.value("id").toString();
+        if (sourceId.isEmpty() || sourceId.indexOf(QStringLiteral("script_")) != 0) {
+            state.errors.append("paste_objects skipped invalid generated object snapshot");
+            continue;
+        }
+        const QString pastedId = pushClonedObject(state, snapshot, sourceId, dxN, dyN, QStringLiteral("pasted_from"));
+        if (!pastedId.isEmpty()) {
+            pastedIds.append(pastedId);
+        }
+    }
+    if (!pastedIds.isEmpty()) {
+        selectObjects(state, pastedIds);
+    }
 }
 
 void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
@@ -500,6 +615,46 @@ void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
     state.generatedObjects = movedObjects;
     state.selectedLayer = kScriptLayer;
     selectObject(state, objectId);
+    state.pendingPoint = {};
+}
+
+void moveObjects(State &state, const QStringList &objectIds, double dxN, double dyN) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList ids;
+    for (const QString &objectId : objectIds) {
+        if (!objectId.isEmpty() && !ids.contains(objectId)) {
+            ids.append(objectId);
+        }
+    }
+    const Bounds bounds = normalizedBoundsForObjects(state.generatedObjects, ids);
+    if (!bounds.ok) {
+        state.errors.append("move_objects could not compute selected object bounds");
+        return;
+    }
+    const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
+    const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
+    const double dxPx = clampedDxN * state.canvasPx;
+    const double dyPx = clampedDyN * state.canvasPx;
+    bool moved = false;
+    QJsonArray movedObjects;
+    for (const QJsonValue value : state.generatedObjects) {
+        QJsonObject object = value.toObject();
+        if (ids.contains(object.value("id").toString())) {
+            translateObject(object, clampedDxN, clampedDyN, dxPx, dyPx);
+            moved = true;
+        }
+        movedObjects.append(object);
+    }
+    if (!moved) {
+        state.errors.append("move_objects could not find selected generated objects");
+        return;
+    }
+    state.generatedObjects = movedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObjects(state, ids);
     state.pendingPoint = {};
 }
 
@@ -1248,6 +1403,9 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
             {"delete_object", [&]() {
                  deleteObject(state, stringAt(command, "object_id", state.selectedObject));
              }},
+            {"delete_objects", [&]() {
+                 deleteObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
+             }},
             {"duplicate_object", [&]() {
                  const double dxN = command.contains("dx_px")
                      ? numberAt(command, "dx_px") / state.canvasPx
@@ -1256,6 +1414,15 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
                      ? numberAt(command, "dy_px") / state.canvasPx
                      : numberAt(command, "dy", 16.0 / state.canvasPx);
                  duplicateObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
+             }},
+            {"duplicate_objects", [&]() {
+                 const double dxN = command.contains("dx_px")
+                     ? numberAt(command, "dx_px") / state.canvasPx
+                     : numberAt(command, "dx", 16.0 / state.canvasPx);
+                 const double dyN = command.contains("dy_px")
+                     ? numberAt(command, "dy_px") / state.canvasPx
+                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 duplicateObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
              }},
             {"paste_object", [&]() {
                  const double dxN = command.contains("dx_px")
@@ -1266,6 +1433,15 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
                      : numberAt(command, "dy", 16.0 / state.canvasPx);
                  pasteObject(state, command.value("object").toObject(), dxN, dyN);
              }},
+            {"paste_objects", [&]() {
+                 const double dxN = command.contains("dx_px")
+                     ? numberAt(command, "dx_px") / state.canvasPx
+                     : numberAt(command, "dx", 16.0 / state.canvasPx);
+                 const double dyN = command.contains("dy_px")
+                     ? numberAt(command, "dy_px") / state.canvasPx
+                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 pasteObjects(state, arrayAt(command, "objects"), dxN, dyN);
+             }},
             {"move_object", [&]() {
                  const double dxN = command.contains("dx_px")
                      ? numberAt(command, "dx_px") / state.canvasPx
@@ -1274,6 +1450,15 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
                      ? numberAt(command, "dy_px") / state.canvasPx
                      : numberAt(command, "dy");
                  moveObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
+             }},
+            {"move_objects", [&]() {
+                 const double dxN = command.contains("dx_px")
+                     ? numberAt(command, "dx_px") / state.canvasPx
+                     : numberAt(command, "dx");
+                 const double dyN = command.contains("dy_px")
+                     ? numberAt(command, "dy_px") / state.canvasPx
+                     : numberAt(command, "dy");
+                 moveObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
              }},
             {"update_object", [&]() {
                  updateObjectField(
@@ -1521,7 +1706,29 @@ void DrawingDocumentController::deleteObject(const QString &objectId) {
     applyCommand(command);
 }
 
+void DrawingDocumentController::deleteObjects(const QVariantList &objectIds) {
+    QJsonArray ids;
+    for (const QVariant &value : objectIds) {
+        const QString objectId = value.toString();
+        if (!objectId.isEmpty()) {
+            ids.append(objectId);
+        }
+    }
+    if (ids.isEmpty()) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "delete_objects");
+    command.insert("object_ids", ids);
+    applyCommand(command);
+}
+
 void DrawingDocumentController::deleteSelectedObject() {
+    const QVariantList ids = selectedObjectIds();
+    if (ids.size() > 1) {
+        deleteObjects(ids);
+        return;
+    }
     deleteObject(selectedObjectId());
 }
 
@@ -1537,7 +1744,31 @@ void DrawingDocumentController::duplicateObject(const QString &objectId, double 
     applyCommand(command);
 }
 
+void DrawingDocumentController::duplicateObjects(const QVariantList &objectIds, double dx, double dy) {
+    QJsonArray ids;
+    for (const QVariant &value : objectIds) {
+        const QString objectId = value.toString();
+        if (!objectId.isEmpty()) {
+            ids.append(objectId);
+        }
+    }
+    if (ids.isEmpty() || (!std::isfinite(dx) && !std::isfinite(dy))) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "duplicate_objects");
+    command.insert("object_ids", ids);
+    command.insert("dx", std::isfinite(dx) ? dx : 0.03125);
+    command.insert("dy", std::isfinite(dy) ? dy : 0.03125);
+    applyCommand(command);
+}
+
 void DrawingDocumentController::duplicateSelectedObject() {
+    const QVariantList ids = selectedObjectIds();
+    if (ids.size() > 1) {
+        duplicateObjects(ids);
+        return;
+    }
     duplicateObject(selectedObjectId());
 }
 
@@ -1549,6 +1780,25 @@ void DrawingDocumentController::pasteObject(const QVariantMap &object, double dx
     QJsonObject command;
     command.insert("cmd", "paste_object");
     command.insert("object", snapshot);
+    command.insert("dx", std::isfinite(dx) ? dx : 0.03125);
+    command.insert("dy", std::isfinite(dy) ? dy : 0.03125);
+    applyCommand(command);
+}
+
+void DrawingDocumentController::pasteObjects(const QVariantList &objects, double dx, double dy) {
+    QJsonArray snapshots;
+    for (const QVariant &value : objects) {
+        const QJsonObject snapshot = QJsonObject::fromVariantMap(value.toMap());
+        if (!snapshot.isEmpty()) {
+            snapshots.append(snapshot);
+        }
+    }
+    if (snapshots.isEmpty() || (!std::isfinite(dx) && !std::isfinite(dy))) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "paste_objects");
+    command.insert("objects", snapshots);
     command.insert("dx", std::isfinite(dx) ? dx : 0.03125);
     command.insert("dy", std::isfinite(dy) ? dy : 0.03125);
     applyCommand(command);
@@ -1578,7 +1828,31 @@ void DrawingDocumentController::moveObjectBy(const QString &objectId, double dx,
     applyCommand(command);
 }
 
+void DrawingDocumentController::moveObjectsBy(const QVariantList &objectIds, double dx, double dy) {
+    QJsonArray ids;
+    for (const QVariant &value : objectIds) {
+        const QString objectId = value.toString();
+        if (!objectId.isEmpty()) {
+            ids.append(objectId);
+        }
+    }
+    if (ids.isEmpty() || (!std::isfinite(dx) && !std::isfinite(dy))) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "move_objects");
+    command.insert("object_ids", ids);
+    command.insert("dx", std::isfinite(dx) ? dx : 0.0);
+    command.insert("dy", std::isfinite(dy) ? dy : 0.0);
+    applyCommand(command);
+}
+
 void DrawingDocumentController::moveSelectedObjectBy(double dx, double dy) {
+    const QVariantList ids = selectedObjectIds();
+    if (ids.size() > 1) {
+        moveObjectsBy(ids, dx, dy);
+        return;
+    }
     moveObjectBy(selectedObjectId(), dx, dy);
 }
 
@@ -1693,6 +1967,22 @@ QString DrawingDocumentController::selectedObjectId() const {
     return m_model.value("selected_object_id").toString();
 }
 
+QVariantList DrawingDocumentController::selectedObjectIds() const {
+    QVariantList ids;
+    const QJsonArray selectedIds = m_model.value("selected_object_ids").toArray();
+    for (const QJsonValue value : selectedIds) {
+        const QString objectId = value.toString();
+        if (!objectId.isEmpty() && !ids.contains(objectId)) {
+            ids.append(objectId);
+        }
+    }
+    const QString primaryId = selectedObjectId();
+    if (ids.isEmpty() && !primaryId.isEmpty()) {
+        ids.append(primaryId);
+    }
+    return ids;
+}
+
 void DrawingDocumentController::applyCommand(const QJsonObject &command) {
     const bool undoable = undoableInteractiveCommand(command);
     const bool wasPending = pendingPointActive(m_model);
@@ -1701,11 +1991,16 @@ void DrawingDocumentController::applyCommand(const QJsonObject &command) {
     const QJsonArray undoSnapshot = wasPending ? m_lastStableCommands : beforeCommands;
     const QString name = stringAt(command, QStringLiteral("cmd"));
 
-    if (m_moveGestureActive && name == QStringLiteral("move_object") && !m_commands.isEmpty()) {
+    if (m_moveGestureActive && (name == QStringLiteral("move_object") || name == QStringLiteral("move_objects")) && !m_commands.isEmpty()) {
         const int lastIndex = m_commands.size() - 1;
         QJsonObject previous = m_commands.at(lastIndex).toObject();
-        if (stringAt(previous, QStringLiteral("cmd")) == QStringLiteral("move_object")
-                && stringAt(previous, QStringLiteral("object_id")) == stringAt(command, QStringLiteral("object_id"))) {
+        const bool sameMoveObject = name == QStringLiteral("move_object")
+            && stringAt(previous, QStringLiteral("cmd")) == QStringLiteral("move_object")
+            && stringAt(previous, QStringLiteral("object_id")) == stringAt(command, QStringLiteral("object_id"));
+        const bool sameMoveObjects = name == QStringLiteral("move_objects")
+            && stringAt(previous, QStringLiteral("cmd")) == QStringLiteral("move_objects")
+            && previous.value(QStringLiteral("object_ids")).toArray() == command.value(QStringLiteral("object_ids")).toArray();
+        if (sameMoveObject || sameMoveObjects) {
             previous.insert(QStringLiteral("dx"), numberAt(previous, QStringLiteral("dx")) + numberAt(command, QStringLiteral("dx")));
             previous.insert(QStringLiteral("dy"), numberAt(previous, QStringLiteral("dy")) + numberAt(command, QStringLiteral("dy")));
             m_commands[lastIndex] = previous;

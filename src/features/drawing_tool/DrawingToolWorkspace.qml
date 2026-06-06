@@ -321,7 +321,8 @@ Rectangle {
                         return "drag handle"
                     }
                     if (dragObjectId.length > 0) {
-                        return "move object"
+                        var ids = asArray(drawingWorkspace.controller ? drawingWorkspace.controller.selectedDrawingObjectIds : [])
+                        return ids.length > 1 ? "move selection" : "move object"
                     }
                     if (dragAnchorId.length > 0) {
                         return "drag anchor"
@@ -362,6 +363,15 @@ Rectangle {
                     }
                     var id = String(drawingWorkspace.controller.selectedDrawingObjectId || "")
                     return id.length > 0 && id.indexOf("script_") === 0 ? id : "none"
+                }
+
+                function selectedObjectIdList() {
+                    return asArray(drawingWorkspace.controller ? drawingWorkspace.controller.selectedDrawingObjectIds : [])
+                }
+
+                function selectedObjectIdsContain(objectId) {
+                    var ids = selectedObjectIdList()
+                    return ids.indexOf(String(objectId || "")) >= 0
                 }
 
                 function boardBounds() {
@@ -672,9 +682,12 @@ Rectangle {
                             mouse.accepted = true
                             return
                         }
-                        var objectId = drawingWorkspace.controller.selectDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
+                        var objectId = drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
                         dragObjectId = String(objectId || "")
                         dragObjectMoved = false
+                        if (dragObjectId.length > 0 && !selectedObjectIdsContain(dragObjectId)) {
+                            drawingWorkspace.controller.selectDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
+                        }
                         var dragStart = snapResolver.gridSnappedPoint(rawPoint)
                         dragObjectLastX = dragStart.x
                         dragObjectLastY = dragStart.y
@@ -725,7 +738,7 @@ Rectangle {
                         var dx = movePoint.x - dragObjectLastX
                         var dy = movePoint.y - dragObjectLastY
                         if (Math.abs(dx) >= 0.000001 || Math.abs(dy) >= 0.000001) {
-                            drawingWorkspace.controller.moveDrawingObjectBy(dragObjectId, dx, dy)
+                            drawingWorkspace.controller.moveSelectedDrawingObjectBy(dx, dy)
                             dragObjectLastX = movePoint.x
                             dragObjectLastY = movePoint.y
                             dragObjectMoved = true

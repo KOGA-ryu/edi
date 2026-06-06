@@ -1259,6 +1259,10 @@ QtObject {
         drawingSession.moveDrawingObjectBy(objectId, dx, dy)
     }
 
+    function moveDrawingObjectsBy(objectIds, dx, dy) {
+        drawingSession.moveDrawingObjectsBy(objectIds, dx, dy)
+    }
+
     function beginDrawingObjectMove() {
         drawingSession.beginDrawingObjectMove()
     }
@@ -1277,6 +1281,10 @@ QtObject {
 
     function selectDrawingObjectAtNormalized(x, y) {
         return drawingSession.selectDrawingObjectAtNormalized(x, y)
+    }
+
+    function hitDrawingObjectAtNormalized(x, y) {
+        return drawingSession.hitDrawingObjectAtNormalized(x, y)
     }
 
     function selectDrawingObjects(objectIds) {

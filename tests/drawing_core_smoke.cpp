@@ -75,6 +75,16 @@ QJsonObject firstObjectOfKind(const QJsonArray &objects, const QString &kind) {
     return {};
 }
 
+QJsonObject objectById(const QJsonArray &objects, const QString &id) {
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toString() == id) {
+            return object;
+        }
+    }
+    return {};
+}
+
 int kindCount(const QJsonArray &objects, const QString &kind) {
     int count = 0;
     for (const QJsonValue value : objects) {
@@ -511,6 +521,141 @@ bool runControllerSelectObjectsSmoke() {
     return ok;
 }
 
+bool runControllerMultiSelectOperationsSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    QVariantList ids;
+    ids.append(objects.at(0).toObject().value(QStringLiteral("id")).toString());
+    ids.append(objects.at(2).toObject().value(QStringLiteral("id")).toString());
+    controller.selectObjects(ids);
+    controller.duplicateSelectedObject();
+
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    objects = model.value(QStringLiteral("generated_objects")).toArray();
+    QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
+    bool ok = true;
+    ok &= expect(kindCount(objects, QStringLiteral("point")) == 5,
+                 QStringLiteral("multi-duplicate should create one copy for each selected object"));
+    ok &= expect(selectedIds.size() == 2,
+                 QStringLiteral("multi-duplicate should select the duplicated set"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == selectedIds.at(1).toString(),
+                 QStringLiteral("multi-duplicate should keep last duplicate as primary"));
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("duplicate_objects")) == 1,
+                 QStringLiteral("multi-duplicate should record one batch command"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 3,
+                 QStringLiteral("one undo should remove the duplicated set"));
+
+    controller.selectObjects(ids);
+    controller.deleteSelectedObject();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    objects = model.value(QStringLiteral("generated_objects")).toArray();
+    ok &= expect(kindCount(objects, QStringLiteral("point")) == 1,
+                 QStringLiteral("multi-delete should remove all selected objects"));
+    ok &= expect(model.value(QStringLiteral("selected_object_ids")).toArray().isEmpty(),
+                 QStringLiteral("multi-delete should clear deleted selection"));
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("delete_objects")) == 1,
+                 QStringLiteral("multi-delete should record one batch command"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 3,
+                 QStringLiteral("one undo should restore the deleted set"));
+    return ok;
+}
+
+bool runControllerPasteObjectsSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    QVariantList snapshots;
+    snapshots.append(objects.at(0).toObject().toVariantMap());
+    snapshots.append(objects.at(1).toObject().toVariantMap());
+    controller.pasteObjects(snapshots, 16.0 / 512.0, 16.0 / 512.0);
+
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    objects = model.value(QStringLiteral("generated_objects")).toArray();
+    QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
+    bool ok = true;
+    ok &= expect(kindCount(objects, QStringLiteral("point")) == 4,
+                 QStringLiteral("multi-paste should create one pasted object per snapshot"));
+    ok &= expect(selectedIds.size() == 2,
+                 QStringLiteral("multi-paste should select the pasted set"));
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("paste_objects")) == 1,
+                 QStringLiteral("multi-paste should record one batch command"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 2,
+                 QStringLiteral("one undo should remove the pasted set"));
+    return ok;
+}
+
+bool runControllerMoveSelectedObjectsSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    const QString firstId = objects.at(0).toObject().value(QStringLiteral("id")).toString();
+    const QString thirdId = objects.at(2).toObject().value(QStringLiteral("id")).toString();
+    QVariantList ids;
+    ids.append(firstId);
+    ids.append(thirdId);
+    controller.selectObjects(ids);
+    controller.beginMoveGesture();
+    controller.moveSelectedObjectBy(16.0 / 512.0, 24.0 / 512.0);
+    controller.moveSelectedObjectBy(16.0 / 512.0, 8.0 / 512.0);
+    controller.endMoveGesture();
+
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    objects = model.value(QStringLiteral("generated_objects")).toArray();
+    bool ok = true;
+    QJsonObject first = objectById(objects, firstId);
+    QJsonObject third = objectById(objects, thirdId);
+    QJsonObject second = objectById(objects, objects.at(1).toObject().value(QStringLiteral("id")).toString());
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("move_objects")) == 1,
+                 QStringLiteral("gesture multi-move should coalesce into one move_objects command"));
+    ok &= expectNear(first.value(QStringLiteral("point_px")).toArray().at(0).toDouble(), 96.0,
+                     QStringLiteral("first selected point should move by total x delta"));
+    ok &= expectNear(first.value(QStringLiteral("point_px")).toArray().at(1).toDouble(), 96.0,
+                     QStringLiteral("first selected point should move by total y delta"));
+    ok &= expectNear(third.value(QStringLiteral("point_px")).toArray().at(0).toDouble(), 224.0,
+                     QStringLiteral("third selected point should move by total x delta"));
+    ok &= expectNear(third.value(QStringLiteral("point_px")).toArray().at(1).toDouble(), 224.0,
+                     QStringLiteral("third selected point should move by total y delta"));
+    ok &= expectNear(second.value(QStringLiteral("point_px")).toArray().at(0).toDouble(), 128.0,
+                     QStringLiteral("unselected point should not move"));
+    ok &= expect(model.value(QStringLiteral("selected_object_ids")).toArray().size() == 2,
+                 QStringLiteral("multi-move should preserve selected object ids"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    objects = model.value(QStringLiteral("generated_objects")).toArray();
+    first = objectById(objects, firstId);
+    third = objectById(objects, thirdId);
+    ok &= expectNear(first.value(QStringLiteral("point_px")).toArray().at(0).toDouble(), 64.0,
+                     QStringLiteral("one undo should restore first selected point x"));
+    ok &= expectNear(third.value(QStringLiteral("point_px")).toArray().at(0).toDouble(), 192.0,
+                     QStringLiteral("one undo should restore third selected point x"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -526,5 +671,8 @@ int main(int argc, char **argv) {
     ok &= runControllerDuplicateSelectedObjectSmoke();
     ok &= runControllerPasteObjectSnapshotSmoke();
     ok &= runControllerSelectObjectsSmoke();
+    ok &= runControllerMultiSelectOperationsSmoke();
+    ok &= runControllerPasteObjectsSmoke();
+    ok &= runControllerMoveSelectedObjectsSmoke();
     return ok ? 0 : 1;
 }

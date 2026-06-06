@@ -444,6 +444,36 @@ QtObject {
         return drawingFindById(objects, selectedDrawingObjectId, null) || ({})
     }
 
+    function selectedGeneratedDrawingObjectIds() {
+        var ids = []
+        var incoming = asArray(selectedDrawingObjectIds)
+        for (var index = 0; index < incoming.length; ++index) {
+            var id = String(incoming[index] || "")
+            var object = drawingFindById(drawingGeneratedObjects, id, null)
+            if (id.indexOf("script_") === 0 && ids.indexOf(id) < 0 && String(object.id || "") === id) {
+                ids.push(id)
+            }
+        }
+        var primaryId = String(selectedDrawingObjectId || "")
+        var primaryObject = drawingFindById(drawingGeneratedObjects, primaryId, null)
+        if (ids.length === 0 && primaryId.indexOf("script_") === 0 && String(primaryObject.id || "") === primaryId) {
+            ids.push(primaryId)
+        }
+        return ids
+    }
+
+    function generatedDrawingObjectsByIds(objectIds) {
+        var objects = []
+        var ids = asArray(objectIds)
+        for (var index = 0; index < ids.length; ++index) {
+            var object = drawingFindById(drawingGeneratedObjects, ids[index], null)
+            if (String(object.id || "").indexOf("script_") === 0) {
+                objects.push(object)
+            }
+        }
+        return objects
+    }
+
     function drawingAnchorPoint(anchorId) {
         if (anchorId === "anchor_root") {
             return { id: "anchor_root", label: "anchor_root", x: drawingAnchorRootX, y: drawingAnchorRootY }
@@ -878,19 +908,24 @@ QtObject {
     }
 
     function deleteSelectedDrawingObject() {
-        var objectId = String(selectedDrawingObjectId || "")
-        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+        var ids = selectedGeneratedDrawingObjectIds()
+        if (ids.length === 0) {
+            return
+        }
+        if (drawingNativeController && typeof drawingNativeController.deleteObjects === "function") {
+            drawingNativeController.deleteObjects(ids)
+            syncNativeDrawingModel()
             return
         }
         if (drawingNativeController) {
-            drawingNativeController.deleteObject(objectId)
+            drawingNativeController.deleteObject(ids[0])
             syncNativeDrawingModel()
             return
         }
         var kept = []
         var generated = asArray(drawingGeneratedObjects)
         for (var index = 0; index < generated.length; ++index) {
-            if (String(generated[index].id || "") !== objectId) {
+            if (ids.indexOf(String(generated[index].id || "")) < 0) {
                 kept.push(generated[index])
             }
         }
@@ -901,63 +936,79 @@ QtObject {
     }
 
     function duplicateSelectedDrawingObject() {
-        var objectId = String(selectedDrawingObjectId || "")
-        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+        var ids = selectedGeneratedDrawingObjectIds()
+        if (ids.length === 0) {
             return
         }
-        if (drawingNativeController && typeof drawingNativeController.duplicateObject === "function") {
-            drawingNativeController.duplicateObject(objectId, 16 / Math.max(1, drawingCanvasSizePx), 16 / Math.max(1, drawingCanvasSizePx))
+        var offset = 16 / Math.max(1, drawingCanvasSizePx)
+        if (drawingNativeController && typeof drawingNativeController.duplicateObjects === "function") {
+            drawingNativeController.duplicateObjects(ids, offset, offset)
             syncNativeDrawingModel()
             return
         }
-        var source = drawingFindById(drawingGeneratedObjects, objectId, null)
-        if (!source) {
-            return
+        var duplicateIds = []
+        var sources = generatedDrawingObjectsByIds(ids)
+        for (var index = 0; index < sources.length; ++index) {
+            var source = sources[index]
+            var duplicate = JSON.parse(JSON.stringify(source))
+            duplicate.id = String(source.id || "script_object") + "_copy_" + String(index + 1)
+            duplicate.duplicate_of = String(source.id || "")
+            drawingGeneratedObjects.push(duplicate)
+            duplicateIds.push(duplicate.id)
         }
-        var duplicate = JSON.parse(JSON.stringify(source))
-        duplicate.id = String(source.id || "script_object") + "_copy"
-        duplicate.duplicate_of = objectId
-        drawingGeneratedObjects.push(duplicate)
-        selectedDrawingObjectId = duplicate.id
-        selectedDrawingObjectIds = [duplicate.id]
-        selectedDrawingLayerId = String(duplicate.layer_id || selectedDrawingLayerId)
+        if (duplicateIds.length > 0) {
+            selectedDrawingObjectId = duplicateIds[duplicateIds.length - 1]
+            selectedDrawingObjectIds = duplicateIds
+            selectedDrawingLayerId = "layer_09_script_geometry"
+        }
         markChanged()
     }
 
     function copySelectedDrawingObject() {
-        var objectId = String(selectedDrawingObjectId || "")
-        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+        var ids = selectedGeneratedDrawingObjectIds()
+        var sources = generatedDrawingObjectsByIds(ids)
+        if (sources.length === 0) {
             return
         }
-        var source = selectedDrawingObject()
-        if (!source || String(source.id || "") !== objectId) {
-            return
-        }
-        drawingObjectClipboard = JSON.parse(JSON.stringify(source))
+        drawingObjectClipboard = ({ objects: JSON.parse(JSON.stringify(sources)) })
         drawingObjectClipboardPasteCount = 0
         markChanged()
     }
 
     function pasteCopiedDrawingObject() {
-        var sourceId = String(drawingObjectClipboard.id || "")
-        if (sourceId.length === 0 || sourceId.indexOf("script_") !== 0) {
+        var clipboardObjects = asArray(drawingObjectClipboard.objects)
+        if (clipboardObjects.length === 0 && String(drawingObjectClipboard.id || "").indexOf("script_") === 0) {
+            clipboardObjects = [drawingObjectClipboard]
+        }
+        if (clipboardObjects.length === 0) {
             return
         }
         var nextCount = drawingObjectClipboardPasteCount + 1
         var offset = 16 * nextCount / Math.max(1, drawingCanvasSizePx)
-        if (drawingNativeController && typeof drawingNativeController.pasteObject === "function") {
-            drawingNativeController.pasteObject(drawingObjectClipboard, offset, offset)
+        if (drawingNativeController && typeof drawingNativeController.pasteObjects === "function") {
+            drawingNativeController.pasteObjects(clipboardObjects, offset, offset)
             drawingObjectClipboardPasteCount = nextCount
             syncNativeDrawingModel()
             return
         }
-        var duplicate = JSON.parse(JSON.stringify(drawingObjectClipboard))
-        duplicate.id = sourceId + "_paste_" + String(nextCount)
-        duplicate.pasted_from = sourceId
-        drawingGeneratedObjects.push(duplicate)
-        selectedDrawingObjectId = duplicate.id
-        selectedDrawingObjectIds = [duplicate.id]
-        selectedDrawingLayerId = String(duplicate.layer_id || selectedDrawingLayerId)
+        var pastedIds = []
+        for (var index = 0; index < clipboardObjects.length; ++index) {
+            var source = clipboardObjects[index]
+            var sourceId = String(source.id || "")
+            if (sourceId.indexOf("script_") !== 0) {
+                continue
+            }
+            var duplicate = JSON.parse(JSON.stringify(source))
+            duplicate.id = sourceId + "_paste_" + String(nextCount) + "_" + String(index + 1)
+            duplicate.pasted_from = sourceId
+            drawingGeneratedObjects.push(duplicate)
+            pastedIds.push(duplicate.id)
+        }
+        if (pastedIds.length > 0) {
+            selectedDrawingObjectId = pastedIds[pastedIds.length - 1]
+            selectedDrawingObjectIds = pastedIds
+            selectedDrawingLayerId = "layer_09_script_geometry"
+        }
         drawingObjectClipboardPasteCount = nextCount
         markChanged()
     }
@@ -977,6 +1028,30 @@ QtObject {
         markChanged()
     }
 
+    function moveDrawingObjectsBy(objectIds, dx, dy) {
+        var ids = []
+        var incoming = asArray(objectIds)
+        for (var index = 0; index < incoming.length; ++index) {
+            var id = String(incoming[index] || "")
+            if (id.indexOf("script_") === 0 && ids.indexOf(id) < 0) {
+                ids.push(id)
+            }
+        }
+        var moveX = Number(dx) || 0
+        var moveY = Number(dy) || 0
+        if (ids.length === 0 || (Math.abs(moveX) < 0.000001 && Math.abs(moveY) < 0.000001)) {
+            return
+        }
+        if (drawingNativeController && typeof drawingNativeController.moveObjectsBy === "function") {
+            drawingNativeController.moveObjectsBy(ids, moveX, moveY)
+            syncNativeDrawingModel()
+            return
+        }
+        for (var index = 0; index < ids.length; ++index) {
+            moveDrawingObjectBy(ids[index], moveX, moveY)
+        }
+    }
+
     function beginDrawingObjectMove() {
         if (drawingNativeController && typeof drawingNativeController.beginMoveGesture === "function") {
             drawingNativeController.beginMoveGesture()
@@ -990,6 +1065,11 @@ QtObject {
     }
 
     function moveSelectedDrawingObjectBy(dx, dy) {
+        var ids = selectedGeneratedDrawingObjectIds()
+        if (ids.length > 1) {
+            moveDrawingObjectsBy(ids, dx, dy)
+            return
+        }
         moveDrawingObjectBy(selectedDrawingObjectId, dx, dy)
     }
 
@@ -1008,6 +1088,16 @@ QtObject {
     }
 
     function selectDrawingObjectAtNormalized(x, y) {
+        var bestId = hitDrawingObjectAtNormalized(x, y)
+        if (bestId.length > 0) {
+            selectDrawingObject(bestId)
+            return bestId
+        }
+        clearDrawingObjectSelection()
+        return ""
+    }
+
+    function hitDrawingObjectAtNormalized(x, y) {
         var tolerance = 0.025
         var generated = asArray(drawingGeneratedObjects)
         var bestId = ""
@@ -1020,12 +1110,7 @@ QtObject {
                 bestId = String(object.id || "")
             }
         }
-        if (bestId.length > 0) {
-            selectDrawingObject(bestId)
-            return bestId
-        }
-        clearDrawingObjectSelection()
-        return ""
+        return bestId
     }
 
     function syncNativeDrawingModel() {

@@ -38,13 +38,17 @@ public:
     Q_INVOKABLE void selectObject(const QString &objectId);
     Q_INVOKABLE void selectObjects(const QVariantList &objectIds);
     Q_INVOKABLE void deleteObject(const QString &objectId);
+    Q_INVOKABLE void deleteObjects(const QVariantList &objectIds);
     Q_INVOKABLE void deleteSelectedObject();
     Q_INVOKABLE void duplicateObject(const QString &objectId, double dx = 0.03125, double dy = 0.03125);
+    Q_INVOKABLE void duplicateObjects(const QVariantList &objectIds, double dx = 0.03125, double dy = 0.03125);
     Q_INVOKABLE void duplicateSelectedObject();
     Q_INVOKABLE void pasteObject(const QVariantMap &object, double dx = 0.03125, double dy = 0.03125);
+    Q_INVOKABLE void pasteObjects(const QVariantList &objects, double dx = 0.03125, double dy = 0.03125);
     Q_INVOKABLE void beginMoveGesture();
     Q_INVOKABLE void endMoveGesture();
     Q_INVOKABLE void moveObjectBy(const QString &objectId, double dx, double dy);
+    Q_INVOKABLE void moveObjectsBy(const QVariantList &objectIds, double dx, double dy);
     Q_INVOKABLE void moveSelectedObjectBy(double dx, double dy);
     Q_INVOKABLE void updateObjectField(const QString &objectId, const QString &field, double value);
     Q_INVOKABLE void updateSelectedObjectField(const QString &field, double value);
@@ -68,6 +72,7 @@ private:
     void applyCommand(const QJsonObject &command);
     void publish();
     QJsonObject scriptEnvelope() const;
+    QVariantList selectedObjectIds() const;
 
     QJsonArray m_commands;
     QVector<QJsonArray> m_undoSnapshots;

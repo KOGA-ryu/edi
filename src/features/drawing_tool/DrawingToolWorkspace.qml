@@ -363,6 +363,7 @@ Rectangle {
                 property real dragObjectLastX: 0
                 property real dragObjectLastY: 0
                 property bool suppressClickOnce: false
+                property bool selectionTogglePressed: false
                 property bool hoverInside: false
                 property real hoverRawX: 0
                 property real hoverRawY: 0
@@ -769,6 +770,7 @@ Rectangle {
                     var rawPoint = normalizedPoint(mouse.x, mouse.y)
                     var point = updatePreviewPoint(mouse.x, mouse.y)
                     if (drawingWorkspace.controller.selectedDrawingToolId === "select_move") {
+                        selectionTogglePressed = false
                         var handle = hitSelectedHandle(mouse.x, mouse.y)
                         if (String(handle.id || "").length > 0) {
                             dragHandleId = String(handle.id || "")
@@ -781,8 +783,20 @@ Rectangle {
                         var objectId = drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
                         dragObjectId = String(objectId || "")
                         dragObjectMoved = false
-                        if (dragObjectId.length > 0 && !selectedObjectIdsContain(dragObjectId)) {
-                            drawingWorkspace.controller.selectDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
+                        var shiftSelecting = !!(mouse.modifiers & Qt.ShiftModifier)
+                        if (dragObjectId.length > 0 && shiftSelecting) {
+                            drawingWorkspace.controller.toggleDrawingObjectSelection(dragObjectId)
+                            selectionTogglePressed = true
+                            constructionCanvas.requestPaint()
+                            mouse.accepted = true
+                            return
+                        }
+                        if (dragObjectId.length > 0) {
+                            if (!selectedObjectIdsContain(dragObjectId)) {
+                                drawingWorkspace.controller.selectDrawingObjectAtNormalized(rawPoint.x, rawPoint.y)
+                            }
+                        } else if (shiftSelecting) {
+                            selectionTogglePressed = true
                         }
                         var dragStart = snapResolver.gridSnappedPoint(rawPoint)
                         dragObjectLastX = dragStart.x
@@ -855,7 +869,7 @@ Rectangle {
                         drawingWorkspace.controller.selectDrawingObjects(marqueeSelectionIds())
                         suppressClickOnce = true
                     }
-                    if (dragAnchorId.length > 0 || dragHandleMoved || dragObjectMoved) {
+                    if (selectionTogglePressed || dragObjectId.length > 0 || dragAnchorId.length > 0 || dragHandleMoved || dragObjectMoved) {
                         suppressClickOnce = true
                     }
                     marqueeActive = false
@@ -866,6 +880,7 @@ Rectangle {
                     dragHandleMoved = false
                     dragObjectId = ""
                     dragObjectMoved = false
+                    selectionTogglePressed = false
                     if (drawingWorkspace.controller) {
                         drawingWorkspace.controller.endDrawingObjectMove()
                     }

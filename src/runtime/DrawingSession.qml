@@ -895,6 +895,25 @@ QtObject {
         markChanged()
     }
 
+    function toggleDrawingObjectSelection(objectId) {
+        var id = String(objectId || "")
+        if (id.indexOf("script_") !== 0) {
+            return
+        }
+        var ids = []
+        var incoming = asArray(selectedDrawingObjectIds)
+        for (var index = 0; index < incoming.length; ++index) {
+            var selectedId = String(incoming[index] || "")
+            if (selectedId.indexOf("script_") === 0 && selectedId !== id && ids.indexOf(selectedId) < 0) {
+                ids.push(selectedId)
+            }
+        }
+        if (incoming.indexOf(id) < 0) {
+            ids.push(id)
+        }
+        selectDrawingObjects(ids)
+    }
+
     function clearDrawingObjectSelection() {
         if (drawingNativeController) {
             drawingNativeController.selectObject("")

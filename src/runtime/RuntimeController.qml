@@ -1295,6 +1295,10 @@ QtObject {
         drawingSession.selectDrawingObjects(objectIds)
     }
 
+    function toggleDrawingObjectSelection(objectId) {
+        drawingSession.toggleDrawingObjectSelection(objectId)
+    }
+
     function syncNativeDrawingModel() {
         drawingSession.syncNativeDrawingModel()
     }

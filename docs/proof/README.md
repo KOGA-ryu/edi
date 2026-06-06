@@ -15,6 +15,7 @@ Current proof set:
 - `settings_panels_1280x820.png`
 - `settings_panels_compact_620x460.png`
 - `drawing_tool_blank_1280x820.png`
+- `text_editor_1280x820.png`
 - `csv_map_editor_1280x820.png`
 - `minimum_shell_960x620.png`
 - `tiny_shell_420x320.png`

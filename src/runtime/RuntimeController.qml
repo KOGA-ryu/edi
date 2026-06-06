@@ -35,6 +35,35 @@ QtObject {
     property int selectedMapRow: 0
     property int selectedMapCol: 0
     property var mapTokenPalette: ["wall", "floor", "door", "start", "secret", "encounter"]
+    property var textEditorDocuments: [
+        {
+            id: "scratch",
+            name: "scratch.txt",
+            language: "text",
+            initialText: "",
+            text: "",
+            cursorPosition: 0,
+            selectionStart: 0,
+            selectionEnd: 0
+        }
+    ]
+    property string activeTextEditorDocumentId: "scratch"
+    property int textEditorDocumentCounter: 1
+    property string textEditorDocumentName: "scratch.txt"
+    property string textEditorLanguage: "text"
+    property string textEditorInitialText: ""
+    property string textEditorText: ""
+    property int textEditorCursorPosition: 0
+    property int textEditorSelectionStart: 0
+    property int textEditorSelectionEnd: 0
+    property int textEditorPreviewLimit: 12000
+    property bool textEditorModified: false
+    property bool textEditorRenameActive: false
+    property string textEditorCloseStatus: ""
+    property bool textEditorWrapEnabled: true
+    property bool textEditorLineNumbersVisible: true
+    property string textEditorRequestedCommand: ""
+    property int textEditorCommandRevision: 0
     property bool leftPanelCollapsed: false
     property bool rightPanelCollapsed: true
     property bool bottomPanelCollapsed: true
@@ -554,6 +583,247 @@ QtObject {
             selectedMapCol = 0
         }
         revision += 1
+    }
+
+    function updateTextEditorState(text, cursorPosition, selectionStart, selectionEnd) {
+        textEditorText = String(text || "")
+        textEditorCursorPosition = Math.max(0, Number(cursorPosition) || 0)
+        textEditorSelectionStart = Math.max(0, Number(selectionStart) || 0)
+        textEditorSelectionEnd = Math.max(0, Number(selectionEnd) || 0)
+        textEditorModified = textEditorText !== textEditorInitialText
+        textEditorCloseStatus = ""
+        commitActiveTextEditorDocument()
+        revision += 1
+    }
+
+    function cloneTextEditorDocument(source) {
+        return {
+            id: String(source && source.id ? source.id : ""),
+            name: String(source && source.name ? source.name : "untitled.txt"),
+            language: String(source && source.language ? source.language : "text"),
+            initialText: String(source && source.initialText ? source.initialText : ""),
+            text: String(source && source.text ? source.text : ""),
+            cursorPosition: Math.max(0, Number(source && source.cursorPosition) || 0),
+            selectionStart: Math.max(0, Number(source && source.selectionStart) || 0),
+            selectionEnd: Math.max(0, Number(source && source.selectionEnd) || 0)
+        }
+    }
+
+    function textEditorDocumentIndex(id) {
+        var key = String(id || "")
+        for (var index = 0; index < textEditorDocuments.length; ++index) {
+            if (String(textEditorDocuments[index].id || "") === key) {
+                return index
+            }
+        }
+        return -1
+    }
+
+    function activeTextEditorDocument(unusedRevision) {
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0 && textEditorDocuments.length > 0) {
+            return cloneTextEditorDocument(textEditorDocuments[0])
+        }
+        if (index < 0) {
+            return cloneTextEditorDocument({})
+        }
+        return cloneTextEditorDocument(textEditorDocuments[index])
+    }
+
+    function textEditorDocumentModified(document) {
+        var item = document || ({})
+        return String(item.text || "") !== String(item.initialText || "")
+    }
+
+    function textEditorDocumentState(document) {
+        return textEditorDocumentModified(document) ? "modified" : "clean"
+    }
+
+    function commitActiveTextEditorDocument() {
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0) {
+            return
+        }
+        var copy = textEditorDocuments.slice()
+        var current = cloneTextEditorDocument(copy[index])
+        current.name = textEditorDocumentName
+        current.language = textEditorLanguage
+        current.initialText = textEditorInitialText
+        current.text = textEditorText
+        current.cursorPosition = textEditorCursorPosition
+        current.selectionStart = textEditorSelectionStart
+        current.selectionEnd = textEditorSelectionEnd
+        copy[index] = current
+        textEditorDocuments = copy
+    }
+
+    function loadTextEditorDocument(document) {
+        var item = cloneTextEditorDocument(document)
+        activeTextEditorDocumentId = item.id
+        textEditorDocumentName = item.name
+        textEditorLanguage = item.language
+        textEditorInitialText = item.initialText
+        textEditorText = item.text
+        textEditorCursorPosition = item.cursorPosition
+        textEditorSelectionStart = item.selectionStart
+        textEditorSelectionEnd = item.selectionEnd
+        textEditorModified = textEditorDocumentModified(item)
+    }
+
+    function selectTextEditorDocument(id) {
+        commitActiveTextEditorDocument()
+        var index = textEditorDocumentIndex(id)
+        if (index < 0) {
+            return
+        }
+        textEditorRenameActive = false
+        textEditorCloseStatus = ""
+        loadTextEditorDocument(textEditorDocuments[index])
+        revision += 1
+    }
+
+    function nextTextEditorDocumentName(prefix) {
+        textEditorDocumentCounter += 1
+        return String(prefix || "untitled") + "-" + String(textEditorDocumentCounter) + ".txt"
+    }
+
+    function newTextEditorDocument() {
+        commitActiveTextEditorDocument()
+        var id = "draft-" + String(textEditorDocumentCounter + 1)
+        var document = {
+            id: id,
+            name: nextTextEditorDocumentName("draft"),
+            language: "text",
+            initialText: "",
+            text: "",
+            cursorPosition: 0,
+            selectionStart: 0,
+            selectionEnd: 0
+        }
+        textEditorDocuments = textEditorDocuments.concat([document])
+        textEditorRenameActive = false
+        textEditorCloseStatus = ""
+        loadTextEditorDocument(document)
+        revision += 1
+    }
+
+    function duplicateTextEditorDocument() {
+        commitActiveTextEditorDocument()
+        var source = activeTextEditorDocument(revision)
+        var id = "draft-" + String(textEditorDocumentCounter + 1)
+        var document = {
+            id: id,
+            name: nextTextEditorDocumentName("copy"),
+            language: source.language,
+            initialText: source.text,
+            text: source.text,
+            cursorPosition: source.cursorPosition,
+            selectionStart: source.selectionStart,
+            selectionEnd: source.selectionEnd
+        }
+        textEditorDocuments = textEditorDocuments.concat([document])
+        textEditorRenameActive = false
+        textEditorCloseStatus = ""
+        loadTextEditorDocument(document)
+        revision += 1
+    }
+
+    function renameActiveTextEditorDocument() {
+        textEditorRenameActive = true
+        textEditorCloseStatus = ""
+        revision += 1
+    }
+
+    function applyTextEditorRename(name) {
+        commitActiveTextEditorDocument()
+        var normalizedName = String(name || "").trim()
+        if (!normalizedName.length) {
+            normalizedName = textEditorDocumentName
+        }
+        textEditorDocumentName = normalizedName
+        textEditorRenameActive = false
+        textEditorCloseStatus = ""
+        commitActiveTextEditorDocument()
+        revision += 1
+    }
+
+    function cancelTextEditorRename() {
+        textEditorRenameActive = false
+        revision += 1
+    }
+
+    function closeActiveTextEditorDocument() {
+        if (textEditorDocuments.length <= 1) {
+            textEditorCloseStatus = "last document"
+            revision += 1
+            return
+        }
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0) {
+            return
+        }
+        if (textEditorModified) {
+            textEditorCloseStatus = "close blocked: modified"
+            revision += 1
+            return
+        }
+        var copy = textEditorDocuments.slice()
+        copy.splice(index, 1)
+        textEditorDocuments = copy
+        var nextIndex = Math.max(0, Math.min(index, textEditorDocuments.length - 1))
+        textEditorRenameActive = false
+        textEditorCloseStatus = ""
+        loadTextEditorDocument(textEditorDocuments[nextIndex])
+        revision += 1
+    }
+
+    function toggleTextEditorWrap() {
+        textEditorWrapEnabled = !textEditorWrapEnabled
+        revision += 1
+    }
+
+    function toggleTextEditorLineNumbers() {
+        textEditorLineNumbersVisible = !textEditorLineNumbersVisible
+        revision += 1
+    }
+
+    function requestTextEditorCommand(command) {
+        textEditorRequestedCommand = String(command || "")
+        textEditorCommandRevision += 1
+        revision += 1
+    }
+
+    function textEditorLineCount(unusedRevision) {
+        if (!textEditorText.length) {
+            return 1
+        }
+        return textEditorText.split(/\n/).length
+    }
+
+    function textEditorCharCount(unusedRevision) {
+        return textEditorText.length
+    }
+
+    function textEditorSelectionLength(unusedRevision) {
+        return Math.abs(textEditorSelectionEnd - textEditorSelectionStart)
+    }
+
+    function textEditorCursorLine(unusedRevision) {
+        var position = Math.max(0, Math.min(textEditorCursorPosition, textEditorText.length))
+        if (position <= 0) {
+            return 1
+        }
+        return textEditorText.slice(0, position).split(/\n/).length
+    }
+
+    function textEditorCursorColumn(unusedRevision) {
+        var position = Math.max(0, Math.min(textEditorCursorPosition, textEditorText.length))
+        var previousBreak = textEditorText.lastIndexOf("\n", position - 1)
+        return position - previousBreak
+    }
+
+    function textEditorModifiedState(unusedRevision) {
+        return textEditorModified ? "modified" : "clean"
     }
 
     function firstMapCellWithToken(token) {

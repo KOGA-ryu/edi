@@ -6,6 +6,7 @@ import "../features/ui_taxonomy"
 import "../features/settings"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
+import "../features/text_editor"
 
 Rectangle {
     id: workspace
@@ -43,13 +44,20 @@ Rectangle {
         controller: workspace.controller
     }
 
+    TextEditorWorkspace {
+        anchors.fill: parent
+        visible: workspace.controller && workspace.controller.activityMode === "text_editor"
+        controller: workspace.controller
+    }
+
     BlankWorkspace {
         anchors.fill: parent
         visible: !workspace.controller
             || (workspace.controller.activityMode !== "review"
                 && workspace.controller.activityMode !== "settings"
                 && workspace.controller.activityMode !== "map_editor"
-                && workspace.controller.activityMode !== "drawing_tool")
+                && workspace.controller.activityMode !== "drawing_tool"
+                && workspace.controller.activityMode !== "text_editor")
         controller: workspace.controller
     }
 }

@@ -50,6 +50,16 @@
       ]
     },
     {
+      "profile_id": "draftsman_text_editor",
+      "path": "data/project_profiles/draftsman_text_editor.json",
+      "purpose": "Native QML text editor profile for scratch text, review notes, and snippets.",
+      "default_activity": "text_editor",
+      "enabled_features": [
+        "text_editor",
+        "settings"
+      ]
+    },
+    {
       "profile_id": "draftsman_game_guy_map_editor",
       "path": "data/project_profiles/draftsman_game_guy_map_editor.json",
       "purpose": "CSV schematic dungeon map editor profile.",
@@ -70,6 +80,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -101,6 +112,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -133,6 +145,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -162,6 +175,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -174,6 +188,7 @@
         "blank_panel",
         "review_left_nav",
         "drawing_tool_left_panel",
+        "text_editor_left_panel",
         "csv_map_editor_left_nav",
         "settings_left_nav"
       ],
@@ -201,6 +216,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -212,6 +228,7 @@
         "blank_workspace",
         "ui_taxonomy_workspace",
         "drawing_tool_workspace",
+        "text_editor_workspace",
         "csv_map_editor_workspace",
         "theme_settings_workspace"
       ],
@@ -239,6 +256,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -251,6 +269,7 @@
         "blank_panel",
         "review_right_context",
         "drawing_tool_right_context",
+        "text_editor_right_context",
         "csv_map_editor_right_context",
         "settings_right_context"
       ],
@@ -276,6 +295,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -288,6 +308,7 @@
         "blank_panel",
         "review_shelf",
         "drawing_tool_shelf",
+        "text_editor_shelf",
         "csv_map_editor_shelf"
       ],
       "may_edit": [
@@ -312,6 +333,7 @@
         "blank",
         "review",
         "drawing_tool",
+        "text_editor",
         "map_editor",
         "settings"
       ],
@@ -438,6 +460,37 @@
       ],
       "proof": [
         "docs/proof/drawing_tool_blank_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "text_editor",
+      "kind": "feature_surface",
+      "owner_file": "src/features/text_editor/TextEditorWorkspace.qml",
+      "data_ui": "text_editor_workspace",
+      "activity_modes": [
+        "text_editor"
+      ],
+      "profile": "data/project_profiles/draftsman_text_editor.json",
+      "inputs": [
+        "controller.textEditorText",
+        "controller.textEditorCursorPosition",
+        "controller.textEditorSelectionStart",
+        "controller.textEditorSelectionEnd"
+      ],
+      "may_edit": [
+        "text editor feature internals",
+        "local editor presentation",
+        "document/cursor/selection inspector",
+        "read-only output and receipt shelf"
+      ],
+      "must_not_edit": [
+        "default blank profile",
+        "source file persistence without a contract",
+        "clipboard write behavior without an explicit setting",
+        "external command runner wiring"
+      ],
+      "proof": [
+        "docs/proof/text_editor_1280x820.png"
       ]
     },
     {

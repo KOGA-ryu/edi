@@ -46,6 +46,10 @@ Rectangle {
         return "Collapse " + label.toLowerCase()
     }
 
+    function textEditorActive() {
+        return titleBar.controller && titleBar.controller.activityMode === "text_editor"
+    }
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
@@ -125,6 +129,39 @@ Rectangle {
 
             UiMenuButton {
                 label: "File"
+                visible: titleBar.textEditorActive()
+
+                Action {
+                    text: "New Document"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.newTextEditorDocument()
+                }
+                Action {
+                    text: "Rename Document"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.renameActiveTextEditorDocument()
+                }
+                Action {
+                    text: "Duplicate Document"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.duplicateTextEditorDocument()
+                }
+                Action {
+                    text: "Close Document"
+                    enabled: titleBar.controller && titleBar.controller.textEditorDocuments.length > 1
+                    onTriggered: titleBar.controller.closeActiveTextEditorDocument()
+                }
+                MenuSeparator {}
+                Action {
+                    text: "Close Window"
+                    enabled: titleBar.hostWindow
+                    onTriggered: titleBar.hostWindow.close()
+                }
+            }
+
+            UiMenuButton {
+                label: "File"
+                visible: !titleBar.textEditorActive()
 
                 Action {
                     text: "Save Layout"
@@ -146,6 +183,50 @@ Rectangle {
 
             UiMenuButton {
                 label: "Edit"
+                visible: titleBar.textEditorActive()
+
+                Action {
+                    text: "Undo"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.requestTextEditorCommand("undo")
+                }
+                Action {
+                    text: "Redo"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.requestTextEditorCommand("redo")
+                }
+                MenuSeparator {}
+                Action {
+                    text: "Select All"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.requestTextEditorCommand("select_all")
+                }
+                Action {
+                    text: "Clear"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.requestTextEditorCommand("clear")
+                }
+                Action {
+                    text: "Find"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.requestTextEditorCommand("find")
+                }
+                MenuSeparator {}
+                Action {
+                    text: titleBar.controller && titleBar.controller.textEditorWrapEnabled ? "Disable Wrap" : "Enable Wrap"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.toggleTextEditorWrap()
+                }
+                Action {
+                    text: titleBar.controller && titleBar.controller.textEditorLineNumbersVisible ? "Hide Line Numbers" : "Show Line Numbers"
+                    enabled: titleBar.controller
+                    onTriggered: titleBar.controller.toggleTextEditorLineNumbers()
+                }
+            }
+
+            UiMenuButton {
+                label: "Edit"
+                visible: !titleBar.textEditorActive()
 
                 Action {
                     text: "Mark Pending"

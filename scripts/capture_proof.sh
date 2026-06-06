@@ -9,6 +9,7 @@ scripts/validate_project_profiles.js \
   data/project_profiles/draftsman_blank.json \
   data/project_profiles/draftsman_ui_taxonomy.json \
   data/project_profiles/draftsman_drawing_tool_blank.json \
+  data/project_profiles/draftsman_text_editor.json \
   data/project_profiles/draftsman_game_guy_map_editor.json
 scripts/validate_ui_theme.js data/ui_theme.json
 scripts/validate_shell_layout.js data/shell_layout.json
@@ -61,6 +62,12 @@ cmake --build build
 ./build/qt_qml_region_split \
   --screenshot docs/proof/drawing_tool_blank_1280x820.png \
   --project-profile data/project_profiles/draftsman_drawing_tool_blank.json \
+  --width 1280 \
+  --height 820
+
+./build/qt_qml_region_split \
+  --screenshot docs/proof/text_editor_1280x820.png \
+  --project-profile data/project_profiles/draftsman_text_editor.json \
   --width 1280 \
   --height 820
 

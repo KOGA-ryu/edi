@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "profile": {
+    "profile_id": "draftsman_text_editor",
+    "label": "Text Editor",
+    "type": "text_editor",
+    "root_path": "",
+    "summary": "Local Draftsman text editor workbench for scratch text, review notes, and code snippets.",
+    "default_activity": "text_editor"
+  },
+  "activity_modes": [
+    {
+      "id": "text_editor",
+      "label": "Text",
+      "icon": "T",
+      "tooltip": "Text editor workspace",
+      "enabled": true
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "S",
+      "tooltip": "Settings surface",
+      "enabled": true
+    }
+  ],
+  "left_panel": {
+    "project_rows": [
+      {
+        "label": "scratch.txt",
+        "meta": "local"
+      }
+    ],
+    "settings_label": "Theme and layout"
+  },
+  "main_workspace": {
+    "feature": "text_editor"
+  },
+  "panel_defaults": {
+    "left_collapsed": false,
+    "right_collapsed": false,
+    "bottom_collapsed": true
+  },
+  "right_inspector": {
+    "source": "active_text_document",
+    "sections": {
+      "facts": true,
+      "selection": true,
+      "code_refs": false,
+      "notes": false,
+      "receipts": true,
+      "actions": false
+    }
+  },
+  "bottom_panel": {
+    "tabs": [
+      "Output",
+      "Receipt"
+    ]
+  },
+  "data_sources": {
+    "review_subject": "",
+    "review_notes": ""
+  },
+  "write_policy": {
+    "writes_enabled": false,
+    "note_storage": "memory"
+  }
+}

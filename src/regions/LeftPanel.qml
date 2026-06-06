@@ -8,6 +8,7 @@ import "../features/ui_taxonomy"
 import "../features/settings"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
+import "../features/text_editor"
 
 Rectangle {
     id: leftPanel
@@ -104,12 +105,19 @@ Rectangle {
                         Layout.fillWidth: true
                     }
 
+                    TextEditorLeftPanel {
+                        controller: leftPanel.controller
+                        visible: leftPanel.controller && leftPanel.controller.activityMode === "text_editor"
+                        Layout.fillWidth: true
+                    }
+
                     BlankPanel {
                         visible: leftPanel.controller
                             && leftPanel.controller.activityMode !== "review"
                             && leftPanel.controller.activityMode !== "settings"
                             && leftPanel.controller.activityMode !== "map_editor"
                             && leftPanel.controller.activityMode !== "drawing_tool"
+                            && leftPanel.controller.activityMode !== "text_editor"
                         Layout.fillWidth: true
                     }
                 }

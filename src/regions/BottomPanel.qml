@@ -4,6 +4,7 @@ import "../style"
 import "../components"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
+import "../features/text_editor"
 
 Rectangle {
     id: bottomPanel
@@ -108,13 +109,22 @@ Rectangle {
             controller: bottomPanel.controller
         }
 
+        TextEditorBottomPanel {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.margins: UiStyle.space6
+            visible: bottomPanel.controller && bottomPanel.controller.activityMode === "text_editor"
+            controller: bottomPanel.controller
+        }
+
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !bottomPanel.controller
                 || (bottomPanel.controller.activityMode !== "review"
                     && bottomPanel.controller.activityMode !== "map_editor"
-                    && bottomPanel.controller.activityMode !== "drawing_tool")
+                    && bottomPanel.controller.activityMode !== "drawing_tool"
+                    && bottomPanel.controller.activityMode !== "text_editor")
         }
     }
 }

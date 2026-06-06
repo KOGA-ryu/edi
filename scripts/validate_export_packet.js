@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 
 const packetDirs = process.argv.slice(2);
+const allowedRoles = new Set(["prompt", "context", "reference", "scratch", "output"]);
 if (packetDirs.length === 0) {
   console.error("usage: scripts/validate_export_packet.js <packet-dir> [...]");
   process.exit(1);
@@ -129,6 +130,9 @@ for (const packetDirInput of packetDirs) {
       errors.push(`${context}: missing exported_path`);
     } else {
       validateHash(errors, packetDir, document.exported_path, document.sha256, context);
+    }
+    if (document.role !== undefined && (typeof document.role !== "string" || !allowedRoles.has(document.role))) {
+      errors.push(`${context}: role must be one of ${Array.from(allowedRoles).join(", ")}`);
     }
   }
 

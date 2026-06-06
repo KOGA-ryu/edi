@@ -134,6 +134,13 @@ Export packets include `index.txt` and SHA-256 file records for handoff verifica
 
 `packet_type: "dex_handoff"` adds `AGENT_README.txt`, `prompt.txt`, and `context.txt` to the normal export packet.
 
+Text document roles control Dex handoff routing:
+
+- `prompt`: preferred source for `prompt.txt`
+- `context` and `reference`: included in `context.txt`
+- `scratch`: skipped in Dex handoff packets
+- `output`: exported as a document copy, but not added to prompt/context text
+
 Validate a generated packet before handing it to another worker:
 
 ```sh

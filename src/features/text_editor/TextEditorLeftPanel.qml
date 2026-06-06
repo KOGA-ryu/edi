@@ -24,10 +24,10 @@ ColumnLayout {
             Layout.fillWidth: true
             label: (modelData.name || "untitled.txt")
                 + (root.controller && root.controller.textEditorDocumentModified(modelData) ? " *" : "")
-            meta: modelData.pinned ? "pin" : ""
+            meta: (modelData.role || "context") + (modelData.pinned ? " pin" : "")
             selected: root.controller && modelData.id === root.controller.activeTextEditorDocumentId
             clickable: true
-            metaMaxWidth: 80
+            metaMaxWidth: 112
             onClicked: if (root.controller) root.controller.selectTextEditorDocument(modelData.id)
         }
     }

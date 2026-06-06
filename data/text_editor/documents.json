@@ -5,14 +5,16 @@
             "language": "text",
             "name": "fsd fsaf",
             "path": "docs/scratch.txt",
-            "pinned": false
+            "pinned": false,
+            "role": "prompt"
         },
         {
             "id": "draft-2",
             "language": "text",
             "name": "fuku",
             "path": "docs/draft-2.txt",
-            "pinned": false
+            "pinned": false,
+            "role": "context"
         }
     ],
     "schema_version": 1

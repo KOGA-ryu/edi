@@ -59,12 +59,14 @@ Implemented behavior:
 - in-memory wrap and line-number visibility options
 - optional split editor pane using the same profile-bound document model
 - secondary split pane document selection without changing the primary command target
+- document roles: `prompt`, `context`, `reference`, `scratch`, and `output`
 - modified/clean state tracking against each document's initial text
 - bottom event shelf with no mirrored inspector facts
 - profile-bound persistence through `data/text_editor/documents.json`
 - plain text document bodies under `data/text_editor/docs/`
 - plain-text export packets under `data/text_editor/exports/`
 - Dex handoff packets include `AGENT_README.txt`, `prompt.txt`, and `context.txt`
+- Dex handoff role routing: `prompt` fills `prompt.txt`, `context` and `reference` fill `context.txt`, and `scratch` is skipped
 - export packets include `index.txt` and SHA-256 checksums in `manifest.json`
 
 Explicit non-goals:

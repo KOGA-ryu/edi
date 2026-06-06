@@ -12,6 +12,7 @@ QtObject {
             initialText: "",
             text: "",
             pinned: false,
+            role: "prompt",
             cursorPosition: 0,
             selectionStart: 0,
             selectionEnd: 0
@@ -67,10 +68,30 @@ QtObject {
             initialText: String(source && source.initialText ? source.initialText : ""),
             text: String(source && source.text ? source.text : ""),
             pinned: !!(source && source.pinned),
+            role: normalizedTextEditorDocumentRole(source && source.role),
             cursorPosition: Math.max(0, Number(source && source.cursorPosition) || 0),
             selectionStart: Math.max(0, Number(source && source.selectionStart) || 0),
             selectionEnd: Math.max(0, Number(source && source.selectionEnd) || 0)
         }
+    }
+
+    function normalizedTextEditorDocumentRole(role) {
+        var text = String(role || "").toLowerCase().trim()
+        if (text === "prompt" || text === "context" || text === "reference" || text === "scratch" || text === "output") {
+            return text
+        }
+        return ""
+    }
+
+    function defaultTextEditorDocumentRole(index) {
+        return index === 0 ? "prompt" : "context"
+    }
+
+    function nextTextEditorDocumentRole(role) {
+        var roles = ["prompt", "context", "reference", "scratch", "output"]
+        var current = normalizedTextEditorDocumentRole(role)
+        var index = roles.indexOf(current)
+        return roles[(index + 1) % roles.length]
     }
 
     function updateTextEditorState(text, cursorPosition, selectionStart, selectionEnd) {
@@ -130,6 +151,14 @@ QtObject {
         return isTextEditorDocumentPinned(activeTextEditorDocumentId)
     }
 
+    function activeTextEditorDocumentRole() {
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0) {
+            return ""
+        }
+        return normalizedTextEditorDocumentRole(textEditorDocuments[index].role) || defaultTextEditorDocumentRole(index)
+    }
+
     function toggleActiveTextEditorDocumentPin() {
         var index = textEditorDocumentIndex(activeTextEditorDocumentId)
         if (index < 0) {
@@ -138,6 +167,18 @@ QtObject {
         var copy = textEditorDocuments.slice()
         var current = cloneTextEditorDocument(copy[index])
         current.pinned = !current.pinned
+        copy[index] = current
+        textEditorDocuments = copy
+    }
+
+    function cycleActiveTextEditorDocumentRole() {
+        var index = textEditorDocumentIndex(activeTextEditorDocumentId)
+        if (index < 0) {
+            return
+        }
+        var copy = textEditorDocuments.slice()
+        var current = cloneTextEditorDocument(copy[index])
+        current.role = nextTextEditorDocumentRole(current.role)
         copy[index] = current
         textEditorDocuments = copy
     }
@@ -163,6 +204,7 @@ QtObject {
         current.path = current.path || textEditorPathForId(current.id)
         current.initialText = textEditorInitialText
         current.text = textEditorText
+        current.role = normalizedTextEditorDocumentRole(current.role) || defaultTextEditorDocumentRole(index)
         current.cursorPosition = textEditorCursorPosition
         current.selectionStart = textEditorSelectionStart
         current.selectionEnd = textEditorSelectionEnd
@@ -201,6 +243,9 @@ QtObject {
             }
             if (!document.path.length) {
                 document.path = textEditorPathForId(document.id)
+            }
+            if (!document.role.length) {
+                document.role = defaultTextEditorDocumentRole(normalized.length)
             }
             normalized.push(document)
             var match = document.id.match(/(\d+)$/)
@@ -308,6 +353,7 @@ QtObject {
             initialText: "",
             text: "",
             pinned: false,
+            role: "context",
             cursorPosition: 0,
             selectionStart: 0,
             selectionEnd: 0
@@ -331,6 +377,7 @@ QtObject {
             initialText: source.text,
             text: source.text,
             pinned: false,
+            role: source.role,
             cursorPosition: source.cursorPosition,
             selectionStart: source.selectionStart,
             selectionEnd: source.selectionEnd

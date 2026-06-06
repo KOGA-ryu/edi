@@ -300,6 +300,7 @@ Rectangle {
                         clickable: true
                         tooltip: (modelData.name || "untitled.txt") + " - "
                             + (root.controller ? root.controller.textEditorDocumentState(modelData) : "clean")
+                            + " - " + (modelData.role || "context")
                         onClicked: if (root.controller) root.controller.selectTextEditorDocument(modelData.id)
                     }
                 }
@@ -560,7 +561,7 @@ Rectangle {
                                     label: (modelData.name || "untitled.txt") + (modelData.pinned ? " [P]" : "")
                                     active: root.controller && modelData.id === root.controller.secondaryTextEditorDocumentId
                                     clickable: true
-                                    tooltip: "Split pane: " + (modelData.name || "untitled.txt")
+                                    tooltip: "Split pane: " + (modelData.name || "untitled.txt") + " - " + (modelData.role || "context")
                                     onClicked: {
                                         if (root.controller) {
                                             root.controller.selectSecondaryTextEditorDocument(modelData.id)

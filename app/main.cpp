@@ -129,12 +129,15 @@ public:
             const QString language = document.value(QStringLiteral("language")).toString().isEmpty()
                 ? QStringLiteral("text")
                 : document.value(QStringLiteral("language")).toString();
+            const QString role = normalizedDocumentRole(document.value(QStringLiteral("role")).toString());
+            document.insert(QStringLiteral("role"), role);
 
             QJsonObject manifestDocument;
             manifestDocument.insert(QStringLiteral("id"), id);
             manifestDocument.insert(QStringLiteral("name"), name);
             manifestDocument.insert(QStringLiteral("language"), language);
             manifestDocument.insert(QStringLiteral("path"), cleanPath);
+            manifestDocument.insert(QStringLiteral("role"), role);
             manifestDocuments.append(manifestDocument);
             savedDocuments.append(document);
         }
@@ -216,10 +219,16 @@ public:
         QString promptDocumentName;
         int contextDocumentCount = 0;
         int exportedCount = 0;
+        QVariantList pendingPromptDocuments;
+        QVariantList exportedHandoffDocuments;
         for (const QVariant &entry : documents) {
             const QVariantMap document = entry.toMap();
             const QString id = document.value(QStringLiteral("id")).toString().trimmed();
             if (id.isEmpty()) {
+                continue;
+            }
+            const QString role = normalizedDocumentRole(document.value(QStringLiteral("role")).toString());
+            if (dexHandoff && role == QStringLiteral("scratch")) {
                 continue;
             }
 
@@ -251,11 +260,16 @@ public:
             combined += QLatin1Char('\n');
 
             if (dexHandoff) {
-                if (id == activeId) {
-                    promptDocumentId = id;
-                    promptDocumentName = name;
-                    promptText = text;
-                } else {
+                QVariantMap handoffDocument;
+                handoffDocument.insert(QStringLiteral("id"), id);
+                handoffDocument.insert(QStringLiteral("name"), name);
+                handoffDocument.insert(QStringLiteral("text"), text);
+                handoffDocument.insert(QStringLiteral("role"), role);
+                exportedHandoffDocuments.append(handoffDocument);
+                if (role == QStringLiteral("prompt")) {
+                    pendingPromptDocuments.append(handoffDocument);
+                }
+                if (role == QStringLiteral("context") || role == QStringLiteral("reference")) {
                     contextText += QStringLiteral("===== ") + name + QStringLiteral(" [") + id + QStringLiteral("] =====\n");
                     contextText += text;
                     if (!contextText.endsWith(QLatin1Char('\n'))) {
@@ -273,6 +287,7 @@ public:
                 ? QStringLiteral("text")
                 : document.value(QStringLiteral("language")).toString().trimmed();
             manifestDocument.insert(QStringLiteral("language"), language);
+            manifestDocument.insert(QStringLiteral("role"), role);
             manifestDocument.insert(QStringLiteral("source_path"), document.value(QStringLiteral("path")).toString());
             manifestDocument.insert(QStringLiteral("exported_path"), relativePath);
             manifestDocument.insert(QStringLiteral("active"), id == activeId);
@@ -295,10 +310,30 @@ public:
         packetFiles.append(packetFileRecord(QStringLiteral("all_documents.txt"), sha256Hex(combined.toUtf8()), combined.toUtf8().size()));
 
         if (dexHandoff) {
-            if (promptDocumentId.isEmpty() && manifestDocuments.size() > 0) {
-                const QJsonObject fallback = manifestDocuments.first().toObject();
-                promptDocumentId = fallback.value(QStringLiteral("id")).toString();
-                promptDocumentName = fallback.value(QStringLiteral("name")).toString();
+            QVariantMap promptDocument;
+            if (!pendingPromptDocuments.isEmpty()) {
+                promptDocument = pendingPromptDocuments.first().toMap();
+            } else {
+                for (const QVariant &entry : documents) {
+                    QVariantMap candidate = entry.toMap();
+                    if (candidate.value(QStringLiteral("id")).toString() == activeId
+                            && normalizedDocumentRole(candidate.value(QStringLiteral("role")).toString()) != QStringLiteral("scratch")) {
+                        promptDocument = candidate;
+                        break;
+                    }
+                }
+            }
+            if (promptDocument.isEmpty() && !exportedHandoffDocuments.isEmpty()) {
+                promptDocument = exportedHandoffDocuments.first().toMap();
+            }
+            if (promptDocument.isEmpty()) {
+                promptDocumentId = QStringLiteral("none");
+                promptDocumentName = QStringLiteral("No prompt document");
+                promptText = QStringLiteral("No non-scratch prompt document was exported.");
+            } else {
+                promptDocumentId = promptDocument.value(QStringLiteral("id")).toString();
+                promptDocumentName = promptDocument.value(QStringLiteral("name")).toString();
+                promptText = promptDocument.value(QStringLiteral("text")).toString();
             }
 
             QString promptFile;
@@ -438,6 +473,7 @@ public:
             document.insert(QStringLiteral("name"), item.value(QStringLiteral("name")).toString(QStringLiteral("untitled.txt")));
             document.insert(QStringLiteral("language"), item.value(QStringLiteral("language")).toString(QStringLiteral("text")));
             document.insert(QStringLiteral("path"), cleanPath);
+            document.insert(QStringLiteral("role"), item.value(QStringLiteral("role")).toString());
             document.insert(QStringLiteral("initialText"), text);
             document.insert(QStringLiteral("text"), text);
             document.insert(QStringLiteral("cursorPosition"), 0);
@@ -544,6 +580,18 @@ private:
         }
         const QString safeId = safeFileStem(fallbackId);
         return safeFileStem(base) + QStringLiteral("_") + safeId + QStringLiteral(".") + safeFileStem(suffix);
+    }
+
+    static QString normalizedDocumentRole(const QString &role) {
+        const QString clean = role.trimmed().toLower();
+        if (clean == QStringLiteral("prompt")
+                || clean == QStringLiteral("context")
+                || clean == QStringLiteral("reference")
+                || clean == QStringLiteral("scratch")
+                || clean == QStringLiteral("output")) {
+            return clean;
+        }
+        return QStringLiteral("context");
     }
 
     static bool writeUtf8File(const QString &path, const QString &text) {

@@ -73,6 +73,11 @@ RowLayout {
                 onTriggered: toolbar.controller.toggleTextEditorActiveDocumentPin()
             }
             Action {
+                text: toolbar.controller ? "Role: " + toolbar.controller.textEditorActiveDocumentRole() : "Role"
+                enabled: toolbar.controller
+                onTriggered: toolbar.controller.cycleTextEditorActiveDocumentRole()
+            }
+            Action {
                 text: "Close Document"
                 enabled: toolbar.controller && toolbar.controller.textEditorDocuments.length > 1
                 onTriggered: toolbar.controller.closeActiveTextEditorDocument()

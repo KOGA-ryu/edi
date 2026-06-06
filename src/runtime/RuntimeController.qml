@@ -671,8 +671,17 @@ QtObject {
         return textEditorSession.activeTextEditorDocumentPinned()
     }
 
+    function textEditorActiveDocumentRole() {
+        return textEditorSession.activeTextEditorDocumentRole()
+    }
+
     function toggleTextEditorActiveDocumentPin() {
         textEditorSession.toggleActiveTextEditorDocumentPin()
+        revision += 1
+    }
+
+    function cycleTextEditorActiveDocumentRole() {
+        textEditorSession.cycleActiveTextEditorDocumentRole()
         revision += 1
     }
 

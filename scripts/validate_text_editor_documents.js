@@ -6,6 +6,7 @@ const path = require("path");
 const file = process.argv[2] || "data/text_editor/documents.json";
 const fullPath = path.resolve(file);
 const errors = [];
+const allowedRoles = new Set(["prompt", "context", "reference", "scratch", "output"]);
 
 function requireString(object, key, context) {
   if (typeof object[key] !== "string" || object[key].trim().length === 0) {
@@ -37,6 +38,9 @@ for (const item of Array.isArray(document.documents) ? document.documents : []) 
   requireString(item, "name", context);
   requireString(item, "language", context);
   requireString(item, "path", context);
+  if (item.role !== undefined && (typeof item.role !== "string" || !allowedRoles.has(item.role))) {
+    errors.push(`${context}: role must be one of ${Array.from(allowedRoles).join(", ")}`);
+  }
 
   if (typeof item.id === "string") {
     if (seenIds.has(item.id)) {

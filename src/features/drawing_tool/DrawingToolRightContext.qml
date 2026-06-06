@@ -52,6 +52,19 @@ Item {
         return ""
     }
 
+    function panelTooltip() {
+        var variant = activeVariantLabel()
+        var help = optionHelpText()
+        var parts = []
+        if (variant.length > 0 && variant !== selectedToolLabel()) {
+            parts.push(variant)
+        }
+        if (help.length > 0) {
+            parts.push(help)
+        }
+        return parts.join(" - ")
+    }
+
     function variantRows() {
         if (!drawingRightContext.controller) {
             return []
@@ -257,27 +270,32 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(132, 104 + (variantRows().length > 0 ? 34 : 0) + visibleOptionCount() * 32)
+                Layout.preferredHeight: Math.max(88, 44 + (variantRows().length > 0 ? 28 : 0) + visibleOptionCount() * 30)
 
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: UiStyle.space6
 
-                    UiSectionHeader {
-                        title: "Tool"
+                    Text {
+                        id: selectedToolTitle
                         Layout.fillWidth: true
-                    }
-                    UiListRow {
-                        Layout.fillWidth: true
-                        label: "Tool"
-                        meta: selectedToolLabel()
-                        metaMaxWidth: 360
-                    }
+                        text: selectedToolLabel()
+                        color: UiStyle.colorText
+                        font.family: UiStyle.fontSans
+                        font.pixelSize: UiStyle.fontSizeBody
+                        font.weight: UiStyle.fontWeightSemiBold
+                        elide: Text.ElideRight
 
-                    UiSectionHeader {
-                        title: "Variant"
-                        Layout.fillWidth: true
-                        visible: variantRows().length > 0
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.NoButton
+
+                            ToolTip.visible: containsMouse && drawingRightContext.panelTooltip().length > 0
+                            ToolTip.text: drawingRightContext.panelTooltip()
+                            ToolTip.delay: 2400
+                            ToolTip.timeout: 8000
+                        }
                     }
 
                     RowLayout {
@@ -310,15 +328,6 @@ Item {
                         }
                     }
 
-                    Text {
-                        Layout.fillWidth: true
-                        visible: optionHelpText().length > 0
-                        text: optionHelpText()
-                        color: UiStyle.colorTextFaint
-                        font.family: UiStyle.fontSans
-                        font.pixelSize: UiStyle.fontSizeXs
-                        wrapMode: Text.WordWrap
-                    }
                 }
             }
         }

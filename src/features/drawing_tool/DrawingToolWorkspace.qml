@@ -99,19 +99,23 @@ Rectangle {
                     }
                     var x = pxX(bounds, canvasInput.hoverSnapX)
                     var y = pxY(bounds, canvasInput.hoverSnapY)
-                    var snapColor = canvasInput.hoverSnapKind === "grid" ? UiStyle.colorTextMuted : UiStyle.colorWarning
+                    var snapColor = canvasInput.hoverSnapKind === "grid" ? UiStyle.colorAccentSoft : UiStyle.colorWarning
                     ctx.save()
-                    ctx.lineWidth = 1.5
+                    ctx.globalAlpha = canvasInput.hoverSnapKind === "grid" ? 0.88 : 0.96
+                    ctx.lineWidth = 1.4
                     ctx.strokeStyle = snapColor
-                    ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, snapColor, 0.28)
+                    ctx.fillStyle = UiStyle.colorTransparent
                     ctx.beginPath()
-                    ctx.arc(x, y, 7, 0, Math.PI * 2)
-                    ctx.fill()
+                    ctx.rect(x - 5, y - 5, 10, 10)
                     ctx.stroke()
                     ctx.beginPath()
                     ctx.moveTo(x - 10, y)
+                    ctx.lineTo(x - 6, y)
+                    ctx.moveTo(x + 6, y)
                     ctx.lineTo(x + 10, y)
                     ctx.moveTo(x, y - 10)
+                    ctx.lineTo(x, y - 6)
+                    ctx.moveTo(x, y + 6)
                     ctx.lineTo(x, y + 10)
                     ctx.stroke()
                     ctx.restore()

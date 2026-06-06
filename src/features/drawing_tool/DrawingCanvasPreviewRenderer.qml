@@ -44,34 +44,52 @@ QtObject {
     function setupPreviewStroke(ctx) {
         ctx.save()
         var style = normalizeLineStyle(controller ? controller.drawingLineStyle : "solid")
-        if (style === "dashed") {
-            ctx.setLineDash([8, 5])
-        } else if (style === "dotted") {
-            ctx.setLineDash([2, 3])
+        if (style === "dotted") {
+            ctx.setLineDash([2, 5])
         } else {
-            ctx.setLineDash([])
+            ctx.setLineDash([9, 5])
         }
-        var strokeColor = String(controller && controller.drawingStrokeColor ? controller.drawingStrokeColor : UiStyle.colorWarning)
-        var fillColor = String(controller && controller.drawingFillColor ? controller.drawingFillColor : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.16))
         var width = Number.isFinite(Number(controller && controller.drawingLineThickness))
             ? Number(controller.drawingLineThickness)
             : 2
-        var opacity = Number.isFinite(Number(controller && controller.drawingStrokeOpacity))
-            ? Math.max(0, Math.min(1, Number(controller.drawingStrokeOpacity)))
-            : 1
-        ctx.lineWidth = Math.max(1, width)
-        ctx.strokeStyle = strokeColor
-        ctx.fillStyle = fillColor
-        ctx.globalAlpha = opacity
+        ctx.lineWidth = Math.max(2, width + 1)
+        ctx.strokeStyle = UiStyle.colorWarning
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.22)
+        ctx.globalAlpha = 0.96
+    }
+
+    function drawPendingHandle(ctx, x, y) {
+        ctx.setLineDash([])
+        ctx.save()
+        ctx.globalAlpha = 1
+        ctx.lineWidth = 2
+        ctx.strokeStyle = UiStyle.colorWarning
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.34)
+        ctx.beginPath()
+        ctx.arc(x, y, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(x - 13, y)
+        ctx.lineTo(x + 13, y)
+        ctx.moveTo(x, y - 13)
+        ctx.lineTo(x, y + 13)
+        ctx.stroke()
+        ctx.restore()
     }
 
     function drawPreviewHandle(ctx, x, y) {
         ctx.setLineDash([])
+        ctx.save()
+        ctx.globalAlpha = 0.92
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = UiStyle.colorAccent
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, 0.24)
         ctx.beginPath()
-        ctx.arc(x, y, 4, 0, Math.PI * 2)
+        ctx.arc(x, y, 6, 0, Math.PI * 2)
         ctx.fill()
         ctx.stroke()
-        ctx.setLineDash([8, 5])
+        ctx.restore()
     }
 
     function drawRectanglePreview(ctx, x1, y1, x2, y2) {
@@ -114,7 +132,7 @@ QtObject {
         var x2 = pxX(bounds, previewX)
         var y2 = pxY(bounds, previewY)
         setupPreviewStroke(ctx)
-        drawPreviewHandle(ctx, x1, y1)
+        drawPendingHandle(ctx, x1, y1)
         drawPreviewHandle(ctx, x2, y2)
         var tool = String(doc.selected_tool_id || "")
         if (tool === "circle_arc") {

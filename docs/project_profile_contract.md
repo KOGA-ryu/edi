@@ -100,6 +100,17 @@ custom_actions: [
     args: {
       packet_type: "text_editor_bundle"
     }
+  },
+  {
+    id: "export_dex_handoff",
+    label: "Export Dex Handoff",
+    menu: "File",
+    activity: "text_editor",
+    handler: "export_text_bundle",
+    enabled: true,
+    args: {
+      packet_type: "dex_handoff"
+    }
   }
 ]
 ```
@@ -116,5 +127,7 @@ Custom actions can also be triggered for proof/automation runs:
 ./build/qt_qml_region_split \
   --project-profile data/project_profiles/draftsman_text_editor.json \
   --activity text_editor \
-  --action export_text_editor_bundle
+  --action export_dex_handoff
 ```
+
+`packet_type: "dex_handoff"` adds `AGENT_README.txt`, `prompt.txt`, and `context.txt` to the normal export packet.

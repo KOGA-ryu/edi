@@ -69,6 +69,17 @@
       "args": {
         "packet_type": "text_editor_bundle"
       }
+    },
+    {
+      "id": "export_dex_handoff",
+      "label": "Export Dex Handoff",
+      "menu": "File",
+      "activity": "text_editor",
+      "handler": "export_text_bundle",
+      "enabled": true,
+      "args": {
+        "packet_type": "dex_handoff"
+      }
     }
   ],
   "data_sources": {

@@ -48,7 +48,7 @@ Implemented behavior:
 - keyboard shortcuts for undo, redo, select all, find, and escape-close-find
 - top `File` menu routes to document commands when `activityMode` is `text_editor`
 - top `File` menu exposes `Save Document` and `Save All` for profile-bound storage
-- top `File` menu exposes profile-declared `Export Bundle` through the safe `export_text_bundle` custom action
+- top `File` menu exposes profile-declared `Export Bundle` and `Export Dex Handoff` through the safe `export_text_bundle` custom action
 - top `Edit` menu routes to editor commands and editor options when `activityMode` is `text_editor`
 - menu-driven editor actions use a controller command bridge consumed by `TextEditorWorkspace.qml`
 - inline rename field in the left panel
@@ -64,6 +64,7 @@ Implemented behavior:
 - profile-bound persistence through `data/text_editor/documents.json`
 - plain text document bodies under `data/text_editor/docs/`
 - plain-text export packets under `data/text_editor/exports/`
+- Dex handoff packets include `AGENT_README.txt`, `prompt.txt`, and `context.txt`
 
 Explicit non-goals:
 

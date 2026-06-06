@@ -183,6 +183,7 @@ public:
         const QString packetType = safeFileStem(metadata.value(QStringLiteral("packet_type")).toString().trimmed().isEmpty()
             ? QStringLiteral("text_editor_bundle")
             : metadata.value(QStringLiteral("packet_type")).toString());
+        const bool dexHandoff = packetType == QStringLiteral("dex_handoff");
         const QString timestamp = QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_HHmmss"));
         const QString exportRoot = manifestDir.absoluteFilePath(QStringLiteral("exports"));
         if (!QDir().mkpath(exportRoot)) {
@@ -207,6 +208,11 @@ public:
 
         QJsonArray manifestDocuments;
         QString combined;
+        QString promptText;
+        QString contextText;
+        QString promptDocumentId;
+        QString promptDocumentName;
+        int contextDocumentCount = 0;
         int exportedCount = 0;
         for (const QVariant &entry : documents) {
             const QVariantMap document = entry.toMap();
@@ -240,6 +246,22 @@ public:
             }
             combined += QLatin1Char('\n');
 
+            if (dexHandoff) {
+                if (id == activeId) {
+                    promptDocumentId = id;
+                    promptDocumentName = name;
+                    promptText = text;
+                } else {
+                    contextText += QStringLiteral("===== ") + name + QStringLiteral(" [") + id + QStringLiteral("] =====\n");
+                    contextText += text;
+                    if (!contextText.endsWith(QLatin1Char('\n'))) {
+                        contextText += QLatin1Char('\n');
+                    }
+                    contextText += QLatin1Char('\n');
+                    contextDocumentCount += 1;
+                }
+            }
+
             QJsonObject manifestDocument;
             manifestDocument.insert(QStringLiteral("id"), id);
             manifestDocument.insert(QStringLiteral("name"), name);
@@ -261,15 +283,48 @@ public:
             return result;
         }
 
-        QSaveFile combinedFile(packetDir.absoluteFilePath(QStringLiteral("all_documents.txt")));
-        if (!combinedFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        if (!writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("all_documents.txt")), combined)) {
             result.insert(QStringLiteral("message"), QStringLiteral("combined export failed"));
             return result;
         }
-        combinedFile.write(combined.toUtf8());
-        if (!combinedFile.commit()) {
-            result.insert(QStringLiteral("message"), QStringLiteral("combined export commit failed"));
-            return result;
+
+        if (dexHandoff) {
+            if (promptDocumentId.isEmpty() && manifestDocuments.size() > 0) {
+                const QJsonObject fallback = manifestDocuments.first().toObject();
+                promptDocumentId = fallback.value(QStringLiteral("id")).toString();
+                promptDocumentName = fallback.value(QStringLiteral("name")).toString();
+            }
+
+            QString promptFile;
+            promptFile += QStringLiteral("# Active Draftsman Prompt\n\n");
+            promptFile += QStringLiteral("Document: ") + promptDocumentName + QStringLiteral("\n");
+            promptFile += QStringLiteral("Document id: ") + promptDocumentId + QStringLiteral("\n\n");
+            promptFile += promptText;
+            if (!promptFile.endsWith(QLatin1Char('\n'))) {
+                promptFile += QLatin1Char('\n');
+            }
+
+            QString contextFile;
+            contextFile += QStringLiteral("# Draftsman Context Documents\n\n");
+            contextFile += QStringLiteral("Context documents: ") + QString::number(contextDocumentCount) + QStringLiteral("\n\n");
+            contextFile += contextText.isEmpty() ? QStringLiteral("No additional context documents were exported.\n") : contextText;
+
+            QString agentReadme;
+            agentReadme += QStringLiteral("Draftsman Dex handoff packet\n");
+            agentReadme += QStringLiteral("Created: ") + QDateTime::currentDateTimeUtc().toString(Qt::ISODate) + QStringLiteral("\n\n");
+            agentReadme += QStringLiteral("Read order:\n");
+            agentReadme += QStringLiteral("1. manifest.json\n");
+            agentReadme += QStringLiteral("2. prompt.txt\n");
+            agentReadme += QStringLiteral("3. context.txt\n");
+            agentReadme += QStringLiteral("4. documents/ for exact source copies\n\n");
+            agentReadme += QStringLiteral("Do not assume this packet syncs back to Draftsman. Return changes as a new packet, patch, or explicit instructions.\n");
+
+            if (!writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("prompt.txt")), promptFile)
+                    || !writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("context.txt")), contextFile)
+                    || !writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("AGENT_README.txt")), agentReadme)) {
+                result.insert(QStringLiteral("message"), QStringLiteral("handoff export failed"));
+                return result;
+            }
         }
 
         QJsonObject manifest;
@@ -281,6 +336,14 @@ public:
         manifest.insert(QStringLiteral("profile_label"), metadata.value(QStringLiteral("profile_label")).toString());
         manifest.insert(QStringLiteral("active_document_id"), activeId);
         manifest.insert(QStringLiteral("documents"), manifestDocuments);
+        if (dexHandoff) {
+            QJsonObject handoffFiles;
+            handoffFiles.insert(QStringLiteral("agent_readme"), QStringLiteral("AGENT_README.txt"));
+            handoffFiles.insert(QStringLiteral("prompt"), QStringLiteral("prompt.txt"));
+            handoffFiles.insert(QStringLiteral("context"), QStringLiteral("context.txt"));
+            handoffFiles.insert(QStringLiteral("combined"), QStringLiteral("all_documents.txt"));
+            manifest.insert(QStringLiteral("handoff_files"), handoffFiles);
+        }
 
         QSaveFile manifestFile(packetDir.absoluteFilePath(QStringLiteral("manifest.json")));
         if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -305,7 +368,7 @@ public:
         }
 
         result.insert(QStringLiteral("ok"), true);
-        result.insert(QStringLiteral("message"), QStringLiteral("exported bundle"));
+        result.insert(QStringLiteral("message"), dexHandoff ? QStringLiteral("exported dex handoff") : QStringLiteral("exported bundle"));
         result.insert(QStringLiteral("path"), packetPath);
         result.insert(QStringLiteral("documents"), exportedCount);
         return result;
@@ -454,6 +517,15 @@ private:
         }
         const QString safeId = safeFileStem(fallbackId);
         return safeFileStem(base) + QStringLiteral("_") + safeId + QStringLiteral(".") + safeFileStem(suffix);
+    }
+
+    static bool writeUtf8File(const QString &path, const QString &text) {
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            return false;
+        }
+        file.write(text.toUtf8());
+        return file.commit();
     }
 
     static QVariantMap normalizeEditorState(const QVariantMap &source) {

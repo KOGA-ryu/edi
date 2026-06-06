@@ -52,6 +52,8 @@ public:
     Q_INVOKABLE void moveSelectedObjectBy(double dx, double dy);
     Q_INVOKABLE void updateObjectField(const QString &objectId, const QString &field, double value);
     Q_INVOKABLE void updateSelectedObjectField(const QString &field, double value);
+    Q_INVOKABLE void updateObjectMetadataField(const QString &objectId, const QString &field, const QVariant &value);
+    Q_INVOKABLE void updateSelectedObjectMetadataField(const QString &field, const QVariant &value);
     Q_INVOKABLE void setToolParameter(const QString &parameter, const QVariant &value);
     Q_INVOKABLE void cancelPending();
     Q_INVOKABLE void setSnap(bool enabled, int gridStepPx);

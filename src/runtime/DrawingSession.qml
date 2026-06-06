@@ -1113,6 +1113,18 @@ QtObject {
         }
     }
 
+    function updateSelectedDrawingObjectMetadataField(field, rawValue) {
+        var objectId = String(selectedDrawingObjectId || "")
+        var fieldId = String(field || "")
+        if (objectId.indexOf("script_") !== 0 || fieldId.length === 0) {
+            return
+        }
+        if (drawingNativeController && typeof drawingNativeController.updateObjectMetadataField === "function") {
+            drawingNativeController.updateObjectMetadataField(objectId, fieldId, rawValue)
+            syncNativeDrawingModel()
+        }
+    }
+
     function selectDrawingObjectAtNormalized(x, y) {
         var bestId = hitDrawingObjectAtNormalized(x, y)
         if (bestId.length > 0) {

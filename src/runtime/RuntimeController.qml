@@ -1422,6 +1422,10 @@ QtObject {
         drawingSession.updateSelectedDrawingObjectField(field, rawValue)
     }
 
+    function updateSelectedDrawingObjectMetadataField(field, rawValue) {
+        drawingSession.updateSelectedDrawingObjectMetadataField(field, rawValue)
+    }
+
     function selectDrawingObjectAtNormalized(x, y) {
         return drawingSession.selectDrawingObjectAtNormalized(x, y)
     }

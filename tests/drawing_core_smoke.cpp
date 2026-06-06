@@ -407,6 +407,49 @@ bool runControllerObjectFieldGestureCoalescingSmoke() {
     return ok;
 }
 
+bool runControllerObjectMetadataSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    controller.selectObject(QStringLiteral("script_rectangle_01"));
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("wall"));
+    controller.updateSelectedObjectMetadataField(QStringLiteral("material"), QStringLiteral("stone"));
+    controller.updateSelectedObjectMetadataField(QStringLiteral("intent"), QStringLiteral("blocks movement"));
+    controller.updateSelectedObjectMetadataField(QStringLiteral("export_group"), QStringLiteral("room_a"));
+    controller.updateSelectedObjectMetadataField(QStringLiteral("tags"), QStringLiteral("wall, collision, wall"));
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonObject rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    const QJsonArray tags = rectangle.value(QStringLiteral("tags")).toArray();
+
+    bool ok = true;
+    ok &= expect(rectangle.value(QStringLiteral("role")).toString() == QStringLiteral("wall"),
+                 QStringLiteral("metadata editor should persist role"));
+    ok &= expect(rectangle.value(QStringLiteral("material")).toString() == QStringLiteral("stone"),
+                 QStringLiteral("metadata editor should persist material"));
+    ok &= expect(rectangle.value(QStringLiteral("intent")).toString() == QStringLiteral("blocks movement"),
+                 QStringLiteral("metadata editor should persist intent"));
+    ok &= expect(rectangle.value(QStringLiteral("export_group")).toString() == QStringLiteral("room_a"),
+                 QStringLiteral("metadata editor should persist export group"));
+    ok &= expect(tags.size() == 2 && tags.at(0).toString() == QStringLiteral("wall") && tags.at(1).toString() == QStringLiteral("collision"),
+                 QStringLiteral("metadata editor should normalize comma tags"));
+
+    controller.updateSelectedObjectMetadataField(QStringLiteral("material"), QStringLiteral(""));
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    ok &= expect(!rectangle.contains(QStringLiteral("material")),
+                 QStringLiteral("clearing metadata should remove empty material"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    ok &= expect(rectangle.value(QStringLiteral("material")).toString() == QStringLiteral("stone"),
+                 QStringLiteral("metadata clear should be undoable"));
+    return ok;
+}
+
 bool runControllerDuplicateSelectedObjectSmoke() {
     DrawingDocumentController controller;
     controller.selectTool(QStringLiteral("rectangle_polygon"));
@@ -682,6 +725,7 @@ int main(int argc, char **argv) {
     ok &= runControllerMoveCoalescingSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
+    ok &= runControllerObjectMetadataSmoke();
     ok &= runControllerDuplicateSelectedObjectSmoke();
     ok &= runControllerPasteObjectSnapshotSmoke();
     ok &= runControllerSelectObjectsSmoke();

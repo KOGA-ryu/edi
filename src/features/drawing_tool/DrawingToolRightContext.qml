@@ -139,9 +139,33 @@ Item {
         return []
     }
 
+    function metadataFieldValue(field) {
+        var object = selectedGeneratedObject()
+        var fieldId = String(field || "")
+        if (fieldId === "tags") {
+            return asArray(object.tags).join(", ")
+        }
+        return String(object[fieldId] || "")
+    }
+
+    function metadataRows() {
+        return [
+            { label: "role", field: "role", value: metadataFieldValue("role"), placeholder: "wall, panel, cutout" },
+            { label: "material", field: "material", value: metadataFieldValue("material"), placeholder: "stone, metal, glass" },
+            { label: "group", field: "export_group", value: metadataFieldValue("export_group"), placeholder: "room_a, collision, shell" },
+            { label: "tags", field: "tags", value: metadataFieldValue("tags"), placeholder: "comma, separated" }
+        ]
+    }
+
     function setObjectField(field, value) {
         if (drawingRightContext.controller) {
             drawingRightContext.controller.updateSelectedDrawingObjectField(String(field || ""), value)
+        }
+    }
+
+    function setObjectMetadataField(field, value) {
+        if (drawingRightContext.controller) {
+            drawingRightContext.controller.updateSelectedDrawingObjectMetadataField(String(field || ""), value)
         }
     }
 
@@ -589,6 +613,88 @@ Item {
         }
     }
 
+    component ObjectMetadataField: RowLayout {
+        property string label: ""
+        property string field: ""
+        property string valueText: ""
+        property string placeholder: ""
+
+        spacing: UiStyle.space4
+
+        Text {
+            Layout.preferredWidth: 52
+            text: parent.label
+            color: UiStyle.colorTextMuted
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        UiTextField {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 22
+            placeholderText: parent.placeholder
+            property string boundValueText: parent.valueText
+            property string lastCommittedText: boundValueText
+            text: boundValueText
+
+            onBoundValueTextChanged: {
+                text = boundValueText
+                lastCommittedText = boundValueText
+            }
+
+            function commit() {
+                if (text === lastCommittedText) {
+                    return
+                }
+                lastCommittedText = text
+                drawingRightContext.setObjectMetadataField(parent.field, text)
+            }
+
+            onAccepted: commit()
+            onEditingFinished: commit()
+        }
+    }
+
+    component ObjectIntentField: ColumnLayout {
+        property string valueText: ""
+
+        spacing: UiStyle.space4
+
+        Text {
+            Layout.fillWidth: true
+            text: "intent"
+            color: UiStyle.colorTextMuted
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        UiTextArea {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 58
+            placeholderText: "why this object exists"
+            property string boundValueText: parent.valueText
+            property string lastCommittedText: boundValueText
+            text: boundValueText
+
+            onBoundValueTextChanged: {
+                text = boundValueText
+                lastCommittedText = boundValueText
+            }
+
+            function commit() {
+                if (text === lastCommittedText) {
+                    return
+                }
+                lastCommittedText = text
+                drawingRightContext.setObjectMetadataField("intent", text)
+            }
+
+            onActiveFocusChanged: if (!activeFocus) commit()
+        }
+    }
+
     Flickable {
         anchors.fill: parent
         clip: true
@@ -703,6 +809,44 @@ Item {
                             valueText: modelData.value
                             suffix: modelData.suffix
                         }
+                    }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 202
+                panelPadding: UiStyle.space8
+                visible: drawingRightContext.selectedGeneratedObjectActive()
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space4
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Metadata"
+                        color: UiStyle.colorText
+                        font.family: UiStyle.fontSans
+                        font.pixelSize: UiStyle.fontSizeSm
+                        font.weight: UiStyle.fontWeightSemiBold
+                        elide: Text.ElideRight
+                    }
+
+                    Repeater {
+                        model: metadataRows()
+                        delegate: ObjectMetadataField {
+                            Layout.fillWidth: true
+                            label: modelData.label
+                            field: modelData.field
+                            valueText: modelData.value
+                            placeholder: modelData.placeholder
+                        }
+                    }
+
+                    ObjectIntentField {
+                        Layout.fillWidth: true
+                        valueText: metadataFieldValue("intent")
                     }
                 }
             }

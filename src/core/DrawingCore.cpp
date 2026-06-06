@@ -87,6 +87,7 @@ bool undoableInteractiveCommand(const QJsonObject &command) {
         || name == QStringLiteral("move_object")
         || name == QStringLiteral("move_objects")
         || name == QStringLiteral("update_object")
+        || name == QStringLiteral("set_object_metadata")
         || name == QStringLiteral("set_tool_parameter")
         || name == QStringLiteral("add_point")
         || name == QStringLiteral("add_line")
@@ -784,6 +785,75 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
     }
     if (!updated) {
         state.errors.append("update_object could not find generated object: " + objectId);
+        return;
+    }
+    state.generatedObjects = updatedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObject(state, objectId);
+    state.pendingPoint = {};
+}
+
+bool isEditableObjectMetadataField(const QString &field) {
+    return field == QStringLiteral("role")
+        || field == QStringLiteral("material")
+        || field == QStringLiteral("intent")
+        || field == QStringLiteral("export_group")
+        || field == QStringLiteral("tags");
+}
+
+QJsonArray normalizedMetadataTags(const QJsonValue &value) {
+    QJsonArray tags;
+    if (value.isArray()) {
+        for (const QJsonValue tagValue : value.toArray()) {
+            const QString tag = tagValue.toString().trimmed();
+            if (!tag.isEmpty() && !tags.contains(tag)) {
+                tags.append(tag);
+            }
+        }
+        return tags;
+    }
+    const QStringList parts = value.toString().split(',', Qt::SkipEmptyParts);
+    for (const QString &part : parts) {
+        const QString tag = part.trimmed();
+        if (!tag.isEmpty() && !tags.contains(tag)) {
+            tags.append(tag);
+        }
+    }
+    return tags;
+}
+
+void setObjectMetadataField(State &state, const QString &objectId, const QString &field, const QJsonValue &value) {
+    if (objectId.isEmpty() || !isEditableObjectMetadataField(field)) {
+        state.pendingPoint = {};
+        return;
+    }
+
+    bool updated = false;
+    QJsonArray updatedObjects;
+    for (const QJsonValue objectValue : state.generatedObjects) {
+        QJsonObject object = objectValue.toObject();
+        if (object.value(QStringLiteral("id")).toString() == objectId) {
+            if (field == QStringLiteral("tags")) {
+                const QJsonArray tags = normalizedMetadataTags(value);
+                if (tags.isEmpty()) {
+                    object.remove(field);
+                } else {
+                    object.insert(field, tags);
+                }
+            } else {
+                const QString text = value.toString().trimmed();
+                if (text.isEmpty()) {
+                    object.remove(field);
+                } else {
+                    object.insert(field, text);
+                }
+            }
+            updated = true;
+        }
+        updatedObjects.append(object);
+    }
+    if (!updated) {
+        state.errors.append(QStringLiteral("set_object_metadata could not find generated object: ") + objectId);
         return;
     }
     state.generatedObjects = updatedObjects;
@@ -1519,6 +1589,13 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
                      stringAt(command, "field"),
                      numberAt(command, "value"));
             }},
+            {"set_object_metadata", [&]() {
+                 setObjectMetadataField(
+                     state,
+                     stringAt(command, "object_id", state.selectedObject),
+                     stringAt(command, "field"),
+                     command.value("value"));
+             }},
             {"set_tool_parameter", [&]() {
                  setToolParameter(state, stringAt(command, "parameter"), command.value("value"));
              }},
@@ -1921,6 +1998,22 @@ void DrawingDocumentController::updateObjectField(const QString &objectId, const
 
 void DrawingDocumentController::updateSelectedObjectField(const QString &field, double value) {
     updateObjectField(selectedObjectId(), field, value);
+}
+
+void DrawingDocumentController::updateObjectMetadataField(const QString &objectId, const QString &field, const QVariant &value) {
+    if (objectId.isEmpty() || field.isEmpty()) {
+        return;
+    }
+    QJsonObject command;
+    command.insert("cmd", "set_object_metadata");
+    command.insert("object_id", objectId);
+    command.insert("field", field);
+    command.insert("value", QJsonValue::fromVariant(value));
+    applyCommand(command);
+}
+
+void DrawingDocumentController::updateSelectedObjectMetadataField(const QString &field, const QVariant &value) {
+    updateObjectMetadataField(selectedObjectId(), field, value);
 }
 
 void DrawingDocumentController::setToolParameter(const QString &parameter, const QVariant &value) {

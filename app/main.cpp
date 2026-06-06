@@ -57,7 +57,8 @@ public:
         : QObject(parent),
           m_manifestPath(std::move(manifestPath)) {}
 
-    Q_INVOKABLE QVariantMap save(const QVariantList &documents, const QString &activeId, bool saveAll) const {
+    Q_INVOKABLE QVariantMap save(const QVariantList &documents, const QString &activeId, bool saveAll,
+                                const QVariantMap &editorState = QVariantMap()) const {
         QVariantMap result;
         result.insert(QStringLiteral("ok"), false);
         result.insert(QStringLiteral("message"), QStringLiteral("storage unavailable"));
@@ -76,6 +77,7 @@ public:
 
         QVariantList savedDocuments;
         QJsonArray manifestDocuments;
+        const QVariantMap normalizedState = normalizeEditorState(editorState);
         for (const QVariant &entry : documents) {
             QVariantMap document = entry.toMap();
             const QString id = document.value(QStringLiteral("id")).toString().trimmed();
@@ -138,6 +140,7 @@ public:
         QJsonObject manifest;
         manifest.insert(QStringLiteral("schema_version"), 1);
         manifest.insert(QStringLiteral("documents"), manifestDocuments);
+        manifest.insert(QStringLiteral("editor_state"), QJsonObject::fromVariantMap(normalizedState));
 
         QSaveFile manifestFile(m_manifestPath);
         if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -209,6 +212,67 @@ public:
         return documents;
     }
 
+    Q_INVOKABLE QVariantMap loadState() const {
+        QVariantMap state;
+        if (m_manifestPath.isEmpty()) {
+            return state;
+        }
+
+        QFile manifestFile(m_manifestPath);
+        if (!manifestFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return state;
+        }
+
+        const QJsonDocument manifest = QJsonDocument::fromJson(manifestFile.readAll());
+        if (!manifest.isObject()) {
+            return state;
+        }
+
+        const QJsonObject editorState = manifest.object().value(QStringLiteral("editor_state")).toObject();
+        if (editorState.isEmpty()) {
+            return state;
+        }
+
+        state.insert(QStringLiteral("active_document_id"), editorState.value(QStringLiteral("active_document_id")).toString());
+        state.insert(QStringLiteral("split_enabled"), editorState.value(QStringLiteral("split_enabled")).toBool());
+        state.insert(QStringLiteral("secondary_document_id"), editorState.value(QStringLiteral("secondary_document_id")).toString());
+        state.insert(QStringLiteral("wrap_enabled"), editorState.value(QStringLiteral("wrap_enabled")).toBool());
+        state.insert(QStringLiteral("line_numbers_visible"), editorState.value(QStringLiteral("line_numbers_visible")).toBool());
+
+        return state;
+    }
+
+    Q_INVOKABLE bool saveState(const QVariantMap &editorState) const {
+        if (m_manifestPath.isEmpty()) {
+            return false;
+        }
+
+        const QFileInfo manifestInfo(m_manifestPath);
+        QDir manifestDir(manifestInfo.absoluteDir());
+        if (!manifestDir.exists() && !QDir().mkpath(manifestDir.absolutePath())) {
+            return false;
+        }
+
+        QJsonObject manifest;
+        QFile manifestFileRead(m_manifestPath);
+        if (manifestFileRead.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QJsonDocument existing = QJsonDocument::fromJson(manifestFileRead.readAll());
+            if (existing.isObject()) {
+                manifest = existing.object();
+            }
+        }
+
+        manifest.insert(QStringLiteral("schema_version"), 1);
+        manifest.insert(QStringLiteral("editor_state"), QJsonObject::fromVariantMap(normalizeEditorState(editorState)));
+
+        QSaveFile manifestFile(m_manifestPath);
+        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            return false;
+        }
+        manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
+        return manifestFile.commit();
+    }
+
 private:
     static QString cleanRelativePath(const QString &path) {
         if (path.trimmed().isEmpty() || QFileInfo(path).isAbsolute()) {
@@ -229,6 +293,16 @@ private:
             }
         }
         return result.isEmpty() ? QStringLiteral("untitled") : result;
+    }
+
+    static QVariantMap normalizeEditorState(const QVariantMap &source) {
+        QVariantMap state;
+        state.insert(QStringLiteral("active_document_id"), source.value(QStringLiteral("active_document_id")).toString().trimmed());
+        state.insert(QStringLiteral("split_enabled"), source.value(QStringLiteral("split_enabled")).toBool());
+        state.insert(QStringLiteral("secondary_document_id"), source.value(QStringLiteral("secondary_document_id")).toString().trimmed());
+        state.insert(QStringLiteral("wrap_enabled"), source.value(QStringLiteral("wrap_enabled")).toBool());
+        state.insert(QStringLiteral("line_numbers_visible"), source.value(QStringLiteral("line_numbers_visible")).toBool());
+        return state;
     }
 
     QString m_manifestPath;
@@ -379,6 +453,7 @@ int main(int argc, char *argv[]) {
     const QString textEditorManifestPath = projectSourcePath(dataSources.value(QStringLiteral("text_documents")).toString().trimmed());
     TextEditorStore textEditorStore(textEditorManifestPath);
     const QVariantList textEditorDocuments = textEditorStore.load();
+    const QVariantMap textEditorState = textEditorStore.loadState();
 
     QString themePath = parser.isSet(themeOption)
         ? parser.value(themeOption)
@@ -405,6 +480,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataPath"), cellMetadataPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataText"), cellMetadataText);
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorDocuments"), textEditorDocuments);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorState"), textEditorState);
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorManifestPath"), textEditorManifestPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);

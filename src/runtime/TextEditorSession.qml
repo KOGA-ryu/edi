@@ -219,6 +219,67 @@ QtObject {
         textEditorSaveStatus = "loaded"
     }
 
+    function loadTextEditorSessionState(state) {
+        var sourceState = state || ({})
+        if (!sourceState) {
+            sourceState = ({})
+        }
+
+        if (typeof sourceState.wrap_enabled === "boolean") {
+            textEditorWrapEnabled = sourceState.wrap_enabled
+        } else if (typeof sourceState.wrapEnabled === "boolean") {
+            textEditorWrapEnabled = sourceState.wrapEnabled
+        }
+
+        if (typeof sourceState.line_numbers_visible === "boolean") {
+            textEditorLineNumbersVisible = sourceState.line_numbers_visible
+        } else if (typeof sourceState.lineNumbersVisible === "boolean") {
+            textEditorLineNumbersVisible = sourceState.lineNumbersVisible
+        }
+
+        if (typeof sourceState.split_enabled === "boolean") {
+            textEditorSplitEnabled = sourceState.split_enabled
+        } else if (typeof sourceState.splitEnabled === "boolean") {
+            textEditorSplitEnabled = sourceState.splitEnabled
+        }
+
+        var requestedActiveId = String(sourceState.active_document_id || sourceState.activeDocumentId || "").trim()
+        if (!requestedActiveId.length && !textEditorDocuments.length) {
+            return
+        }
+
+        if (!requestedActiveId.length) {
+            requestedActiveId = textEditorDocuments.length ? textEditorDocuments[0].id : ""
+        }
+
+        var activeIndex = textEditorDocumentIndex(requestedActiveId)
+        if (activeIndex < 0 && textEditorDocuments.length) {
+            activeIndex = 0
+            requestedActiveId = textEditorDocuments[0].id
+        }
+
+        if (activeIndex >= 0) {
+            activeTextEditorDocumentId = requestedActiveId
+            loadTextEditorDocument(textEditorDocuments[activeIndex])
+        } else if (textEditorDocuments.length > 0) {
+            activeTextEditorDocumentId = textEditorDocuments[0].id
+            loadTextEditorDocument(textEditorDocuments[0])
+        }
+
+        var requestedSecondaryId = String(sourceState.secondary_document_id || sourceState.secondaryDocumentId || "").trim()
+        if (requestedSecondaryId.length && textEditorDocumentIndex(requestedSecondaryId) >= 0) {
+            secondaryTextEditorDocumentId = requestedSecondaryId
+        } else if (!textEditorSplitEnabled) {
+            secondaryTextEditorDocumentId = ""
+        }
+
+        if (textEditorSplitEnabled
+                && (textEditorDocumentIndex(secondaryTextEditorDocumentId) < 0
+                    || secondaryTextEditorDocumentId === activeTextEditorDocumentId)) {
+            ensureSecondaryTextEditorDocument()
+        }
+    }
+
     function selectTextEditorDocument(id) {
         commitActiveTextEditorDocument()
         var index = textEditorDocumentIndex(id)

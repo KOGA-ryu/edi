@@ -138,6 +138,7 @@ QtObject {
 
         textEditorSession.textEditorStoragePath = typeof initialTextEditorManifestPath === "undefined" ? "" : String(initialTextEditorManifestPath)
         textEditorSession.loadTextEditorDocuments(typeof initialTextEditorDocuments === "undefined" ? [] : initialTextEditorDocuments)
+        textEditorSession.loadTextEditorSessionState(typeof initialTextEditorState === "undefined" ? ({}) : initialTextEditorState)
     }
 
     function clamp(value, low, high) {
@@ -535,6 +536,20 @@ QtObject {
         revision += 1
     }
 
+    function persistTextEditorSessionState() {
+        if (typeof textEditorStore === "undefined" || !textEditorStore || typeof textEditorStore.saveState !== "function") {
+            return false
+        }
+        var editorState = {
+            active_document_id: activeTextEditorDocumentId,
+            split_enabled: textEditorSplitEnabled,
+            secondary_document_id: secondaryTextEditorDocumentId,
+            wrap_enabled: textEditorWrapEnabled,
+            line_numbers_visible: textEditorLineNumbersVisible
+        }
+        return textEditorStore.saveState(editorState)
+    }
+
     function textEditorDocumentIndex(id) {
         return textEditorSession.textEditorDocumentIndex(id)
     }
@@ -585,6 +600,7 @@ QtObject {
 
     function selectTextEditorDocument(id) {
         textEditorSession.selectTextEditorDocument(id)
+        persistTextEditorSessionState()
         revision += 1
     }
 
@@ -594,11 +610,13 @@ QtObject {
 
     function newTextEditorDocument() {
         textEditorSession.newTextEditorDocument()
+        persistTextEditorSessionState()
         revision += 1
     }
 
     function duplicateTextEditorDocument() {
         textEditorSession.duplicateTextEditorDocument()
+        persistTextEditorSessionState()
         revision += 1
     }
 
@@ -619,21 +637,25 @@ QtObject {
 
     function closeActiveTextEditorDocument() {
         textEditorSession.closeActiveTextEditorDocument()
+        persistTextEditorSessionState()
         revision += 1
     }
 
     function toggleTextEditorWrap() {
         textEditorSession.toggleTextEditorWrap()
+        persistTextEditorSessionState()
         revision += 1
     }
 
     function toggleTextEditorLineNumbers() {
         textEditorSession.toggleTextEditorLineNumbers()
+        persistTextEditorSessionState()
         revision += 1
     }
 
     function toggleTextEditorSplit() {
         textEditorSession.toggleTextEditorSplit()
+        persistTextEditorSessionState()
         revision += 1
     }
 
@@ -644,6 +666,7 @@ QtObject {
 
     function selectSecondaryTextEditorDocument(id) {
         textEditorSession.selectSecondaryTextEditorDocument(id)
+        persistTextEditorSessionState()
         revision += 1
     }
 

@@ -33,6 +33,15 @@ Rectangle {
         }
         Text {
             Layout.fillWidth: true
+            text: statusBar.controller ? statusBar.controller.drawingDocumentStatusText() : ""
+            visible: statusBar.quietMode
+            color: statusBar.controller && statusBar.controller.drawingDocumentDirty ? UiStyle.colorWarning : UiStyle.colorTextFaint
+            font.family: UiStyle.fontMono
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+        Text {
+            Layout.fillWidth: true
             text: statusBar.controller && statusBar.controller.activityMode === "review"
                 ? statusBar.controller.breadcrumbText(statusBar.controller.selectedRouteId)
                 : ""

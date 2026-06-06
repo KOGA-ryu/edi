@@ -158,7 +158,18 @@ RowLayout {
                 onTriggered: drawingOpenDialog.open()
             }
             Action {
-                text: "Save Drawing..."
+                text: toolbar.controller && toolbar.controller.drawingDocumentPath.length > 0 ? "Save Drawing" : "Save Drawing..."
+                enabled: toolbar.controller
+                onTriggered: {
+                    if (toolbar.controller && toolbar.controller.drawingDocumentPath.length > 0) {
+                        toolbar.controller.saveCurrentDrawingDocument()
+                    } else {
+                        drawingSaveDialog.open()
+                    }
+                }
+            }
+            Action {
+                text: "Save Drawing As..."
                 enabled: toolbar.controller
                 onTriggered: drawingSaveDialog.open()
             }

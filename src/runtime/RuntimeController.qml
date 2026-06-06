@@ -42,7 +42,7 @@ QtObject {
     property DrawingSession drawingSession: DrawingSession {
         id: drawingSession
         writeDisabled: runtimeController.writeDisabled
-        onChanged: runtimeController.revision += 1
+        onChanged: runtimeController.handleDrawingSessionChanged()
     }
     property alias selectedDrawingToolId: drawingSession.selectedDrawingToolId
     property alias selectedDrawingVariantId: drawingSession.selectedDrawingVariantId
@@ -167,6 +167,8 @@ QtObject {
     property bool drawingDocumentIoOk: true
     property string drawingDocumentIoStatus: "not saved"
     property string drawingDocumentPath: ""
+    property bool drawingDocumentDirty: false
+    property string drawingDocumentCleanSnapshot: ""
     property int revision: 0
 
     property var backStack: []
@@ -226,6 +228,7 @@ QtObject {
             typeof initialDrawingToolRegistryPath === "undefined" ? "" : String(initialDrawingToolRegistryPath))
         drawingExternalModelDocument = drawingNativeController ? drawingNativeController.modelDocument() : (typeof initialDrawingModel === "undefined" ? ({}) : initialDrawingModel)
         drawingSession.loadInitialDrawingModel(drawingExternalModelDocument)
+        markDrawingDocumentClean("not saved")
     }
 
     function clamp(value, low, high) {
@@ -981,6 +984,42 @@ QtObject {
         return drawingSession.drawingCanvasExportDocument(revision)
     }
 
+    function drawingDocumentSnapshot() {
+        return JSON.stringify(currentDrawingModelDocument())
+    }
+
+    function refreshDrawingDocumentDirty() {
+        if (drawingDocumentCleanSnapshot.length === 0) {
+            drawingDocumentDirty = false
+            return
+        }
+        drawingDocumentDirty = drawingDocumentSnapshot() !== drawingDocumentCleanSnapshot
+    }
+
+    function markDrawingDocumentClean(status) {
+        drawingDocumentCleanSnapshot = drawingDocumentSnapshot()
+        drawingDocumentDirty = false
+        drawingDocumentIoStatus = String(status || "saved")
+    }
+
+    function handleDrawingSessionChanged() {
+        revision += 1
+        refreshDrawingDocumentDirty()
+    }
+
+    function drawingDocumentFileName() {
+        if (!drawingDocumentPath.length) {
+            return "untitled"
+        }
+        var parts = drawingDocumentPath.split("/")
+        return parts.length > 0 ? parts[parts.length - 1] : drawingDocumentPath
+    }
+
+    function drawingDocumentStatusText() {
+        var state = drawingDocumentDirty ? "unsaved" : (drawingDocumentPath.length ? "saved" : "not saved")
+        return drawingDocumentFileName() + " / " + state
+    }
+
     function saveDrawingDocument(url) {
         if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.save !== "function") {
             drawingDocumentIoOk = false
@@ -993,9 +1032,20 @@ QtObject {
         drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "saved drawing" : "save failed"))
         if (drawingDocumentIoOk) {
             drawingDocumentPath = String(result.path || "")
+            markDrawingDocumentClean("saved drawing")
         }
         revision += 1
         return drawingDocumentIoOk
+    }
+
+    function saveCurrentDrawingDocument() {
+        if (!drawingDocumentPath.length) {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "drawing path missing"
+            revision += 1
+            return false
+        }
+        return saveDrawingDocument(drawingDocumentPath)
     }
 
     function openDrawingDocument(url) {
@@ -1020,6 +1070,7 @@ QtObject {
         }
         drawingDocumentPath = String(result.path || "")
         drawingSession.syncNativeDrawingModel()
+        markDrawingDocumentClean("opened drawing")
         revision += 1
         return true
     }

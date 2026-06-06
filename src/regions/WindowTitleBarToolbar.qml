@@ -39,6 +39,10 @@ RowLayout {
         return toolbar.controller && toolbar.controller.activityMode === "text_editor"
     }
 
+    function drawingToolActive() {
+        return toolbar.controller && toolbar.controller.activityMode === "drawing_tool"
+    }
+
     spacing: 0
 
     RowLayout {
@@ -177,7 +181,25 @@ RowLayout {
 
         UiMenuButton {
             label: "Edit"
-            visible: !toolbar.textEditorActive()
+            visible: toolbar.drawingToolActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Edit", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
+
+            Action {
+                text: "Undo"
+                enabled: toolbar.controller && toolbar.controller.drawingCanUndoCommand
+                onTriggered: toolbar.controller.undoDrawingCommand()
+            }
+            Action {
+                text: "Redo"
+                enabled: toolbar.controller && toolbar.controller.drawingCanRedoCommand
+                onTriggered: toolbar.controller.redoDrawingCommand()
+            }
+        }
+
+        UiMenuButton {
+            label: "Edit"
+            visible: !toolbar.textEditorActive() && !toolbar.drawingToolActive()
             dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("Edit", toolbar.controller.revision) : []
             onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 

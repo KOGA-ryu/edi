@@ -11,15 +11,37 @@ QtObject {
         return Number.isFinite(number) ? number : fallback
     }
 
+    function effectiveGridStepPx() {
+        if (!controller) {
+            return 32
+        }
+        var baseStep = Math.max(1, Number(controller.drawingSnapGridStepPx || 32))
+        var zoom = Math.max(0.1, Number(controller.drawingCanvasZoom || 1.0))
+        if (zoom >= 6.0) {
+            return Math.max(1, baseStep / 8)
+        }
+        if (zoom >= 3.0) {
+            return Math.max(1, baseStep / 4)
+        }
+        if (zoom >= 1.65) {
+            return Math.max(1, baseStep / 2)
+        }
+        if (zoom < 0.62) {
+            return Math.max(1, baseStep * 2)
+        }
+        return baseStep
+    }
+
     function gridSnappedPoint(point) {
         if (!controller || !controller.drawingSnapGridEnabled) {
             return point
         }
         var canvasPx = Math.max(1, Number(controller.drawingCanvasSizePx || 512))
-        var stepPx = Math.max(1, Number(controller.drawingSnapGridStepPx || 32))
+        var stepPx = effectiveGridStepPx()
         return {
             x: Math.max(0, Math.min(1, Math.round(point.x * canvasPx / stepPx) * stepPx / canvasPx)),
-            y: Math.max(0, Math.min(1, Math.round(point.y * canvasPx / stepPx) * stepPx / canvasPx))
+            y: Math.max(0, Math.min(1, Math.round(point.y * canvasPx / stepPx) * stepPx / canvasPx)),
+            stepPx: stepPx
         }
     }
 
@@ -191,9 +213,9 @@ QtObject {
         }
         var gridPoint = gridSnappedPoint(point)
         if (gridPoint.x !== point.x || gridPoint.y !== point.y) {
-            return { x: gridPoint.x, y: gridPoint.y, kind: "grid", label: "grid" }
+            return { x: gridPoint.x, y: gridPoint.y, kind: "grid", label: String(gridPoint.stepPx) + "px", stepPx: gridPoint.stepPx }
         }
-        return { x: point.x, y: point.y, kind: "free", label: "free" }
+        return { x: point.x, y: point.y, kind: "free", label: "free", stepPx: effectiveGridStepPx() }
     }
 
     function snappedPoint(point) {

@@ -40,6 +40,12 @@ QJsonObject click(double x, double y) {
     return result;
 }
 
+QJsonObject clickWithSnapStep(double x, double y, int gridStepPx) {
+    QJsonObject result = click(x, y);
+    result.insert(QStringLiteral("grid_step_px"), gridStepPx);
+    return result;
+}
+
 QJsonObject script(QJsonArray commands) {
     QJsonObject result;
     result.insert(QStringLiteral("script_id"), QStringLiteral("drawing_core_visible_tools_smoke"));
@@ -210,6 +216,59 @@ bool runSelectDeleteSmoke() {
     return ok;
 }
 
+bool runClickSnapOverrideSmoke() {
+    QJsonArray commands;
+    commands.append(selectTool(QStringLiteral("anchor_points")));
+    commands.append(clickWithSnapStep(20, 20, 8));
+
+    const QJsonObject model = DrawingCore::runScript(script(commands)).model;
+    const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    const QJsonObject point = firstObjectOfKind(objects, QStringLiteral("point"));
+    const QJsonArray pointPx = point.value(QStringLiteral("point_px")).toArray();
+    const QJsonObject snap = model.value(QStringLiteral("snap")).toObject();
+
+    bool ok = true;
+    ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
+                 QStringLiteral("snap override script should pass"));
+    ok &= expect(pointPx.size() >= 2 && pointPx.at(0).toDouble() == 24.0 && pointPx.at(1).toDouble() == 24.0,
+                 QStringLiteral("click snap override should use the command grid step"));
+    ok &= expect(snap.value(QStringLiteral("grid_step_px")).toInt() == 32,
+                 QStringLiteral("click snap override should not mutate stored grid step"));
+    return ok;
+}
+
+bool runControllerUndoRedoSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("line_polyline"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.125, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    ok &= expect(controller.canUndo(), QStringLiteral("controller should allow undo after creating a line"));
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("line")) == 1,
+                 QStringLiteral("controller should create one line before undo"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(!model.value(QStringLiteral("pending_point")).toObject().value(QStringLiteral("ok")).toBool(false),
+                 QStringLiteral("undo should not leave a pending two-click point"));
+    ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
+                 QStringLiteral("undo should remove the generated line"));
+    ok &= expect(controller.canRedo(), QStringLiteral("controller should allow redo after undo"));
+
+    controller.redo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("line")) == 1,
+                 QStringLiteral("redo should restore the generated line"));
+
+    controller.undo();
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+    ok &= expect(!controller.canRedo(), QStringLiteral("new drawing action should clear redo"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -217,5 +276,7 @@ int main(int argc, char **argv) {
     bool ok = true;
     ok &= runVisibleToolCreationSmoke();
     ok &= runSelectDeleteSmoke();
+    ok &= runClickSnapOverrideSmoke();
+    ok &= runControllerUndoRedoSmoke();
     return ok ? 0 : 1;
 }

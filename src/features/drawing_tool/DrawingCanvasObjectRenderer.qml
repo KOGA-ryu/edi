@@ -174,106 +174,6 @@ QtObject {
         return bounds.y + Number(normalizedY) * bounds.size
     }
 
-    function selectedObjectSelectionBounds(bounds, object) {
-        var minX = Number.POSITIVE_INFINITY
-        var minY = Number.POSITIVE_INFINITY
-        var maxX = Number.NEGATIVE_INFINITY
-        var maxY = Number.NEGATIVE_INFINITY
-        var kind = String(object.kind || "")
-
-        function include(nx, ny, pad) {
-            var x = Number(nx)
-            var y = Number(ny)
-            if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                return
-            }
-            var padding = Number.isFinite(Number(pad)) ? Number(pad) : 0
-            minX = Math.min(minX, x - padding)
-            minY = Math.min(minY, y - padding)
-            maxX = Math.max(maxX, x + padding)
-            maxY = Math.max(maxY, y + padding)
-        }
-
-        if (kind === "point" || kind === "tone_probe") {
-            include(object.x || 0, object.y || 0, 0.02)
-        } else if (kind === "line" || kind === "glyph_baseline") {
-            include(object.x1 || 0, object.y1 || 0, 0)
-            include(object.x2 || 0, object.y2 || 0, 0)
-        } else if (kind === "circle" || kind === "arc") {
-            var radius = Number(object.radius || 0)
-            include((object.cx || 0) - radius, (object.cy || 0) - radius, 0)
-            include((object.cx || 0) + radius, (object.cy || 0) + radius, 0)
-        } else if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            include(object.x || 0, object.y || 0, 0)
-            include(Number(object.x || 0) + Number(object.width || 0), Number(object.y || 0) + Number(object.height || 0), 0)
-        } else if (kind === "polyline" || kind === "polygon") {
-            var points = asArray(object.points)
-            for (var pointIndex = 0; pointIndex < points.length; ++pointIndex) {
-                var point = points[pointIndex] || [0, 0]
-                include(point[0] || 0, point[1] || 0, 0)
-            }
-            if (kind === "polygon" && points.length === 0) {
-                return {}
-            }
-        } else if (kind === "grid") {
-            include(0, 0, 0)
-            include(1, 1, 0)
-        }
-
-        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
-            return {}
-        }
-        if (maxX < minX || maxY < minY) {
-            return {}
-        }
-        return {
-            x: pxX(bounds, minX),
-            y: pxY(bounds, minY),
-            width: pxX(bounds, maxX) - pxX(bounds, minX),
-            height: pxY(bounds, maxY) - pxY(bounds, minY)
-        }
-    }
-
-    function drawSelectionHalo(ctx, bounds) {
-        if (!bounds || bounds.width === undefined || bounds.height === undefined) {
-            return
-        }
-        var pad = 8
-        var left = bounds.x - pad
-        var top = bounds.y - pad
-        var right = bounds.x + bounds.width + pad
-        var bottom = bounds.y + bounds.height + pad
-        var width = Math.max(1, right - left)
-        var height = Math.max(1, bottom - top)
-
-        ctx.save()
-        ctx.strokeStyle = UiStyle.colorWarning
-        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.14)
-        ctx.lineWidth = 2
-        ctx.setLineDash([8, 4])
-        ctx.beginPath()
-        ctx.rect(left - 2, top - 2, width + 4, height + 4)
-        ctx.fill()
-        ctx.stroke()
-
-        ctx.setLineDash([])
-        var handle = 5
-        var points = [
-            [left, top],
-            [left + width, top],
-            [left, top + height],
-            [left + width, top + height]
-        ]
-        for (var handleIndex = 0; handleIndex < points.length; ++handleIndex) {
-            var handlePoint = points[handleIndex]
-            ctx.fillStyle = UiStyle.colorWarning
-            ctx.beginPath()
-            ctx.rect(handlePoint[0] - handle, handlePoint[1] - handle, handle * 2, handle * 2)
-            ctx.fill()
-        }
-        ctx.restore()
-    }
-
     function selectedObject(doc, objectId) {
         return String(doc.selected_object_id || "") === String(objectId || "")
     }
@@ -296,6 +196,80 @@ QtObject {
         ctx.moveTo(x1, y1)
         ctx.lineTo(x2, y2)
         ctx.stroke()
+    }
+
+    function draftingGridLevels(object) {
+        var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
+        var divisions = Math.max(2, Number(object.divisions || 16))
+        var majorEvery = Math.max(1, Number(object.major_every || 4))
+        var baseStep = Math.max(1, canvasPx / divisions)
+        var majorStep = Math.max(baseStep, baseStep * majorEvery)
+        var zoom = Math.max(0.1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasZoom : 1.0))
+        var levels = [
+            { step: majorStep, alpha: 0.24, width: 1.0, major: true, points: false }
+        ]
+        if (zoom >= 0.62) {
+            levels.push({ step: baseStep, alpha: 0.095, width: 0.65, major: false, points: zoom >= 1.25 })
+        }
+        if (zoom >= 1.65) {
+            levels.push({ step: Math.max(1, baseStep / 2), alpha: 0.07, width: 0.48, major: false, points: true })
+        }
+        if (zoom >= 3.0) {
+            levels.push({ step: Math.max(1, baseStep / 4), alpha: 0.052, width: 0.38, major: false, points: true })
+        }
+        if (zoom >= 6.0) {
+            levels.push({ step: Math.max(1, baseStep / 8), alpha: 0.045, width: 0.32, major: false, points: true })
+        }
+        return levels
+    }
+
+    function drawDraftingGridLevel(ctx, bounds, canvasPx, level, layerSelected) {
+        var step = Math.max(1, Number(level.step || 32))
+        var screenStep = bounds.size * step / canvasPx
+        if (screenStep < 3) {
+            return
+        }
+        var lineAlpha = Number(level.alpha || 0.08) + (layerSelected ? 0.055 : 0)
+        ctx.lineWidth = Math.max(0.25, Number(level.width || 0.5))
+        ctx.strokeStyle = level.major
+                ? UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, layerSelected ? 0.36 : 0.24)
+                : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorText, lineAlpha)
+        var count = Math.floor(canvasPx / step)
+        for (var index = 0; index <= count; ++index) {
+            var normalized = Math.min(1, index * step / canvasPx)
+            var offset = normalized * bounds.size
+            strokeGridLine(ctx, bounds.x + offset, bounds.y, bounds.x + offset, bounds.y + bounds.size)
+            strokeGridLine(ctx, bounds.x, bounds.y + offset, bounds.x + bounds.size, bounds.y + offset)
+        }
+        if (level.points && screenStep >= 12) {
+            drawDraftingGridPoints(ctx, bounds, canvasPx, step, screenStep, layerSelected)
+        }
+    }
+
+    function drawDraftingGridPoints(ctx, bounds, canvasPx, step, screenStep, layerSelected) {
+        var count = Math.floor(canvasPx / step)
+        var radius = Math.max(0.8, Math.min(2.4, screenStep / 12))
+        ctx.save()
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, layerSelected ? 0.38 : 0.24)
+        ctx.globalAlpha = Math.max(0.18, Math.min(0.52, screenStep / 64))
+        for (var xIndex = 0; xIndex <= count; ++xIndex) {
+            var x = bounds.x + Math.min(1, xIndex * step / canvasPx) * bounds.size
+            for (var yIndex = 0; yIndex <= count; ++yIndex) {
+                var y = bounds.y + Math.min(1, yIndex * step / canvasPx) * bounds.size
+                ctx.beginPath()
+                ctx.arc(x, y, radius, 0, Math.PI * 2)
+                ctx.fill()
+            }
+        }
+        ctx.restore()
+    }
+
+    function drawDraftingSquareGrid(ctx, bounds, object, layerSelected) {
+        var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
+        var levels = draftingGridLevels(object)
+        for (var index = 0; index < levels.length; ++index) {
+            drawDraftingGridLevel(ctx, bounds, canvasPx, levels[index], layerSelected)
+        }
     }
 
     function drawSquareGrid(ctx, bounds, divisions, majorEvery, layerSelected) {
@@ -410,7 +384,7 @@ QtObject {
         } else if (mode === "hex") {
             drawHexGuideGrid(ctx, bounds, divisions, majorEvery, layerSelected)
         } else {
-            drawSquareGrid(ctx, bounds, divisions, majorEvery, layerSelected)
+            drawDraftingSquareGrid(ctx, bounds, object, layerSelected)
         }
 
         if (object.diagonal_guides_visible === true) {
@@ -579,10 +553,6 @@ QtObject {
         var renderer = rendererName.length > 0 ? canvasObjectRenderer[rendererName] : null
         if (renderer) {
             renderer(ctx, bounds, object, layerSelected, objectSelected)
-        }
-        if (objectSelected) {
-            var selectionBounds = selectedObjectSelectionBounds(bounds, object)
-            drawSelectionHalo(ctx, selectionBounds)
         }
     }
 }

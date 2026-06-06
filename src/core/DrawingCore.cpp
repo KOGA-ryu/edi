@@ -64,6 +64,31 @@ QString stringAt(const QJsonObject &object, const QString &key, const QString &f
     return value.isString() ? value.toString() : fallback;
 }
 
+bool pendingPointActive(const QJsonObject &model) {
+    const QJsonObject pending = model.value(QStringLiteral("pending_point")).toObject();
+    return pending.value(QStringLiteral("ok")).toBool(false);
+}
+
+int generatedObjectCount(const QJsonObject &model) {
+    return model.value(QStringLiteral("generated_objects")).toArray().size();
+}
+
+bool undoableInteractiveCommand(const QJsonObject &command) {
+    const QString name = stringAt(command, QStringLiteral("cmd"));
+    return name == QStringLiteral("click_canvas")
+        || name == QStringLiteral("delete_object")
+        || name == QStringLiteral("move_object")
+        || name == QStringLiteral("update_object")
+        || name == QStringLiteral("set_tool_parameter")
+        || name == QStringLiteral("add_point")
+        || name == QStringLiteral("add_line")
+        || name == QStringLiteral("add_polyline")
+        || name == QStringLiteral("add_circle")
+        || name == QStringLiteral("add_arc")
+        || name == QStringLiteral("add_rectangle")
+        || name == QStringLiteral("add_polygon");
+}
+
 QJsonArray arrayAt(const QJsonObject &object, const QString &key) {
     const QJsonValue value = object.value(key);
     return value.isArray() ? value.toArray() : QJsonArray();
@@ -863,7 +888,12 @@ void runTwoPointTool(State &state, const Point &point, const std::function<void(
 }
 
 void handleClickCanvas(State &state, const QJsonObject &command) {
+    const int storedGridStepPx = state.gridStepPx;
+    if (command.contains("grid_step_px")) {
+        state.gridStepPx = std::max(1, command.value("grid_step_px").toInt(state.gridStepPx));
+    }
     const Point point = snapPoint(state, numberAt(command, "x"), numberAt(command, "y"));
+    state.gridStepPx = storedGridStepPx;
     if (!point.ok) {
         state.errors.append("click_canvas has invalid coordinates");
         return;
@@ -1307,6 +1337,9 @@ bool DrawingDocumentController::loadModel(const QVariantMap &model) {
         return false;
     }
     m_commands = object.value("command_log").toArray();
+    m_undoSnapshots.clear();
+    m_redoSnapshots.clear();
+    m_lastStableCommands = pendingPointActive(object) ? QJsonArray{} : m_commands;
     m_model = object;
     ++m_revision;
     emit modelChanged();
@@ -1315,6 +1348,9 @@ bool DrawingDocumentController::loadModel(const QVariantMap &model) {
 
 void DrawingDocumentController::reset() {
     m_commands = {};
+    m_undoSnapshots.clear();
+    m_redoSnapshots.clear();
+    m_lastStableCommands = {};
     publish();
 }
 
@@ -1415,9 +1451,51 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y) {
     applyCommand(command);
 }
 
+void DrawingDocumentController::clickCanvasNormalizedWithSnapStep(double x, double y, int gridStepPx) {
+    const QJsonArray canvas = m_model.value("canvas_px").toArray();
+    const double canvasPx = canvas.size() >= 2 ? canvas.at(0).toDouble(kDefaultCanvasPx) : kDefaultCanvasPx;
+    const double px = std::clamp(x, 0.0, 1.0) * canvasPx;
+    const double py = std::clamp(y, 0.0, 1.0) * canvasPx;
+    QJsonObject command;
+    command.insert("cmd", "click_canvas");
+    command.insert("x", px);
+    command.insert("y", py);
+    command.insert("grid_step_px", std::max(1, gridStepPx));
+    applyCommand(command);
+}
+
+bool DrawingDocumentController::canUndo() const {
+    return !m_undoSnapshots.isEmpty();
+}
+
+bool DrawingDocumentController::canRedo() const {
+    return !m_redoSnapshots.isEmpty();
+}
+
+void DrawingDocumentController::undo() {
+    if (!canUndo()) {
+        return;
+    }
+    m_redoSnapshots.append(m_commands);
+    m_commands = m_undoSnapshots.takeLast();
+    publish();
+}
+
+void DrawingDocumentController::redo() {
+    if (!canRedo()) {
+        return;
+    }
+    m_undoSnapshots.append(m_commands);
+    m_commands = m_redoSnapshots.takeLast();
+    publish();
+}
+
 void DrawingDocumentController::runScript(const QVariantMap &script) {
     const DrawingCoreResult result = DrawingCore::runScript(QJsonObject::fromVariantMap(script));
     m_commands = QJsonObject::fromVariantMap(script).value("commands").toArray();
+    m_undoSnapshots.clear();
+    m_redoSnapshots.clear();
+    m_lastStableCommands = pendingPointActive(result.model) ? QJsonArray{} : m_commands;
     m_model = result.model;
     ++m_revision;
     emit modelChanged();
@@ -1432,13 +1510,37 @@ QString DrawingDocumentController::selectedObjectId() const {
 }
 
 void DrawingDocumentController::applyCommand(const QJsonObject &command) {
+    const bool undoable = undoableInteractiveCommand(command);
+    const bool wasPending = pendingPointActive(m_model);
+    const int beforeObjectCount = generatedObjectCount(m_model);
+    const QJsonArray beforeCommands = m_commands;
+    const QJsonArray undoSnapshot = wasPending ? m_lastStableCommands : beforeCommands;
+
     m_commands.append(command);
     publish();
+
+    if (!undoable) {
+        return;
+    }
+
+    m_redoSnapshots.clear();
+    const bool nowPending = pendingPointActive(m_model);
+    const int afterObjectCount = generatedObjectCount(m_model);
+    const QString name = stringAt(command, QStringLiteral("cmd"));
+    const bool pendingOnlyClick = name == QStringLiteral("click_canvas")
+        && nowPending
+        && afterObjectCount == beforeObjectCount;
+    if (!pendingOnlyClick) {
+        m_undoSnapshots.append(undoSnapshot);
+    }
 }
 
 void DrawingDocumentController::publish() {
     const DrawingCoreResult result = DrawingCore::runScript(scriptEnvelope());
     m_model = result.model;
+    if (!pendingPointActive(m_model)) {
+        m_lastStableCommands = m_commands;
+    }
     ++m_revision;
     emit modelChanged();
 }

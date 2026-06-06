@@ -79,9 +79,11 @@ QtObject {
     property int drawingCanvasSizePx: 512
     property real drawingCanvasZoom: 1.0
     property real drawingCanvasZoomMin: 0.25
-    property real drawingCanvasZoomMax: 4.0
+    property real drawingCanvasZoomMax: 8.0
     property real drawingCanvasPanXPx: 0
     property real drawingCanvasPanYPx: 0
+    property bool drawingCanUndoCommand: false
+    property bool drawingCanRedoCommand: false
     property string drawingLastScriptId: ""
     property string drawingLastScriptStatus: "not_run"
     property var drawingLastScriptErrors: []
@@ -911,16 +913,19 @@ QtObject {
         if (!drawingNativeController) {
             return
         }
+        drawingCanUndoCommand = typeof drawingNativeController.canUndo === "function" ? drawingNativeController.canUndo() : false
+        drawingCanRedoCommand = typeof drawingNativeController.canRedo === "function" ? drawingNativeController.canRedo() : false
         loadInitialDrawingModel(drawingNativeController.modelDocument())
     }
 
-    function handleDrawingCanvasClick(x, y) {
+    function handleDrawingCanvasClick(x, y, snapStepPx) {
         if (selectedDrawingToolId === "select_move") {
             selectDrawingObjectAtNormalized(x, y)
             return
         }
         if (drawingNativeController) {
-            drawingNativeController.clickCanvasNormalized(Number(x), Number(y))
+            var activeStepPx = Math.max(1, Math.min(drawingCanvasSizePx, Math.round(Number(snapStepPx) || drawingSnapGridStepPx)))
+            drawingNativeController.clickCanvasNormalizedWithSnapStep(Number(x), Number(y), activeStepPx)
             syncNativeDrawingModel()
             return
         }
@@ -934,6 +939,22 @@ QtObject {
         }
         drawingPendingPoint = ({})
         markChanged()
+    }
+
+    function undoDrawingCommand() {
+        if (!drawingNativeController || !drawingCanUndoCommand) {
+            return
+        }
+        drawingNativeController.undo()
+        syncNativeDrawingModel()
+    }
+
+    function redoDrawingCommand() {
+        if (!drawingNativeController || !drawingCanRedoCommand) {
+            return
+        }
+        drawingNativeController.redo()
+        syncNativeDrawingModel()
     }
 
     function resetNativeDrawingDocument() {
@@ -954,6 +975,10 @@ QtObject {
     function loadInitialDrawingModel(document) {
         if (!document || String(document.export_kind || "") !== "pattern_lab_2d_native_model_v0") {
             return
+        }
+        if (drawingNativeController) {
+            drawingCanUndoCommand = typeof drawingNativeController.canUndo === "function" ? drawingNativeController.canUndo() : false
+            drawingCanRedoCommand = typeof drawingNativeController.canRedo === "function" ? drawingNativeController.canRedo() : false
         }
         drawingGeneratedObjects = asArray(document.generated_objects)
         drawingLastScriptId = String(document.script_id || "")

@@ -40,6 +40,28 @@ Rectangle {
             }
 
             Shortcut {
+                sequences: [StandardKey.Undo]
+                context: Qt.ApplicationShortcut
+                enabled: drawingWorkspace.controller && drawingWorkspace.controller.drawingCanUndoCommand
+                onActivated: {
+                    drawingWorkspace.controller.undoDrawingCommand()
+                    constructionCanvas.previewActive = false
+                    constructionCanvas.requestPaint()
+                }
+            }
+
+            Shortcut {
+                sequences: [StandardKey.Redo]
+                context: Qt.ApplicationShortcut
+                enabled: drawingWorkspace.controller && drawingWorkspace.controller.drawingCanRedoCommand
+                onActivated: {
+                    drawingWorkspace.controller.redoDrawingCommand()
+                    constructionCanvas.previewActive = false
+                    constructionCanvas.requestPaint()
+                }
+            }
+
+            Shortcut {
                 sequence: "Del"
                 context: Qt.ApplicationShortcut
                 onActivated: {
@@ -184,6 +206,7 @@ Rectangle {
                 property real hoverSnapY: 0
                 property string hoverSnapKind: "none"
                 property string hoverSnapLabel: "none"
+                property real hoverSnapStepPx: 32
 
                 function boardBounds() {
                     return constructionCanvas.boardBounds()
@@ -215,6 +238,7 @@ Rectangle {
                     hoverSnapY = point.y
                     hoverSnapKind = point.kind
                     hoverSnapLabel = point.label
+                    hoverSnapStepPx = Number(point.stepPx || snapResolver.effectiveGridStepPx())
                     constructionCanvas.previewX = point.x
                     constructionCanvas.previewY = point.y
                     constructionCanvas.previewActive = true
@@ -300,7 +324,7 @@ Rectangle {
                     if (point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) {
                         return
                     }
-                    drawingWorkspace.controller.handleDrawingCanvasClick(point.x, point.y)
+                    drawingWorkspace.controller.handleDrawingCanvasClick(point.x, point.y, Math.round(Number(point.stepPx || snapResolver.effectiveGridStepPx())))
                     constructionCanvas.requestPaint()
                 }
 
@@ -310,8 +334,8 @@ Rectangle {
                     }
                     var pixelX = wheel.pixelDelta.x !== 0 ? wheel.pixelDelta.x : wheel.angleDelta.x / 2
                     var pixelY = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y / 2
-                    var zoomGesture = (wheel.modifiers & Qt.ControlModifier) || (wheel.modifiers & Qt.MetaModifier)
-                    if (zoomGesture) {
+                    var panGesture = (wheel.modifiers & Qt.ShiftModifier)
+                    if (!panGesture) {
                         var rawDelta = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y
                         var zoomFactor = Math.pow(1.0015, rawDelta)
                         drawingWorkspace.controller.zoomDrawingCanvasAt(zoomFactor, wheel.x, wheel.y, constructionCanvas.width, constructionCanvas.height)
@@ -319,7 +343,7 @@ Rectangle {
                         wheel.accepted = true
                         return
                     }
-                    if (drawingWorkspace.controller.drawingCanvasZoom > 1.001) {
+                    if (drawingWorkspace.controller.drawingCanvasZoom > 1.001 || panGesture) {
                         drawingWorkspace.controller.panDrawingCanvasBy(pixelX, pixelY)
                         constructionCanvas.requestPaint()
                         wheel.accepted = true

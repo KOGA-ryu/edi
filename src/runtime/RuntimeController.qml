@@ -106,6 +106,8 @@ QtObject {
     property alias drawingCanvasZoomMax: drawingSession.drawingCanvasZoomMax
     property alias drawingCanvasPanXPx: drawingSession.drawingCanvasPanXPx
     property alias drawingCanvasPanYPx: drawingSession.drawingCanvasPanYPx
+    property alias drawingCanUndoCommand: drawingSession.drawingCanUndoCommand
+    property alias drawingCanRedoCommand: drawingSession.drawingCanRedoCommand
     property alias drawingLastScriptId: drawingSession.drawingLastScriptId
     property alias drawingLastScriptStatus: drawingSession.drawingLastScriptStatus
     property alias drawingLastScriptErrors: drawingSession.drawingLastScriptErrors
@@ -1259,12 +1261,20 @@ QtObject {
         drawingSession.syncNativeDrawingModel()
     }
 
-    function handleDrawingCanvasClick(x, y) {
-        drawingSession.handleDrawingCanvasClick(x, y)
+    function handleDrawingCanvasClick(x, y, snapStepPx) {
+        drawingSession.handleDrawingCanvasClick(x, y, snapStepPx)
     }
 
     function cancelDrawingPendingShape() {
         drawingSession.cancelDrawingPendingShape()
+    }
+
+    function undoDrawingCommand() {
+        drawingSession.undoDrawingCommand()
+    }
+
+    function redoDrawingCommand() {
+        drawingSession.redoDrawingCommand()
     }
 
     function resetNativeDrawingDocument() {

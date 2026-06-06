@@ -318,6 +318,29 @@ Rectangle {
                     drawingWorkspace.controller.updateSelectedDrawingObjectField(field, value)
                 }
 
+                function modifierHandlePoint(mouse) {
+                    var rawPoint = normalizedPoint(mouse.x, mouse.y)
+                    var optionDown = !!(mouse.modifiers & Qt.AltModifier)
+                    var shiftDown = !!(mouse.modifiers & Qt.ShiftModifier)
+                    if (optionDown) {
+                        return rawPoint
+                    }
+                    if (shiftDown) {
+                        return forceGridSnappedPoint(rawPoint)
+                    }
+                    return snapResolver.gridSnappedPoint(rawPoint)
+                }
+
+                function forceGridSnappedPoint(point) {
+                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
+                    var stepPx = Math.max(1, Number(snapResolver.effectiveGridStepPx()))
+                    return {
+                        x: Math.max(0, Math.min(1, Math.round(Number(point.x || 0) * canvasPx / stepPx) * stepPx / canvasPx)),
+                        y: Math.max(0, Math.min(1, Math.round(Number(point.y || 0) * canvasPx / stepPx) * stepPx / canvasPx)),
+                        stepPx: stepPx
+                    }
+                }
+
                 function applySelectedHandleDrag(handleId, point) {
                     var object = selectedGeneratedObject()
                     var kind = String(object.kind || "")
@@ -441,7 +464,7 @@ Rectangle {
                 onPositionChanged: function(mouse) {
                     updatePreviewPoint(mouse.x, mouse.y)
                     if (drawingWorkspace.controller && pressed && dragHandleId.length > 0) {
-                        var handlePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
+                        var handlePoint = modifierHandlePoint(mouse)
                         applySelectedHandleDrag(dragHandleId, handlePoint)
                         dragHandleMoved = true
                         constructionCanvas.requestPaint()

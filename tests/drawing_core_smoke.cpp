@@ -425,6 +425,92 @@ bool runControllerDuplicateSelectedObjectSmoke() {
     return ok;
 }
 
+bool runControllerPasteObjectSnapshotSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    const QJsonObject source = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
+    controller.deleteObject(QStringLiteral("script_rectangle_01"));
+    controller.pasteObject(source.toVariantMap(), 16.0 / 512.0, 16.0 / 512.0);
+
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    bool ok = true;
+    ok &= expect(kindCount(objects, QStringLiteral("rectangle")) == 1,
+                 QStringLiteral("paste should restore a rectangle from copied snapshot after source deletion"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_01"),
+                 QStringLiteral("paste should select the pasted object"));
+    ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("paste_object")) == 1,
+                 QStringLiteral("paste should be recorded as one command"));
+
+    const QJsonObject pasted = firstObjectOfKind(objects, QStringLiteral("rectangle"));
+    const QJsonArray rect = pasted.value(QStringLiteral("rect_px")).toArray();
+    ok &= expect(pasted.value(QStringLiteral("pasted_from")).toString() == QStringLiteral("script_rectangle_01"),
+                 QStringLiteral("pasted object should retain source snapshot id"));
+    ok &= expectNear(rect.at(0).toDouble(), 144.0, QStringLiteral("paste should offset x by requested amount"));
+    ok &= expectNear(rect.at(1).toDouble(), 144.0, QStringLiteral("paste should offset y by requested amount"));
+
+    controller.undo();
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
+                 QStringLiteral("undo should remove pasted object and restore deleted-source state"));
+    return ok;
+}
+
+bool runControllerSelectObjectsSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
+
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    if (!expect(objects.size() == 3, QStringLiteral("multi-select setup should create three point objects"))) {
+        return false;
+    }
+    const QString firstId = objects.at(0).toObject().value(QStringLiteral("id")).toString();
+    const QString secondId = objects.at(1).toObject().value(QStringLiteral("id")).toString();
+    const QString thirdId = objects.at(2).toObject().value(QStringLiteral("id")).toString();
+
+    QVariantList ids;
+    ids.append(firstId);
+    ids.append(thirdId);
+    controller.selectObjects(ids);
+
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
+    bool ok = true;
+    ok &= expect(selectedIds.size() == 2,
+                 QStringLiteral("multi-select should expose selected_object_ids"));
+    ok &= expect(selectedIds.at(0).toString() == firstId,
+                 QStringLiteral("multi-select should preserve selected id order"));
+    ok &= expect(selectedIds.at(1).toString() == thirdId,
+                 QStringLiteral("multi-select should preserve final selected id"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == thirdId,
+                 QStringLiteral("multi-select should keep the last selected object as primary"));
+
+    controller.selectObject(secondId);
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
+    ok &= expect(selectedIds.size() == 1,
+                 QStringLiteral("single select should collapse selected_object_ids to one item"));
+    ok &= expect(selectedIds.at(0).toString() == secondId,
+                 QStringLiteral("single select should expose its selected id"));
+
+    controller.selectObjects({});
+    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
+    ok &= expect(selectedIds.isEmpty(),
+                 QStringLiteral("empty multi-select should clear selected_object_ids"));
+    ok &= expect(model.value(QStringLiteral("selected_object_id")).toString().isEmpty(),
+                 QStringLiteral("empty multi-select should clear primary selection"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -438,5 +524,7 @@ int main(int argc, char **argv) {
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
     ok &= runControllerDuplicateSelectedObjectSmoke();
+    ok &= runControllerPasteObjectSnapshotSmoke();
+    ok &= runControllerSelectObjectsSmoke();
     return ok ? 0 : 1;
 }

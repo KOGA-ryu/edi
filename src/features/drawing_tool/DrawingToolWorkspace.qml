@@ -74,6 +74,28 @@ Rectangle {
             }
 
             Shortcut {
+                sequences: [StandardKey.Copy]
+                context: Qt.ApplicationShortcut
+                onActivated: {
+                    if (drawingWorkspace.controller) {
+                        drawingWorkspace.controller.copySelectedDrawingObject()
+                    }
+                }
+            }
+
+            Shortcut {
+                sequences: [StandardKey.Paste]
+                context: Qt.ApplicationShortcut
+                onActivated: {
+                    if (drawingWorkspace.controller) {
+                        drawingWorkspace.controller.pasteCopiedDrawingObject()
+                    }
+                    constructionCanvas.previewActive = false
+                    constructionCanvas.requestPaint()
+                }
+            }
+
+            Shortcut {
                 sequence: "Del"
                 context: Qt.ApplicationShortcut
                 onActivated: {
@@ -155,6 +177,30 @@ Rectangle {
                     ctx.restore()
                 }
 
+                function drawMarquee(ctx, bounds) {
+                    if (!canvasInput.marqueeActive) {
+                        return
+                    }
+                    var minX = Math.min(canvasInput.marqueeStartX, canvasInput.marqueeEndX)
+                    var minY = Math.min(canvasInput.marqueeStartY, canvasInput.marqueeEndY)
+                    var maxX = Math.max(canvasInput.marqueeStartX, canvasInput.marqueeEndX)
+                    var maxY = Math.max(canvasInput.marqueeStartY, canvasInput.marqueeEndY)
+                    var x = pxX(bounds, minX)
+                    var y = pxY(bounds, minY)
+                    var width = Math.max(1, (maxX - minX) * bounds.size)
+                    var height = Math.max(1, (maxY - minY) * bounds.size)
+                    ctx.save()
+                    ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorAccent, 0.24)
+                    ctx.globalAlpha = 0.24
+                    ctx.fillRect(x, y, width, height)
+                    ctx.globalAlpha = 1
+                    ctx.strokeStyle = UiStyle.mix(UiStyle.colorAccent, UiStyle.colorWarning, 0.25)
+                    ctx.lineWidth = 1
+                    ctx.setLineDash([5, 4])
+                    ctx.strokeRect(x, y, width, height)
+                    ctx.restore()
+                }
+
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
@@ -177,6 +223,7 @@ Rectangle {
                     previewRenderer.drawLivePreview(ctx, bounds, doc, previewActive, previewX, previewY)
                     drawSnapIndicator(ctx, bounds)
                     navigationRenderer.drawNavigation(ctx, bounds, width, height, canvasInput.hoverRawX, canvasInput.hoverRawY, canvasInput.hoverInside)
+                    drawMarquee(ctx, bounds)
                 }
 
                 Component.onCompleted: requestPaint()
@@ -233,6 +280,12 @@ Rectangle {
                 property string hoverSnapKind: "none"
                 property string hoverSnapLabel: "none"
                 property real hoverSnapStepPx: 32
+                property bool marqueeActive: false
+                property bool marqueeMoved: false
+                property real marqueeStartX: 0
+                property real marqueeStartY: 0
+                property real marqueeEndX: 0
+                property real marqueeEndY: 0
 
                 function selectedToolLabel() {
                     var id = String(drawingWorkspace.controller ? drawingWorkspace.controller.selectedDrawingToolId : "")
@@ -303,6 +356,10 @@ Rectangle {
                     if (!drawingWorkspace.controller) {
                         return "none"
                     }
+                    var ids = asArray(drawingWorkspace.controller.selectedDrawingObjectIds)
+                    if (ids.length > 1) {
+                        return String(ids.length) + " objects"
+                    }
                     var id = String(drawingWorkspace.controller.selectedDrawingObjectId || "")
                     return id.length > 0 && id.indexOf("script_") === 0 ? id : "none"
                 }
@@ -342,6 +399,89 @@ Rectangle {
                     }
                     var object = drawingWorkspace.controller.selectedDrawingObject() || ({})
                     return String(object.id || "").indexOf("script_") === 0 ? object : ({})
+                }
+
+                function includePoint(bounds, x, y) {
+                    var px = Number(x)
+                    var py = Number(y)
+                    if (!Number.isFinite(px) || !Number.isFinite(py)) {
+                        return bounds
+                    }
+                    if (!bounds.ok) {
+                        bounds.ok = true
+                        bounds.minX = px
+                        bounds.maxX = px
+                        bounds.minY = py
+                        bounds.maxY = py
+                        return bounds
+                    }
+                    bounds.minX = Math.min(bounds.minX, px)
+                    bounds.maxX = Math.max(bounds.maxX, px)
+                    bounds.minY = Math.min(bounds.minY, py)
+                    bounds.maxY = Math.max(bounds.maxY, py)
+                    return bounds
+                }
+
+                function objectBounds(object) {
+                    var bounds = ({ ok: false, minX: 0, minY: 0, maxX: 0, maxY: 0 })
+                    var kind = String(object.kind || "")
+                    if (kind === "point" || kind === "tone_probe") {
+                        return includePoint(bounds, object.x, object.y)
+                    }
+                    if (kind === "line" || kind === "glyph_baseline") {
+                        includePoint(bounds, object.x1, object.y1)
+                        return includePoint(bounds, object.x2, object.y2)
+                    }
+                    if (kind === "circle" || kind === "arc") {
+                        var cx = Number(object.cx || 0)
+                        var cy = Number(object.cy || 0)
+                        var radius = Number(object.radius || 0)
+                        includePoint(bounds, cx - radius, cy - radius)
+                        return includePoint(bounds, cx + radius, cy + radius)
+                    }
+                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+                        var x = Number(object.x || 0)
+                        var y = Number(object.y || 0)
+                        includePoint(bounds, x, y)
+                        return includePoint(bounds, x + Number(object.width || 0), y + Number(object.height || 0))
+                    }
+                    if (kind === "polyline" || kind === "polygon") {
+                        var points = asArray(object.points)
+                        for (var pointIndex = 0; pointIndex < points.length; ++pointIndex) {
+                            var point = asArray(points[pointIndex])
+                            if (point.length >= 2) {
+                                includePoint(bounds, point[0], point[1])
+                            }
+                        }
+                    }
+                    return bounds
+                }
+
+                function boundsIntersectsSelection(bounds, minX, minY, maxX, maxY) {
+                    if (!bounds.ok) {
+                        return false
+                    }
+                    return bounds.maxX >= minX && bounds.minX <= maxX && bounds.maxY >= minY && bounds.minY <= maxY
+                }
+
+                function marqueeSelectionIds() {
+                    var minX = Math.max(0, Math.min(marqueeStartX, marqueeEndX))
+                    var minY = Math.max(0, Math.min(marqueeStartY, marqueeEndY))
+                    var maxX = Math.min(1, Math.max(marqueeStartX, marqueeEndX))
+                    var maxY = Math.min(1, Math.max(marqueeStartY, marqueeEndY))
+                    var ids = []
+                    var objects = drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasObjects(drawingWorkspace.controller.revision) : []
+                    for (var index = 0; index < objects.length; ++index) {
+                        var object = objects[index] || ({})
+                        var id = String(object.id || "")
+                        if (id.indexOf("script_") !== 0) {
+                            continue
+                        }
+                        if (boundsIntersectsSelection(objectBounds(object), minX, minY, maxX, maxY)) {
+                            ids.push(id)
+                        }
+                    }
+                    return ids
                 }
 
                 function objectEditHandles(object) {
@@ -542,6 +682,16 @@ Rectangle {
                             drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
                         }
+                        if (dragObjectId.length === 0) {
+                            marqueeActive = true
+                            marqueeMoved = false
+                            marqueeStartX = rawPoint.x
+                            marqueeStartY = rawPoint.y
+                            marqueeEndX = rawPoint.x
+                            marqueeEndY = rawPoint.y
+                            constructionCanvas.requestPaint()
+                            mouse.accepted = true
+                        }
                         return
                     }
                     dragAnchorId = drawingWorkspace.controller.selectedDrawingToolId === "anchor_points"
@@ -558,6 +708,15 @@ Rectangle {
                         var handlePoint = modifierHandlePoint(mouse)
                         applySelectedHandleDrag(dragHandleId, handlePoint)
                         dragHandleMoved = true
+                        constructionCanvas.requestPaint()
+                        return
+                    }
+                    if (drawingWorkspace.controller && pressed && marqueeActive) {
+                        var rawMarqueePoint = normalizedPoint(mouse.x, mouse.y)
+                        marqueeEndX = rawMarqueePoint.x
+                        marqueeEndY = rawMarqueePoint.y
+                        var bounds = boardBounds()
+                        marqueeMoved = Math.abs((marqueeEndX - marqueeStartX) * bounds.size) > 4 || Math.abs((marqueeEndY - marqueeStartY) * bounds.size) > 4
                         constructionCanvas.requestPaint()
                         return
                     }
@@ -583,9 +742,15 @@ Rectangle {
                 }
 
                 onReleased: {
+                    if (drawingWorkspace.controller && marqueeActive && marqueeMoved) {
+                        drawingWorkspace.controller.selectDrawingObjects(marqueeSelectionIds())
+                        suppressClickOnce = true
+                    }
                     if (dragAnchorId.length > 0 || dragHandleMoved || dragObjectMoved) {
                         suppressClickOnce = true
                     }
+                    marqueeActive = false
+                    marqueeMoved = false
                     dragAnchorId = ""
                     dragHandleId = ""
                     dragHandleObjectId = ""

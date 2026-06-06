@@ -247,6 +247,10 @@ QtObject {
     }
 
     function selectedObject(doc, objectId) {
+        var selectedIds = asArray(doc.selected_object_ids)
+        if (selectedIds.length > 0) {
+            return selectedIds.indexOf(String(objectId || "")) >= 0
+        }
         return String(doc.selected_object_id || "") === String(objectId || "")
     }
 
@@ -634,7 +638,7 @@ QtObject {
         if (renderer) {
             renderer(ctx, bounds, object, layerSelected, objectSelected)
         }
-        if (objectSelected) {
+        if (String(doc.selected_object_id || "") === String(object.id || "")) {
             drawSelectedEditHandles(ctx, bounds, object)
         }
     }

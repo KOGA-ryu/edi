@@ -49,6 +49,7 @@ QtObject {
     property alias selectedDrawingExternalToolId: drawingSession.selectedDrawingExternalToolId
     property alias selectedDrawingLayerId: drawingSession.selectedDrawingLayerId
     property alias selectedDrawingObjectId: drawingSession.selectedDrawingObjectId
+    property alias selectedDrawingObjectIds: drawingSession.selectedDrawingObjectIds
     property alias selectedDrawingPresetId: drawingSession.selectedDrawingPresetId
     property alias drawingToolPaletteOpen: drawingSession.drawingToolPaletteOpen
     property alias drawingToolPaletteX: drawingSession.drawingToolPaletteX
@@ -1246,6 +1247,14 @@ QtObject {
         drawingSession.duplicateSelectedDrawingObject()
     }
 
+    function copySelectedDrawingObject() {
+        drawingSession.copySelectedDrawingObject()
+    }
+
+    function pasteCopiedDrawingObject() {
+        drawingSession.pasteCopiedDrawingObject()
+    }
+
     function moveDrawingObjectBy(objectId, dx, dy) {
         drawingSession.moveDrawingObjectBy(objectId, dx, dy)
     }
@@ -1268,6 +1277,10 @@ QtObject {
 
     function selectDrawingObjectAtNormalized(x, y) {
         return drawingSession.selectDrawingObjectAtNormalized(x, y)
+    }
+
+    function selectDrawingObjects(objectIds) {
+        drawingSession.selectDrawingObjects(objectIds)
     }
 
     function syncNativeDrawingModel() {

@@ -13,6 +13,7 @@ QtObject {
     property string selectedDrawingExternalToolId: ""
     property string selectedDrawingLayerId: "layer_00_canvas"
     property string selectedDrawingObjectId: "artboard_bounds"
+    property var selectedDrawingObjectIds: []
     property string selectedDrawingPresetId: "lotus_petal_fit"
     property bool drawingToolPaletteOpen: true
     property real drawingToolPaletteX: 258
@@ -85,6 +86,8 @@ QtObject {
     property real drawingCanvasPanYPx: 0
     property bool drawingCanUndoCommand: false
     property bool drawingCanRedoCommand: false
+    property var drawingObjectClipboard: ({})
+    property int drawingObjectClipboardPasteCount: 0
     property string drawingLastScriptId: ""
     property string drawingLastScriptStatus: "not_run"
     property var drawingLastScriptErrors: []
@@ -804,12 +807,14 @@ QtObject {
         for (var index = 0; index < objects.length; ++index) {
             if (String(objects[index].layer_id || "") === selectedDrawingLayerId) {
                 selectedDrawingObjectId = String(objects[index].id)
+                selectedDrawingObjectIds = [selectedDrawingObjectId]
                 found = true
                 break
             }
         }
         if (!found) {
             selectedDrawingObjectId = ""
+            selectedDrawingObjectIds = []
         }
         markChanged()
     }
@@ -822,6 +827,7 @@ QtObject {
         }
         if (drawingNativeController && String(objectId || "").indexOf("anchor_") === 0) {
             selectedDrawingObjectId = String(objectId)
+            selectedDrawingObjectIds = [selectedDrawingObjectId]
             selectedDrawingLayerId = "layer_00_canvas"
             markChanged()
             return
@@ -829,11 +835,33 @@ QtObject {
         var object = drawingFindById(drawingCanvasObjects(revision), objectId, null)
         if (!object) {
             selectedDrawingObjectId = ""
+            selectedDrawingObjectIds = []
             markChanged()
             return
         }
         selectedDrawingObjectId = String(object.id)
+        selectedDrawingObjectIds = [selectedDrawingObjectId]
         selectedDrawingLayerId = String(object.layer_id || selectedDrawingLayerId)
+        markChanged()
+    }
+
+    function selectDrawingObjects(objectIds) {
+        var ids = []
+        var incoming = asArray(objectIds)
+        for (var index = 0; index < incoming.length; ++index) {
+            var id = String(incoming[index] || "")
+            if (id.indexOf("script_") === 0 && ids.indexOf(id) < 0) {
+                ids.push(id)
+            }
+        }
+        if (drawingNativeController && typeof drawingNativeController.selectObjects === "function") {
+            drawingNativeController.selectObjects(ids)
+            syncNativeDrawingModel()
+            return
+        }
+        selectedDrawingObjectIds = ids
+        selectedDrawingObjectId = ids.length > 0 ? ids[ids.length - 1] : ""
+        selectedDrawingLayerId = ids.length > 0 ? "layer_09_script_geometry" : selectedDrawingLayerId
         markChanged()
     }
 
@@ -844,6 +872,7 @@ QtObject {
             return
         }
         selectedDrawingObjectId = ""
+        selectedDrawingObjectIds = []
         drawingPendingPoint = ({})
         markChanged()
     }
@@ -867,6 +896,7 @@ QtObject {
         }
         drawingGeneratedObjects = kept
         selectedDrawingObjectId = ""
+        selectedDrawingObjectIds = []
         markChanged()
     }
 
@@ -889,7 +919,46 @@ QtObject {
         duplicate.duplicate_of = objectId
         drawingGeneratedObjects.push(duplicate)
         selectedDrawingObjectId = duplicate.id
+        selectedDrawingObjectIds = [duplicate.id]
         selectedDrawingLayerId = String(duplicate.layer_id || selectedDrawingLayerId)
+        markChanged()
+    }
+
+    function copySelectedDrawingObject() {
+        var objectId = String(selectedDrawingObjectId || "")
+        if (objectId.length === 0 || objectId.indexOf("script_") !== 0) {
+            return
+        }
+        var source = selectedDrawingObject()
+        if (!source || String(source.id || "") !== objectId) {
+            return
+        }
+        drawingObjectClipboard = JSON.parse(JSON.stringify(source))
+        drawingObjectClipboardPasteCount = 0
+        markChanged()
+    }
+
+    function pasteCopiedDrawingObject() {
+        var sourceId = String(drawingObjectClipboard.id || "")
+        if (sourceId.length === 0 || sourceId.indexOf("script_") !== 0) {
+            return
+        }
+        var nextCount = drawingObjectClipboardPasteCount + 1
+        var offset = 16 * nextCount / Math.max(1, drawingCanvasSizePx)
+        if (drawingNativeController && typeof drawingNativeController.pasteObject === "function") {
+            drawingNativeController.pasteObject(drawingObjectClipboard, offset, offset)
+            drawingObjectClipboardPasteCount = nextCount
+            syncNativeDrawingModel()
+            return
+        }
+        var duplicate = JSON.parse(JSON.stringify(drawingObjectClipboard))
+        duplicate.id = sourceId + "_paste_" + String(nextCount)
+        duplicate.pasted_from = sourceId
+        drawingGeneratedObjects.push(duplicate)
+        selectedDrawingObjectId = duplicate.id
+        selectedDrawingObjectIds = [duplicate.id]
+        selectedDrawingLayerId = String(duplicate.layer_id || selectedDrawingLayerId)
+        drawingObjectClipboardPasteCount = nextCount
         markChanged()
     }
 
@@ -1022,6 +1091,7 @@ QtObject {
         drawingLastScriptStatus = "not_run"
         drawingLastScriptErrors = []
         selectedDrawingObjectId = ""
+        selectedDrawingObjectIds = []
         selectedDrawingLayerId = "layer_00_canvas"
         markChanged()
     }
@@ -1146,8 +1216,24 @@ QtObject {
         selectedDrawingLayerId = String(drawingFindById(drawingLayerStack, incomingLayerId, drawingLayerStack[0] || ({})).id || incomingLayerId)
         var incomingObjectId = String(document.selected_object_id || "")
         selectedDrawingObjectId = ""
+        selectedDrawingObjectIds = []
+        var incomingObjectIds = asArray(document.selected_object_ids)
+        var validIds = []
+        for (var idIndex = 0; idIndex < incomingObjectIds.length; ++idIndex) {
+            var candidateId = String(incomingObjectIds[idIndex] || "")
+            if (candidateId.length > 0 && drawingFindById(drawingCanvasObjects(revision), candidateId, null) && validIds.indexOf(candidateId) < 0) {
+                validIds.push(candidateId)
+            }
+        }
+        if (validIds.length > 0) {
+            selectedDrawingObjectIds = validIds
+            selectedDrawingObjectId = validIds[validIds.length - 1]
+        }
         if (incomingObjectId.length > 0 && drawingFindById(drawingCanvasObjects(revision), incomingObjectId, null)) {
             selectedDrawingObjectId = incomingObjectId
+            if (selectedDrawingObjectIds.indexOf(incomingObjectId) < 0) {
+                selectedDrawingObjectIds.push(incomingObjectId)
+            }
         }
         markChanged()
     }
@@ -1172,6 +1258,7 @@ QtObject {
             selected_variant_id: selectedDrawingVariantId,
             selected_layer_id: selectedDrawingLayerId,
             selected_object_id: selectedDrawingObjectId,
+            selected_object_ids: selectedDrawingObjectIds,
             pending_point: drawingPendingPoint,
             layers: [
                 { id: "layer_00_canvas", visible: true, objects: [
@@ -1233,6 +1320,7 @@ QtObject {
             selected_variant_id: selectedDrawingVariantId,
             selected_layer_id: selectedDrawingLayerId,
             selected_object_id: selectedDrawingObjectId,
+            selected_object_ids: selectedDrawingObjectIds,
             tool_parameters: toolParameters,
             drawing_style: {
                 selected_variant_id: selectedDrawingVariantId,

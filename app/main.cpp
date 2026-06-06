@@ -53,6 +53,105 @@ private:
     QString m_path;
 };
 
+class DrawingDocumentStore final : public QObject {
+    Q_OBJECT
+
+public:
+    explicit DrawingDocumentStore(QObject *parent = nullptr)
+        : QObject(parent) {}
+
+    Q_INVOKABLE QVariantMap save(const QUrl &url, const QVariantMap &model) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("save unavailable"));
+
+        QString path = localPath(url);
+        if (path.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing path missing"));
+            return result;
+        }
+        if (QFileInfo(path).suffix().isEmpty()) {
+            path += QStringLiteral(".json");
+        }
+
+        const QFileInfo info(path);
+        if (!info.absoluteDir().exists() && !QDir().mkpath(info.absolutePath())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing directory unavailable"));
+            return result;
+        }
+
+        const QJsonObject object = QJsonObject::fromVariantMap(model);
+        if (object.isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing model empty"));
+            return result;
+        }
+
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing write failed"));
+            return result;
+        }
+        file.write(QJsonDocument(object).toJson(QJsonDocument::Indented));
+        if (!file.commit()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing commit failed"));
+            return result;
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("saved drawing"));
+        result.insert(QStringLiteral("path"), path);
+        return result;
+    }
+
+    Q_INVOKABLE QVariantMap open(const QUrl &url) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("open unavailable"));
+
+        const QString path = localPath(url);
+        if (path.trimmed().isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing path missing"));
+            return result;
+        }
+
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing read failed"));
+            return result;
+        }
+
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+        if (!document.isObject()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing json invalid"));
+            return result;
+        }
+
+        const QJsonObject object = document.object();
+        if (object.value(QStringLiteral("export_kind")).toString() != QStringLiteral("pattern_lab_2d_native_model_v0")) {
+            result.insert(QStringLiteral("message"), QStringLiteral("not a Draftsman drawing"));
+            return result;
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("opened drawing"));
+        result.insert(QStringLiteral("path"), path);
+        result.insert(QStringLiteral("model"), object.toVariantMap());
+        return result;
+    }
+
+private:
+    static QString localPath(const QUrl &url) {
+        if (url.isLocalFile()) {
+            return url.toLocalFile();
+        }
+        const QString text = url.toString().trimmed();
+        if (text.startsWith(QStringLiteral("file://"))) {
+            return QUrl(text).toLocalFile();
+        }
+        return text;
+    }
+};
+
 class TextEditorStore final : public QObject {
     Q_OBJECT
 
@@ -798,6 +897,7 @@ int main(int argc, char *argv[]) {
     shellLayoutPath = absolutePath(shellLayoutPath);
     const QVariant shellLayout = loadJsonObject(shellLayoutPath);
     ShellLayoutStore shellLayoutStore(shellLayoutPath);
+    DrawingDocumentStore drawingDocumentStore;
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubject"), reviewSubject);
@@ -821,6 +921,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
+    engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);
     const QUrl mainUrl = QUrl::fromLocalFile(QStringLiteral(QML_SOURCE_DIR) + QStringLiteral("/Main.qml"));
     QObject::connect(
         &engine,

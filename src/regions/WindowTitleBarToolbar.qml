@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import "../style"
 import "../components"
@@ -41,6 +42,22 @@ RowLayout {
 
     function drawingToolActive() {
         return toolbar.controller && toolbar.controller.activityMode === "drawing_tool"
+    }
+
+    FileDialog {
+        id: drawingOpenDialog
+        title: "Open Drawing"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Draftsman drawing (*.json)", "JSON files (*.json)", "All files (*)"]
+        onAccepted: if (toolbar.controller) toolbar.controller.openDrawingDocument(selectedFile)
+    }
+
+    FileDialog {
+        id: drawingSaveDialog
+        title: "Save Drawing"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Draftsman drawing (*.json)", "JSON files (*.json)", "All files (*)"]
+        onAccepted: if (toolbar.controller) toolbar.controller.saveDrawingDocument(selectedFile)
     }
 
     spacing: 0
@@ -107,7 +124,7 @@ RowLayout {
 
         UiMenuButton {
             label: "File"
-            visible: !toolbar.textEditorActive()
+            visible: !toolbar.textEditorActive() && !toolbar.drawingToolActive()
             dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("File", toolbar.controller.revision) : []
             onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
@@ -120,6 +137,30 @@ RowLayout {
                 text: "Reset Layout"
                 enabled: toolbar.controller
                 onTriggered: toolbar.controller.resetShellLayout()
+            }
+            MenuSeparator {}
+            Action {
+                text: "Close Window"
+                enabled: toolbar.hostWindow
+                onTriggered: toolbar.hostWindow.close()
+            }
+        }
+
+        UiMenuButton {
+            label: "File"
+            visible: toolbar.drawingToolActive()
+            dynamicActions: toolbar.controller ? toolbar.controller.menuCustomActions("File", toolbar.controller.revision) : []
+            onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
+
+            Action {
+                text: "Open Drawing..."
+                enabled: toolbar.controller
+                onTriggered: drawingOpenDialog.open()
+            }
+            Action {
+                text: "Save Drawing..."
+                enabled: toolbar.controller
+                onTriggered: drawingSaveDialog.open()
             }
             MenuSeparator {}
             Action {

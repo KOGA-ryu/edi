@@ -164,6 +164,9 @@ QtObject {
     property bool shellLayoutDirty: false
     property bool shellLayoutSaveOk: true
     property string shellLayoutPath: ""
+    property bool drawingDocumentIoOk: true
+    property string drawingDocumentIoStatus: "not saved"
+    property string drawingDocumentPath: ""
     property int revision: 0
 
     property var backStack: []
@@ -969,6 +972,56 @@ QtObject {
         customActionOutputPath = String(result.path || "")
         revision += 1
         return !!result.ok
+    }
+
+    function currentDrawingModelDocument() {
+        if (drawingNativeController && typeof drawingNativeController.modelDocument === "function") {
+            return drawingNativeController.modelDocument()
+        }
+        return drawingSession.drawingCanvasExportDocument(revision)
+    }
+
+    function saveDrawingDocument(url) {
+        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.save !== "function") {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "drawing storage unavailable"
+            revision += 1
+            return false
+        }
+        var result = drawingDocumentStore.save(url, currentDrawingModelDocument())
+        drawingDocumentIoOk = !!result.ok
+        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "saved drawing" : "save failed"))
+        if (drawingDocumentIoOk) {
+            drawingDocumentPath = String(result.path || "")
+        }
+        revision += 1
+        return drawingDocumentIoOk
+    }
+
+    function openDrawingDocument(url) {
+        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.open !== "function") {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "drawing storage unavailable"
+            revision += 1
+            return false
+        }
+        var result = drawingDocumentStore.open(url)
+        drawingDocumentIoOk = !!result.ok
+        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "opened drawing" : "open failed"))
+        if (!drawingDocumentIoOk) {
+            revision += 1
+            return false
+        }
+        if (!drawingNativeController || typeof drawingNativeController.loadModel !== "function" || !drawingNativeController.loadModel(result.model || ({}))) {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "drawing model rejected"
+            revision += 1
+            return false
+        }
+        drawingDocumentPath = String(result.path || "")
+        drawingSession.syncNativeDrawingModel()
+        revision += 1
+        return true
     }
 
     function textEditorLineCount(unusedRevision) {

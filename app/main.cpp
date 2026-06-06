@@ -309,13 +309,46 @@ private:
         return coordinates;
     }
 
+    static QJsonArray objectTagsManifest(const QJsonObject &object) {
+        const QJsonValue tagsValue = object.value(QStringLiteral("tags"));
+        if (tagsValue.isArray()) {
+            return tagsValue.toArray();
+        }
+        if (tagsValue.isString() && !tagsValue.toString().trimmed().isEmpty()) {
+            QJsonArray tags;
+            tags.append(tagsValue.toString().trimmed());
+            return tags;
+        }
+        return {};
+    }
+
+    static QJsonObject objectMetadataManifest(const QJsonObject &object) {
+        QJsonObject metadata;
+        const QStringList keys = {
+            QStringLiteral("intent"),
+            QStringLiteral("role"),
+            QStringLiteral("material"),
+            QStringLiteral("export_group")
+        };
+        for (const QString &key : keys) {
+            copyIfPresent(metadata, object, key);
+        }
+        return metadata;
+    }
+
     static QJsonObject objectManifestEntry(const QJsonObject &object) {
         QJsonObject entry;
         entry.insert(QStringLiteral("id"), object.value(QStringLiteral("id")).toString());
         entry.insert(QStringLiteral("type"), object.value(QStringLiteral("kind")).toString(QStringLiteral("unknown")));
+        entry.insert(QStringLiteral("tags"), objectTagsManifest(object));
+        const QJsonObject metadata = objectMetadataManifest(object);
+        for (const QString &key : metadata.keys()) {
+            entry.insert(key, metadata.value(key));
+        }
         copyIfPresent(entry, object, QStringLiteral("layer_id"));
         copyIfPresent(entry, object, QStringLiteral("line_variant"));
         copyIfPresent(entry, object, QStringLiteral("circle_arc_mode"));
+        entry.insert(QStringLiteral("metadata"), metadata);
         entry.insert(QStringLiteral("style"), objectStyleManifest(object));
         entry.insert(QStringLiteral("source_coordinates"), objectCoordinateManifest(object));
         return entry;
@@ -393,11 +426,45 @@ try:
 except Exception as exc:
     raise RuntimeError("Blender SVG import failed. Enable SVG import support, then rerun this script.") from exc
 
+manifest_objects = manifest.get("objects", [])
+manifest_by_id = {str(entry.get("id", "")): entry for entry in manifest_objects if entry.get("id")}
+
+def clean_object_name(name):
+    result = str(name)
+    if result.startswith("draftsman_"):
+        result = result[len("draftsman_"):]
+    if len(result) > 4 and result[-4] == "." and result[-3:].isdigit():
+        result = result[:-4]
+    return result
+
+def manifest_entry_for(obj, index):
+    object_id = clean_object_name(obj.name)
+    if object_id in manifest_by_id:
+        return manifest_by_id[object_id]
+    if index < len(manifest_objects):
+        return manifest_objects[index]
+    return {}
+
+def metadata_value(entry, key, default=""):
+    metadata = entry.get("metadata", {})
+    value = entry.get(key, metadata.get(key, default))
+    return "" if value is None else value
+
 imported = [obj for obj in bpy.data.objects if obj.name not in before_names]
-for obj in imported:
+for index, obj in enumerate(imported):
+    entry = manifest_entry_for(obj, index)
+    tags = entry.get("tags", [])
     for existing_collection in list(obj.users_collection):
         existing_collection.objects.unlink(obj)
     collection.objects.link(obj)
+    obj["draftsman_id"] = str(entry.get("id", clean_object_name(obj.name)))
+    obj["draftsman_type"] = str(entry.get("type", "unknown"))
+    obj["draftsman_tags"] = json.dumps(tags)
+    obj["draftsman_role"] = str(metadata_value(entry, "role"))
+    obj["draftsman_material"] = str(metadata_value(entry, "material"))
+    obj["draftsman_intent"] = str(metadata_value(entry, "intent"))
+    obj["draftsman_export_group"] = str(metadata_value(entry, "export_group"))
+    obj["draftsman_manifest_index"] = index
     obj.name = "draftsman_" + obj.name
     obj.location.z = 0.0
     obj.scale = (SCALE, SCALE, SCALE)
@@ -415,6 +482,9 @@ Files:
 - drawing.svg: exported Draftsman vector drawing.
 - manifest.json: compact object metadata and Blender import hints.
 - import_drawing_svg.py: Blender script that imports drawing.svg as curves.
+
+Imported Blender objects receive Draftsman custom properties:
+draftsman_id, draftsman_type, draftsman_tags, draftsman_role, draftsman_material.
 
 Run:
 blender --python import_drawing_svg.py

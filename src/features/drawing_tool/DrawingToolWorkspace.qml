@@ -607,8 +607,8 @@ Rectangle {
                     }
                     var pixelX = wheel.pixelDelta.x !== 0 ? wheel.pixelDelta.x : wheel.angleDelta.x / 2
                     var pixelY = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y / 2
-                    var panGesture = (wheel.modifiers & Qt.ShiftModifier)
-                    if (!panGesture) {
+                    var zoomGesture = (wheel.modifiers & Qt.ControlModifier) || (wheel.modifiers & Qt.MetaModifier)
+                    if (zoomGesture) {
                         var rawDelta = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y
                         var zoomFactor = Math.pow(1.0015, rawDelta)
                         drawingWorkspace.controller.zoomDrawingCanvasAt(zoomFactor, wheel.x, wheel.y, constructionCanvas.width, constructionCanvas.height)
@@ -616,11 +616,9 @@ Rectangle {
                         wheel.accepted = true
                         return
                     }
-                    if (drawingWorkspace.controller.drawingCanvasZoom > 1.001 || panGesture) {
-                        drawingWorkspace.controller.panDrawingCanvasBy(pixelX, pixelY)
-                        constructionCanvas.requestPaint()
-                        wheel.accepted = true
-                    }
+                    drawingWorkspace.controller.panDrawingCanvasBy(pixelX, pixelY)
+                    constructionCanvas.requestPaint()
+                    wheel.accepted = true
                 }
             }
 

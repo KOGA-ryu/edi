@@ -20,6 +20,25 @@ Rectangle {
     color: UiStyle.colorWorkspace
     border.width: UiStyle.borderNone
 
+    function editorStatusText() {
+        if (!root.controller) {
+            return "line 1 col 1 | selected 0"
+        }
+
+        var status = "line " + String(root.controller.textEditorCursorLine(root.controller.revision))
+            + " col " + String(root.controller.textEditorCursorColumn(root.controller.revision))
+            + " | selected " + String(root.controller.textEditorSelectionLength(root.controller.revision))
+
+        if (!root.controller.textEditorStatsEnabled) {
+            return status
+        }
+
+        return status
+            + " | words " + String(root.controller.textEditorWordCount(root.controller.revision))
+            + " | chars " + String(root.controller.textEditorCharCount(root.controller.revision))
+            + " | read time " + root.controller.textEditorReadTime(root.controller.revision)
+    }
+
     function syncController() {
         if (!root.controller || !editor) {
             return
@@ -582,11 +601,7 @@ Rectangle {
 
         Text {
             Layout.fillWidth: true
-            text: root.controller
-                ? "line " + String(root.controller.textEditorCursorLine(root.controller.revision))
-                    + " col " + String(root.controller.textEditorCursorColumn(root.controller.revision))
-                    + " | selected " + String(root.controller.textEditorSelectionLength(root.controller.revision))
-                : "line 1 col 1 | selected 0"
+            text: root.editorStatusText()
             color: UiStyle.colorTextFaint
             font.family: UiStyle.fontMono
             font.pixelSize: UiStyle.fontSizeXs

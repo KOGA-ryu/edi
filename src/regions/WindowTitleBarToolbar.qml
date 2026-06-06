@@ -203,6 +203,11 @@ RowLayout {
                 enabled: toolbar.controller
                 onTriggered: toolbar.controller.toggleBottomPanel()
             }
+            Action {
+                text: toolbar.controller && toolbar.controller.textEditorStatsEnabled ? "Hide Stats" : "Show Stats"
+                enabled: toolbar.controller && toolbar.textEditorActive()
+                onTriggered: toolbar.controller.toggleTextEditorStats()
+            }
             MenuSeparator {}
             Action {
                 text: "Full Layout"

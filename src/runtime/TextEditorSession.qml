@@ -32,6 +32,7 @@ QtObject {
     property bool textEditorWrapEnabled: true
     property bool textEditorLineNumbersVisible: true
     property bool textEditorSplitEnabled: false
+    property bool textEditorStatsEnabled: false
     property string secondaryTextEditorDocumentId: ""
     property string textEditorRequestedCommand: ""
     property int textEditorCommandRevision: 0
@@ -404,6 +405,27 @@ QtObject {
 
     function textEditorCharCount(unusedRevision) {
         return textEditorText.length
+    }
+
+    function textEditorWordCount(unusedRevision) {
+        var content = String(textEditorText || "").trim()
+        if (!content.length) {
+            return 0
+        }
+        var matches = content.match(/[^\s]+/g)
+        return matches ? matches.length : 0
+    }
+
+    function textEditorReadTime(unusedRevision) {
+        var words = textEditorWordCount(unusedRevision)
+        if (words <= 0) {
+            return "0m"
+        }
+        return String(Math.max(1, Math.ceil(words / 250))) + "m"
+    }
+
+    function toggleTextEditorStats() {
+        textEditorStatsEnabled = !textEditorStatsEnabled
     }
 
     function textEditorSelectionLength(unusedRevision) {

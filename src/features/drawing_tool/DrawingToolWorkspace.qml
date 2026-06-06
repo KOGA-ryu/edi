@@ -27,6 +27,24 @@ Rectangle {
                 return drawingWorkspace.controller ? String(drawingWorkspace.controller.selectedDrawingToolId || "") : ""
             }
 
+            function nudgeStepPx(mode) {
+                if (mode === "fine") {
+                    return 1
+                }
+                var gridStep = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingSnapGridStepPx : 32))
+                return mode === "large" ? gridStep * 4 : gridStep
+            }
+
+            function nudgeSelection(dx, dy, mode) {
+                if (!drawingWorkspace.controller) {
+                    return
+                }
+                var step = nudgeStepPx(mode)
+                drawingWorkspace.controller.nudgeSelectedDrawingObjectByPx(dx * step, dy * step)
+                constructionCanvas.previewActive = false
+                constructionCanvas.requestPaint()
+            }
+
             Shortcut {
                 sequence: "Esc"
                 context: Qt.ApplicationShortcut
@@ -117,6 +135,78 @@ Rectangle {
                     constructionCanvas.previewActive = false
                     constructionCanvas.requestPaint()
                 }
+            }
+
+            Shortcut {
+                sequence: "Left"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(-1, 0, "grid")
+            }
+
+            Shortcut {
+                sequence: "Right"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(1, 0, "grid")
+            }
+
+            Shortcut {
+                sequence: "Up"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, -1, "grid")
+            }
+
+            Shortcut {
+                sequence: "Down"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, 1, "grid")
+            }
+
+            Shortcut {
+                sequence: "Alt+Left"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(-1, 0, "fine")
+            }
+
+            Shortcut {
+                sequence: "Alt+Right"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(1, 0, "fine")
+            }
+
+            Shortcut {
+                sequence: "Alt+Up"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, -1, "fine")
+            }
+
+            Shortcut {
+                sequence: "Alt+Down"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, 1, "fine")
+            }
+
+            Shortcut {
+                sequence: "Shift+Left"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(-1, 0, "large")
+            }
+
+            Shortcut {
+                sequence: "Shift+Right"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(1, 0, "large")
+            }
+
+            Shortcut {
+                sequence: "Shift+Up"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, -1, "large")
+            }
+
+            Shortcut {
+                sequence: "Shift+Down"
+                context: Qt.ApplicationShortcut
+                onActivated: nudgeSelection(0, 1, "large")
             }
 
             Canvas {

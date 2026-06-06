@@ -1275,6 +1275,10 @@ QtObject {
         drawingSession.moveSelectedDrawingObjectBy(dx, dy)
     }
 
+    function nudgeSelectedDrawingObjectByPx(dxPx, dyPx) {
+        drawingSession.nudgeSelectedDrawingObjectByPx(dxPx, dyPx)
+    }
+
     function updateSelectedDrawingObjectField(field, rawValue) {
         drawingSession.updateSelectedDrawingObjectField(field, rawValue)
     }

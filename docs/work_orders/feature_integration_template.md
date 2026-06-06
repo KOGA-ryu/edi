@@ -31,7 +31,21 @@ settings:
 
 Activity mode:
 
+Exclusive group:
+
 Default panel state:
+
+Main showcase:
+
+Left navigation:
+
+Right inspection:
+
+Bottom output:
+
+Settings controls:
+
+Hidden until working:
 
 ## Data Contract
 

@@ -81,6 +81,12 @@ for (const file of files) {
     requireString(errors, mode, "icon", context);
     requireString(errors, mode, "tooltip", context);
     requireBoolean(errors, mode, "enabled", context);
+    optionalString(errors, mode, "exclusive_group", context);
+    if (typeof mode.exclusive_group === "string"
+        && mode.exclusive_group.length > 0
+        && !["tool_type", "system"].includes(mode.exclusive_group)) {
+      errors.push(`${context}: exclusive_group must be tool_type or system when present`);
+    }
     if (mode.id) {
       if (modeIds.has(mode.id)) {
         errors.push(`${context}: duplicate id`);

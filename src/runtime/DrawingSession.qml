@@ -167,7 +167,7 @@ QtObject {
 
     function selectedDrawingObject() {
         var objects = drawingCanvasObjects(revision)
-        return drawingFindById(objects, selectedDrawingObjectId, objects[0] || ({}))
+        return drawingFindById(objects, selectedDrawingObjectId, null) || ({})
     }
 
     function drawingAnchorPoint(anchorId) {
@@ -522,12 +522,17 @@ QtObject {
             return
         }
         selectedDrawingLayerId = String(layer.id)
+        var found = false
         var objects = drawingCanvasObjects(revision)
         for (var index = 0; index < objects.length; ++index) {
             if (String(objects[index].layer_id || "") === selectedDrawingLayerId) {
                 selectedDrawingObjectId = String(objects[index].id)
+                found = true
                 break
             }
+        }
+        if (!found) {
+            selectedDrawingObjectId = ""
         }
         markChanged()
     }
@@ -538,8 +543,16 @@ QtObject {
             syncNativeDrawingModel()
             return
         }
+        if (drawingNativeController && String(objectId || "").indexOf("anchor_") === 0) {
+            selectedDrawingObjectId = String(objectId)
+            selectedDrawingLayerId = "layer_00_canvas"
+            markChanged()
+            return
+        }
         var object = drawingFindById(drawingCanvasObjects(revision), objectId, null)
         if (!object) {
+            selectedDrawingObjectId = ""
+            markChanged()
             return
         }
         selectedDrawingObjectId = String(object.id)
@@ -554,6 +567,7 @@ QtObject {
             return
         }
         selectedDrawingObjectId = ""
+        drawingPendingPoint = ({})
         markChanged()
     }
 
@@ -672,7 +686,7 @@ QtObject {
         drawingLastScriptId = ""
         drawingLastScriptStatus = "not_run"
         drawingLastScriptErrors = []
-        selectedDrawingObjectId = "artboard_bounds"
+        selectedDrawingObjectId = ""
         selectedDrawingLayerId = "layer_00_canvas"
         markChanged()
     }
@@ -715,8 +729,13 @@ QtObject {
             drawingRegularPolygonRotationDeg = Number(toolParameters.regular_polygon_rotation_deg)
         }
         selectedDrawingToolId = String(document.selected_tool_id || selectedDrawingToolId)
-        selectedDrawingLayerId = String(document.selected_layer_id || selectedDrawingLayerId)
-        selectedDrawingObjectId = String(document.selected_object_id || selectedDrawingObjectId)
+        var incomingLayerId = String(document.selected_layer_id || selectedDrawingLayerId)
+        selectedDrawingLayerId = String(drawingFindById(drawingLayerStack, incomingLayerId, drawingLayerStack[0] || ({})).id || incomingLayerId)
+        var incomingObjectId = String(document.selected_object_id || "")
+        selectedDrawingObjectId = ""
+        if (incomingObjectId.length > 0 && drawingFindById(drawingCanvasObjects(revision), incomingObjectId, null)) {
+            selectedDrawingObjectId = incomingObjectId
+        }
         markChanged()
     }
 

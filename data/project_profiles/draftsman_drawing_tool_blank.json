@@ -14,6 +14,7 @@
       "label": "Draw",
       "icon": "D",
       "tooltip": "Drawing tool workspace",
+      "exclusive_group": "tool_type",
       "enabled": true
     },
     {

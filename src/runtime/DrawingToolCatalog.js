@@ -2,14 +2,14 @@
 
 function toolModes() {
     return [
-        { id: "select_move", label: "Select / move", meta: "edit" },
-        { id: "anchor_points", label: "Point / anchor", meta: "snap" },
-        { id: "line_polyline", label: "Line / polyline", meta: "draw" },
-        { id: "circle_arc", label: "Circle / arc", meta: "draw" },
-        { id: "rectangle_polygon", label: "Rect / polygon", meta: "shape" },
-        { id: "regular_polygon", label: "Regular polygon", meta: "shape" },
-        { id: "image_reference_frame", label: "Image reference frame", meta: "ascii" },
-        { id: "ascii_crop_frame", label: "ASCII crop frame", meta: "ascii" },
+        { id: "select_move", label: "Select", meta: "edit" },
+        { id: "anchor_points", label: "Point", meta: "snap" },
+        { id: "line_polyline", label: "Line", meta: "draw" },
+        { id: "circle_arc", label: "Circle", meta: "draw" },
+        { id: "rectangle_polygon", label: "Rect", meta: "shape" },
+        { id: "regular_polygon", label: "Polygon", meta: "shape" },
+        { id: "image_reference_frame", label: "Image frame", meta: "ascii" },
+        { id: "ascii_crop_frame", label: "ASCII crop", meta: "ascii" },
         { id: "ascii_cell_region", label: "ASCII cell region", meta: "ascii" },
         { id: "tone_probe", label: "Tone probe", meta: "ascii" },
         { id: "glyph_baseline", label: "Glyph baseline", meta: "ascii" },

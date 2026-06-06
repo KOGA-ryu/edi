@@ -84,6 +84,26 @@ The meta UI taxonomy review is still available as an explicit profile:
 - Add project commands through `custom_actions` when a known safe handler exists; do not use arbitrary scripts for first-pass integrations.
 - Do not enable writes until a persistence and receipt contract is approved.
 
+## Activity Mode Exclusivity
+
+`activity_modes` are exclusive shell modes. Only one mode owns the active workspace and panels at a time.
+
+Tool-type modes must declare:
+
+```js
+exclusive_group: "tool_type"
+```
+
+Use that group for project modes such as:
+
+```text
+map_generator / map_editor
+drawing_drafting / drawing_tool
+blender_scripts / tool_workspace
+```
+
+Settings may declare `exclusive_group: "system"` or omit the field. Do not place map generation, drawing/drafting, and Blender scripts into simultaneously visible panels; switch activity mode instead.
+
 ## Custom Actions
 
 `custom_actions` are optional declarative menu actions. They let a profile add project commands without forking shell QML.

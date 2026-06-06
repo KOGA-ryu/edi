@@ -4,6 +4,23 @@ import "../../style"
 QtObject {
     id: canvasObjectRenderer
 
+    function asArray(value) {
+        if (!value) {
+            return []
+        }
+        if (Array.isArray(value)) {
+            return value
+        }
+        if (typeof value.length === "number") {
+            var values = []
+            for (var index = 0; index < value.length; ++index) {
+                values.push(value[index])
+            }
+            return values
+        }
+        return []
+    }
+
     property var objectRendererByKind: ({
         rect: "drawRect",
         grid: "drawGrid",
@@ -28,6 +45,106 @@ QtObject {
 
     function pxY(bounds, normalizedY) {
         return bounds.y + Number(normalizedY) * bounds.size
+    }
+
+    function selectedObjectSelectionBounds(bounds, object) {
+        var minX = Number.POSITIVE_INFINITY
+        var minY = Number.POSITIVE_INFINITY
+        var maxX = Number.NEGATIVE_INFINITY
+        var maxY = Number.NEGATIVE_INFINITY
+        var kind = String(object.kind || "")
+
+        function include(nx, ny, pad) {
+            var x = Number(nx)
+            var y = Number(ny)
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                return
+            }
+            var padding = Number.isFinite(Number(pad)) ? Number(pad) : 0
+            minX = Math.min(minX, x - padding)
+            minY = Math.min(minY, y - padding)
+            maxX = Math.max(maxX, x + padding)
+            maxY = Math.max(maxY, y + padding)
+        }
+
+        if (kind === "point" || kind === "tone_probe") {
+            include(object.x || 0, object.y || 0, 0.02)
+        } else if (kind === "line" || kind === "glyph_baseline") {
+            include(object.x1 || 0, object.y1 || 0, 0)
+            include(object.x2 || 0, object.y2 || 0, 0)
+        } else if (kind === "circle" || kind === "arc") {
+            var radius = Number(object.radius || 0)
+            include((object.cx || 0) - radius, (object.cy || 0) - radius, 0)
+            include((object.cx || 0) + radius, (object.cy || 0) + radius, 0)
+        } else if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
+            include(object.x || 0, object.y || 0, 0)
+            include(Number(object.x || 0) + Number(object.width || 0), Number(object.y || 0) + Number(object.height || 0), 0)
+        } else if (kind === "polyline" || kind === "polygon") {
+            var points = asArray(object.points)
+            for (var pointIndex = 0; pointIndex < points.length; ++pointIndex) {
+                var point = points[pointIndex] || [0, 0]
+                include(point[0] || 0, point[1] || 0, 0)
+            }
+            if (kind === "polygon" && points.length === 0) {
+                return {}
+            }
+        } else if (kind === "grid") {
+            include(0, 0, 0)
+            include(1, 1, 0)
+        }
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+            return {}
+        }
+        if (maxX < minX || maxY < minY) {
+            return {}
+        }
+        return {
+            x: pxX(bounds, minX),
+            y: pxY(bounds, minY),
+            width: pxX(bounds, maxX) - pxX(bounds, minX),
+            height: pxY(bounds, maxY) - pxY(bounds, minY)
+        }
+    }
+
+    function drawSelectionHalo(ctx, bounds) {
+        if (!bounds || bounds.width === undefined || bounds.height === undefined) {
+            return
+        }
+        var pad = 8
+        var left = bounds.x - pad
+        var top = bounds.y - pad
+        var right = bounds.x + bounds.width + pad
+        var bottom = bounds.y + bounds.height + pad
+        var width = Math.max(1, right - left)
+        var height = Math.max(1, bottom - top)
+
+        ctx.save()
+        ctx.strokeStyle = UiStyle.colorWarning
+        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.14)
+        ctx.lineWidth = 2
+        ctx.setLineDash([8, 4])
+        ctx.beginPath()
+        ctx.rect(left - 2, top - 2, width + 4, height + 4)
+        ctx.fill()
+        ctx.stroke()
+
+        ctx.setLineDash([])
+        var handle = 5
+        var points = [
+            [left, top],
+            [left + width, top],
+            [left, top + height],
+            [left + width, top + height]
+        ]
+        for (var handleIndex = 0; handleIndex < points.length; ++handleIndex) {
+            var handlePoint = points[handleIndex]
+            ctx.fillStyle = UiStyle.colorWarning
+            ctx.beginPath()
+            ctx.rect(handlePoint[0] - handle, handlePoint[1] - handle, handle * 2, handle * 2)
+            ctx.fill()
+        }
+        ctx.restore()
     }
 
     function selectedObject(doc, objectId) {
@@ -328,6 +445,10 @@ QtObject {
         var renderer = rendererName.length > 0 ? canvasObjectRenderer[rendererName] : null
         if (renderer) {
             renderer(ctx, bounds, object, layerSelected, objectSelected)
+        }
+        if (objectSelected) {
+            var selectionBounds = selectedObjectSelectionBounds(bounds, object)
+            drawSelectionHalo(ctx, selectionBounds)
         }
     }
 }

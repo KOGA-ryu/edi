@@ -8,6 +8,7 @@ Do not begin by reading the whole repo. Start with:
 data/shell_surface_map.json
 data/design_principles.json
 docs/design_philosophy.md
+docs/visual_organization_contract.md
 docs/project_profile_contract.md
 docs/reusable_shell_contract.md
 docs/right_inspector_contract.md
@@ -21,6 +22,10 @@ The shell owns layout. Features own content.
 Project-specific UI should enter through project profile data and feature modules. Do not fork shared shell files for one project.
 
 The design philosophy owns taste and quality. Every feature plan should inherit `docs/design_philosophy.md` and `data/design_principles.json`, then declare which design profile it follows.
+
+The visual organization contract owns what each screen region is allowed to display. Every feature plan must declare its main showcase, left navigation, right inspection, bottom output, settings controls, and hidden-until-working content.
+
+Feature-specific contracts may narrow these rules. For the drawing tool, use `docs/features/drawing_tool_visual_contract.md`.
 
 ## Surface Names
 

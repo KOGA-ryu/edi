@@ -16,10 +16,176 @@ Rectangle {
     color: UiStyle.colorWorkspace
     border.width: UiStyle.borderNone
 
+    function asArray(value) {
+        if (!value) {
+            return []
+        }
+        if (Array.isArray(value)) {
+            return value
+        }
+        return []
+    }
+
+    function isWorkingToolId(toolId) {
+        return ["select_move", "anchor_points", "line_polyline", "circle_arc", "rectangle_polygon", "regular_polygon", "image_reference_frame", "ascii_crop_frame"].indexOf(String(toolId || "")) >= 0
+    }
+
+    function workingTools() {
+        var result = []
+        if (!drawingWorkspace.controller) {
+            return result
+        }
+        var modes = asArray(drawingWorkspace.controller.drawingToolModes)
+        for (var index = 0; index < modes.length; ++index) {
+            var mode = modes[index]
+            if (isWorkingToolId(mode.id)) {
+                result.push(mode)
+            }
+        }
+        return result
+    }
+
+    function selectedObjectId() {
+        if (!drawingWorkspace.controller) {
+            return ""
+        }
+        return String(drawingWorkspace.controller.selectedDrawingObjectId || "")
+    }
+
+    function hasSelectedObject() {
+        return selectedObjectId().length > 0
+    }
+
+    function hasSelectedGeneratedObject() {
+        var objectId = selectedObjectId()
+        return objectId.length > 0 && objectId.indexOf("script_") === 0
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: UiStyle.space4
-        spacing: 0
+        spacing: UiStyle.space6
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 34
+            color: UiStyle.colorPanelAlt
+            radius: UiStyle.radiusSm
+            border.width: UiStyle.borderNone
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: UiStyle.space6
+                anchors.rightMargin: UiStyle.space6
+                spacing: UiStyle.space4
+
+                Repeater {
+                    model: drawingWorkspace.workingTools()
+                    delegate: UiButton {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: Math.max(66, implicitWidth + UiStyle.space6)
+                        label: modelData.label
+                        tooltip: modelData.label + " tool"
+                        selected: drawingWorkspace.controller && drawingWorkspace.controller.selectedDrawingToolId === modelData.id
+                        onClicked: if (drawingWorkspace.controller) drawingWorkspace.controller.selectDrawingTool(modelData.id)
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                UiIconButton {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 24
+                    label: "Delete"
+                    iconText: "X"
+                    enabled: drawingWorkspace.hasSelectedGeneratedObject()
+                    tooltip: drawingWorkspace.hasSelectedGeneratedObject() ? "Delete selected object" : "No deletable selected object"
+                    onClicked: if (drawingWorkspace.hasSelectedGeneratedObject() && drawingWorkspace.controller) {
+                        drawingWorkspace.controller.deleteSelectedDrawingObject()
+                    }
+                }
+
+                UiIconButton {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 24
+                    label: "Clear"
+                    iconText: "C"
+                    enabled: drawingWorkspace.hasSelectedObject()
+                    tooltip: drawingWorkspace.hasSelectedObject() ? "Clear selection" : "Nothing selected"
+                    onClicked: if (drawingWorkspace.hasSelectedObject() && drawingWorkspace.controller) {
+                        drawingWorkspace.controller.clearDrawingObjectSelection()
+                    }
+                }
+
+                UiIconButton {
+                    Layout.preferredWidth: 30
+                    Layout.preferredHeight: 24
+                    label: "Fit"
+                    iconText: "↔"
+                    tooltip: "Reset canvas view"
+                    onClicked: if (drawingWorkspace.controller) drawingWorkspace.controller.resetDrawingCanvasZoom()
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 22
+            color: UiStyle.colorTransparent
+            border.width: UiStyle.borderNone
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: UiStyle.space4
+                anchors.rightMargin: UiStyle.space4
+                spacing: UiStyle.space8
+
+                Text {
+                    Layout.fillWidth: true
+                    text: canvasFrame.selectedToolLabel()
+                    color: UiStyle.colorTextMuted
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "selected: " + (drawingWorkspace.hasSelectedObject() ? selectedObjectId() : "none")
+                    color: UiStyle.colorTextMuted
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: canvasFrame.toolStateText()
+                    color: UiStyle.colorTextMuted
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.preferredWidth: 150
+                    text: canvasFrame.coordinateText()
+                    color: UiStyle.colorTextFaint
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.preferredWidth: 84
+                    text: canvasFrame.viewText()
+                    color: UiStyle.colorTextFaint
+                    font.family: UiStyle.fontSans
+                    font.pixelSize: UiStyle.fontSizeXs
+                    horizontalAlignment: Text.AlignRight
+                }
+            }
+        }
 
         Rectangle {
             id: canvasFrame
@@ -79,7 +245,7 @@ Rectangle {
                 var canvasPx = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasSizePx || 512) : 512
                 var px = Math.round(canvasInput.hoverSnapX * canvasPx)
                 var py = Math.round(canvasInput.hoverSnapY * canvasPx)
-                return canvasInput.hoverSnapLabel + " " + px + "," + py + " / norm " + canvasInput.hoverSnapX.toFixed(3) + "," + canvasInput.hoverSnapY.toFixed(3)
+                return "cursor " + px + "," + py + " / " + canvasInput.hoverSnapX.toFixed(3) + "," + canvasInput.hoverSnapY.toFixed(3)
             }
 
             function viewText() {
@@ -403,7 +569,6 @@ Rectangle {
                     constructionCanvas.requestPaint()
                 }
             }
-
         }
     }
 }

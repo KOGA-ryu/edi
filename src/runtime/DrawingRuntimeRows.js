@@ -161,12 +161,13 @@ function inspectorRows(controller) {
     var tool = controller.selectedDrawingTool()
     var layer = controller.selectedDrawingLayer()
     var object = controller.selectedDrawingObject()
+    var hasObject = String(object.id || "").length > 0
     var rows = [
         { label: "Tool", value: String(tool.label || controller.selectedDrawingToolId) },
         { label: "Layer", value: String(layer.label || controller.selectedDrawingLayerId) },
-        { label: "Object", value: String(object.label || controller.selectedDrawingObjectId) },
-        { label: "Kind", value: String(object.kind || "unknown") },
-        { label: "Detail", value: String(object.detail || "model-backed drawing object") }
+        { label: "Object", value: hasObject ? String(object.label || controller.selectedDrawingObjectId) : "none" },
+        { label: "Kind", value: hasObject ? String(object.kind || "unknown") : "none" },
+        { label: "Detail", value: hasObject ? String(object.detail || "model-backed drawing object") : "No object selected" }
     ]
     appendInspectorRows(rows, object)
     rows.push({ label: "Fit status", value: fitTransform(controller).ok ? "root-tip transform valid" : "invalid root-tip vector" })

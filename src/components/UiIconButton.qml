@@ -4,9 +4,5 @@ import "../style"
 
 UiButton {
     compact: true
-    property string tooltip: label
-    ToolTip.visible: hovered && tooltip.length > 0
-    ToolTip.text: tooltip
-    ToolTip.delay: 2400
-    ToolTip.timeout: 8000
+    tooltip: label
 }

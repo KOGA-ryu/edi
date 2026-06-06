@@ -9,6 +9,7 @@ Rectangle {
     property string dataState: selected ? "selected" : hovered ? "hover" : "idle"
     property string label: "Button"
     property string iconText: ""
+    property string tooltip: ""
     property bool selected: false
     property bool compact: false
     signal clicked()
@@ -45,4 +46,9 @@ Rectangle {
         onExited: button.hovered = false
         onClicked: if (button.enabled) button.clicked()
     }
+
+    ToolTip.visible: hovered && tooltip.length > 0
+    ToolTip.text: tooltip
+    ToolTip.delay: 2400
+    ToolTip.timeout: 8000
 }

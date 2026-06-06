@@ -341,10 +341,10 @@ QtObject {
 
     function defaultActivityModes() {
         return [
-            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace" },
-            { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace" },
-            { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface" },
-            { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts" }
+            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace", exclusiveGroup: "" },
+            { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace", exclusiveGroup: "" },
+            { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface", exclusiveGroup: "system" },
+            { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts", exclusiveGroup: "" }
         ]
     }
 
@@ -354,15 +354,73 @@ QtObject {
         for (var index = 0; index < sourceModes.length; ++index) {
             var mode = sourceModes[index]
             if (mode && mode.enabled !== false && String(mode.id || "").length > 0) {
+                var id = String(mode.id)
                 modes.push({
-                    id: String(mode.id),
+                    id: id,
                     label: String(mode.label || mode.id),
                     icon: String(mode.icon || String(mode.label || mode.id).charAt(0).toUpperCase()),
-                    tooltip: String(mode.tooltip || mode.label || mode.id)
+                    tooltip: String(mode.tooltip || mode.label || mode.id),
+                    exclusiveGroup: String(mode.exclusive_group || mode.exclusiveGroup || defaultActivityExclusiveGroup(id))
                 })
             }
         }
         return modes.length > 0 ? modes : defaultActivityModes()
+    }
+
+    function defaultActivityExclusiveGroup(modeId) {
+        var id = String(modeId || "")
+        if (id === "map_generator"
+                || id === "map_editor"
+                || id === "drawing_tool"
+                || id === "drawing_drafting"
+                || id === "blender_scripts"
+                || id === "tool_workspace") {
+            return "tool_type"
+        }
+        if (id === "settings") {
+            return "system"
+        }
+        return ""
+    }
+
+    function activityModeRecord(modeId) {
+        var id = String(modeId || "")
+        for (var index = 0; index < activityModes.length; ++index) {
+            if (String(activityModes[index].id || "") === id) {
+                return activityModes[index]
+            }
+        }
+        return null
+    }
+
+    function activityExclusiveGroup(modeId) {
+        var mode = activityModeRecord(modeId)
+        return mode ? String(mode.exclusiveGroup || "") : ""
+    }
+
+    function activityInExclusiveGroup(modeId, groupId) {
+        return activityExclusiveGroup(modeId) === String(groupId || "")
+    }
+
+    function activeToolTypeMode() {
+        return activityInExclusiveGroup(activityMode, "tool_type") ? activityMode : ""
+    }
+
+    function toolTypeModes(unusedRevision) {
+        var result = []
+        for (var index = 0; index < activityModes.length; ++index) {
+            if (String(activityModes[index].exclusiveGroup || "") === "tool_type") {
+                result.push(activityModes[index])
+            }
+        }
+        return result
+    }
+
+    function setToolTypeMode(modeId) {
+        if (!activityInExclusiveGroup(modeId, "tool_type")) {
+            return
+        }
+        setActivityMode(modeId)
     }
 
     function normalizeProjectRows(source) {

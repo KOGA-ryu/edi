@@ -10,6 +10,7 @@ Item {
     property string dataUi: "drawing_tool_right_context"
     property string dataState: "draftsman_native_drawing"
     property var controller: null
+    property var inspectorRows: controller ? controller.drawingInspectorRows(controller.revision) : []
     property var editRows: controller ? controller.drawingObjectEditRows(controller.revision) : []
     property var toolParameterRows: controller ? controller.drawingToolParameterEditRows(controller.revision) : []
 
@@ -31,9 +32,9 @@ Item {
             spacing: UiStyle.space10
 
             UiPanel {
-                visible: drawingRightContext.controller ? !drawingRightContext.controller.hasSelectedDrawingExternalTool(drawingRightContext.controller.revision) : true
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 138 : 0
+                Layout.preferredHeight: visible ? Math.max(130, 42 + drawingRightContext.inspectorRows.length * 34) : 0
+                visible: drawingRightContext.inspectorRows.length > 0
                 panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
                 panelBorderWidth: UiStyle.borderThin
                 panelBorder: UiStyle.colorBorderMinor
@@ -43,11 +44,11 @@ Item {
                     spacing: UiStyle.space6
 
                     UiSectionHeader {
-                        title: "Selection"
+                        title: "Selected Object / Tool"
                         Layout.fillWidth: true
                     }
                     Repeater {
-                        model: drawingRightContext.controller ? drawingRightContext.controller.drawingInspectorRows(drawingRightContext.controller.revision) : []
+                        model: drawingRightContext.inspectorRows
                         delegate: UiInspectorRow {
                             Layout.fillWidth: true
                             label: modelData.label
@@ -59,9 +60,9 @@ Item {
             }
 
             UiPanel {
-                visible: drawingRightContext.controller ? drawingRightContext.editRows.length > 0 : false
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? Math.max(108, 42 + drawingRightContext.editRows.length * 34) : 0
+                visible: drawingRightContext.editRows.length > 0
                 panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
                 panelBorderWidth: UiStyle.borderThin
                 panelBorder: UiStyle.colorBorderMinor
@@ -71,7 +72,7 @@ Item {
                     spacing: UiStyle.space6
 
                     UiSectionHeader {
-                        title: "Geometry Edit"
+                        title: "Object Geometry"
                         Layout.fillWidth: true
                     }
                     Repeater {
@@ -112,9 +113,9 @@ Item {
             }
 
             UiPanel {
-                visible: drawingRightContext.controller ? drawingRightContext.toolParameterRows.length > 0 : false
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? Math.max(92, 42 + drawingRightContext.toolParameterRows.length * 34) : 0
+                visible: drawingRightContext.toolParameterRows.length > 0
                 panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
                 panelBorderWidth: UiStyle.borderThin
                 panelBorder: UiStyle.colorBorderMinor
@@ -163,93 +164,6 @@ Item {
                     }
                 }
             }
-
-            UiPanel {
-                visible: drawingRightContext.controller ? drawingRightContext.controller.hasSelectedDrawingExternalTool(drawingRightContext.controller.revision) : false
-                Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 220 : 0
-                panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
-                panelBorderWidth: UiStyle.borderThin
-                panelBorder: UiStyle.colorBorderMinor
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: UiStyle.space6
-
-                    UiSectionHeader {
-                        title: "Image Workbench"
-                        Layout.fillWidth: true
-                    }
-                    Repeater {
-                        model: drawingRightContext.controller ? drawingRightContext.controller.drawingExternalToolRows(drawingRightContext.controller.revision) : []
-                        delegate: UiInspectorRow {
-                            Layout.fillWidth: true
-                            label: modelData.label
-                            value: modelData.value
-                            maxValueLines: 3
-                        }
-                    }
-                }
-            }
-
-            UiPanel {
-                visible: drawingRightContext.controller ? !drawingRightContext.controller.hasSelectedDrawingExternalTool(drawingRightContext.controller.revision) : true
-                Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 166 : 0
-                panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
-                panelBorderWidth: UiStyle.borderThin
-                panelBorder: UiStyle.colorBorderMinor
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: UiStyle.space6
-
-                    UiSectionHeader {
-                        title: "Model Objects"
-                        Layout.fillWidth: true
-                    }
-                    Repeater {
-                        model: drawingRightContext.controller ? drawingRightContext.controller.drawingModelObjectRows(drawingRightContext.controller.revision) : []
-                        delegate: UiListRow {
-                            Layout.fillWidth: true
-                            label: modelData.label
-                            meta: modelData.meta
-                            selected: modelData.selected
-                            clickable: modelData.id.length > 0
-                            onClicked: if (drawingRightContext.controller && modelData.id.length > 0) drawingRightContext.controller.selectDrawingObject(modelData.id)
-                        }
-                    }
-                }
-            }
-
-            UiPanel {
-                visible: drawingRightContext.controller ? !drawingRightContext.controller.hasSelectedDrawingExternalTool(drawingRightContext.controller.revision) : true
-                Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 154 : 0
-                panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.035)
-                panelBorderWidth: UiStyle.borderThin
-                panelBorder: UiStyle.colorBorderMinor
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: UiStyle.space6
-
-                    UiSectionHeader {
-                        title: "Tool Settings"
-                        Layout.fillWidth: true
-                    }
-                    Repeater {
-                        model: drawingRightContext.controller ? drawingRightContext.controller.drawingToolSettingsRows(drawingRightContext.controller.revision) : []
-                        delegate: UiInspectorRow {
-                            Layout.fillWidth: true
-                            label: modelData.label
-                            value: modelData.value
-                            maxValueLines: 3
-                        }
-                    }
-                }
-            }
-
         }
     }
 }

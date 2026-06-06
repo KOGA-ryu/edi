@@ -10,16 +10,16 @@
     { "tool_id": "regular_polygon", "enabled": true },
     { "tool_id": "image_reference_frame", "enabled": true },
     { "tool_id": "ascii_crop_frame", "enabled": true },
-    { "tool_id": "ascii_cell_region", "enabled": true },
-    { "tool_id": "tone_probe", "enabled": true },
-    { "tool_id": "glyph_baseline", "enabled": true },
-    { "tool_id": "spline_curve", "enabled": true },
-    { "tool_id": "hatch_boundary", "enabled": true },
-    { "tool_id": "svg_fit", "enabled": true },
+    { "tool_id": "ascii_cell_region", "enabled": false },
+    { "tool_id": "tone_probe", "enabled": false },
+    { "tool_id": "glyph_baseline", "enabled": false },
+    { "tool_id": "spline_curve", "enabled": false },
+    { "tool_id": "hatch_boundary", "enabled": false },
+    { "tool_id": "svg_fit", "enabled": false },
     { "tool_id": "offset_trim", "enabled": false },
     { "tool_id": "mirror_array", "enabled": false },
-    { "tool_id": "measure_inspect", "enabled": true },
-    { "tool_id": "layer_review", "enabled": true },
-    { "tool_id": "trace_markup", "enabled": true }
+    { "tool_id": "measure_inspect", "enabled": false },
+    { "tool_id": "layer_review", "enabled": false },
+    { "tool_id": "trace_markup", "enabled": false }
   ]
 }

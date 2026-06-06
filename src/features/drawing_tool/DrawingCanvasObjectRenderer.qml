@@ -97,7 +97,8 @@ QtObject {
     }
 
     function styleLineOpacity(object) {
-        var opacity = objectNumeric(object.stroke_opacity || object.opacity, Number.NEGATIVE_INFINITY)
+        var rawOpacity = Object.prototype.hasOwnProperty.call(object, "stroke_opacity") ? object.stroke_opacity : object.opacity
+        var opacity = objectNumeric(rawOpacity, Number.NEGATIVE_INFINITY)
         if (!Number.isFinite(opacity)) {
             opacity = objectNumeric(canvasObjectRenderer.controller && canvasObjectRenderer.controller.drawingStrokeOpacity, 1)
         }

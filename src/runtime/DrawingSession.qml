@@ -160,6 +160,11 @@ QtObject {
         if (drawingLineVariant === variant) {
             return
         }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("line_variant", variant)
+            syncNativeDrawingModel()
+            return
+        }
         drawingLineVariant = variant
         markChanged()
     }
@@ -184,6 +189,11 @@ QtObject {
         if (drawingStrokeColor === normalized) {
             return
         }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("stroke_color", normalized)
+            syncNativeDrawingModel()
+            return
+        }
         drawingStrokeColor = normalized
         markChanged()
     }
@@ -199,6 +209,11 @@ QtObject {
         if (drawingFillColor === color) {
             return
         }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("fill_color", color)
+            syncNativeDrawingModel()
+            return
+        }
         drawingFillColor = color
         markChanged()
     }
@@ -206,6 +221,11 @@ QtObject {
     function setDrawingLineThickness(value) {
         var thickness = clampThickness(value)
         if (drawingLineThickness === thickness) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("line_thickness", thickness)
+            syncNativeDrawingModel()
             return
         }
         drawingLineThickness = thickness
@@ -217,6 +237,11 @@ QtObject {
         if (drawingLineStyle === style) {
             return
         }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("line_style", style)
+            syncNativeDrawingModel()
+            return
+        }
         drawingLineStyle = style
         markChanged()
     }
@@ -224,6 +249,11 @@ QtObject {
     function setDrawingStrokeOpacity(value) {
         var opacity = clampOpacity(value)
         if (drawingStrokeOpacity === opacity) {
+            return
+        }
+        if (drawingNativeController) {
+            drawingNativeController.setToolParameter("stroke_opacity", opacity)
+            syncNativeDrawingModel()
             return
         }
         drawingStrokeOpacity = opacity

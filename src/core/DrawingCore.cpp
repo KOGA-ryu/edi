@@ -34,6 +34,12 @@ struct State {
     double circleArcEndAngleDeg = 90.0;
     int regularPolygonSides = 6;
     double regularPolygonRotationDeg = 30.0;
+    QString lineVariant = "straight";
+    QString lineStyle = "solid";
+    QString strokeColor = "#f4d46f";
+    QString fillColor;
+    double lineThickness = 2.0;
+    double strokeOpacity = 1.0;
     Point pendingPoint;
     QJsonArray commandLog;
     QJsonArray generatedObjects;
@@ -507,6 +513,38 @@ bool parameterNumber(const QJsonValue &value, double &result) {
     return std::isfinite(result);
 }
 
+QString normalizedHexColor(const QString &value) {
+    QString raw = value.trimmed().toLower();
+    if (raw.isEmpty() || raw == QStringLiteral("none") || raw == QStringLiteral("transparent")) {
+        return {};
+    }
+    if (!raw.startsWith('#')) {
+        raw.prepend('#');
+    }
+    static const QRegularExpression hexPattern(QStringLiteral("^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$"));
+    return hexPattern.match(raw).hasMatch() ? raw : QString();
+}
+
+QString normalizedLineStyle(const QString &value) {
+    const QString style = value.trimmed().toLower();
+    if (style == QStringLiteral("dashed")) {
+        return QStringLiteral("dashed");
+    }
+    if (style == QStringLiteral("dot") || style == QStringLiteral("dotted")) {
+        return QStringLiteral("dotted");
+    }
+    return QStringLiteral("solid");
+}
+
+void applyActiveStyle(State &state, QJsonObject &object) {
+    object.insert("line_variant", state.lineVariant);
+    object.insert("line_style", state.lineStyle);
+    object.insert("line_thickness", state.lineThickness);
+    object.insert("stroke_opacity", state.strokeOpacity);
+    object.insert("stroke_color", state.strokeColor);
+    object.insert("fill_color", state.fillColor);
+}
+
 void setToolParameter(State &state, const QString &parameter, const QJsonValue &value) {
     if (parameter.isEmpty()) {
         state.pendingPoint = {};
@@ -521,6 +559,40 @@ void setToolParameter(State &state, const QString &parameter, const QJsonValue &
         }
         state.circleArcMode = mode;
         state.pendingPoint = {};
+        return;
+    }
+    if (parameter == QStringLiteral("line_variant")) {
+        const QString variant = value.toString().trimmed().toLower();
+        if (variant != QStringLiteral("straight") && variant != QStringLiteral("polyline")) {
+            state.errors.append("set_tool_parameter invalid line_variant: " + value.toString());
+            return;
+        }
+        state.lineVariant = variant;
+        state.pendingPoint = {};
+        return;
+    }
+    if (parameter == QStringLiteral("line_style")) {
+        state.lineStyle = normalizedLineStyle(value.toString());
+        return;
+    }
+    if (parameter == QStringLiteral("stroke_color")) {
+        const QString color = normalizedHexColor(value.toString());
+        if (color.isEmpty() && !value.toString().trimmed().isEmpty()) {
+            state.errors.append("set_tool_parameter invalid stroke_color: " + value.toString());
+            return;
+        }
+        state.strokeColor = color;
+        return;
+    }
+    if (parameter == QStringLiteral("fill_color")) {
+        const QString input = value.toString().trimmed();
+        const QString lowerInput = input.toLower();
+        const QString color = normalizedHexColor(input);
+        if (color.isEmpty() && !input.isEmpty() && lowerInput != QStringLiteral("none") && lowerInput != QStringLiteral("transparent")) {
+            state.errors.append("set_tool_parameter invalid fill_color: " + value.toString());
+            return;
+        }
+        state.fillColor = color;
         return;
     }
     if (parameter == QStringLiteral("circle_arc_start_angle_deg")) {
@@ -559,6 +631,22 @@ void setToolParameter(State &state, const QString &parameter, const QJsonValue &
         state.pendingPoint = {};
         return;
     }
+    if (parameter == QStringLiteral("line_thickness")) {
+        if (!parameterNumber(value, numericValue)) {
+            state.errors.append("set_tool_parameter requires numeric value for: " + parameter);
+            return;
+        }
+        state.lineThickness = std::clamp(std::round(numericValue * 10.0) / 10.0, 1.0, 18.0);
+        return;
+    }
+    if (parameter == QStringLiteral("stroke_opacity")) {
+        if (!parameterNumber(value, numericValue)) {
+            state.errors.append("set_tool_parameter requires numeric value for: " + parameter);
+            return;
+        }
+        state.strokeOpacity = std::clamp(numericValue, 0.0, 1.0);
+        return;
+    }
     state.errors.append("set_tool_parameter unsupported parameter: " + parameter);
 }
 
@@ -572,6 +660,7 @@ void addPointObject(State &state, const Point &point, const QString &kind, const
     object.insert("label", label);
     object.insert("kind", kind);
     object.insert("detail", detail);
+    applyActiveStyle(state, object);
     object.insert("x", point.nx);
     object.insert("y", point.ny);
     object.insert("point_px", pointArray(point.x, point.y));
@@ -592,6 +681,7 @@ void addLineObject(State &state, const Point &start, const Point &end, const QSt
     object.insert("label", label);
     object.insert("kind", kind);
     object.insert("detail", detail);
+    applyActiveStyle(state, object);
     object.insert("x1", start.nx);
     object.insert("y1", start.ny);
     object.insert("x2", end.nx);
@@ -626,6 +716,7 @@ void addPolyline(State &state, const QJsonArray &rawPoints) {
     object.insert("label", "script polyline");
     object.insert("kind", "polyline");
     object.insert("detail", "C++ generated polyline");
+    applyActiveStyle(state, object);
     object.insert("points", points);
     object.insert("points_px", pointsPx);
     pushObject(state, object);
@@ -654,6 +745,7 @@ void addCircle(State &state, const Point &center, const QJsonObject &command) {
     object.insert("label", "script circle");
     object.insert("kind", "circle");
     object.insert("detail", "C++ generated circle");
+    applyActiveStyle(state, object);
     object.insert("cx", center.nx);
     object.insert("cy", center.ny);
     object.insert("radius", radiusPx / state.canvasPx);
@@ -677,6 +769,7 @@ void addArc(State &state, const Point &center, const QJsonObject &command) {
     object.insert("label", "script arc");
     object.insert("kind", "arc");
     object.insert("detail", "C++ generated arc");
+    applyActiveStyle(state, object);
     object.insert("cx", center.nx);
     object.insert("cy", center.ny);
     object.insert("radius", radiusPx / state.canvasPx);
@@ -701,6 +794,7 @@ void addRectangleObject(State &state, const Point &start, const Point &end, cons
     object.insert("label", label);
     object.insert("kind", kind);
     object.insert("detail", detail);
+    applyActiveStyle(state, object);
     object.insert("x", left / state.canvasPx);
     object.insert("y", top / state.canvasPx);
     object.insert("width", width / state.canvasPx);
@@ -746,6 +840,7 @@ void addPolygon(State &state, const Point &center, const QJsonObject &command) {
     object.insert("label", "script polygon");
     object.insert("kind", "polygon");
     object.insert("detail", "C++ generated regular polygon");
+    applyActiveStyle(state, object);
     object.insert("cx", center.nx);
     object.insert("cy", center.ny);
     object.insert("center_px", pointArray(center.x, center.y));
@@ -781,6 +876,13 @@ void handleClickCanvas(State &state, const QJsonObject &command) {
     const std::vector<ToolClickHandler> handlers = {
         {"line_polyline", [&]() {
              runTwoPointTool(state, point, [&](const Point &start, const Point &end) {
+                 if (state.lineVariant == QStringLiteral("polyline")) {
+                     QJsonArray points;
+                     points.append(pointArray(start.x, start.y));
+                     points.append(pointArray(end.x, end.y));
+                     addPolyline(state, points);
+                     return;
+                 }
                  addLine(state, start, end);
              });
          }},
@@ -934,6 +1036,12 @@ QJsonObject buildModel(const State &state) {
     toolParameters.insert("circle_arc_end_angle_deg", state.circleArcEndAngleDeg);
     toolParameters.insert("regular_polygon_sides", state.regularPolygonSides);
     toolParameters.insert("regular_polygon_rotation_deg", state.regularPolygonRotationDeg);
+    toolParameters.insert("line_variant", state.lineVariant);
+    toolParameters.insert("line_thickness", state.lineThickness);
+    toolParameters.insert("line_style", state.lineStyle);
+    toolParameters.insert("stroke_opacity", state.strokeOpacity);
+    toolParameters.insert("stroke_color", state.strokeColor);
+    toolParameters.insert("fill_color", state.fillColor);
     model.insert("tool_parameters", toolParameters);
     QJsonObject snap;
     snap.insert("grid_enabled", state.gridSnap);

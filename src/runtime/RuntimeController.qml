@@ -76,6 +76,12 @@ QtObject {
     property alias drawingObjectSnapCenterEnabled: drawingSession.drawingObjectSnapCenterEnabled
     property alias drawingObjectSnapVertexEnabled: drawingSession.drawingObjectSnapVertexEnabled
     property alias drawingCircleArcMode: drawingSession.drawingCircleArcMode
+    property alias drawingLineVariant: drawingSession.drawingLineVariant
+    property alias drawingStrokeColor: drawingSession.drawingStrokeColor
+    property alias drawingFillColor: drawingSession.drawingFillColor
+    property alias drawingLineThickness: drawingSession.drawingLineThickness
+    property alias drawingLineStyle: drawingSession.drawingLineStyle
+    property alias drawingStrokeOpacity: drawingSession.drawingStrokeOpacity
     property alias drawingCircleArcStartAngleDeg: drawingSession.drawingCircleArcStartAngleDeg
     property alias drawingCircleArcEndAngleDeg: drawingSession.drawingCircleArcEndAngleDeg
     property alias drawingRegularPolygonSides: drawingSession.drawingRegularPolygonSides
@@ -1054,6 +1060,34 @@ QtObject {
 
     function setDrawingGridVisible(visible) {
         drawingSession.setDrawingGridVisible(visible)
+    }
+
+    function setDrawingLineVariant(variant) {
+        drawingSession.setDrawingLineVariant(variant)
+    }
+
+    function setDrawingCircleArcMode(mode) {
+        drawingSession.setDrawingCircleArcMode(mode)
+    }
+
+    function setDrawingStrokeColor(rawColor) {
+        drawingSession.setDrawingStrokeColor(rawColor)
+    }
+
+    function setDrawingFillColor(rawColor) {
+        drawingSession.setDrawingFillColor(rawColor)
+    }
+
+    function setDrawingLineThickness(value) {
+        drawingSession.setDrawingLineThickness(value)
+    }
+
+    function setDrawingLineStyle(style) {
+        drawingSession.setDrawingLineStyle(style)
+    }
+
+    function setDrawingStrokeOpacity(value) {
+        drawingSession.setDrawingStrokeOpacity(value)
     }
 
     function setDrawingGridMode(mode) {

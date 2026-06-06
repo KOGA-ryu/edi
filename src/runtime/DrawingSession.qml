@@ -56,6 +56,12 @@ QtObject {
     property real drawingCircleArcEndAngleDeg: 90
     property int drawingRegularPolygonSides: 6
     property real drawingRegularPolygonRotationDeg: 30
+    property string drawingLineVariant: "straight"
+    property string drawingStrokeColor: "#f4d46f"
+    property string drawingFillColor: ""
+    property real drawingLineThickness: 2
+    property string drawingLineStyle: "solid"
+    property real drawingStrokeOpacity: 1.0
     property bool drawingGridVisible: true
     property string drawingGridMode: "square"
     property int drawingGridDivisions: 16
@@ -101,6 +107,127 @@ QtObject {
             return result
         }
         return []
+    }
+
+    function clampThickness(value) {
+        var thickness = Number(value)
+        if (!Number.isFinite(thickness)) {
+            return 2
+        }
+        return Math.max(1, Math.min(18, Math.round(Number(thickness) * 10) / 10))
+    }
+
+    function clampOpacity(value) {
+        var opacity = Number(value)
+        if (!Number.isFinite(opacity)) {
+            return 1
+        }
+        return Math.max(0, Math.min(1, opacity))
+    }
+
+    function normalizeHexColor(value) {
+        var raw = String(value || "").trim().toLowerCase()
+        if (raw.length === 0) {
+            return ""
+        }
+        if (raw === "none" || raw === "transparent") {
+            return ""
+        }
+        if (raw.indexOf("#") !== 0) {
+            raw = "#" + raw
+        }
+        if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(raw)) {
+            return raw
+        }
+        return ""
+    }
+
+    function normalizeLineStyle(value) {
+        var style = String(value || "solid").trim().toLowerCase()
+        if (style === "dashed" || style === "dot" || style === "dotted") {
+            return style === "dot" ? "dotted" : style
+        }
+        return "solid"
+    }
+
+    function normalizeLineVariant(value) {
+        var variant = String(value || "straight").trim().toLowerCase()
+        return variant === "polyline" || variant === "straight" ? variant : "straight"
+    }
+
+    function setDrawingLineVariant(value) {
+        var variant = normalizeLineVariant(value)
+        if (drawingLineVariant === variant) {
+            return
+        }
+        drawingLineVariant = variant
+        markChanged()
+    }
+
+    function setDrawingCircleArcMode(mode) {
+        if (drawingNativeController) {
+            setDrawingToolParameter("circle_arc_mode", mode)
+            return
+        }
+        setDrawingToolParameter("circle_arc_mode", mode)
+    }
+
+    function setDrawingStrokeColor(rawColor) {
+        var color = normalizeHexColor(rawColor)
+        var allowed = rawColor
+            ? String(rawColor || "").trim()
+            : ""
+        var normalized = color
+        if (!allowed.length && color.length === 0 && String(rawColor || "").trim().length > 0) {
+            return
+        }
+        if (drawingStrokeColor === normalized) {
+            return
+        }
+        drawingStrokeColor = normalized
+        markChanged()
+    }
+
+    function setDrawingFillColor(rawColor) {
+        var color = normalizeHexColor(rawColor)
+        var input = String(rawColor || "").trim()
+        if (!input.length) {
+            color = ""
+        } else if (input.length && color.length === 0) {
+            return
+        }
+        if (drawingFillColor === color) {
+            return
+        }
+        drawingFillColor = color
+        markChanged()
+    }
+
+    function setDrawingLineThickness(value) {
+        var thickness = clampThickness(value)
+        if (drawingLineThickness === thickness) {
+            return
+        }
+        drawingLineThickness = thickness
+        markChanged()
+    }
+
+    function setDrawingLineStyle(value) {
+        var style = normalizeLineStyle(value)
+        if (drawingLineStyle === style) {
+            return
+        }
+        drawingLineStyle = style
+        markChanged()
+    }
+
+    function setDrawingStrokeOpacity(value) {
+        var opacity = clampOpacity(value)
+        if (drawingStrokeOpacity === opacity) {
+            return
+        }
+        drawingStrokeOpacity = opacity
+        markChanged()
     }
 
     function toolRegistryItems() {
@@ -728,6 +855,77 @@ QtObject {
         if (Number.isFinite(Number(toolParameters.regular_polygon_rotation_deg))) {
             drawingRegularPolygonRotationDeg = Number(toolParameters.regular_polygon_rotation_deg)
         }
+        if (Number.isFinite(Number(toolParameters.line_thickness))) {
+            drawingLineThickness = clampThickness(toolParameters.line_thickness)
+        }
+        if (toolParameters.line_style) {
+            drawingLineStyle = normalizeLineStyle(toolParameters.line_style)
+        }
+        if (Number.isFinite(Number(toolParameters.stroke_opacity))) {
+            drawingStrokeOpacity = clampOpacity(toolParameters.stroke_opacity)
+        }
+        var strokeColor = normalizeHexColor(toolParameters.stroke_color)
+        if (String(toolParameters.stroke_color || "") === "") {
+            drawingStrokeColor = "#f4d46f"
+        } else if (strokeColor.length > 0) {
+            drawingStrokeColor = strokeColor
+        }
+        if (Object.prototype.hasOwnProperty.call(toolParameters, "fill_color")) {
+            if (String(toolParameters.fill_color || "") === "") {
+                drawingFillColor = ""
+            } else {
+                var fillColor = normalizeHexColor(toolParameters.fill_color)
+                if (fillColor.length > 0) {
+                    drawingFillColor = fillColor
+                }
+            }
+        }
+        if (Object.prototype.hasOwnProperty.call(toolParameters, "line_variant")) {
+            drawingLineVariant = normalizeLineVariant(toolParameters.line_variant)
+        }
+        if (String(toolParameters.circle_arc_mode || "").length > 0) {
+            var loadedCircleArcMode = String(toolParameters.circle_arc_mode || "").trim().toLowerCase()
+            if (loadedCircleArcMode === "circle" || loadedCircleArcMode === "arc") {
+                drawingCircleArcMode = loadedCircleArcMode
+            }
+        }
+        if (Object.prototype.hasOwnProperty.call(toolParameters, "drawing_style")) {
+            var style = toolParameters.drawing_style || ({})
+            if (Object.prototype.hasOwnProperty.call(style, "line_variant")) {
+                drawingLineVariant = normalizeLineVariant(style.line_variant)
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "stroke_color")) {
+                var loadedStrokeColor = normalizeHexColor(style.stroke_color)
+                if (String(style.stroke_color || "").trim().length === 0) {
+                    drawingStrokeColor = ""
+                } else if (loadedStrokeColor.length > 0) {
+                    drawingStrokeColor = loadedStrokeColor
+                }
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "fill_color")) {
+                var loadedFillColor = normalizeHexColor(style.fill_color)
+                if (String(style.fill_color || "").trim().length === 0) {
+                    drawingFillColor = ""
+                } else if (loadedFillColor.length > 0) {
+                    drawingFillColor = loadedFillColor
+                }
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "line_thickness")) {
+                drawingLineThickness = clampThickness(style.line_thickness)
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "line_style")) {
+                drawingLineStyle = normalizeLineStyle(style.line_style)
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "stroke_opacity")) {
+                drawingStrokeOpacity = clampOpacity(style.stroke_opacity)
+            }
+            if (Object.prototype.hasOwnProperty.call(style, "circle_arc_mode")) {
+                var styleCircleArcMode = String(style.circle_arc_mode || "").trim().toLowerCase()
+                if (styleCircleArcMode === "circle" || styleCircleArcMode === "arc") {
+                    drawingCircleArcMode = styleCircleArcMode
+                }
+            }
+        }
         selectedDrawingToolId = String(document.selected_tool_id || selectedDrawingToolId)
         var incomingLayerId = String(document.selected_layer_id || selectedDrawingLayerId)
         selectedDrawingLayerId = String(drawingFindById(drawingLayerStack, incomingLayerId, drawingLayerStack[0] || ({})).id || incomingLayerId)
@@ -792,6 +990,19 @@ QtObject {
         if (drawingNativeController) {
             return drawingNativeController.modelDocument()
         }
+        var toolParameters = {
+            circle_arc_mode: drawingCircleArcMode,
+            circle_arc_start_angle_deg: drawingCircleArcStartAngleDeg,
+            circle_arc_end_angle_deg: drawingCircleArcEndAngleDeg,
+            regular_polygon_sides: drawingRegularPolygonSides,
+            regular_polygon_rotation_deg: drawingRegularPolygonRotationDeg,
+            line_variant: drawingLineVariant,
+            line_thickness: drawingLineThickness,
+            line_style: drawingLineStyle,
+            stroke_opacity: drawingStrokeOpacity,
+            stroke_color: drawingStrokeColor,
+            fill_color: drawingFillColor
+        }
         return {
             export_kind: "pattern_lab_2d_native_model_v0",
             script_id: drawingLastScriptId,
@@ -805,6 +1016,16 @@ QtObject {
             selected_tool_id: selectedDrawingToolId,
             selected_layer_id: selectedDrawingLayerId,
             selected_object_id: selectedDrawingObjectId,
+            tool_parameters: toolParameters,
+            drawing_style: {
+                line_variant: drawingLineVariant,
+                line_thickness: drawingLineThickness,
+                line_style: drawingLineStyle,
+                stroke_opacity: drawingStrokeOpacity,
+                stroke_color: drawingStrokeColor,
+                fill_color: drawingFillColor,
+                circle_arc_mode: drawingCircleArcMode
+            },
             generated_objects: asArray(drawingGeneratedObjects),
             object_counts: drawingObjectCounts(revision),
             validation: drawingModelValidationRows(revision)

@@ -61,66 +61,19 @@ Item {
         return rows
     }
 
-    function layerRows() {
-        if (!drawingLeftPanel.controller) {
-            return []
-        }
-        return asArray(drawingLeftPanel.controller.drawingLayerStack)
-    }
-
-    function assetRows() {
-        var result = []
-        if (!drawingLeftPanel.controller) {
-            return result
-        }
-        var sources = asArray(drawingLeftPanel.controller.drawingAssetSources)
-        for (var sourceIndex = 0; sourceIndex < sources.length; ++sourceIndex) {
-            var source = sources[sourceIndex]
-            result.push({
-                id: String(source.id || ""),
-                label: String(source.label || source.id || "asset"),
-                meta: String(source.meta || "asset"),
-                action: ""
-            })
-        }
-        var imageTools = asArray(drawingLeftPanel.controller.drawingImageTools)
-        for (var toolIndex = 0; toolIndex < imageTools.length; ++toolIndex) {
-            var tool = imageTools[toolIndex]
-            result.push({
-                id: String(tool.id || ""),
-                label: String(tool.label || tool.id || "tool"),
-                meta: String(tool.meta || "tool"),
-                action: "external_tool"
-            })
-        }
-        return result
-    }
-
     function sectionRows(sectionId) {
         if (sectionId === "tools") {
             return toolRows()
-        }
-        if (sectionId === "layers") {
-            return layerRows()
-        }
-        if (sectionId === "assets") {
-            return assetRows()
         }
         return []
     }
 
     function isSelected(sectionId, row) {
-        if (!drawingLeftPanel.controller) {
-            return false
-        }
-        if (!row) {
+        if (!drawingLeftPanel.controller || !row) {
             return false
         }
         if (sectionId === "tools") {
             return String(drawingLeftPanel.controller.selectedDrawingToolId || "") === String(row.id || "")
-        }
-        if (sectionId === "layers") {
-            return String(drawingLeftPanel.controller.selectedDrawingLayerId || "") === String(row.id || "")
         }
         return false
     }
@@ -131,14 +84,6 @@ Item {
         }
         if (row.action === "tool") {
             drawingLeftPanel.controller.selectDrawingTool(row.id)
-            return
-        }
-        if (row.action === "external_tool") {
-            drawingLeftPanel.controller.selectDrawingExternalTool(row.id)
-            return
-        }
-        if (sectionId === "layers") {
-            drawingLeftPanel.controller.selectDrawingLayer(row.id)
         }
     }
 
@@ -151,9 +96,7 @@ Item {
 
         Repeater {
             model: [
-                { id: "tools", title: "Tools", hint: "work" },
-                { id: "layers", title: "Layers", hint: "stack" },
-                { id: "assets", title: "Assets", hint: "tools" }
+                { id: "tools", title: "Tools", hint: "drawing" }
             ]
 
             delegate: ColumnLayout {
@@ -181,7 +124,7 @@ Item {
                         label: modelData.label
                         meta: modelData.meta
                         selected: isSelected(section.id, modelData)
-                        clickable: section.id === "layers" || String(modelData.action || "").length > 0
+                        clickable: String(modelData.action || "").length > 0
                         onClicked: handleRowClicked(section.id, modelData)
                     }
                 }

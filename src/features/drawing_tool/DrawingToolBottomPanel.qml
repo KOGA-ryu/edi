@@ -3,141 +3,183 @@ import QtQuick.Layouts
 import "../../style"
 import "../../components"
 
-Item {
+Rectangle {
     id: drawingBottomPanel
 
     property string dataUi: "drawing_tool_bottom_panel"
     property string dataState: "draftsman_native_drawing"
     property var controller: null
 
-    function asArray(value) {
-        if (!value) {
-            return []
-        }
-        if (Array.isArray(value)) {
-            return value
-        }
-        return []
+    color: UiStyle.colorTransparent
+    border.width: UiStyle.borderNone
+
+    function styleLineStyle() {
+        return String(drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingLineStyle : "solid")
     }
 
-    function logRows() {
-        return drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingLogRows(drawingBottomPanel.controller.revision) : []
+    function snapEnabled() {
+        return !!(drawingBottomPanel.controller && drawingBottomPanel.controller.drawingSnapGridEnabled)
     }
 
-    function validationRows() {
-        return drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingValidationRows(drawingBottomPanel.controller.revision) : []
+    function gridVisible() {
+        return !!(drawingBottomPanel.controller && drawingBottomPanel.controller.drawingGridVisible)
     }
 
-    function exportRows() {
-        return drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingExportRows(drawingBottomPanel.controller.revision) : []
+    function objectSnapEnabled() {
+        return !!(drawingBottomPanel.controller && drawingBottomPanel.controller.drawingObjectSnapEnabled)
     }
 
-    function manifestRows() {
-        return drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingManifestRows(drawingBottomPanel.controller.revision) : []
-    }
-
-    function hasLogHistory() {
+    function setFieldValue(fieldId, value) {
         if (!drawingBottomPanel.controller) {
-            return false
+            return
         }
-        if (drawingBottomPanel.controller.drawingNativeController) {
-            var model = drawingBottomPanel.controller.drawingNativeController.modelDocument()
-            var commandLog = asArray(model ? model.command_log : [])
-            return commandLog.length > 0
+        if (fieldId === "stroke") {
+            drawingBottomPanel.controller.setDrawingStrokeColor(value)
+        } else if (fieldId === "fill") {
+            drawingBottomPanel.controller.setDrawingFillColor(value)
+        } else if (fieldId === "width") {
+            drawingBottomPanel.controller.setDrawingLineThickness(value)
+        } else if (fieldId === "opacity") {
+            drawingBottomPanel.controller.setDrawingStrokeOpacity(value)
         }
-        return false
     }
 
-    function hasBottomRows() {
-        return hasLogHistory() && logRows().length > 0
+    component FormatField: RowLayout {
+        property string label: ""
+        property string fieldId: ""
+        property string valueText: ""
+        property int fieldWidth: 86
+        property int labelWidth: 36
+        spacing: UiStyle.space2
+
+        Text {
+            Layout.preferredWidth: parent.labelWidth
+            text: parent.label
+            color: UiStyle.colorTextFaint
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        UiTextField {
+            Layout.preferredWidth: parent.fieldWidth
+            Layout.preferredHeight: 24
+            text: parent.valueText
+            property string lastCommittedText: parent.valueText
+
+            function commit() {
+                if (text === lastCommittedText) {
+                    return
+                }
+                lastCommittedText = text
+                drawingBottomPanel.setFieldValue(parent.fieldId, text)
+            }
+
+            onAccepted: commit()
+            onEditingFinished: commit()
+        }
     }
 
-    function activeTab() {
-        if (!drawingBottomPanel.controller) {
-            return ""
-        }
-        var tabs = asArray(drawingBottomPanel.controller.shelfTabs)
-        var selected = String(drawingBottomPanel.controller.selectedShelfTab || "")
-        if (selected.length > 0 && tabs.indexOf(selected) >= 0) {
-            return selected
-        }
-        if (tabs.length > 0) {
-            return String(tabs[0])
-        }
-        return hasBottomRows() ? "Log" : ""
-    }
-
-    function tabActive(name) {
-        return activeTab().toLowerCase() === String(name).toLowerCase()
-    }
-
-    visible: hasBottomRows()
-
-    ColumnLayout {
+    RowLayout {
         anchors.fill: parent
-        spacing: 0
+        anchors.leftMargin: UiStyle.space6
+        anchors.rightMargin: UiStyle.space6
+        spacing: UiStyle.space4
+
+        FormatField {
+            label: "Stroke"
+            fieldId: "stroke"
+            valueText: String(drawingBottomPanel.controller ? (drawingBottomPanel.controller.drawingStrokeColor || "") : "")
+            fieldWidth: 70
+            labelWidth: 42
+        }
+
+        FormatField {
+            label: "Fill"
+            fieldId: "fill"
+            valueText: String(drawingBottomPanel.controller ? (drawingBottomPanel.controller.drawingFillColor || "") : "")
+            fieldWidth: 60
+            labelWidth: 22
+        }
+
+        FormatField {
+            label: "W"
+            fieldId: "width"
+            valueText: String(Number(drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingLineThickness : 2))
+            fieldWidth: 38
+            labelWidth: 12
+        }
+
+        FormatField {
+            label: "O"
+            fieldId: "opacity"
+            valueText: String(Number(drawingBottomPanel.controller ? drawingBottomPanel.controller.drawingStrokeOpacity : 1))
+            fieldWidth: 38
+            labelWidth: 12
+        }
 
         Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            visible: drawingBottomPanel.controller && drawingBottomPanel.controller.shelfTabs.length > 0
-            color: UiStyle.colorPanelAlt
-            border.width: UiStyle.borderNone
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: UiStyle.colorPanelRaised
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: UiStyle.space8
-                anchors.rightMargin: UiStyle.space8
-                spacing: UiStyle.space2
-
-                Repeater {
-                    model: drawingBottomPanel.controller ? drawingBottomPanel.controller.shelfTabs : []
-                    delegate: UiTab {
-                        label: modelData
-                        active: drawingBottomPanel.tabActive(modelData)
-                        clickable: true
-                        onClicked: drawingBottomPanel.controller.setShelfTab(modelData)
-                    }
-                }
-                Item { Layout.fillWidth: true }
-            }
-        }
-
-        UiPanel {
-            visible: drawingBottomPanel.tabActive("Log")
-            Layout.fillWidth: true
+            Layout.preferredWidth: 1
             Layout.fillHeight: true
-            Layout.margins: UiStyle.space6
-            panelColor: UiStyle.mix(UiStyle.colorPanel, UiStyle.colorText, 0.03)
-            panelBorderWidth: UiStyle.borderThin
-            panelBorder: UiStyle.colorBorderMinor
-
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: UiStyle.space4
-
-                UiSectionHeader {
-                    title: "Native Run Log"
-                    Layout.fillWidth: true
-                }
-                Repeater {
-                    model: drawingBottomPanel.logRows()
-                    delegate: UiListRow {
-                        Layout.fillWidth: true
-                        label: modelData.label
-                        meta: modelData.value
-                        metaMaxWidth: 260
-                    }
-                }
-            }
+            color: UiStyle.colorPanelRaised
+            opacity: 0.7
         }
+
+        UiButton {
+            Layout.preferredWidth: 56
+            Layout.preferredHeight: 24
+            label: "Solid"
+            selected: drawingBottomPanel.styleLineStyle() === "solid"
+            onClicked: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingLineStyle("solid")
+        }
+
+        UiButton {
+            Layout.preferredWidth: 52
+            Layout.preferredHeight: 24
+            label: "Dash"
+            selected: drawingBottomPanel.styleLineStyle() === "dashed"
+            onClicked: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingLineStyle("dashed")
+        }
+
+        UiButton {
+            Layout.preferredWidth: 44
+            Layout.preferredHeight: 24
+            label: "Dot"
+            selected: drawingBottomPanel.styleLineStyle() === "dotted"
+            onClicked: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingLineStyle("dotted")
+        }
+
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.fillHeight: true
+            color: UiStyle.colorPanelRaised
+            opacity: 0.7
+        }
+
+        UiToggle {
+            Layout.preferredWidth: 104
+            Layout.preferredHeight: 24
+            label: "Snap"
+            checked: drawingBottomPanel.snapEnabled()
+            onToggled: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingSnapGrid(checked)
+        }
+
+        UiToggle {
+            Layout.preferredWidth: 98
+            Layout.preferredHeight: 24
+            label: "Grid"
+            checked: drawingBottomPanel.gridVisible()
+            onToggled: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingGridVisible(checked)
+        }
+
+        UiToggle {
+            Layout.preferredWidth: 88
+            Layout.preferredHeight: 24
+            label: "Obj"
+            checked: drawingBottomPanel.objectSnapEnabled()
+            onToggled: if (drawingBottomPanel.controller) drawingBottomPanel.controller.setDrawingObjectSnapEnabled(checked)
+        }
+
+        Item { Layout.fillWidth: true }
     }
 }

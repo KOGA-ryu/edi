@@ -35,8 +35,8 @@
   },
   "panel_defaults": {
     "left_collapsed": false,
-    "right_collapsed": true,
-    "bottom_collapsed": true
+    "right_collapsed": false,
+    "bottom_collapsed": false
   },
   "right_inspector": {
     "source": "none",

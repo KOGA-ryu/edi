@@ -26,6 +26,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 32
             visible: bottomPanel.controller && bottomPanel.controller.shelfTabs.length > 0
+                && bottomPanel.controller.activityMode !== "drawing_tool"
             color: UiStyle.colorPanelAlt
             border.width: UiStyle.borderNone
 

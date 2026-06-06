@@ -4,6 +4,8 @@ import "../../style"
 QtObject {
     id: canvasObjectRenderer
 
+    property var controller: null
+
     function asArray(value) {
         if (!value) {
             return []
@@ -19,6 +21,130 @@ QtObject {
             return values
         }
         return []
+    }
+
+    function clampOpacity(value) {
+        var opacity = Number(value)
+        if (!Number.isFinite(opacity)) {
+            return 1
+        }
+        return Math.max(0, Math.min(1, opacity))
+    }
+
+    function clampThickness(value) {
+        var thickness = Number(value)
+        if (!Number.isFinite(thickness)) {
+            return 2
+        }
+        return Math.max(1, Math.min(18, Math.round(Number(thickness) * 10) / 10))
+    }
+
+    function normalizeLineStyle(value) {
+        var style = String(value || "solid").trim().toLowerCase()
+        if (style === "dashed" || style === "dot" || style === "dotted") {
+            return style === "dot" ? "dotted" : style
+        }
+        return "solid"
+    }
+
+    function objectNumeric(value, fallback) {
+        var numeric = Number(value)
+        return Number.isFinite(numeric) ? numeric : fallback
+    }
+
+    function selectedOrLayerStyleColor(objectColor, defaultColor) {
+        if (String(objectColor || "").trim().length > 0) {
+            return String(objectColor)
+        }
+        return String(defaultColor || "")
+    }
+
+    function styleStrokeColor(object) {
+        var objectColor = selectedOrLayerStyleColor(object.stroke_color || object.strokeColor, "")
+        return objectColor.length > 0 ? objectColor : String(canvasObjectRenderer.controller && canvasObjectRenderer.controller.drawingStrokeColor || "#f4d46f")
+    }
+
+    function styleFillColor(object) {
+        var fillColor = selectedOrLayerStyleColor(object.fill_color || object.fillColor, "")
+        if (fillColor.length > 0) {
+            return fillColor
+        }
+        if (canvasObjectRenderer.controller && String(canvasObjectRenderer.controller.drawingFillColor || "").length > 0) {
+            return String(canvasObjectRenderer.controller.drawingFillColor)
+        }
+        return ""
+    }
+
+    function styleLineThickness(object, selected, layerSelected) {
+        var thickness = objectNumeric(object.line_thickness, Number.NEGATIVE_INFINITY)
+        if (!Number.isFinite(thickness)) {
+            thickness = objectNumeric(object.lineWidth, Number.NEGATIVE_INFINITY)
+        }
+        if (!Number.isFinite(thickness)) {
+            thickness = objectNumeric(object.strokeWidth, Number.NEGATIVE_INFINITY)
+        }
+        if (!Number.isFinite(thickness)) {
+            thickness = objectNumeric(canvasObjectRenderer.controller && canvasObjectRenderer.controller.drawingLineThickness, 2)
+        }
+        var scaled = clampThickness(thickness)
+        if (selected) {
+            return Math.max(1.6, scaled * 1.5)
+        }
+        if (layerSelected) {
+            return Math.max(1.4, scaled * 1.2)
+        }
+        return scaled
+    }
+
+    function styleLineOpacity(object) {
+        var opacity = objectNumeric(object.stroke_opacity || object.opacity, Number.NEGATIVE_INFINITY)
+        if (!Number.isFinite(opacity)) {
+            opacity = objectNumeric(canvasObjectRenderer.controller && canvasObjectRenderer.controller.drawingStrokeOpacity, 1)
+        }
+        return clampOpacity(opacity)
+    }
+
+    function styleLineDash(object, objectSelected) {
+        var style = normalizeLineStyle(object.line_style || object.style || (canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingLineStyle : "solid"))
+        if (style === "dashed") {
+            return [8, 5]
+        }
+        if (style === "dotted") {
+            return [2, 3]
+        }
+        if (objectSelected && style === "solid") {
+            return []
+        }
+        return []
+    }
+
+    function applyFill(ctx, object, closedShape) {
+        if (!closedShape) {
+            return
+        }
+        var fillColor = styleFillColor(object)
+        if (!fillColor.length) {
+            return
+        }
+        var fillOpacity = styleLineOpacity(object)
+        ctx.save()
+        ctx.globalAlpha = fillOpacity
+        ctx.fillStyle = fillColor
+        ctx.fill()
+        ctx.restore()
+    }
+
+    function beginStyle(ctx, object, selected, layerSelected) {
+        var strokeColor = selected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
+        ctx.save()
+        ctx.strokeStyle = strokeColor
+        ctx.lineWidth = styleLineThickness(object, selected, layerSelected)
+        ctx.setLineDash(styleLineDash(object, selected))
+        ctx.globalAlpha = styleLineOpacity(object)
+    }
+
+    function endStyle(ctx) {
+        ctx.restore()
     }
 
     property var objectRendererByKind: ({
@@ -328,31 +454,34 @@ QtObject {
         var y1 = pxY(bounds, object.y1 || 0)
         var x2 = pxX(bounds, object.x2 || 0)
         var y2 = pxY(bounds, object.y2 || 0)
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.beginPath()
         ctx.moveTo(x1, y1)
         ctx.lineTo(x2, y2)
         ctx.stroke()
-        ctx.fillStyle = UiStyle.colorWarning
+        ctx.fillStyle = objectSelected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
+        ctx.setLineDash([])
         ctx.beginPath()
         ctx.arc(x1, y1, objectSelected ? 5 : 3, 0, Math.PI * 2)
         ctx.fill()
         ctx.beginPath()
         ctx.arc(x2, y2, objectSelected ? 5 : 3, 0, Math.PI * 2)
         ctx.fill()
+        endStyle(ctx)
     }
 
     function drawPoint(ctx, bounds, object, layerSelected, objectSelected) {
         var x = pxX(bounds, object.x || 0)
         var y = pxY(bounds, object.y || 0)
-        ctx.fillStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
+        ctx.fillStyle = objectSelected || layerSelected ? UiStyle.colorWarning : styleStrokeColor(object)
         ctx.strokeStyle = UiStyle.colorWorkspace
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.arc(x, y, objectSelected ? 7 : 5, 0, Math.PI * 2)
+        ctx.globalAlpha = styleLineOpacity(object)
         ctx.fill()
         ctx.stroke()
+        ctx.globalAlpha = 1
     }
 
     function drawPolyline(ctx, bounds, object, layerSelected, objectSelected) {
@@ -360,8 +489,7 @@ QtObject {
         if (points.length < 2) {
             return
         }
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.beginPath()
         for (var index = 0; index < points.length; ++index) {
             var point = points[index] || [0, 0]
@@ -374,6 +502,7 @@ QtObject {
             }
         }
         ctx.stroke()
+        endStyle(ctx)
     }
 
     function drawCirclePrimitive(ctx, bounds, object, layerSelected, objectSelected) {
@@ -383,11 +512,12 @@ QtObject {
         if (radius <= 0) {
             return
         }
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.beginPath()
         ctx.arc(cx, cy, radius, 0, Math.PI * 2)
         ctx.stroke()
+        applyFill(ctx, object, true)
+        endStyle(ctx)
     }
 
     function drawArcPrimitive(ctx, bounds, object, layerSelected, objectSelected) {
@@ -399,11 +529,12 @@ QtObject {
         }
         var start = Number(object.start_angle_deg || 0) * Math.PI / 180
         var end = Number(object.end_angle_deg || 0) * Math.PI / 180
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.beginPath()
         ctx.arc(cx, cy, radius, start, end)
         ctx.stroke()
+        applyFill(ctx, object, false)
+        endStyle(ctx)
     }
 
     function drawRectanglePrimitive(ctx, bounds, object, layerSelected, objectSelected) {
@@ -411,9 +542,10 @@ QtObject {
         var y = pxY(bounds, object.y || 0)
         var width = Number(object.width || 0) * bounds.size
         var height = Number(object.height || 0) * bounds.size
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.strokeRect(x, y, width, height)
+        applyFill(ctx, object, true)
+        endStyle(ctx)
     }
 
     function drawPolygonPrimitive(ctx, bounds, object, layerSelected, objectSelected) {
@@ -421,8 +553,7 @@ QtObject {
         if (points.length < 3) {
             return
         }
-        ctx.strokeStyle = objectSelected || layerSelected ? UiStyle.colorWarning : UiStyle.colorAccent
-        ctx.lineWidth = objectSelected ? 4 : layerSelected ? 3 : 2
+        beginStyle(ctx, object, objectSelected, layerSelected)
         ctx.beginPath()
         for (var index = 0; index < points.length; ++index) {
             var point = points[index] || [0, 0]
@@ -436,6 +567,8 @@ QtObject {
         }
         ctx.closePath()
         ctx.stroke()
+        applyFill(ctx, object, true)
+        endStyle(ctx)
     }
 
     function drawObject(ctx, bounds, doc, layer, object) {

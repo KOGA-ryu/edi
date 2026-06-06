@@ -108,12 +108,12 @@ Rectangle {
                 UiIconButton {
                     Layout.preferredWidth: 28
                     Layout.preferredHeight: 24
-                    label: "Clear"
-                    iconText: "C"
-                    enabled: drawingWorkspace.hasSelectedObject()
-                    tooltip: drawingWorkspace.hasSelectedObject() ? "Clear selection" : "Nothing selected"
-                    onClicked: if (drawingWorkspace.hasSelectedObject() && drawingWorkspace.controller) {
-                        drawingWorkspace.controller.clearDrawingObjectSelection()
+                    label: "Reset"
+                    iconText: "↺"
+                    enabled: drawingWorkspace.controller && drawingWorkspace.controller.drawingGeneratedObjects.length > 0
+                    tooltip: drawingWorkspace.controller && drawingWorkspace.controller.drawingGeneratedObjects.length > 0 ? "Reset drawing document" : "No generated geometry"
+                    onClicked: if (drawingWorkspace.controller) {
+                        drawingWorkspace.controller.resetNativeDrawingDocument()
                     }
                 }
 
@@ -382,6 +382,7 @@ Rectangle {
 
             DrawingCanvasObjectRenderer {
                 id: objectRenderer
+                controller: drawingWorkspace.controller
             }
 
             DrawingCanvasPreviewRenderer {

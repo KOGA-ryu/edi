@@ -33,12 +33,36 @@ QtObject {
         return twoPointTools.indexOf(String(toolId || "")) >= 0
     }
 
+    function normalizeLineStyle(value) {
+        var style = String(value || "solid").trim().toLowerCase()
+        if (style === "dashed" || style === "dot" || style === "dotted") {
+            return style === "dot" ? "dotted" : style
+        }
+        return "solid"
+    }
+
     function setupPreviewStroke(ctx) {
         ctx.save()
-        ctx.setLineDash([8, 5])
-        ctx.lineWidth = 2
-        ctx.strokeStyle = UiStyle.colorWarning
-        ctx.fillStyle = UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.16)
+        var style = normalizeLineStyle(controller ? controller.drawingLineStyle : "solid")
+        if (style === "dashed") {
+            ctx.setLineDash([8, 5])
+        } else if (style === "dotted") {
+            ctx.setLineDash([2, 3])
+        } else {
+            ctx.setLineDash([])
+        }
+        var strokeColor = String(controller && controller.drawingStrokeColor ? controller.drawingStrokeColor : UiStyle.colorWarning)
+        var fillColor = String(controller && controller.drawingFillColor ? controller.drawingFillColor : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.16))
+        var width = Number.isFinite(Number(controller && controller.drawingLineThickness))
+            ? Number(controller.drawingLineThickness)
+            : 2
+        var opacity = Number.isFinite(Number(controller && controller.drawingStrokeOpacity))
+            ? Math.max(0, Math.min(1, Number(controller.drawingStrokeOpacity)))
+            : 1
+        ctx.lineWidth = Math.max(1, width)
+        ctx.strokeStyle = strokeColor
+        ctx.fillStyle = fillColor
+        ctx.globalAlpha = opacity
     }
 
     function drawPreviewHandle(ctx, x, y) {

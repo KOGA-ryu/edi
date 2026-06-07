@@ -65,6 +65,14 @@ Item {
         return id.length > 0 ? kind + " / " + id : kind
     }
 
+    function selectedObjectActionColumns() {
+        return drawingRightContext.width < 300 ? 3 : 5
+    }
+
+    function selectedObjectActionRows() {
+        return Math.ceil(5 / selectedObjectActionColumns())
+    }
+
     function compactNumber(value) {
         var number = Number(value)
         if (!Number.isFinite(number)) {
@@ -786,7 +794,7 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 68 + drawingRightContext.objectEditRows().length * 26
+                Layout.preferredHeight: 70 + drawingRightContext.selectedObjectActionRows() * 26 + drawingRightContext.objectEditRows().length * 26
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
@@ -816,9 +824,44 @@ Item {
                             font.pixelSize: UiStyle.fontSizeXs
                             elide: Text.ElideRight
                         }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: drawingRightContext.selectedObjectActionColumns()
+                        columnSpacing: UiStyle.space4
+                        rowSpacing: UiStyle.space4
 
                         UiButton {
-                            Layout.preferredWidth: 48
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 52
+                            Layout.preferredHeight: 22
+                            label: "Copy"
+                            tooltip: "Copy selected object."
+                            onClicked: drawingRightContext.controller.copySelectedDrawingObject()
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 52
+                            Layout.preferredHeight: 22
+                            label: "Paste"
+                            tooltip: "Paste copied object with a small offset."
+                            onClicked: drawingRightContext.controller.pasteCopiedDrawingObject()
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 52
+                            Layout.preferredHeight: 22
+                            label: "Dupe"
+                            tooltip: "Duplicate selected object."
+                            onClicked: drawingRightContext.controller.duplicateSelectedDrawingObject()
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 52
                             Layout.preferredHeight: 22
                             label: "Clear"
                             tooltip: "Clear selected object."
@@ -826,10 +869,11 @@ Item {
                         }
 
                         UiButton {
-                            Layout.preferredWidth: 48
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 52
                             Layout.preferredHeight: 22
-                            label: "Delete"
-                            tooltip: "Delete selected generated object."
+                            label: "Del"
+                            tooltip: "Delete selected object."
                             onClicked: drawingRightContext.controller.deleteSelectedDrawingObject()
                         }
                     }

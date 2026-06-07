@@ -208,6 +208,19 @@ public:
         const QString readmePath = bundleDir.filePath(QStringLiteral("README.txt"));
         const QString manifestPath = bundleDir.filePath(QStringLiteral("manifest.json"));
         const QJsonObject manifest = blenderSvgBundleManifest(bundlePath, QJsonObject::fromVariantMap(model));
+        const QString reportPath = bundleDir.filePath(QStringLiteral("export_report.json"));
+        const QString reportTextPath = bundleDir.filePath(QStringLiteral("export_report.txt"));
+        const QString verifyPath = bundleDir.filePath(QStringLiteral("verify_bundle.py"));
+        const QJsonObject exportReport = blenderSvgBundleExportReport(
+            bundlePath,
+            svgPath,
+            manifestPath,
+            scriptPath,
+            readmePath,
+            reportPath,
+            reportTextPath,
+            verifyPath,
+            manifest);
 
         if (!writeTextFile(svgPath, svg)) {
             result.insert(QStringLiteral("message"), QStringLiteral("bundle svg write failed"));
@@ -215,6 +228,18 @@ public:
         }
         if (!writeTextFile(manifestPath, QString::fromUtf8(QJsonDocument(manifest).toJson(QJsonDocument::Indented)))) {
             result.insert(QStringLiteral("message"), QStringLiteral("bundle manifest write failed"));
+            return result;
+        }
+        if (!writeTextFile(reportPath, QString::fromUtf8(QJsonDocument(exportReport).toJson(QJsonDocument::Indented)))) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle export report write failed"));
+            return result;
+        }
+        if (!writeTextFile(reportTextPath, blenderSvgBundleExportReportText(exportReport))) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle export report text write failed"));
+            return result;
+        }
+        if (!writeTextFile(verifyPath, blenderSvgBundleVerifyScript())) {
+            result.insert(QStringLiteral("message"), QStringLiteral("bundle verify script write failed"));
             return result;
         }
         if (!writeTextFile(scriptPath, blenderSvgImportScript())) {
@@ -231,6 +256,9 @@ public:
         result.insert(QStringLiteral("path"), bundlePath);
         result.insert(QStringLiteral("svg_path"), svgPath);
         result.insert(QStringLiteral("manifest_path"), manifestPath);
+        result.insert(QStringLiteral("report_path"), reportPath);
+        result.insert(QStringLiteral("report_text_path"), reportTextPath);
+        result.insert(QStringLiteral("verify_path"), verifyPath);
         result.insert(QStringLiteral("script_path"), scriptPath);
         result.insert(QStringLiteral("readme_path"), readmePath);
         return result;
@@ -384,12 +412,184 @@ private:
         return manifest;
     }
 
+    static bool hasNonEmptyString(const QJsonObject &object, const QString &key) {
+        return object.value(key).toString().trimmed().length() > 0;
+    }
+
+    static bool hasNonEmptyTags(const QJsonObject &object) {
+        return !object.value(QStringLiteral("tags")).toArray().isEmpty();
+    }
+
+    static bool isSupportedManifestObjectType(const QString &type) {
+        static const QStringList supportedTypes = {
+            QStringLiteral("point"),
+            QStringLiteral("line"),
+            QStringLiteral("polyline"),
+            QStringLiteral("circle"),
+            QStringLiteral("arc"),
+            QStringLiteral("rectangle"),
+            QStringLiteral("polygon"),
+            QStringLiteral("image_reference_frame"),
+            QStringLiteral("ascii_crop_frame"),
+            QStringLiteral("ascii_cell_region"),
+            QStringLiteral("tone_probe"),
+            QStringLiteral("glyph_baseline")
+        };
+        return supportedTypes.contains(type);
+    }
+
+    static QJsonObject blenderSvgBundleExportReport(const QString &bundlePath,
+                                                   const QString &svgPath,
+                                                   const QString &manifestPath,
+                                                   const QString &scriptPath,
+                                                   const QString &readmePath,
+                                                   const QString &reportPath,
+                                                   const QString &reportTextPath,
+                                                   const QString &verifyPath,
+                                                   const QJsonObject &manifest) {
+        const QJsonArray objects = manifest.value(QStringLiteral("objects")).toArray();
+        QJsonObject typeCounts;
+        QJsonArray unknownTypes;
+        int missingIdCount = 0;
+        int roleCount = 0;
+        int materialCount = 0;
+        int exportGroupCount = 0;
+        int tagsCount = 0;
+        int missingMetadataCount = 0;
+
+        for (const QJsonValue &value : objects) {
+            const QJsonObject object = value.toObject();
+            const QString id = object.value(QStringLiteral("id")).toString().trimmed();
+            const QString type = object.value(QStringLiteral("type")).toString(QStringLiteral("unknown")).trimmed();
+            const QString countKey = type.isEmpty() ? QStringLiteral("unknown") : type;
+            typeCounts.insert(countKey, typeCounts.value(countKey).toInt() + 1);
+
+            if (id.isEmpty()) {
+                ++missingIdCount;
+            }
+            if (hasNonEmptyString(object, QStringLiteral("role"))) {
+                ++roleCount;
+            }
+            if (hasNonEmptyString(object, QStringLiteral("material"))) {
+                ++materialCount;
+            }
+            if (hasNonEmptyString(object, QStringLiteral("export_group"))) {
+                ++exportGroupCount;
+            }
+            if (hasNonEmptyTags(object)) {
+                ++tagsCount;
+            }
+            if (!hasNonEmptyString(object, QStringLiteral("role"))
+                    && !hasNonEmptyString(object, QStringLiteral("material"))
+                    && !hasNonEmptyString(object, QStringLiteral("export_group"))
+                    && !hasNonEmptyString(object, QStringLiteral("intent"))
+                    && !hasNonEmptyTags(object)) {
+                ++missingMetadataCount;
+            }
+            if (!isSupportedManifestObjectType(countKey) && !unknownTypes.contains(countKey)) {
+                unknownTypes.append(countKey);
+            }
+        }
+
+        QJsonArray warnings;
+        if (objects.isEmpty()) {
+            warnings.append(QStringLiteral("no objects exported"));
+        }
+        if (missingIdCount > 0) {
+            warnings.append(QStringLiteral("objects missing IDs"));
+        }
+        if (missingMetadataCount > 0) {
+            warnings.append(QStringLiteral("objects missing metadata"));
+        }
+        if (!unknownTypes.isEmpty()) {
+            warnings.append(QStringLiteral("unsupported or unknown object type"));
+        }
+
+        QJsonObject paths;
+        paths.insert(QStringLiteral("bundle"), bundlePath);
+        paths.insert(QStringLiteral("svg"), svgPath);
+        paths.insert(QStringLiteral("manifest"), manifestPath);
+        paths.insert(QStringLiteral("script"), scriptPath);
+        paths.insert(QStringLiteral("readme"), readmePath);
+        paths.insert(QStringLiteral("report_json"), reportPath);
+        paths.insert(QStringLiteral("report_text"), reportTextPath);
+        paths.insert(QStringLiteral("verify_script"), verifyPath);
+
+        QJsonObject metadataCoverage;
+        metadataCoverage.insert(QStringLiteral("with_role"), roleCount);
+        metadataCoverage.insert(QStringLiteral("with_material"), materialCount);
+        metadataCoverage.insert(QStringLiteral("with_export_group"), exportGroupCount);
+        metadataCoverage.insert(QStringLiteral("with_tags"), tagsCount);
+        metadataCoverage.insert(QStringLiteral("missing_metadata"), missingMetadataCount);
+        metadataCoverage.insert(QStringLiteral("missing_ids"), missingIdCount);
+
+        QJsonObject report;
+        report.insert(QStringLiteral("schema"), QStringLiteral("draftsman_blender_svg_export_report_v1"));
+        report.insert(QStringLiteral("exported_at_utc"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        report.insert(QStringLiteral("bundle_path"), bundlePath);
+        report.insert(QStringLiteral("paths"), paths);
+        report.insert(QStringLiteral("object_count"), objects.size());
+        report.insert(QStringLiteral("object_type_counts"), typeCounts);
+        report.insert(QStringLiteral("metadata_coverage"), metadataCoverage);
+        report.insert(QStringLiteral("unknown_types"), unknownTypes);
+        report.insert(QStringLiteral("warnings"), warnings);
+        return report;
+    }
+
+    static QString blenderSvgBundleExportReportText(const QJsonObject &report) {
+        QStringList lines;
+        lines << QStringLiteral("Draftsman Blender SVG Export Report");
+        lines << QStringLiteral("Exported UTC: %1").arg(report.value(QStringLiteral("exported_at_utc")).toString());
+        lines << QStringLiteral("Bundle: %1").arg(report.value(QStringLiteral("bundle_path")).toString());
+        lines << QStringLiteral("Objects: %1").arg(report.value(QStringLiteral("object_count")).toInt());
+        lines << QString();
+        lines << QStringLiteral("Object Types:");
+        const QJsonObject typeCounts = report.value(QStringLiteral("object_type_counts")).toObject();
+        const QStringList typeKeys = typeCounts.keys();
+        if (typeKeys.isEmpty()) {
+            lines << QStringLiteral("- none");
+        } else {
+            for (const QString &key : typeKeys) {
+                lines << QStringLiteral("- %1: %2").arg(key).arg(typeCounts.value(key).toInt());
+            }
+        }
+
+        const QJsonObject coverage = report.value(QStringLiteral("metadata_coverage")).toObject();
+        lines << QString();
+        lines << QStringLiteral("Metadata Coverage:");
+        lines << QStringLiteral("- role: %1").arg(coverage.value(QStringLiteral("with_role")).toInt());
+        lines << QStringLiteral("- material: %1").arg(coverage.value(QStringLiteral("with_material")).toInt());
+        lines << QStringLiteral("- export_group: %1").arg(coverage.value(QStringLiteral("with_export_group")).toInt());
+        lines << QStringLiteral("- tags: %1").arg(coverage.value(QStringLiteral("with_tags")).toInt());
+        lines << QStringLiteral("- missing metadata: %1").arg(coverage.value(QStringLiteral("missing_metadata")).toInt());
+        lines << QStringLiteral("- missing IDs: %1").arg(coverage.value(QStringLiteral("missing_ids")).toInt());
+
+        lines << QString();
+        lines << QStringLiteral("Warnings:");
+        const QJsonArray warnings = report.value(QStringLiteral("warnings")).toArray();
+        if (warnings.isEmpty()) {
+            lines << QStringLiteral("- none");
+        } else {
+            for (const QJsonValue &warning : warnings) {
+                lines << QStringLiteral("- %1").arg(warning.toString());
+            }
+        }
+        lines << QString();
+        return lines.join(QLatin1Char('\n'));
+    }
+
+    #ifdef Q_MOC_RUN
+    static QString blenderSvgImportScript();
+    static QString blenderSvgBundleVerifyScript();
+    static QString blenderSvgBundleReadme();
+    #else
     static QString blenderSvgImportScript() {
         return QString::fromUtf8(R"PY(# Draftsman Blender SVG bundle importer.
 # Run in Blender with: blender --python import_drawing_svg.py
 
 import bpy
 import json
+import re
 from pathlib import Path
 
 BUNDLE_DIR = Path(__file__).resolve().parent
@@ -418,6 +618,54 @@ if collection is None:
     collection = bpy.data.collections.new(COLLECTION_NAME)
 if collection.name not in scene_collection_names:
     bpy.context.scene.collection.children.link(collection)
+
+def safe_name(value, fallback):
+    raw = str(value or "").strip()
+    if not raw:
+        raw = fallback
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", raw).strip("_") or fallback
+
+def ensure_child_collection(parent, name):
+    collection_name = safe_name(name, "ungrouped")
+    if collection_name == parent.name:
+        return parent
+    child = bpy.data.collections.get(collection_name)
+    if child is None:
+        child = bpy.data.collections.new(collection_name)
+    if child.name not in {existing.name for existing in parent.children}:
+        parent.children.link(child)
+    return child
+
+def ensure_material(name, entry):
+    material_name = safe_name(name, "")
+    if not material_name:
+        return None
+    material = bpy.data.materials.get(material_name)
+    if material is None:
+        material = bpy.data.materials.new(material_name)
+    color = color_from_entry(entry)
+    if color:
+        material.diffuse_color = color
+    return material
+
+def hex_to_rgba(value):
+    raw = str(value or "").strip().lstrip("#")
+    if len(raw) == 3:
+        raw = "".join(ch * 2 for ch in raw)
+    if len(raw) not in (6, 8):
+        return None
+    try:
+        r = int(raw[0:2], 16) / 255.0
+        g = int(raw[2:4], 16) / 255.0
+        b = int(raw[4:6], 16) / 255.0
+        a = int(raw[6:8], 16) / 255.0 if len(raw) == 8 else 1.0
+        return (r, g, b, a)
+    except ValueError:
+        return None
+
+def color_from_entry(entry):
+    style = entry.get("style", {})
+    return hex_to_rgba(style.get("fill_color")) or hex_to_rgba(style.get("stroke_color"))
 
 before_names = set(bpy.data.objects.keys())
 
@@ -454,18 +702,27 @@ imported = [obj for obj in bpy.data.objects if obj.name not in before_names]
 for index, obj in enumerate(imported):
     entry = manifest_entry_for(obj, index)
     tags = entry.get("tags", [])
+    role = str(metadata_value(entry, "role"))
+    material_name = str(metadata_value(entry, "material"))
+    export_group = str(metadata_value(entry, "export_group"))
+    target_collection = ensure_child_collection(collection, export_group) if export_group.strip() else collection
+    material = ensure_material(material_name, entry)
     for existing_collection in list(obj.users_collection):
         existing_collection.objects.unlink(obj)
-    collection.objects.link(obj)
+    target_collection.objects.link(obj)
     obj["draftsman_id"] = str(entry.get("id", clean_object_name(obj.name)))
     obj["draftsman_type"] = str(entry.get("type", "unknown"))
     obj["draftsman_tags"] = json.dumps(tags)
-    obj["draftsman_role"] = str(metadata_value(entry, "role"))
-    obj["draftsman_material"] = str(metadata_value(entry, "material"))
+    obj["draftsman_role"] = role
+    obj["draftsman_material"] = material_name
     obj["draftsman_intent"] = str(metadata_value(entry, "intent"))
-    obj["draftsman_export_group"] = str(metadata_value(entry, "export_group"))
+    obj["draftsman_export_group"] = export_group
     obj["draftsman_manifest_index"] = index
-    obj.name = "draftsman_" + obj.name
+    if material and hasattr(obj.data, "materials"):
+        obj.data.materials.clear()
+        obj.data.materials.append(material)
+    role_prefix = safe_name(role, "")
+    obj.name = "draftsman_" + (role_prefix + "_" if role_prefix else "") + obj.name
     obj.location.z = 0.0
     obj.scale = (SCALE, SCALE, SCALE)
 
@@ -475,23 +732,143 @@ print(f"Manifest object count: {manifest_count}")
 )PY");
     }
 
+    static QString blenderSvgBundleVerifyScript() {
+        return QString::fromUtf8(R"PY(#!/usr/bin/env python3
+"""Verify a Draftsman Blender SVG export bundle before opening Blender."""
+
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+BUNDLE_DIR = Path(__file__).resolve().parent
+REQUIRED_FILES = [
+    "drawing.svg",
+    "manifest.json",
+    "export_report.json",
+    "import_drawing_svg.py",
+]
+SUPPORTED_TYPES = {
+    "point",
+    "line",
+    "polyline",
+    "circle",
+    "arc",
+    "rectangle",
+    "polygon",
+    "image_reference_frame",
+    "ascii_crop_frame",
+    "ascii_cell_region",
+    "tone_probe",
+    "glyph_baseline",
+}
+
+errors = []
+warnings = []
+
+def load_json(name):
+    path = BUNDLE_DIR / name
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        errors.append(f"{name} is not readable JSON: {exc}")
+        return {}
+
+for filename in REQUIRED_FILES:
+    if not (BUNDLE_DIR / filename).exists():
+        errors.append(f"missing required file: {filename}")
+
+manifest = load_json("manifest.json") if (BUNDLE_DIR / "manifest.json").exists() else {}
+report = load_json("export_report.json") if (BUNDLE_DIR / "export_report.json").exists() else {}
+
+objects = manifest.get("objects", [])
+manifest_count = int(manifest.get("object_count", len(objects)) or 0)
+report_count = int(report.get("object_count", -1) or 0)
+if manifest_count != len(objects):
+    errors.append(f"manifest object_count {manifest_count} does not match objects length {len(objects)}")
+if report_count != manifest_count:
+    errors.append(f"report object_count {report_count} does not match manifest object_count {manifest_count}")
+
+ids = [str(obj.get("id", "")).strip() for obj in objects]
+missing_ids = sum(1 for object_id in ids if not object_id)
+if missing_ids:
+    errors.append(f"{missing_ids} object(s) missing id")
+
+duplicates = sorted(object_id for object_id, count in Counter(ids).items() if object_id and count > 1)
+if duplicates:
+    errors.append("duplicate object id(s): " + ", ".join(duplicates))
+
+type_counts = Counter(str(obj.get("type", "unknown") or "unknown") for obj in objects)
+unknown_types = sorted(object_type for object_type in type_counts if object_type not in SUPPORTED_TYPES)
+if unknown_types:
+    warnings.append("unknown object type(s): " + ", ".join(unknown_types))
+
+coverage = report.get("metadata_coverage", {})
+
+print("Draftsman Blender SVG Bundle Check")
+print(f"Bundle: {BUNDLE_DIR}")
+print(f"Objects: {manifest_count}")
+print("")
+print("Object Types:")
+if type_counts:
+    for object_type, count in sorted(type_counts.items()):
+        print(f"- {object_type}: {count}")
+else:
+    print("- none")
+
+print("")
+print("Metadata Coverage:")
+print(f"- role: {coverage.get('with_role', 0)}")
+print(f"- material: {coverage.get('with_material', 0)}")
+print(f"- export_group: {coverage.get('with_export_group', 0)}")
+print(f"- tags: {coverage.get('with_tags', 0)}")
+print(f"- missing metadata: {coverage.get('missing_metadata', 0)}")
+print(f"- missing ids: {coverage.get('missing_ids', missing_ids)}")
+
+if warnings:
+    print("")
+    print("Warnings:")
+    for warning in warnings:
+        print(f"- {warning}")
+
+if errors:
+    print("")
+    print("Errors:")
+    for error in errors:
+        print(f"- {error}")
+    sys.exit(1)
+
+print("")
+print("Bundle structure ok.")
+)PY");
+    }
+
     static QString blenderSvgBundleReadme() {
         return QString::fromUtf8(R"TXT(Draftsman Blender SVG Bundle
 
 Files:
 - drawing.svg: exported Draftsman vector drawing.
 - manifest.json: compact object metadata and Blender import hints.
+- export_report.json / export_report.txt: export audit.
 - import_drawing_svg.py: Blender script that imports drawing.svg as curves.
+- verify_bundle.py: local bundle self-check before Blender import.
 
 Imported Blender objects receive Draftsman custom properties:
 draftsman_id, draftsman_type, draftsman_tags, draftsman_role, draftsman_material.
 
+If object metadata is present, import_drawing_svg.py also:
+- links objects into child collections using export_group.
+- creates/assigns materials using material.
+- prefixes object names using role.
+
 Run:
+python3 verify_bundle.py
 blender --python import_drawing_svg.py
 
 Or open Blender, load import_drawing_svg.py in the Text Editor, and run it.
 )TXT");
     }
+    #endif
 };
 
 class TextEditorStore final : public QObject {

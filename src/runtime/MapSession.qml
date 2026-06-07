@@ -13,6 +13,8 @@ QtObject {
     property int selectedMapCol: 0
     property var mapTokenPalette: ["wall", "floor", "door", "start", "secret", "encounter"]
 
+    signal changed()
+
     function asArray(value) {
         if (!value) {
             return []
@@ -90,6 +92,7 @@ QtObject {
             selectedMapRow = 0
             selectedMapCol = 0
         }
+        changed()
     }
 
     function firstMapCellWithToken(token) {
@@ -137,8 +140,87 @@ QtObject {
     function selectMapCell(row, col) {
         var requestedRow = Number(row)
         var requestedCol = Number(col)
-        selectedMapRow = Math.max(0, Math.min(Number.isFinite(requestedRow) ? requestedRow : 0, Math.max(0, mapRowCount() - 1)))
-        selectedMapCol = Math.max(0, Math.min(Number.isFinite(requestedCol) ? requestedCol : 0, Math.max(0, mapColCount() - 1)))
+        var nextRow = Math.max(0, Math.min(Number.isFinite(requestedRow) ? requestedRow : 0, Math.max(0, mapRowCount() - 1)))
+        var nextCol = Math.max(0, Math.min(Number.isFinite(requestedCol) ? requestedCol : 0, Math.max(0, mapColCount() - 1)))
+        var didChange = nextRow !== selectedMapRow || nextCol !== selectedMapCol
+        selectedMapRow = nextRow
+        selectedMapCol = nextCol
+        if (didChange) {
+            changed()
+        }
+    }
+
+    function displayDataPath(path) {
+        var text = String(path || "")
+        var marker = "/qt_qml_region_split/"
+        var index = text.indexOf(marker)
+        if (index >= 0) {
+            return text.slice(index + marker.length)
+        }
+        return text
+    }
+
+    function mapCellInspectorDocument(sectionVisible, mapTitle, writeDisabled, csvPath, metadataPath) {
+        var token = selectedMapToken()
+        var tags = selectedCellTags()
+        var tagText = tags.length > 0 ? tags.join(", ") : "none"
+        var codeRefs = selectedCellCodeRefs()
+        var isSectionVisible = function(sectionId) {
+            if (typeof sectionVisible === "function") {
+                return !!sectionVisible(sectionId)
+            }
+            return true
+        }
+        return {
+            id: "csv_map_cell_inspector",
+            targetId: "cell_" + String(selectedMapRow) + "_" + String(selectedMapCol),
+            targetLabel: "cell " + String(selectedMapRow) + "," + String(selectedMapCol),
+            targetType: "map_cell",
+            status: selectedCellStatus(),
+            sections: [
+                {
+                    id: "facts",
+                    label: "Facts",
+                    type: "rows",
+                    visible: isSectionVisible("facts"),
+                    rows: [
+                        { label: "Coordinate", value: String(selectedMapRow) + "," + String(selectedMapCol) },
+                        { label: "Token", value: token },
+                        { label: "Status", value: selectedCellStatus() },
+                        { label: "Tags", value: tagText }
+                    ]
+                },
+                {
+                    id: "selection",
+                    label: "Selection",
+                    type: "text",
+                    visible: isSectionVisible("selection"),
+                    items: [
+                        { label: "Intent", value: selectedCellIntent() },
+                        { label: "Map", value: String(mapTitle || "") },
+                        { label: "Validation", value: mapRowCount() > 0 ? "grid loaded; persistence disabled" : "missing grid data" }
+                    ]
+                },
+                {
+                    id: "code_refs",
+                    label: "Code Refs",
+                    type: "code_refs",
+                    visible: isSectionVisible("code_refs"),
+                    items: codeRefs
+                },
+                {
+                    id: "receipts",
+                    label: "Receipts",
+                    type: "rows",
+                    visible: isSectionVisible("receipts"),
+                    rows: [
+                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
+                        { label: "CSV", value: displayDataPath(csvPath) },
+                        { label: "Metadata", value: displayDataPath(metadataPath) }
+                    ]
+                }
+            ]
+        }
     }
 
     function mapTokenCounts() {

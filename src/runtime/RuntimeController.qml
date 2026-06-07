@@ -29,7 +29,10 @@ QtObject {
     property string customActionOutputPath: ""
     property var leftProjectRows: []
     property var projectPanelDefaults: ({})
-    property MapSession mapSession: MapSession { id: mapSession }
+    property MapSession mapSession: MapSession {
+        id: mapSession
+        onChanged: runtimeController.bumpRevision("map_session")
+    }
     property alias mapCsvPath: mapSession.mapCsvPath
     property alias cellMetadataPath: mapSession.cellMetadataPath
     property alias mapCsvText: mapSession.mapCsvText
@@ -1546,60 +1549,7 @@ QtObject {
     }
 
     function mapCellInspectorDocument(unusedRevision) {
-        var token = selectedMapToken()
-        var tags = selectedCellTags()
-        var tagText = tags.length > 0 ? tags.join(", ") : "none"
-        var codeRefs = selectedCellCodeRefs()
-        return {
-            id: "csv_map_cell_inspector",
-            targetId: "cell_" + String(selectedMapRow) + "_" + String(selectedMapCol),
-            targetLabel: "cell " + String(selectedMapRow) + "," + String(selectedMapCol),
-            targetType: "map_cell",
-            status: selectedCellStatus(),
-            sections: [
-                {
-                    id: "facts",
-                    label: "Facts",
-                    type: "rows",
-                    visible: inspectorSectionVisible("facts"),
-                    rows: [
-                        { label: "Coordinate", value: String(selectedMapRow) + "," + String(selectedMapCol) },
-                        { label: "Token", value: token },
-                        { label: "Status", value: selectedCellStatus() },
-                        { label: "Tags", value: tagText }
-                    ]
-                },
-                {
-                    id: "selection",
-                    label: "Selection",
-                    type: "text",
-                    visible: inspectorSectionVisible("selection"),
-                    items: [
-                        { label: "Intent", value: selectedCellIntent() },
-                        { label: "Map", value: projectTitle },
-                        { label: "Validation", value: mapRowCount() > 0 ? "grid loaded; persistence disabled" : "missing grid data" }
-                    ]
-                },
-                {
-                    id: "code_refs",
-                    label: "Code Refs",
-                    type: "code_refs",
-                    visible: inspectorSectionVisible("code_refs"),
-                    items: codeRefs
-                },
-                {
-                    id: "receipts",
-                    label: "Receipts",
-                    type: "rows",
-                    visible: inspectorSectionVisible("receipts"),
-                    rows: [
-                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
-                        { label: "CSV", value: displayDataPath(mapCsvPath) },
-                        { label: "Metadata", value: displayDataPath(cellMetadataPath) }
-                    ]
-                }
-            ]
-        }
+        return mapSession.mapCellInspectorDocument(inspectorSectionVisible, projectTitle, writeDisabled, mapCsvPath, cellMetadataPath)
     }
 
     function normalizeRoute(route) {

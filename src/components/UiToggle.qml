@@ -21,10 +21,12 @@ Rectangle {
         spacing: UiStyle.space8
         Text {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             text: toggle.label
             color: UiStyle.colorText
             font.family: UiStyle.fontSans
             font.pixelSize: UiStyle.fontSizeSm
+            verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
         Rectangle {

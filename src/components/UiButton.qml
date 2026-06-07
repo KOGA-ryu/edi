@@ -25,7 +25,9 @@ Rectangle {
     property bool hovered: false
 
     Text {
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: parent.height + UiStyle.controlTextOverscan
         text: button.compact && button.iconText.length > 0 ? button.iconText : button.label
         color: !button.enabled ? UiStyle.colorDisabled : button.selected ? UiStyle.colorText : UiStyle.colorTextMuted
         font.family: UiStyle.fontSans

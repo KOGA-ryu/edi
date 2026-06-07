@@ -24,13 +24,17 @@ Rectangle {
 
     Text {
         id: labelText
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: parent.height + UiStyle.controlTextOverscan
         text: tab.label
         color: active ? UiStyle.colorText : UiStyle.colorTextMuted
         font.family: UiStyle.fontSans
         font.pixelSize: UiStyle.fontSizeSm
         font.weight: active ? UiStyle.fontWeightSemiBold : UiStyle.fontWeightMedium
         elide: Text.ElideRight
+        verticalAlignment: Text.AlignVCenter
+        horizontalAlignment: Text.AlignHCenter
         width: parent.width - UiStyle.space12
     }
 

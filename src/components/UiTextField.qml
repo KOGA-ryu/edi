@@ -7,6 +7,11 @@ TextField {
     placeholderTextColor: UiStyle.colorTextFaint
     font.family: UiStyle.fontSans
     font.pixelSize: UiStyle.fontSizeBody
+    verticalAlignment: TextInput.AlignVCenter
+    topPadding: 1
+    bottomPadding: 1
+    leftPadding: UiStyle.space8
+    rightPadding: UiStyle.space8
     selectedTextColor: UiStyle.colorWindow
     selectionColor: UiStyle.colorAccent
     background: Rectangle {

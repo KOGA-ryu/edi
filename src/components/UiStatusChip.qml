@@ -27,7 +27,9 @@ Rectangle {
 
     Text {
         id: text
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: parent.height + UiStyle.controlTextOverscan
         text: chip.label
         color: chip.statusColor
         font.family: UiStyle.fontSans
@@ -36,5 +38,6 @@ Rectangle {
         elide: Text.ElideRight
         width: parent.width - UiStyle.space6
         horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
     }
 }

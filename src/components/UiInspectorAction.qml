@@ -21,7 +21,9 @@ Rectangle {
 
     Text {
         id: labelText
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: parent.height + UiStyle.controlTextOverscan
         width: parent.width - UiStyle.space8
         text: action.label
         color: !action.enabled ? UiStyle.colorDisabled : action.selected ? UiStyle.colorText : UiStyle.colorTextMuted

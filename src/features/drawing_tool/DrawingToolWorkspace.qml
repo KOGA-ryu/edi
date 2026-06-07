@@ -382,6 +382,7 @@ Rectangle {
                 property real marqueeStartY: 0
                 property real marqueeEndX: 0
                 property real marqueeEndY: 0
+                property int activeModifiers: Qt.NoModifier
                 cursorShape: selectionCursorShape()
 
                 function selectedToolLabel() {
@@ -766,15 +767,81 @@ Rectangle {
                     drawingWorkspace.controller.updateSelectedDrawingObjectField(field, value)
                 }
 
+                function modifierShiftDown(modifiers) {
+                    return !!(modifiers & Qt.ShiftModifier)
+                }
+
+                function modifierOptionDown(modifiers) {
+                    return !!(modifiers & Qt.AltModifier)
+                }
+
+                function angleSnappedDegrees(degrees, increment) {
+                    var step = Math.max(1, Number(increment || 15))
+                    return Math.round(Number(degrees || 0) / step) * step
+                }
+
+                function constrainedVectorPoint(startX, startY, endX, endY, incrementDegrees) {
+                    var dx = Number(endX || 0) - Number(startX || 0)
+                    var dy = Number(endY || 0) - Number(startY || 0)
+                    var distance = Math.sqrt(dx * dx + dy * dy)
+                    if (distance <= 0.0000001) {
+                        return { x: endX, y: endY }
+                    }
+                    var angle = angleSnappedDegrees(Math.atan2(dy, dx) * 180 / Math.PI, incrementDegrees) * Math.PI / 180
+                    return {
+                        x: Math.max(0, Math.min(1, Number(startX || 0) + Math.cos(angle) * distance)),
+                        y: Math.max(0, Math.min(1, Number(startY || 0) + Math.sin(angle) * distance))
+                    }
+                }
+
+                function pendingPoint() {
+                    return drawingWorkspace.controller ? drawingWorkspace.controller.drawingPendingPoint || ({}) : ({})
+                }
+
+                function pendingPointActive() {
+                    var point = pendingPoint()
+                    return Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y))
+                }
+
+                function lineConstraintActive(modifiers) {
+                    if (!drawingWorkspace.controller || !modifierShiftDown(modifiers) || !pendingPointActive()) {
+                        return false
+                    }
+                    return String(drawingWorkspace.controller.selectedDrawingToolId || "") === "line_polyline"
+                }
+
+                function constrainLinePoint(point, modifiers) {
+                    if (!lineConstraintActive(modifiers)) {
+                        return point
+                    }
+                    var pending = pendingPoint()
+                    var constrained = constrainedVectorPoint(Number(pending.x || 0), Number(pending.y || 0), Number(point.x || 0), Number(point.y || 0), 45)
+                    return {
+                        x: constrained.x,
+                        y: constrained.y,
+                        kind: "angle",
+                        label: "angle",
+                        stepPx: point.stepPx
+                    }
+                }
+
+                function drawingPointForMouse(mouse, rawPoint) {
+                    if (modifierOptionDown(mouse.modifiers)) {
+                        return constrainLinePoint({
+                            x: rawPoint.x,
+                            y: rawPoint.y,
+                            kind: "free",
+                            label: "free",
+                            stepPx: snapResolver.effectiveGridStepPx()
+                        }, mouse.modifiers)
+                    }
+                    return constrainLinePoint(snapResolver.snappedPoint(rawPoint), mouse.modifiers)
+                }
+
                 function modifierHandlePoint(mouse) {
                     var rawPoint = normalizedPoint(mouse.x, mouse.y)
-                    var optionDown = !!(mouse.modifiers & Qt.AltModifier)
-                    var shiftDown = !!(mouse.modifiers & Qt.ShiftModifier)
-                    if (optionDown) {
+                    if (modifierOptionDown(mouse.modifiers)) {
                         return rawPoint
-                    }
-                    if (shiftDown) {
-                        return forceGridSnappedPoint(rawPoint)
                     }
                     return snapResolver.gridSnappedPoint(rawPoint)
                 }
@@ -816,6 +883,9 @@ Rectangle {
                             var center = rotatedRectCenter(object)
                             var rotation = Math.atan2(y - center.y, x - center.x) * 180 / Math.PI + 90
                             var normalizedRotation = ((rotation % 360) + 360) % 360
+                            if (modifierShiftDown(activeModifiers)) {
+                                normalizedRotation = ((angleSnappedDegrees(normalizedRotation, 15) % 360) + 360) % 360
+                            }
                             updateObjectRawField("rotation_deg", Math.round(normalizedRotation * 1000) / 1000)
                             return
                         }
@@ -826,6 +896,16 @@ Rectangle {
                         var nextTop = Math.min(fixedY, localPoint.y)
                         var nextWidth = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedX - localPoint.x))
                         var nextHeight = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedY - localPoint.y))
+                        if (modifierShiftDown(activeModifiers)) {
+                            var aspect = Math.max(0.000001, Number(object.width || 0)) / Math.max(0.000001, Number(object.height || 0))
+                            if (nextWidth / Math.max(0.000001, nextHeight) > aspect) {
+                                nextHeight = nextWidth / aspect
+                            } else {
+                                nextWidth = nextHeight * aspect
+                            }
+                            nextLeft = fixedX < localPoint.x ? fixedX : fixedX - nextWidth
+                            nextTop = fixedY < localPoint.y ? fixedY : fixedY - nextHeight
+                        }
                         updateObjectFieldPx("x_px", nextLeft)
                         updateObjectFieldPx("y_px", nextTop)
                         updateObjectFieldPx("width_px", nextWidth)
@@ -873,7 +953,7 @@ Rectangle {
                         constructionCanvas.requestPaint()
                         return rawPoint
                     }
-                    var point = snapResolver.snappedPoint(rawPoint)
+                    var point = drawingPointForMouse({ modifiers: activeModifiers }, rawPoint)
                     hoverInside = true
                     hoverSnapX = point.x
                     hoverSnapY = point.y
@@ -901,6 +981,7 @@ Rectangle {
                     if (!drawingWorkspace.controller) {
                         return
                     }
+                    activeModifiers = mouse.modifiers
                     var rawPoint = normalizedPoint(mouse.x, mouse.y)
                     var point = updatePreviewPoint(mouse.x, mouse.y)
                     if (drawingWorkspace.controller.selectedDrawingToolId === "select_move") {
@@ -960,6 +1041,7 @@ Rectangle {
                 }
 
                 onPositionChanged: function(mouse) {
+                    activeModifiers = mouse.modifiers
                     updatePreviewPoint(mouse.x, mouse.y)
                     if (drawingWorkspace.controller && pressed && dragHandleId.length > 0) {
                         var handlePoint = modifierHandlePoint(mouse)
@@ -999,6 +1081,7 @@ Rectangle {
                 }
 
                 onReleased: function(mouse) {
+                    activeModifiers = mouse.modifiers
                     if (drawingWorkspace.controller && marqueeActive && marqueeMoved) {
                         drawingWorkspace.controller.selectDrawingObjects(marqueeSelectionIds())
                         suppressClickOnce = true
@@ -1025,6 +1108,7 @@ Rectangle {
                     if (!drawingWorkspace.controller) {
                         return
                     }
+                    activeModifiers = mouse.modifiers
                     if (suppressClickOnce) {
                         suppressClickOnce = false
                         return

@@ -20,12 +20,15 @@ Rectangle {
 
     Text {
         id: labelText
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        height: parent.height + UiStyle.controlTextOverscan
         text: menuButton.label
         color: menuButton.hovered || popup.visible ? UiStyle.colorText : UiStyle.colorTextMuted
         font.family: UiStyle.fontSans
         font.pixelSize: UiStyle.fontSizeSm
         font.weight: menuButton.hovered || popup.visible ? UiStyle.fontWeightSemiBold : UiStyle.fontWeightMedium
+        verticalAlignment: Text.AlignVCenter
     }
 
     MouseArea {

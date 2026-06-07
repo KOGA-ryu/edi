@@ -157,6 +157,15 @@ Item {
         ]
     }
 
+    function metadataPresetRows() {
+        return [
+            { label: "role", field: "role", mode: "set", options: ["wall", "floor", "cutout", "collider"] },
+            { label: "mat", field: "material", mode: "set", options: ["stone", "metal", "glass", "wood"] },
+            { label: "group", field: "export_group", mode: "set", options: ["room_a", "collision", "shell"] },
+            { label: "tag", field: "tags", mode: "tag", options: ["block", "spawn", "secret", "review"] }
+        ]
+    }
+
     function setObjectField(field, value) {
         if (drawingRightContext.controller) {
             drawingRightContext.controller.updateSelectedDrawingObjectField(String(field || ""), value)
@@ -167,6 +176,39 @@ Item {
         if (drawingRightContext.controller) {
             drawingRightContext.controller.updateSelectedDrawingObjectMetadataField(String(field || ""), value)
         }
+    }
+
+    function metadataTags() {
+        return asArray(selectedGeneratedObject().tags)
+    }
+
+    function metadataPresetSelected(row, option) {
+        var field = String(row.field || "")
+        var value = String(option || "")
+        if (field === "tags") {
+            return metadataTags().indexOf(value) >= 0
+        }
+        return metadataFieldValue(field) === value
+    }
+
+    function applyMetadataPreset(row, option) {
+        var field = String(row.field || "")
+        var value = String(option || "")
+        if (!field.length || !value.length) {
+            return
+        }
+        if (field === "tags") {
+            var tags = metadataTags().slice()
+            var index = tags.indexOf(value)
+            if (index >= 0) {
+                tags.splice(index, 1)
+            } else {
+                tags.push(value)
+            }
+            setObjectMetadataField(field, tags.join(", "))
+            return
+        }
+        setObjectMetadataField(field, metadataFieldValue(field) === value ? "" : value)
     }
 
     function selectedToolLabel() {
@@ -656,6 +698,34 @@ Item {
         }
     }
 
+    component MetadataPresetRow: RowLayout {
+        id: presetRow
+        property var rowData: ({})
+
+        spacing: UiStyle.space4
+
+        Text {
+            Layout.preferredWidth: 42
+            text: String(presetRow.rowData.label || "")
+            color: UiStyle.colorTextMuted
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        Repeater {
+            model: asArray(presetRow.rowData.options)
+            delegate: UiButton {
+                Layout.preferredWidth: Math.max(46, Math.min(72, String(modelData || "").length * 8 + 18))
+                Layout.preferredHeight: 22
+                label: String(modelData || "")
+                tooltip: "Set " + String(presetRow.rowData.field || "metadata") + " to " + String(modelData || "")
+                selected: drawingRightContext.metadataPresetSelected(presetRow.rowData, modelData)
+                onClicked: drawingRightContext.applyMetadataPreset(presetRow.rowData, modelData)
+            }
+        }
+    }
+
     component ObjectIntentField: ColumnLayout {
         property string valueText: ""
 
@@ -815,7 +885,7 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 202
+                Layout.preferredHeight: 302
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
@@ -831,6 +901,14 @@ Item {
                         font.pixelSize: UiStyle.fontSizeSm
                         font.weight: UiStyle.fontWeightSemiBold
                         elide: Text.ElideRight
+                    }
+
+                    Repeater {
+                        model: metadataPresetRows()
+                        delegate: MetadataPresetRow {
+                            Layout.fillWidth: true
+                            rowData: modelData
+                        }
                     }
 
                     Repeater {

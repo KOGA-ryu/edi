@@ -337,6 +337,8 @@ Rectangle {
             DrawingCanvasObjectRenderer {
                 id: objectRenderer
                 controller: drawingWorkspace.controller
+                hoverObjectId: canvasInput.hoverObjectId
+                hoverHandleId: canvasInput.hoverHandleId
             }
 
             DrawingCanvasPreviewRenderer {
@@ -364,6 +366,8 @@ Rectangle {
                 property real dragObjectLastY: 0
                 property bool suppressClickOnce: false
                 property bool selectionTogglePressed: false
+                property string hoverObjectId: ""
+                property string hoverHandleId: ""
                 property bool hoverInside: false
                 property real hoverRawX: 0
                 property real hoverRawY: 0
@@ -378,6 +382,7 @@ Rectangle {
                 property real marqueeStartY: 0
                 property real marqueeEndX: 0
                 property real marqueeEndY: 0
+                cursorShape: selectionCursorShape()
 
                 function selectedToolLabel() {
                     var id = String(drawingWorkspace.controller ? drawingWorkspace.controller.selectedDrawingToolId : "")
@@ -460,6 +465,22 @@ Rectangle {
                 function selectionStatusLabel() {
                     var label = selectionLabel()
                     return label.indexOf(" selected") > 0 ? label : "selected " + label
+                }
+
+                function selectionCursorShape() {
+                    if (!drawingWorkspace.controller) {
+                        return Qt.ArrowCursor
+                    }
+                    if (dragHandleId.length > 0 || hoverHandleId.length > 0) {
+                        return Qt.SizeAllCursor
+                    }
+                    if (dragObjectId.length > 0) {
+                        return Qt.ClosedHandCursor
+                    }
+                    if (hoverObjectId.length > 0) {
+                        return Qt.OpenHandCursor
+                    }
+                    return drawingWorkspace.controller.selectedDrawingToolId === "select_move" ? Qt.ArrowCursor : Qt.CrossCursor
                 }
 
                 function selectedObjectIdList() {
@@ -647,6 +668,21 @@ Rectangle {
                     return best
                 }
 
+                function updateSelectionHover(mouseX, mouseY, rawPoint) {
+                    hoverObjectId = ""
+                    hoverHandleId = ""
+                    if (!drawingWorkspace.controller || drawingWorkspace.controller.selectedDrawingToolId !== "select_move") {
+                        return
+                    }
+                    var handle = hitSelectedHandle(mouseX, mouseY)
+                    if (String(handle.id || "").length > 0) {
+                        hoverHandleId = String(handle.id || "")
+                        hoverObjectId = String(selectedGeneratedObject().id || "")
+                        return
+                    }
+                    hoverObjectId = String(drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y) || "")
+                }
+
                 function updateObjectFieldPx(field, normalizedValue) {
                     var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
                     drawingWorkspace.controller.updateSelectedDrawingObjectField(field, Math.round(Number(normalizedValue || 0) * canvasPx * 1000) / 1000)
@@ -735,8 +771,22 @@ Rectangle {
                     hoverRawY = rawPoint.y
                     if (rawPoint.x < 0 || rawPoint.x > 1 || rawPoint.y < 0 || rawPoint.y > 1) {
                         hoverInside = false
+                        hoverObjectId = ""
+                        hoverHandleId = ""
                         hoverSnapKind = "none"
                         hoverSnapLabel = "none"
+                        constructionCanvas.previewActive = false
+                        constructionCanvas.requestPaint()
+                        return rawPoint
+                    }
+                    updateSelectionHover(mouseX, mouseY, rawPoint)
+                    if (drawingWorkspace.controller && drawingWorkspace.controller.selectedDrawingToolId === "select_move") {
+                        hoverInside = true
+                        hoverSnapX = rawPoint.x
+                        hoverSnapY = rawPoint.y
+                        hoverSnapKind = hoverHandleId.length > 0 ? "handle" : hoverObjectId.length > 0 ? "object" : "free"
+                        hoverSnapLabel = hoverHandleId.length > 0 ? "handle" : hoverObjectId.length > 0 ? "object" : "select"
+                        hoverSnapStepPx = Number(snapResolver.effectiveGridStepPx())
                         constructionCanvas.previewActive = false
                         constructionCanvas.requestPaint()
                         return rawPoint
@@ -757,6 +807,8 @@ Rectangle {
 
                 onExited: {
                     hoverInside = false
+                    hoverObjectId = ""
+                    hoverHandleId = ""
                     hoverSnapKind = "none"
                     hoverSnapLabel = "none"
                     constructionCanvas.previewActive = false
@@ -864,7 +916,7 @@ Rectangle {
                     constructionCanvas.requestPaint()
                 }
 
-                onReleased: {
+                onReleased: function(mouse) {
                     if (drawingWorkspace.controller && marqueeActive && marqueeMoved) {
                         drawingWorkspace.controller.selectDrawingObjects(marqueeSelectionIds())
                         suppressClickOnce = true
@@ -881,6 +933,7 @@ Rectangle {
                     dragObjectId = ""
                     dragObjectMoved = false
                     selectionTogglePressed = false
+                    updateSelectionHover(mouse.x, mouse.y, normalizedPoint(mouse.x, mouse.y))
                     if (drawingWorkspace.controller) {
                         drawingWorkspace.controller.endDrawingObjectMove()
                     }

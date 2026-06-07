@@ -5,6 +5,8 @@ QtObject {
     id: canvasObjectRenderer
 
     property var controller: null
+    property string hoverObjectId: ""
+    property string hoverHandleId: ""
 
     function asArray(value) {
         if (!value) {
@@ -75,7 +77,7 @@ QtObject {
         return ""
     }
 
-    function styleLineThickness(object, selected, layerSelected) {
+    function styleLineThickness(object, selected, layerSelected, hovered) {
         var thickness = objectNumeric(object.line_thickness, Number.NEGATIVE_INFINITY)
         if (!Number.isFinite(thickness)) {
             thickness = objectNumeric(object.lineWidth, Number.NEGATIVE_INFINITY)
@@ -89,6 +91,9 @@ QtObject {
         var scaled = clampThickness(thickness)
         if (selected) {
             return Math.max(1.4, scaled + 0.65)
+        }
+        if (hovered) {
+            return Math.max(1.2, scaled + 0.35)
         }
         if (layerSelected) {
             return Math.max(1.25, scaled + 0.25)
@@ -135,16 +140,18 @@ QtObject {
         ctx.restore()
     }
 
-    function beginStyle(ctx, object, selected, layerSelected) {
+    function beginStyle(ctx, object, selected, layerSelected, hovered) {
         var baseStroke = styleStrokeColor(object)
         var strokeColor = selected
                 ? UiStyle.mix(baseStroke, UiStyle.colorWarning, 0.42)
-                : layerSelected
+                : hovered
+                    ? UiStyle.mix(baseStroke, UiStyle.colorAccent, 0.42)
+                    : layerSelected
                     ? UiStyle.mix(baseStroke, UiStyle.colorAccent, 0.28)
                     : baseStroke
         ctx.save()
         ctx.strokeStyle = strokeColor
-        ctx.lineWidth = styleLineThickness(object, selected, layerSelected)
+        ctx.lineWidth = styleLineThickness(object, selected, layerSelected, hovered)
         ctx.setLineDash(styleLineDash(object, selected))
         ctx.globalAlpha = styleLineOpacity(object)
     }
@@ -224,11 +231,12 @@ QtObject {
     function drawEditHandle(ctx, bounds, handle, primary) {
         var x = pxX(bounds, handle.x)
         var y = pxY(bounds, handle.y)
-        var size = primary ? 9 : 7
+        var hovered = String(handle.id || "") === canvasObjectRenderer.hoverHandleId
+        var size = hovered ? 11 : primary ? 9 : 7
         ctx.save()
-        ctx.fillStyle = primary ? UiStyle.colorWarning : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.72)
+        ctx.fillStyle = hovered || primary ? UiStyle.colorWarning : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.72)
         ctx.strokeStyle = UiStyle.colorWorkspace
-        ctx.lineWidth = 1
+        ctx.lineWidth = hovered ? 1.5 : 1
         ctx.beginPath()
         ctx.rect(x - size / 2, y - size / 2, size, size)
         ctx.fill()
@@ -603,12 +611,12 @@ QtObject {
         ctx.stroke()
     }
 
-    function drawLine(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawLine(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var x1 = pxX(bounds, object.x1 || 0)
         var y1 = pxY(bounds, object.y1 || 0)
         var x2 = pxX(bounds, object.x2 || 0)
         var y2 = pxY(bounds, object.y2 || 0)
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.beginPath()
         ctx.moveTo(x1, y1)
         ctx.lineTo(x2, y2)
@@ -628,30 +636,32 @@ QtObject {
         endStyle(ctx)
     }
 
-    function drawPoint(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawPoint(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var x = pxX(bounds, object.x || 0)
         var y = pxY(bounds, object.y || 0)
         ctx.fillStyle = objectSelected
                 ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorWarning, 0.42)
+                : objectHovered
+                    ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorAccent, 0.42)
                 : layerSelected
                     ? UiStyle.mix(styleStrokeColor(object), UiStyle.colorAccent, 0.28)
                     : styleStrokeColor(object)
         ctx.strokeStyle = UiStyle.colorWorkspace
         ctx.lineWidth = 1
         ctx.beginPath()
-        ctx.arc(x, y, objectSelected ? 7 : 5, 0, Math.PI * 2)
+        ctx.arc(x, y, objectSelected ? 7 : objectHovered ? 6 : 5, 0, Math.PI * 2)
         ctx.globalAlpha = styleLineOpacity(object)
         ctx.fill()
         ctx.stroke()
         ctx.globalAlpha = 1
     }
 
-    function drawPolyline(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawPolyline(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var points = object.points || []
         if (points.length < 2) {
             return
         }
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.beginPath()
         for (var index = 0; index < points.length; ++index) {
             var point = points[index] || [0, 0]
@@ -667,14 +677,14 @@ QtObject {
         endStyle(ctx)
     }
 
-    function drawCirclePrimitive(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawCirclePrimitive(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var cx = pxX(bounds, object.cx || 0)
         var cy = pxY(bounds, object.cy || 0)
         var radius = Number(object.radius || 0) * bounds.size
         if (radius <= 0) {
             return
         }
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.beginPath()
         ctx.arc(cx, cy, radius, 0, Math.PI * 2)
         ctx.stroke()
@@ -682,7 +692,7 @@ QtObject {
         endStyle(ctx)
     }
 
-    function drawArcPrimitive(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawArcPrimitive(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var cx = pxX(bounds, object.cx || 0)
         var cy = pxY(bounds, object.cy || 0)
         var radius = Number(object.radius || 0) * bounds.size
@@ -691,7 +701,7 @@ QtObject {
         }
         var start = Number(object.start_angle_deg || 0) * Math.PI / 180
         var end = Number(object.end_angle_deg || 0) * Math.PI / 180
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.beginPath()
         ctx.arc(cx, cy, radius, start, end)
         ctx.stroke()
@@ -699,23 +709,23 @@ QtObject {
         endStyle(ctx)
     }
 
-    function drawRectanglePrimitive(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawRectanglePrimitive(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var x = pxX(bounds, object.x || 0)
         var y = pxY(bounds, object.y || 0)
         var width = Number(object.width || 0) * bounds.size
         var height = Number(object.height || 0) * bounds.size
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.strokeRect(x, y, width, height)
         applyFill(ctx, object, true)
         endStyle(ctx)
     }
 
-    function drawPolygonPrimitive(ctx, bounds, object, layerSelected, objectSelected) {
+    function drawPolygonPrimitive(ctx, bounds, object, layerSelected, objectSelected, objectHovered) {
         var points = object.points || []
         if (points.length < 3) {
             return
         }
-        beginStyle(ctx, object, objectSelected, layerSelected)
+        beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
         ctx.beginPath()
         for (var index = 0; index < points.length; ++index) {
             var point = points[index] || [0, 0]
@@ -735,11 +745,12 @@ QtObject {
 
     function drawObject(ctx, bounds, doc, layer, object) {
         var objectSelected = selectedObject(doc, object.id)
+        var objectHovered = !objectSelected && String(canvasObjectRenderer.hoverObjectId || "") === String(object.id || "")
         var layerSelected = selectedLayer(doc, layer.id)
         var rendererName = String(objectRendererByKind[String(object.kind || "")] || "")
         var renderer = rendererName.length > 0 ? canvasObjectRenderer[rendererName] : null
         if (renderer) {
-            renderer(ctx, bounds, object, layerSelected, objectSelected)
+            renderer(ctx, bounds, object, layerSelected, objectSelected, objectHovered)
         }
         if (String(doc.selected_object_id || "") === String(object.id || "")) {
             drawSelectedEditHandles(ctx, bounds, object)

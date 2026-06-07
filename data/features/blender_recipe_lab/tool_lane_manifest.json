@@ -36,7 +36,8 @@
     "left_panel": "src/features/blender_recipe_lab/BlenderRecipeLabLeftPanel.qml",
     "right_panel": "src/features/blender_recipe_lab/BlenderRecipeLabRightContext.qml",
     "bottom_panel": "src/features/blender_recipe_lab/BlenderRecipeLabBottomPanel.qml",
-    "session": "src/runtime/RuntimeController.qml",
+    "session": "src/features/blender_recipe_lab/BlenderRecipeLabSession.qml",
+    "session_store": "src/features/blender_recipe_lab/BlenderRecipeLabSessionStore.js",
     "runner": "app/main.cpp"
   },
   "native_data": {

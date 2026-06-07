@@ -68,7 +68,7 @@ assertWindow();
 
 const leftPolicy = assertPolicy("left", "width", "auto_hide_below_width", 120, 1200, 2400);
 const rightPolicy = assertPolicy("right", "width", "auto_hide_below_width", 120, 2400, 2400);
-const bottomPolicy = assertPolicy("bottom", "height", "auto_hide_below_height", 60, 1000, 1800);
+const bottomPolicy = assertPolicy("bottom", "height", "auto_hide_below_height", 60, 1800, 1800);
 
 assertPanel("left", "width", leftPolicy.min_width, leftPolicy.max_width);
 assertPanel("right", "width", rightPolicy.min_width, rightPolicy.max_width);

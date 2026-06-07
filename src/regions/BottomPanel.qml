@@ -28,6 +28,7 @@ Rectangle {
             Layout.preferredHeight: 32
             visible: bottomPanel.controller && bottomPanel.controller.shelfTabs.length > 0
                 && bottomPanel.controller.activityMode !== "drawing_tool"
+                && bottomPanel.controller.activityMode !== "blender_recipe_lab"
             color: UiStyle.colorPanelAlt
             border.width: UiStyle.borderNone
 

@@ -138,32 +138,30 @@ QtObject {
     property alias textEditorStoragePath: textEditorSession.textEditorStoragePath
     property alias textEditorSaveOk: textEditorSession.textEditorSaveOk
     property alias textEditorSaveStatus: textEditorSession.textEditorSaveStatus
-    property bool leftPanelCollapsed: false
-    property bool rightPanelCollapsed: true
-    property bool bottomPanelCollapsed: true
-    property int leftPanelWidth: UiStyle.leftPanelWidth
-    property int rightPanelWidth: UiStyle.rightPanelWidth
-    property int bottomPanelHeight: UiStyle.bottomPanelHeight
-    property int leftPanelMinWidth: 180
-    property int leftPanelMaxWidth: 520
-    property int rightPanelMinWidth: 160
-    property int rightPanelMaxWidth: 2400
-    property int bottomPanelMinHeight: 96
-    property int bottomPanelMaxHeight: 360
-    property int leftPanelAutoHideWidth: 640
-    property int rightPanelAutoHideWidth: 0
-    property int bottomPanelAutoHideHeight: 520
-    property var rightInspectorSections: ({
-        facts: true,
-        selection: true,
-        code_refs: true,
-        notes: true,
-        receipts: true,
-        actions: true
-    })
-    property bool shellLayoutDirty: false
-    property bool shellLayoutSaveOk: true
-    property string shellLayoutPath: ""
+    property ShellLayoutSession shellLayoutSession: ShellLayoutSession {
+        id: shellLayoutSession
+        targetRoot: runtimeController.targetRoot
+        onChanged: runtimeController.bumpRevision("shell_layout")
+    }
+    property alias leftPanelCollapsed: shellLayoutSession.leftPanelCollapsed
+    property alias rightPanelCollapsed: shellLayoutSession.rightPanelCollapsed
+    property alias bottomPanelCollapsed: shellLayoutSession.bottomPanelCollapsed
+    property alias leftPanelWidth: shellLayoutSession.leftPanelWidth
+    property alias rightPanelWidth: shellLayoutSession.rightPanelWidth
+    property alias bottomPanelHeight: shellLayoutSession.bottomPanelHeight
+    property alias leftPanelMinWidth: shellLayoutSession.leftPanelMinWidth
+    property alias leftPanelMaxWidth: shellLayoutSession.leftPanelMaxWidth
+    property alias rightPanelMinWidth: shellLayoutSession.rightPanelMinWidth
+    property alias rightPanelMaxWidth: shellLayoutSession.rightPanelMaxWidth
+    property alias bottomPanelMinHeight: shellLayoutSession.bottomPanelMinHeight
+    property alias bottomPanelMaxHeight: shellLayoutSession.bottomPanelMaxHeight
+    property alias leftPanelAutoHideWidth: shellLayoutSession.leftPanelAutoHideWidth
+    property alias rightPanelAutoHideWidth: shellLayoutSession.rightPanelAutoHideWidth
+    property alias bottomPanelAutoHideHeight: shellLayoutSession.bottomPanelAutoHideHeight
+    property alias rightInspectorSections: shellLayoutSession.rightInspectorSections
+    property alias shellLayoutDirty: shellLayoutSession.shellLayoutDirty
+    property alias shellLayoutSaveOk: shellLayoutSession.shellLayoutSaveOk
+    property alias shellLayoutPath: shellLayoutSession.shellLayoutPath
     property bool drawingDocumentIoOk: true
     property string drawingDocumentIoStatus: "not saved"
     property string drawingDocumentPath: ""
@@ -238,92 +236,56 @@ QtObject {
         markDrawingDocumentClean("not saved")
     }
 
-    function clamp(value, low, high) {
-        return Math.max(low, Math.min(high, Math.round(Number(value))))
-    }
-
-    function policyInt(source, key, fallback, low, high) {
-        var value = source && Number.isFinite(Number(source[key])) ? Number(source[key]) : fallback
-        return clamp(value, low, high)
-    }
-
-    function markShellLayoutDirty() {
-        shellLayoutDirty = true
+    function bumpRevision(reason) {
         revision += 1
     }
 
     function loadShellLayout(document) {
-        var policy = document && document.policy ? document.policy : ({})
-        var leftPolicy = policy.left || ({})
-        var rightPolicy = policy.right || ({})
-        var bottomPolicy = policy.bottom || ({})
-        var rightPanel = document && document.right_panel ? document.right_panel : ({})
-        var panels = document && document.panels ? document.panels : ({})
-        var left = panels.left || ({})
-        var right = panels.right || ({})
-        var bottom = panels.bottom || ({})
-
-        leftPanelMinWidth = policyInt(leftPolicy, "min_width", 180, 120, 900)
-        leftPanelMaxWidth = policyInt(leftPolicy, "max_width", 520, leftPanelMinWidth, 1200)
-        rightPanelMinWidth = policyInt(rightPolicy, "min_width", 160, 120, 900)
-        rightPanelMaxWidth = policyInt(rightPolicy, "max_width", 2400, rightPanelMinWidth, 2400)
-        bottomPanelMinHeight = policyInt(bottomPolicy, "min_height", 96, 60, 700)
-        bottomPanelMaxHeight = policyInt(bottomPolicy, "max_height", 360, bottomPanelMinHeight, 1000)
-        leftPanelAutoHideWidth = policyInt(leftPolicy, "auto_hide_below_width", 640, 0, 2400)
-        rightPanelAutoHideWidth = policyInt(rightPolicy, "auto_hide_below_width", 0, 0, 2400)
-        bottomPanelAutoHideHeight = policyInt(bottomPolicy, "auto_hide_below_height", 520, 0, 1800)
-        leftPanelCollapsed = !!left.collapsed
-        rightPanelCollapsed = typeof right.collapsed === "boolean" ? right.collapsed : true
-        bottomPanelCollapsed = typeof bottom.collapsed === "boolean" ? bottom.collapsed : true
-        rightInspectorSections = normalizedInspectorSections(rightPanel.sections)
-        leftPanelWidth = clamp(left.width || UiStyle.leftPanelWidth, leftPanelMinWidth, leftPanelMaxWidth)
-        rightPanelWidth = clamp(right.width || UiStyle.rightPanelWidth, rightPanelMinWidth, rightPanelMaxWidth)
-        bottomPanelHeight = clamp(bottom.height || UiStyle.bottomPanelHeight, bottomPanelMinHeight, bottomPanelMaxHeight)
-        shellLayoutDirty = false
-        shellLayoutSaveOk = true
+        shellLayoutSession.loadShellLayout(document, defaultInspectorSections())
     }
 
     function shellLayoutDocument() {
-        return {
-            window: {
-                width: Math.round(windowWidth()),
-                height: Math.round(windowHeight())
-            },
-            policy: {
-                left: {
-                    min_width: leftPanelMinWidth,
-                    max_width: leftPanelMaxWidth,
-                    auto_hide_below_width: leftPanelAutoHideWidth
-                },
-                right: {
-                    min_width: rightPanelMinWidth,
-                    max_width: rightPanelMaxWidth,
-                    auto_hide_below_width: rightPanelAutoHideWidth
-                },
-                bottom: {
-                    min_height: bottomPanelMinHeight,
-                    max_height: bottomPanelMaxHeight,
-                    auto_hide_below_height: bottomPanelAutoHideHeight
-                }
-            },
-            right_panel: {
-                sections: rightInspectorSections
-            },
-            panels: {
-                left: {
-                    collapsed: leftPanelCollapsed,
-                    width: leftPanelWidth
-                },
-                right: {
-                    collapsed: rightPanelCollapsed,
-                    width: rightPanelWidth
-                },
-                bottom: {
-                    collapsed: bottomPanelCollapsed,
-                    height: bottomPanelHeight
-                }
-            }
-        }
+        return shellLayoutSession.shellLayoutDocument()
+    }
+
+    function saveShellLayout() {
+        return shellLayoutSession.saveShellLayout()
+    }
+
+    function resetShellLayout() {
+        shellLayoutSession.resetShellLayout()
+    }
+
+    function resetPanelSizes() {
+        shellLayoutSession.resetPanelSizes()
+    }
+
+    function panelManualCollapsed(panelId) {
+        return shellLayoutSession.panelManualCollapsed(panelId)
+    }
+
+    function panelAutoHidden(panelId) {
+        return shellLayoutSession.panelAutoHidden(panelId)
+    }
+
+    function panelVisible(panelId) {
+        return shellLayoutSession.panelVisible(panelId)
+    }
+
+    function panelState(panelId) {
+        return shellLayoutSession.panelState(panelId)
+    }
+
+    function panelStateLabel(panelId) {
+        return shellLayoutSession.panelStateLabel(panelId)
+    }
+
+    function panelStateDetail(panelId) {
+        return shellLayoutSession.panelStateDetail(panelId)
+    }
+
+    function applyLayoutPreset(presetId) {
+        shellLayoutSession.applyLayoutPreset(presetId)
     }
 
     function normalizedInspectorSections(source) {
@@ -630,132 +592,6 @@ QtObject {
         if (typeof projectPanelDefaults.bottom_collapsed === "boolean") {
             bottomPanelCollapsed = projectPanelDefaults.bottom_collapsed
         }
-    }
-
-    function saveShellLayout() {
-        if (typeof shellLayoutStore === "undefined" || !shellLayoutStore) {
-            shellLayoutSaveOk = false
-            return false
-        }
-        shellLayoutSaveOk = shellLayoutStore.save(shellLayoutDocument())
-        if (shellLayoutSaveOk) {
-            shellLayoutDirty = false
-        }
-        revision += 1
-        return shellLayoutSaveOk
-    }
-
-    function resetShellLayout() {
-        leftPanelCollapsed = false
-        rightPanelCollapsed = true
-        bottomPanelCollapsed = true
-        resetPanelSizes()
-        markShellLayoutDirty()
-    }
-
-    function resetPanelSizes() {
-        leftPanelWidth = clamp(UiStyle.leftPanelWidth, leftPanelMinWidth, leftPanelMaxWidth)
-        rightPanelWidth = clamp(UiStyle.rightPanelWidth, rightPanelMinWidth, rightPanelMaxWidth)
-        bottomPanelHeight = clamp(UiStyle.bottomPanelHeight, bottomPanelMinHeight, bottomPanelMaxHeight)
-    }
-
-    function windowWidth() {
-        return targetRoot ? Number(targetRoot.width) : UiStyle.windowWidth
-    }
-
-    function windowHeight() {
-        return targetRoot ? Number(targetRoot.height) : UiStyle.windowHeight
-    }
-
-    function panelManualCollapsed(panelId) {
-        if (panelId === "left") {
-            return leftPanelCollapsed
-        }
-        if (panelId === "right") {
-            return rightPanelCollapsed
-        }
-        if (panelId === "bottom") {
-            return bottomPanelCollapsed
-        }
-        return false
-    }
-
-    function panelAutoHidden(panelId) {
-        if (panelManualCollapsed(panelId)) {
-            return false
-        }
-        if (panelId === "left") {
-            return windowWidth() < leftPanelAutoHideWidth
-        }
-        if (panelId === "right") {
-            return windowWidth() < rightPanelAutoHideWidth
-        }
-        if (panelId === "bottom") {
-            return windowHeight() < bottomPanelAutoHideHeight
-        }
-        return false
-    }
-
-    function panelVisible(panelId) {
-        return !panelManualCollapsed(panelId) && !panelAutoHidden(panelId)
-    }
-
-    function panelState(panelId) {
-        if (panelManualCollapsed(panelId)) {
-            return "collapsed"
-        }
-        if (panelAutoHidden(panelId)) {
-            return "auto_hidden"
-        }
-        return "visible"
-    }
-
-    function panelStateLabel(panelId) {
-        var state = panelState(panelId)
-        if (state === "collapsed") {
-            return "manual collapsed"
-        }
-        if (state === "auto_hidden") {
-            return "auto-hidden"
-        }
-        return "visible"
-    }
-
-    function panelStateDetail(panelId) {
-        if (panelId === "left") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(leftPanelAutoHideWidth) + "px width" : String(leftPanelWidth) + " px"
-        }
-        if (panelId === "right") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(rightPanelAutoHideWidth) + "px width" : String(rightPanelWidth) + " px"
-        }
-        if (panelId === "bottom") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(bottomPanelAutoHideHeight) + "px height" : String(bottomPanelHeight) + " px"
-        }
-        return ""
-    }
-
-    function applyLayoutPreset(presetId) {
-        if (presetId === "full") {
-            leftPanelCollapsed = false
-            rightPanelCollapsed = false
-            bottomPanelCollapsed = false
-            resetPanelSizes()
-        } else if (presetId === "focus") {
-            leftPanelCollapsed = true
-            rightPanelCollapsed = true
-            bottomPanelCollapsed = true
-        } else if (presetId === "review") {
-            leftPanelCollapsed = false
-            rightPanelCollapsed = true
-            bottomPanelCollapsed = true
-            resetPanelSizes()
-        } else if (presetId === "tiny") {
-            leftPanelCollapsed = true
-            rightPanelCollapsed = true
-            bottomPanelCollapsed = true
-            resetPanelSizes()
-        }
-        markShellLayoutDirty()
     }
 
     function asArray(value) {
@@ -1928,10 +1764,7 @@ QtObject {
     }
 
     function setInspectorSectionVisible(sectionId, visible) {
-        var next = normalizedInspectorSections(rightInspectorSections)
-        next[String(sectionId)] = !!visible
-        rightInspectorSections = next
-        markShellLayoutDirty()
+        shellLayoutSession.setInspectorSectionVisible(sectionId, visible)
     }
 
     function rightInspectorDocument(unusedRevision) {
@@ -2087,48 +1920,39 @@ QtObject {
     }
 
     function toggleLeftPanel() {
-        leftPanelCollapsed = !leftPanelCollapsed
-        markShellLayoutDirty()
+        shellLayoutSession.toggleLeftPanel()
     }
 
     function toggleRightPanel() {
-        rightPanelCollapsed = !rightPanelCollapsed
-        markShellLayoutDirty()
+        shellLayoutSession.toggleRightPanel()
     }
 
     function toggleBottomPanel() {
-        bottomPanelCollapsed = !bottomPanelCollapsed
-        markShellLayoutDirty()
+        shellLayoutSession.toggleBottomPanel()
     }
 
     function setLeftPanelCollapsed(collapsed) {
-        leftPanelCollapsed = !!collapsed
-        markShellLayoutDirty()
+        shellLayoutSession.setLeftPanelCollapsed(collapsed)
     }
 
     function setRightPanelCollapsed(collapsed) {
-        rightPanelCollapsed = !!collapsed
-        markShellLayoutDirty()
+        shellLayoutSession.setRightPanelCollapsed(collapsed)
     }
 
     function setBottomPanelCollapsed(collapsed) {
-        bottomPanelCollapsed = !!collapsed
-        markShellLayoutDirty()
+        shellLayoutSession.setBottomPanelCollapsed(collapsed)
     }
 
     function setLeftPanelWidth(width) {
-        leftPanelWidth = clamp(width, leftPanelMinWidth, leftPanelMaxWidth)
-        markShellLayoutDirty()
+        shellLayoutSession.setLeftPanelWidth(width)
     }
 
     function setRightPanelWidth(width) {
-        rightPanelWidth = clamp(width, rightPanelMinWidth, rightPanelMaxWidth)
-        markShellLayoutDirty()
+        shellLayoutSession.setRightPanelWidth(width)
     }
 
     function setBottomPanelHeight(height) {
-        bottomPanelHeight = clamp(height, bottomPanelMinHeight, bottomPanelMaxHeight)
-        markShellLayoutDirty()
+        shellLayoutSession.setBottomPanelHeight(height)
     }
 
     function applyTheme(theme) {

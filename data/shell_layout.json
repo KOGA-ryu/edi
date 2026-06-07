@@ -16,8 +16,8 @@
     },
     "bottom": {
       "min_height": 96,
-      "max_height": 360,
-      "auto_hide_below_height": 520
+      "max_height": 1800,
+      "auto_hide_below_height": 0
     }
   },
   "right_panel": {

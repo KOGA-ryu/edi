@@ -55,7 +55,8 @@
   },
   "data_sources": {
     "review_subject": "",
-    "review_notes": ""
+    "review_notes": "",
+    "drawing_metadata_presets": "data/features/drawing_tool/metadata_presets.json"
   },
   "write_policy": {
     "writes_enabled": false,

@@ -173,6 +173,7 @@ for (const file of files) {
     optionalString(errors, document.data_sources, "map_csv", "data_sources");
     optionalString(errors, document.data_sources, "cell_metadata", "data_sources");
     optionalString(errors, document.data_sources, "text_documents", "data_sources");
+    optionalString(errors, document.data_sources, "drawing_metadata_presets", "data_sources");
     if (!doesNotRequireReviewSubject && typeof document.data_sources.review_notes === "string" && document.data_sources.review_notes.trim().length === 0) {
       errors.push("data_sources: review_notes is required unless main_workspace.feature is blank_canvas, csv_map_editor, drawing_tool_blank, or text_editor");
     }

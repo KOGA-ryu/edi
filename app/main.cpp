@@ -1602,8 +1602,11 @@ int main(int argc, char *argv[]) {
     const QString drawingToolRegistryPath = QStringLiteral(PROJECT_SOURCE_DIR)
         + QStringLiteral("/data/features/drawing_tool/tool_registry.json");
     const QVariant drawingToolRegistry = loadJsonObject(drawingToolRegistryPath);
-    const QString drawingMetadataPresetsPath = QStringLiteral(PROJECT_SOURCE_DIR)
-        + QStringLiteral("/data/features/drawing_tool/metadata_presets.json");
+    QString drawingMetadataPresetsPath = projectSourcePath(dataSources.value(QStringLiteral("drawing_metadata_presets")).toString().trimmed());
+    if (drawingMetadataPresetsPath.trimmed().isEmpty()) {
+        drawingMetadataPresetsPath = QStringLiteral(PROJECT_SOURCE_DIR)
+            + QStringLiteral("/data/features/drawing_tool/metadata_presets.json");
+    }
     const QVariant drawingMetadataPresets = loadJsonObject(drawingMetadataPresetsPath);
     DrawingDocumentController drawingController;
 

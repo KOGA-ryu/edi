@@ -16,6 +16,7 @@
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QSaveFile>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QTimer>
 #include <QtGlobal>
@@ -81,11 +82,20 @@ public:
             return result;
         }
 
-        const QJsonObject object = QJsonObject::fromVariantMap(model);
-        if (object.isEmpty()) {
+        const QJsonObject modelObject = QJsonObject::fromVariantMap(model);
+        if (modelObject.isEmpty()) {
             result.insert(QStringLiteral("message"), QStringLiteral("drawing model empty"));
             return result;
         }
+        if (modelObject.value(QStringLiteral("export_kind")).toString() != QStringLiteral("pattern_lab_2d_native_model_v0")) {
+            result.insert(QStringLiteral("message"), QStringLiteral("drawing model rejected"));
+            return result;
+        }
+
+        QJsonObject object;
+        object.insert(QStringLiteral("document_kind"), QStringLiteral("draftsman_drawing_document_v1"));
+        object.insert(QStringLiteral("model_kind"), QStringLiteral("pattern_lab_2d_native_model_v0"));
+        object.insert(QStringLiteral("model"), modelObject);
 
         QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -128,7 +138,11 @@ public:
         }
 
         const QJsonObject object = document.object();
-        if (object.value(QStringLiteral("export_kind")).toString() != QStringLiteral("pattern_lab_2d_native_model_v0")) {
+        QJsonObject model = object;
+        if (object.value(QStringLiteral("document_kind")).toString() == QStringLiteral("draftsman_drawing_document_v1")) {
+            model = object.value(QStringLiteral("model")).toObject();
+        }
+        if (model.value(QStringLiteral("export_kind")).toString() != QStringLiteral("pattern_lab_2d_native_model_v0")) {
             result.insert(QStringLiteral("message"), QStringLiteral("not a Draftsman drawing"));
             return result;
         }
@@ -136,7 +150,7 @@ public:
         result.insert(QStringLiteral("ok"), true);
         result.insert(QStringLiteral("message"), QStringLiteral("opened drawing"));
         result.insert(QStringLiteral("path"), path);
-        result.insert(QStringLiteral("model"), object.toVariantMap());
+        result.insert(QStringLiteral("model"), model.toVariantMap());
         return result;
     }
 
@@ -269,11 +283,11 @@ private:
         if (url.isLocalFile()) {
             return url.toLocalFile();
         }
-        const QString text = url.toString().trimmed();
+        const QString text = url.toString(QUrl::PreferLocalFile).trimmed();
         if (text.startsWith(QStringLiteral("file://"))) {
             return QUrl(text).toLocalFile();
         }
-        return text;
+        return QUrl::fromPercentEncoding(text.toUtf8());
     }
 
     static QString bundleDirectoryPath(const QString &selectedPath) {
@@ -869,6 +883,138 @@ Or open Blender, load import_drawing_svg.py in the Text Editor, and run it.
 )TXT");
     }
     #endif
+};
+
+class DrawingRecentFilesStore final : public QObject {
+    Q_OBJECT
+
+public:
+    explicit DrawingRecentFilesStore(QString path, QObject *parent = nullptr)
+        : QObject(parent),
+          m_path(std::move(path)) {}
+
+    Q_INVOKABLE QVariantList load() const {
+        QFile file(m_path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return {};
+        }
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+        if (!document.isObject()) {
+            return {};
+        }
+        return recentListFromArray(document.object().value(QStringLiteral("recent_drawings")).toArray());
+    }
+
+    Q_INVOKABLE QVariantMap add(const QString &path) const {
+        QVariantMap result;
+        result.insert(QStringLiteral("ok"), false);
+        result.insert(QStringLiteral("message"), QStringLiteral("recent drawing unavailable"));
+        result.insert(QStringLiteral("files"), load());
+
+        const QString normalizedPath = normalizedLocalPath(path);
+        if (normalizedPath.isEmpty()) {
+            result.insert(QStringLiteral("message"), QStringLiteral("recent drawing path missing"));
+            return result;
+        }
+
+        QJsonArray recent;
+        QJsonObject entry;
+        entry.insert(QStringLiteral("path"), normalizedPath);
+        entry.insert(QStringLiteral("label"), QFileInfo(normalizedPath).fileName());
+        entry.insert(QStringLiteral("last_used_at"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+        recent.append(entry);
+
+        const QVariantList existing = load();
+        for (const QVariant &value : existing) {
+            const QVariantMap item = value.toMap();
+            const QString existingPath = item.value(QStringLiteral("path")).toString();
+            if (existingPath.isEmpty() || existingPath == normalizedPath) {
+                continue;
+            }
+            QJsonObject object;
+            object.insert(QStringLiteral("path"), existingPath);
+            QString label = item.value(QStringLiteral("label")).toString();
+            if (label.isEmpty()) {
+                label = QFileInfo(existingPath).fileName();
+            }
+            object.insert(QStringLiteral("label"), label);
+            object.insert(QStringLiteral("last_used_at"), item.value(QStringLiteral("last_used_at")).toString());
+            recent.append(object);
+            if (recent.size() >= maxRecentFiles) {
+                break;
+            }
+        }
+
+        QJsonObject document;
+        document.insert(QStringLiteral("recent_drawings"), recent);
+        if (!writeDocument(document)) {
+            result.insert(QStringLiteral("message"), QStringLiteral("recent drawing write failed"));
+            return result;
+        }
+
+        result.insert(QStringLiteral("ok"), true);
+        result.insert(QStringLiteral("message"), QStringLiteral("updated recent drawings"));
+        result.insert(QStringLiteral("files"), recentListFromArray(recent));
+        return result;
+    }
+
+    Q_INVOKABLE QString path() const {
+        return m_path;
+    }
+
+private:
+    static constexpr int maxRecentFiles = 12;
+    QString m_path;
+
+    static QString normalizedLocalPath(const QString &path) {
+        const QString trimmed = path.trimmed();
+        if (trimmed.isEmpty()) {
+            return {};
+        }
+        const QUrl url(trimmed);
+        QString localPath = url.isLocalFile() ? url.toLocalFile() : trimmed;
+        if (localPath.startsWith(QStringLiteral("file://"))) {
+            localPath = QUrl(localPath).toLocalFile();
+        } else {
+            localPath = QUrl::fromPercentEncoding(localPath.toUtf8());
+        }
+        return QFileInfo(localPath).absoluteFilePath();
+    }
+
+    static QVariantList recentListFromArray(const QJsonArray &array) {
+        QVariantList result;
+        QStringList seen;
+        for (const QJsonValue &value : array) {
+            const QJsonObject object = value.toObject();
+            const QString path = normalizedLocalPath(object.value(QStringLiteral("path")).toString());
+            if (path.isEmpty() || seen.contains(path)) {
+                continue;
+            }
+            seen.append(path);
+            QVariantMap item;
+            item.insert(QStringLiteral("path"), path);
+            item.insert(QStringLiteral("label"), object.value(QStringLiteral("label")).toString(QFileInfo(path).fileName()));
+            item.insert(QStringLiteral("last_used_at"), object.value(QStringLiteral("last_used_at")).toString());
+            result.append(item);
+            if (result.size() >= maxRecentFiles) {
+                break;
+            }
+        }
+        return result;
+    }
+
+    bool writeDocument(const QJsonObject &document) const {
+        const QFileInfo info(m_path);
+        if (!info.absoluteDir().exists() && !QDir().mkpath(info.absolutePath())) {
+            return false;
+        }
+        QSaveFile file(m_path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            return false;
+        }
+        file.write(QJsonDocument(document).toJson(QJsonDocument::Indented));
+        return file.commit();
+    }
 };
 
 class TextEditorStore final : public QObject {
@@ -1609,6 +1755,13 @@ int main(int argc, char *argv[]) {
     }
     const QVariant drawingMetadataPresets = loadJsonObject(drawingMetadataPresetsPath);
     DrawingDocumentController drawingController;
+    QString drawingRecentFilesPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (drawingRecentFilesPath.trimmed().isEmpty()) {
+        drawingRecentFilesPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/.draftsman_runtime");
+    }
+    drawingRecentFilesPath = QDir(drawingRecentFilesPath).filePath(QStringLiteral("drawing_recent_files.json"));
+    DrawingRecentFilesStore drawingRecentFilesStore(drawingRecentFilesPath);
+    const QVariantList drawingRecentFiles = drawingRecentFilesStore.load();
 
     QString themePath = parser.isSet(themeOption)
         ? parser.value(themeOption)
@@ -1644,11 +1797,14 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingMetadataPresetsPath"), drawingMetadataPresetsPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingModel"), drawingController.modelDocument());
     engine.rootContext()->setContextProperty(QStringLiteral("nativeDrawingController"), &drawingController);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFiles"), drawingRecentFiles);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFilesPath"), drawingRecentFilesPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);
+    engine.rootContext()->setContextProperty(QStringLiteral("drawingRecentFilesStore"), &drawingRecentFilesStore);
     const QUrl mainUrl = QUrl::fromLocalFile(QStringLiteral(QML_SOURCE_DIR) + QStringLiteral("/Main.qml"));
     QObject::connect(
         &engine,

@@ -169,6 +169,8 @@ QtObject {
     property string drawingDocumentPath: ""
     property bool drawingDocumentDirty: false
     property string drawingDocumentCleanSnapshot: ""
+    property var drawingRecentFiles: []
+    property string drawingRecentFilesPath: ""
     property int revision: 0
 
     property var backStack: []
@@ -231,6 +233,8 @@ QtObject {
             typeof initialDrawingMetadataPresetsPath === "undefined" ? "" : String(initialDrawingMetadataPresetsPath))
         drawingExternalModelDocument = drawingNativeController ? drawingNativeController.modelDocument() : (typeof initialDrawingModel === "undefined" ? ({}) : initialDrawingModel)
         drawingSession.loadInitialDrawingModel(drawingExternalModelDocument)
+        drawingRecentFiles = typeof initialDrawingRecentFiles === "undefined" ? [] : initialDrawingRecentFiles
+        drawingRecentFilesPath = typeof initialDrawingRecentFilesPath === "undefined" ? "" : String(initialDrawingRecentFilesPath)
         markDrawingDocumentClean("not saved")
     }
 
@@ -1005,6 +1009,15 @@ QtObject {
         drawingDocumentIoStatus = String(status || "saved")
     }
 
+    function newDrawingDocument() {
+        drawingSession.resetNativeDrawingDocument()
+        drawingDocumentPath = ""
+        drawingDocumentIoOk = true
+        markDrawingDocumentClean("new drawing")
+        revision += 1
+        return true
+    }
+
     function handleDrawingSessionChanged() {
         revision += 1
         refreshDrawingDocumentDirty()
@@ -1023,6 +1036,40 @@ QtObject {
         return drawingDocumentFileName() + " / " + state
     }
 
+    function drawingRecentFilePath(item) {
+        if (typeof item === "string") {
+            return item
+        }
+        return String(item && item.path ? item.path : "")
+    }
+
+    function drawingRecentFileLabel(item) {
+        var path = drawingRecentFilePath(item)
+        var label = String(item && item.label ? item.label : "")
+        if (label.length > 0) {
+            return label
+        }
+        if (!path.length) {
+            return "Untitled"
+        }
+        var parts = path.split("/")
+        return parts.length > 0 ? parts[parts.length - 1] : path
+    }
+
+    function recordDrawingRecentFile(path) {
+        var normalizedPath = String(path || "")
+        if (!normalizedPath.length || typeof drawingRecentFilesStore === "undefined"
+                || !drawingRecentFilesStore || typeof drawingRecentFilesStore.add !== "function") {
+            return false
+        }
+        var result = drawingRecentFilesStore.add(normalizedPath)
+        if (result && result.ok && result.files) {
+            drawingRecentFiles = result.files
+            return true
+        }
+        return false
+    }
+
     function saveDrawingDocument(url) {
         if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.save !== "function") {
             drawingDocumentIoOk = false
@@ -1036,6 +1083,7 @@ QtObject {
         if (drawingDocumentIoOk) {
             drawingDocumentPath = String(result.path || "")
             markDrawingDocumentClean("saved drawing")
+            recordDrawingRecentFile(drawingDocumentPath)
         }
         revision += 1
         return drawingDocumentIoOk
@@ -1109,8 +1157,20 @@ QtObject {
         drawingDocumentPath = String(result.path || "")
         drawingSession.syncNativeDrawingModel()
         markDrawingDocumentClean("opened drawing")
+        recordDrawingRecentFile(drawingDocumentPath)
         revision += 1
         return true
+    }
+
+    function openRecentDrawing(item) {
+        var path = drawingRecentFilePath(item)
+        if (!path.length) {
+            drawingDocumentIoOk = false
+            drawingDocumentIoStatus = "recent drawing path missing"
+            revision += 1
+            return false
+        }
+        return openDrawingDocument(path)
     }
 
     function textEditorLineCount(unusedRevision) {

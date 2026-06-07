@@ -10,6 +10,7 @@ RowLayout {
 
     property var controller: null
     property var hostWindow: null
+    property string pendingRecentDrawingPath: ""
 
     function toggleZoom() {
         if (!hostWindow) {
@@ -50,6 +51,29 @@ RowLayout {
             return
         }
         drawingOpenDialog.open()
+    }
+
+    function requestNewDrawing() {
+        if (toolbar.controller && toolbar.controller.drawingDocumentDirty) {
+            discardNewDialog.open()
+            return
+        }
+        if (toolbar.controller) {
+            toolbar.controller.newDrawingDocument()
+        }
+    }
+
+    function requestOpenRecentDrawing(path) {
+        toolbar.pendingRecentDrawingPath = String(path || "")
+        if (!toolbar.pendingRecentDrawingPath.length || !toolbar.controller) {
+            return
+        }
+        if (toolbar.controller.drawingDocumentDirty) {
+            discardRecentDialog.open()
+            return
+        }
+        toolbar.controller.openRecentDrawing(toolbar.pendingRecentDrawingPath)
+        toolbar.pendingRecentDrawingPath = ""
     }
 
     FileDialog {
@@ -101,6 +125,50 @@ RowLayout {
         }
 
         onDiscarded: drawingOpenDialog.open()
+    }
+
+    Dialog {
+        id: discardNewDialog
+        title: "Discard unsaved drawing?"
+        modal: true
+        width: 380
+        standardButtons: Dialog.Cancel | Dialog.Discard
+
+        Text {
+            text: "Starting a new drawing will replace the current unsaved drawing."
+            color: UiStyle.colorText
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeSm
+            width: 320
+            wrapMode: Text.WordWrap
+        }
+
+        onDiscarded: if (toolbar.controller) toolbar.controller.newDrawingDocument()
+    }
+
+    Dialog {
+        id: discardRecentDialog
+        title: "Discard unsaved drawing?"
+        modal: true
+        width: 380
+        standardButtons: Dialog.Cancel | Dialog.Discard
+
+        Text {
+            text: "Opening a recent drawing will replace the current unsaved drawing."
+            color: UiStyle.colorText
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeSm
+            width: 320
+            wrapMode: Text.WordWrap
+        }
+
+        onDiscarded: {
+            if (toolbar.controller && toolbar.pendingRecentDrawingPath.length > 0) {
+                toolbar.controller.openRecentDrawing(toolbar.pendingRecentDrawingPath)
+            }
+            toolbar.pendingRecentDrawingPath = ""
+        }
+        onRejected: toolbar.pendingRecentDrawingPath = ""
     }
 
     spacing: 0
@@ -196,6 +264,11 @@ RowLayout {
             onDynamicActionTriggered: function(action) { toolbar.controller.runCustomAction(action.id) }
 
             Action {
+                text: "New Drawing"
+                enabled: toolbar.controller
+                onTriggered: toolbar.requestNewDrawing()
+            }
+            Action {
                 text: "Open Drawing..."
                 enabled: toolbar.controller
                 onTriggered: toolbar.requestOpenDrawing()
@@ -215,6 +288,34 @@ RowLayout {
                 text: "Save Drawing As..."
                 enabled: toolbar.controller
                 onTriggered: drawingSaveDialog.open()
+            }
+            Menu {
+                id: recentDrawingsMenu
+                title: "Recent Drawings"
+                enabled: toolbar.controller && toolbar.controller.drawingRecentFiles.length > 0
+
+                MenuItem {
+                    text: "No Recent Drawings"
+                    enabled: false
+                    visible: !toolbar.controller || toolbar.controller.drawingRecentFiles.length === 0
+                }
+
+                Instantiator {
+                    model: toolbar.controller ? toolbar.controller.drawingRecentFiles : []
+
+                    delegate: MenuItem {
+                        text: toolbar.controller ? toolbar.controller.drawingRecentFileLabel(modelData) : ""
+                        enabled: toolbar.controller && toolbar.controller.drawingRecentFilePath(modelData).length > 0
+                        onTriggered: toolbar.requestOpenRecentDrawing(toolbar.controller.drawingRecentFilePath(modelData))
+                    }
+
+                    onObjectAdded: function(index, object) {
+                        recentDrawingsMenu.insertItem(index, object)
+                    }
+                    onObjectRemoved: function(index, object) {
+                        recentDrawingsMenu.removeItem(object)
+                    }
+                }
             }
             MenuSeparator {}
             Action {

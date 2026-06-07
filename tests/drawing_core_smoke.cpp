@@ -713,6 +713,37 @@ bool runControllerMoveSelectedObjectsSmoke() {
     return ok;
 }
 
+bool runControllerModelRoundTripSmoke() {
+    DrawingDocumentController source;
+    source.selectTool(QStringLiteral("rectangle_polygon"));
+    source.clickCanvasNormalized(0.25, 0.25);
+    source.clickCanvasNormalized(0.5, 0.5);
+    source.selectTool(QStringLiteral("circle_arc"));
+    source.setToolParameter(QStringLiteral("stroke_color"), QStringLiteral("#57add1"));
+    source.clickCanvasNormalized(0.75, 0.75);
+    source.clickCanvasNormalized(0.875, 0.75);
+
+    const QJsonObject savedModel = QJsonObject::fromVariantMap(source.modelDocument());
+    DrawingDocumentController restored;
+    bool ok = true;
+    ok &= expect(restored.loadModel(savedModel.toVariantMap()),
+                 QStringLiteral("saved drawing model should load into a fresh controller"));
+
+    const QJsonObject restoredModel = QJsonObject::fromVariantMap(restored.modelDocument());
+    const QJsonArray restoredObjects = restoredModel.value(QStringLiteral("generated_objects")).toArray();
+    ok &= expect(restoredModel.value(QStringLiteral("export_kind")).toString() == QStringLiteral("pattern_lab_2d_native_model_v0"),
+                 QStringLiteral("round-tripped drawing should keep the native drawing kind"));
+    ok &= expectKindCount(restoredObjects, QStringLiteral("rectangle"), 1);
+    ok &= expectKindCount(restoredObjects, QStringLiteral("circle"), 1);
+    ok &= expect(restoredModel.value(QStringLiteral("selected_tool_id")).toString() == QStringLiteral("circle_arc"),
+                 QStringLiteral("round-tripped drawing should keep selected tool"));
+    ok &= expect(restored.exportJson().contains(QStringLiteral("\"generated_objects\"")),
+                 QStringLiteral("round-tripped drawing should remain exportable as JSON"));
+    ok &= expect(restored.exportSvg().contains(QStringLiteral("<svg")),
+                 QStringLiteral("round-tripped drawing should remain exportable as SVG"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -732,5 +763,6 @@ int main(int argc, char **argv) {
     ok &= runControllerMultiSelectOperationsSmoke();
     ok &= runControllerPasteObjectsSmoke();
     ok &= runControllerMoveSelectedObjectsSmoke();
+    ok &= runControllerModelRoundTripSmoke();
     return ok ? 0 : 1;
 }

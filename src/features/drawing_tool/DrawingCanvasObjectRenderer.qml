@@ -223,6 +223,42 @@ QtObject {
         return result
     }
 
+    function rotatedRectCenter(object) {
+        return {
+            x: Number(object.x || 0) + Number(object.width || 0) / 2,
+            y: Number(object.y || 0) + Number(object.height || 0) / 2
+        }
+    }
+
+    function rotatedRectTopMidpoint(object) {
+        var corners = rotatedRectCorners(object)
+        if (corners.length < 2) {
+            return rotatedRectCenter(object)
+        }
+        return {
+            x: (Number(corners[0].x || 0) + Number(corners[1].x || 0)) / 2,
+            y: (Number(corners[0].y || 0) + Number(corners[1].y || 0)) / 2
+        }
+    }
+
+    function rotatedRectRotationHandle(object) {
+        var center = rotatedRectCenter(object)
+        var top = rotatedRectTopMidpoint(object)
+        var dx = top.x - center.x
+        var dy = top.y - center.y
+        var length = Math.max(0.000001, Math.sqrt(dx * dx + dy * dy))
+        var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
+        var offset = 28 / canvasPx
+        return {
+            id: "rect_rotate",
+            role: "rotate",
+            x: top.x + dx / length * offset,
+            y: top.y + dy / length * offset,
+            anchorX: top.x,
+            anchorY: top.y
+        }
+    }
+
     function objectEditHandles(object) {
         var kind = String(object.kind || "")
         if (kind === "line" || kind === "glyph_baseline") {
@@ -232,7 +268,9 @@ QtObject {
             ]
         }
         if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            return rotatedRectCorners(object)
+            var handles = rotatedRectCorners(object)
+            handles.push(rotatedRectRotationHandle(object))
+            return handles
         }
         if (kind === "circle" || kind === "arc") {
             var center = pointFromArray(object.center_px, Number(object.cx || 0) * 512, Number(object.cy || 0) * 512)
@@ -252,15 +290,48 @@ QtObject {
         var x = pxX(bounds, handle.x)
         var y = pxY(bounds, handle.y)
         var hovered = String(handle.id || "") === canvasObjectRenderer.hoverHandleId
-        var size = hovered ? 11 : primary ? 9 : 7
+        var rotateHandle = String(handle.role || "") === "rotate"
+        var size = rotateHandle ? hovered ? 12 : 10 : hovered ? 12 : primary ? 10 : 8
         ctx.save()
         ctx.fillStyle = hovered || primary ? UiStyle.colorWarning : UiStyle.mix(UiStyle.colorWorkspace, UiStyle.colorWarning, 0.72)
         ctx.strokeStyle = UiStyle.colorWorkspace
         ctx.lineWidth = hovered ? 1.5 : 1
         ctx.beginPath()
-        ctx.rect(x - size / 2, y - size / 2, size, size)
+        if (rotateHandle) {
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2)
+        } else {
+            ctx.rect(x - size / 2, y - size / 2, size, size)
+        }
         ctx.fill()
         ctx.stroke()
+        ctx.restore()
+    }
+
+    function drawRotatedRectSelectionOutline(ctx, bounds, object) {
+        var kind = String(object.kind || "")
+        if (kind !== "rectangle" && kind !== "image_reference_frame" && kind !== "ascii_crop_frame" && kind !== "ascii_cell_region") {
+            return
+        }
+        var corners = rotatedRectCorners(object)
+        if (corners.length < 4) {
+            return
+        }
+        var rotationHandle = rotatedRectRotationHandle(object)
+        ctx.save()
+        ctx.strokeStyle = UiStyle.colorWarning
+        ctx.lineWidth = 1
+        ctx.setLineDash([7, 5])
+        ctx.globalAlpha = 0.96
+        ctx.beginPath()
+        ctx.moveTo(pxX(bounds, corners[0].x), pxY(bounds, corners[0].y))
+        ctx.lineTo(pxX(bounds, corners[1].x), pxY(bounds, corners[1].y))
+        ctx.lineTo(pxX(bounds, corners[3].x), pxY(bounds, corners[3].y))
+        ctx.lineTo(pxX(bounds, corners[2].x), pxY(bounds, corners[2].y))
+        ctx.closePath()
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.globalAlpha = 0.72
+        strokeGridLine(ctx, pxX(bounds, rotationHandle.anchorX), pxY(bounds, rotationHandle.anchorY), pxX(bounds, rotationHandle.x), pxY(bounds, rotationHandle.y))
         ctx.restore()
     }
 
@@ -269,6 +340,7 @@ QtObject {
         if (handles.length <= 0 || String(object.id || "").indexOf("script_") !== 0) {
             return
         }
+        drawRotatedRectSelectionOutline(ctx, bounds, object)
         for (var index = 0; index < handles.length; ++index) {
             drawEditHandle(ctx, bounds, handles[index], index === 0)
         }

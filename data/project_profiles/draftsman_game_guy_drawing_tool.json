@@ -2,10 +2,10 @@
   "schema_version": 1,
   "profile": {
     "profile_id": "draftsman_game_guy_drawing_tool",
-    "label": "Game Guy Drawing Tool",
-    "type": "drawing_tool_blank",
+    "label": "Game Guy Draw",
+    "type": "game_guy_drawing_tool",
     "root_path": "",
-    "summary": "Reusable drawing-tool profile with Game Guy preset vocabulary.",
+    "summary": "drawing/drafting workspace for Game Guy dungeon/blockout assets",
     "default_activity": "drawing_tool"
   },
   "activity_modes": [
@@ -35,7 +35,7 @@
   },
   "panel_defaults": {
     "left_collapsed": true,
-    "right_collapsed": false,
+    "right_collapsed": true,
     "bottom_collapsed": true
   },
   "right_inspector": {

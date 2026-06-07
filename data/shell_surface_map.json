@@ -62,7 +62,7 @@
     {
       "profile_id": "draftsman_game_guy_drawing_tool",
       "path": "data/project_profiles/draftsman_game_guy_drawing_tool.json",
-      "purpose": "Blank drawing tool profile with Game Guy metadata presets.",
+      "purpose": "Game Guy Draw profile with Game Guy preset vocabulary.",
       "default_activity": "drawing_tool",
       "enabled_features": [
         "drawing_tool_blank",

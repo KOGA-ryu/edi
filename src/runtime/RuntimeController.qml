@@ -11,24 +11,30 @@ QtObject {
     property string selectedSubjectLabel: ""
     property string selectedRouteId: ""
     property string selectedLocalTab: "overview"
-    property string selectedShelfTab: ""
     property string selectedSettingsPage: "theme"
-    property bool writeDisabled: true
-    property string projectProfilePath: ""
-    property var projectProfileDocument: ({})
-    property string projectId: "draftsman_blank"
-    property string projectTitle: "Draftsman"
-    property string projectType: "blank_shell"
-    property string projectRootPath: ""
-    property string projectSummary: "Reusable blank Draftsman shell."
-    property string settingsNavLabel: "Theme and layout"
-    property string mainWorkspaceFeature: "blank_canvas"
-    property string rightInspectorSource: "none"
-    property var customActions: []
-    property string customActionStatus: ""
-    property string customActionOutputPath: ""
-    property var leftProjectRows: []
-    property var projectPanelDefaults: ({})
+    property ProjectProfileSession projectProfileSession: ProjectProfileSession {
+        id: projectProfileSession
+        onChanged: runtimeController.bumpRevision("project_profile")
+    }
+    property alias projectProfilePath: projectProfileSession.projectProfilePath
+    property alias projectProfileDocument: projectProfileSession.projectProfileDocument
+    property alias projectId: projectProfileSession.projectId
+    property alias projectTitle: projectProfileSession.projectTitle
+    property alias projectType: projectProfileSession.projectType
+    property alias projectRootPath: projectProfileSession.projectRootPath
+    property alias projectSummary: projectProfileSession.projectSummary
+    property alias settingsNavLabel: projectProfileSession.settingsNavLabel
+    property alias mainWorkspaceFeature: projectProfileSession.mainWorkspaceFeature
+    property alias rightInspectorSource: projectProfileSession.rightInspectorSource
+    property alias projectPanelDefaults: projectProfileSession.projectPanelDefaults
+    property alias writeDisabled: projectProfileSession.writeDisabled
+    property alias activityModes: projectProfileSession.activityModes
+    property alias leftProjectRows: projectProfileSession.leftProjectRows
+    property alias shelfTabs: projectProfileSession.shelfTabs
+    property alias selectedShelfTab: projectProfileSession.selectedShelfTab
+    property alias customActions: projectProfileSession.customActions
+    property alias customActionStatus: projectProfileSession.customActionStatus
+    property alias customActionOutputPath: projectProfileSession.customActionOutputPath
     property MapSession mapSession: MapSession {
         id: mapSession
         onChanged: runtimeController.bumpRevision("map_session")
@@ -182,11 +188,6 @@ QtObject {
     property var uiThemeDocument: ({})
     property string uiThemePath: ""
 
-    property var activityModes: [
-        { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace" },
-        { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface" }
-    ]
-
     readonly property var localTabs: [
         { id: "overview", label: "Overview", tooltip: "Summary of the selected review route, including purpose, status counts, and nearby route cards." },
         { id: "objects", label: "Objects", tooltip: "Review the child routes, UI regions, panels, and objects attached to the selected route." },
@@ -194,15 +195,15 @@ QtObject {
         { id: "prompts", label: "Prompts", tooltip: "Show the human and agent prompts that define what should be reviewed or changed." },
         { id: "notes", label: "Notes", tooltip: "Show review notes, decisions, and comments attached to the selected route." }
     ]
-    property var shelfTabs: []
 
     property var routes: []
     property string rootRouteId: ""
 
     Component.onCompleted: {
-        projectProfilePath = typeof initialProjectProfilePath === "undefined" ? "" : String(initialProjectProfilePath)
-        projectProfileDocument = typeof initialProjectProfile === "undefined" ? ({}) : initialProjectProfile
-        loadProjectProfile(projectProfileDocument)
+        projectProfileSession.setProjectProfileState(
+            typeof initialProjectProfilePath === "undefined" ? "" : String(initialProjectProfilePath),
+            typeof initialProjectProfile === "undefined" ? ({}) : initialProjectProfile)
+        loadProjectProfile(projectProfileSession.projectProfileDocument)
 
         uiThemeDocument = typeof initialUiTheme === "undefined" ? ({}) : initialUiTheme
         uiThemePath = typeof initialUiThemePath === "undefined" ? "" : String(initialUiThemePath)
@@ -328,48 +329,8 @@ QtObject {
         return result
     }
 
-    function defaultActivityModes() {
-        return [
-            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace", exclusiveGroup: "" },
-            { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace", exclusiveGroup: "" },
-            { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface", exclusiveGroup: "system" },
-            { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts", exclusiveGroup: "" }
-        ]
-    }
-
     function normalizeActivityModes(source) {
-        var modes = []
-        var sourceModes = asArray(source)
-        for (var index = 0; index < sourceModes.length; ++index) {
-            var mode = sourceModes[index]
-            if (mode && mode.enabled !== false && String(mode.id || "").length > 0) {
-                var id = String(mode.id)
-                modes.push({
-                    id: id,
-                    label: String(mode.label || mode.id),
-                    icon: String(mode.icon || String(mode.label || mode.id).charAt(0).toUpperCase()),
-                    tooltip: String(mode.tooltip || mode.label || mode.id),
-                    exclusiveGroup: String(mode.exclusive_group || mode.exclusiveGroup || defaultActivityExclusiveGroup(id))
-                })
-            }
-        }
-        return modes.length > 0 ? modes : defaultActivityModes()
-    }
-
-    function defaultActivityExclusiveGroup(modeId) {
-        var id = String(modeId || "")
-        if (id === "map_generator"
-                || id === "map_editor"
-                || id === "drawing_tool"
-                || id === "drawing_drafting"
-                || id === "blender_scripts"
-                || id === "tool_workspace") {
-            return "tool_type"
-        }
-        if (id === "settings") {
-            return "system"
-        }
-        return ""
+        return projectProfileSession.normalizeActivityModes(source)
     }
 
     function activityModeRecord(modeId) {
@@ -413,145 +374,50 @@ QtObject {
     }
 
     function normalizeProjectRows(source) {
-        var rows = []
-        var sourceRows = asArray(source)
-        for (var index = 0; index < sourceRows.length; ++index) {
-            var row = sourceRows[index]
-            if (row && String(row.label || "").length > 0) {
-                rows.push({
-                    label: String(row.label),
-                    meta: String(row.meta || "")
-                })
-            }
-        }
-        return rows.length > 0 ? rows : [
-            { label: "Project slot", meta: "blank" },
-            { label: "Scratch", meta: "workflow" },
-            { label: "Final", meta: "workflow" }
-        ]
+        return projectProfileSession.normalizeProjectRows(source)
     }
 
     function normalizeShelfTabs(source) {
-        var result = []
-        if (Array.isArray(source) && source.length === 0) {
-            return result
-        }
-        var tabs = asArray(source)
-        for (var index = 0; index < tabs.length; ++index) {
-            var tab = String(tabs[index] || "").trim()
-            if (tab.length > 0) {
-                result.push(tab)
-            }
-        }
-        return result.length > 0 ? result : ["Output", "Proof", "Receipts", "Log"]
+        return projectProfileSession.normalizeShelfTabs(source)
     }
 
     function activityModeAvailable(modeId) {
-        for (var index = 0; index < activityModes.length; ++index) {
-            if (activityModes[index].id === modeId) {
-                return true
-            }
-        }
-        return false
+        return projectProfileSession.activityModeAvailable(modeId)
     }
 
     function hasActivityMode(modeId) {
-        return activityModeAvailable(modeId)
+        return projectProfileSession.hasActivityMode(modeId)
     }
 
     function loadProjectProfile(document) {
-        var profile = document && document.profile ? document.profile : ({})
-        var leftPanel = document && document.left_panel ? document.left_panel : ({})
-        var mainWorkspace = document && document.main_workspace ? document.main_workspace : ({})
-        var rightInspector = document && document.right_inspector ? document.right_inspector : ({})
-        var bottomPanel = document && document.bottom_panel ? document.bottom_panel : ({})
-        var panelDefaults = document && document.panel_defaults ? document.panel_defaults : ({})
-        var writePolicy = document && document.write_policy ? document.write_policy : ({})
-
-        projectId = String(profile.profile_id || "draftsman_blank")
-        projectTitle = String(profile.label || "Draftsman")
-        projectType = String(profile.type || "blank_shell")
-        projectRootPath = String(profile.root_path || "")
-        projectSummary = String(profile.summary || "Reusable blank Draftsman shell.")
-        settingsNavLabel = String(leftPanel.settings_label || "Theme and layout")
-        mainWorkspaceFeature = String(mainWorkspace.feature || "blank_canvas")
-        rightInspectorSource = String(rightInspector.source || "none")
-        projectPanelDefaults = panelDefaults
-        writeDisabled = typeof writePolicy.writes_enabled === "boolean" ? !writePolicy.writes_enabled : true
-        activityModes = normalizeActivityModes(document && document.activity_modes)
-        leftProjectRows = normalizeProjectRows(leftPanel.project_rows)
-        shelfTabs = normalizeShelfTabs(bottomPanel.tabs)
-        customActions = normalizeCustomActions(document && document.custom_actions)
-        selectedShelfTab = shelfTabs.length > 0 && shelfTabs.indexOf(selectedShelfTab) >= 0 ? selectedShelfTab : (shelfTabs[0] || "")
+        projectProfileSession.loadProjectProfile(document)
+        var rightInspector = projectProfileDocument && projectProfileDocument.right_inspector ? projectProfileDocument.right_inspector : ({})
         shellLayoutSession.setInspectorSections(rightInspector.sections, defaultInspectorSections())
 
-        var defaultActivity = String(profile.default_activity || activityMode)
+        var defaultActivity = String(projectProfileSession.defaultActivityMode || activityMode)
         activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : activityModes[0].id
     }
 
     function normalizeCustomActions(source) {
-        var actions = asArray(source)
-        var result = []
-        var seen = ({})
-        for (var index = 0; index < actions.length; ++index) {
-            var action = actions[index] || ({})
-            var id = String(action.id || "").trim()
-            var label = String(action.label || "").trim()
-            var handler = String(action.handler || "").trim()
-            if (!id.length || !label.length || !handler.length || seen[id]) {
-                continue
-            }
-            seen[id] = true
-            result.push({
-                id: id,
-                label: label,
-                menu: String(action.menu || "Tools").trim() || "Tools",
-                activity: String(action.activity || "").trim(),
-                handler: handler,
-                enabled: action.enabled !== false,
-                args: action.args || ({})
-            })
-        }
-        return result
+        return projectProfileSession.normalizeCustomActions(source)
     }
 
     function customActionVisible(action) {
-        if (!action || action.enabled === false) {
-            return false
-        }
-        if (action.activity && action.activity !== activityMode) {
-            return false
-        }
-        return true
+        return projectProfileSession.customActionVisible(action, activityMode)
     }
 
     function menuCustomActions(menuName, unusedRevision) {
-        var menu = String(menuName || "")
-        var result = []
-        for (var index = 0; index < customActions.length; ++index) {
-            var action = customActions[index]
-            if (String(action.menu || "") === menu && customActionVisible(action)) {
-                result.push(action)
-            }
-        }
-        return result
+        return projectProfileSession.menuCustomActions(menuName, unusedRevision, activityMode)
     }
 
     function customActionById(actionId) {
-        var id = String(actionId || "")
-        for (var index = 0; index < customActions.length; ++index) {
-            if (customActions[index].id === id) {
-                return customActions[index]
-            }
-        }
-        return null
+        return projectProfileSession.customActionById(actionId)
     }
 
     function runCustomAction(actionId) {
         var action = customActionById(actionId)
         if (!customActionVisible(action)) {
-            customActionStatus = "action unavailable"
-            customActionOutputPath = ""
+            projectProfileSession.setCustomActionResult("action unavailable", "")
             revision += 1
             return false
         }
@@ -560,15 +426,13 @@ QtObject {
         var args = action.args || ({})
         if (handler === "text_editor_command") {
             requestTextEditorCommand(String(args.command || ""))
-            customActionStatus = "ran " + action.label
-            customActionOutputPath = ""
+            projectProfileSession.setCustomActionResult("ran " + action.label, "")
             revision += 1
             return true
         }
         if (handler === "switch_activity") {
             setActivityMode(String(args.activity || ""))
-            customActionStatus = "ran " + action.label
-            customActionOutputPath = ""
+            projectProfileSession.setCustomActionResult("ran " + action.label, "")
             revision += 1
             return true
         }
@@ -576,8 +440,7 @@ QtObject {
             return exportTextEditorBundle(args)
         }
 
-        customActionStatus = "unsupported action"
-        customActionOutputPath = ""
+        projectProfileSession.setCustomActionResult("unsupported action", "")
         revision += 1
         return false
     }
@@ -806,8 +669,9 @@ QtObject {
         }
 
         var result = textEditorSession.exportTextEditorBundle(metadata)
-        customActionStatus = String(result.message || (result.ok ? "exported bundle" : "export failed"))
-        customActionOutputPath = String(result.path || "")
+        projectProfileSession.setCustomActionResult(
+            String(result.message || (result.ok ? "exported bundle" : "export failed")),
+            String(result.path || ""))
         revision += 1
         return !!result.ok
     }
@@ -1962,7 +1826,7 @@ QtObject {
     }
 
     function setShelfTab(tabName) {
-        selectedShelfTab = tabName
+        projectProfileSession.selectShelfTab(tabName)
         revision += 1
     }
 

@@ -435,6 +435,13 @@ bool runControllerObjectMetadataSmoke() {
                  QStringLiteral("metadata editor should persist export group"));
     ok &= expect(tags.size() == 2 && tags.at(0).toString() == QStringLiteral("wall") && tags.at(1).toString() == QStringLiteral("collision"),
                  QStringLiteral("metadata editor should normalize comma tags"));
+    const QString svg = controller.exportSvg();
+    ok &= expect(svg.contains(QStringLiteral("data-role=\"wall\""))
+                     && svg.contains(QStringLiteral("data-material=\"stone\""))
+                     && svg.contains(QStringLiteral("data-intent=\"blocks movement\""))
+                     && svg.contains(QStringLiteral("data-export-group=\"room_a\""))
+                     && svg.contains(QStringLiteral("data-tags=\"wall,collision\"")),
+                 QStringLiteral("svg export should preserve selected object metadata as data attributes"));
 
     controller.updateSelectedObjectMetadataField(QStringLiteral("material"), QStringLiteral(""));
     model = QJsonObject::fromVariantMap(controller.modelDocument());

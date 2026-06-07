@@ -432,6 +432,7 @@ QtObject {
 
     function drawingMetadataPresetRows(unusedRevision) {
         return [
+            { label: "quick", field: "tags", mode: "tag", options: metadataPresetValues("quick_tags", ["wall", "floor", "door", "spawn", "secret", "encounter", "collision", "decor"]) },
             { label: "role", field: "role", mode: "set", options: metadataPresetValues("roles", ["wall", "floor", "cutout", "collider"]) },
             { label: "mat", field: "material", mode: "set", options: metadataPresetValues("materials", ["stone", "metal", "glass", "wood"]) },
             { label: "group", field: "export_group", mode: "set", options: metadataPresetValues("export_groups", ["room_a", "collision", "shell"]) },

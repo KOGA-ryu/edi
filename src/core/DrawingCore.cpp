@@ -1457,6 +1457,40 @@ QString svgDashArray(const QString &lineStyle, double strokeWidth) {
     return {};
 }
 
+QString svgDataAttribute(const QJsonObject &object, const QString &field, const QString &attribute) {
+    if (!object.contains(field)) {
+        return {};
+    }
+    QString value;
+    if (object.value(field).isArray()) {
+        QStringList values;
+        const QJsonArray items = object.value(field).toArray();
+        for (const QJsonValue item : items) {
+            const QString text = item.toString().trimmed();
+            if (!text.isEmpty()) {
+                values.append(text);
+            }
+        }
+        value = values.join(QStringLiteral(","));
+    } else {
+        value = object.value(field).toString().trimmed();
+    }
+    if (value.isEmpty()) {
+        return {};
+    }
+    return QStringLiteral(" data-%1=\"%2\"").arg(attribute, svgEscaped(value));
+}
+
+QString svgMetadataAttributes(const QJsonObject &object) {
+    QString attributes;
+    attributes += svgDataAttribute(object, QStringLiteral("role"), QStringLiteral("role"));
+    attributes += svgDataAttribute(object, QStringLiteral("material"), QStringLiteral("material"));
+    attributes += svgDataAttribute(object, QStringLiteral("intent"), QStringLiteral("intent"));
+    attributes += svgDataAttribute(object, QStringLiteral("export_group"), QStringLiteral("export-group"));
+    attributes += svgDataAttribute(object, QStringLiteral("tags"), QStringLiteral("tags"));
+    return attributes;
+}
+
 QString svgCommonAttributes(const QJsonObject &object, bool fillAllowed, const QString &fallbackStroke = QStringLiteral("#f4d46f")) {
     const QString strokeColor = normalizedHexColor(stringAt(object, QStringLiteral("stroke_color"), fallbackStroke));
     const QString fillColor = fillAllowed ? normalizedHexColor(stringAt(object, QStringLiteral("fill_color"))) : QString();
@@ -1476,6 +1510,7 @@ QString svgCommonAttributes(const QJsonObject &object, bool fillAllowed, const Q
     if (!dash.isEmpty()) {
         attributes += QStringLiteral(" stroke-dasharray=\"%1\"").arg(svgEscaped(dash));
     }
+    attributes += svgMetadataAttributes(object);
     return attributes;
 }
 
@@ -1490,6 +1525,7 @@ QString svgPointAttributes(const QJsonObject &object, const QString &fallbackStr
     attributes += QStringLiteral(" stroke=\"%1\"").arg(svgEscaped(resolvedStroke));
     attributes += QStringLiteral(" stroke-width=\"%1\"").arg(svgNumber(std::max(1.0, strokeWidth * 0.5)));
     attributes += QStringLiteral(" opacity=\"%1\"").arg(svgNumber(strokeOpacity));
+    attributes += svgMetadataAttributes(object);
     return attributes;
 }
 } // namespace

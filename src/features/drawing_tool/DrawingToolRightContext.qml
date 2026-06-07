@@ -1053,7 +1053,7 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(302, metadataPanelContent.implicitHeight + UiStyle.space16)
+                Layout.preferredHeight: metadataPanelContent.implicitHeight + UiStyle.space16
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
@@ -1061,16 +1061,6 @@ Item {
                     id: metadataPanelContent
                     anchors.fill: parent
                     spacing: UiStyle.space4
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Metadata"
-                        color: UiStyle.colorText
-                        font.family: UiStyle.fontSans
-                        font.pixelSize: UiStyle.fontSizeSm
-                        font.weight: UiStyle.fontWeightSemiBold
-                        elide: Text.ElideRight
-                    }
 
                     Repeater {
                         model: metadataPresetRows()

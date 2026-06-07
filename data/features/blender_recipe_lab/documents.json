@@ -26,6 +26,15 @@
             "pinned": false,
             "read_only": true,
             "role": "reference"
+        },
+        {
+            "id": "ascii_preview",
+            "language": "text",
+            "name": "ascii_preview.txt",
+            "path": "docs/ascii_preview.txt",
+            "pinned": true,
+            "read_only": true,
+            "role": "output"
         }
     ],
     "editor_state": {

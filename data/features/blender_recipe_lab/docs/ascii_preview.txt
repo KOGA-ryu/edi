@@ -1,0 +1,30 @@
+ASCII dry-run preview
+=====================
+
+Status: waiting for materialized tool plan.
+
+This tab is the plain-text landing surface for the existing ASCII dry-run
+engine.
+
+Declared source outputs:
+
+- /tmp/draftsman_blender_recipe_lab_tool_plan/ascii_dryrun/front_preview.txt
+- /tmp/draftsman_blender_recipe_lab_tool_plan/ascii_dryrun/side_preview.txt
+- /tmp/draftsman_blender_recipe_lab_tool_plan/ascii_dryrun/top_preview.txt
+
+Expected combined layout after the ASCII action runs:
+
+[front]
+................................................................
+................................................................
+................................................................
+
+[side]
+................................................................
+................................................................
+................................................................
+
+[top]
+................................................................
+................................................................
+................................................................

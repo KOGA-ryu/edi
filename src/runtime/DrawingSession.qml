@@ -33,16 +33,9 @@ QtObject {
     property var drawingToolPresets: DrawingToolCatalog.toolPresets()
     property var drawingLayerStack: DrawingToolCatalog.layerStack()
     property var drawingSidebarSections: DrawingToolCatalog.sidebarSections()
-    property real drawingAnchorRootX: 0.50
-    property real drawingAnchorRootY: 0.50
-    property real drawingAnchorTipX: 0.50
-    property real drawingAnchorTipY: 0.20
-    property real drawingAnchorRightX: 0.80
-    property real drawingAnchorRightY: 0.50
-    property real drawingAnchorBottomX: 0.50
-    property real drawingAnchorBottomY: 0.80
-    property real drawingAnchorLeftX: 0.20
-    property real drawingAnchorLeftY: 0.50
+    property DrawingAnchorSession anchorSession: DrawingAnchorSession {
+        id: anchorSession
+    }
     property var drawingExternalModelDocument: ({})
     property var drawingGeneratedObjects: []
     property var drawingPendingPoint: ({})
@@ -97,6 +90,16 @@ QtObject {
     property alias drawingCanvasZoomMax: viewportSession.drawingCanvasZoomMax
     property alias drawingCanvasPanXPx: viewportSession.drawingCanvasPanXPx
     property alias drawingCanvasPanYPx: viewportSession.drawingCanvasPanYPx
+    property alias drawingAnchorRootX: anchorSession.drawingAnchorRootX
+    property alias drawingAnchorRootY: anchorSession.drawingAnchorRootY
+    property alias drawingAnchorTipX: anchorSession.drawingAnchorTipX
+    property alias drawingAnchorTipY: anchorSession.drawingAnchorTipY
+    property alias drawingAnchorRightX: anchorSession.drawingAnchorRightX
+    property alias drawingAnchorRightY: anchorSession.drawingAnchorRightY
+    property alias drawingAnchorBottomX: anchorSession.drawingAnchorBottomX
+    property alias drawingAnchorBottomY: anchorSession.drawingAnchorBottomY
+    property alias drawingAnchorLeftX: anchorSession.drawingAnchorLeftX
+    property alias drawingAnchorLeftY: anchorSession.drawingAnchorLeftY
     property bool drawingCanUndoCommand: false
     property bool drawingCanRedoCommand: false
     property var drawingObjectClipboard: ({})
@@ -509,43 +512,11 @@ QtObject {
     }
 
     function drawingAnchorPoint(anchorId) {
-        if (anchorId === "anchor_root") {
-            return { id: "anchor_root", label: "anchor_root", x: drawingAnchorRootX, y: drawingAnchorRootY }
-        }
-        if (anchorId === "anchor_tip") {
-            return { id: "anchor_tip", label: "anchor_tip", x: drawingAnchorTipX, y: drawingAnchorTipY }
-        }
-        if (anchorId === "anchor_right") {
-            return { id: "anchor_right", label: "anchor_right", x: drawingAnchorRightX, y: drawingAnchorRightY }
-        }
-        if (anchorId === "anchor_bottom") {
-            return { id: "anchor_bottom", label: "anchor_bottom", x: drawingAnchorBottomX, y: drawingAnchorBottomY }
-        }
-        if (anchorId === "anchor_left") {
-            return { id: "anchor_left", label: "anchor_left", x: drawingAnchorLeftX, y: drawingAnchorLeftY }
-        }
-        return { id: anchorId, label: anchorId, x: 0.5, y: 0.5 }
+        return anchorSession.drawingAnchorPoint(anchorId)
     }
 
     function setDrawingAnchorPosition(anchorId, x, y) {
-        var clampedX = Math.max(0.02, Math.min(0.98, Number(x)))
-        var clampedY = Math.max(0.02, Math.min(0.98, Number(y)))
-        if (anchorId === "anchor_root") {
-            drawingAnchorRootX = clampedX
-            drawingAnchorRootY = clampedY
-        } else if (anchorId === "anchor_tip") {
-            drawingAnchorTipX = clampedX
-            drawingAnchorTipY = clampedY
-        } else if (anchorId === "anchor_right") {
-            drawingAnchorRightX = clampedX
-            drawingAnchorRightY = clampedY
-        } else if (anchorId === "anchor_bottom") {
-            drawingAnchorBottomX = clampedX
-            drawingAnchorBottomY = clampedY
-        } else if (anchorId === "anchor_left") {
-            drawingAnchorLeftX = clampedX
-            drawingAnchorLeftY = clampedY
-        } else {
+        if (!anchorSession.setAnchorPosition(anchorId, x, y)) {
             return
         }
         selectedDrawingObjectId = anchorId
@@ -554,19 +525,7 @@ QtObject {
     }
 
     function selectNearestDrawingAnchor(x, y, tolerance) {
-        var anchors = ["anchor_root", "anchor_tip", "anchor_right", "anchor_bottom", "anchor_left"]
-        var bestId = ""
-        var bestDistance = Number(tolerance || 0.035)
-        for (var index = 0; index < anchors.length; ++index) {
-            var anchor = drawingAnchorPoint(anchors[index])
-            var dx = Number(anchor.x) - Number(x)
-            var dy = Number(anchor.y) - Number(y)
-            var distance = Math.sqrt(dx * dx + dy * dy)
-            if (distance <= bestDistance) {
-                bestDistance = distance
-                bestId = anchor.id
-            }
-        }
+        var bestId = anchorSession.nearestAnchor(x, y, tolerance)
         if (bestId.length > 0) {
             selectDrawingObject(bestId)
             return bestId

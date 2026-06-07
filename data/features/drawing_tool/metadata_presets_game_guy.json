@@ -1,0 +1,45 @@
+{
+  "schema": "drawing_tool_metadata_presets_v0",
+  "feature_id": "drawing_tool",
+  "roles": [
+    "wall",
+    "floor",
+    "ceiling",
+    "door",
+    "window",
+    "stairs",
+    "stair_step",
+    "pillar",
+    "truss",
+    "collider",
+    "spawn",
+    "secret",
+    "choke"
+  ],
+  "materials": [
+    "stone",
+    "brick",
+    "wood",
+    "metal",
+    "glass",
+    "glass_block",
+    "marble",
+    "reinforced_concrete",
+    "metal_plate"
+  ],
+  "export_groups": [
+    "room_a",
+    "collision",
+    "shell",
+    "structural",
+    "decorative"
+  ],
+  "tags": [
+    "block",
+    "spawn",
+    "secret",
+    "review",
+    "vfx",
+    "script_anchor"
+  ]
+}

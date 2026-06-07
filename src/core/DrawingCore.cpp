@@ -10,8 +10,16 @@
 #include <functional>
 #include <vector>
 
+// Refactor notes:
+// - Split geometry helpers, object mutation, command dispatch, and SVG export into separate units.
+// - Replace repeated kind string branches with typed shape operations for bounds, movement, and serialization.
+// - Centralize normalized and pixel coordinate conversion so add, move, clone, and rebuild paths share one rule.
+// - Move validation and error reporting behind small helpers to keep command handlers focused on state changes.
+// - Add focused tests around undoable commands, shape transforms, metadata updates, and SVG output.
+
 namespace {
 constexpr int kDefaultCanvasPx = 512;
+constexpr double kPi = 3.141592653589793238462643383279502884;
 constexpr const char *kScriptLayer = "layer_09_script_geometry";
 
 struct Point {
@@ -252,6 +260,22 @@ double clampedMoveDelta(double delta, double minValue, double maxValue) {
     return std::clamp(delta, minDelta, maxDelta);
 }
 
+double normalizedToPixels(double value, int canvasPx) {
+    return value * static_cast<double>(canvasPx);
+}
+
+double degreesToRadians(double degrees) {
+    return degrees * kPi / 180.0;
+}
+
+double commandDeltaFromCommand(const State &state, const QJsonObject &command, const QString &axis, double fallback) {
+    const QString pxKey = axis + QStringLiteral("_px");
+    if (command.contains(pxKey)) {
+        return numberAt(command, pxKey) / state.canvasPx;
+    }
+    return numberAt(command, axis, fallback);
+}
+
 void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx) {
     const QString kind = object.value("kind").toString();
     if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
@@ -293,6 +317,10 @@ void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, d
         object.insert("points", translatedPointList(object.value("points").toArray(), dxN, dyN));
         object.insert("points_px", translatedPointList(object.value("points_px").toArray(), dxPx, dyPx));
     }
+}
+
+void translateObjectWithState(QJsonObject &object, const State &state, double dxN, double dyN) {
+    translateObject(object, dxN, dyN, normalizedToPixels(dxN, state.canvasPx), normalizedToPixels(dyN, state.canvasPx));
 }
 
 Point snapPoint(State &state, double x, double y) {
@@ -376,7 +404,7 @@ void rebuildPolygon(QJsonObject &object, int canvasPx, double cxPx, double cyPx,
     QJsonArray points;
     QJsonArray pointsPx;
     for (int index = 0; index < sideCount; ++index) {
-        const double angle = (rotationDeg + 360.0 * index / sideCount) * M_PI / 180.0;
+        const double angle = degreesToRadians(rotationDeg + 360.0 * index / sideCount);
         const double px = cx + std::cos(angle) * radius;
         const double py = cy + std::sin(angle) * radius;
         points.append(pointArray(px / canvasPx, py / canvasPx));
@@ -503,7 +531,7 @@ QString pushClonedObject(State &state, QJsonObject object, const QString &source
     if (!sourceId.isEmpty()) {
         object.insert(sourceKey, sourceId);
     }
-    translateObject(object, clampedDxN, clampedDyN, clampedDxN * state.canvasPx, clampedDyN * state.canvasPx);
+    translateObjectWithState(object, state, clampedDxN, clampedDyN);
     pushObject(state, object);
     state.pendingPoint = {};
     return nextObjectId;
@@ -604,7 +632,7 @@ void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
             }
             const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
             const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
-            translateObject(object, clampedDxN, clampedDyN, clampedDxN * state.canvasPx, clampedDyN * state.canvasPx);
+            translateObjectWithState(object, state, clampedDxN, clampedDyN);
             moved = true;
         }
         movedObjects.append(object);
@@ -637,14 +665,12 @@ void moveObjects(State &state, const QStringList &objectIds, double dxN, double 
     }
     const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
     const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
-    const double dxPx = clampedDxN * state.canvasPx;
-    const double dyPx = clampedDyN * state.canvasPx;
     bool moved = false;
     QJsonArray movedObjects;
     for (const QJsonValue value : state.generatedObjects) {
         QJsonObject object = value.toObject();
         if (ids.contains(object.value("id").toString())) {
-            translateObject(object, clampedDxN, clampedDyN, dxPx, dyPx);
+            translateObjectWithState(object, state, clampedDxN, clampedDyN);
             moved = true;
         }
         movedObjects.append(object);
@@ -1190,7 +1216,7 @@ void addPolygon(State &state, const Point &center, const QJsonObject &command) {
     QJsonArray points;
     QJsonArray pointsPx;
     for (int index = 0; index < sides; ++index) {
-        const double angle = (rotationDeg + 360.0 * index / sides) * M_PI / 180.0;
+        const double angle = degreesToRadians(rotationDeg + 360.0 * index / sides);
         const double px = center.x + std::cos(angle) * radiusPx;
         const double py = center.y + std::sin(angle) * radiusPx;
         points.append(pointArray(px / state.canvasPx, py / state.canvasPx));
@@ -1569,57 +1595,33 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
                  deleteObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
              }},
             {"duplicate_object", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx", 16.0 / state.canvasPx);
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
                  duplicateObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
              }},
             {"duplicate_objects", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx", 16.0 / state.canvasPx);
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
                  duplicateObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
              }},
             {"paste_object", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx", 16.0 / state.canvasPx);
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
                  pasteObject(state, command.value("object").toObject(), dxN, dyN);
              }},
             {"paste_objects", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx", 16.0 / state.canvasPx);
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy", 16.0 / state.canvasPx);
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
                  pasteObjects(state, arrayAt(command, "objects"), dxN, dyN);
              }},
             {"move_object", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx");
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy");
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
                  moveObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
              }},
             {"move_objects", [&]() {
-                 const double dxN = command.contains("dx_px")
-                     ? numberAt(command, "dx_px") / state.canvasPx
-                     : numberAt(command, "dx");
-                 const double dyN = command.contains("dy_px")
-                     ? numberAt(command, "dy_px") / state.canvasPx
-                     : numberAt(command, "dy");
+                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
+                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
                  moveObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
              }},
             {"update_object", [&]() {
@@ -1743,8 +1745,8 @@ QString DrawingCore::modelToSvg(const QJsonObject &model) {
         {"arc", [&](const QJsonObject &object) {
              const QJsonArray center = object.value("center_px").toArray();
              const double radius = object.value("radius_px").toDouble();
-             const double start = object.value("start_angle_deg").toDouble() * M_PI / 180.0;
-             const double end = object.value("end_angle_deg").toDouble() * M_PI / 180.0;
+             const double start = degreesToRadians(object.value("start_angle_deg").toDouble());
+             const double end = degreesToRadians(object.value("end_angle_deg").toDouble());
              const double x1 = center.at(0).toDouble() + std::cos(start) * radius;
              const double y1 = center.at(1).toDouble() + std::sin(start) * radius;
              const double x2 = center.at(0).toDouble() + std::cos(end) * radius;

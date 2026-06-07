@@ -6,10 +6,6 @@ QtObject {
 
     property var targetRoot: null
     property string activityMode: "blank"
-    property bool hasReviewSubject: false
-    property string selectedSubjectId: ""
-    property string selectedSubjectLabel: ""
-    property string selectedRouteId: ""
     property string selectedLocalTab: "overview"
     property string selectedSettingsPage: "theme"
     property ProjectProfileSession projectProfileSession: ProjectProfileSession {
@@ -51,10 +47,25 @@ QtObject {
     property alias selectedMapRow: mapSession.selectedMapRow
     property alias selectedMapCol: mapSession.selectedMapCol
     property alias mapTokenPalette: mapSession.mapTokenPalette
+    property alias hasReviewSubject: reviewSession.hasReviewSubject
+    property alias selectedSubjectId: reviewSession.selectedSubjectId
+    property alias selectedSubjectLabel: reviewSession.selectedSubjectLabel
+    property alias selectedRouteId: reviewSession.selectedRouteId
+    property alias rootRouteId: reviewSession.rootRouteId
+    property alias routes: reviewSession.routes
+    property alias backStack: reviewSession.backStack
+    property alias forwardStack: reviewSession.forwardStack
+    property alias statusOverrides: reviewSession.statusOverrides
+    property alias notes: reviewSession.notes
+    property alias reviewSubjectDocument: reviewSession.reviewSubjectDocument
     property DrawingSession drawingSession: DrawingSession {
         id: drawingSession
         writeDisabled: runtimeController.writeDisabled
         onChanged: runtimeController.handleDrawingSessionChanged()
+    }
+    property ReviewSession reviewSession: ReviewSession {
+        id: reviewSession
+        onChanged: runtimeController.bumpRevision("review_session")
     }
     property alias selectedDrawingToolId: drawingSession.selectedDrawingToolId
     property alias selectedDrawingVariantId: drawingSession.selectedDrawingVariantId
@@ -177,12 +188,6 @@ QtObject {
     property var drawingRecentFiles: []
     property string drawingRecentFilesPath: ""
     property int revision: 0
-
-    property var backStack: []
-    property var forwardStack: []
-    property var statusOverrides: ({})
-    property var notes: []
-    property var reviewSubjectDocument: ({})
     property var uiThemeDocument: ({})
     property string uiThemePath: ""
 
@@ -193,9 +198,6 @@ QtObject {
         { id: "prompts", label: "Prompts", tooltip: "Show the human and agent prompts that define what should be reviewed or changed." },
         { id: "notes", label: "Notes", tooltip: "Show review notes, decisions, and comments attached to the selected route." }
     ]
-    property var routes: []
-    property string rootRouteId: ""
-
     Component.onCompleted: {
         projectProfileSession.setProjectProfileState(
             typeof initialProjectProfilePath === "undefined" ? "" : String(initialProjectProfilePath),
@@ -210,8 +212,7 @@ QtObject {
         applyProjectPanelDefaults()
 
         var document = typeof initialReviewSubject === "undefined" ? ({}) : initialReviewSubject
-        reviewSubjectDocument = document
-        loadReviewSubject(reviewSubjectDocument)
+        loadReviewSubject(document)
 
         mapSession.mapCsvPath = typeof initialMapCsvPath === "undefined" ? "" : String(initialMapCsvPath)
         mapSession.mapCsvText = typeof initialMapCsvText === "undefined" ? "" : String(initialMapCsvText)
@@ -244,6 +245,10 @@ QtObject {
     function policyInt(source, key, fallback, low, high) {
         var value = source && Number.isFinite(Number(source[key])) ? Number(source[key]) : fallback
         return clamp(value, low, high)
+    }
+
+    function bumpRevision(_source) {
+        revision += 1
     }
 
     function markShellLayoutDirty() {
@@ -1660,148 +1665,51 @@ QtObject {
 
     // Review subject routing and inspector document assembly.
     function normalizeRoute(route) {
-        var routeId = String(route.route_id || route.id || "")
-        return {
-            id: routeId,
-            parent: String(route.parent || ""),
-            label: String(route.label || routeId),
-            type: String(route.type || "route"),
-            status: String(route.status || "pending"),
-            summary: String(route.summary || ""),
-            purpose: String(route.purpose || route.summary || ""),
-            objects: asArray(route.objects),
-            children: asArray(route.children),
-            codeRefs: asArray(route.code_refs || route.codeRefs),
-            prompts: asArray(route.prompts)
-        }
+        return reviewSession.normalizeRoute(route)
     }
 
     function fallbackRootRoute() {
-        return {
-            id: "missing_review_subject",
-            parent: "",
-            label: "Missing Review Subject",
-            type: "root",
-            status: "pending",
-            summary: "Review subject data could not be loaded.",
-            purpose: "Check the active project profile data_sources.review_subject path.",
-            objects: [],
-            children: [],
-            codeRefs: [],
-            prompts: ["Is the review subject JSON present and valid?"]
-        }
+        return reviewSession.fallbackRootRoute()
     }
 
     function blankRoute() {
-        return {
-            id: "",
-            parent: "",
-            label: "",
-            type: "",
-            status: "",
-            summary: "",
-            purpose: "",
-            objects: [],
-            children: [],
-            codeRefs: [],
-            prompts: []
-        }
+        return reviewSession.blankRoute()
     }
 
     function clearReviewSubject() {
-        hasReviewSubject = false
-        selectedSubjectId = ""
-        selectedSubjectLabel = ""
-        rootRouteId = ""
-        selectedRouteId = ""
-        routes = []
-        backStack = []
-        forwardStack = []
-        statusOverrides = ({})
-        notes = []
-        revision += 1
+        reviewSession.clearReviewSubject()
     }
 
     function loadReviewSubject(document) {
-        var reviewModeEnabled = hasActivityMode("review")
-        var subject = document && document.subject ? document.subject : ({})
-        var sourceRoutes = asArray(document && document.routes ? document.routes : [])
-
-        if (!reviewModeEnabled && !subject.subject_id && sourceRoutes.length === 0) {
-            clearReviewSubject()
-            return
-        }
-
-        selectedSubjectId = String(subject.subject_id || "")
-        selectedSubjectLabel = String(subject.label || selectedSubjectId)
-        rootRouteId = String(subject.root_route_id || "")
-
-        var nextRoutes = []
-        for (var index = 0; index < sourceRoutes.length; ++index) {
-            var normalized = normalizeRoute(sourceRoutes[index])
-            if (normalized.id.length > 0) {
-                nextRoutes.push(normalized)
-            }
-        }
-
-        routes = nextRoutes.length > 0 ? nextRoutes : [fallbackRootRoute()]
-        hasReviewSubject = nextRoutes.length > 0
-        if (!findRouteById(rootRouteId)) {
-            rootRouteId = routes[0].id
-        }
-        selectedRouteId = rootRouteId
-        backStack = []
-        forwardStack = []
-        revision += 1
+        reviewSession.loadReviewSubject(document, hasActivityMode("review"))
     }
 
     function findRouteById(routeId) {
-        for (var index = 0; index < routes.length; ++index) {
-            if (routes[index].id === routeId) {
-                return routes[index]
-            }
-        }
-        return null
+        return reviewSession.findRouteById(routeId)
     }
 
     function routeById(routeId) {
-        if (!hasReviewSubject && routes.length === 0) {
-            return blankRoute()
-        }
-        return findRouteById(routeId) || routes[0] || fallbackRootRoute()
+        return reviewSession.routeById(routeId)
     }
 
     function currentRoute() {
-        return routeById(selectedRouteId)
+        return reviewSession.currentRoute()
     }
 
     function routeStatus(routeId) {
-        var route = routeById(routeId)
-        return statusOverrides[routeId] || route.status || "pending"
+        return reviewSession.routeStatus(routeId)
     }
 
     function noteCount(routeId) {
-        var count = 0
-        for (var index = 0; index < notes.length; ++index) {
-            if (notes[index].routeId === routeId) {
-                count += 1
-            }
-        }
-        return count
+        return reviewSession.noteCount(routeId)
     }
 
     function routeNotes(routeId, unusedRevision) {
-        var result = []
-        for (var index = 0; index < notes.length; ++index) {
-            if (notes[index].routeId === routeId) {
-                result.push(notes[index])
-            }
-        }
-        return result
+        return reviewSession.routeNotes(routeId, unusedRevision)
     }
 
     function allNotes(unusedRevision) {
-        return notes
+        return reviewSession.allNotes(unusedRevision)
     }
 
     function inspectorSectionVisible(sectionId) {
@@ -1899,53 +1807,19 @@ QtObject {
     }
 
     function childRoutes(routeId, unusedRevision) {
-        if (!hasReviewSubject) {
-            return []
-        }
-        var route = routeById(routeId)
-        var result = []
-        for (var index = 0; index < route.children.length; ++index) {
-            result.push(routeById(route.children[index]))
-        }
-        return result
+        return reviewSession.childRoutes(routeId, unusedRevision)
     }
 
     function siblingRoutes(routeId) {
-        if (!hasReviewSubject) {
-            return []
-        }
-        var route = routeById(routeId)
-        if (!route.parent) {
-            return childRoutes(rootRouteId, revision)
-        }
-        return childRoutes(route.parent, revision)
+        return reviewSession.siblingRoutes(routeId)
     }
 
     function breadcrumb(routeId) {
-        if (!hasReviewSubject) {
-            return []
-        }
-        var result = []
-        var guard = 0
-        var route = routeById(routeId)
-        while (route && guard < 20) {
-            result.unshift(route)
-            if (!route.parent) {
-                break
-            }
-            route = routeById(route.parent)
-            guard += 1
-        }
-        return result
+        return reviewSession.breadcrumb(routeId)
     }
 
     function breadcrumbText(routeId) {
-        var crumbs = breadcrumb(routeId)
-        var labels = []
-        for (var index = 0; index < crumbs.length; ++index) {
-            labels.push(crumbs[index].label)
-        }
-        return labels.join(" / ")
+        return reviewSession.breadcrumbText(routeId)
     }
 
     function setActivityMode(modeId) {
@@ -2008,50 +1882,19 @@ QtObject {
     }
 
     function selectRoute(routeId) {
-        if (!hasReviewSubject) {
-            return
-        }
-        if (routeId === selectedRouteId || !findRouteById(routeId)) {
-            return
-        }
-        var nextBack = backStack.slice()
-        nextBack.push(selectedRouteId)
-        backStack = nextBack
-        forwardStack = []
-        selectedRouteId = routeId
-        revision += 1
+        reviewSession.selectRoute(routeId)
     }
 
     function goHome() {
-        selectRoute(rootRouteId)
+        reviewSession.goHome()
     }
 
     function goBack() {
-        if (backStack.length === 0) {
-            return
-        }
-        var nextBack = backStack.slice()
-        var prior = nextBack.pop()
-        var nextForward = forwardStack.slice()
-        nextForward.push(selectedRouteId)
-        backStack = nextBack
-        forwardStack = nextForward
-        selectedRouteId = prior
-        revision += 1
+        reviewSession.goBack()
     }
 
     function goForward() {
-        if (forwardStack.length === 0) {
-            return
-        }
-        var nextForward = forwardStack.slice()
-        var next = nextForward.pop()
-        var nextBack = backStack.slice()
-        nextBack.push(selectedRouteId)
-        backStack = nextBack
-        forwardStack = nextForward
-        selectedRouteId = next
-        revision += 1
+        reviewSession.goForward()
     }
 
     function setLocalTab(tabName) {
@@ -2073,51 +1916,18 @@ QtObject {
     }
 
     function setStatus(routeId, status) {
-        var next = Object.assign({}, statusOverrides)
-        next[routeId] = status
-        statusOverrides = next
-        revision += 1
+        reviewSession.setStatus(routeId, status)
     }
 
     function runInspectorAction(actionId, targetId) {
-        var text = String(actionId || "")
-        if (text.indexOf("status_") !== 0) {
-            return
-        }
-        setStatus(targetId || selectedRouteId, text.slice(7))
+        reviewSession.runInspectorAction(actionId, targetId)
     }
 
     function addNote(routeId, status, body) {
-        if (!hasReviewSubject) {
-            return
-        }
-        var text = String(body || "").trim()
-        if (!text.length) {
-            return
-        }
-        var next = notes.slice()
-        next.push({
-            id: "note_" + String(next.length + 1).padStart(3, "0"),
-            routeId: routeId,
-            routeLabel: routeById(routeId).label,
-            status: status,
-            body: text,
-            createdAt: new Date().toLocaleString()
-        })
-        notes = next
-        setStatus(routeId, status)
-        revision += 1
+        reviewSession.addNote(routeId, status, body)
     }
 
     function statusCounts(unusedRevision) {
-        var counts = { pending: 0, accepted: 0, needs_rework: 0, rejected: 0 }
-        for (var index = 0; index < routes.length; ++index) {
-            var status = routeStatus(routes[index].id)
-            if (counts[status] === undefined) {
-                counts[status] = 0
-            }
-            counts[status] += 1
-        }
-        return counts
+        return reviewSession.statusCounts(unusedRevision)
     }
 }

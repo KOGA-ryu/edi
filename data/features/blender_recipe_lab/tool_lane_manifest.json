@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "tool_lane": "blender_recipe_lab",
+  "label": "Blender Recipe Lab Lane",
+  "purpose": "Native UI landing zone for Spark-built Blender scripting features. The native repo owns the UI, runner config, queue display, and command inspection. gameguy-3d-lab owns the actual Blender scripts.",
+  "status": "runner_scaffold",
+  "source_project": {
+    "root": "/Users/kogaryu/gameguy-3d-lab",
+    "research": [
+      "/Users/kogaryu/gameguy-3d-lab/docs/research/ui_recipe_workbench_v0/",
+      "/Users/kogaryu/gameguy-3d-lab/docs/research/component_style_system_v0/",
+      "/Users/kogaryu/gameguy-3d-lab/docs/research/ascii_geometry_planning_v0/"
+    ],
+    "scripts": {
+      "materialize_asset_profile": "/Users/kogaryu/draft/pattern_lab_2d_native_clean/scripts/adapters/materialize_asset_profile_operation_chain_v0.py",
+      "materialize_operation_chain": "/Users/kogaryu/draft/pattern_lab_2d_native_clean/scripts/adapters/materialize_blender_operation_chain_v0.py",
+      "validate_plan": "/Users/kogaryu/gameguy-3d-lab/scripts/validate_tool_plan_against_ui_templates_v0.py",
+      "ascii_dryrun": "/Users/kogaryu/gameguy-3d-lab/scripts/render_tool_plan_ascii_dryrun_v0.py",
+      "execute_plan": "/Users/kogaryu/gameguy-3d-lab/scripts/execute_blender_tool_plan_v0.py"
+    }
+  },
+  "glyph_project": {
+    "root": "/Users/kogaryu/font",
+    "pack": "/Users/kogaryu/font/packs/stone_architecture_4x4",
+    "renderer": "/Users/kogaryu/font/glyph_lab/cli.py",
+    "runtime": "/Users/kogaryu/font/.venv/bin/python",
+    "bridge_adapter": "/Users/kogaryu/draft/pattern_lab_2d_native_clean/scripts/adapters/render_tool_plan_glyph_preview_v0.py",
+    "inputs": {
+      "glyphs": "/Users/kogaryu/font/packs/stone_architecture_4x4/glyphs.promoted.json",
+      "atlas": "/Users/kogaryu/font/packs/stone_architecture_4x4/atlas.promoted.png",
+      "mapping": "/Users/kogaryu/font/packs/stone_architecture_4x4/ascii_glyph_mapping.json"
+    }
+  },
+  "native_surfaces": {
+    "workspace": "src/features/blender_recipe_lab/BlenderRecipeLabWorkspace.qml",
+    "left_panel": "src/features/blender_recipe_lab/BlenderRecipeLabLeftPanel.qml",
+    "right_panel": "src/features/blender_recipe_lab/BlenderRecipeLabRightContext.qml",
+    "bottom_panel": "src/features/blender_recipe_lab/BlenderRecipeLabBottomPanel.qml",
+    "session": "src/runtime/RuntimeController.qml",
+    "runner": "app/main.cpp"
+  },
+  "native_data": {
+    "asset_profile_registry": "data/features/blender_recipe_lab/asset_profile_registry.json",
+    "asset_zoo_registry": "data/features/blender_recipe_lab/asset_zoo_registry.json",
+    "operation_catalog": "data/features/blender_recipe_lab/operation_catalog.json",
+    "operation_chain": "data/features/blender_recipe_lab/operation_chain.json",
+    "backend_script_catalog": "data/features/blender_recipe_lab/script_catalog.json",
+    "backend_script_chain": "data/features/blender_recipe_lab/script_chain.json"
+  },
+  "spark_rule": "Spark builds only the selected target files from spark_feature_queue.json unless the queue entry is updated first.",
+  "non_goals": [
+    "copying gameguy-3d-lab into this repo",
+    "running Blender before validate-only and ASCII dry-run gates exist",
+    "inventing style inside the native UI",
+    "mutating the drawing canvas from Blender lane commands"
+  ]
+}

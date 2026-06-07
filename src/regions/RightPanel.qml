@@ -8,6 +8,7 @@ import "../features/settings"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
 import "../features/text_editor"
+import "../features/blender_recipe_lab"
 
 Rectangle {
     id: rightPanel
@@ -56,6 +57,13 @@ Rectangle {
         controller: rightPanel.controller
     }
 
+    BlenderRecipeLabRightContext {
+        anchors.fill: parent
+        anchors.margins: UiStyle.space6
+        visible: rightPanel.controller && rightPanel.controller.activityMode === "blender_recipe_lab"
+        controller: rightPanel.controller
+    }
+
     BlankPanel {
         anchors.fill: parent
         anchors.margins: UiStyle.space6
@@ -65,6 +73,7 @@ Rectangle {
             && rightPanel.controller.activityMode !== "map_editor"
             && rightPanel.controller.activityMode !== "drawing_tool"
             && rightPanel.controller.activityMode !== "text_editor"
+            && rightPanel.controller.activityMode !== "blender_recipe_lab"
         controller: rightPanel.controller
     }
 }

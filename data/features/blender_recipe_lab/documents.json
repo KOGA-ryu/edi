@@ -1,0 +1,39 @@
+{
+    "documents": [
+        {
+            "id": "face_mask_recipe",
+            "language": "json",
+            "name": "face_mask_grid_v0.json",
+            "path": "docs/face_mask_grid_v0.json",
+            "pinned": true,
+            "read_only": true,
+            "role": "prompt"
+        },
+        {
+            "id": "operation_chain",
+            "language": "json",
+            "name": "operation_chain.json",
+            "path": "operation_chain.json",
+            "pinned": true,
+            "read_only": true,
+            "role": "context"
+        },
+        {
+            "id": "script_chain",
+            "language": "json",
+            "name": "script_chain.json",
+            "path": "script_chain.json",
+            "pinned": false,
+            "read_only": true,
+            "role": "reference"
+        }
+    ],
+    "editor_state": {
+        "active_document_id": "face_mask_recipe",
+        "line_numbers_visible": true,
+        "secondary_document_id": "face_mask_recipe",
+        "split_enabled": false,
+        "wrap_enabled": true
+    },
+    "schema_version": 1
+}

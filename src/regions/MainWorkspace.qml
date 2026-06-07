@@ -7,6 +7,7 @@ import "../features/settings"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
 import "../features/text_editor"
+import "../features/blender_recipe_lab"
 
 Rectangle {
     id: workspace
@@ -50,6 +51,12 @@ Rectangle {
         controller: workspace.controller
     }
 
+    BlenderRecipeLabWorkspace {
+        anchors.fill: parent
+        visible: workspace.controller && workspace.controller.activityMode === "blender_recipe_lab"
+        controller: workspace.controller
+    }
+
     BlankWorkspace {
         anchors.fill: parent
         visible: !workspace.controller
@@ -57,7 +64,8 @@ Rectangle {
                 && workspace.controller.activityMode !== "settings"
                 && workspace.controller.activityMode !== "map_editor"
                 && workspace.controller.activityMode !== "drawing_tool"
-                && workspace.controller.activityMode !== "text_editor")
+                && workspace.controller.activityMode !== "text_editor"
+                && workspace.controller.activityMode !== "blender_recipe_lab")
         controller: workspace.controller
     }
 }

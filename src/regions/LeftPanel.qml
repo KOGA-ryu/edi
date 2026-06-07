@@ -9,6 +9,7 @@ import "../features/settings"
 import "../features/csv_map_editor"
 import "../features/drawing_tool"
 import "../features/text_editor"
+import "../features/blender_recipe_lab"
 
 Rectangle {
     id: leftPanel
@@ -30,7 +31,9 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: UiStyle.toolbarHeight
-            visible: !leftPanel.controller || leftPanel.controller.activityMode !== "drawing_tool"
+            visible: !leftPanel.controller
+                || (leftPanel.controller.activityMode !== "drawing_tool"
+                    && leftPanel.controller.activityMode !== "blender_recipe_lab")
             spacing: UiStyle.space8
 
             Text {
@@ -112,6 +115,12 @@ Rectangle {
                         Layout.fillWidth: true
                     }
 
+                    BlenderRecipeLabLeftPanel {
+                        controller: leftPanel.controller
+                        visible: leftPanel.controller && leftPanel.controller.activityMode === "blender_recipe_lab"
+                        Layout.fillWidth: true
+                    }
+
                     BlankPanel {
                         visible: leftPanel.controller
                             && leftPanel.controller.activityMode !== "review"
@@ -119,6 +128,7 @@ Rectangle {
                             && leftPanel.controller.activityMode !== "map_editor"
                             && leftPanel.controller.activityMode !== "drawing_tool"
                             && leftPanel.controller.activityMode !== "text_editor"
+                            && leftPanel.controller.activityMode !== "blender_recipe_lab"
                         Layout.fillWidth: true
                     }
                 }

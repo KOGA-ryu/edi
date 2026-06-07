@@ -1,0 +1,79 @@
+{
+  "schema": "gameguy_workbench_settings_v0",
+  "active_lane": "tool_plan",
+  "hardware_profile": "mid",
+  "source_bundle_path": "data/architecture/asset_mill/recipes/profile_revolve_assets_v0.json",
+  "working_plan_path": "/tmp/draftsman_blender_recipe_lab_tool_plan/materialized_tool_plan.json",
+  "output_root": "/tmp/draftsman_blender_recipe_lab_tool_plan",
+  "source_pump": {
+    "clean_tmp_output": true,
+    "write_repo_outputs": false,
+    "validate_asset_json_after_pump": true,
+    "adapter_validate_only_after_pump": true
+  },
+  "profile_revolve": {
+    "axis": "z",
+    "segments": 24,
+    "material_role": "stone_shaft",
+    "show_profile_graph": true,
+    "show_ring_preview": true
+  },
+  "tool_plan": {
+    "tool_filter": "exec",
+    "stage_lock": true,
+    "auto_renumber_steps": true,
+    "show_dependency_warnings": true,
+    "allow_raw_param_edit": false,
+    "validate_on_change": true
+  },
+  "ascii": {
+    "backend": "tool_plan_dryrun",
+    "width": 80,
+    "height": 50,
+    "projection": "front_side_top",
+    "custom_palette": "",
+    "edge_mode": "none",
+    "save_txt": true,
+    "save_png": false
+  },
+  "glyph_preview": {
+    "backend": "glyph_lab.render_ascii_glyphs",
+    "font_repo": "/Users/kogaryu/font",
+    "glyph_pack": "/Users/kogaryu/font/packs/stone_architecture_4x4",
+    "renderer_python": "/Users/kogaryu/font/.venv/bin/python",
+    "input_root": "/tmp/draftsman_blender_recipe_lab_tool_plan/ascii_dryrun",
+    "output_root": "/tmp/draftsman_blender_recipe_lab_tool_plan/glyph_preview",
+    "projection": "front_side_top",
+    "scale": 4,
+    "strip_projection_titles": true,
+    "translate_donated_ascii_symbols": true,
+    "save_normalized_grid": true,
+    "save_png": true
+  },
+  "blender": {
+    "path": "/Applications/Blender.app/Contents/MacOS/Blender",
+    "render_png": false,
+    "save_blend": true,
+    "hide_connectors": true,
+    "output_root": "/tmp/gameguy_blender_preview_v0",
+    "render_resolution": "1600x1100"
+  },
+  "validation": {
+    "json_parse_check": true,
+    "template_contract_check": true,
+    "tool_plan_ui_check": true,
+    "asset_schema_check": true,
+    "adapter_validate_only": true,
+    "full_pipeline_gate": false
+  },
+  "output_safety": {
+    "tmp_only_outputs": true,
+    "clean_before_run": true,
+    "repo_output_guard": true
+  },
+  "review": {
+    "capture_rejected_preview": true,
+    "correction_note_path": "docs/scratch/blender_recipe_lab_corrections_v0.md",
+    "source_change_target": "current_bundle"
+  }
+}

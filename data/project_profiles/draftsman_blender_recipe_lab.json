@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "profile": {
+    "profile_id": "draftsman_blender_recipe_lab",
+    "label": "Blender Recipe Lab",
+    "type": "visual_asset_review",
+    "root_path": "/Users/kogaryu/gameguy-3d-lab",
+    "summary": "Inert Draftsman workspace for reviewing addressable Blender recipe-grid surfaces.",
+    "default_activity": "blender_recipe_lab"
+  },
+  "activity_modes": [
+    {
+      "id": "blender_recipe_lab",
+      "label": "Recipe Lab",
+      "icon": "grid",
+      "tooltip": "Review addressable Blender recipe-grid surfaces.",
+      "enabled": true,
+      "exclusive_group": "tool_type"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "gear",
+      "tooltip": "Theme and layout settings.",
+      "enabled": true,
+      "exclusive_group": "system"
+    }
+  ],
+  "left_panel": {
+    "settings_label": "Theme and layout",
+    "project_rows": [
+      {
+        "label": "Face mask grid",
+        "meta": "fixture"
+      },
+      {
+        "label": "Selector report",
+        "meta": "proof target"
+      },
+      {
+        "label": "Backend repo",
+        "meta": "gameguy-3d-lab"
+      }
+    ]
+  },
+  "main_workspace": {
+    "feature": "blender_recipe_lab"
+  },
+  "right_inspector": {
+    "source": "blender_recipe_lab",
+    "sections": {
+      "facts": true,
+      "selection": true,
+      "code_refs": true,
+      "notes": false,
+      "receipts": false,
+      "actions": false
+    }
+  },
+  "bottom_panel": {
+    "tabs": []
+  },
+  "panel_defaults": {
+    "left_collapsed": false,
+    "right_collapsed": false,
+    "bottom_collapsed": false
+  },
+  "data_sources": {
+    "fixture": "data/features/blender_recipe_lab/face_mask_grid_v0.fixture.json",
+    "review_subject": "data/features/blender_recipe_lab/face_mask_grid_v0.fixture.json",
+    "text_documents": "data/features/blender_recipe_lab/documents.json",
+    "drawing_metadata_presets": "data/features/blender_recipe_lab/metadata_presets.json",
+    "review_notes": "docs/profiles/blender_recipe_lab_content_layout.md"
+  },
+  "custom_actions": [],
+  "write_policy": {
+    "writes_enabled": false,
+    "note_storage": "read_only_blender_recipe_lab",
+    "reason": "Foundation slice is read-only and does not execute Blender or backend scripts."
+  }
+}

@@ -78,6 +78,16 @@
         "csv_map_editor",
         "settings"
       ]
+    },
+    {
+      "profile_id": "draftsman_blender_recipe_lab",
+      "path": "data/project_profiles/draftsman_blender_recipe_lab.json",
+      "purpose": "Inert Blender recipe-grid lab for addressable face-mask surface work.",
+      "default_activity": "blender_recipe_lab",
+      "enabled_features": [
+        "blender_recipe_lab",
+        "settings"
+      ]
     }
   ],
   "surfaces": [
@@ -92,6 +102,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -124,6 +135,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -158,6 +170,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -188,6 +201,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -201,6 +215,7 @@
         "drawing_tool_left_panel",
         "text_editor_left_panel",
         "csv_map_editor_left_nav",
+        "blender_recipe_lab_left_panel",
         "settings_left_nav"
       ],
       "may_edit": [
@@ -229,6 +244,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -241,6 +257,7 @@
         "drawing_tool_workspace",
         "text_editor_workspace",
         "csv_map_editor_workspace",
+        "blender_recipe_lab_workspace",
         "theme_settings_workspace"
       ],
       "may_edit": [
@@ -269,6 +286,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -282,6 +300,7 @@
         "drawing_tool_right_context",
         "text_editor_right_context",
         "csv_map_editor_right_context",
+        "blender_recipe_lab_right_context",
         "settings_right_context"
       ],
       "may_edit": [
@@ -308,6 +327,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -320,7 +340,8 @@
         "review_shelf",
         "drawing_tool_shelf",
         "text_editor_shelf",
-        "csv_map_editor_shelf"
+        "csv_map_editor_shelf",
+        "blender_recipe_lab_shelf"
       ],
       "may_edit": [
         "bottom shelf routing",
@@ -346,6 +367,7 @@
         "drawing_tool",
         "text_editor",
         "map_editor",
+        "blender_recipe_lab",
         "settings"
       ],
       "inputs": [
@@ -541,6 +563,35 @@
       ],
       "proof": [
         "docs/proof/csv_map_editor_1280x820.png"
+      ]
+    },
+    {
+      "surface_id": "blender_recipe_lab",
+      "kind": "feature_surface",
+      "owner_file": "src/features/blender_recipe_lab/BlenderRecipeLabWorkspace.qml",
+      "data_ui": "blender_recipe_lab_workspace",
+      "activity_modes": [
+        "blender_recipe_lab"
+      ],
+      "profile": "data/project_profiles/draftsman_blender_recipe_lab.json",
+      "inputs": [
+        "data/features/blender_recipe_lab/face_mask_grid_v0.fixture.json",
+        "controller.activityMode",
+        "controller.rightInspectorSource"
+      ],
+      "may_edit": [
+        "blender recipe lab feature internals",
+        "inert recipe-grid presentation",
+        "selector proof summary"
+      ],
+      "must_not_edit": [
+        "backend Blender scripts",
+        "default blank profile",
+        "drawing-tool files",
+        "broad shell layout unless routing requires it"
+      ],
+      "proof": [
+        "docs/proof/blender_recipe_lab_1280x820.png"
       ]
     }
   ],

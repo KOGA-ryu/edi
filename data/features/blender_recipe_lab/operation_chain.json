@@ -1,0 +1,149 @@
+{
+  "schema": "blender_operation_chain_v0",
+  "workspace_id": "blender_recipe_lab",
+  "chain_id": "cube_bevel_preview_operation_chain_v0",
+  "label": "Cube Bevel Preview Operation Chain",
+  "purpose": "Create a small valid Blender construction plan from operations, then validate and preview it before Blender execution.",
+  "selected_step_index": 0,
+  "stage_order": [
+    "base_form",
+    "assembly",
+    "shape_refinement",
+    "sculpt_detail",
+    "retopo_cleanup",
+    "uv_mapping",
+    "material_texture",
+    "validation_export"
+  ],
+  "plan": {
+    "plan_id": "ui_cube_bevel_operation_plan_v0",
+    "asset_id": "ui_cube_bevel_asset_v0",
+    "asset_family": "ui_workbench",
+    "style": "operation_chain"
+  },
+  "steps": [
+    {
+      "step_id": "create_base_cube",
+      "operation_id": "primitive_cube_add",
+      "enabled": true,
+      "order": 10,
+      "params": {
+        "size_m": [
+          1.2,
+          1.0,
+          0.8
+        ],
+        "location_m": [
+          0.0,
+          0.0,
+          0.4
+        ],
+        "material_role": "body"
+      }
+    },
+    {
+      "step_id": "join_visible_base",
+      "operation_id": "join_objects",
+      "enabled": true,
+      "order": 20,
+      "params": {
+        "objects": [
+          "visible"
+        ]
+      }
+    },
+    {
+      "step_id": "bevel_hard_edges",
+      "operation_id": "modifier_bevel",
+      "enabled": true,
+      "order": 30,
+      "params": {
+        "width_m": 0.04,
+        "segments": 2,
+        "affect": "ANGLE"
+      }
+    },
+    {
+      "step_id": "weight_normals",
+      "operation_id": "modifier_weighted_normal",
+      "enabled": true,
+      "order": 40,
+      "params": {
+        "keep_sharp": true
+      }
+    },
+    {
+      "step_id": "create_stone_material",
+      "operation_id": "material_principled_shader",
+      "enabled": true,
+      "order": 50,
+      "params": {
+        "base_color": [
+          0.48,
+          0.46,
+          0.39
+        ],
+        "roughness": 0.82,
+        "metallic": 0.0
+      }
+    },
+    {
+      "step_id": "assign_material_roles",
+      "operation_id": "material_assign_by_part",
+      "enabled": true,
+      "order": 60,
+      "params": {
+        "material_map": {
+          "default": "gothic_stone",
+          "body": "gothic_stone",
+          "base": "gothic_stone_dark",
+          "cap": "gothic_stone_cap"
+        }
+      }
+    },
+    {
+      "step_id": "calculate_final_bounds",
+      "operation_id": "calculate_bounds",
+      "enabled": true,
+      "order": 70,
+      "params": {
+        "units": "abstract_meter"
+      }
+    },
+    {
+      "step_id": "validate_mesh_output",
+      "operation_id": "validate_non_manifold",
+      "enabled": true,
+      "order": 80,
+      "params": {
+        "fail_on_non_manifold": true,
+        "cleanup_merge_distance_m": 0.001,
+        "cleanup_fill_hole_sides": 12
+      }
+    },
+    {
+      "step_id": "render_preview_blocked_by_policy",
+      "operation_id": "render_workbench_preview",
+      "enabled": false,
+      "order": 90,
+      "params": {
+        "resolution": [
+          1600,
+          1100
+        ],
+        "preview_visibility": "final_asset_only",
+        "hide_validation_helpers": true
+      }
+    },
+    {
+      "step_id": "export_gltf_blocked_by_policy",
+      "operation_id": "export_gltf",
+      "enabled": false,
+      "order": 100,
+      "params": {
+        "format": "GLB",
+        "apply_modifiers": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "blender_recipe_lab_metadata_presets_v0",
+  "feature_id": "blender_recipe_lab",
+  "roles": [
+    "shell",
+    "profile_station",
+    "selector_band",
+    "collision",
+    "material_region"
+  ],
+  "materials": [
+    "stone",
+    "brick",
+    "wood",
+    "metal",
+    "glass",
+    "marble"
+  ],
+  "export_groups": [
+    "shell",
+    "structural",
+    "decorative",
+    "collision",
+    "preview"
+  ],
+  "tags": [
+    "script_anchor",
+    "selector",
+    "proof",
+    "generated",
+    "review"
+  ]
+}

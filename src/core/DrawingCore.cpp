@@ -64,6 +64,45 @@ struct Bounds {
     double maxY = 0.0;
 };
 
+enum class ShapeKind {
+    Unknown,
+    Point,
+    Line,
+    Circle,
+    Rectangle,
+    Polyline,
+    Polygon,
+};
+
+ShapeKind objectShapeKind(const QString &kind) {
+    if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+        return ShapeKind::Point;
+    }
+    if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+        return ShapeKind::Line;
+    }
+    if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
+        return ShapeKind::Circle;
+    }
+    if (kind == QStringLiteral("rectangle")
+        || kind == QStringLiteral("image_reference_frame")
+        || kind == QStringLiteral("ascii_crop_frame")
+        || kind == QStringLiteral("ascii_cell_region")) {
+        return ShapeKind::Rectangle;
+    }
+    if (kind == QStringLiteral("polyline")) {
+        return ShapeKind::Polyline;
+    }
+    if (kind == QStringLiteral("polygon")) {
+        return ShapeKind::Polygon;
+    }
+    return ShapeKind::Unknown;
+}
+
+ShapeKind objectShapeKind(const QJsonObject &object) {
+    return objectShapeKind(object.value("kind").toString());
+}
+
 double numberAt(const QJsonObject &object, const QString &key, double fallback = 0.0) {
     const QJsonValue value = object.value(key);
     return value.isDouble() ? value.toDouble() : fallback;
@@ -208,28 +247,38 @@ void includePointList(Bounds &bounds, const QJsonArray &points) {
 
 Bounds normalizedBounds(const QJsonObject &object) {
     Bounds bounds;
-    const QString kind = object.value("kind").toString();
-    if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+    const ShapeKind shapeKind = objectShapeKind(object);
+    switch (shapeKind) {
+    case ShapeKind::Point:
         includePoint(bounds, object.value("x").toDouble(), object.value("y").toDouble());
-    } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+        break;
+    case ShapeKind::Line:
         includePoint(bounds, object.value("x1").toDouble(), object.value("y1").toDouble());
         includePoint(bounds, object.value("x2").toDouble(), object.value("y2").toDouble());
-    } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
+        break;
+    case ShapeKind::Circle: {
         const double cx = object.value("cx").toDouble();
         const double cy = object.value("cy").toDouble();
         const double radius = object.value("radius").toDouble();
         includePoint(bounds, cx - radius, cy - radius);
         includePoint(bounds, cx + radius, cy + radius);
-    } else if (kind == QStringLiteral("rectangle")
-               || kind == QStringLiteral("image_reference_frame")
-               || kind == QStringLiteral("ascii_crop_frame")
-               || kind == QStringLiteral("ascii_cell_region")) {
+        break;
+    }
+    case ShapeKind::Rectangle: {
         const double x = object.value("x").toDouble();
         const double y = object.value("y").toDouble();
         includePoint(bounds, x, y);
         includePoint(bounds, x + object.value("width").toDouble(), y + object.value("height").toDouble());
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
+        break;
+    }
+    case ShapeKind::Polyline:
         includePointList(bounds, object.value("points").toArray());
+        break;
+    case ShapeKind::Polygon:
+        includePointList(bounds, object.value("points").toArray());
+        break;
+    case ShapeKind::Unknown:
+        break;
     }
     return bounds;
 }
@@ -277,26 +326,27 @@ double commandDeltaFromCommand(const State &state, const QJsonObject &command, c
 }
 
 void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx) {
-    const QString kind = object.value("kind").toString();
-    if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+    const ShapeKind shapeKind = objectShapeKind(object);
+    switch (shapeKind) {
+    case ShapeKind::Point:
         object.insert("x", object.value("x").toDouble() + dxN);
         object.insert("y", object.value("y").toDouble() + dyN);
         object.insert("point_px", translatedPointArray(object.value("point_px").toArray(), dxPx, dyPx));
-    } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+        break;
+    case ShapeKind::Line:
         object.insert("x1", object.value("x1").toDouble() + dxN);
         object.insert("y1", object.value("y1").toDouble() + dyN);
         object.insert("x2", object.value("x2").toDouble() + dxN);
         object.insert("y2", object.value("y2").toDouble() + dyN);
         object.insert("from_px", translatedPointArray(object.value("from_px").toArray(), dxPx, dyPx));
         object.insert("to_px", translatedPointArray(object.value("to_px").toArray(), dxPx, dyPx));
-    } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
+        break;
+    case ShapeKind::Circle:
         object.insert("cx", object.value("cx").toDouble() + dxN);
         object.insert("cy", object.value("cy").toDouble() + dyN);
         object.insert("center_px", translatedPointArray(object.value("center_px").toArray(), dxPx, dyPx));
-    } else if (kind == QStringLiteral("rectangle")
-               || kind == QStringLiteral("image_reference_frame")
-               || kind == QStringLiteral("ascii_crop_frame")
-               || kind == QStringLiteral("ascii_cell_region")) {
+        break;
+    case ShapeKind::Rectangle: {
         object.insert("x", object.value("x").toDouble() + dxN);
         object.insert("y", object.value("y").toDouble() + dyN);
         object.insert("from_px", translatedPointArray(object.value("from_px").toArray(), dxPx, dyPx));
@@ -307,15 +357,21 @@ void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, d
             rect[1] = rect.at(1).toDouble() + dyPx;
             object.insert("rect_px", rect);
         }
-    } else if (kind == QStringLiteral("polyline")) {
+        break;
+    }
+    case ShapeKind::Polyline:
         object.insert("points", translatedPointList(object.value("points").toArray(), dxN, dyN));
         object.insert("points_px", translatedPointList(object.value("points_px").toArray(), dxPx, dyPx));
-    } else if (kind == QStringLiteral("polygon")) {
+        break;
+    case ShapeKind::Polygon:
         object.insert("cx", object.value("cx").toDouble() + dxN);
         object.insert("cy", object.value("cy").toDouble() + dyN);
         object.insert("center_px", translatedPointArray(object.value("center_px").toArray(), dxPx, dyPx));
         object.insert("points", translatedPointList(object.value("points").toArray(), dxN, dyN));
         object.insert("points_px", translatedPointList(object.value("points_px").toArray(), dxPx, dyPx));
+        break;
+    case ShapeKind::Unknown:
+        break;
     }
 }
 

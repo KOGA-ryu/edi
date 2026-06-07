@@ -19,8 +19,14 @@ qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/core/DrawingCore.cpp
     src/export/BlenderSvgBundleTemplates.h
     src/export/BlenderSvgBundleTemplates.cpp
+    src/export/BlenderSvgBundleExport.h
+    src/export/BlenderSvgBundleExport.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/DrawingRecentFilesStore.h
+    src/io/DrawingRecentFilesStore.cpp
+    src/io/ShellLayoutStore.h
+    src/io/ShellLayoutStore.cpp
     src/io/TextEditorStore.h
     src/io/TextEditorStore.cpp
 )

@@ -21,24 +21,4 @@ private:
     static QString localPath(const QUrl &url);
     static QString bundleDirectoryPath(const QString &selectedPath);
     static bool writeTextFile(const QString &path, const QString &text);
-    static void copyIfPresent(QJsonObject &target, const QJsonObject &source, const QString &key);
-    static QJsonObject objectStyleManifest(const QJsonObject &object);
-    static QJsonObject objectCoordinateManifest(const QJsonObject &object);
-    static QJsonArray objectTagsManifest(const QJsonObject &object);
-    static QJsonObject objectMetadataManifest(const QJsonObject &object);
-    static QJsonObject objectManifestEntry(const QJsonObject &object);
-    static QJsonObject blenderSvgBundleManifest(const QString &bundlePath, const QJsonObject &model);
-    static bool hasNonEmptyString(const QJsonObject &object, const QString &key);
-    static bool hasNonEmptyTags(const QJsonObject &object);
-    static bool isSupportedManifestObjectType(const QString &type);
-    static QJsonObject blenderSvgBundleExportReport(const QString &bundlePath,
-                                                   const QString &svgPath,
-                                                   const QString &manifestPath,
-                                                   const QString &scriptPath,
-                                                   const QString &readmePath,
-                                                   const QString &reportPath,
-                                                   const QString &reportTextPath,
-                                                   const QString &verifyPath,
-                                                   const QJsonObject &manifest);
-    static QString blenderSvgBundleExportReportText(const QJsonObject &report);
 };

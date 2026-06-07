@@ -16,7 +16,7 @@ QtObject {
     property int rightPanelMinWidth: 160
     property int rightPanelMaxWidth: 2400
     property int bottomPanelMinHeight: 96
-    property int bottomPanelMaxHeight: 360
+    property int bottomPanelMaxHeight: 1000
     property int leftPanelAutoHideWidth: 640
     property int rightPanelAutoHideWidth: 0
     property int bottomPanelAutoHideHeight: 520

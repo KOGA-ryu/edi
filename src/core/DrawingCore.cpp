@@ -1686,6 +1686,125 @@ void appendSerializedObjectToSvg(QString &svg, const QJsonObject &object) {
         break;
     }
 }
+
+bool runCommand(State &state, const QJsonObject &command) {
+    struct CommandHandler {
+        const char *commandName;
+        std::function<void()> run;
+    };
+    const std::vector<CommandHandler> handlers = {
+        {"select_tool", [&]() {
+             const QString nextTool = stringAt(command, "tool", state.selectedTool);
+             if (nextTool != state.selectedTool) {
+                 state.pendingPoint = {};
+             }
+             state.selectedTool = nextTool;
+        }},
+        {"select_object", [&]() {
+             selectObject(state, stringAt(command, "object_id", state.selectedObject));
+         }},
+        {"select_objects", [&]() {
+             selectObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
+         }},
+        {"delete_object", [&]() {
+             deleteObject(state, stringAt(command, "object_id", state.selectedObject));
+         }},
+        {"delete_objects", [&]() {
+             deleteObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
+         }},
+        {"duplicate_object", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
+             duplicateObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
+         }},
+        {"duplicate_objects", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
+             duplicateObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
+         }},
+        {"paste_object", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
+             pasteObject(state, command.value("object").toObject(), dxN, dyN);
+         }},
+        {"paste_objects", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
+             pasteObjects(state, arrayAt(command, "objects"), dxN, dyN);
+         }},
+        {"move_object", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
+             moveObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
+         }},
+        {"move_objects", [&]() {
+             const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
+             const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
+             moveObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
+         }},
+        {"update_object", [&]() {
+             updateObjectField(
+                 state,
+                 stringAt(command, "object_id", state.selectedObject),
+                 stringAt(command, "field"),
+                 numberAt(command, "value"));
+         }},
+        {"set_object_metadata", [&]() {
+             setObjectMetadataField(
+                 state,
+                 stringAt(command, "object_id", state.selectedObject),
+                 stringAt(command, "field"),
+                 command.value("value"));
+         }},
+        {"set_tool_parameter", [&]() {
+             setToolParameter(state, stringAt(command, "parameter"), command.value("value"));
+         }},
+        {"cancel_pending", [&]() {
+             state.pendingPoint = {};
+         }},
+        {"set_snap", [&]() {
+             if (command.contains("grid")) {
+                 state.gridSnap = command.value("grid").toBool(state.gridSnap);
+             }
+             if (command.contains("grid_step_px")) {
+                 state.gridStepPx = std::max(1, command.value("grid_step_px").toInt(state.gridStepPx));
+             }
+         }},
+        {"click_canvas", [&]() {
+             handleClickCanvas(state, command);
+         }},
+        {"add_point", [&]() {
+             addPoint(state, pointFromCommand(state, command));
+         }},
+        {"add_line", [&]() {
+             addLine(state, pointFromArray(state, arrayAt(command, "from")), pointFromArray(state, arrayAt(command, "to")));
+         }},
+        {"add_polyline", [&]() {
+             addPolyline(state, arrayAt(command, "points"));
+         }},
+        {"add_circle", [&]() {
+             addCircle(state, pointFromCommand(state, command), command);
+         }},
+        {"add_arc", [&]() {
+             addArc(state, pointFromCommand(state, command), command);
+         }},
+        {"add_rectangle", [&]() {
+             addRectangle(state, pointFromArray(state, arrayAt(command, "from")), pointFromArray(state, arrayAt(command, "to")));
+         }},
+        {"add_polygon", [&]() {
+             addPolygon(state, pointFromCommand(state, command), command);
+         }},
+    };
+    const QString name = stringAt(command, "cmd");
+    const auto handler = std::find_if(handlers.begin(), handlers.end(), [&](const CommandHandler &entry) {
+        return name == QString::fromLatin1(entry.commandName);
+    });
+    if (handler == handlers.end()) {
+        return false;
+    }
+    handler->run();
+    return true;
+}
 } // namespace
 
 DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
@@ -1700,123 +1819,9 @@ DrawingCoreResult DrawingCore::runScript(const QJsonObject &script) {
     for (const QJsonValue value : commands) {
         const QJsonObject command = value.toObject();
         state.commandLog.append(command);
-        const QString name = stringAt(command, "cmd");
-
-        struct CommandHandler {
-            const char *commandName;
-            std::function<void()> run;
-        };
-        const std::vector<CommandHandler> handlers = {
-            {"select_tool", [&]() {
-                 const QString nextTool = stringAt(command, "tool", state.selectedTool);
-                 if (nextTool != state.selectedTool) {
-                     state.pendingPoint = {};
-                 }
-                 state.selectedTool = nextTool;
-            }},
-            {"select_object", [&]() {
-                 selectObject(state, stringAt(command, "object_id", state.selectedObject));
-             }},
-            {"select_objects", [&]() {
-                 selectObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
-             }},
-            {"delete_object", [&]() {
-                 deleteObject(state, stringAt(command, "object_id", state.selectedObject));
-             }},
-            {"delete_objects", [&]() {
-                 deleteObjects(state, stringListFromArray(arrayAt(command, "object_ids")));
-             }},
-            {"duplicate_object", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
-                 duplicateObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
-             }},
-            {"duplicate_objects", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
-                 duplicateObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
-             }},
-            {"paste_object", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
-                 pasteObject(state, command.value("object").toObject(), dxN, dyN);
-             }},
-            {"paste_objects", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 16.0 / state.canvasPx);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 16.0 / state.canvasPx);
-                 pasteObjects(state, arrayAt(command, "objects"), dxN, dyN);
-             }},
-            {"move_object", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
-                 moveObject(state, stringAt(command, "object_id", state.selectedObject), dxN, dyN);
-             }},
-            {"move_objects", [&]() {
-                 const double dxN = commandDeltaFromCommand(state, command, QStringLiteral("dx"), 0.0);
-                 const double dyN = commandDeltaFromCommand(state, command, QStringLiteral("dy"), 0.0);
-                 moveObjects(state, stringListFromArray(arrayAt(command, "object_ids")), dxN, dyN);
-             }},
-            {"update_object", [&]() {
-                 updateObjectField(
-                     state,
-                     stringAt(command, "object_id", state.selectedObject),
-                     stringAt(command, "field"),
-                     numberAt(command, "value"));
-            }},
-            {"set_object_metadata", [&]() {
-                 setObjectMetadataField(
-                     state,
-                     stringAt(command, "object_id", state.selectedObject),
-                     stringAt(command, "field"),
-                     command.value("value"));
-             }},
-            {"set_tool_parameter", [&]() {
-                 setToolParameter(state, stringAt(command, "parameter"), command.value("value"));
-             }},
-            {"cancel_pending", [&]() {
-                 state.pendingPoint = {};
-             }},
-            {"set_snap", [&]() {
-                 if (command.contains("grid")) {
-                     state.gridSnap = command.value("grid").toBool(state.gridSnap);
-                 }
-                 if (command.contains("grid_step_px")) {
-                     state.gridStepPx = std::max(1, command.value("grid_step_px").toInt(state.gridStepPx));
-                 }
-             }},
-            {"click_canvas", [&]() {
-                 handleClickCanvas(state, command);
-             }},
-            {"add_point", [&]() {
-                 addPoint(state, pointFromCommand(state, command));
-             }},
-            {"add_line", [&]() {
-                 addLine(state, pointFromArray(state, arrayAt(command, "from")), pointFromArray(state, arrayAt(command, "to")));
-             }},
-            {"add_polyline", [&]() {
-                 addPolyline(state, arrayAt(command, "points"));
-             }},
-            {"add_circle", [&]() {
-                 addCircle(state, pointFromCommand(state, command), command);
-             }},
-            {"add_arc", [&]() {
-                 addArc(state, pointFromCommand(state, command), command);
-             }},
-            {"add_rectangle", [&]() {
-                 addRectangle(state, pointFromArray(state, arrayAt(command, "from")), pointFromArray(state, arrayAt(command, "to")));
-             }},
-            {"add_polygon", [&]() {
-                 addPolygon(state, pointFromCommand(state, command), command);
-             }},
-        };
-        const auto handler = std::find_if(handlers.begin(), handlers.end(), [&](const CommandHandler &entry) {
-            return name == QString::fromLatin1(entry.commandName);
-        });
-        if (handler == handlers.end()) {
-            state.errors.append("unsupported command: " + name);
-            continue;
+        if (!runCommand(state, command)) {
+            state.errors.append("unsupported command: " + stringAt(command, "cmd"));
         }
-        handler->run();
     }
     if (state.pendingPoint.ok && !script.value("allow_pending").toBool(false)) {
         state.errors.append("line_polyline ended with an unmatched pending point");

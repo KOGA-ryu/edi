@@ -67,6 +67,9 @@ QtObject {
         }
         onChanged: markChanged()
     }
+    property DrawingCanvasDocumentSession canvasDocumentSession: DrawingCanvasDocumentSession {
+        id: canvasDocumentSession
+    }
     property alias drawingSnapGridEnabled: viewportSession.drawingSnapGridEnabled
     property alias drawingSnapGridStepPx: viewportSession.drawingSnapGridStepPx
     property alias drawingObjectSnapEnabled: viewportSession.drawingObjectSnapEnabled
@@ -1336,120 +1339,23 @@ QtObject {
     }
 
     function drawingCanvasObjects(unusedRevision) {
-        var objects = [
-            { id: "artboard_bounds", label: "Artboard bounds", kind: "rect", layer_id: "layer_00_canvas", detail: "normalized square artboard" },
-            { id: "major_grid", label: "Major grid", kind: "grid", layer_id: "layer_01_grid", detail: drawingGridMode + " / " + String(drawingGridDivisions) + " divisions" }
-        ]
-        var generated = asArray(drawingGeneratedObjects)
-        for (var index = 0; index < generated.length; ++index) {
-            objects.push(generated[index])
-        }
-        return objects
+        return canvasDocumentSession.drawingCanvasObjects(drawingSession, unusedRevision)
     }
 
     function drawingCanvasDocument(unusedRevision) {
-        return {
-            canvas_id: "pattern_lab_2d_native_canvas_v0",
-            coordinate_space: "normalized_artboard",
-            selected_tool_id: selectedDrawingToolId,
-            selected_variant_id: selectedDrawingVariantId,
-            selected_layer_id: selectedDrawingLayerId,
-            selected_object_id: selectedDrawingObjectId,
-            selected_object_ids: selectedDrawingObjectIds,
-            pending_point: drawingPendingPoint,
-            layers: [
-                { id: "layer_00_canvas", visible: true, objects: [
-                    { id: "artboard_bounds", kind: "rect", border_visible: drawingArtboardBorderVisible }
-                ] },
-                { id: "layer_01_grid", visible: drawingGridVisible, objects: [
-                    {
-                        id: "major_grid",
-                        kind: "grid",
-                        mode: drawingGridMode,
-                        divisions: drawingGridDivisions,
-                        major_every: drawingGridMajorEvery,
-                        ascii_cell_grid_visible: drawingAsciiCellGridVisible,
-                        ascii_columns: drawingAsciiColumns,
-                        ascii_rows: drawingAsciiRows,
-                        ascii_major_every: drawingAsciiMajorEvery,
-                        center_axes_visible: drawingCenterAxesVisible,
-                        diagonal_guides_visible: drawingDiagonalGuidesVisible,
-                        radial_guides_visible: drawingRadialGuidesVisible,
-                        radial_guide_count: drawingRadialGuideCount
-                    }
-                ] },
-                { id: "layer_09_script_geometry", visible: true, objects: asArray(drawingGeneratedObjects) },
-                { id: "layer_08_metadata", visible: false, objects: [
-                    { id: "last_script_status", kind: "metadata", value: drawingLastScriptStatus }
-                ] }
-            ]
-        }
+        return canvasDocumentSession.drawingCanvasDocument(drawingSession, unusedRevision)
     }
 
     function drawingCanvasExportDocument(unusedRevision) {
-        if (drawingNativeController) {
-            return drawingNativeController.modelDocument()
-        }
-        var toolParameters = {
-            circle_arc_mode: drawingCircleArcMode,
-            circle_arc_start_angle_deg: drawingCircleArcStartAngleDeg,
-            circle_arc_end_angle_deg: drawingCircleArcEndAngleDeg,
-            regular_polygon_sides: drawingRegularPolygonSides,
-            regular_polygon_rotation_deg: drawingRegularPolygonRotationDeg,
-            line_variant: drawingLineVariant,
-            line_thickness: drawingLineThickness,
-            line_style: drawingLineStyle,
-            stroke_opacity: drawingStrokeOpacity,
-            stroke_color: drawingStrokeColor,
-            fill_color: drawingFillColor
-        }
-        return {
-            export_kind: "pattern_lab_2d_native_model_v0",
-            script_id: drawingLastScriptId,
-            script_status: drawingLastScriptStatus,
-            script_errors: drawingLastScriptErrors,
-            canvas_px: [drawingCanvasSizePx, drawingCanvasSizePx],
-            snap: {
-                grid_enabled: drawingSnapGridEnabled,
-                grid_step_px: drawingSnapGridStepPx
-            },
-            selected_tool_id: selectedDrawingToolId,
-            selected_variant_id: selectedDrawingVariantId,
-            selected_layer_id: selectedDrawingLayerId,
-            selected_object_id: selectedDrawingObjectId,
-            selected_object_ids: selectedDrawingObjectIds,
-            tool_parameters: toolParameters,
-            drawing_style: {
-                selected_variant_id: selectedDrawingVariantId,
-                line_variant: drawingLineVariant,
-                line_thickness: drawingLineThickness,
-                line_style: drawingLineStyle,
-                stroke_opacity: drawingStrokeOpacity,
-                stroke_color: drawingStrokeColor,
-                fill_color: drawingFillColor,
-                circle_arc_mode: drawingCircleArcMode
-            },
-            generated_objects: asArray(drawingGeneratedObjects),
-            object_counts: drawingObjectCounts(revision),
-            validation: drawingModelValidationRows(revision)
-        }
+        return canvasDocumentSession.drawingCanvasExportDocument(drawingSession, unusedRevision)
     }
 
     function drawingCanvasExportJson(unusedRevision) {
-        if (drawingNativeController) {
-            return drawingNativeController.exportJson()
-        }
-        return JSON.stringify(drawingCanvasExportDocument(revision), null, 2) + "\n"
+        return canvasDocumentSession.drawingCanvasExportJson(drawingSession, unusedRevision)
     }
 
     function drawingObjectCounts(unusedRevision) {
-        var counts = ({})
-        var objects = drawingCanvasObjects(revision)
-        for (var index = 0; index < objects.length; ++index) {
-            var kind = String(objects[index].kind || "unknown")
-            counts[kind] = Number(counts[kind] || 0) + 1
-        }
-        return counts
+        return canvasDocumentSession.drawingObjectCounts(drawingSession, unusedRevision)
     }
 
     function drawingModelValidationRows(unusedRevision) {

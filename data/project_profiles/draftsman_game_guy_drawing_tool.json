@@ -35,7 +35,7 @@
   },
   "panel_defaults": {
     "left_collapsed": true,
-    "right_collapsed": true,
+    "right_collapsed": false,
     "bottom_collapsed": true
   },
   "right_inspector": {

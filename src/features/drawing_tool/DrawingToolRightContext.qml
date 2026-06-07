@@ -695,14 +695,14 @@ Item {
         }
     }
 
-    component MetadataPresetRow: RowLayout {
+    component MetadataPresetRow: ColumnLayout {
         id: presetRow
         property var rowData: ({})
 
         spacing: UiStyle.space4
 
         Text {
-            Layout.preferredWidth: 42
+            Layout.fillWidth: true
             text: String(presetRow.rowData.label || "")
             color: UiStyle.colorTextMuted
             font.family: UiStyle.fontSans
@@ -710,15 +710,20 @@ Item {
             elide: Text.ElideRight
         }
 
-        Repeater {
-            model: asArray(presetRow.rowData.options)
-            delegate: UiButton {
-                Layout.preferredWidth: Math.max(46, Math.min(72, String(modelData || "").length * 8 + 18))
-                Layout.preferredHeight: 22
-                label: String(modelData || "")
-                tooltip: "Set " + String(presetRow.rowData.field || "metadata") + " to " + String(modelData || "")
-                selected: drawingRightContext.metadataPresetSelected(presetRow.rowData, modelData)
-                onClicked: drawingRightContext.applyMetadataPreset(presetRow.rowData, modelData)
+        Flow {
+            Layout.fillWidth: true
+            spacing: UiStyle.space4
+
+            Repeater {
+                model: asArray(presetRow.rowData.options)
+                delegate: UiButton {
+                    width: Math.max(46, Math.min(110, String(modelData || "").length * 8 + 18))
+                    height: 22
+                    label: String(modelData || "")
+                    tooltip: "Set " + String(presetRow.rowData.field || "metadata") + " to " + String(modelData || "")
+                    selected: drawingRightContext.metadataPresetSelected(presetRow.rowData, modelData)
+                    onClicked: drawingRightContext.applyMetadataPreset(presetRow.rowData, modelData)
+                }
             }
         }
     }
@@ -778,44 +783,6 @@ Item {
             id: content
             width: parent.width
             spacing: UiStyle.space8
-
-            UiPanel {
-                Layout.fillWidth: true
-                Layout.preferredHeight: drawingRightContext.sectionCollapsed("tools") ? 40 : 44 + toolRows().length * 26 + (drawingRightContext.pendingActive() ? 30 : 0)
-                panelPadding: UiStyle.space8
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: UiStyle.space4
-
-                    SectionHeader {
-                        sectionId: "tools"
-                        title: "Tools"
-                        meta: selectedToolLabel()
-                    }
-
-                    Repeater {
-                        model: drawingRightContext.sectionCollapsed("tools") ? [] : toolRows()
-                        delegate: UiListRow {
-                            Layout.fillWidth: true
-                            label: modelData.label
-                            tooltip: modelData.tooltip
-                            selected: selectedToolId() === modelData.id
-                            clickable: true
-                            onClicked: drawingRightContext.controller.selectDrawingTool(modelData.id)
-                        }
-                    }
-
-                    UiButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 24
-                        visible: drawingRightContext.pendingActive() && !drawingRightContext.sectionCollapsed("tools")
-                        label: "Cancel"
-                        tooltip: "Cancel the active pending shape."
-                        onClicked: drawingRightContext.controller.cancelDrawingPendingShape()
-                    }
-                }
-            }
 
             UiPanel {
                 Layout.fillWidth: true
@@ -882,11 +849,12 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 302
+                Layout.preferredHeight: Math.max(302, metadataPanelContent.implicitHeight + UiStyle.space16)
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
                 ColumnLayout {
+                    id: metadataPanelContent
                     anchors.fill: parent
                     spacing: UiStyle.space4
 
@@ -922,6 +890,44 @@ Item {
                     ObjectIntentField {
                         Layout.fillWidth: true
                         valueText: metadataFieldValue("intent")
+                    }
+                }
+            }
+
+            UiPanel {
+                Layout.fillWidth: true
+                Layout.preferredHeight: drawingRightContext.sectionCollapsed("tools") ? 40 : 44 + toolRows().length * 26 + (drawingRightContext.pendingActive() ? 30 : 0)
+                panelPadding: UiStyle.space8
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: UiStyle.space4
+
+                    SectionHeader {
+                        sectionId: "tools"
+                        title: "Tools"
+                        meta: selectedToolLabel()
+                    }
+
+                    Repeater {
+                        model: drawingRightContext.sectionCollapsed("tools") ? [] : toolRows()
+                        delegate: UiListRow {
+                            Layout.fillWidth: true
+                            label: modelData.label
+                            tooltip: modelData.tooltip
+                            selected: selectedToolId() === modelData.id
+                            clickable: true
+                            onClicked: drawingRightContext.controller.selectDrawingTool(modelData.id)
+                        }
+                    }
+
+                    UiButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 24
+                        visible: drawingRightContext.pendingActive() && !drawingRightContext.sectionCollapsed("tools")
+                        label: "Cancel"
+                        tooltip: "Cancel the active pending shape."
+                        onClicked: drawingRightContext.controller.cancelDrawingPendingShape()
                     }
                 }
             }

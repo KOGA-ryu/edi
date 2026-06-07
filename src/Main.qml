@@ -106,128 +106,132 @@ ApplicationWindow {
                 Layout.fillHeight: true
             }
 
-            LeftPanel {
-                id: leftPanel
-                controller: runtimeController
-                visible: window.effectiveLeftPanelVisible
-                Layout.preferredWidth: visible ? runtimeController.leftPanelWidth : 0
-                Layout.fillHeight: true
-            }
-
-            Rectangle {
-                id: leftResizeHandle
-                visible: window.effectiveLeftPanelVisible
-                Layout.preferredWidth: visible ? UiStyle.splitterHitSize : 0
-                Layout.fillHeight: true
-                color: UiStyle.colorTransparent
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: UiStyle.splitterLineSize
-                    color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorBorderMajor
-                    opacity: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? 0.9 : 0.55
-                }
-
-                MouseArea {
-                    id: leftResizeMouse
-                    property bool dragging: false
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.SplitHCursor
-                    onPressed: function(mouse) {
-                        dragging = true
-                        window.dragStartX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                        window.dragStartSize = runtimeController.leftPanelWidth
-                    }
-                    onReleased: dragging = false
-                    onCanceled: dragging = false
-                    onPositionChanged: function(mouse) {
-                        if (!dragging) {
-                            return
-                        }
-                        var currentX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                        runtimeController.setLeftPanelWidth(window.dragStartSize + currentX - window.dragStartX)
-                    }
-                }
-            }
-
-            ColumnLayout {
-                id: workAreaColumn
+            Item {
+                id: contentOverlayHost
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 0
 
-                RowLayout {
-                    id: upperWorkArea
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 0
+                MainWorkspace {
+                    id: mainWorkspace
+                    controller: runtimeController
+                    anchors.fill: parent
+                    z: 0
+                }
 
-                    MainWorkspace {
-                        id: mainWorkspace
-                        controller: runtimeController
-                        Layout.minimumWidth: 0
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                    }
+                LeftPanel {
+                    id: leftPanel
+                    controller: runtimeController
+                    visible: window.effectiveLeftPanelVisible
+                    width: visible ? runtimeController.leftPanelWidth : 0
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    z: 10
+                }
+
+                Rectangle {
+                    id: leftResizeHandle
+                    visible: window.effectiveLeftPanelVisible
+                    width: visible ? UiStyle.splitterHitSize : 0
+                    anchors.left: leftPanel.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    z: 11
+                    color: UiStyle.colorTransparent
 
                     Rectangle {
-                        id: rightResizeHandle
-                        visible: window.effectiveRightPanelVisible
-                        Layout.preferredWidth: visible ? UiStyle.splitterHitSize : 0
-                        Layout.fillHeight: true
-                        color: UiStyle.colorTransparent
-
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            width: UiStyle.splitterLineSize
-                            color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorPanelRaised
-                            opacity: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? 0.9 : 0.55
-                        }
-
-                        MouseArea {
-                            id: rightResizeMouse
-                            property bool dragging: false
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.SplitHCursor
-                            onPressed: function(mouse) {
-                                dragging = true
-                                window.dragStartX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                                window.dragStartSize = runtimeController.rightPanelWidth
-                            }
-                            onReleased: dragging = false
-                            onCanceled: dragging = false
-                            onPositionChanged: function(mouse) {
-                                if (!dragging) {
-                                    return
-                                }
-                                var currentX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
-                                runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
-                            }
-                        }
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: UiStyle.splitterLineSize
+                        color: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorBorderMajor
+                        opacity: leftResizeMouse.containsMouse || leftResizeMouse.dragging ? 0.9 : 0.55
                     }
 
-                    RightPanel {
-                        id: rightPanel
-                        controller: runtimeController
-                        visible: window.effectiveRightPanelVisible
-                        Layout.minimumWidth: visible ? runtimeController.rightPanelMinWidth : 0
-                        Layout.preferredWidth: visible ? runtimeController.rightPanelWidth : 0
-                        Layout.maximumWidth: visible ? runtimeController.rightPanelWidth : 0
-                        Layout.fillHeight: true
+                    MouseArea {
+                        id: leftResizeMouse
+                        property bool dragging: false
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitHCursor
+                        onPressed: function(mouse) {
+                            dragging = true
+                            window.dragStartX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                            window.dragStartSize = runtimeController.leftPanelWidth
+                        }
+                        onReleased: dragging = false
+                        onCanceled: dragging = false
+                        onPositionChanged: function(mouse) {
+                            if (!dragging) {
+                                return
+                            }
+                            var currentX = leftResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                            runtimeController.setLeftPanelWidth(window.dragStartSize + currentX - window.dragStartX)
+                        }
                     }
+                }
+
+                Rectangle {
+                    id: rightResizeHandle
+                    visible: window.effectiveRightPanelVisible
+                    width: visible ? UiStyle.splitterHitSize : 0
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.right: rightPanel.left
+                    z: 11
+                    color: UiStyle.colorTransparent
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: UiStyle.splitterLineSize
+                        color: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? UiStyle.colorAccentSoft : UiStyle.colorPanelRaised
+                        opacity: rightResizeMouse.containsMouse || rightResizeMouse.dragging ? 0.9 : 0.55
+                    }
+
+                    MouseArea {
+                        id: rightResizeMouse
+                        property bool dragging: false
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitHCursor
+                        onPressed: function(mouse) {
+                            dragging = true
+                            window.dragStartX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                            window.dragStartSize = runtimeController.rightPanelWidth
+                        }
+                        onReleased: dragging = false
+                        onCanceled: dragging = false
+                        onPositionChanged: function(mouse) {
+                            if (!dragging) {
+                                return
+                            }
+                            var currentX = rightResizeHandle.mapToItem(null, mouse.x, mouse.y).x
+                            runtimeController.setRightPanelWidth(window.dragStartSize - (currentX - window.dragStartX))
+                        }
+                    }
+                }
+
+                RightPanel {
+                    id: rightPanel
+                    controller: runtimeController
+                    visible: window.effectiveRightPanelVisible
+                    width: visible ? runtimeController.rightPanelWidth : 0
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    z: 10
                 }
 
                 Rectangle {
                     id: bottomResizeHandle
                     visible: window.effectiveBottomPanelVisible
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? UiStyle.splitterHitSize : 0
+                    height: visible ? UiStyle.splitterHitSize : 0
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: bottomPanel.top
+                    z: 21
                     color: UiStyle.colorTransparent
 
                     Rectangle {
@@ -266,8 +270,11 @@ ApplicationWindow {
                     id: bottomPanel
                     controller: runtimeController
                     visible: window.effectiveBottomPanelVisible
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? runtimeController.bottomPanelHeight : 0
+                    height: visible ? runtimeController.bottomPanelHeight : 0
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    z: 20
                 }
             }
         }

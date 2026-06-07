@@ -10,6 +10,8 @@ Item {
     property string dataUi: "drawing_tool_right_context"
     property string dataState: "draftsman_native_drawing"
     property var controller: null
+    property bool selectedObjectLockAspect: false
+    property int selectedObjectNudgeStepPx: 1
     property var collapsedSections: ({
         format: true,
         precision: true
@@ -73,6 +75,39 @@ Item {
         return Math.ceil(5 / selectedObjectActionColumns())
     }
 
+    function objectKindSupportsAspectLock() {
+        var kind = String(selectedGeneratedObject().kind || "")
+        return kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region"
+    }
+
+    function objectKindSupportsNudge() {
+        return selectedGeneratedObjectActive()
+    }
+
+    function boundedNudgeStep(value) {
+        var step = Math.round(Number(value))
+        if (!Number.isFinite(step)) {
+            step = 1
+        }
+        return Math.max(1, Math.min(256, step))
+    }
+
+    function selectedObjectNudgeStepText() {
+        return String(boundedNudgeStep(selectedObjectNudgeStepPx))
+    }
+
+    function setSelectedObjectNudgeStep(value) {
+        selectedObjectNudgeStepPx = boundedNudgeStep(value)
+    }
+
+    function nudgeSelectedObject(dx, dy) {
+        if (!drawingRightContext.controller || !objectKindSupportsNudge()) {
+            return
+        }
+        var step = boundedNudgeStep(selectedObjectNudgeStepPx)
+        drawingRightContext.controller.nudgeSelectedDrawingObjectByPx(Number(dx || 0) * step, Number(dy || 0) * step)
+    }
+
     function compactNumber(value) {
         var number = Number(value)
         if (!Number.isFinite(number)) {
@@ -132,7 +167,8 @@ Item {
                 { label: "x", field: "x_px", value: objectRectValue(object, 0, "x"), suffix: "px" },
                 { label: "y", field: "y_px", value: objectRectValue(object, 1, "y"), suffix: "px" },
                 { label: "w", field: "width_px", value: objectRectValue(object, 2, "width"), suffix: "px" },
-                { label: "h", field: "height_px", value: objectRectValue(object, 3, "height"), suffix: "px" }
+                { label: "h", field: "height_px", value: objectRectValue(object, 3, "height"), suffix: "px" },
+                { label: "rot", field: "rotation_deg", value: compactNumber(object.rotation_deg || 0), suffix: "deg" }
             ]
         }
         if (kind === "polygon") {
@@ -172,9 +208,27 @@ Item {
     }
 
     function setObjectField(field, value) {
-        if (drawingRightContext.controller) {
-            drawingRightContext.controller.updateSelectedDrawingObjectField(String(field || ""), value)
+        if (!drawingRightContext.controller) {
+            return
         }
+        var fieldId = String(field || "")
+        var numericValue = Number(value)
+        if (selectedObjectLockAspect && objectKindSupportsAspectLock() && Number.isFinite(numericValue) && (fieldId === "width_px" || fieldId === "height_px")) {
+            var object = selectedGeneratedObject()
+            var width = Number(objectRectValue(object, 2, "width"))
+            var height = Number(objectRectValue(object, 3, "height"))
+            if (width > 0 && height > 0) {
+                if (fieldId === "width_px") {
+                    drawingRightContext.controller.updateSelectedDrawingObjectField(fieldId, numericValue)
+                    drawingRightContext.controller.updateSelectedDrawingObjectField("height_px", numericValue * height / width)
+                    return
+                }
+                drawingRightContext.controller.updateSelectedDrawingObjectField(fieldId, numericValue)
+                drawingRightContext.controller.updateSelectedDrawingObjectField("width_px", numericValue * width / height)
+                return
+            }
+        }
+        drawingRightContext.controller.updateSelectedDrawingObjectField(fieldId, value)
     }
 
     function setObjectMetadataField(field, value) {
@@ -660,6 +714,42 @@ Item {
         }
     }
 
+    component NudgeStepField: RowLayout {
+        spacing: UiStyle.space4
+
+        Text {
+            Layout.preferredWidth: 36
+            text: "step"
+            color: UiStyle.colorTextMuted
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+
+        UiTextField {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 22
+            text: drawingRightContext.selectedObjectNudgeStepText()
+
+            function commit() {
+                drawingRightContext.setSelectedObjectNudgeStep(text)
+                text = drawingRightContext.selectedObjectNudgeStepText()
+            }
+
+            onAccepted: commit()
+            onEditingFinished: commit()
+        }
+
+        Text {
+            Layout.preferredWidth: 24
+            text: "px"
+            color: UiStyle.colorTextFaint
+            font.family: UiStyle.fontSans
+            font.pixelSize: UiStyle.fontSizeXs
+            elide: Text.ElideRight
+        }
+    }
+
     component ObjectMetadataField: RowLayout {
         property string label: ""
         property string field: ""
@@ -794,11 +884,12 @@ Item {
 
             UiPanel {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 70 + drawingRightContext.selectedObjectActionRows() * 26 + drawingRightContext.objectEditRows().length * 26
+                Layout.preferredHeight: selectedObjectPanelContent.implicitHeight + UiStyle.space16
                 panelPadding: UiStyle.space8
                 visible: drawingRightContext.selectedGeneratedObjectActive()
 
                 ColumnLayout {
+                    id: selectedObjectPanelContent
                     anchors.fill: parent
                     spacing: UiStyle.space4
 
@@ -875,6 +966,75 @@ Item {
                             label: "Del"
                             tooltip: "Delete selected object."
                             onClicked: drawingRightContext.controller.deleteSelectedDrawingObject()
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UiStyle.space4
+
+                        NudgeStepField {
+                            Layout.fillWidth: true
+                        }
+
+                        UiToggle {
+                            Layout.preferredWidth: 86
+                            Layout.preferredHeight: 22
+                            label: "aspect"
+                            checked: drawingRightContext.selectedObjectLockAspect && drawingRightContext.objectKindSupportsAspectLock()
+                            enabled: drawingRightContext.objectKindSupportsAspectLock()
+                            onToggled: function(nextChecked) {
+                                drawingRightContext.selectedObjectLockAspect = nextChecked
+                            }
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 3
+                        columnSpacing: UiStyle.space4
+                        rowSpacing: UiStyle.space4
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                            label: "Up"
+                            tooltip: "Nudge selected object up."
+                            onClicked: drawingRightContext.nudgeSelectedObject(0, -1)
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                            label: "Left"
+                            tooltip: "Nudge selected object left."
+                            onClicked: drawingRightContext.nudgeSelectedObject(-1, 0)
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                            label: "Down"
+                            tooltip: "Nudge selected object down."
+                            onClicked: drawingRightContext.nudgeSelectedObject(0, 1)
+                        }
+
+                        UiButton {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                            label: "Right"
+                            tooltip: "Nudge selected object right."
+                            onClicked: drawingRightContext.nudgeSelectedObject(1, 0)
                         }
                     }
 

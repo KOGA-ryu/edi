@@ -61,6 +61,18 @@ function angleInArc(angleDeg, startDeg, endDeg) {
     return angle >= start || angle <= end
 }
 
+function unrotatePoint(px, py, cx, cy, rotationDeg) {
+    var angle = -Number(rotationDeg || 0) * Math.PI / 180
+    var dx = px - cx
+    var dy = py - cy
+    var cosA = Math.cos(angle)
+    var sinA = Math.sin(angle)
+    return {
+        x: cx + dx * cosA - dy * sinA,
+        y: cy + dx * sinA + dy * cosA
+    }
+}
+
 function objectHitScore(object, x, y, tolerance) {
     var kind = String(object.kind || "")
     if (kind === "point" || kind === "tone_probe") {
@@ -98,13 +110,18 @@ function objectHitScore(object, x, y, tolerance) {
         var top = Number(object.y || 0)
         var right = left + Number(object.width || 0)
         var bottom = top + Number(object.height || 0)
-        if (x >= left && x <= right && y >= top && y <= bottom) {
+        var centerX = (left + right) / 2
+        var centerY = (top + bottom) / 2
+        var hitPoint = unrotatePoint(x, y, centerX, centerY, object.rotation_deg)
+        var localX = hitPoint.x
+        var localY = hitPoint.y
+        if (localX >= left && localX <= right && localY >= top && localY <= bottom) {
             return 0
         }
-        var clampedX = Math.max(left, Math.min(right, x))
-        var clampedY = Math.max(top, Math.min(bottom, y))
-        var rectDx = x - clampedX
-        var rectDy = y - clampedY
+        var clampedX = Math.max(left, Math.min(right, localX))
+        var clampedY = Math.max(top, Math.min(bottom, localY))
+        var rectDx = localX - clampedX
+        var rectDy = localY - clampedY
         return Math.sqrt(rectDx * rectDx + rectDy * rectDy)
     }
     if (kind === "polygon") {

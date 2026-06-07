@@ -740,6 +740,7 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 double y = object.value("y").toDouble() * canvas;
                 double width = object.value("width").toDouble() * canvas;
                 double height = object.value("height").toDouble() * canvas;
+                double rotation = object.value("rotation_deg").toDouble();
                 if (field == QStringLiteral("x_px")) {
                     x = value;
                 } else if (field == QStringLiteral("y_px")) {
@@ -748,11 +749,14 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     width = value;
                 } else if (field == QStringLiteral("height_px")) {
                     height = value;
+                } else if (field == QStringLiteral("rotation_deg")) {
+                    rotation = value;
                 } else {
                     state.errors.append("update_object unsupported rectangle field: " + field);
                     return;
                 }
                 rebuildRectangle(object, state.canvasPx, x, y, width, height);
+                object.insert("rotation_deg", rotation);
                 updated = true;
             } else if (kind == QStringLiteral("polygon")) {
                 double cx = object.value("cx").toDouble() * canvas;

@@ -194,6 +194,35 @@ QtObject {
         }
     }
 
+    function rotatedRectCorners(object) {
+        var x = Number(object.x || 0)
+        var y = Number(object.y || 0)
+        var width = Number(object.width || 0)
+        var height = Number(object.height || 0)
+        var cx = x + width / 2
+        var cy = y + height / 2
+        var angle = Number(object.rotation_deg || 0) * Math.PI / 180
+        var cosA = Math.cos(angle)
+        var sinA = Math.sin(angle)
+        var source = [
+            { id: "rect_nw", x: x, y: y },
+            { id: "rect_ne", x: x + width, y: y },
+            { id: "rect_sw", x: x, y: y + height },
+            { id: "rect_se", x: x + width, y: y + height }
+        ]
+        var result = []
+        for (var index = 0; index < source.length; ++index) {
+            var dx = source[index].x - cx
+            var dy = source[index].y - cy
+            result.push({
+                id: source[index].id,
+                x: cx + dx * cosA - dy * sinA,
+                y: cy + dx * sinA + dy * cosA
+            })
+        }
+        return result
+    }
+
     function objectEditHandles(object) {
         var kind = String(object.kind || "")
         if (kind === "line" || kind === "glyph_baseline") {
@@ -203,16 +232,7 @@ QtObject {
             ]
         }
         if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            var x = Number(object.x || 0)
-            var y = Number(object.y || 0)
-            var width = Number(object.width || 0)
-            var height = Number(object.height || 0)
-            return [
-                { id: "rect_nw", x: x, y: y },
-                { id: "rect_ne", x: x + width, y: y },
-                { id: "rect_sw", x: x, y: y + height },
-                { id: "rect_se", x: x + width, y: y + height }
-            ]
+            return rotatedRectCorners(object)
         }
         if (kind === "circle" || kind === "arc") {
             var center = pointFromArray(object.center_px, Number(object.cx || 0) * 512, Number(object.cy || 0) * 512)
@@ -301,10 +321,11 @@ QtObject {
             return includePointInBounds(result, cx + radius, cy + radius)
         }
         if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            var x = Number(object.x || 0)
-            var y = Number(object.y || 0)
-            includePointInBounds(result, x, y)
-            return includePointInBounds(result, x + Number(object.width || 0), y + Number(object.height || 0))
+            var corners = rotatedRectCorners(object)
+            for (var cornerIndex = 0; cornerIndex < corners.length; ++cornerIndex) {
+                includePointInBounds(result, corners[cornerIndex].x, corners[cornerIndex].y)
+            }
+            return result
         }
         if (kind === "polyline" || kind === "polygon") {
             var points = asArray(object.points)
@@ -714,9 +735,18 @@ QtObject {
         var y = pxY(bounds, object.y || 0)
         var width = Number(object.width || 0) * bounds.size
         var height = Number(object.height || 0) * bounds.size
+        var rotation = Number(object.rotation_deg || 0) * Math.PI / 180
+        var cx = x + width / 2
+        var cy = y + height / 2
         beginStyle(ctx, object, objectSelected, layerSelected, objectHovered)
-        ctx.strokeRect(x, y, width, height)
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(rotation)
+        ctx.beginPath()
+        ctx.rect(-width / 2, -height / 2, width, height)
+        ctx.stroke()
         applyFill(ctx, object, true)
+        ctx.restore()
         endStyle(ctx)
     }
 

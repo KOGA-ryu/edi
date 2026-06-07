@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DrawingObjectModel.h"
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -43,6 +45,7 @@ struct State {
     double lineThickness = 2.0;
     double strokeOpacity = 1.0;
     Point pendingPoint;
+    DrawingStore store;
     QJsonArray commandLog;
     QJsonArray generatedObjects;
     QJsonArray errors;
@@ -54,16 +57,6 @@ struct Bounds {
     double minY = 0.0;
     double maxX = 0.0;
     double maxY = 0.0;
-};
-
-enum class ShapeKind {
-    Unknown,
-    Point,
-    Line,
-    Circle,
-    Rectangle,
-    Polyline,
-    Polygon,
 };
 
 ShapeKind objectShapeKind(const QString &kind);
@@ -89,7 +82,7 @@ double clampedMoveDelta(double delta, double minValue, double maxValue);
 double normalizedToPixels(double value, int canvasPx);
 double degreesToRadians(double degrees);
 double commandDeltaFromCommand(const State &state, const QJsonObject &command, const QString &axis, double fallback);
-void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx);
+void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx, int canvasPx);
 void translateObjectWithState(QJsonObject &object, const State &state, double dxN, double dyN);
 Point snapPoint(State &state, double x, double y);
 Point pointFromArray(State &state, const QJsonArray &array);

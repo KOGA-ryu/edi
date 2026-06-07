@@ -17,6 +17,8 @@ qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
     src/core/DrawingCoreInternal.h
+    src/core/DrawingObjectModel.h
+    src/core/DrawingObjectModel.cpp
     src/core/DrawingCore.cpp
     src/core/DrawingCoreCommon.cpp
     src/core/DrawingDocumentController.cpp
@@ -61,6 +63,8 @@ if(BUILD_TESTING)
         tests/drawing_core_smoke.cpp
         src/core/DrawingCore.h
         src/core/DrawingCoreInternal.h
+        src/core/DrawingObjectModel.h
+        src/core/DrawingObjectModel.cpp
         src/core/DrawingCore.cpp
         src/core/DrawingCoreCommon.cpp
         src/core/DrawingDocumentController.cpp

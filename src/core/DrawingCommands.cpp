@@ -40,12 +40,20 @@ QString normalizedLineStyle(const QString &value) {
 }
 
 void applyActiveStyle(State &state, QJsonObject &object) {
+    object.insert("style_id", QStringLiteral("inline_active_stroke"));
     object.insert("line_variant", state.lineVariant);
     object.insert("line_style", state.lineStyle);
     object.insert("line_thickness", state.lineThickness);
     object.insert("stroke_opacity", state.strokeOpacity);
     object.insert("stroke_color", state.strokeColor);
     object.insert("fill_color", state.fillColor);
+}
+
+void applyCreationMetadata(QJsonObject &object, const QString &createdBy) {
+    QJsonObject metadata;
+    metadata.insert(QStringLiteral("created_by"), createdBy);
+    metadata.insert(QStringLiteral("version"), 1);
+    object.insert(QStringLiteral("metadata"), metadata);
 }
 
 void setToolParameter(State &state, const QString &parameter, const QJsonValue &value) {
@@ -164,9 +172,8 @@ void addPointObject(State &state, const Point &point, const QString &kind, const
     object.insert("kind", kind);
     object.insert("detail", detail);
     applyActiveStyle(state, object);
-    object.insert("x", point.nx);
-    object.insert("y", point.ny);
-    object.insert("point_px", pointArray(point.x, point.y));
+    writePointGeometry(object, {{point.nx, point.ny}}, state.canvasPx);
+    applyCreationMetadata(object, kind == QStringLiteral("tone_probe") ? QStringLiteral("ToneProbeTool") : QStringLiteral("PointTool"));
     pushObject(state, object);
 }
 
@@ -179,19 +186,30 @@ void addLineObject(State &state, const Point &start, const Point &end, const QSt
         state.errors.append("line command has invalid endpoints");
         return;
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, kind));
-    object.insert("label", label);
-    object.insert("kind", kind);
-    object.insert("detail", detail);
-    applyActiveStyle(state, object);
-    object.insert("x1", start.nx);
-    object.insert("y1", start.ny);
-    object.insert("x2", end.nx);
-    object.insert("y2", end.ny);
-    object.insert("from_px", pointArray(start.x, start.y));
-    object.insert("to_px", pointArray(end.x, end.y));
-    pushObject(state, object);
+    const QString objectId = nextId(state, kind);
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), label);
+    attributes.insert(QStringLiteral("kind"), kind);
+    attributes.insert(QStringLiteral("detail"), detail);
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Line;
+    object.geometry = LineGeometry{{start.nx, start.ny}, {end.nx, end.ny}};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(
+        QStringLiteral("created_by"),
+        kind == QStringLiteral("glyph_baseline") ? QStringLiteral("GlyphBaselineTool") : QStringLiteral("LineTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("line command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addLine(State &state, const Point &start, const Point &end) {
@@ -203,16 +221,14 @@ void addPolyline(State &state, const QJsonArray &rawPoints) {
         state.errors.append("polyline requires at least two points");
         return;
     }
-    QJsonArray points;
-    QJsonArray pointsPx;
+    std::vector<Point2D> points;
     for (const QJsonValue value : rawPoints) {
         const Point point = pointFromArray(state, value.toArray());
         if (!point.ok) {
             state.errors.append("polyline contains invalid point");
             return;
         }
-        points.append(pointArray(point.nx, point.ny));
-        pointsPx.append(pointArray(point.x, point.y));
+        points.push_back({point.nx, point.ny});
     }
     QJsonObject object;
     object.insert("id", nextId(state, "polyline"));
@@ -220,8 +236,8 @@ void addPolyline(State &state, const QJsonArray &rawPoints) {
     object.insert("kind", "polyline");
     object.insert("detail", "C++ generated polyline");
     applyActiveStyle(state, object);
-    object.insert("points", points);
-    object.insert("points_px", pointsPx);
+    writePolylineGeometry(object, {points}, state.canvasPx);
+    applyCreationMetadata(object, QStringLiteral("PolylineTool"));
     pushObject(state, object);
 }
 
@@ -249,11 +265,8 @@ void addCircle(State &state, const Point &center, const QJsonObject &command) {
     object.insert("kind", "circle");
     object.insert("detail", "C++ generated circle");
     applyActiveStyle(state, object);
-    object.insert("cx", center.nx);
-    object.insert("cy", center.ny);
-    object.insert("radius", radiusPx / state.canvasPx);
-    object.insert("center_px", pointArray(center.x, center.y));
-    object.insert("radius_px", radiusPx);
+    writeCircleGeometry(object, {{center.nx, center.ny}, radiusPx / state.canvasPx}, state.canvasPx);
+    applyCreationMetadata(object, QStringLiteral("CircleTool"));
     pushObject(state, object);
 }
 
@@ -273,13 +286,11 @@ void addArc(State &state, const Point &center, const QJsonObject &command) {
     object.insert("kind", "arc");
     object.insert("detail", "C++ generated arc");
     applyActiveStyle(state, object);
-    object.insert("cx", center.nx);
-    object.insert("cy", center.ny);
-    object.insert("radius", radiusPx / state.canvasPx);
-    object.insert("center_px", pointArray(center.x, center.y));
-    object.insert("radius_px", radiusPx);
-    object.insert("start_angle_deg", numberAt(command, "start_angle_deg"));
-    object.insert("end_angle_deg", numberAt(command, "end_angle_deg", 90.0));
+    writeArcGeometry(
+        object,
+        {{center.nx, center.ny}, radiusPx / state.canvasPx, numberAt(command, "start_angle_deg"), numberAt(command, "end_angle_deg", 90.0)},
+        state.canvasPx);
+    applyCreationMetadata(object, QStringLiteral("ArcTool"));
     pushObject(state, object);
 }
 
@@ -298,18 +309,13 @@ void addRectangleObject(State &state, const Point &start, const Point &end, cons
     object.insert("kind", kind);
     object.insert("detail", detail);
     applyActiveStyle(state, object);
-    object.insert("x", left / state.canvasPx);
-    object.insert("y", top / state.canvasPx);
-    object.insert("width", width / state.canvasPx);
-    object.insert("height", height / state.canvasPx);
-    object.insert("from_px", pointArray(start.x, start.y));
-    object.insert("to_px", pointArray(end.x, end.y));
-    QJsonArray rectPx;
-    rectPx.append(left);
-    rectPx.append(top);
-    rectPx.append(width);
-    rectPx.append(height);
-    object.insert("rect_px", rectPx);
+    writeRectangleGeometry(object, {{left / state.canvasPx, top / state.canvasPx}, width / state.canvasPx, height / state.canvasPx, 0.0}, state.canvasPx);
+    applyCreationMetadata(
+        object,
+        kind == QStringLiteral("image_reference_frame") ? QStringLiteral("ImageReferenceFrameTool")
+            : kind == QStringLiteral("ascii_crop_frame") ? QStringLiteral("AsciiCropFrameTool")
+            : kind == QStringLiteral("ascii_cell_region") ? QStringLiteral("AsciiCellRegionTool")
+                                                         : QStringLiteral("RectangleTool"));
     pushObject(state, object);
 }
 
@@ -329,14 +335,12 @@ void addPolygon(State &state, const Point &center, const QJsonObject &command) {
         state.errors.append("polygon command has invalid radius");
         return;
     }
-    QJsonArray points;
-    QJsonArray pointsPx;
+    std::vector<Point2D> points;
     for (int index = 0; index < sides; ++index) {
         const double angle = degreesToRadians(rotationDeg + 360.0 * index / sides);
         const double px = center.x + std::cos(angle) * radiusPx;
         const double py = center.y + std::sin(angle) * radiusPx;
-        points.append(pointArray(px / state.canvasPx, py / state.canvasPx));
-        pointsPx.append(pointArray(px, py));
+        points.push_back({px / state.canvasPx, py / state.canvasPx});
     }
     QJsonObject object;
     object.insert("id", nextId(state, "polygon"));
@@ -344,15 +348,8 @@ void addPolygon(State &state, const Point &center, const QJsonObject &command) {
     object.insert("kind", "polygon");
     object.insert("detail", "C++ generated regular polygon");
     applyActiveStyle(state, object);
-    object.insert("cx", center.nx);
-    object.insert("cy", center.ny);
-    object.insert("center_px", pointArray(center.x, center.y));
-    object.insert("radius", radiusPx / state.canvasPx);
-    object.insert("radius_px", radiusPx);
-    object.insert("sides", sides);
-    object.insert("rotation_deg", rotationDeg);
-    object.insert("points", points);
-    object.insert("points_px", pointsPx);
+    writePolygonGeometry(object, {{center.nx, center.ny}, radiusPx / state.canvasPx, sides, rotationDeg, points}, state.canvasPx);
+    applyCreationMetadata(object, QStringLiteral("PolygonTool"));
     pushObject(state, object);
 }
 

@@ -315,9 +315,7 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     state.errors.append("update_object unsupported point field: " + field);
                     return;
                 }
-                object.insert("x", x / canvas);
-                object.insert("y", y / canvas);
-                object.insert("point_px", pointArray(x, y));
+                writePointGeometry(object, {{x / canvas, y / canvas}}, state.canvasPx);
                 updated = true;
             } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
                 double x1 = object.value("x1").toDouble() * canvas;
@@ -336,12 +334,7 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     state.errors.append("update_object unsupported line field: " + field);
                     return;
                 }
-                object.insert("x1", x1 / canvas);
-                object.insert("y1", y1 / canvas);
-                object.insert("x2", x2 / canvas);
-                object.insert("y2", y2 / canvas);
-                object.insert("from_px", pointArray(x1, y1));
-                object.insert("to_px", pointArray(x2, y2));
+                writeLineGeometry(object, {{x1 / canvas, y1 / canvas}, {x2 / canvas, y2 / canvas}}, state.canvasPx);
                 updated = true;
             } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
                 double cx = object.value("cx").toDouble() * canvas;
@@ -363,11 +356,14 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     state.errors.append("update_object unsupported circle field: " + field);
                     return;
                 }
-                object.insert("cx", cx / canvas);
-                object.insert("cy", cy / canvas);
-                object.insert("center_px", pointArray(cx, cy));
-                object.insert("radius", radius / canvas);
-                object.insert("radius_px", radius);
+                if (kind == QStringLiteral("arc")) {
+                    writeArcGeometry(
+                        object,
+                        {{cx / canvas, cy / canvas}, radius / canvas, object.value(QStringLiteral("start_angle_deg")).toDouble(), object.value(QStringLiteral("end_angle_deg")).toDouble(90.0)},
+                        state.canvasPx);
+                } else {
+                    writeCircleGeometry(object, {{cx / canvas, cy / canvas}, radius / canvas}, state.canvasPx);
+                }
                 updated = true;
             } else if (kind == QStringLiteral("rectangle")
                        || kind == QStringLiteral("image_reference_frame")
@@ -394,6 +390,7 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 }
                 rebuildRectangle(object, state.canvasPx, x, y, width, height);
                 object.insert("rotation_deg", rotation);
+                writeRectangleGeometry(object, rectangleGeometryFromObject(object), state.canvasPx);
                 updated = true;
             } else if (kind == QStringLiteral("polygon")) {
                 double cx = object.value("cx").toDouble() * canvas;

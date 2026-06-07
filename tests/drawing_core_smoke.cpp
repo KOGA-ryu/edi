@@ -1,4 +1,5 @@
 #include "core/DrawingCore.h"
+#include "core/DrawingObjectModel.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>
@@ -182,20 +183,70 @@ bool runVisibleToolCreationSmoke() {
     ok &= expectKindCount(objects, QStringLiteral("polygon"), 1);
     ok &= expectKindCount(objects, QStringLiteral("image_reference_frame"), 1);
     ok &= expectKindCount(objects, QStringLiteral("ascii_crop_frame"), 1);
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        ok &= expect(object.contains(QStringLiteral("geometry")),
+                     QStringLiteral("%1 should include typed geometry").arg(object.value(QStringLiteral("id")).toString()));
+        ok &= expect(object.contains(QStringLiteral("bounds")),
+                     QStringLiteral("%1 should include derived bounds").arg(object.value(QStringLiteral("id")).toString()));
+        ok &= expect(object.value(QStringLiteral("metadata")).toObject().contains(QStringLiteral("created_by")),
+                     QStringLiteral("%1 should include creation metadata").arg(object.value(QStringLiteral("id")).toString()));
+    }
+
+    const QJsonObject pointObject = firstObjectOfKind(objects, QStringLiteral("point"));
+    const QJsonObject pointGeometry = pointObject.value(QStringLiteral("geometry")).toObject();
+    ok &= expectNear(pointGeometry.value(QStringLiteral("point")).toObject().value(QStringLiteral("x")).toDouble(), 64.0, QStringLiteral("point geometry x should be explicit in pixels"));
+    ok &= expectNear(pointObject.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("x")).toDouble(), 64.0, QStringLiteral("point bounds should derive from geometry"));
+    ok &= expect(pointObject.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("PointTool"),
+                 QStringLiteral("point metadata should record creation provenance"));
 
     const QJsonObject line = firstObjectOfKind(objects, QStringLiteral("line"));
     ok &= expect(line.value(QStringLiteral("line_variant")).toString() == QStringLiteral("straight"),
                  QStringLiteral("straight line should keep straight variant"));
+    ok &= expect(line.value(QStringLiteral("style_id")).toString() == QStringLiteral("inline_active_stroke"),
+                 QStringLiteral("line should carry an explicit style reference"));
+    const QJsonObject lineGeometry = line.value(QStringLiteral("geometry")).toObject();
+    const QJsonObject lineA = lineGeometry.value(QStringLiteral("a")).toObject();
+    const QJsonObject lineB = lineGeometry.value(QStringLiteral("b")).toObject();
+    ok &= expectNear(lineA.value(QStringLiteral("x")).toDouble(), 96.0, QStringLiteral("line geometry a.x should be explicit in pixels"));
+    ok &= expectNear(lineA.value(QStringLiteral("y")).toDouble(), 64.0, QStringLiteral("line geometry a.y should be explicit in pixels"));
+    ok &= expectNear(lineB.value(QStringLiteral("x")).toDouble(), 192.0, QStringLiteral("line geometry b.x should be explicit in pixels"));
+    ok &= expectNear(lineB.value(QStringLiteral("y")).toDouble(), 64.0, QStringLiteral("line geometry b.y should be explicit in pixels"));
+    const QJsonObject lineBounds = line.value(QStringLiteral("bounds")).toObject();
+    ok &= expectNear(lineBounds.value(QStringLiteral("x")).toDouble(), 96.0, QStringLiteral("line bounds x should derive from geometry"));
+    ok &= expectNear(lineBounds.value(QStringLiteral("y")).toDouble(), 64.0, QStringLiteral("line bounds y should derive from geometry"));
+    ok &= expectNear(lineBounds.value(QStringLiteral("w")).toDouble(), 96.0, QStringLiteral("line bounds width should derive from geometry"));
+    ok &= expectNear(lineBounds.value(QStringLiteral("h")).toDouble(), 0.0, QStringLiteral("line bounds height should derive from geometry"));
+    ok &= expect(line.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("LineTool"),
+                 QStringLiteral("line metadata should record creation provenance"));
 
     const QJsonObject polyline = firstObjectOfKind(objects, QStringLiteral("polyline"));
     ok &= expect(polyline.value(QStringLiteral("line_variant")).toString() == QStringLiteral("polyline"),
                  QStringLiteral("polyline variant should create polyline object"));
+    ok &= expect(polyline.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("points")).toArray().size() == 2,
+                 QStringLiteral("polyline geometry should carry explicit points"));
+    ok &= expectNear(polyline.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("w")).toDouble(), 96.0,
+                     QStringLiteral("polyline bounds should derive from point geometry"));
+    ok &= expect(polyline.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("PolylineTool"),
+                 QStringLiteral("polyline metadata should record creation provenance"));
+
+    const QJsonObject circle = firstObjectOfKind(objects, QStringLiteral("circle"));
+    ok &= expectNear(circle.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("radius")).toDouble(), 64.0,
+                     QStringLiteral("circle geometry should carry explicit radius"));
+    ok &= expectNear(circle.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("w")).toDouble(), 128.0,
+                     QStringLiteral("circle bounds should derive from radius"));
+    ok &= expect(circle.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("CircleTool"),
+                 QStringLiteral("circle metadata should record creation provenance"));
 
     const QJsonObject arc = firstObjectOfKind(objects, QStringLiteral("arc"));
     ok &= expect(arc.value(QStringLiteral("start_angle_deg")).toDouble() == 15.0,
                  QStringLiteral("arc start angle should be stamped"));
     ok &= expect(arc.value(QStringLiteral("end_angle_deg")).toDouble() == 120.0,
                  QStringLiteral("arc end angle should be stamped"));
+    ok &= expectNear(arc.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("radius")).toDouble(), 64.0,
+                     QStringLiteral("arc geometry should carry explicit radius"));
+    ok &= expect(arc.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("ArcTool"),
+                 QStringLiteral("arc metadata should record creation provenance"));
 
     const QJsonObject rectangle = firstObjectOfKind(objects, QStringLiteral("rectangle"));
     ok &= expect(rectangle.value(QStringLiteral("stroke_color")).toString() == QStringLiteral("#abcdef"),
@@ -208,6 +259,13 @@ bool runVisibleToolCreationSmoke() {
                  QStringLiteral("rectangle should stamp line thickness"));
     ok &= expect(rectangle.value(QStringLiteral("stroke_opacity")).toDouble() == 0.5,
                  QStringLiteral("rectangle should stamp stroke opacity"));
+    ok &= expectNear(rectangle.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("width")).toDouble(), 96.0,
+                     QStringLiteral("rectangle geometry should carry explicit width"));
+    ok &= expectNear(rectangle.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("h")).toDouble(), 64.0,
+                     QStringLiteral("rectangle bounds should derive from geometry"));
+    ok &= expect(rectangle.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("RectangleTool"),
+                 QStringLiteral("rectangle metadata should record creation provenance"));
+
     ok &= expect(!result.svg.contains(QStringLiteral("fill=\"#25232d\"")),
                  QStringLiteral("svg export should not include the canvas background helper"));
     ok &= expect(result.svg.contains(QStringLiteral("id=\"script_rectangle_01\"")),
@@ -230,7 +288,72 @@ bool runVisibleToolCreationSmoke() {
                  QStringLiteral("polygon should generate one point per side"));
     ok &= expect(polygon.value(QStringLiteral("rotation_deg")).toDouble() == 18.0,
                  QStringLiteral("polygon should respect rotation"));
+    ok &= expect(polygon.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("points")).toArray().size() == 5,
+                 QStringLiteral("polygon geometry should carry explicit generated points"));
+    ok &= expect(polygon.value(QStringLiteral("bounds")).toObject().contains(QStringLiteral("w")),
+                 QStringLiteral("polygon bounds should derive from generated points"));
+    ok &= expect(polygon.value(QStringLiteral("metadata")).toObject().value(QStringLiteral("created_by")).toString() == QStringLiteral("PolygonTool"),
+                 QStringLiteral("polygon metadata should record creation provenance"));
 
+    return ok;
+}
+
+bool runDrawingStoreContractSmoke() {
+    using namespace drawing_core;
+
+    DrawingStore store;
+    DrawingObject line;
+    line.id = {QStringLiteral("obj_line_01")};
+    line.kind = ShapeKind::Line;
+    line.geometry = LineGeometry{{0.125, 0.25}, {0.625, 0.75}};
+    line.style = {QStringLiteral("stroke_default")};
+    line.layer = {QStringLiteral("layer_test")};
+    line.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("store_contract_test"));
+    line.metadata.values.insert(QStringLiteral("version"), 1);
+    line.attributes.insert(QStringLiteral("label"), QStringLiteral("contract line"));
+
+    bool ok = true;
+    ok &= expect(store.addObject(line), QStringLiteral("store should add a valid line object"));
+    ok &= expect(!store.addObject(line), QStringLiteral("store should reject duplicate object ids"));
+    ok &= expect(store.size() == 1, QStringLiteral("store should keep dense size after duplicate rejection"));
+
+    const DrawingObject *storedLine = store.find({QStringLiteral("obj_line_01")});
+    ok &= expect(storedLine != nullptr, QStringLiteral("store should find an object by id"));
+    if (storedLine != nullptr) {
+        ok &= expectNear(storedLine->bounds.x, 0.125, QStringLiteral("store bounds x should derive from geometry"));
+        ok &= expectNear(storedLine->bounds.w, 0.5, QStringLiteral("store bounds width should derive from geometry"));
+    }
+
+    DrawingObject invalid;
+    invalid.id = {QStringLiteral("obj_bad_01")};
+    invalid.kind = ShapeKind::Point;
+    invalid.geometry = LineGeometry{{0.0, 0.0}, {1.0, 1.0}};
+    ok &= expect(!store.addObject(invalid), QStringLiteral("store should reject geometry that does not match shape kind"));
+
+    ok &= expect(store.updateGeometry({QStringLiteral("obj_line_01")}, LineGeometry{{0.0, 0.0}, {0.5, 0.5}}),
+                 QStringLiteral("store should update geometry for an existing object"));
+    storedLine = store.find({QStringLiteral("obj_line_01")});
+    if (storedLine != nullptr) {
+        ok &= expectNear(storedLine->bounds.x, 0.0, QStringLiteral("updated store bounds x should derive from geometry"));
+        ok &= expectNear(storedLine->bounds.w, 0.5, QStringLiteral("updated store bounds width should derive from geometry"));
+    }
+
+    const QJsonObject serialized = store.serializeObject({QStringLiteral("obj_line_01")}, 512);
+    ok &= expect(serialized.value(QStringLiteral("id")).toString() == QStringLiteral("obj_line_01"),
+                 QStringLiteral("serialized store object should preserve id"));
+    ok &= expect(serialized.value(QStringLiteral("kind")).toString() == QStringLiteral("line"),
+                 QStringLiteral("serialized store object should preserve kind"));
+    ok &= expectNear(serialized.value(QStringLiteral("x2")).toDouble(), 0.5,
+                     QStringLiteral("serialized store object should keep normalized legacy fields"));
+    ok &= expectNear(serialized.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("b")).toObject().value(QStringLiteral("x")).toDouble(), 256.0,
+                     QStringLiteral("serialized store geometry should project pixel geometry"));
+    ok &= expectNear(serialized.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("w")).toDouble(), 256.0,
+                     QStringLiteral("serialized store bounds should project pixel bounds"));
+
+    ok &= expect(store.removeObject({QStringLiteral("obj_line_01")}), QStringLiteral("store should remove existing object"));
+    ok &= expect(!store.contains({QStringLiteral("obj_line_01")}), QStringLiteral("store index should not contain removed object"));
+    ok &= expect(!store.removeObject({QStringLiteral("obj_line_01")}), QStringLiteral("store should reject removing a missing object"));
+    ok &= expect(store.size() == 0, QStringLiteral("store should be empty after remove"));
     return ok;
 }
 
@@ -756,6 +879,7 @@ bool runControllerModelRoundTripSmoke() {
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     bool ok = true;
+    ok &= runDrawingStoreContractSmoke();
     ok &= runVisibleToolCreationSmoke();
     ok &= runSelectDeleteSmoke();
     ok &= runClickSnapOverrideSmoke();

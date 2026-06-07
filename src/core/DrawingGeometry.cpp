@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace drawing_core {
 
@@ -85,34 +86,57 @@ Bounds normalizedBounds(const QJsonObject &object) {
     Bounds bounds;
     const ShapeKind shapeKind = objectShapeKind(object);
     switch (shapeKind) {
-    case ShapeKind::Point:
-        includePoint(bounds, object.value("x").toDouble(), object.value("y").toDouble());
+    case ShapeKind::Point: {
+        const Bounds2D objectBounds = computeBounds(pointGeometryFromObject(object));
+        if (objectBounds.ok) {
+            includePoint(bounds, objectBounds.x, objectBounds.y);
+            includePoint(bounds, objectBounds.x + objectBounds.w, objectBounds.y + objectBounds.h);
+        }
         break;
-    case ShapeKind::Line:
-        includePoint(bounds, object.value("x1").toDouble(), object.value("y1").toDouble());
-        includePoint(bounds, object.value("x2").toDouble(), object.value("y2").toDouble());
+    }
+    case ShapeKind::Line: {
+        const Bounds2D lineBounds = computeBounds(lineGeometryFromObject(object));
+        if (lineBounds.ok) {
+            includePoint(bounds, lineBounds.x, lineBounds.y);
+            includePoint(bounds, lineBounds.x + lineBounds.w, lineBounds.y + lineBounds.h);
+        }
         break;
+    }
     case ShapeKind::Circle: {
-        const double cx = object.value("cx").toDouble();
-        const double cy = object.value("cy").toDouble();
-        const double radius = object.value("radius").toDouble();
-        includePoint(bounds, cx - radius, cy - radius);
-        includePoint(bounds, cx + radius, cy + radius);
+        const QString kind = object.value(QStringLiteral("kind")).toString();
+        const Bounds2D objectBounds = kind == QStringLiteral("arc")
+            ? computeBounds(arcGeometryFromObject(object))
+            : computeBounds(circleGeometryFromObject(object));
+        if (objectBounds.ok) {
+            includePoint(bounds, objectBounds.x, objectBounds.y);
+            includePoint(bounds, objectBounds.x + objectBounds.w, objectBounds.y + objectBounds.h);
+        }
         break;
     }
     case ShapeKind::Rectangle: {
-        const double x = object.value("x").toDouble();
-        const double y = object.value("y").toDouble();
-        includePoint(bounds, x, y);
-        includePoint(bounds, x + object.value("width").toDouble(), y + object.value("height").toDouble());
+        const Bounds2D objectBounds = computeBounds(rectangleGeometryFromObject(object));
+        if (objectBounds.ok) {
+            includePoint(bounds, objectBounds.x, objectBounds.y);
+            includePoint(bounds, objectBounds.x + objectBounds.w, objectBounds.y + objectBounds.h);
+        }
         break;
     }
-    case ShapeKind::Polyline:
-        includePointList(bounds, object.value("points").toArray());
+    case ShapeKind::Polyline: {
+        const Bounds2D objectBounds = computeBounds(polylineGeometryFromObject(object));
+        if (objectBounds.ok) {
+            includePoint(bounds, objectBounds.x, objectBounds.y);
+            includePoint(bounds, objectBounds.x + objectBounds.w, objectBounds.y + objectBounds.h);
+        }
         break;
-    case ShapeKind::Polygon:
-        includePointList(bounds, object.value("points").toArray());
+    }
+    case ShapeKind::Polygon: {
+        const Bounds2D objectBounds = computeBounds(polygonGeometryFromObject(object));
+        if (objectBounds.ok) {
+            includePoint(bounds, objectBounds.x, objectBounds.y);
+            includePoint(bounds, objectBounds.x + objectBounds.w, objectBounds.y + objectBounds.h);
+        }
         break;
+    }
     case ShapeKind::Unknown:
         break;
     }
@@ -161,50 +185,30 @@ double commandDeltaFromCommand(const State &state, const QJsonObject &command, c
     return numberAt(command, axis, fallback);
 }
 
-void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx) {
+void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, double dyPx, int canvasPx) {
     const ShapeKind shapeKind = objectShapeKind(object);
     switch (shapeKind) {
     case ShapeKind::Point:
-        object.insert("x", object.value("x").toDouble() + dxN);
-        object.insert("y", object.value("y").toDouble() + dyN);
-        object.insert("point_px", translatedPointArray(object.value("point_px").toArray(), dxPx, dyPx));
+        writePointGeometry(object, translatedPointGeometry(pointGeometryFromObject(object), dxN, dyN), canvasPx);
         break;
     case ShapeKind::Line:
-        object.insert("x1", object.value("x1").toDouble() + dxN);
-        object.insert("y1", object.value("y1").toDouble() + dyN);
-        object.insert("x2", object.value("x2").toDouble() + dxN);
-        object.insert("y2", object.value("y2").toDouble() + dyN);
-        object.insert("from_px", translatedPointArray(object.value("from_px").toArray(), dxPx, dyPx));
-        object.insert("to_px", translatedPointArray(object.value("to_px").toArray(), dxPx, dyPx));
+        writeLineGeometry(object, translatedLineGeometry(lineGeometryFromObject(object), dxN, dyN), canvasPx);
         break;
     case ShapeKind::Circle:
-        object.insert("cx", object.value("cx").toDouble() + dxN);
-        object.insert("cy", object.value("cy").toDouble() + dyN);
-        object.insert("center_px", translatedPointArray(object.value("center_px").toArray(), dxPx, dyPx));
-        break;
-    case ShapeKind::Rectangle: {
-        object.insert("x", object.value("x").toDouble() + dxN);
-        object.insert("y", object.value("y").toDouble() + dyN);
-        object.insert("from_px", translatedPointArray(object.value("from_px").toArray(), dxPx, dyPx));
-        object.insert("to_px", translatedPointArray(object.value("to_px").toArray(), dxPx, dyPx));
-        QJsonArray rect = object.value("rect_px").toArray();
-        if (rect.size() >= 4) {
-            rect[0] = rect.at(0).toDouble() + dxPx;
-            rect[1] = rect.at(1).toDouble() + dyPx;
-            object.insert("rect_px", rect);
+        if (object.value(QStringLiteral("kind")).toString() == QStringLiteral("arc")) {
+            writeArcGeometry(object, translatedArcGeometry(arcGeometryFromObject(object), dxN, dyN), canvasPx);
+        } else {
+            writeCircleGeometry(object, translatedCircleGeometry(circleGeometryFromObject(object), dxN, dyN), canvasPx);
         }
         break;
-    }
+    case ShapeKind::Rectangle:
+        writeRectangleGeometry(object, translatedRectangleGeometry(rectangleGeometryFromObject(object), dxN, dyN), canvasPx);
+        break;
     case ShapeKind::Polyline:
-        object.insert("points", translatedPointList(object.value("points").toArray(), dxN, dyN));
-        object.insert("points_px", translatedPointList(object.value("points_px").toArray(), dxPx, dyPx));
+        writePolylineGeometry(object, translatedPolylineGeometry(polylineGeometryFromObject(object), dxN, dyN), canvasPx);
         break;
     case ShapeKind::Polygon:
-        object.insert("cx", object.value("cx").toDouble() + dxN);
-        object.insert("cy", object.value("cy").toDouble() + dyN);
-        object.insert("center_px", translatedPointArray(object.value("center_px").toArray(), dxPx, dyPx));
-        object.insert("points", translatedPointList(object.value("points").toArray(), dxN, dyN));
-        object.insert("points_px", translatedPointList(object.value("points_px").toArray(), dxPx, dyPx));
+        writePolygonGeometry(object, translatedPolygonGeometry(polygonGeometryFromObject(object), dxN, dyN), canvasPx);
         break;
     case ShapeKind::Unknown:
         break;
@@ -212,7 +216,7 @@ void translateObject(QJsonObject &object, double dxN, double dyN, double dxPx, d
 }
 
 void translateObjectWithState(QJsonObject &object, const State &state, double dxN, double dyN) {
-    translateObject(object, dxN, dyN, normalizedToPixels(dxN, state.canvasPx), normalizedToPixels(dyN, state.canvasPx));
+    translateObject(object, dxN, dyN, normalizedToPixels(dxN, state.canvasPx), normalizedToPixels(dyN, state.canvasPx), state.canvasPx);
 }
 
 Point snapPoint(State &state, double x, double y) {
@@ -273,18 +277,7 @@ void rebuildRectangle(QJsonObject &object, int canvasPx, double xPx, double yPx,
     const double height = std::clamp(positivePx(heightPx), 1.0, static_cast<double>(canvasPx));
     const double x = std::clamp(clampedPx(xPx, canvasPx), 0.0, static_cast<double>(canvasPx) - width);
     const double y = std::clamp(clampedPx(yPx, canvasPx), 0.0, static_cast<double>(canvasPx) - height);
-    object.insert("x", x / canvasPx);
-    object.insert("y", y / canvasPx);
-    object.insert("width", width / canvasPx);
-    object.insert("height", height / canvasPx);
-    object.insert("from_px", pointArray(x, y));
-    object.insert("to_px", pointArray(x + width, y + height));
-    QJsonArray rectPx;
-    rectPx.append(x);
-    rectPx.append(y);
-    rectPx.append(width);
-    rectPx.append(height);
-    object.insert("rect_px", rectPx);
+    writeRectangleGeometry(object, {{x / canvasPx, y / canvasPx}, width / canvasPx, height / canvasPx, object.value(QStringLiteral("rotation_deg")).toDouble()}, canvasPx);
 }
 
 void rebuildPolygon(QJsonObject &object, int canvasPx, double cxPx, double cyPx, double radiusPx, int sides, double rotationDeg) {
@@ -293,24 +286,14 @@ void rebuildPolygon(QJsonObject &object, int canvasPx, double cxPx, double cyPx,
     const int sideCount = std::clamp(sides, 3, 64);
     const double maxRadius = std::max(1.0, std::min({cx, cy, static_cast<double>(canvasPx) - cx, static_cast<double>(canvasPx) - cy}));
     const double radius = std::clamp(positivePx(radiusPx), 1.0, maxRadius);
-    QJsonArray points;
-    QJsonArray pointsPx;
+    std::vector<Point2D> points;
     for (int index = 0; index < sideCount; ++index) {
         const double angle = degreesToRadians(rotationDeg + 360.0 * index / sideCount);
         const double px = cx + std::cos(angle) * radius;
         const double py = cy + std::sin(angle) * radius;
-        points.append(pointArray(px / canvasPx, py / canvasPx));
-        pointsPx.append(pointArray(px, py));
+        points.push_back({px / canvasPx, py / canvasPx});
     }
-    object.insert("cx", cx / canvasPx);
-    object.insert("cy", cy / canvasPx);
-    object.insert("center_px", pointArray(cx, cy));
-    object.insert("radius", radius / canvasPx);
-    object.insert("radius_px", radius);
-    object.insert("sides", sideCount);
-    object.insert("rotation_deg", rotationDeg);
-    object.insert("points", points);
-    object.insert("points_px", pointsPx);
+    writePolygonGeometry(object, {{cx / canvasPx, cy / canvasPx}, radius / canvasPx, sideCount, rotationDeg, points}, canvasPx);
 }
 
 } // namespace drawing_core

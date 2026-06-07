@@ -480,7 +480,7 @@ QtObject {
         shelfTabs = normalizeShelfTabs(bottomPanel.tabs)
         customActions = normalizeCustomActions(document && document.custom_actions)
         selectedShelfTab = shelfTabs.length > 0 && shelfTabs.indexOf(selectedShelfTab) >= 0 ? selectedShelfTab : (shelfTabs[0] || "")
-        rightInspectorSections = normalizedInspectorSections(rightInspector.sections)
+        shellLayoutSession.setInspectorSections(rightInspector.sections, defaultInspectorSections())
 
         var defaultActivity = String(profile.default_activity || activityMode)
         activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : activityModes[0].id
@@ -580,18 +580,7 @@ QtObject {
     }
 
     function applyProjectPanelDefaults() {
-        if (!projectPanelDefaults) {
-            return
-        }
-        if (typeof projectPanelDefaults.left_collapsed === "boolean") {
-            leftPanelCollapsed = projectPanelDefaults.left_collapsed
-        }
-        if (typeof projectPanelDefaults.right_collapsed === "boolean") {
-            rightPanelCollapsed = projectPanelDefaults.right_collapsed
-        }
-        if (typeof projectPanelDefaults.bottom_collapsed === "boolean") {
-            bottomPanelCollapsed = projectPanelDefaults.bottom_collapsed
-        }
+        shellLayoutSession.applyProjectPanelDefaults(projectPanelDefaults)
     }
 
     function asArray(value) {

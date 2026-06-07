@@ -163,6 +163,36 @@ QtObject {
         return shellLayoutSaveOk
     }
 
+    function setInspectorSections(sections, inspectorDefaults) {
+        rightInspectorSections = normalizedInspectorSections(sections, inspectorDefaults)
+        changed()
+    }
+
+    function applyProjectPanelDefaults(defaults) {
+        if (!defaults) {
+            return
+        }
+
+        var didChange = false
+
+        if (typeof defaults.left_collapsed === "boolean" && leftPanelCollapsed !== defaults.left_collapsed) {
+            leftPanelCollapsed = defaults.left_collapsed
+            didChange = true
+        }
+        if (typeof defaults.right_collapsed === "boolean" && rightPanelCollapsed !== defaults.right_collapsed) {
+            rightPanelCollapsed = defaults.right_collapsed
+            didChange = true
+        }
+        if (typeof defaults.bottom_collapsed === "boolean" && bottomPanelCollapsed !== defaults.bottom_collapsed) {
+            bottomPanelCollapsed = defaults.bottom_collapsed
+            didChange = true
+        }
+
+        if (didChange) {
+            changed()
+        }
+    }
+
     function resetShellLayout() {
         leftPanelCollapsed = false
         rightPanelCollapsed = true

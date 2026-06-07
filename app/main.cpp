@@ -1602,6 +1602,9 @@ int main(int argc, char *argv[]) {
     const QString drawingToolRegistryPath = QStringLiteral(PROJECT_SOURCE_DIR)
         + QStringLiteral("/data/features/drawing_tool/tool_registry.json");
     const QVariant drawingToolRegistry = loadJsonObject(drawingToolRegistryPath);
+    const QString drawingMetadataPresetsPath = QStringLiteral(PROJECT_SOURCE_DIR)
+        + QStringLiteral("/data/features/drawing_tool/metadata_presets.json");
+    const QVariant drawingMetadataPresets = loadJsonObject(drawingMetadataPresetsPath);
     DrawingDocumentController drawingController;
 
     QString themePath = parser.isSet(themeOption)
@@ -1634,6 +1637,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorManifestPath"), textEditorManifestPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistry"), drawingToolRegistry);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistryPath"), drawingToolRegistryPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingMetadataPresets"), drawingMetadataPresets);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingMetadataPresetsPath"), drawingMetadataPresetsPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingModel"), drawingController.modelDocument());
     engine.rootContext()->setContextProperty(QStringLiteral("nativeDrawingController"), &drawingController);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);

@@ -1,0 +1,8 @@
+{
+  "schema": "drawing_tool_metadata_presets_v0",
+  "feature_id": "drawing_tool",
+  "roles": ["wall", "floor", "cutout", "collider"],
+  "materials": ["stone", "metal", "glass", "wood"],
+  "export_groups": ["room_a", "collision", "shell"],
+  "tags": ["block", "spawn", "secret", "review"]
+}

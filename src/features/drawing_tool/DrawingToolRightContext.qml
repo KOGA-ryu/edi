@@ -158,12 +158,9 @@ Item {
     }
 
     function metadataPresetRows() {
-        return [
-            { label: "role", field: "role", mode: "set", options: ["wall", "floor", "cutout", "collider"] },
-            { label: "mat", field: "material", mode: "set", options: ["stone", "metal", "glass", "wood"] },
-            { label: "group", field: "export_group", mode: "set", options: ["room_a", "collision", "shell"] },
-            { label: "tag", field: "tags", mode: "tag", options: ["block", "spawn", "secret", "review"] }
-        ]
+        return drawingRightContext.controller && typeof drawingRightContext.controller.drawingMetadataPresetRows === "function"
+            ? drawingRightContext.controller.drawingMetadataPresetRows(drawingRightContext.controller.revision)
+            : []
     }
 
     function setObjectField(field, value) {

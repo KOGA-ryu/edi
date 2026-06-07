@@ -20,6 +20,8 @@ QtObject {
     property real drawingToolPaletteY: 26
     property var drawingToolRegistryDocument: ({})
     property string drawingToolRegistryPath: ""
+    property var drawingMetadataPresetsDocument: ({})
+    property string drawingMetadataPresetsPath: ""
     property var drawingToolModes: DrawingToolCatalog.toolModes()
     property var drawingToolSettingsById: DrawingToolCatalog.toolSettingsById()
     property var drawingPrecisionTools: DrawingToolCatalog.precisionTools()
@@ -415,6 +417,26 @@ QtObject {
             selectedDrawingToolId = String(drawingToolModes[0].id || "")
         }
         markChanged()
+    }
+
+    function metadataPresetValues(key, fallback) {
+        var values = asArray(drawingMetadataPresetsDocument[key])
+        return values.length > 0 ? values : fallback
+    }
+
+    function loadDrawingMetadataPresets(document, path) {
+        drawingMetadataPresetsDocument = document || ({})
+        drawingMetadataPresetsPath = String(path || "")
+        markChanged()
+    }
+
+    function drawingMetadataPresetRows(unusedRevision) {
+        return [
+            { label: "role", field: "role", mode: "set", options: metadataPresetValues("roles", ["wall", "floor", "cutout", "collider"]) },
+            { label: "mat", field: "material", mode: "set", options: metadataPresetValues("materials", ["stone", "metal", "glass", "wood"]) },
+            { label: "group", field: "export_group", mode: "set", options: metadataPresetValues("export_groups", ["room_a", "collision", "shell"]) },
+            { label: "tag", field: "tags", mode: "tag", options: metadataPresetValues("tags", ["block", "spawn", "secret", "review"]) }
+        ]
     }
 
     function drawingFindById(items, id, fallback) {

@@ -226,6 +226,9 @@ QtObject {
         drawingSession.loadDrawingToolRegistry(
             typeof initialDrawingToolRegistry === "undefined" ? ({}) : initialDrawingToolRegistry,
             typeof initialDrawingToolRegistryPath === "undefined" ? "" : String(initialDrawingToolRegistryPath))
+        drawingSession.loadDrawingMetadataPresets(
+            typeof initialDrawingMetadataPresets === "undefined" ? ({}) : initialDrawingMetadataPresets,
+            typeof initialDrawingMetadataPresetsPath === "undefined" ? "" : String(initialDrawingMetadataPresetsPath))
         drawingExternalModelDocument = drawingNativeController ? drawingNativeController.modelDocument() : (typeof initialDrawingModel === "undefined" ? ({}) : initialDrawingModel)
         drawingSession.loadInitialDrawingModel(drawingExternalModelDocument)
         markDrawingDocumentClean("not saved")
@@ -1516,6 +1519,10 @@ QtObject {
 
     function drawingToolParameterEditRows(unusedRevision) {
         return drawingSession.drawingToolParameterEditRows(unusedRevision)
+    }
+
+    function drawingMetadataPresetRows(unusedRevision) {
+        return drawingSession.drawingMetadataPresetRows(unusedRevision)
     }
 
     function hasSelectedDrawingExternalTool(unusedRevision) {

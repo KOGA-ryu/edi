@@ -6,7 +6,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -14,11 +13,9 @@
 #include <QObject>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickWindow>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QStringList>
-#include <QTimer>
 #include <QtGlobal>
 #include <QUrl>
 #include <QVariantList>
@@ -1606,34 +1603,6 @@ int main(int argc, char *argv[]) {
     QCommandLineParser parser;
     parser.setApplicationDescription("Editable Draftsman Qt/QML shell");
     parser.addHelpOption();
-    const QCommandLineOption screenshotOption(
-        QStringList() << "s" << "screenshot",
-        "Save a screenshot of the app window to <path>, then quit.",
-        "path");
-    const QCommandLineOption routeOption(
-        QStringList() << "route",
-        "Select a review route before screenshot capture.",
-        "route_id");
-    const QCommandLineOption widthOption(
-        QStringList() << "width",
-        "Set the app window width before capture.",
-        "pixels");
-    const QCommandLineOption heightOption(
-        QStringList() << "height",
-        "Set the app window height before capture.",
-        "pixels");
-    const QCommandLineOption tabOption(
-        QStringList() << "tab",
-        "Select a local review tab before screenshot capture.",
-        "tab_name");
-    const QCommandLineOption noteOption(
-        QStringList() << "note",
-        "Add one in-memory note before screenshot capture.",
-        "text");
-    const QCommandLineOption noteStatusOption(
-        QStringList() << "note-status",
-        "Status to use with --note.",
-        "status");
     const QCommandLineOption reviewSubjectOption(
         QStringList() << "review-subject",
         "Load review subject JSON from <path>.",
@@ -1650,31 +1619,14 @@ int main(int argc, char *argv[]) {
         QStringList() << "shell-layout",
         "Load shell layout JSON from <path>.",
         "path");
-    const QCommandLineOption activityOption(
-        QStringList() << "activity",
-        "Select an activity mode before screenshot capture.",
-        "mode_id");
-    const QCommandLineOption settingsPageOption(
-        QStringList() << "settings-page",
-        "Select a settings page before screenshot capture.",
-        "page_id");
     const QCommandLineOption actionOption(
         QStringList() << "action",
         "Run a profile custom action after startup.",
         "action_id");
-    parser.addOption(screenshotOption);
-    parser.addOption(routeOption);
-    parser.addOption(widthOption);
-    parser.addOption(heightOption);
-    parser.addOption(tabOption);
-    parser.addOption(noteOption);
-    parser.addOption(noteStatusOption);
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
     parser.addOption(shellLayoutOption);
-    parser.addOption(activityOption);
-    parser.addOption(settingsPageOption);
     parser.addOption(actionOption);
     parser.process(app);
 
@@ -1818,87 +1770,18 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
-    if (window == nullptr) {
+    QObject *rootObject = engine.rootObjects().constFirst();
+    if (rootObject == nullptr) {
         return -1;
     }
 
-    bool widthOk = false;
-    bool heightOk = false;
-    const int requestedWidth = parser.value(widthOption).toInt(&widthOk);
-    const int requestedHeight = parser.value(heightOption).toInt(&heightOk);
-    if (widthOk && requestedWidth > 0) {
-        window->setWidth(requestedWidth);
-    }
-    if (heightOk && requestedHeight > 0) {
-        window->setHeight(requestedHeight);
-    }
-
-    if (parser.isSet(routeOption)) {
-        if (auto *runtime = window->findChild<QObject *>(QStringLiteral("runtimeController"))) {
-            QMetaObject::invokeMethod(
-                runtime,
-                "selectRoute",
-                Q_ARG(QVariant, QVariant(parser.value(routeOption))));
-        }
-    }
-
-    if (auto *runtime = window->findChild<QObject *>(QStringLiteral("runtimeController"))) {
-        if (parser.isSet(activityOption)) {
-            QMetaObject::invokeMethod(
-                runtime,
-                "setActivityMode",
-                Q_ARG(QVariant, QVariant(parser.value(activityOption))));
-        }
-
-        if (parser.isSet(settingsPageOption)) {
-            QMetaObject::invokeMethod(
-                runtime,
-                "setSettingsPage",
-                Q_ARG(QVariant, QVariant(parser.value(settingsPageOption))));
-        }
-
-        if (parser.isSet(noteOption)) {
-            const QString routeId = parser.isSet(routeOption)
-                ? parser.value(routeOption)
-                : runtime->property("rootRouteId").toString();
-            const QString status = parser.isSet(noteStatusOption)
-                ? parser.value(noteStatusOption)
-                : QStringLiteral("pending");
-            QMetaObject::invokeMethod(
-                runtime,
-                "addNote",
-                Q_ARG(QVariant, QVariant(routeId)),
-                Q_ARG(QVariant, QVariant(status)),
-                Q_ARG(QVariant, QVariant(parser.value(noteOption))));
-        }
-
-        if (parser.isSet(tabOption)) {
-            QMetaObject::invokeMethod(
-                runtime,
-                "setLocalTab",
-                Q_ARG(QVariant, QVariant(parser.value(tabOption))));
-        }
-
+    if (auto *runtime = rootObject->findChild<QObject *>(QStringLiteral("runtimeController"))) {
         if (parser.isSet(actionOption)) {
             QMetaObject::invokeMethod(
                 runtime,
                 "runCustomAction",
                 Q_ARG(QVariant, QVariant(parser.value(actionOption))));
         }
-    }
-
-    if (parser.isSet(screenshotOption)) {
-        const QString path = parser.value(screenshotOption);
-        QTimer::singleShot(700, window, [window, path]() {
-            const QFileInfo info(path);
-            if (!info.absoluteDir().exists()) {
-                QDir().mkpath(info.absolutePath());
-            }
-            const QImage image = window->grabWindow();
-            const bool saved = image.save(path);
-            QCoreApplication::exit(saved ? 0 : 2);
-        });
     }
 
     return app.exec();

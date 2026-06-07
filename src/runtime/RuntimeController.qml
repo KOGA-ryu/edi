@@ -14,7 +14,6 @@ QtObject {
     property string selectedSettingsPage: "theme"
     property ProjectProfileSession projectProfileSession: ProjectProfileSession {
         id: projectProfileSession
-        onChanged: runtimeController.bumpRevision("project_profile")
     }
     property alias projectProfilePath: projectProfileSession.projectProfilePath
     property alias projectProfileDocument: projectProfileSession.projectProfileDocument
@@ -26,19 +25,23 @@ QtObject {
     property alias settingsNavLabel: projectProfileSession.settingsNavLabel
     property alias mainWorkspaceFeature: projectProfileSession.mainWorkspaceFeature
     property alias rightInspectorSource: projectProfileSession.rightInspectorSource
-    property alias projectPanelDefaults: projectProfileSession.projectPanelDefaults
-    property alias writeDisabled: projectProfileSession.writeDisabled
-    property alias activityModes: projectProfileSession.activityModes
-    property alias leftProjectRows: projectProfileSession.leftProjectRows
-    property alias shelfTabs: projectProfileSession.shelfTabs
-    property alias selectedShelfTab: projectProfileSession.selectedShelfTab
     property alias customActions: projectProfileSession.customActions
     property alias customActionStatus: projectProfileSession.customActionStatus
     property alias customActionOutputPath: projectProfileSession.customActionOutputPath
-    property MapSession mapSession: MapSession {
-        id: mapSession
-        onChanged: runtimeController.bumpRevision("map_session")
+    property alias leftProjectRows: projectProfileSession.leftProjectRows
+    property alias shelfTabs: projectProfileSession.shelfTabs
+    property alias selectedShelfTab: projectProfileSession.selectedShelfTab
+    property alias projectPanelDefaults: projectProfileSession.projectPanelDefaults
+    property alias writeDisabled: projectProfileSession.writeDisabled
+    property alias activityModes: projectProfileSession.activityModes
+
+    // Session controllers. Keep RuntimeController as the shell coordinator;
+    // move feature-owned state and behavior into these session files.
+    property ShellLayoutSession shellLayoutSession: ShellLayoutSession {
+        id: shellLayoutSession
+        targetRoot: targetRoot
     }
+    property MapSession mapSession: MapSession { id: mapSession }
     property alias mapCsvPath: mapSession.mapCsvPath
     property alias cellMetadataPath: mapSession.cellMetadataPath
     property alias mapCsvText: mapSession.mapCsvText
@@ -147,11 +150,6 @@ QtObject {
     property alias textEditorStoragePath: textEditorSession.textEditorStoragePath
     property alias textEditorSaveOk: textEditorSession.textEditorSaveOk
     property alias textEditorSaveStatus: textEditorSession.textEditorSaveStatus
-    property ShellLayoutSession shellLayoutSession: ShellLayoutSession {
-        id: shellLayoutSession
-        targetRoot: runtimeController.targetRoot
-        onChanged: runtimeController.bumpRevision("shell_layout")
-    }
     property alias leftPanelCollapsed: shellLayoutSession.leftPanelCollapsed
     property alias rightPanelCollapsed: shellLayoutSession.rightPanelCollapsed
     property alias bottomPanelCollapsed: shellLayoutSession.bottomPanelCollapsed
@@ -195,7 +193,6 @@ QtObject {
         { id: "prompts", label: "Prompts", tooltip: "Show the human and agent prompts that define what should be reviewed or changed." },
         { id: "notes", label: "Notes", tooltip: "Show review notes, decisions, and comments attached to the selected route." }
     ]
-
     property var routes: []
     property string rootRouteId: ""
 
@@ -240,56 +237,27 @@ QtObject {
         markDrawingDocumentClean("not saved")
     }
 
-    function bumpRevision(reason) {
+    function clamp(value, low, high) {
+        return Math.max(low, Math.min(high, Math.round(Number(value))))
+    }
+
+    function policyInt(source, key, fallback, low, high) {
+        var value = source && Number.isFinite(Number(source[key])) ? Number(source[key]) : fallback
+        return clamp(value, low, high)
+    }
+
+    function markShellLayoutDirty() {
+        shellLayoutDirty = true
         revision += 1
     }
 
+    // Layout policy and persistence helpers.
     function loadShellLayout(document) {
         shellLayoutSession.loadShellLayout(document, defaultInspectorSections())
     }
 
     function shellLayoutDocument() {
         return shellLayoutSession.shellLayoutDocument()
-    }
-
-    function saveShellLayout() {
-        return shellLayoutSession.saveShellLayout()
-    }
-
-    function resetShellLayout() {
-        shellLayoutSession.resetShellLayout()
-    }
-
-    function resetPanelSizes() {
-        shellLayoutSession.resetPanelSizes()
-    }
-
-    function panelManualCollapsed(panelId) {
-        return shellLayoutSession.panelManualCollapsed(panelId)
-    }
-
-    function panelAutoHidden(panelId) {
-        return shellLayoutSession.panelAutoHidden(panelId)
-    }
-
-    function panelVisible(panelId) {
-        return shellLayoutSession.panelVisible(panelId)
-    }
-
-    function panelState(panelId) {
-        return shellLayoutSession.panelState(panelId)
-    }
-
-    function panelStateLabel(panelId) {
-        return shellLayoutSession.panelStateLabel(panelId)
-    }
-
-    function panelStateDetail(panelId) {
-        return shellLayoutSession.panelStateDetail(panelId)
-    }
-
-    function applyLayoutPreset(presetId) {
-        shellLayoutSession.applyLayoutPreset(presetId)
     }
 
     function normalizedInspectorSections(source) {
@@ -329,8 +297,48 @@ QtObject {
         return result
     }
 
+    function defaultActivityModes() {
+        return [
+            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace", exclusiveGroup: "" },
+            { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace", exclusiveGroup: "" },
+            { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface", exclusiveGroup: "system" },
+            { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts", exclusiveGroup: "" }
+        ]
+    }
+
     function normalizeActivityModes(source) {
-        return projectProfileSession.normalizeActivityModes(source)
+        var modes = []
+        var sourceModes = asArray(source)
+        for (var index = 0; index < sourceModes.length; ++index) {
+            var mode = sourceModes[index]
+            if (mode && mode.enabled !== false && String(mode.id || "").length > 0) {
+                var id = String(mode.id)
+                modes.push({
+                    id: id,
+                    label: String(mode.label || mode.id),
+                    icon: String(mode.icon || String(mode.label || mode.id).charAt(0).toUpperCase()),
+                    tooltip: String(mode.tooltip || mode.label || mode.id),
+                    exclusiveGroup: String(mode.exclusive_group || mode.exclusiveGroup || defaultActivityExclusiveGroup(id))
+                })
+            }
+        }
+        return modes.length > 0 ? modes : defaultActivityModes()
+    }
+
+    function defaultActivityExclusiveGroup(modeId) {
+        var id = String(modeId || "")
+        if (id === "map_generator"
+                || id === "map_editor"
+                || id === "drawing_tool"
+                || id === "drawing_drafting"
+                || id === "blender_scripts"
+                || id === "tool_workspace") {
+            return "tool_type"
+        }
+        if (id === "settings") {
+            return "system"
+        }
+        return ""
     }
 
     function activityModeRecord(modeId) {
@@ -374,50 +382,126 @@ QtObject {
     }
 
     function normalizeProjectRows(source) {
-        return projectProfileSession.normalizeProjectRows(source)
+        var rows = []
+        var sourceRows = asArray(source)
+        for (var index = 0; index < sourceRows.length; ++index) {
+            var row = sourceRows[index]
+            if (row && String(row.label || "").length > 0) {
+                rows.push({
+                    label: String(row.label),
+                    meta: String(row.meta || "")
+                })
+            }
+        }
+        return rows.length > 0 ? rows : [
+            { label: "Project slot", meta: "blank" },
+            { label: "Scratch", meta: "workflow" },
+            { label: "Final", meta: "workflow" }
+        ]
     }
 
     function normalizeShelfTabs(source) {
-        return projectProfileSession.normalizeShelfTabs(source)
+        var result = []
+        if (Array.isArray(source) && source.length === 0) {
+            return result
+        }
+        var tabs = asArray(source)
+        for (var index = 0; index < tabs.length; ++index) {
+            var tab = String(tabs[index] || "").trim()
+            if (tab.length > 0) {
+                result.push(tab)
+            }
+        }
+        return result.length > 0 ? result : ["Output", "Proof", "Receipts", "Log"]
     }
 
     function activityModeAvailable(modeId) {
-        return projectProfileSession.activityModeAvailable(modeId)
+        for (var index = 0; index < activityModes.length; ++index) {
+            if (activityModes[index].id === modeId) {
+                return true
+            }
+        }
+        return false
     }
 
     function hasActivityMode(modeId) {
-        return projectProfileSession.hasActivityMode(modeId)
+        return activityModeAvailable(modeId)
     }
 
+    // Project profile normalization and activity-mode setup.
     function loadProjectProfile(document) {
         projectProfileSession.loadProjectProfile(document)
-        var rightInspector = projectProfileDocument && projectProfileDocument.right_inspector ? projectProfileDocument.right_inspector : ({})
+        var rightInspector = document && document.right_inspector ? document.right_inspector : ({})
         shellLayoutSession.setInspectorSections(rightInspector.sections, defaultInspectorSections())
+        applyProjectPanelDefaults()
 
         var defaultActivity = String(projectProfileSession.defaultActivityMode || activityMode)
-        activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : activityModes[0].id
+        activityMode = activityModeAvailable(defaultActivity) ? defaultActivity : (activityModes[0] || {}).id
     }
 
     function normalizeCustomActions(source) {
-        return projectProfileSession.normalizeCustomActions(source)
+        var actions = asArray(source)
+        var result = []
+        var seen = ({})
+        for (var index = 0; index < actions.length; ++index) {
+            var action = actions[index] || ({})
+            var id = String(action.id || "").trim()
+            var label = String(action.label || "").trim()
+            var handler = String(action.handler || "").trim()
+            if (!id.length || !label.length || !handler.length || seen[id]) {
+                continue
+            }
+            seen[id] = true
+            result.push({
+                id: id,
+                label: label,
+                menu: String(action.menu || "Tools").trim() || "Tools",
+                activity: String(action.activity || "").trim(),
+                handler: handler,
+                enabled: action.enabled !== false,
+                args: action.args || ({})
+            })
+        }
+        return result
     }
 
     function customActionVisible(action) {
-        return projectProfileSession.customActionVisible(action, activityMode)
+        if (!action || action.enabled === false) {
+            return false
+        }
+        if (action.activity && action.activity !== activityMode) {
+            return false
+        }
+        return true
     }
 
     function menuCustomActions(menuName, unusedRevision) {
-        return projectProfileSession.menuCustomActions(menuName, unusedRevision, activityMode)
+        var menu = String(menuName || "")
+        var result = []
+        for (var index = 0; index < customActions.length; ++index) {
+            var action = customActions[index]
+            if (String(action.menu || "") === menu && customActionVisible(action)) {
+                result.push(action)
+            }
+        }
+        return result
     }
 
     function customActionById(actionId) {
-        return projectProfileSession.customActionById(actionId)
+        var id = String(actionId || "")
+        for (var index = 0; index < customActions.length; ++index) {
+            if (customActions[index].id === id) {
+                return customActions[index]
+            }
+        }
+        return null
     }
 
     function runCustomAction(actionId) {
         var action = customActionById(actionId)
         if (!customActionVisible(action)) {
-            projectProfileSession.setCustomActionResult("action unavailable", "")
+            customActionStatus = "action unavailable"
+            customActionOutputPath = ""
             revision += 1
             return false
         }
@@ -426,13 +510,15 @@ QtObject {
         var args = action.args || ({})
         if (handler === "text_editor_command") {
             requestTextEditorCommand(String(args.command || ""))
-            projectProfileSession.setCustomActionResult("ran " + action.label, "")
+            customActionStatus = "ran " + action.label
+            customActionOutputPath = ""
             revision += 1
             return true
         }
         if (handler === "switch_activity") {
             setActivityMode(String(args.activity || ""))
-            projectProfileSession.setCustomActionResult("ran " + action.label, "")
+            customActionStatus = "ran " + action.label
+            customActionOutputPath = ""
             revision += 1
             return true
         }
@@ -440,13 +526,114 @@ QtObject {
             return exportTextEditorBundle(args)
         }
 
-        projectProfileSession.setCustomActionResult("unsupported action", "")
+        customActionStatus = "unsupported action"
+        customActionOutputPath = ""
         revision += 1
         return false
     }
 
     function applyProjectPanelDefaults() {
         shellLayoutSession.applyProjectPanelDefaults(projectPanelDefaults)
+    }
+
+    function saveShellLayout() {
+        if (typeof shellLayoutStore === "undefined" || !shellLayoutStore) {
+            shellLayoutSaveOk = false
+            return false
+        }
+        shellLayoutSaveOk = shellLayoutStore.save(shellLayoutDocument())
+        if (shellLayoutSaveOk) {
+            shellLayoutDirty = false
+        }
+        revision += 1
+        return shellLayoutSaveOk
+    }
+
+    function resetShellLayout() {
+        shellLayoutSession.resetShellLayout()
+    }
+
+    function resetPanelSizes() {
+        shellLayoutSession.resetPanelSizes()
+    }
+
+    function windowWidth() {
+        return targetRoot ? Number(targetRoot.width) : UiStyle.windowWidth
+    }
+
+    function windowHeight() {
+        return targetRoot ? Number(targetRoot.height) : UiStyle.windowHeight
+    }
+
+    function panelManualCollapsed(panelId) {
+        if (panelId === "left") {
+            return leftPanelCollapsed
+        }
+        if (panelId === "right") {
+            return rightPanelCollapsed
+        }
+        if (panelId === "bottom") {
+            return bottomPanelCollapsed
+        }
+        return false
+    }
+
+    function panelAutoHidden(panelId) {
+        if (panelManualCollapsed(panelId)) {
+            return false
+        }
+        if (panelId === "left") {
+            return windowWidth() < leftPanelAutoHideWidth
+        }
+        if (panelId === "right") {
+            return windowWidth() < rightPanelAutoHideWidth
+        }
+        if (panelId === "bottom") {
+            return windowHeight() < bottomPanelAutoHideHeight
+        }
+        return false
+    }
+
+    function panelVisible(panelId) {
+        return !panelManualCollapsed(panelId) && !panelAutoHidden(panelId)
+    }
+
+    function panelState(panelId) {
+        if (panelManualCollapsed(panelId)) {
+            return "collapsed"
+        }
+        if (panelAutoHidden(panelId)) {
+            return "auto_hidden"
+        }
+        return "visible"
+    }
+
+    function panelStateLabel(panelId) {
+        var state = panelState(panelId)
+        if (state === "collapsed") {
+            return "manual collapsed"
+        }
+        if (state === "auto_hidden") {
+            return "auto-hidden"
+        }
+        return "visible"
+    }
+
+    function panelStateDetail(panelId) {
+        if (panelId === "left") {
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(leftPanelAutoHideWidth) + "px width" : String(leftPanelWidth) + " px"
+        }
+        if (panelId === "right") {
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(rightPanelAutoHideWidth) + "px width" : String(rightPanelWidth) + " px"
+        }
+        if (panelId === "bottom") {
+            return panelAutoHidden(panelId) ? "auto-hidden below " + String(bottomPanelAutoHideHeight) + "px height" : String(bottomPanelHeight) + " px"
+        }
+        return ""
+    }
+
+    function applyLayoutPreset(presetId) {
+        shellLayoutSession.applyLayoutPreset(presetId)
     }
 
     function asArray(value) {
@@ -641,6 +828,7 @@ QtObject {
         return textEditorSession.textEditorPathForId(id)
     }
 
+    // Text editor pass-through API.
     function saveTextEditorDocument() {
         var result = textEditorSession.saveTextEditorDocument()
         revision += 1
@@ -669,13 +857,13 @@ QtObject {
         }
 
         var result = textEditorSession.exportTextEditorBundle(metadata)
-        projectProfileSession.setCustomActionResult(
-            String(result.message || (result.ok ? "exported bundle" : "export failed")),
-            String(result.path || ""))
+        customActionStatus = String(result.message || (result.ok ? "exported bundle" : "export failed"))
+        customActionOutputPath = String(result.path || "")
         revision += 1
         return !!result.ok
     }
 
+    // Drawing document persistence and native-controller bridge.
     function currentDrawingModelDocument() {
         if (drawingNativeController && typeof drawingNativeController.modelDocument === "function") {
             return drawingNativeController.modelDocument()
@@ -897,6 +1085,7 @@ QtObject {
         return textEditorSession.textEditorModifiedState(unusedRevision)
     }
 
+    // Drawing session pass-through API.
     function drawingFindById(items, id, fallback) {
         return drawingSession.drawingFindById(items, id, fallback)
     }
@@ -1335,6 +1524,7 @@ QtObject {
         return text
     }
 
+    // CSV map inspection API.
     function mapRowCount() {
         return mapSession.mapRowCount()
     }
@@ -1357,7 +1547,6 @@ QtObject {
 
     function selectMapCell(row, col) {
         mapSession.selectMapCell(row, col)
-        revision += 1
     }
 
     function mapTokenCounts(unusedRevision) {
@@ -1413,9 +1602,63 @@ QtObject {
     }
 
     function mapCellInspectorDocument(unusedRevision) {
-        return mapSession.mapCellInspectorDocument(inspectorSectionVisible, projectTitle, writeDisabled, mapCsvPath, cellMetadataPath)
+        var token = selectedMapToken()
+        var tags = selectedCellTags()
+        var tagText = tags.length > 0 ? tags.join(", ") : "none"
+        var codeRefs = selectedCellCodeRefs()
+        return {
+            id: "csv_map_cell_inspector",
+            targetId: "cell_" + String(selectedMapRow) + "_" + String(selectedMapCol),
+            targetLabel: "cell " + String(selectedMapRow) + "," + String(selectedMapCol),
+            targetType: "map_cell",
+            status: selectedCellStatus(),
+            sections: [
+                {
+                    id: "facts",
+                    label: "Facts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("facts"),
+                    rows: [
+                        { label: "Coordinate", value: String(selectedMapRow) + "," + String(selectedMapCol) },
+                        { label: "Token", value: token },
+                        { label: "Status", value: selectedCellStatus() },
+                        { label: "Tags", value: tagText }
+                    ]
+                },
+                {
+                    id: "selection",
+                    label: "Selection",
+                    type: "text",
+                    visible: inspectorSectionVisible("selection"),
+                    items: [
+                        { label: "Intent", value: selectedCellIntent() },
+                        { label: "Map", value: projectTitle },
+                        { label: "Validation", value: mapRowCount() > 0 ? "grid loaded; persistence disabled" : "missing grid data" }
+                    ]
+                },
+                {
+                    id: "code_refs",
+                    label: "Code Refs",
+                    type: "code_refs",
+                    visible: inspectorSectionVisible("code_refs"),
+                    items: codeRefs
+                },
+                {
+                    id: "receipts",
+                    label: "Receipts",
+                    type: "rows",
+                    visible: inspectorSectionVisible("receipts"),
+                    rows: [
+                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
+                        { label: "CSV", value: displayDataPath(mapCsvPath) },
+                        { label: "Metadata", value: displayDataPath(cellMetadataPath) }
+                    ]
+                }
+            ]
+        }
     }
 
+    // Review subject routing and inspector document assembly.
     function normalizeRoute(route) {
         var routeId = String(route.route_id || route.id || "")
         return {
@@ -1827,7 +2070,6 @@ QtObject {
 
     function setShelfTab(tabName) {
         projectProfileSession.selectShelfTab(tabName)
-        revision += 1
     }
 
     function setStatus(routeId, status) {

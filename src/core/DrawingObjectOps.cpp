@@ -1,0 +1,506 @@
+#include "DrawingCoreInternal.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace drawing_core {
+
+bool generatedObjectExists(const State &state, const QString &objectId) {
+    for (const QJsonValue value : state.generatedObjects) {
+        if (value.toObject().value("id").toString() == objectId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void selectObject(State &state, const QString &objectId) {
+    state.selectedObject = objectId;
+    state.selectedObjects = objectId.isEmpty() ? QStringList{} : QStringList{objectId};
+}
+
+void selectObjects(State &state, const QStringList &objectIds) {
+    QStringList kept;
+    for (const QString &objectId : objectIds) {
+        if (objectId.startsWith(QStringLiteral("script_")) && generatedObjectExists(state, objectId)) {
+            kept.append(objectId);
+        }
+    }
+    state.selectedObjects = kept;
+    state.selectedObject = kept.isEmpty() ? QString() : kept.last();
+    state.selectedLayer = kept.isEmpty() ? state.selectedLayer : QString::fromLatin1(kScriptLayer);
+    state.pendingPoint = {};
+}
+
+QString nextId(const State &state, const QString &kind) {
+    int count = 0;
+    for (const QJsonValue value : state.generatedObjects) {
+        const QJsonObject object = value.toObject();
+        if (object.value("kind").toString() == kind) {
+            ++count;
+        }
+    }
+    return QStringLiteral("script_%1_%2").arg(kind, QStringLiteral("%1").arg(count + 1, 2, 10, QLatin1Char('0')));
+}
+
+void pushObject(State &state, QJsonObject object) {
+    object.insert("layer_id", kScriptLayer);
+    object.insert("source", "cpp_drawing_core");
+    state.generatedObjects.append(object);
+    state.selectedLayer = kScriptLayer;
+    selectObject(state, object.value("id").toString());
+}
+
+void deleteObject(State &state, const QString &objectId) {
+    if (objectId.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QJsonArray keptObjects;
+    bool deleted = false;
+    for (const QJsonValue value : state.generatedObjects) {
+        const QJsonObject object = value.toObject();
+        if (object.value("id").toString() == objectId) {
+            deleted = true;
+            continue;
+        }
+        keptObjects.append(object);
+    }
+    if (!deleted) {
+        state.errors.append("delete_object could not find generated object: " + objectId);
+        return;
+    }
+    state.generatedObjects = keptObjects;
+    if (state.selectedObject == objectId) {
+        state.selectedObject.clear();
+    }
+    state.selectedObjects.removeAll(objectId);
+    if (state.selectedObject.isEmpty() && !state.selectedObjects.isEmpty()) {
+        state.selectedObject = state.selectedObjects.last();
+    }
+    state.pendingPoint = {};
+}
+
+void deleteObjects(State &state, const QStringList &objectIds) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList ids;
+    for (const QString &objectId : objectIds) {
+        if (!objectId.isEmpty() && !ids.contains(objectId)) {
+            ids.append(objectId);
+        }
+    }
+    QJsonArray keptObjects;
+    int deleted = 0;
+    for (const QJsonValue value : state.generatedObjects) {
+        const QJsonObject object = value.toObject();
+        const QString objectId = object.value("id").toString();
+        if (ids.contains(objectId)) {
+            ++deleted;
+            continue;
+        }
+        keptObjects.append(object);
+    }
+    if (deleted == 0) {
+        state.errors.append("delete_objects could not find selected generated objects");
+        return;
+    }
+    state.generatedObjects = keptObjects;
+    for (const QString &objectId : ids) {
+        state.selectedObjects.removeAll(objectId);
+        if (state.selectedObject == objectId) {
+            state.selectedObject.clear();
+        }
+    }
+    if (state.selectedObject.isEmpty() && !state.selectedObjects.isEmpty()) {
+        state.selectedObject = state.selectedObjects.last();
+    }
+    state.pendingPoint = {};
+}
+
+QString pushClonedObject(State &state, QJsonObject object, const QString &sourceId, double dxN, double dyN, const QString &sourceKey) {
+    const QString kind = object.value("kind").toString();
+    if (kind.isEmpty()) {
+        state.errors.append(sourceKey + " missing object kind");
+        return {};
+    }
+    const Bounds bounds = normalizedBounds(object);
+    if (!bounds.ok) {
+        state.errors.append(sourceKey + " could not compute bounds");
+        return {};
+    }
+    double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
+    double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
+    if (std::abs(clampedDxN) < 0.000001 && std::abs(clampedDyN) < 0.000001) {
+        clampedDxN = clampedMoveDelta(-dxN, bounds.minX, bounds.maxX);
+        clampedDyN = clampedMoveDelta(-dyN, bounds.minY, bounds.maxY);
+    }
+    const QString nextObjectId = nextId(state, kind);
+    object.insert("id", nextObjectId);
+    if (!sourceId.isEmpty()) {
+        object.insert(sourceKey, sourceId);
+    }
+    translateObjectWithState(object, state, clampedDxN, clampedDyN);
+    pushObject(state, object);
+    state.pendingPoint = {};
+    return nextObjectId;
+}
+
+void duplicateObject(State &state, const QString &objectId, double dxN, double dyN) {
+    if (objectId.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    for (const QJsonValue value : state.generatedObjects) {
+        QJsonObject object = value.toObject();
+        if (object.value("id").toString() != objectId) {
+            continue;
+        }
+        pushClonedObject(state, object, objectId, dxN, dyN, QStringLiteral("duplicate_of"));
+        return;
+    }
+    state.errors.append("duplicate_object could not find generated object: " + objectId);
+}
+
+void duplicateObjects(State &state, const QStringList &objectIds, double dxN, double dyN) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    const QJsonArray sourceObjects = state.generatedObjects;
+    QStringList duplicateIds;
+    for (const QString &objectId : objectIds) {
+        bool found = false;
+        for (const QJsonValue value : sourceObjects) {
+            QJsonObject object = value.toObject();
+            if (object.value("id").toString() != objectId) {
+                continue;
+            }
+            const QString duplicateId = pushClonedObject(state, object, objectId, dxN, dyN, QStringLiteral("duplicate_of"));
+            if (!duplicateId.isEmpty()) {
+                duplicateIds.append(duplicateId);
+            }
+            found = true;
+            break;
+        }
+        if (!found) {
+            state.errors.append("duplicate_objects could not find generated object: " + objectId);
+        }
+    }
+    if (!duplicateIds.isEmpty()) {
+        selectObjects(state, duplicateIds);
+    }
+}
+
+void pasteObject(State &state, const QJsonObject &snapshot, double dxN, double dyN) {
+    const QString sourceId = snapshot.value("id").toString();
+    if (sourceId.isEmpty() || sourceId.indexOf(QStringLiteral("script_")) != 0) {
+        state.errors.append("paste_object requires a generated object snapshot");
+        return;
+    }
+    pushClonedObject(state, snapshot, sourceId, dxN, dyN, QStringLiteral("pasted_from"));
+}
+
+void pasteObjects(State &state, const QJsonArray &snapshots, double dxN, double dyN) {
+    if (snapshots.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList pastedIds;
+    for (const QJsonValue value : snapshots) {
+        const QJsonObject snapshot = value.toObject();
+        const QString sourceId = snapshot.value("id").toString();
+        if (sourceId.isEmpty() || sourceId.indexOf(QStringLiteral("script_")) != 0) {
+            state.errors.append("paste_objects skipped invalid generated object snapshot");
+            continue;
+        }
+        const QString pastedId = pushClonedObject(state, snapshot, sourceId, dxN, dyN, QStringLiteral("pasted_from"));
+        if (!pastedId.isEmpty()) {
+            pastedIds.append(pastedId);
+        }
+    }
+    if (!pastedIds.isEmpty()) {
+        selectObjects(state, pastedIds);
+    }
+}
+
+void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
+    if (objectId.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    bool moved = false;
+    QJsonArray movedObjects;
+    for (const QJsonValue value : state.generatedObjects) {
+        QJsonObject object = value.toObject();
+        if (object.value("id").toString() == objectId) {
+            const Bounds bounds = normalizedBounds(object);
+            if (!bounds.ok) {
+                state.errors.append("move_object could not compute bounds for: " + objectId);
+                return;
+            }
+            const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
+            const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
+            translateObjectWithState(object, state, clampedDxN, clampedDyN);
+            moved = true;
+        }
+        movedObjects.append(object);
+    }
+    if (!moved) {
+        state.errors.append("move_object could not find generated object: " + objectId);
+        return;
+    }
+    state.generatedObjects = movedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObject(state, objectId);
+    state.pendingPoint = {};
+}
+
+void moveObjects(State &state, const QStringList &objectIds, double dxN, double dyN) {
+    if (objectIds.isEmpty()) {
+        state.pendingPoint = {};
+        return;
+    }
+    QStringList ids;
+    for (const QString &objectId : objectIds) {
+        if (!objectId.isEmpty() && !ids.contains(objectId)) {
+            ids.append(objectId);
+        }
+    }
+    const Bounds bounds = normalizedBoundsForObjects(state.generatedObjects, ids);
+    if (!bounds.ok) {
+        state.errors.append("move_objects could not compute selected object bounds");
+        return;
+    }
+    const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
+    const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
+    bool moved = false;
+    QJsonArray movedObjects;
+    for (const QJsonValue value : state.generatedObjects) {
+        QJsonObject object = value.toObject();
+        if (ids.contains(object.value("id").toString())) {
+            translateObjectWithState(object, state, clampedDxN, clampedDyN);
+            moved = true;
+        }
+        movedObjects.append(object);
+    }
+    if (!moved) {
+        state.errors.append("move_objects could not find selected generated objects");
+        return;
+    }
+    state.generatedObjects = movedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObjects(state, ids);
+    state.pendingPoint = {};
+}
+
+void updateObjectField(State &state, const QString &objectId, const QString &field, double value) {
+    if (objectId.isEmpty() || field.isEmpty() || !std::isfinite(value)) {
+        state.pendingPoint = {};
+        return;
+    }
+    bool updated = false;
+    QJsonArray updatedObjects;
+    for (const QJsonValue objectValue : state.generatedObjects) {
+        QJsonObject object = objectValue.toObject();
+        if (object.value("id").toString() == objectId) {
+            const QString kind = object.value("kind").toString();
+            const double canvas = static_cast<double>(state.canvasPx);
+            if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+                const double x = field == QStringLiteral("x_px") ? clampedPx(value, state.canvasPx) : object.value("x").toDouble() * canvas;
+                const double y = field == QStringLiteral("y_px") ? clampedPx(value, state.canvasPx) : object.value("y").toDouble() * canvas;
+                if (field != QStringLiteral("x_px") && field != QStringLiteral("y_px")) {
+                    state.errors.append("update_object unsupported point field: " + field);
+                    return;
+                }
+                object.insert("x", x / canvas);
+                object.insert("y", y / canvas);
+                object.insert("point_px", pointArray(x, y));
+                updated = true;
+            } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+                double x1 = object.value("x1").toDouble() * canvas;
+                double y1 = object.value("y1").toDouble() * canvas;
+                double x2 = object.value("x2").toDouble() * canvas;
+                double y2 = object.value("y2").toDouble() * canvas;
+                if (field == QStringLiteral("x1_px")) {
+                    x1 = clampedPx(value, state.canvasPx);
+                } else if (field == QStringLiteral("y1_px")) {
+                    y1 = clampedPx(value, state.canvasPx);
+                } else if (field == QStringLiteral("x2_px")) {
+                    x2 = clampedPx(value, state.canvasPx);
+                } else if (field == QStringLiteral("y2_px")) {
+                    y2 = clampedPx(value, state.canvasPx);
+                } else {
+                    state.errors.append("update_object unsupported line field: " + field);
+                    return;
+                }
+                object.insert("x1", x1 / canvas);
+                object.insert("y1", y1 / canvas);
+                object.insert("x2", x2 / canvas);
+                object.insert("y2", y2 / canvas);
+                object.insert("from_px", pointArray(x1, y1));
+                object.insert("to_px", pointArray(x2, y2));
+                updated = true;
+            } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
+                double cx = object.value("cx").toDouble() * canvas;
+                double cy = object.value("cy").toDouble() * canvas;
+                double radius = object.value("radius_px").toDouble();
+                if (field == QStringLiteral("cx_px")) {
+                    cx = clampedPx(value, state.canvasPx);
+                } else if (field == QStringLiteral("cy_px")) {
+                    cy = clampedPx(value, state.canvasPx);
+                } else if (field == QStringLiteral("radius_px")) {
+                    radius = std::clamp(positivePx(value), 1.0, canvas);
+                } else if (kind == QStringLiteral("arc") && field == QStringLiteral("start_angle_deg")) {
+                    object.insert("start_angle_deg", value);
+                    updated = true;
+                } else if (kind == QStringLiteral("arc") && field == QStringLiteral("end_angle_deg")) {
+                    object.insert("end_angle_deg", value);
+                    updated = true;
+                } else {
+                    state.errors.append("update_object unsupported circle field: " + field);
+                    return;
+                }
+                object.insert("cx", cx / canvas);
+                object.insert("cy", cy / canvas);
+                object.insert("center_px", pointArray(cx, cy));
+                object.insert("radius", radius / canvas);
+                object.insert("radius_px", radius);
+                updated = true;
+            } else if (kind == QStringLiteral("rectangle")
+                       || kind == QStringLiteral("image_reference_frame")
+                       || kind == QStringLiteral("ascii_crop_frame")
+                       || kind == QStringLiteral("ascii_cell_region")) {
+                double x = object.value("x").toDouble() * canvas;
+                double y = object.value("y").toDouble() * canvas;
+                double width = object.value("width").toDouble() * canvas;
+                double height = object.value("height").toDouble() * canvas;
+                double rotation = object.value("rotation_deg").toDouble();
+                if (field == QStringLiteral("x_px")) {
+                    x = value;
+                } else if (field == QStringLiteral("y_px")) {
+                    y = value;
+                } else if (field == QStringLiteral("width_px")) {
+                    width = value;
+                } else if (field == QStringLiteral("height_px")) {
+                    height = value;
+                } else if (field == QStringLiteral("rotation_deg")) {
+                    rotation = value;
+                } else {
+                    state.errors.append("update_object unsupported rectangle field: " + field);
+                    return;
+                }
+                rebuildRectangle(object, state.canvasPx, x, y, width, height);
+                object.insert("rotation_deg", rotation);
+                updated = true;
+            } else if (kind == QStringLiteral("polygon")) {
+                double cx = object.value("cx").toDouble() * canvas;
+                double cy = object.value("cy").toDouble() * canvas;
+                double radius = object.value("radius_px").toDouble();
+                int sides = object.value("sides").toInt(6);
+                double rotation = object.value("rotation_deg").toDouble();
+                if (field == QStringLiteral("cx_px")) {
+                    cx = value;
+                } else if (field == QStringLiteral("cy_px")) {
+                    cy = value;
+                } else if (field == QStringLiteral("radius_px")) {
+                    radius = value;
+                } else if (field == QStringLiteral("sides")) {
+                    sides = static_cast<int>(std::round(value));
+                } else if (field == QStringLiteral("rotation_deg")) {
+                    rotation = value;
+                } else {
+                    state.errors.append("update_object unsupported polygon field: " + field);
+                    return;
+                }
+                rebuildPolygon(object, state.canvasPx, cx, cy, radius, sides, rotation);
+                updated = true;
+            } else {
+                state.errors.append("update_object unsupported kind: " + kind);
+                return;
+            }
+        }
+        updatedObjects.append(object);
+    }
+    if (!updated) {
+        state.errors.append("update_object could not find generated object: " + objectId);
+        return;
+    }
+    state.generatedObjects = updatedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObject(state, objectId);
+    state.pendingPoint = {};
+}
+
+bool isEditableObjectMetadataField(const QString &field) {
+    return field == QStringLiteral("role")
+        || field == QStringLiteral("material")
+        || field == QStringLiteral("intent")
+        || field == QStringLiteral("export_group")
+        || field == QStringLiteral("tags");
+}
+
+QJsonArray normalizedMetadataTags(const QJsonValue &value) {
+    QJsonArray tags;
+    if (value.isArray()) {
+        for (const QJsonValue tagValue : value.toArray()) {
+            const QString tag = tagValue.toString().trimmed();
+            if (!tag.isEmpty() && !tags.contains(tag)) {
+                tags.append(tag);
+            }
+        }
+        return tags;
+    }
+    const QStringList parts = value.toString().split(',', Qt::SkipEmptyParts);
+    for (const QString &part : parts) {
+        const QString tag = part.trimmed();
+        if (!tag.isEmpty() && !tags.contains(tag)) {
+            tags.append(tag);
+        }
+    }
+    return tags;
+}
+
+void setObjectMetadataField(State &state, const QString &objectId, const QString &field, const QJsonValue &value) {
+    if (objectId.isEmpty() || !isEditableObjectMetadataField(field)) {
+        state.pendingPoint = {};
+        return;
+    }
+
+    bool updated = false;
+    QJsonArray updatedObjects;
+    for (const QJsonValue objectValue : state.generatedObjects) {
+        QJsonObject object = objectValue.toObject();
+        if (object.value(QStringLiteral("id")).toString() == objectId) {
+            if (field == QStringLiteral("tags")) {
+                const QJsonArray tags = normalizedMetadataTags(value);
+                if (tags.isEmpty()) {
+                    object.remove(field);
+                } else {
+                    object.insert(field, tags);
+                }
+            } else {
+                const QString text = value.toString().trimmed();
+                if (text.isEmpty()) {
+                    object.remove(field);
+                } else {
+                    object.insert(field, text);
+                }
+            }
+            updated = true;
+        }
+        updatedObjects.append(object);
+    }
+    if (!updated) {
+        state.errors.append(QStringLiteral("set_object_metadata could not find generated object: ") + objectId);
+        return;
+    }
+    state.generatedObjects = updatedObjects;
+    state.selectedLayer = kScriptLayer;
+    selectObject(state, objectId);
+    state.pendingPoint = {};
+}
+
+} // namespace drawing_core

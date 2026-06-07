@@ -16,7 +16,15 @@ set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Proj
 qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
+    src/core/DrawingCoreInternal.h
     src/core/DrawingCore.cpp
+    src/core/DrawingCoreCommon.cpp
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingGeometry.cpp
+    src/core/DrawingObjectOps.cpp
+    src/core/DrawingCommands.cpp
+    src/core/DrawingModelBuilder.cpp
+    src/core/DrawingSvgExport.cpp
     src/export/BlenderSvgBundleTemplates.h
     src/export/BlenderSvgBundleTemplates.cpp
     src/export/BlenderSvgBundleExport.h
@@ -52,7 +60,15 @@ if(BUILD_TESTING)
     add_executable(drawing_core_smoke
         tests/drawing_core_smoke.cpp
         src/core/DrawingCore.h
+        src/core/DrawingCoreInternal.h
         src/core/DrawingCore.cpp
+        src/core/DrawingCoreCommon.cpp
+        src/core/DrawingDocumentController.cpp
+        src/core/DrawingGeometry.cpp
+        src/core/DrawingObjectOps.cpp
+        src/core/DrawingCommands.cpp
+        src/core/DrawingModelBuilder.cpp
+        src/core/DrawingSvgExport.cpp
     )
 
     target_include_directories(drawing_core_smoke PRIVATE

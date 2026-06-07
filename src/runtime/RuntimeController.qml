@@ -10,6 +10,7 @@ QtObject {
     property string selectedSettingsPage: "theme"
     property ProjectProfileSession projectProfileSession: ProjectProfileSession {
         id: projectProfileSession
+        onChanged: runtimeController.bumpRevision("project_profile_session")
     }
     property alias projectProfilePath: projectProfileSession.projectProfilePath
     property alias projectProfileDocument: projectProfileSession.projectProfileDocument
@@ -36,8 +37,12 @@ QtObject {
     property ShellLayoutSession shellLayoutSession: ShellLayoutSession {
         id: shellLayoutSession
         targetRoot: targetRoot
+        onChanged: runtimeController.bumpRevision("shell_layout_session")
     }
-    property MapSession mapSession: MapSession { id: mapSession }
+    property MapSession mapSession: MapSession {
+        id: mapSession
+        onChanged: runtimeController.bumpRevision("map_session")
+    }
     property alias mapCsvPath: mapSession.mapCsvPath
     property alias cellMetadataPath: mapSession.cellMetadataPath
     property alias mapCsvText: mapSession.mapCsvText
@@ -62,6 +67,12 @@ QtObject {
         id: drawingSession
         writeDisabled: runtimeController.writeDisabled
         onChanged: runtimeController.handleDrawingSessionChanged()
+    }
+    property DrawingDocumentIoSession drawingDocumentIoSession: DrawingDocumentIoSession {
+        id: drawingDocumentIoSession
+        drawingSession: runtimeController.drawingSession
+        drawingNativeController: runtimeController.drawingNativeController
+        onChanged: runtimeController.bumpRevision("drawing_document_io")
     }
     property ReviewSession reviewSession: ReviewSession {
         id: reviewSession
@@ -180,13 +191,13 @@ QtObject {
     property alias shellLayoutDirty: shellLayoutSession.shellLayoutDirty
     property alias shellLayoutSaveOk: shellLayoutSession.shellLayoutSaveOk
     property alias shellLayoutPath: shellLayoutSession.shellLayoutPath
-    property bool drawingDocumentIoOk: true
-    property string drawingDocumentIoStatus: "not saved"
-    property string drawingDocumentPath: ""
-    property bool drawingDocumentDirty: false
-    property string drawingDocumentCleanSnapshot: ""
-    property var drawingRecentFiles: []
-    property string drawingRecentFilesPath: ""
+    property alias drawingDocumentIoOk: drawingDocumentIoSession.drawingDocumentIoOk
+    property alias drawingDocumentIoStatus: drawingDocumentIoSession.drawingDocumentIoStatus
+    property alias drawingDocumentPath: drawingDocumentIoSession.drawingDocumentPath
+    property alias drawingDocumentDirty: drawingDocumentIoSession.drawingDocumentDirty
+    property alias drawingDocumentCleanSnapshot: drawingDocumentIoSession.drawingDocumentCleanSnapshot
+    property alias drawingRecentFiles: drawingDocumentIoSession.drawingRecentFiles
+    property alias drawingRecentFilesPath: drawingDocumentIoSession.drawingRecentFilesPath
     property int revision: 0
     property var uiThemeDocument: ({})
     property string uiThemePath: ""
@@ -266,19 +277,7 @@ QtObject {
     }
 
     function normalizedInspectorSections(source) {
-        var defaults = defaultInspectorSections()
-        if (!source) {
-            return defaults
-        }
-        var result = Object.assign({}, defaults)
-        var keys = Object.keys(defaults)
-        for (var index = 0; index < keys.length; ++index) {
-            var key = keys[index]
-            if (typeof source[key] === "boolean") {
-                result[key] = source[key]
-            }
-        }
-        return result
+        return shellLayoutSession.normalizedInspectorSections(source, defaultInspectorSections())
     }
 
     function defaultInspectorSections() {
@@ -303,47 +302,15 @@ QtObject {
     }
 
     function defaultActivityModes() {
-        return [
-            { id: "blank", label: "Blank", icon: "B", tooltip: "Blank workspace", exclusiveGroup: "" },
-            { id: "review", label: "Review", icon: "R", tooltip: "Review gate workspace", exclusiveGroup: "" },
-            { id: "settings", label: "Settings", icon: "S", tooltip: "Settings surface", exclusiveGroup: "system" },
-            { id: "proof", label: "Proof", icon: "P", tooltip: "Proof and receipts", exclusiveGroup: "" }
-        ]
+        return projectProfileSession.defaultActivityModes()
     }
 
     function normalizeActivityModes(source) {
-        var modes = []
-        var sourceModes = asArray(source)
-        for (var index = 0; index < sourceModes.length; ++index) {
-            var mode = sourceModes[index]
-            if (mode && mode.enabled !== false && String(mode.id || "").length > 0) {
-                var id = String(mode.id)
-                modes.push({
-                    id: id,
-                    label: String(mode.label || mode.id),
-                    icon: String(mode.icon || String(mode.label || mode.id).charAt(0).toUpperCase()),
-                    tooltip: String(mode.tooltip || mode.label || mode.id),
-                    exclusiveGroup: String(mode.exclusive_group || mode.exclusiveGroup || defaultActivityExclusiveGroup(id))
-                })
-            }
-        }
-        return modes.length > 0 ? modes : defaultActivityModes()
+        return projectProfileSession.normalizeActivityModes(source)
     }
 
     function defaultActivityExclusiveGroup(modeId) {
-        var id = String(modeId || "")
-        if (id === "map_generator"
-                || id === "map_editor"
-                || id === "drawing_tool"
-                || id === "drawing_drafting"
-                || id === "blender_scripts"
-                || id === "tool_workspace") {
-            return "tool_type"
-        }
-        if (id === "settings") {
-            return "system"
-        }
-        return ""
+        return projectProfileSession.defaultActivityExclusiveGroup(modeId)
     }
 
     function activityModeRecord(modeId) {
@@ -387,46 +354,15 @@ QtObject {
     }
 
     function normalizeProjectRows(source) {
-        var rows = []
-        var sourceRows = asArray(source)
-        for (var index = 0; index < sourceRows.length; ++index) {
-            var row = sourceRows[index]
-            if (row && String(row.label || "").length > 0) {
-                rows.push({
-                    label: String(row.label),
-                    meta: String(row.meta || "")
-                })
-            }
-        }
-        return rows.length > 0 ? rows : [
-            { label: "Project slot", meta: "blank" },
-            { label: "Scratch", meta: "workflow" },
-            { label: "Final", meta: "workflow" }
-        ]
+        return projectProfileSession.normalizeProjectRows(source)
     }
 
     function normalizeShelfTabs(source) {
-        var result = []
-        if (Array.isArray(source) && source.length === 0) {
-            return result
-        }
-        var tabs = asArray(source)
-        for (var index = 0; index < tabs.length; ++index) {
-            var tab = String(tabs[index] || "").trim()
-            if (tab.length > 0) {
-                result.push(tab)
-            }
-        }
-        return result.length > 0 ? result : ["Output", "Proof", "Receipts", "Log"]
+        return projectProfileSession.normalizeShelfTabs(source)
     }
 
     function activityModeAvailable(modeId) {
-        for (var index = 0; index < activityModes.length; ++index) {
-            if (activityModes[index].id === modeId) {
-                return true
-            }
-        }
-        return false
+        return projectProfileSession.activityModeAvailable(modeId)
     }
 
     function hasActivityMode(modeId) {
@@ -445,61 +381,19 @@ QtObject {
     }
 
     function normalizeCustomActions(source) {
-        var actions = asArray(source)
-        var result = []
-        var seen = ({})
-        for (var index = 0; index < actions.length; ++index) {
-            var action = actions[index] || ({})
-            var id = String(action.id || "").trim()
-            var label = String(action.label || "").trim()
-            var handler = String(action.handler || "").trim()
-            if (!id.length || !label.length || !handler.length || seen[id]) {
-                continue
-            }
-            seen[id] = true
-            result.push({
-                id: id,
-                label: label,
-                menu: String(action.menu || "Tools").trim() || "Tools",
-                activity: String(action.activity || "").trim(),
-                handler: handler,
-                enabled: action.enabled !== false,
-                args: action.args || ({})
-            })
-        }
-        return result
+        return projectProfileSession.normalizeCustomActions(source)
     }
 
     function customActionVisible(action) {
-        if (!action || action.enabled === false) {
-            return false
-        }
-        if (action.activity && action.activity !== activityMode) {
-            return false
-        }
-        return true
+        return projectProfileSession.customActionVisible(action, activityMode)
     }
 
     function menuCustomActions(menuName, unusedRevision) {
-        var menu = String(menuName || "")
-        var result = []
-        for (var index = 0; index < customActions.length; ++index) {
-            var action = customActions[index]
-            if (String(action.menu || "") === menu && customActionVisible(action)) {
-                result.push(action)
-            }
-        }
-        return result
+        return projectProfileSession.menuCustomActions(menuName, unusedRevision, activityMode)
     }
 
     function customActionById(actionId) {
-        var id = String(actionId || "")
-        for (var index = 0; index < customActions.length; ++index) {
-            if (customActions[index].id === id) {
-                return customActions[index]
-            }
-        }
-        return null
+        return projectProfileSession.customActionById(actionId)
     }
 
     function runCustomAction(actionId) {
@@ -542,16 +436,7 @@ QtObject {
     }
 
     function saveShellLayout() {
-        if (typeof shellLayoutStore === "undefined" || !shellLayoutStore) {
-            shellLayoutSaveOk = false
-            return false
-        }
-        shellLayoutSaveOk = shellLayoutStore.save(shellLayoutDocument())
-        if (shellLayoutSaveOk) {
-            shellLayoutDirty = false
-        }
-        revision += 1
-        return shellLayoutSaveOk
+        return shellLayoutSession.saveShellLayout()
     }
 
     function resetShellLayout() {
@@ -563,78 +448,35 @@ QtObject {
     }
 
     function windowWidth() {
-        return targetRoot ? Number(targetRoot.width) : UiStyle.windowWidth
+        return shellLayoutSession.windowWidth()
     }
 
     function windowHeight() {
-        return targetRoot ? Number(targetRoot.height) : UiStyle.windowHeight
+        return shellLayoutSession.windowHeight()
     }
 
     function panelManualCollapsed(panelId) {
-        if (panelId === "left") {
-            return leftPanelCollapsed
-        }
-        if (panelId === "right") {
-            return rightPanelCollapsed
-        }
-        if (panelId === "bottom") {
-            return bottomPanelCollapsed
-        }
-        return false
+        return shellLayoutSession.panelManualCollapsed(panelId)
     }
 
     function panelAutoHidden(panelId) {
-        if (panelManualCollapsed(panelId)) {
-            return false
-        }
-        if (panelId === "left") {
-            return windowWidth() < leftPanelAutoHideWidth
-        }
-        if (panelId === "right") {
-            return windowWidth() < rightPanelAutoHideWidth
-        }
-        if (panelId === "bottom") {
-            return windowHeight() < bottomPanelAutoHideHeight
-        }
-        return false
+        return shellLayoutSession.panelAutoHidden(panelId)
     }
 
     function panelVisible(panelId) {
-        return !panelManualCollapsed(panelId) && !panelAutoHidden(panelId)
+        return shellLayoutSession.panelVisible(panelId)
     }
 
     function panelState(panelId) {
-        if (panelManualCollapsed(panelId)) {
-            return "collapsed"
-        }
-        if (panelAutoHidden(panelId)) {
-            return "auto_hidden"
-        }
-        return "visible"
+        return shellLayoutSession.panelState(panelId)
     }
 
     function panelStateLabel(panelId) {
-        var state = panelState(panelId)
-        if (state === "collapsed") {
-            return "manual collapsed"
-        }
-        if (state === "auto_hidden") {
-            return "auto-hidden"
-        }
-        return "visible"
+        return shellLayoutSession.panelStateLabel(panelId)
     }
 
     function panelStateDetail(panelId) {
-        if (panelId === "left") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(leftPanelAutoHideWidth) + "px width" : String(leftPanelWidth) + " px"
-        }
-        if (panelId === "right") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(rightPanelAutoHideWidth) + "px width" : String(rightPanelWidth) + " px"
-        }
-        if (panelId === "bottom") {
-            return panelAutoHidden(panelId) ? "auto-hidden below " + String(bottomPanelAutoHideHeight) + "px height" : String(bottomPanelHeight) + " px"
-        }
-        return ""
+        return shellLayoutSession.panelStateDetail(panelId)
     }
 
     function applyLayoutPreset(presetId) {
@@ -870,37 +712,23 @@ QtObject {
 
     // Drawing document persistence and native-controller bridge.
     function currentDrawingModelDocument() {
-        if (drawingNativeController && typeof drawingNativeController.modelDocument === "function") {
-            return drawingNativeController.modelDocument()
-        }
-        return drawingSession.drawingCanvasExportDocument(revision)
+        return drawingDocumentIoSession.currentDrawingModelDocument()
     }
 
     function drawingDocumentSnapshot() {
-        return JSON.stringify(currentDrawingModelDocument())
+        return drawingDocumentIoSession.drawingDocumentSnapshot()
     }
 
     function refreshDrawingDocumentDirty() {
-        if (drawingDocumentCleanSnapshot.length === 0) {
-            drawingDocumentDirty = false
-            return
-        }
-        drawingDocumentDirty = drawingDocumentSnapshot() !== drawingDocumentCleanSnapshot
+        drawingDocumentIoSession.refreshDrawingDocumentDirty()
     }
 
     function markDrawingDocumentClean(status) {
-        drawingDocumentCleanSnapshot = drawingDocumentSnapshot()
-        drawingDocumentDirty = false
-        drawingDocumentIoStatus = String(status || "saved")
+        drawingDocumentIoSession.markDrawingDocumentClean(status)
     }
 
     function newDrawingDocument() {
-        drawingSession.resetNativeDrawingDocument()
-        drawingDocumentPath = ""
-        drawingDocumentIoOk = true
-        markDrawingDocumentClean("new drawing")
-        revision += 1
-        return true
+        return drawingDocumentIoSession.newDrawingDocument()
     }
 
     function handleDrawingSessionChanged() {
@@ -909,153 +737,51 @@ QtObject {
     }
 
     function drawingDocumentFileName() {
-        if (!drawingDocumentPath.length) {
-            return "untitled"
-        }
-        var parts = drawingDocumentPath.split("/")
-        return parts.length > 0 ? parts[parts.length - 1] : drawingDocumentPath
+        return drawingDocumentIoSession.drawingDocumentFileName()
     }
 
     function drawingDocumentStatusText() {
-        var state = drawingDocumentDirty ? "unsaved" : (drawingDocumentPath.length ? "saved" : "not saved")
-        return drawingDocumentFileName() + " / " + state
+        return drawingDocumentIoSession.drawingDocumentStatusText()
     }
 
     function drawingRecentFilePath(item) {
-        if (typeof item === "string") {
-            return item
-        }
-        return String(item && item.path ? item.path : "")
+        return drawingDocumentIoSession.drawingRecentFilePath(item)
     }
 
     function drawingRecentFileLabel(item) {
-        var path = drawingRecentFilePath(item)
-        var label = String(item && item.label ? item.label : "")
-        if (label.length > 0) {
-            return label
-        }
-        if (!path.length) {
-            return "Untitled"
-        }
-        var parts = path.split("/")
-        return parts.length > 0 ? parts[parts.length - 1] : path
+        return drawingDocumentIoSession.drawingRecentFileLabel(item)
     }
 
     function recordDrawingRecentFile(path) {
-        var normalizedPath = String(path || "")
-        if (!normalizedPath.length || typeof drawingRecentFilesStore === "undefined"
-                || !drawingRecentFilesStore || typeof drawingRecentFilesStore.add !== "function") {
-            return false
-        }
-        var result = drawingRecentFilesStore.add(normalizedPath)
-        if (result && result.ok && result.files) {
-            drawingRecentFiles = result.files
-            return true
-        }
-        return false
+        return drawingDocumentIoSession.recordDrawingRecentFile(path)
     }
 
     function saveDrawingDocument(url) {
-        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.save !== "function") {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "drawing storage unavailable"
-            revision += 1
-            return false
-        }
-        var result = drawingDocumentStore.save(url, currentDrawingModelDocument())
-        drawingDocumentIoOk = !!result.ok
-        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "saved drawing" : "save failed"))
-        if (drawingDocumentIoOk) {
-            drawingDocumentPath = String(result.path || "")
-            markDrawingDocumentClean("saved drawing")
-            recordDrawingRecentFile(drawingDocumentPath)
-        }
-        revision += 1
-        return drawingDocumentIoOk
+        return drawingDocumentIoSession.saveDrawingDocument(url)
     }
 
     function saveCurrentDrawingDocument() {
-        if (!drawingDocumentPath.length) {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "drawing path missing"
-            revision += 1
-            return false
-        }
-        return saveDrawingDocument(drawingDocumentPath)
+        return drawingDocumentIoSession.saveCurrentDrawingDocument()
     }
 
     function currentDrawingSvgText() {
-        if (drawingNativeController && typeof drawingNativeController.exportSvg === "function") {
-            return drawingNativeController.exportSvg()
-        }
-        return ""
+        return drawingDocumentIoSession.currentDrawingSvgText()
     }
 
     function exportDrawingSvg(url) {
-        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.exportSvg !== "function") {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "svg export unavailable"
-            revision += 1
-            return false
-        }
-        var result = drawingDocumentStore.exportSvg(url, currentDrawingSvgText())
-        drawingDocumentIoOk = !!result.ok
-        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "exported svg" : "svg export failed"))
-        revision += 1
-        return drawingDocumentIoOk
+        return drawingDocumentIoSession.exportDrawingSvg(url)
     }
 
     function exportDrawingBlenderSvgBundle(url) {
-        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.exportBlenderSvgBundle !== "function") {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "Blender SVG bundle unavailable"
-            revision += 1
-            return false
-        }
-        var result = drawingDocumentStore.exportBlenderSvgBundle(url, currentDrawingSvgText(), currentDrawingModelDocument())
-        drawingDocumentIoOk = !!result.ok
-        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "exported Blender SVG bundle" : "Blender SVG bundle failed"))
-        revision += 1
-        return drawingDocumentIoOk
+        return drawingDocumentIoSession.exportDrawingBlenderSvgBundle(url)
     }
 
     function openDrawingDocument(url) {
-        if (typeof drawingDocumentStore === "undefined" || !drawingDocumentStore || typeof drawingDocumentStore.open !== "function") {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "drawing storage unavailable"
-            revision += 1
-            return false
-        }
-        var result = drawingDocumentStore.open(url)
-        drawingDocumentIoOk = !!result.ok
-        drawingDocumentIoStatus = String(result.message || (drawingDocumentIoOk ? "opened drawing" : "open failed"))
-        if (!drawingDocumentIoOk) {
-            revision += 1
-            return false
-        }
-        if (!drawingNativeController || typeof drawingNativeController.loadModel !== "function" || !drawingNativeController.loadModel(result.model || ({}))) {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "drawing model rejected"
-            revision += 1
-            return false
-        }
-        drawingDocumentPath = String(result.path || "")
-        drawingSession.syncNativeDrawingModel()
-        markDrawingDocumentClean("opened drawing")
-        recordDrawingRecentFile(drawingDocumentPath)
-        revision += 1
-        return true
+        return drawingDocumentIoSession.openDrawingDocument(url)
     }
 
     function openRecentDrawing(item) {
-        var path = drawingRecentFilePath(item)
-        if (!path.length) {
-            drawingDocumentIoOk = false
-            drawingDocumentIoStatus = "recent drawing path missing"
-            revision += 1
-            return false
-        }
-        return openDrawingDocument(path)
+        return drawingDocumentIoSession.openRecentDrawing(item)
     }
 
     function textEditorLineCount(unusedRevision) {
@@ -1520,13 +1246,7 @@ QtObject {
     }
 
     function displayDataPath(path) {
-        var text = String(path || "")
-        var marker = "/qt_qml_region_split/"
-        var index = text.indexOf(marker)
-        if (index >= 0) {
-            return text.slice(index + marker.length)
-        }
-        return text
+        return mapSession.displayDataPath(path)
     }
 
     // CSV map inspection API.
@@ -1583,84 +1303,15 @@ QtObject {
     }
 
     function mapValidationRows(unusedRevision) {
-        var rows = [
-            { label: "Rows", value: String(mapRowCount()) },
-            { label: "Columns", value: String(mapColCount()) },
-            { label: "Metadata rows", value: String(Object.keys(cellMetadataByKey).length) },
-            { label: "Writes", value: writeDisabled ? "disabled" : "enabled" }
-        ]
-        if (mapRowCount() === 0 || mapColCount() === 0) {
-            rows.push({ label: "Grid", value: "missing map data" })
-        } else {
-            rows.push({ label: "Grid", value: "loaded" })
-        }
-        return rows
+        return mapSession.mapValidationRows(writeDisabled)
     }
 
     function mapLogRows(unusedRevision) {
-        return [
-            { label: "Storage", value: "read only" },
-            { label: "CSV", value: displayDataPath(mapCsvPath) },
-            { label: "Metadata", value: displayDataPath(cellMetadataPath) },
-            { label: "Selected", value: String(selectedMapRow) + "," + String(selectedMapCol) }
-        ]
+        return mapSession.mapLogRows()
     }
 
     function mapCellInspectorDocument(unusedRevision) {
-        var token = selectedMapToken()
-        var tags = selectedCellTags()
-        var tagText = tags.length > 0 ? tags.join(", ") : "none"
-        var codeRefs = selectedCellCodeRefs()
-        return {
-            id: "csv_map_cell_inspector",
-            targetId: "cell_" + String(selectedMapRow) + "_" + String(selectedMapCol),
-            targetLabel: "cell " + String(selectedMapRow) + "," + String(selectedMapCol),
-            targetType: "map_cell",
-            status: selectedCellStatus(),
-            sections: [
-                {
-                    id: "facts",
-                    label: "Facts",
-                    type: "rows",
-                    visible: inspectorSectionVisible("facts"),
-                    rows: [
-                        { label: "Coordinate", value: String(selectedMapRow) + "," + String(selectedMapCol) },
-                        { label: "Token", value: token },
-                        { label: "Status", value: selectedCellStatus() },
-                        { label: "Tags", value: tagText }
-                    ]
-                },
-                {
-                    id: "selection",
-                    label: "Selection",
-                    type: "text",
-                    visible: inspectorSectionVisible("selection"),
-                    items: [
-                        { label: "Intent", value: selectedCellIntent() },
-                        { label: "Map", value: projectTitle },
-                        { label: "Validation", value: mapRowCount() > 0 ? "grid loaded; persistence disabled" : "missing grid data" }
-                    ]
-                },
-                {
-                    id: "code_refs",
-                    label: "Code Refs",
-                    type: "code_refs",
-                    visible: inspectorSectionVisible("code_refs"),
-                    items: codeRefs
-                },
-                {
-                    id: "receipts",
-                    label: "Receipts",
-                    type: "rows",
-                    visible: inspectorSectionVisible("receipts"),
-                    rows: [
-                        { label: "Writes", value: writeDisabled ? "disabled" : "enabled" },
-                        { label: "CSV", value: displayDataPath(mapCsvPath) },
-                        { label: "Metadata", value: displayDataPath(cellMetadataPath) }
-                    ]
-                }
-            ]
-        }
+        return mapSession.mapCellInspectorDocument(inspectorSectionVisible, projectTitle, writeDisabled, mapCsvPath, cellMetadataPath)
     }
 
     // Review subject routing and inspector document assembly.

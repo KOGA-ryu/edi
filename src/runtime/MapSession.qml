@@ -165,6 +165,9 @@ QtObject {
         var tags = selectedCellTags()
         var tagText = tags.length > 0 ? tags.join(", ") : "none"
         var codeRefs = selectedCellCodeRefs()
+        if (!Array.isArray(codeRefs) || codeRefs.length === 0) {
+            codeRefs = [displayDataPath(csvPath)]
+        }
         var isSectionVisible = function(sectionId) {
             if (typeof sectionVisible === "function") {
                 return !!sectionVisible(sectionId)
@@ -221,6 +224,30 @@ QtObject {
                 }
             ]
         }
+    }
+
+    function mapValidationRows(writeDisabled) {
+        var rows = [
+            { label: "Rows", value: String(mapRowCount()) },
+            { label: "Columns", value: String(mapColCount()) },
+            { label: "Metadata rows", value: String(Object.keys(cellMetadataByKey).length) },
+            { label: "Writes", value: writeDisabled ? "disabled" : "enabled" }
+        ]
+        if (mapRowCount() === 0 || mapColCount() === 0) {
+            rows.push({ label: "Grid", value: "missing map data" })
+        } else {
+            rows.push({ label: "Grid", value: "loaded" })
+        }
+        return rows
+    }
+
+    function mapLogRows() {
+        return [
+            { label: "Storage", value: "read only" },
+            { label: "CSV", value: displayDataPath(mapCsvPath) },
+            { label: "Metadata", value: displayDataPath(cellMetadataPath) },
+            { label: "Selected", value: String(selectedMapRow) + "," + String(selectedMapCol) }
+        ]
     }
 
     function mapTokenCounts() {

@@ -43,19 +43,10 @@ QtObject {
     property real drawingAnchorBottomY: 0.80
     property real drawingAnchorLeftX: 0.20
     property real drawingAnchorLeftY: 0.50
-    property var drawingNativeController: null
     property var drawingExternalModelDocument: ({})
     property var drawingGeneratedObjects: []
     property var drawingPendingPoint: ({})
     property bool drawingPendingShapeActive: false
-    property bool drawingSnapGridEnabled: true
-    property int drawingSnapGridStepPx: 32
-    property bool drawingObjectSnapEnabled: true
-    property int drawingObjectSnapTolerancePx: 14
-    property bool drawingObjectSnapEndpointEnabled: true
-    property bool drawingObjectSnapMidpointEnabled: true
-    property bool drawingObjectSnapCenterEnabled: true
-    property bool drawingObjectSnapVertexEnabled: true
     property string drawingCircleArcMode: "circle"
     property real drawingCircleArcStartAngleDeg: 0
     property real drawingCircleArcEndAngleDeg: 90
@@ -67,25 +58,42 @@ QtObject {
     property real drawingLineThickness: 2
     property string drawingLineStyle: "solid"
     property real drawingStrokeOpacity: 1.0
-    property bool drawingGridVisible: true
-    property string drawingGridMode: "square"
-    property int drawingGridDivisions: 16
-    property int drawingGridMajorEvery: 4
-    property bool drawingAsciiCellGridVisible: false
-    property int drawingAsciiColumns: 80
-    property int drawingAsciiRows: 40
-    property int drawingAsciiMajorEvery: 10
-    property bool drawingCenterAxesVisible: true
-    property bool drawingDiagonalGuidesVisible: false
-    property bool drawingRadialGuidesVisible: false
-    property int drawingRadialGuideCount: 8
-    property bool drawingArtboardBorderVisible: true
-    property int drawingCanvasSizePx: 512
-    property real drawingCanvasZoom: 1.0
-    property real drawingCanvasZoomMin: 0.25
-    property real drawingCanvasZoomMax: 8.0
-    property real drawingCanvasPanXPx: 0
-    property real drawingCanvasPanYPx: 0
+    property var drawingNativeController: null
+    property DrawingViewportSession viewportSession: DrawingViewportSession {
+        id: viewportSession
+        drawingNativeController: drawingSession.drawingNativeController
+        syncNativeDrawingModel: function () {
+            syncNativeDrawingModel()
+        }
+        onChanged: markChanged()
+    }
+    property alias drawingSnapGridEnabled: viewportSession.drawingSnapGridEnabled
+    property alias drawingSnapGridStepPx: viewportSession.drawingSnapGridStepPx
+    property alias drawingObjectSnapEnabled: viewportSession.drawingObjectSnapEnabled
+    property alias drawingObjectSnapTolerancePx: viewportSession.drawingObjectSnapTolerancePx
+    property alias drawingObjectSnapEndpointEnabled: viewportSession.drawingObjectSnapEndpointEnabled
+    property alias drawingObjectSnapMidpointEnabled: viewportSession.drawingObjectSnapMidpointEnabled
+    property alias drawingObjectSnapCenterEnabled: viewportSession.drawingObjectSnapCenterEnabled
+    property alias drawingObjectSnapVertexEnabled: viewportSession.drawingObjectSnapVertexEnabled
+    property alias drawingGridVisible: viewportSession.drawingGridVisible
+    property alias drawingGridMode: viewportSession.drawingGridMode
+    property alias drawingGridDivisions: viewportSession.drawingGridDivisions
+    property alias drawingGridMajorEvery: viewportSession.drawingGridMajorEvery
+    property alias drawingAsciiCellGridVisible: viewportSession.drawingAsciiCellGridVisible
+    property alias drawingAsciiColumns: viewportSession.drawingAsciiColumns
+    property alias drawingAsciiRows: viewportSession.drawingAsciiRows
+    property alias drawingAsciiMajorEvery: viewportSession.drawingAsciiMajorEvery
+    property alias drawingCenterAxesVisible: viewportSession.drawingCenterAxesVisible
+    property alias drawingDiagonalGuidesVisible: viewportSession.drawingDiagonalGuidesVisible
+    property alias drawingRadialGuidesVisible: viewportSession.drawingRadialGuidesVisible
+    property alias drawingRadialGuideCount: viewportSession.drawingRadialGuideCount
+    property alias drawingArtboardBorderVisible: viewportSession.drawingArtboardBorderVisible
+    property alias drawingCanvasSizePx: viewportSession.drawingCanvasSizePx
+    property alias drawingCanvasZoom: viewportSession.drawingCanvasZoom
+    property alias drawingCanvasZoomMin: viewportSession.drawingCanvasZoomMin
+    property alias drawingCanvasZoomMax: viewportSession.drawingCanvasZoomMax
+    property alias drawingCanvasPanXPx: viewportSession.drawingCanvasPanXPx
+    property alias drawingCanvasPanYPx: viewportSession.drawingCanvasPanYPx
     property bool drawingCanUndoCommand: false
     property bool drawingCanRedoCommand: false
     property var drawingObjectClipboard: ({})
@@ -625,120 +633,87 @@ QtObject {
     }
 
     function setDrawingGridVisible(visible) {
-        drawingGridVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingGridVisible(visible)
     }
 
     function setDrawingGridMode(mode) {
-        var allowed = ["square", "isometric", "hex"]
-        var value = String(mode || "square")
-        drawingGridMode = allowed.indexOf(value) >= 0 ? value : "square"
-        markChanged()
+        viewportSession.setDrawingGridMode(mode)
     }
 
     function setDrawingGridDivisions(divisions) {
-        drawingGridDivisions = Math.max(2, Math.min(128, Math.round(Number(divisions) || 16)))
-        markChanged()
+        viewportSession.setDrawingGridDivisions(divisions)
     }
 
     function setDrawingGridMajorEvery(value) {
-        drawingGridMajorEvery = Math.max(1, Math.min(32, Math.round(Number(value) || 4)))
-        markChanged()
+        viewportSession.setDrawingGridMajorEvery(value)
     }
 
     function setDrawingAsciiCellGridVisible(visible) {
-        drawingAsciiCellGridVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingAsciiCellGridVisible(visible)
     }
 
     function setDrawingAsciiColumns(columns) {
-        drawingAsciiColumns = Math.max(8, Math.min(320, Math.round(Number(columns) || 80)))
-        markChanged()
+        viewportSession.setDrawingAsciiColumns(columns)
     }
 
     function setDrawingAsciiRows(rows) {
-        drawingAsciiRows = Math.max(4, Math.min(240, Math.round(Number(rows) || 40)))
-        markChanged()
+        viewportSession.setDrawingAsciiRows(rows)
     }
 
     function setDrawingAsciiMajorEvery(value) {
-        drawingAsciiMajorEvery = Math.max(1, Math.min(64, Math.round(Number(value) || 10)))
-        markChanged()
+        viewportSession.setDrawingAsciiMajorEvery(value)
     }
 
     function setDrawingCenterAxesVisible(visible) {
-        drawingCenterAxesVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingCenterAxesVisible(visible)
     }
 
     function setDrawingDiagonalGuidesVisible(visible) {
-        drawingDiagonalGuidesVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingDiagonalGuidesVisible(visible)
     }
 
     function setDrawingRadialGuidesVisible(visible) {
-        drawingRadialGuidesVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingRadialGuidesVisible(visible)
     }
 
     function setDrawingRadialGuideCount(count) {
-        drawingRadialGuideCount = Math.max(2, Math.min(64, Math.round(Number(count) || 8)))
-        markChanged()
+        viewportSession.setDrawingRadialGuideCount(count)
     }
 
     function setDrawingArtboardBorderVisible(visible) {
-        drawingArtboardBorderVisible = visible === true
-        markChanged()
+        viewportSession.setDrawingArtboardBorderVisible(visible)
     }
 
     function setDrawingSnapGrid(enabled) {
-        drawingSnapGridEnabled = enabled === true
-        if (drawingNativeController) {
-            drawingNativeController.setSnap(drawingSnapGridEnabled, drawingSnapGridStepPx)
-            syncNativeDrawingModel()
-            return
-        }
-        markChanged()
+        viewportSession.setDrawingSnapGrid(enabled)
     }
 
     function setDrawingSnapGridStepPx(stepPx) {
-        drawingSnapGridStepPx = Math.max(1, Math.min(drawingCanvasSizePx, Math.round(Number(stepPx) || 32)))
-        if (drawingNativeController) {
-            drawingNativeController.setSnap(drawingSnapGridEnabled, drawingSnapGridStepPx)
-            syncNativeDrawingModel()
-            return
-        }
-        markChanged()
+        viewportSession.setDrawingSnapGridStepPx(stepPx)
     }
 
     function setDrawingObjectSnapEnabled(enabled) {
-        drawingObjectSnapEnabled = enabled === true
-        markChanged()
+        viewportSession.setDrawingObjectSnapEnabled(enabled)
     }
 
     function setDrawingObjectSnapTolerancePx(value) {
-        drawingObjectSnapTolerancePx = Math.max(2, Math.min(64, Math.round(Number(value) || 14)))
-        markChanged()
+        viewportSession.setDrawingObjectSnapTolerancePx(value)
     }
 
     function setDrawingObjectSnapEndpointEnabled(enabled) {
-        drawingObjectSnapEndpointEnabled = enabled === true
-        markChanged()
+        viewportSession.setDrawingObjectSnapEndpointEnabled(enabled)
     }
 
     function setDrawingObjectSnapMidpointEnabled(enabled) {
-        drawingObjectSnapMidpointEnabled = enabled === true
-        markChanged()
+        viewportSession.setDrawingObjectSnapMidpointEnabled(enabled)
     }
 
     function setDrawingObjectSnapCenterEnabled(enabled) {
-        drawingObjectSnapCenterEnabled = enabled === true
-        markChanged()
+        viewportSession.setDrawingObjectSnapCenterEnabled(enabled)
     }
 
     function setDrawingObjectSnapVertexEnabled(enabled) {
-        drawingObjectSnapVertexEnabled = enabled === true
-        markChanged()
+        viewportSession.setDrawingObjectSnapVertexEnabled(enabled)
     }
 
     function setDrawingToolParameter(parameter, value) {
@@ -794,59 +769,35 @@ QtObject {
     }
 
     function setDrawingCanvasZoom(zoom) {
-        drawingCanvasZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, Number(zoom) || 1.0))
-        markChanged()
+        viewportSession.setDrawingCanvasZoom(zoom)
     }
 
     function drawingCanvasBaseViewSize(viewWidth, viewHeight) {
-        return Math.max(32, Math.min(Number(viewWidth) || 0, Number(viewHeight) || 0) - 16)
+        return viewportSession.drawingCanvasBaseViewSize(viewWidth, viewHeight)
     }
 
     function zoomDrawingCanvasAt(factor, focusX, focusY, viewWidth, viewHeight) {
-        var oldZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, Number(drawingCanvasZoom) || 1.0))
-        var zoomFactor = Number(factor) || 1.0
-        var newZoom = Math.max(drawingCanvasZoomMin, Math.min(drawingCanvasZoomMax, oldZoom * zoomFactor))
-        if (Math.abs(newZoom - oldZoom) < 0.0001) {
-            return
-        }
-        var base = drawingCanvasBaseViewSize(viewWidth, viewHeight)
-        var oldBoard = base * oldZoom
-        var newBoard = base * newZoom
-        var fx = Number.isFinite(Number(focusX)) ? Number(focusX) : Number(viewWidth) / 2
-        var fy = Number.isFinite(Number(focusY)) ? Number(focusY) : Number(viewHeight) / 2
-        var oldX = (Number(viewWidth) - oldBoard) / 2 + drawingCanvasPanXPx
-        var oldY = (Number(viewHeight) - oldBoard) / 2 + drawingCanvasPanYPx
-        var unitX = oldBoard > 0 ? (fx - oldX) / oldBoard : 0.5
-        var unitY = oldBoard > 0 ? (fy - oldY) / oldBoard : 0.5
-        drawingCanvasPanXPx = fx - unitX * newBoard - (Number(viewWidth) - newBoard) / 2
-        drawingCanvasPanYPx = fy - unitY * newBoard - (Number(viewHeight) - newBoard) / 2
-        drawingCanvasZoom = newZoom
-        markChanged()
+        viewportSession.zoomDrawingCanvasAt(factor, focusX, focusY, viewWidth, viewHeight)
     }
 
     function panDrawingCanvasBy(dx, dy) {
-        drawingCanvasPanXPx += Number(dx) || 0
-        drawingCanvasPanYPx += Number(dy) || 0
-        markChanged()
+        viewportSession.panDrawingCanvasBy(dx, dy)
     }
 
     function zoomDrawingCanvasIn() {
-        setDrawingCanvasZoom(drawingCanvasZoom * 1.25)
+        viewportSession.zoomDrawingCanvasIn()
     }
 
     function zoomDrawingCanvasOut() {
-        setDrawingCanvasZoom(drawingCanvasZoom / 1.25)
+        viewportSession.zoomDrawingCanvasOut()
     }
 
     function resetDrawingCanvasZoom() {
-        drawingCanvasZoom = 1.0
-        drawingCanvasPanXPx = 0
-        drawingCanvasPanYPx = 0
-        markChanged()
+        viewportSession.resetDrawingCanvasZoom()
     }
 
     function fitDrawingCanvasToView() {
-        resetDrawingCanvasZoom()
+        viewportSession.fitDrawingCanvasToView()
     }
 
     function selectDrawingLayer(layerId) {

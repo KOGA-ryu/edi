@@ -21,6 +21,8 @@ qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/export/BlenderSvgBundleTemplates.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/TextEditorStore.h
+    src/io/TextEditorStore.cpp
 )
 
 target_include_directories(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE

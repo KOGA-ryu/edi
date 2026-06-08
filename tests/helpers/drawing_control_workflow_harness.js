@@ -106,6 +106,72 @@ function workflowBudgetPolicy(repoRoot) {
     }
 }
 
+function workflowCoverageExpectations(repoRoot) {
+    const expectationsPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_coverage_expectations.json")
+    const expectations = readJson(expectationsPath)
+    return {
+        path: expectationsPath,
+        schemaVersion: Number(expectations.schemaVersion || 1),
+        minimums: expectations.minimums || {},
+    }
+}
+
+function incrementCount(target, key) {
+    const name = String(key || "unknown")
+    target[name] = Number(target[name] || 0) + 1
+}
+
+function workflowCoverage(workflows) {
+    const coverage = {
+        byKind: {},
+        byCategory: {},
+        byTag: {},
+    }
+    const list = Array.isArray(workflows) ? workflows : []
+    for (const workflow of list) {
+        incrementCount(coverage.byKind, workflow.kind)
+        incrementCount(coverage.byCategory, workflow.category)
+        const tags = Array.isArray(workflow.tags) ? workflow.tags : []
+        for (const tag of tags) {
+            incrementCount(coverage.byTag, tag)
+        }
+    }
+    return coverage
+}
+
+function coverageFailuresForGroup(actualGroup, expectedGroup, label) {
+    const failures = []
+    const expected = expectedGroup || {}
+    for (const key of Object.keys(expected).sort()) {
+        const actual = Number(actualGroup && actualGroup[key] || 0)
+        const minimum = Number(expected[key] || 0)
+        if (actual < minimum) {
+            failures.push({
+                group: label,
+                key,
+                actual,
+                minimum,
+                message: `${label}.${key} expected >= ${minimum}, got ${actual}`,
+            })
+        }
+    }
+    return failures
+}
+
+function evaluateWorkflowCoverage(coverage, expectations) {
+    const minimums = expectations && expectations.minimums ? expectations.minimums : {}
+    const failures = []
+    failures.push(...coverageFailuresForGroup(coverage.byKind, minimums.kinds, "kinds"))
+    failures.push(...coverageFailuresForGroup(coverage.byCategory, minimums.categories, "categories"))
+    failures.push(...coverageFailuresForGroup(coverage.byTag, minimums.tags, "tags"))
+    return {
+        ok: failures.length === 0,
+        schemaVersion: Number(expectations && expectations.schemaVersion || 1),
+        failureCount: failures.length,
+        failures,
+    }
+}
+
 function groupScriptsByMetadata(scripts, field) {
     const groups = {}
     for (const script of scripts) {
@@ -406,6 +472,9 @@ module.exports = {
     loadMetricReducer,
     readJson,
     selectWorkflows,
+    evaluateWorkflowCoverage,
+    workflowCoverage,
+    workflowCoverageExpectations,
     workflowBudgetPolicy,
     workflowFilters,
     workflowFixtures,

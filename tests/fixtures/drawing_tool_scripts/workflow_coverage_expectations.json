@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "minimums": {
+    "kinds": {
+      "line": 4,
+      "point": 2,
+      "circle": 2,
+      "rectangle": 2,
+      "arc": 1,
+      "polygon": 1,
+      "viewport": 1
+    },
+    "categories": {
+      "create": 6,
+      "edit": 4,
+      "move": 1,
+      "selection": 1,
+      "viewport": 1
+    },
+    "tags": {
+      "geometry": 11,
+      "handle": 4,
+      "line": 4,
+      "smoke": 4,
+      "parameter": 2,
+      "viewport": 1
+    }
+  }
+}

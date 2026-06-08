@@ -5,6 +5,7 @@ These fixtures drive deterministic drawing-tool workflows through the QML contro
 ## Files
 
 - `workflow_manifest.json`: selector metadata for each workflow.
+- `workflow_coverage_expectations.json`: minimum coverage counts enforced by tests.
 - `workflow_metric_budgets.json`: group-level metric budgets by mode, kind, category, fixture, or tag.
 - `shared_canvas_library.json`: shared named points, fragments, and per-script metric budgets.
 - `*_basic.json`, `*_handle.json`, `*_object.json`: individual workflow scripts.
@@ -66,6 +67,10 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 - `budgetFailures`: number of workflow metric budget failures.
 - `worstFailure`: most important compact failure, or `null`.
 - `reportPath`: summary artifact written by real runs.
+
+## Coverage Contract
+
+`workflow_coverage_expectations.json` turns dry-run coverage into a testable contract. If a fixture is removed or retagged and coverage drops below the minimums, `drawing_canvas_control_workflow_coverage_tests` fails before any app launch is needed.
 
 ## Operating Rule
 

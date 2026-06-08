@@ -27,6 +27,16 @@ void requireRow(
     require(row.sizeBytes == 42, "size is preserved");
 }
 
+edi::formats::InventorySourceControlIndex sampleSourceControlIndex()
+{
+    edi::formats::InventorySourceControlIndex index;
+    index.available = true;
+    index.trackedPaths.insert("data/ui_theme.json");
+    index.trackedPaths.insert("tests/fixtures/drawing_tool_scripts/line_create_basic.json");
+    index.ignoredPaths.insert("tests/artifacts/drawing_metrics/raw/click_run.jsonl");
+    return index;
+}
+
 } // namespace
 
 int main()
@@ -53,18 +63,37 @@ int main()
 
     const QString header = edi::formats::inventoryRowHeader();
     require(header.contains("proposed_target_format"), "header includes target field");
+    require(header.contains("repository_state"), "header includes repository state");
     require(edi::formats::inventoryRowLine(edi::formats::classifyInventoryPath("data/ui_theme.json", 10)).contains("theme_config"), "row line includes family");
 
+    const edi::formats::InventorySourceControlIndex index = sampleSourceControlIndex();
+    const edi::formats::InventoryRow trackedConfig = edi::formats::withRepositoryState(edi::formats::classifyInventoryPath("data/ui_theme.json", 10), index);
+    require(trackedConfig.repositoryState == "tracked", "tracked config is marked tracked");
+    require(trackedConfig.migrationScope == "canonical_candidate", "tracked config is canonical candidate");
+    const edi::formats::InventoryRow trackedFixture = edi::formats::withRepositoryState(edi::formats::classifyInventoryPath("tests/fixtures/drawing_tool_scripts/line_create_basic.json", 11), index);
+    require(trackedFixture.repositoryState == "tracked", "tracked fixture is marked tracked");
+    require(trackedFixture.migrationScope == "fixture_contract", "tracked fixture is fixture contract");
+    const edi::formats::InventoryRow ignoredArtifact = edi::formats::withRepositoryState(edi::formats::classifyInventoryPath("tests/artifacts/drawing_metrics/raw/click_run.jsonl", 12), index);
+    require(ignoredArtifact.repositoryState == "ignored", "ignored artifact is marked ignored");
+    require(ignoredArtifact.migrationScope == "disposable_artifact", "ignored artifact is disposable");
+    const edi::formats::InventoryRow untrackedLocal = edi::formats::withRepositoryState(edi::formats::classifyInventoryPath("misc/unowned.json", 13), index);
+    require(untrackedLocal.repositoryState == "untracked", "untracked local file is marked untracked");
+    require(untrackedLocal.migrationScope == "local_audit", "untracked local file is local audit");
+
     const QVector<edi::formats::InventoryRow> rows{
-        edi::formats::classifyInventoryPath("data/ui_theme.json", 10),
-        edi::formats::classifyInventoryPath("tests/fixtures/drawing_tool_scripts/line_create_basic.json", 11),
-        edi::formats::classifyInventoryPath("misc/unowned.json", 12),
+        trackedConfig,
+        trackedFixture,
+        untrackedLocal,
     };
     const QVector<edi::formats::InventoryRow> messagePackRows = edi::formats::filterInventoryRows(rows, {{}, {}, {"MessagePack"}, {}});
     require(messagePackRows.size() == 1, "target filter keeps matching row only");
     require(messagePackRows.first().path.contains("line_create_basic"), "target filter returns fixture row");
     const QVector<edi::formats::InventoryRow> blockedRows = edi::formats::filterInventoryRows(rows, {{}, {}, {}, {"blocked"}});
     require(blockedRows.size() == 1, "priority filter finds blocked rows");
+    const QVector<edi::formats::InventoryRow> trackedRows = edi::formats::filterInventoryRows(rows, {{}, {}, {}, {}, {"tracked"}, {}});
+    require(trackedRows.size() == 2, "repository state filter finds tracked rows");
+    const QVector<edi::formats::InventoryRow> scopeRows = edi::formats::filterInventoryRows(rows, {{}, {}, {}, {}, {}, {"fixture_contract"}});
+    require(scopeRows.size() == 1, "scope filter finds fixture contract rows");
     require(edi::formats::inventoryUnknownCount(rows) == 1, "unknown count detects unclassified rows");
     require(edi::formats::inventoryBlockedCount(rows) == 1, "blocked count detects blocked migration rows");
 

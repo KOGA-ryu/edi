@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QMap>
+#include <QProcess>
 #include <QStringList>
 
 #include <algorithm>
@@ -44,6 +45,8 @@ InventoryRow row(
         normalizedInventoryPath(path),
         extensionForPath(path),
         sizeBytes,
+        QStringLiteral("unclassified"),
+        QStringLiteral("pending_git_index"),
         category,
         dataFamily,
         target,
@@ -65,9 +68,38 @@ bool listEmptyOrContains(const QStringList &values, const QString &value)
     return values.isEmpty() || values.contains(value);
 }
 
+QStringList splitNullSeparatedPaths(const QByteArray &output)
+{
+    QStringList result;
+    const QList<QByteArray> parts = output.split('\0');
+    for (const QByteArray &part : parts) {
+        const QString path = normalizedInventoryPath(QString::fromUtf8(part));
+        if (!path.isEmpty() && path != QStringLiteral(".")) {
+            result.push_back(path);
+        }
+    }
+    return result;
+}
+
+QStringList gitPathSet(const QString &repoRoot, const QStringList &arguments, bool *ok)
+{
+    QProcess process;
+    process.setProgram(QStringLiteral("git"));
+    process.setArguments(arguments);
+    process.setWorkingDirectory(repoRoot.isEmpty() ? QStringLiteral(".") : repoRoot);
+    process.start();
+    if (!process.waitForFinished(10000) || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        *ok = false;
+        return {};
+    }
+    return splitNullSeparatedPaths(process.readAllStandardOutput());
+}
+
 QString familyKey(const InventoryRow &row)
 {
     return QStringList{
+        row.repositoryState,
+        row.migrationScope,
         row.category,
         row.dataFamily,
         row.proposedTargetFormat,
@@ -187,11 +219,76 @@ InventoryRow classifyInventoryPath(const QString &path, qint64 sizeBytes)
     return row(p, sizeBytes, QStringLiteral("unknown_json"), QStringLiteral("unknown"), QStringLiteral("quarantine"), QStringLiteral("blocked"), QStringLiteral("no migration target assigned until ownership is classified"));
 }
 
+InventorySourceControlIndex sourceControlIndexForRepo(const QString &repoRoot)
+{
+    InventorySourceControlIndex index;
+    const QString root = repoRoot.isEmpty() ? QStringLiteral(".") : repoRoot;
+    bool trackedOk = true;
+    const QStringList tracked = gitPathSet(root, {
+        QStringLiteral("ls-files"),
+        QStringLiteral("-z"),
+        QStringLiteral("--"),
+        QStringLiteral("*.json"),
+        QStringLiteral("*.jsonl"),
+    }, &trackedOk);
+    if (!trackedOk) {
+        return index;
+    }
+    for (const QString &path : tracked) {
+        index.trackedPaths.insert(path);
+    }
+
+    bool ignoredOk = true;
+    const QStringList ignored = gitPathSet(root, {
+        QStringLiteral("ls-files"),
+        QStringLiteral("-z"),
+        QStringLiteral("--others"),
+        QStringLiteral("--ignored"),
+        QStringLiteral("--exclude-standard"),
+        QStringLiteral("--"),
+        QStringLiteral("*.json"),
+        QStringLiteral("*.jsonl"),
+    }, &ignoredOk);
+    if (!ignoredOk) {
+        return index;
+    }
+    for (const QString &path : ignored) {
+        index.ignoredPaths.insert(path);
+    }
+    index.available = true;
+    return index;
+}
+
+InventoryRow withRepositoryState(const InventoryRow &row, const InventorySourceControlIndex &index)
+{
+    InventoryRow result = row;
+    if (!index.available) {
+        result.repositoryState = QStringLiteral("unknown");
+        result.migrationScope = QStringLiteral("audit");
+    } else if (index.trackedPaths.contains(row.path)) {
+        result.repositoryState = QStringLiteral("tracked");
+        result.migrationScope = row.category == QStringLiteral("test_fixture_json")
+            ? QStringLiteral("fixture_contract")
+            : QStringLiteral("canonical_candidate");
+    } else if (index.ignoredPaths.contains(row.path)) {
+        result.repositoryState = QStringLiteral("ignored");
+        result.migrationScope = QStringLiteral("disposable_artifact");
+    } else {
+        result.repositoryState = QStringLiteral("untracked");
+        result.migrationScope = QStringLiteral("local_audit");
+    }
+    return result;
+}
+
 QVector<InventoryRow> inventoryRepoJsonFiles(const QString &repoRoot)
 {
     QVector<InventoryRow> rows;
     const QDir root(repoRoot.isEmpty() ? QStringLiteral(".") : repoRoot);
     appendInventoryRows(root, QString(), &rows);
+    const InventorySourceControlIndex index = sourceControlIndexForRepo(root.absolutePath());
+    for (InventoryRow &row : rows) {
+        row = withRepositoryState(row, index);
+    }
     std::sort(rows.begin(), rows.end(), [](const InventoryRow &a, const InventoryRow &b) {
         return a.path < b.path;
     });
@@ -203,7 +300,9 @@ bool inventoryRowMatchesFilter(const InventoryRow &row, const InventoryFilter &f
     return listEmptyOrContains(filter.categories, row.category)
         && listEmptyOrContains(filter.dataFamilies, row.dataFamily)
         && listEmptyOrContains(filter.targetFormats, row.proposedTargetFormat)
-        && listEmptyOrContains(filter.priorities, row.migrationPriority);
+        && listEmptyOrContains(filter.priorities, row.migrationPriority)
+        && listEmptyOrContains(filter.repositoryStates, row.repositoryState)
+        && listEmptyOrContains(filter.migrationScopes, row.migrationScope);
 }
 
 QVector<InventoryRow> filterInventoryRows(const QVector<InventoryRow> &rows, const InventoryFilter &filter)
@@ -224,6 +323,8 @@ QVector<InventoryFamilySummary> inventoryFamilySummaries(const QVector<Inventory
     for (const InventoryRow &row : rows) {
         InventoryFamilySummary &summary = summaries[familyKey(row)];
         if (summary.fileCount == 0) {
+            summary.repositoryState = row.repositoryState;
+            summary.migrationScope = row.migrationScope;
             summary.category = row.category;
             summary.dataFamily = row.dataFamily;
             summary.proposedTargetFormat = row.proposedTargetFormat;
@@ -265,7 +366,7 @@ int inventoryBlockedCount(const QVector<InventoryRow> &rows)
 
 QString inventoryRowHeader()
 {
-    return QStringLiteral("path\textension\tsize_bytes\tcategory\tdata_family\tproposed_target_format\tmigration_priority\treason");
+    return QStringLiteral("path\textension\tsize_bytes\trepository_state\tmigration_scope\tcategory\tdata_family\tproposed_target_format\tmigration_priority\treason");
 }
 
 QString inventoryRowLine(const InventoryRow &row)
@@ -274,6 +375,8 @@ QString inventoryRowLine(const InventoryRow &row)
         escapeCell(row.path),
         escapeCell(row.extension),
         QString::number(row.sizeBytes),
+        escapeCell(row.repositoryState),
+        escapeCell(row.migrationScope),
         escapeCell(row.category),
         escapeCell(row.dataFamily),
         escapeCell(row.proposedTargetFormat),
@@ -284,7 +387,7 @@ QString inventoryRowLine(const InventoryRow &row)
 
 QString inventoryFamilySummaryHeader()
 {
-    return QStringLiteral("category\tdata_family\tproposed_target_format\tmigration_priority\tfile_count\tsize_bytes\tsample_paths");
+    return QStringLiteral("repository_state\tmigration_scope\tcategory\tdata_family\tproposed_target_format\tmigration_priority\tfile_count\tsize_bytes\tsample_paths");
 }
 
 QString inventoryFamilySummaryLine(const InventoryFamilySummary &summary)
@@ -294,6 +397,8 @@ QString inventoryFamilySummaryLine(const InventoryFamilySummary &summary)
         escapedSamples.push_back(escapeCell(sample));
     }
     return QStringList{
+        escapeCell(summary.repositoryState),
+        escapeCell(summary.migrationScope),
         escapeCell(summary.category),
         escapeCell(summary.dataFamily),
         escapeCell(summary.proposedTargetFormat),
@@ -317,13 +422,25 @@ QString inventorySummary(const QVector<InventoryRow> &rows)
 {
     QMap<QString, int> categories;
     QMap<QString, int> targets;
+    QMap<QString, int> repositoryStates;
+    QMap<QString, int> migrationScopes;
     for (const InventoryRow &row : rows) {
         categories[row.category] += 1;
         targets[row.proposedTargetFormat] += 1;
+        repositoryStates[row.repositoryState] += 1;
+        migrationScopes[row.migrationScope] += 1;
     }
 
     QStringList lines;
     lines.push_back(QStringLiteral("total_files: %1").arg(rows.size()));
+    lines.push_back(QStringLiteral("repository_states:"));
+    for (auto it = repositoryStates.constBegin(); it != repositoryStates.constEnd(); ++it) {
+        lines.push_back(QStringLiteral("  %1: %2").arg(it.key()).arg(it.value()));
+    }
+    lines.push_back(QStringLiteral("migration_scopes:"));
+    for (auto it = migrationScopes.constBegin(); it != migrationScopes.constEnd(); ++it) {
+        lines.push_back(QStringLiteral("  %1: %2").arg(it.key()).arg(it.value()));
+    }
     lines.push_back(QStringLiteral("categories:"));
     for (auto it = categories.constBegin(); it != categories.constEnd(); ++it) {
         lines.push_back(QStringLiteral("  %1: %2").arg(it.key()).arg(it.value()));

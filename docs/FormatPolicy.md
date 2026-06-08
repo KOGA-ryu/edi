@@ -30,11 +30,15 @@ build/edi_format_inventory --repo .
 build/edi_format_inventory --repo . --summary
 build/edi_format_inventory --repo . --families
 build/edi_format_inventory --repo . --families --target MessagePack --sample-limit 2
+build/edi_format_inventory --repo . --families --repo-state tracked
+build/edi_format_inventory --repo . --families --scope disposable_artifact
 build/edi_format_inventory --repo . --target MessagePack
 build/edi_format_inventory --repo . --category internal_authored_json --summary
 ```
 
 Use `--families` as the default planning view. It groups by category, data family, target format, and migration priority with file counts, byte totals, and bounded sample paths.
+
+Use `repository_state` and `migration_scope` to keep tracked product contracts separate from ignored generated artifacts. Tracked files are migration candidates. Ignored files are disposable artifacts unless a later work order promotes them into tracked fixtures. Untracked files are local audit items.
 
 Use failure modes only as explicit audits:
 

@@ -26,6 +26,8 @@ QString usage()
         "  build/edi_format_inventory --repo .\n"
         "  build/edi_format_inventory --repo . --summary\n"
         "  build/edi_format_inventory --repo . --families\n"
+        "  build/edi_format_inventory --repo . --families --repo-state tracked\n"
+        "  build/edi_format_inventory --repo . --families --scope disposable_artifact\n"
         "  build/edi_format_inventory --repo . --target MessagePack\n"
         "  build/edi_format_inventory --repo . --category internal_authored_json --summary\n"
         "  build/edi_format_inventory --repo . --fail-unknown\n");
@@ -97,6 +99,18 @@ bool parseArgs(const QStringList &tokens, Args *args, QString *error)
                 return false;
             }
             pushValues(&args->filter.priorities, tokens[++i]);
+        } else if (token == QStringLiteral("--repo-state")) {
+            if (i + 1 >= tokens.size()) {
+                *error = QStringLiteral("--repo-state requires value");
+                return false;
+            }
+            pushValues(&args->filter.repositoryStates, tokens[++i]);
+        } else if (token == QStringLiteral("--scope")) {
+            if (i + 1 >= tokens.size()) {
+                *error = QStringLiteral("--scope requires value");
+                return false;
+            }
+            pushValues(&args->filter.migrationScopes, tokens[++i]);
         } else {
             *error = QStringLiteral("unknown argument: ") + token;
             return false;

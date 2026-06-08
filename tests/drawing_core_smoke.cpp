@@ -413,77 +413,6 @@ bool runVisibleToolCreationSmoke() {
     return ok;
 }
 
-bool runDrawingStoreContractSmoke() {
-    using namespace drawing_core;
-
-    DrawingStore store;
-    DrawingObject line;
-    line.id = {QStringLiteral("obj_line_01")};
-    line.kind = ShapeKind::Line;
-    line.geometry = LineGeometry{{0.125, 0.25}, {0.625, 0.75}};
-    line.style = {QStringLiteral("stroke_default")};
-    line.layer = {QStringLiteral("layer_test")};
-    line.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("store_contract_test"));
-    line.metadata.values.insert(QStringLiteral("version"), 1);
-    line.attributes.insert(QStringLiteral("label"), QStringLiteral("contract line"));
-
-    bool ok = true;
-    ok &= expect(store.addObject(line), QStringLiteral("store should add a valid line object"));
-    ok &= expect(!store.addObject(line), QStringLiteral("store should reject duplicate object ids"));
-    ok &= expect(store.size() == 1, QStringLiteral("store should keep dense size after duplicate rejection"));
-
-    const DrawingObject *storedLine = store.find({QStringLiteral("obj_line_01")});
-    ok &= expect(storedLine != nullptr, QStringLiteral("store should find an object by id"));
-    if (storedLine != nullptr) {
-        ok &= expectNear(storedLine->bounds.x, 0.125, QStringLiteral("store bounds x should derive from geometry"));
-        ok &= expectNear(storedLine->bounds.w, 0.5, QStringLiteral("store bounds width should derive from geometry"));
-    }
-
-    DrawingObject invalid;
-    invalid.id = {QStringLiteral("obj_bad_01")};
-    invalid.kind = ShapeKind::Point;
-    invalid.geometry = LineGeometry{{0.0, 0.0}, {1.0, 1.0}};
-    ok &= expect(!store.addObject(invalid), QStringLiteral("store should reject geometry that does not match shape kind"));
-
-    ok &= expect(store.updateGeometry({QStringLiteral("obj_line_01")}, LineGeometry{{0.5, 0.5}, {0.75, 0.5}}),
-                 QStringLiteral("store should update geometry for an existing object"));
-    storedLine = store.find({QStringLiteral("obj_line_01")});
-    if (storedLine != nullptr) {
-        ok &= expectNear(storedLine->bounds.x, 0.5, QStringLiteral("updated store bounds x should derive from geometry"));
-        ok &= expectNear(storedLine->bounds.w, 0.25, QStringLiteral("updated store bounds width should derive from geometry"));
-    }
-
-    QJsonObject attributes;
-    attributes.insert(QStringLiteral("label"), QStringLiteral("contract line"));
-    attributes.insert(QStringLiteral("role"), QStringLiteral("guide"));
-    ok &= expect(store.replaceAttributes({QStringLiteral("obj_line_01")}, attributes),
-                 QStringLiteral("store should replace object attributes"));
-    ok &= expect(store.translateObject({QStringLiteral("obj_line_01")}, -0.25, 0.125),
-                 QStringLiteral("store should translate typed geometry"));
-
-    const QJsonObject serialized = store.serializeObject({QStringLiteral("obj_line_01")}, 512);
-    ok &= expect(serialized.value(QStringLiteral("id")).toString() == QStringLiteral("obj_line_01"),
-                 QStringLiteral("serialized store object should preserve id"));
-    ok &= expect(serialized.value(QStringLiteral("kind")).toString() == QStringLiteral("line"),
-                 QStringLiteral("serialized store object should preserve kind"));
-    ok &= expect(serialized.value(QStringLiteral("role")).toString() == QStringLiteral("guide"),
-                 QStringLiteral("serialized store object should preserve replaced attributes"));
-    ok &= expectNear(serialized.value(QStringLiteral("x2")).toDouble(), 0.5,
-                     QStringLiteral("serialized store object should keep normalized legacy fields"));
-    ok &= expectNear(serialized.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("b")).toObject().value(QStringLiteral("x")).toDouble(), 256.0,
-                     QStringLiteral("serialized store geometry should project pixel geometry"));
-    ok &= expectNear(serialized.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("x")).toDouble(), 128.0,
-                     QStringLiteral("serialized store bounds should project translated x"));
-    ok &= expectNear(serialized.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("w")).toDouble(), 128.0,
-                     QStringLiteral("serialized store bounds should project pixel bounds"));
-
-    ok &= expect(store.removeObject({QStringLiteral("obj_line_01")}), QStringLiteral("store should remove existing object"));
-    ok &= expect(!store.contains({QStringLiteral("obj_line_01")}), QStringLiteral("store index should not contain removed object"));
-    ok &= expect(!store.removeObject({QStringLiteral("obj_line_01")}), QStringLiteral("store should reject removing a missing object"));
-    ok &= expect(store.size() == 0, QStringLiteral("store should be empty after remove"));
-    return ok;
-}
-
 bool runSelectDeleteSmoke() {
     QJsonArray commands;
     commands.append(selectTool(QStringLiteral("line_polyline")));
@@ -636,6 +565,54 @@ bool runControllerLineStoreLifecycleSmoke() {
                  QStringLiteral("undo after line delete should rebuild store-backed metadata"));
     ok &= expectNear(lineGeometry.value(QStringLiteral("b")).toObject().value(QStringLiteral("x")).toDouble(), 320.0,
                      QStringLiteral("undo after line delete should rebuild typed endpoint edit"));
+    return ok;
+}
+
+bool runControllerPointStoreLifecycleSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("anchor_points"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+
+    const QString pointId = QStringLiteral("script_point_01");
+    controller.selectObject(pointId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("anchor"));
+    controller.moveObjectBy(pointId, 0.125, 0.0);
+    controller.updateObjectField(pointId, QStringLiteral("y_px"), 192.0);
+
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
+    QJsonObject point = objectById(model.value(QStringLiteral("generated_objects")).toArray(), pointId);
+    QJsonObject pointGeometry = point.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("point")).toObject();
+    QJsonObject pointBounds = point.value(QStringLiteral("bounds")).toObject();
+
+    ok &= expect(point.value(QStringLiteral("role")).toString() == QStringLiteral("anchor"),
+                 QStringLiteral("store-backed point should preserve top-level metadata after projection"));
+    ok &= expect(point.value(QStringLiteral("source")).toString() == QStringLiteral("cpp_drawing_core"),
+                 QStringLiteral("store-backed point should preserve source attribute after projection"));
+    ok &= expectNear(pointGeometry.value(QStringLiteral("x")).toDouble(), 128.0,
+                     QStringLiteral("store-backed point move should update typed x"));
+    ok &= expectNear(pointGeometry.value(QStringLiteral("y")).toDouble(), 192.0,
+                     QStringLiteral("store-backed point field edit should update typed y"));
+    ok &= expectNear(pointBounds.value(QStringLiteral("x")).toDouble(), 128.0,
+                     QStringLiteral("store-backed point bounds should derive from moved geometry"));
+    ok &= expectNear(pointBounds.value(QStringLiteral("y")).toDouble(), 192.0,
+                     QStringLiteral("store-backed point bounds should derive from edited geometry"));
+    ok &= expect(controller.exportSvg().contains(QStringLiteral("data-role=\"anchor\"")),
+                 QStringLiteral("store-backed point svg export should preserve metadata"));
+
+    controller.deleteObject(pointId);
+    model = checkedControllerModel(controller, ok);
+    ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), pointId).isEmpty(),
+                 QStringLiteral("store-backed point delete should remove JSON projection"));
+
+    controller.undo();
+    model = checkedControllerModel(controller, ok);
+    point = objectById(model.value(QStringLiteral("generated_objects")).toArray(), pointId);
+    pointGeometry = point.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("point")).toObject();
+    ok &= expect(point.value(QStringLiteral("role")).toString() == QStringLiteral("anchor"),
+                 QStringLiteral("undo after point delete should rebuild store-backed metadata"));
+    ok &= expectNear(pointGeometry.value(QStringLiteral("y")).toDouble(), 192.0,
+                     QStringLiteral("undo after point delete should rebuild typed point edit"));
     return ok;
 }
 
@@ -1057,13 +1034,13 @@ bool runControllerModelRoundTripSmoke() {
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     bool ok = true;
-    ok &= runDrawingStoreContractSmoke();
     ok &= runVisibleToolCreationSmoke();
     ok &= runSelectDeleteSmoke();
     ok &= runClickSnapOverrideSmoke();
     ok &= runControllerUndoRedoSmoke();
     ok &= runControllerMoveCoalescingSmoke();
     ok &= runControllerLineStoreLifecycleSmoke();
+    ok &= runControllerPointStoreLifecycleSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
     ok &= runControllerObjectMetadataSmoke();

@@ -37,9 +37,12 @@ bool replaceStoreAttributesFromJson(State &state, QJsonObject &object) {
     return refreshStoreProjection(state, object);
 }
 
-bool addStoreLineFromJson(State &state, const QJsonObject &object) {
+bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     const QString kind = object.value(QStringLiteral("kind")).toString();
-    if (kind != QStringLiteral("line") && kind != QStringLiteral("glyph_baseline")) {
+    if (kind != QStringLiteral("point")
+        && kind != QStringLiteral("tone_probe")
+        && kind != QStringLiteral("line")
+        && kind != QStringLiteral("glyph_baseline")) {
         return true;
     }
     const QString objectId = object.value(QStringLiteral("id")).toString();
@@ -49,8 +52,8 @@ bool addStoreLineFromJson(State &state, const QJsonObject &object) {
 
     DrawingObject typed;
     typed.id = {objectId};
-    typed.kind = ShapeKind::Line;
-    typed.geometry = lineGeometryFromObject(object);
+    typed.kind = (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) ? ShapeKind::Point : ShapeKind::Line;
+    typed.geometry = typed.kind == ShapeKind::Point ? Geometry{pointGeometryFromObject(object)} : Geometry{lineGeometryFromObject(object)};
     typed.style = {object.value(QStringLiteral("style_id")).toString(QStringLiteral("inline_active_stroke"))};
     typed.layer = {object.value(QStringLiteral("layer_id")).toString(QString::fromLatin1(kScriptLayer))};
     typed.metadata.values = object.value(QStringLiteral("metadata")).toObject();
@@ -210,8 +213,8 @@ QString pushClonedObject(State &state, QJsonObject object, const QString &source
         object.insert(sourceKey, sourceId);
     }
     translateObjectWithState(object, state, clampedDxN, clampedDyN);
-    if (!addStoreLineFromJson(state, object)) {
-        state.errors.append(sourceKey + " could not add typed line object: " + nextObjectId);
+    if (!addStoreObjectFromJson(state, object)) {
+        state.errors.append(sourceKey + " could not add typed object: " + nextObjectId);
         return {};
     }
     pushObject(state, object);
@@ -398,13 +401,24 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
             const QString kind = object.value("kind").toString();
             const double canvas = static_cast<double>(state.canvasPx);
             if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
-                const double x = field == QStringLiteral("x_px") ? clampedPx(value, state.canvasPx) : object.value("x").toDouble() * canvas;
-                const double y = field == QStringLiteral("y_px") ? clampedPx(value, state.canvasPx) : object.value("y").toDouble() * canvas;
+                const DrawingObject *storeObject = state.store.find({objectId});
+                const PointGeometry *storePoint = storeObject == nullptr ? nullptr : std::get_if<PointGeometry>(&storeObject->geometry);
+                const double x = field == QStringLiteral("x_px") ? clampedPx(value, state.canvasPx) : (storePoint == nullptr ? object.value("x").toDouble() : storePoint->point.x) * canvas;
+                const double y = field == QStringLiteral("y_px") ? clampedPx(value, state.canvasPx) : (storePoint == nullptr ? object.value("y").toDouble() : storePoint->point.y) * canvas;
                 if (field != QStringLiteral("x_px") && field != QStringLiteral("y_px")) {
                     state.errors.append("update_object unsupported point field: " + field);
                     return;
                 }
-                writePointGeometry(object, {{x / canvas, y / canvas}}, state.canvasPx);
+                const PointGeometry updatedPoint{{x / canvas, y / canvas}};
+                if (storeObject != nullptr) {
+                    if (storePoint == nullptr || !state.store.updateGeometry({objectId}, updatedPoint)) {
+                        state.errors.append("update_object could not update typed point: " + objectId);
+                        return;
+                    }
+                    object = state.store.serializeObject({objectId}, state.canvasPx);
+                } else {
+                    writePointGeometry(object, updatedPoint, state.canvasPx);
+                }
                 updated = true;
             } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
                 const DrawingObject *storeObject = state.store.find({objectId});

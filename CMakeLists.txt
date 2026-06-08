@@ -59,6 +59,23 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
 )
 
 if(BUILD_TESTING)
+    add_executable(drawing_object_model_tests
+        tests/drawing_object_model_tests.cpp
+        src/core/DrawingObjectModel.h
+        src/core/DrawingObjectModel.cpp
+    )
+
+    target_include_directories(drawing_object_model_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(drawing_object_model_tests
+        PRIVATE
+            Qt6::Core
+    )
+
+    add_test(NAME drawing_object_model_tests COMMAND drawing_object_model_tests)
+
     add_executable(drawing_core_smoke
         tests/drawing_core_smoke.cpp
         src/core/DrawingCore.h

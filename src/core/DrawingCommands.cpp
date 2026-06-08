@@ -166,15 +166,30 @@ void addPointObject(State &state, const Point &point, const QString &kind, const
         state.errors.append("point command has invalid coordinates");
         return;
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, kind));
-    object.insert("label", label);
-    object.insert("kind", kind);
-    object.insert("detail", detail);
-    applyActiveStyle(state, object);
-    writePointGeometry(object, {{point.nx, point.ny}}, state.canvasPx);
-    applyCreationMetadata(object, kind == QStringLiteral("tone_probe") ? QStringLiteral("ToneProbeTool") : QStringLiteral("PointTool"));
-    pushObject(state, object);
+    const QString objectId = nextId(state, kind);
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), label);
+    attributes.insert(QStringLiteral("kind"), kind);
+    attributes.insert(QStringLiteral("detail"), detail);
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Point;
+    object.geometry = PointGeometry{{point.nx, point.ny}};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(
+        QStringLiteral("created_by"),
+        kind == QStringLiteral("tone_probe") ? QStringLiteral("ToneProbeTool") : QStringLiteral("PointTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("point command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addPoint(State &state, const Point &point) {

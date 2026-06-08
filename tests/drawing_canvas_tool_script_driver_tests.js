@@ -42,9 +42,28 @@ function readFixture(name) {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "drawing_tool_scripts", name), "utf8"))
 }
 
+function normalizeWorkflowEntry(entry) {
+    if (typeof entry === "string") {
+        return {
+            fixture: entry,
+            kind: "",
+            category: "",
+            tags: [],
+        }
+    }
+    return {
+        fixture: String(entry && entry.fixture || ""),
+        kind: String(entry && entry.kind || ""),
+        category: String(entry && entry.category || ""),
+        tags: Array.isArray(entry && entry.tags) ? entry.tags.map(tag => String(tag)) : [],
+    }
+}
+
 function readWorkflowManifest() {
     const manifest = readFixture("workflow_manifest.json")
-    return Array.isArray(manifest.workflows) ? manifest.workflows : []
+    return (Array.isArray(manifest.workflows) ? manifest.workflows : [])
+        .map(normalizeWorkflowEntry)
+        .filter(workflow => workflow.fixture.length > 0)
 }
 
 function executionPlan(modules, fixtureName) {
@@ -116,9 +135,12 @@ function runToolParameterDriverContract(modules) {
 }
 
 function runAllFixtureDriverPlansContract(modules) {
-    const names = readWorkflowManifest()
-    expect(names.length > 0, "workflow manifest should include driver fixtures")
-    for (const name of names) {
+    const workflows = readWorkflowManifest()
+    expect(workflows.length > 0, "workflow manifest should include driver fixtures")
+    expect(workflows.every(workflow => workflow.kind.length > 0 && workflow.category.length > 0 && workflow.tags.length > 0),
+        "workflow manifest entries should include kind, category, and tags")
+    for (const workflow of workflows) {
+        const name = workflow.fixture
         const plan = executionPlan(modules, name)
         const driverPlan = modules.driverPlan(plan)
         expect(driverPlan.ok, `${name} should build driver plan`)

@@ -33,9 +33,28 @@ function readFixture(name) {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "drawing_tool_scripts", name), "utf8"))
 }
 
+function normalizeWorkflowEntry(entry) {
+    if (typeof entry === "string") {
+        return {
+            fixture: entry,
+            kind: "",
+            category: "",
+            tags: [],
+        }
+    }
+    return {
+        fixture: String(entry && entry.fixture || ""),
+        kind: String(entry && entry.kind || ""),
+        category: String(entry && entry.category || ""),
+        tags: Array.isArray(entry && entry.tags) ? entry.tags.map(tag => String(tag)) : [],
+    }
+}
+
 function readWorkflowManifest() {
     const manifest = readFixture("workflow_manifest.json")
-    return Array.isArray(manifest.workflows) ? manifest.workflows : []
+    return (Array.isArray(manifest.workflows) ? manifest.workflows : [])
+        .map(normalizeWorkflowEntry)
+        .filter(workflow => workflow.fixture.length > 0)
 }
 
 function runValidationContract(toolScript) {
@@ -107,9 +126,12 @@ function runToolParameterContract(toolScript) {
 
 function runAllFixturePlansContract(toolScript) {
     const library = readFixture("shared_canvas_library.json")
-    const names = readWorkflowManifest()
-    expect(names.length >= 13, "workflow manifest should include the drawing control workflows")
-    for (const name of names) {
+    const workflows = readWorkflowManifest()
+    expect(workflows.length >= 13, "workflow manifest should include the drawing control workflows")
+    expect(workflows.every(workflow => workflow.kind.length > 0 && workflow.category.length > 0 && workflow.tags.length > 0),
+        "workflow manifest entries should include kind, category, and tags")
+    for (const workflow of workflows) {
+        const name = workflow.fixture
         const plan = toolScript.executionPlan(readFixture(name), library)
         expect(plan.ok, `${name} should build execution plan: ${plan.failures.join(", ")}`)
         expect(plan.plan.steps.length > 0, `${name} should contain executable steps`)

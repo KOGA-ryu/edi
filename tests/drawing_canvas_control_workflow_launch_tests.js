@@ -26,12 +26,70 @@ function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"))
 }
 
-function workflowFixtures(repoRoot) {
+function normalizeWorkflowEntry(entry) {
+    if (typeof entry === "string") {
+        return {
+            fixture: entry,
+            kind: "unknown",
+            category: "unknown",
+            tags: [],
+        }
+    }
+    return {
+        fixture: String(entry && entry.fixture || ""),
+        kind: String(entry && entry.kind || "unknown"),
+        category: String(entry && entry.category || "unknown"),
+        tags: Array.isArray(entry && entry.tags) ? entry.tags.map(tag => String(tag)) : [],
+    }
+}
+
+function valueSet(value) {
+    return String(value || "")
+        .split(",")
+        .map(part => part.trim())
+        .filter(part => part.length > 0)
+}
+
+function workflowFilters(env) {
+    return {
+        fixtures: valueSet(env && env.DRAWING_WORKFLOW_FIXTURE),
+        categories: valueSet(env && env.DRAWING_WORKFLOW_CATEGORY),
+        tags: valueSet(env && env.DRAWING_WORKFLOW_TAG),
+    }
+}
+
+function workflowMatchesFilters(workflow, filters) {
+    const fixture = String(workflow && workflow.fixture || "")
+    const category = String(workflow && workflow.category || "")
+    const tags = Array.isArray(workflow && workflow.tags) ? workflow.tags.map(tag => String(tag)) : []
+    if (filters.fixtures.length > 0 && filters.fixtures.indexOf(fixture) < 0) {
+        return false
+    }
+    if (filters.categories.length > 0 && filters.categories.indexOf(category) < 0) {
+        return false
+    }
+    if (filters.tags.length > 0 && !filters.tags.some(tag => tags.indexOf(tag) >= 0)) {
+        return false
+    }
+    return true
+}
+
+function selectWorkflows(workflows, filters) {
+    return workflows.filter(workflow => workflowMatchesFilters(workflow, filters))
+}
+
+function workflowFixtures(repoRoot, env) {
     const manifestPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_manifest.json")
     const manifest = readJson(manifestPath)
+    const filters = workflowFilters(env || {})
+    const workflows = (Array.isArray(manifest.workflows) ? manifest.workflows : [])
+        .map(normalizeWorkflowEntry)
+        .filter(workflow => workflow.fixture.length > 0)
     return {
         manifestPath,
-        fixtures: Array.isArray(manifest.workflows) ? manifest.workflows : [],
+        workflows,
+        selectedWorkflows: selectWorkflows(workflows, filters),
+        filters,
     }
 }
 
@@ -270,7 +328,8 @@ function reducedSummary(summary) {
     }
 }
 
-function runFixture(repoRoot, fixtureName) {
+function runFixture(repoRoot, workflow) {
+    const fixtureName = String(workflow && workflow.fixture || "")
     const executable = path.join(repoRoot, "build", "qt_qml_region_split")
     const scriptPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", fixtureName)
     const libraryPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "shared_canvas_library.json")
@@ -302,6 +361,11 @@ function runFixture(repoRoot, fixtureName) {
         return {
             name: String(script.name || fixtureName),
             fixture: fixtureName,
+            metadata: {
+                kind: String(workflow && workflow.kind || "unknown"),
+                category: String(workflow && workflow.category || "unknown"),
+                tags: Array.isArray(workflow && workflow.tags) ? workflow.tags.map(tag => String(tag)) : [],
+            },
             ok: false,
             failures: scriptFailures,
             budgetFailures,
@@ -353,6 +417,11 @@ function runFixture(repoRoot, fixtureName) {
     return {
         name: String(script.name || fixtureName),
         fixture: fixtureName,
+        metadata: {
+            kind: String(workflow && workflow.kind || "unknown"),
+            category: String(workflow && workflow.category || "unknown"),
+            tags: Array.isArray(workflow && workflow.tags) ? workflow.tags.map(tag => String(tag)) : [],
+        },
         ok: scriptFailures.length === 0,
         failures: scriptFailures,
         budgetFailures,
@@ -362,21 +431,79 @@ function runFixture(repoRoot, fixtureName) {
     }
 }
 
-function writeWorkflowReport(repoRoot, manifestPath, scripts) {
+function groupScriptsByMetadata(scripts, field) {
+    const groups = {}
+    for (const script of scripts) {
+        const key = String(script && script.metadata && script.metadata[field] || "unknown")
+        if (!groups[key]) {
+            groups[key] = {
+                count: 0,
+                okCount: 0,
+                failureCount: 0,
+                budgetFailureCount: 0,
+            }
+        }
+        groups[key].count += 1
+        groups[key].okCount += script.ok ? 1 : 0
+        groups[key].failureCount += script.failures.length
+        groups[key].budgetFailureCount += script.budgetFailures.length
+    }
+    return groups
+}
+
+function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts) {
     const report = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         name: "drawing_control_workflows",
         manifest: path.relative(repoRoot, manifestPath),
+        filters,
         ok: scripts.every(script => script.ok),
+        totalWorkflowCount: workflows.length,
+        selectedWorkflowCount: scripts.length,
         scriptCount: scripts.length,
         failureCount: scripts.reduce((sum, script) => sum + script.failures.length, 0),
         budgetFailureCount: scripts.reduce((sum, script) => sum + script.budgetFailures.length, 0),
+        groups: {
+            byKind: groupScriptsByMetadata(scripts, "kind"),
+            byCategory: groupScriptsByMetadata(scripts, "category"),
+        },
         scripts,
     }
     const outDir = path.join(repoRoot, "tests", "artifacts", "drawing_metrics")
     fs.mkdirSync(outDir, { recursive: true })
     fs.writeFileSync(path.join(outDir, "control_workflows_summary.json"), `${JSON.stringify(report, null, 2)}\n`)
     return report
+}
+
+function runWorkflowFilterContract(manifest) {
+    expect(manifest.workflows.length >= 13, "workflow manifest should include all control workflows")
+    expect(manifest.workflows.every(workflow => workflow.kind.length > 0 && workflow.category.length > 0 && workflow.tags.length > 0),
+        "workflow manifest entries should include kind, category, and tags")
+
+    const lineWorkflows = selectWorkflows(manifest.workflows, {
+        fixtures: [],
+        categories: [],
+        tags: ["line"],
+    })
+    expect(lineWorkflows.length > 0, "line tag filter should select workflows")
+    expect(lineWorkflows.length < manifest.workflows.length, "line tag filter should not select every workflow")
+    expect(lineWorkflows.every(workflow => workflow.tags.indexOf("line") >= 0), "line tag filter should only select line-tagged workflows")
+
+    const editWorkflows = selectWorkflows(manifest.workflows, {
+        fixtures: [],
+        categories: ["edit"],
+        tags: [],
+    })
+    expect(editWorkflows.length > 0, "edit category filter should select workflows")
+    expect(editWorkflows.every(workflow => workflow.category === "edit"), "edit category filter should only select edit workflows")
+
+    const arcWorkflows = selectWorkflows(manifest.workflows, {
+        fixtures: ["arc_create_basic.json"],
+        categories: [],
+        tags: [],
+    })
+    expect(arcWorkflows.length === 1, "fixture filter should select one named workflow")
+    expect(arcWorkflows[0].fixture === "arc_create_basic.json", "fixture filter should preserve the selected fixture")
 }
 
 const repoRoot = path.join(__dirname, "..")
@@ -388,13 +515,14 @@ if (!fs.existsSync(executable)) {
 }
 
 const scripts = []
-const manifest = workflowFixtures(repoRoot)
-expect(manifest.fixtures.length > 0, "workflow manifest should include fixtures")
-for (const fixtureName of manifest.fixtures) {
-    scripts.push(runFixture(repoRoot, fixtureName))
+const manifest = workflowFixtures(repoRoot, process.env)
+runWorkflowFilterContract(manifest)
+expect(manifest.selectedWorkflows.length > 0, "workflow filters should select at least one fixture")
+for (const workflow of manifest.selectedWorkflows) {
+    scripts.push(runFixture(repoRoot, workflow))
 }
 
-writeWorkflowReport(repoRoot, manifest.manifestPath, scripts)
+writeWorkflowReport(repoRoot, manifest.manifestPath, manifest.workflows, manifest.filters, scripts)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

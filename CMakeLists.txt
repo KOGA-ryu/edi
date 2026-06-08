@@ -106,6 +106,10 @@ if(BUILD_TESTING)
             NAME drawing_canvas_interaction_metrics_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_metrics_tests.js
         )
+        add_test(
+            NAME drawing_canvas_interaction_script_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_script_tests.js
+        )
     endif()
 
     add_executable(drawing_core_smoke

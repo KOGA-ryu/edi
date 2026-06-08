@@ -320,6 +320,23 @@ function isMarquee(state) {
     return String(state && state.mode || "") === "marquee_select"
 }
 
+function finishKind(state) {
+    var current = cloneState(state)
+    if (isHandleDrag(current) || isObjectDrag(current)) {
+        return "incremental_drag"
+    }
+    if (isMarquee(current)) {
+        return current.moved ? "marquee_select" : "marquee_click"
+    }
+    if (current.mode === "panning") {
+        return "pan"
+    }
+    if (current.mode === "drawing_pending_shape") {
+        return "draw_click"
+    }
+    return "none"
+}
+
 function gestureLabel(state) {
     var mode = String(state && state.mode || "idle")
     if (mode === "dragging_handle") {

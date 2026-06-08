@@ -137,6 +137,34 @@ function runPanContract(gesture) {
     expectNear(final.intent.dyPx, -24, "pan should compute dy pixels")
 }
 
+function runFinishKindContract(gesture) {
+    expect(gesture.finishKind(gesture.initialGestureState()) === "none", "idle finish kind should be none")
+
+    const objectDrag = gesture.beginObjectDrag(
+        gesture.initialGestureState(),
+        "script_line_01",
+        { x: 0.1, y: 0.1 },
+        ["script_line_01"],
+        {}
+    )
+    expect(gesture.finishKind(objectDrag) === "incremental_drag", "object drag finish kind should be incremental drag")
+
+    const handleDrag = gesture.beginHandleDrag(gesture.initialGestureState(), "script_rect_01", "rect_se", { x: 0.2, y: 0.2 }, {})
+    expect(gesture.finishKind(handleDrag) === "incremental_drag", "handle drag finish kind should be incremental drag")
+
+    const marqueeClick = gesture.beginMarquee(gesture.initialGestureState(), { x: 0.2, y: 0.2 }, {})
+    expect(gesture.finishKind(marqueeClick) === "marquee_click", "unmoved marquee finish kind should be marquee click")
+
+    const marqueeSelect = gesture.updateGesture(marqueeClick, { point: { x: 0.4, y: 0.4 } })
+    expect(gesture.finishKind(marqueeSelect) === "marquee_select", "moved marquee finish kind should be marquee select")
+
+    const pan = gesture.beginPan(gesture.initialGestureState(), { x: 10, y: 20 }, {})
+    expect(gesture.finishKind(pan) === "pan", "pan finish kind should be pan")
+
+    const draw = gesture.beginDrawingPendingShape(gesture.initialGestureState(), { x: 0.3, y: 0.4 }, {})
+    expect(gesture.finishKind(draw) === "draw_click", "pending draw finish kind should be draw click")
+}
+
 const gesture = loadGestureModule()
 runInitialStateContract(gesture)
 runOneActiveGestureContract(gesture)
@@ -146,6 +174,7 @@ runObjectDragContract(gesture)
 runHandleDragContract(gesture)
 runMarqueeContract(gesture)
 runPanContract(gesture)
+runFinishKindContract(gesture)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

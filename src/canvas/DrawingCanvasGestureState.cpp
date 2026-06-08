@@ -69,7 +69,7 @@ bool activeMode(const QString &mode) {
         || mode == QStringLiteral("panning");
 }
 
-bool transitionAllowed(const QString &fromMode, const QString &toMode) {
+bool transitionAllowedInternal(const QString &fromMode, const QString &toMode) {
     const QString from = fromMode.isEmpty() ? QStringLiteral("idle") : fromMode;
     const QString to = toMode.isEmpty() ? QStringLiteral("idle") : toMode;
     if (from == to || to == QStringLiteral("idle") || from == QStringLiteral("idle")) {
@@ -90,7 +90,7 @@ QVariantMap rejectedState(const QVariantMap &state) {
 QVariantMap beginGesture(const QVariantMap &state, const QString &mode, const QVariantMap &payload) {
     const QVariantMap current = cloneState(state);
     const QString nextMode = mode.isEmpty() ? QStringLiteral("idle") : mode;
-    if (!transitionAllowed(current.value(QStringLiteral("mode")).toString(), nextMode)) {
+    if (!transitionAllowedInternal(current.value(QStringLiteral("mode")).toString(), nextMode)) {
         return rejectedState(current);
     }
     const QVariantMap point = normalizePointMap(payload.value(QStringLiteral("point")));
@@ -166,7 +166,7 @@ QVariantMap finishIntent(const QVariantMap &state, const QVariantMap &payload) {
     return noneIntent();
 }
 
-QString finishKind(const QVariantMap &state) {
+QString finishKindInternal(const QVariantMap &state) {
     const QVariantMap current = cloneState(state);
     if (isHandleDrag(current) || isObjectDrag(current)) {
         return QStringLiteral("incremental_drag");
@@ -283,8 +283,16 @@ QVariantMap cancelGesture(const QVariantMap &) {
     };
 }
 
+bool transitionAllowed(const QString &fromMode, const QString &toMode) {
+    return transitionAllowedInternal(fromMode, toMode);
+}
+
+QString finishKind(const QVariantMap &state) {
+    return finishKindInternal(state);
+}
+
 QVariantMap finishAction(const QVariantMap &state) {
-    const QString kind = finishKind(state);
+    const QString kind = finishKindInternal(state);
     return {
         {QStringLiteral("kind"), kind},
         {QStringLiteral("shouldFinishIncrementalDrag"), kind == QStringLiteral("incremental_drag")},

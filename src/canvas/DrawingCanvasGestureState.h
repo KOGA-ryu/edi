@@ -14,6 +14,8 @@ QVariantMap beginDrawingPendingShape(const QVariantMap &state, const CanvasPoint
 QVariantMap updateGesture(const QVariantMap &state, const QVariantMap &payload);
 QVariantMap finishGesture(const QVariantMap &state, const QVariantMap &payload);
 QVariantMap cancelGesture(const QVariantMap &state);
+bool transitionAllowed(const QString &fromMode, const QString &toMode);
+QString finishKind(const QVariantMap &state);
 QVariantMap finishAction(const QVariantMap &state);
 bool isDragging(const QVariantMap &state);
 bool isHandleDrag(const QVariantMap &state);

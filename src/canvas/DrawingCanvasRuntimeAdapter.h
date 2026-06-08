@@ -53,6 +53,8 @@ public:
     Q_INVOKABLE QVariantMap updateGesture(const QVariantMap &state, const QVariantMap &payload) const;
     Q_INVOKABLE QVariantMap finishGesture(const QVariantMap &state, const QVariantMap &payload) const;
     Q_INVOKABLE QVariantMap cancelGesture(const QVariantMap &state) const;
+    Q_INVOKABLE bool transitionAllowed(const QString &fromMode, const QString &toMode) const;
+    Q_INVOKABLE QString finishKind(const QVariantMap &state) const;
     Q_INVOKABLE QVariantMap finishAction(const QVariantMap &state) const;
     Q_INVOKABLE bool isDragging(const QVariantMap &state) const;
     Q_INVOKABLE bool isHandleDrag(const QVariantMap &state) const;

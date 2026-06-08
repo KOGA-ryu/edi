@@ -35,8 +35,10 @@ bool pointInPolygon(const std::vector<CanvasPoint> &points, double x, double y) 
         const double yi = finiteNumber(points[i].y, 0.0);
         const double xj = finiteNumber(points[j].x, 0.0);
         const double yj = finiteNumber(points[j].y, 0.0);
+        const double denominator = yj - yi;
         const bool intersects = ((yi > y) != (yj > y))
-            && (x < (xj - xi) * (y - yi) / std::max(0.000001, yj - yi) + xi);
+            && std::abs(denominator) > 0.000001
+            && (x < (xj - xi) * (y - yi) / denominator + xi);
         if (intersects) {
             inside = !inside;
         }
@@ -66,9 +68,6 @@ CanvasPoint unrotatePoint(const CanvasObjectView &object, double x, double y) {
 
 double objectHitScore(const CanvasObjectView &object, double x, double y) {
     const QString kind = object.kind();
-    if (object.visible() == false) {
-        return 999.0;
-    }
     if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
         const double dx = x - object.number(QStringLiteral("x"));
         const double dy = y - object.number(QStringLiteral("y"));
@@ -115,8 +114,7 @@ double objectHitScore(const CanvasObjectView &object, double x, double y) {
         const double right = left + width;
         const double bottom = top + height;
         if (local.x >= left && local.x <= right && local.y >= top && local.y <= bottom) {
-            const double edgeDistance = std::min({local.x - left, right - local.x, local.y - top, bottom - local.y});
-            return std::max(0.0, edgeDistance);
+            return 0.0;
         }
         const double clampedX = std::max(left, std::min(right, local.x));
         const double clampedY = std::max(top, std::min(bottom, local.y));

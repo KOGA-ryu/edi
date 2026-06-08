@@ -195,6 +195,14 @@ QVariantMap DrawingCanvasRuntimeAdapter::cancelGesture(const QVariantMap &state)
     return drawing_canvas::cancelGesture(state);
 }
 
+bool DrawingCanvasRuntimeAdapter::transitionAllowed(const QString &fromMode, const QString &toMode) const {
+    return drawing_canvas::transitionAllowed(fromMode, toMode);
+}
+
+QString DrawingCanvasRuntimeAdapter::finishKind(const QVariantMap &state) const {
+    return drawing_canvas::finishKind(state);
+}
+
 QVariantMap DrawingCanvasRuntimeAdapter::finishAction(const QVariantMap &state) const {
     return drawing_canvas::finishAction(state);
 }

@@ -203,6 +203,13 @@ QtObject {
     property string uiThemePath: ""
     property bool drawingInteractionTelemetryLogEnabled: typeof initialDrawingTelemetryLogEnabled === "undefined" ? false : !!initialDrawingTelemetryLogEnabled
     property bool drawingInteractionMetricsLogEnabled: typeof initialDrawingMetricsLogEnabled === "undefined" ? false : !!initialDrawingMetricsLogEnabled
+    property string drawingControlScriptPath: typeof initialDrawingControlScriptPath === "undefined" ? "" : String(initialDrawingControlScriptPath)
+    property var drawingControlScriptDocument: typeof initialDrawingControlScript === "undefined" ? ({}) : initialDrawingControlScript
+    property string drawingControlLibraryPath: typeof initialDrawingControlLibraryPath === "undefined" ? "" : String(initialDrawingControlLibraryPath)
+    property var drawingControlLibraryDocument: typeof initialDrawingControlLibrary === "undefined" ? ({}) : initialDrawingControlLibrary
+    property bool drawingControlScriptExitOnComplete: typeof initialDrawingControlScriptExitOnComplete === "undefined" ? false : !!initialDrawingControlScriptExitOnComplete
+    property var drawingControlScriptResult: ({})
+    readonly property bool drawingControlScriptRequested: drawingControlScriptPath.length > 0
 
     readonly property var localTabs: [
         { id: "overview", label: "Overview", tooltip: "Summary of the selected review route, including purpose, status counts, and nearby route cards." },

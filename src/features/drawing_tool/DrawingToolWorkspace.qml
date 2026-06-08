@@ -6,6 +6,7 @@ import "../../runtime/DrawingCanvasGestureState.js" as CanvasGestureState
 import "../../runtime/DrawingCanvasInteractionMetrics.js" as CanvasInteractionMetrics
 import "../../runtime/DrawingCanvasInteractionTelemetry.js" as CanvasInteractionTelemetry
 import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
+import "../../runtime/DrawingCanvasToolScript.js" as CanvasToolScript
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
@@ -16,6 +17,7 @@ Rectangle {
     property string placementRole: "drawing_canvas_host"
     property string surfaceRecipeId: "draftsman_native_canvas_surface"
     property var controller: null
+    property bool initialControlScriptAttempted: false
 
     color: UiStyle.colorWorkspace
     border.width: UiStyle.borderNone
@@ -49,6 +51,53 @@ Rectangle {
                 drawingWorkspace.controller.nudgeSelectedDrawingObjectByPx(dx * step, dy * step)
                 constructionCanvas.previewActive = false
                 constructionCanvas.requestPaint()
+            }
+
+            function drawingControlScriptSummary(result) {
+                return {
+                    ok: result && result.ok === true,
+                    failures: result && result.failures ? result.failures : [],
+                    executed: result && result.executed !== undefined ? Number(result.executed || 0) : 0,
+                    objectCount: drawingWorkspace.controller ? canvasInput.visibleObjectCount() : 0,
+                    selectedObjectId: drawingWorkspace.controller ? String(drawingWorkspace.controller.selectedDrawingObjectId || "") : "",
+                    revision: drawingWorkspace.controller ? Number(drawingWorkspace.controller.revision || 0) : 0
+                }
+            }
+
+            function maybeRunInitialControlScript() {
+                if (drawingWorkspace.initialControlScriptAttempted
+                        || !drawingWorkspace.visible
+                        || !drawingWorkspace.controller
+                        || !drawingWorkspace.controller.drawingControlScriptRequested) {
+                    return
+                }
+                drawingWorkspace.initialControlScriptAttempted = true
+                var plan = CanvasToolScript.executionPlan(
+                            drawingWorkspace.controller.drawingControlScriptDocument,
+                            drawingWorkspace.controller.drawingControlLibraryDocument)
+                var result = plan.ok
+                        ? controlRunner.runExecutionPlan(plan.plan)
+                        : ({ ok: false, failures: plan.failures, executed: 0 })
+                var summary = drawingControlScriptSummary(result)
+                drawingWorkspace.controller.drawingControlScriptResult = summary
+                console.log("drawing_control_script_result " + JSON.stringify(summary))
+                if (drawingWorkspace.controller.drawingControlScriptExitOnComplete) {
+                    Qt.callLater(Qt.quit)
+                }
+            }
+
+            Timer {
+                id: initialControlScriptTimer
+                interval: 100
+                repeat: false
+                onTriggered: canvasFrame.maybeRunInitialControlScript()
+            }
+
+            Component.onCompleted: initialControlScriptTimer.start()
+            onVisibleChanged: {
+                if (visible) {
+                    initialControlScriptTimer.restart()
+                }
             }
 
             Shortcut {

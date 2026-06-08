@@ -66,6 +66,17 @@ int main(int argc, char *argv[]) {
     const QCommandLineOption drawingMetricsLogOption(
         QStringList() << "drawing-metrics-log",
         "Print drawing canvas interaction metric records to the console.");
+    const QCommandLineOption drawingControlScriptOption(
+        QStringList() << "drawing-control-script",
+        "Run drawing control script JSON from <path> after drawing workspace startup.",
+        "path");
+    const QCommandLineOption drawingControlLibraryOption(
+        QStringList() << "drawing-control-library",
+        "Load reusable drawing control script library JSON from <path>.",
+        "path");
+    const QCommandLineOption drawingControlScriptExitOption(
+        QStringList() << "drawing-control-script-exit",
+        "Exit after the drawing control script completes.");
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
@@ -73,6 +84,9 @@ int main(int argc, char *argv[]) {
     parser.addOption(actionOption);
     parser.addOption(drawingTelemetryLogOption);
     parser.addOption(drawingMetricsLogOption);
+    parser.addOption(drawingControlScriptOption);
+    parser.addOption(drawingControlLibraryOption);
+    parser.addOption(drawingControlScriptExitOption);
     parser.process(app);
 
     auto envFlag = [](const char *name) {
@@ -181,6 +195,18 @@ int main(int argc, char *argv[]) {
     const QVariant shellLayout = loadJsonObject(shellLayoutPath);
     ShellLayoutStore shellLayoutStore(shellLayoutPath);
     DrawingDocumentStore drawingDocumentStore;
+    const QString drawingControlScriptPath = parser.isSet(drawingControlScriptOption)
+        ? absolutePath(parser.value(drawingControlScriptOption))
+        : QString();
+    const QVariant drawingControlScript = drawingControlScriptPath.isEmpty()
+        ? QVariantMap()
+        : loadJsonObject(drawingControlScriptPath);
+    const QString drawingControlLibraryPath = parser.isSet(drawingControlLibraryOption)
+        ? absolutePath(parser.value(drawingControlLibraryOption))
+        : QString();
+    const QVariant drawingControlLibrary = drawingControlLibraryPath.isEmpty()
+        ? QVariantMap()
+        : loadJsonObject(drawingControlLibraryPath);
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubject"), reviewSubject);
@@ -212,6 +238,13 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(
         QStringLiteral("initialDrawingMetricsLogEnabled"),
         parser.isSet(drawingMetricsLogOption) || envFlag("DRAFTSMAN_DRAWING_METRICS_LOG"));
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlScriptPath"), drawingControlScriptPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlScript"), drawingControlScript);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlLibraryPath"), drawingControlLibraryPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlLibrary"), drawingControlLibrary);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("initialDrawingControlScriptExitOnComplete"),
+        parser.isSet(drawingControlScriptExitOption) || envFlag("DRAFTSMAN_DRAWING_CONTROL_SCRIPT_EXIT"));
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);

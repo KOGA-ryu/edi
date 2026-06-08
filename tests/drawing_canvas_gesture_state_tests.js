@@ -165,6 +165,40 @@ function runFinishKindContract(gesture) {
     expect(gesture.finishKind(draw) === "draw_click", "pending draw finish kind should be draw click")
 }
 
+function runFinishActionContract(gesture) {
+    const idle = gesture.finishAction(gesture.initialGestureState())
+    expect(idle.kind === "none", "idle finish action should keep none kind")
+    expect(idle.shouldResetLifecycle === true, "idle finish action should reset lifecycle")
+    expect(idle.shouldSuppressClick === false, "idle finish action should not suppress click")
+    expect(idle.shouldEndObjectMove === true, "idle finish action should preserve release cleanup")
+
+    const drag = gesture.finishAction(gesture.beginObjectDrag(
+        gesture.initialGestureState(),
+        "script_line_01",
+        { x: 0.1, y: 0.1 },
+        ["script_line_01"],
+        {}
+    ))
+    expect(drag.kind === "incremental_drag", "drag finish action should classify incremental drag")
+    expect(drag.shouldFinishIncrementalDrag === true, "drag finish action should finish incremental drag")
+    expect(drag.shouldSuppressClick === true, "drag finish action should suppress click")
+    expect(drag.shouldEndObjectMove === true, "drag finish action should end object move")
+
+    const marqueeClick = gesture.finishAction(gesture.beginMarquee(gesture.initialGestureState(), { x: 0.2, y: 0.2 }, {}))
+    expect(marqueeClick.kind === "marquee_click", "unmoved marquee action should classify marquee click")
+    expect(marqueeClick.shouldSelectMarquee === false, "unmoved marquee should not select marquee")
+    expect(marqueeClick.shouldSuppressClick === false, "unmoved marquee should not suppress click")
+
+    const marqueeSelect = gesture.finishAction(gesture.updateGesture(
+        gesture.beginMarquee(gesture.initialGestureState(), { x: 0.2, y: 0.2 }, {}),
+        { point: { x: 0.45, y: 0.45 } }
+    ))
+    expect(marqueeSelect.kind === "marquee_select", "moved marquee action should classify marquee select")
+    expect(marqueeSelect.shouldSelectMarquee === true, "moved marquee should select marquee")
+    expect(marqueeSelect.shouldSuppressClick === true, "moved marquee should suppress click")
+    expect(marqueeSelect.shouldEndObjectMove === false, "moved marquee should not end object move")
+}
+
 const gesture = loadGestureModule()
 runInitialStateContract(gesture)
 runOneActiveGestureContract(gesture)
@@ -175,6 +209,7 @@ runHandleDragContract(gesture)
 runMarqueeContract(gesture)
 runPanContract(gesture)
 runFinishKindContract(gesture)
+runFinishActionContract(gesture)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

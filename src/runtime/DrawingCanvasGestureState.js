@@ -337,6 +337,18 @@ function finishKind(state) {
     return "none"
 }
 
+function finishAction(state) {
+    var kind = finishKind(state)
+    return {
+        kind: kind,
+        shouldFinishIncrementalDrag: kind === "incremental_drag",
+        shouldSelectMarquee: kind === "marquee_select",
+        shouldSuppressClick: kind === "incremental_drag" || kind === "marquee_select",
+        shouldEndObjectMove: kind !== "marquee_select",
+        shouldResetLifecycle: true
+    }
+}
+
 function gestureLabel(state) {
     var mode = String(state && state.mode || "idle")
     if (mode === "dragging_handle") {

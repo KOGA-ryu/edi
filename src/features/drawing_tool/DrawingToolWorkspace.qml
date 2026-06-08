@@ -1322,19 +1322,20 @@ Rectangle {
                 onReleased: function(mouse) {
                     activeModifiers = mouse.modifiers
                     var releasePoint = normalizedPoint(mouse.x, mouse.y)
-                    var releaseKind = CanvasGestureState.finishKind(gestureState)
-                    var releasedWasDragging = releaseKind === "incremental_drag"
-                    if (drawingWorkspace.controller && releaseKind === "marquee_select") {
+                    var releaseAction = CanvasGestureState.finishAction(gestureState)
+                    if (drawingWorkspace.controller && releaseAction.shouldSelectMarquee) {
                         finishMarqueeActiveGesture(releasePoint, marqueeSelectionIds())
                         suppressClickOnce = true
-                    } else if (releaseKind === "incremental_drag") {
+                    } else if (releaseAction.shouldFinishIncrementalDrag) {
                         finishIncrementalActiveGesture(releasePoint, true)
                     }
-                    if (selectionTogglePressed || dragAnchorId.length > 0 || releasedWasDragging) {
+                    if (selectionTogglePressed || dragAnchorId.length > 0 || releaseAction.shouldSuppressClick) {
                         suppressClickOnce = true
                     }
-                    if (releaseKind !== "incremental_drag" && releaseKind !== "marquee_select") {
-                        resetActiveGestureLifecycle(false, true)
+                    if (releaseAction.shouldResetLifecycle
+                            && !releaseAction.shouldFinishIncrementalDrag
+                            && !releaseAction.shouldSelectMarquee) {
+                        resetActiveGestureLifecycle(false, releaseAction.shouldEndObjectMove)
                     }
                     updateSelectionHover(mouse.x, mouse.y, releasePoint)
                 }

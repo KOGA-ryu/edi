@@ -1,0 +1,64 @@
+{
+  "name": "drag_line_endpoint",
+  "steps": [
+    { "type": "select", "objectId": "script_line_01" },
+    { "type": "pointerDown", "x": 128, "y": 128 },
+    { "type": "pointerMove", "x": 160, "y": 128 },
+    { "type": "pointerMove", "x": 192, "y": 128 },
+    { "type": "pointerUp", "x": 192, "y": 128 }
+  ],
+  "events": [
+    {
+      "type": "begin",
+      "mode": "dragging_handle",
+      "timestampMs": 1000,
+      "snapshot": {
+        "revision": 20,
+        "selectedCount": 1,
+        "visibleObjectCount": 24
+      }
+    },
+    { "type": "hitTest" },
+    { "type": "pointerMove" },
+    { "type": "snap" },
+    { "type": "handlePlan" },
+    { "type": "controllerMutation", "kind": "update_handle_field" },
+    { "type": "renderRequest" },
+    { "type": "pointerMove" },
+    { "type": "snap" },
+    { "type": "handlePlan" },
+    { "type": "controllerMutation", "kind": "update_handle_field" },
+    { "type": "renderRequest" },
+    {
+      "type": "finish",
+      "timestampMs": 1120,
+      "snapshot": {
+        "revision": 21,
+        "selectedCount": 1,
+        "visibleObjectCount": 24
+      }
+    }
+  ],
+  "expect": {
+    "metrics": {
+      "mode": "dragging_handle",
+      "maxDurationMs": 250,
+      "maxPointerMoves": 2,
+      "maxControllerMutations": 4,
+      "maxRenderRequests": 4,
+      "maxHitTests": 2,
+      "maxSnapResolutions": 3,
+      "maxHandlePlans": 2,
+      "revisionDelta": 1,
+      "assertPointerMovesMatchSteps": true
+    },
+    "state": {
+      "selectedObjectId": "script_line_01"
+    }
+  },
+  "actual": {
+    "state": {
+      "selectedObjectId": "script_line_01"
+    }
+  }
+}

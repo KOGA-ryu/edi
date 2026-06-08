@@ -11,6 +11,13 @@ int main()
     TextDocumentStore store;
     assert(isValidTextDocumentId("text_1"));
     assert(!isValidTextDocumentId(""));
+    TextDocument fallbackTitle = makeTextDocument("text_fallback");
+    assert(fallbackTitle.title == "text_fallback");
+    TextDocument explicitTitle = makeTextDocument("text_explicit", "Notes");
+    assert(explicitTitle.title == "Notes");
+    TextDocument emptyTextDocument = makeTextDocument("");
+    assert(emptyTextDocument.id.empty());
+    assert(emptyTextDocument.title.empty());
     TextDocument document = makeTextDocument("text_1", "Scratch");
     document.role = TextDocumentRole::Scratch;
 

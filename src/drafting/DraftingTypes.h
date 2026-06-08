@@ -112,6 +112,7 @@ const char *shapeKindName(DraftingShapeKind kind);
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);
+bool isValidDraftingDocumentTitle(const std::string &title);
 bool isValidLayerId(const LayerId &id);
 bool isValidLayerName(const std::string &name);
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry);

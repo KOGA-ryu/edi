@@ -120,6 +120,11 @@ bool isValidDraftingDocumentId(const DraftingDocumentId &id)
     return !id.empty();
 }
 
+bool isValidDraftingDocumentTitle(const std::string &title)
+{
+    return !title.empty();
+}
+
 bool isValidLayerId(const LayerId &id)
 {
     return !id.empty();

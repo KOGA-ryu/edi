@@ -8,7 +8,11 @@ TextDocument makeTextDocument(TextDocumentId id, std::string title)
 {
     TextDocument document;
     document.id = std::move(id);
-    document.title = title.empty() ? document.id : std::move(title);
+    if (isValidTextDocumentTitle(title)) {
+        document.title = std::move(title);
+    } else if (isValidTextDocumentId(document.id)) {
+        document.title = document.id;
+    }
     return document;
 }
 

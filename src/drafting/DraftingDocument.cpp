@@ -14,7 +14,11 @@ DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title)
 {
     DraftingDocument document;
     document.id = std::move(id);
-    document.title = title.empty() ? document.id : std::move(title);
+    if (isValidDraftingDocumentTitle(title)) {
+        document.title = std::move(title);
+    } else if (isValidDraftingDocumentId(document.id)) {
+        document.title = document.id;
+    }
     document.layers.push_back(makeDefaultLayer());
     return document;
 }

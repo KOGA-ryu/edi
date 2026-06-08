@@ -25,8 +25,16 @@ DraftingObject makeLine(const char *id)
 int main()
 {
     DraftingDocument document = makeDraftingDocument("doc");
+    assert(document.title == "doc");
+    DraftingDocument explicitTitle = makeDraftingDocument("doc_with_title", "Plan A");
+    assert(explicitTitle.title == "Plan A");
+    DraftingDocument emptyDraftingDocument = makeDraftingDocument("");
+    assert(emptyDraftingDocument.id.empty());
+    assert(emptyDraftingDocument.title.empty());
     assert(isValidDraftingDocumentId("doc"));
     assert(!isValidDraftingDocumentId(""));
+    assert(isValidDraftingDocumentTitle("Plan"));
+    assert(!isValidDraftingDocumentTitle(""));
     assert(isValidDraftingObjectId("line_1"));
     assert(!isValidDraftingObjectId(""));
     assert(isValidLayerId("default"));

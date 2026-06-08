@@ -18,7 +18,11 @@ ProjectWorkspace makeProjectWorkspace(std::string id, std::string name)
 {
     ProjectWorkspace workspace;
     workspace.id = std::move(id);
-    workspace.name = name.empty() ? workspace.id : std::move(name);
+    if (isValidWorkspaceName(name)) {
+        workspace.name = std::move(name);
+    } else if (isValidWorkspaceId(workspace.id)) {
+        workspace.name = workspace.id;
+    }
     return workspace;
 }
 

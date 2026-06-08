@@ -113,6 +113,7 @@ const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);
 bool isValidLayerId(const LayerId &id);
+bool isValidLayerName(const std::string &name);
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry);
 bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry);
 

@@ -31,6 +31,8 @@ int main()
     assert(!isValidDraftingObjectId(""));
     assert(isValidLayerId("default"));
     assert(!isValidLayerId(""));
+    assert(isValidLayerName("Default"));
+    assert(!isValidLayerName(""));
     assert(layerIndexById(document, "default") == 0);
     assert(findLayer(document, "default") == &document.layers[0]);
     assert(containsLayer(document, "default"));

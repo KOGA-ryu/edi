@@ -37,5 +37,7 @@ LuaRecipe makeLuaRecipe(std::string id, std::string name, std::string version);
 LuaRecipeValidation validateLuaRecipe(const LuaRecipe &recipe);
 const char *scriptResultCodeName(ScriptResultCode code);
 bool isValidScriptTargetId(const std::string &targetId);
+bool isValidLuaRecipeName(const std::string &name);
+bool isValidLuaRecipeVersion(const std::string &version);
 
 } // namespace edi::scripting

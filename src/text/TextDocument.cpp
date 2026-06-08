@@ -72,9 +72,14 @@ bool isValidTextDocumentId(const TextDocumentId &id)
     return !id.empty();
 }
 
-bool isValidTitle(const std::string &title)
+bool isValidTextDocumentTitle(const std::string &title)
 {
     return !title.empty();
+}
+
+bool isValidTitle(const std::string &title)
+{
+    return isValidTextDocumentTitle(title);
 }
 
 void markDirty(TextDocument &document)

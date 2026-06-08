@@ -125,6 +125,11 @@ bool isValidLayerId(const LayerId &id)
     return !id.empty();
 }
 
+bool isValidLayerName(const std::string &name)
+{
+    return !name.empty();
+}
+
 GeometryValidationResult GeometryValidationResult::accepted()
 {
     return {true, DraftingResultCode::None, {}};

@@ -77,6 +77,8 @@ int main()
     assert(textDocumentIndexById(store, "text_2") == 0);
 
     assert(textResultCodeName(TextResultCode::InvalidRange) == std::string("invalid_range"));
+    assert(isValidTextDocumentTitle("Title"));
+    assert(!isValidTextDocumentTitle(""));
     assert(isValidTitle("Title"));
     assert(!isValidTitle(""));
 

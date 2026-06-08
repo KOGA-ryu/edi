@@ -28,10 +28,10 @@ LuaRecipeValidation validateLuaRecipe(const LuaRecipe &recipe)
     if (!isValidScriptTargetId(recipe.id)) {
         addDiagnostic(validation, ScriptResultCode::InvalidRecipe, "recipe id is required");
     }
-    if (recipe.name.empty()) {
+    if (!isValidLuaRecipeName(recipe.name)) {
         addDiagnostic(validation, ScriptResultCode::InvalidRecipe, "recipe name is required");
     }
-    if (recipe.version.empty()) {
+    if (!isValidLuaRecipeVersion(recipe.version)) {
         addDiagnostic(validation, ScriptResultCode::InvalidRecipe, "recipe version is required");
     }
     for (const std::string &capability : recipe.requiredCapabilities) {
@@ -65,6 +65,16 @@ const char *scriptResultCodeName(ScriptResultCode code)
 bool isValidScriptTargetId(const std::string &targetId)
 {
     return !targetId.empty();
+}
+
+bool isValidLuaRecipeName(const std::string &name)
+{
+    return !name.empty();
+}
+
+bool isValidLuaRecipeVersion(const std::string &version)
+{
+    return !version.empty();
 }
 
 } // namespace edi::scripting

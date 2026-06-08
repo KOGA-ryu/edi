@@ -11,6 +11,10 @@ int main()
     recipe.requiredCapabilities = {"drafting.commands"};
     assert(isValidScriptTargetId("object_1"));
     assert(!isValidScriptTargetId(""));
+    assert(isValidLuaRecipeName("Apply preset"));
+    assert(!isValidLuaRecipeName(""));
+    assert(isValidLuaRecipeVersion("1"));
+    assert(!isValidLuaRecipeVersion(""));
 
     auto validation = validateLuaRecipe(recipe);
     assert(validation.ok);

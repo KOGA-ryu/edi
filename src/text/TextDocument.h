@@ -47,6 +47,7 @@ const char *textDocumentRoleName(TextDocumentRole role);
 TextDocumentRole textDocumentRoleFromName(const std::string &name);
 const char *textResultCodeName(TextResultCode code);
 bool isValidTextDocumentId(const TextDocumentId &id);
+bool isValidTextDocumentTitle(const std::string &title);
 bool isValidTitle(const std::string &title);
 void markDirty(TextDocument &document);
 void markClean(TextDocument &document);

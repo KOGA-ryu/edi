@@ -48,7 +48,7 @@ TextCommandResult applyTextEditorCommand(TextDocumentStore &store, const TextEdi
             if (document == nullptr) {
                 return TextCommandResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
             }
-            if (!isValidTitle(typedCommand.title)) {
+            if (!isValidTextDocumentTitle(typedCommand.title)) {
                 return TextCommandResult::rejected(TextResultCode::InvalidTitle, "document title is required");
             }
             document->title = typedCommand.title;

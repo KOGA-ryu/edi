@@ -5,6 +5,20 @@
 
 namespace edi::scripting {
 
+enum class ScriptResultCode {
+    None,
+    InvalidRecipe,
+    MissingCapability,
+    InvalidDomain,
+    InvalidCommand,
+    EmptyTargetId
+};
+
+struct ScriptDiagnostic {
+    ScriptResultCode code = ScriptResultCode::None;
+    std::string message;
+};
+
 struct LuaRecipe {
     std::string id;
     std::string name;
@@ -16,10 +30,11 @@ struct LuaRecipe {
 
 struct LuaRecipeValidation {
     bool ok = false;
-    std::vector<std::string> messages;
+    std::vector<ScriptDiagnostic> diagnostics;
 };
 
 LuaRecipe makeLuaRecipe(std::string id, std::string name, std::string version);
 LuaRecipeValidation validateLuaRecipe(const LuaRecipe &recipe);
+const char *scriptResultCodeName(ScriptResultCode code);
 
 } // namespace edi::scripting

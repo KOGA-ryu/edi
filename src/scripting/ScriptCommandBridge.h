@@ -17,7 +17,7 @@ struct ScriptCommandPlan {
     bool ok = false;
     bool dryRun = true;
     std::vector<ScriptCommandRequest> requests;
-    std::vector<std::string> messages;
+    std::vector<ScriptDiagnostic> diagnostics;
 };
 
 ScriptCommandPlan planScriptCommands(const LuaRecipe &recipe, std::vector<ScriptCommandRequest> requests);

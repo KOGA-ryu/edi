@@ -1,5 +1,0 @@
-*
-!.gitignore
-!drawing_metrics/
-drawing_metrics/*
-!drawing_metrics/README.md

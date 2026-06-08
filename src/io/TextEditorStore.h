@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QByteArray>
-#include <QJsonObject>
 #include <QObject>
 #include <QString>
 #include <QtGlobal>
@@ -29,7 +28,6 @@ private:
     static QString normalizedDocumentRole(const QString &role);
     static bool writeUtf8File(const QString &path, const QString &text);
     static QString sha256Hex(const QByteArray &data);
-    static QJsonObject packetFileRecord(const QString &path, const QString &sha256, qsizetype bytes);
     static QVariantMap normalizeEditorState(const QVariantMap &source);
 
     QString m_manifestPath;

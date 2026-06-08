@@ -1,7 +1,5 @@
 #pragma once
 
-#include <QJsonArray>
-#include <QJsonObject>
 #include <QObject>
 #include <QUrl>
 #include <QVariantMap>
@@ -15,7 +13,6 @@ public:
     Q_INVOKABLE QVariantMap save(const QUrl &url, const QVariantMap &model) const;
     Q_INVOKABLE QVariantMap open(const QUrl &url) const;
     Q_INVOKABLE QVariantMap exportSvg(const QUrl &url, const QString &svg) const;
-    Q_INVOKABLE QVariantMap exportBlenderSvgBundle(const QUrl &url, const QString &svg, const QVariantMap &model) const;
 
 private:
     static QString localPath(const QUrl &url);

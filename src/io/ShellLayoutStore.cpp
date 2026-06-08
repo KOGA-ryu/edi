@@ -1,8 +1,7 @@
 #include "ShellLayoutStore.h"
 
 #include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
+
 #include <QSaveFile>
 #include <utility>
 
@@ -16,10 +15,6 @@ bool ShellLayoutStore::save(const QVariantMap &layout) const {
         return false;
     }
 
-    const QJsonObject object = QJsonObject::fromVariantMap(layout);
-    const QJsonDocument document(object);
-    file.write(document.toJson(QJsonDocument::Indented));
-    return file.commit();
 }
 
 QString ShellLayoutStore::path() const {

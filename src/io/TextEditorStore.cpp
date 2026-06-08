@@ -5,9 +5,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QSaveFile>
 #include <QtGlobal>
 
@@ -37,7 +34,6 @@ QVariantMap TextEditorStore::save(const QVariantList &documents, const QString &
     }
 
     QVariantList savedDocuments;
-    QJsonArray manifestDocuments;
     const QVariantMap normalizedState = normalizeEditorState(editorState);
     for (const QVariant &entry : documents) {
         QVariantMap document = entry.toMap();
@@ -91,29 +87,11 @@ QVariantMap TextEditorStore::save(const QVariantList &documents, const QString &
         const QString role = normalizedDocumentRole(document.value(QStringLiteral("role")).toString());
         document.insert(QStringLiteral("role"), role);
 
-        QJsonObject manifestDocument;
-        manifestDocument.insert(QStringLiteral("id"), id);
-        manifestDocument.insert(QStringLiteral("name"), name);
-        manifestDocument.insert(QStringLiteral("language"), language);
-        manifestDocument.insert(QStringLiteral("path"), cleanPath);
-        manifestDocument.insert(QStringLiteral("role"), role);
-        manifestDocuments.append(manifestDocument);
-        savedDocuments.append(document);
     }
-
-    QJsonObject manifest;
-    manifest.insert(QStringLiteral("schema_version"), 1);
-    manifest.insert(QStringLiteral("documents"), manifestDocuments);
-    manifest.insert(QStringLiteral("editor_state"), QJsonObject::fromVariantMap(normalizedState));
 
     QSaveFile manifestFile(m_manifestPath);
     if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
         result.insert(QStringLiteral("message"), QStringLiteral("manifest write failed"));
-        return result;
-    }
-    manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
-    if (!manifestFile.commit()) {
-        result.insert(QStringLiteral("message"), QStringLiteral("manifest commit failed"));
         return result;
     }
 
@@ -169,8 +147,6 @@ QVariantMap TextEditorStore::exportBundle(const QVariantList &documents, const Q
         return result;
     }
 
-    QJsonArray manifestDocuments;
-    QJsonArray packetFiles;
     QString combined;
     QString promptText;
     QString contextText;
@@ -239,23 +215,6 @@ QVariantMap TextEditorStore::exportBundle(const QVariantList &documents, const Q
             }
         }
 
-        QJsonObject manifestDocument;
-        manifestDocument.insert(QStringLiteral("id"), id);
-        manifestDocument.insert(QStringLiteral("name"), name);
-        const QString language = document.value(QStringLiteral("language")).toString().trimmed().isEmpty()
-            ? QStringLiteral("text")
-            : document.value(QStringLiteral("language")).toString().trimmed();
-        manifestDocument.insert(QStringLiteral("language"), language);
-        manifestDocument.insert(QStringLiteral("role"), role);
-        manifestDocument.insert(QStringLiteral("source_path"), document.value(QStringLiteral("path")).toString());
-        manifestDocument.insert(QStringLiteral("exported_path"), relativePath);
-        manifestDocument.insert(QStringLiteral("active"), id == activeId);
-        manifestDocument.insert(QStringLiteral("chars"), text.length());
-        manifestDocument.insert(QStringLiteral("lines"), text.isEmpty() ? 1 : text.count(QLatin1Char('\n')) + 1);
-        manifestDocument.insert(QStringLiteral("sha256"), documentHash);
-        manifestDocuments.append(manifestDocument);
-        exportedCount += 1;
-    }
 
     if (exportedCount <= 0) {
         result.insert(QStringLiteral("message"), QStringLiteral("no documents to export"));
@@ -308,91 +267,6 @@ QVariantMap TextEditorStore::exportBundle(const QVariantList &documents, const Q
         contextFile += QStringLiteral("# Draftsman Context Documents\n\n");
         contextFile += QStringLiteral("Context documents: ") + QString::number(contextDocumentCount) + QStringLiteral("\n\n");
         contextFile += contextText.isEmpty() ? QStringLiteral("No additional context documents were exported.\n") : contextText;
-
-        QString agentReadme;
-        agentReadme += QStringLiteral("Draftsman Dex handoff packet\n");
-        agentReadme += QStringLiteral("Created: ") + QDateTime::currentDateTimeUtc().toString(Qt::ISODate) + QStringLiteral("\n\n");
-        agentReadme += QStringLiteral("Read order:\n");
-        agentReadme += QStringLiteral("1. manifest.json\n");
-        agentReadme += QStringLiteral("2. prompt.txt\n");
-        agentReadme += QStringLiteral("3. context.txt\n");
-        agentReadme += QStringLiteral("4. documents/ for exact source copies\n\n");
-        agentReadme += QStringLiteral("Do not assume this packet syncs back to Draftsman. Return changes as a new packet, patch, or explicit instructions.\n");
-
-        if (!writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("prompt.txt")), promptFile)
-                || !writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("context.txt")), contextFile)
-                || !writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("AGENT_README.txt")), agentReadme)) {
-            result.insert(QStringLiteral("message"), QStringLiteral("handoff export failed"));
-            return result;
-        }
-        packetFiles.append(packetFileRecord(QStringLiteral("prompt.txt"), sha256Hex(promptFile.toUtf8()), promptFile.toUtf8().size()));
-        packetFiles.append(packetFileRecord(QStringLiteral("context.txt"), sha256Hex(contextFile.toUtf8()), contextFile.toUtf8().size()));
-        packetFiles.append(packetFileRecord(QStringLiteral("AGENT_README.txt"), sha256Hex(agentReadme.toUtf8()), agentReadme.toUtf8().size()));
-    }
-
-    QJsonObject manifest;
-    manifest.insert(QStringLiteral("schema_version"), 1);
-    manifest.insert(QStringLiteral("packet_type"), packetType);
-    manifest.insert(QStringLiteral("created_at_utc"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
-    manifest.insert(QStringLiteral("app"), QStringLiteral("Draftsman"));
-    manifest.insert(QStringLiteral("profile_id"), metadata.value(QStringLiteral("profile_id")).toString());
-    manifest.insert(QStringLiteral("profile_label"), metadata.value(QStringLiteral("profile_label")).toString());
-    manifest.insert(QStringLiteral("active_document_id"), activeId);
-    manifest.insert(QStringLiteral("documents"), manifestDocuments);
-    manifest.insert(QStringLiteral("files"), packetFiles);
-    if (dexHandoff) {
-        QJsonObject handoffFiles;
-        handoffFiles.insert(QStringLiteral("agent_readme"), QStringLiteral("AGENT_README.txt"));
-        handoffFiles.insert(QStringLiteral("prompt"), QStringLiteral("prompt.txt"));
-        handoffFiles.insert(QStringLiteral("context"), QStringLiteral("context.txt"));
-        handoffFiles.insert(QStringLiteral("combined"), QStringLiteral("all_documents.txt"));
-        manifest.insert(QStringLiteral("handoff_files"), handoffFiles);
-    }
-
-    QSaveFile manifestFile(packetDir.absoluteFilePath(QStringLiteral("manifest.json")));
-    if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        result.insert(QStringLiteral("message"), QStringLiteral("manifest export failed"));
-        return result;
-    }
-    manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
-    if (!manifestFile.commit()) {
-        result.insert(QStringLiteral("message"), QStringLiteral("manifest export commit failed"));
-        return result;
-    }
-    const QByteArray manifestBytes = QJsonDocument(manifest).toJson(QJsonDocument::Indented);
-    packetFiles.append(packetFileRecord(QStringLiteral("manifest.json"), sha256Hex(manifestBytes), manifestBytes.size()));
-
-    QString readme;
-    readme += QStringLiteral("Draftsman text editor export bundle\n");
-    readme += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n");
-    readme += QStringLiteral("Documents: ") + QString::number(exportedCount) + QStringLiteral("\n\n");
-    readme += QStringLiteral("Read manifest.json first. Document bodies are in documents/. all_documents.txt is a combined plain-text copy.\n");
-    readme += QStringLiteral("Use index.txt for a quick packet file list with SHA-256 checksums.\n");
-    if (writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("README.txt")), readme)) {
-        packetFiles.append(packetFileRecord(QStringLiteral("README.txt"), sha256Hex(readme.toUtf8()), readme.toUtf8().size()));
-    }
-
-    QString indexText;
-    indexText += QStringLiteral("Draftsman packet index\n");
-    indexText += QStringLiteral("Packet: ") + packetName + QStringLiteral("\n");
-    indexText += QStringLiteral("Created: ") + manifest.value(QStringLiteral("created_at_utc")).toString() + QStringLiteral("\n\n");
-    for (const QJsonValue &value : packetFiles) {
-        const QJsonObject file = value.toObject();
-        indexText += file.value(QStringLiteral("sha256")).toString()
-            + QStringLiteral("  ")
-            + file.value(QStringLiteral("path")).toString()
-            + QStringLiteral("\n");
-    }
-    if (!writeUtf8File(packetDir.absoluteFilePath(QStringLiteral("index.txt")), indexText)) {
-        result.insert(QStringLiteral("message"), QStringLiteral("index export failed"));
-        return result;
-    }
-
-    result.insert(QStringLiteral("ok"), true);
-    result.insert(QStringLiteral("message"), dexHandoff ? QStringLiteral("exported dex handoff") : QStringLiteral("exported bundle"));
-    result.insert(QStringLiteral("path"), packetPath);
-    result.insert(QStringLiteral("documents"), exportedCount);
-    return result;
 }
 
 QVariantList TextEditorStore::load() const {
@@ -405,21 +279,6 @@ QVariantList TextEditorStore::load() const {
     if (!manifestFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return documents;
     }
-
-    const QJsonDocument manifest = QJsonDocument::fromJson(manifestFile.readAll());
-    if (!manifest.isObject()) {
-        return documents;
-    }
-
-    const QJsonArray entries = manifest.object().value(QStringLiteral("documents")).toArray();
-    const QFileInfo manifestInfo(m_manifestPath);
-    const QDir manifestDir(manifestInfo.absoluteDir());
-    for (const QJsonValue &value : entries) {
-        const QJsonObject item = value.toObject();
-        const QString cleanPath = cleanRelativePath(item.value(QStringLiteral("path")).toString());
-        if (cleanPath.isEmpty()) {
-            continue;
-        }
 
         QString text;
         QFile textFile(manifestDir.absoluteFilePath(cleanPath));
@@ -456,16 +315,6 @@ QVariantMap TextEditorStore::loadState() const {
         return state;
     }
 
-    const QJsonDocument manifest = QJsonDocument::fromJson(manifestFile.readAll());
-    if (!manifest.isObject()) {
-        return state;
-    }
-
-    const QJsonObject editorState = manifest.object().value(QStringLiteral("editor_state")).toObject();
-    if (editorState.isEmpty()) {
-        return state;
-    }
-
     state.insert(QStringLiteral("active_document_id"), editorState.value(QStringLiteral("active_document_id")).toString());
     state.insert(QStringLiteral("split_enabled"), editorState.value(QStringLiteral("split_enabled")).toBool());
     state.insert(QStringLiteral("secondary_document_id"), editorState.value(QStringLiteral("secondary_document_id")).toString());
@@ -485,26 +334,6 @@ bool TextEditorStore::saveState(const QVariantMap &editorState) const {
     if (!manifestDir.exists() && !QDir().mkpath(manifestDir.absolutePath())) {
         return false;
     }
-
-    QJsonObject manifest;
-    QFile manifestFileRead(m_manifestPath);
-    if (manifestFileRead.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        const QJsonDocument existing = QJsonDocument::fromJson(manifestFileRead.readAll());
-        if (existing.isObject()) {
-            manifest = existing.object();
-        }
-    }
-
-    manifest.insert(QStringLiteral("schema_version"), 1);
-    manifest.insert(QStringLiteral("editor_state"), QJsonObject::fromVariantMap(normalizeEditorState(editorState)));
-
-    QSaveFile manifestFile(m_manifestPath);
-    if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        return false;
-    }
-    manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
-    return manifestFile.commit();
-}
 
 QString TextEditorStore::cleanRelativePath(const QString &path) {
     if (path.trimmed().isEmpty() || QFileInfo(path).isAbsolute()) {
@@ -563,14 +392,6 @@ bool TextEditorStore::writeUtf8File(const QString &path, const QString &text) {
 
 QString TextEditorStore::sha256Hex(const QByteArray &data) {
     return QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
-}
-
-QJsonObject TextEditorStore::packetFileRecord(const QString &path, const QString &sha256, qsizetype bytes) {
-    QJsonObject record;
-    record.insert(QStringLiteral("path"), path);
-    record.insert(QStringLiteral("sha256"), sha256);
-    record.insert(QStringLiteral("bytes"), static_cast<double>(bytes));
-    return record;
 }
 
 QVariantMap TextEditorStore::normalizeEditorState(const QVariantMap &source) {

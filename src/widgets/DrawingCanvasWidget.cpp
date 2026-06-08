@@ -88,36 +88,4 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
     m_controller->clickCanvasNormalized(point.x(), point.y());
 }
 
-void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
-{
-    const QString kind = object.value("kind").toString();
-    const bool selected = object.value("selected").toBool()
-        || object.value("id").toString() == (m_controller != nullptr ? m_controller->selectedObjectId() : QString());
-    painter.setPen(QPen(selected ? QColor("#f4d46f") : QColor("#79b8ff"), selected ? 2.4 : 1.6));
-    painter.setBrush(Qt::NoBrush);
 
-    if (kind == "point" || kind == "tone_probe") {
-        const QVariantList point = object.value("point").toList();
-        const QPointF screen = canvasToScreen(point.value(0).toDouble(), point.value(1).toDouble());
-        painter.setBrush(selected ? QColor("#f4d46f") : QColor("#79b8ff"));
-        painter.drawEllipse(screen, 4, 4);
-        return;
-    }
-    if (kind == "line" || kind == "glyph_baseline") {
-        const QPointF from = canvasToScreen(object.value("x1").toDouble(), object.value("y1").toDouble());
-        const QPointF to = canvasToScreen(object.value("x2").toDouble(), object.value("y2").toDouble());
-        painter.drawLine(from, to);
-        return;
-    }
-    if (kind == "circle" || kind == "arc" || kind == "polygon") {
-        const QPointF center = canvasToScreen(object.value("cx").toDouble(), object.value("cy").toDouble());
-        const double radius = object.value("radius").toDouble() * boardRect().width();
-        painter.drawEllipse(center, radius, radius);
-        return;
-    }
-    if (kind == "rectangle" || kind == "image_reference_frame" || kind == "ascii_crop_frame" || kind == "ascii_cell_region") {
-        const QPointF topLeft = canvasToScreen(object.value("x").toDouble(), object.value("y").toDouble());
-        const QSizeF size(object.value("width").toDouble() * boardRect().width(), object.value("height").toDouble() * boardRect().height());
-        painter.drawRect(QRectF(topLeft, size));
-    }
-}

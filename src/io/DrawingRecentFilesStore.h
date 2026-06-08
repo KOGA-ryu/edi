@@ -1,7 +1,5 @@
 #pragma once
 
-#include <QJsonArray>
-#include <QJsonObject>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
@@ -22,6 +20,4 @@ private:
     QString m_path;
 
     static QString normalizedLocalPath(const QString &path);
-    static QVariantList recentListFromArray(const QJsonArray &array);
-    bool writeDocument(const QJsonObject &document) const;
 };

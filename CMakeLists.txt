@@ -98,6 +98,10 @@ if(BUILD_TESTING)
             NAME drawing_canvas_gesture_state_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gesture_state_tests.js
         )
+        add_test(
+            NAME drawing_canvas_projection_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_projection_tests.js
+        )
     endif()
 
     add_executable(drawing_core_smoke

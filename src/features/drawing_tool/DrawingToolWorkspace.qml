@@ -3,6 +3,7 @@ import QtQuick.Controls
 import "../../style"
 import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
 import "../../runtime/DrawingCanvasGestureState.js" as CanvasGestureState
+import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
@@ -518,27 +519,6 @@ Rectangle {
                     return String(object.id || "").indexOf("script_") === 0 ? object : ({})
                 }
 
-                function includePoint(bounds, x, y) {
-                    var px = Number(x)
-                    var py = Number(y)
-                    if (!Number.isFinite(px) || !Number.isFinite(py)) {
-                        return bounds
-                    }
-                    if (!bounds.ok) {
-                        bounds.ok = true
-                        bounds.minX = px
-                        bounds.maxX = px
-                        bounds.minY = py
-                        bounds.maxY = py
-                        return bounds
-                    }
-                    bounds.minX = Math.min(bounds.minX, px)
-                    bounds.maxX = Math.max(bounds.maxX, px)
-                    bounds.minY = Math.min(bounds.minY, py)
-                    bounds.maxY = Math.max(bounds.maxY, py)
-                    return bounds
-                }
-
                 function handleSettings() {
                     return {
                         canvasSizePx: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasSizePx || 512) : 512,
@@ -548,49 +528,6 @@ Rectangle {
                         shiftConstrain: modifierShiftDown(activeModifiers),
                         angleSnapDeg: 15
                     }
-                }
-
-                function objectBounds(object) {
-                    var bounds = ({ ok: false, minX: 0, minY: 0, maxX: 0, maxY: 0 })
-                    var kind = String(object.kind || "")
-                    if (kind === "point" || kind === "tone_probe") {
-                        return includePoint(bounds, object.x, object.y)
-                    }
-                    if (kind === "line" || kind === "glyph_baseline") {
-                        includePoint(bounds, object.x1, object.y1)
-                        return includePoint(bounds, object.x2, object.y2)
-                    }
-                    if (kind === "circle" || kind === "arc") {
-                        var cx = Number(object.cx || 0)
-                        var cy = Number(object.cy || 0)
-                        var radius = Number(object.radius || 0)
-                        includePoint(bounds, cx - radius, cy - radius)
-                        return includePoint(bounds, cx + radius, cy + radius)
-                    }
-                    if (CanvasHandles.isRectangleLike(kind)) {
-                        var corners = CanvasHandles.rotatedRectCorners(object)
-                        for (var cornerIndex = 0; cornerIndex < corners.length; ++cornerIndex) {
-                            includePoint(bounds, corners[cornerIndex].x, corners[cornerIndex].y)
-                        }
-                        return bounds
-                    }
-                    if (kind === "polyline" || kind === "polygon") {
-                        var points = asArray(object.points)
-                        for (var pointIndex = 0; pointIndex < points.length; ++pointIndex) {
-                            var point = asArray(points[pointIndex])
-                            if (point.length >= 2) {
-                                includePoint(bounds, point[0], point[1])
-                            }
-                        }
-                    }
-                    return bounds
-                }
-
-                function boundsIntersectsSelection(bounds, minX, minY, maxX, maxY) {
-                    if (!bounds.ok) {
-                        return false
-                    }
-                    return bounds.maxX >= minX && bounds.minX <= maxX && bounds.maxY >= minY && bounds.minY <= maxY
                 }
 
                 function marqueeSelectionIds() {
@@ -606,7 +543,7 @@ Rectangle {
                         if (id.indexOf("script_") !== 0) {
                             continue
                         }
-                        if (boundsIntersectsSelection(objectBounds(object), minX, minY, maxX, maxY)) {
+                        if (CanvasProjection.objectIntersectsBounds(object, minX, minY, maxX, maxY)) {
                             ids.push(id)
                         }
                     }

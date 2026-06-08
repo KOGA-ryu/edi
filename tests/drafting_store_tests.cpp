@@ -6,6 +6,7 @@
 #include <cassert>
 #include <limits>
 #include <optional>
+#include <variant>
 
 using namespace edi::drafting;
 
@@ -151,12 +152,42 @@ int main()
     assert(line != nullptr);
     assert(line->bounds.x == 2.0);
     assert(line->bounds.y == 3.0);
-    const auto revisionAfterMove = document.revision;
+    auto updateLine = updateObjectGeometry(document, "line_1", LineGeometry{{10.0, 10.0}, {20.0, 10.0}});
+    assert(updateLine.ok);
+    const auto *updatedLine = findObject(document, "line_1");
+    assert(updatedLine != nullptr);
+    const Bounds2D boundsBeforeFailedUpdate = updatedLine->bounds;
+    const DraftingGeometry geometryBeforeFailedUpdate = updatedLine->geometry;
+    const auto revisionBeforeFailedUpdate = document.revision;
+
+    DraftingObject invalidLineCandidate = *updatedLine;
+    invalidLineCandidate.geometry = LineGeometry{{0.0, 0.0}, {std::numeric_limits<double>::quiet_NaN(), 0.0}};
+    auto invalidLineShape = validateDraftingObjectShape(invalidLineCandidate);
+    auto invalidUpdate = updateObjectGeometry(document, "line_1", invalidLineCandidate.geometry);
+    assert(!invalidLineShape.ok);
+    assert(!invalidUpdate.ok);
+    assert(invalidUpdate.code == invalidLineShape.code);
+    assert(document.revision == revisionBeforeFailedUpdate);
+    const auto *afterInvalidUpdate = findObject(document, "line_1");
+    assert(afterInvalidUpdate != nullptr);
+    assert(afterInvalidUpdate->bounds.x == boundsBeforeFailedUpdate.x);
+    assert(afterInvalidUpdate->bounds.y == boundsBeforeFailedUpdate.y);
+    assert(afterInvalidUpdate->bounds.width == boundsBeforeFailedUpdate.width);
+    assert(std::get<LineGeometry>(afterInvalidUpdate->geometry).a.x == std::get<LineGeometry>(geometryBeforeFailedUpdate).a.x);
+
+    DraftingObject mismatchedUpdateCandidate = *updatedLine;
+    mismatchedUpdateCandidate.geometry = PointGeometry{{0.0, 0.0}};
+    auto mismatchedUpdateShape = validateDraftingObjectShape(mismatchedUpdateCandidate);
+    auto mismatchedUpdate = updateObjectGeometry(document, "line_1", mismatchedUpdateCandidate.geometry);
+    assert(!mismatchedUpdateShape.ok);
+    assert(!mismatchedUpdate.ok);
+    assert(mismatchedUpdate.code == mismatchedUpdateShape.code);
+    assert(document.revision == revisionBeforeFailedUpdate);
 
     auto badMove = moveObject(document, "line_1", std::numeric_limits<double>::quiet_NaN(), 0.0);
     assert(!badMove.ok);
     assert(badMove.code == DraftingResultCode::InvalidGeometry);
-    assert(document.revision == revisionAfterMove);
+    assert(document.revision == revisionBeforeFailedUpdate);
 
     selectOnly(document, "line_2");
     auto removeMiddle = removeObject(document, "line_2");

@@ -57,15 +57,15 @@ DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const Draft
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
     DraftingObject &object = document.objects[*index];
-    if (!kindMatchesGeometry(object.kind, geometry)) {
-        return DraftingStoreResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
-    }
-    const auto geometryValidation = validateGeometry(geometry);
-    if (!geometryValidation.ok) {
-        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
+
+    DraftingObject candidate = object;
+    candidate.geometry = std::move(geometry);
+    const auto shapeValidation = validateDraftingObjectShape(candidate);
+    if (!shapeValidation.ok) {
+        return DraftingStoreResult::rejected(shapeValidation.code, shapeValidation.message);
     }
 
-    object.geometry = std::move(geometry);
+    object.geometry = std::move(candidate.geometry);
     object.bounds = computeBounds(object.geometry);
     ++document.revision;
     return DraftingStoreResult::accepted();

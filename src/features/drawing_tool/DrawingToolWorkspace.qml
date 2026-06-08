@@ -817,13 +817,7 @@ Rectangle {
                         }
                     }
 
-                    CanvasGestureState.finishGesture(gestureState, {
-                        point: to,
-                        incremental: true
-                    })
-                    finishInteractionMetrics(false)
-                    gestureState = CanvasGestureState.initialGestureState()
-                    drawingWorkspace.controller.endDrawingObjectMove()
+                    finishIncrementalActiveGesture(to, true)
                     updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
                     return { ok: true }
                 }
@@ -862,13 +856,7 @@ Rectangle {
                         requestCanvasPaint()
                     }
 
-                    CanvasGestureState.finishGesture(gestureState, {
-                        point: to,
-                        incremental: true
-                    })
-                    finishInteractionMetrics(false)
-                    gestureState = CanvasGestureState.initialGestureState()
-                    drawingWorkspace.controller.endDrawingObjectMove()
+                    finishIncrementalActiveGesture(to, true)
                     updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
                     return { ok: true }
                 }
@@ -900,16 +888,7 @@ Rectangle {
                         requestCanvasPaint()
                     }
 
-                    var marqueeFinish = CanvasGestureState.finishGesture(gestureState, {
-                        point: to,
-                        objectIds: marqueeSelectionIds()
-                    })
-                    if (marqueeFinish.intent.kind === "select_objects") {
-                        drawingWorkspace.controller.selectDrawingObjects(marqueeFinish.intent.objectIds)
-                        recordControllerMutationMetric("select_objects")
-                    }
-                    finishInteractionMetrics(false)
-                    gestureState = CanvasGestureState.initialGestureState()
+                    finishMarqueeActiveGesture(to, marqueeSelectionIds())
                     updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
                     return { ok: true }
                 }
@@ -1123,15 +1102,40 @@ Rectangle {
                     }
                 }
 
-                function cancelActiveGesture() {
-                    var canceled = CanvasGestureState.cancelGesture(gestureState)
-                    gestureState = canceled.state
-                    finishInteractionMetrics(true)
+                function resetActiveGestureLifecycle(cancelled, endObjectMove) {
+                    finishInteractionMetrics(cancelled)
+                    gestureState = CanvasGestureState.initialGestureState()
                     dragAnchorId = ""
                     selectionTogglePressed = false
-                    if (drawingWorkspace.controller) {
+                    if (endObjectMove && drawingWorkspace.controller) {
                         drawingWorkspace.controller.endDrawingObjectMove()
                     }
+                }
+
+                function finishIncrementalActiveGesture(point, endObjectMove) {
+                    CanvasGestureState.finishGesture(gestureState, {
+                        point: point,
+                        incremental: true
+                    })
+                    resetActiveGestureLifecycle(false, endObjectMove)
+                }
+
+                function finishMarqueeActiveGesture(point, objectIds) {
+                    var marqueeFinish = CanvasGestureState.finishGesture(gestureState, {
+                        point: point,
+                        objectIds: objectIds
+                    })
+                    if (marqueeFinish.intent.kind === "select_objects" && drawingWorkspace.controller) {
+                        drawingWorkspace.controller.selectDrawingObjects(marqueeFinish.intent.objectIds)
+                        recordControllerMutationMetric("select_objects")
+                    }
+                    resetActiveGestureLifecycle(false, false)
+                    return marqueeFinish.intent
+                }
+
+                function cancelActiveGesture() {
+                    CanvasGestureState.cancelGesture(gestureState)
+                    resetActiveGestureLifecycle(true, true)
                 }
 
                 function updatePreviewPoint(mouseX, mouseY) {
@@ -1323,32 +1327,18 @@ Rectangle {
                     var releasedWasMarquee = CanvasGestureState.isMarquee(releasedGesture)
                     var releasedMoved = releasedGesture.moved === true
                     if (drawingWorkspace.controller && releasedWasMarquee && releasedMoved) {
-                        var marqueeFinish = CanvasGestureState.finishGesture(gestureState, {
-                            point: releasePoint,
-                            objectIds: marqueeSelectionIds()
-                        })
-                        if (marqueeFinish.intent.kind === "select_objects") {
-                            drawingWorkspace.controller.selectDrawingObjects(marqueeFinish.intent.objectIds)
-                            recordControllerMutationMetric("select_objects")
-                        }
+                        finishMarqueeActiveGesture(releasePoint, marqueeSelectionIds())
                         suppressClickOnce = true
                     } else if (releasedWasDragging) {
-                        CanvasGestureState.finishGesture(gestureState, {
-                            point: releasePoint,
-                            incremental: true
-                        })
+                        finishIncrementalActiveGesture(releasePoint, true)
                     }
                     if (selectionTogglePressed || dragAnchorId.length > 0 || releasedWasDragging) {
                         suppressClickOnce = true
                     }
-                    finishInteractionMetrics(false)
-                    gestureState = CanvasGestureState.initialGestureState()
-                    dragAnchorId = ""
-                    selectionTogglePressed = false
-                    updateSelectionHover(mouse.x, mouse.y, releasePoint)
-                    if (drawingWorkspace.controller) {
-                        drawingWorkspace.controller.endDrawingObjectMove()
+                    if (!releasedWasDragging && !(releasedWasMarquee && releasedMoved)) {
+                        resetActiveGestureLifecycle(false, true)
                     }
+                    updateSelectionHover(mouse.x, mouse.y, releasePoint)
                 }
 
                 onClicked: function(mouse) {

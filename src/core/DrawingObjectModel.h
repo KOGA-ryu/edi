@@ -114,6 +114,8 @@ public:
     bool addObject(DrawingObject object);
     bool removeObject(const ObjectId &id);
     bool updateGeometry(const ObjectId &id, Geometry geometry);
+    bool translateObject(const ObjectId &id, double dx, double dy);
+    bool replaceAttributes(const ObjectId &id, QJsonObject attributes);
     DrawingObject *find(const ObjectId &id);
     const DrawingObject *find(const ObjectId &id) const;
     bool contains(const ObjectId &id) const;
@@ -174,6 +176,7 @@ QJsonObject serializeBounds(const Bounds2D &bounds);
 QString shapeKindName(ShapeKind kind);
 bool geometryMatchesKind(ShapeKind kind, const Geometry &geometry);
 Bounds2D computeBounds(const Geometry &geometry);
+Geometry translatedGeometry(const Geometry &geometry, double dx, double dy);
 void recomputeBounds(DrawingObject &object);
 QJsonObject serializeDrawingObject(const DrawingObject &object, int canvasPx);
 

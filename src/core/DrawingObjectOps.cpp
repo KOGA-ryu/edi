@@ -5,6 +5,60 @@
 
 namespace drawing_core {
 
+namespace {
+Bounds boundsFromStoreObject(const DrawingObject &object) {
+    if (!object.bounds.ok) {
+        return {};
+    }
+    return {true, object.bounds.x, object.bounds.y, object.bounds.x + object.bounds.w, object.bounds.y + object.bounds.h};
+}
+
+bool refreshStoreProjection(State &state, QJsonObject &object) {
+    const QString objectId = object.value(QStringLiteral("id")).toString();
+    if (!state.store.contains({objectId})) {
+        return true;
+    }
+    const QJsonObject projected = state.store.serializeObject({objectId}, state.canvasPx);
+    if (projected.isEmpty()) {
+        return false;
+    }
+    object = projected;
+    return true;
+}
+
+bool replaceStoreAttributesFromJson(State &state, QJsonObject &object) {
+    const QString objectId = object.value(QStringLiteral("id")).toString();
+    if (!state.store.contains({objectId})) {
+        return true;
+    }
+    if (!state.store.replaceAttributes({objectId}, object)) {
+        return false;
+    }
+    return refreshStoreProjection(state, object);
+}
+
+bool addStoreLineFromJson(State &state, const QJsonObject &object) {
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    if (kind != QStringLiteral("line") && kind != QStringLiteral("glyph_baseline")) {
+        return true;
+    }
+    const QString objectId = object.value(QStringLiteral("id")).toString();
+    if (objectId.isEmpty() || state.store.contains({objectId})) {
+        return false;
+    }
+
+    DrawingObject typed;
+    typed.id = {objectId};
+    typed.kind = ShapeKind::Line;
+    typed.geometry = lineGeometryFromObject(object);
+    typed.style = {object.value(QStringLiteral("style_id")).toString(QStringLiteral("inline_active_stroke"))};
+    typed.layer = {object.value(QStringLiteral("layer_id")).toString(QString::fromLatin1(kScriptLayer))};
+    typed.metadata.values = object.value(QStringLiteral("metadata")).toObject();
+    typed.attributes = object;
+    return state.store.addObject(typed);
+}
+} // namespace
+
 bool generatedObjectExists(const State &state, const QString &objectId) {
     for (const QJsonValue value : state.generatedObjects) {
         if (value.toObject().value("id").toString() == objectId) {
@@ -46,6 +100,11 @@ QString nextId(const State &state, const QString &kind) {
 void pushObject(State &state, QJsonObject object) {
     object.insert("layer_id", kScriptLayer);
     object.insert("source", "cpp_drawing_core");
+    const QString objectId = object.value(QStringLiteral("id")).toString();
+    if (state.store.contains({objectId})) {
+        state.store.replaceAttributes({objectId}, object);
+        object = state.store.serializeObject({objectId}, state.canvasPx);
+    }
     state.generatedObjects.append(object);
     state.selectedLayer = kScriptLayer;
     selectObject(state, object.value("id").toString());
@@ -69,6 +128,9 @@ void deleteObject(State &state, const QString &objectId) {
     if (!deleted) {
         state.errors.append("delete_object could not find generated object: " + objectId);
         return;
+    }
+    if (state.store.contains({objectId})) {
+        state.store.removeObject({objectId});
     }
     state.generatedObjects = keptObjects;
     if (state.selectedObject == objectId) {
@@ -107,6 +169,11 @@ void deleteObjects(State &state, const QStringList &objectIds) {
         state.errors.append("delete_objects could not find selected generated objects");
         return;
     }
+    for (const QString &objectId : ids) {
+        if (state.store.contains({objectId})) {
+            state.store.removeObject({objectId});
+        }
+    }
     state.generatedObjects = keptObjects;
     for (const QString &objectId : ids) {
         state.selectedObjects.removeAll(objectId);
@@ -143,6 +210,10 @@ QString pushClonedObject(State &state, QJsonObject object, const QString &source
         object.insert(sourceKey, sourceId);
     }
     translateObjectWithState(object, state, clampedDxN, clampedDyN);
+    if (!addStoreLineFromJson(state, object)) {
+        state.errors.append(sourceKey + " could not add typed line object: " + nextObjectId);
+        return {};
+    }
     pushObject(state, object);
     state.pendingPoint = {};
     return nextObjectId;
@@ -236,14 +307,23 @@ void moveObject(State &state, const QString &objectId, double dxN, double dyN) {
     for (const QJsonValue value : state.generatedObjects) {
         QJsonObject object = value.toObject();
         if (object.value("id").toString() == objectId) {
-            const Bounds bounds = normalizedBounds(object);
+            const DrawingObject *storeObject = state.store.find({objectId});
+            const Bounds bounds = storeObject == nullptr ? normalizedBounds(object) : boundsFromStoreObject(*storeObject);
             if (!bounds.ok) {
                 state.errors.append("move_object could not compute bounds for: " + objectId);
                 return;
             }
             const double clampedDxN = clampedMoveDelta(dxN, bounds.minX, bounds.maxX);
             const double clampedDyN = clampedMoveDelta(dyN, bounds.minY, bounds.maxY);
-            translateObjectWithState(object, state, clampedDxN, clampedDyN);
+            if (storeObject != nullptr) {
+                if (!state.store.translateObject({objectId}, clampedDxN, clampedDyN)) {
+                    state.errors.append("move_object could not update typed object: " + objectId);
+                    return;
+                }
+                object = state.store.serializeObject({objectId}, state.canvasPx);
+            } else {
+                translateObjectWithState(object, state, clampedDxN, clampedDyN);
+            }
             moved = true;
         }
         movedObjects.append(object);
@@ -280,8 +360,17 @@ void moveObjects(State &state, const QStringList &objectIds, double dxN, double 
     QJsonArray movedObjects;
     for (const QJsonValue value : state.generatedObjects) {
         QJsonObject object = value.toObject();
-        if (ids.contains(object.value("id").toString())) {
-            translateObjectWithState(object, state, clampedDxN, clampedDyN);
+        const QString objectId = object.value("id").toString();
+        if (ids.contains(objectId)) {
+            if (state.store.contains({objectId})) {
+                if (!state.store.translateObject({objectId}, clampedDxN, clampedDyN)) {
+                    state.errors.append("move_objects could not update typed object: " + objectId);
+                    return;
+                }
+                object = state.store.serializeObject({objectId}, state.canvasPx);
+            } else {
+                translateObjectWithState(object, state, clampedDxN, clampedDyN);
+            }
             moved = true;
         }
         movedObjects.append(object);
@@ -318,10 +407,12 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 writePointGeometry(object, {{x / canvas, y / canvas}}, state.canvasPx);
                 updated = true;
             } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
-                double x1 = object.value("x1").toDouble() * canvas;
-                double y1 = object.value("y1").toDouble() * canvas;
-                double x2 = object.value("x2").toDouble() * canvas;
-                double y2 = object.value("y2").toDouble() * canvas;
+                const DrawingObject *storeObject = state.store.find({objectId});
+                const LineGeometry *storeLine = storeObject == nullptr ? nullptr : std::get_if<LineGeometry>(&storeObject->geometry);
+                double x1 = storeLine == nullptr ? object.value("x1").toDouble() * canvas : storeLine->a.x * canvas;
+                double y1 = storeLine == nullptr ? object.value("y1").toDouble() * canvas : storeLine->a.y * canvas;
+                double x2 = storeLine == nullptr ? object.value("x2").toDouble() * canvas : storeLine->b.x * canvas;
+                double y2 = storeLine == nullptr ? object.value("y2").toDouble() * canvas : storeLine->b.y * canvas;
                 if (field == QStringLiteral("x1_px")) {
                     x1 = clampedPx(value, state.canvasPx);
                 } else if (field == QStringLiteral("y1_px")) {
@@ -334,7 +425,16 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     state.errors.append("update_object unsupported line field: " + field);
                     return;
                 }
-                writeLineGeometry(object, {{x1 / canvas, y1 / canvas}, {x2 / canvas, y2 / canvas}}, state.canvasPx);
+                const LineGeometry updatedLine{{x1 / canvas, y1 / canvas}, {x2 / canvas, y2 / canvas}};
+                if (storeObject != nullptr) {
+                    if (storeLine == nullptr || !state.store.updateGeometry({objectId}, updatedLine)) {
+                        state.errors.append("update_object could not update typed line: " + objectId);
+                        return;
+                    }
+                    object = state.store.serializeObject({objectId}, state.canvasPx);
+                } else {
+                    writeLineGeometry(object, updatedLine, state.canvasPx);
+                }
                 updated = true;
             } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
                 double cx = object.value("cx").toDouble() * canvas;
@@ -485,6 +585,10 @@ void setObjectMetadataField(State &state, const QString &objectId, const QString
                 } else {
                     object.insert(field, text);
                 }
+            }
+            if (!replaceStoreAttributesFromJson(state, object)) {
+                state.errors.append(QStringLiteral("set_object_metadata could not update typed attributes: ") + objectId);
+                return;
             }
             updated = true;
         }

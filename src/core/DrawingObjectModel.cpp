@@ -437,6 +437,31 @@ Bounds2D computeBounds(const Geometry &geometry) {
         geometry);
 }
 
+Geometry translatedGeometry(const Geometry &geometry, double dx, double dy) {
+    return std::visit(
+        [&](const auto &value) -> Geometry {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, PointGeometry>) {
+                return translatedPointGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, LineGeometry>) {
+                return translatedLineGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, CircleGeometry>) {
+                return translatedCircleGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, ArcGeometry>) {
+                return translatedArcGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, RectangleGeometry>) {
+                return translatedRectangleGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, PolylineGeometry>) {
+                return translatedPolylineGeometry(value, dx, dy);
+            } else if constexpr (std::is_same_v<T, PolygonGeometry>) {
+                return translatedPolygonGeometry(value, dx, dy);
+            } else {
+                return Geometry{};
+            }
+        },
+        geometry);
+}
+
 void recomputeBounds(DrawingObject &object) {
     object.bounds = computeBounds(object.geometry);
 }
@@ -506,6 +531,25 @@ bool DrawingStore::updateGeometry(const ObjectId &id, Geometry geometry) {
     }
     object->geometry = std::move(geometry);
     recomputeBounds(*object);
+    return true;
+}
+
+bool DrawingStore::translateObject(const ObjectId &id, double dx, double dy) {
+    DrawingObject *object = find(id);
+    if (object == nullptr) {
+        return false;
+    }
+    object->geometry = translatedGeometry(object->geometry, dx, dy);
+    recomputeBounds(*object);
+    return true;
+}
+
+bool DrawingStore::replaceAttributes(const ObjectId &id, QJsonObject attributes) {
+    DrawingObject *object = find(id);
+    if (object == nullptr) {
+        return false;
+    }
+    object->attributes = std::move(attributes);
     return true;
 }
 

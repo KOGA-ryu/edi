@@ -106,6 +106,19 @@ bool testHitSnapProjectionGestureAdapter(DrawingCanvasRuntimeAdapter &adapter) {
     ok &= expect(snap.value(QStringLiteral("kind")).toString() == QStringLiteral("object"), QStringLiteral("adapter object snap kind"));
     ok &= expect(snap.value(QStringLiteral("sourceObjectId")).toString() == QStringLiteral("script_line"), QStringLiteral("adapter object snap source id"));
 
+    QVariantMap gridSettings = settings();
+    gridSettings.insert(QStringLiteral("objectSnapEnabled"), false);
+    ok &= expectNear(adapter.effectiveGridStepPx(gridSettings), 32.0, QStringLiteral("adapter effective grid step"));
+    const QVariantMap grid = adapter.gridSnap(point(0.52, -0.1), gridSettings);
+    ok &= expect(grid.value(QStringLiteral("kind")).toString() == QStringLiteral("grid"), QStringLiteral("adapter grid snap kind"));
+    ok &= expectNear(grid.value(QStringLiteral("x")).toDouble(), 0.5, QStringLiteral("adapter grid snap x"));
+    ok &= expectNear(grid.value(QStringLiteral("y")).toDouble(), 0.0, QStringLiteral("adapter grid snap y clamp"));
+
+    gridSettings.insert(QStringLiteral("gridEnabled"), false);
+    const QVariantMap none = adapter.noneSnap(point(1.2, 0.25), gridSettings);
+    ok &= expect(none.value(QStringLiteral("kind")).toString() == QStringLiteral("none"), QStringLiteral("adapter none snap kind"));
+    ok &= expectNear(none.value(QStringLiteral("x")).toDouble(), 1.0, QStringLiteral("adapter none snap clamps x"));
+
     const QVariantMap bounds = adapter.normalizedObjectBounds(line);
     ok &= expect(bounds.value(QStringLiteral("ok")).toBool(), QStringLiteral("adapter object bounds ok"));
     ok &= expectNear(bounds.value(QStringLiteral("minX")).toDouble(), 0.25, QStringLiteral("adapter object bounds min x"));

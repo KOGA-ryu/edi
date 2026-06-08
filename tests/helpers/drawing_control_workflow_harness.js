@@ -498,10 +498,43 @@ function baselineDeltaRecommendation(kind, pathName) {
     return "Inspect the workflow summary first, then update the baseline only after the changed behavior is accepted."
 }
 
+function baselineDeltaSubsystem(kind, pathName) {
+    const metric = metricNameFromBaselinePath(pathName)
+    if (kind === "missing_baseline") {
+        return "baseline"
+    }
+    if (kind === "mode_added" || kind === "mode_missing") {
+        return "gesture"
+    }
+    if (kind === "metric_added" || kind === "metric_missing") {
+        return "metrics"
+    }
+    if (metric === "renderRequests" || metric === "renderRequestsPerPointerMove") {
+        return "rendering"
+    }
+    if (metric === "controllerMutations" || metric === "revisionDelta" || metric === "mutationsPerPointerMove") {
+        return "controller"
+    }
+    if (metric === "hitTests" || metric === "hitTestsPerPointerMove") {
+        return "hit_test"
+    }
+    if (metric === "snapResolutions" || metric === "snapResolutionsPerPointerMove") {
+        return "snap"
+    }
+    if (metric === "handlePlans" || metric === "handlePlansPerPointerMove") {
+        return "handles"
+    }
+    if (metric === "pointerMoves") {
+        return "workflow_fixture"
+    }
+    return "workflow_fixture"
+}
+
 function addBaselineDelta(deltas, severity, fixture, pathName, baselineValue, actualValue, message) {
     const kind = baselineDeltaKind(pathName, baselineValue, actualValue)
     deltas.push({
         kind,
+        subsystem: baselineDeltaSubsystem(kind, pathName),
         severity,
         fixture,
         path: pathName,
@@ -510,6 +543,38 @@ function addBaselineDelta(deltas, severity, fixture, pathName, baselineValue, ac
         recommendation: baselineDeltaRecommendation(kind, pathName),
         message,
     })
+}
+
+function compactBaselineDelta(delta) {
+    return {
+        kind: delta.kind,
+        subsystem: delta.subsystem,
+        severity: delta.severity,
+        fixture: delta.fixture,
+        path: delta.path,
+        baseline: delta.baseline,
+        actual: delta.actual,
+        recommendation: delta.recommendation,
+        message: delta.message,
+    }
+}
+
+function baselineDeltasBySubsystem(deltas) {
+    const result = {}
+    for (const delta of deltas) {
+        const subsystem = String(delta && delta.subsystem || "unknown")
+        if (!result[subsystem]) {
+            result[subsystem] = {
+                count: 0,
+                topDelta: null,
+            }
+        }
+        result[subsystem].count += 1
+        if (!result[subsystem].topDelta) {
+            result[subsystem].topDelta = compactBaselineDelta(delta)
+        }
+    }
+    return result
 }
 
 function valuesDiffer(left, right) {
@@ -608,13 +673,15 @@ function compareWorkflowBaseline(report, baselineInput) {
     }
 
     const maxReportedDeltas = Math.max(1, Number(policy.maxReportedDeltas || 10))
+    const allDeltas = failures.concat(warnings)
     return {
         ok: failures.length === 0,
         comparedWorkflowCount: Object.keys(current.workflows).length,
         baselineWorkflowCount: Object.keys(baselineWorkflows).length,
         failureCount: failures.length,
         warningCount: warnings.length,
-        topDeltas: failures.concat(warnings).slice(0, maxReportedDeltas),
+        bySubsystem: baselineDeltasBySubsystem(allDeltas),
+        topDeltas: allDeltas.slice(0, maxReportedDeltas),
     }
 }
 

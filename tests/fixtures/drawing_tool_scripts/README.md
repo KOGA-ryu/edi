@@ -111,7 +111,9 @@ The same file also protects focused selectors such as `--tag line`, `--category 
 
 `workflow_metric_baselines.json` records accepted per-fixture summaries. Baseline comparison treats workflow shape, mode names, sample counts, action counts, object counts, and metric keys as invariants. Duration is compared with a regression threshold because wall-clock timing has normal jitter.
 
-Baseline `topDeltas` include `kind` and `recommendation` so agents can route failures without reading raw metrics. Current kinds include `missing_baseline`, `summary_changed`, `mode_added`, `mode_missing`, `metric_added`, `metric_missing`, `metric_regressed`, and `duration_regressed`.
+Baseline `topDeltas` include `kind`, `subsystem`, and `recommendation` so agents can route failures without reading raw metrics. Current kinds include `missing_baseline`, `summary_changed`, `mode_added`, `mode_missing`, `metric_added`, `metric_missing`, `metric_regressed`, and `duration_regressed`.
+
+Baseline comparison also includes `bySubsystem`, a compact routing table keyed by areas such as `baseline`, `workflow_fixture`, `gesture`, `controller`, `rendering`, `hit_test`, `snap`, `handles`, and `metrics`.
 
 Use `--compare-baseline` when asking "what changed?" Use `--update-baseline` only after the changed behavior is understood and accepted.
 

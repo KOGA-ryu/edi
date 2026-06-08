@@ -91,7 +91,9 @@ function runMissingBaselineContract() {
     expect(comparison.ok === false, "missing workflow baseline should fail")
     expect(comparison.topDeltas[0].path === "workflow", "missing workflow failure should identify workflow path")
     expect(comparison.topDeltas[0].kind === "missing_baseline", "missing workflow failure should classify missing baseline")
+    expect(comparison.topDeltas[0].subsystem === "baseline", "missing workflow failure should route to baseline subsystem")
     expect(String(comparison.topDeltas[0].recommendation || "").length > 0, "missing workflow failure should include recommendation")
+    expect(comparison.bySubsystem.baseline.count === 1, "missing workflow failure should count baseline subsystem")
 }
 
 function runInvariantDeltaContract() {
@@ -106,7 +108,10 @@ function runInvariantDeltaContract() {
     expect(!!delta,
         "metric max delta should identify exact metric path")
     expect(delta.kind === "metric_regressed", "metric max delta should classify metric regression")
+    expect(delta.subsystem === "rendering", "render metric delta should route to rendering subsystem")
     expect(delta.recommendation.indexOf("rendering") >= 0, "render metric delta should recommend rendering inspection")
+    expect(comparison.bySubsystem.rendering.topDelta.path === "modes.dragging_handle.fields.renderRequests.max",
+        "render metric delta should appear in rendering subsystem summary")
 }
 
 function runDurationThresholdContract() {
@@ -128,6 +133,7 @@ function runDurationThresholdContract() {
     expect(!!delta,
         "duration regression should identify duration max path")
     expect(delta.kind === "duration_regressed", "duration delta should classify duration regression")
+    expect(delta.subsystem === "workflow_fixture", "duration delta should route to workflow fixture subsystem")
 }
 
 function runSummaryDeltaContract() {
@@ -141,6 +147,7 @@ function runSummaryDeltaContract() {
     expect(comparison.ok === false, "summary changes should fail baseline comparison")
     expect(!!delta, "summary delta should identify exact summary path")
     expect(delta.kind === "summary_changed", "summary delta should classify summary change")
+    expect(delta.subsystem === "workflow_fixture", "summary delta should route to workflow fixture subsystem")
 }
 
 function runModeDeltaContract() {
@@ -166,6 +173,8 @@ function runModeDeltaContract() {
     expect(added.ok === false, "added mode should fail baseline comparison")
     expect(!!addedDelta, "added mode should identify mode path")
     expect(addedDelta.kind === "mode_added", "added mode should classify mode addition")
+    expect(addedDelta.subsystem === "gesture", "added mode should route to gesture subsystem")
+    expect(added.bySubsystem.gesture.count === 1, "added mode should count gesture subsystem")
 
     const missingBaseline = clone(baseline)
     missingBaseline.workflows["line_drag_end_handle.json"].modes.dragging_object = {
@@ -177,6 +186,7 @@ function runModeDeltaContract() {
     expect(missing.ok === false, "missing mode should fail baseline comparison")
     expect(!!missingDelta, "missing mode should identify mode path")
     expect(missingDelta.kind === "mode_missing", "missing mode should classify mode removal")
+    expect(missingDelta.subsystem === "gesture", "missing mode should route to gesture subsystem")
 }
 
 function runMetricSchemaDeltaContract() {
@@ -189,6 +199,7 @@ function runMetricSchemaDeltaContract() {
     expect(added.ok === false, "added metric field should fail baseline comparison")
     expect(!!addedDelta, "added metric should identify field path")
     expect(addedDelta.kind === "metric_added", "added metric should classify metric addition")
+    expect(addedDelta.subsystem === "metrics", "added metric should route to metrics subsystem")
 
     const metricMissingBaseline = clone(baseline)
     metricMissingBaseline.workflows["line_drag_end_handle.json"].modes.dragging_handle.fields.extraMetric = {
@@ -200,6 +211,7 @@ function runMetricSchemaDeltaContract() {
     expect(missing.ok === false, "missing metric field should fail baseline comparison")
     expect(!!missingDelta, "missing metric should identify field path")
     expect(missingDelta.kind === "metric_missing", "missing metric should classify metric removal")
+    expect(missingDelta.subsystem === "metrics", "missing metric should route to metrics subsystem")
 }
 
 function runMergeContract() {

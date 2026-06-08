@@ -40,6 +40,8 @@ expect(recommendationOutput.recommendedSelectors.some(selector => selector.id ==
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.command || "").indexOf("--dry-run") >= 0), "recommendation commands should be dry-run probes")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.command || "").indexOf("--compact") >= 0), "recommendation commands should be compact probes")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.runCommand || "").indexOf("--dry-run") < 0), "recommendation run commands should execute metrics")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.baselineCommand || "").indexOf("--compare-baseline") >= 0), "recommendation baseline commands should compare baselines")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.baselineCommand || "").indexOf("--dry-run") < 0), "recommendation baseline commands should execute metrics")
 
 const singleRecommendation = spawnSync(process.execPath, [
     helper,
@@ -62,6 +64,8 @@ expect(singleRecommendationOutput.ok === true, "single recommendation output sho
 expect(singleRecommendationOutput.selectorId === "line_system", "single recommendation output should preserve requested id")
 expect(singleRecommendationOutput.recommendedSelectors.length === 1, "single recommendation output should include one selector")
 expect(singleRecommendationOutput.recommendedSelectors[0].id === "line_system", "single recommendation output should match requested id")
+expect(singleRecommendationOutput.recommendedSelectors[0].baselineCommand === "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
+    "single recommendation output should include baseline compare command")
 
 const missingRecommendation = spawnSync(process.execPath, [
     helper,

@@ -18,6 +18,12 @@ Manifest fields:
 - `category`: workflow class, such as `create`, `edit`, `move`, `selection`, or `viewport`.
 - `tags`: searchable labels for coverage and focused runs.
 
+Recommended selector fields:
+
+- `command`: compact dry-run coverage probe.
+- `runCommand`: real workflow metric run.
+- `baselineCommand`: real workflow run plus accepted-baseline comparison.
+
 ## First Probe
 
 Ask for recommended selectors, then use compact dry-run first. Neither command launches the app.
@@ -29,6 +35,8 @@ node tests/helpers/drawing_control_workflow_report.js --recommend
 ```sh
 node tests/helpers/drawing_control_workflow_report.js --recommend --id line_system
 ```
+
+Recommendation output keeps coverage, metric collection, and baseline comparison as separate commands. Use `command` first, then `baselineCommand` when you want to know what changed.
 
 ```sh
 node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact
@@ -97,7 +105,7 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 
 The same file also protects focused selectors such as `--tag line`, `--category edit`, and exact fixture runs. This keeps the cheap probe commands useful as the workflow set changes.
 
-`recommendedSelectors` in that file is the data-backed navigation map for agents. Start there when choosing a probe for a line, handle-edit, exact-fixture, or full-suite question.
+`recommendedSelectors` in that file is the data-backed navigation map for agents. Start there when choosing a probe for a line, handle-edit, exact-fixture, or full-suite question. Each recommendation keeps the cheap coverage probe, real metric run, and baseline comparison command explicit.
 
 ## Baseline Contract
 

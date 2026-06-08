@@ -353,6 +353,13 @@ Rectangle {
                 controller: drawingWorkspace.controller
             }
 
+            DrawingCanvasControlRunner {
+                id: controlRunner
+                controller: drawingWorkspace.controller
+                inputArea: canvasInput
+                constructionCanvas: constructionCanvas
+            }
+
             MouseArea {
                 id: canvasInput
                 anchors.fill: constructionCanvas
@@ -566,6 +573,43 @@ Rectangle {
                 function requestCanvasPaint() {
                     recordRenderRequestMetric()
                     constructionCanvas.requestPaint()
+                }
+
+                function controlClickCanvasPoint(point) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    beginInteractionMetrics("draw_click")
+                    var snapped = drawingPointForMouse({ modifiers: Qt.NoModifier }, point)
+                    drawingWorkspace.controller.handleDrawingCanvasClick(snapped.x, snapped.y, Math.round(Number(snapped.stepPx || snapResolver.effectiveGridStepPx())))
+                    recordControllerMutationMetric("draw_click")
+                    requestCanvasPaint()
+                    finishInteractionMetrics(false)
+                    return { ok: true }
+                }
+
+                function controlPanCanvasBy(dx, dy) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    beginInteractionMetrics("panning")
+                    drawingWorkspace.controller.panDrawingCanvasBy(dx, dy)
+                    recordControllerMutationMetric("pan_viewport")
+                    requestCanvasPaint()
+                    finishInteractionMetrics(false)
+                    return { ok: true }
+                }
+
+                function controlZoomCanvasAt(factor, screenPoint) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    beginInteractionMetrics("zooming")
+                    drawingWorkspace.controller.zoomDrawingCanvasAt(factor, screenPoint.x, screenPoint.y, constructionCanvas.width, constructionCanvas.height)
+                    recordControllerMutationMetric("zoom_viewport")
+                    requestCanvasPaint()
+                    finishInteractionMetrics(false)
+                    return { ok: true }
                 }
 
                 function gestureModifiers(modifiers) {
@@ -1056,6 +1100,10 @@ Rectangle {
                     finishInteractionMetrics(false)
                     wheel.accepted = true
                 }
+            }
+
+            function runDrawingControlPlan(plan) {
+                return controlRunner.runExecutionPlan(plan)
             }
 
             Rectangle {

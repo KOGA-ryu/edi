@@ -34,20 +34,30 @@ DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, D
     return object;
 }
 
-DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
+DraftingObjectBuildResult validateDraftingObjectShape(const DraftingObject &object)
 {
-    if (!isValidDraftingObjectId(id)) {
+    if (!isValidDraftingObjectId(object.id)) {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
     }
-    if (!kindMatchesGeometry(kind, geometry)) {
+    if (!kindMatchesGeometry(object.kind, object.geometry)) {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
     }
-    const auto geometryValidation = validateGeometry(geometry);
+    const auto geometryValidation = validateGeometry(object.geometry);
     if (!geometryValidation.ok) {
         return DraftingObjectBuildResult::rejected(geometryValidation.code, geometryValidation.message);
     }
 
-    return DraftingObjectBuildResult::accepted(makeDraftingObject(std::move(id), kind, std::move(geometry)));
+    return DraftingObjectBuildResult::accepted(object);
+}
+
+DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
+{
+    DraftingObject object = makeDraftingObject(std::move(id), kind, std::move(geometry));
+    auto validation = validateDraftingObjectShape(object);
+    if (!validation.ok) {
+        return validation;
+    }
+    return DraftingObjectBuildResult::accepted(std::move(object));
 }
 
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order)

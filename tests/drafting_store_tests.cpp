@@ -72,6 +72,8 @@ int main()
     auto invalidGeometryBuild = buildDraftingObject("bad_geometry_build", DraftingShapeKind::Circle, CircleGeometry{{0.0, 0.0}, -1.0});
     assert(!invalidGeometryBuild.ok);
     assert(invalidGeometryBuild.code == DraftingResultCode::InvalidGeometry);
+    auto helperObjectValidation = validateDraftingObjectShape(helperObject);
+    assert(helperObjectValidation.ok);
     assert(layerIndexById(document, "default") == 0);
     assert(findLayer(document, "default") == &document.layers[0]);
     assert(containsLayer(document, "default"));
@@ -122,6 +124,7 @@ int main()
     auto invalidCircleResult = addObject(document, invalidCircle);
     assert(!invalidCircleResult.ok);
     assert(invalidCircleResult.code == DraftingResultCode::InvalidGeometry);
+    assert(invalidCircleResult.code == invalidGeometryBuild.code);
     assert(document.revision == revisionAfterDuplicate);
 
     DraftingObject badKind;
@@ -131,6 +134,7 @@ int main()
     auto badKindResult = addObject(document, badKind);
     assert(!badKindResult.ok);
     assert(badKindResult.code == DraftingResultCode::KindGeometryMismatch);
+    assert(badKindResult.code == mismatchedBuild.code);
     assert(document.revision == revisionAfterDuplicate);
 
     DraftingObject missingLayer = makeLine("missing_layer_object");

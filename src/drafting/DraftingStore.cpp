@@ -20,18 +20,12 @@ DraftingStoreResult DraftingStoreResult::rejected(DraftingResultCode code, std::
 
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 {
-    if (!isValidDraftingObjectId(object.id)) {
-        return DraftingStoreResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
+    const auto shapeValidation = validateDraftingObjectShape(object);
+    if (!shapeValidation.ok) {
+        return DraftingStoreResult::rejected(shapeValidation.code, shapeValidation.message);
     }
     if (objectIndexById(document, object.id)) {
         return DraftingStoreResult::rejected(DraftingResultCode::DuplicateObjectId, "object id already exists");
-    }
-    if (!kindMatchesGeometry(object.kind, object.geometry)) {
-        return DraftingStoreResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
-    }
-    const auto geometryValidation = validateGeometry(object.geometry);
-    if (!geometryValidation.ok) {
-        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
     if (!containsLayer(document, object.layerId)) {
         return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");

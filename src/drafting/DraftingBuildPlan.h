@@ -26,7 +26,13 @@ struct BuildPlanNoteResult {
     static BuildPlanNoteResult rejected(DraftingResultCode code, std::string message, BuildPlanNote note);
 };
 
+struct BuildPlanDocument {
+    std::vector<BuildPlanNote> notes;
+    std::vector<BuildPlanNoteResult> failures;
+};
+
 BuildPlanNoteResult buildPlanNoteForObjectChecked(const DraftingObject &object);
 BuildPlanNote buildPlanNoteForObject(const DraftingObject &object);
+BuildPlanDocument buildPlanDocumentForObjects(const std::vector<DraftingObject> &objects);
 
 } // namespace edi::drafting

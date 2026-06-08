@@ -59,5 +59,19 @@ int main()
     assert(invalidNote.measurementLines.empty());
     assert(invalidNote.constructionNote == "cut from acrylic");
 
+    BuildPlanDocument planDocument = buildPlanDocumentForObjects({measuredRect, measuredLine, invalidMeasuredRect});
+    assert(planDocument.notes.size() == 2);
+    assert(planDocument.notes[0].objectId == "panel_01");
+    assert(planDocument.notes[1].objectId == "rail_01");
+    assert(planDocument.failures.size() == 1);
+    assert(!planDocument.failures[0].ok);
+    assert(planDocument.failures[0].code == DraftingResultCode::InvalidMetadata);
+    assert(planDocument.failures[0].note.objectId == "panel_01");
+    assert(planDocument.failures[0].note.constructionNote == "cut from acrylic");
+
+    BuildPlanDocument emptyPlanDocument = buildPlanDocumentForObjects({});
+    assert(emptyPlanDocument.notes.empty());
+    assert(emptyPlanDocument.failures.empty());
+
     return 0;
 }

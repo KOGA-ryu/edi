@@ -47,4 +47,18 @@ BuildPlanNote buildPlanNoteForObject(const DraftingObject &object)
     return buildPlanNoteForObjectChecked(object).note;
 }
 
+BuildPlanDocument buildPlanDocumentForObjects(const std::vector<DraftingObject> &objects)
+{
+    BuildPlanDocument document;
+    for (const DraftingObject &object : objects) {
+        BuildPlanNoteResult note = buildPlanNoteForObjectChecked(object);
+        if (note.ok) {
+            document.notes.push_back(std::move(note.note));
+        } else {
+            document.failures.push_back(std::move(note));
+        }
+    }
+    return document;
+}
+
 } // namespace edi::drafting

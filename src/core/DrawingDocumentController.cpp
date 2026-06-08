@@ -292,3 +292,18 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
     emit modelChanged();
     return true;
 }
+
+bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
+{
+    if (m_document.selectedObjectIds.empty() || !std::isfinite(dx) || !std::isfinite(dy)) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}

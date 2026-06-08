@@ -31,4 +31,6 @@ private:
 
     DrawingDocumentController *m_controller = nullptr;
     QString m_dragHandleId;
+    bool m_dragObjectActive = false;
+    QPointF m_lastDragCanvasPoint;
 };

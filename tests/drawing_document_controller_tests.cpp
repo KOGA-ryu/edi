@@ -5,6 +5,17 @@
 #include <QVariantMap>
 
 #include <cassert>
+#include <cmath>
+#include <limits>
+
+namespace {
+
+bool nearlyEqual(double a, double b)
+{
+    return std::abs(a - b) < 0.000001;
+}
+
+} // namespace
 
 int main(int argc, char **argv)
 {
@@ -57,6 +68,22 @@ int main(int argc, char **argv)
     assert(editedLine.value("x2").toDouble() == 0.4);
     assert(editedLine.value("y2").toDouble() == 0.6);
     assert(!controller.editSelectedHandleNormalized("missing_handle", 0.1, 0.1));
+
+    assert(controller.moveSelectionNormalized(0.1, -0.2));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    QVariantMap movedLine;
+    for (const QVariant &objectValue : objects) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("id").toString() == line.value("id").toString()) {
+            movedLine = object;
+        }
+    }
+    assert(!movedLine.isEmpty());
+    assert(nearlyEqual(movedLine.value("x1").toDouble(), 0.2));
+    assert(nearlyEqual(movedLine.value("y1").toDouble(), 0.0));
+    assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.5));
+    assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.4));
+    assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
 
     return 0;
 }

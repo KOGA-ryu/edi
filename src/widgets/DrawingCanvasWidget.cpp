@@ -100,18 +100,37 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
 
     const QPointF point = screenToCanvas(event->position());
     m_controller->clickCanvasNormalized(point.x(), point.y());
+    if (m_controller->selectedToolId() == QStringLiteral("select_move") && !m_controller->selectedObjectId().isEmpty()) {
+        m_dragObjectActive = true;
+        m_lastDragCanvasPoint = point;
+    }
 }
 
 void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    if (m_controller == nullptr || m_dragHandleId.isEmpty() || !(event->buttons() & Qt::LeftButton)) {
+    if (m_controller == nullptr || !(event->buttons() & Qt::LeftButton)) {
         QWidget::mouseMoveEvent(event);
         return;
     }
 
     const QPointF point = screenToCanvas(event->position());
-    m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
-    event->accept();
+    if (!m_dragHandleId.isEmpty()) {
+        m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+        event->accept();
+        return;
+    }
+
+    if (m_dragObjectActive) {
+        const double dx = point.x() - m_lastDragCanvasPoint.x();
+        const double dy = point.y() - m_lastDragCanvasPoint.y();
+        if (m_controller->moveSelectionNormalized(dx, dy)) {
+            m_lastDragCanvasPoint = point;
+        }
+        event->accept();
+        return;
+    }
+
+    QWidget::mouseMoveEvent(event);
 }
 
 void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
@@ -122,6 +141,11 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
             m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
         }
         m_dragHandleId.clear();
+        event->accept();
+        return;
+    }
+    if (event->button() == Qt::LeftButton && m_dragObjectActive) {
+        m_dragObjectActive = false;
         event->accept();
         return;
     }

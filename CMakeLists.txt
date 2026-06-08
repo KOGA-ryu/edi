@@ -177,6 +177,8 @@ add_executable(drawing_document_controller_tests
     tests/drawing_document_controller_tests.cpp
     src/core/DrawingCore.h
     src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
 )
 target_include_directories(drawing_document_controller_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -196,6 +198,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/core/DrawingCore.cpp
     src/core/DrawingCoreCommon.cpp
     src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
     src/core/DrawingGeometry.cpp
     src/core/DrawingObjectOps.cpp
     src/core/DrawingCommands.cpp

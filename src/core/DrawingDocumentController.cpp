@@ -1,14 +1,12 @@
 #include "DrawingCore.h"
 #include "DrawingCoreInternal.h"
 
+#include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
-
-#include <QVariantList>
-#include <QVariantMap>
 
 #include <algorithm>
 #include <cmath>
@@ -35,59 +33,6 @@ QString nextObjectId(const QString &kind, int serial)
 std::string toStdString(const QString &value)
 {
     return value.toStdString();
-}
-
-QString toQString(const std::string &value)
-{
-    return QString::fromStdString(value);
-}
-
-QVariantMap pointToMap(Point2D point)
-{
-    return {
-        {QStringLiteral("x"), point.x},
-        {QStringLiteral("y"), point.y},
-    };
-}
-
-QVariantMap objectToProjection(const DraftingObject &object)
-{
-    QVariantMap result {
-        {QStringLiteral("id"), toQString(object.id)},
-        {QStringLiteral("kind"), QString::fromLatin1(shapeKindName(object.kind))},
-        {QStringLiteral("visible"), true},
-    };
-
-    std::visit([&](const auto &geometry) {
-        using Geometry = std::decay_t<decltype(geometry)>;
-        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
-            result.insert(QStringLiteral("x"), geometry.point.x);
-            result.insert(QStringLiteral("y"), geometry.point.y);
-        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
-            result.insert(QStringLiteral("x1"), geometry.a.x);
-            result.insert(QStringLiteral("y1"), geometry.a.y);
-            result.insert(QStringLiteral("x2"), geometry.b.x);
-            result.insert(QStringLiteral("y2"), geometry.b.y);
-        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
-            result.insert(QStringLiteral("x"), geometry.origin.x);
-            result.insert(QStringLiteral("y"), geometry.origin.y);
-            result.insert(QStringLiteral("width"), geometry.width);
-            result.insert(QStringLiteral("height"), geometry.height);
-            result.insert(QStringLiteral("rotation_deg"), geometry.rotationDeg);
-        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            result.insert(QStringLiteral("cx"), geometry.center.x);
-            result.insert(QStringLiteral("cy"), geometry.center.y);
-            result.insert(QStringLiteral("radius"), geometry.radius);
-        } else {
-            QVariantList points;
-            for (Point2D point : geometry.vertices) {
-                points.push_back(pointToMap(point));
-            }
-            result.insert(QStringLiteral("points"), points);
-        }
-    }, object.geometry);
-
-    return result;
 }
 
 std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
@@ -132,22 +77,7 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    QVariantList objects;
-    for (const DraftingObject &object : m_document.objects) {
-        objects.push_back(objectToProjection(object));
-    }
-    return {
-        {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
-        {QStringLiteral("drawing_objects"), objects},
-        {QStringLiteral("revision"), static_cast<int>(m_document.revision)},
-        {QStringLiteral("snap"), QVariantMap{
-            {QStringLiteral("grid_enabled"), m_snapSettings.gridEnabled},
-            {QStringLiteral("object_enabled"), m_snapSettings.objectSnapEnabled},
-            {QStringLiteral("grid_step"), m_snapSettings.gridStep},
-            {QStringLiteral("object_tolerance"), m_snapSettings.objectTolerance},
-        }},
-        {QStringLiteral("validation"), QVariantList{}},
-    };
+    return drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings);
 }
 
 QString DrawingDocumentController::selectedToolId() const
@@ -157,7 +87,7 @@ QString DrawingDocumentController::selectedToolId() const
 
 QString DrawingDocumentController::selectedObjectId() const
 {
-    return m_document.activeObjectId ? toQString(*m_document.activeObjectId) : QString();
+    return m_document.activeObjectId ? drawing_core::qStringFromStdString(*m_document.activeObjectId) : QString();
 }
 
 bool DrawingDocumentController::gridSnapEnabled() const

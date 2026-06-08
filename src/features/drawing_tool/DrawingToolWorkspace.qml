@@ -3,6 +3,7 @@ import QtQuick.Controls
 import "../../style"
 import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
 import "../../runtime/DrawingCanvasGestureState.js" as CanvasGestureState
+import "../../runtime/DrawingCanvasInteractionMetrics.js" as CanvasInteractionMetrics
 import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
@@ -371,6 +372,9 @@ Rectangle {
                 property real hoverSnapStepPx: 32
                 property int activeModifiers: Qt.NoModifier
                 property var gestureState: CanvasGestureState.initialGestureState()
+                property var interactionMetricsState: CanvasInteractionMetrics.initialMetricsState()
+                property var lastInteractionMetrics: ({})
+                property bool interactionMetricsLogEnabled: false
                 cursorShape: selectionCursorShape()
 
                 function selectedToolLabel() {
@@ -477,6 +481,74 @@ Rectangle {
                     return ids.indexOf(String(objectId || "")) >= 0
                 }
 
+                function visibleObjectCount() {
+                    return drawingWorkspace.controller ? asArray(drawingWorkspace.controller.drawingCanvasObjects(drawingWorkspace.controller.revision)).length : 0
+                }
+
+                function metricsSnapshot() {
+                    var selectedIds = selectedObjectIdList()
+                    var selectedCount = selectedIds.length
+                    if (selectedCount <= 0 && drawingWorkspace.controller && String(drawingWorkspace.controller.selectedDrawingObjectId || "").indexOf("script_") === 0) {
+                        selectedCount = 1
+                    }
+                    return {
+                        revision: drawingWorkspace.controller ? Number(drawingWorkspace.controller.revision || 0) : 0,
+                        selectedCount: selectedCount,
+                        visibleObjectCount: visibleObjectCount()
+                    }
+                }
+
+                function metricsNowMs() {
+                    return Date.now()
+                }
+
+                function beginInteractionMetrics(mode) {
+                    interactionMetricsState = CanvasInteractionMetrics.beginInteraction(interactionMetricsState, mode, metricsNowMs(), metricsSnapshot())
+                }
+
+                function finishInteractionMetrics(canceled) {
+                    if (!interactionMetricsState.active) {
+                        return
+                    }
+                    var finished = canceled
+                            ? CanvasInteractionMetrics.cancelInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
+                            : CanvasInteractionMetrics.finishInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
+                    interactionMetricsState = finished.state
+                    lastInteractionMetrics = finished.record
+                    if (interactionMetricsLogEnabled) {
+                        console.log("drawing_canvas_interaction_metrics " + JSON.stringify(lastInteractionMetrics))
+                    }
+                }
+
+                function recordPointerMoveMetric() {
+                    interactionMetricsState = CanvasInteractionMetrics.recordPointerMove(interactionMetricsState)
+                }
+
+                function recordControllerMutationMetric(kind) {
+                    interactionMetricsState = CanvasInteractionMetrics.recordControllerMutation(interactionMetricsState, kind)
+                }
+
+                function recordRenderRequestMetric() {
+                    interactionMetricsState = CanvasInteractionMetrics.recordRenderRequest(interactionMetricsState)
+                }
+
+                function recordHitTestMetric() {
+                    interactionMetricsState = CanvasInteractionMetrics.recordHitTest(interactionMetricsState)
+                }
+
+                function recordSnapMetric() {
+                    interactionMetricsState = CanvasInteractionMetrics.recordSnap(interactionMetricsState)
+                }
+
+                function recordHandlePlanMetric() {
+                    interactionMetricsState = CanvasInteractionMetrics.recordHandlePlan(interactionMetricsState)
+                }
+
+                function requestCanvasPaint() {
+                    recordRenderRequestMetric()
+                    constructionCanvas.requestPaint()
+                }
+
                 function gestureModifiers(modifiers) {
                     return {
                         shift: modifierShiftDown(modifiers),
@@ -555,6 +627,7 @@ Rectangle {
                     if (String(object.id || "").length === 0) {
                         return ({})
                     }
+                    recordHitTestMetric()
                     var hit = CanvasHandles.hitHandleAt(object, mouseX, mouseY, boardBounds(), handleSettings())
                     if (!hit.ok || hit.handle.readOnly === true) {
                         return ({})
@@ -574,6 +647,7 @@ Rectangle {
                         hoverObjectId = String(selectedGeneratedObject().id || "")
                         return
                     }
+                    recordHitTestMetric()
                     hoverObjectId = String(drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y) || "")
                     if (!CanvasGestureState.isDragging(gestureState) && !CanvasGestureState.isMarquee(gestureState)) {
                         gestureState = CanvasGestureState.beginHover(gestureState, rawPoint, {
@@ -653,6 +727,7 @@ Rectangle {
                             stepPx: snapResolver.effectiveGridStepPx()
                         }, mouse.modifiers)
                     }
+                    recordSnapMetric()
                     return constrainLinePoint(snapResolver.snappedPoint(rawPoint), mouse.modifiers)
                 }
 
@@ -661,6 +736,7 @@ Rectangle {
                     if (modifierOptionDown(mouse.modifiers)) {
                         return rawPoint
                     }
+                    recordSnapMetric()
                     return snapResolver.gridSnappedPoint(rawPoint)
                 }
 
@@ -670,6 +746,7 @@ Rectangle {
                         return
                     }
                     var plan = CanvasHandles.handleUpdatePlan(object, handleId, point, handleSettings())
+                    recordHandlePlanMetric()
                     if (!plan.ok) {
                         return
                     }
@@ -677,12 +754,14 @@ Rectangle {
                     for (var index = 0; index < updates.length; ++index) {
                         var update = updates[index] || ({})
                         drawingWorkspace.controller.updateSelectedDrawingObjectField(update.field, update.value)
+                        recordControllerMutationMetric("update_handle_field")
                     }
                 }
 
                 function cancelActiveGesture() {
                     var canceled = CanvasGestureState.cancelGesture(gestureState)
                     gestureState = canceled.state
+                    finishInteractionMetrics(true)
                     dragAnchorId = ""
                     selectionTogglePressed = false
                     if (drawingWorkspace.controller) {
@@ -701,7 +780,7 @@ Rectangle {
                         hoverSnapKind = "none"
                         hoverSnapLabel = "none"
                         constructionCanvas.previewActive = false
-                        constructionCanvas.requestPaint()
+                        requestCanvasPaint()
                         return rawPoint
                     }
                     updateSelectionHover(mouseX, mouseY, rawPoint)
@@ -713,7 +792,7 @@ Rectangle {
                         hoverSnapLabel = hoverHandleId.length > 0 ? "handle" : hoverObjectId.length > 0 ? "object" : "select"
                         hoverSnapStepPx = Number(snapResolver.effectiveGridStepPx())
                         constructionCanvas.previewActive = false
-                        constructionCanvas.requestPaint()
+                        requestCanvasPaint()
                         return rawPoint
                     }
                     var point = drawingPointForMouse({ modifiers: activeModifiers }, rawPoint)
@@ -726,7 +805,7 @@ Rectangle {
                     constructionCanvas.previewX = point.x
                     constructionCanvas.previewY = point.y
                     constructionCanvas.previewActive = true
-                    constructionCanvas.requestPaint()
+                    requestCanvasPaint()
                     return point
                 }
 
@@ -740,7 +819,7 @@ Rectangle {
                         gestureState = CanvasGestureState.initialGestureState()
                     }
                     constructionCanvas.previewActive = false
-                    constructionCanvas.requestPaint()
+                    requestCanvasPaint()
                 }
 
                 onPressed: function(mouse) {
@@ -754,6 +833,8 @@ Rectangle {
                         selectionTogglePressed = false
                         var handle = hitSelectedHandle(mouse.x, mouse.y)
                         if (String(handle.id || "").length > 0) {
+                            beginInteractionMetrics("dragging_handle")
+                            recordHitTestMetric()
                             gestureState = CanvasGestureState.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), rawPoint, gestureModifiers(mouse.modifiers))
                             drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
@@ -763,8 +844,9 @@ Rectangle {
                         var shiftSelecting = !!(mouse.modifiers & Qt.ShiftModifier)
                         if (String(objectId || "").length > 0 && shiftSelecting) {
                             drawingWorkspace.controller.toggleDrawingObjectSelection(String(objectId || ""))
+                            recordControllerMutationMetric("toggle_selection")
                             selectionTogglePressed = true
-                            constructionCanvas.requestPaint()
+                            requestCanvasPaint()
                             mouse.accepted = true
                             return
                         }
@@ -775,15 +857,21 @@ Rectangle {
                         } else if (shiftSelecting) {
                             selectionTogglePressed = true
                         }
+                        recordSnapMetric()
                         var dragStart = snapResolver.gridSnappedPoint(rawPoint)
                         if (String(objectId || "").length > 0) {
+                            beginInteractionMetrics("dragging_object")
+                            recordHitTestMetric()
+                            recordSnapMetric()
                             gestureState = CanvasGestureState.beginObjectDrag(gestureState, String(objectId || ""), dragStart, selectedObjectIdList(), gestureModifiers(mouse.modifiers))
                             drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
                         }
                         if (String(objectId || "").length === 0) {
+                            beginInteractionMetrics("marquee_select")
+                            recordHitTestMetric()
                             gestureState = CanvasGestureState.beginMarquee(gestureState, rawPoint, gestureModifiers(mouse.modifiers))
-                            constructionCanvas.requestPaint()
+                            requestCanvasPaint()
                             mouse.accepted = true
                         }
                         return
@@ -799,6 +887,9 @@ Rectangle {
                 onPositionChanged: function(mouse) {
                     activeModifiers = mouse.modifiers
                     updatePreviewPoint(mouse.x, mouse.y)
+                    if (pressed && interactionMetricsState.active) {
+                        recordPointerMoveMetric()
+                    }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isHandleDrag(gestureState)) {
                         var handlePoint = modifierHandlePoint(mouse)
                         gestureState = CanvasGestureState.updateGesture(gestureState, {
@@ -806,7 +897,7 @@ Rectangle {
                             modifiers: gestureModifiers(mouse.modifiers)
                         })
                         applySelectedHandleDrag(gestureState.handleId, handlePoint)
-                        constructionCanvas.requestPaint()
+                        requestCanvasPaint()
                         return
                     }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isMarquee(gestureState)) {
@@ -817,10 +908,11 @@ Rectangle {
                             modifiers: gestureModifiers(mouse.modifiers),
                             moveTolerance: 4 / Math.max(1, bounds.size)
                         })
-                        constructionCanvas.requestPaint()
+                        requestCanvasPaint()
                         return
                     }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isObjectDrag(gestureState)) {
+                        recordSnapMetric()
                         var movePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
                         var previousPoint = gestureState.lastPoint
                         gestureState = CanvasGestureState.updateGesture(gestureState, {
@@ -831,16 +923,19 @@ Rectangle {
                         var dy = movePoint.y - previousPoint.y
                         if (Math.abs(dx) >= 0.000001 || Math.abs(dy) >= 0.000001) {
                             drawingWorkspace.controller.moveSelectedDrawingObjectBy(dx, dy)
-                            constructionCanvas.requestPaint()
+                            recordControllerMutationMetric("move_selected")
+                            requestCanvasPaint()
                         }
                         return
                     }
                     if (!drawingWorkspace.controller || dragAnchorId.length === 0 || !pressed) {
                         return
                     }
+                    recordSnapMetric()
                     var point = snapResolver.snappedPoint(normalizedPoint(mouse.x, mouse.y))
                     drawingWorkspace.controller.setDrawingAnchorPosition(dragAnchorId, point.x, point.y)
-                    constructionCanvas.requestPaint()
+                    recordControllerMutationMetric("move_anchor")
+                    requestCanvasPaint()
                 }
 
                 onReleased: function(mouse) {
@@ -857,6 +952,7 @@ Rectangle {
                         })
                         if (marqueeFinish.intent.kind === "select_objects") {
                             drawingWorkspace.controller.selectDrawingObjects(marqueeFinish.intent.objectIds)
+                            recordControllerMutationMetric("select_objects")
                         }
                         suppressClickOnce = true
                     } else if (releasedWasDragging) {
@@ -868,6 +964,7 @@ Rectangle {
                     if (selectionTogglePressed || dragAnchorId.length > 0 || releasedWasDragging) {
                         suppressClickOnce = true
                     }
+                    finishInteractionMetrics(false)
                     gestureState = CanvasGestureState.initialGestureState()
                     dragAnchorId = ""
                     selectionTogglePressed = false
@@ -890,8 +987,12 @@ Rectangle {
                     if (point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) {
                         return
                     }
+                    beginInteractionMetrics("draw_click")
+                    recordSnapMetric()
                     drawingWorkspace.controller.handleDrawingCanvasClick(point.x, point.y, Math.round(Number(point.stepPx || snapResolver.effectiveGridStepPx())))
-                    constructionCanvas.requestPaint()
+                    recordControllerMutationMetric("draw_click")
+                    requestCanvasPaint()
+                    finishInteractionMetrics(false)
                 }
 
                 onWheel: function(wheel) {
@@ -904,8 +1005,11 @@ Rectangle {
                     if (zoomGesture) {
                         var rawDelta = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y
                         var zoomFactor = Math.pow(1.0015, rawDelta)
+                        beginInteractionMetrics("zooming")
                         drawingWorkspace.controller.zoomDrawingCanvasAt(zoomFactor, wheel.x, wheel.y, constructionCanvas.width, constructionCanvas.height)
-                        constructionCanvas.requestPaint()
+                        recordControllerMutationMetric("zoom_viewport")
+                        requestCanvasPaint()
+                        finishInteractionMetrics(false)
                         wheel.accepted = true
                         return
                     }
@@ -913,9 +1017,12 @@ Rectangle {
                     panState = CanvasGestureState.updateGesture(panState, { screenPoint: { x: pixelX, y: pixelY }, modifiers: gestureModifiers(wheel.modifiers) })
                     var panFinish = CanvasGestureState.finishGesture(panState, { screenPoint: { x: pixelX, y: pixelY } })
                     if (panFinish.intent.kind === "pan") {
+                        beginInteractionMetrics("panning")
                         drawingWorkspace.controller.panDrawingCanvasBy(panFinish.intent.dxPx, panFinish.intent.dyPx)
+                        recordControllerMutationMetric("pan_viewport")
                     }
-                    constructionCanvas.requestPaint()
+                    requestCanvasPaint()
+                    finishInteractionMetrics(false)
                     wheel.accepted = true
                 }
             }

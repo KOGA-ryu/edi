@@ -234,6 +234,7 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
         drawing_canvas_core
         drawing_runtime_core
+        edi_app_core
         edi_drafting_core
         Qt6::Core
         Qt6::Gui

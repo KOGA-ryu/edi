@@ -6,11 +6,14 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPair>
 #include <QPushButton>
 #include <QSizePolicy>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVBoxLayout>
+#include <QVector>
 
 #include "core/DrawingCore.h"
 #include "widgets/DrawingCanvasWidget.h"
@@ -36,10 +39,80 @@ QString yesNo(bool value)
     return value ? QStringLiteral("on") : QStringLiteral("off");
 }
 
+QString formatNumber(double value)
+{
+    return QString::number(value, 'f', 3);
+}
+
+QVariantMap activeObjectProjection(const QVariantMap &document)
+{
+    const QString activeId = document.value(QStringLiteral("active_object_id")).toString();
+    if (activeId.isEmpty()) {
+        return {};
+    }
+
+    const QVariantList objects = document.value(QStringLiteral("drawing_objects")).toList();
+    for (const QVariant &objectValue : objects) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value(QStringLiteral("id")).toString() == activeId) {
+            return object;
+        }
+    }
+    return {};
+}
+
+QString boundsSummary(const QVariantMap &object)
+{
+    const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
+    if (bounds.isEmpty()) {
+        return QStringLiteral("Bounds: unavailable");
+    }
+    return QStringLiteral("Bounds: x %1, y %2, w %3, h %4")
+        .arg(formatNumber(bounds.value(QStringLiteral("x")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("y")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("width")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("height")).toDouble()));
+}
+
+QString geometrySummary(const QVariantMap &object)
+{
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    if (kind == QStringLiteral("point")) {
+        return QStringLiteral("Geometry: point (%1, %2)")
+            .arg(formatNumber(object.value(QStringLiteral("x")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y")).toDouble()));
+    }
+    if (kind == QStringLiteral("line")) {
+        return QStringLiteral("Geometry: line (%1, %2) -> (%3, %4)")
+            .arg(formatNumber(object.value(QStringLiteral("x1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()));
+    }
+    if (kind == QStringLiteral("rectangle")) {
+        return QStringLiteral("Geometry: rect x %1, y %2, w %3, h %4, rot %5")
+            .arg(formatNumber(object.value(QStringLiteral("x")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("width")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("height")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("rotation_deg")).toDouble()));
+    }
+    if (kind == QStringLiteral("circle")) {
+        return QStringLiteral("Geometry: circle cx %1, cy %2, r %3")
+            .arg(formatNumber(object.value(QStringLiteral("cx")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("cy")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("radius")).toDouble()));
+    }
+
+    const QVariantList points = object.value(QStringLiteral("points")).toList();
+    return QStringLiteral("Geometry: %1 points").arg(points.size());
+}
+
 } // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
     : QMainWindow(parent)
+    , m_appState(edi::app::defaultAppState())
 {
     setWindowTitle(QStringLiteral("EDI"));
     setMinimumSize(960, 620);
@@ -81,13 +154,30 @@ QWidget *EdiShellWindow::buildActivityRail()
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(6);
 
-    layout->addWidget(makeRailButton(QStringLiteral("D"), QStringLiteral("Drafting"), true));
-    layout->addWidget(makeRailButton(QStringLiteral("T"), QStringLiteral("Text editor")));
-    layout->addWidget(makeRailButton(QStringLiteral("P"), QStringLiteral("Project workspace")));
-    layout->addWidget(makeRailButton(QStringLiteral("R"), QStringLiteral("Review and planning")));
+    m_activityGroup = new QButtonGroup(rail);
+    m_activityGroup->setExclusive(true);
+
+    for (const edi::app::WorkspaceActivity &activity : edi::app::defaultWorkspaceActivities()) {
+        auto *button = makeRailButton(
+            QString::fromLatin1(activity.icon),
+            QString::fromLatin1(activity.tooltip),
+            activity.mode == m_appState.mode,
+            activity.enabled);
+        button->setProperty("modeId", QString::fromLatin1(activity.id));
+        m_activityGroup->addButton(button);
+        layout->addWidget(button);
+    }
+
+    connect(m_activityGroup, &QButtonGroup::buttonClicked, this, [this](QAbstractButton *button) {
+        const auto mode = edi::app::workspaceModeFromName(button->property("modeId").toString().toStdString());
+        if (mode) {
+            setWorkspaceMode(*mode);
+        }
+    });
+
     layout->addStretch(1);
-    layout->addWidget(makeRailButton(QStringLiteral("+"), QStringLiteral("Reserved add action")));
-    layout->addWidget(makeRailButton(QStringLiteral("?"), QStringLiteral("Help and docs")));
+    layout->addWidget(makeRailButton(QStringLiteral("+"), QStringLiteral("Reserved add action"), false, false));
+    layout->addWidget(makeRailButton(QStringLiteral("?"), QStringLiteral("Help and docs"), false, false));
 
     return rail;
 }
@@ -157,9 +247,9 @@ QWidget *EdiShellWindow::buildWorkspaceColumn()
     headerLayout->setContentsMargins(12, 8, 12, 8);
     headerLayout->setSpacing(10);
 
-    auto *title = new QLabel(QStringLiteral("Drawing Canvas"));
-    title->setObjectName(QStringLiteral("workspaceTitle"));
-    headerLayout->addWidget(title);
+    m_workspaceTitle = new QLabel(QStringLiteral("Drawing Canvas"));
+    m_workspaceTitle->setObjectName(QStringLiteral("workspaceTitle"));
+    headerLayout->addWidget(m_workspaceTitle);
     headerLayout->addStretch(1);
     m_statusValue = makeValueLabel();
     headerLayout->addWidget(m_statusValue);
@@ -188,6 +278,16 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Selection")));
     m_selectedValue = makeValueLabel();
     layout->addWidget(m_selectedValue);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Selected Object")));
+    m_objectKindValue = makeValueLabel();
+    m_objectBoundsValue = makeValueLabel();
+    m_objectGeometryValue = makeValueLabel();
+    m_objectLayerValue = makeValueLabel();
+    layout->addWidget(m_objectKindValue);
+    layout->addWidget(m_objectBoundsValue);
+    layout->addWidget(m_objectGeometryValue);
+    layout->addWidget(m_objectLayerValue);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -221,8 +321,8 @@ QWidget *EdiShellWindow::buildBottomPanel()
     tabsLayout->setContentsMargins(0, 0, 0, 0);
     tabsLayout->setSpacing(6);
     tabsLayout->addWidget(makeRailButton(QStringLiteral("State"), QStringLiteral("Current drafting state"), true));
-    tabsLayout->addWidget(makeRailButton(QStringLiteral("Commands"), QStringLiteral("Command review")));
-    tabsLayout->addWidget(makeRailButton(QStringLiteral("Notes"), QStringLiteral("Workspace notes")));
+    tabsLayout->addWidget(makeRailButton(QStringLiteral("Commands"), QStringLiteral("Command review"), false, false));
+    tabsLayout->addWidget(makeRailButton(QStringLiteral("Notes"), QStringLiteral("Workspace notes"), false, false));
     tabsLayout->addStretch(1);
 
     auto *status = makeValueLabel(QStringLiteral("C++ Widgets shell. Drafting state is owned by DrawingDocumentController."));
@@ -246,13 +346,14 @@ QPushButton *EdiShellWindow::makeToolButton(const QString &toolId, const QString
     return button;
 }
 
-QPushButton *EdiShellWindow::makeRailButton(const QString &label, const QString &tooltip, bool active)
+QPushButton *EdiShellWindow::makeRailButton(const QString &label, const QString &tooltip, bool active, bool enabled)
 {
     auto *button = new QPushButton(label);
     button->setObjectName(QStringLiteral("railButton"));
     button->setToolTip(tooltip);
     button->setCheckable(true);
     button->setChecked(active);
+    button->setEnabled(enabled);
     button->setMinimumHeight(30);
     return button;
 }
@@ -272,13 +373,28 @@ QLabel *EdiShellWindow::makeValueLabel(const QString &text) const
     return label;
 }
 
+void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
+{
+    edi::app::setWorkspaceMode(m_appState, mode);
+    edi::app::setStatusMessage(m_appState, QStringLiteral("%1 workspace active")
+        .arg(QString::fromLatin1(edi::app::workspaceModeLabel(mode)))
+        .toStdString());
+    refreshInspector();
+}
+
 void EdiShellWindow::refreshInspector()
 {
     const QVariantMap document = m_controller->modelDocument();
     const QVariantList objects = document.value(QStringLiteral("drawing_objects")).toList();
     const QVariantList selected = document.value(QStringLiteral("selected_object_ids")).toList();
     const QVariantMap snap = document.value(QStringLiteral("snap")).toMap();
+    const QVariantMap selectedObject = activeObjectProjection(document);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
+
+    if (m_workspaceTitle != nullptr) {
+        m_workspaceTitle->setText(QStringLiteral("%1 Workspace")
+            .arg(QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode))));
+    }
 
     if (m_toolValue != nullptr) {
         m_toolValue->setText(QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
@@ -288,6 +404,26 @@ void EdiShellWindow::refreshInspector()
         m_selectedValue->setText(activeObject.isEmpty()
             ? QStringLiteral("Selected: none")
             : QStringLiteral("Selected: %1").arg(activeObject));
+    }
+    if (m_objectKindValue != nullptr) {
+        m_objectKindValue->setText(selectedObject.isEmpty()
+            ? QStringLiteral("Kind: none")
+            : QStringLiteral("Kind: %1   Id: %2")
+                .arg(selectedObject.value(QStringLiteral("kind")).toString())
+                .arg(selectedObject.value(QStringLiteral("id")).toString()));
+    }
+    if (m_objectBoundsValue != nullptr) {
+        m_objectBoundsValue->setText(selectedObject.isEmpty() ? QStringLiteral("Bounds: none") : boundsSummary(selectedObject));
+    }
+    if (m_objectGeometryValue != nullptr) {
+        m_objectGeometryValue->setText(selectedObject.isEmpty() ? QStringLiteral("Geometry: none") : geometrySummary(selectedObject));
+    }
+    if (m_objectLayerValue != nullptr) {
+        m_objectLayerValue->setText(selectedObject.isEmpty()
+            ? QStringLiteral("Layer: none")
+            : QStringLiteral("Layer: %1   Locked: %2")
+                .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
+                .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool())));
     }
     if (m_objectsValue != nullptr) {
         m_objectsValue->setText(QStringLiteral("Objects: %1").arg(objects.size()));
@@ -304,7 +440,10 @@ void EdiShellWindow::refreshInspector()
         m_previewValue->setText(QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
     }
     if (m_statusValue != nullptr) {
-        m_statusValue->setText(QStringLiteral("%1 selected | %2 objects").arg(selected.size()).arg(objects.size()));
+        m_statusValue->setText(QStringLiteral("%1 | %2 selected | %3 objects")
+            .arg(QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)))
+            .arg(selected.size())
+            .arg(objects.size()));
     }
 }
 

@@ -15,6 +15,16 @@ int main()
     assert(state.mode == WorkspaceMode::Drafting);
     setWorkspaceMode(state, WorkspaceMode::Text);
     assert(workspaceModeName(state.mode) == std::string("text"));
+    assert(workspaceModeLabel(WorkspaceMode::Project) == std::string("Project"));
+    assert(workspaceModeIcon(WorkspaceMode::Planning) == std::string("R"));
+    assert(workspaceModeTooltip(WorkspaceMode::Settings) == std::string("Application and project settings"));
+    assert(workspaceModeFromName("project") == WorkspaceMode::Project);
+    assert(!workspaceModeFromName("missing"));
+    const auto activities = defaultWorkspaceActivities();
+    assert(activities.size() == 5);
+    assert(activities.front().mode == WorkspaceMode::Drafting);
+    assert(activities.front().enabled);
+    assert(!activities[1].enabled);
     setStatusMessage(state, "ready");
     assert(state.statusMessage == "ready");
 

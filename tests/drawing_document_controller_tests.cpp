@@ -36,6 +36,13 @@ int main(int argc, char **argv)
     assert(point.value("kind").toString() == "point");
     assert(point.value("x").toDouble() == 0.25);
     assert(point.value("y").toDouble() == 0.5);
+    assert(point.value("layer_id").toString() == "default");
+    assert(!point.value("locked").toBool());
+    QVariantMap pointBounds = point.value("bounds").toMap();
+    assert(pointBounds.value("x").toDouble() == 0.25);
+    assert(pointBounds.value("y").toDouble() == 0.5);
+    assert(pointBounds.value("width").toDouble() == 0.0);
+    assert(pointBounds.value("height").toDouble() == 0.0);
     assert(controller.selectedObjectId() == point.value("id").toString());
 
     controller.setSelectedToolId("line_tool");
@@ -50,6 +57,11 @@ int main(int argc, char **argv)
     assert(line.value("y1").toDouble() == 0.2);
     assert(line.value("x2").toDouble() == 0.8);
     assert(line.value("y2").toDouble() == 0.9);
+    QVariantMap lineBounds = line.value("bounds").toMap();
+    assert(nearlyEqual(lineBounds.value("x").toDouble(), 0.1));
+    assert(nearlyEqual(lineBounds.value("y").toDouble(), 0.2));
+    assert(nearlyEqual(lineBounds.value("width").toDouble(), 0.7));
+    assert(nearlyEqual(lineBounds.value("height").toDouble(), 0.7));
 
     controller.setSelectedToolId("select_move");
     controller.clickCanvasNormalized(0.25, 0.5);

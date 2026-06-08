@@ -3,6 +3,8 @@
 #include <QMainWindow>
 #include <QString>
 
+#include "app/AppState.h"
+
 class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
@@ -29,18 +31,26 @@ private:
     QWidget *buildRightPanel();
     QWidget *buildBottomPanel();
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
-    QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false);
+    QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;
     QLabel *makeValueLabel(const QString &text = QString()) const;
+    void setWorkspaceMode(edi::app::WorkspaceMode mode);
     void applyShellStyle();
 
+    edi::app::AppState m_appState;
     DrawingDocumentController *m_controller = nullptr;
     DrawingCanvasWidget *m_canvas = nullptr;
+    QButtonGroup *m_activityGroup = nullptr;
     QButtonGroup *m_toolGroup = nullptr;
     QCheckBox *m_gridSnap = nullptr;
     QCheckBox *m_objectSnap = nullptr;
+    QLabel *m_workspaceTitle = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;
+    QLabel *m_objectKindValue = nullptr;
+    QLabel *m_objectBoundsValue = nullptr;
+    QLabel *m_objectGeometryValue = nullptr;
+    QLabel *m_objectLayerValue = nullptr;
     QLabel *m_objectsValue = nullptr;
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;

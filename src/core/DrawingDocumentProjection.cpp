@@ -30,6 +30,14 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
         {QStringLiteral("id"), qStringFromStdString(object.id)},
         {QStringLiteral("kind"), QString::fromLatin1(shapeKindName(object.kind))},
         {QStringLiteral("visible"), object.visible},
+        {QStringLiteral("bounds"), QVariantMap{
+            {QStringLiteral("x"), object.bounds.x},
+            {QStringLiteral("y"), object.bounds.y},
+            {QStringLiteral("width"), object.bounds.width},
+            {QStringLiteral("height"), object.bounds.height},
+        }},
+        {QStringLiteral("layer_id"), qStringFromStdString(object.layerId)},
+        {QStringLiteral("locked"), object.locked},
     };
 
     std::visit([&](const auto &geometry) {

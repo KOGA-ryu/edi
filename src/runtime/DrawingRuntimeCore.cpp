@@ -208,6 +208,196 @@ QString objectCountsText(const QVariantMap &counts)
     return parts.isEmpty() ? QStringLiteral("none") : parts.join(", ");
 }
 
+double snapshotValue(const QVariantMap &snapshot, const QString &name)
+{
+    return std::max(0.0, number(snapshot.value(name), 0.0));
+}
+
+double eventCount(double count)
+{
+    return count > 0.0 && std::isfinite(count) ? count : 1.0;
+}
+
+QVariantMap normalizedSnapshot(const QVariantMap &snapshot)
+{
+    return {
+        {"revision", snapshotValue(snapshot, "revision")},
+        {"selectedCount", snapshotValue(snapshot, "selectedCount")},
+        {"visibleObjectCount", snapshotValue(snapshot, "visibleObjectCount")},
+    };
+}
+
+QVariantList clonedEvents(const QVariant &events)
+{
+    QVariantList result;
+    for (const QVariant &event : toList(events)) {
+        result.push_back(toMap(event));
+    }
+    return result;
+}
+
+QVariantMap initialMetrics()
+{
+    return {
+        {"active", false},
+        {"mode", "idle"},
+        {"startedAtMs", 0},
+        {"pointerMoves", 0},
+        {"controllerMutations", 0},
+        {"renderRequests", 0},
+        {"hitTests", 0},
+        {"snapResolutions", 0},
+        {"handlePlans", 0},
+        {"revisionStart", 0},
+        {"revisionEnd", 0},
+        {"selectedCountStart", 0},
+        {"selectedCountEnd", 0},
+        {"visibleObjectCountStart", 0},
+        {"visibleObjectCountEnd", 0},
+        {"events", QVariantList{}},
+    };
+}
+
+QVariantMap cloneMetrics(const QVariantMap &state)
+{
+    const QVariantMap source = state.isEmpty() ? initialMetrics() : state;
+    QVariantList events;
+    for (const QVariant &value : toList(source.value("events"))) {
+        const QVariantMap event = toMap(value);
+        events.push_back(QVariantMap{
+            {"kind", event.value("kind").toString()},
+            {"count", std::max(0.0, number(event.value("count"), 0.0))},
+        });
+    }
+    return {
+        {"active", source.value("active").toBool()},
+        {"mode", text(source, "mode", "idle")},
+        {"startedAtMs", number(source.value("startedAtMs"))},
+        {"pointerMoves", snapshotValue(source, "pointerMoves")},
+        {"controllerMutations", snapshotValue(source, "controllerMutations")},
+        {"renderRequests", snapshotValue(source, "renderRequests")},
+        {"hitTests", snapshotValue(source, "hitTests")},
+        {"snapResolutions", snapshotValue(source, "snapResolutions")},
+        {"handlePlans", snapshotValue(source, "handlePlans")},
+        {"revisionStart", snapshotValue(source, "revisionStart")},
+        {"revisionEnd", snapshotValue(source, "revisionEnd")},
+        {"selectedCountStart", snapshotValue(source, "selectedCountStart")},
+        {"selectedCountEnd", snapshotValue(source, "selectedCountEnd")},
+        {"visibleObjectCountStart", snapshotValue(source, "visibleObjectCountStart")},
+        {"visibleObjectCountEnd", snapshotValue(source, "visibleObjectCountEnd")},
+        {"events", events},
+    };
+}
+
+QVariantMap incrementMetric(const QVariantMap &state, const QString &field, double count, const QString &eventKind)
+{
+    QVariantMap next = cloneMetrics(state);
+    if (!next.value("active").toBool()) {
+        return next;
+    }
+    const double amount = eventCount(count);
+    next.insert(field, std::max(0.0, number(next.value(field)) + amount));
+    if (!eventKind.isEmpty()) {
+        QVariantList events = toList(next.value("events"));
+        events.push_back(QVariantMap{{"kind", eventKind}, {"count", amount}});
+        next.insert("events", events);
+    }
+    return next;
+}
+
+QVariantMap finishMetrics(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot)
+{
+    QVariantMap current = cloneMetrics(state);
+    current.insert("revisionEnd", snapshotValue(snapshot, "revision"));
+    current.insert("selectedCountEnd", snapshotValue(snapshot, "selectedCount"));
+    current.insert("visibleObjectCountEnd", snapshotValue(snapshot, "visibleObjectCount"));
+    const double finishedAtMs = std::isfinite(timestampMs) ? timestampMs : number(current.value("startedAtMs"));
+    const QVariantMap record{
+        {"mode", current.value("mode")},
+        {"durationMs", std::max(0.0, finishedAtMs - number(current.value("startedAtMs")))},
+        {"pointerMoves", current.value("pointerMoves")},
+        {"controllerMutations", current.value("controllerMutations")},
+        {"renderRequests", current.value("renderRequests")},
+        {"hitTests", current.value("hitTests")},
+        {"snapResolutions", current.value("snapResolutions")},
+        {"handlePlans", current.value("handlePlans")},
+        {"revisionStart", current.value("revisionStart")},
+        {"revisionEnd", current.value("revisionEnd")},
+        {"revisionDelta", number(current.value("revisionEnd")) - number(current.value("revisionStart"))},
+        {"selectedCountStart", current.value("selectedCountStart")},
+        {"selectedCountEnd", current.value("selectedCountEnd")},
+        {"visibleObjectCountStart", current.value("visibleObjectCountStart")},
+        {"visibleObjectCountEnd", current.value("visibleObjectCountEnd")},
+        {"events", current.value("events")},
+    };
+    return {{"state", initialMetrics()}, {"record", record}};
+}
+
+void checkMetricMax(const QVariantMap &record, const QVariantMap &budget, const QString &budgetField, const QString &recordField, QStringList &failures)
+{
+    if (budget.contains(budgetField) && number(record.value(recordField)) > number(budget.value(budgetField))) {
+        failures.push_back(QString("%1 expected <= %2, got %3").arg(recordField, budget.value(budgetField).toString(), record.value(recordField).toString()));
+    }
+}
+
+void checkMetricEqual(const QVariantMap &record, const QVariantMap &budget, const QString &field, QStringList &failures)
+{
+    if (budget.contains(field) && number(record.value(field)) != number(budget.value(field))) {
+        failures.push_back(QString("%1 expected %2, got %3").arg(field, budget.value(field).toString(), record.value(field).toString()));
+    }
+}
+
+QVariantMap initialTelemetry()
+{
+    return {
+        {"active", false},
+        {"mode", "idle"},
+        {"events", QVariantList{}},
+        {"completedEvents", QVariantList{}},
+    };
+}
+
+QVariantMap cloneTelemetry(const QVariantMap &state)
+{
+    const QVariantMap source = state.isEmpty() ? initialTelemetry() : state;
+    return {
+        {"active", source.value("active").toBool()},
+        {"mode", text(source, "mode", "idle")},
+        {"events", clonedEvents(source.value("events"))},
+        {"completedEvents", clonedEvents(source.value("completedEvents"))},
+    };
+}
+
+QVariantMap appendTelemetryEvent(const QVariantMap &state, const QVariantMap &event)
+{
+    QVariantMap next = cloneTelemetry(state);
+    if (!next.value("active").toBool()) {
+        return next;
+    }
+    QVariantList events = toList(next.value("events"));
+    events.push_back(event);
+    next.insert("events", events);
+    return next;
+}
+
+QVariantMap finishTelemetry(const QVariantMap &state, const QString &type, double timestampMs, const QVariantMap &snapshot)
+{
+    QVariantMap current = cloneTelemetry(state);
+    if (!current.value("active").toBool()) {
+        return {{"state", current}, {"events", QVariantList{}}};
+    }
+    QVariantList events = toList(current.value("events"));
+    events.push_back(QVariantMap{
+        {"type", type},
+        {"timestampMs", std::isfinite(timestampMs) ? timestampMs : 0.0},
+        {"snapshot", normalizedSnapshot(snapshot)},
+    });
+    return {
+        {"state", QVariantMap{{"active", false}, {"mode", "idle"}, {"events", QVariantList{}}, {"completedEvents", events}}},
+        {"events", events},
+    };
+}
+
 } // namespace
 
 DrawingToolCatalog::DrawingToolCatalog(QObject *parent)
@@ -670,4 +860,152 @@ QVariantList DrawingRuntimeRows::manifestRows(QObject *controller) const
         row("Validation rows", QString::number(modelValidationRows(controller).size())),
         row("Native controller", objectProperty(controller, "drawingNativeController") != nullptr ? "active" : "missing"),
     };
+}
+
+DrawingInteractionRuntime::DrawingInteractionRuntime(QObject *parent)
+    : QObject(parent)
+{
+}
+
+QVariantMap DrawingInteractionRuntime::initialMetricsState() const
+{
+    return initialMetrics();
+}
+
+QVariantMap DrawingInteractionRuntime::beginMetricsInteraction(const QVariantMap &, const QString &mode, double timestampMs, const QVariantMap &snapshot) const
+{
+    QVariantMap next = initialMetrics();
+    next.insert("active", true);
+    next.insert("mode", mode.isEmpty() ? QStringLiteral("idle") : mode);
+    next.insert("startedAtMs", std::isfinite(timestampMs) ? timestampMs : 0.0);
+    next.insert("revisionStart", snapshotValue(snapshot, "revision"));
+    next.insert("revisionEnd", next.value("revisionStart"));
+    next.insert("selectedCountStart", snapshotValue(snapshot, "selectedCount"));
+    next.insert("selectedCountEnd", next.value("selectedCountStart"));
+    next.insert("visibleObjectCountStart", snapshotValue(snapshot, "visibleObjectCount"));
+    next.insert("visibleObjectCountEnd", next.value("visibleObjectCountStart"));
+    return next;
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsPointerMove(const QVariantMap &state, double count) const
+{
+    return incrementMetric(state, "pointerMoves", count, "pointer_move");
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsControllerMutation(const QVariantMap &state, const QString &kind, double count) const
+{
+    return incrementMetric(state, "controllerMutations", count, kind.isEmpty() ? "controller_mutation" : kind);
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsRenderRequest(const QVariantMap &state, double count) const
+{
+    return incrementMetric(state, "renderRequests", count, "render_request");
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsHitTest(const QVariantMap &state, double count) const
+{
+    return incrementMetric(state, "hitTests", count, "hit_test");
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsSnap(const QVariantMap &state, double count) const
+{
+    return incrementMetric(state, "snapResolutions", count, "snap_resolution");
+}
+
+QVariantMap DrawingInteractionRuntime::recordMetricsHandlePlan(const QVariantMap &state, double count) const
+{
+    return incrementMetric(state, "handlePlans", count, "handle_plan");
+}
+
+QVariantMap DrawingInteractionRuntime::finishMetricsInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const
+{
+    return finishMetrics(state, timestampMs, snapshot);
+}
+
+QVariantMap DrawingInteractionRuntime::cancelMetricsInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const
+{
+    QVariantMap finished = finishMetrics(state, timestampMs, snapshot);
+    QVariantMap record = toMap(finished.value("record"));
+    record.insert("canceled", true);
+    finished.insert("record", record);
+    return finished;
+}
+
+QVariantMap DrawingInteractionRuntime::assertWithinBudget(const QVariantMap &record, const QVariantMap &budget) const
+{
+    QStringList failures;
+    if (budget.contains("mode") && record.value("mode").toString() != budget.value("mode").toString()) {
+        failures.push_back(QString("mode expected %1, got %2").arg(budget.value("mode").toString(), record.value("mode").toString()));
+    }
+    checkMetricMax(record, budget, "maxDurationMs", "durationMs", failures);
+    checkMetricMax(record, budget, "maxPointerMoves", "pointerMoves", failures);
+    checkMetricMax(record, budget, "maxControllerMutations", "controllerMutations", failures);
+    checkMetricMax(record, budget, "maxRenderRequests", "renderRequests", failures);
+    checkMetricMax(record, budget, "maxHitTests", "hitTests", failures);
+    checkMetricMax(record, budget, "maxSnapResolutions", "snapResolutions", failures);
+    checkMetricMax(record, budget, "maxHandlePlans", "handlePlans", failures);
+    checkMetricEqual(record, budget, "revisionDelta", failures);
+    return {{"ok", failures.isEmpty()}, {"failures", failures}};
+}
+
+QVariantMap DrawingInteractionRuntime::initialTelemetryState() const
+{
+    return initialTelemetry();
+}
+
+QVariantMap DrawingInteractionRuntime::beginTelemetryInteraction(const QVariantMap &state, const QString &mode, double timestampMs, const QVariantMap &snapshot) const
+{
+    QVariantMap next = initialTelemetry();
+    next.insert("active", true);
+    next.insert("mode", mode.isEmpty() ? QStringLiteral("idle") : mode);
+    next.insert("completedEvents", clonedEvents(state.value("completedEvents")));
+    QVariantList events;
+    events.push_back(QVariantMap{
+        {"type", "begin"},
+        {"mode", next.value("mode")},
+        {"timestampMs", std::isfinite(timestampMs) ? timestampMs : 0.0},
+        {"snapshot", normalizedSnapshot(snapshot)},
+    });
+    next.insert("events", events);
+    return next;
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetryPointerMove(const QVariantMap &state, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "pointerMove"}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetryControllerMutation(const QVariantMap &state, const QString &kind, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "controllerMutation"}, {"kind", kind.isEmpty() ? "controller_mutation" : kind}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetryRenderRequest(const QVariantMap &state, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "renderRequest"}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetryHitTest(const QVariantMap &state, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "hitTest"}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetrySnap(const QVariantMap &state, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "snap"}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::recordTelemetryHandlePlan(const QVariantMap &state, double count) const
+{
+    return appendTelemetryEvent(state, {{"type", "handlePlan"}, {"count", eventCount(count)}});
+}
+
+QVariantMap DrawingInteractionRuntime::finishTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const
+{
+    return finishTelemetry(state, "finish", timestampMs, snapshot);
+}
+
+QVariantMap DrawingInteractionRuntime::cancelTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const
+{
+    return finishTelemetry(state, "cancel", timestampMs, snapshot);
 }

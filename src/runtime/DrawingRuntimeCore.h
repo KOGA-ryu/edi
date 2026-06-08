@@ -47,3 +47,33 @@ public:
     Q_INVOKABLE QVariantList exportRows(QObject *controller) const;
     Q_INVOKABLE QVariantList manifestRows(QObject *controller) const;
 };
+
+class DrawingInteractionRuntime : public QObject {
+    Q_OBJECT
+
+public:
+    explicit DrawingInteractionRuntime(QObject *parent = nullptr);
+
+    Q_INVOKABLE QVariantMap initialMetricsState() const;
+    Q_INVOKABLE QVariantMap beginMetricsInteraction(const QVariantMap &state, const QString &mode, double timestampMs, const QVariantMap &snapshot) const;
+    Q_INVOKABLE QVariantMap recordMetricsPointerMove(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordMetricsControllerMutation(const QVariantMap &state, const QString &kind, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordMetricsRenderRequest(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordMetricsHitTest(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordMetricsSnap(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordMetricsHandlePlan(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap finishMetricsInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
+    Q_INVOKABLE QVariantMap cancelMetricsInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
+    Q_INVOKABLE QVariantMap assertWithinBudget(const QVariantMap &record, const QVariantMap &budget) const;
+
+    Q_INVOKABLE QVariantMap initialTelemetryState() const;
+    Q_INVOKABLE QVariantMap beginTelemetryInteraction(const QVariantMap &state, const QString &mode, double timestampMs, const QVariantMap &snapshot) const;
+    Q_INVOKABLE QVariantMap recordTelemetryPointerMove(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordTelemetryControllerMutation(const QVariantMap &state, const QString &kind, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordTelemetryRenderRequest(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordTelemetryHitTest(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordTelemetrySnap(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap recordTelemetryHandlePlan(const QVariantMap &state, double count = 1) const;
+    Q_INVOKABLE QVariantMap finishTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
+    Q_INVOKABLE QVariantMap cancelTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
+};

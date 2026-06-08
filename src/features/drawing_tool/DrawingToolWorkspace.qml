@@ -1,8 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
-import "../../runtime/DrawingCanvasInteractionMetrics.js" as CanvasInteractionMetrics
-import "../../runtime/DrawingCanvasInteractionTelemetry.js" as CanvasInteractionTelemetry
 import "../../runtime/DrawingCanvasToolScript.js" as CanvasToolScript
 
 Rectangle {
@@ -498,10 +496,10 @@ Rectangle {
                 property real hoverSnapStepPx: 32
                 property int activeModifiers: Qt.NoModifier
                 property var gestureState: drawingCanvasRuntime.initialGestureState()
-                property var interactionMetricsState: CanvasInteractionMetrics.initialMetricsState()
+                property var interactionMetricsState: drawingInteractionRuntime.initialMetricsState()
                 property var lastInteractionMetrics: ({})
                 property bool interactionMetricsLogEnabled: drawingWorkspace.controller ? !!drawingWorkspace.controller.drawingInteractionMetricsLogEnabled : false
-                property var interactionTelemetryState: CanvasInteractionTelemetry.initialTelemetryState()
+                property var interactionTelemetryState: drawingInteractionRuntime.initialTelemetryState()
                 property var lastInteractionEvents: []
                 property bool interactionTelemetryLogEnabled: drawingWorkspace.controller ? !!drawingWorkspace.controller.drawingInteractionTelemetryLogEnabled : false
                 cursorShape: selectionCursorShape()
@@ -632,8 +630,8 @@ Rectangle {
                 }
 
                 function beginInteractionMetrics(mode) {
-                    interactionMetricsState = CanvasInteractionMetrics.beginInteraction(interactionMetricsState, mode, metricsNowMs(), metricsSnapshot())
-                    interactionTelemetryState = CanvasInteractionTelemetry.beginInteraction(interactionTelemetryState, mode, metricsNowMs(), metricsSnapshot())
+                    interactionMetricsState = drawingInteractionRuntime.beginMetricsInteraction(interactionMetricsState, mode, metricsNowMs(), metricsSnapshot())
+                    interactionTelemetryState = drawingInteractionRuntime.beginTelemetryInteraction(interactionTelemetryState, mode, metricsNowMs(), metricsSnapshot())
                 }
 
                 function finishInteractionMetrics(canceled) {
@@ -641,16 +639,16 @@ Rectangle {
                         return
                     }
                     var finished = canceled
-                            ? CanvasInteractionMetrics.cancelInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
-                            : CanvasInteractionMetrics.finishInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
+                            ? drawingInteractionRuntime.cancelMetricsInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
+                            : drawingInteractionRuntime.finishMetricsInteraction(interactionMetricsState, metricsNowMs(), metricsSnapshot())
                     interactionMetricsState = finished.state
                     lastInteractionMetrics = finished.record
                     if (interactionMetricsLogEnabled) {
                         console.log("drawing_canvas_interaction_metrics " + JSON.stringify(lastInteractionMetrics))
                     }
                     var telemetry = canceled
-                            ? CanvasInteractionTelemetry.cancelInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
-                            : CanvasInteractionTelemetry.finishInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
+                            ? drawingInteractionRuntime.cancelTelemetryInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
+                            : drawingInteractionRuntime.finishTelemetryInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
                     interactionTelemetryState = telemetry.state
                     lastInteractionEvents = telemetry.events
                     if (interactionTelemetryLogEnabled) {
@@ -659,33 +657,33 @@ Rectangle {
                 }
 
                 function recordPointerMoveMetric() {
-                    interactionMetricsState = CanvasInteractionMetrics.recordPointerMove(interactionMetricsState)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordPointerMove(interactionTelemetryState)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsPointerMove(interactionMetricsState)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetryPointerMove(interactionTelemetryState)
                 }
 
                 function recordControllerMutationMetric(kind) {
-                    interactionMetricsState = CanvasInteractionMetrics.recordControllerMutation(interactionMetricsState, kind)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordControllerMutation(interactionTelemetryState, kind)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsControllerMutation(interactionMetricsState, kind)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetryControllerMutation(interactionTelemetryState, kind)
                 }
 
                 function recordRenderRequestMetric() {
-                    interactionMetricsState = CanvasInteractionMetrics.recordRenderRequest(interactionMetricsState)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordRenderRequest(interactionTelemetryState)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsRenderRequest(interactionMetricsState)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetryRenderRequest(interactionTelemetryState)
                 }
 
                 function recordHitTestMetric() {
-                    interactionMetricsState = CanvasInteractionMetrics.recordHitTest(interactionMetricsState)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordHitTest(interactionTelemetryState)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsHitTest(interactionMetricsState)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetryHitTest(interactionTelemetryState)
                 }
 
                 function recordSnapMetric() {
-                    interactionMetricsState = CanvasInteractionMetrics.recordSnap(interactionMetricsState)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordSnap(interactionTelemetryState)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsSnap(interactionMetricsState)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetrySnap(interactionTelemetryState)
                 }
 
                 function recordHandlePlanMetric() {
-                    interactionMetricsState = CanvasInteractionMetrics.recordHandlePlan(interactionMetricsState)
-                    interactionTelemetryState = CanvasInteractionTelemetry.recordHandlePlan(interactionTelemetryState)
+                    interactionMetricsState = drawingInteractionRuntime.recordMetricsHandlePlan(interactionMetricsState)
+                    interactionTelemetryState = drawingInteractionRuntime.recordTelemetryHandlePlan(interactionTelemetryState)
                 }
 
                 function requestCanvasPaint() {

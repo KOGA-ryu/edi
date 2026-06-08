@@ -196,20 +196,12 @@ if(BUILD_TESTING)
     find_program(NODE_EXECUTABLE node)
     if(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS AND NODE_EXECUTABLE)
         add_test(
-            NAME drawing_canvas_interaction_metrics_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_metrics_tests.js
-        )
-        add_test(
             NAME drawing_canvas_interaction_script_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_script_tests.js
         )
         add_test(
             NAME drawing_canvas_interaction_replay_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_replay_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_interaction_telemetry_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_telemetry_tests.js
         )
         add_test(
             NAME drawing_canvas_metric_reducer_tests
@@ -260,10 +252,8 @@ if(BUILD_TESTING)
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_negative_launch_tests.js
         )
         set(DRAWING_JS_HARNESS_TEST_NAMES
-            drawing_canvas_interaction_metrics_tests
             drawing_canvas_interaction_script_tests
             drawing_canvas_interaction_replay_tests
-            drawing_canvas_interaction_telemetry_tests
             drawing_canvas_metric_reducer_tests
             drawing_canvas_metric_report_tests
             drawing_canvas_gui_metric_capture_tests

@@ -1,11 +1,22 @@
 #include "DrawingCore.h"
 #include "DrawingCoreInternal.h"
 
+#include "drafting/DraftingCommands.h"
+#include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingSelection.h"
+
+#include <QVariantList>
+#include <QVariantMap>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
+#include <utility>
 
 namespace {
+
+using namespace edi::drafting;
 
 double clamp01(double value)
 {
@@ -30,109 +41,170 @@ QString nextObjectId(const QString &kind, int serial)
     return QStringLiteral("%1_%2").arg(kind, QString::number(serial).rightJustified(4, QLatin1Char('0')));
 }
 
-QVariantMap pointObject(const QString &id, double x, double y)
+std::string toStdString(const QString &value)
+{
+    return value.toStdString();
+}
+
+QString toQString(const std::string &value)
+{
+    return QString::fromStdString(value);
+}
+
+QVariantMap pointToMap(Point2D point)
 {
     return {
-        {QStringLiteral("id"), id},
-        {QStringLiteral("kind"), QStringLiteral("point")},
-        {QStringLiteral("x"), clamp01(x)},
-        {QStringLiteral("y"), clamp01(y)},
-        {QStringLiteral("visible"), true},
+        {QStringLiteral("x"), point.x},
+        {QStringLiteral("y"), point.y},
     };
 }
 
-QVariantMap lineObject(const QString &id, double x1, double y1, double x2, double y2)
+QVariantMap objectToProjection(const DraftingObject &object)
 {
-    return {
-        {QStringLiteral("id"), id},
-        {QStringLiteral("kind"), QStringLiteral("line")},
-        {QStringLiteral("x1"), clamp01(x1)},
-        {QStringLiteral("y1"), clamp01(y1)},
-        {QStringLiteral("x2"), clamp01(x2)},
-        {QStringLiteral("y2"), clamp01(y2)},
+    QVariantMap result {
+        {QStringLiteral("id"), toQString(object.id)},
+        {QStringLiteral("kind"), QString::fromLatin1(shapeKindName(object.kind))},
         {QStringLiteral("visible"), true},
     };
-}
 
-QVariantMap rectangleObject(const QString &id, double x1, double y1, double x2, double y2)
-{
-    const double left = std::min(clamp01(x1), clamp01(x2));
-    const double top = std::min(clamp01(y1), clamp01(y2));
-    const double right = std::max(clamp01(x1), clamp01(x2));
-    const double bottom = std::max(clamp01(y1), clamp01(y2));
-    return {
-        {QStringLiteral("id"), id},
-        {QStringLiteral("kind"), QStringLiteral("rectangle")},
-        {QStringLiteral("x"), left},
-        {QStringLiteral("y"), top},
-        {QStringLiteral("width"), right - left},
-        {QStringLiteral("height"), bottom - top},
-        {QStringLiteral("rotation_deg"), 0.0},
-        {QStringLiteral("visible"), true},
-    };
-}
-
-QVariantMap circleObject(const QString &id, double cx, double cy, double edgeX, double edgeY)
-{
-    return {
-        {QStringLiteral("id"), id},
-        {QStringLiteral("kind"), QStringLiteral("circle")},
-        {QStringLiteral("cx"), clamp01(cx)},
-        {QStringLiteral("cy"), clamp01(cy)},
-        {QStringLiteral("radius"), std::min(1.0, distance(clamp01(cx), clamp01(cy), clamp01(edgeX), clamp01(edgeY)))},
-        {QStringLiteral("visible"), true},
-    };
-}
-
-double objectHitDistance(const QVariantMap &object, double x, double y)
-{
-    const QString kind = object.value(QStringLiteral("kind")).toString();
-    if (kind == QStringLiteral("point")) {
-        return distance(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble(), x, y);
-    }
-    if (kind == QStringLiteral("line")) {
-        const double x1 = object.value(QStringLiteral("x1")).toDouble();
-        const double y1 = object.value(QStringLiteral("y1")).toDouble();
-        const double x2 = object.value(QStringLiteral("x2")).toDouble();
-        const double y2 = object.value(QStringLiteral("y2")).toDouble();
-        const double length2 = sqr(x2 - x1) + sqr(y2 - y1);
-        if (length2 <= 0.000001) {
-            return distance(x1, y1, x, y);
+    std::visit([&](const auto &geometry) {
+        using Geometry = std::decay_t<decltype(geometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            result.insert(QStringLiteral("x"), geometry.point.x);
+            result.insert(QStringLiteral("y"), geometry.point.y);
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            result.insert(QStringLiteral("x1"), geometry.a.x);
+            result.insert(QStringLiteral("y1"), geometry.a.y);
+            result.insert(QStringLiteral("x2"), geometry.b.x);
+            result.insert(QStringLiteral("y2"), geometry.b.y);
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            result.insert(QStringLiteral("x"), geometry.origin.x);
+            result.insert(QStringLiteral("y"), geometry.origin.y);
+            result.insert(QStringLiteral("width"), geometry.width);
+            result.insert(QStringLiteral("height"), geometry.height);
+            result.insert(QStringLiteral("rotation_deg"), geometry.rotationDeg);
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            result.insert(QStringLiteral("cx"), geometry.center.x);
+            result.insert(QStringLiteral("cy"), geometry.center.y);
+            result.insert(QStringLiteral("radius"), geometry.radius);
+        } else {
+            QVariantList points;
+            for (Point2D point : geometry.vertices) {
+                points.push_back(pointToMap(point));
+            }
+            result.insert(QStringLiteral("points"), points);
         }
-        const double t = std::clamp(((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / length2, 0.0, 1.0);
-        return distance(x1 + t * (x2 - x1), y1 + t * (y2 - y1), x, y);
+    }, object.geometry);
+
+    return result;
+}
+
+std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
+{
+    DraftingShapeKind kind = DraftingShapeKind::Point;
+    DraftingGeometry geometry = PointGeometry{start};
+    if (toolId == QStringLiteral("point_tool")) {
+        kind = DraftingShapeKind::Point;
+        geometry = PointGeometry{end};
+    } else if (toolId == QStringLiteral("line_tool")) {
+        kind = DraftingShapeKind::Line;
+        geometry = LineGeometry{start, end};
+    } else if (toolId == QStringLiteral("rectangle_tool")) {
+        const double left = std::min(start.x, end.x);
+        const double top = std::min(start.y, end.y);
+        const double right = std::max(start.x, end.x);
+        const double bottom = std::max(start.y, end.y);
+        kind = DraftingShapeKind::Rectangle;
+        geometry = RectangleGeometry{{left, top}, right - left, bottom - top};
+    } else if (toolId == QStringLiteral("circle_tool")) {
+        kind = DraftingShapeKind::Circle;
+        geometry = CircleGeometry{start, std::min(1.0, distance(start.x, start.y, end.x, end.y))};
+    } else {
+        return std::nullopt;
     }
-    if (kind == QStringLiteral("rectangle")) {
-        const double left = object.value(QStringLiteral("x")).toDouble();
-        const double top = object.value(QStringLiteral("y")).toDouble();
-        const double right = left + object.value(QStringLiteral("width")).toDouble();
-        const double bottom = top + object.value(QStringLiteral("height")).toDouble();
-        const double nearestX = std::clamp(x, left, right);
-        const double nearestY = std::clamp(y, top, bottom);
-        return distance(nearestX, nearestY, x, y);
+
+    auto built = buildDraftingObject(toStdString(objectId), kind, std::move(geometry));
+    if (!built.ok) {
+        return std::nullopt;
     }
-    if (kind == QStringLiteral("circle")) {
-        const double cx = object.value(QStringLiteral("cx")).toDouble();
-        const double cy = object.value(QStringLiteral("cy")).toDouble();
-        const double radius = object.value(QStringLiteral("radius")).toDouble();
-        return std::abs(distance(cx, cy, x, y) - radius);
+    built.object.metadata.toolProvenance = toolId.toStdString();
+    return built.object;
+}
+
+double geometryHitDistance(const DraftingGeometry &geometry, double x, double y)
+{
+    return std::visit([&](const auto &typedGeometry) -> double {
+        using Geometry = std::decay_t<decltype(typedGeometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            return distance(typedGeometry.point.x, typedGeometry.point.y, x, y);
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            const double length2 = sqr(typedGeometry.b.x - typedGeometry.a.x) + sqr(typedGeometry.b.y - typedGeometry.a.y);
+            if (length2 <= 0.000001) {
+                return distance(typedGeometry.a.x, typedGeometry.a.y, x, y);
+            }
+            const double t = std::clamp(((x - typedGeometry.a.x) * (typedGeometry.b.x - typedGeometry.a.x)
+                                            + (y - typedGeometry.a.y) * (typedGeometry.b.y - typedGeometry.a.y)) / length2,
+                0.0,
+                1.0);
+            return distance(
+                typedGeometry.a.x + t * (typedGeometry.b.x - typedGeometry.a.x),
+                typedGeometry.a.y + t * (typedGeometry.b.y - typedGeometry.a.y),
+                x,
+                y);
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            const Bounds2D bounds = computeBounds(typedGeometry);
+            const double nearestX = std::clamp(x, bounds.x, bounds.x + bounds.width);
+            const double nearestY = std::clamp(y, bounds.y, bounds.y + bounds.height);
+            return distance(nearestX, nearestY, x, y);
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            return std::abs(distance(typedGeometry.center.x, typedGeometry.center.y, x, y) - typedGeometry.radius);
+        } else {
+            double best = std::numeric_limits<double>::max();
+            for (Point2D point : typedGeometry.vertices) {
+                best = std::min(best, distance(point.x, point.y, x, y));
+            }
+            return best;
+        }
+    }, geometry);
+}
+
+std::optional<DraftingObjectId> hitObject(const DraftingDocument &document, double x, double y)
+{
+    std::optional<DraftingObjectId> bestId;
+    double bestDistance = 0.03;
+    for (const DraftingObject &object : document.objects) {
+        if (!object.visible) {
+            continue;
+        }
+        const double hitDistance = geometryHitDistance(object.geometry, x, y);
+        if (hitDistance <= bestDistance) {
+            bestDistance = hitDistance;
+            bestId = object.id;
+        }
     }
-    return std::numeric_limits<double>::max();
+    return bestId;
 }
 
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
     : QObject(parent)
+    , m_document(makeDraftingDocument("active_drawing", "Active Drawing"))
 {
-    m_model.insert(QStringLiteral("engine"), QStringLiteral("cpp_drawing_core_stub"));
-    m_model.insert(QStringLiteral("generated_objects"), QVariantList{});
-    m_model.insert(QStringLiteral("validation"), QVariantList{});
 }
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    return m_model;
+    QVariantList objects;
+    for (const DraftingObject &object : m_document.objects) {
+        objects.push_back(objectToProjection(object));
+    }
+    return {
+        {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
+        {QStringLiteral("drawing_objects"), objects},
+        {QStringLiteral("revision"), static_cast<int>(m_document.revision)},
+        {QStringLiteral("validation"), QVariantList{}},
+    };
 }
 
 QString DrawingDocumentController::selectedToolId() const
@@ -142,7 +214,7 @@ QString DrawingDocumentController::selectedToolId() const
 
 QString DrawingDocumentController::selectedObjectId() const
 {
-    return m_selectedObjectId;
+    return m_document.activeObjectId ? toQString(*m_document.activeObjectId) : QString();
 }
 
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
@@ -159,20 +231,16 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);
     y = clamp01(y);
-    QVariantList objects = m_model.value(QStringLiteral("generated_objects")).toList();
+    const Point2D point{x, y};
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
-        QString bestId;
-        double bestDistance = 0.03;
-        for (const QVariant &value : objects) {
-            const QVariantMap object = value.toMap();
-            const double hitDistance = objectHitDistance(object, x, y);
-            if (hitDistance <= bestDistance) {
-                bestDistance = hitDistance;
-                bestId = object.value(QStringLiteral("id")).toString();
-            }
+        const std::optional<DraftingObjectId> objectId = hitObject(m_document, x, y);
+        if (objectId) {
+            applyDraftingCommand(m_document, SelectObjectCommand{*objectId});
+        } else {
+            clearSelection(m_document);
+            ++m_document.revision;
         }
-        m_selectedObjectId = bestId;
         m_hasPendingPoint = false;
         emit modelChanged();
         return;
@@ -180,9 +248,11 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 
     if (m_selectedToolId == QStringLiteral("point_tool")) {
         const QString id = nextObjectId(QStringLiteral("point"), m_nextObjectSerial++);
-        objects.push_back(pointObject(id, x, y));
-        m_selectedObjectId = id;
-        m_model.insert(QStringLiteral("generated_objects"), objects);
+        const auto object = buildObjectForTool(m_selectedToolId, id, point, point);
+        if (object) {
+            applyDraftingCommand(m_document, CreateObjectCommand{*object});
+            applyDraftingCommand(m_document, SelectObjectCommand{object->id});
+        }
         emit modelChanged();
         return;
     }
@@ -195,19 +265,12 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         return;
     }
 
-    QVariantMap object;
-    if (m_selectedToolId == QStringLiteral("line_tool")) {
-        object = lineObject(nextObjectId(QStringLiteral("line"), m_nextObjectSerial++), m_pendingX, m_pendingY, x, y);
-    } else if (m_selectedToolId == QStringLiteral("rectangle_tool")) {
-        object = rectangleObject(nextObjectId(QStringLiteral("rectangle"), m_nextObjectSerial++), m_pendingX, m_pendingY, x, y);
-    } else if (m_selectedToolId == QStringLiteral("circle_tool")) {
-        object = circleObject(nextObjectId(QStringLiteral("circle"), m_nextObjectSerial++), m_pendingX, m_pendingY, x, y);
-    }
+    const QString id = nextObjectId(m_selectedToolId.section(QLatin1Char('_'), 0, 0), m_nextObjectSerial++);
+    const auto object = buildObjectForTool(m_selectedToolId, id, {m_pendingX, m_pendingY}, point);
     m_hasPendingPoint = false;
-    if (!object.isEmpty()) {
-        m_selectedObjectId = object.value(QStringLiteral("id")).toString();
-        objects.push_back(object);
-        m_model.insert(QStringLiteral("generated_objects"), objects);
+    if (object) {
+        applyDraftingCommand(m_document, CreateObjectCommand{*object});
+        applyDraftingCommand(m_document, SelectObjectCommand{object->id});
     }
     emit modelChanged();
 }

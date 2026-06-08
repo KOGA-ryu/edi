@@ -6,6 +6,8 @@
 #include <QVariantMap>
 #include <QVector>
 
+#include "drafting/DraftingDocument.h"
+
 class DrawingDocumentController final : public QObject {
     Q_OBJECT
 
@@ -22,9 +24,8 @@ signals:
     void modelChanged();
 
 private:
-    QVariantMap m_model;
     QString m_selectedToolId = QStringLiteral("select_move");
-    QString m_selectedObjectId;
+    edi::drafting::DraftingDocument m_document;
     bool m_hasPendingPoint = false;
     double m_pendingX = 0.0;
     double m_pendingY = 0.0;

@@ -167,6 +167,20 @@ add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_c
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 
+add_executable(drawing_document_controller_tests
+    tests/drawing_document_controller_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+)
+target_include_directories(drawing_document_controller_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(drawing_document_controller_tests PRIVATE
+    edi_drafting_core
+    Qt6::Core
+)
+add_test(NAME drawing_document_controller_tests COMMAND drawing_document_controller_tests)
+
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
@@ -205,6 +219,7 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
         drawing_canvas_core
         drawing_runtime_core
+        edi_drafting_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets

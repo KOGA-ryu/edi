@@ -70,7 +70,7 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
         return;
     }
     const QVariantMap model = m_controller->modelDocument();
-    for (const QVariant &value : model.value("generated_objects").toList()) {
+    for (const QVariant &value : model.value("drawing_objects").toList()) {
         drawObject(painter, value.toMap());
     }
 

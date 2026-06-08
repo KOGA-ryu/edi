@@ -1,5 +1,6 @@
 import QtQuick
 import "../../style"
+import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
@@ -187,104 +188,13 @@ QtObject {
         return CanvasViewport.canvasToScreenY(bounds, normalizedY)
     }
 
-    function pointFromArray(value, fallbackX, fallbackY) {
-        var point = asArray(value)
+    function handleSettings() {
         return {
-            x: point.length > 0 ? Number(point[0]) : Number(fallbackX || 0),
-            y: point.length > 1 ? Number(point[1]) : Number(fallbackY || 0)
+            canvasSizePx: canvasObjectRenderer.controller ? Number(canvasObjectRenderer.controller.drawingCanvasSizePx || 512) : 512,
+            rotateHandleOffsetPx: 28,
+            handleHitTolerancePx: 14,
+            rotateHandleHitTolerancePx: 18
         }
-    }
-
-    function rotatedRectCorners(object) {
-        var x = Number(object.x || 0)
-        var y = Number(object.y || 0)
-        var width = Number(object.width || 0)
-        var height = Number(object.height || 0)
-        var cx = x + width / 2
-        var cy = y + height / 2
-        var angle = Number(object.rotation_deg || 0) * Math.PI / 180
-        var cosA = Math.cos(angle)
-        var sinA = Math.sin(angle)
-        var source = [
-            { id: "rect_nw", x: x, y: y },
-            { id: "rect_ne", x: x + width, y: y },
-            { id: "rect_sw", x: x, y: y + height },
-            { id: "rect_se", x: x + width, y: y + height }
-        ]
-        var result = []
-        for (var index = 0; index < source.length; ++index) {
-            var dx = source[index].x - cx
-            var dy = source[index].y - cy
-            result.push({
-                id: source[index].id,
-                x: cx + dx * cosA - dy * sinA,
-                y: cy + dx * sinA + dy * cosA
-            })
-        }
-        return result
-    }
-
-    function rotatedRectCenter(object) {
-        return {
-            x: Number(object.x || 0) + Number(object.width || 0) / 2,
-            y: Number(object.y || 0) + Number(object.height || 0) / 2
-        }
-    }
-
-    function rotatedRectTopMidpoint(object) {
-        var corners = rotatedRectCorners(object)
-        if (corners.length < 2) {
-            return rotatedRectCenter(object)
-        }
-        return {
-            x: (Number(corners[0].x || 0) + Number(corners[1].x || 0)) / 2,
-            y: (Number(corners[0].y || 0) + Number(corners[1].y || 0)) / 2
-        }
-    }
-
-    function rotatedRectRotationHandle(object) {
-        var center = rotatedRectCenter(object)
-        var top = rotatedRectTopMidpoint(object)
-        var dx = top.x - center.x
-        var dy = top.y - center.y
-        var length = Math.max(0.000001, Math.sqrt(dx * dx + dy * dy))
-        var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
-        var offset = 28 / canvasPx
-        return {
-            id: "rect_rotate",
-            role: "rotate",
-            x: top.x + dx / length * offset,
-            y: top.y + dy / length * offset,
-            anchorX: top.x,
-            anchorY: top.y
-        }
-    }
-
-    function objectEditHandles(object) {
-        var kind = String(object.kind || "")
-        if (kind === "line" || kind === "glyph_baseline") {
-            return [
-                { id: "line_start", x: Number(object.x1 || 0), y: Number(object.y1 || 0) },
-                { id: "line_end", x: Number(object.x2 || 0), y: Number(object.y2 || 0) }
-            ]
-        }
-        if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            var handles = rotatedRectCorners(object)
-            handles.push(rotatedRectRotationHandle(object))
-            return handles
-        }
-        if (kind === "circle" || kind === "arc") {
-            var center = pointFromArray(object.center_px, Number(object.cx || 0) * 512, Number(object.cy || 0) * 512)
-            var canvasPx = Math.max(1, Number(canvasObjectRenderer.controller ? canvasObjectRenderer.controller.drawingCanvasSizePx : 512))
-            var cx = Number(object.cx || (center.x / canvasPx))
-            var cy = Number(object.cy || (center.y / canvasPx))
-            var radius = Number(object.radius || 0)
-            return [
-                { id: "circle_center", x: cx, y: cy },
-                { id: "circle_radius", x: Math.min(1, cx + radius), y: cy }
-            ]
-        }
-        return []
     }
 
     function drawEditHandle(ctx, bounds, handle, primary) {
@@ -310,14 +220,14 @@ QtObject {
 
     function drawRotatedRectSelectionOutline(ctx, bounds, object) {
         var kind = String(object.kind || "")
-        if (kind !== "rectangle" && kind !== "image_reference_frame" && kind !== "ascii_crop_frame" && kind !== "ascii_cell_region") {
+        if (!CanvasHandles.isRectangleLike(kind)) {
             return
         }
-        var corners = rotatedRectCorners(object)
+        var corners = CanvasHandles.rotatedRectCorners(object)
         if (corners.length < 4) {
             return
         }
-        var rotationHandle = rotatedRectRotationHandle(object)
+        var rotationHandle = CanvasHandles.rotatedRectRotationHandle(object, handleSettings())
         ctx.save()
         ctx.strokeStyle = UiStyle.colorWarning
         ctx.lineWidth = 1
@@ -337,12 +247,15 @@ QtObject {
     }
 
     function drawSelectedEditHandles(ctx, bounds, object) {
-        var handles = objectEditHandles(object)
+        var handles = CanvasHandles.visibleHandlesForObject(object, handleSettings())
         if (handles.length <= 0 || String(object.id || "").indexOf("script_") !== 0) {
             return
         }
         drawRotatedRectSelectionOutline(ctx, bounds, object)
         for (var index = 0; index < handles.length; ++index) {
+            if (handles[index].readOnly === true) {
+                continue
+            }
             drawEditHandle(ctx, bounds, handles[index], index === 0)
         }
     }
@@ -394,7 +307,7 @@ QtObject {
             return includePointInBounds(result, cx + radius, cy + radius)
         }
         if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-            var corners = rotatedRectCorners(object)
+            var corners = CanvasHandles.rotatedRectCorners(object)
             for (var cornerIndex = 0; cornerIndex < corners.length; ++cornerIndex) {
                 includePointInBounds(result, corners[cornerIndex].x, corners[cornerIndex].y)
             }

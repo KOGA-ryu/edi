@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
+import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
@@ -546,79 +547,14 @@ Rectangle {
                     return bounds
                 }
 
-                function rotatedRectCorners(object) {
-                    var x = Number(object.x || 0)
-                    var y = Number(object.y || 0)
-                    var width = Number(object.width || 0)
-                    var height = Number(object.height || 0)
-                    var cx = x + width / 2
-                    var cy = y + height / 2
-                    var angle = Number(object.rotation_deg || 0) * Math.PI / 180
-                    var cosA = Math.cos(angle)
-                    var sinA = Math.sin(angle)
-                    var source = [
-                        { id: "rect_nw", x: x, y: y },
-                        { id: "rect_ne", x: x + width, y: y },
-                        { id: "rect_sw", x: x, y: y + height },
-                        { id: "rect_se", x: x + width, y: y + height }
-                    ]
-                    var result = []
-                    for (var index = 0; index < source.length; ++index) {
-                        var dx = source[index].x - cx
-                        var dy = source[index].y - cy
-                        result.push({
-                            id: source[index].id,
-                            x: cx + dx * cosA - dy * sinA,
-                            y: cy + dx * sinA + dy * cosA
-                        })
-                    }
-                    return result
-                }
-
-                function rotatedRectCenter(object) {
+                function handleSettings() {
                     return {
-                        x: Number(object.x || 0) + Number(object.width || 0) / 2,
-                        y: Number(object.y || 0) + Number(object.height || 0) / 2
-                    }
-                }
-
-                function rotatedRectTopMidpoint(object) {
-                    var corners = rotatedRectCorners(object)
-                    if (corners.length < 2) {
-                        return rotatedRectCenter(object)
-                    }
-                    return {
-                        x: (Number(corners[0].x || 0) + Number(corners[1].x || 0)) / 2,
-                        y: (Number(corners[0].y || 0) + Number(corners[1].y || 0)) / 2
-                    }
-                }
-
-                function rotatedRectRotationHandle(object) {
-                    var center = rotatedRectCenter(object)
-                    var top = rotatedRectTopMidpoint(object)
-                    var dx = top.x - center.x
-                    var dy = top.y - center.y
-                    var length = Math.max(0.000001, Math.sqrt(dx * dx + dy * dy))
-                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
-                    var offset = 28 / canvasPx
-                    return {
-                        id: "rect_rotate",
-                        role: "rotate",
-                        x: top.x + dx / length * offset,
-                        y: top.y + dy / length * offset
-                    }
-                }
-
-                function unrotatePointForRect(object, x, y) {
-                    var center = rotatedRectCenter(object)
-                    var angle = -Number(object.rotation_deg || 0) * Math.PI / 180
-                    var dx = Number(x || 0) - center.x
-                    var dy = Number(y || 0) - center.y
-                    var cosA = Math.cos(angle)
-                    var sinA = Math.sin(angle)
-                    return {
-                        x: center.x + dx * cosA - dy * sinA,
-                        y: center.y + dx * sinA + dy * cosA
+                        canvasSizePx: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasSizePx || 512) : 512,
+                        rotateHandleOffsetPx: 28,
+                        handleHitTolerancePx: 14,
+                        rotateHandleHitTolerancePx: 18,
+                        shiftConstrain: modifierShiftDown(activeModifiers),
+                        angleSnapDeg: 15
                     }
                 }
 
@@ -639,8 +575,8 @@ Rectangle {
                         includePoint(bounds, cx - radius, cy - radius)
                         return includePoint(bounds, cx + radius, cy + radius)
                     }
-                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-                        var corners = rotatedRectCorners(object)
+                    if (CanvasHandles.isRectangleLike(kind)) {
+                        var corners = CanvasHandles.rotatedRectCorners(object)
                         for (var cornerIndex = 0; cornerIndex < corners.length; ++cornerIndex) {
                             includePoint(bounds, corners[cornerIndex].x, corners[cornerIndex].y)
                         }
@@ -685,54 +621,16 @@ Rectangle {
                     return ids
                 }
 
-                function objectEditHandles(object) {
-                    var kind = String(object.kind || "")
-                    if (kind === "line" || kind === "glyph_baseline") {
-                        return [
-                            { id: "line_start", x: Number(object.x1 || 0), y: Number(object.y1 || 0) },
-                            { id: "line_end", x: Number(object.x2 || 0), y: Number(object.y2 || 0) }
-                        ]
-                    }
-                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-                        var handles = rotatedRectCorners(object)
-                        handles.push(rotatedRectRotationHandle(object))
-                        return handles
-                    }
-                    if (kind === "circle" || kind === "arc") {
-                        var cx = Number(object.cx || 0)
-                        var cy = Number(object.cy || 0)
-                        var radius = Number(object.radius || 0)
-                        return [
-                            { id: "circle_center", x: cx, y: cy },
-                            { id: "circle_radius", x: Math.min(1, cx + radius), y: cy }
-                        ]
-                    }
-                    return []
-                }
-
                 function hitSelectedHandle(mouseX, mouseY) {
                     var object = selectedGeneratedObject()
                     if (String(object.id || "").length === 0) {
                         return ({})
                     }
-                    var bounds = boardBounds()
-                    var handles = objectEditHandles(object)
-                    var best = ({})
-                    var bestDistance = 999
-                    for (var index = 0; index < handles.length; ++index) {
-                        var handle = handles[index]
-                        var x = bounds.x + Number(handle.x || 0) * bounds.size
-                        var y = bounds.y + Number(handle.y || 0) * bounds.size
-                        var dx = Number(mouseX) - x
-                        var dy = Number(mouseY) - y
-                        var distance = Math.sqrt(dx * dx + dy * dy)
-                        var threshold = String(handle.role || "") === "rotate" ? 18 : 14
-                        if (distance <= threshold && distance <= bestDistance) {
-                            bestDistance = distance
-                            best = handle
-                        }
+                    var hit = CanvasHandles.hitHandleAt(object, mouseX, mouseY, boardBounds(), handleSettings())
+                    if (!hit.ok || hit.handle.readOnly === true) {
+                        return ({})
                     }
-                    return best
+                    return hit.handle
                 }
 
                 function updateSelectionHover(mouseX, mouseY, rawPoint) {
@@ -748,15 +646,6 @@ Rectangle {
                         return
                     }
                     hoverObjectId = String(drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y) || "")
-                }
-
-                function updateObjectFieldPx(field, normalizedValue) {
-                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
-                    drawingWorkspace.controller.updateSelectedDrawingObjectField(field, Math.round(Number(normalizedValue || 0) * canvasPx * 1000) / 1000)
-                }
-
-                function updateObjectRawField(field, value) {
-                    drawingWorkspace.controller.updateSelectedDrawingObjectField(field, value)
                 }
 
                 function modifierShiftDown(modifiers) {
@@ -838,84 +727,19 @@ Rectangle {
                     return snapResolver.gridSnappedPoint(rawPoint)
                 }
 
-                function forceGridSnappedPoint(point) {
-                    var canvasPx = Math.max(1, Number(drawingWorkspace.controller ? drawingWorkspace.controller.drawingCanvasSizePx : 512))
-                    var stepPx = Math.max(1, Number(snapResolver.effectiveGridStepPx()))
-                    return {
-                        x: Math.max(0, Math.min(1, Math.round(Number(point.x || 0) * canvasPx / stepPx) * stepPx / canvasPx)),
-                        y: Math.max(0, Math.min(1, Math.round(Number(point.y || 0) * canvasPx / stepPx) * stepPx / canvasPx)),
-                        stepPx: stepPx
-                    }
-                }
-
                 function applySelectedHandleDrag(handleId, point) {
                     var object = selectedGeneratedObject()
-                    var kind = String(object.kind || "")
                     if (String(object.id || "") !== dragHandleObjectId || String(handleId || "").length === 0) {
                         return
                     }
-                    var x = Math.max(0, Math.min(1, Number(point.x || 0)))
-                    var y = Math.max(0, Math.min(1, Number(point.y || 0)))
-                    if ((kind === "line" || kind === "glyph_baseline") && handleId === "line_start") {
-                        updateObjectFieldPx("x1_px", x)
-                        updateObjectFieldPx("y1_px", y)
+                    var plan = CanvasHandles.handleUpdatePlan(object, handleId, point, handleSettings())
+                    if (!plan.ok) {
                         return
                     }
-                    if ((kind === "line" || kind === "glyph_baseline") && handleId === "line_end") {
-                        updateObjectFieldPx("x2_px", x)
-                        updateObjectFieldPx("y2_px", y)
-                        return
-                    }
-                    if (kind === "rectangle" || kind === "image_reference_frame" || kind === "ascii_crop_frame" || kind === "ascii_cell_region") {
-                        var left = Number(object.x || 0)
-                        var top = Number(object.y || 0)
-                        var right = left + Number(object.width || 0)
-                        var bottom = top + Number(object.height || 0)
-                        if (handleId === "rect_rotate") {
-                            var center = rotatedRectCenter(object)
-                            var rotation = Math.atan2(y - center.y, x - center.x) * 180 / Math.PI + 90
-                            var normalizedRotation = ((rotation % 360) + 360) % 360
-                            if (modifierShiftDown(activeModifiers)) {
-                                normalizedRotation = ((angleSnappedDegrees(normalizedRotation, 15) % 360) + 360) % 360
-                            }
-                            updateObjectRawField("rotation_deg", Math.round(normalizedRotation * 1000) / 1000)
-                            return
-                        }
-                        var localPoint = unrotatePointForRect(object, x, y)
-                        var fixedX = handleId === "rect_nw" || handleId === "rect_sw" ? right : left
-                        var fixedY = handleId === "rect_nw" || handleId === "rect_ne" ? bottom : top
-                        var nextLeft = Math.min(fixedX, localPoint.x)
-                        var nextTop = Math.min(fixedY, localPoint.y)
-                        var nextWidth = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedX - localPoint.x))
-                        var nextHeight = Math.max(1 / Math.max(1, Number(drawingWorkspace.controller.drawingCanvasSizePx || 512)), Math.abs(fixedY - localPoint.y))
-                        if (modifierShiftDown(activeModifiers)) {
-                            var aspect = Math.max(0.000001, Number(object.width || 0)) / Math.max(0.000001, Number(object.height || 0))
-                            if (nextWidth / Math.max(0.000001, nextHeight) > aspect) {
-                                nextHeight = nextWidth / aspect
-                            } else {
-                                nextWidth = nextHeight * aspect
-                            }
-                            nextLeft = fixedX < localPoint.x ? fixedX : fixedX - nextWidth
-                            nextTop = fixedY < localPoint.y ? fixedY : fixedY - nextHeight
-                        }
-                        updateObjectFieldPx("x_px", nextLeft)
-                        updateObjectFieldPx("y_px", nextTop)
-                        updateObjectFieldPx("width_px", nextWidth)
-                        updateObjectFieldPx("height_px", nextHeight)
-                        return
-                    }
-                    if ((kind === "circle" || kind === "arc") && handleId === "circle_center") {
-                        updateObjectFieldPx("cx_px", x)
-                        updateObjectFieldPx("cy_px", y)
-                        return
-                    }
-                    if ((kind === "circle" || kind === "arc") && handleId === "circle_radius") {
-                        var cx = Number(object.cx || 0)
-                        var cy = Number(object.cy || 0)
-                        var dx = x - cx
-                        var dy = y - cy
-                        var radius = Math.sqrt(dx * dx + dy * dy)
-                        updateObjectFieldPx("radius_px", radius)
+                    var updates = plan.updates || []
+                    for (var index = 0; index < updates.length; ++index) {
+                        var update = updates[index] || ({})
+                        drawingWorkspace.controller.updateSelectedDrawingObjectField(update.field, update.value)
                     }
                 }
 

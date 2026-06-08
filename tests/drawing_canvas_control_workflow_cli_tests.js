@@ -39,6 +39,11 @@ expect(dryRunOutput.dryRun === true, "dry-run output should identify dry-run mod
 expect(dryRunOutput.selectedWorkflowCount === 4, "dry-run should select line workflows")
 expect(dryRunOutput.totalWorkflowCount >= dryRunOutput.selectedWorkflowCount, "dry-run should include total workflow count")
 expect(dryRunOutput.filters.tags.indexOf("line") >= 0, "dry-run should preserve tag filter")
+expect(dryRunOutput.coverage.byKind.line === 4, "dry-run should count selected workflows by kind")
+expect(dryRunOutput.coverage.byCategory.create === 1, "dry-run should count selected workflows by category")
+expect(dryRunOutput.coverage.byCategory.edit === 1, "dry-run should include edit category coverage")
+expect(dryRunOutput.coverage.byTag.line === 4, "dry-run should count selected workflows by tag")
+expect(dryRunOutput.coverage.byTag.geometry === 3, "dry-run should count non-selector tags")
 expect(dryRunOutput.workflows.every(workflow => workflow.tags.indexOf("line") >= 0), "dry-run should list selected workflows only")
 
 if (!fs.existsSync(executable)) {

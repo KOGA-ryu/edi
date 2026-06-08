@@ -95,6 +95,28 @@ function compactOutput(repoRoot, report) {
     }
 }
 
+function incrementCount(target, key) {
+    const name = String(key || "unknown")
+    target[name] = Number(target[name] || 0) + 1
+}
+
+function dryRunCoverage(workflows) {
+    const coverage = {
+        byKind: {},
+        byCategory: {},
+        byTag: {},
+    }
+    for (const workflow of workflows) {
+        incrementCount(coverage.byKind, workflow.kind)
+        incrementCount(coverage.byCategory, workflow.category)
+        const tags = Array.isArray(workflow.tags) ? workflow.tags : []
+        for (const tag of tags) {
+            incrementCount(coverage.byTag, tag)
+        }
+    }
+    return coverage
+}
+
 function dryRunOutput(manifest) {
     return {
         ok: true,
@@ -102,6 +124,7 @@ function dryRunOutput(manifest) {
         selectedWorkflowCount: manifest.selectedWorkflows.length,
         totalWorkflowCount: manifest.workflows.length,
         filters: manifest.filters,
+        coverage: dryRunCoverage(manifest.selectedWorkflows),
         workflows: manifest.selectedWorkflows.map(workflow => ({
             fixture: workflow.fixture,
             kind: workflow.kind,

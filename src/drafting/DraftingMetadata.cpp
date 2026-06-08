@@ -161,13 +161,13 @@ bool isValidMeasurementMetadata(const MeasurementMetadata &measurement)
     if (!isValidMetadataText(measurement.label, kMetadataShortTextLimit)) {
         return false;
     }
-    if (!std::isfinite(measurement.scale)) {
+    if (!std::isfinite(measurement.canvasUnitsPerRealUnit)) {
         return false;
     }
     if (measurement.unit == MeasurementUnit::None) {
         return true;
     }
-    return measurement.scale > 0.0;
+    return measurement.canvasUnitsPerRealUnit > 0.0;
 }
 
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata)
@@ -203,11 +203,15 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
         }
         return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement label must be printable ASCII");
     }
-    if (!std::isfinite(metadata.measurement.scale)) {
-        return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement scale must be finite");
+    if (!std::isfinite(metadata.measurement.canvasUnitsPerRealUnit)) {
+        return DraftingMetadataValidationResult::rejected(
+            DraftingResultCode::InvalidMetadata,
+            "measurement canvas units per real unit must be finite");
     }
-    if (metadata.measurement.unit != MeasurementUnit::None && metadata.measurement.scale <= 0.0) {
-        return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement scale must be positive");
+    if (metadata.measurement.unit != MeasurementUnit::None && metadata.measurement.canvasUnitsPerRealUnit <= 0.0) {
+        return DraftingMetadataValidationResult::rejected(
+            DraftingResultCode::InvalidMetadata,
+            "measurement canvas units per real unit must be positive");
     }
 
     return DraftingMetadataValidationResult::accepted();

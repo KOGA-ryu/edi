@@ -77,7 +77,7 @@ struct FillStyle {
 
 struct MeasurementMetadata {
     MeasurementUnit unit = MeasurementUnit::None;
-    double scale = 0.0;
+    double canvasUnitsPerRealUnit = 0.0;
     std::string label;
 };
 

@@ -17,7 +17,7 @@ ObjectMetadata validMetadata()
     metadata.toolProvenance = "drafting_metadata_tests";
     metadata.measurementNote = "calibrated by test";
     metadata.measurement.unit = MeasurementUnit::Centimeter;
-    metadata.measurement.scale = 2.0;
+    metadata.measurement.canvasUnitsPerRealUnit = 2.0;
     metadata.measurement.label = "bench scale";
     return metadata;
 }
@@ -92,21 +92,21 @@ int main()
 
     ObjectMetadata noUnitZeroScale = validMetadata();
     noUnitZeroScale.measurement.unit = MeasurementUnit::None;
-    noUnitZeroScale.measurement.scale = 0.0;
+    noUnitZeroScale.measurement.canvasUnitsPerRealUnit = 0.0;
     assert(isValidMeasurementMetadata(noUnitZeroScale.measurement));
     auto noUnitZeroScaleValidation = validateObjectMetadata(noUnitZeroScale);
     assert(noUnitZeroScaleValidation.ok);
 
     ObjectMetadata zeroRealScale = validMetadata();
     zeroRealScale.measurement.unit = MeasurementUnit::Centimeter;
-    zeroRealScale.measurement.scale = 0.0;
+    zeroRealScale.measurement.canvasUnitsPerRealUnit = 0.0;
     assert(!isValidMeasurementMetadata(zeroRealScale.measurement));
     auto zeroRealScaleValidation = validateObjectMetadata(zeroRealScale);
     assert(!zeroRealScaleValidation.ok);
     assert(zeroRealScaleValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata nonFiniteScale = validMetadata();
-    nonFiniteScale.measurement.scale = std::numeric_limits<double>::quiet_NaN();
+    nonFiniteScale.measurement.canvasUnitsPerRealUnit = std::numeric_limits<double>::quiet_NaN();
     assert(!isValidMeasurementMetadata(nonFiniteScale.measurement));
     auto nonFiniteScaleValidation = validateObjectMetadata(nonFiniteScale);
     assert(!nonFiniteScaleValidation.ok);

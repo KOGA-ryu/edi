@@ -33,7 +33,7 @@ DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
     if (!geometryValidation.ok) {
         return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
-    if (findLayer(document, object.layerId) == nullptr) {
+    if (!containsLayer(document, object.layerId)) {
         return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
     }
 

@@ -41,25 +41,36 @@ const DraftingObject *findObject(const DraftingDocument &document, const Draftin
     return index ? &document.objects[*index] : nullptr;
 }
 
+std::optional<std::size_t> layerIndexById(const DraftingDocument &document, const LayerId &id)
+{
+    for (std::size_t index = 0; index < document.layers.size(); ++index) {
+        if (document.layers[index].id == id) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
 DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id)
 {
-    auto it = std::find_if(document.layers.begin(), document.layers.end(), [&](const DraftingLayer &layer) {
-        return layer.id == id;
-    });
-    return it == document.layers.end() ? nullptr : &*it;
+    const auto index = layerIndexById(document, id);
+    return index ? &document.layers[*index] : nullptr;
 }
 
 const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &id)
 {
-    auto it = std::find_if(document.layers.begin(), document.layers.end(), [&](const DraftingLayer &layer) {
-        return layer.id == id;
-    });
-    return it == document.layers.end() ? nullptr : &*it;
+    const auto index = layerIndexById(document, id);
+    return index ? &document.layers[*index] : nullptr;
 }
 
 bool containsObject(const DraftingDocument &document, const DraftingObjectId &id)
 {
     return objectIndexById(document, id).has_value();
+}
+
+bool containsLayer(const DraftingDocument &document, const LayerId &id)
+{
+    return layerIndexById(document, id).has_value();
 }
 
 } // namespace edi::drafting

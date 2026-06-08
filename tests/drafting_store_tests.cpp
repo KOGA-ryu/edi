@@ -25,6 +25,12 @@ DraftingObject makeLine(const char *id)
 int main()
 {
     DraftingDocument document = makeDraftingDocument("doc");
+    assert(layerIndexById(document, "default") == 0);
+    assert(findLayer(document, "default") == &document.layers[0]);
+    assert(containsLayer(document, "default"));
+    assert(layerIndexById(document, "missing_layer") == std::nullopt);
+    assert(findLayer(document, "missing_layer") == nullptr);
+    assert(!containsLayer(document, "missing_layer"));
 
     auto add = addObject(document, makeLine("line_1"));
     assert(add.ok);
@@ -79,6 +85,14 @@ int main()
     assert(!badKindResult.ok);
     assert(badKindResult.code == DraftingResultCode::KindGeometryMismatch);
     assert(document.revision == revisionAfterDuplicate);
+
+    DraftingObject missingLayer = makeLine("missing_layer_object");
+    missingLayer.layerId = "missing_layer";
+    auto missingLayerResult = addObject(document, missingLayer);
+    assert(!missingLayerResult.ok);
+    assert(missingLayerResult.code == DraftingResultCode::LayerNotFound);
+    assert(document.revision == revisionAfterDuplicate);
+    assert(objectIndexById(document, "missing_layer_object") == std::nullopt);
 
     auto move = moveObject(document, "line_1", 2.0, 3.0);
     assert(move.ok);

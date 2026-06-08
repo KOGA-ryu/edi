@@ -46,8 +46,10 @@ DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id);
 const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id);
+std::optional<std::size_t> layerIndexById(const DraftingDocument &document, const LayerId &id);
 DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id);
 const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &id);
 bool containsObject(const DraftingDocument &document, const DraftingObjectId &id);
+bool containsLayer(const DraftingDocument &document, const LayerId &id);
 
 } // namespace edi::drafting

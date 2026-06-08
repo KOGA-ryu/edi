@@ -11,8 +11,9 @@ function usage() {
         "  node tests/helpers/drawing_control_workflow_report.js --tag <tag>",
         "  node tests/helpers/drawing_control_workflow_report.js --category <category>",
         "  node tests/helpers/drawing_control_workflow_report.js --fixture <fixture.json>",
+        "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run",
         "",
-        "Selectors may be repeated or comma-separated."
+        "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app."
     ].join("\n")
 }
 
@@ -30,6 +31,7 @@ function parseArgs(argv) {
         fixtures: [],
         categories: [],
         tags: [],
+        dryRun: false,
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -37,6 +39,8 @@ function parseArgs(argv) {
             args.help = true
         } else if (token === "--all") {
             args.all = true
+        } else if (token === "--dry-run") {
+            args.dryRun = true
         } else if (token === "--fixture") {
             pushValue(args.fixtures, argv[++index])
         } else if (token === "--category") {
@@ -91,6 +95,22 @@ function compactOutput(repoRoot, report) {
     }
 }
 
+function dryRunOutput(manifest) {
+    return {
+        ok: true,
+        dryRun: true,
+        selectedWorkflowCount: manifest.selectedWorkflows.length,
+        totalWorkflowCount: manifest.workflows.length,
+        filters: manifest.filters,
+        workflows: manifest.selectedWorkflows.map(workflow => ({
+            fixture: workflow.fixture,
+            kind: workflow.kind,
+            category: workflow.category,
+            tags: workflow.tags,
+        })),
+    }
+}
+
 function run() {
     const args = parseArgs(process.argv.slice(2))
     if (args.help) {
@@ -102,6 +122,15 @@ function run() {
     }
 
     const repoRoot = path.join(__dirname, "..", "..")
+    const manifest = WorkflowHarness.workflowFixtures(repoRoot, args.all ? {} : selectorEnv(args))
+    if (manifest.selectedWorkflows.length <= 0) {
+        throw new Error("workflow selectors did not match any fixtures")
+    }
+    if (args.dryRun) {
+        console.log(JSON.stringify(dryRunOutput(manifest), null, 2))
+        return 0
+    }
+
     const executable = path.join(repoRoot, "build", "qt_qml_region_split")
     if (!fs.existsSync(executable)) {
         console.log(JSON.stringify({
@@ -110,11 +139,6 @@ function run() {
             reason: "build/qt_qml_region_split is not built",
         }, null, 2))
         return 0
-    }
-
-    const manifest = WorkflowHarness.workflowFixtures(repoRoot, args.all ? {} : selectorEnv(args))
-    if (manifest.selectedWorkflows.length <= 0) {
-        throw new Error("workflow selectors did not match any fixtures")
     }
 
     const metricReducer = WorkflowHarness.loadMetricReducer(repoRoot)

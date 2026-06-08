@@ -17,6 +17,30 @@ const repoRoot = path.join(__dirname, "..")
 const executable = path.join(repoRoot, "build", "qt_qml_region_split")
 const helper = path.join(__dirname, "helpers", "drawing_control_workflow_report.js")
 
+const dryRun = spawnSync(process.execPath, [
+    helper,
+    "--tag", "line",
+    "--dry-run",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (dryRun.status !== 0) {
+    console.error(dryRun.stdout)
+    console.error(dryRun.stderr)
+}
+expect(dryRun.status === 0, "workflow report CLI dry-run should pass without launching app")
+
+const dryRunOutput = JSON.parse(dryRun.stdout)
+expect(dryRunOutput.ok === true, "dry-run output should report ok")
+expect(dryRunOutput.dryRun === true, "dry-run output should identify dry-run mode")
+expect(dryRunOutput.selectedWorkflowCount === 4, "dry-run should select line workflows")
+expect(dryRunOutput.totalWorkflowCount >= dryRunOutput.selectedWorkflowCount, "dry-run should include total workflow count")
+expect(dryRunOutput.filters.tags.indexOf("line") >= 0, "dry-run should preserve tag filter")
+expect(dryRunOutput.workflows.every(workflow => workflow.tags.indexOf("line") >= 0), "dry-run should list selected workflows only")
+
 if (!fs.existsSync(executable)) {
     console.log("SKIP: build/qt_qml_region_split is not built")
     process.exit(0)

@@ -15,6 +15,7 @@ int main()
 
     auto create = applyDraftingCommand(document, CreateObjectCommand{point});
     assert(create.ok);
+    assert(create.code == DraftingResultCode::None);
     assert(containsObject(document, "point_1"));
 
     auto select = applyDraftingCommand(document, SelectObjectCommand{"point_1"});
@@ -31,6 +32,22 @@ int main()
     auto del = applyDraftingCommand(document, DeleteObjectCommand{"point_1"});
     assert(del.ok);
     assert(!containsObject(document, "point_1"));
+
+    const auto revisionAfterDelete = document.revision;
+    auto missingSelect = applyDraftingCommand(document, SelectObjectCommand{"point_1"});
+    assert(!missingSelect.ok);
+    assert(missingSelect.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(document.revision == revisionAfterDelete);
+    assert(!document.activeObjectId);
+
+    DraftingObject invalidPolyline;
+    invalidPolyline.id = "polyline_1";
+    invalidPolyline.kind = DraftingShapeKind::Polyline;
+    invalidPolyline.geometry = PolylineGeometry{{{0.0, 0.0}}};
+    auto invalidCreate = applyDraftingCommand(document, CreateObjectCommand{invalidPolyline});
+    assert(!invalidCreate.ok);
+    assert(invalidCreate.code == DraftingResultCode::InvalidGeometry);
+    assert(document.revision == revisionAfterDelete);
 
     return 0;
 }

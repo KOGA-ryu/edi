@@ -4,32 +4,38 @@
 #include "drafting/DraftingSelection.h"
 
 #include <algorithm>
+#include <cmath>
+#include <utility>
 
 namespace edi::drafting {
 
 DraftingStoreResult DraftingStoreResult::accepted()
 {
-    return {true, {}};
+    return {true, DraftingResultCode::None, {}};
 }
 
-DraftingStoreResult DraftingStoreResult::rejected(std::string message)
+DraftingStoreResult DraftingStoreResult::rejected(DraftingResultCode code, std::string message)
 {
-    return {false, std::move(message)};
+    return {false, code, std::move(message)};
 }
 
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 {
     if (object.id.empty()) {
-        return DraftingStoreResult::rejected("object id is required");
+        return DraftingStoreResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
     }
     if (containsObject(document, object.id)) {
-        return DraftingStoreResult::rejected("object id already exists");
+        return DraftingStoreResult::rejected(DraftingResultCode::DuplicateObjectId, "object id already exists");
     }
     if (!kindMatchesGeometry(object.kind, object.geometry)) {
-        return DraftingStoreResult::rejected("shape kind does not match geometry");
+        return DraftingStoreResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+    const auto geometryValidation = validateGeometry(object.geometry);
+    if (!geometryValidation.ok) {
+        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
     if (findLayer(document, object.layerId) == nullptr) {
-        return DraftingStoreResult::rejected("layer does not exist");
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
     }
 
     object.bounds = computeBounds(object.geometry);
@@ -48,7 +54,7 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
         document.objects.end());
 
     if (document.objects.size() == before) {
-        return DraftingStoreResult::rejected("object does not exist");
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
     normalizeSelection(document);
@@ -60,10 +66,14 @@ DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const Draft
 {
     DraftingObject *object = findObject(document, id);
     if (object == nullptr) {
-        return DraftingStoreResult::rejected("object does not exist");
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
     if (!kindMatchesGeometry(object->kind, geometry)) {
-        return DraftingStoreResult::rejected("shape kind does not match geometry");
+        return DraftingStoreResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+    const auto geometryValidation = validateGeometry(geometry);
+    if (!geometryValidation.ok) {
+        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
 
     object->geometry = std::move(geometry);
@@ -76,7 +86,7 @@ DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const Draft
 {
     DraftingObject *object = findObject(document, id);
     if (object == nullptr) {
-        return DraftingStoreResult::rejected("object does not exist");
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
     object->metadata = std::move(metadata);
@@ -88,10 +98,20 @@ DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectI
 {
     DraftingObject *object = findObject(document, id);
     if (object == nullptr) {
-        return DraftingStoreResult::rejected("object does not exist");
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
-    object->geometry = translateGeometry(object->geometry, dx, dy);
+    if (!std::isfinite(dx) || !std::isfinite(dy)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
+    }
+
+    DraftingGeometry movedGeometry = translateGeometry(object->geometry, dx, dy);
+    const auto geometryValidation = validateGeometry(movedGeometry);
+    if (!geometryValidation.ok) {
+        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
+    }
+
+    object->geometry = std::move(movedGeometry);
     object->bounds = computeBounds(object->geometry);
     ++document.revision;
     return DraftingStoreResult::accepted();

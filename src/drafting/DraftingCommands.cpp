@@ -9,7 +9,7 @@ namespace {
 
 DraftingCommandResult fromStoreResult(const DraftingStoreResult &result)
 {
-    return {result.ok, result.message};
+    return {result.ok, result.code, result.message};
 }
 
 } // namespace
@@ -29,9 +29,12 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
         } else if constexpr (std::is_same_v<Command, UpdateMetadataCommand>) {
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
         } else {
+            if (!containsObject(document, typedCommand.objectId)) {
+                return {false, DraftingResultCode::InvalidSelectionTarget, "selection target does not exist"};
+            }
             selectOnly(document, typedCommand.objectId);
             ++document.revision;
-            return {true, {}};
+            return {true, DraftingResultCode::None, {}};
         }
     }, command);
 }

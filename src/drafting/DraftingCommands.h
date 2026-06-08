@@ -45,6 +45,7 @@ using DraftingCommand = std::variant<
 
 struct DraftingCommandResult {
     bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
     std::string message;
 };
 

@@ -8,10 +8,11 @@ namespace edi::drafting {
 
 struct DraftingStoreResult {
     bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
     std::string message;
 
     static DraftingStoreResult accepted();
-    static DraftingStoreResult rejected(std::string message);
+    static DraftingStoreResult rejected(DraftingResultCode code, std::string message);
 };
 
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object);

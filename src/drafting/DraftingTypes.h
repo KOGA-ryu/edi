@@ -20,6 +20,17 @@ enum class DraftingShapeKind {
     Polyline
 };
 
+enum class DraftingResultCode {
+    None,
+    EmptyObjectId,
+    DuplicateObjectId,
+    ObjectNotFound,
+    LayerNotFound,
+    KindGeometryMismatch,
+    InvalidGeometry,
+    InvalidSelectionTarget
+};
+
 struct Point2D {
     double x = 0.0;
     double y = 0.0;
@@ -98,6 +109,7 @@ using DraftingGeometry = std::variant<
     PolylineGeometry>;
 
 const char *shapeKindName(DraftingShapeKind kind);
+const char *draftingResultCodeName(DraftingResultCode code);
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry);
 bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry);
 

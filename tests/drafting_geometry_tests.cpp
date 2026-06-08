@@ -3,6 +3,8 @@
 
 #include <cassert>
 #include <cmath>
+#include <limits>
+#include <string>
 
 using namespace edi::drafting;
 
@@ -27,6 +29,14 @@ int main()
     ScaleCalibration calibration{2.0, MeasurementUnit::Centimeter};
     MeasurementValue measured = measureDistance({0.0, 0.0}, {0.0, 10.0}, calibration);
     assert(measured.value == 5.0);
+
+    assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
+    assert(validateGeometry(line).ok);
+    assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
+    assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
+    assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);
+    assert(!validateGeometry(PolylineGeometry{{{0.0, 0.0}}}).ok);
+    assert(!validateGeometry(PointGeometry{{std::numeric_limits<double>::infinity(), 0.0}}).ok);
 
     return 0;
 }

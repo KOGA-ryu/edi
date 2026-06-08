@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <type_traits>
+#include <utility>
 
 namespace edi::drafting {
 
@@ -60,6 +62,29 @@ const char *shapeKindName(DraftingShapeKind kind)
     return "unknown";
 }
 
+const char *draftingResultCodeName(DraftingResultCode code)
+{
+    switch (code) {
+    case DraftingResultCode::None:
+        return "none";
+    case DraftingResultCode::EmptyObjectId:
+        return "empty_object_id";
+    case DraftingResultCode::DuplicateObjectId:
+        return "duplicate_object_id";
+    case DraftingResultCode::ObjectNotFound:
+        return "object_not_found";
+    case DraftingResultCode::LayerNotFound:
+        return "layer_not_found";
+    case DraftingResultCode::KindGeometryMismatch:
+        return "kind_geometry_mismatch";
+    case DraftingResultCode::InvalidGeometry:
+        return "invalid_geometry";
+    case DraftingResultCode::InvalidSelectionTarget:
+        return "invalid_selection_target";
+    }
+    return "unknown";
+}
+
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
 {
     return std::visit([](const auto &typedGeometry) {
@@ -83,6 +108,81 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
 bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry)
 {
     return kind == geometryKind(geometry);
+}
+
+GeometryValidationResult GeometryValidationResult::accepted()
+{
+    return {true, DraftingResultCode::None, {}};
+}
+
+GeometryValidationResult GeometryValidationResult::rejected(std::string message)
+{
+    return {false, DraftingResultCode::InvalidGeometry, std::move(message)};
+}
+
+bool isFinite(Point2D point)
+{
+    return std::isfinite(point.x) && std::isfinite(point.y);
+}
+
+bool isFinite(const Bounds2D &bounds)
+{
+    return std::isfinite(bounds.x)
+        && std::isfinite(bounds.y)
+        && std::isfinite(bounds.width)
+        && std::isfinite(bounds.height);
+}
+
+GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
+{
+    return std::visit([](const auto &typedGeometry) -> GeometryValidationResult {
+        using Geometry = std::decay_t<decltype(typedGeometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            if (!isFinite(typedGeometry.point)) {
+                return GeometryValidationResult::rejected("point coordinates must be finite");
+            }
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            if (!isFinite(typedGeometry.a) || !isFinite(typedGeometry.b)) {
+                return GeometryValidationResult::rejected("line endpoints must be finite");
+            }
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            if (!isFinite(typedGeometry.origin)
+                || !std::isfinite(typedGeometry.width)
+                || !std::isfinite(typedGeometry.height)
+                || !std::isfinite(typedGeometry.rotationDeg)) {
+                return GeometryValidationResult::rejected("rectangle fields must be finite");
+            }
+            if (typedGeometry.width < 0.0 || typedGeometry.height < 0.0) {
+                return GeometryValidationResult::rejected("rectangle dimensions must be non-negative");
+            }
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            if (!isFinite(typedGeometry.center) || !std::isfinite(typedGeometry.radius)) {
+                return GeometryValidationResult::rejected("circle fields must be finite");
+            }
+            if (typedGeometry.radius < 0.0) {
+                return GeometryValidationResult::rejected("circle radius must be non-negative");
+            }
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
+            if (typedGeometry.vertices.size() < 3) {
+                return GeometryValidationResult::rejected("polygon requires at least three vertices");
+            }
+            for (const Point2D &point : typedGeometry.vertices) {
+                if (!isFinite(point)) {
+                    return GeometryValidationResult::rejected("polygon vertices must be finite");
+                }
+            }
+        } else {
+            if (typedGeometry.vertices.size() < 2) {
+                return GeometryValidationResult::rejected("polyline requires at least two vertices");
+            }
+            for (const Point2D &point : typedGeometry.vertices) {
+                if (!isFinite(point)) {
+                    return GeometryValidationResult::rejected("polyline vertices must be finite");
+                }
+            }
+        }
+        return GeometryValidationResult::accepted();
+    }, geometry);
 }
 
 Bounds2D computeBounds(const DraftingGeometry &geometry)

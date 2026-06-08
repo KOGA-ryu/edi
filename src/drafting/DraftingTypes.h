@@ -1,39 +1,104 @@
-// DraftingTypes.h
-//
-// Purpose:
-//   Defines the primitive typed vocabulary for the drafting system.
-//
-// Expected contracts:
-//   - Stable IDs: drafting object IDs, layer IDs, style IDs, document IDs.
-//   - Numeric geometry primitives: Point2D, Bounds2D, Transform2D.
-//   - Style primitives: stroke, fill, opacity, line width, line style.
-//   - Metadata fields: author/source, created time, tool provenance, measurement
-//     information.
-//   - Shape kind enum for point, line, rectangle, circle, polygon, and polyline.
-//   - Typed geometry structs, later collected under a variant-style geometry
-//     contract.
-//
-// Ownership rule:
-//   This file owns names and shapes of basic data only. It does not own object
-//   lifecycle, command mutation, rendering, or persistence.
-//
-// Preserve later:
-//   Keep these types plain and stable. They are the load-bearing vocabulary used
-//   by geometry, store, commands, measurement, and formats.
-//
-// Surface contract:
-//   - Primary responsibility: define the typed vocabulary shared by all drafting
-//     modules.
-//   - Allowed data: IDs, coordinates, dimensions, transforms, style values,
-//     metadata values, shape kind enum, and typed geometry records.
-//   - Call direction: included by drafting modules and format adapters that
-//     convert typed drafting contracts.
-//   - Mutation authority: none; this file defines value shapes.
-//   - Unit convention: document-space coordinates unless a type name says
-//     otherwise; real-world units belong in measurement types.
-//   - Identity policy: stable IDs are public; dense indexes can be internal to
-//     stores and acceleration structures.
-//   - Lifetime: value types are copied/moved; ownership is decided by stores.
-//   - Composition boundary: types stay data-only and do not call behavior.
-//   - Promotion path: hot-path arrays can later be built from these stable value
-//     contracts without changing public IDs.
+#pragma once
+
+#include <string>
+#include <variant>
+#include <vector>
+
+namespace edi::drafting {
+
+using DraftingDocumentId = std::string;
+using DraftingObjectId = std::string;
+using LayerId = std::string;
+using StyleId = std::string;
+
+enum class DraftingShapeKind {
+    Point,
+    Line,
+    Rectangle,
+    Circle,
+    Polygon,
+    Polyline
+};
+
+struct Point2D {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+struct Bounds2D {
+    double x = 0.0;
+    double y = 0.0;
+    double width = 0.0;
+    double height = 0.0;
+};
+
+struct Transform2D {
+    double translateX = 0.0;
+    double translateY = 0.0;
+    double scaleX = 1.0;
+    double scaleY = 1.0;
+    double rotationDeg = 0.0;
+};
+
+struct StrokeStyle {
+    double width = 1.0;
+    double opacity = 1.0;
+    std::string color = "#000000";
+    std::string lineStyle = "solid";
+};
+
+struct FillStyle {
+    double opacity = 0.0;
+    std::string color = "#ffffff";
+};
+
+struct ObjectMetadata {
+    std::string author;
+    std::string source;
+    std::string createdAt;
+    std::string toolProvenance;
+    std::string measurementNote;
+};
+
+struct PointGeometry {
+    Point2D point;
+};
+
+struct LineGeometry {
+    Point2D a;
+    Point2D b;
+};
+
+struct RectangleGeometry {
+    Point2D origin;
+    double width = 0.0;
+    double height = 0.0;
+    double rotationDeg = 0.0;
+};
+
+struct CircleGeometry {
+    Point2D center;
+    double radius = 0.0;
+};
+
+struct PolygonGeometry {
+    std::vector<Point2D> vertices;
+};
+
+struct PolylineGeometry {
+    std::vector<Point2D> vertices;
+};
+
+using DraftingGeometry = std::variant<
+    PointGeometry,
+    LineGeometry,
+    RectangleGeometry,
+    CircleGeometry,
+    PolygonGeometry,
+    PolylineGeometry>;
+
+const char *shapeKindName(DraftingShapeKind kind);
+DraftingShapeKind geometryKind(const DraftingGeometry &geometry);
+bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry);
+
+} // namespace edi::drafting

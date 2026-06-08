@@ -1,32 +1,87 @@
-// ProjectWorkspace.cpp
-//
-// Implementation responsibility:
-//   Implements project membership helpers and default workspace construction.
-//
-// Belongs here:
-//   - Enforcing unique document IDs within a workspace.
-//   - Adding/removing document references.
-//   - Looking up workspace members by stable ID.
-//   - Tracking active/default project-level references when appropriate.
-//
-// Must be delegated elsewhere:
-//   - Drafting document mutation belongs in drafting store/commands.
-//   - Text document mutation belongs in text store/commands.
-//   - Format loading/saving belongs in format adapters.
-//
-// Boundary note:
-//   This implementation should be deterministic and boring: project membership
-//   changes in, updated workspace state out.
-//
-// Surface contract:
-//   - Primary responsibility: implement workspace membership operations.
-//   - Allowed data: workspace values, document IDs, ordered membership lists,
-//     and project-level reference records.
-//   - Call direction: called by app/project controllers; calls only public
-//     domain collection helpers where needed.
-//   - Mutation authority: may change membership and active/default references.
-//   - Unit convention: no coordinate, measurement, or text-range units.
-//   - Identity policy: lookups use stable IDs; ordering may use vectors.
-//   - Lifetime: updates the workspace container, not the pointed-to documents.
-//   - Composition boundary: keeps project composition separate from editing.
-//   - Promotion path: persistence orchestration can wrap this layer later.
+#include "app/ProjectWorkspace.h"
+
+#include <algorithm>
+#include <utility>
+
+namespace edi::app {
+
+ProjectWorkspaceResult ProjectWorkspaceResult::accepted()
+{
+    return {true, {}};
+}
+
+ProjectWorkspaceResult ProjectWorkspaceResult::rejected(std::string message)
+{
+    return {false, std::move(message)};
+}
+
+ProjectWorkspace makeProjectWorkspace(std::string id, std::string name)
+{
+    ProjectWorkspace workspace;
+    workspace.id = std::move(id);
+    workspace.name = name.empty() ? workspace.id : std::move(name);
+    return workspace;
+}
+
+edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
+{
+    auto it = std::find_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
+        return document.id == id;
+    });
+    return it == workspace.draftingDocuments.end() ? nullptr : &*it;
+}
+
+const edi::drafting::DraftingDocument *findDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
+{
+    auto it = std::find_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
+        return document.id == id;
+    });
+    return it == workspace.draftingDocuments.end() ? nullptr : &*it;
+}
+
+ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document)
+{
+    if (document.id.empty()) {
+        return ProjectWorkspaceResult::rejected("drafting document id is required");
+    }
+    if (findDraftingDocument(workspace, document.id) != nullptr) {
+        return ProjectWorkspaceResult::rejected("drafting document id already exists");
+    }
+    if (!workspace.activeDraftingDocumentId) {
+        workspace.activeDraftingDocumentId = document.id;
+    }
+    workspace.draftingDocuments.push_back(std::move(document));
+    return ProjectWorkspaceResult::accepted();
+}
+
+ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
+{
+    const auto before = workspace.draftingDocuments.size();
+    workspace.draftingDocuments.erase(
+        std::remove_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
+            return document.id == id;
+        }),
+        workspace.draftingDocuments.end());
+    if (workspace.draftingDocuments.size() == before) {
+        return ProjectWorkspaceResult::rejected("drafting document does not exist");
+    }
+    if (workspace.activeDraftingDocumentId == id) {
+        if (workspace.draftingDocuments.empty()) {
+            workspace.activeDraftingDocumentId.reset();
+        } else {
+            workspace.activeDraftingDocumentId = workspace.draftingDocuments.front().id;
+        }
+    }
+    return ProjectWorkspaceResult::accepted();
+}
+
+ProjectWorkspaceResult setActiveDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocumentId id)
+{
+    if (findDraftingDocument(workspace, id) == nullptr) {
+        return ProjectWorkspaceResult::rejected("drafting document does not exist");
+    }
+    workspace.activeDraftingDocumentId = std::move(id);
+    return ProjectWorkspaceResult::accepted();
+}
+
+} // namespace edi::app

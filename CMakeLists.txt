@@ -54,6 +54,103 @@ target_link_libraries(drawing_runtime_core
         Qt6::Core
 )
 
+add_library(edi_drafting_core STATIC
+    src/drafting/DraftingTypes.h
+    src/drafting/DraftingDocument.h
+    src/drafting/DraftingDocument.cpp
+    src/drafting/DraftingStore.h
+    src/drafting/DraftingStore.cpp
+    src/drafting/DraftingCommands.h
+    src/drafting/DraftingCommands.cpp
+    src/drafting/DraftingGeometry.h
+    src/drafting/DraftingGeometry.cpp
+    src/drafting/DraftingSelection.h
+    src/drafting/DraftingSelection.cpp
+    src/drafting/DraftingMeasurement.h
+    src/drafting/DraftingMeasurement.cpp
+)
+
+target_include_directories(edi_drafting_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_library(edi_text_core STATIC
+    src/text/TextDocument.h
+    src/text/TextDocument.cpp
+    src/text/TextDocumentStore.h
+    src/text/TextDocumentStore.cpp
+    src/text/TextEditorCommands.h
+    src/text/TextEditorCommands.cpp
+    src/text/TextSelection.h
+    src/text/TextSelection.cpp
+)
+
+target_include_directories(edi_text_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_library(edi_app_core STATIC
+    src/app/AppState.h
+    src/app/AppState.cpp
+    src/app/ProjectWorkspace.h
+    src/app/ProjectWorkspace.cpp
+)
+
+target_include_directories(edi_app_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(edi_app_core
+    PUBLIC
+        edi_drafting_core
+        edi_text_core
+)
+
+add_library(edi_format_core STATIC
+    src/formats/FormatResult.h
+    src/formats/TomlReader.h
+    src/formats/TomlReader.cpp
+    src/formats/TomlWriter.h
+    src/formats/TomlWriter.cpp
+    src/formats/ToonExport.h
+    src/formats/ToonExport.cpp
+    src/formats/MessagePackReader.h
+    src/formats/MessagePackReader.cpp
+    src/formats/MessagePackWriter.h
+    src/formats/MessagePackWriter.cpp
+    src/formats/MessagePackInspector.h
+    src/formats/MessagePackInspector.cpp
+)
+
+target_include_directories(edi_format_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_library(edi_scripting_core STATIC
+    src/scripting/LuaRecipe.h
+    src/scripting/LuaRecipe.cpp
+    src/scripting/ScriptCommandBridge.h
+    src/scripting/ScriptCommandBridge.cpp
+)
+
+target_include_directories(edi_scripting_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+function(add_edi_contract_test test_name test_source)
+    add_executable(${test_name} ${test_source})
+    target_link_libraries(${test_name} PRIVATE ${ARGN})
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endfunction()
+
+add_edi_contract_test(drafting_store_tests tests/drafting_store_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_commands_tests tests/drafting_commands_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_geometry_tests tests/drafting_geometry_tests.cpp edi_drafting_core)
+add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
+add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)
+add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
+add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
+
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h

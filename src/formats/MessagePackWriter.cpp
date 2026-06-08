@@ -1,30 +1,19 @@
-// MessagePackWriter.cpp
-//
-// Implementation responsibility:
-//   Converts typed domain contracts into MessagePack bytes.
-//
-// Belongs here:
-//   - Stable schema/version emission.
-//   - Stable field ordering where the encoder supports it.
-//   - Required inspect metadata.
-//   - Diagnostics for unsupported values.
-//
-// Must be delegated elsewhere:
-//   - File IO orchestration belongs in persistence services.
-//   - Runtime mutation belongs in app/domain command layers.
-//   - Human-authored behavior belongs in scripting.
-//
-// Boundary note:
-//   This file writes representations, not truth. Truth is typed C++ state.
-//
-// Surface contract:
-//   - Primary responsibility: implement typed value encoding to MessagePack.
-//   - Allowed data: typed contracts, schema/version labels, encoder state, and
-//     diagnostics.
-//   - Call direction: called by save/export/replay tooling.
-//   - Mutation authority: translation only.
-//   - Unit convention: encode typed units according to schema.
-//   - Identity policy: deterministic stable ID encoding.
-//   - Lifetime: no retained references after output is produced.
-//   - Composition boundary: no file IO or command dispatch.
-//   - Promotion path: binary fixture normalization can layer on this writer.
+#include "formats/MessagePackWriter.h"
+
+#include <limits>
+
+namespace edi::formats {
+
+FormatResult<ByteBuffer> writeMessagePackRecordSet(const MessagePackRecordSet &records, const std::string &source)
+{
+    if (records.recordCount > std::numeric_limits<std::uint8_t>::max()) {
+        return FormatResult<ByteBuffer>::failure(source, "msgpack.record_count_range", "record count does not fit placeholder encoding");
+    }
+
+    ByteBuffer bytes;
+    bytes.push_back(static_cast<std::uint8_t>(records.recordCount));
+    bytes.push_back(static_cast<std::uint8_t>(records.version));
+    return FormatResult<ByteBuffer>::success(std::move(bytes));
+}
+
+} // namespace edi::formats

@@ -1,16 +1,26 @@
-// text_editor_commands_tests.cpp
-//
-// Contract family:
-//   Text editor command validation and mutation.
-//
-// Surface contract:
-//   - Primary responsibility: document text command examples.
-//   - Allowed setup data: text stores, document IDs, command values, ranges,
-//     text payloads, roles, and titles.
-//   - Call direction: test code calls text command execution APIs.
-//   - Mutation authority: tests mutate local fixtures through commands.
-//   - Unit convention: TextSelection range units.
-//   - Identity policy: commands target stable document IDs.
-//   - Lifetime: command values are local/replayable.
-//   - Composition boundary: focused on editing commands, not UI key handling.
-//   - Promotion path: add undo/coalescing examples when history exists.
+#include "text/TextEditorCommands.h"
+
+#include <cassert>
+
+using namespace edi::text;
+
+int main()
+{
+    TextDocumentStore store;
+    auto create = applyTextEditorCommand(store, CreateTextDocumentCommand{makeTextDocument("text_1")});
+    assert(create.ok);
+
+    auto insert = applyTextEditorCommand(store, InsertTextCommand{"text_1", 0, "hello"});
+    assert(insert.ok);
+    assert(findDocument(store, "text_1")->text == "hello");
+
+    auto replace = applyTextEditorCommand(store, ReplaceTextRangeCommand{"text_1", {1, 4}, "ipp"});
+    assert(replace.ok);
+    assert(findDocument(store, "text_1")->text == "hippo");
+
+    auto erase = applyTextEditorCommand(store, DeleteTextRangeCommand{"text_1", {1, 5}});
+    assert(erase.ok);
+    assert(findDocument(store, "text_1")->text == "h");
+
+    return 0;
+}

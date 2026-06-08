@@ -1,32 +1,58 @@
-// DraftingDocument.cpp
-//
-// Implementation responsibility:
-//   Implements default document construction and simple document lookup helpers.
-//
-// Belongs here:
-//   - Creating an empty document with a default editable layer.
-//   - Finding objects/layers by stable ID.
-//   - Small document metadata/revision helpers that do not perform commands.
-//
-// Must be delegated elsewhere:
-//   - Add/remove/update object validation belongs in DraftingStore.
-//   - User intent and undoable mutation belongs in DraftingCommands.
-//   - Geometry calculations belong in DraftingGeometry.
-//   - File conversion belongs in format adapters.
-//
-// Boundary note:
-//   This file should not grow into a command processor.
-//
-// Surface contract:
-//   - Primary responsibility: implement small document construction and lookup
-//     helpers.
-//   - Allowed data: document values, object IDs, layer IDs, revision metadata,
-//     and default layer/document seeds.
-//   - Call direction: called by store, command, and workspace code.
-//   - Mutation authority: limited to construction and simple document-local
-//     helper updates.
-//   - Unit convention: passes through document-space data without conversion.
-//   - Identity policy: lookup by stable ID; no public reliance on vector index.
-//   - Lifetime: helpers operate on caller-owned document values.
-//   - Composition boundary: document helpers stay lower than command behavior.
-//   - Promotion path: lookup acceleration can move into DraftingStore if needed.
+#include "drafting/DraftingDocument.h"
+
+#include <algorithm>
+
+namespace edi::drafting {
+
+DraftingLayer makeDefaultLayer()
+{
+    return {};
+}
+
+DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title)
+{
+    DraftingDocument document;
+    document.id = std::move(id);
+    document.title = title.empty() ? document.id : std::move(title);
+    document.layers.push_back(makeDefaultLayer());
+    return document;
+}
+
+DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id)
+{
+    auto it = std::find_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
+        return object.id == id;
+    });
+    return it == document.objects.end() ? nullptr : &*it;
+}
+
+const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id)
+{
+    auto it = std::find_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
+        return object.id == id;
+    });
+    return it == document.objects.end() ? nullptr : &*it;
+}
+
+DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id)
+{
+    auto it = std::find_if(document.layers.begin(), document.layers.end(), [&](const DraftingLayer &layer) {
+        return layer.id == id;
+    });
+    return it == document.layers.end() ? nullptr : &*it;
+}
+
+const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &id)
+{
+    auto it = std::find_if(document.layers.begin(), document.layers.end(), [&](const DraftingLayer &layer) {
+        return layer.id == id;
+    });
+    return it == document.layers.end() ? nullptr : &*it;
+}
+
+bool containsObject(const DraftingDocument &document, const DraftingObjectId &id)
+{
+    return findObject(document, id) != nullptr;
+}
+
+} // namespace edi::drafting

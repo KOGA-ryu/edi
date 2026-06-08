@@ -1,33 +1,100 @@
-// DraftingStore.cpp
-//
-// Implementation responsibility:
-//   Implements direct document storage operations and storage-level validation.
-//
-// Belongs here:
-//   - Rejecting duplicate object IDs.
-//   - Rejecting kind/geometry mismatches.
-//   - Verifying target layer existence/editability when required.
-//   - Recomputing bounds after geometry/style edits.
-//   - Returning structured success/failure information.
-//
-// Must be delegated elsewhere:
-//   - User-facing command interpretation belongs in DraftingCommands.
-//   - Hit testing, snapping, and handle math belong in geometry/input contracts.
-//   - Persistence belongs in format adapters.
-//
-// Boundary note:
-//   This file mutates document storage, but only through explicit store APIs.
-//
-// Surface contract:
-//   - Primary responsibility: implement object storage updates on documents.
-//   - Allowed data: mutable documents, object records, IDs, layer references,
-//     and geometry/style/metadata payloads.
-//   - Call direction: called by drafting commands and focused domain utilities.
-//   - Mutation authority: storage mutation for objects/layers only.
-//   - Unit convention: document-space geometry in; derived document-space bounds
-//     out through stored object fields.
-//   - Identity policy: stable IDs at API boundary; internal maps/indexes may be
-//     introduced for speed.
-//   - Lifetime: never owns the document allocation; operates on references.
-//   - Composition boundary: storage changes do not decide UI behavior.
-//   - Promotion path: this is the natural home for data-oriented object tables.
+#include "drafting/DraftingStore.h"
+
+#include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingSelection.h"
+
+#include <algorithm>
+
+namespace edi::drafting {
+
+DraftingStoreResult DraftingStoreResult::accepted()
+{
+    return {true, {}};
+}
+
+DraftingStoreResult DraftingStoreResult::rejected(std::string message)
+{
+    return {false, std::move(message)};
+}
+
+DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
+{
+    if (object.id.empty()) {
+        return DraftingStoreResult::rejected("object id is required");
+    }
+    if (containsObject(document, object.id)) {
+        return DraftingStoreResult::rejected("object id already exists");
+    }
+    if (!kindMatchesGeometry(object.kind, object.geometry)) {
+        return DraftingStoreResult::rejected("shape kind does not match geometry");
+    }
+    if (findLayer(document, object.layerId) == nullptr) {
+        return DraftingStoreResult::rejected("layer does not exist");
+    }
+
+    object.bounds = computeBounds(object.geometry);
+    document.objects.push_back(std::move(object));
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjectId &id)
+{
+    const auto before = document.objects.size();
+    document.objects.erase(
+        std::remove_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
+            return object.id == id;
+        }),
+        document.objects.end());
+
+    if (document.objects.size() == before) {
+        return DraftingStoreResult::rejected("object does not exist");
+    }
+
+    normalizeSelection(document);
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const DraftingObjectId &id, DraftingGeometry geometry)
+{
+    DraftingObject *object = findObject(document, id);
+    if (object == nullptr) {
+        return DraftingStoreResult::rejected("object does not exist");
+    }
+    if (!kindMatchesGeometry(object->kind, geometry)) {
+        return DraftingStoreResult::rejected("shape kind does not match geometry");
+    }
+
+    object->geometry = std::move(geometry);
+    object->bounds = computeBounds(object->geometry);
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const DraftingObjectId &id, ObjectMetadata metadata)
+{
+    DraftingObject *object = findObject(document, id);
+    if (object == nullptr) {
+        return DraftingStoreResult::rejected("object does not exist");
+    }
+
+    object->metadata = std::move(metadata);
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy)
+{
+    DraftingObject *object = findObject(document, id);
+    if (object == nullptr) {
+        return DraftingStoreResult::rejected("object does not exist");
+    }
+
+    object->geometry = translateGeometry(object->geometry, dx, dy);
+    object->bounds = computeBounds(object->geometry);
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+} // namespace edi::drafting

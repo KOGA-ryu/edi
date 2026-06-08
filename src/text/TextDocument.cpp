@@ -1,29 +1,60 @@
-// TextDocument.cpp
-//
-// Implementation responsibility:
-//   Implements small helpers for TextDocument construction and metadata state.
-//
-// Belongs here:
-//   - Default document creation.
-//   - Role normalization helpers.
-//   - Dirty/revision helper functions.
-//
-// Must be delegated elsewhere:
-//   - Multi-document collection logic belongs in TextDocumentStore.
-//   - Insert/replace/delete command validation belongs in TextEditorCommands.
-//   - Persistence belongs in format adapters.
-//
-// Boundary note:
-//   This file should not grow editor behavior or UI concerns.
-//
-// Surface contract:
-//   - Primary responsibility: implement small helpers for text document values.
-//   - Allowed data: document values, role values, titles, metadata, dirty flag,
-//     and revision.
-//   - Call direction: called by text store and command modules.
-//   - Mutation authority: value construction and simple state helpers only.
-//   - Unit convention: no offset math beyond whole-document text values.
-//   - Identity policy: preserves document IDs as opaque values.
-//   - Lifetime: helpers operate on caller-owned document values.
-//   - Composition boundary: document value helpers stay below editor commands.
-//   - Promotion path: richer document metadata helpers can split out later.
+#include "text/TextDocument.h"
+
+#include <utility>
+
+namespace edi::text {
+
+TextDocument makeTextDocument(TextDocumentId id, std::string title)
+{
+    TextDocument document;
+    document.id = std::move(id);
+    document.title = title.empty() ? document.id : std::move(title);
+    return document;
+}
+
+const char *textDocumentRoleName(TextDocumentRole role)
+{
+    switch (role) {
+    case TextDocumentRole::Scratch:
+        return "scratch";
+    case TextDocumentRole::Prompt:
+        return "prompt";
+    case TextDocumentRole::Context:
+        return "context";
+    case TextDocumentRole::Reference:
+        return "reference";
+    case TextDocumentRole::BuildNote:
+        return "build_note";
+    }
+    return "scratch";
+}
+
+TextDocumentRole textDocumentRoleFromName(const std::string &name)
+{
+    if (name == "prompt") {
+        return TextDocumentRole::Prompt;
+    }
+    if (name == "context") {
+        return TextDocumentRole::Context;
+    }
+    if (name == "reference") {
+        return TextDocumentRole::Reference;
+    }
+    if (name == "build_note") {
+        return TextDocumentRole::BuildNote;
+    }
+    return TextDocumentRole::Scratch;
+}
+
+void markDirty(TextDocument &document)
+{
+    document.dirty = true;
+    ++document.revision;
+}
+
+void markClean(TextDocument &document)
+{
+    document.dirty = false;
+}
+
+} // namespace edi::text

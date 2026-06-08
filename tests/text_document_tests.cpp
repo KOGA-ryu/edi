@@ -1,16 +1,31 @@
-// text_document_tests.cpp
-//
-// Contract family:
-//   Text document and text document store state.
-//
-// Surface contract:
-//   - Primary responsibility: document text document/store state examples.
-//   - Allowed setup data: document IDs, roles, titles, text content, metadata,
-//     dirty flags, revisions, and active document IDs.
-//   - Call direction: test code calls document and store helpers.
-//   - Mutation authority: tests mutate local text fixtures.
-//   - Unit convention: whole-document text values, no edit ranges here.
-//   - Identity policy: stable document IDs.
-//   - Lifetime: each scenario owns its store/document fixture.
-//   - Composition boundary: focused on document state shape.
-//   - Promotion path: extend into ASCII document state when that contract lands.
+#include "text/TextDocumentStore.h"
+
+#include <cassert>
+
+using namespace edi::text;
+
+int main()
+{
+    TextDocumentStore store;
+    TextDocument document = makeTextDocument("text_1", "Scratch");
+    document.role = TextDocumentRole::Scratch;
+
+    auto add = addDocument(store, document);
+    assert(add.ok);
+    assert(store.activeDocumentId == "text_1");
+
+    auto duplicate = addDocument(store, document);
+    assert(!duplicate.ok);
+
+    auto role = updateDocumentRole(store, "text_1", TextDocumentRole::Prompt);
+    assert(role.ok);
+    const TextDocument *updated = findDocument(store, "text_1");
+    assert(updated != nullptr);
+    assert(updated->role == TextDocumentRole::Prompt);
+    assert(updated->dirty);
+
+    auto promptDocs = listDocumentsByRole(store, TextDocumentRole::Prompt);
+    assert(promptDocs.size() == 1);
+
+    return 0;
+}

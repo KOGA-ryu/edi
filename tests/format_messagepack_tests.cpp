@@ -1,17 +1,33 @@
-// format_messagepack_tests.cpp
-//
-// Contract family:
-//   MessagePack machine-state adapters and inspection tooling.
-//
-// Surface contract:
-//   - Primary responsibility: document MessagePack adapter and inspector
-//     examples.
-//   - Allowed setup data: byte buffers, schema/version fields, typed documents,
-//     snapshots, fixture summaries, and FormatResult diagnostics.
-//   - Call direction: test code calls inspector, reader, and writer APIs.
-//   - Mutation authority: translation/inspection fixtures only.
-//   - Unit convention: typed units before encode and after decode.
-//   - Identity policy: stable IDs preserved through binary representation.
-//   - Lifetime: byte buffers and decoded values are local fixtures.
-//   - Composition boundary: focused on binary adapter shape.
-//   - Promotion path: add golden fixture examples after inspector tooling exists.
+#include "formats/MessagePackReader.h"
+#include "formats/MessagePackWriter.h"
+
+#include <cassert>
+
+using namespace edi::formats;
+
+int main()
+{
+    MessagePackRecordSet records;
+    records.recordCount = 3;
+    records.version = 7;
+
+    auto write = writeMessagePackRecordSet(records, "fixture");
+    assert(write.ok);
+    assert(write.value);
+
+    auto inspect = inspectMessagePack(*write.value, "fixture");
+    assert(inspect.ok);
+    assert(inspect.value);
+    assert(inspect.value->recordCount == 3);
+
+    auto read = readMessagePackRecordSet(*write.value, "fixture");
+    assert(read.ok);
+    assert(read.value);
+    assert(read.value->recordCount == 3);
+    assert(read.value->version == 7);
+
+    auto empty = inspectMessagePack({}, "fixture");
+    assert(!empty.ok);
+
+    return 0;
+}

@@ -1,30 +1,35 @@
-// TextSelection.cpp
-//
-// Implementation responsibility:
-//   Implements pure text cursor/range/selection helpers.
-//
-// Belongs here:
-//   - Normalizing start/end offsets.
-//   - Clamping ranges to document length.
-//   - Detecting collapsed selections.
-//   - Extracting selected text by validated range.
-//
-// Must be delegated elsewhere:
-//   - Applying edits belongs in TextEditorCommands.
-//   - Managing many documents belongs in TextDocumentStore.
-//   - Drawing selections belongs in UI widgets.
-//
-// Boundary note:
-//   This file computes selection facts. It should not mutate document storage.
-//
-// Surface contract:
-//   - Primary responsibility: implement pure cursor/range helpers.
-//   - Allowed data: text length, offsets, ranges, selections, and string views
-//     for selected-text projection.
-//   - Call direction: called by text commands and UI adapters.
-//   - Mutation authority: compute-only.
-//   - Unit convention: follows TextSelection.h offset policy.
-//   - Identity policy: no document IDs needed for pure range math.
-//   - Lifetime: no retained references.
-//   - Composition boundary: no store or command dispatch.
-//   - Promotion path: cell-grid selection math can split into an ASCII module.
+#include "text/TextSelection.h"
+
+#include <algorithm>
+
+namespace edi::text {
+
+TextRange normalizeRange(TextRange range)
+{
+    if (range.start > range.end) {
+        std::swap(range.start, range.end);
+    }
+    return range;
+}
+
+TextRange clampRange(TextRange range, std::size_t textLength)
+{
+    range = normalizeRange(range);
+    range.start = std::min(range.start, textLength);
+    range.end = std::min(range.end, textLength);
+    return range;
+}
+
+bool isCollapsed(TextRange range)
+{
+    range = normalizeRange(range);
+    return range.start == range.end;
+}
+
+std::string selectedText(const std::string &text, TextRange range)
+{
+    range = clampRange(range, text.size());
+    return text.substr(range.start, range.end - range.start);
+}
+
+} // namespace edi::text

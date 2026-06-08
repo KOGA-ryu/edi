@@ -1,37 +1,37 @@
-// ProjectWorkspace.h
-//
-// Purpose:
-//   Defines the project-level container for EDI work: drafting documents, text
-//   documents, workspace settings, assets, and project identity.
-//
-// Expected contracts:
-//   - Stable project/workspace ID.
-//   - Collections of drafting and text document references.
-//   - Project settings references, recent files, tool preset references, and
-//     asset library references.
-//   - Typed add/remove/find APIs by stable ID.
-//
-// Ownership rule:
-//   The workspace owns membership and identity. Domain stores own document
-//   contents and validation.
-//
-// Preserve later:
-//   Workspace should remain an organizer. It should not perform drawing edits,
-//   text edits, or format conversion directly.
-//
-// Surface contract:
-//   - Primary responsibility: group the assets and documents that make up one
-//     editable EDI project.
-//   - Allowed data: project ID/name, document IDs, collection membership,
-//     project setting handles, asset library handles, and workspace references.
-//   - Call direction: app state/controllers may query workspace membership;
-//     domain stores may be reached through public document handles.
-//   - Mutation authority: may add/remove/reorder project members.
-//   - Unit convention: no drawing coordinates or text offsets.
-//   - Identity policy: stable IDs are the project-facing handles; array indexes
-//     are internal ordering details.
-//   - Lifetime: owns project membership; document stores own document contents.
-//   - Composition boundary: joins drafting/text/planning collections without
-//     merging their internal models.
-//   - Promotion path: asset libraries and settings can split into dedicated
-//     workspace services when they become substantial.
+#pragma once
+
+#include "drafting/DraftingDocument.h"
+#include "text/TextDocumentStore.h"
+
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace edi::app {
+
+struct ProjectWorkspace {
+    std::string id;
+    std::string name;
+    std::vector<edi::drafting::DraftingDocument> draftingDocuments;
+    edi::text::TextDocumentStore textDocuments;
+    std::vector<std::string> assetLibraryIds;
+    std::vector<std::string> toolPresetIds;
+    std::optional<edi::drafting::DraftingDocumentId> activeDraftingDocumentId;
+};
+
+struct ProjectWorkspaceResult {
+    bool ok = false;
+    std::string message;
+
+    static ProjectWorkspaceResult accepted();
+    static ProjectWorkspaceResult rejected(std::string message);
+};
+
+ProjectWorkspace makeProjectWorkspace(std::string id, std::string name = {});
+edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
+const edi::drafting::DraftingDocument *findDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
+ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document);
+ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
+ProjectWorkspaceResult setActiveDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocumentId id);
+
+} // namespace edi::app

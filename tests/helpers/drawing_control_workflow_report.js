@@ -16,6 +16,7 @@ function usage() {
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
+        "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering",
         "  node tests/helpers/drawing_control_workflow_report.js --all --update-baseline",
         "",
         "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists.",
@@ -44,6 +45,7 @@ function parseArgs(argv) {
         recommendationId: "",
         compareBaseline: false,
         updateBaseline: false,
+        subsystem: "",
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -63,6 +65,8 @@ function parseArgs(argv) {
             args.compareBaseline = true
         } else if (token === "--update-baseline") {
             args.updateBaseline = true
+        } else if (token === "--subsystem") {
+            args.subsystem = String(argv[++index] || "")
         } else if (token === "--fixture") {
             pushValue(args.fixtures, argv[++index])
         } else if (token === "--category") {
@@ -130,12 +134,26 @@ function compactBaselineUpdate(repoRoot, report) {
     }
 }
 
-function compactBaselineComparison(repoRoot, report) {
+function filterBaselineComparison(comparison, subsystem) {
+    const selectedSubsystem = String(subsystem || "")
+    if (selectedSubsystem.length <= 0) {
+        return comparison
+    }
+    const topDeltas = Array.isArray(comparison && comparison.topDeltas) ? comparison.topDeltas : []
+    const selectedDeltas = topDeltas.filter(delta => String(delta && delta.subsystem || "") === selectedSubsystem)
+    return Object.assign({}, comparison, {
+        selectedSubsystem,
+        selectedSubsystemDeltaCount: selectedDeltas.length,
+        topDeltas: selectedDeltas,
+    })
+}
+
+function compactBaselineComparison(repoRoot, report, subsystem) {
     const baseline = WorkflowHarness.workflowMetricBaselines(repoRoot)
     const comparison = WorkflowHarness.compareWorkflowBaseline(report, baseline)
     return Object.assign({
         baselinePath: baseline.path,
-    }, comparison)
+    }, filterBaselineComparison(comparison, subsystem))
 }
 
 function dryRunOutput(manifest, compact) {
@@ -173,6 +191,9 @@ function run() {
     if (!hasSelector(args)) {
         throw new Error("one selector or --all is required")
     }
+    if (args.subsystem.length > 0 && !args.compareBaseline) {
+        throw new Error("--subsystem requires --compare-baseline")
+    }
 
     const manifest = WorkflowHarness.workflowFixtures(repoRoot, args.all ? {} : selectorEnv(args))
     if (manifest.selectedWorkflows.length <= 0) {
@@ -181,6 +202,9 @@ function run() {
     if (args.dryRun) {
         if (args.compareBaseline || args.updateBaseline) {
             throw new Error("--compare-baseline and --update-baseline require a real workflow run")
+        }
+        if (args.subsystem.length > 0) {
+            throw new Error("--subsystem requires --compare-baseline")
         }
         console.log(JSON.stringify(dryRunOutput(manifest, args.compact), null, 2))
         return 0
@@ -212,7 +236,7 @@ function run() {
         output.baselineUpdate = compactBaselineUpdate(repoRoot, report)
     }
     if (args.compareBaseline) {
-        output.baselineComparison = compactBaselineComparison(repoRoot, report)
+        output.baselineComparison = compactBaselineComparison(repoRoot, report, args.subsystem)
         output.ok = output.ok && output.baselineComparison.ok
     }
     console.log(JSON.stringify(output, null, 2))

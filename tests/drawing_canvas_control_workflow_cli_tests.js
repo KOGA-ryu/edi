@@ -189,6 +189,29 @@ expect(baselineOutput.baselineComparison.ok === true, "baseline comparison shoul
 expect(baselineOutput.baselineComparison.comparedWorkflowCount === 1, "baseline comparison should count selected fixture")
 expect(baselineOutput.baselineComparison.failureCount === 0, "baseline comparison should have no failures")
 
+const subsystemBaselineResult = spawnSync(process.execPath, [
+    helper,
+    "--fixture", "arc_create_basic.json",
+    "--compare-baseline",
+    "--subsystem", "rendering",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (subsystemBaselineResult.status !== 0) {
+    console.error(subsystemBaselineResult.stdout)
+    console.error(subsystemBaselineResult.stderr)
+}
+expect(subsystemBaselineResult.status === 0, "workflow report CLI subsystem baseline comparison should pass selected fixture")
+
+const subsystemBaselineOutput = JSON.parse(subsystemBaselineResult.stdout)
+expect(subsystemBaselineOutput.ok === true, "subsystem baseline CLI output should report ok")
+expect(subsystemBaselineOutput.baselineComparison.selectedSubsystem === "rendering", "subsystem baseline comparison should preserve selected subsystem")
+expect(subsystemBaselineOutput.baselineComparison.selectedSubsystemDeltaCount === 0, "passing subsystem baseline comparison should report zero selected deltas")
+expect(Array.isArray(subsystemBaselineOutput.baselineComparison.topDeltas), "subsystem baseline comparison should include delta list")
+
 if (process.exitCode) {
     process.exit(process.exitCode)
 }

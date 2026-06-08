@@ -70,6 +70,12 @@ Run line workflows and compare against accepted baselines:
 node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline
 ```
 
+Focus baseline deltas on one subsystem:
+
+```sh
+node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering
+```
+
 Refresh accepted baselines after a known-good full run:
 
 ```sh
@@ -95,6 +101,8 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 - `metricSamples`: number of measured interaction samples in the real run.
 - `budgetFailures`: number of workflow metric budget failures.
 - `baselineComparison`: compact list of meaningful metric deltas when `--compare-baseline` is used.
+- `selectedSubsystem`: requested subsystem filter when `--subsystem` is used with baseline comparison.
+- `selectedSubsystemDeltaCount`: count of returned deltas for the selected subsystem.
 - `baselineUpdate`: baseline file path and updated workflow count when `--update-baseline` is used.
 - `worstFailure`: most important compact failure, or `null`.
 - `reportPath`: summary artifact written by real runs.

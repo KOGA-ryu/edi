@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingSelection.h"
 
 #include <cassert>

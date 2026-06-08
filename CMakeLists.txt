@@ -58,6 +58,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingTypes.h
     src/drafting/DraftingDocument.h
     src/drafting/DraftingDocument.cpp
+    src/drafting/DraftingMetadata.h
+    src/drafting/DraftingMetadata.cpp
     src/drafting/DraftingStore.h
     src/drafting/DraftingStore.cpp
     src/drafting/DraftingCommands.h

@@ -78,13 +78,28 @@ function runDragHandleContract(toolScript) {
     expect(plan.plan.metricsByMode.dragging_handle.maxMutationsPerPointerMove === 2.1, "handle drag budget should resolve")
 }
 
+function runToolParameterContract(toolScript) {
+    const library = readFixture("shared_canvas_library.json")
+    const script = readFixture("arc_create_basic.json")
+    const plan = toolScript.executionPlan(script, library)
+    expect(plan.ok, "arc script should build execution plan")
+    expect(plan.plan.steps.length === 6, "arc fragment should expand parameter steps and clicks")
+    expect(plan.plan.steps[1].type === "setToolParameter", "arc mode should use parameter step")
+    expect(plan.plan.steps[1].parameter === "circle_arc_mode", "arc mode parameter should be explicit")
+    expect(plan.plan.steps[1].value === "arc", "arc mode value should be preserved")
+    expect(plan.plan.steps[2].value === 15, "arc start angle should be preserved")
+    expect(plan.plan.steps[3].value === 120, "arc end angle should be preserved")
+}
+
 function runAllFixturePlansContract(toolScript) {
     const library = readFixture("shared_canvas_library.json")
     const names = [
         "point_create_basic.json",
         "line_create_basic.json",
         "circle_create_basic.json",
+        "arc_create_basic.json",
         "rectangle_create_basic.json",
+        "polygon_create_basic.json",
         "line_drag_end_handle.json",
         "point_drag_handle.json",
         "circle_drag_radius_handle.json",
@@ -121,6 +136,7 @@ const toolScript = loadToolScriptModule()
 runValidationContract(toolScript)
 runCompositionContract(toolScript)
 runDragHandleContract(toolScript)
+runToolParameterContract(toolScript)
 runAllFixturePlansContract(toolScript)
 runCycleContract(toolScript)
 

@@ -138,6 +138,16 @@ function validateStep(step, index, script, failures) {
         return
     }
 
+    if (type === "setToolParameter") {
+        if (!validName(step.parameter)) {
+            failures.push("steps[" + String(index) + "] setToolParameter requires parameter")
+        }
+        if (!step || step.value === undefined) {
+            failures.push("steps[" + String(index) + "] setToolParameter requires value")
+        }
+        return
+    }
+
     if (type === "clickCanvas") {
         if (!pointFromStep(step, "point", script.points)) {
             failures.push("steps[" + String(index) + "] clickCanvas requires finite point or x/y")
@@ -247,6 +257,13 @@ function normalizeStep(step, script) {
         return {
             type: "clickCanvas",
             point: pointFromStep(step, "point", script.points)
+        }
+    }
+    if (type === "setToolParameter") {
+        return {
+            type: "setToolParameter",
+            parameter: String(step.parameter || ""),
+            value: cloneValue(step.value)
         }
     }
     if (type === "dragHandle") {

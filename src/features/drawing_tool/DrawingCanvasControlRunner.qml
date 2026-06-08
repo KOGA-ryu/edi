@@ -72,6 +72,17 @@ QtObject {
         return { ok: true }
     }
 
+    function runSetToolParameter(step) {
+        if (!controller || typeof controller.setDrawingToolParameter !== "function") {
+            return fail("controller.setDrawingToolParameter unavailable")
+        }
+        controller.setDrawingToolParameter(String(step.parameter || ""), step.value)
+        if (inputArea && typeof inputArea.requestCanvasPaint === "function") {
+            inputArea.requestCanvasPaint()
+        }
+        return { ok: true }
+    }
+
     function runClickCanvas(step) {
         if (!inputArea || typeof inputArea.controlClickCanvasPoint !== "function") {
             return fail("inputArea.controlClickCanvasPoint unavailable")
@@ -134,6 +145,9 @@ QtObject {
         }
         if (type === "clickCanvas") {
             return runClickCanvas(step)
+        }
+        if (type === "setToolParameter") {
+            return runSetToolParameter(step)
         }
         if (type === "panCanvas") {
             return runPanCanvas(step)

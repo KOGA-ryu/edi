@@ -53,6 +53,10 @@ function expectedGeometryFields(object) {
         "width",
         "height",
         "radius",
+        "sides",
+        "rotation_deg",
+        "start_angle_deg",
+        "end_angle_deg",
     ].filter(field => object[field] !== undefined)
 }
 
@@ -71,6 +75,10 @@ function reducedObject(object) {
         width: Number(object && object.width || 0),
         height: Number(object && object.height || 0),
         radius: Number(object && object.radius || 0),
+        sides: Number(object && object.sides || 0),
+        rotation_deg: Number(object && object.rotation_deg || 0),
+        start_angle_deg: Number(object && object.start_angle_deg || 0),
+        end_angle_deg: Number(object && object.end_angle_deg || 0),
     }
 }
 
@@ -374,7 +382,9 @@ for (const fixtureName of [
     "point_create_basic.json",
     "line_create_basic.json",
     "circle_create_basic.json",
+    "arc_create_basic.json",
     "rectangle_create_basic.json",
+    "polygon_create_basic.json",
     "line_drag_end_handle.json",
     "point_drag_handle.json",
     "circle_drag_radius_handle.json",

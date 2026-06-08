@@ -80,10 +80,25 @@
       { "type": "clickCanvas", "point": "circleCenter" },
       { "type": "clickCanvas", "point": "circleRadius" }
     ],
+    "createBasicArc": [
+      { "use": "selectCircleTool" },
+      { "type": "setToolParameter", "parameter": "circle_arc_mode", "value": "arc" },
+      { "type": "setToolParameter", "parameter": "circle_arc_start_angle_deg", "value": 15 },
+      { "type": "setToolParameter", "parameter": "circle_arc_end_angle_deg", "value": 120 },
+      { "type": "clickCanvas", "point": "circleCenter" },
+      { "type": "clickCanvas", "point": "circleRadius" }
+    ],
     "createBasicRectangle": [
       { "use": "selectRectangleTool" },
       { "type": "clickCanvas", "point": "rectStart" },
       { "type": "clickCanvas", "point": "rectEnd" }
+    ],
+    "createPentagon": [
+      { "type": "selectTool", "toolId": "regular_polygon" },
+      { "type": "setToolParameter", "parameter": "regular_polygon_sides", "value": 5 },
+      { "type": "setToolParameter", "parameter": "regular_polygon_rotation_deg", "value": 18 },
+      { "type": "clickCanvas", "point": "circleCenter" },
+      { "type": "clickCanvas", "point": "circleRadius" }
     ]
   }
 }

@@ -75,7 +75,11 @@ Rectangle {
                         y2: Number(object.y2 !== undefined ? object.y2 : object.y2_px || 0),
                         width: Number(object.width !== undefined ? object.width : object.width_px || 0),
                         height: Number(object.height !== undefined ? object.height : object.height_px || 0),
-                        radius: Number(object.radius !== undefined ? object.radius : object.radius_px || 0)
+                        radius: Number(object.radius !== undefined ? object.radius : object.radius_px || 0),
+                        sides: Number(object.sides || 0),
+                        rotation_deg: Number(object.rotation_deg || 0),
+                        start_angle_deg: Number(object.start_angle_deg || 0),
+                        end_angle_deg: Number(object.end_angle_deg || 0)
                     })
                 }
                 return summary

@@ -1,0 +1,15 @@
+{
+  "name": "pan_canvas_basic",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "type": "panCanvas", "dx": 32, "dy": -16 }
+  ],
+  "expect": {
+    "viewport": {
+      "panChanged": true
+    },
+    "metricsByMode": {
+      "panning": "pan"
+    }
+  }
+}

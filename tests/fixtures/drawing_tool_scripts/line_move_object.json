@@ -1,0 +1,27 @@
+{
+  "name": "line_move_object",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicLine" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "dragObject",
+      "object": "latest",
+      "from": "moveStart",
+      "to": "moveEnd",
+      "pointerMoves": 8
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "line" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "dragging_object": "objectDrag"
+    }
+  }
+}

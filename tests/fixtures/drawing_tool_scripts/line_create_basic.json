@@ -1,0 +1,18 @@
+{
+  "name": "line_create_basic",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicLine" }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "line" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "marquee_select_lines",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicLine" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "marqueeSelect",
+      "from": "marqueeStart",
+      "to": "marqueeEnd",
+      "pointerMoves": 12
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1
+    },
+    "selection": {
+      "minSelected": 1
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "marquee_select": "marquee"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "line_drag_end_handle",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicLine" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "dragHandle",
+      "object": "latest",
+      "handleId": "line_end",
+      "from": "lineEnd",
+      "to": "lineEndMoved",
+      "pointerMoves": 8
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "line" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "dragging_handle": "handleDrag"
+    }
+  }
+}

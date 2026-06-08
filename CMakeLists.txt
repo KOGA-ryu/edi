@@ -134,6 +134,10 @@ if(BUILD_TESTING)
             NAME drawing_canvas_gui_metric_capture_cli_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gui_metric_capture_cli_tests.js
         )
+        add_test(
+            NAME drawing_canvas_tool_script_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_tool_script_tests.js
+        )
     endif()
 
     add_executable(drawing_core_smoke

@@ -1,0 +1,48 @@
+{
+  "points": {
+    "lineStart": { "x": 128, "y": 128 },
+    "lineEnd": { "x": 256, "y": 128 },
+    "lineEndMoved": { "x": 320, "y": 160 },
+    "moveStart": { "x": 192, "y": 128 },
+    "moveEnd": { "x": 256, "y": 160 },
+    "marqueeStart": { "x": 96, "y": 96 },
+    "marqueeEnd": { "x": 360, "y": 220 }
+  },
+  "budgets": {
+    "cheapClick": {
+      "maxControllerMutations": 1,
+      "maxRenderRequests": 1
+    },
+    "handleDrag": {
+      "maxMutationsPerPointerMove": 1.1,
+      "maxRenderRequestsPerPointerMove": 1.25,
+      "maxHitTestsPerPointerMove": 0.25
+    },
+    "objectDrag": {
+      "maxMutationsPerPointerMove": 1.1,
+      "maxRenderRequestsPerPointerMove": 1.25,
+      "maxHitTestsPerPointerMove": 0.25
+    },
+    "marquee": {
+      "maxRenderRequestsPerPointerMove": 1.25,
+      "maxHitTestsPerPointerMove": 0.25
+    },
+    "pan": {
+      "maxControllerMutations": 1,
+      "maxRenderRequests": 1
+    }
+  },
+  "fragments": {
+    "selectLineTool": [
+      { "type": "selectTool", "toolId": "line_polyline" }
+    ],
+    "selectMoveTool": [
+      { "type": "selectTool", "toolId": "select_move" }
+    ],
+    "createBasicLine": [
+      { "use": "selectLineTool" },
+      { "type": "clickCanvas", "point": "lineStart" },
+      { "type": "clickCanvas", "point": "lineEnd" }
+    ]
+  }
+}

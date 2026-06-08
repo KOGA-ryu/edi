@@ -17,6 +17,30 @@ const repoRoot = path.join(__dirname, "..")
 const executable = path.join(repoRoot, "build", "qt_qml_region_split")
 const helper = path.join(__dirname, "helpers", "drawing_control_workflow_report.js")
 
+const recommendations = spawnSync(process.execPath, [
+    helper,
+    "--recommend",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (recommendations.status !== 0) {
+    console.error(recommendations.stdout)
+    console.error(recommendations.stderr)
+}
+expect(recommendations.status === 0, "workflow report CLI recommendations should pass without launching app")
+
+const recommendationOutput = JSON.parse(recommendations.stdout)
+expect(recommendationOutput.ok === true, "recommendation output should report ok")
+expect(Array.isArray(recommendationOutput.recommendedSelectors), "recommendation output should include selector list")
+expect(recommendationOutput.recommendedSelectors.length >= 3, "recommendation output should include recommended selectors")
+expect(recommendationOutput.recommendedSelectors.some(selector => selector.id === "line_system"), "recommendations should include line system selector")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.command || "").indexOf("--dry-run") >= 0), "recommendation commands should be dry-run probes")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.command || "").indexOf("--compact") >= 0), "recommendation commands should be compact probes")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.runCommand || "").indexOf("--dry-run") < 0), "recommendation run commands should execute metrics")
+
 const dryRun = spawnSync(process.execPath, [
     helper,
     "--tag", "line",

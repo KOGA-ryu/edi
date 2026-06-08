@@ -7,6 +7,7 @@ const WorkflowRunner = require("./drawing_control_workflow_runner.js")
 function usage() {
     return [
         "Usage:",
+        "  node tests/helpers/drawing_control_workflow_report.js --recommend",
         "  node tests/helpers/drawing_control_workflow_report.js --all",
         "  node tests/helpers/drawing_control_workflow_report.js --tag <tag>",
         "  node tests/helpers/drawing_control_workflow_report.js --category <category>",
@@ -34,11 +35,14 @@ function parseArgs(argv) {
         tags: [],
         dryRun: false,
         compact: false,
+        recommend: false,
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
         if (token === "--help" || token === "-h") {
             args.help = true
+        } else if (token === "--recommend") {
+            args.recommend = true
         } else if (token === "--all") {
             args.all = true
         } else if (token === "--dry-run") {
@@ -119,17 +123,34 @@ function dryRunOutput(manifest, compact) {
     return output
 }
 
+function recommendationOutput(expectations) {
+    return {
+        ok: true,
+        recommendedSelectors: (Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : [])
+            .map(selector => ({
+                id: selector.id,
+                description: selector.description,
+                command: selector.command,
+                runCommand: selector.runCommand,
+            })),
+    }
+}
+
 function run() {
     const args = parseArgs(process.argv.slice(2))
     if (args.help) {
         console.log(usage())
         return 0
     }
+    const repoRoot = path.join(__dirname, "..", "..")
+    if (args.recommend) {
+        console.log(JSON.stringify(recommendationOutput(WorkflowHarness.workflowCoverageExpectations(repoRoot)), null, 2))
+        return 0
+    }
     if (!hasSelector(args)) {
         throw new Error("one selector or --all is required")
     }
 
-    const repoRoot = path.join(__dirname, "..", "..")
     const manifest = WorkflowHarness.workflowFixtures(repoRoot, args.all ? {} : selectorEnv(args))
     if (manifest.selectedWorkflows.length <= 0) {
         throw new Error("workflow selectors did not match any fixtures")

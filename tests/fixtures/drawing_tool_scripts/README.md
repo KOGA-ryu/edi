@@ -19,7 +19,11 @@ Manifest fields:
 
 ## First Probe
 
-Use compact dry-run first. It does not launch the app.
+Ask for recommended selectors, then use compact dry-run first. Neither command launches the app.
+
+```sh
+node tests/helpers/drawing_control_workflow_report.js --recommend
+```
 
 ```sh
 node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact

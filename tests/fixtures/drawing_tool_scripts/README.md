@@ -26,6 +26,10 @@ node tests/helpers/drawing_control_workflow_report.js --recommend
 ```
 
 ```sh
+node tests/helpers/drawing_control_workflow_report.js --recommend --id line_system
+```
+
+```sh
 node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact
 ```
 

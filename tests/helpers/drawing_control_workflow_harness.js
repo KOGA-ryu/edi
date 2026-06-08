@@ -174,16 +174,19 @@ function evaluateWorkflowCoverage(coverage, expectations) {
     }
 }
 
-function recommendedSelectorOutput(expectations) {
+function recommendedSelectorOutput(expectations, selectorId) {
+    const selectedId = String(selectorId || "")
+    const selectors = (Array.isArray(expectations && expectations.recommendedSelectors) ? expectations.recommendedSelectors : [])
+        .filter(selector => selectedId.length === 0 || String(selector.id || "") === selectedId)
     return {
-        ok: true,
-        recommendedSelectors: (Array.isArray(expectations && expectations.recommendedSelectors) ? expectations.recommendedSelectors : [])
-            .map(selector => ({
-                id: selector.id,
-                description: selector.description,
-                command: selector.command,
-                runCommand: selector.runCommand,
-            })),
+        ok: selectedId.length === 0 || selectors.length > 0,
+        selectorId: selectedId.length > 0 ? selectedId : undefined,
+        recommendedSelectors: selectors.map(selector => ({
+            id: selector.id,
+            description: selector.description,
+            command: selector.command,
+            runCommand: selector.runCommand,
+        })),
     }
 }
 

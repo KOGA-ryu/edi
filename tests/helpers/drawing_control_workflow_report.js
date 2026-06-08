@@ -8,6 +8,7 @@ function usage() {
     return [
         "Usage:",
         "  node tests/helpers/drawing_control_workflow_report.js --recommend",
+        "  node tests/helpers/drawing_control_workflow_report.js --recommend --id <selector>",
         "  node tests/helpers/drawing_control_workflow_report.js --all",
         "  node tests/helpers/drawing_control_workflow_report.js --tag <tag>",
         "  node tests/helpers/drawing_control_workflow_report.js --category <category>",
@@ -36,6 +37,7 @@ function parseArgs(argv) {
         dryRun: false,
         compact: false,
         recommend: false,
+        recommendationId: "",
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -43,6 +45,8 @@ function parseArgs(argv) {
             args.help = true
         } else if (token === "--recommend") {
             args.recommend = true
+        } else if (token === "--id") {
+            args.recommendationId = String(argv[++index] || "")
         } else if (token === "--all") {
             args.all = true
         } else if (token === "--dry-run") {
@@ -131,8 +135,9 @@ function run() {
     }
     const repoRoot = path.join(__dirname, "..", "..")
     if (args.recommend) {
-        console.log(JSON.stringify(WorkflowHarness.recommendedSelectorOutput(WorkflowHarness.workflowCoverageExpectations(repoRoot)), null, 2))
-        return 0
+        const output = WorkflowHarness.recommendedSelectorOutput(WorkflowHarness.workflowCoverageExpectations(repoRoot), args.recommendationId)
+        console.log(JSON.stringify(output, null, 2))
+        return output.ok ? 0 : 1
     }
     if (!hasSelector(args)) {
         throw new Error("one selector or --all is required")

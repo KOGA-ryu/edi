@@ -63,10 +63,17 @@ function runRecommendedSelectorContract(repoRoot) {
     const selectorIds = new Set(selectors.map(selector => String(selector.id || "")))
     const recommendedSelectors = Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : []
     const output = WorkflowHarness.recommendedSelectorOutput(expectations)
+    const lineOutput = WorkflowHarness.recommendedSelectorOutput(expectations, "line_system")
+    const missingOutput = WorkflowHarness.recommendedSelectorOutput(expectations, "missing_selector")
     expect(recommendedSelectors.length >= 3, "workflow coverage expectations should include recommended selectors")
     expect(output.ok === true, "recommended selector output should report ok")
     expect(output.recommendedSelectors.length === recommendedSelectors.length, "recommended selector output should preserve recommendation count")
     expect(output.recommendedSelectors.every(selector => selector.selectorId === undefined), "recommended selector output should omit internal selector ids")
+    expect(lineOutput.ok === true, "recommended selector output should filter by id")
+    expect(lineOutput.recommendedSelectors.length === 1, "recommended selector id filter should return one selector")
+    expect(lineOutput.recommendedSelectors[0].id === "line_system", "recommended selector id filter should return matching selector")
+    expect(missingOutput.ok === false, "recommended selector output should fail missing id")
+    expect(missingOutput.recommendedSelectors.length === 0, "missing recommendation id should return no selectors")
 
     for (const recommendation of recommendedSelectors) {
         const id = String(recommendation.id || "")

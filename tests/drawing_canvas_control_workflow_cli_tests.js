@@ -41,6 +41,43 @@ expect(recommendationOutput.recommendedSelectors.every(selector => String(select
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.command || "").indexOf("--compact") >= 0), "recommendation commands should be compact probes")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.runCommand || "").indexOf("--dry-run") < 0), "recommendation run commands should execute metrics")
 
+const singleRecommendation = spawnSync(process.execPath, [
+    helper,
+    "--recommend",
+    "--id", "line_system",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (singleRecommendation.status !== 0) {
+    console.error(singleRecommendation.stdout)
+    console.error(singleRecommendation.stderr)
+}
+expect(singleRecommendation.status === 0, "workflow report CLI recommendation id filter should pass")
+
+const singleRecommendationOutput = JSON.parse(singleRecommendation.stdout)
+expect(singleRecommendationOutput.ok === true, "single recommendation output should report ok")
+expect(singleRecommendationOutput.selectorId === "line_system", "single recommendation output should preserve requested id")
+expect(singleRecommendationOutput.recommendedSelectors.length === 1, "single recommendation output should include one selector")
+expect(singleRecommendationOutput.recommendedSelectors[0].id === "line_system", "single recommendation output should match requested id")
+
+const missingRecommendation = spawnSync(process.execPath, [
+    helper,
+    "--recommend",
+    "--id", "missing_selector",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+expect(missingRecommendation.status === 1, "missing recommendation id should fail")
+const missingRecommendationOutput = JSON.parse(missingRecommendation.stdout)
+expect(missingRecommendationOutput.ok === false, "missing recommendation output should report not ok")
+expect(missingRecommendationOutput.recommendedSelectors.length === 0, "missing recommendation output should return no selectors")
+
 const dryRun = spawnSync(process.execPath, [
     helper,
     "--tag", "line",

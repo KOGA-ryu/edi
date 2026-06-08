@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QVariantMap>
 #include <QWidget>
 
 class DrawingDocumentController;
@@ -30,7 +31,6 @@ private:
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;
 
     DrawingDocumentController *m_controller = nullptr;
-    QString m_dragHandleId;
-    bool m_dragObjectActive = false;
+    QVariantMap m_gestureState;
     QPointF m_lastDragCanvasPoint;
 };

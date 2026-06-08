@@ -8,12 +8,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "canvas/DrawingCanvasGestureState.h"
 #include "canvas/DrawingCanvasHandles.h"
 #include "core/DrawingCore.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
     : QWidget(parent)
     , m_controller(controller)
+    , m_gestureState(drawing_canvas::initialGestureState())
 {
     setMinimumSize(480, 360);
     setMouseTracking(true);
@@ -90,9 +92,14 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
     if (m_controller->selectedToolId() == QStringLiteral("select_move")) {
         const QString handleId = hitSelectedHandle(event->position());
         if (!handleId.isEmpty()) {
-            m_dragHandleId = handleId;
             const QPointF point = screenToCanvas(event->position());
-            m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+            m_gestureState = drawing_canvas::beginHandleDrag(
+                m_gestureState,
+                m_controller->selectedObjectId(),
+                handleId,
+                {point.x(), point.y()},
+                {});
+            m_controller->editSelectedHandleNormalized(handleId, point.x(), point.y());
             event->accept();
             return;
         }
@@ -101,7 +108,14 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
     const QPointF point = screenToCanvas(event->position());
     m_controller->clickCanvasNormalized(point.x(), point.y());
     if (m_controller->selectedToolId() == QStringLiteral("select_move") && !m_controller->selectedObjectId().isEmpty()) {
-        m_dragObjectActive = true;
+        QVariantList selectedIds;
+        selectedIds.push_back(m_controller->selectedObjectId());
+        m_gestureState = drawing_canvas::beginObjectDrag(
+            m_gestureState,
+            m_controller->selectedObjectId(),
+            {point.x(), point.y()},
+            selectedIds,
+            {});
         m_lastDragCanvasPoint = point;
     }
 }
@@ -114,13 +128,18 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
     }
 
     const QPointF point = screenToCanvas(event->position());
-    if (!m_dragHandleId.isEmpty()) {
-        m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+    m_gestureState = drawing_canvas::updateGesture(m_gestureState, {
+        {QStringLiteral("point"), QVariantMap{{QStringLiteral("x"), point.x()}, {QStringLiteral("y"), point.y()}}},
+    });
+
+    if (drawing_canvas::isHandleDrag(m_gestureState)) {
+        const QString handleId = m_gestureState.value(QStringLiteral("handleId")).toString();
+        m_controller->editSelectedHandleNormalized(handleId, point.x(), point.y());
         event->accept();
         return;
     }
 
-    if (m_dragObjectActive) {
+    if (drawing_canvas::isObjectDrag(m_gestureState)) {
         const double dx = point.x() - m_lastDragCanvasPoint.x();
         const double dy = point.y() - m_lastDragCanvasPoint.y();
         if (m_controller->moveSelectionNormalized(dx, dy)) {
@@ -135,17 +154,18 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 
 void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && !m_dragHandleId.isEmpty()) {
+    if (event->button() == Qt::LeftButton && drawing_canvas::isHandleDrag(m_gestureState)) {
         if (m_controller != nullptr) {
             const QPointF point = screenToCanvas(event->position());
-            m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+            const QString handleId = m_gestureState.value(QStringLiteral("handleId")).toString();
+            m_controller->editSelectedHandleNormalized(handleId, point.x(), point.y());
         }
-        m_dragHandleId.clear();
+        m_gestureState = drawing_canvas::finishGesture(m_gestureState, {{QStringLiteral("incremental"), true}}).value(QStringLiteral("state")).toMap();
         event->accept();
         return;
     }
-    if (event->button() == Qt::LeftButton && m_dragObjectActive) {
-        m_dragObjectActive = false;
+    if (event->button() == Qt::LeftButton && drawing_canvas::isObjectDrag(m_gestureState)) {
+        m_gestureState = drawing_canvas::finishGesture(m_gestureState, {{QStringLiteral("incremental"), true}}).value(QStringLiteral("state")).toMap();
         event->accept();
         return;
     }

@@ -46,5 +46,6 @@ MeasurementValue measureArea(const DraftingGeometry &geometry, const ScaleCalibr
 Bounds2D measureDimensions(const DraftingGeometry &geometry);
 DimensionMeasurement measureDimensionsTyped(const DraftingGeometry &geometry, const ScaleCalibration &calibration = {});
 const char *measurementUnitName(MeasurementUnit unit);
+std::string formatMeasurementValue(const MeasurementValue &value);
 
 } // namespace edi::drafting

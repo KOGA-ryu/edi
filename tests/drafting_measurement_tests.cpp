@@ -13,12 +13,14 @@ int main()
     assert(measured.value == 5.0);
     assert(measured.unit == MeasurementUnit::Centimeter);
     assert(measured.label == std::string("centimeter"));
+    assert(formatMeasurementValue(measured) == std::string("5 centimeter"));
 
     DraftingGeometry rect = RectangleGeometry{{2.0, 3.0}, 10.0, 5.0};
     MeasurementValue measuredArea = measureArea(rect, calibration);
     assert(measuredArea.kind == MeasurementKind::Area);
     assert(measuredArea.value == 12.5);
     assert(measuredArea.unit == MeasurementUnit::Centimeter);
+    assert(formatMeasurementValue(measuredArea) == std::string("12.5 square centimeter"));
 
     Bounds2D dimensions = measureDimensions(rect);
     assert(dimensions.x == 2.0);
@@ -32,6 +34,7 @@ int main()
     assert(typedDimensions.height.value == 2.5);
     assert(typedDimensions.width.unit == MeasurementUnit::Centimeter);
     assert(typedDimensions.height.unit == MeasurementUnit::Centimeter);
+    assert(formatMeasurementValue(typedDimensions.width) == std::string("5 centimeter"));
 
     DraftingGeometry line = LineGeometry{{0.0, 0.0}, {3.0, 4.0}};
     DimensionMeasurement lineDimensions = measureDimensionsTyped(line, calibration);
@@ -43,6 +46,13 @@ int main()
     assert(defaultDimensions.width.value == 10.0);
     assert(defaultDimensions.height.value == 5.0);
     assert(defaultDimensions.width.unit == MeasurementUnit::CanvasUnit);
+    assert(formatMeasurementValue(defaultDimensions.width) == std::string("10 canvas_unit"));
+
+    MeasurementValue noMeasurement;
+    noMeasurement.kind = MeasurementKind::Distance;
+    noMeasurement.unit = MeasurementUnit::None;
+    noMeasurement.label = measurementUnitName(MeasurementUnit::None);
+    assert(formatMeasurementValue(noMeasurement) == std::string("0 none"));
 
     assert(measurementUnitName(MeasurementUnit::None) == std::string("none"));
     assert(measurementUnitName(MeasurementUnit::CanvasUnit) == std::string("canvas_unit"));

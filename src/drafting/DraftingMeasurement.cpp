@@ -3,6 +3,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMetadata.h"
 
+#include <sstream>
 #include <utility>
 
 namespace edi::drafting {
@@ -119,6 +120,17 @@ const char *measurementUnitName(MeasurementUnit unit)
         return "foot";
     }
     return "unknown";
+}
+
+std::string formatMeasurementValue(const MeasurementValue &value)
+{
+    std::ostringstream stream;
+    stream << value.value << ' ';
+    if (value.kind == MeasurementKind::Area) {
+        stream << "square ";
+    }
+    stream << value.label;
+    return stream.str();
 }
 
 } // namespace edi::drafting

@@ -35,6 +35,8 @@ Bounds2D measureDimensions(const DraftingGeometry &geometry)
 const char *measurementUnitName(MeasurementUnit unit)
 {
     switch (unit) {
+    case MeasurementUnit::None:
+        return "none";
     case MeasurementUnit::CanvasUnit:
         return "canvas_unit";
     case MeasurementUnit::Millimeter:

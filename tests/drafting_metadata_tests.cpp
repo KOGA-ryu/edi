@@ -1,6 +1,7 @@
 #include "drafting/DraftingMetadata.h"
 
 #include <cassert>
+#include <limits>
 #include <string>
 
 using namespace edi::drafting;
@@ -15,6 +16,9 @@ ObjectMetadata validMetadata()
     metadata.createdAt = "2026-06-08T12:30:00Z";
     metadata.toolProvenance = "drafting_metadata_tests";
     metadata.measurementNote = "calibrated by test";
+    metadata.measurement.unit = MeasurementUnit::Centimeter;
+    metadata.measurement.scale = 2.0;
+    metadata.measurement.label = "bench scale";
     return metadata;
 }
 
@@ -32,6 +36,8 @@ int main()
     assert(isValidMetadataTimestamp("2024-02-29T23:59:59Z"));
     assert(isValidMetadataTimestamp(""));
     assert(isValidMetadataText("metadata", kMetadataShortTextLimit));
+    assert(isValidMeasurementMetadata(validMetadata().measurement));
+    assert(isValidMeasurementMetadata(MeasurementMetadata{}));
     assert(!isValidMetadataTimestamp("2026-00-08T12:30:00Z"));
     assert(!isValidMetadataTimestamp("2026-13-08T12:30:00Z"));
     assert(!isValidMetadataTimestamp("2026-04-31T12:30:00Z"));
@@ -83,6 +89,42 @@ int main()
     auto longMeasurementNoteValidation = validateObjectMetadata(longMeasurementNote);
     assert(!longMeasurementNoteValidation.ok);
     assert(longMeasurementNoteValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata noUnitZeroScale = validMetadata();
+    noUnitZeroScale.measurement.unit = MeasurementUnit::None;
+    noUnitZeroScale.measurement.scale = 0.0;
+    assert(isValidMeasurementMetadata(noUnitZeroScale.measurement));
+    auto noUnitZeroScaleValidation = validateObjectMetadata(noUnitZeroScale);
+    assert(noUnitZeroScaleValidation.ok);
+
+    ObjectMetadata zeroRealScale = validMetadata();
+    zeroRealScale.measurement.unit = MeasurementUnit::Centimeter;
+    zeroRealScale.measurement.scale = 0.0;
+    assert(!isValidMeasurementMetadata(zeroRealScale.measurement));
+    auto zeroRealScaleValidation = validateObjectMetadata(zeroRealScale);
+    assert(!zeroRealScaleValidation.ok);
+    assert(zeroRealScaleValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata nonFiniteScale = validMetadata();
+    nonFiniteScale.measurement.scale = std::numeric_limits<double>::quiet_NaN();
+    assert(!isValidMeasurementMetadata(nonFiniteScale.measurement));
+    auto nonFiniteScaleValidation = validateObjectMetadata(nonFiniteScale);
+    assert(!nonFiniteScaleValidation.ok);
+    assert(nonFiniteScaleValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata badMeasurementLabel = validMetadata();
+    badMeasurementLabel.measurement.label = "bad\nlabel";
+    assert(!isValidMeasurementMetadata(badMeasurementLabel.measurement));
+    auto badMeasurementLabelValidation = validateObjectMetadata(badMeasurementLabel);
+    assert(!badMeasurementLabelValidation.ok);
+    assert(badMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata longMeasurementLabel = validMetadata();
+    longMeasurementLabel.measurement.label = std::string(kMetadataShortTextLimit + 1, 'x');
+    assert(!isValidMeasurementMetadata(longMeasurementLabel.measurement));
+    auto longMeasurementLabelValidation = validateObjectMetadata(longMeasurementLabel);
+    assert(!longMeasurementLabelValidation.ok);
+    assert(longMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
 
     return 0;
 }

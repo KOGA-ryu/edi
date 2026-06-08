@@ -22,6 +22,7 @@ struct DraftingMetadataValidationResult {
 
 bool isValidMetadataText(std::string_view value, std::size_t limit);
 bool isValidMetadataTimestamp(std::string_view value);
+bool isValidMeasurementMetadata(const MeasurementMetadata &measurement);
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata);
 
 } // namespace edi::drafting

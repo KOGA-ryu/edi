@@ -6,15 +6,6 @@
 
 namespace edi::drafting {
 
-enum class MeasurementUnit {
-    CanvasUnit,
-    Millimeter,
-    Centimeter,
-    Meter,
-    Inch,
-    Foot
-};
-
 struct ScaleCalibration {
     double canvasUnitsPerRealUnit = 1.0;
     MeasurementUnit realUnit = MeasurementUnit::CanvasUnit;

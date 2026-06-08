@@ -33,6 +33,16 @@ enum class DraftingResultCode {
     InvalidMetadata
 };
 
+enum class MeasurementUnit {
+    None,
+    CanvasUnit,
+    Millimeter,
+    Centimeter,
+    Meter,
+    Inch,
+    Foot
+};
+
 struct Point2D {
     double x = 0.0;
     double y = 0.0;
@@ -65,6 +75,12 @@ struct FillStyle {
     std::string color = "#ffffff";
 };
 
+struct MeasurementMetadata {
+    MeasurementUnit unit = MeasurementUnit::None;
+    double scale = 0.0;
+    std::string label;
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -72,6 +88,7 @@ struct ObjectMetadata {
     std::string createdAt;
     std::string toolProvenance;
     std::string measurementNote;
+    MeasurementMetadata measurement;
 };
 
 struct PointGeometry {

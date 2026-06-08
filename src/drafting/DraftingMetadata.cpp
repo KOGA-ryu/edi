@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -155,6 +156,20 @@ bool isValidMetadataTimestamp(std::string_view value)
         && second <= 59;
 }
 
+bool isValidMeasurementMetadata(const MeasurementMetadata &measurement)
+{
+    if (!isValidMetadataText(measurement.label, kMetadataShortTextLimit)) {
+        return false;
+    }
+    if (!std::isfinite(measurement.scale)) {
+        return false;
+    }
+    if (measurement.unit == MeasurementUnit::None) {
+        return true;
+    }
+    return measurement.scale > 0.0;
+}
+
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata)
 {
     if (metadata.schemaVersion == 0) {
@@ -181,6 +196,18 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
         return DraftingMetadataValidationResult::rejected(
             DraftingResultCode::InvalidMetadata,
             "created at must use YYYY-MM-DDTHH:MM:SSZ");
+    }
+    if (!isValidMetadataText(metadata.measurement.label, kMetadataShortTextLimit)) {
+        if (metadata.measurement.label.size() > kMetadataShortTextLimit) {
+            return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement label is too long");
+        }
+        return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement label must be printable ASCII");
+    }
+    if (!std::isfinite(metadata.measurement.scale)) {
+        return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement scale must be finite");
+    }
+    if (metadata.measurement.unit != MeasurementUnit::None && metadata.measurement.scale <= 0.0) {
+        return DraftingMetadataValidationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement scale must be positive");
     }
 
     return DraftingMetadataValidationResult::accepted();

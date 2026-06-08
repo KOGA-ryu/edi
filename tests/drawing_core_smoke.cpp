@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 #include <QTextStream>
 
 #include <cmath>
@@ -119,6 +120,119 @@ bool expectNear(double actual, double expected, const QString &message) {
                   QStringLiteral("%1; expected %2, got %3").arg(message).arg(expected).arg(actual));
 }
 
+bool finiteNumber(const QJsonObject &object, const QString &field) {
+    return object.contains(field) && std::isfinite(object.value(field).toDouble());
+}
+
+drawing_core::Bounds2D expectedBoundsForObject(const QJsonObject &object) {
+    using namespace drawing_core;
+
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+        return computeBounds(pointGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+        return computeBounds(lineGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("circle")) {
+        return computeBounds(circleGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("arc")) {
+        return computeBounds(arcGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("rectangle")
+        || kind == QStringLiteral("image_reference_frame")
+        || kind == QStringLiteral("ascii_crop_frame")
+        || kind == QStringLiteral("ascii_cell_region")) {
+        return computeBounds(rectangleGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("polyline")) {
+        return computeBounds(polylineGeometryFromObject(object));
+    }
+    if (kind == QStringLiteral("polygon")) {
+        return computeBounds(polygonGeometryFromObject(object));
+    }
+    return {};
+}
+
+bool expectObjectInvariants(const QJsonObject &object, int canvasPx) {
+    const QString id = object.value(QStringLiteral("id")).toString();
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    bool ok = true;
+    ok &= expect(!id.isEmpty(), QStringLiteral("generated object should have an id"));
+    ok &= expect(id.startsWith(QStringLiteral("script_")), QStringLiteral("%1 should use a generated script id").arg(id));
+    ok &= expect(!kind.isEmpty(), QStringLiteral("%1 should have a kind").arg(id));
+    ok &= expect(object.contains(QStringLiteral("geometry")), QStringLiteral("%1 should contain typed geometry").arg(id));
+    ok &= expect(object.contains(QStringLiteral("bounds")), QStringLiteral("%1 should contain derived bounds").arg(id));
+    ok &= expect(object.value(QStringLiteral("metadata")).toObject().contains(QStringLiteral("created_by")),
+                 QStringLiteral("%1 should preserve creation metadata").arg(id));
+
+    const QJsonObject bounds = object.value(QStringLiteral("bounds")).toObject();
+    ok &= expect(finiteNumber(bounds, QStringLiteral("x"))
+                     && finiteNumber(bounds, QStringLiteral("y"))
+                     && finiteNumber(bounds, QStringLiteral("w"))
+                     && finiteNumber(bounds, QStringLiteral("h")),
+                 QStringLiteral("%1 bounds should contain finite x/y/w/h").arg(id));
+    ok &= expect(bounds.value(QStringLiteral("w")).toDouble() >= 0.0
+                     && bounds.value(QStringLiteral("h")).toDouble() >= 0.0,
+                 QStringLiteral("%1 bounds should not be negative").arg(id));
+
+    const drawing_core::Bounds2D expected = expectedBoundsForObject(object);
+    ok &= expect(expected.ok, QStringLiteral("%1 should have computable bounds for kind %2").arg(id, kind));
+    if (expected.ok) {
+        ok &= expectNear(bounds.value(QStringLiteral("x")).toDouble(), expected.x * canvasPx,
+                         QStringLiteral("%1 bounds.x should derive from geometry").arg(id));
+        ok &= expectNear(bounds.value(QStringLiteral("y")).toDouble(), expected.y * canvasPx,
+                         QStringLiteral("%1 bounds.y should derive from geometry").arg(id));
+        ok &= expectNear(bounds.value(QStringLiteral("w")).toDouble(), expected.w * canvasPx,
+                         QStringLiteral("%1 bounds.w should derive from geometry").arg(id));
+        ok &= expectNear(bounds.value(QStringLiteral("h")).toDouble(), expected.h * canvasPx,
+                         QStringLiteral("%1 bounds.h should derive from geometry").arg(id));
+    }
+    return ok;
+}
+
+bool expectDrawingModelInvariants(const QJsonObject &model) {
+    const QJsonArray canvas = model.value(QStringLiteral("canvas_px")).toArray();
+    const int canvasPx = canvas.size() >= 1 ? canvas.at(0).toInt(512) : 512;
+    const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
+    QSet<QString> objectIds;
+    bool ok = true;
+
+    for (const QJsonValue value : objects) {
+        const QJsonObject object = value.toObject();
+        const QString id = object.value(QStringLiteral("id")).toString();
+        ok &= expect(!objectIds.contains(id), QStringLiteral("%1 should be unique in generated_objects").arg(id));
+        objectIds.insert(id);
+        ok &= expectObjectInvariants(object, canvasPx);
+    }
+
+    const QString selectedId = model.value(QStringLiteral("selected_object_id")).toString();
+    ok &= expect(selectedId.isEmpty() || objectIds.contains(selectedId),
+                 QStringLiteral("selected_object_id should be empty or reference an existing object"));
+
+    QSet<QString> selectedIds;
+    const QJsonArray selectedArray = model.value(QStringLiteral("selected_object_ids")).toArray();
+    for (const QJsonValue value : selectedArray) {
+        const QString id = value.toString();
+        ok &= expect(!id.isEmpty(), QStringLiteral("selected_object_ids should not contain empty ids"));
+        ok &= expect(objectIds.contains(id), QStringLiteral("selected object %1 should exist").arg(id));
+        ok &= expect(!selectedIds.contains(id), QStringLiteral("selected object %1 should not be duplicated").arg(id));
+        selectedIds.insert(id);
+    }
+    if (!selectedArray.isEmpty()) {
+        ok &= expect(selectedId == selectedArray.last().toString(),
+                     QStringLiteral("selected_object_id should match the last selected_object_ids entry"));
+    }
+    return ok;
+}
+
+QJsonObject checkedControllerModel(const DrawingDocumentController &controller, bool &ok) {
+    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    ok &= expectDrawingModelInvariants(model);
+    return model;
+}
+
 bool runVisibleToolCreationSmoke() {
     QJsonArray commands;
     commands.append(selectTool(QStringLiteral("anchor_points")));
@@ -170,6 +284,7 @@ bool runVisibleToolCreationSmoke() {
     const DrawingCoreResult result = DrawingCore::runScript(script(commands));
     const QJsonObject model = result.model;
     bool ok = true;
+    ok &= expectDrawingModelInvariants(model);
     ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
                  QStringLiteral("visible tool script should pass"));
 
@@ -385,6 +500,7 @@ bool runSelectDeleteSmoke() {
 
     const QJsonObject model = DrawingCore::runScript(script(commands)).model;
     bool ok = true;
+    ok &= expectDrawingModelInvariants(model);
     ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
                  QStringLiteral("select/delete script should pass"));
     ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
@@ -404,6 +520,7 @@ bool runClickSnapOverrideSmoke() {
     const QJsonObject snap = model.value(QStringLiteral("snap")).toObject();
 
     bool ok = true;
+    ok &= expectDrawingModelInvariants(model);
     ok &= expect(model.value(QStringLiteral("script_status")).toString() == QStringLiteral("pass"),
                  QStringLiteral("snap override script should pass"));
     ok &= expect(pointPx.size() >= 2 && pointPx.at(0).toDouble() == 24.0 && pointPx.at(1).toDouble() == 24.0,
@@ -419,14 +536,14 @@ bool runControllerUndoRedoSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.125, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
     bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     ok &= expect(controller.canUndo(), QStringLiteral("controller should allow undo after creating a line"));
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("line")) == 1,
                  QStringLiteral("controller should create one line before undo"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(!model.value(QStringLiteral("pending_point")).toObject().value(QStringLiteral("ok")).toBool(false),
                  QStringLiteral("undo should not leave a pending two-click point"));
     ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
@@ -434,7 +551,7 @@ bool runControllerUndoRedoSmoke() {
     ok &= expect(controller.canRedo(), QStringLiteral("controller should allow redo after undo"));
 
     controller.redo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("line")) == 1,
                  QStringLiteral("redo should restore the generated line"));
 
@@ -456,8 +573,8 @@ bool runControllerMoveCoalescingSmoke() {
     controller.moveObjectBy(QStringLiteral("script_point_01"), 0.125, 0.0);
     controller.endMoveGesture();
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
     bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("move_object")) == 1,
                  QStringLiteral("drag move should coalesce into one move command"));
 
@@ -466,7 +583,7 @@ bool runControllerMoveCoalescingSmoke() {
                  QStringLiteral("coalesced move should preserve total dx"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     point = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point"));
     ok &= expect(point.value(QStringLiteral("x")).toDouble() == 0.25,
                  QStringLiteral("undo should revert the entire drag move at once"));
@@ -485,12 +602,12 @@ bool runControllerLineStoreLifecycleSmoke() {
     controller.moveObjectBy(lineId, 0.125, 0.0);
     controller.updateObjectField(lineId, QStringLiteral("x2_px"), 320.0);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonObject line = objectById(model.value(QStringLiteral("generated_objects")).toArray(), lineId);
     QJsonObject lineGeometry = line.value(QStringLiteral("geometry")).toObject();
     QJsonObject lineBounds = line.value(QStringLiteral("bounds")).toObject();
 
-    bool ok = true;
     ok &= expect(line.value(QStringLiteral("role")).toString() == QStringLiteral("guide"),
                  QStringLiteral("store-backed line should preserve top-level metadata after projection"));
     ok &= expect(line.value(QStringLiteral("source")).toString() == QStringLiteral("cpp_drawing_core"),
@@ -507,12 +624,12 @@ bool runControllerLineStoreLifecycleSmoke() {
                  QStringLiteral("store-backed line svg export should preserve metadata"));
 
     controller.deleteObject(lineId);
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), lineId).isEmpty(),
                  QStringLiteral("store-backed line delete should remove JSON projection"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     line = objectById(model.value(QStringLiteral("generated_objects")).toArray(), lineId);
     lineGeometry = line.value(QStringLiteral("geometry")).toObject();
     ok &= expect(line.value(QStringLiteral("role")).toString() == QStringLiteral("guide"),
@@ -532,25 +649,25 @@ bool runControllerObjectFieldUpdateSmoke() {
     controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("width_px"), 192.0);
     controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("x_px"), 96.0);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonObject rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     const QJsonArray editedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
 
-    bool ok = true;
     ok &= expect(editedRect.size() == 4, QStringLiteral("edited rectangle should keep rect_px geometry"));
     ok &= expectNear(editedRect.at(0).toDouble(), 96.0, QStringLiteral("right-panel x edit should update rectangle x"));
     ok &= expectNear(editedRect.at(2).toDouble(), 192.0, QStringLiteral("right-panel width edit should update rectangle width"));
     ok &= expect(controller.canUndo(), QStringLiteral("object field edits should be undoable"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     const QJsonArray revertedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
     ok &= expectNear(revertedRect.at(0).toDouble(), 128.0, QStringLiteral("first undo should revert only the x edit"));
     ok &= expectNear(revertedRect.at(2).toDouble(), 192.0, QStringLiteral("first undo should keep the earlier width edit"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     const QJsonArray fullyRevertedRect = rectangle.value(QStringLiteral("rect_px")).toArray();
     ok &= expectNear(fullyRevertedRect.at(0).toDouble(), 128.0, QStringLiteral("second undo should revert the x edit"));
@@ -572,8 +689,8 @@ bool runControllerObjectFieldGestureCoalescingSmoke() {
     controller.updateObjectField(QStringLiteral("script_rectangle_01"), QStringLiteral("height_px"), 208.0);
     controller.endMoveGesture();
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
     bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     ok &= expect(commandCount(model.value(QStringLiteral("command_log")).toArray(), QStringLiteral("update_object")) == 2,
                  QStringLiteral("handle drag should keep only the final update per field"));
 
@@ -583,7 +700,7 @@ bool runControllerObjectFieldGestureCoalescingSmoke() {
     ok &= expectNear(rect.at(3).toDouble(), 208.0, QStringLiteral("gesture height should use final dragged value"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     rect = rectangle.value(QStringLiteral("rect_px")).toArray();
     ok &= expectNear(rect.at(2).toDouble(), 128.0, QStringLiteral("one undo should revert handle-drag width"));
@@ -604,11 +721,11 @@ bool runControllerObjectMetadataSmoke() {
     controller.updateSelectedObjectMetadataField(QStringLiteral("export_group"), QStringLiteral("room_a"));
     controller.updateSelectedObjectMetadataField(QStringLiteral("tags"), QStringLiteral("wall, collision, wall"));
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonObject rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     const QJsonArray tags = rectangle.value(QStringLiteral("tags")).toArray();
 
-    bool ok = true;
     ok &= expect(rectangle.value(QStringLiteral("role")).toString() == QStringLiteral("wall"),
                  QStringLiteral("metadata editor should persist role"));
     ok &= expect(rectangle.value(QStringLiteral("material")).toString() == QStringLiteral("stone"),
@@ -628,13 +745,13 @@ bool runControllerObjectMetadataSmoke() {
                  QStringLiteral("svg export should preserve selected object metadata as data attributes"));
 
     controller.updateSelectedObjectMetadataField(QStringLiteral("material"), QStringLiteral(""));
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     ok &= expect(!rectangle.contains(QStringLiteral("material")),
                  QStringLiteral("clearing metadata should remove empty material"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     rectangle = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     ok &= expect(rectangle.value(QStringLiteral("material")).toString() == QStringLiteral("stone"),
                  QStringLiteral("metadata clear should be undoable"));
@@ -650,9 +767,9 @@ bool runControllerDuplicateSelectedObjectSmoke() {
     controller.selectObject(QStringLiteral("script_rectangle_01"));
     controller.duplicateSelectedObject();
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
-    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
+    QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     ok &= expect(kindCount(objects, QStringLiteral("rectangle")) == 2,
                  QStringLiteral("duplicate selected object should create a second rectangle"));
     ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_02"),
@@ -675,7 +792,7 @@ bool runControllerDuplicateSelectedObjectSmoke() {
     ok &= expectNear(rect.at(1).toDouble(), 144.0, QStringLiteral("duplicate should offset y by 16px"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle")) == 1,
                  QStringLiteral("undo should remove duplicated rectangle"));
     ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_01"),
@@ -689,14 +806,14 @@ bool runControllerPasteObjectSnapshotSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     const QJsonObject source = firstObjectOfKind(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("rectangle"));
     controller.deleteObject(QStringLiteral("script_rectangle_01"));
     controller.pasteObject(source.toVariantMap(), 16.0 / 512.0, 16.0 / 512.0);
 
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
-    bool ok = true;
     ok &= expect(kindCount(objects, QStringLiteral("rectangle")) == 1,
                  QStringLiteral("paste should restore a rectangle from copied snapshot after source deletion"));
     ok &= expect(model.value(QStringLiteral("selected_object_id")).toString() == QStringLiteral("script_rectangle_01"),
@@ -712,7 +829,7 @@ bool runControllerPasteObjectSnapshotSmoke() {
     ok &= expectNear(rect.at(1).toDouble(), 144.0, QStringLiteral("paste should offset y by requested amount"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(model.value(QStringLiteral("generated_objects")).toArray().isEmpty(),
                  QStringLiteral("undo should remove pasted object and restore deleted-source state"));
     return ok;
@@ -725,7 +842,8 @@ bool runControllerSelectObjectsSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     const QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     if (!expect(objects.size() == 3, QStringLiteral("multi-select setup should create three point objects"))) {
         return false;
@@ -739,9 +857,8 @@ bool runControllerSelectObjectsSmoke() {
     ids.append(thirdId);
     controller.selectObjects(ids);
 
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
-    bool ok = true;
     ok &= expect(selectedIds.size() == 2,
                  QStringLiteral("multi-select should expose selected_object_ids"));
     ok &= expect(selectedIds.at(0).toString() == firstId,
@@ -752,7 +869,7 @@ bool runControllerSelectObjectsSmoke() {
                  QStringLiteral("multi-select should keep the last selected object as primary"));
 
     controller.selectObject(secondId);
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
     ok &= expect(selectedIds.size() == 1,
                  QStringLiteral("single select should collapse selected_object_ids to one item"));
@@ -760,7 +877,7 @@ bool runControllerSelectObjectsSmoke() {
                  QStringLiteral("single select should expose its selected id"));
 
     controller.selectObjects({});
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
     ok &= expect(selectedIds.isEmpty(),
                  QStringLiteral("empty multi-select should clear selected_object_ids"));
@@ -776,7 +893,8 @@ bool runControllerMultiSelectOperationsSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     QVariantList ids;
     ids.append(objects.at(0).toObject().value(QStringLiteral("id")).toString());
@@ -784,10 +902,9 @@ bool runControllerMultiSelectOperationsSmoke() {
     controller.selectObjects(ids);
     controller.duplicateSelectedObject();
 
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     objects = model.value(QStringLiteral("generated_objects")).toArray();
     QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
-    bool ok = true;
     ok &= expect(kindCount(objects, QStringLiteral("point")) == 5,
                  QStringLiteral("multi-duplicate should create one copy for each selected object"));
     ok &= expect(selectedIds.size() == 2,
@@ -798,13 +915,13 @@ bool runControllerMultiSelectOperationsSmoke() {
                  QStringLiteral("multi-duplicate should record one batch command"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 3,
                  QStringLiteral("one undo should remove the duplicated set"));
 
     controller.selectObjects(ids);
     controller.deleteSelectedObject();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     objects = model.value(QStringLiteral("generated_objects")).toArray();
     ok &= expect(kindCount(objects, QStringLiteral("point")) == 1,
                  QStringLiteral("multi-delete should remove all selected objects"));
@@ -814,7 +931,7 @@ bool runControllerMultiSelectOperationsSmoke() {
                  QStringLiteral("multi-delete should record one batch command"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 3,
                  QStringLiteral("one undo should restore the deleted set"));
     return ok;
@@ -826,17 +943,17 @@ bool runControllerPasteObjectsSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     QVariantList snapshots;
     snapshots.append(objects.at(0).toObject().toVariantMap());
     snapshots.append(objects.at(1).toObject().toVariantMap());
     controller.pasteObjects(snapshots, 16.0 / 512.0, 16.0 / 512.0);
 
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     objects = model.value(QStringLiteral("generated_objects")).toArray();
     QJsonArray selectedIds = model.value(QStringLiteral("selected_object_ids")).toArray();
-    bool ok = true;
     ok &= expect(kindCount(objects, QStringLiteral("point")) == 4,
                  QStringLiteral("multi-paste should create one pasted object per snapshot"));
     ok &= expect(selectedIds.size() == 2,
@@ -845,7 +962,7 @@ bool runControllerPasteObjectsSmoke() {
                  QStringLiteral("multi-paste should record one batch command"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     ok &= expect(kindCount(model.value(QStringLiteral("generated_objects")).toArray(), QStringLiteral("point")) == 2,
                  QStringLiteral("one undo should remove the pasted set"));
     return ok;
@@ -858,7 +975,8 @@ bool runControllerMoveSelectedObjectsSmoke() {
     controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
     controller.clickCanvasNormalizedWithSnapStep(0.375, 0.375, 8);
 
-    QJsonObject model = QJsonObject::fromVariantMap(controller.modelDocument());
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
     QJsonArray objects = model.value(QStringLiteral("generated_objects")).toArray();
     const QString firstId = objects.at(0).toObject().value(QStringLiteral("id")).toString();
     const QString thirdId = objects.at(2).toObject().value(QStringLiteral("id")).toString();
@@ -871,9 +989,8 @@ bool runControllerMoveSelectedObjectsSmoke() {
     controller.moveSelectedObjectBy(16.0 / 512.0, 8.0 / 512.0);
     controller.endMoveGesture();
 
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     objects = model.value(QStringLiteral("generated_objects")).toArray();
-    bool ok = true;
     QJsonObject first = objectById(objects, firstId);
     QJsonObject third = objectById(objects, thirdId);
     QJsonObject second = objectById(objects, objects.at(1).toObject().value(QStringLiteral("id")).toString());
@@ -893,7 +1010,7 @@ bool runControllerMoveSelectedObjectsSmoke() {
                  QStringLiteral("multi-move should preserve selected object ids"));
 
     controller.undo();
-    model = QJsonObject::fromVariantMap(controller.modelDocument());
+    model = checkedControllerModel(controller, ok);
     objects = model.value(QStringLiteral("generated_objects")).toArray();
     first = objectById(objects, firstId);
     third = objectById(objects, thirdId);
@@ -914,13 +1031,13 @@ bool runControllerModelRoundTripSmoke() {
     source.clickCanvasNormalized(0.75, 0.75);
     source.clickCanvasNormalized(0.875, 0.75);
 
-    const QJsonObject savedModel = QJsonObject::fromVariantMap(source.modelDocument());
     DrawingDocumentController restored;
     bool ok = true;
+    const QJsonObject savedModel = checkedControllerModel(source, ok);
     ok &= expect(restored.loadModel(savedModel.toVariantMap()),
                  QStringLiteral("saved drawing model should load into a fresh controller"));
 
-    const QJsonObject restoredModel = QJsonObject::fromVariantMap(restored.modelDocument());
+    const QJsonObject restoredModel = checkedControllerModel(restored, ok);
     const QJsonArray restoredObjects = restoredModel.value(QStringLiteral("generated_objects")).toArray();
     ok &= expect(restoredModel.value(QStringLiteral("export_kind")).toString() == QStringLiteral("pattern_lab_2d_native_model_v0"),
                  QStringLiteral("round-tripped drawing should keep the native drawing kind"));

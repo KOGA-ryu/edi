@@ -45,6 +45,8 @@ expect(recommendationOutput.recommendedSelectors.every(selector => String(select
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--compare-baseline") >= 0), "recommendation failure commands should compare baselines")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--failures-only") >= 0), "recommendation failure commands should request failures only")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--dry-run") < 0), "recommendation failure commands should execute metrics")
+expect(recommendationOutput.recommendedSelectors.some(selector => selector.failureCommands && selector.failureCommands.rendering),
+    "recommendations should include subsystem-specific failure commands")
 
 const singleRecommendation = spawnSync(process.execPath, [
     helper,
@@ -71,6 +73,8 @@ expect(singleRecommendationOutput.recommendedSelectors[0].baselineCommand === "n
     "single recommendation output should include baseline compare command")
 expect(singleRecommendationOutput.recommendedSelectors[0].failureCommand === "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only",
     "single recommendation output should include failures-only compare command")
+expect(singleRecommendationOutput.recommendedSelectors[0].failureCommands.rendering === "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering --failures-only",
+    "single recommendation output should include subsystem-specific rendering failure command")
 
 const missingRecommendation = spawnSync(process.execPath, [
     helper,

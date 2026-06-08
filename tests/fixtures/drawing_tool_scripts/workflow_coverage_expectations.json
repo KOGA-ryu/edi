@@ -98,7 +98,15 @@
       "command": "node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line",
       "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
-      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only"
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only",
+      "failureCommands": {
+        "controller": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem controller --failures-only",
+        "gesture": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem gesture --failures-only",
+        "handles": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem handles --failures-only",
+        "hit_test": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem hit_test --failures-only",
+        "rendering": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering --failures-only",
+        "snap": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem snap --failures-only"
+      }
     },
     {
       "id": "handle_edits",
@@ -107,7 +115,13 @@
       "command": "node tests/helpers/drawing_control_workflow_report.js --category edit --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit",
       "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline",
-      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --failures-only"
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --failures-only",
+      "failureCommands": {
+        "controller": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --subsystem controller --failures-only",
+        "gesture": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --subsystem gesture --failures-only",
+        "handles": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --subsystem handles --failures-only",
+        "rendering": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --subsystem rendering --failures-only"
+      }
     },
     {
       "id": "arc_parameters",
@@ -124,7 +138,18 @@
       "command": "node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --all",
       "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline",
-      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only"
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only",
+      "failureCommands": {
+        "baseline": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem baseline --failures-only",
+        "controller": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem controller --failures-only",
+        "gesture": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem gesture --failures-only",
+        "handles": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem handles --failures-only",
+        "hit_test": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem hit_test --failures-only",
+        "metrics": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem metrics --failures-only",
+        "rendering": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem rendering --failures-only",
+        "snap": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem snap --failures-only",
+        "workflow_fixture": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --subsystem workflow_fixture --failures-only"
+      }
     }
   ]
 }

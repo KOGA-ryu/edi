@@ -24,6 +24,7 @@ Recommended selector fields:
 - `runCommand`: real workflow metric run.
 - `baselineCommand`: real workflow run plus accepted-baseline comparison.
 - `failureCommand`: smallest baseline failure-state report.
+- `failureCommands`: optional subsystem-specific failure-state reports.
 
 ## First Probe
 
@@ -37,7 +38,7 @@ node tests/helpers/drawing_control_workflow_report.js --recommend
 node tests/helpers/drawing_control_workflow_report.js --recommend --id line_system
 ```
 
-Recommendation output keeps coverage, metric collection, baseline comparison, and failure-only comparison as separate commands. Use `command` first, then `failureCommand` when you only need to know whether accepted behavior changed.
+Recommendation output keeps coverage, metric collection, baseline comparison, and failure-only comparison as separate commands. Use `command` first, then `failureCommand` when you only need to know whether accepted behavior changed. Use `failureCommands.<subsystem>` when investigating one area such as `rendering`, `gesture`, `handles`, or `controller`.
 
 ```sh
 node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact

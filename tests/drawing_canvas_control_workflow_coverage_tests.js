@@ -57,6 +57,20 @@ function selectorEnvFromCommand(command) {
     return result
 }
 
+function validBaselineSubsystems() {
+    return new Set([
+        "baseline",
+        "workflow_fixture",
+        "gesture",
+        "controller",
+        "rendering",
+        "hit_test",
+        "snap",
+        "handles",
+        "metrics",
+    ])
+}
+
 function runRecommendedSelectorContract(repoRoot) {
     const expectations = WorkflowHarness.workflowCoverageExpectations(repoRoot)
     const selectors = Array.isArray(expectations.selectors) ? expectations.selectors : []
@@ -82,6 +96,7 @@ function runRecommendedSelectorContract(repoRoot) {
         const runCommand = String(recommendation.runCommand || "")
         const baselineCommand = String(recommendation.baselineCommand || "")
         const failureCommand = String(recommendation.failureCommand || "")
+        const failureCommands = recommendation.failureCommands && typeof recommendation.failureCommands === "object" ? recommendation.failureCommands : {}
         expect(id.length > 0, "recommended selector should include id")
         expect(description.length > 0, `${id} should include description`)
         expect(command.length > 0, `${id} should include command`)
@@ -99,6 +114,15 @@ function runRecommendedSelectorContract(repoRoot) {
         expect(failureCommand.indexOf("--failures-only") >= 0, `${id} failureCommand should use failures-only output`)
         expect(failureCommand.indexOf("--dry-run") < 0, `${id} failureCommand should execute real metrics`)
         expect(failureCommand.indexOf("--compact") < 0, `${id} failureCommand should not use compact dry-run`)
+        for (const subsystem of Object.keys(failureCommands).sort()) {
+            const commandForSubsystem = String(failureCommands[subsystem] || "")
+            expect(validBaselineSubsystems().has(subsystem), `${id} failureCommands.${subsystem} should use a known subsystem`)
+            expect(commandForSubsystem.indexOf("--compare-baseline") >= 0, `${id} failureCommands.${subsystem} should compare baselines`)
+            expect(commandForSubsystem.indexOf("--failures-only") >= 0, `${id} failureCommands.${subsystem} should use failures-only output`)
+            expect(commandForSubsystem.indexOf(`--subsystem ${subsystem}`) >= 0, `${id} failureCommands.${subsystem} should select matching subsystem`)
+            expect(commandForSubsystem.indexOf("--dry-run") < 0, `${id} failureCommands.${subsystem} should execute real metrics`)
+            expect(commandForSubsystem.indexOf("--compact") < 0, `${id} failureCommands.${subsystem} should not use compact dry-run`)
+        }
 
         const selectorId = String(recommendation.selectorId || "")
         if (selectorId.length > 0) {

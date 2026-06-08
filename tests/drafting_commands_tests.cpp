@@ -15,10 +15,7 @@ int main()
     assert(!rejectedResult.ok);
     assert(rejectedResult.code == DraftingResultCode::ObjectNotFound);
 
-    DraftingObject point;
-    point.id = "point_1";
-    point.kind = DraftingShapeKind::Point;
-    point.geometry = PointGeometry{{4.0, 5.0}};
+    DraftingObject point = makeDraftingObject("point_1", DraftingShapeKind::Point, PointGeometry{{4.0, 5.0}});
 
     auto create = applyDraftingCommand(document, CreateObjectCommand{point});
     assert(create.ok);
@@ -47,10 +44,7 @@ int main()
     assert(document.revision == revisionAfterDelete);
     assert(!document.activeObjectId);
 
-    DraftingObject invalidPolyline;
-    invalidPolyline.id = "polyline_1";
-    invalidPolyline.kind = DraftingShapeKind::Polyline;
-    invalidPolyline.geometry = PolylineGeometry{{{0.0, 0.0}}};
+    DraftingObject invalidPolyline = makeDraftingObject("polyline_1", DraftingShapeKind::Polyline, PolylineGeometry{{{0.0, 0.0}}});
     auto invalidCreate = applyDraftingCommand(document, CreateObjectCommand{invalidPolyline});
     assert(!invalidCreate.ok);
     assert(invalidCreate.code == DraftingResultCode::InvalidGeometry);

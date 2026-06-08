@@ -13,11 +13,7 @@ namespace {
 
 DraftingObject makeLine(const char *id)
 {
-    DraftingObject object;
-    object.id = id;
-    object.kind = DraftingShapeKind::Line;
-    object.geometry = LineGeometry{{0.0, 0.0}, {10.0, 0.0}};
-    return object;
+    return makeDraftingObject(id, DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {10.0, 0.0}});
 }
 
 } // namespace
@@ -41,6 +37,26 @@ int main()
     assert(!isValidLayerId(""));
     assert(isValidLayerName("Default"));
     assert(!isValidLayerName(""));
+    DraftingLayer defaultLayer = makeDefaultLayer();
+    assert(defaultLayer.id == "default");
+    assert(defaultLayer.name == "Default");
+    assert(defaultLayer.order == 0);
+    DraftingLayer explicitLayer = makeDraftingLayer("overlay", "Overlay", 2);
+    assert(explicitLayer.id == "overlay");
+    assert(explicitLayer.name == "Overlay");
+    assert(explicitLayer.order == 2);
+    DraftingLayer fallbackLayerName = makeDraftingLayer("measurements", "", 3);
+    assert(fallbackLayerName.name == "measurements");
+    assert(fallbackLayerName.order == 3);
+    DraftingLayer emptyLayer = makeDraftingLayer("", "", 4);
+    assert(emptyLayer.id.empty());
+    assert(emptyLayer.name.empty());
+    assert(emptyLayer.order == 4);
+    DraftingObject helperObject = makeDraftingObject("helper_line", DraftingShapeKind::Line, LineGeometry{{1.0, 2.0}, {3.0, 4.0}});
+    assert(helperObject.id == "helper_line");
+    assert(helperObject.kind == DraftingShapeKind::Line);
+    assert(helperObject.layerId == "default");
+    assert(helperObject.bounds.width == 0.0);
     assert(layerIndexById(document, "default") == 0);
     assert(findLayer(document, "default") == &document.layers[0]);
     assert(containsLayer(document, "default"));

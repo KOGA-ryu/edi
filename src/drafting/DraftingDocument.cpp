@@ -5,9 +5,33 @@
 
 namespace edi::drafting {
 
+DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
+{
+    DraftingObject object;
+    object.id = std::move(id);
+    object.kind = kind;
+    object.geometry = std::move(geometry);
+    return object;
+}
+
+DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order)
+{
+    DraftingLayer layer;
+    layer.id = std::move(id);
+    if (isValidLayerName(name)) {
+        layer.name = std::move(name);
+    } else if (isValidLayerId(layer.id)) {
+        layer.name = layer.id;
+    } else {
+        layer.name.clear();
+    }
+    layer.order = order;
+    return layer;
+}
+
 DraftingLayer makeDefaultLayer()
 {
-    return {};
+    return makeDraftingLayer("default", "Default", 0);
 }
 
 DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title)

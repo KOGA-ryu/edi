@@ -35,15 +35,19 @@ std::string toStdString(const QString &value)
     return value.toStdString();
 }
 
-DraftingObjectBuildResult buildObjectForTool(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
+DraftingToolKind toolKind(const QString &toolId)
 {
-    return buildDraftingObjectForTool({
-        draftingToolKindFromId(toStdString(toolId)),
-        toStdString(objectId),
-        start,
-        end,
-        toStdString(toolId),
-    });
+    return draftingToolKindFromId(toStdString(toolId));
+}
+
+QString objectIdPrefix(DraftingToolKind kind)
+{
+    return QString::fromLatin1(draftingToolKindName(kind));
+}
+
+DraftingToolCreationRequest creationRequest(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
+{
+    return {toolKind(toolId), toStdString(objectId), start, end, toStdString(toolId)};
 }
 
 bool boundsIntersect(Bounds2D a, Bounds2D b)
@@ -64,7 +68,7 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    return drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings);
+    return drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
 }
 
 QString DrawingDocumentController::selectedToolId() const
@@ -93,7 +97,8 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
         return;
     }
     m_selectedToolId = toolId;
-    m_hasPendingPoint = false;
+    m_pendingCreation.reset();
+    m_previewObject.reset();
     emit modelChanged();
 }
 
@@ -129,14 +134,16 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
             clearSelection(m_document);
             ++m_document.revision;
         }
-        m_hasPendingPoint = false;
+        m_pendingCreation.reset();
+        m_previewObject.reset();
         emit modelChanged();
         return;
     }
 
-    if (m_selectedToolId == QStringLiteral("point_tool")) {
+    const DraftingToolKind kind = toolKind(m_selectedToolId);
+    if (kind == DraftingToolKind::Point) {
         const QString id = nextObjectId(QStringLiteral("point"), m_nextObjectSerial++);
-        const auto object = buildObjectForTool(m_selectedToolId, id, point, point);
+        const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, point, point));
         if (object.ok) {
             applyDraftingCommand(m_document, CreateObjectCommand{object.object});
             applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
@@ -145,20 +152,39 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         return;
     }
 
-    if (!m_hasPendingPoint) {
-        m_pendingX = point.x;
-        m_pendingY = point.y;
-        m_hasPendingPoint = true;
+    if (!m_pendingCreation) {
+        const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
+        m_pendingCreation = creationRequest(m_selectedToolId, id, point, point);
+        m_previewObject.reset();
         emit modelChanged();
         return;
     }
 
-    const QString id = nextObjectId(m_selectedToolId.section(QLatin1Char('_'), 0, 0), m_nextObjectSerial++);
-    const auto object = buildObjectForTool(m_selectedToolId, id, {m_pendingX, m_pendingY}, point);
-    m_hasPendingPoint = false;
+    m_pendingCreation->end = point;
+    const auto object = buildDraftingObjectForTool(*m_pendingCreation);
+    m_pendingCreation.reset();
+    m_previewObject.reset();
     if (object.ok) {
         applyDraftingCommand(m_document, CreateObjectCommand{object.object});
         applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
+    }
+    emit modelChanged();
+}
+
+void DrawingDocumentController::updateCreationPreviewNormalized(double x, double y)
+{
+    if (!m_pendingCreation) {
+        return;
+    }
+
+    const Point2D point = resolveSnap({clamp01(x), clamp01(y)}, m_document, m_snapSettings).point;
+    DraftingToolCreationRequest preview = *m_pendingCreation;
+    preview.end = point;
+    const auto object = buildDraftingObjectForTool(preview);
+    if (object.ok) {
+        m_previewObject = object.object;
+    } else {
+        m_previewObject.reset();
     }
     emit modelChanged();
 }

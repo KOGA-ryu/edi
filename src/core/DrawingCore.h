@@ -8,6 +8,9 @@
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingSnap.h"
+#include "drafting/DraftingToolCreation.h"
+
+#include <optional>
 
 class DrawingDocumentController final : public QObject {
     Q_OBJECT
@@ -24,6 +27,7 @@ public:
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
     void clickCanvasNormalized(double x, double y);
+    void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
     bool selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2);
@@ -35,8 +39,7 @@ private:
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingSnapSettings m_snapSettings;
-    bool m_hasPendingPoint = false;
-    double m_pendingX = 0.0;
-    double m_pendingY = 0.0;
+    std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
+    std::optional<edi::drafting::DraftingObject> m_previewObject;
     int m_nextObjectSerial = 1;
 };

@@ -119,5 +119,37 @@ int main(int argc, char **argv)
     assert(selectedIds.size() == 2);
     assert(selectionModel.value("active_object_id").toString() == selectedIds.back().toString());
 
+    DrawingDocumentController previewController;
+    previewController.setSelectedToolId("line_tool");
+    previewController.clickCanvasNormalized(0.2, 0.2);
+    QVariantMap pendingModel = previewController.modelDocument();
+    assert(pendingModel.value("drawing_objects").toList().empty());
+    assert(!pendingModel.contains("preview_object"));
+
+    previewController.updateCreationPreviewNormalized(0.6, 0.7);
+    QVariantMap previewModel = previewController.modelDocument();
+    assert(previewModel.value("drawing_objects").toList().empty());
+    assert(previewModel.contains("preview_object"));
+    QVariantMap previewLine = previewModel.value("preview_object").toMap();
+    assert(previewLine.value("kind").toString() == "line");
+    assert(nearlyEqual(previewLine.value("x1").toDouble(), 0.2));
+    assert(nearlyEqual(previewLine.value("y1").toDouble(), 0.2));
+    assert(nearlyEqual(previewLine.value("x2").toDouble(), 0.6));
+    assert(nearlyEqual(previewLine.value("y2").toDouble(), 0.7));
+
+    previewController.clickCanvasNormalized(0.6, 0.7);
+    QVariantMap committedPreviewModel = previewController.modelDocument();
+    assert(committedPreviewModel.value("drawing_objects").toList().size() == 1);
+    assert(!committedPreviewModel.contains("preview_object"));
+
+    DrawingDocumentController cancelPreviewController;
+    cancelPreviewController.setSelectedToolId("rectangle_tool");
+    cancelPreviewController.clickCanvasNormalized(0.1, 0.1);
+    cancelPreviewController.updateCreationPreviewNormalized(0.4, 0.4);
+    assert(cancelPreviewController.modelDocument().contains("preview_object"));
+    cancelPreviewController.setSelectedToolId("select_move");
+    assert(!cancelPreviewController.modelDocument().contains("preview_object"));
+    assert(cancelPreviewController.modelDocument().value("drawing_objects").toList().empty());
+
     return 0;
 }

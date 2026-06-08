@@ -64,7 +64,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
     return result;
 }
 
-QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, const DraftingSnapSettings &snapSettings)
+QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, const DraftingSnapSettings &snapSettings, const DraftingObject *previewObject)
 {
     QVariantList objects;
     for (const DraftingObject &object : document.objects) {
@@ -75,7 +75,7 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
         selectedObjectIds.push_back(qStringFromStdString(id));
     }
 
-    return {
+    QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
         {QStringLiteral("selected_object_ids"), selectedObjectIds},
@@ -89,6 +89,10 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
         }},
         {QStringLiteral("validation"), QVariantList{}},
     };
+    if (previewObject != nullptr) {
+        result.insert(QStringLiteral("preview_object"), draftingObjectToCanvasProjection(*previewObject));
+    }
+    return result;
 }
 
 } // namespace drawing_core

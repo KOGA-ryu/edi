@@ -59,7 +59,7 @@ ScriptCommandPlan planScriptCommands(const LuaRecipe &recipe, std::vector<Script
         if (request.command.empty()) {
             addDiagnostic(plan, ScriptResultCode::InvalidCommand, "script command name is required");
         }
-        if (request.targetId.empty()) {
+        if (!isValidScriptTargetId(request.targetId)) {
             addDiagnostic(plan, ScriptResultCode::EmptyTargetId, "script command target id is required");
         }
     }

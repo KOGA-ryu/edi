@@ -110,6 +110,9 @@ using DraftingGeometry = std::variant<
 
 const char *shapeKindName(DraftingShapeKind kind);
 const char *draftingResultCodeName(DraftingResultCode code);
+bool isValidDraftingObjectId(const DraftingObjectId &id);
+bool isValidDraftingDocumentId(const DraftingDocumentId &id);
+bool isValidLayerId(const LayerId &id);
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry);
 bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry);
 

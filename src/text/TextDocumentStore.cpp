@@ -43,7 +43,7 @@ bool containsDocument(const TextDocumentStore &store, const TextDocumentId &id)
 
 TextStoreResult addDocument(TextDocumentStore &store, TextDocument document)
 {
-    if (document.id.empty()) {
+    if (!isValidTextDocumentId(document.id)) {
         return TextStoreResult::rejected(TextResultCode::EmptyDocumentId, "document id is required");
     }
     if (containsDocument(store, document.id)) {

@@ -25,7 +25,7 @@ LuaRecipe makeLuaRecipe(std::string id, std::string name, std::string version)
 LuaRecipeValidation validateLuaRecipe(const LuaRecipe &recipe)
 {
     LuaRecipeValidation validation;
-    if (recipe.id.empty()) {
+    if (!isValidScriptTargetId(recipe.id)) {
         addDiagnostic(validation, ScriptResultCode::InvalidRecipe, "recipe id is required");
     }
     if (recipe.name.empty()) {
@@ -60,6 +60,11 @@ const char *scriptResultCodeName(ScriptResultCode code)
         return "empty_target_id";
     }
     return "unknown";
+}
+
+bool isValidScriptTargetId(const std::string &targetId)
+{
+    return !targetId.empty();
 }
 
 } // namespace edi::scripting

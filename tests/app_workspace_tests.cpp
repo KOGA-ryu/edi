@@ -21,6 +21,8 @@ int main()
     ProjectWorkspace workspace = makeProjectWorkspace("project_1");
     assert(workspace.id == "project_1");
     assert(workspace.name == "project_1");
+    assert(isValidWorkspaceId("project_1"));
+    assert(!isValidWorkspaceId(""));
     assert(projectWorkspaceResultCodeName(ProjectWorkspaceResultCode::DuplicateDocumentId) == std::string("duplicate_document_id"));
     assert(isValidWorkspaceName(workspace.name));
 

@@ -9,6 +9,8 @@ using namespace edi::text;
 int main()
 {
     TextDocumentStore store;
+    assert(isValidTextDocumentId("text_1"));
+    assert(!isValidTextDocumentId(""));
     TextDocument document = makeTextDocument("text_1", "Scratch");
     document.role = TextDocumentRole::Scratch;
 

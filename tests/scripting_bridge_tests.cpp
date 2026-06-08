@@ -9,6 +9,8 @@ int main()
 {
     LuaRecipe recipe = makeLuaRecipe("recipe_1", "Apply preset", "1");
     recipe.requiredCapabilities = {"drafting.commands"};
+    assert(isValidScriptTargetId("object_1"));
+    assert(!isValidScriptTargetId(""));
 
     auto validation = validateLuaRecipe(recipe);
     assert(validation.ok);

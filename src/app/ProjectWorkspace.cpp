@@ -46,6 +46,11 @@ bool isValidWorkspaceName(const std::string &name)
     return !name.empty();
 }
 
+bool isValidWorkspaceId(const std::string &id)
+{
+    return !id.empty();
+}
+
 std::optional<std::size_t> draftingDocumentIndexById(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
 {
     for (std::size_t index = 0; index < workspace.draftingDocuments.size(); ++index) {
@@ -75,13 +80,13 @@ bool containsDraftingDocument(const ProjectWorkspace &workspace, const edi::draf
 
 ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document)
 {
-    if (workspace.id.empty()) {
+    if (!isValidWorkspaceId(workspace.id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyWorkspaceId, "workspace id is required");
     }
     if (!isValidWorkspaceName(workspace.name)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::InvalidWorkspaceName, "workspace name is required");
     }
-    if (document.id.empty()) {
+    if (!edi::drafting::isValidDraftingDocumentId(document.id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
     if (containsDraftingDocument(workspace, document.id)) {
@@ -96,7 +101,7 @@ ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::dra
 
 ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
 {
-    if (id.empty()) {
+    if (!edi::drafting::isValidDraftingDocumentId(id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
     const auto index = draftingDocumentIndexById(workspace, id);
@@ -117,7 +122,7 @@ ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const
 
 ProjectWorkspaceResult setActiveDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocumentId id)
 {
-    if (id.empty()) {
+    if (!edi::drafting::isValidDraftingDocumentId(id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
     if (!containsDraftingDocument(workspace, id)) {

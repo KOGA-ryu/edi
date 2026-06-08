@@ -40,6 +40,7 @@ struct ProjectWorkspaceResult {
 
 ProjectWorkspace makeProjectWorkspace(std::string id, std::string name = {});
 const char *projectWorkspaceResultCodeName(ProjectWorkspaceResultCode code);
+bool isValidWorkspaceId(const std::string &id);
 bool isValidWorkspaceName(const std::string &name);
 std::optional<std::size_t> draftingDocumentIndexById(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);

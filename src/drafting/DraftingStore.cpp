@@ -20,7 +20,7 @@ DraftingStoreResult DraftingStoreResult::rejected(DraftingResultCode code, std::
 
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 {
-    if (object.id.empty()) {
+    if (!isValidDraftingObjectId(object.id)) {
         return DraftingStoreResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
     }
     if (objectIndexById(document, object.id)) {

@@ -25,6 +25,12 @@ DraftingObject makeLine(const char *id)
 int main()
 {
     DraftingDocument document = makeDraftingDocument("doc");
+    assert(isValidDraftingDocumentId("doc"));
+    assert(!isValidDraftingDocumentId(""));
+    assert(isValidDraftingObjectId("line_1"));
+    assert(!isValidDraftingObjectId(""));
+    assert(isValidLayerId("default"));
+    assert(!isValidLayerId(""));
     assert(layerIndexById(document, "default") == 0);
     assert(findLayer(document, "default") == &document.layers[0]);
     assert(containsLayer(document, "default"));

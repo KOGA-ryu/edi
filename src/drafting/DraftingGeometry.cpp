@@ -110,6 +110,21 @@ bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometr
     return kind == geometryKind(geometry);
 }
 
+bool isValidDraftingObjectId(const DraftingObjectId &id)
+{
+    return !id.empty();
+}
+
+bool isValidDraftingDocumentId(const DraftingDocumentId &id)
+{
+    return !id.empty();
+}
+
+bool isValidLayerId(const LayerId &id)
+{
+    return !id.empty();
+}
+
 GeometryValidationResult GeometryValidationResult::accepted()
 {
     return {true, DraftingResultCode::None, {}};

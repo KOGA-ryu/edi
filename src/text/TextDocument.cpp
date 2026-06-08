@@ -67,6 +67,11 @@ const char *textResultCodeName(TextResultCode code)
     return "unknown";
 }
 
+bool isValidTextDocumentId(const TextDocumentId &id)
+{
+    return !id.empty();
+}
+
 bool isValidTitle(const std::string &title)
 {
     return !title.empty();

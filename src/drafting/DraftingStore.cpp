@@ -95,13 +95,14 @@ DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectI
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
     }
 
-    DraftingGeometry movedGeometry = translateGeometry(object.geometry, dx, dy);
-    const auto geometryValidation = validateGeometry(movedGeometry);
-    if (!geometryValidation.ok) {
-        return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
+    DraftingObject candidate = object;
+    candidate.geometry = translateGeometry(candidate.geometry, dx, dy);
+    const auto shapeValidation = validateDraftingObjectShape(candidate);
+    if (!shapeValidation.ok) {
+        return DraftingStoreResult::rejected(shapeValidation.code, shapeValidation.message);
     }
 
-    object.geometry = std::move(movedGeometry);
+    object.geometry = std::move(candidate.geometry);
     object.bounds = computeBounds(object.geometry);
     ++document.revision;
     return DraftingStoreResult::accepted();

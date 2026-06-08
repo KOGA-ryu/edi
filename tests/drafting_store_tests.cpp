@@ -1,6 +1,7 @@
 #include "drafting/DraftingStore.h"
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingSelection.h"
 
 #include <cassert>
@@ -152,6 +153,18 @@ int main()
     assert(line != nullptr);
     assert(line->bounds.x == 2.0);
     assert(line->bounds.y == 3.0);
+    const auto revisionAfterMove = document.revision;
+    DraftingObject movedCandidate = *line;
+    movedCandidate.geometry = translateGeometry(movedCandidate.geometry, 1.0, 1.0);
+    auto movedCandidateShape = validateDraftingObjectShape(movedCandidate);
+    assert(movedCandidateShape.ok);
+    auto secondMove = moveObject(document, "line_1", 1.0, 1.0);
+    assert(secondMove.ok);
+    const auto *secondMovedLine = findObject(document, "line_1");
+    assert(secondMovedLine != nullptr);
+    assert(secondMovedLine->bounds.x == 3.0);
+    assert(secondMovedLine->bounds.y == 4.0);
+    assert(document.revision == revisionAfterMove + 1);
     auto updateLine = updateObjectGeometry(document, "line_1", LineGeometry{{10.0, 10.0}, {20.0, 10.0}});
     assert(updateLine.ok);
     const auto *updatedLine = findObject(document, "line_1");
@@ -184,10 +197,18 @@ int main()
     assert(mismatchedUpdate.code == mismatchedUpdateShape.code);
     assert(document.revision == revisionBeforeFailedUpdate);
 
+    const Bounds2D boundsBeforeFailedMove = afterInvalidUpdate->bounds;
+    const DraftingGeometry geometryBeforeFailedMove = afterInvalidUpdate->geometry;
     auto badMove = moveObject(document, "line_1", std::numeric_limits<double>::quiet_NaN(), 0.0);
     assert(!badMove.ok);
     assert(badMove.code == DraftingResultCode::InvalidGeometry);
     assert(document.revision == revisionBeforeFailedUpdate);
+    const auto *afterBadMove = findObject(document, "line_1");
+    assert(afterBadMove != nullptr);
+    assert(afterBadMove->bounds.x == boundsBeforeFailedMove.x);
+    assert(afterBadMove->bounds.y == boundsBeforeFailedMove.y);
+    assert(afterBadMove->bounds.width == boundsBeforeFailedMove.width);
+    assert(std::get<LineGeometry>(afterBadMove->geometry).a.x == std::get<LineGeometry>(geometryBeforeFailedMove).a.x);
 
     selectOnly(document, "line_2");
     auto removeMiddle = removeObject(document, "line_2");

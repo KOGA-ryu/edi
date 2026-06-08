@@ -220,4 +220,18 @@ std::string formatMeasurementValue(const MeasurementValue &value)
     return stream.str();
 }
 
+std::vector<std::string> formatObjectMeasurementSummary(const ObjectMeasurementSummary &summary)
+{
+    std::vector<std::string> lines;
+    if (summary.hasDistance) {
+        lines.push_back("distance: " + formatMeasurementValue(summary.distance));
+    }
+    if (summary.hasArea) {
+        lines.push_back("area: " + formatMeasurementValue(summary.area));
+    }
+    lines.push_back("width: " + formatMeasurementValue(summary.dimensions.width));
+    lines.push_back("height: " + formatMeasurementValue(summary.dimensions.height));
+    return lines;
+}
+
 } // namespace edi::drafting

@@ -3,6 +3,7 @@
 #include "drafting/DraftingTypes.h"
 
 #include <string>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -69,5 +70,6 @@ ObjectMeasurementResult<DimensionMeasurement> measureObjectDimensions(const Draf
 ObjectMeasurementResult<ObjectMeasurementSummary> summarizeObjectMeasurement(const DraftingObject &object);
 const char *measurementUnitName(MeasurementUnit unit);
 std::string formatMeasurementValue(const MeasurementValue &value);
+std::vector<std::string> formatObjectMeasurementSummary(const ObjectMeasurementSummary &summary);
 
 } // namespace edi::drafting

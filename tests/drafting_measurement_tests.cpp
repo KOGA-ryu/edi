@@ -120,6 +120,11 @@ int main()
     assert(!lineSummary.value.hasArea);
     assert(lineSummary.value.dimensions.width.value == 0.0);
     assert(lineSummary.value.dimensions.height.value == 3.0);
+    auto lineSummaryLines = formatObjectMeasurementSummary(lineSummary.value);
+    assert(lineSummaryLines.size() == 3);
+    assert(lineSummaryLines[0] == std::string("distance: 3 inch"));
+    assert(lineSummaryLines[1] == std::string("width: 0 inch"));
+    assert(lineSummaryLines[2] == std::string("height: 3 inch"));
 
     DraftingObject measuredRect = makeDraftingObject("measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     measuredRect.metadata.measurement.unit = MeasurementUnit::Centimeter;
@@ -140,6 +145,11 @@ int main()
     assert(rectSummary.value.area.value == 12.5);
     assert(rectSummary.value.dimensions.width.value == 5.0);
     assert(rectSummary.value.dimensions.height.value == 2.5);
+    auto rectSummaryLines = formatObjectMeasurementSummary(rectSummary.value);
+    assert(rectSummaryLines.size() == 3);
+    assert(rectSummaryLines[0] == std::string("area: 12.5 square centimeter"));
+    assert(rectSummaryLines[1] == std::string("width: 5 centimeter"));
+    assert(rectSummaryLines[2] == std::string("height: 2.5 centimeter"));
 
     DraftingObject defaultMeasuredRect = makeDraftingObject("default_measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     auto defaultObjectDimensions = measureObjectDimensions(defaultMeasuredRect);
@@ -167,6 +177,10 @@ int main()
     assert(!pointSummary.value.hasArea);
     assert(pointSummary.value.dimensions.width.value == 0.0);
     assert(pointSummary.value.dimensions.height.value == 0.0);
+    auto pointSummaryLines = formatObjectMeasurementSummary(pointSummary.value);
+    assert(pointSummaryLines.size() == 2);
+    assert(pointSummaryLines[0] == std::string("width: 0 canvas_unit"));
+    assert(pointSummaryLines[1] == std::string("height: 0 canvas_unit"));
 
     return 0;
 }

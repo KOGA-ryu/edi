@@ -46,6 +46,32 @@ TextDocumentRole textDocumentRoleFromName(const std::string &name)
     return TextDocumentRole::Scratch;
 }
 
+const char *textResultCodeName(TextResultCode code)
+{
+    switch (code) {
+    case TextResultCode::None:
+        return "none";
+    case TextResultCode::EmptyDocumentId:
+        return "empty_document_id";
+    case TextResultCode::DuplicateDocumentId:
+        return "duplicate_document_id";
+    case TextResultCode::DocumentNotFound:
+        return "document_not_found";
+    case TextResultCode::InvalidRange:
+        return "invalid_range";
+    case TextResultCode::InvalidTitle:
+        return "invalid_title";
+    case TextResultCode::InvalidTextPayload:
+        return "invalid_text_payload";
+    }
+    return "unknown";
+}
+
+bool isValidTitle(const std::string &title)
+{
+    return !title.empty();
+}
+
 void markDirty(TextDocument &document)
 {
     document.dirty = true;

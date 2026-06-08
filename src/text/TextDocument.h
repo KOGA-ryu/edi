@@ -16,6 +16,16 @@ enum class TextDocumentRole {
     BuildNote
 };
 
+enum class TextResultCode {
+    None,
+    EmptyDocumentId,
+    DuplicateDocumentId,
+    DocumentNotFound,
+    InvalidRange,
+    InvalidTitle,
+    InvalidTextPayload
+};
+
 struct TextDocumentMetadata {
     std::string author;
     std::string source;
@@ -35,6 +45,8 @@ struct TextDocument {
 TextDocument makeTextDocument(TextDocumentId id, std::string title = {});
 const char *textDocumentRoleName(TextDocumentRole role);
 TextDocumentRole textDocumentRoleFromName(const std::string &name);
+const char *textResultCodeName(TextResultCode code);
+bool isValidTitle(const std::string &title);
 void markDirty(TextDocument &document);
 void markClean(TextDocument &document);
 

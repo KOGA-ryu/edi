@@ -7,12 +7,12 @@ namespace edi::text {
 
 TextStoreResult TextStoreResult::accepted()
 {
-    return {true, {}};
+    return {true, TextResultCode::None, {}};
 }
 
-TextStoreResult TextStoreResult::rejected(std::string message)
+TextStoreResult TextStoreResult::rejected(TextResultCode code, std::string message)
 {
-    return {false, std::move(message)};
+    return {false, code, std::move(message)};
 }
 
 TextDocument *findDocument(TextDocumentStore &store, const TextDocumentId &id)
@@ -34,10 +34,10 @@ const TextDocument *findDocument(const TextDocumentStore &store, const TextDocum
 TextStoreResult addDocument(TextDocumentStore &store, TextDocument document)
 {
     if (document.id.empty()) {
-        return TextStoreResult::rejected("document id is required");
+        return TextStoreResult::rejected(TextResultCode::EmptyDocumentId, "document id is required");
     }
     if (findDocument(store, document.id) != nullptr) {
-        return TextStoreResult::rejected("document id already exists");
+        return TextStoreResult::rejected(TextResultCode::DuplicateDocumentId, "document id already exists");
     }
     if (!store.activeDocumentId) {
         store.activeDocumentId = document.id;
@@ -55,7 +55,7 @@ TextStoreResult removeDocument(TextDocumentStore &store, const TextDocumentId &i
         }),
         store.documents.end());
     if (store.documents.size() == before) {
-        return TextStoreResult::rejected("document does not exist");
+        return TextStoreResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
     }
     if (store.activeDocumentId == id) {
         if (store.documents.empty()) {
@@ -70,7 +70,7 @@ TextStoreResult removeDocument(TextDocumentStore &store, const TextDocumentId &i
 TextStoreResult setActiveDocument(TextDocumentStore &store, TextDocumentId id)
 {
     if (findDocument(store, id) == nullptr) {
-        return TextStoreResult::rejected("document does not exist");
+        return TextStoreResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
     }
     store.activeDocumentId = std::move(id);
     return TextStoreResult::accepted();
@@ -80,7 +80,7 @@ TextStoreResult updateDocumentRole(TextDocumentStore &store, const TextDocumentI
 {
     TextDocument *document = findDocument(store, id);
     if (document == nullptr) {
-        return TextStoreResult::rejected("document does not exist");
+        return TextStoreResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
     }
     document->role = role;
     markDirty(*document);

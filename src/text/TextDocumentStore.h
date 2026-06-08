@@ -9,10 +9,11 @@ namespace edi::text {
 
 struct TextStoreResult {
     bool ok = false;
+    TextResultCode code = TextResultCode::None;
     std::string message;
 
     static TextStoreResult accepted();
-    static TextStoreResult rejected(std::string message);
+    static TextStoreResult rejected(TextResultCode code, std::string message);
 };
 
 struct TextDocumentStore {

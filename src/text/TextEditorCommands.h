@@ -48,6 +48,7 @@ using TextEditorCommand = std::variant<
 
 struct TextCommandResult {
     bool ok = false;
+    TextResultCode code = TextResultCode::None;
     std::string message;
 };
 

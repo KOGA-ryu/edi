@@ -216,6 +216,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/ShellLayoutStore.cpp
     src/io/TextEditorStore.h
     src/io/TextEditorStore.cpp
+    src/widgets/EdiShellWindow.h
+    src/widgets/EdiShellWindow.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
 )

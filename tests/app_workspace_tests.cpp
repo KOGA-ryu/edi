@@ -2,6 +2,7 @@
 #include "app/ProjectWorkspace.h"
 
 #include <cassert>
+#include <optional>
 #include <string>
 
 using namespace edi::app;
@@ -27,21 +28,36 @@ int main()
     assert(first.ok);
     assert(first.code == ProjectWorkspaceResultCode::None);
     assert(workspace.activeDraftingDocumentId == "draft_1");
+    assert(draftingDocumentIndexById(workspace, "draft_1") == 0);
+    assert(findDraftingDocument(workspace, "draft_1") == &workspace.draftingDocuments[0]);
+    assert(containsDraftingDocument(workspace, "draft_1"));
 
     auto second = addDraftingDocument(workspace, makeDraftingDocument("draft_2"));
     assert(second.ok);
     assert(workspace.activeDraftingDocumentId == "draft_1");
+    assert(workspace.draftingDocuments[0].id == "draft_1");
+    assert(workspace.draftingDocuments[1].id == "draft_2");
+    assert(draftingDocumentIndexById(workspace, "draft_2") == 1);
+    assert(findDraftingDocument(workspace, "draft_2") == &workspace.draftingDocuments[1]);
+    assert(containsDraftingDocument(workspace, "draft_2"));
+    assert(draftingDocumentIndexById(workspace, "missing") == std::nullopt);
+    assert(findDraftingDocument(workspace, "missing") == nullptr);
+    assert(!containsDraftingDocument(workspace, "missing"));
 
     auto duplicate = addDraftingDocument(workspace, makeDraftingDocument("draft_1"));
     assert(!duplicate.ok);
     assert(duplicate.code == ProjectWorkspaceResultCode::DuplicateDocumentId);
     assert(workspace.draftingDocuments.size() == 2);
     assert(workspace.activeDraftingDocumentId == "draft_1");
+    assert(workspace.draftingDocuments[0].id == "draft_1");
+    assert(workspace.draftingDocuments[1].id == "draft_2");
 
     auto missingActive = setActiveDraftingDocument(workspace, "missing");
     assert(!missingActive.ok);
     assert(missingActive.code == ProjectWorkspaceResultCode::DocumentNotFound);
     assert(workspace.activeDraftingDocumentId == "draft_1");
+    assert(workspace.draftingDocuments[0].id == "draft_1");
+    assert(workspace.draftingDocuments[1].id == "draft_2");
 
     auto setActive = setActiveDraftingDocument(workspace, "draft_2");
     assert(setActive.ok);
@@ -49,6 +65,8 @@ int main()
 
     auto removeActive = removeDraftingDocument(workspace, "draft_2");
     assert(removeActive.ok);
+    assert(workspace.draftingDocuments.size() == 1);
+    assert(workspace.draftingDocuments[0].id == "draft_1");
     assert(workspace.activeDraftingDocumentId == "draft_1");
 
     auto removeLast = removeDraftingDocument(workspace, "draft_1");

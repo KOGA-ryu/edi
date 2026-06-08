@@ -1,6 +1,5 @@
 #include "app/ProjectWorkspace.h"
 
-#include <algorithm>
 #include <utility>
 
 namespace edi::app {
@@ -47,20 +46,31 @@ bool isValidWorkspaceName(const std::string &name)
     return !name.empty();
 }
 
+std::optional<std::size_t> draftingDocumentIndexById(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
+{
+    for (std::size_t index = 0; index < workspace.draftingDocuments.size(); ++index) {
+        if (workspace.draftingDocuments[index].id == id) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
 edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
 {
-    auto it = std::find_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
-        return document.id == id;
-    });
-    return it == workspace.draftingDocuments.end() ? nullptr : &*it;
+    const auto index = draftingDocumentIndexById(workspace, id);
+    return index ? &workspace.draftingDocuments[*index] : nullptr;
 }
 
 const edi::drafting::DraftingDocument *findDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
 {
-    auto it = std::find_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
-        return document.id == id;
-    });
-    return it == workspace.draftingDocuments.end() ? nullptr : &*it;
+    const auto index = draftingDocumentIndexById(workspace, id);
+    return index ? &workspace.draftingDocuments[*index] : nullptr;
+}
+
+bool containsDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id)
+{
+    return draftingDocumentIndexById(workspace, id).has_value();
 }
 
 ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document)
@@ -74,7 +84,7 @@ ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::dra
     if (document.id.empty()) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
-    if (findDraftingDocument(workspace, document.id) != nullptr) {
+    if (containsDraftingDocument(workspace, document.id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::DuplicateDocumentId, "drafting document id already exists");
     }
     if (!workspace.activeDraftingDocumentId) {
@@ -89,16 +99,12 @@ ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const
     if (id.empty()) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
-    if (findDraftingDocument(workspace, id) == nullptr) {
+    const auto index = draftingDocumentIndexById(workspace, id);
+    if (!index) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::DocumentNotFound, "drafting document does not exist");
     }
 
-    const auto before = workspace.draftingDocuments.size();
-    workspace.draftingDocuments.erase(
-        std::remove_if(workspace.draftingDocuments.begin(), workspace.draftingDocuments.end(), [&](const auto &document) {
-            return document.id == id;
-        }),
-        workspace.draftingDocuments.end());
+    workspace.draftingDocuments.erase(workspace.draftingDocuments.begin() + static_cast<std::ptrdiff_t>(*index));
     if (workspace.activeDraftingDocumentId == id) {
         if (workspace.draftingDocuments.empty()) {
             workspace.activeDraftingDocumentId.reset();
@@ -114,7 +120,7 @@ ProjectWorkspaceResult setActiveDraftingDocument(ProjectWorkspace &workspace, ed
     if (id.empty()) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::EmptyDocumentId, "drafting document id is required");
     }
-    if (findDraftingDocument(workspace, id) == nullptr) {
+    if (!containsDraftingDocument(workspace, id)) {
         return ProjectWorkspaceResult::rejected(ProjectWorkspaceResultCode::DocumentNotFound, "drafting document does not exist");
     }
     workspace.activeDraftingDocumentId = std::move(id);

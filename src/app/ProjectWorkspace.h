@@ -3,6 +3,7 @@
 #include "drafting/DraftingDocument.h"
 #include "text/TextDocumentStore.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -40,8 +41,10 @@ struct ProjectWorkspaceResult {
 ProjectWorkspace makeProjectWorkspace(std::string id, std::string name = {});
 const char *projectWorkspaceResultCodeName(ProjectWorkspaceResultCode code);
 bool isValidWorkspaceName(const std::string &name);
+std::optional<std::size_t> draftingDocumentIndexById(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 const edi::drafting::DraftingDocument *findDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
+bool containsDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document);
 ProjectWorkspaceResult removeDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 ProjectWorkspaceResult setActiveDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocumentId id);

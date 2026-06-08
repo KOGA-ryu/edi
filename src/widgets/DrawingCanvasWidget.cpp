@@ -88,4 +88,8 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
     m_controller->clickCanvasNormalized(point.x(), point.y());
 }
 
-
+void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
+{
+    Q_UNUSED(painter)
+    Q_UNUSED(object)
+}

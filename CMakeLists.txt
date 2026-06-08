@@ -54,20 +54,6 @@ target_link_libraries(drawing_runtime_core
         Qt6::Core
 )
 
-add_library(format_inventory STATIC
-    src/formats/FormatInventory.h
-    src/formats/FormatInventory.cpp
-)
-
-target_include_directories(format_inventory PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_link_libraries(format_inventory
-    PUBLIC
-        Qt6::Core
-)
-
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
@@ -110,49 +96,3 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         Qt6::Gui
         Qt6::Widgets
 )
-
-add_executable(edi_validate
-    src/tools/EdiValidate.cpp
-)
-
-target_link_libraries(edi_validate
-    PRIVATE
-        Qt6::Core
-)
-
-
-add_executable(edi_format_inventory
-    src/tools/EdiFormatInventory.cpp
-)
-
-target_link_libraries(edi_format_inventory
-    PRIVATE
-        format_inventory
-        Qt6::Core
-)
-    add_executable(drawing_core_smoke
-        src/core/DrawingCore.h
-        src/core/DrawingCoreInternal.h
-        src/core/DrawingObjectModel.h
-        src/core/DrawingObjectModel.cpp
-        src/core/DrawingCore.cpp
-        src/core/DrawingCoreCommon.cpp
-        src/core/DrawingDocumentController.cpp
-        src/core/DrawingGeometry.cpp
-        src/core/DrawingObjectOps.cpp
-        src/core/DrawingCommands.cpp
-        src/core/DrawingModelBuilder.cpp
-        src/core/DrawingSvgExport.cpp
-    )
-
-    target_include_directories(drawing_core_smoke PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-    )
-
-    target_link_libraries(drawing_core_smoke
-        PRIVATE
-            Qt6::Core
-    )
-
-    add_test(NAME drawing_core_smoke COMMAND drawing_core_smoke)
-endif()

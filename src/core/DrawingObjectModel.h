@@ -9,4 +9,9 @@
 
 namespace drawing_core {
 
+class DrawingStore {
+public:
+    DrawingStore() = default;
+};
 
+} // namespace drawing_core

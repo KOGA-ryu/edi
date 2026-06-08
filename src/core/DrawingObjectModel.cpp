@@ -9,6 +9,6 @@
 namespace drawing_core {
 
 namespace {
- 
+} // namespace
 
-
+} // namespace drawing_core

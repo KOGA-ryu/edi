@@ -1,8 +1,7 @@
 # EDI
 
-EDI is a C++ Qt Widgets shell for the drawing-core workbench and related project profiles.
+EDI is a C++ Qt Widgets runtime shell.
 
-The current runtime rule is simple: app behavior lives in typed C++ contracts and controllers. 
 
 ## Build
 
@@ -20,16 +19,13 @@ cmake --build build
 
 ## Validate
 
-
-build/drawing_control_workflow_report --all --compare-baseline --failures-only
+```sh
 ctest --test-dir build --output-on-failure
 ```
 
 ## Source Map
 
-- App shell and widget composition: `app/main.cpp`
-- Drawing canvas widget: `src/widgets/DrawingCanvasWidget.cpp`
+- App shell: `app/main.cpp`
 - Drawing model contracts: `src/core/`
 - Canvas behavior contracts: `src/canvas/`
 - Runtime catalogs and workflow planning: `src/runtime/`
-- Validation and report CLIs: `src/tools/`

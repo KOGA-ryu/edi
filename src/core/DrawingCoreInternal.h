@@ -52,3 +52,4 @@ struct Bounds {
     double maxY = 0.0;
 };
 
+} // namespace drawing_core

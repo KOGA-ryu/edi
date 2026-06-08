@@ -5,6 +5,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingSelection.h"
+#include "drafting/DraftingSnap.h"
 
 #include <QVariantList>
 #include <QVariantMap>
@@ -167,7 +168,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);
     y = clamp01(y);
-    const Point2D point{x, y};
+    const Point2D point = resolveSnap({x, y}, m_document).point;
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
         const DraftingHitTestResult hit = hitTestDocument(m_document, point);
@@ -217,7 +218,7 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
         return false;
     }
 
-    const Point2D point{clamp01(x), clamp01(y)};
+    const Point2D point = resolveSnap({x, y}, m_document).point;
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});

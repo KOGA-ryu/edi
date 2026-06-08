@@ -12,10 +12,17 @@
 //   TOML writer projects typed C++ contracts into text. It does not own runtime
 //   state and does not perform mutation.
 //
-// Must not depend on:
-//   - UI widgets.
-//   - Lua runtime.
-//   - Raw domain storage internals beyond public contracts.
-//
 // Preserve later:
 //   Emitted TOML should be stable, reviewable, and human-editable.
+//
+// Surface contract:
+//   - Primary responsibility: declare contract-to-TOML write adapters.
+//   - Allowed data: typed static config contracts, output options, source labels,
+//     and FormatResult diagnostics.
+//   - Call direction: settings/project save services call writer adapters.
+//   - Mutation authority: translation only.
+//   - Unit convention: write units explicitly where config needs them.
+//   - Identity policy: typed IDs become stable text fields.
+//   - Lifetime: returns owned output text/buffers.
+//   - Composition boundary: writer does not choose settings behavior.
+//   - Promotion path: stable formatting policy can split into a formatter.

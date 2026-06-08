@@ -13,11 +13,21 @@
 //   The bridge owns translation and validation before mutation. C++ domain
 //   commands remain the only mutation authority.
 //
-// Must not depend on:
-//   - UI widgets.
-//   - Raw private document storage.
-//   - Format parser internals.
-//
 // Preserve later:
 //   Scripts may request commands, but they must not receive pointers/references
 //   that let them mutate app state directly.
+//
+// Surface contract:
+//   - Primary responsibility: declare script-intent to C++ command translation.
+//   - Allowed data: validated recipe steps, capability grants, dry-run command
+//     plans, public drafting/text command values, and diagnostics.
+//   - Call direction: script runtime calls bridge; bridge produces commands for
+//     domain command executors.
+//   - Mutation authority: translation and dry-run planning; execution delegates
+//     to domain command layers.
+//   - Unit convention: script units must be translated into command units before
+//     reaching domain mutation.
+//   - Identity policy: scripts reference stable public IDs.
+//   - Lifetime: bridge owns no document storage.
+//   - Composition boundary: separates authored recipes from command authority.
+//   - Promotion path: add permission/capability policy here before enabling Lua.

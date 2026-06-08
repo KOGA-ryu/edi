@@ -3,18 +3,14 @@
 // Contract family:
 //   Drafting command validation and mutation sequencing.
 //
-// Intended coverage:
-//   - Create/delete/move/update command acceptance.
-//   - Command rejection diagnostics.
-//   - Selection-affecting commands.
-//   - Revision changes on accepted mutation.
-//   - Failed commands preserving prior document state.
-//
-// Should not test here:
-//   - Raw geometry math in isolation.
-//   - Widget click paths.
-//   - Binary/text format parsing.
-//
-// Later role:
-//   These tests should become executable documentation for C++ as the mutation
-//   gate used by UI and scripting.
+// Surface contract:
+//   - Primary responsibility: document command contract scenarios.
+//   - Allowed setup data: local documents, command values, object IDs, movement
+//     payloads, handle payloads, and selection payloads.
+//   - Call direction: test code calls public command execution APIs.
+//   - Mutation authority: tests mutate local fixtures through commands.
+//   - Unit convention: use command-declared units.
+//   - Identity policy: commands target stable IDs.
+//   - Lifetime: command values can be reused for replay-style scenarios.
+//   - Composition boundary: focuses on command orchestration over store details.
+//   - Promotion path: add replay/undo examples once command history exists.

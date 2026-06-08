@@ -16,3 +16,15 @@
 //
 // Boundary note:
 //   This file owns collection shape, not editor gestures or rendering.
+//
+// Surface contract:
+//   - Primary responsibility: implement collection operations for text docs.
+//   - Allowed data: store values, document values, IDs, roles, active document
+//     references, and metadata updates.
+//   - Call direction: called by text commands and app/workspace code.
+//   - Mutation authority: collection and document property updates.
+//   - Unit convention: no text range units; command layer handles ranges.
+//   - Identity policy: stable document IDs; internal ordering can be vector.
+//   - Lifetime: owns document values inside the store.
+//   - Composition boundary: avoids UI and persistence orchestration.
+//   - Promotion path: document indexing/search cache can attach here later.

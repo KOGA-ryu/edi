@@ -14,11 +14,23 @@
 //   Measurement owns derived quantities. It does not own source geometry or
 //   mutate documents.
 //
-// Must not depend on:
-//   - UI rulers or inspector widgets.
-//   - File format parser types.
-//   - Scripting runtime state.
-//
 // Preserve later:
 //   Measurement should be explicit about units, scale, precision, and whether a
 //   result is exact, approximate, or unsupported.
+//
+// Surface contract:
+//   - Primary responsibility: declare real-world measurement contracts over
+//     drafting geometry.
+//   - Allowed data: calibration records, unit names/enums, geometry values,
+//     distance/dimension/area result records, and measurement metadata.
+//   - Call direction: commands, inspectors, build-plan generators, and UI
+//     presentation layers may call measurement helpers.
+//   - Mutation authority: compute-only.
+//   - Unit convention: converts document-space values to calibrated real-world
+//     units.
+//   - Identity policy: measurements may reference object IDs but do not own
+//     objects.
+//   - Lifetime: derived measurement values are snapshots.
+//   - Composition boundary: measurement calculates; build-plan sequencing lives
+//     elsewhere.
+//   - Promotion path: domain-specific measurement systems can layer on this.

@@ -3,18 +3,14 @@
 // Contract family:
 //   Pure drafting geometry math.
 //
-// Intended coverage:
-//   - Bounds for point, line, rectangle, circle, polygon, and polyline.
-//   - Translation and transform helpers.
-//   - Distance, dimensions, and area primitives.
-//   - Hit scoring and handle anchor calculations when implemented.
-//
-// Should not test here:
-//   - Document storage mutation.
-//   - Command dispatch.
-//   - Rendering pixels.
-//   - Format conversion.
-//
-// Later role:
-//   These tests should become executable documentation proving geometry is
-//   deterministic, finite, and independent from app state.
+// Surface contract:
+//   - Primary responsibility: document pure geometry example cases.
+//   - Allowed setup data: geometry values, transforms, tolerances, expected
+//     bounds/distances/handles, and style inputs where needed.
+//   - Call direction: test code calls DraftingGeometry functions directly.
+//   - Mutation authority: none beyond local values.
+//   - Unit convention: document-space input and output unless named otherwise.
+//   - Identity policy: geometry examples use values, not document ownership.
+//   - Lifetime: no shared fixture state.
+//   - Composition boundary: focused on math examples.
+//   - Promotion path: add dense/hot-path comparison cases if kernels split out.

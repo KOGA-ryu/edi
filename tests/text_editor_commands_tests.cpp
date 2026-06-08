@@ -3,19 +3,14 @@
 // Contract family:
 //   Text editor command validation and mutation.
 //
-// Intended coverage:
-//   - Insert text.
-//   - Replace range.
-//   - Delete range.
-//   - Rename/set-role/create commands.
-//   - Rejection paths that leave documents unchanged.
-//
-// Should not test here:
-//   - Widget keyboard handling.
-//   - Clipboard integration.
-//   - Format import/export.
-//   - Drafting behavior.
-//
-// Later role:
-//   These tests should become executable documentation that text mutation goes
-//   through explicit C++ commands.
+// Surface contract:
+//   - Primary responsibility: document text command examples.
+//   - Allowed setup data: text stores, document IDs, command values, ranges,
+//     text payloads, roles, and titles.
+//   - Call direction: test code calls text command execution APIs.
+//   - Mutation authority: tests mutate local fixtures through commands.
+//   - Unit convention: TextSelection range units.
+//   - Identity policy: commands target stable document IDs.
+//   - Lifetime: command values are local/replayable.
+//   - Composition boundary: focused on editing commands, not UI key handling.
+//   - Promotion path: add undo/coalescing examples when history exists.

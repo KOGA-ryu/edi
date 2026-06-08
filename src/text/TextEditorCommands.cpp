@@ -18,3 +18,15 @@
 // Boundary note:
 //   This file is the text mutation gate. UI and scripts should request commands,
 //   not edit document strings directly.
+//
+// Surface contract:
+//   - Primary responsibility: apply text commands to document/store state.
+//   - Allowed data: mutable stores/documents, command values, range helpers,
+//     and diagnostics.
+//   - Call direction: called by UI/controller/script bridge code.
+//   - Mutation authority: applies accepted text mutations and metadata edits.
+//   - Unit convention: consumes TextSelection range units and string payloads.
+//   - Identity policy: resolves stable document IDs at execution time.
+//   - Lifetime: command execution does not own the store.
+//   - Composition boundary: editor mutation stays separate from UI gestures.
+//   - Promotion path: command coalescing/history can wrap this executor.

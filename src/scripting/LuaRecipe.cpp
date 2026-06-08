@@ -15,3 +15,16 @@
 //
 // Boundary note:
 //   Recipes are authored plans. They are not trusted mutation authority.
+//
+// Surface contract:
+//   - Primary responsibility: implement recipe metadata helpers.
+//   - Allowed data: recipe metadata values, capability declarations, source
+//     references, and diagnostics.
+//   - Call direction: called by recipe loaders, settings views, and bridge
+//     preflight code.
+//   - Mutation authority: metadata construction/normalization only.
+//   - Unit convention: no geometry/text unit conversion.
+//   - Identity policy: recipe ID and version remain stable.
+//   - Lifetime: no Lua VM ownership.
+//   - Composition boundary: validation does not execute behavior.
+//   - Promotion path: capability registry lookups can attach here later.

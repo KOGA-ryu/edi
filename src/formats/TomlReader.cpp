@@ -17,3 +17,15 @@
 //
 // Boundary note:
 //   Parsed TOML objects should not escape this adapter.
+//
+// Surface contract:
+//   - Primary responsibility: implement TOML parsing and typed conversion.
+//   - Allowed data: parser output, schema labels, typed config constructors, and
+//     FormatResult diagnostics.
+//   - Call direction: called by settings/project load services.
+//   - Mutation authority: translation only.
+//   - Unit convention: convert textual units into typed config units.
+//   - Identity policy: preserve declared IDs as typed values.
+//   - Lifetime: parser data is temporary; returned contracts are owned values.
+//   - Composition boundary: no runtime application of settings here.
+//   - Promotion path: schema-specific readers can move into separate files.

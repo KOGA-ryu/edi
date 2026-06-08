@@ -3,17 +3,14 @@
 // Contract family:
 //   TOML static-configuration adapters.
 //
-// Intended coverage:
-//   - Reader diagnostics for malformed config.
-//   - Reader conversion into typed C++ contracts.
-//   - Writer stable output for static settings/presets.
-//   - No raw TOML object leakage into app/domain logic.
-//
-// Should not test here:
-//   - Drafting document binary persistence.
-//   - Lua recipe execution.
-//   - UI settings pages.
-//
-// Later role:
-//   These tests should become executable documentation that TOML is a
-//   human-authored config format, not durable app truth for active documents.
+// Surface contract:
+//   - Primary responsibility: document TOML adapter examples.
+//   - Allowed setup data: TOML text, typed config values, source labels, and
+//     FormatResult diagnostics.
+//   - Call direction: test code calls TOML reader/writer APIs.
+//   - Mutation authority: translation-only fixtures.
+//   - Unit convention: config units declared in typed config values.
+//   - Identity policy: typed IDs round-trip as stable text fields.
+//   - Lifetime: parsed data is local to a scenario.
+//   - Composition boundary: focused on adapter shape.
+//   - Promotion path: split schema-specific TOML examples as configs grow.

@@ -3,19 +3,15 @@
 // Contract family:
 //   MessagePack machine-state adapters and inspection tooling.
 //
-// Intended coverage:
-//   - Schema/version metadata.
-//   - Inspector summaries before load.
-//   - Reader conversion into typed C++ contracts.
-//   - Writer output that remains inspectable.
-//   - Rejection of unsafe or unsupported binary payloads.
-//
-// Should not test here:
-//   - TOML static config.
-//   - TOON AI handoff exports.
-//   - UI behavior.
-//   - Direct command mutation.
-//
-// Later role:
-//   These tests should become executable documentation that compact binary state
-//   is accepted only through typed readers and inspection tools.
+// Surface contract:
+//   - Primary responsibility: document MessagePack adapter and inspector
+//     examples.
+//   - Allowed setup data: byte buffers, schema/version fields, typed documents,
+//     snapshots, fixture summaries, and FormatResult diagnostics.
+//   - Call direction: test code calls inspector, reader, and writer APIs.
+//   - Mutation authority: translation/inspection fixtures only.
+//   - Unit convention: typed units before encode and after decode.
+//   - Identity policy: stable IDs preserved through binary representation.
+//   - Lifetime: byte buffers and decoded values are local fixtures.
+//   - Composition boundary: focused on binary adapter shape.
+//   - Promotion path: add golden fixture examples after inspector tooling exists.

@@ -16,3 +16,15 @@
 //
 // Boundary note:
 //   TOON is output/communication. It should not become durable app state.
+//
+// Surface contract:
+//   - Primary responsibility: implement compact TOON projections.
+//   - Allowed data: typed summaries, selected fields, packet labels, and output
+//     formatting options.
+//   - Call direction: called by export/review/handoff tooling.
+//   - Mutation authority: export only.
+//   - Unit convention: preserve explicit units from source summaries.
+//   - Identity policy: include IDs as references, not storage handles.
+//   - Lifetime: no retained source state.
+//   - Composition boundary: no AI decision logic here.
+//   - Promotion path: streaming exporters can be added for large packets.

@@ -1,7 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 const { spawnSync } = require("child_process")
-const vm = require("vm")
+const WorkflowHarness = require("./helpers/drawing_control_workflow_harness.js")
 
 function fail(message) {
     console.error(`FAIL: ${message}`)
@@ -25,106 +25,6 @@ function expectInBucket(condition, message, bucket) {
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"))
-}
-
-function loadMetricReducer(repoRoot) {
-    const modulePath = path.join(repoRoot, "src", "runtime", "DrawingCanvasMetricReducer.js")
-    const source = fs.readFileSync(modulePath, "utf8").replace(".pragma library", "")
-    const context = {
-        Math,
-        Number,
-        String,
-        Array,
-        Object,
-        JSON,
-    }
-    vm.createContext(context)
-    vm.runInContext(source, context, { filename: modulePath })
-    return context
-}
-
-function normalizeWorkflowEntry(entry) {
-    if (typeof entry === "string") {
-        return {
-            fixture: entry,
-            kind: "unknown",
-            category: "unknown",
-            tags: [],
-        }
-    }
-    return {
-        fixture: String(entry && entry.fixture || ""),
-        kind: String(entry && entry.kind || "unknown"),
-        category: String(entry && entry.category || "unknown"),
-        tags: Array.isArray(entry && entry.tags) ? entry.tags.map(tag => String(tag)) : [],
-    }
-}
-
-function valueSet(value) {
-    return String(value || "")
-        .split(",")
-        .map(part => part.trim())
-        .filter(part => part.length > 0)
-}
-
-function workflowFilters(env) {
-    return {
-        fixtures: valueSet(env && env.DRAWING_WORKFLOW_FIXTURE),
-        categories: valueSet(env && env.DRAWING_WORKFLOW_CATEGORY),
-        tags: valueSet(env && env.DRAWING_WORKFLOW_TAG),
-    }
-}
-
-function workflowMatchesFilters(workflow, filters) {
-    const fixture = String(workflow && workflow.fixture || "")
-    const category = String(workflow && workflow.category || "")
-    const tags = Array.isArray(workflow && workflow.tags) ? workflow.tags.map(tag => String(tag)) : []
-    if (filters.fixtures.length > 0 && filters.fixtures.indexOf(fixture) < 0) {
-        return false
-    }
-    if (filters.categories.length > 0 && filters.categories.indexOf(category) < 0) {
-        return false
-    }
-    if (filters.tags.length > 0 && !filters.tags.some(tag => tags.indexOf(tag) >= 0)) {
-        return false
-    }
-    return true
-}
-
-function selectWorkflows(workflows, filters) {
-    return workflows.filter(workflow => workflowMatchesFilters(workflow, filters))
-}
-
-function workflowFixtures(repoRoot, env) {
-    const manifestPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_manifest.json")
-    const manifest = readJson(manifestPath)
-    const filters = workflowFilters(env || {})
-    const workflows = (Array.isArray(manifest.workflows) ? manifest.workflows : [])
-        .map(normalizeWorkflowEntry)
-        .filter(workflow => workflow.fixture.length > 0)
-    return {
-        manifestPath,
-        workflows,
-        selectedWorkflows: selectWorkflows(workflows, filters),
-        filters,
-    }
-}
-
-function workflowBudgetPolicy(repoRoot) {
-    const policyPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_metric_budgets.json")
-    const policy = readJson(policyPath)
-    const budgets = (Array.isArray(policy.budgets) ? policy.budgets : [])
-        .map((budget, index) => ({
-            id: String(budget && budget.id || `budget_${index}`),
-            match: budget && budget.match ? budget.match : {},
-            limits: budget && budget.limits ? budget.limits : {},
-        }))
-    return {
-        path: policyPath,
-        schemaVersion: Number(policy.schemaVersion || 1),
-        policy: policy.policy || {},
-        budgets,
-    }
 }
 
 function finite(value) {
@@ -465,299 +365,12 @@ function runFixture(repoRoot, workflow) {
     }
 }
 
-function groupScriptsByMetadata(scripts, field) {
-    const groups = {}
-    for (const script of scripts) {
-        const key = String(script && script.metadata && script.metadata[field] || "unknown")
-        if (!groups[key]) {
-            groups[key] = {
-                count: 0,
-                okCount: 0,
-                failureCount: 0,
-                budgetFailureCount: 0,
-            }
-        }
-        groups[key].count += 1
-        groups[key].okCount += script.ok ? 1 : 0
-        groups[key].failureCount += script.failures.length
-        groups[key].budgetFailureCount += script.budgetFailures.length
-    }
-    return groups
-}
-
-function workflowMetricFields() {
-    return [
-        "durationMs",
-        "pointerMoves",
-        "controllerMutations",
-        "renderRequests",
-        "hitTests",
-        "snapResolutions",
-        "handlePlans",
-        "revisionDelta",
-        "mutationsPerPointerMove",
-        "renderRequestsPerPointerMove",
-        "hitTestsPerPointerMove",
-        "snapResolutionsPerPointerMove",
-        "handlePlansPerPointerMove",
-    ]
-}
-
-function compactFieldSummary(summary, field) {
-    const source = summary && summary[field] ? summary[field] : {}
-    return {
-        count: Number(source.count || 0),
-        p95: Number(source.p95 || 0),
-        max: Number(source.max || 0),
-        mean: Number(source.mean || 0),
-    }
-}
-
-function compactMetricDigest(records, metricReducer) {
-    const list = Array.isArray(records) ? records : []
-    const fields = workflowMetricFields()
-    const summary = metricReducer.summarizeDistributions(list, fields, {
-        percentile: 0.95,
-    })
-    const digest = {
-        samples: list.length,
-        fields: {},
-    }
-    for (const field of fields) {
-        digest.fields[field] = compactFieldSummary(summary, field)
-    }
-    return digest
-}
-
-function workflowMetricRecords(scripts) {
-    const records = []
-    for (const script of scripts) {
-        const modes = script && script.modes ? script.modes : {}
-        for (const mode of Object.keys(modes)) {
-            const modeRecords = Array.isArray(modes[mode] && modes[mode].records) ? modes[mode].records : []
-            for (let index = 0; index < modeRecords.length; ++index) {
-                const record = modeRecords[index] || {}
-                const pointerMoves = Number(record.pointerMoves || 0)
-                const controllerMutations = Number(record.controllerMutations || 0)
-                const renderRequests = Number(record.renderRequests || 0)
-                const hitTests = Number(record.hitTests || 0)
-                const snapResolutions = Number(record.snapResolutions || 0)
-                const handlePlans = Number(record.handlePlans || 0)
-                records.push({
-                    sampleId: `${script.fixture}:${mode}:${index}`,
-                    script: String(script.fixture || ""),
-                    kind: String(script.metadata && script.metadata.kind || "unknown"),
-                    category: String(script.metadata && script.metadata.category || "unknown"),
-                    tags: Array.isArray(script.metadata && script.metadata.tags) ? script.metadata.tags.map(tag => String(tag)) : [],
-                    mode,
-                    durationMs: Number(record.durationMs || 0),
-                    pointerMoves,
-                    controllerMutations,
-                    renderRequests,
-                    hitTests,
-                    snapResolutions,
-                    handlePlans,
-                    revisionDelta: Number(record.revisionDelta || 0),
-                    mutationsPerPointerMove: ratio(controllerMutations, pointerMoves),
-                    renderRequestsPerPointerMove: ratio(renderRequests, pointerMoves),
-                    hitTestsPerPointerMove: ratio(hitTests, pointerMoves),
-                    snapResolutionsPerPointerMove: ratio(snapResolutions, pointerMoves),
-                    handlePlansPerPointerMove: ratio(handlePlans, pointerMoves),
-                })
-            }
-        }
-    }
-    return records
-}
-
-function groupMetricDigests(records, field, metricReducer) {
-    const groups = {}
-    for (const record of records) {
-        const key = String(record && record[field] || "unknown")
-        if (!groups[key]) {
-            groups[key] = []
-        }
-        groups[key].push(record)
-    }
-    const result = {}
-    for (const key of Object.keys(groups).sort()) {
-        result[key] = compactMetricDigest(groups[key], metricReducer)
-    }
-    return result
-}
-
-function workflowMetricsDigest(scripts, metricReducer) {
-    const records = workflowMetricRecords(scripts)
-    return {
-        overall: compactMetricDigest(records, metricReducer),
-        byKind: groupMetricDigests(records, "kind", metricReducer),
-        byCategory: groupMetricDigests(records, "category", metricReducer),
-        byMode: groupMetricDigests(records, "mode", metricReducer),
-    }
-}
-
-function matchValue(expected, actual) {
-    if (expected === undefined) {
-        return true
-    }
-    const values = Array.isArray(expected) ? expected.map(value => String(value)) : [String(expected)]
-    return values.indexOf(String(actual || "")) >= 0
-}
-
-function matchTag(expected, actualTags) {
-    if (expected === undefined) {
-        return true
-    }
-    const expectedTags = Array.isArray(expected) ? expected.map(tag => String(tag)) : [String(expected)]
-    const tags = Array.isArray(actualTags) ? actualTags.map(tag => String(tag)) : []
-    return expectedTags.some(tag => tags.indexOf(tag) >= 0)
-}
-
-function recordMatchesBudget(record, budget) {
-    const match = budget && budget.match ? budget.match : {}
-    return matchValue(match.fixture, record.script)
-        && matchValue(match.kind, record.kind)
-        && matchValue(match.category, record.category)
-        && matchValue(match.mode, record.mode)
-        && matchTag(match.tag !== undefined ? match.tag : match.tags, record.tags)
-}
-
-function budgetLimitFields() {
-    return {
-        maxDurationMs: "durationMs",
-        maxPointerMoves: "pointerMoves",
-        maxControllerMutations: "controllerMutations",
-        maxRenderRequests: "renderRequests",
-        maxHitTests: "hitTests",
-        maxSnapResolutions: "snapResolutions",
-        maxHandlePlans: "handlePlans",
-        maxRevisionDelta: "revisionDelta",
-        maxMutationsPerPointerMove: "mutationsPerPointerMove",
-        maxRenderRequestsPerPointerMove: "renderRequestsPerPointerMove",
-        maxHitTestsPerPointerMove: "hitTestsPerPointerMove",
-        maxSnapResolutionsPerPointerMove: "snapResolutionsPerPointerMove",
-        maxHandlePlansPerPointerMove: "handlePlansPerPointerMove",
-    }
-}
-
-function compactBudgetMatch(match) {
-    return {
-        fixture: match.fixture,
-        kind: match.kind,
-        category: match.category,
-        mode: match.mode,
-        tag: match.tag !== undefined ? match.tag : match.tags,
-    }
-}
-
-function budgetFailureSeverity(actual, budget) {
-    const limit = Number(budget || 0)
-    if (limit === 0) {
-        return Number(actual || 0) > 0 ? Number.POSITIVE_INFINITY : 0
-    }
-    return Number(actual || 0) / limit
-}
-
-function groupBudgetFailure(budget, sampleCount, metric, limitName, actual, limit) {
-    return {
-        budgetId: budget.id,
-        match: compactBudgetMatch(budget.match || {}),
-        samples: sampleCount,
-        metric,
-        limit: limitName,
-        actual,
-        budget: limit,
-        severity: budgetFailureSeverity(actual, limit),
-        message: `${budget.id} ${metric} expected <= ${limit}, got ${actual}`,
-    }
-}
-
-function evaluateWorkflowMetricBudgets(records, budgetPolicy, metricReducer) {
-    const limitFields = budgetLimitFields()
-    const maxFailures = Math.max(1, Math.floor(Number(budgetPolicy.policy && budgetPolicy.policy.maxFailures || 5)))
-    const groups = []
-    const failures = []
-
-    for (const budget of budgetPolicy.budgets) {
-        const matchingRecords = records.filter(record => recordMatchesBudget(record, budget))
-        const digest = compactMetricDigest(matchingRecords, metricReducer)
-        const budgetFailures = []
-        for (const limitName of Object.keys(limitFields)) {
-            if (budget.limits[limitName] === undefined) {
-                continue
-            }
-            const metric = limitFields[limitName]
-            const actual = Number(digest.fields[metric] && digest.fields[metric].max || 0)
-            const limit = Number(budget.limits[limitName])
-            if (actual > limit) {
-                budgetFailures.push(groupBudgetFailure(budget, matchingRecords.length, metric, limitName, actual, limit))
-            }
-        }
-        budgetFailures.sort((left, right) => right.severity - left.severity)
-        const topFailure = budgetFailures.length > 0 ? budgetFailures[0] : null
-        if (topFailure) {
-            failures.push(topFailure)
-        }
-        groups.push({
-            budgetId: budget.id,
-            match: compactBudgetMatch(budget.match || {}),
-            samples: matchingRecords.length,
-            ok: !topFailure,
-            topFailure,
-        })
-    }
-
-    failures.sort((left, right) => right.severity - left.severity)
-    return {
-        ok: failures.length === 0,
-        policy: {
-            schemaVersion: budgetPolicy.schemaVersion,
-            path: path.relative(path.join(__dirname, ".."), budgetPolicy.path),
-            budgetCount: budgetPolicy.budgets.length,
-            maxFailures,
-        },
-        evaluatedCount: groups.length,
-        unmatchedCount: groups.filter(group => group.samples === 0).length,
-        totalFailureCount: failures.length,
-        budgetFailuresByGroup: failures.slice(0, maxFailures),
-        groups,
-    }
-}
-
-function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts, metricReducer, budgetPolicy) {
-    const metricRecords = workflowMetricRecords(scripts)
-    const metricBudgetChecks = evaluateWorkflowMetricBudgets(metricRecords, budgetPolicy, metricReducer)
-    const report = {
-        schemaVersion: 4,
-        name: "drawing_control_workflows",
-        manifest: path.relative(repoRoot, manifestPath),
-        filters,
-        ok: scripts.every(script => script.ok) && metricBudgetChecks.ok,
-        totalWorkflowCount: workflows.length,
-        selectedWorkflowCount: scripts.length,
-        scriptCount: scripts.length,
-        failureCount: scripts.reduce((sum, script) => sum + script.failures.length, 0) + metricBudgetChecks.totalFailureCount,
-        budgetFailureCount: scripts.reduce((sum, script) => sum + script.budgetFailures.length, 0) + metricBudgetChecks.totalFailureCount,
-        groups: {
-            byKind: groupScriptsByMetadata(scripts, "kind"),
-            byCategory: groupScriptsByMetadata(scripts, "category"),
-        },
-        metrics: workflowMetricsDigest(scripts, metricReducer),
-        metricBudgetChecks,
-        scripts,
-    }
-    const outDir = path.join(repoRoot, "tests", "artifacts", "drawing_metrics")
-    fs.mkdirSync(outDir, { recursive: true })
-    fs.writeFileSync(path.join(outDir, "control_workflows_summary.json"), `${JSON.stringify(report, null, 2)}\n`)
-    return report
-}
-
 function runWorkflowFilterContract(manifest) {
     expect(manifest.workflows.length >= 13, "workflow manifest should include all control workflows")
     expect(manifest.workflows.every(workflow => workflow.kind.length > 0 && workflow.category.length > 0 && workflow.tags.length > 0),
         "workflow manifest entries should include kind, category, and tags")
 
-    const lineWorkflows = selectWorkflows(manifest.workflows, {
+    const lineWorkflows = WorkflowHarness.selectWorkflows(manifest.workflows, {
         fixtures: [],
         categories: [],
         tags: ["line"],
@@ -766,7 +379,7 @@ function runWorkflowFilterContract(manifest) {
     expect(lineWorkflows.length < manifest.workflows.length, "line tag filter should not select every workflow")
     expect(lineWorkflows.every(workflow => workflow.tags.indexOf("line") >= 0), "line tag filter should only select line-tagged workflows")
 
-    const editWorkflows = selectWorkflows(manifest.workflows, {
+    const editWorkflows = WorkflowHarness.selectWorkflows(manifest.workflows, {
         fixtures: [],
         categories: ["edit"],
         tags: [],
@@ -774,7 +387,7 @@ function runWorkflowFilterContract(manifest) {
     expect(editWorkflows.length > 0, "edit category filter should select workflows")
     expect(editWorkflows.every(workflow => workflow.category === "edit"), "edit category filter should only select edit workflows")
 
-    const arcWorkflows = selectWorkflows(manifest.workflows, {
+    const arcWorkflows = WorkflowHarness.selectWorkflows(manifest.workflows, {
         fixtures: ["arc_create_basic.json"],
         categories: [],
         tags: [],
@@ -821,7 +434,7 @@ function runWorkflowBudgetContract(metricReducer) {
             handlePlansPerPointerMove: 0,
         },
     ]
-    const checks = evaluateWorkflowMetricBudgets(records, {
+    const checks = WorkflowHarness.evaluateWorkflowMetricBudgets(records, {
         schemaVersion: 1,
         path: path.join(__dirname, "synthetic_workflow_metric_budgets.json"),
         policy: { maxFailures: 1 },
@@ -832,7 +445,7 @@ function runWorkflowBudgetContract(metricReducer) {
                 limits: { maxRenderRequestsPerPointerMove: 1.25 },
             },
         ],
-    }, metricReducer)
+    }, metricReducer, repoRoot)
 
     expect(!checks.ok, "synthetic expensive workflow should fail group budget")
     expect(checks.budgetFailuresByGroup.length === 1, "group budget failures should be capped and compact")
@@ -848,9 +461,9 @@ if (!fs.existsSync(executable)) {
 }
 
 const scripts = []
-const manifest = workflowFixtures(repoRoot, process.env)
-const metricReducer = loadMetricReducer(repoRoot)
-const budgetPolicy = workflowBudgetPolicy(repoRoot)
+const manifest = WorkflowHarness.workflowFixtures(repoRoot, process.env)
+const metricReducer = WorkflowHarness.loadMetricReducer(repoRoot)
+const budgetPolicy = WorkflowHarness.workflowBudgetPolicy(repoRoot)
 runWorkflowFilterContract(manifest)
 runWorkflowBudgetContract(metricReducer)
 expect(manifest.selectedWorkflows.length > 0, "workflow filters should select at least one fixture")
@@ -858,7 +471,7 @@ for (const workflow of manifest.selectedWorkflows) {
     scripts.push(runFixture(repoRoot, workflow))
 }
 
-const report = writeWorkflowReport(repoRoot, manifest.manifestPath, manifest.workflows, manifest.filters, scripts, metricReducer, budgetPolicy)
+const report = WorkflowHarness.writeWorkflowReport(repoRoot, manifest.manifestPath, manifest.workflows, manifest.filters, scripts, metricReducer, budgetPolicy)
 runWorkflowReportContract(report)
 
 if (process.exitCode) {

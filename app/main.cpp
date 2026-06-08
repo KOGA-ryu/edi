@@ -60,12 +60,28 @@ int main(int argc, char *argv[]) {
         QStringList() << "action",
         "Run a profile custom action after startup.",
         "action_id");
+    const QCommandLineOption drawingTelemetryLogOption(
+        QStringList() << "drawing-telemetry-log",
+        "Print drawing canvas interaction telemetry event streams to the console.");
+    const QCommandLineOption drawingMetricsLogOption(
+        QStringList() << "drawing-metrics-log",
+        "Print drawing canvas interaction metric records to the console.");
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
     parser.addOption(shellLayoutOption);
     parser.addOption(actionOption);
+    parser.addOption(drawingTelemetryLogOption);
+    parser.addOption(drawingMetricsLogOption);
     parser.process(app);
+
+    auto envFlag = [](const char *name) {
+        const QString value = QString::fromLocal8Bit(qgetenv(name)).trimmed().toLower();
+        return value == QStringLiteral("1")
+            || value == QStringLiteral("true")
+            || value == QStringLiteral("yes")
+            || value == QStringLiteral("on");
+    };
 
     auto absolutePath = [](const QString &path) {
         if (path.isEmpty()) {
@@ -190,6 +206,12 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFilesPath"), drawingRecentFilesPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("initialDrawingTelemetryLogEnabled"),
+        parser.isSet(drawingTelemetryLogOption) || envFlag("DRAFTSMAN_DRAWING_TELEMETRY_LOG"));
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("initialDrawingMetricsLogEnabled"),
+        parser.isSet(drawingMetricsLogOption) || envFlag("DRAFTSMAN_DRAWING_METRICS_LOG"));
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);

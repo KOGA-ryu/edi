@@ -201,6 +201,8 @@ QtObject {
     property int revision: 0
     property var uiThemeDocument: ({})
     property string uiThemePath: ""
+    property bool drawingInteractionTelemetryLogEnabled: typeof initialDrawingTelemetryLogEnabled === "undefined" ? false : !!initialDrawingTelemetryLogEnabled
+    property bool drawingInteractionMetricsLogEnabled: typeof initialDrawingMetricsLogEnabled === "undefined" ? false : !!initialDrawingMetricsLogEnabled
 
     readonly property var localTabs: [
         { id: "overview", label: "Overview", tooltip: "Summary of the selected review route, including purpose, status counts, and nearby route cards." },

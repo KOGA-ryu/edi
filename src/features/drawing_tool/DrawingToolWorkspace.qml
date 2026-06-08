@@ -375,10 +375,10 @@ Rectangle {
                 property var gestureState: CanvasGestureState.initialGestureState()
                 property var interactionMetricsState: CanvasInteractionMetrics.initialMetricsState()
                 property var lastInteractionMetrics: ({})
-                property bool interactionMetricsLogEnabled: false
+                property bool interactionMetricsLogEnabled: drawingWorkspace.controller ? !!drawingWorkspace.controller.drawingInteractionMetricsLogEnabled : false
                 property var interactionTelemetryState: CanvasInteractionTelemetry.initialTelemetryState()
                 property var lastInteractionEvents: []
-                property bool interactionTelemetryLogEnabled: false
+                property bool interactionTelemetryLogEnabled: drawingWorkspace.controller ? !!drawingWorkspace.controller.drawingInteractionTelemetryLogEnabled : false
                 cursorShape: selectionCursorShape()
 
                 function selectedToolLabel() {

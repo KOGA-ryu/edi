@@ -29,8 +29,16 @@ int main()
     auto validTimestampValidation = validateObjectMetadata(validMetadata());
     assert(validTimestampValidation.ok);
     assert(isValidMetadataTimestamp("2026-06-08T12:30:00Z"));
+    assert(isValidMetadataTimestamp("2024-02-29T23:59:59Z"));
     assert(isValidMetadataTimestamp(""));
     assert(isValidMetadataText("metadata", kMetadataShortTextLimit));
+    assert(!isValidMetadataTimestamp("2026-00-08T12:30:00Z"));
+    assert(!isValidMetadataTimestamp("2026-13-08T12:30:00Z"));
+    assert(!isValidMetadataTimestamp("2026-04-31T12:30:00Z"));
+    assert(!isValidMetadataTimestamp("2026-02-29T12:30:00Z"));
+    assert(!isValidMetadataTimestamp("2026-06-08T24:30:00Z"));
+    assert(!isValidMetadataTimestamp("2026-06-08T12:60:00Z"));
+    assert(!isValidMetadataTimestamp("2026-06-08T12:30:60Z"));
 
     ObjectMetadata badVersion = validMetadata();
     badVersion.schemaVersion = 0;

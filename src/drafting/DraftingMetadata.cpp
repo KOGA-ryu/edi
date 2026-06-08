@@ -45,6 +45,47 @@ bool hasCharAt(std::string_view value, std::size_t index, char expected)
     return index < value.size() && value[index] == expected;
 }
 
+int twoDigitNumberAt(std::string_view value, std::size_t index)
+{
+    return ((value[index] - '0') * 10) + (value[index + 1] - '0');
+}
+
+int fourDigitNumberAt(std::string_view value, std::size_t index)
+{
+    return ((value[index] - '0') * 1000)
+        + ((value[index + 1] - '0') * 100)
+        + ((value[index + 2] - '0') * 10)
+        + (value[index + 3] - '0');
+}
+
+bool isLeapYear(int year)
+{
+    return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+}
+
+int daysInMonth(int year, int month)
+{
+    switch (month) {
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 8:
+    case 10:
+    case 12:
+        return 31;
+    case 4:
+    case 6:
+    case 9:
+    case 11:
+        return 30;
+    case 2:
+        return isLeapYear(year) ? 29 : 28;
+    default:
+        return 0;
+    }
+}
+
 } // namespace
 
 DraftingMetadataValidationResult DraftingMetadataValidationResult::accepted()
@@ -71,7 +112,7 @@ bool isValidMetadataTimestamp(std::string_view value)
         return false;
     }
 
-    return isDigitAt(value, 0)
+    const bool shapeMatches = isDigitAt(value, 0)
         && isDigitAt(value, 1)
         && isDigitAt(value, 2)
         && isDigitAt(value, 3)
@@ -91,6 +132,27 @@ bool isValidMetadataTimestamp(std::string_view value)
         && isDigitAt(value, 17)
         && isDigitAt(value, 18)
         && hasCharAt(value, 19, 'Z');
+    if (!shapeMatches) {
+        return false;
+    }
+
+    const int year = fourDigitNumberAt(value, 0);
+    const int month = twoDigitNumberAt(value, 5);
+    const int day = twoDigitNumberAt(value, 8);
+    const int hour = twoDigitNumberAt(value, 11);
+    const int minute = twoDigitNumberAt(value, 14);
+    const int second = twoDigitNumberAt(value, 17);
+
+    return month >= 1
+        && month <= 12
+        && day >= 1
+        && day <= daysInMonth(year, month)
+        && hour >= 0
+        && hour <= 23
+        && minute >= 0
+        && minute <= 59
+        && second >= 0
+        && second <= 59;
 }
 
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata)

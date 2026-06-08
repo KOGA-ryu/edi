@@ -81,6 +81,8 @@ const char *draftingResultCodeName(DraftingResultCode code)
         return "invalid_geometry";
     case DraftingResultCode::InvalidSelectionTarget:
         return "invalid_selection_target";
+    case DraftingResultCode::InvalidMetadata:
+        return "invalid_metadata";
     }
     return "unknown";
 }

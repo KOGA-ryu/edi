@@ -212,6 +212,7 @@ int main()
 
     ObjectMetadata metadata;
     metadata.author = "tester";
+    metadata.createdAt = "2026-06-08T12:30:00Z";
     metadata.toolProvenance = "drafting_store_tests";
     auto metadataValidation = validateObjectMetadata(metadata);
     assert(metadataValidation.ok);
@@ -229,6 +230,42 @@ int main()
     assert(afterMetadata->bounds.width == boundsBeforeMetadata.width);
     assert(std::get<LineGeometry>(afterMetadata->geometry).a.x == std::get<LineGeometry>(geometryBeforeMetadata).a.x);
     assert(document.revision == revisionBeforeMetadata + 1);
+
+    ObjectMetadata badVersionMetadata = metadata;
+    badVersionMetadata.schemaVersion = 0;
+    auto badVersionValidation = validateObjectMetadata(badVersionMetadata);
+    assert(!badVersionValidation.ok);
+    assert(badVersionValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata badTimestampMetadata = metadata;
+    badTimestampMetadata.createdAt = "June 8";
+    auto badTimestampValidation = validateObjectMetadata(badTimestampMetadata);
+    assert(!badTimestampValidation.ok);
+    assert(badTimestampValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata controlCharacterMetadata = metadata;
+    controlCharacterMetadata.author = "bad\nauthor";
+    auto controlCharacterValidation = validateObjectMetadata(controlCharacterMetadata);
+    assert(!controlCharacterValidation.ok);
+    assert(controlCharacterValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata longNoteMetadata = metadata;
+    longNoteMetadata.measurementNote = std::string(513, 'x');
+    auto longNoteValidation = validateObjectMetadata(longNoteMetadata);
+    assert(!longNoteValidation.ok);
+    assert(longNoteValidation.code == DraftingResultCode::InvalidMetadata);
+
+    const auto revisionBeforeBadMetadata = document.revision;
+    const Bounds2D boundsBeforeBadMetadata = afterMetadata->bounds;
+    auto rejectedMetadataUpdate = updateObjectMetadata(document, "line_1", badTimestampMetadata);
+    assert(!rejectedMetadataUpdate.ok);
+    assert(rejectedMetadataUpdate.code == DraftingResultCode::InvalidMetadata);
+    const auto *afterRejectedMetadata = findObject(document, "line_1");
+    assert(afterRejectedMetadata != nullptr);
+    assert(afterRejectedMetadata->metadata.createdAt == "2026-06-08T12:30:00Z");
+    assert(afterRejectedMetadata->bounds.x == boundsBeforeBadMetadata.x);
+    assert(afterRejectedMetadata->bounds.y == boundsBeforeBadMetadata.y);
+    assert(document.revision == revisionBeforeBadMetadata);
 
     const auto revisionBeforeMissingMetadata = document.revision;
     auto missingMetadataUpdate = updateObjectMetadata(document, "missing", metadata);

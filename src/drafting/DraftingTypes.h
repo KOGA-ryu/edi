@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <variant>
 #include <vector>
@@ -28,7 +29,8 @@ enum class DraftingResultCode {
     LayerNotFound,
     KindGeometryMismatch,
     InvalidGeometry,
-    InvalidSelectionTarget
+    InvalidSelectionTarget,
+    InvalidMetadata
 };
 
 struct Point2D {
@@ -64,6 +66,7 @@ struct FillStyle {
 };
 
 struct ObjectMetadata {
+    std::uint32_t schemaVersion = 1;
     std::string author;
     std::string source;
     std::string createdAt;

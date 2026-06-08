@@ -7,6 +7,7 @@ These fixtures drive deterministic drawing-tool workflows through the QML contro
 - `workflow_manifest.json`: selector metadata for each workflow.
 - `workflow_coverage_expectations.json`: minimum coverage counts enforced by tests.
 - `workflow_metric_budgets.json`: group-level metric budgets by mode, kind, category, fixture, or tag.
+- `workflow_metric_baselines.json`: accepted per-fixture metric summaries used for delta comparisons.
 - `shared_canvas_library.json`: shared named points, fragments, and per-script metric budgets.
 - `*_basic.json`, `*_handle.json`, `*_object.json`: individual workflow scripts.
 
@@ -55,6 +56,18 @@ Run line workflows and write the summary report:
 node tests/helpers/drawing_control_workflow_report.js --tag line
 ```
 
+Run line workflows and compare against accepted baselines:
+
+```sh
+node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline
+```
+
+Refresh accepted baselines after a known-good full run:
+
+```sh
+node tests/helpers/drawing_control_workflow_report.js --all --update-baseline
+```
+
 Run edit workflows:
 
 ```sh
@@ -73,6 +86,8 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 - `selectedWorkflowCount`: number of workflows selected by the current filter.
 - `metricSamples`: number of measured interaction samples in the real run.
 - `budgetFailures`: number of workflow metric budget failures.
+- `baselineComparison`: compact list of meaningful metric deltas when `--compare-baseline` is used.
+- `baselineUpdate`: baseline file path and updated workflow count when `--update-baseline` is used.
 - `worstFailure`: most important compact failure, or `null`.
 - `reportPath`: summary artifact written by real runs.
 
@@ -83,6 +98,12 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 The same file also protects focused selectors such as `--tag line`, `--category edit`, and exact fixture runs. This keeps the cheap probe commands useful as the workflow set changes.
 
 `recommendedSelectors` in that file is the data-backed navigation map for agents. Start there when choosing a probe for a line, handle-edit, exact-fixture, or full-suite question.
+
+## Baseline Contract
+
+`workflow_metric_baselines.json` records accepted per-fixture summaries. Baseline comparison treats workflow shape, mode names, sample counts, action counts, object counts, and metric keys as invariants. Duration is compared with a regression threshold because wall-clock timing has normal jitter.
+
+Use `--compare-baseline` when asking "what changed?" Use `--update-baseline` only after the changed behavior is understood and accepted.
 
 ## Operating Rule
 

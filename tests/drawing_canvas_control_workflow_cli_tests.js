@@ -163,6 +163,28 @@ expect(report.schemaVersion === 4, "CLI summary report should preserve schema")
 expect(report.selectedWorkflowCount === 1, "CLI summary report should preserve fixture filter")
 expect(report.filters.fixtures.indexOf("arc_create_basic.json") >= 0, "CLI summary report should preserve selected fixture")
 
+const baselineResult = spawnSync(process.execPath, [
+    helper,
+    "--fixture", "arc_create_basic.json",
+    "--compare-baseline",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (baselineResult.status !== 0) {
+    console.error(baselineResult.stdout)
+    console.error(baselineResult.stderr)
+}
+expect(baselineResult.status === 0, "workflow report CLI baseline comparison should pass selected fixture")
+
+const baselineOutput = JSON.parse(baselineResult.stdout)
+expect(baselineOutput.ok === true, "baseline CLI output should report ok")
+expect(baselineOutput.baselineComparison.ok === true, "baseline comparison should report ok")
+expect(baselineOutput.baselineComparison.comparedWorkflowCount === 1, "baseline comparison should count selected fixture")
+expect(baselineOutput.baselineComparison.failureCount === 0, "baseline comparison should have no failures")
+
 if (process.exitCode) {
     process.exit(process.exitCode)
 }

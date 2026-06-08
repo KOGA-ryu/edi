@@ -15,8 +15,12 @@ function usage() {
         "  node tests/helpers/drawing_control_workflow_report.js --fixture <fixture.json>",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
+        "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
+        "  node tests/helpers/drawing_control_workflow_report.js --all --update-baseline",
         "",
-        "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists."
+        "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists.",
+        "--compare-baseline reports compact metric deltas against workflow_metric_baselines.json.",
+        "--update-baseline refreshes selected workflow baselines after a known-good run."
     ].join("\n")
 }
 
@@ -38,6 +42,8 @@ function parseArgs(argv) {
         compact: false,
         recommend: false,
         recommendationId: "",
+        compareBaseline: false,
+        updateBaseline: false,
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -53,6 +59,10 @@ function parseArgs(argv) {
             args.dryRun = true
         } else if (token === "--compact") {
             args.compact = true
+        } else if (token === "--compare-baseline") {
+            args.compareBaseline = true
+        } else if (token === "--update-baseline") {
+            args.updateBaseline = true
         } else if (token === "--fixture") {
             pushValue(args.fixtures, argv[++index])
         } else if (token === "--category") {
@@ -107,6 +117,27 @@ function compactOutput(repoRoot, report) {
     }
 }
 
+function compactBaselineUpdate(repoRoot, report) {
+    const existing = WorkflowHarness.workflowMetricBaselines(repoRoot)
+    const current = WorkflowHarness.workflowBaselineFromReport(report, existing.policy)
+    const merged = WorkflowHarness.mergeWorkflowBaselines(existing, current)
+    const baselinePath = WorkflowHarness.writeWorkflowBaselines(repoRoot, merged)
+    return {
+        ok: true,
+        baselinePath,
+        updatedWorkflowCount: Object.keys(current.workflows || {}).length,
+        baselineWorkflowCount: Object.keys(merged.workflows || {}).length,
+    }
+}
+
+function compactBaselineComparison(repoRoot, report) {
+    const baseline = WorkflowHarness.workflowMetricBaselines(repoRoot)
+    const comparison = WorkflowHarness.compareWorkflowBaseline(report, baseline)
+    return Object.assign({
+        baselinePath: baseline.path,
+    }, comparison)
+}
+
 function dryRunOutput(manifest, compact) {
     const output = {
         ok: true,
@@ -148,6 +179,9 @@ function run() {
         throw new Error("workflow selectors did not match any fixtures")
     }
     if (args.dryRun) {
+        if (args.compareBaseline || args.updateBaseline) {
+            throw new Error("--compare-baseline and --update-baseline require a real workflow run")
+        }
         console.log(JSON.stringify(dryRunOutput(manifest, args.compact), null, 2))
         return 0
     }
@@ -174,6 +208,13 @@ function run() {
         metricReducer,
         budgetPolicy)
     const output = compactOutput(repoRoot, report)
+    if (args.updateBaseline) {
+        output.baselineUpdate = compactBaselineUpdate(repoRoot, report)
+    }
+    if (args.compareBaseline) {
+        output.baselineComparison = compactBaselineComparison(repoRoot, report)
+        output.ok = output.ok && output.baselineComparison.ok
+    }
     console.log(JSON.stringify(output, null, 2))
     return output.ok ? 0 : 1
 }

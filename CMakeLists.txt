@@ -159,6 +159,10 @@ if(BUILD_TESTING)
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_coverage_tests.js
         )
         add_test(
+            NAME drawing_canvas_control_workflow_baseline_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_baseline_tests.js
+        )
+        add_test(
             NAME drawing_canvas_control_negative_launch_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_negative_launch_tests.js
         )

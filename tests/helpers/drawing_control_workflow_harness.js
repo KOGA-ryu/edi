@@ -228,6 +228,70 @@ function workflowMetricFields() {
     ]
 }
 
+function workflowBaselinePath(repoRoot) {
+    return path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_metric_baselines.json")
+}
+
+function defaultWorkflowBaselinePolicy() {
+    return {
+        maxReportedDeltas: 10,
+        duration: {
+            maxAbsoluteRegressionMs: 50,
+            maxRegressionRatio: 2.5,
+        },
+        exactSummaryFields: [
+            "executed",
+            "objectCount",
+            "selectedCount",
+        ],
+        exactMetricMaxFields: [
+            "pointerMoves",
+            "controllerMutations",
+            "renderRequests",
+            "hitTests",
+            "snapResolutions",
+            "handlePlans",
+            "revisionDelta",
+            "mutationsPerPointerMove",
+            "renderRequestsPerPointerMove",
+            "hitTestsPerPointerMove",
+            "snapResolutionsPerPointerMove",
+            "handlePlansPerPointerMove",
+        ],
+    }
+}
+
+function workflowBaselinePolicy(policy) {
+    const defaults = defaultWorkflowBaselinePolicy()
+    const input = policy || {}
+    return Object.assign({}, defaults, input, {
+        duration: Object.assign({}, defaults.duration, input.duration || {}),
+        exactSummaryFields: Array.isArray(input.exactSummaryFields) ? input.exactSummaryFields : defaults.exactSummaryFields,
+        exactMetricMaxFields: Array.isArray(input.exactMetricMaxFields) ? input.exactMetricMaxFields : defaults.exactMetricMaxFields,
+    })
+}
+
+function workflowMetricBaselines(repoRoot) {
+    const filePath = workflowBaselinePath(repoRoot)
+    if (!fs.existsSync(filePath)) {
+        return {
+            path: filePath,
+            schemaVersion: 1,
+            name: "drawing_control_workflow_baselines",
+            policy: workflowBaselinePolicy(),
+            workflows: {},
+        }
+    }
+    const baseline = readJson(filePath)
+    return {
+        path: filePath,
+        schemaVersion: Number(baseline.schemaVersion || 1),
+        name: baseline.name || "drawing_control_workflow_baselines",
+        policy: workflowBaselinePolicy(baseline.policy),
+        workflows: baseline.workflows || {},
+    }
+}
+
 function compactFieldSummary(summary, field) {
     const source = summary && summary[field] ? summary[field] : {}
     return {
@@ -256,6 +320,238 @@ function compactMetricDigest(records, metricReducer) {
 
 function ratio(numerator, denominator) {
     return Number(denominator) > 0 ? Number(numerator) / Number(denominator) : 0
+}
+
+function roundMetric(value) {
+    return Math.round(Number(value || 0) * 10000) / 10000
+}
+
+function maxMetricValue(records, field) {
+    return records.reduce((max, record) => Math.max(max, Number(record[field] || 0)), 0)
+}
+
+function meanMetricValue(records, field) {
+    if (records.length <= 0) {
+        return 0
+    }
+    return records.reduce((sum, record) => sum + Number(record[field] || 0), 0) / records.length
+}
+
+function normalizedBaselineMetricRecord(record) {
+    const pointerMoves = Number(record && record.pointerMoves || 0)
+    const controllerMutations = Number(record && record.controllerMutations || 0)
+    const renderRequests = Number(record && record.renderRequests || 0)
+    const hitTests = Number(record && record.hitTests || 0)
+    const snapResolutions = Number(record && record.snapResolutions || 0)
+    const handlePlans = Number(record && record.handlePlans || 0)
+    return {
+        durationMs: Number(record && record.durationMs || 0),
+        pointerMoves,
+        controllerMutations,
+        renderRequests,
+        hitTests,
+        snapResolutions,
+        handlePlans,
+        revisionDelta: Number(record && record.revisionDelta || 0),
+        mutationsPerPointerMove: ratio(controllerMutations, pointerMoves),
+        renderRequestsPerPointerMove: ratio(renderRequests, pointerMoves),
+        hitTestsPerPointerMove: ratio(hitTests, pointerMoves),
+        snapResolutionsPerPointerMove: ratio(snapResolutions, pointerMoves),
+        handlePlansPerPointerMove: ratio(handlePlans, pointerMoves),
+    }
+}
+
+function workflowBaselineModeDigest(modeData) {
+    const records = (Array.isArray(modeData && modeData.records) ? modeData.records : []).map(normalizedBaselineMetricRecord)
+    const fields = {}
+    for (const field of workflowMetricFields()) {
+        fields[field] = {
+            max: roundMetric(maxMetricValue(records, field)),
+            mean: roundMetric(meanMetricValue(records, field)),
+        }
+    }
+    return {
+        samples: records.length,
+        fields,
+    }
+}
+
+function workflowBaselineForScript(script) {
+    const modes = {}
+    const sourceModes = script && script.modes ? script.modes : {}
+    for (const mode of Object.keys(sourceModes).sort()) {
+        modes[mode] = workflowBaselineModeDigest(sourceModes[mode])
+    }
+    return {
+        fixture: String(script && script.fixture || ""),
+        kind: String(script && script.metadata && script.metadata.kind || "unknown"),
+        category: String(script && script.metadata && script.metadata.category || "unknown"),
+        tags: Array.isArray(script && script.metadata && script.metadata.tags) ? script.metadata.tags.map(tag => String(tag)) : [],
+        summary: {
+            executed: Number(script && script.summary && script.summary.executed || 0),
+            objectCount: Number(script && script.summary && script.summary.objectCount || 0),
+            selectedCount: Number(script && script.summary && script.summary.selectedCount || 0),
+        },
+        modes,
+    }
+}
+
+function workflowBaselineFromReport(report, existingPolicy) {
+    const workflows = {}
+    const scripts = Array.isArray(report && report.scripts) ? report.scripts : []
+    for (const script of scripts) {
+        const fixture = String(script && script.fixture || "")
+        if (fixture.length > 0) {
+            workflows[fixture] = workflowBaselineForScript(script)
+        }
+    }
+    return {
+        schemaVersion: 1,
+        name: "drawing_control_workflow_baselines",
+        sourceReportSchemaVersion: Number(report && report.schemaVersion || 0),
+        policy: existingPolicy || defaultWorkflowBaselinePolicy(),
+        workflowCount: Object.keys(workflows).length,
+        workflows,
+    }
+}
+
+function mergeWorkflowBaselines(existing, current) {
+    const workflows = Object.assign({}, existing && existing.workflows ? existing.workflows : {})
+    const currentWorkflows = current && current.workflows ? current.workflows : {}
+    for (const fixture of Object.keys(currentWorkflows)) {
+        workflows[fixture] = currentWorkflows[fixture]
+    }
+    return {
+        schemaVersion: 1,
+        name: "drawing_control_workflow_baselines",
+        sourceReportSchemaVersion: Number(current && current.sourceReportSchemaVersion || existing && existing.sourceReportSchemaVersion || 0),
+        policy: current && current.policy ? current.policy : defaultWorkflowBaselinePolicy(),
+        workflowCount: Object.keys(workflows).length,
+        workflows,
+    }
+}
+
+function writeWorkflowBaselines(repoRoot, baseline) {
+    const filePath = workflowBaselinePath(repoRoot)
+    fs.writeFileSync(filePath, `${JSON.stringify(baseline, null, 2)}\n`)
+    return filePath
+}
+
+function addBaselineDelta(deltas, severity, fixture, pathName, baselineValue, actualValue, message) {
+    deltas.push({
+        severity,
+        fixture,
+        path: pathName,
+        baseline: baselineValue,
+        actual: actualValue,
+        message,
+    })
+}
+
+function valuesDiffer(left, right) {
+    return Math.abs(Number(left || 0) - Number(right || 0)) > 0.000001
+}
+
+function compareDurationField(deltas, fixture, mode, baselineField, actualField, policy) {
+    const baselineMax = Number(baselineField && baselineField.max || 0)
+    const actualMax = Number(actualField && actualField.max || 0)
+    const absoluteDelta = actualMax - baselineMax
+    const ratioDelta = baselineMax > 0 ? actualMax / baselineMax : actualMax > 0 ? Number.POSITIVE_INFINITY : 1
+    const durationPolicy = policy.duration || {}
+    const maxAbsolute = Number(durationPolicy.maxAbsoluteRegressionMs || 50)
+    const maxRatio = Number(durationPolicy.maxRegressionRatio || 2.5)
+    if (absoluteDelta > maxAbsolute && ratioDelta > maxRatio) {
+        addBaselineDelta(
+            deltas,
+            "failure",
+            fixture,
+            `modes.${mode}.fields.durationMs.max`,
+            baselineMax,
+            actualMax,
+            `${fixture}:${mode} duration max regressed by ${roundMetric(absoluteDelta)}ms`)
+    }
+}
+
+function compareWorkflowBaseline(report, baselineInput) {
+    const baseline = baselineInput || {}
+    const policy = workflowBaselinePolicy(baseline.policy)
+    const current = workflowBaselineFromReport(report, policy)
+    const failures = []
+    const warnings = []
+    const baselineWorkflows = baseline.workflows || {}
+
+    for (const fixture of Object.keys(current.workflows).sort()) {
+        const actualWorkflow = current.workflows[fixture]
+        const baselineWorkflow = baselineWorkflows[fixture]
+        if (!baselineWorkflow) {
+            addBaselineDelta(failures, "failure", fixture, "workflow", null, "present", `${fixture} has no baseline`)
+            continue
+        }
+        if (actualWorkflow.kind !== baselineWorkflow.kind) {
+            addBaselineDelta(failures, "failure", fixture, "kind", baselineWorkflow.kind, actualWorkflow.kind, `${fixture} kind changed`)
+        }
+        if (actualWorkflow.category !== baselineWorkflow.category) {
+            addBaselineDelta(failures, "failure", fixture, "category", baselineWorkflow.category, actualWorkflow.category, `${fixture} category changed`)
+        }
+        for (const field of policy.exactSummaryFields || []) {
+            const baselineValue = Number(baselineWorkflow.summary && baselineWorkflow.summary[field] || 0)
+            const actualValue = Number(actualWorkflow.summary && actualWorkflow.summary[field] || 0)
+            if (valuesDiffer(baselineValue, actualValue)) {
+                addBaselineDelta(failures, "failure", fixture, `summary.${field}`, baselineValue, actualValue, `${fixture} summary.${field} changed`)
+            }
+        }
+
+        const modes = new Set([
+            ...Object.keys(baselineWorkflow.modes || {}),
+            ...Object.keys(actualWorkflow.modes || {}),
+        ])
+        for (const mode of Array.from(modes).sort()) {
+            const baselineMode = baselineWorkflow.modes && baselineWorkflow.modes[mode]
+            const actualMode = actualWorkflow.modes && actualWorkflow.modes[mode]
+            if (!baselineMode) {
+                addBaselineDelta(failures, "failure", fixture, `modes.${mode}`, null, "present", `${fixture}:${mode} is new`)
+                continue
+            }
+            if (!actualMode) {
+                addBaselineDelta(failures, "failure", fixture, `modes.${mode}`, "present", null, `${fixture}:${mode} is missing`)
+                continue
+            }
+            if (Number(baselineMode.samples || 0) !== Number(actualMode.samples || 0)) {
+                addBaselineDelta(failures, "failure", fixture, `modes.${mode}.samples`, baselineMode.samples, actualMode.samples, `${fixture}:${mode} sample count changed`)
+            }
+            const fields = new Set([
+                ...Object.keys(baselineMode.fields || {}),
+                ...Object.keys(actualMode.fields || {}),
+            ])
+            for (const field of Array.from(fields).sort()) {
+                const baselineField = baselineMode.fields && baselineMode.fields[field]
+                const actualField = actualMode.fields && actualMode.fields[field]
+                if (!baselineField) {
+                    addBaselineDelta(failures, "failure", fixture, `modes.${mode}.fields.${field}`, null, "present", `${fixture}:${mode} metric field ${field} is new`)
+                    continue
+                }
+                if (!actualField) {
+                    addBaselineDelta(failures, "failure", fixture, `modes.${mode}.fields.${field}`, "present", null, `${fixture}:${mode} metric field ${field} is missing`)
+                    continue
+                }
+                if (field === "durationMs") {
+                    compareDurationField(failures, fixture, mode, baselineField, actualField, policy)
+                } else if ((policy.exactMetricMaxFields || []).indexOf(field) >= 0 && valuesDiffer(baselineField.max, actualField.max)) {
+                    addBaselineDelta(failures, "failure", fixture, `modes.${mode}.fields.${field}.max`, baselineField.max, actualField.max, `${fixture}:${mode} ${field}.max changed`)
+                }
+            }
+        }
+    }
+
+    const maxReportedDeltas = Math.max(1, Number(policy.maxReportedDeltas || 10))
+    return {
+        ok: failures.length === 0,
+        comparedWorkflowCount: Object.keys(current.workflows).length,
+        baselineWorkflowCount: Object.keys(baselineWorkflows).length,
+        failureCount: failures.length,
+        warningCount: warnings.length,
+        topDeltas: failures.concat(warnings).slice(0, maxReportedDeltas),
+    }
 }
 
 function workflowMetricRecords(scripts) {
@@ -486,12 +782,18 @@ function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts
 
 module.exports = {
     compactMetricDigest,
+    compareWorkflowBaseline,
+    defaultWorkflowBaselinePolicy,
     evaluateWorkflowMetricBudgets,
     loadMetricReducer,
+    mergeWorkflowBaselines,
     readJson,
     selectWorkflows,
     evaluateWorkflowCoverage,
     recommendedSelectorOutput,
+    workflowBaselineFromReport,
+    workflowBaselinePath,
+    workflowMetricBaselines,
     workflowCoverage,
     workflowCoverageExpectations,
     workflowBudgetPolicy,
@@ -499,5 +801,7 @@ module.exports = {
     workflowFixtures,
     workflowMetricRecords,
     workflowMetricsDigest,
+    writeWorkflowBaselines,
+    workflowBaselinePolicy,
     writeWorkflowReport,
 }

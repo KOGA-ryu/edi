@@ -187,6 +187,7 @@ function recommendedSelectorOutput(expectations, selectorId) {
             command: selector.command,
             runCommand: selector.runCommand,
             baselineCommand: selector.baselineCommand,
+            failureCommand: selector.failureCommand,
         })),
     }
 }

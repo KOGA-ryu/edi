@@ -97,7 +97,8 @@
       "description": "Line create, edit, move, and selection coverage.",
       "command": "node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line",
-      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline"
+      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only"
     },
     {
       "id": "handle_edits",
@@ -105,7 +106,8 @@
       "description": "Editable handle coverage across line, point, circle, and rectangle.",
       "command": "node tests/helpers/drawing_control_workflow_report.js --category edit --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit",
-      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline"
+      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline",
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit --compare-baseline --failures-only"
     },
     {
       "id": "arc_parameters",
@@ -113,14 +115,16 @@
       "description": "Arc parameter workflow for exact fixture checks.",
       "command": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json",
-      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json --compare-baseline"
+      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json --compare-baseline",
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json --compare-baseline --failures-only"
     },
     {
       "id": "all_workflows",
       "description": "Full workflow coverage overview.",
       "command": "node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact",
       "runCommand": "node tests/helpers/drawing_control_workflow_report.js --all",
-      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline"
+      "baselineCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline",
+      "failureCommand": "node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only"
     }
   ]
 }

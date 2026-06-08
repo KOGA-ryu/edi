@@ -23,6 +23,7 @@ Recommended selector fields:
 - `command`: compact dry-run coverage probe.
 - `runCommand`: real workflow metric run.
 - `baselineCommand`: real workflow run plus accepted-baseline comparison.
+- `failureCommand`: smallest baseline failure-state report.
 
 ## First Probe
 
@@ -36,7 +37,7 @@ node tests/helpers/drawing_control_workflow_report.js --recommend
 node tests/helpers/drawing_control_workflow_report.js --recommend --id line_system
 ```
 
-Recommendation output keeps coverage, metric collection, and baseline comparison as separate commands. Use `command` first, then `baselineCommand` when you want to know what changed.
+Recommendation output keeps coverage, metric collection, baseline comparison, and failure-only comparison as separate commands. Use `command` first, then `failureCommand` when you only need to know whether accepted behavior changed.
 
 ```sh
 node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact

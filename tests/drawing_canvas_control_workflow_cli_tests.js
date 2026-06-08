@@ -42,6 +42,9 @@ expect(recommendationOutput.recommendedSelectors.every(selector => String(select
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.runCommand || "").indexOf("--dry-run") < 0), "recommendation run commands should execute metrics")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.baselineCommand || "").indexOf("--compare-baseline") >= 0), "recommendation baseline commands should compare baselines")
 expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.baselineCommand || "").indexOf("--dry-run") < 0), "recommendation baseline commands should execute metrics")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--compare-baseline") >= 0), "recommendation failure commands should compare baselines")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--failures-only") >= 0), "recommendation failure commands should request failures only")
+expect(recommendationOutput.recommendedSelectors.every(selector => String(selector.failureCommand || "").indexOf("--dry-run") < 0), "recommendation failure commands should execute metrics")
 
 const singleRecommendation = spawnSync(process.execPath, [
     helper,
@@ -66,6 +69,8 @@ expect(singleRecommendationOutput.recommendedSelectors.length === 1, "single rec
 expect(singleRecommendationOutput.recommendedSelectors[0].id === "line_system", "single recommendation output should match requested id")
 expect(singleRecommendationOutput.recommendedSelectors[0].baselineCommand === "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
     "single recommendation output should include baseline compare command")
+expect(singleRecommendationOutput.recommendedSelectors[0].failureCommand === "node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only",
+    "single recommendation output should include failures-only compare command")
 
 const missingRecommendation = spawnSync(process.execPath, [
     helper,

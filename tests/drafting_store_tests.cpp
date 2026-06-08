@@ -210,6 +210,32 @@ int main()
     assert(afterBadMove->bounds.width == boundsBeforeFailedMove.width);
     assert(std::get<LineGeometry>(afterBadMove->geometry).a.x == std::get<LineGeometry>(geometryBeforeFailedMove).a.x);
 
+    ObjectMetadata metadata;
+    metadata.author = "tester";
+    metadata.toolProvenance = "drafting_store_tests";
+    auto metadataValidation = validateObjectMetadata(metadata);
+    assert(metadataValidation.ok);
+    const Bounds2D boundsBeforeMetadata = afterBadMove->bounds;
+    const DraftingGeometry geometryBeforeMetadata = afterBadMove->geometry;
+    const auto revisionBeforeMetadata = document.revision;
+    auto metadataUpdate = updateObjectMetadata(document, "line_1", metadata);
+    assert(metadataUpdate.ok);
+    const auto *afterMetadata = findObject(document, "line_1");
+    assert(afterMetadata != nullptr);
+    assert(afterMetadata->metadata.author == "tester");
+    assert(afterMetadata->metadata.toolProvenance == "drafting_store_tests");
+    assert(afterMetadata->bounds.x == boundsBeforeMetadata.x);
+    assert(afterMetadata->bounds.y == boundsBeforeMetadata.y);
+    assert(afterMetadata->bounds.width == boundsBeforeMetadata.width);
+    assert(std::get<LineGeometry>(afterMetadata->geometry).a.x == std::get<LineGeometry>(geometryBeforeMetadata).a.x);
+    assert(document.revision == revisionBeforeMetadata + 1);
+
+    const auto revisionBeforeMissingMetadata = document.revision;
+    auto missingMetadataUpdate = updateObjectMetadata(document, "missing", metadata);
+    assert(!missingMetadataUpdate.ok);
+    assert(missingMetadataUpdate.code == DraftingResultCode::ObjectNotFound);
+    assert(document.revision == revisionBeforeMissingMetadata);
+
     selectOnly(document, "line_2");
     auto removeMiddle = removeObject(document, "line_2");
     assert(removeMiddle.ok);

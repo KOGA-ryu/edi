@@ -25,6 +25,16 @@ DraftingObjectBuildResult DraftingObjectBuildResult::rejected(DraftingResultCode
     return result;
 }
 
+DraftingMetadataValidationResult DraftingMetadataValidationResult::accepted()
+{
+    return {true, DraftingResultCode::None, {}};
+}
+
+DraftingMetadataValidationResult DraftingMetadataValidationResult::rejected(DraftingResultCode code, std::string message)
+{
+    return {false, code, std::move(message)};
+}
+
 DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     DraftingObject object;
@@ -48,6 +58,11 @@ DraftingObjectBuildResult validateDraftingObjectShape(const DraftingObject &obje
     }
 
     return DraftingObjectBuildResult::accepted(object);
+}
+
+DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &)
+{
+    return DraftingMetadataValidationResult::accepted();
 }
 
 DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)

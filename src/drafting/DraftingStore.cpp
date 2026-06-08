@@ -78,7 +78,14 @@ DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const Draft
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
-    document.objects[*index].metadata = std::move(metadata);
+    DraftingObject candidate = document.objects[*index];
+    candidate.metadata = std::move(metadata);
+    const auto metadataValidation = validateObjectMetadata(candidate.metadata);
+    if (!metadataValidation.ok) {
+        return DraftingStoreResult::rejected(metadataValidation.code, metadataValidation.message);
+    }
+
+    document.objects[*index].metadata = std::move(candidate.metadata);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }

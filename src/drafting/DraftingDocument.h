@@ -51,9 +51,19 @@ struct DraftingObjectBuildResult {
     static DraftingObjectBuildResult rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingMetadataValidationResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+
+    static DraftingMetadataValidationResult accepted();
+    static DraftingMetadataValidationResult rejected(DraftingResultCode code, std::string message);
+};
+
 DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title = {});
 DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
 DraftingObjectBuildResult validateDraftingObjectShape(const DraftingObject &object);
+DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata);
 DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order = 0);
 DraftingLayer makeDefaultLayer();

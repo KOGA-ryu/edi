@@ -28,9 +28,13 @@ Inventory is read-only and does not convert, delete, or reject JSON by default.
 ```bash
 build/edi_format_inventory --repo .
 build/edi_format_inventory --repo . --summary
+build/edi_format_inventory --repo . --families
+build/edi_format_inventory --repo . --families --target MessagePack --sample-limit 2
 build/edi_format_inventory --repo . --target MessagePack
 build/edi_format_inventory --repo . --category internal_authored_json --summary
 ```
+
+Use `--families` as the default planning view. It groups by category, data family, target format, and migration priority with file counts, byte totals, and bounded sample paths.
 
 Use failure modes only as explicit audits:
 

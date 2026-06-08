@@ -65,6 +65,16 @@ bool listEmptyOrContains(const QStringList &values, const QString &value)
     return values.isEmpty() || values.contains(value);
 }
 
+QString familyKey(const InventoryRow &row)
+{
+    return QStringList{
+        row.category,
+        row.dataFamily,
+        row.proposedTargetFormat,
+        row.migrationPriority,
+    }.join(QStringLiteral("\t"));
+}
+
 void appendInventoryRows(const QDir &root, const QString &relativeDir, QVector<InventoryRow> *rows)
 {
     const QDir dir(relativeDir.isEmpty() ? root.absolutePath() : root.absoluteFilePath(relativeDir));
@@ -207,6 +217,38 @@ QVector<InventoryRow> filterInventoryRows(const QVector<InventoryRow> &rows, con
     return result;
 }
 
+QVector<InventoryFamilySummary> inventoryFamilySummaries(const QVector<InventoryRow> &rows, int sampleLimit)
+{
+    QMap<QString, InventoryFamilySummary> summaries;
+    const int cappedSampleLimit = std::max(0, sampleLimit);
+    for (const InventoryRow &row : rows) {
+        InventoryFamilySummary &summary = summaries[familyKey(row)];
+        if (summary.fileCount == 0) {
+            summary.category = row.category;
+            summary.dataFamily = row.dataFamily;
+            summary.proposedTargetFormat = row.proposedTargetFormat;
+            summary.migrationPriority = row.migrationPriority;
+        }
+        summary.fileCount += 1;
+        summary.sizeBytes += row.sizeBytes;
+        if (summary.samplePaths.size() < cappedSampleLimit) {
+            summary.samplePaths.push_back(row.path);
+        }
+    }
+
+    QVector<InventoryFamilySummary> result = summaries.values().toVector();
+    std::sort(result.begin(), result.end(), [](const InventoryFamilySummary &a, const InventoryFamilySummary &b) {
+        if (a.proposedTargetFormat != b.proposedTargetFormat) {
+            return a.proposedTargetFormat < b.proposedTargetFormat;
+        }
+        if (a.category != b.category) {
+            return a.category < b.category;
+        }
+        return a.dataFamily < b.dataFamily;
+    });
+    return result;
+}
+
 int inventoryUnknownCount(const QVector<InventoryRow> &rows)
 {
     return std::count_if(rows.begin(), rows.end(), [](const InventoryRow &row) {
@@ -238,6 +280,37 @@ QString inventoryRowLine(const InventoryRow &row)
         escapeCell(row.migrationPriority),
         escapeCell(row.reason),
     }.join(QStringLiteral("\t"));
+}
+
+QString inventoryFamilySummaryHeader()
+{
+    return QStringLiteral("category\tdata_family\tproposed_target_format\tmigration_priority\tfile_count\tsize_bytes\tsample_paths");
+}
+
+QString inventoryFamilySummaryLine(const InventoryFamilySummary &summary)
+{
+    QStringList escapedSamples;
+    for (const QString &sample : summary.samplePaths) {
+        escapedSamples.push_back(escapeCell(sample));
+    }
+    return QStringList{
+        escapeCell(summary.category),
+        escapeCell(summary.dataFamily),
+        escapeCell(summary.proposedTargetFormat),
+        escapeCell(summary.migrationPriority),
+        QString::number(summary.fileCount),
+        QString::number(summary.sizeBytes),
+        escapedSamples.join(QStringLiteral(", ")),
+    }.join(QStringLiteral("\t"));
+}
+
+QString inventoryFamilySummaryReport(const QVector<InventoryRow> &rows, int sampleLimit)
+{
+    QStringList lines{inventoryFamilySummaryHeader()};
+    for (const InventoryFamilySummary &summary : inventoryFamilySummaries(rows, sampleLimit)) {
+        lines.push_back(inventoryFamilySummaryLine(summary));
+    }
+    return lines.join(QStringLiteral("\n"));
 }
 
 QString inventorySummary(const QVector<InventoryRow> &rows)

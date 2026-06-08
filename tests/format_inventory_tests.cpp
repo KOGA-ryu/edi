@@ -68,5 +68,21 @@ int main()
     require(edi::formats::inventoryUnknownCount(rows) == 1, "unknown count detects unclassified rows");
     require(edi::formats::inventoryBlockedCount(rows) == 1, "blocked count detects blocked migration rows");
 
+    const QVector<edi::formats::InventoryFamilySummary> summaries = edi::formats::inventoryFamilySummaries(rows, 1);
+    require(summaries.size() == 3, "family summary groups by family and target");
+    bool foundFixtureSummary = false;
+    for (const edi::formats::InventoryFamilySummary &summary : summaries) {
+        if (summary.dataFamily == "drawing_replay_fixture") {
+            foundFixtureSummary = true;
+            require(summary.fileCount == 1, "fixture summary counts files");
+            require(summary.sizeBytes == 11, "fixture summary sums bytes");
+            require(summary.samplePaths.size() == 1, "fixture summary caps samples");
+            require(summary.samplePaths.first().contains("line_create_basic"), "fixture summary keeps sample path");
+        }
+    }
+    require(foundFixtureSummary, "family summary includes fixture family");
+    require(edi::formats::inventoryFamilySummaryHeader().contains("file_count"), "family header includes file count");
+    require(edi::formats::inventoryFamilySummaryReport(rows, 1).contains("drawing_replay_fixture"), "family report includes family names");
+
     return 0;
 }

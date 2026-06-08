@@ -11,8 +11,10 @@ QTextStream qerr(stderr);
 struct Args {
     bool help = false;
     bool summary = false;
+    bool families = false;
     bool failUnknown = false;
     bool failBlocked = false;
+    int sampleLimit = 3;
     QString repo = QStringLiteral(".");
     edi::formats::InventoryFilter filter;
 };
@@ -23,6 +25,7 @@ QString usage()
         "Usage:\n"
         "  build/edi_format_inventory --repo .\n"
         "  build/edi_format_inventory --repo . --summary\n"
+        "  build/edi_format_inventory --repo . --families\n"
         "  build/edi_format_inventory --repo . --target MessagePack\n"
         "  build/edi_format_inventory --repo . --category internal_authored_json --summary\n"
         "  build/edi_format_inventory --repo . --fail-unknown\n");
@@ -46,10 +49,24 @@ bool parseArgs(const QStringList &tokens, Args *args, QString *error)
             args->help = true;
         } else if (token == QStringLiteral("--summary")) {
             args->summary = true;
+        } else if (token == QStringLiteral("--families")) {
+            args->families = true;
         } else if (token == QStringLiteral("--fail-unknown")) {
             args->failUnknown = true;
         } else if (token == QStringLiteral("--fail-blocked")) {
             args->failBlocked = true;
+        } else if (token == QStringLiteral("--sample-limit")) {
+            if (i + 1 >= tokens.size()) {
+                *error = QStringLiteral("--sample-limit requires value");
+                return false;
+            }
+            bool ok = false;
+            const int value = tokens[++i].toInt(&ok);
+            if (!ok || value < 0) {
+                *error = QStringLiteral("--sample-limit requires non-negative integer");
+                return false;
+            }
+            args->sampleLimit = value;
         } else if (token == QStringLiteral("--repo")) {
             if (i + 1 >= tokens.size()) {
                 *error = QStringLiteral("--repo requires value");
@@ -106,7 +123,12 @@ int main(int argc, char **argv)
 
     const QVector<edi::formats::InventoryRow> allRows = edi::formats::inventoryRepoJsonFiles(args.repo);
     const QVector<edi::formats::InventoryRow> rows = edi::formats::filterInventoryRows(allRows, args.filter);
-    if (args.summary) {
+    if (args.families) {
+        qout << edi::formats::inventoryFamilySummaryReport(rows, args.sampleLimit) << '\n';
+        if (args.summary) {
+            qout << '\n' << edi::formats::inventorySummary(rows) << '\n';
+        }
+    } else if (args.summary) {
         qout << edi::formats::inventorySummary(rows) << '\n';
     } else {
         qout << edi::formats::inventoryRowHeader() << '\n';

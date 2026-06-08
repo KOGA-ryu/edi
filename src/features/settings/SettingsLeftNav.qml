@@ -13,6 +13,7 @@ ColumnLayout {
         { id: "theme", label: "Theme", meta: "colors/fonts" },
         { id: "layout", label: "Layout", meta: "planned" },
         { id: "panels", label: "Panels", meta: "resize/save" },
+        { id: "scripting", label: "Scripting", meta: "disabled" },
         { id: "features", label: "Features", meta: "planned" },
         { id: "subjects", label: "Review Subjects", meta: "planned" },
         { id: "write_rules", label: "Write Rules", meta: "disabled" }

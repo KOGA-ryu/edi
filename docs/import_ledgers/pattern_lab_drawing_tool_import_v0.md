@@ -24,7 +24,6 @@ Exact donor files copied into Draftsman:
 src/core/DrawingCore.h
 src/core/DrawingCore.cpp
 src/runtime/DrawingSession.qml
-src/runtime/DrawingCanvasHitTest.js
 src/runtime/DrawingRuntimeRows.js
 src/runtime/DrawingToolCatalog.js
 src/features/drawing_tool/DrawingCanvasObjectRenderer.qml
@@ -59,6 +58,8 @@ qt_qml_region_split/data/features/drawing_tool/tool_registry.json
   - Added drawing aliases and thin wrapper functions used by the imported QML.
 - `qt_qml_region_split/src/features/drawing_tool/DrawingToolWorkspace.qml`
   - Removed the donor canvas HUD because it duplicated state and cluttered the Draftsman canvas.
+- `qt_qml_region_split/src/runtime/DrawingCanvasHitTest.js`
+  - Retired after hit testing moved into `drawing_canvas_core`.
 
 ## Kept Out
 

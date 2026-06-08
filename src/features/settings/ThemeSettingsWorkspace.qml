@@ -262,8 +262,15 @@ Rectangle {
             Layout.fillHeight: true
         }
 
+        ScriptingSettingsPage {
+            controller: root.controller
+            visible: root.selectedPage === "scripting"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
         ColumnLayout {
-            visible: root.selectedPage !== "theme" && root.selectedPage !== "panels"
+            visible: root.selectedPage !== "theme" && root.selectedPage !== "panels" && root.selectedPage !== "scripting"
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: UiStyle.space4

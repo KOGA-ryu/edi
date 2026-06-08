@@ -141,10 +141,6 @@ if(BUILD_TESTING)
     find_program(NODE_EXECUTABLE node)
     if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS AND NODE_EXECUTABLE)
         add_test(
-            NAME drawing_canvas_hit_test_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_hit_test_tests.js
-        )
-        add_test(
             NAME drawing_canvas_snap_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_snap_tests.js
         )

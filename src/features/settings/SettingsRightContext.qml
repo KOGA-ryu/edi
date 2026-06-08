@@ -20,6 +20,7 @@ ColumnLayout {
     function pageLabel(pageId) {
         if (pageId === "layout") return "Layout"
         if (pageId === "panels") return "Panels"
+        if (pageId === "scripting") return "Scripting"
         if (pageId === "features") return "Features"
         if (pageId === "subjects") return "Review Subjects"
         if (pageId === "write_rules") return "Write Rules"
@@ -29,6 +30,7 @@ ColumnLayout {
     function pageStatus(pageId) {
         if (pageId === "theme") return "preview only"
         if (pageId === "panels") return root.controller && root.controller.shellLayoutDirty ? "unsaved" : "saved"
+        if (pageId === "scripting") return "read-only"
         if (pageId === "write_rules") return "disabled"
         return "planned"
     }
@@ -43,6 +45,7 @@ ColumnLayout {
     function pageContract(pageId) {
         if (pageId === "theme") return "data/ui_theme.json"
         if (pageId === "layout" || pageId === "panels") return "data/shell_layout.json"
+        if (pageId === "scripting") return "CMakeLists.txt"
         if (pageId === "features") return "feature registry"
         if (pageId === "subjects") return "data/review_subjects/*.json"
         if (pageId === "write_rules") return "write policy"
@@ -52,6 +55,7 @@ ColumnLayout {
     function pagePersistence(pageId) {
         if (pageId === "theme") return "disabled"
         if (pageId === "panels") return root.controller && root.controller.shellLayoutDirty ? "pending save" : "saved"
+        if (pageId === "scripting") return "disabled"
         if (pageId === "write_rules") return "disabled"
         return "planned"
     }

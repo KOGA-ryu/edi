@@ -141,16 +141,8 @@ if(BUILD_TESTING)
     find_program(NODE_EXECUTABLE node)
     if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS AND NODE_EXECUTABLE)
         add_test(
-            NAME drawing_canvas_handles_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_handles_tests.js
-        )
-        add_test(
             NAME drawing_canvas_gesture_state_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gesture_state_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_projection_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_projection_tests.js
         )
         add_test(
             NAME drawing_canvas_interaction_metrics_tests

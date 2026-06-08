@@ -123,6 +123,39 @@ bool testHitSnapProjectionGestureAdapter(DrawingCanvasRuntimeAdapter &adapter) {
     ok &= expect(bounds.value(QStringLiteral("ok")).toBool(), QStringLiteral("adapter object bounds ok"));
     ok &= expectNear(bounds.value(QStringLiteral("minX")).toDouble(), 0.25, QStringLiteral("adapter object bounds min x"));
 
+    const QVariantMap doc {
+        {QStringLiteral("selected_object_id"), QStringLiteral("script_line")},
+        {QStringLiteral("selected_object_ids"), QVariantList{}},
+        {QStringLiteral("selected_layer_id"), QStringLiteral("layer_01")},
+        {QStringLiteral("layers"), QVariantList{
+            QVariantMap{
+                {QStringLiteral("id"), QStringLiteral("layer_01")},
+                {QStringLiteral("visible"), true},
+                {QStringLiteral("objects"), QVariantList{line}}
+            }
+        }}
+    };
+    ok &= expect(adapter.selectedObject(doc, QStringLiteral("script_line")), QStringLiteral("adapter selectedObject fallback"));
+    ok &= expect(adapter.selectedLayer(doc, QStringLiteral("layer_01")), QStringLiteral("adapter selectedLayer"));
+    ok &= expect(adapter.objectIntersectsBounds(line, 0.1, 0.1, 0.4, 0.4), QStringLiteral("adapter objectIntersectsBounds"));
+
+    const QVariantMap multiDoc {
+        {QStringLiteral("selected_object_ids"), QVariantList{QStringLiteral("script_line"), QStringLiteral("script_point")}},
+        {QStringLiteral("layers"), QVariantList{
+            QVariantMap{
+                {QStringLiteral("id"), QStringLiteral("layer_01")},
+                {QStringLiteral("visible"), true},
+                {QStringLiteral("objects"), QVariantList{
+                    line,
+                    QVariantMap{{QStringLiteral("id"), QStringLiteral("script_point")}, {QStringLiteral("kind"), QStringLiteral("point")}, {QStringLiteral("x"), 0.8}, {QStringLiteral("y"), 0.7}}
+                }}
+            }
+        }}
+    };
+    const QVariantMap selectedBounds = adapter.combinedSelectionBounds(multiDoc);
+    ok &= expect(selectedBounds.value(QStringLiteral("ok")).toBool(), QStringLiteral("adapter combined selection bounds ok"));
+    ok &= expectNear(selectedBounds.value(QStringLiteral("maxX")).toDouble(), 0.8, QStringLiteral("adapter combined selection max x"));
+
     QVariantMap gesture = adapter.beginObjectDrag(adapter.initialGestureState(), QStringLiteral("script_line"), point(0.1, 0.1), QVariantList{QStringLiteral("script_line")}, {});
     gesture = adapter.updateGesture(gesture, {{QStringLiteral("point"), point(0.2, 0.25)}});
     const QVariantMap finish = adapter.finishGesture(gesture, {{QStringLiteral("point"), point(0.2, 0.25)}}).value(QStringLiteral("intent")).toMap();

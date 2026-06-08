@@ -3,6 +3,7 @@
 
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingSelection.h"
 
 #include <QVariantList>
@@ -10,7 +11,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <optional>
 #include <utility>
 
@@ -24,16 +24,6 @@ double clamp01(double value)
         return 0.0;
     }
     return std::clamp(value, 0.0, 1.0);
-}
-
-double sqr(double value)
-{
-    return value * value;
-}
-
-double distance(double ax, double ay, double bx, double by)
-{
-    return std::sqrt(sqr(ax - bx) + sqr(ay - by));
 }
 
 QString nextObjectId(const QString &kind, int serial)
@@ -118,7 +108,7 @@ std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QS
         geometry = RectangleGeometry{{left, top}, right - left, bottom - top};
     } else if (toolId == QStringLiteral("circle_tool")) {
         kind = DraftingShapeKind::Circle;
-        geometry = CircleGeometry{start, std::min(1.0, distance(start.x, start.y, end.x, end.y))};
+        geometry = CircleGeometry{start, std::min(1.0, distance(start, end))};
     } else {
         return std::nullopt;
     }
@@ -129,60 +119,6 @@ std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QS
     }
     built.object.metadata.toolProvenance = toolId.toStdString();
     return built.object;
-}
-
-double geometryHitDistance(const DraftingGeometry &geometry, double x, double y)
-{
-    return std::visit([&](const auto &typedGeometry) -> double {
-        using Geometry = std::decay_t<decltype(typedGeometry)>;
-        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
-            return distance(typedGeometry.point.x, typedGeometry.point.y, x, y);
-        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
-            const double length2 = sqr(typedGeometry.b.x - typedGeometry.a.x) + sqr(typedGeometry.b.y - typedGeometry.a.y);
-            if (length2 <= 0.000001) {
-                return distance(typedGeometry.a.x, typedGeometry.a.y, x, y);
-            }
-            const double t = std::clamp(((x - typedGeometry.a.x) * (typedGeometry.b.x - typedGeometry.a.x)
-                                            + (y - typedGeometry.a.y) * (typedGeometry.b.y - typedGeometry.a.y)) / length2,
-                0.0,
-                1.0);
-            return distance(
-                typedGeometry.a.x + t * (typedGeometry.b.x - typedGeometry.a.x),
-                typedGeometry.a.y + t * (typedGeometry.b.y - typedGeometry.a.y),
-                x,
-                y);
-        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
-            const Bounds2D bounds = computeBounds(typedGeometry);
-            const double nearestX = std::clamp(x, bounds.x, bounds.x + bounds.width);
-            const double nearestY = std::clamp(y, bounds.y, bounds.y + bounds.height);
-            return distance(nearestX, nearestY, x, y);
-        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            return std::abs(distance(typedGeometry.center.x, typedGeometry.center.y, x, y) - typedGeometry.radius);
-        } else {
-            double best = std::numeric_limits<double>::max();
-            for (Point2D point : typedGeometry.vertices) {
-                best = std::min(best, distance(point.x, point.y, x, y));
-            }
-            return best;
-        }
-    }, geometry);
-}
-
-std::optional<DraftingObjectId> hitObject(const DraftingDocument &document, double x, double y)
-{
-    std::optional<DraftingObjectId> bestId;
-    double bestDistance = 0.03;
-    for (const DraftingObject &object : document.objects) {
-        if (!object.visible) {
-            continue;
-        }
-        const double hitDistance = geometryHitDistance(object.geometry, x, y);
-        if (hitDistance <= bestDistance) {
-            bestDistance = hitDistance;
-            bestId = object.id;
-        }
-    }
-    return bestId;
 }
 
 } // namespace
@@ -234,9 +170,9 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     const Point2D point{x, y};
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
-        const std::optional<DraftingObjectId> objectId = hitObject(m_document, x, y);
-        if (objectId) {
-            applyDraftingCommand(m_document, SelectObjectCommand{*objectId});
+        const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+        if (hit.ok) {
+            applyDraftingCommand(m_document, SelectObjectCommand{hit.objectId});
         } else {
             clearSelection(m_document);
             ++m_document.revision;

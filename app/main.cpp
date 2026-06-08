@@ -184,6 +184,7 @@ int main(int argc, char *argv[]) {
     DrawingToolCatalog drawingToolCatalog;
     DrawingRuntimeRows drawingRuntimeRows;
     DrawingInteractionRuntime drawingInteractionRuntime;
+    DrawingToolScriptRuntime drawingToolScriptRuntime;
     QString drawingRecentFilesPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (drawingRecentFilesPath.trimmed().isEmpty()) {
         drawingRecentFilesPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/.draftsman_runtime");
@@ -242,6 +243,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("drawingToolCatalog"), &drawingToolCatalog);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingRuntimeRows"), &drawingRuntimeRows);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingInteractionRuntime"), &drawingInteractionRuntime);
+    engine.rootContext()->setContextProperty(QStringLiteral("drawingToolScriptRuntime"), &drawingToolScriptRuntime);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFiles"), drawingRecentFiles);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFilesPath"), drawingRecentFilesPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);

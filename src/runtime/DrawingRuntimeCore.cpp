@@ -37,15 +37,22 @@ QVariantList list(std::initializer_list<QVariantMap> rows)
 
 QVariantList toList(const QVariant &value)
 {
-    if (value.typeId() == QMetaType::QVariantList || value.canConvert<QVariantList>()) {
+    if (value.typeId() == QMetaType::QVariantList) {
         return value.toList();
+    }
+    if (value.typeId() == QMetaType::QStringList) {
+        QVariantList result;
+        for (const QString &item : value.toStringList()) {
+            result.push_back(item);
+        }
+        return result;
     }
     return {};
 }
 
 QVariantMap toMap(const QVariant &value)
 {
-    if (value.typeId() == QMetaType::QVariantMap || value.canConvert<QVariantMap>()) {
+    if (value.typeId() == QMetaType::QVariantMap) {
         return value.toMap();
     }
     return {};
@@ -396,6 +403,395 @@ QVariantMap finishTelemetry(const QVariantMap &state, const QString &type, doubl
         {"state", QVariantMap{{"active", false}, {"mode", "idle"}, {"events", QVariantList{}}, {"completedEvents", events}}},
         {"events", events},
     };
+}
+
+QVariant cloneVariant(const QVariant &value)
+{
+    if (value.typeId() == QMetaType::QVariantMap) {
+        QVariantMap result;
+        const QVariantMap source = value.toMap();
+        for (auto it = source.constBegin(); it != source.constEnd(); ++it) {
+            result.insert(it.key(), cloneVariant(it.value()));
+        }
+        return result;
+    }
+    if (value.typeId() == QMetaType::QVariantList) {
+        QVariantList result;
+        for (const QVariant &item : value.toList()) {
+            result.push_back(cloneVariant(item));
+        }
+        return result;
+    }
+    if (value.typeId() == QMetaType::QStringList) {
+        return value.toStringList();
+    }
+    return value;
+}
+
+QVariantMap objectAssign(const QVariantMap &base, const QVariantMap &overlay)
+{
+    QVariantMap result = toMap(cloneVariant(base));
+    for (auto it = overlay.constBegin(); it != overlay.constEnd(); ++it) {
+        result.insert(it.key(), cloneVariant(it.value()));
+    }
+    return result;
+}
+
+QVariantMap composeScript(const QVariantMap &script, const QVariantMap &library)
+{
+    QVariantMap composed = toMap(cloneVariant(script));
+    composed.insert("fragments", objectAssign(toMap(library.value("fragments")), toMap(script.value("fragments"))));
+    composed.insert("points", objectAssign(toMap(library.value("points")), toMap(script.value("points"))));
+    composed.insert("budgets", objectAssign(toMap(library.value("budgets")), toMap(script.value("budgets"))));
+    return composed;
+}
+
+bool validName(const QVariant &value)
+{
+    return !value.toString().trimmed().isEmpty();
+}
+
+QVariantMap pointFromValue(const QVariant &value, const QVariantMap &points)
+{
+    if (value.isValid() && value.typeId() == QMetaType::QString) {
+        return pointFromValue(points.value(value.toString()), points);
+    }
+    const QVariantMap source = toMap(value);
+    if (source.isEmpty()) {
+        return {};
+    }
+    bool okX = false;
+    bool okY = false;
+    const double x = source.value("x").toDouble(&okX);
+    const double y = source.value("y").toDouble(&okY);
+    if (!okX || !okY || !std::isfinite(x) || !std::isfinite(y)) {
+        return {};
+    }
+    return {{"x", x}, {"y", y}};
+}
+
+QVariantMap pointFromStep(const QVariantMap &step, const QString &field, const QVariantMap &points)
+{
+    if (step.contains(field)) {
+        return pointFromValue(step.value(field), points);
+    }
+    if (field == "point") {
+        return pointFromValue(step, points);
+    }
+    return {};
+}
+
+QStringList stringToolParameterValues(const QString &parameter)
+{
+    if (parameter == "circle_arc_mode") {
+        return {"circle", "arc"};
+    }
+    return {};
+}
+
+bool numericToolParameter(const QString &parameter)
+{
+    static const QStringList parameters = {
+        "circle_arc_start_angle_deg",
+        "circle_arc_end_angle_deg",
+        "regular_polygon_sides",
+        "regular_polygon_rotation_deg",
+        "line_thickness",
+        "stroke_opacity",
+    };
+    return parameters.contains(parameter);
+}
+
+void validateToolParameterStep(const QVariantMap &step, int index, QStringList &failures)
+{
+    const QString parameter = step.value("parameter").toString();
+    if (!validName(parameter)) {
+        failures.push_back(QString("steps[%1] setToolParameter requires parameter").arg(index));
+        return;
+    }
+    if (!step.contains("value")) {
+        failures.push_back(QString("steps[%1] setToolParameter requires value").arg(index));
+        return;
+    }
+    const QStringList stringValues = stringToolParameterValues(parameter);
+    if (!stringValues.isEmpty()) {
+        const QString value = step.value("value").toString().trimmed().toLower();
+        if (!stringValues.contains(value)) {
+            failures.push_back(QString("steps[%1] setToolParameter invalid %2: %3").arg(index).arg(parameter, step.value("value").toString()));
+        }
+        return;
+    }
+    if (numericToolParameter(parameter)) {
+        bool ok = false;
+        const double value = step.value("value").toDouble(&ok);
+        if (!ok || !std::isfinite(value)) {
+            failures.push_back(QString("steps[%1] setToolParameter requires numeric value for %2").arg(index).arg(parameter));
+        }
+        return;
+    }
+    failures.push_back(QString("steps[%1] setToolParameter unsupported parameter %2").arg(index).arg(parameter));
+}
+
+void validateLibrary(const QVariantMap &script, QStringList &failures)
+{
+    const QVariantMap points = toMap(script.value("points"));
+    for (auto it = points.constBegin(); it != points.constEnd(); ++it) {
+        if (pointFromValue(it.value(), {}).isEmpty()) {
+            failures.push_back(QString("points.%1 requires finite x/y").arg(it.key()));
+        }
+    }
+    const QVariantMap fragments = toMap(script.value("fragments"));
+    for (auto it = fragments.constBegin(); it != fragments.constEnd(); ++it) {
+        if (toList(it.value()).isEmpty()) {
+            failures.push_back(QString("fragments.%1 requires at least one step").arg(it.key()));
+        }
+    }
+    const QVariantMap budgets = toMap(script.value("budgets"));
+    for (auto it = budgets.constBegin(); it != budgets.constEnd(); ++it) {
+        const QVariantMap budget = toMap(it.value());
+        if (budget.isEmpty() && !it.value().toMap().isEmpty()) {
+            continue;
+        }
+        if (budget.isEmpty() && !it.value().isNull()) {
+            failures.push_back(QString("budgets.%1 must be an object").arg(it.key()));
+        }
+    }
+}
+
+void validateStep(const QVariantMap &step, int index, const QVariantMap &script, QStringList &failures)
+{
+    if (step.contains("use")) {
+        const QString fragmentName = step.value("use").toString();
+        if (!validName(fragmentName)) {
+            failures.push_back(QString("steps[%1] use requires fragment name").arg(index));
+        } else if (!toMap(script.value("fragments")).contains(fragmentName)) {
+            failures.push_back(QString("steps[%1] references unknown fragment %2").arg(index).arg(fragmentName));
+        }
+        return;
+    }
+
+    const QString type = step.value("type").toString();
+    if (!validName(type)) {
+        failures.push_back(QString("steps[%1] missing type").arg(index));
+        return;
+    }
+    if (type == "selectTool") {
+        if (!validName(step.value("toolId"))) {
+            failures.push_back(QString("steps[%1] selectTool requires toolId").arg(index));
+        }
+        return;
+    }
+    if (type == "setToolParameter") {
+        validateToolParameterStep(step, index, failures);
+        return;
+    }
+    if (type == "clickCanvas") {
+        if (pointFromStep(step, "point", toMap(script.value("points"))).isEmpty()) {
+            failures.push_back(QString("steps[%1] clickCanvas requires finite point or x/y").arg(index));
+        }
+        return;
+    }
+    if (type == "dragHandle") {
+        if (!validName(step.value("object")) && !validName(step.value("objectId"))) {
+            failures.push_back(QString("steps[%1] dragHandle requires object").arg(index));
+        }
+        if (!validName(step.value("handleId"))) {
+            failures.push_back(QString("steps[%1] dragHandle requires handleId").arg(index));
+        }
+        if (pointFromStep(step, "to", toMap(script.value("points"))).isEmpty()) {
+            failures.push_back(QString("steps[%1] dragHandle requires to point").arg(index));
+        }
+        return;
+    }
+    if (type == "dragObject") {
+        if (!validName(step.value("object")) && !validName(step.value("objectId"))) {
+            failures.push_back(QString("steps[%1] dragObject requires object").arg(index));
+        }
+        if (pointFromStep(step, "to", toMap(script.value("points"))).isEmpty()
+            && (!std::isfinite(number(step.value("dx"), std::numeric_limits<double>::quiet_NaN()))
+                || !std::isfinite(number(step.value("dy"), std::numeric_limits<double>::quiet_NaN())))) {
+            failures.push_back(QString("steps[%1] dragObject requires to point or finite dx/dy").arg(index));
+        }
+        return;
+    }
+    if (type == "marqueeSelect") {
+        const QVariantMap points = toMap(script.value("points"));
+        if (pointFromStep(step, "from", points).isEmpty() || pointFromStep(step, "to", points).isEmpty()) {
+            failures.push_back(QString("steps[%1] marqueeSelect requires from/to points").arg(index));
+        }
+        return;
+    }
+    if (type == "panCanvas") {
+        if (!std::isfinite(number(step.value("dx"), std::numeric_limits<double>::quiet_NaN()))
+            || !std::isfinite(number(step.value("dy"), std::numeric_limits<double>::quiet_NaN()))) {
+            failures.push_back(QString("steps[%1] panCanvas requires finite dx/dy").arg(index));
+        }
+        return;
+    }
+    if (type == "zoomCanvas") {
+        if (!std::isfinite(number(step.value("factor"), std::numeric_limits<double>::quiet_NaN()))) {
+            failures.push_back(QString("steps[%1] zoomCanvas requires finite factor").arg(index));
+        }
+        return;
+    }
+    failures.push_back(QString("steps[%1] unknown type %2").arg(index).arg(type));
+}
+
+void validateExpectedBudgets(const QVariantMap &script, QStringList &failures)
+{
+    const QVariantMap modes = toMap(toMap(script.value("expect")).value("metricsByMode"));
+    const QVariantMap budgets = toMap(script.value("budgets"));
+    for (auto it = modes.constBegin(); it != modes.constEnd(); ++it) {
+        if (it.value().typeId() == QMetaType::QString) {
+            if (!budgets.contains(it.value().toString())) {
+                failures.push_back(QString("expect.metricsByMode.%1 references unknown budget %2").arg(it.key(), it.value().toString()));
+            }
+        } else if (!it.value().canConvert<QVariantMap>()) {
+            failures.push_back(QString("expect.metricsByMode.%1 must be a budget object or name").arg(it.key()));
+        }
+    }
+}
+
+QVariantMap normalizeStep(const QVariantMap &step, const QVariantMap &script)
+{
+    const QString type = step.value("type").toString();
+    const QVariantMap points = toMap(script.value("points"));
+    if (type == "selectTool") {
+        return {{"type", "selectTool"}, {"toolId", step.value("toolId").toString()}};
+    }
+    if (type == "clickCanvas") {
+        return {{"type", "clickCanvas"}, {"point", pointFromStep(step, "point", points)}};
+    }
+    if (type == "setToolParameter") {
+        return {{"type", "setToolParameter"}, {"parameter", step.value("parameter").toString()}, {"value", cloneVariant(step.value("value"))}};
+    }
+    if (type == "dragHandle") {
+        return {
+            {"type", "dragHandle"},
+            {"object", validName(step.value("object")) ? step.value("object").toString() : step.value("objectId").toString()},
+            {"handleId", step.value("handleId").toString()},
+            {"from", pointFromStep(step, "from", points)},
+            {"to", pointFromStep(step, "to", points)},
+            {"pointerMoves", std::max(1.0, std::round(number(step.value("pointerMoves"), 8)))},
+        };
+    }
+    if (type == "dragObject") {
+        return {
+            {"type", "dragObject"},
+            {"object", validName(step.value("object")) ? step.value("object").toString() : step.value("objectId").toString()},
+            {"from", pointFromStep(step, "from", points)},
+            {"to", pointFromStep(step, "to", points)},
+            {"dx", std::isfinite(number(step.value("dx"), std::numeric_limits<double>::quiet_NaN())) ? number(step.value("dx")) : 0.0},
+            {"dy", std::isfinite(number(step.value("dy"), std::numeric_limits<double>::quiet_NaN())) ? number(step.value("dy")) : 0.0},
+            {"pointerMoves", std::max(1.0, std::round(number(step.value("pointerMoves"), 8)))},
+        };
+    }
+    if (type == "marqueeSelect") {
+        return {{"type", "marqueeSelect"}, {"from", pointFromStep(step, "from", points)}, {"to", pointFromStep(step, "to", points)}, {"pointerMoves", std::max(1.0, std::round(number(step.value("pointerMoves"), 8)))}};
+    }
+    if (type == "panCanvas") {
+        return {{"type", "panCanvas"}, {"dx", number(step.value("dx"))}, {"dy", number(step.value("dy"))}};
+    }
+    if (type == "zoomCanvas") {
+        return {{"type", "zoomCanvas"}, {"factor", number(step.value("factor"), 1)}, {"point", pointFromStep(step, "point", points)}};
+    }
+    return toMap(cloneVariant(step));
+}
+
+QVariantList expandStepList(const QVariantList &steps, const QVariantMap &script, const QStringList &stack, QStringList &failures)
+{
+    QVariantList result;
+    const QVariantMap fragments = toMap(script.value("fragments"));
+    for (const QVariant &value : steps) {
+        const QVariantMap step = toMap(value);
+        if (step.contains("use")) {
+            const QString fragmentName = step.value("use").toString();
+            if (stack.contains(fragmentName)) {
+                failures.push_back(QString("fragment cycle detected at %1").arg(fragmentName));
+                continue;
+            }
+            if (!fragments.contains(fragmentName)) {
+                failures.push_back(QString("unknown fragment %1").arg(fragmentName));
+                continue;
+            }
+            const QVariantList expanded = expandStepList(toList(fragments.value(fragmentName)), script, QStringList(stack) << fragmentName, failures);
+            for (const QVariant &expandedStep : expanded) {
+                result.push_back(expandedStep);
+            }
+        } else {
+            result.push_back(normalizeStep(step, script));
+        }
+    }
+    return result;
+}
+
+QVariantMap pointWithFallback(const QVariant &value, const QVariant &fallback = {})
+{
+    QVariantMap source = toMap(value);
+    if (source.isEmpty()) {
+        source = toMap(fallback);
+    }
+    return {{"x", number(source.value("x"))}, {"y", number(source.value("y"))}};
+}
+
+QVariantMap pointerOp(const QString &op, const QVariantMap &point)
+{
+    return {{"op", op}, {"x", point.value("x")}, {"y", point.value("y")}};
+}
+
+QVariantMap pointerDown(const QVariantMap &point)
+{
+    QVariantMap op = pointerOp("pointerDown", point);
+    op.insert("button", "left");
+    return op;
+}
+
+QVariantMap pointerUp(const QVariantMap &point)
+{
+    QVariantMap op = pointerOp("pointerUp", point);
+    op.insert("button", "left");
+    return op;
+}
+
+QVariantMap interpolatedPoint(const QVariantMap &from, const QVariantMap &to, int index, double count)
+{
+    const int total = std::max(1, static_cast<int>(std::round(number(count, 1))));
+    const double t = std::clamp(static_cast<double>(index) / static_cast<double>(total), 0.0, 1.0);
+    const double x = std::round((number(from.value("x")) + (number(to.value("x")) - number(from.value("x"))) * t) * 10000.0) / 10000.0;
+    const double y = std::round((number(from.value("y")) + (number(to.value("y")) - number(from.value("y"))) * t) * 10000.0) / 10000.0;
+    return {{"x", x}, {"y", y}};
+}
+
+QVariantList dragOps(const QVariant &fromValue, const QVariant &toValue, double pointerMoves)
+{
+    const QVariantMap from = pointWithFallback(fromValue, toValue);
+    const QVariantMap to = pointWithFallback(toValue, from);
+    const int moves = std::max(1, static_cast<int>(std::round(number(pointerMoves, 8))));
+    QVariantList ops = {pointerOp("movePointer", from), pointerDown(from)};
+    for (int i = 1; i <= moves; ++i) {
+        ops.push_back(pointerOp("pointerMove", interpolatedPoint(from, to, i, moves)));
+    }
+    ops.push_back(pointerUp(to));
+    return ops;
+}
+
+QString stepTelemetryMode(const QVariantMap &step)
+{
+    const QString type = step.value("type").toString();
+    if (type == "clickCanvas") return "draw_click";
+    if (type == "dragHandle") return "dragging_handle";
+    if (type == "dragObject") return "dragging_object";
+    if (type == "marqueeSelect") return "marquee_select";
+    if (type == "panCanvas") return "panning";
+    if (type == "zoomCanvas") return "zooming";
+    return {};
+}
+
+void appendUnique(QStringList &items, const QString &value)
+{
+    if (!value.isEmpty() && !items.contains(value)) {
+        items.push_back(value);
+    }
 }
 
 } // namespace
@@ -1008,4 +1404,166 @@ QVariantMap DrawingInteractionRuntime::finishTelemetryInteraction(const QVariant
 QVariantMap DrawingInteractionRuntime::cancelTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const
 {
     return finishTelemetry(state, "cancel", timestampMs, snapshot);
+}
+
+DrawingToolScriptRuntime::DrawingToolScriptRuntime(QObject *parent)
+    : QObject(parent)
+{
+}
+
+QVariantMap DrawingToolScriptRuntime::validateScript(const QVariantMap &script, const QVariantMap &library) const
+{
+    const QVariantMap source = composeScript(script, library);
+    QStringList failures;
+    if (source.isEmpty()) {
+        return {{"ok", false}, {"failures", QStringList{"script must be an object"}}};
+    }
+    if (!validName(source.value("name"))) {
+        failures.push_back("script missing name");
+    }
+    validateLibrary(source, failures);
+    const QVariantList steps = toList(source.value("steps"));
+    if (steps.isEmpty()) {
+        failures.push_back("script requires at least one step");
+    }
+    for (int i = 0; i < steps.size(); ++i) {
+        validateStep(toMap(steps[i]), i, source, failures);
+    }
+    validateExpectedBudgets(source, failures);
+    return {{"ok", failures.isEmpty()}, {"failures", failures}};
+}
+
+QVariantMap DrawingToolScriptRuntime::expandedSteps(const QVariantMap &script, const QVariantMap &library) const
+{
+    const QVariantMap source = composeScript(script, library);
+    QStringList failures;
+    const QVariantList steps = expandStepList(toList(source.value("steps")), source, {}, failures);
+    return {{"ok", failures.isEmpty()}, {"steps", steps}, {"failures", failures}};
+}
+
+QVariantMap DrawingToolScriptRuntime::metricsBudgetsByMode(const QVariantMap &script, const QVariantMap &library) const
+{
+    const QVariantMap source = composeScript(script, library);
+    const QVariantMap modes = toMap(toMap(source.value("expect")).value("metricsByMode"));
+    const QVariantMap budgets = toMap(source.value("budgets"));
+    QVariantMap result;
+    for (auto it = modes.constBegin(); it != modes.constEnd(); ++it) {
+        result.insert(it.key(), it.value().typeId() == QMetaType::QString
+            ? cloneVariant(budgets.value(it.value().toString()))
+            : cloneVariant(it.value()));
+    }
+    return result;
+}
+
+QVariantMap DrawingToolScriptRuntime::executionPlan(const QVariantMap &script, const QVariantMap &library) const
+{
+    const QVariantMap source = composeScript(script, library);
+    const QVariantMap validation = validateScript(source);
+    if (!validation.value("ok").toBool()) {
+        return {{"ok", false}, {"failures", validation.value("failures")}, {"plan", QVariantMap{}}};
+    }
+    const QVariantMap expanded = expandedSteps(source);
+    if (!expanded.value("ok").toBool()) {
+        return {{"ok", false}, {"failures", expanded.value("failures")}, {"plan", QVariantMap{}}};
+    }
+    return {
+        {"ok", true},
+        {"failures", QStringList{}},
+        {"plan", QVariantMap{
+            {"name", source.value("name").toString()},
+            {"profile", source.value("profile").toString()},
+            {"steps", expanded.value("steps")},
+            {"expect", cloneVariant(source.value("expect"))},
+            {"metricsByMode", metricsBudgetsByMode(source)},
+        }},
+    };
+}
+
+QVariantList DrawingToolScriptRuntime::stepDriverOps(const QVariantMap &step) const
+{
+    const QString type = step.value("type").toString();
+    if (type == "selectTool") {
+        return {QVariantMap{{"op", "setTool"}, {"toolId", step.value("toolId").toString()}}};
+    }
+    if (type == "setToolParameter") {
+        return {QVariantMap{{"op", "setToolParameter"}, {"parameter", step.value("parameter").toString()}, {"value", cloneVariant(step.value("value"))}}};
+    }
+    if (type == "clickCanvas") {
+        const QVariantMap p = pointWithFallback(step.value("point"));
+        return {pointerOp("movePointer", p), pointerDown(p), pointerUp(p)};
+    }
+    if (type == "dragHandle") {
+        QVariantList ops = dragOps(step.value("from").toMap().isEmpty() ? step.value("to") : step.value("from"), step.value("to"), number(step.value("pointerMoves"), 8));
+        ops.push_front(QVariantMap{{"op", "targetHandle"}, {"object", step.value("object").toString()}, {"handleId", step.value("handleId").toString()}});
+        return ops;
+    }
+    if (type == "dragObject") {
+        const QVariantMap from = toMap(step.value("from")).isEmpty() ? QVariantMap{{"x", 0}, {"y", 0}} : toMap(step.value("from"));
+        const QVariantMap to = toMap(step.value("to")).isEmpty()
+            ? QVariantMap{{"x", number(from.value("x")) + number(step.value("dx"))}, {"y", number(from.value("y")) + number(step.value("dy"))}}
+            : toMap(step.value("to"));
+        QVariantList ops = dragOps(from, to, number(step.value("pointerMoves"), 8));
+        ops.push_front(QVariantMap{{"op", "targetObject"}, {"object", step.value("object").toString()}});
+        return ops;
+    }
+    if (type == "marqueeSelect") {
+        return dragOps(step.value("from"), step.value("to"), number(step.value("pointerMoves"), 8));
+    }
+    if (type == "panCanvas") {
+        return {QVariantMap{{"op", "wheelPan"}, {"dx", number(step.value("dx"))}, {"dy", number(step.value("dy"))}}};
+    }
+    if (type == "zoomCanvas") {
+        QVariantMap zoom{{"op", "wheelZoom"}, {"factor", number(step.value("factor"), 1)}};
+        if (!toMap(step.value("point")).isEmpty()) {
+            const QVariantMap p = pointWithFallback(step.value("point"));
+            zoom.insert("x", p.value("x"));
+            zoom.insert("y", p.value("y"));
+        }
+        return {zoom};
+    }
+    return {QVariantMap{{"op", "unsupportedStep"}, {"type", type}}};
+}
+
+QVariantMap DrawingToolScriptRuntime::driverPlan(const QVariantMap &executionPlan) const
+{
+    const QVariantMap source = executionPlan.contains("plan") ? toMap(executionPlan.value("plan")) : executionPlan;
+    const QVariantList steps = toList(source.value("steps"));
+    QVariantList ops;
+    QStringList telemetryModes;
+    QVariantList stepMap;
+    for (int i = 0; i < steps.size(); ++i) {
+        const QVariantMap step = toMap(steps[i]);
+        const int before = ops.size();
+        const QVariantList stepOps = stepDriverOps(step);
+        for (const QVariant &op : stepOps) {
+            ops.push_back(op);
+        }
+        const QString mode = stepTelemetryMode(step);
+        appendUnique(telemetryModes, mode);
+        stepMap.push_back(QVariantMap{
+            {"stepIndex", i},
+            {"stepType", step.value("type").toString()},
+            {"opStart", before},
+            {"opCount", stepOps.size()},
+            {"telemetryMode", mode},
+        });
+    }
+    return {
+        {"ok", true},
+        {"failures", QStringList{}},
+        {"plan", QVariantMap{
+            {"name", source.value("name").toString()},
+            {"profile", source.value("profile").toString()},
+            {"ops", ops},
+            {"expectedTelemetryModes", telemetryModes},
+            {"metricsByMode", cloneVariant(source.value("metricsByMode"))},
+            {"expect", cloneVariant(source.value("expect"))},
+            {"stepMap", stepMap},
+        }},
+    };
+}
+
+QVariantList DrawingToolScriptRuntime::driverOps(const QVariantMap &executionPlan) const
+{
+    return toList(toMap(driverPlan(executionPlan).value("plan")).value("ops"));
 }

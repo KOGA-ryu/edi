@@ -165,6 +165,26 @@ if(BUILD_TESTING)
 
     add_test(NAME drawing_runtime_core_tests COMMAND drawing_runtime_core_tests)
 
+    add_executable(drawing_tool_script_runtime_tests
+        tests/drawing_tool_script_runtime_tests.cpp
+    )
+
+    target_include_directories(drawing_tool_script_runtime_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_compile_definitions(drawing_tool_script_runtime_tests PRIVATE
+        PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+
+    target_link_libraries(drawing_tool_script_runtime_tests
+        PRIVATE
+            drawing_runtime_core
+            Qt6::Core
+    )
+
+    add_test(NAME drawing_tool_script_runtime_tests COMMAND drawing_tool_script_runtime_tests)
+
     add_executable(no_javascript_files_tests
         tests/no_javascript_files_tests.cpp
     )
@@ -220,14 +240,6 @@ if(BUILD_TESTING)
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gui_metric_capture_cli_tests.js
         )
         add_test(
-            NAME drawing_canvas_tool_script_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_tool_script_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_tool_script_driver_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_tool_script_driver_tests.js
-        )
-        add_test(
             NAME drawing_canvas_control_script_launch_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_script_launch_tests.js
         )
@@ -258,8 +270,6 @@ if(BUILD_TESTING)
             drawing_canvas_metric_report_tests
             drawing_canvas_gui_metric_capture_tests
             drawing_canvas_gui_metric_capture_cli_tests
-            drawing_canvas_tool_script_tests
-            drawing_canvas_tool_script_driver_tests
             drawing_canvas_control_script_launch_tests
             drawing_canvas_control_workflow_launch_tests
             drawing_canvas_control_workflow_cli_tests

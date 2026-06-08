@@ -77,3 +77,18 @@ public:
     Q_INVOKABLE QVariantMap finishTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
     Q_INVOKABLE QVariantMap cancelTelemetryInteraction(const QVariantMap &state, double timestampMs, const QVariantMap &snapshot) const;
 };
+
+class DrawingToolScriptRuntime : public QObject {
+    Q_OBJECT
+
+public:
+    explicit DrawingToolScriptRuntime(QObject *parent = nullptr);
+
+    Q_INVOKABLE QVariantMap validateScript(const QVariantMap &script, const QVariantMap &library = {}) const;
+    Q_INVOKABLE QVariantMap expandedSteps(const QVariantMap &script, const QVariantMap &library = {}) const;
+    Q_INVOKABLE QVariantMap metricsBudgetsByMode(const QVariantMap &script, const QVariantMap &library = {}) const;
+    Q_INVOKABLE QVariantMap executionPlan(const QVariantMap &script, const QVariantMap &library = {}) const;
+    Q_INVOKABLE QVariantList stepDriverOps(const QVariantMap &step) const;
+    Q_INVOKABLE QVariantMap driverPlan(const QVariantMap &executionPlan) const;
+    Q_INVOKABLE QVariantList driverOps(const QVariantMap &executionPlan) const;
+};

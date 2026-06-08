@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
-import "../../runtime/DrawingCanvasToolScript.js" as CanvasToolScript
 
 Rectangle {
     id: drawingWorkspace
@@ -139,7 +138,7 @@ Rectangle {
                     return
                 }
                 drawingWorkspace.initialControlScriptAttempted = true
-                var plan = CanvasToolScript.executionPlan(
+                var plan = drawingToolScriptRuntime.executionPlan(
                             drawingWorkspace.controller.drawingControlScriptDocument,
                             drawingWorkspace.controller.drawingControlLibraryDocument)
                 var result = plan.ok

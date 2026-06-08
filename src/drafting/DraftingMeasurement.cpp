@@ -16,6 +16,14 @@ double applyScale(double canvasValue, const ScaleCalibration &calibration)
 
 } // namespace
 
+ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadata)
+{
+    if (metadata.unit == MeasurementUnit::None) {
+        return {};
+    }
+    return {metadata.canvasUnitsPerRealUnit, metadata.unit};
+}
+
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration)
 {
     return {applyScale(distance(a, b), calibration), calibration.realUnit, measurementUnitName(calibration.realUnit)};

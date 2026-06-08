@@ -29,6 +29,21 @@ int main()
     ScaleCalibration calibration{2.0, MeasurementUnit::Centimeter};
     MeasurementValue measured = measureDistance({0.0, 0.0}, {0.0, 10.0}, calibration);
     assert(measured.value == 5.0);
+    assert(measured.unit == MeasurementUnit::Centimeter);
+
+    MeasurementMetadata metadataCalibration;
+    metadataCalibration.unit = MeasurementUnit::Inch;
+    metadataCalibration.canvasUnitsPerRealUnit = 4.0;
+    ScaleCalibration fromMetadata = scaleCalibrationFromMetadata(metadataCalibration);
+    assert(fromMetadata.realUnit == MeasurementUnit::Inch);
+    assert(fromMetadata.canvasUnitsPerRealUnit == 4.0);
+    MeasurementValue metadataMeasured = measureDistance({0.0, 0.0}, {0.0, 12.0}, fromMetadata);
+    assert(metadataMeasured.value == 3.0);
+    assert(metadataMeasured.unit == MeasurementUnit::Inch);
+
+    ScaleCalibration defaultFromMetadata = scaleCalibrationFromMetadata(MeasurementMetadata{});
+    assert(defaultFromMetadata.realUnit == MeasurementUnit::CanvasUnit);
+    assert(defaultFromMetadata.canvasUnitsPerRealUnit == 1.0);
 
     assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
     assert(validateGeometry(line).ok);

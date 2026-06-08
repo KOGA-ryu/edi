@@ -17,6 +17,7 @@ struct MeasurementValue {
     std::string label;
 };
 
+ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadata);
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration = {});
 MeasurementValue measureArea(const DraftingGeometry &geometry, const ScaleCalibration &calibration = {});
 Bounds2D measureDimensions(const DraftingGeometry &geometry);

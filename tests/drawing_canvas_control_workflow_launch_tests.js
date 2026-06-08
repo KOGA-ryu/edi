@@ -1,6 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 const { spawnSync } = require("child_process")
+const vm = require("vm")
 
 function fail(message) {
     console.error(`FAIL: ${message}`)
@@ -24,6 +25,22 @@ function expectInBucket(condition, message, bucket) {
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"))
+}
+
+function loadMetricReducer(repoRoot) {
+    const modulePath = path.join(repoRoot, "src", "runtime", "DrawingCanvasMetricReducer.js")
+    const source = fs.readFileSync(modulePath, "utf8").replace(".pragma library", "")
+    const context = {
+        Math,
+        Number,
+        String,
+        Array,
+        Object,
+        JSON,
+    }
+    vm.createContext(context)
+    vm.runInContext(source, context, { filename: modulePath })
+    return context
 }
 
 function normalizeWorkflowEntry(entry) {
@@ -451,9 +468,115 @@ function groupScriptsByMetadata(scripts, field) {
     return groups
 }
 
-function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts) {
+function workflowMetricFields() {
+    return [
+        "durationMs",
+        "pointerMoves",
+        "controllerMutations",
+        "renderRequests",
+        "hitTests",
+        "snapResolutions",
+        "handlePlans",
+        "revisionDelta",
+        "mutationsPerPointerMove",
+        "renderRequestsPerPointerMove",
+        "hitTestsPerPointerMove",
+    ]
+}
+
+function compactFieldSummary(summary, field) {
+    const source = summary && summary[field] ? summary[field] : {}
+    return {
+        count: Number(source.count || 0),
+        p95: Number(source.p95 || 0),
+        max: Number(source.max || 0),
+        mean: Number(source.mean || 0),
+    }
+}
+
+function compactMetricDigest(records, metricReducer) {
+    const list = Array.isArray(records) ? records : []
+    const fields = workflowMetricFields()
+    const summary = metricReducer.summarizeDistributions(list, fields, {
+        percentile: 0.95,
+    })
+    const digest = {
+        samples: list.length,
+        fields: {},
+    }
+    for (const field of fields) {
+        digest.fields[field] = compactFieldSummary(summary, field)
+    }
+    return digest
+}
+
+function workflowMetricRecords(scripts) {
+    const records = []
+    for (const script of scripts) {
+        const modes = script && script.modes ? script.modes : {}
+        for (const mode of Object.keys(modes)) {
+            const modeRecords = Array.isArray(modes[mode] && modes[mode].records) ? modes[mode].records : []
+            for (let index = 0; index < modeRecords.length; ++index) {
+                const record = modeRecords[index] || {}
+                const pointerMoves = Number(record.pointerMoves || 0)
+                const controllerMutations = Number(record.controllerMutations || 0)
+                const renderRequests = Number(record.renderRequests || 0)
+                const hitTests = Number(record.hitTests || 0)
+                const snapResolutions = Number(record.snapResolutions || 0)
+                const handlePlans = Number(record.handlePlans || 0)
+                records.push({
+                    sampleId: `${script.fixture}:${mode}:${index}`,
+                    script: String(script.fixture || ""),
+                    kind: String(script.metadata && script.metadata.kind || "unknown"),
+                    category: String(script.metadata && script.metadata.category || "unknown"),
+                    mode,
+                    durationMs: Number(record.durationMs || 0),
+                    pointerMoves,
+                    controllerMutations,
+                    renderRequests,
+                    hitTests,
+                    snapResolutions,
+                    handlePlans,
+                    revisionDelta: Number(record.revisionDelta || 0),
+                    mutationsPerPointerMove: ratio(controllerMutations, pointerMoves),
+                    renderRequestsPerPointerMove: ratio(renderRequests, pointerMoves),
+                    hitTestsPerPointerMove: ratio(hitTests, pointerMoves),
+                })
+            }
+        }
+    }
+    return records
+}
+
+function groupMetricDigests(records, field, metricReducer) {
+    const groups = {}
+    for (const record of records) {
+        const key = String(record && record[field] || "unknown")
+        if (!groups[key]) {
+            groups[key] = []
+        }
+        groups[key].push(record)
+    }
+    const result = {}
+    for (const key of Object.keys(groups).sort()) {
+        result[key] = compactMetricDigest(groups[key], metricReducer)
+    }
+    return result
+}
+
+function workflowMetricsDigest(scripts, metricReducer) {
+    const records = workflowMetricRecords(scripts)
+    return {
+        overall: compactMetricDigest(records, metricReducer),
+        byKind: groupMetricDigests(records, "kind", metricReducer),
+        byCategory: groupMetricDigests(records, "category", metricReducer),
+        byMode: groupMetricDigests(records, "mode", metricReducer),
+    }
+}
+
+function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts, metricReducer) {
     const report = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         name: "drawing_control_workflows",
         manifest: path.relative(repoRoot, manifestPath),
         filters,
@@ -467,6 +590,7 @@ function writeWorkflowReport(repoRoot, manifestPath, workflows, filters, scripts
             byKind: groupScriptsByMetadata(scripts, "kind"),
             byCategory: groupScriptsByMetadata(scripts, "category"),
         },
+        metrics: workflowMetricsDigest(scripts, metricReducer),
         scripts,
     }
     const outDir = path.join(repoRoot, "tests", "artifacts", "drawing_metrics")
@@ -506,6 +630,16 @@ function runWorkflowFilterContract(manifest) {
     expect(arcWorkflows[0].fixture === "arc_create_basic.json", "fixture filter should preserve the selected fixture")
 }
 
+function runWorkflowReportContract(report) {
+    expect(report.schemaVersion === 3, "workflow report should use schema version 3")
+    expect(report.metrics.overall.samples > 0, "workflow report should include metric samples")
+    expect(finite(report.metrics.overall.fields.durationMs.p95), "workflow report should include duration p95")
+    expect(finite(report.metrics.overall.fields.renderRequests.max), "workflow report should include render request max")
+    expect(Object.keys(report.metrics.byMode).length > 0, "workflow report should group metrics by mode")
+    expect(Object.keys(report.metrics.byKind).length > 0, "workflow report should group metrics by kind")
+    expect(Object.keys(report.metrics.byCategory).length > 0, "workflow report should group metrics by category")
+}
+
 const repoRoot = path.join(__dirname, "..")
 const executable = path.join(repoRoot, "build", "qt_qml_region_split")
 
@@ -516,13 +650,15 @@ if (!fs.existsSync(executable)) {
 
 const scripts = []
 const manifest = workflowFixtures(repoRoot, process.env)
+const metricReducer = loadMetricReducer(repoRoot)
 runWorkflowFilterContract(manifest)
 expect(manifest.selectedWorkflows.length > 0, "workflow filters should select at least one fixture")
 for (const workflow of manifest.selectedWorkflows) {
     scripts.push(runFixture(repoRoot, workflow))
 }
 
-writeWorkflowReport(repoRoot, manifest.manifestPath, manifest.workflows, manifest.filters, scripts)
+const report = writeWorkflowReport(repoRoot, manifest.manifestPath, manifest.workflows, manifest.filters, scripts, metricReducer)
+runWorkflowReportContract(report)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

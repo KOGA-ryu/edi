@@ -25,6 +25,24 @@ int main()
     assert(dimensions.y == 3.0);
     assert(dimensions.width == 10.0);
     assert(dimensions.height == 5.0);
+    DimensionMeasurement typedDimensions = measureDimensionsTyped(rect, calibration);
+    assert(typedDimensions.width.kind == MeasurementKind::Dimension);
+    assert(typedDimensions.height.kind == MeasurementKind::Dimension);
+    assert(typedDimensions.width.value == 5.0);
+    assert(typedDimensions.height.value == 2.5);
+    assert(typedDimensions.width.unit == MeasurementUnit::Centimeter);
+    assert(typedDimensions.height.unit == MeasurementUnit::Centimeter);
+
+    DraftingGeometry line = LineGeometry{{0.0, 0.0}, {3.0, 4.0}};
+    DimensionMeasurement lineDimensions = measureDimensionsTyped(line, calibration);
+    assert(lineDimensions.width.value == 1.5);
+    assert(lineDimensions.height.value == 2.0);
+
+    DimensionMeasurement defaultDimensions = measureDimensionsTyped(rect);
+    assert(defaultDimensions.width.kind == MeasurementKind::Dimension);
+    assert(defaultDimensions.width.value == 10.0);
+    assert(defaultDimensions.height.value == 5.0);
+    assert(defaultDimensions.width.unit == MeasurementUnit::CanvasUnit);
 
     assert(measurementUnitName(MeasurementUnit::None) == std::string("none"));
     assert(measurementUnitName(MeasurementUnit::CanvasUnit) == std::string("canvas_unit"));

@@ -34,11 +34,17 @@ struct MeasurementValue {
     std::string label;
 };
 
+struct DimensionMeasurement {
+    MeasurementValue width;
+    MeasurementValue height;
+};
+
 MeasurementCalibrationResult scaleCalibrationFromMetadataChecked(const MeasurementMetadata &metadata);
 ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadata);
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration = {});
 MeasurementValue measureArea(const DraftingGeometry &geometry, const ScaleCalibration &calibration = {});
 Bounds2D measureDimensions(const DraftingGeometry &geometry);
+DimensionMeasurement measureDimensionsTyped(const DraftingGeometry &geometry, const ScaleCalibration &calibration = {});
 const char *measurementUnitName(MeasurementUnit unit);
 
 } // namespace edi::drafting

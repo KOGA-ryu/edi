@@ -80,6 +80,26 @@ Bounds2D measureDimensions(const DraftingGeometry &geometry)
     return computeBounds(geometry);
 }
 
+DimensionMeasurement measureDimensionsTyped(const DraftingGeometry &geometry, const ScaleCalibration &calibration)
+{
+    const Bounds2D bounds = measureDimensions(geometry);
+    const char *label = measurementUnitName(calibration.realUnit);
+    return {
+        {
+            MeasurementKind::Dimension,
+            applyScale(bounds.width, calibration),
+            calibration.realUnit,
+            label,
+        },
+        {
+            MeasurementKind::Dimension,
+            applyScale(bounds.height, calibration),
+            calibration.realUnit,
+            label,
+        },
+    };
+}
+
 const char *measurementUnitName(MeasurementUnit unit)
 {
     switch (unit) {

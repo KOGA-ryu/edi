@@ -1073,18 +1073,8 @@ QtObject {
 
     function hitDrawingObjectAtNormalized(x, y) {
         var tolerance = 0.025
-        var generated = asArray(drawingGeneratedObjects)
-        var bestId = ""
-        var bestScore = tolerance
-        for (var index = generated.length - 1; index >= 0; --index) {
-            var object = generated[index]
-            var score = DrawingCanvasHitTest.objectHitScore(object, Number(x), Number(y), tolerance)
-            if (score <= bestScore) {
-                bestScore = score
-                bestId = String(object.id || "")
-            }
-        }
-        return bestId
+        var hit = DrawingCanvasHitTest.hitObjectAt(drawingGeneratedObjects, Number(x), Number(y), tolerance)
+        return String(hit.objectId || "")
     }
 
     function syncNativeDrawingModel() {

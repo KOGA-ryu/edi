@@ -44,7 +44,7 @@ function pointInPolygon(px, py, points) {
         var y1 = Number(current[1] || 0)
         var x2 = Number(previous[0] || 0)
         var y2 = Number(previous[1] || 0)
-        if (((y1 > py) !== (y2 > py)) && (px < (x2 - x1) * (py - y1) / Math.max(0.0000001, y2 - y1) + x1)) {
+        if (((y1 > py) !== (y2 > py)) && (px < (x2 - x1) * (py - y1) / (y2 - y1) + x1)) {
             inside = !inside
         }
     }
@@ -138,4 +138,26 @@ function objectHitScore(object, x, y, tolerance) {
         return bestEdge
     }
     return 999
+}
+
+function hitObjectAt(objects, x, y, tolerance) {
+    var list = asArray(objects)
+    var hitTolerance = Math.max(0, Number(tolerance || 0))
+    var best = {
+        objectId: "",
+        kind: "none",
+        distance: hitTolerance
+    }
+    for (var index = list.length - 1; index >= 0; --index) {
+        var object = list[index] || ({})
+        var score = objectHitScore(object, Number(x), Number(y), hitTolerance)
+        if (score < best.distance) {
+            best = {
+                objectId: String(object.id || ""),
+                kind: "object",
+                distance: score
+            }
+        }
+    }
+    return best
 }

@@ -13,6 +13,34 @@ set(DRAFTSMAN_SHELL_TARGET_NAME "qt_qml_region_split" CACHE STRING "Draftsman sh
 set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Shared Draftsman QML shell source directory.")
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
 
+add_library(drawing_canvas_core STATIC
+    src/canvas/DrawingCanvasTypes.h
+    src/canvas/DrawingCanvasTypes.cpp
+    src/canvas/DrawingCanvasViewport.h
+    src/canvas/DrawingCanvasViewport.cpp
+    src/canvas/DrawingCanvasHandles.h
+    src/canvas/DrawingCanvasHandles.cpp
+    src/canvas/DrawingCanvasHitTest.h
+    src/canvas/DrawingCanvasHitTest.cpp
+    src/canvas/DrawingCanvasSnap.h
+    src/canvas/DrawingCanvasSnap.cpp
+    src/canvas/DrawingCanvasProjection.h
+    src/canvas/DrawingCanvasProjection.cpp
+    src/canvas/DrawingCanvasGestureState.h
+    src/canvas/DrawingCanvasGestureState.cpp
+    src/canvas/DrawingCanvasRuntimeAdapter.h
+    src/canvas/DrawingCanvasRuntimeAdapter.cpp
+)
+
+target_include_directories(drawing_canvas_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(drawing_canvas_core
+    PUBLIC
+        Qt6::Core
+)
+
 qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
@@ -52,6 +80,7 @@ target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
 
 target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
+        drawing_canvas_core
         Qt6::Core
         Qt6::Gui
         Qt6::Qml
@@ -59,6 +88,22 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
 )
 
 if(BUILD_TESTING)
+    add_executable(drawing_canvas_contract_tests
+        tests/drawing_canvas_contract_tests.cpp
+    )
+
+    target_include_directories(drawing_canvas_contract_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(drawing_canvas_contract_tests
+        PRIVATE
+            drawing_canvas_core
+            Qt6::Core
+    )
+
+    add_test(NAME drawing_canvas_contract_tests COMMAND drawing_canvas_contract_tests)
+
     add_executable(drawing_object_model_tests
         tests/drawing_object_model_tests.cpp
         src/core/DrawingObjectModel.h

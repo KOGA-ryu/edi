@@ -1,5 +1,4 @@
 import QtQuick
-import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
     id: controlRunner
@@ -49,8 +48,8 @@ QtObject {
                 ? constructionCanvas.boardBounds()
                 : ({ x: 0, y: 0, size: canvasSizePx() })
         return {
-            x: CanvasViewport.canvasToScreenX(bounds, normalized.x),
-            y: CanvasViewport.canvasToScreenY(bounds, normalized.y)
+            x: drawingCanvasRuntime.canvasToScreenX(bounds, normalized.x),
+            y: drawingCanvasRuntime.canvasToScreenY(bounds, normalized.y)
         }
     }
 

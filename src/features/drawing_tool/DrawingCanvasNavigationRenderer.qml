@@ -1,6 +1,5 @@
 import QtQuick
 import "../../style"
-import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
     id: navigationRenderer
@@ -12,11 +11,11 @@ QtObject {
     }
 
     function pxX(bounds, normalizedX) {
-        return CanvasViewport.canvasToScreenX(bounds, normalizedX)
+        return drawingCanvasRuntime.canvasToScreenX(bounds, normalizedX)
     }
 
     function pxY(bounds, normalizedY) {
-        return CanvasViewport.canvasToScreenY(bounds, normalizedY)
+        return drawingCanvasRuntime.canvasToScreenY(bounds, normalizedY)
     }
 
     function rulerStep(bounds) {

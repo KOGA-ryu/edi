@@ -1,5 +1,4 @@
 import QtQuick
-import "../../runtime/DrawingCanvasSnap.js" as CanvasSnap
 
 QtObject {
     id: snapResolver
@@ -32,18 +31,18 @@ QtObject {
     }
 
     function effectiveGridStepPx() {
-        return CanvasSnap.effectiveGridStepPx(settings())
+        return drawingCanvasRuntime.effectiveGridStepPx(settings())
     }
 
     function gridSnappedPoint(point) {
         var snapSettings = settings()
         if (!snapSettings.gridEnabled) {
-            return CanvasSnap.noneSnap(point, snapSettings)
+            return drawingCanvasRuntime.noneSnap(point, snapSettings)
         }
-        return CanvasSnap.gridSnap(point, snapSettings)
+        return drawingCanvasRuntime.gridSnap(point, snapSettings)
     }
 
     function snappedPoint(point) {
-        return CanvasSnap.resolveSnap(point, objects(), settings())
+        return drawingCanvasRuntime.resolveSnap(point, objects(), settings())
     }
 }

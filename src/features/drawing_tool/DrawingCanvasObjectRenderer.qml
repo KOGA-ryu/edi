@@ -1,8 +1,5 @@
 import QtQuick
 import "../../style"
-import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
-import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
-import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
     id: canvasObjectRenderer
@@ -182,11 +179,11 @@ QtObject {
     })
 
     function pxX(bounds, normalizedX) {
-        return CanvasViewport.canvasToScreenX(bounds, normalizedX)
+        return drawingCanvasRuntime.canvasToScreenX(bounds, normalizedX)
     }
 
     function pxY(bounds, normalizedY) {
-        return CanvasViewport.canvasToScreenY(bounds, normalizedY)
+        return drawingCanvasRuntime.canvasToScreenY(bounds, normalizedY)
     }
 
     function handleSettings() {
@@ -221,14 +218,14 @@ QtObject {
 
     function drawRotatedRectSelectionOutline(ctx, bounds, object) {
         var kind = String(object.kind || "")
-        if (!CanvasHandles.isRectangleLike(kind)) {
+        if (!drawingCanvasRuntime.isRectangleLike(kind)) {
             return
         }
-        var corners = CanvasHandles.rotatedRectCorners(object)
+        var corners = drawingCanvasRuntime.rotatedRectCorners(object)
         if (corners.length < 4) {
             return
         }
-        var rotationHandle = CanvasHandles.rotatedRectRotationHandle(object, handleSettings())
+        var rotationHandle = drawingCanvasRuntime.rotatedRectRotationHandle(object, handleSettings())
         ctx.save()
         ctx.strokeStyle = UiStyle.colorWarning
         ctx.lineWidth = 1
@@ -248,7 +245,7 @@ QtObject {
     }
 
     function drawSelectedEditHandles(ctx, bounds, object) {
-        var handles = CanvasHandles.visibleHandlesForObject(object, handleSettings())
+        var handles = drawingCanvasRuntime.visibleHandlesForObject(object, handleSettings())
         if (handles.length <= 0 || String(object.id || "").indexOf("script_") !== 0) {
             return
         }
@@ -262,7 +259,7 @@ QtObject {
     }
 
     function drawCombinedSelectionOutline(ctx, bounds, doc) {
-        var selectedBounds = CanvasProjection.combinedSelectionBounds(doc)
+        var selectedBounds = drawingCanvasRuntime.combinedSelectionBounds(doc)
         if (!selectedBounds.ok) {
             return
         }
@@ -667,9 +664,9 @@ QtObject {
     }
 
     function drawObject(ctx, bounds, doc, layer, object) {
-        var objectSelected = CanvasProjection.selectedObject(doc, object.id)
+        var objectSelected = drawingCanvasRuntime.selectedObject(doc, object.id)
         var objectHovered = !objectSelected && String(canvasObjectRenderer.hoverObjectId || "") === String(object.id || "")
-        var layerSelected = CanvasProjection.selectedLayer(doc, layer.id)
+        var layerSelected = drawingCanvasRuntime.selectedLayer(doc, layer.id)
         var rendererName = String(objectRendererByKind[String(object.kind || "")] || "")
         var renderer = rendererName.length > 0 ? canvasObjectRenderer[rendererName] : null
         if (renderer) {

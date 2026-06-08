@@ -1,6 +1,5 @@
 import QtQuick
 import "../../style"
-import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
     id: previewRenderer
@@ -8,11 +7,11 @@ QtObject {
     property var controller: null
 
     function pxX(bounds, normalizedX) {
-        return CanvasViewport.canvasToScreenX(bounds, normalizedX)
+        return drawingCanvasRuntime.canvasToScreenX(bounds, normalizedX)
     }
 
     function pxY(bounds, normalizedY) {
-        return CanvasViewport.canvasToScreenY(bounds, normalizedY)
+        return drawingCanvasRuntime.canvasToScreenY(bounds, normalizedY)
     }
 
     function hasPendingPoint(doc) {

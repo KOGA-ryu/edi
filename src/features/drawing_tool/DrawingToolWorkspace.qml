@@ -1,13 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
-import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
-import "../../runtime/DrawingCanvasGestureState.js" as CanvasGestureState
 import "../../runtime/DrawingCanvasInteractionMetrics.js" as CanvasInteractionMetrics
 import "../../runtime/DrawingCanvasInteractionTelemetry.js" as CanvasInteractionTelemetry
-import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
 import "../../runtime/DrawingCanvasToolScript.js" as CanvasToolScript
-import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
     id: drawingWorkspace
@@ -349,18 +345,18 @@ Rectangle {
                 property real previewY: 0
 
                 function pxX(bounds, normalizedX) {
-                    return CanvasViewport.canvasToScreenX(bounds, normalizedX)
+                    return drawingCanvasRuntime.canvasToScreenX(bounds, normalizedX)
                 }
 
                 function pxY(bounds, normalizedY) {
-                    return CanvasViewport.canvasToScreenY(bounds, normalizedY)
+                    return drawingCanvasRuntime.canvasToScreenY(bounds, normalizedY)
                 }
 
                 function boardBounds() {
                     var zoom = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasZoom || 1.0) : 1.0
                     var panX = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanXPx || 0) : 0
                     var panY = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanYPx || 0) : 0
-                    return CanvasViewport.boardBounds(width, height, zoom, panX, panY)
+                    return drawingCanvasRuntime.boardBounds(width, height, zoom, panX, panY)
                 }
 
                 function drawSnapIndicator(ctx, bounds) {
@@ -392,7 +388,7 @@ Rectangle {
                 }
 
                 function drawMarquee(ctx, bounds) {
-                    if (!CanvasGestureState.isMarquee(canvasInput.gestureState)) {
+                    if (!drawingCanvasRuntime.isMarquee(canvasInput.gestureState)) {
                         return
                     }
                     var minX = Math.min(canvasInput.gestureState.startPoint.x, canvasInput.gestureState.lastPoint.x)
@@ -501,7 +497,7 @@ Rectangle {
                 property string hoverSnapLabel: "none"
                 property real hoverSnapStepPx: 32
                 property int activeModifiers: Qt.NoModifier
-                property var gestureState: CanvasGestureState.initialGestureState()
+                property var gestureState: drawingCanvasRuntime.initialGestureState()
                 property var interactionMetricsState: CanvasInteractionMetrics.initialMetricsState()
                 property var lastInteractionMetrics: ({})
                 property bool interactionMetricsLogEnabled: drawingWorkspace.controller ? !!drawingWorkspace.controller.drawingInteractionMetricsLogEnabled : false
@@ -540,8 +536,8 @@ Rectangle {
                 }
 
                 function actionLabel() {
-                    if (CanvasGestureState.isHandleDrag(gestureState) || CanvasGestureState.isObjectDrag(gestureState) || CanvasGestureState.isMarquee(gestureState)) {
-                        return CanvasGestureState.gestureLabel(gestureState)
+                    if (drawingCanvasRuntime.isHandleDrag(gestureState) || drawingCanvasRuntime.isObjectDrag(gestureState) || drawingCanvasRuntime.isMarquee(gestureState)) {
+                        return drawingCanvasRuntime.gestureLabel(gestureState)
                     }
                     if (dragAnchorId.length > 0) {
                         return "drag anchor"
@@ -593,10 +589,10 @@ Rectangle {
                     if (!drawingWorkspace.controller) {
                         return Qt.ArrowCursor
                     }
-                    if (CanvasGestureState.isHandleDrag(gestureState) || hoverHandleId.length > 0) {
+                    if (drawingCanvasRuntime.isHandleDrag(gestureState) || hoverHandleId.length > 0) {
                         return Qt.SizeAllCursor
                     }
-                    if (CanvasGestureState.isObjectDrag(gestureState)) {
+                    if (drawingCanvasRuntime.isObjectDrag(gestureState)) {
                         return Qt.ClosedHandCursor
                     }
                     if (hoverObjectId.length > 0) {
@@ -761,8 +757,8 @@ Rectangle {
                 function screenPointForNormalizedPoint(point) {
                     var bounds = boardBounds()
                     return {
-                        x: CanvasViewport.canvasToScreenX(bounds, point.x),
-                        y: CanvasViewport.canvasToScreenY(bounds, point.y)
+                        x: drawingCanvasRuntime.canvasToScreenX(bounds, point.x),
+                        y: drawingCanvasRuntime.canvasToScreenY(bounds, point.y)
                     }
                 }
 
@@ -795,7 +791,7 @@ Rectangle {
                     beginInteractionMetrics("dragging_object")
                     recordHitTestMetric()
                     recordSnapMetric()
-                    gestureState = CanvasGestureState.beginObjectDrag(gestureState, objectId, dragStart, selectedObjectIdList(), gestureModifiers(Qt.NoModifier))
+                    gestureState = drawingCanvasRuntime.beginObjectDrag(gestureState, objectId, dragStart, selectedObjectIdList(), gestureModifiers(Qt.NoModifier))
                     drawingWorkspace.controller.beginDrawingObjectMove()
 
                     var moves = controlMoveCount(pointerMoves)
@@ -804,7 +800,7 @@ Rectangle {
                         recordSnapMetric()
                         var movePoint = snapResolver.gridSnappedPoint(interpolatedPoint(from, to, index, moves))
                         var previousPoint = gestureState.lastPoint
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: movePoint,
                             modifiers: gestureModifiers(Qt.NoModifier)
                         })
@@ -840,7 +836,7 @@ Rectangle {
                     activeModifiers = Qt.NoModifier
                     beginInteractionMetrics("dragging_handle")
                     recordHitTestMetric()
-                    gestureState = CanvasGestureState.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), from, gestureModifiers(Qt.NoModifier))
+                    gestureState = drawingCanvasRuntime.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), from, gestureModifiers(Qt.NoModifier))
                     drawingWorkspace.controller.beginDrawingObjectMove()
 
                     var moves = controlMoveCount(pointerMoves)
@@ -848,7 +844,7 @@ Rectangle {
                         recordPointerMoveMetric()
                         recordSnapMetric()
                         var handlePoint = snapResolver.gridSnappedPoint(interpolatedPoint(from, to, index, moves))
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: handlePoint,
                             modifiers: gestureModifiers(Qt.NoModifier)
                         })
@@ -873,14 +869,14 @@ Rectangle {
                     activeModifiers = Qt.NoModifier
                     beginInteractionMetrics("marquee_select")
                     recordHitTestMetric()
-                    gestureState = CanvasGestureState.beginMarquee(gestureState, from, gestureModifiers(Qt.NoModifier))
+                    gestureState = drawingCanvasRuntime.beginMarquee(gestureState, from, gestureModifiers(Qt.NoModifier))
                     requestCanvasPaint()
 
                     var moves = controlMoveCount(pointerMoves)
                     for (var index = 1; index <= moves; ++index) {
                         recordPointerMoveMetric()
                         var point = interpolatedPoint(from, to, index, moves)
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: point,
                             modifiers: gestureModifiers(Qt.NoModifier),
                             moveTolerance: 0
@@ -907,7 +903,7 @@ Rectangle {
                 }
 
                 function normalizedPoint(mouseX, mouseY) {
-                    return CanvasViewport.screenToCanvas(boardBounds(), mouseX, mouseY)
+                    return drawingCanvasRuntime.screenToCanvas(boardBounds(), mouseX, mouseY)
                 }
 
                 function asArray(value) {
@@ -959,7 +955,7 @@ Rectangle {
                         if (id.indexOf("script_") !== 0) {
                             continue
                         }
-                        if (CanvasProjection.objectIntersectsBounds(object, minX, minY, maxX, maxY)) {
+                        if (drawingCanvasRuntime.objectIntersectsBounds(object, minX, minY, maxX, maxY)) {
                             ids.push(id)
                         }
                     }
@@ -972,7 +968,7 @@ Rectangle {
                         return ({})
                     }
                     recordHitTestMetric()
-                    var hit = CanvasHandles.hitHandleAt(object, mouseX, mouseY, boardBounds(), handleSettings())
+                    var hit = drawingCanvasRuntime.hitHandleAt(object, mouseX, mouseY, boardBounds(), handleSettings())
                     if (!hit.ok || hit.handle.readOnly === true) {
                         return ({})
                     }
@@ -993,8 +989,8 @@ Rectangle {
                     }
                     recordHitTestMetric()
                     hoverObjectId = String(drawingWorkspace.controller.hitDrawingObjectAtNormalized(rawPoint.x, rawPoint.y) || "")
-                    if (!CanvasGestureState.isDragging(gestureState) && !CanvasGestureState.isMarquee(gestureState)) {
-                        gestureState = CanvasGestureState.beginHover(gestureState, rawPoint, {
+                    if (!drawingCanvasRuntime.isDragging(gestureState) && !drawingCanvasRuntime.isMarquee(gestureState)) {
+                        gestureState = drawingCanvasRuntime.beginHover(gestureState, rawPoint, {
                             kind: hoverHandleId.length > 0 ? "handle" : hoverObjectId.length > 0 ? "object" : "none",
                             objectId: hoverObjectId,
                             handleId: hoverHandleId,
@@ -1089,7 +1085,7 @@ Rectangle {
                     if (String(object.id || "") !== String(gestureState.objectId || "") || String(handleId || "").length === 0) {
                         return
                     }
-                    var plan = CanvasHandles.handleUpdatePlan(object, handleId, point, handleSettings())
+                    var plan = drawingCanvasRuntime.handleUpdatePlan(object, handleId, point, handleSettings())
                     recordHandlePlanMetric()
                     if (!plan.ok) {
                         return
@@ -1104,7 +1100,7 @@ Rectangle {
 
                 function resetActiveGestureLifecycle(cancelled, endObjectMove) {
                     finishInteractionMetrics(cancelled)
-                    gestureState = CanvasGestureState.initialGestureState()
+                    gestureState = drawingCanvasRuntime.initialGestureState()
                     dragAnchorId = ""
                     selectionTogglePressed = false
                     if (endObjectMove && drawingWorkspace.controller) {
@@ -1113,7 +1109,7 @@ Rectangle {
                 }
 
                 function finishIncrementalActiveGesture(point, endObjectMove) {
-                    CanvasGestureState.finishGesture(gestureState, {
+                    drawingCanvasRuntime.finishGesture(gestureState, {
                         point: point,
                         incremental: true
                     })
@@ -1121,7 +1117,7 @@ Rectangle {
                 }
 
                 function finishMarqueeActiveGesture(point, objectIds) {
-                    var marqueeFinish = CanvasGestureState.finishGesture(gestureState, {
+                    var marqueeFinish = drawingCanvasRuntime.finishGesture(gestureState, {
                         point: point,
                         objectIds: objectIds
                     })
@@ -1151,7 +1147,7 @@ Rectangle {
                 }
 
                 function cancelActiveGesture() {
-                    CanvasGestureState.cancelGesture(gestureState)
+                    drawingCanvasRuntime.cancelGesture(gestureState)
                     resetActiveGestureLifecycle(true, true)
                 }
 
@@ -1202,7 +1198,7 @@ Rectangle {
                     hoverSnapKind = "none"
                     hoverSnapLabel = "none"
                     if (gestureState.mode === "hovering") {
-                        gestureState = CanvasGestureState.initialGestureState()
+                        gestureState = drawingCanvasRuntime.initialGestureState()
                     }
                     constructionCanvas.previewActive = false
                     requestCanvasPaint()
@@ -1221,7 +1217,7 @@ Rectangle {
                         if (String(handle.id || "").length > 0) {
                             beginInteractionMetrics("dragging_handle")
                             recordHitTestMetric()
-                            gestureState = CanvasGestureState.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), rawPoint, gestureModifiers(mouse.modifiers))
+                            gestureState = drawingCanvasRuntime.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), rawPoint, gestureModifiers(mouse.modifiers))
                             drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
                             return
@@ -1249,14 +1245,14 @@ Rectangle {
                             beginInteractionMetrics("dragging_object")
                             recordHitTestMetric()
                             recordSnapMetric()
-                            gestureState = CanvasGestureState.beginObjectDrag(gestureState, String(objectId || ""), dragStart, selectedObjectIdList(), gestureModifiers(mouse.modifiers))
+                            gestureState = drawingCanvasRuntime.beginObjectDrag(gestureState, String(objectId || ""), dragStart, selectedObjectIdList(), gestureModifiers(mouse.modifiers))
                             drawingWorkspace.controller.beginDrawingObjectMove()
                             mouse.accepted = true
                         }
                         if (String(objectId || "").length === 0) {
                             beginInteractionMetrics("marquee_select")
                             recordHitTestMetric()
-                            gestureState = CanvasGestureState.beginMarquee(gestureState, rawPoint, gestureModifiers(mouse.modifiers))
+                            gestureState = drawingCanvasRuntime.beginMarquee(gestureState, rawPoint, gestureModifiers(mouse.modifiers))
                             requestCanvasPaint()
                             mouse.accepted = true
                         }
@@ -1272,13 +1268,13 @@ Rectangle {
 
                 onPositionChanged: function(mouse) {
                     activeModifiers = mouse.modifiers
-                    if (drawingWorkspace.controller && pressed && CanvasGestureState.isHandleDrag(gestureState)) {
+                    if (drawingWorkspace.controller && pressed && drawingCanvasRuntime.isHandleDrag(gestureState)) {
                         recordPointerMoveMetric()
                         var handlePoint = modifierHandlePoint(mouse)
                         hoverRawX = handlePoint.x
                         hoverRawY = handlePoint.y
                         hoverInside = handlePoint.x >= 0 && handlePoint.x <= 1 && handlePoint.y >= 0 && handlePoint.y <= 1
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: handlePoint,
                             modifiers: gestureModifiers(mouse.modifiers)
                         })
@@ -1286,14 +1282,14 @@ Rectangle {
                         requestCanvasPaint()
                         return
                     }
-                    if (drawingWorkspace.controller && pressed && CanvasGestureState.isMarquee(gestureState)) {
+                    if (drawingWorkspace.controller && pressed && drawingCanvasRuntime.isMarquee(gestureState)) {
                         recordPointerMoveMetric()
                         var rawMarqueePoint = normalizedPoint(mouse.x, mouse.y)
                         hoverRawX = rawMarqueePoint.x
                         hoverRawY = rawMarqueePoint.y
                         hoverInside = rawMarqueePoint.x >= 0 && rawMarqueePoint.x <= 1 && rawMarqueePoint.y >= 0 && rawMarqueePoint.y <= 1
                         var bounds = boardBounds()
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: rawMarqueePoint,
                             modifiers: gestureModifiers(mouse.modifiers),
                             moveTolerance: 4 / Math.max(1, bounds.size)
@@ -1301,7 +1297,7 @@ Rectangle {
                         requestCanvasPaint()
                         return
                     }
-                    if (drawingWorkspace.controller && pressed && CanvasGestureState.isObjectDrag(gestureState)) {
+                    if (drawingWorkspace.controller && pressed && drawingCanvasRuntime.isObjectDrag(gestureState)) {
                         recordPointerMoveMetric()
                         recordSnapMetric()
                         var movePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
@@ -1309,7 +1305,7 @@ Rectangle {
                         hoverRawY = movePoint.y
                         hoverInside = movePoint.x >= 0 && movePoint.x <= 1 && movePoint.y >= 0 && movePoint.y <= 1
                         var previousPoint = gestureState.lastPoint
-                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                        gestureState = drawingCanvasRuntime.updateGesture(gestureState, {
                             point: movePoint,
                             modifiers: gestureModifiers(mouse.modifiers)
                         })
@@ -1339,7 +1335,7 @@ Rectangle {
                 onReleased: function(mouse) {
                     activeModifiers = mouse.modifiers
                     var releasePoint = normalizedPoint(mouse.x, mouse.y)
-                    applyReleaseAction(CanvasGestureState.finishAction(gestureState), releasePoint)
+                    applyReleaseAction(drawingCanvasRuntime.finishAction(gestureState), releasePoint)
                     updateSelectionHover(mouse.x, mouse.y, releasePoint)
                 }
 
@@ -1382,9 +1378,9 @@ Rectangle {
                         wheel.accepted = true
                         return
                     }
-                    var panState = CanvasGestureState.beginPan(CanvasGestureState.initialGestureState(), { x: 0, y: 0 }, gestureModifiers(wheel.modifiers))
-                    panState = CanvasGestureState.updateGesture(panState, { screenPoint: { x: pixelX, y: pixelY }, modifiers: gestureModifiers(wheel.modifiers) })
-                    var panFinish = CanvasGestureState.finishGesture(panState, { screenPoint: { x: pixelX, y: pixelY } })
+                    var panState = drawingCanvasRuntime.beginPan(drawingCanvasRuntime.initialGestureState(), { x: 0, y: 0 }, gestureModifiers(wheel.modifiers))
+                    panState = drawingCanvasRuntime.updateGesture(panState, { screenPoint: { x: pixelX, y: pixelY }, modifiers: gestureModifiers(wheel.modifiers) })
+                    var panFinish = drawingCanvasRuntime.finishGesture(panState, { screenPoint: { x: pixelX, y: pixelY } })
                     if (panFinish.intent.kind === "pan") {
                         beginInteractionMetrics("panning")
                         drawingWorkspace.controller.panDrawingCanvasBy(panFinish.intent.dxPx, panFinish.intent.dyPx)

@@ -1,5 +1,4 @@
 import QtQuick
-import "DrawingCanvasHitTest.js" as DrawingCanvasHitTest
 import "DrawingToolCatalog.js" as DrawingToolCatalog
 import "DrawingRuntimeRows.js" as DrawingRuntimeRows
 
@@ -1073,7 +1072,7 @@ QtObject {
 
     function hitDrawingObjectAtNormalized(x, y) {
         var tolerance = 0.025
-        var hit = DrawingCanvasHitTest.hitObjectAt(drawingGeneratedObjects, Number(x), Number(y), tolerance)
+        var hit = drawingCanvasRuntime.hitObjectAt(drawingGeneratedObjects, Number(x), Number(y), tolerance)
         return String(hit.objectId || "")
     }
 

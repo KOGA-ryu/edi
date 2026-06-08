@@ -86,8 +86,84 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
         QWidget::mousePressEvent(event);
         return;
     }
+
+    if (m_controller->selectedToolId() == QStringLiteral("select_move")) {
+        const QString handleId = hitSelectedHandle(event->position());
+        if (!handleId.isEmpty()) {
+            m_dragHandleId = handleId;
+            const QPointF point = screenToCanvas(event->position());
+            m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+            event->accept();
+            return;
+        }
+    }
+
     const QPointF point = screenToCanvas(event->position());
     m_controller->clickCanvasNormalized(point.x(), point.y());
+}
+
+void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (m_controller == nullptr || m_dragHandleId.isEmpty() || !(event->buttons() & Qt::LeftButton)) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+
+    const QPointF point = screenToCanvas(event->position());
+    m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+    event->accept();
+}
+
+void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && !m_dragHandleId.isEmpty()) {
+        if (m_controller != nullptr) {
+            const QPointF point = screenToCanvas(event->position());
+            m_controller->editSelectedHandleNormalized(m_dragHandleId, point.x(), point.y());
+        }
+        m_dragHandleId.clear();
+        event->accept();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
+}
+
+QVariantMap DrawingCanvasWidget::selectedObjectProjection() const
+{
+    if (m_controller == nullptr || m_controller->selectedObjectId().isEmpty()) {
+        return {};
+    }
+    const QVariantMap model = m_controller->modelDocument();
+    for (const QVariant &value : model.value("drawing_objects").toList()) {
+        const QVariantMap object = value.toMap();
+        if (object.value(QStringLiteral("id")).toString() == m_controller->selectedObjectId()) {
+            return object;
+        }
+    }
+    return {};
+}
+
+QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
+{
+    const QVariantMap object = selectedObjectProjection();
+    if (object.isEmpty()) {
+        return {};
+    }
+
+    const QRectF board = boardRect();
+    QVariantMap settings;
+    settings.insert(QStringLiteral("canvasSizePx"), 512.0);
+    settings.insert(QStringLiteral("rotateHandleOffsetPx"), 28.0);
+    settings.insert(QStringLiteral("handleHitTolerancePx"), 14.0);
+    settings.insert(QStringLiteral("rotateHandleHitTolerancePx"), 18.0);
+
+    const drawing_canvas::HitResult hit = drawing_canvas::hitHandleAt(
+        drawing_canvas::CanvasObjectView{object},
+        screenPoint.x(),
+        screenPoint.y(),
+        drawing_canvas::BoardBounds{board.x(), board.y(), board.width()},
+        settings);
+    return hit.ok && hit.kind == QStringLiteral("handle") ? hit.objectId : QString();
 }
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const

@@ -42,5 +42,21 @@ int main(int argc, char **argv)
     controller.clickCanvasNormalized(0.25, 0.5);
     assert(controller.selectedObjectId() == point.value("id").toString());
 
+    controller.clickCanvasNormalized(0.8, 0.9);
+    assert(controller.selectedObjectId() == line.value("id").toString());
+    assert(controller.editSelectedHandleNormalized("line_end", 0.4, 0.6));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    QVariantMap editedLine;
+    for (const QVariant &objectValue : objects) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("id").toString() == line.value("id").toString()) {
+            editedLine = object;
+        }
+    }
+    assert(!editedLine.isEmpty());
+    assert(editedLine.value("x2").toDouble() == 0.4);
+    assert(editedLine.value("y2").toDouble() == 0.6);
+    assert(!controller.editSelectedHandleNormalized("missing_handle", 0.1, 0.1));
+
     return 0;
 }

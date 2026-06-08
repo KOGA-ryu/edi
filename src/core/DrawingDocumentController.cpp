@@ -274,3 +274,21 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     }
     emit modelChanged();
 }
+
+bool DrawingDocumentController::editSelectedHandleNormalized(const QString &handleId, double x, double y)
+{
+    if (handleId.isEmpty() || !m_document.activeObjectId) {
+        return false;
+    }
+
+    const Point2D point{clamp01(x), clamp01(y)};
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}

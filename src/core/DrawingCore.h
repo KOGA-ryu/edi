@@ -19,6 +19,7 @@ public:
     QString selectedObjectId() const;
     void setSelectedToolId(const QString &toolId);
     void clickCanvasNormalized(double x, double y);
+    bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
 
 signals:
     void modelChanged();

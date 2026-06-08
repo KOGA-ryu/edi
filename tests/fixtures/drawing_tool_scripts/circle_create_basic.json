@@ -1,0 +1,18 @@
+{
+  "name": "circle_create_basic",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicCircle" }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "circle" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick"
+    }
+  }
+}

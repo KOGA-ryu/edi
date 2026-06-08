@@ -3,6 +3,11 @@
     "lineStart": { "x": 128, "y": 128 },
     "lineEnd": { "x": 256, "y": 128 },
     "lineEndMoved": { "x": 320, "y": 160 },
+    "pointCreate": { "x": 96, "y": 352 },
+    "circleCenter": { "x": 256, "y": 256 },
+    "circleRadius": { "x": 320, "y": 256 },
+    "rectStart": { "x": 96, "y": 256 },
+    "rectEnd": { "x": 192, "y": 320 },
     "moveStart": { "x": 192, "y": 128 },
     "moveEnd": { "x": 256, "y": 160 },
     "marqueeStart": { "x": 96, "y": 96 },
@@ -36,6 +41,15 @@
     "selectLineTool": [
       { "type": "selectTool", "toolId": "line_polyline" }
     ],
+    "selectPointTool": [
+      { "type": "selectTool", "toolId": "anchor_points" }
+    ],
+    "selectCircleTool": [
+      { "type": "selectTool", "toolId": "circle_arc" }
+    ],
+    "selectRectangleTool": [
+      { "type": "selectTool", "toolId": "rectangle_polygon" }
+    ],
     "selectMoveTool": [
       { "type": "selectTool", "toolId": "select_move" }
     ],
@@ -43,6 +57,20 @@
       { "use": "selectLineTool" },
       { "type": "clickCanvas", "point": "lineStart" },
       { "type": "clickCanvas", "point": "lineEnd" }
+    ],
+    "createBasicPoint": [
+      { "use": "selectPointTool" },
+      { "type": "clickCanvas", "point": "pointCreate" }
+    ],
+    "createBasicCircle": [
+      { "use": "selectCircleTool" },
+      { "type": "clickCanvas", "point": "circleCenter" },
+      { "type": "clickCanvas", "point": "circleRadius" }
+    ],
+    "createBasicRectangle": [
+      { "use": "selectRectangleTool" },
+      { "type": "clickCanvas", "point": "rectStart" },
+      { "type": "clickCanvas", "point": "rectEnd" }
     ]
   }
 }

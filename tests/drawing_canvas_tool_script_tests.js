@@ -81,7 +81,10 @@ function runDragHandleContract(toolScript) {
 function runAllFixturePlansContract(toolScript) {
     const library = readFixture("shared_canvas_library.json")
     const names = [
+        "point_create_basic.json",
         "line_create_basic.json",
+        "circle_create_basic.json",
+        "rectangle_create_basic.json",
         "line_drag_end_handle.json",
         "line_move_object.json",
         "marquee_select_lines.json",

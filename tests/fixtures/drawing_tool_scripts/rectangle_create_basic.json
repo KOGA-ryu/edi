@@ -1,0 +1,18 @@
+{
+  "name": "rectangle_create_basic",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicRectangle" }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "rectangle" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick"
+    }
+  }
+}

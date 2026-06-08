@@ -67,8 +67,8 @@ Future drawing-tool work should add real controls only when their behavior and d
 ## Verification
 
 ```sh
-scripts/validate_project_profiles.js data/project_profiles/draftsman_drawing_tool_blank.json
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
+build/edi_validate project-profiles data/project_profiles/draftsman_drawing_tool_blank.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
 cmake --build build
 scripts/capture_proof.sh
 ```

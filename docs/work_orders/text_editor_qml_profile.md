@@ -87,11 +87,11 @@ If project persistence is needed, add a data contract first. Do not write arbitr
 ## Verification
 
 ```sh
-scripts/validate_project_profiles.js data/project_profiles/draftsman_text_editor.json
-scripts/validate_text_editor_documents.js data/text_editor/documents.json
-scripts/validate_ui_theme.js data/ui_theme.json
-scripts/validate_shell_layout.js data/shell_layout.json
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
+build/edi_validate project-profiles data/project_profiles/draftsman_text_editor.json
+build/edi_validate text-editor-documents data/text_editor/documents.json
+build/edi_validate ui-theme data/ui_theme.json
+build/edi_validate shell-layout data/shell_layout.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
 cmake --build build
 ./build/qt_qml_region_split \
   --screenshot docs/proof/text_editor_1280x820.png \
@@ -103,7 +103,7 @@ cmake --build build
 For exported packets:
 
 ```sh
-scripts/validate_export_packet.js data/text_editor/exports/<packet-dir>
+build/edi_validate export-packet data/text_editor/exports/<packet-dir>
 ```
 
 Proof screenshot:

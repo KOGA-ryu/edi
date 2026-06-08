@@ -122,7 +122,7 @@ The running UI updates live. Saving is intentionally disabled until the backup, 
 Validate a theme file:
 
 ```sh
-scripts/validate_ui_theme.js data/ui_theme.json
+build/edi_validate ui-theme data/ui_theme.json
 ```
 
 ## How To Add A Region
@@ -143,7 +143,7 @@ Do not add persistence or file writes until the write contract is approved.
 Validate a review subject before launching it:
 
 ```sh
-scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
+build/edi_validate review-subjects data/review_subjects/draftsman_ui_taxonomy.json
 ```
 
 ## Proof

@@ -4,17 +4,17 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-scripts/validate_review_subjects.js data/review_subjects/draftsman_ui_taxonomy.json
-scripts/validate_project_profiles.js \
+build/edi_validate review-subjects data/review_subjects/draftsman_ui_taxonomy.json
+build/edi_validate project-profiles \
   data/project_profiles/draftsman_blank.json \
   data/project_profiles/draftsman_ui_taxonomy.json \
   data/project_profiles/draftsman_drawing_tool_blank.json \
   data/project_profiles/draftsman_text_editor.json \
   data/project_profiles/draftsman_game_guy_map_editor.json
-scripts/validate_ui_theme.js data/ui_theme.json
-scripts/validate_shell_layout.js data/shell_layout.json
-scripts/validate_design_principles.js data/design_principles.json
-scripts/validate_csv_map_editor.js data/project_profiles/draftsman_game_guy_map_editor.json
+build/edi_validate ui-theme data/ui_theme.json
+build/edi_validate shell-layout data/shell_layout.json
+build/edi_validate design-principles data/design_principles.json
+build/edi_validate csv-map-editor data/project_profiles/draftsman_game_guy_map_editor.json
 cmake --build build
 
 ./build/qt_qml_region_split \
@@ -87,4 +87,4 @@ cmake --build build
   --width 420 \
   --height 320
 
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
+build/edi_validate shell-surface-map data/shell_surface_map.json

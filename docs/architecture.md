@@ -16,7 +16,7 @@ Future integrations should start from `docs/design_philosophy.md`, `data/design_
 - `UiStyle.qml` owns colors, spacing, panel sizes, and typography.
 - `data/ui_theme.json` owns the default editable theme values loaded at startup. It uses the same flat contract as the C++ Draftsman theme: `theme_mode`, `base`, `surface`, `accent`, `text`, `ui_font`, `code_font`, `ui_font_size`, and `code_font_size`.
 - Runtime state belongs in `RuntimeController.qml`.
-- Project profiles belong in `data/project_profiles/` and should pass `scripts/validate_project_profiles.js`.
-- Review subjects belong in `data/review_subjects/` and should pass `scripts/validate_review_subjects.js`.
+- Project profiles belong in `data/project_profiles/` and should pass `build/edi_validate project-profiles`.
+- Review subjects belong in `data/review_subjects/` and should pass `build/edi_validate review-subjects`.
 - Reuse integration belongs in the consumer app build/data configuration, not copied QML files.
 - No persistence is implemented until the notes/write receipt contract is approved.

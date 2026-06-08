@@ -9,7 +9,7 @@ Default profile:
 Validation:
 
 ```sh
-scripts/validate_project_profiles.js \
+build/edi_validate project-profiles \
   data/project_profiles/draftsman_blank.json \
   data/project_profiles/draftsman_ui_taxonomy.json
 ```
@@ -164,5 +164,5 @@ Text document roles control Dex handoff routing:
 Validate a generated packet before handing it to another worker:
 
 ```sh
-scripts/validate_export_packet.js data/text_editor/exports/<packet-dir>
+build/edi_validate export-packet data/text_editor/exports/<packet-dir>
 ```

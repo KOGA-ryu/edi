@@ -93,9 +93,9 @@ Small-window behavior: grid scrolls; right/bottom panels remain controlled by ex
 ## Verification
 
 ```sh
-scripts/validate_csv_map_editor.js data/project_profiles/draftsman_game_guy_map_editor.json
-scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json data/project_profiles/draftsman_game_guy_map_editor.json
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
+build/edi_validate csv-map-editor data/project_profiles/draftsman_game_guy_map_editor.json
+build/edi_validate project-profiles data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json data/project_profiles/draftsman_game_guy_map_editor.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
 cmake --build build
 scripts/capture_proof.sh
 ```

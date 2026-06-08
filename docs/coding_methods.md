@@ -10,7 +10,7 @@
 - Prefer simple QML properties and functions before creating framework abstractions.
 - Keep review taxonomy in `data/review_subjects/` JSON.
 - Keep editable theme defaults in `data/ui_theme.json`.
-- Validate review subjects with `scripts/validate_review_subjects.js`.
-- Validate theme files with `scripts/validate_ui_theme.js`.
+- Validate review subjects with `build/edi_validate review-subjects`.
+- Validate theme files with `build/edi_validate ui-theme`.
 - Keep first-pass notes and statuses in memory; do not write files casually.
 - Add proof screenshots for visible UI changes.

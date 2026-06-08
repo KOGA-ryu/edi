@@ -92,6 +92,15 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         Qt6::Quick
 )
 
+add_executable(edi_validate
+    src/tools/EdiValidate.cpp
+)
+
+target_link_libraries(edi_validate
+    PRIVATE
+        Qt6::Core
+)
+
 if(BUILD_TESTING)
     add_executable(drawing_canvas_contract_tests
         tests/drawing_canvas_contract_tests.cpp

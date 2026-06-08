@@ -96,11 +96,11 @@ theme_escape:
 Commands:
 
 ```sh
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
-scripts/validate_design_principles.js data/design_principles.json
-scripts/validate_project_profiles.js data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json
-scripts/validate_ui_theme.js data/ui_theme.json
-scripts/validate_shell_layout.js data/shell_layout.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
+build/edi_validate design-principles data/design_principles.json
+build/edi_validate project-profiles data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_ui_taxonomy.json
+build/edi_validate ui-theme data/ui_theme.json
+build/edi_validate shell-layout data/shell_layout.json
 cmake --build build
 scripts/capture_proof.sh
 ```

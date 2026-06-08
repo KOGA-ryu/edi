@@ -80,10 +80,10 @@ qt_qml_region_split/data/features/drawing_tool/tool_registry.json
 ## Verification
 
 ```sh
-scripts/validate_project_profiles.js data/project_profiles/draftsman_drawing_tool_blank.json data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_text_editor.json data/project_profiles/draftsman_game_guy_map_editor.json
-scripts/validate_shell_surface_map.js data/shell_surface_map.json
-scripts/validate_ui_theme.js data/ui_theme.json
-scripts/validate_shell_layout.js data/shell_layout.json
+build/edi_validate project-profiles data/project_profiles/draftsman_drawing_tool_blank.json data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_text_editor.json data/project_profiles/draftsman_game_guy_map_editor.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
+build/edi_validate ui-theme data/ui_theme.json
+build/edi_validate shell-layout data/shell_layout.json
 cmake --build build
 ./build/qt_qml_region_split --project-profile data/project_profiles/draftsman_drawing_tool_blank.json --activity drawing_tool --screenshot /tmp/draftsman_drawing_import.png --width 1280 --height 820
 ```

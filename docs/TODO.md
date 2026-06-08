@@ -33,14 +33,14 @@ This file tracks the first clean QML shell pass. Future persistence, agent write
 - [x] Add `data/review_notes/draftsman_ui_taxonomy_notes.json`.
 - [x] Load review subject JSON through C++ before QML startup.
 - [x] Add `--review-subject <path>` launch option for worker-provided subjects.
-- [x] Add `scripts/validate_review_subjects.js`.
+- [x] Add `build/edi_validate review-subjects`.
 - [x] Add low-glare style tokens for base, surface, raised surface, accent, text, muted text, borders, focus, disabled, and statuses.
 - [x] Add `data/ui_theme.json`.
 - [x] Load theme JSON through C++ before QML startup.
 - [x] Add `--theme <path>` launch option.
 - [x] Add Settings workspace for theme mode, four-color palette, font names, and font sizes.
 - [x] Add live in-memory theme preview.
-- [x] Add `scripts/validate_ui_theme.js`.
+- [x] Add `build/edi_validate ui-theme`.
 - [x] Replace missing external fonts with common macOS/Linux fallbacks.
 - [x] Compose activity rail, left panel, main workspace, right panel, bottom panel, and status bar.
 - [x] Add reusable buttons, icon buttons, tabs, status chips, list rows, cards, breadcrumbs, note cards, text field/area, toggle, code ref row, and splitter placeholder.

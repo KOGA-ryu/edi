@@ -46,6 +46,29 @@ expect(dryRunOutput.coverage.byTag.line === 4, "dry-run should count selected wo
 expect(dryRunOutput.coverage.byTag.geometry === 3, "dry-run should count non-selector tags")
 expect(dryRunOutput.workflows.every(workflow => workflow.tags.indexOf("line") >= 0), "dry-run should list selected workflows only")
 
+const compactDryRun = spawnSync(process.execPath, [
+    helper,
+    "--tag", "line",
+    "--dry-run",
+    "--compact",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (compactDryRun.status !== 0) {
+    console.error(compactDryRun.stdout)
+    console.error(compactDryRun.stderr)
+}
+expect(compactDryRun.status === 0, "workflow report CLI compact dry-run should pass")
+
+const compactDryRunOutput = JSON.parse(compactDryRun.stdout)
+expect(compactDryRunOutput.ok === true, "compact dry-run output should report ok")
+expect(compactDryRunOutput.selectedWorkflowCount === 4, "compact dry-run should preserve selected workflow count")
+expect(compactDryRunOutput.coverage.byKind.line === 4, "compact dry-run should preserve coverage")
+expect(compactDryRunOutput.workflows === undefined, "compact dry-run should omit workflow list")
+
 if (!fs.existsSync(executable)) {
     console.log("SKIP: build/qt_qml_region_split is not built")
     process.exit(0)

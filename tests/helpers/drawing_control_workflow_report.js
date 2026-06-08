@@ -12,8 +12,9 @@ function usage() {
         "  node tests/helpers/drawing_control_workflow_report.js --category <category>",
         "  node tests/helpers/drawing_control_workflow_report.js --fixture <fixture.json>",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run",
+        "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
         "",
-        "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app."
+        "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists."
     ].join("\n")
 }
 
@@ -32,6 +33,7 @@ function parseArgs(argv) {
         categories: [],
         tags: [],
         dryRun: false,
+        compact: false,
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -41,6 +43,8 @@ function parseArgs(argv) {
             args.all = true
         } else if (token === "--dry-run") {
             args.dryRun = true
+        } else if (token === "--compact") {
+            args.compact = true
         } else if (token === "--fixture") {
             pushValue(args.fixtures, argv[++index])
         } else if (token === "--category") {
@@ -117,21 +121,24 @@ function dryRunCoverage(workflows) {
     return coverage
 }
 
-function dryRunOutput(manifest) {
-    return {
+function dryRunOutput(manifest, compact) {
+    const output = {
         ok: true,
         dryRun: true,
         selectedWorkflowCount: manifest.selectedWorkflows.length,
         totalWorkflowCount: manifest.workflows.length,
         filters: manifest.filters,
         coverage: dryRunCoverage(manifest.selectedWorkflows),
-        workflows: manifest.selectedWorkflows.map(workflow => ({
+    }
+    if (!compact) {
+        output.workflows = manifest.selectedWorkflows.map(workflow => ({
             fixture: workflow.fixture,
             kind: workflow.kind,
             category: workflow.category,
             tags: workflow.tags,
-        })),
+        }))
     }
+    return output
 }
 
 function run() {
@@ -150,7 +157,7 @@ function run() {
         throw new Error("workflow selectors did not match any fixtures")
     }
     if (args.dryRun) {
-        console.log(JSON.stringify(dryRunOutput(manifest), null, 2))
+        console.log(JSON.stringify(dryRunOutput(manifest, args.compact), null, 2))
         return 0
     }
 

@@ -33,6 +33,11 @@ function readFixture(name) {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "drawing_tool_scripts", name), "utf8"))
 }
 
+function readWorkflowManifest() {
+    const manifest = readFixture("workflow_manifest.json")
+    return Array.isArray(manifest.workflows) ? manifest.workflows : []
+}
+
 function runValidationContract(toolScript) {
     const missing = toolScript.validateScript({})
     expect(!missing.ok, "empty script should fail validation")
@@ -102,21 +107,8 @@ function runToolParameterContract(toolScript) {
 
 function runAllFixturePlansContract(toolScript) {
     const library = readFixture("shared_canvas_library.json")
-    const names = [
-        "point_create_basic.json",
-        "line_create_basic.json",
-        "circle_create_basic.json",
-        "arc_create_basic.json",
-        "rectangle_create_basic.json",
-        "polygon_create_basic.json",
-        "line_drag_end_handle.json",
-        "point_drag_handle.json",
-        "circle_drag_radius_handle.json",
-        "rectangle_drag_corner_handle.json",
-        "line_move_object.json",
-        "marquee_select_lines.json",
-        "pan_canvas_basic.json",
-    ]
+    const names = readWorkflowManifest()
+    expect(names.length >= 13, "workflow manifest should include the drawing control workflows")
     for (const name of names) {
         const plan = toolScript.executionPlan(readFixture(name), library)
         expect(plan.ok, `${name} should build execution plan: ${plan.failures.join(", ")}`)

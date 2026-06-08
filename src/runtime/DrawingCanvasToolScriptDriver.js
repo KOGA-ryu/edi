@@ -122,6 +122,13 @@ function stepDriverOps(step) {
             toolId: String(step.toolId || "")
         }]
     }
+    if (type === "setToolParameter") {
+        return [{
+            op: "setToolParameter",
+            parameter: String(step.parameter || ""),
+            value: cloneValue(step.value)
+        }]
+    }
     if (type === "clickCanvas") {
         var p = point(step.point)
         return [

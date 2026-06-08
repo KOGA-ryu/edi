@@ -26,6 +26,15 @@ function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"))
 }
 
+function workflowFixtures(repoRoot) {
+    const manifestPath = path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "workflow_manifest.json")
+    const manifest = readJson(manifestPath)
+    return {
+        manifestPath,
+        fixtures: Array.isArray(manifest.workflows) ? manifest.workflows : [],
+    }
+}
+
 function finite(value) {
     return Number.isFinite(Number(value))
 }
@@ -353,10 +362,11 @@ function runFixture(repoRoot, fixtureName) {
     }
 }
 
-function writeWorkflowReport(repoRoot, scripts) {
+function writeWorkflowReport(repoRoot, manifestPath, scripts) {
     const report = {
         schemaVersion: 1,
         name: "drawing_control_workflows",
+        manifest: path.relative(repoRoot, manifestPath),
         ok: scripts.every(script => script.ok),
         scriptCount: scripts.length,
         failureCount: scripts.reduce((sum, script) => sum + script.failures.length, 0),
@@ -378,25 +388,13 @@ if (!fs.existsSync(executable)) {
 }
 
 const scripts = []
-for (const fixtureName of [
-    "point_create_basic.json",
-    "line_create_basic.json",
-    "circle_create_basic.json",
-    "arc_create_basic.json",
-    "rectangle_create_basic.json",
-    "polygon_create_basic.json",
-    "line_drag_end_handle.json",
-    "point_drag_handle.json",
-    "circle_drag_radius_handle.json",
-    "rectangle_drag_corner_handle.json",
-    "line_move_object.json",
-    "marquee_select_lines.json",
-    "pan_canvas_basic.json",
-]) {
+const manifest = workflowFixtures(repoRoot)
+expect(manifest.fixtures.length > 0, "workflow manifest should include fixtures")
+for (const fixtureName of manifest.fixtures) {
     scripts.push(runFixture(repoRoot, fixtureName))
 }
 
-writeWorkflowReport(repoRoot, scripts)
+writeWorkflowReport(repoRoot, manifest.manifestPath, scripts)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

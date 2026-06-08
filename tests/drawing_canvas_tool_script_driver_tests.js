@@ -42,6 +42,11 @@ function readFixture(name) {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "drawing_tool_scripts", name), "utf8"))
 }
 
+function readWorkflowManifest() {
+    const manifest = readFixture("workflow_manifest.json")
+    return Array.isArray(manifest.workflows) ? manifest.workflows : []
+}
+
 function executionPlan(modules, fixtureName) {
     const plan = modules.CanvasToolScript.executionPlan(readFixture(fixtureName), readFixture("shared_canvas_library.json"))
     expect(plan.ok, `${fixtureName} should build execution plan`)
@@ -99,19 +104,26 @@ function runFixtureDriverContract(modules) {
     expect(driverPlan.plan.ops.some(op => op.op === "targetHandle" && op.handleId === "line_end"), "driver ops should target line_end handle")
 }
 
+function runToolParameterDriverContract(modules) {
+    const plan = executionPlan(modules, "arc_create_basic.json")
+    const driverPlan = modules.driverPlan(plan)
+    expect(driverPlan.ok, "arc fixture should build driver plan")
+    const parameterOps = driverPlan.plan.ops.filter(op => op.op === "setToolParameter")
+    expect(parameterOps.length === 3, "arc fixture should emit three parameter ops")
+    expect(parameterOps[0].parameter === "circle_arc_mode" && parameterOps[0].value === "arc", "arc mode op should preserve value")
+    expect(parameterOps[1].value === 15, "arc start angle op should preserve value")
+    expect(parameterOps[2].value === 120, "arc end angle op should preserve value")
+}
+
 function runAllFixtureDriverPlansContract(modules) {
-    const names = [
-        "line_create_basic.json",
-        "line_drag_end_handle.json",
-        "line_move_object.json",
-        "marquee_select_lines.json",
-        "pan_canvas_basic.json",
-    ]
+    const names = readWorkflowManifest()
+    expect(names.length > 0, "workflow manifest should include driver fixtures")
     for (const name of names) {
         const plan = executionPlan(modules, name)
         const driverPlan = modules.driverPlan(plan)
         expect(driverPlan.ok, `${name} should build driver plan`)
         expect(driverPlan.plan.ops.length > 0, `${name} should produce driver ops`)
+        expect(!driverPlan.plan.ops.some(op => op.op === "unsupportedStep"), `${name} should not produce unsupported driver ops`)
         expect(Object.keys(driverPlan.plan.metricsByMode).length > 0, `${name} should preserve budgets`)
     }
 }
@@ -137,6 +149,7 @@ const modules = loadModules()
 runClickDriverContract(modules)
 runDragInterpolationContract(modules)
 runFixtureDriverContract(modules)
+runToolParameterDriverContract(modules)
 runAllFixtureDriverPlansContract(modules)
 runPanZoomContract(modules)
 

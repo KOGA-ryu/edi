@@ -76,6 +76,9 @@ function artifactPaths(rootDir, name) {
 
 function buildMetricReport(name, records, budget, baseline, policy) {
     var reduced = CanvasMetricReducer.reduceMetrics(records, budget, baseline, policy)
+    var grouped = CanvasMetricReducer.reduceMetricsByMode
+            ? CanvasMetricReducer.reduceMetricsByMode(records, budget && budget.modes ? budget.modes : null, baseline && baseline.modes ? baseline.modes : null, policy)
+            : ({ modes: {} })
     return {
         name: String(name || "drawing_metric_report"),
         ok: reduced.ok === true,
@@ -83,7 +86,21 @@ function buildMetricReport(name, records, budget, baseline, policy) {
         failures: cloneValue(reduced.failures) || [],
         outliers: cloneValue(reduced.outliers) || [],
         summary: cloneValue(reduced.summary) || ({}),
-        deltas: cloneValue(reduced.deltas) || []
+        deltas: cloneValue(reduced.deltas) || [],
+        modes: cloneValue(grouped.modes) || ({})
+    }
+}
+
+function buildMetricModeReport(name, records, budgetByMode, baselineByMode, policy) {
+    var grouped = CanvasMetricReducer.reduceMetricsByMode(records, budgetByMode, baselineByMode, policy)
+    return {
+        name: String(name || "drawing_metric_mode_report"),
+        ok: grouped.ok === true,
+        samples: grouped.samples,
+        failures: cloneValue(grouped.failures) || [],
+        outliers: cloneValue(grouped.outliers) || [],
+        deltas: cloneValue(grouped.deltas) || [],
+        modes: cloneValue(grouped.modes) || ({})
     }
 }
 

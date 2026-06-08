@@ -905,12 +905,12 @@ Rectangle {
 
                 onPositionChanged: function(mouse) {
                     activeModifiers = mouse.modifiers
-                    updatePreviewPoint(mouse.x, mouse.y)
-                    if (pressed && interactionMetricsState.active) {
-                        recordPointerMoveMetric()
-                    }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isHandleDrag(gestureState)) {
+                        recordPointerMoveMetric()
                         var handlePoint = modifierHandlePoint(mouse)
+                        hoverRawX = handlePoint.x
+                        hoverRawY = handlePoint.y
+                        hoverInside = handlePoint.x >= 0 && handlePoint.x <= 1 && handlePoint.y >= 0 && handlePoint.y <= 1
                         gestureState = CanvasGestureState.updateGesture(gestureState, {
                             point: handlePoint,
                             modifiers: gestureModifiers(mouse.modifiers)
@@ -920,7 +920,11 @@ Rectangle {
                         return
                     }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isMarquee(gestureState)) {
+                        recordPointerMoveMetric()
                         var rawMarqueePoint = normalizedPoint(mouse.x, mouse.y)
+                        hoverRawX = rawMarqueePoint.x
+                        hoverRawY = rawMarqueePoint.y
+                        hoverInside = rawMarqueePoint.x >= 0 && rawMarqueePoint.x <= 1 && rawMarqueePoint.y >= 0 && rawMarqueePoint.y <= 1
                         var bounds = boardBounds()
                         gestureState = CanvasGestureState.updateGesture(gestureState, {
                             point: rawMarqueePoint,
@@ -931,8 +935,12 @@ Rectangle {
                         return
                     }
                     if (drawingWorkspace.controller && pressed && CanvasGestureState.isObjectDrag(gestureState)) {
+                        recordPointerMoveMetric()
                         recordSnapMetric()
                         var movePoint = snapResolver.gridSnappedPoint(normalizedPoint(mouse.x, mouse.y))
+                        hoverRawX = movePoint.x
+                        hoverRawY = movePoint.y
+                        hoverInside = movePoint.x >= 0 && movePoint.x <= 1 && movePoint.y >= 0 && movePoint.y <= 1
                         var previousPoint = gestureState.lastPoint
                         gestureState = CanvasGestureState.updateGesture(gestureState, {
                             point: movePoint,
@@ -946,6 +954,10 @@ Rectangle {
                             requestCanvasPaint()
                         }
                         return
+                    }
+                    updatePreviewPoint(mouse.x, mouse.y)
+                    if (pressed && interactionMetricsState.active) {
+                        recordPointerMoveMetric()
                     }
                     if (!drawingWorkspace.controller || dragAnchorId.length === 0 || !pressed) {
                         return

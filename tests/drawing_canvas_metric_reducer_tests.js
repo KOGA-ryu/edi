@@ -114,12 +114,68 @@ function runBaselineDeltaContract(reducer) {
     expect(report.deltas[0].current === 130, "delta should include current summary")
 }
 
+function mixedModeRecords() {
+    return [
+        { sampleId: "click_01", mode: "draw_click", durationMs: 4, pointerMoves: 0, controllerMutations: 1, renderRequests: 1, hitTests: 0, snapResolutions: 1, handlePlans: 0, revisionDelta: 1 },
+        { sampleId: "click_02", mode: "draw_click", durationMs: 5, pointerMoves: 0, controllerMutations: 1, renderRequests: 1, hitTests: 0, snapResolutions: 1, handlePlans: 0, revisionDelta: 1 },
+        { sampleId: "drag_01", mode: "dragging_handle", durationMs: 650, pointerMoves: 36, controllerMutations: 36, renderRequests: 72, hitTests: 70, snapResolutions: 36, handlePlans: 36, revisionDelta: 36 },
+        { sampleId: "marquee_01", mode: "marquee_select", durationMs: 740, pointerMoves: 68, controllerMutations: 1, renderRequests: 137, hitTests: 137, snapResolutions: 0, handlePlans: 0, revisionDelta: 1 },
+    ]
+}
+
+function runRatioContract(reducer) {
+    const report = reducer.reduceMetrics([
+        { sampleId: "drag_01", mode: "dragging_handle", durationMs: 650, pointerMoves: 36, controllerMutations: 36, renderRequests: 72, hitTests: 72, snapResolutions: 36, handlePlans: 36, revisionDelta: 36 },
+    ], {
+        maxHitTestsPerPointerMove: 1.25,
+        maxRenderRequestsPerPointerMove: 1.25,
+        maxMutationsPerPointerMove: 1.1,
+    }, null, {
+        maxFailures: 3,
+    })
+
+    expect(!report.ok, "ratio budgets should fail duplicated drag work")
+    expect(report.summary.hitTestsPerPointerMove.max === 2, "summary should include hit tests per pointer move")
+    expect(report.summary.renderRequestsPerPointerMove.max === 2, "summary should include render requests per pointer move")
+    expect(report.failures.some(failure => failure.field === "hitTestsPerPointerMove"), "ratio failures should identify hit test ratio")
+}
+
+function runModeGroupingContract(reducer) {
+    const grouped = reducer.reduceMetricsByMode(mixedModeRecords(), {
+        draw_click: {
+            maxControllerMutations: 1,
+            maxRenderRequests: 1,
+            revisionDelta: 1,
+        },
+        dragging_handle: {
+            maxHitTestsPerPointerMove: 1.25,
+            maxRenderRequestsPerPointerMove: 1.25,
+        },
+        marquee_select: {
+            maxHitTestsPerPointerMove: 0.25,
+            maxRenderRequestsPerPointerMove: 1.25,
+        },
+    }, null, {
+        maxFailures: 4,
+    })
+
+    expect(!grouped.ok, "grouped mode budgets should fail only expensive modes")
+    expect(grouped.samples === 4, "grouped report should keep total sample count")
+    expect(grouped.modes.draw_click.samples === 2, "grouped report should count draw clicks")
+    expect(grouped.modes.dragging_handle.summary.renderRequestsPerPointerMove.max === 2, "grouped report should include drag ratios")
+    expect(grouped.failures.length === 2, "grouped report should include failing mode buckets")
+    expect(grouped.failures.some(entry => entry.mode === "dragging_handle"), "dragging_handle should fail ratio budget")
+    expect(grouped.failures.some(entry => entry.mode === "marquee_select"), "marquee_select should fail ratio budget")
+}
+
 const reducer = loadReducerModule()
 runSummaryContract(reducer)
 runReductionContract(reducer)
 runFailureContract(reducer)
 runOutlierContract(reducer)
 runBaselineDeltaContract(reducer)
+runRatioContract(reducer)
+runModeGroupingContract(reducer)
 
 if (process.exitCode) {
     process.exit(process.exitCode)

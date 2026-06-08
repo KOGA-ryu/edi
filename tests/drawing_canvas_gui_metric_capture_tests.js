@@ -61,6 +61,7 @@ function loadCaptureModule() {
     loadModule(path.join(__dirname, "..", "src", "runtime", "DrawingCanvasMetricReducer.js"), context)
     context.CanvasMetricReducer = {
         reduceMetrics: context.reduceMetrics,
+        reduceMetricsByMode: context.reduceMetricsByMode,
     }
 
     loadModule(path.join(__dirname, "..", "src", "runtime", "DrawingCanvasMetricReport.js"), context)

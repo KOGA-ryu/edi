@@ -33,6 +33,7 @@ function loadReportModule() {
     loadModule(path.join(__dirname, "..", "src", "runtime", "DrawingCanvasMetricReducer.js"), context)
     context.CanvasMetricReducer = {
         reduceMetrics: context.reduceMetrics,
+        reduceMetricsByMode: context.reduceMetricsByMode,
     }
     loadModule(path.join(__dirname, "..", "src", "runtime", "DrawingCanvasMetricReport.js"), context)
     return context
@@ -63,8 +64,32 @@ function runReportShapeContract(report) {
     expect(result.ok, "report should pass matching budgets")
     expect(result.samples === 3, "report should include sample count")
     expect(result.summary.durationMs.p95 === 120, "report should include reduced summary")
+    expect(result.summary.renderRequestsPerPointerMove.max === 2, "report should include ratio summary")
+    expect(result.modes.dragging_handle.samples === 3, "report should include per-mode summary")
     expect(result.failures.length === 0, "report should include capped failures")
     expect(result.records === undefined, "report should not include raw records")
+}
+
+function runModeReportContract(report) {
+    const result = report.buildMetricModeReport("Mixed GUI", [
+        { sampleId: "click_01", mode: "draw_click", durationMs: 4, pointerMoves: 0, controllerMutations: 1, renderRequests: 1, hitTests: 0, snapResolutions: 1, handlePlans: 0, revisionDelta: 1 },
+        { sampleId: "drag_01", mode: "dragging_handle", durationMs: 650, pointerMoves: 36, controllerMutations: 36, renderRequests: 72, hitTests: 70, snapResolutions: 36, handlePlans: 36, revisionDelta: 36 },
+    ], {
+        draw_click: {
+            maxRenderRequests: 1,
+            revisionDelta: 1,
+        },
+        dragging_handle: {
+            maxRenderRequestsPerPointerMove: 1.25,
+        },
+    })
+
+    expect(!result.ok, "mode report should fail expensive mode budget")
+    expect(result.samples === 2, "mode report should include total samples")
+    expect(result.modes.draw_click.ok, "mode report should preserve passing mode")
+    expect(!result.modes.dragging_handle.ok, "mode report should preserve failing mode")
+    expect(result.modes.dragging_handle.summary.renderRequestsPerPointerMove.max === 2, "mode report should include ratio summary")
+    expect(result.summary === undefined, "mode report should not duplicate all-mode summary")
 }
 
 function runArtifactNamingContract(report) {
@@ -114,6 +139,7 @@ function runArtifactRoundTripContract(report) {
 
 const report = loadReportModule()
 runReportShapeContract(report)
+runModeReportContract(report)
 runArtifactNamingContract(report)
 runJsonlContract(report)
 runArtifactRoundTripContract(report)

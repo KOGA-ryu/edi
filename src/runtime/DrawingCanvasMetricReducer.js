@@ -31,7 +31,12 @@ function metricFields() {
         "hitTests",
         "snapResolutions",
         "handlePlans",
-        "revisionDelta"
+        "revisionDelta",
+        "hitTestsPerPointerMove",
+        "renderRequestsPerPointerMove",
+        "mutationsPerPointerMove",
+        "snapResolutionsPerPointerMove",
+        "handlePlansPerPointerMove"
     ]
 }
 
@@ -63,6 +68,35 @@ function sortedValues(records, field) {
         return left - right
     })
     return values
+}
+
+function ratio(numerator, denominator) {
+    var bottom = Math.max(1, finiteNumber(denominator, 0))
+    return Math.round((finiteNumber(numerator, 0) / bottom) * 10000) / 10000
+}
+
+function enrichedRecord(record) {
+    var source = record || ({})
+    var result = {}
+    var keys = Object.keys(source)
+    for (var index = 0; index < keys.length; ++index) {
+        result[keys[index]] = source[keys[index]]
+    }
+    result.hitTestsPerPointerMove = ratio(source.hitTests, source.pointerMoves)
+    result.renderRequestsPerPointerMove = ratio(source.renderRequests, source.pointerMoves)
+    result.mutationsPerPointerMove = ratio(source.controllerMutations, source.pointerMoves)
+    result.snapResolutionsPerPointerMove = ratio(source.snapResolutions, source.pointerMoves)
+    result.handlePlansPerPointerMove = ratio(source.handlePlans, source.pointerMoves)
+    return result
+}
+
+function enrichedRecords(records) {
+    var list = asArray(records)
+    var result = []
+    for (var index = 0; index < list.length; ++index) {
+        result.push(enrichedRecord(list[index]))
+    }
+    return result
 }
 
 function percentile(values, ratio) {
@@ -125,7 +159,12 @@ function budgetLimitForField(budget, field) {
         renderRequests: "maxRenderRequests",
         hitTests: "maxHitTests",
         snapResolutions: "maxSnapResolutions",
-        handlePlans: "maxHandlePlans"
+        handlePlans: "maxHandlePlans",
+        hitTestsPerPointerMove: "maxHitTestsPerPointerMove",
+        renderRequestsPerPointerMove: "maxRenderRequestsPerPointerMove",
+        mutationsPerPointerMove: "maxMutationsPerPointerMove",
+        snapResolutionsPerPointerMove: "maxSnapResolutionsPerPointerMove",
+        handlePlansPerPointerMove: "maxHandlePlansPerPointerMove"
     }
     if (field === "revisionDelta" && budget && budget.revisionDelta !== undefined) {
         return {
@@ -283,7 +322,7 @@ function compareToBaseline(summary, baseline, fields, policy) {
 }
 
 function reduceMetrics(records, budget, baseline, policy) {
-    var list = asArray(records)
+    var list = enrichedRecords(records)
     var fields = metricFields()
     var summary = summarizeDistributions(list, fields, policy)
     var failures = findBudgetFailures(list, budget, fields, policy)
@@ -295,6 +334,85 @@ function reduceMetrics(records, budget, baseline, policy) {
         failures: failures,
         outliers: outliers,
         summary: summary,
+        deltas: deltas
+    }
+}
+
+function groupRecordsByMode(records) {
+    var list = enrichedRecords(records)
+    var groups = {}
+    for (var index = 0; index < list.length; ++index) {
+        var mode = String(list[index] && list[index].mode || "unknown")
+        if (!groups[mode]) {
+            groups[mode] = []
+        }
+        groups[mode].push(list[index])
+    }
+    return groups
+}
+
+function budgetForMode(budgetByMode, mode) {
+    if (!budgetByMode) {
+        return ({})
+    }
+    if (budgetByMode.modes && budgetByMode.modes[mode]) {
+        return budgetByMode.modes[mode]
+    }
+    return budgetByMode[mode] || ({})
+}
+
+function baselineForMode(baselineByMode, mode) {
+    if (!baselineByMode) {
+        return null
+    }
+    if (baselineByMode.modes && baselineByMode.modes[mode]) {
+        return baselineByMode.modes[mode]
+    }
+    return baselineByMode[mode] || null
+}
+
+function reduceMetricsByMode(records, budgetByMode, baselineByMode, policy) {
+    var groups = groupRecordsByMode(records)
+    var modeNames = Object.keys(groups).sort()
+    var modes = {}
+    var failures = []
+    var outliers = []
+    var deltas = []
+    var ok = true
+    var totalSamples = 0
+
+    for (var index = 0; index < modeNames.length; ++index) {
+        var mode = modeNames[index]
+        var result = reduceMetrics(groups[mode], budgetForMode(budgetByMode, mode), baselineForMode(baselineByMode, mode), policy)
+        modes[mode] = result
+        totalSamples += result.samples
+        if (!result.ok) {
+            ok = false
+            failures.push({
+                mode: mode,
+                failures: result.failures
+            })
+        }
+        if (result.outliers.length > 0) {
+            outliers.push({
+                mode: mode,
+                outliers: result.outliers
+            })
+        }
+        if (result.deltas.length > 0) {
+            deltas.push({
+                mode: mode,
+                deltas: result.deltas
+            })
+        }
+    }
+
+    return {
+        ok: ok,
+        samples: totalSamples,
+        modes: modes,
+        failures: failures,
+        outliers: outliers,
         deltas: deltas
     }
 }

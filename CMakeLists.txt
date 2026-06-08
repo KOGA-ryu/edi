@@ -76,21 +76,13 @@ if(BUILD_TESTING)
 
     add_test(NAME drawing_object_model_tests COMMAND drawing_object_model_tests)
 
-    add_executable(drawing_canvas_viewport_tests
-        tests/drawing_canvas_viewport_tests.cpp
-    )
-
-    target_compile_definitions(drawing_canvas_viewport_tests PRIVATE
-        PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
-    )
-
-    target_link_libraries(drawing_canvas_viewport_tests
-        PRIVATE
-            Qt6::Core
-            Qt6::Qml
-    )
-
-    add_test(NAME drawing_canvas_viewport_tests COMMAND drawing_canvas_viewport_tests)
+    find_program(NODE_EXECUTABLE node)
+    if(NODE_EXECUTABLE)
+        add_test(
+            NAME drawing_canvas_viewport_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_viewport_tests.js
+        )
+    endif()
 
     add_executable(drawing_core_smoke
         tests/drawing_core_smoke.cpp

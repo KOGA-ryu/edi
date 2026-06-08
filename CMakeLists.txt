@@ -116,6 +116,19 @@ target_link_libraries(edi_validate
         Qt6::Core
 )
 
+add_executable(drawing_control_workflow_report
+    src/tools/DrawingControlWorkflowReport.cpp
+)
+
+target_compile_definitions(drawing_control_workflow_report PRIVATE
+    PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+target_link_libraries(drawing_control_workflow_report
+    PRIVATE
+        Qt6::Core
+)
+
 if(BUILD_TESTING)
     add_executable(drawing_canvas_contract_tests
         tests/drawing_canvas_contract_tests.cpp
@@ -196,6 +209,16 @@ if(BUILD_TESTING)
     add_test(NAME no_javascript_files_tests COMMAND no_javascript_files_tests)
     set_tests_properties(no_javascript_files_tests PROPERTIES DISABLED TRUE)
 
+    add_test(
+        NAME drawing_control_workflow_report_dry_run_tests
+        COMMAND drawing_control_workflow_report --all --dry-run --compact
+    )
+
+    add_test(
+        NAME drawing_control_workflow_report_disabled_baseline_tests
+        COMMAND drawing_control_workflow_report --all --compare-baseline --failures-only
+    )
+
     add_executable(drawing_object_model_tests
         tests/drawing_object_model_tests.cpp
         src/core/DrawingObjectModel.h
@@ -212,75 +235,6 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME drawing_object_model_tests COMMAND drawing_object_model_tests)
-
-    find_program(NODE_EXECUTABLE node)
-    if(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS AND NODE_EXECUTABLE)
-        add_test(
-            NAME drawing_canvas_interaction_script_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_script_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_interaction_replay_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_replay_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_metric_reducer_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_metric_reducer_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_metric_report_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_metric_report_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_gui_metric_capture_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gui_metric_capture_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_gui_metric_capture_cli_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gui_metric_capture_cli_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_script_launch_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_script_launch_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_workflow_launch_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_launch_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_workflow_cli_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_cli_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_workflow_coverage_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_coverage_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_workflow_baseline_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_workflow_baseline_tests.js
-        )
-        add_test(
-            NAME drawing_canvas_control_negative_launch_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_negative_launch_tests.js
-        )
-        set(DRAWING_JS_HARNESS_TEST_NAMES
-            drawing_canvas_interaction_script_tests
-            drawing_canvas_interaction_replay_tests
-            drawing_canvas_metric_reducer_tests
-            drawing_canvas_metric_report_tests
-            drawing_canvas_gui_metric_capture_tests
-            drawing_canvas_gui_metric_capture_cli_tests
-            drawing_canvas_control_script_launch_tests
-            drawing_canvas_control_workflow_launch_tests
-            drawing_canvas_control_workflow_cli_tests
-            drawing_canvas_control_workflow_coverage_tests
-            drawing_canvas_control_workflow_baseline_tests
-            drawing_canvas_control_negative_launch_tests
-        )
-        set_tests_properties(${DRAWING_JS_HARNESS_TEST_NAMES}
-            PROPERTIES ENVIRONMENT "DRAFTSMAN_ENABLE_DRAWING_HARNESS=1"
-        )
-    endif()
 
     add_executable(drawing_core_smoke
         tests/drawing_core_smoke.cpp

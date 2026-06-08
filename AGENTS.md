@@ -33,7 +33,7 @@ CMake does not register legacy JS/QML canvas harness tests by default. To opt in
 
 ```bash
 cmake -S . -B build -DDRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS=ON
-DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 build/drawing_control_workflow_report --all --compare-baseline --failures-only
 ```
 
 Do not read raw telemetry directly during normal review:
@@ -45,13 +45,13 @@ Do not read raw telemetry directly during normal review:
 If the harness is explicitly re-enabled, use compact reports first:
 
 ```bash
-node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+build/drawing_control_workflow_report --all --compare-baseline --failures-only
 ```
 
 For selection preview without launching the app:
 
 ```bash
-node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact
+build/drawing_control_workflow_report --all --dry-run --compact
 ```
 
 Only inspect raw JSONL/log files when explicitly asked or when a compact report identifies a specific failing workflow that requires raw evidence.

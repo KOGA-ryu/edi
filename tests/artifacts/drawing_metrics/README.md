@@ -9,19 +9,19 @@ Raw JSONL and log files are retained intentionally for reproducibility and deep 
 Re-enable only when explicitly needed:
 
 ```bash
-DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 build/drawing_control_workflow_report --all --compare-baseline --failures-only
 ```
 
 Legacy compact entrypoint:
 
 ```bash
-node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+build/drawing_control_workflow_report --all --compare-baseline --failures-only
 ```
 
 Preview workflow selection:
 
 ```bash
-node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact
+build/drawing_control_workflow_report --all --dry-run --compact
 ```
 
 Review order:

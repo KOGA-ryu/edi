@@ -5,7 +5,7 @@ These fixtures drive deterministic drawing-tool workflows through the QML contro
 Status: this legacy JS/QML telemetry harness is disabled by default while the canvas is migrated to C++. Real workflow runs require:
 
 ```sh
-DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 build/drawing_control_workflow_report --all --compare-baseline
 ```
 
 Dry-run selector inspection still works without launching the app.
@@ -39,17 +39,17 @@ Recommended selector fields:
 Ask for recommended selectors, then use compact dry-run first. Neither command launches the app.
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --recommend
+build/drawing_control_workflow_report --recommend
 ```
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --recommend --id line_system
+build/drawing_control_workflow_report --recommend --id line_system
 ```
 
 Recommendation output keeps coverage, metric collection, baseline comparison, and failure-only comparison as separate commands. Use `command` first, then `failureCommand` when you only need to know whether accepted behavior changed. Use `failureCommands.<subsystem>` when investigating one area such as `rendering`, `gesture`, `handles`, or `controller`.
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact
+build/drawing_control_workflow_report --tag line --dry-run --compact
 ```
 
 Read `coverage` before running real metrics. If the selected set is wrong, adjust the selector instead of spending app-launch time.
@@ -59,49 +59,49 @@ Read `coverage` before running real metrics. If the selected set is wrong, adjus
 Inspect all workflow coverage:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact
+build/drawing_control_workflow_report --all --dry-run --compact
 ```
 
 Inspect selected fixtures with names:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --category edit --dry-run
+build/drawing_control_workflow_report --category edit --dry-run
 ```
 
 Run line workflows and write the summary report:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --tag line
+build/drawing_control_workflow_report --tag line
 ```
 
 Run line workflows and compare against accepted baselines:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline
+build/drawing_control_workflow_report --tag line --compare-baseline
 ```
 
 Focus baseline deltas on one subsystem:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering
+build/drawing_control_workflow_report --tag line --compare-baseline --subsystem rendering
 ```
 
 Ask only whether meaningful baseline failures exist:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering --failures-only
+build/drawing_control_workflow_report --tag line --compare-baseline --subsystem rendering --failures-only
 ```
 
 Refresh accepted baselines after a known-good full run:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --all --update-baseline
+build/drawing_control_workflow_report --all --update-baseline
 ```
 
 Run edit workflows:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --category edit
+build/drawing_control_workflow_report --category edit
 ```
 
 Edit coverage includes representative handle roles across line endpoints, point position, circle center/radius, and rectangle corners.
@@ -109,7 +109,7 @@ Edit coverage includes representative handle roles across line endpoints, point 
 Run one fixture:
 
 ```sh
-node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json
+build/drawing_control_workflow_report --fixture arc_create_basic.json
 ```
 
 ## Output Fields

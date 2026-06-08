@@ -29,6 +29,11 @@ std::string unquote(std::string value)
     return value;
 }
 
+bool isQuoted(const std::string &value)
+{
+    return value.size() >= 2 && value.front() == '"' && value.back() == '"';
+}
+
 } // namespace
 
 FormatResult<StaticConfig> readTomlStaticConfig(const std::string &text, const std::string &source)
@@ -45,13 +50,20 @@ FormatResult<StaticConfig> readTomlStaticConfig(const std::string &text, const s
         }
         const auto equals = line.find('=');
         if (equals == std::string::npos) {
-            return FormatResult<StaticConfig>::failure(source, "toml.syntax", "expected key = value on line " + std::to_string(lineNumber));
+            return FormatResult<StaticConfig>::failure(source, FormatResultCode::SyntaxError, "expected key = value on line " + std::to_string(lineNumber));
         }
         std::string key = trim(line.substr(0, equals));
-        std::string value = unquote(line.substr(equals + 1));
+        std::string rawValue = trim(line.substr(equals + 1));
         if (key.empty()) {
-            return FormatResult<StaticConfig>::failure(source, "toml.empty_key", "empty key on line " + std::to_string(lineNumber));
+            return FormatResult<StaticConfig>::failure(source, FormatResultCode::EmptyKey, "empty key on line " + std::to_string(lineNumber));
         }
+        if (config.find(key) != config.end()) {
+            return FormatResult<StaticConfig>::failure(source, FormatResultCode::DuplicateKey, "duplicate key on line " + std::to_string(lineNumber));
+        }
+        if (!isQuoted(rawValue)) {
+            return FormatResult<StaticConfig>::failure(source, FormatResultCode::SyntaxError, "expected quoted string value on line " + std::to_string(lineNumber));
+        }
+        std::string value = unquote(std::move(rawValue));
         config[std::move(key)] = std::move(value);
     }
     return FormatResult<StaticConfig>::success(std::move(config));

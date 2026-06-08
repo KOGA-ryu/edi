@@ -108,6 +108,7 @@ target_link_libraries(edi_app_core
 
 add_library(edi_format_core STATIC
     src/formats/FormatResult.h
+    src/formats/FormatResult.cpp
     src/formats/TomlReader.h
     src/formats/TomlReader.cpp
     src/formats/TomlWriter.h

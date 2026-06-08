@@ -10,6 +10,12 @@ namespace edi::formats {
 
 using ByteBuffer = std::vector<std::uint8_t>;
 
+inline constexpr std::uint8_t ediMessagePackMagic0 = 'E';
+inline constexpr std::uint8_t ediMessagePackMagic1 = 'D';
+inline constexpr std::uint8_t ediMessagePackMagic2 = 'I';
+inline constexpr std::uint8_t ediMessagePackMagic3 = 'M';
+inline constexpr int ediMessagePackSupportedVersion = 1;
+
 struct MessagePackSummary {
     std::string schema;
     int version = 0;

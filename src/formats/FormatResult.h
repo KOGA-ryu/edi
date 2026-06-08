@@ -7,14 +7,30 @@
 
 namespace edi::formats {
 
+enum class FormatResultCode {
+    None,
+    EmptySource,
+    SyntaxError,
+    EmptyKey,
+    DuplicateKey,
+    UnsupportedSchema,
+    MissingSchema,
+    UnsupportedVersion,
+    EmptyBuffer,
+    InvalidRecordCount
+};
+
 struct FormatMessage {
     std::string source;
-    std::string code;
+    FormatResultCode code = FormatResultCode::None;
     std::string message;
 };
 
 using FormatError = FormatMessage;
 using FormatWarning = FormatMessage;
+
+const char *formatResultCodeName(FormatResultCode code);
+FormatResultCode formatResultCodeFromName(const std::string &code);
 
 template <typename T>
 struct FormatResult {
@@ -32,6 +48,11 @@ struct FormatResult {
     }
 
     static FormatResult<T> failure(std::string source, std::string code, std::string message)
+    {
+        return failure(std::move(source), formatResultCodeFromName(code), std::move(message));
+    }
+
+    static FormatResult<T> failure(std::string source, FormatResultCode code, std::string message)
     {
         FormatResult<T> result;
         result.ok = false;

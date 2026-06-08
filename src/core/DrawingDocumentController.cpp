@@ -7,11 +7,10 @@
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
+#include "drafting/DraftingToolCreation.h"
 
 #include <algorithm>
 #include <cmath>
-#include <optional>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -36,36 +35,15 @@ std::string toStdString(const QString &value)
     return value.toStdString();
 }
 
-std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
+DraftingObjectBuildResult buildObjectForTool(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
 {
-    DraftingShapeKind kind = DraftingShapeKind::Point;
-    DraftingGeometry geometry = PointGeometry{start};
-    if (toolId == QStringLiteral("point_tool")) {
-        kind = DraftingShapeKind::Point;
-        geometry = PointGeometry{end};
-    } else if (toolId == QStringLiteral("line_tool")) {
-        kind = DraftingShapeKind::Line;
-        geometry = LineGeometry{start, end};
-    } else if (toolId == QStringLiteral("rectangle_tool")) {
-        const double left = std::min(start.x, end.x);
-        const double top = std::min(start.y, end.y);
-        const double right = std::max(start.x, end.x);
-        const double bottom = std::max(start.y, end.y);
-        kind = DraftingShapeKind::Rectangle;
-        geometry = RectangleGeometry{{left, top}, right - left, bottom - top};
-    } else if (toolId == QStringLiteral("circle_tool")) {
-        kind = DraftingShapeKind::Circle;
-        geometry = CircleGeometry{start, std::min(1.0, distance(start, end))};
-    } else {
-        return std::nullopt;
-    }
-
-    auto built = buildDraftingObject(toStdString(objectId), kind, std::move(geometry));
-    if (!built.ok) {
-        return std::nullopt;
-    }
-    built.object.metadata.toolProvenance = toolId.toStdString();
-    return built.object;
+    return buildDraftingObjectForTool({
+        draftingToolKindFromId(toStdString(toolId)),
+        toStdString(objectId),
+        start,
+        end,
+        toStdString(toolId),
+    });
 }
 
 bool boundsIntersect(Bounds2D a, Bounds2D b)
@@ -159,9 +137,9 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     if (m_selectedToolId == QStringLiteral("point_tool")) {
         const QString id = nextObjectId(QStringLiteral("point"), m_nextObjectSerial++);
         const auto object = buildObjectForTool(m_selectedToolId, id, point, point);
-        if (object) {
-            applyDraftingCommand(m_document, CreateObjectCommand{*object});
-            applyDraftingCommand(m_document, SelectObjectCommand{object->id});
+        if (object.ok) {
+            applyDraftingCommand(m_document, CreateObjectCommand{object.object});
+            applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
         }
         emit modelChanged();
         return;
@@ -178,9 +156,9 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     const QString id = nextObjectId(m_selectedToolId.section(QLatin1Char('_'), 0, 0), m_nextObjectSerial++);
     const auto object = buildObjectForTool(m_selectedToolId, id, {m_pendingX, m_pendingY}, point);
     m_hasPendingPoint = false;
-    if (object) {
-        applyDraftingCommand(m_document, CreateObjectCommand{*object});
-        applyDraftingCommand(m_document, SelectObjectCommand{object->id});
+    if (object.ok) {
+        applyDraftingCommand(m_document, CreateObjectCommand{object.object});
+        applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
     }
     emit modelChanged();
 }

@@ -1,5 +1,6 @@
 #include "drafting/DraftingStore.h"
 
+#include "drafting/DraftingDocument.h"
 #include "drafting/DraftingSelection.h"
 
 #include <cassert>
@@ -40,7 +41,11 @@ int main()
     assert(document.objects[1].id == "line_2");
     assert(document.objects[2].id == "line_3");
     assert(objectIndexById(document, "line_2") == 1);
+    assert(findObject(document, "line_2") == &document.objects[1]);
+    assert(containsObject(document, "line_2"));
     assert(objectIndexById(document, "missing") == std::nullopt);
+    assert(findObject(document, "missing") == nullptr);
+    assert(!containsObject(document, "missing"));
 
     auto duplicate = addObject(document, makeLine("line_1"));
     assert(!duplicate.ok);

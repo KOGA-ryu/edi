@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingTypes.h"
 
+#include <cstddef>
 #include <optional>
 #include <vector>
 
@@ -42,6 +43,7 @@ struct DraftingDocument {
 
 DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title = {});
 DraftingLayer makeDefaultLayer();
+std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id);
 const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id);
 DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id);

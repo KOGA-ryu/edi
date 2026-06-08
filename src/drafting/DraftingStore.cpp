@@ -18,16 +18,6 @@ DraftingStoreResult DraftingStoreResult::rejected(DraftingResultCode code, std::
     return {false, code, std::move(message)};
 }
 
-std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id)
-{
-    for (std::size_t index = 0; index < document.objects.size(); ++index) {
-        if (document.objects[index].id == id) {
-            return index;
-        }
-    }
-    return std::nullopt;
-}
-
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 {
     if (object.id.empty()) {

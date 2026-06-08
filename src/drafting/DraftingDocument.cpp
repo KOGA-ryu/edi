@@ -1,6 +1,7 @@
 #include "drafting/DraftingDocument.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace edi::drafting {
 
@@ -18,20 +19,26 @@ DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title)
     return document;
 }
 
+std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id)
+{
+    for (std::size_t index = 0; index < document.objects.size(); ++index) {
+        if (document.objects[index].id == id) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id)
 {
-    auto it = std::find_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
-        return object.id == id;
-    });
-    return it == document.objects.end() ? nullptr : &*it;
+    const auto index = objectIndexById(document, id);
+    return index ? &document.objects[*index] : nullptr;
 }
 
 const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id)
 {
-    auto it = std::find_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
-        return object.id == id;
-    });
-    return it == document.objects.end() ? nullptr : &*it;
+    const auto index = objectIndexById(document, id);
+    return index ? &document.objects[*index] : nullptr;
 }
 
 DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id)
@@ -52,7 +59,7 @@ const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &
 
 bool containsObject(const DraftingDocument &document, const DraftingObjectId &id)
 {
-    return findObject(document, id) != nullptr;
+    return objectIndexById(document, id).has_value();
 }
 
 } // namespace edi::drafting

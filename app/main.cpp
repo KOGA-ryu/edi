@@ -77,6 +77,9 @@ int main(int argc, char *argv[]) {
     const QCommandLineOption drawingControlScriptExitOption(
         QStringList() << "drawing-control-script-exit",
         "Exit after the drawing control script completes.");
+    const QCommandLineOption drawingDisableDiscardConfirmationOption(
+        QStringList() << "drawing-disable-discard-confirmation",
+        "Disable unsaved drawing discard confirmation dialogs for automation runs.");
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
@@ -87,6 +90,7 @@ int main(int argc, char *argv[]) {
     parser.addOption(drawingControlScriptOption);
     parser.addOption(drawingControlLibraryOption);
     parser.addOption(drawingControlScriptExitOption);
+    parser.addOption(drawingDisableDiscardConfirmationOption);
     parser.process(app);
 
     auto envFlag = [](const char *name) {
@@ -245,6 +249,12 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(
         QStringLiteral("initialDrawingControlScriptExitOnComplete"),
         parser.isSet(drawingControlScriptExitOption) || envFlag("DRAFTSMAN_DRAWING_CONTROL_SCRIPT_EXIT"));
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("initialDrawingDiscardConfirmationDisabled"),
+        parser.isSet(drawingDisableDiscardConfirmationOption)
+            || envFlag("DRAFTSMAN_DRAWING_DISABLE_DISCARD_CONFIRMATION")
+            || parser.isSet(drawingControlScriptExitOption)
+            || envFlag("DRAFTSMAN_DRAWING_CONTROL_SCRIPT_EXIT"));
     engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
     engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);

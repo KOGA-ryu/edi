@@ -45,8 +45,14 @@ RowLayout {
         return toolbar.controller && toolbar.controller.activityMode === "drawing_tool"
     }
 
+    function shouldConfirmDrawingDiscard() {
+        return toolbar.controller
+            && toolbar.controller.drawingDocumentDirty
+            && !toolbar.controller.drawingDiscardConfirmationDisabled
+    }
+
     function requestOpenDrawing() {
-        if (toolbar.controller && toolbar.controller.drawingDocumentDirty) {
+        if (shouldConfirmDrawingDiscard()) {
             discardOpenDialog.open()
             return
         }
@@ -54,7 +60,7 @@ RowLayout {
     }
 
     function requestNewDrawing() {
-        if (toolbar.controller && toolbar.controller.drawingDocumentDirty) {
+        if (shouldConfirmDrawingDiscard()) {
             discardNewDialog.open()
             return
         }
@@ -68,7 +74,7 @@ RowLayout {
         if (!toolbar.pendingRecentDrawingPath.length || !toolbar.controller) {
             return
         }
-        if (toolbar.controller.drawingDocumentDirty) {
+        if (shouldConfirmDrawingDiscard()) {
             discardRecentDialog.open()
             return
         }

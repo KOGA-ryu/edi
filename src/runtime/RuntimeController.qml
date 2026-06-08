@@ -208,6 +208,7 @@ QtObject {
     property string drawingControlLibraryPath: typeof initialDrawingControlLibraryPath === "undefined" ? "" : String(initialDrawingControlLibraryPath)
     property var drawingControlLibraryDocument: typeof initialDrawingControlLibrary === "undefined" ? ({}) : initialDrawingControlLibrary
     property bool drawingControlScriptExitOnComplete: typeof initialDrawingControlScriptExitOnComplete === "undefined" ? false : !!initialDrawingControlScriptExitOnComplete
+    property bool drawingDiscardConfirmationDisabled: typeof initialDrawingDiscardConfirmationDisabled === "undefined" ? false : !!initialDrawingDiscardConfirmationDisabled
     property var drawingControlScriptResult: ({})
     readonly property bool drawingControlScriptRequested: drawingControlScriptPath.length > 0
 

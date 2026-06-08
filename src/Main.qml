@@ -48,7 +48,9 @@ ApplicationWindow {
         if (window.closeDiscardConfirmed) {
             return
         }
-        if (runtimeController.activityMode === "drawing_tool" && runtimeController.drawingDocumentDirty) {
+        if (runtimeController.activityMode === "drawing_tool"
+                && runtimeController.drawingDocumentDirty
+                && !runtimeController.drawingDiscardConfirmationDisabled) {
             close.accepted = false
             discardCloseDialog.open()
         }

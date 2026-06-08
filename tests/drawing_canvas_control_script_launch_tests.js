@@ -26,6 +26,7 @@ const result = spawnSync(executable, [
     "--drawing-telemetry-log",
     "--drawing-control-script", path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "line_create_basic.json"),
     "--drawing-control-library", path.join(repoRoot, "tests", "fixtures", "drawing_tool_scripts", "shared_canvas_library.json"),
+    "--drawing-disable-discard-confirmation",
     "--drawing-control-script-exit",
 ], {
     cwd: repoRoot,

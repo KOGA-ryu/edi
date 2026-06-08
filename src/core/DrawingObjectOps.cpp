@@ -42,7 +42,9 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     if (kind != QStringLiteral("point")
         && kind != QStringLiteral("tone_probe")
         && kind != QStringLiteral("line")
-        && kind != QStringLiteral("glyph_baseline")) {
+        && kind != QStringLiteral("glyph_baseline")
+        && kind != QStringLiteral("circle")
+        && kind != QStringLiteral("arc")) {
         return true;
     }
     const QString objectId = object.value(QStringLiteral("id")).toString();
@@ -52,8 +54,19 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
 
     DrawingObject typed;
     typed.id = {objectId};
-    typed.kind = (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) ? ShapeKind::Point : ShapeKind::Line;
-    typed.geometry = typed.kind == ShapeKind::Point ? Geometry{pointGeometryFromObject(object)} : Geometry{lineGeometryFromObject(object)};
+    if (kind == QStringLiteral("point") || kind == QStringLiteral("tone_probe")) {
+        typed.kind = ShapeKind::Point;
+        typed.geometry = pointGeometryFromObject(object);
+    } else if (kind == QStringLiteral("line") || kind == QStringLiteral("glyph_baseline")) {
+        typed.kind = ShapeKind::Line;
+        typed.geometry = lineGeometryFromObject(object);
+    } else if (kind == QStringLiteral("arc")) {
+        typed.kind = ShapeKind::Circle;
+        typed.geometry = arcGeometryFromObject(object);
+    } else {
+        typed.kind = ShapeKind::Circle;
+        typed.geometry = circleGeometryFromObject(object);
+    }
     typed.style = {object.value(QStringLiteral("style_id")).toString(QStringLiteral("inline_active_stroke"))};
     typed.layer = {object.value(QStringLiteral("layer_id")).toString(QString::fromLatin1(kScriptLayer))};
     typed.metadata.values = object.value(QStringLiteral("metadata")).toObject();
@@ -451,9 +464,23 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 }
                 updated = true;
             } else if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
+                const DrawingObject *storeObject = state.store.find({objectId});
+                const CircleGeometry *storeCircle = storeObject == nullptr ? nullptr : std::get_if<CircleGeometry>(&storeObject->geometry);
+                const ArcGeometry *storeArc = storeObject == nullptr ? nullptr : std::get_if<ArcGeometry>(&storeObject->geometry);
                 double cx = object.value("cx").toDouble() * canvas;
                 double cy = object.value("cy").toDouble() * canvas;
                 double radius = object.value("radius_px").toDouble();
+                if (storeCircle != nullptr) {
+                    cx = storeCircle->center.x * canvas;
+                    cy = storeCircle->center.y * canvas;
+                    radius = storeCircle->radius * canvas;
+                } else if (storeArc != nullptr) {
+                    cx = storeArc->center.x * canvas;
+                    cy = storeArc->center.y * canvas;
+                    radius = storeArc->radius * canvas;
+                }
+                double startAngleDeg = storeArc != nullptr ? storeArc->startAngleDeg : object.value(QStringLiteral("start_angle_deg")).toDouble();
+                double endAngleDeg = storeArc != nullptr ? storeArc->endAngleDeg : object.value(QStringLiteral("end_angle_deg")).toDouble(90.0);
                 if (field == QStringLiteral("cx_px")) {
                     cx = clampedPx(value, state.canvasPx);
                 } else if (field == QStringLiteral("cy_px")) {
@@ -461,22 +488,35 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 } else if (field == QStringLiteral("radius_px")) {
                     radius = std::clamp(positivePx(value), 1.0, canvas);
                 } else if (kind == QStringLiteral("arc") && field == QStringLiteral("start_angle_deg")) {
-                    object.insert("start_angle_deg", value);
-                    updated = true;
+                    startAngleDeg = value;
                 } else if (kind == QStringLiteral("arc") && field == QStringLiteral("end_angle_deg")) {
-                    object.insert("end_angle_deg", value);
-                    updated = true;
+                    endAngleDeg = value;
                 } else {
                     state.errors.append("update_object unsupported circle field: " + field);
                     return;
                 }
                 if (kind == QStringLiteral("arc")) {
-                    writeArcGeometry(
-                        object,
-                        {{cx / canvas, cy / canvas}, radius / canvas, object.value(QStringLiteral("start_angle_deg")).toDouble(), object.value(QStringLiteral("end_angle_deg")).toDouble(90.0)},
-                        state.canvasPx);
+                    const ArcGeometry updatedArc{{cx / canvas, cy / canvas}, radius / canvas, startAngleDeg, endAngleDeg};
+                    if (storeObject != nullptr) {
+                        if (storeArc == nullptr || !state.store.updateGeometry({objectId}, updatedArc)) {
+                            state.errors.append("update_object could not update typed arc: " + objectId);
+                            return;
+                        }
+                        object = state.store.serializeObject({objectId}, state.canvasPx);
+                    } else {
+                        writeArcGeometry(object, updatedArc, state.canvasPx);
+                    }
                 } else {
-                    writeCircleGeometry(object, {{cx / canvas, cy / canvas}, radius / canvas}, state.canvasPx);
+                    const CircleGeometry updatedCircle{{cx / canvas, cy / canvas}, radius / canvas};
+                    if (storeObject != nullptr) {
+                        if (storeCircle == nullptr || !state.store.updateGeometry({objectId}, updatedCircle)) {
+                            state.errors.append("update_object could not update typed circle: " + objectId);
+                            return;
+                        }
+                        object = state.store.serializeObject({objectId}, state.canvasPx);
+                    } else {
+                        writeCircleGeometry(object, updatedCircle, state.canvasPx);
+                    }
                 }
                 updated = true;
             } else if (kind == QStringLiteral("rectangle")

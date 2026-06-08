@@ -616,6 +616,81 @@ bool runControllerPointStoreLifecycleSmoke() {
     return ok;
 }
 
+bool runControllerCircleArcStoreLifecycleSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("circle_arc"));
+    controller.setToolParameter(QStringLiteral("circle_arc_mode"), QStringLiteral("circle"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.375, 0.250, 8);
+
+    const QString circleId = QStringLiteral("script_circle_01");
+    controller.selectObject(circleId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("orbit"));
+    controller.moveObjectBy(circleId, 0.125, 0.0);
+    controller.updateObjectField(circleId, QStringLiteral("radius_px"), 96.0);
+
+    controller.setToolParameter(QStringLiteral("circle_arc_mode"), QStringLiteral("arc"));
+    controller.setToolParameter(QStringLiteral("circle_arc_start_angle_deg"), 30.0);
+    controller.setToolParameter(QStringLiteral("circle_arc_end_angle_deg"), 120.0);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.625, 0.500, 8);
+
+    const QString arcId = QStringLiteral("script_arc_01");
+    controller.selectObject(arcId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("curve"));
+    controller.moveObjectBy(arcId, 0.0, 0.125);
+    controller.updateObjectField(arcId, QStringLiteral("end_angle_deg"), 210.0);
+
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
+    QJsonObject circle = objectById(model.value(QStringLiteral("generated_objects")).toArray(), circleId);
+    QJsonObject circleGeometry = circle.value(QStringLiteral("geometry")).toObject();
+    QJsonObject circleCenter = circleGeometry.value(QStringLiteral("center")).toObject();
+    QJsonObject circleBounds = circle.value(QStringLiteral("bounds")).toObject();
+    QJsonObject arc = objectById(model.value(QStringLiteral("generated_objects")).toArray(), arcId);
+    QJsonObject arcGeometry = arc.value(QStringLiteral("geometry")).toObject();
+    QJsonObject arcCenter = arcGeometry.value(QStringLiteral("center")).toObject();
+    QJsonObject arcBounds = arc.value(QStringLiteral("bounds")).toObject();
+
+    ok &= expect(circle.value(QStringLiteral("role")).toString() == QStringLiteral("orbit"),
+                 QStringLiteral("store-backed circle should preserve top-level metadata after projection"));
+    ok &= expectNear(circleCenter.value(QStringLiteral("x")).toDouble(), 192.0,
+                     QStringLiteral("store-backed circle move should update typed center x"));
+    ok &= expectNear(circleGeometry.value(QStringLiteral("radius")).toDouble(), 96.0,
+                     QStringLiteral("store-backed circle radius edit should update typed radius"));
+    ok &= expectNear(circleBounds.value(QStringLiteral("x")).toDouble(), 96.0,
+                     QStringLiteral("store-backed circle bounds should derive from center and radius"));
+    ok &= expectNear(circleBounds.value(QStringLiteral("w")).toDouble(), 192.0,
+                     QStringLiteral("store-backed circle bounds should derive from diameter"));
+
+    ok &= expect(arc.value(QStringLiteral("role")).toString() == QStringLiteral("curve"),
+                 QStringLiteral("store-backed arc should preserve top-level metadata after projection"));
+    ok &= expectNear(arcCenter.value(QStringLiteral("y")).toDouble(), 320.0,
+                     QStringLiteral("store-backed arc move should update typed center y"));
+    ok &= expectNear(arcGeometry.value(QStringLiteral("end_angle_deg")).toDouble(), 210.0,
+                     QStringLiteral("store-backed arc angle edit should update typed end angle"));
+    ok &= expectNear(arcBounds.value(QStringLiteral("y")).toDouble(), 256.0,
+                     QStringLiteral("store-backed arc bounds should derive from moved center and radius"));
+    ok &= expect(controller.exportSvg().contains(QStringLiteral("data-role=\"orbit\""))
+                     && controller.exportSvg().contains(QStringLiteral("data-role=\"curve\"")),
+                 QStringLiteral("store-backed circle/arc svg export should preserve metadata"));
+
+    controller.deleteObject(arcId);
+    model = checkedControllerModel(controller, ok);
+    ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), arcId).isEmpty(),
+                 QStringLiteral("store-backed arc delete should remove JSON projection"));
+
+    controller.undo();
+    model = checkedControllerModel(controller, ok);
+    arc = objectById(model.value(QStringLiteral("generated_objects")).toArray(), arcId);
+    arcGeometry = arc.value(QStringLiteral("geometry")).toObject();
+    ok &= expect(arc.value(QStringLiteral("role")).toString() == QStringLiteral("curve"),
+                 QStringLiteral("undo after arc delete should rebuild store-backed metadata"));
+    ok &= expectNear(arcGeometry.value(QStringLiteral("end_angle_deg")).toDouble(), 210.0,
+                     QStringLiteral("undo after arc delete should rebuild typed angle edit"));
+    return ok;
+}
+
 bool runControllerObjectFieldUpdateSmoke() {
     DrawingDocumentController controller;
     controller.selectTool(QStringLiteral("rectangle_polygon"));
@@ -1041,6 +1116,7 @@ int main(int argc, char **argv) {
     ok &= runControllerMoveCoalescingSmoke();
     ok &= runControllerLineStoreLifecycleSmoke();
     ok &= runControllerPointStoreLifecycleSmoke();
+    ok &= runControllerCircleArcStoreLifecycleSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
     ok &= runControllerObjectMetadataSmoke();

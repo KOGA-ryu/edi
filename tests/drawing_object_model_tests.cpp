@@ -145,6 +145,62 @@ bool runDrawingStorePointContract() {
     return ok;
 }
 
+bool runDrawingStoreCircleArcContract() {
+    using namespace drawing_core;
+
+    DrawingStore store;
+    DrawingObject circle;
+    circle.id = {QStringLiteral("obj_circle_01")};
+    circle.kind = ShapeKind::Circle;
+    circle.geometry = CircleGeometry{{0.5, 0.5}, 0.125};
+    circle.style = {QStringLiteral("stroke_default")};
+    circle.layer = {QStringLiteral("layer_test")};
+    circle.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("circle_contract_test"));
+    circle.metadata.values.insert(QStringLiteral("version"), 1);
+    circle.attributes.insert(QStringLiteral("kind"), QStringLiteral("circle"));
+
+    DrawingObject arc;
+    arc.id = {QStringLiteral("obj_arc_01")};
+    arc.kind = ShapeKind::Circle;
+    arc.geometry = ArcGeometry{{0.25, 0.25}, 0.125, 15.0, 120.0};
+    arc.style = {QStringLiteral("stroke_default")};
+    arc.layer = {QStringLiteral("layer_test")};
+    arc.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("arc_contract_test"));
+    arc.metadata.values.insert(QStringLiteral("version"), 1);
+    arc.attributes.insert(QStringLiteral("kind"), QStringLiteral("arc"));
+
+    bool ok = true;
+    ok &= expect(store.addObject(circle), QStringLiteral("store should add a valid circle object"));
+    ok &= expect(store.addObject(arc), QStringLiteral("store should add a valid arc object"));
+    ok &= expect(store.updateGeometry({QStringLiteral("obj_circle_01")}, CircleGeometry{{0.625, 0.5}, 0.25}),
+                 QStringLiteral("store should update circle geometry"));
+    ok &= expect(store.updateGeometry({QStringLiteral("obj_arc_01")}, ArcGeometry{{0.25, 0.375}, 0.25, 30.0, 180.0}),
+                 QStringLiteral("store should update arc geometry"));
+
+    const QJsonObject serializedCircle = store.serializeObject({QStringLiteral("obj_circle_01")}, 512);
+    ok &= expect(serializedCircle.value(QStringLiteral("kind")).toString() == QStringLiteral("circle"),
+                 QStringLiteral("serialized circle should preserve projected kind"));
+    ok &= expectNear(serializedCircle.value(QStringLiteral("cx")).toDouble(), 0.625,
+                     QStringLiteral("serialized circle should keep normalized center x"));
+    ok &= expectNear(serializedCircle.value(QStringLiteral("radius_px")).toDouble(), 128.0,
+                     QStringLiteral("serialized circle should project radius"));
+    ok &= expectNear(serializedCircle.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("w")).toDouble(), 256.0,
+                     QStringLiteral("serialized circle bounds should project diameter"));
+
+    const QJsonObject serializedArc = store.serializeObject({QStringLiteral("obj_arc_01")}, 512);
+    ok &= expect(serializedArc.value(QStringLiteral("kind")).toString() == QStringLiteral("arc"),
+                 QStringLiteral("serialized arc should preserve projected kind"));
+    ok &= expectNear(serializedArc.value(QStringLiteral("start_angle_deg")).toDouble(), 30.0,
+                     QStringLiteral("serialized arc should preserve start angle"));
+    ok &= expectNear(serializedArc.value(QStringLiteral("end_angle_deg")).toDouble(), 180.0,
+                     QStringLiteral("serialized arc should preserve end angle"));
+    ok &= expectNear(serializedArc.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("radius")).toDouble(), 128.0,
+                     QStringLiteral("serialized arc should project radius geometry"));
+    ok &= expectNear(serializedArc.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("y")).toDouble(), 64.0,
+                     QStringLiteral("serialized arc bounds should derive from center and radius"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -152,5 +208,6 @@ int main(int argc, char **argv) {
     bool ok = true;
     ok &= runDrawingStoreLineContract();
     ok &= runDrawingStorePointContract();
+    ok &= runDrawingStoreCircleArcContract();
     return ok ? 0 : 1;
 }

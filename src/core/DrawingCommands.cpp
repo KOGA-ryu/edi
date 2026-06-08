@@ -274,15 +274,28 @@ void addCircle(State &state, const Point &center, const QJsonObject &command) {
         state.errors.append("circle command has invalid radius");
         return;
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, "circle"));
-    object.insert("label", "script circle");
-    object.insert("kind", "circle");
-    object.insert("detail", "C++ generated circle");
-    applyActiveStyle(state, object);
-    writeCircleGeometry(object, {{center.nx, center.ny}, radiusPx / state.canvasPx}, state.canvasPx);
-    applyCreationMetadata(object, QStringLiteral("CircleTool"));
-    pushObject(state, object);
+    const QString objectId = nextId(state, QStringLiteral("circle"));
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), QStringLiteral("script circle"));
+    attributes.insert(QStringLiteral("kind"), QStringLiteral("circle"));
+    attributes.insert(QStringLiteral("detail"), QStringLiteral("C++ generated circle"));
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Circle;
+    object.geometry = CircleGeometry{{center.nx, center.ny}, radiusPx / state.canvasPx};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("CircleTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("circle command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addArc(State &state, const Point &center, const QJsonObject &command) {
@@ -295,18 +308,28 @@ void addArc(State &state, const Point &center, const QJsonObject &command) {
         state.errors.append("arc command has invalid radius");
         return;
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, "arc"));
-    object.insert("label", "script arc");
-    object.insert("kind", "arc");
-    object.insert("detail", "C++ generated arc");
-    applyActiveStyle(state, object);
-    writeArcGeometry(
-        object,
-        {{center.nx, center.ny}, radiusPx / state.canvasPx, numberAt(command, "start_angle_deg"), numberAt(command, "end_angle_deg", 90.0)},
-        state.canvasPx);
-    applyCreationMetadata(object, QStringLiteral("ArcTool"));
-    pushObject(state, object);
+    const QString objectId = nextId(state, QStringLiteral("arc"));
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), QStringLiteral("script arc"));
+    attributes.insert(QStringLiteral("kind"), QStringLiteral("arc"));
+    attributes.insert(QStringLiteral("detail"), QStringLiteral("C++ generated arc"));
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Circle;
+    object.geometry = ArcGeometry{{center.nx, center.ny}, radiusPx / state.canvasPx, numberAt(command, "start_angle_deg"), numberAt(command, "end_angle_deg", 90.0)};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("ArcTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("arc command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addRectangleObject(State &state, const Point &start, const Point &end, const QString &kind, const QString &label, const QString &detail) {

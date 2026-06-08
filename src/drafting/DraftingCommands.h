@@ -21,6 +21,17 @@ struct MoveObjectCommand {
     double dy = 0.0;
 };
 
+struct MoveSelectionCommand {
+    double dx = 0.0;
+    double dy = 0.0;
+};
+
+struct EditObjectHandleCommand {
+    DraftingObjectId objectId;
+    std::string handleId;
+    Point2D point;
+};
+
 struct UpdateGeometryCommand {
     DraftingObjectId objectId;
     DraftingGeometry geometry = PointGeometry{};
@@ -39,6 +50,8 @@ using DraftingCommand = std::variant<
     CreateObjectCommand,
     DeleteObjectCommand,
     MoveObjectCommand,
+    MoveSelectionCommand,
+    EditObjectHandleCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     SelectObjectCommand>;

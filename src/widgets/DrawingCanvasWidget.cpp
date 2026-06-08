@@ -6,7 +6,9 @@
 #include <QVariantMap>
 
 #include <algorithm>
+#include <cmath>
 
+#include "canvas/DrawingCanvasHandles.h"
 #include "core/DrawingCore.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -90,6 +92,76 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
 {
-    Q_UNUSED(painter)
-    Q_UNUSED(object)
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    const QString id = object.value(QStringLiteral("id")).toString();
+    const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();
+
+    QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    if (kind == QStringLiteral("point")) {
+        const QPointF point = canvasToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
+        painter.setBrush(selected ? QColor("#f6c65b") : QColor("#d7dde8"));
+        painter.drawEllipse(point, 4.0, 4.0);
+    } else if (kind == QStringLiteral("line")) {
+        painter.drawLine(
+            canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
+            canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));
+    } else if (kind == QStringLiteral("rectangle")) {
+        const QPointF origin = canvasToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
+        const QPointF extent = canvasToScreen(
+            object.value(QStringLiteral("x")).toDouble() + object.value(QStringLiteral("width")).toDouble(),
+            object.value(QStringLiteral("y")).toDouble() + object.value(QStringLiteral("height")).toDouble());
+        QRectF rect(origin, extent);
+        const double rotation = object.value(QStringLiteral("rotation_deg")).toDouble();
+        if (std::abs(rotation) > 0.000001) {
+            painter.save();
+            painter.translate(rect.center());
+            painter.rotate(rotation);
+            painter.translate(-rect.center());
+            painter.drawRect(rect);
+            painter.restore();
+        } else {
+            painter.drawRect(rect.normalized());
+        }
+    } else if (kind == QStringLiteral("circle")) {
+        const QPointF center = canvasToScreen(object.value(QStringLiteral("cx")).toDouble(), object.value(QStringLiteral("cy")).toDouble());
+        const double radius = object.value(QStringLiteral("radius")).toDouble() * boardRect().width();
+        painter.drawEllipse(center, radius, radius);
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
+        QPolygonF polygon;
+        for (const drawing_canvas::CanvasPoint &point : drawing_canvas::CanvasObjectView{object}.points()) {
+            polygon.push_back(canvasToScreen(point.x, point.y));
+        }
+        if (kind == QStringLiteral("polygon")) {
+            painter.drawPolygon(polygon);
+        } else {
+            painter.drawPolyline(polygon);
+        }
+    }
+
+    if (selected) {
+        drawSelectedHandles(painter, object);
+    }
+}
+
+void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantMap &object) const
+{
+    QVariantMap settings;
+    settings.insert(QStringLiteral("canvasSizePx"), 512.0);
+    settings.insert(QStringLiteral("rotateHandleOffsetPx"), 28.0);
+    const drawing_canvas::CanvasObjectView objectView{object};
+    painter.setPen(QPen(QColor("#1d1f26"), 2));
+    painter.setBrush(QColor("#f6c65b"));
+    for (const drawing_canvas::HandleDescriptor &handle : drawing_canvas::visibleHandlesForObject(objectView, settings)) {
+        const QPointF point = canvasToScreen(handle.x, handle.y);
+        if (handle.hasAnchor) {
+            painter.drawLine(canvasToScreen(handle.anchorX, handle.anchorY), point);
+        }
+        const double size = handle.role == QStringLiteral("rotate") ? 10.0 : 8.0;
+        painter.drawEllipse(QRectF(point.x() - size * 0.5, point.y() - size * 0.5, size, size));
+    }
 }

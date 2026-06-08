@@ -22,6 +22,7 @@ private:
     QPointF canvasToScreen(double x, double y) const;
     QPointF screenToCanvas(const QPointF &point) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
+    void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;
 
     DrawingDocumentController *m_controller = nullptr;
 };

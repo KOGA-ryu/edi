@@ -1,0 +1,296 @@
+#include "drafting/DraftingObjectEdit.h"
+
+#include "drafting/DraftingGeometry.h"
+
+#include <algorithm>
+#include <cmath>
+#include <type_traits>
+#include <utility>
+
+namespace edi::drafting {
+namespace {
+
+constexpr double pi = 3.14159265358979323846;
+
+double normalizeDegrees(double degrees)
+{
+    return std::fmod(std::fmod(degrees, 360.0) + 360.0, 360.0);
+}
+
+Point2D rectangleCenter(const RectangleGeometry &rect)
+{
+    return {
+        rect.origin.x + rect.width / 2.0,
+        rect.origin.y + rect.height / 2.0,
+    };
+}
+
+Point2D rotateAround(Point2D point, Point2D center, double degrees)
+{
+    const double angle = degrees * pi / 180.0;
+    const double cosA = std::cos(angle);
+    const double sinA = std::sin(angle);
+    const double dx = point.x - center.x;
+    const double dy = point.y - center.y;
+    return {
+        center.x + dx * cosA - dy * sinA,
+        center.y + dx * sinA + dy * cosA,
+    };
+}
+
+Point2D unrotateRectanglePoint(const RectangleGeometry &rect, Point2D point)
+{
+    return rotateAround(point, rectangleCenter(rect), -rect.rotationDeg);
+}
+
+std::vector<DraftingHandleDescriptor> rectangleHandles(const RectangleGeometry &rect)
+{
+    const Point2D center = rectangleCenter(rect);
+    std::vector<DraftingHandleDescriptor> handles = {
+        {"rect_nw", "corner", rect.origin},
+        {"rect_ne", "corner", {rect.origin.x + rect.width, rect.origin.y}},
+        {"rect_sw", "corner", {rect.origin.x, rect.origin.y + rect.height}},
+        {"rect_se", "corner", {rect.origin.x + rect.width, rect.origin.y + rect.height}},
+    };
+    for (DraftingHandleDescriptor &handle : handles) {
+        handle.point = rotateAround(handle.point, center, rect.rotationDeg);
+    }
+
+    const Point2D topMidpoint = rotateAround({rect.origin.x + rect.width / 2.0, rect.origin.y}, center, rect.rotationDeg);
+    const double dx = topMidpoint.x - center.x;
+    const double dy = topMidpoint.y - center.y;
+    const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+    handles.push_back({
+        "rect_rotate",
+        "rotate",
+        {topMidpoint.x + dx / length * 0.05, topMidpoint.y + dy / length * 0.05},
+    });
+    return handles;
+}
+
+DraftingObjectEditResult validatedEditResult(const DraftingObject &object, DraftingGeometry geometry)
+{
+    DraftingObject candidate = object;
+    candidate.geometry = std::move(geometry);
+    const auto validation = validateDraftingObjectShape(candidate);
+    if (!validation.ok) {
+        return DraftingObjectEditResult::rejected(validation.code, validation.message);
+    }
+    return DraftingObjectEditResult::accepted(candidate.geometry, computeBounds(candidate.geometry));
+}
+
+DraftingObjectEditResult applyRectangleEdit(const DraftingObject &object, const RectangleGeometry &rect, const DraftingObjectEdit &edit)
+{
+    RectangleGeometry next = rect;
+    if (edit.kind == DraftingObjectEditKind::RotateRectangle) {
+        if (!std::isfinite(edit.value)) {
+            return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "rectangle rotation must be finite");
+        }
+        next.rotationDeg = normalizeDegrees(edit.value);
+        return validatedEditResult(object, next);
+    }
+
+    if (edit.kind != DraftingObjectEditKind::MoveRectangleCorner) {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to rectangle geometry");
+    }
+
+    if (!isFinite(edit.point)) {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "rectangle edit point must be finite");
+    }
+
+    const double left = rect.origin.x;
+    const double top = rect.origin.y;
+    const double right = rect.origin.x + rect.width;
+    const double bottom = rect.origin.y + rect.height;
+    const Point2D localPoint = unrotateRectanglePoint(rect, edit.point);
+
+    double fixedX = left;
+    double fixedY = top;
+    if (edit.handleId == "rect_nw") {
+        fixedX = right;
+        fixedY = bottom;
+    } else if (edit.handleId == "rect_ne") {
+        fixedX = left;
+        fixedY = bottom;
+    } else if (edit.handleId == "rect_sw") {
+        fixedX = right;
+        fixedY = top;
+    } else if (edit.handleId == "rect_se") {
+        fixedX = left;
+        fixedY = top;
+    } else {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "unknown rectangle handle");
+    }
+
+    next.origin = {std::min(fixedX, localPoint.x), std::min(fixedY, localPoint.y)};
+    next.width = std::abs(fixedX - localPoint.x);
+    next.height = std::abs(fixedY - localPoint.y);
+    return validatedEditResult(object, next);
+}
+
+} // namespace
+
+DraftingObjectEditResult DraftingObjectEditResult::accepted(DraftingGeometry geometry, Bounds2D bounds)
+{
+    DraftingObjectEditResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.geometry = std::move(geometry);
+    result.bounds = bounds;
+    return result;
+}
+
+DraftingObjectEditResult DraftingObjectEditResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingObjectEditResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+DraftingHandleEditPlan DraftingHandleEditPlan::accepted(DraftingObjectEdit edit)
+{
+    DraftingHandleEditPlan result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.edit = std::move(edit);
+    return result;
+}
+
+DraftingHandleEditPlan DraftingHandleEditPlan::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingHandleEditPlan result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObject &object)
+{
+    if (!kindMatchesGeometry(object.kind, object.geometry)) {
+        return {};
+    }
+
+    return std::visit([](const auto &geometry) -> std::vector<DraftingHandleDescriptor> {
+        using Geometry = std::decay_t<decltype(geometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            return {{"point_position", "point", geometry.point}};
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            return {
+                {"line_start", "endpoint", geometry.a},
+                {"line_end", "endpoint", geometry.b},
+            };
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            return rectangleHandles(geometry);
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            return {
+                {"circle_center", "center", geometry.center},
+                {"circle_radius", "radius", {geometry.center.x + geometry.radius, geometry.center.y}},
+            };
+        } else {
+            return {};
+        }
+    }, object.geometry);
+}
+
+DraftingHandleDescriptor draftingHandleById(const DraftingObject &object, const std::string &handleId)
+{
+    for (const DraftingHandleDescriptor &handle : draftingHandlesForObject(object)) {
+        if (handle.id == handleId) {
+            return handle;
+        }
+    }
+    return {};
+}
+
+DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::string &handleId, Point2D point)
+{
+    const DraftingHandleDescriptor handle = draftingHandleById(object, handleId);
+    if (handle.id.empty()) {
+        return DraftingHandleEditPlan::rejected(DraftingResultCode::InvalidSelectionTarget, "handle does not exist for object");
+    }
+    if (handle.readOnly) {
+        return DraftingHandleEditPlan::rejected(DraftingResultCode::InvalidSelectionTarget, "handle is read-only");
+    }
+    if (!isFinite(point)) {
+        return DraftingHandleEditPlan::rejected(DraftingResultCode::InvalidGeometry, "handle edit point must be finite");
+    }
+
+    if (object.kind == DraftingShapeKind::Point && handleId == "point_position") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MovePoint, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Line && handleId == "line_start") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveLineStart, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Line && handleId == "line_end") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveLineEnd, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Circle && handleId == "circle_center") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveCircleCenter, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Circle && handleId == "circle_radius") {
+        const auto *circle = std::get_if<CircleGeometry>(&object.geometry);
+        if (circle == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetCircleRadius, handleId, point, distance(circle->center, point)});
+    }
+    if (object.kind == DraftingShapeKind::Rectangle && handleId == "rect_rotate") {
+        const auto *rect = std::get_if<RectangleGeometry>(&object.geometry);
+        if (rect == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        const Point2D center = rectangleCenter(*rect);
+        const double degrees = std::atan2(point.y - center.y, point.x - center.x) * 180.0 / pi + 90.0;
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::RotateRectangle, handleId, point, normalizeDegrees(degrees)});
+    }
+    if (object.kind == DraftingShapeKind::Rectangle && handle.role == "corner") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveRectangleCorner, handleId, point});
+    }
+
+    return DraftingHandleEditPlan::rejected(DraftingResultCode::InvalidSelectionTarget, "handle cannot produce an edit for object");
+}
+
+DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const DraftingObjectEdit &edit)
+{
+    if (!kindMatchesGeometry(object.kind, object.geometry)) {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+
+    return std::visit([&](auto geometry) -> DraftingObjectEditResult {
+        using Geometry = std::decay_t<decltype(geometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            if (edit.kind != DraftingObjectEditKind::MovePoint) {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to point geometry");
+            }
+            geometry.point = edit.point;
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            if (edit.kind == DraftingObjectEditKind::MoveLineStart) {
+                geometry.a = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::MoveLineEnd) {
+                geometry.b = edit.point;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to line geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            return applyRectangleEdit(object, geometry, edit);
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            if (edit.kind == DraftingObjectEditKind::MoveCircleCenter) {
+                geometry.center = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::SetCircleRadius) {
+                geometry.radius = edit.value;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to circle geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else {
+            return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidSelectionTarget, "shape has no editable handles yet");
+        }
+    }, object.geometry);
+}
+
+} // namespace edi::drafting

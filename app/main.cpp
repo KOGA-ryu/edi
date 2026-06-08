@@ -1,8 +1,17 @@
+#include <QAbstractButton>
 #include <QApplication>
+#include <QButtonGroup>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QPair>
+#include <QPushButton>
 #include <QStatusBar>
 #include <QVBoxLayout>
+#include <QVector>
+
+#include "core/DrawingCore.h"
+#include "widgets/DrawingCanvasWidget.h"
 
 int main(int argc, char **argv)
 {
@@ -11,6 +20,7 @@ int main(int argc, char **argv)
     QMainWindow window;
     window.setWindowTitle(QStringLiteral("EDI"));
 
+    auto *controller = new DrawingDocumentController(&window);
     auto *central = new QWidget;
     auto *layout = new QVBoxLayout(central);
 
@@ -20,16 +30,42 @@ int main(int argc, char **argv)
     titleFont.setBold(true);
     title->setFont(titleFont);
 
-    auto *body = new QLabel(QStringLiteral("C++ Qt Widgets runtime. Ready for the next usable subsystem."));
-    body->setWordWrap(true);
-    body->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto *tools = new QWidget;
+    auto *toolLayout = new QHBoxLayout(tools);
+    toolLayout->setContentsMargins(0, 0, 0, 0);
+    auto *toolGroup = new QButtonGroup(tools);
+    toolGroup->setExclusive(true);
+    const QVector<QPair<QString, QString>> toolSpecs {
+        {QStringLiteral("select_move"), QStringLiteral("Select")},
+        {QStringLiteral("point_tool"), QStringLiteral("Point")},
+        {QStringLiteral("line_tool"), QStringLiteral("Line")},
+        {QStringLiteral("rectangle_tool"), QStringLiteral("Rect")},
+        {QStringLiteral("circle_tool"), QStringLiteral("Circle")},
+    };
+    for (const auto &tool : toolSpecs) {
+        auto *button = new QPushButton(tool.second);
+        button->setCheckable(true);
+        if (tool.first == controller->selectedToolId()) {
+            button->setChecked(true);
+        }
+        toolGroup->addButton(button);
+        button->setProperty("toolId", tool.first);
+        toolLayout->addWidget(button);
+    }
+    toolLayout->addStretch(1);
+
+    auto *canvas = new DrawingCanvasWidget(controller);
+
+    QObject::connect(toolGroup, &QButtonGroup::buttonClicked, controller, [controller](QAbstractButton *button) {
+        controller->setSelectedToolId(button->property("toolId").toString());
+    });
 
     layout->addWidget(title);
-    layout->addWidget(body);
-    layout->addStretch(1);
+    layout->addWidget(tools);
+    layout->addWidget(canvas, 1);
 
     window.setCentralWidget(central);
-    window.statusBar()->showMessage(QStringLiteral("ready"));
+    window.statusBar()->showMessage(QStringLiteral("drawing tools ready"));
     window.resize(900, 640);
     window.show();
 

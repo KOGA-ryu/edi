@@ -15,6 +15,7 @@ public:
     QVariantMap modelDocument() const;
     QString selectedToolId() const;
     QString selectedObjectId() const;
+    void setSelectedToolId(const QString &toolId);
     void clickCanvasNormalized(double x, double y);
 
 signals:
@@ -24,4 +25,8 @@ private:
     QVariantMap m_model;
     QString m_selectedToolId = QStringLiteral("select_move");
     QString m_selectedObjectId;
+    bool m_hasPendingPoint = false;
+    double m_pendingX = 0.0;
+    double m_pendingY = 0.0;
+    int m_nextObjectSerial = 1;
 };

@@ -1,8 +1,10 @@
 #include "drafting/DraftingCommands.h"
 
+#include "drafting/DraftingObjectEdit.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingStore.h"
 
+#include <cmath>
 #include <utility>
 
 namespace edi::drafting {
@@ -39,6 +41,39 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(removeObject(document, typedCommand.objectId));
         } else if constexpr (std::is_same_v<Command, MoveObjectCommand>) {
             return fromStoreResult(moveObject(document, typedCommand.objectId, typedCommand.dx, typedCommand.dy));
+        } else if constexpr (std::is_same_v<Command, MoveSelectionCommand>) {
+            if (!std::isfinite(typedCommand.dx) || !std::isfinite(typedCommand.dy)) {
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
+            }
+            DraftingDocument candidate = document;
+            for (const DraftingObjectId &objectId : document.selectedObjectIds) {
+                if (!containsObject(candidate, objectId)) {
+                    return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
+                }
+                const DraftingStoreResult move = moveObject(candidate, objectId, typedCommand.dx, typedCommand.dy);
+                if (!move.ok) {
+                    return fromStoreResult(move);
+                }
+            }
+            if (!document.selectedObjectIds.empty()) {
+                candidate.revision = document.revision + 1;
+                document = std::move(candidate);
+            }
+            return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, EditObjectHandleCommand>) {
+            const DraftingObject *object = findObject(document, typedCommand.objectId);
+            if (object == nullptr) {
+                return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+            }
+            const DraftingHandleEditPlan plan = handleEditPlan(*object, typedCommand.handleId, typedCommand.point);
+            if (!plan.ok) {
+                return DraftingCommandResult::rejected(plan.code, plan.message);
+            }
+            const DraftingObjectEditResult edit = applyObjectEdit(*object, plan.edit);
+            if (!edit.ok) {
+                return DraftingCommandResult::rejected(edit.code, edit.message);
+            }
+            return fromStoreResult(updateObjectGeometry(document, typedCommand.objectId, edit.geometry));
         } else if constexpr (std::is_same_v<Command, UpdateGeometryCommand>) {
             return fromStoreResult(updateObjectGeometry(document, typedCommand.objectId, typedCommand.geometry));
         } else if constexpr (std::is_same_v<Command, UpdateMetadataCommand>) {

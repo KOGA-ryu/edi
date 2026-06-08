@@ -33,12 +33,32 @@ Bounds2D boundsFromPoints(const std::vector<Point2D> &points)
 
 std::vector<Point2D> rectangleCorners(const RectangleGeometry &rect)
 {
-    return {
+    std::vector<Point2D> corners = {
         rect.origin,
         {rect.origin.x + rect.width, rect.origin.y},
         {rect.origin.x + rect.width, rect.origin.y + rect.height},
         {rect.origin.x, rect.origin.y + rect.height},
     };
+    if (rect.rotationDeg == 0.0) {
+        return corners;
+    }
+
+    const Point2D center {
+        rect.origin.x + rect.width / 2.0,
+        rect.origin.y + rect.height / 2.0,
+    };
+    const double angle = rect.rotationDeg * 3.14159265358979323846 / 180.0;
+    const double cosA = std::cos(angle);
+    const double sinA = std::sin(angle);
+    for (Point2D &corner : corners) {
+        const double dx = corner.x - center.x;
+        const double dy = corner.y - center.y;
+        corner = {
+            center.x + dx * cosA - dy * sinA,
+            center.y + dx * sinA + dy * cosA,
+        };
+    }
+    return corners;
 }
 
 } // namespace

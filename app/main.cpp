@@ -1,302 +1,255 @@
-#include <QGuiApplication>
+#include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
-#include <QCryptographicHash>
-#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonArray>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMetaObject>
-#include <QObject>
-#include <QQmlApplicationEngine>
-#include <QQmlContext>
-#include <QSaveFile>
+#include <QLabel>
+#include <QListWidget>
+#include <QMainWindow>
+#include <QMenuBar>
+#include <QSplitter>
 #include <QStandardPaths>
-#include <QStringList>
-#include <QtGlobal>
-#include <QUrl>
+#include <QStatusBar>
+#include <QTableWidget>
+#include <QTextEdit>
 #include <QVariantList>
 #include <QVariantMap>
-#include <utility>
+#include <QVBoxLayout>
 
 #include "core/DrawingCore.h"
-#include "canvas/DrawingCanvasRuntimeAdapter.h"
-#include "io/DrawingRecentFilesStore.h"
 #include "io/DrawingDocumentStore.h"
+#include "io/DrawingRecentFilesStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextEditorStore.h"
 #include "runtime/DrawingRuntimeCore.h"
 
-int main(int argc, char *argv[]) {
-    if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    }
+namespace {
 
-    QGuiApplication app(argc, argv);
+QString absolutePath(const QString &path)
+{
+    if (path.isEmpty() || QFileInfo(path).isAbsolute()) {
+        return path;
+    }
+    return QDir::current().absoluteFilePath(path);
+}
+
+QString projectSourcePath(const QString &path)
+{
+    if (path.isEmpty() || QFileInfo(path).isAbsolute()) {
+        return path;
+    }
+    return QDir(QStringLiteral(PROJECT_SOURCE_DIR)).absoluteFilePath(path);
+}
+
+QVariantMap loadJsonObject(const QString &path)
+{
+    QFile file(path);
+    if (!path.isEmpty() && file.open(QIODevice::ReadOnly)) {
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+        if (document.isObject()) {
+            return document.object().toVariantMap();
+        }
+    }
+    return {};
+}
+
+QString textValue(const QVariantMap &map, const QString &key, const QString &fallback = {})
+{
+    const QString value = map.value(key).toString();
+    return value.isEmpty() ? fallback : value;
+}
+
+QListWidget *listWidget(const QString &title, const QVariantList &rows)
+{
+    auto *list = new QListWidget;
+    list->setObjectName(title);
+    for (const QVariant &value : rows) {
+        const QVariantMap row = value.toMap();
+        const QString label = textValue(row, "label", row.value("id").toString());
+        const QString meta = row.value("meta").toString();
+        list->addItem(meta.isEmpty() ? label : QString("%1  [%2]").arg(label, meta));
+    }
+    return list;
+}
+
+QGroupBox *panel(const QString &title, QWidget *content)
+{
+    auto *box = new QGroupBox(title);
+    auto *layout = new QVBoxLayout(box);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->addWidget(content);
+    return box;
+}
+
+QTableWidget *tableFromRows(const QStringList &headers, const QVariantList &rows)
+{
+    auto *table = new QTableWidget(rows.size(), headers.size());
+    table->setHorizontalHeaderLabels(headers);
+    table->verticalHeader()->setVisible(false);
+    table->horizontalHeader()->setStretchLastSection(true);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    for (int rowIndex = 0; rowIndex < rows.size(); ++rowIndex) {
+        const QVariantMap row = rows[rowIndex].toMap();
+        for (int column = 0; column < headers.size(); ++column) {
+            const QString key = headers[column].toLower();
+            table->setItem(rowIndex, column, new QTableWidgetItem(row.value(key).toString()));
+        }
+    }
+    return table;
+}
+
+QVariantList profileRows(const QVariantMap &profile)
+{
+    const QVariantList rows = profile.value("left_panel").toMap().value("project_rows").toList();
+    return rows.isEmpty() ? QVariantList{QVariantMap{{"label", "Project"}, {"meta", "loaded"}}} : rows;
+}
+
+QVariantList validationRows(const QVariantMap &model)
+{
+    QVariantList rows;
+    for (const QVariant &value : model.value("validation").toList()) {
+        const QVariantMap validation = value.toMap();
+        rows.push_back(QVariantMap{
+            {"label", textValue(validation, "id", "validation")},
+            {"value", validation.value("status").toString() + " / " + validation.value("detail").toString()},
+        });
+    }
+    if (rows.isEmpty()) {
+        rows.push_back(QVariantMap{{"label", "validation"}, {"value", "not available"}});
+    }
+    return rows;
+}
+
+QWidget *buildWorkspace(const QVariantMap &profile, DrawingDocumentController &drawingController)
+{
+    auto *workspace = new QWidget;
+    auto *layout = new QVBoxLayout(workspace);
+    const QVariantMap model = drawingController.modelDocument();
+
+    auto *summary = new QLabel(QString("Profile: %1\nFeature: %2\nDrawing engine: %3\nObjects: %4")
+        .arg(textValue(profile.value("profile").toMap(), "label", "Draftsman"))
+        .arg(textValue(profile.value("main_workspace").toMap(), "feature", "unknown"))
+        .arg(textValue(model, "engine", "cpp_drawing_core_v1"))
+        .arg(model.value("generated_objects").toList().size()));
+    summary->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(summary);
+
+    auto *canvasPlaceholder = new QTextEdit;
+    canvasPlaceholder->setReadOnly(true);
+    canvasPlaceholder->setPlainText("C++ Widgets shell active.\nDrawing canvas widget replacement is the next slice.\nThe DrawingDocumentController remains the drawing model source of truth.");
+    layout->addWidget(canvasPlaceholder, 1);
+    return workspace;
+}
+
+} // namespace
+
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
     app.setOrganizationName("KOGA-ryu");
-    app.setApplicationName("Qt QML Draftsman Shell");
+    app.setApplicationName("EDI");
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("Editable Draftsman Qt/QML shell");
+    parser.setApplicationDescription("EDI C++ Qt Widgets shell");
     parser.addHelpOption();
-    const QCommandLineOption reviewSubjectOption(
-        QStringList() << "review-subject",
-        "Load review subject JSON from <path>.",
-        "path");
-    const QCommandLineOption themeOption(
-        QStringList() << "theme",
-        "Load UI theme JSON from <path>.",
-        "path");
-    const QCommandLineOption projectProfileOption(
-        QStringList() << "project-profile",
-        "Load project profile JSON from <path>.",
-        "path");
-    const QCommandLineOption shellLayoutOption(
-        QStringList() << "shell-layout",
-        "Load shell layout JSON from <path>.",
-        "path");
-    const QCommandLineOption actionOption(
-        QStringList() << "action",
-        "Run a profile custom action after startup.",
-        "action_id");
-    const QCommandLineOption drawingTelemetryLogOption(
-        QStringList() << "drawing-telemetry-log",
-        "Print drawing canvas interaction telemetry event streams to the console.");
-    const QCommandLineOption drawingMetricsLogOption(
-        QStringList() << "drawing-metrics-log",
-        "Print drawing canvas interaction metric records to the console.");
-    const QCommandLineOption drawingControlScriptOption(
-        QStringList() << "drawing-control-script",
-        "Run drawing control script JSON from <path> after drawing workspace startup.",
-        "path");
-    const QCommandLineOption drawingControlLibraryOption(
-        QStringList() << "drawing-control-library",
-        "Load reusable drawing control script library JSON from <path>.",
-        "path");
-    const QCommandLineOption drawingControlScriptExitOption(
-        QStringList() << "drawing-control-script-exit",
-        "Exit after the drawing control script completes.");
-    const QCommandLineOption drawingDisableDiscardConfirmationOption(
-        QStringList() << "drawing-disable-discard-confirmation",
-        "Disable unsaved drawing discard confirmation dialogs for automation runs.");
+    const QCommandLineOption reviewSubjectOption(QStringList() << "review-subject", "Load review subject JSON from <path>.", "path");
+    const QCommandLineOption themeOption(QStringList() << "theme", "Load UI theme JSON from <path>.", "path");
+    const QCommandLineOption projectProfileOption(QStringList() << "project-profile", "Load project profile JSON from <path>.", "path");
+    const QCommandLineOption shellLayoutOption(QStringList() << "shell-layout", "Load shell layout JSON from <path>.", "path");
+    const QCommandLineOption actionOption(QStringList() << "action", "Accepted for compatibility with the former QML shell.", "action_id");
+    const QCommandLineOption drawingControlScriptOption(QStringList() << "drawing-control-script", "Validate drawing control script JSON from <path>.", "path");
+    const QCommandLineOption drawingControlLibraryOption(QStringList() << "drawing-control-library", "Load reusable drawing control script library JSON from <path>.", "path");
+    const QCommandLineOption drawingControlScriptExitOption(QStringList() << "drawing-control-script-exit", "Exit after control script validation.");
     parser.addOption(reviewSubjectOption);
     parser.addOption(themeOption);
     parser.addOption(projectProfileOption);
     parser.addOption(shellLayoutOption);
     parser.addOption(actionOption);
-    parser.addOption(drawingTelemetryLogOption);
-    parser.addOption(drawingMetricsLogOption);
     parser.addOption(drawingControlScriptOption);
     parser.addOption(drawingControlLibraryOption);
     parser.addOption(drawingControlScriptExitOption);
-    parser.addOption(drawingDisableDiscardConfirmationOption);
     parser.process(app);
 
-    auto envFlag = [](const char *name) {
-        const QString value = QString::fromLocal8Bit(qgetenv(name)).trimmed().toLower();
-        return value == QStringLiteral("1")
-            || value == QStringLiteral("true")
-            || value == QStringLiteral("yes")
-            || value == QStringLiteral("on");
-    };
-
-    auto absolutePath = [](const QString &path) {
-        if (path.isEmpty()) {
-            return QString();
-        }
-        if (QFileInfo(path).isRelative()) {
-            return QDir::current().absoluteFilePath(path);
-        }
-        return path;
-    };
-
-    auto projectSourcePath = [](const QString &path) {
-        if (path.isEmpty()) {
-            return QString();
-        }
-        if (QFileInfo(path).isRelative()) {
-            return QDir(QStringLiteral(PROJECT_SOURCE_DIR)).absoluteFilePath(path);
-        }
-        return path;
-    };
-
-    auto loadJsonObject = [](const QString &path) {
-        QVariant result = QVariantMap();
-        QFile file(path);
-        if (file.open(QIODevice::ReadOnly)) {
-            const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-            if (document.isObject()) {
-                result = document.object().toVariantMap();
-            }
-        }
-        return result;
-    };
-
-    auto loadTextFile = [](const QString &path) {
-        QFile file(path);
-        if (!path.isEmpty() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            return QString::fromUtf8(file.readAll());
-        }
-        return QString();
-    };
-
     QString projectProfilePath = parser.isSet(projectProfileOption)
-        ? parser.value(projectProfileOption)
+        ? absolutePath(parser.value(projectProfileOption))
         : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/project_profiles/draftsman_blank.json");
-    projectProfilePath = absolutePath(projectProfilePath);
-    const QVariant projectProfile = loadJsonObject(projectProfilePath);
-    const QVariantMap projectProfileMap = projectProfile.toMap();
-    const QVariantMap dataSources = projectProfileMap.value(QStringLiteral("data_sources")).toMap();
-    const QString profileReviewSubjectPath = dataSources.value(QStringLiteral("review_subject")).toString().trimmed();
+    const QVariantMap projectProfile = loadJsonObject(projectProfilePath);
+    const QVariantMap dataSources = projectProfile.value("data_sources").toMap();
 
-    QString reviewSubjectPath;
-    QVariant reviewSubject = QVariantMap();
-    if (parser.isSet(reviewSubjectOption)) {
-        reviewSubjectPath = absolutePath(parser.value(reviewSubjectOption));
-        reviewSubject = loadJsonObject(reviewSubjectPath);
-    } else if (!profileReviewSubjectPath.isEmpty()) {
-        reviewSubjectPath = projectSourcePath(profileReviewSubjectPath);
-        reviewSubject = loadJsonObject(reviewSubjectPath);
-    }
-
-    const QString mapCsvPath = projectSourcePath(dataSources.value(QStringLiteral("map_csv")).toString().trimmed());
-    const QString cellMetadataPath = projectSourcePath(dataSources.value(QStringLiteral("cell_metadata")).toString().trimmed());
-    const QString mapCsvText = loadTextFile(mapCsvPath);
-    const QString cellMetadataText = loadTextFile(cellMetadataPath);
-    const QString textEditorManifestPath = projectSourcePath(dataSources.value(QStringLiteral("text_documents")).toString().trimmed());
+    const QString textEditorManifestPath = projectSourcePath(dataSources.value("text_documents").toString().trimmed());
     TextEditorStore textEditorStore(textEditorManifestPath);
     const QVariantList textEditorDocuments = textEditorStore.load();
-    const QVariantMap textEditorState = textEditorStore.loadState();
-    const QString drawingToolRegistryPath = QStringLiteral(PROJECT_SOURCE_DIR)
-        + QStringLiteral("/data/features/drawing_tool/tool_registry.json");
-    const QVariant drawingToolRegistry = loadJsonObject(drawingToolRegistryPath);
-    QString drawingMetadataPresetsPath = projectSourcePath(dataSources.value(QStringLiteral("drawing_metadata_presets")).toString().trimmed());
-    if (drawingMetadataPresetsPath.trimmed().isEmpty()) {
-        drawingMetadataPresetsPath = QStringLiteral(PROJECT_SOURCE_DIR)
-            + QStringLiteral("/data/features/drawing_tool/metadata_presets.json");
-    }
-    const QVariant drawingMetadataPresets = loadJsonObject(drawingMetadataPresetsPath);
-    DrawingDocumentController drawingController;
-    DrawingCanvasRuntimeAdapter drawingCanvasRuntime;
-    DrawingToolCatalog drawingToolCatalog;
-    DrawingRuntimeRows drawingRuntimeRows;
-    DrawingInteractionRuntime drawingInteractionRuntime;
-    DrawingToolScriptRuntime drawingToolScriptRuntime;
+
+    const QString shellLayoutPath = parser.isSet(shellLayoutOption)
+        ? absolutePath(parser.value(shellLayoutOption))
+        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/shell_layout.json");
+    ShellLayoutStore shellLayoutStore(shellLayoutPath);
+    Q_UNUSED(shellLayoutStore);
+
     QString drawingRecentFilesPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (drawingRecentFilesPath.trimmed().isEmpty()) {
         drawingRecentFilesPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/.draftsman_runtime");
     }
-    drawingRecentFilesPath = QDir(drawingRecentFilesPath).filePath(QStringLiteral("drawing_recent_files.json"));
-    DrawingRecentFilesStore drawingRecentFilesStore(drawingRecentFilesPath);
-    const QVariantList drawingRecentFiles = drawingRecentFilesStore.load();
-
-    QString themePath = parser.isSet(themeOption)
-        ? parser.value(themeOption)
-        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/ui_theme.json");
-    themePath = absolutePath(themePath);
-    const QVariant uiTheme = loadJsonObject(themePath);
-
-    QString shellLayoutPath = parser.isSet(shellLayoutOption)
-        ? parser.value(shellLayoutOption)
-        : QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/data/shell_layout.json");
-    shellLayoutPath = absolutePath(shellLayoutPath);
-    const QVariant shellLayout = loadJsonObject(shellLayoutPath);
-    ShellLayoutStore shellLayoutStore(shellLayoutPath);
+    DrawingRecentFilesStore drawingRecentFilesStore(QDir(drawingRecentFilesPath).filePath(QStringLiteral("drawing_recent_files.json")));
     DrawingDocumentStore drawingDocumentStore;
-    const QString drawingControlScriptPath = parser.isSet(drawingControlScriptOption)
-        ? absolutePath(parser.value(drawingControlScriptOption))
-        : QString();
-    const QVariant drawingControlScript = drawingControlScriptPath.isEmpty()
-        ? QVariantMap()
-        : loadJsonObject(drawingControlScriptPath);
-    const QString drawingControlLibraryPath = parser.isSet(drawingControlLibraryOption)
-        ? absolutePath(parser.value(drawingControlLibraryOption))
-        : QString();
-    const QVariant drawingControlLibrary = drawingControlLibraryPath.isEmpty()
-        ? QVariantMap()
-        : loadJsonObject(drawingControlLibraryPath);
+    Q_UNUSED(drawingDocumentStore);
 
-    QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubject"), reviewSubject);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialReviewSubjectPath"), reviewSubjectPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialUiTheme"), uiTheme);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialUiThemePath"), themePath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfile"), projectProfile);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialProjectProfilePath"), projectProfilePath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialMapCsvPath"), mapCsvPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialMapCsvText"), mapCsvText);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataPath"), cellMetadataPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialCellMetadataText"), cellMetadataText);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorDocuments"), textEditorDocuments);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorState"), textEditorState);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialTextEditorManifestPath"), textEditorManifestPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistry"), drawingToolRegistry);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingToolRegistryPath"), drawingToolRegistryPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingMetadataPresets"), drawingMetadataPresets);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingMetadataPresetsPath"), drawingMetadataPresetsPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingModel"), drawingController.modelDocument());
-    engine.rootContext()->setContextProperty(QStringLiteral("nativeDrawingController"), &drawingController);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingCanvasRuntime"), &drawingCanvasRuntime);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingToolCatalog"), &drawingToolCatalog);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingRuntimeRows"), &drawingRuntimeRows);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingInteractionRuntime"), &drawingInteractionRuntime);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingToolScriptRuntime"), &drawingToolScriptRuntime);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFiles"), drawingRecentFiles);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFilesPath"), drawingRecentFilesPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayoutPath"), shellLayoutPath);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("initialDrawingTelemetryLogEnabled"),
-        parser.isSet(drawingTelemetryLogOption) || envFlag("DRAFTSMAN_DRAWING_TELEMETRY_LOG"));
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("initialDrawingMetricsLogEnabled"),
-        parser.isSet(drawingMetricsLogOption) || envFlag("DRAFTSMAN_DRAWING_METRICS_LOG"));
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlScriptPath"), drawingControlScriptPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlScript"), drawingControlScript);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlLibraryPath"), drawingControlLibraryPath);
-    engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingControlLibrary"), drawingControlLibrary);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("initialDrawingControlScriptExitOnComplete"),
-        parser.isSet(drawingControlScriptExitOption) || envFlag("DRAFTSMAN_DRAWING_CONTROL_SCRIPT_EXIT"));
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("initialDrawingDiscardConfirmationDisabled"),
-        parser.isSet(drawingDisableDiscardConfirmationOption)
-            || envFlag("DRAFTSMAN_DRAWING_DISABLE_DISCARD_CONFIRMATION")
-            || parser.isSet(drawingControlScriptExitOption)
-            || envFlag("DRAFTSMAN_DRAWING_CONTROL_SCRIPT_EXIT"));
-    engine.rootContext()->setContextProperty(QStringLiteral("shellLayoutStore"), &shellLayoutStore);
-    engine.rootContext()->setContextProperty(QStringLiteral("textEditorStore"), &textEditorStore);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingDocumentStore"), &drawingDocumentStore);
-    engine.rootContext()->setContextProperty(QStringLiteral("drawingRecentFilesStore"), &drawingRecentFilesStore);
-    const QUrl mainUrl = QUrl::fromLocalFile(QStringLiteral(QML_SOURCE_DIR) + QStringLiteral("/Main.qml"));
-    QObject::connect(
-        &engine,
-        &QQmlApplicationEngine::objectCreationFailed,
-        &app,
-        []() { QCoreApplication::exit(-1); },
-        Qt::QueuedConnection);
-    engine.load(mainUrl);
+    DrawingDocumentController drawingController;
+    DrawingToolCatalog drawingToolCatalog;
+    DrawingToolScriptRuntime toolScriptRuntime;
 
-    if (engine.rootObjects().isEmpty()) {
-        return -1;
-    }
-
-    QObject *rootObject = engine.rootObjects().constFirst();
-    if (rootObject == nullptr) {
-        return -1;
-    }
-
-    if (auto *runtime = rootObject->findChild<QObject *>(QStringLiteral("runtimeController"))) {
-        if (parser.isSet(actionOption)) {
-            QMetaObject::invokeMethod(
-                runtime,
-                "runCustomAction",
-                Q_ARG(QVariant, QVariant(parser.value(actionOption))));
+    if (parser.isSet(drawingControlScriptOption)) {
+        const QVariantMap script = loadJsonObject(absolutePath(parser.value(drawingControlScriptOption)));
+        const QVariantMap library = parser.isSet(drawingControlLibraryOption)
+            ? loadJsonObject(absolutePath(parser.value(drawingControlLibraryOption)))
+            : QVariantMap();
+        const QVariantMap plan = toolScriptRuntime.executionPlan(script, library);
+        QTextStream(stdout) << QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(plan)).toJson(QJsonDocument::Compact)) << '\n';
+        if (parser.isSet(drawingControlScriptExitOption)) {
+            return plan.value("ok").toBool() ? 0 : 1;
         }
     }
 
+    QMainWindow window;
+    window.setWindowTitle("EDI");
+    window.resize(1280, 820);
+    window.menuBar()->addMenu("File");
+    window.menuBar()->addMenu("View");
+
+    auto *root = new QWidget;
+    auto *rootLayout = new QVBoxLayout(root);
+
+    auto *title = new QLabel(QString("EDI  |  %1").arg(textValue(projectProfile.value("profile").toMap(), "label", "Draftsman")));
+    title->setStyleSheet("font-size: 18px; font-weight: 600; padding: 6px;");
+    rootLayout->addWidget(title);
+
+    auto *mainSplitter = new QSplitter(Qt::Horizontal);
+    mainSplitter->addWidget(panel("Activity", listWidget("activity", drawingToolCatalog.toolModes())));
+    mainSplitter->addWidget(panel("Project", listWidget("project", profileRows(projectProfile))));
+    mainSplitter->addWidget(panel("Workspace", buildWorkspace(projectProfile, drawingController)));
+    mainSplitter->addWidget(panel("Inspector", tableFromRows({"Label", "Value"}, validationRows(drawingController.modelDocument()))));
+    mainSplitter->setStretchFactor(0, 0);
+    mainSplitter->setStretchFactor(1, 1);
+    mainSplitter->setStretchFactor(2, 5);
+    mainSplitter->setStretchFactor(3, 2);
+    rootLayout->addWidget(mainSplitter, 1);
+
+    auto *bottom = new QTextEdit;
+    bottom->setReadOnly(true);
+    bottom->setMaximumHeight(140);
+    bottom->setPlainText(QString("Text documents: %1\nRecent drawing files: %2")
+        .arg(textEditorDocuments.size())
+        .arg(drawingRecentFilesStore.load().size()));
+    rootLayout->addWidget(panel("Status", bottom));
+
+    window.setCentralWidget(root);
+    window.statusBar()->showMessage("C++ Widgets shell active");
+    window.show();
     return app.exec();
 }

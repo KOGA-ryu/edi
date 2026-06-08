@@ -1,6 +1,8 @@
 #include "text/TextDocumentStore.h"
 
 #include <cassert>
+#include <optional>
+#include <string>
 
 using namespace edi::text;
 
@@ -14,10 +16,28 @@ int main()
     assert(add.ok);
     assert(add.code == TextResultCode::None);
     assert(store.activeDocumentId == "text_1");
+    assert(textDocumentIndexById(store, "text_1") == 0);
+    assert(findDocument(store, "text_1") == &store.documents[0]);
+    assert(containsDocument(store, "text_1"));
+
+    auto addSecond = addDocument(store, makeTextDocument("text_2", "Reference"));
+    assert(addSecond.ok);
+    assert(store.documents.size() == 2);
+    assert(store.documents[0].id == "text_1");
+    assert(store.documents[1].id == "text_2");
+    assert(textDocumentIndexById(store, "text_2") == 1);
+    assert(findDocument(store, "text_2") == &store.documents[1]);
+    assert(containsDocument(store, "text_2"));
+    assert(textDocumentIndexById(store, "missing") == std::nullopt);
+    assert(findDocument(store, "missing") == nullptr);
+    assert(!containsDocument(store, "missing"));
 
     auto duplicate = addDocument(store, document);
     assert(!duplicate.ok);
     assert(duplicate.code == TextResultCode::DuplicateDocumentId);
+    assert(store.documents.size() == 2);
+    assert(store.documents[0].id == "text_1");
+    assert(store.documents[1].id == "text_2");
 
     TextDocument emptyId = makeTextDocument("");
     auto emptyIdResult = addDocument(store, emptyId);
@@ -38,6 +58,21 @@ int main()
     assert(!missingActive.ok);
     assert(missingActive.code == TextResultCode::DocumentNotFound);
     assert(store.activeDocumentId == "text_1");
+
+    auto missingRemove = removeDocument(store, "missing");
+    assert(!missingRemove.ok);
+    assert(missingRemove.code == TextResultCode::DocumentNotFound);
+    assert(store.activeDocumentId == "text_1");
+    assert(store.documents.size() == 2);
+    assert(store.documents[0].id == "text_1");
+    assert(store.documents[1].id == "text_2");
+
+    auto removeFirst = removeDocument(store, "text_1");
+    assert(removeFirst.ok);
+    assert(store.documents.size() == 1);
+    assert(store.documents[0].id == "text_2");
+    assert(store.activeDocumentId == "text_2");
+    assert(textDocumentIndexById(store, "text_2") == 0);
 
     assert(textResultCodeName(TextResultCode::InvalidRange) == std::string("invalid_range"));
     assert(isValidTitle("Title"));

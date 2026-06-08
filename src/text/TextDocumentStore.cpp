@@ -1,6 +1,5 @@
 #include "text/TextDocumentStore.h"
 
-#include <algorithm>
 #include <utility>
 
 namespace edi::text {
@@ -15,20 +14,31 @@ TextStoreResult TextStoreResult::rejected(TextResultCode code, std::string messa
     return {false, code, std::move(message)};
 }
 
+std::optional<std::size_t> textDocumentIndexById(const TextDocumentStore &store, const TextDocumentId &id)
+{
+    for (std::size_t index = 0; index < store.documents.size(); ++index) {
+        if (store.documents[index].id == id) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
 TextDocument *findDocument(TextDocumentStore &store, const TextDocumentId &id)
 {
-    auto it = std::find_if(store.documents.begin(), store.documents.end(), [&](const TextDocument &document) {
-        return document.id == id;
-    });
-    return it == store.documents.end() ? nullptr : &*it;
+    const auto index = textDocumentIndexById(store, id);
+    return index ? &store.documents[*index] : nullptr;
 }
 
 const TextDocument *findDocument(const TextDocumentStore &store, const TextDocumentId &id)
 {
-    auto it = std::find_if(store.documents.begin(), store.documents.end(), [&](const TextDocument &document) {
-        return document.id == id;
-    });
-    return it == store.documents.end() ? nullptr : &*it;
+    const auto index = textDocumentIndexById(store, id);
+    return index ? &store.documents[*index] : nullptr;
+}
+
+bool containsDocument(const TextDocumentStore &store, const TextDocumentId &id)
+{
+    return textDocumentIndexById(store, id).has_value();
 }
 
 TextStoreResult addDocument(TextDocumentStore &store, TextDocument document)
@@ -36,7 +46,7 @@ TextStoreResult addDocument(TextDocumentStore &store, TextDocument document)
     if (document.id.empty()) {
         return TextStoreResult::rejected(TextResultCode::EmptyDocumentId, "document id is required");
     }
-    if (findDocument(store, document.id) != nullptr) {
+    if (containsDocument(store, document.id)) {
         return TextStoreResult::rejected(TextResultCode::DuplicateDocumentId, "document id already exists");
     }
     if (!store.activeDocumentId) {
@@ -48,15 +58,11 @@ TextStoreResult addDocument(TextDocumentStore &store, TextDocument document)
 
 TextStoreResult removeDocument(TextDocumentStore &store, const TextDocumentId &id)
 {
-    const auto before = store.documents.size();
-    store.documents.erase(
-        std::remove_if(store.documents.begin(), store.documents.end(), [&](const TextDocument &document) {
-            return document.id == id;
-        }),
-        store.documents.end());
-    if (store.documents.size() == before) {
+    const auto index = textDocumentIndexById(store, id);
+    if (!index) {
         return TextStoreResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
     }
+    store.documents.erase(store.documents.begin() + static_cast<std::ptrdiff_t>(*index));
     if (store.activeDocumentId == id) {
         if (store.documents.empty()) {
             store.activeDocumentId.reset();
@@ -69,7 +75,7 @@ TextStoreResult removeDocument(TextDocumentStore &store, const TextDocumentId &i
 
 TextStoreResult setActiveDocument(TextDocumentStore &store, TextDocumentId id)
 {
-    if (findDocument(store, id) == nullptr) {
+    if (!containsDocument(store, id)) {
         return TextStoreResult::rejected(TextResultCode::DocumentNotFound, "document does not exist");
     }
     store.activeDocumentId = std::move(id);

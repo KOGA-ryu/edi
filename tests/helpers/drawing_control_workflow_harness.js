@@ -113,6 +113,7 @@ function workflowCoverageExpectations(repoRoot) {
         path: expectationsPath,
         schemaVersion: Number(expectations.schemaVersion || 1),
         minimums: expectations.minimums || {},
+        selectors: Array.isArray(expectations.selectors) ? expectations.selectors : [],
     }
 }
 

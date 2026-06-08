@@ -72,6 +72,8 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 
 `workflow_coverage_expectations.json` turns dry-run coverage into a testable contract. If a fixture is removed or retagged and coverage drops below the minimums, `drawing_canvas_control_workflow_coverage_tests` fails before any app launch is needed.
 
+The same file also protects focused selectors such as `--tag line`, `--category edit`, and exact fixture runs. This keeps the cheap probe commands useful as the workflow set changes.
+
 ## Operating Rule
 
 Probe with `--dry-run --compact`, then run the smallest selector that covers the behavior under investigation. Use full dry-run only when you need exact fixture names.

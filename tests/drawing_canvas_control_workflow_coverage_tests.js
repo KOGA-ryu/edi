@@ -25,6 +25,23 @@ function runCoverageContract(repoRoot) {
     expect(result.ok, `workflow coverage expectations should pass: ${result.failures.map(failure => failure.message).join(", ")}`)
 }
 
+function runSelectorCoverageContract(repoRoot) {
+    const expectations = WorkflowHarness.workflowCoverageExpectations(repoRoot)
+    const selectors = Array.isArray(expectations.selectors) ? expectations.selectors : []
+    expect(selectors.length >= 3, "workflow coverage expectations should include selector contracts")
+
+    for (const selector of selectors) {
+        const manifest = WorkflowHarness.workflowFixtures(repoRoot, selector.env || {})
+        const coverage = WorkflowHarness.workflowCoverage(manifest.selectedWorkflows)
+        const result = WorkflowHarness.evaluateWorkflowCoverage(coverage, {
+            schemaVersion: expectations.schemaVersion,
+            minimums: selector.minimums || {},
+        })
+        expect(manifest.selectedWorkflows.length > 0, `${selector.id} should select workflows`)
+        expect(result.ok, `${selector.id} coverage expectations should pass: ${result.failures.map(failure => failure.message).join(", ")}`)
+    }
+}
+
 function runFailureContract(repoRoot) {
     const manifest = WorkflowHarness.workflowFixtures(repoRoot, {})
     const coverage = WorkflowHarness.workflowCoverage(manifest.workflows)
@@ -45,6 +62,7 @@ function runFailureContract(repoRoot) {
 
 const repoRoot = path.join(__dirname, "..")
 runCoverageContract(repoRoot)
+runSelectorCoverageContract(repoRoot)
 runFailureContract(repoRoot)
 
 if (process.exitCode) {

@@ -25,5 +25,69 @@
       "parameter": 2,
       "viewport": 1
     }
-  }
+  },
+  "selectors": [
+    {
+      "id": "line_tag",
+      "env": {
+        "DRAWING_WORKFLOW_TAG": "line"
+      },
+      "minimums": {
+        "kinds": {
+          "line": 4
+        },
+        "categories": {
+          "create": 1,
+          "edit": 1,
+          "move": 1,
+          "selection": 1
+        },
+        "tags": {
+          "line": 4,
+          "geometry": 3,
+          "handle": 1
+        }
+      }
+    },
+    {
+      "id": "edit_category",
+      "env": {
+        "DRAWING_WORKFLOW_CATEGORY": "edit"
+      },
+      "minimums": {
+        "kinds": {
+          "line": 1,
+          "point": 1,
+          "circle": 1,
+          "rectangle": 1
+        },
+        "categories": {
+          "edit": 4
+        },
+        "tags": {
+          "handle": 4,
+          "geometry": 4
+        }
+      }
+    },
+    {
+      "id": "arc_fixture",
+      "env": {
+        "DRAWING_WORKFLOW_FIXTURE": "arc_create_basic.json"
+      },
+      "minimums": {
+        "kinds": {
+          "arc": 1
+        },
+        "categories": {
+          "create": 1
+        },
+        "tags": {
+          "arc": 1,
+          "parameter": 1,
+          "geometry": 1
+        }
+      }
+    }
+  ]
 }

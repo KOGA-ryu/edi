@@ -25,6 +25,8 @@ int main(int argc, char **argv)
     QVariantMap initial = controller.modelDocument();
     assert(initial.value("engine").toString() == "cpp_drafting_document");
     assert(initial.value("drawing_objects").toList().empty());
+    assert(!controller.gridSnapEnabled());
+    assert(!controller.objectSnapEnabled());
 
     controller.setSelectedToolId("point_tool");
     controller.clickCanvasNormalized(0.25, 0.5);
@@ -84,6 +86,27 @@ int main(int argc, char **argv)
     assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.5));
     assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.4));
     assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
+
+    DrawingDocumentController gridController;
+    gridController.setGridSnapEnabled(true);
+    assert(gridController.gridSnapEnabled());
+    gridController.setSelectedToolId("point_tool");
+    gridController.clickCanvasNormalized(0.14, 0.14);
+    QVariantMap gridPoint = gridController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(gridPoint.value("x").toDouble(), 0.125));
+    assert(nearlyEqual(gridPoint.value("y").toDouble(), 0.125));
+
+    DrawingDocumentController objectSnapController;
+    objectSnapController.setSelectedToolId("point_tool");
+    objectSnapController.clickCanvasNormalized(0.25, 0.25);
+    objectSnapController.setObjectSnapEnabled(true);
+    assert(objectSnapController.objectSnapEnabled());
+    objectSnapController.clickCanvasNormalized(0.26, 0.24);
+    QVariantList snappedObjects = objectSnapController.modelDocument().value("drawing_objects").toList();
+    assert(snappedObjects.size() == 2);
+    QVariantMap snappedPoint = snappedObjects.back().toMap();
+    assert(nearlyEqual(snappedPoint.value("x").toDouble(), 0.25));
+    assert(nearlyEqual(snappedPoint.value("y").toDouble(), 0.25));
 
     return 0;
 }

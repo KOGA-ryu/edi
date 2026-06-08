@@ -1,6 +1,7 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
@@ -54,11 +55,21 @@ int main(int argc, char **argv)
     }
     toolLayout->addStretch(1);
 
+    auto *gridSnap = new QCheckBox(QStringLiteral("Grid snap"));
+    gridSnap->setChecked(controller->gridSnapEnabled());
+    toolLayout->addWidget(gridSnap);
+
+    auto *objectSnap = new QCheckBox(QStringLiteral("Object snap"));
+    objectSnap->setChecked(controller->objectSnapEnabled());
+    toolLayout->addWidget(objectSnap);
+
     auto *canvas = new DrawingCanvasWidget(controller);
 
     QObject::connect(toolGroup, &QButtonGroup::buttonClicked, controller, [controller](QAbstractButton *button) {
         controller->setSelectedToolId(button->property("toolId").toString());
     });
+    QObject::connect(gridSnap, &QCheckBox::toggled, controller, &DrawingDocumentController::setGridSnapEnabled);
+    QObject::connect(objectSnap, &QCheckBox::toggled, controller, &DrawingDocumentController::setObjectSnapEnabled);
 
     layout->addWidget(title);
     layout->addWidget(tools);

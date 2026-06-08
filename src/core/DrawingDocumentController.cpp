@@ -140,6 +140,12 @@ QVariantMap DrawingDocumentController::modelDocument() const
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
         {QStringLiteral("revision"), static_cast<int>(m_document.revision)},
+        {QStringLiteral("snap"), QVariantMap{
+            {QStringLiteral("grid_enabled"), m_snapSettings.gridEnabled},
+            {QStringLiteral("object_enabled"), m_snapSettings.objectSnapEnabled},
+            {QStringLiteral("grid_step"), m_snapSettings.gridStep},
+            {QStringLiteral("object_tolerance"), m_snapSettings.objectTolerance},
+        }},
         {QStringLiteral("validation"), QVariantList{}},
     };
 }
@@ -154,6 +160,16 @@ QString DrawingDocumentController::selectedObjectId() const
     return m_document.activeObjectId ? toQString(*m_document.activeObjectId) : QString();
 }
 
+bool DrawingDocumentController::gridSnapEnabled() const
+{
+    return m_snapSettings.gridEnabled;
+}
+
+bool DrawingDocumentController::objectSnapEnabled() const
+{
+    return m_snapSettings.objectSnapEnabled;
+}
+
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
 {
     if (m_selectedToolId == toolId) {
@@ -164,11 +180,29 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     emit modelChanged();
 }
 
+void DrawingDocumentController::setGridSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.gridEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.gridEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setObjectSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.objectSnapEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.objectSnapEnabled = enabled;
+    emit modelChanged();
+}
+
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);
     y = clamp01(y);
-    const Point2D point = resolveSnap({x, y}, m_document).point;
+    const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
         const DraftingHitTestResult hit = hitTestDocument(m_document, point);
@@ -195,8 +229,8 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     }
 
     if (!m_hasPendingPoint) {
-        m_pendingX = x;
-        m_pendingY = y;
+        m_pendingX = point.x;
+        m_pendingY = point.y;
         m_hasPendingPoint = true;
         emit modelChanged();
         return;
@@ -218,7 +252,7 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
         return false;
     }
 
-    const Point2D point = resolveSnap({x, y}, m_document).point;
+    const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});

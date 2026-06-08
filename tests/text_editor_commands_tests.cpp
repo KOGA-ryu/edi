@@ -8,6 +8,13 @@ using namespace edi::text;
 int main()
 {
     TextDocumentStore store;
+    auto acceptedResult = TextCommandResult::accepted();
+    assert(acceptedResult.ok);
+    assert(acceptedResult.code == TextResultCode::None);
+    auto rejectedResult = TextCommandResult::rejected(TextResultCode::DocumentNotFound, "missing");
+    assert(!rejectedResult.ok);
+    assert(rejectedResult.code == TextResultCode::DocumentNotFound);
+
     auto create = applyTextEditorCommand(store, CreateTextDocumentCommand{makeTextDocument("text_1")});
     assert(create.ok);
     assert(create.code == TextResultCode::None);

@@ -31,11 +31,13 @@ int main()
 
     auto empty = inspectMessagePack({}, "fixture");
     assert(!empty.ok);
+    assert(empty.code == FormatResultCode::EmptyBuffer);
     assert(empty.errors.front().code == FormatResultCode::EmptyBuffer);
 
     ByteBuffer badSchema = {'B', 'A', 'D', '!', 1, 0};
     auto unsupportedSchema = inspectMessagePack(badSchema, "fixture");
     assert(!unsupportedSchema.ok);
+    assert(unsupportedSchema.code == FormatResultCode::UnsupportedSchema);
     assert(unsupportedSchema.errors.front().code == FormatResultCode::UnsupportedSchema);
 
     ByteBuffer badVersion = {ediMessagePackMagic0, ediMessagePackMagic1, ediMessagePackMagic2, ediMessagePackMagic3, 99, 0};
@@ -59,6 +61,7 @@ int main()
     tooManyRecords.recordCount = static_cast<std::size_t>(std::numeric_limits<std::uint8_t>::max()) + 1;
     auto tooMany = writeMessagePackRecordSet(tooManyRecords, "fixture");
     assert(!tooMany.ok);
+    assert(tooMany.code == FormatResultCode::InvalidRecordCount);
     assert(tooMany.errors.front().code == FormatResultCode::InvalidRecordCount);
 
     return 0;

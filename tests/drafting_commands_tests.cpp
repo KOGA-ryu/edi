@@ -8,6 +8,13 @@ int main()
 {
     DraftingDocument document = makeDraftingDocument("doc");
 
+    auto acceptedResult = DraftingCommandResult::accepted();
+    assert(acceptedResult.ok);
+    assert(acceptedResult.code == DraftingResultCode::None);
+    auto rejectedResult = DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "missing");
+    assert(!rejectedResult.ok);
+    assert(rejectedResult.code == DraftingResultCode::ObjectNotFound);
+
     DraftingObject point;
     point.id = "point_1";
     point.kind = DraftingShapeKind::Point;

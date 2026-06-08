@@ -22,6 +22,7 @@ int main()
 
     auto plan = planScriptCommands(recipe, {request});
     assert(plan.ok);
+    assert(plan.code == ScriptResultCode::None);
     assert(plan.dryRun);
     assert(plan.requests.size() == 1);
     assert(plan.diagnostics.empty());
@@ -39,6 +40,7 @@ int main()
 
     auto invalidRecipePlan = planScriptCommands(invalidRecipe, {request});
     assert(!invalidRecipePlan.ok);
+    assert(invalidRecipePlan.code == ScriptResultCode::InvalidRecipe);
     assert(invalidRecipePlan.diagnostics.front().code == ScriptResultCode::InvalidRecipe);
     assert(invalidRecipePlan.requests.empty());
 
@@ -46,6 +48,7 @@ int main()
     badDomain.domain = "filesystem";
     auto badDomainPlan = planScriptCommands(recipe, {badDomain});
     assert(!badDomainPlan.ok);
+    assert(badDomainPlan.code == ScriptResultCode::InvalidDomain);
     assert(badDomainPlan.diagnostics.front().code == ScriptResultCode::InvalidDomain);
     assert(badDomainPlan.requests.empty());
 
@@ -53,13 +56,22 @@ int main()
     emptyCommand.command.clear();
     auto emptyCommandPlan = planScriptCommands(recipe, {emptyCommand});
     assert(!emptyCommandPlan.ok);
+    assert(emptyCommandPlan.code == ScriptResultCode::InvalidCommand);
     assert(emptyCommandPlan.diagnostics.front().code == ScriptResultCode::InvalidCommand);
 
     ScriptCommandRequest emptyTarget = request;
     emptyTarget.targetId.clear();
     auto emptyTargetPlan = planScriptCommands(recipe, {emptyTarget});
     assert(!emptyTargetPlan.ok);
+    assert(emptyTargetPlan.code == ScriptResultCode::EmptyTargetId);
     assert(emptyTargetPlan.diagnostics.front().code == ScriptResultCode::EmptyTargetId);
+
+    auto acceptedPlan = ScriptCommandPlan::accepted({request});
+    assert(acceptedPlan.ok);
+    assert(acceptedPlan.code == ScriptResultCode::None);
+    auto rejectedPlan = ScriptCommandPlan::rejected(ScriptResultCode::InvalidCommand, "bad command");
+    assert(!rejectedPlan.ok);
+    assert(rejectedPlan.code == ScriptResultCode::InvalidCommand);
 
     return 0;
 }

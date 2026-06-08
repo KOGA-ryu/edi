@@ -3,13 +3,28 @@
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingStore.h"
 
+#include <utility>
+
 namespace edi::drafting {
+
+DraftingCommandResult DraftingCommandResult::accepted()
+{
+    return {true, DraftingResultCode::None, {}};
+}
+
+DraftingCommandResult DraftingCommandResult::rejected(DraftingResultCode code, std::string message)
+{
+    return {false, code, std::move(message)};
+}
 
 namespace {
 
 DraftingCommandResult fromStoreResult(const DraftingStoreResult &result)
 {
-    return {result.ok, result.code, result.message};
+    if (result.ok) {
+        return DraftingCommandResult::accepted();
+    }
+    return DraftingCommandResult::rejected(result.code, result.message);
 }
 
 } // namespace
@@ -30,11 +45,11 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
         } else {
             if (!containsObject(document, typedCommand.objectId)) {
-                return {false, DraftingResultCode::InvalidSelectionTarget, "selection target does not exist"};
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
             }
             selectOnly(document, typedCommand.objectId);
             ++document.revision;
-            return {true, DraftingResultCode::None, {}};
+            return DraftingCommandResult::accepted();
         }
     }, command);
 }

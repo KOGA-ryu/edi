@@ -35,6 +35,8 @@ FormatResultCode formatResultCodeFromName(const std::string &code);
 template <typename T>
 struct FormatResult {
     bool ok = false;
+    FormatResultCode code = FormatResultCode::None;
+    std::string message;
     std::optional<T> value;
     std::vector<FormatWarning> warnings;
     std::vector<FormatError> errors;
@@ -43,6 +45,7 @@ struct FormatResult {
     {
         FormatResult<T> result;
         result.ok = true;
+        result.code = FormatResultCode::None;
         result.value = std::move(value);
         return result;
     }
@@ -56,6 +59,8 @@ struct FormatResult {
     {
         FormatResult<T> result;
         result.ok = false;
+        result.code = code;
+        result.message = message;
         result.errors.push_back({std::move(source), std::move(code), std::move(message)});
         return result;
     }

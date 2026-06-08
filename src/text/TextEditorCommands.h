@@ -50,6 +50,9 @@ struct TextCommandResult {
     bool ok = false;
     TextResultCode code = TextResultCode::None;
     std::string message;
+
+    static TextCommandResult accepted();
+    static TextCommandResult rejected(TextResultCode code, std::string message);
 };
 
 TextCommandResult applyTextEditorCommand(TextDocumentStore &store, const TextEditorCommand &command);

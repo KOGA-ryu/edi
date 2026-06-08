@@ -47,6 +47,9 @@ struct DraftingCommandResult {
     bool ok = false;
     DraftingResultCode code = DraftingResultCode::None;
     std::string message;
+
+    static DraftingCommandResult accepted();
+    static DraftingCommandResult rejected(DraftingResultCode code, std::string message);
 };
 
 DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const DraftingCommand &command);

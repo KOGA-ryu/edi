@@ -5,6 +5,27 @@
 
 namespace edi::scripting {
 
+ScriptCommandPlan ScriptCommandPlan::accepted(std::vector<ScriptCommandRequest> requests)
+{
+    ScriptCommandPlan plan;
+    plan.ok = true;
+    plan.code = ScriptResultCode::None;
+    plan.dryRun = true;
+    plan.requests = std::move(requests);
+    return plan;
+}
+
+ScriptCommandPlan ScriptCommandPlan::rejected(ScriptResultCode code, std::string message)
+{
+    ScriptCommandPlan plan;
+    plan.ok = false;
+    plan.code = code;
+    plan.message = std::move(message);
+    plan.dryRun = true;
+    plan.diagnostics.push_back({plan.code, plan.message});
+    return plan;
+}
+
 namespace {
 
 bool isSupportedDomain(const std::string &domain)
@@ -25,6 +46,8 @@ ScriptCommandPlan planScriptCommands(const LuaRecipe &recipe, std::vector<Script
     ScriptCommandPlan plan;
     auto validation = validateLuaRecipe(recipe);
     if (!validation.ok) {
+        plan.code = validation.diagnostics.empty() ? ScriptResultCode::InvalidRecipe : validation.diagnostics.front().code;
+        plan.message = validation.diagnostics.empty() ? "recipe is invalid" : validation.diagnostics.front().message;
         plan.diagnostics = std::move(validation.diagnostics);
         return plan;
     }
@@ -41,12 +64,12 @@ ScriptCommandPlan planScriptCommands(const LuaRecipe &recipe, std::vector<Script
         }
     }
 
-    plan.ok = plan.diagnostics.empty();
-    plan.dryRun = true;
-    if (plan.ok) {
-        plan.requests = std::move(requests);
+    if (!plan.diagnostics.empty()) {
+        plan.code = plan.diagnostics.front().code;
+        plan.message = plan.diagnostics.front().message;
+        return plan;
     }
-    return plan;
+    return ScriptCommandPlan::accepted(std::move(requests));
 }
 
 } // namespace edi::scripting

@@ -22,11 +22,13 @@ int main()
 
     auto malformed = readTomlStaticConfig("not valid", "fixture");
     assert(!malformed.ok);
+    assert(malformed.code == FormatResultCode::SyntaxError);
     assert(malformed.errors.front().source == "fixture");
     assert(malformed.errors.front().code == FormatResultCode::SyntaxError);
 
     auto unquoted = readTomlStaticConfig("name = EDI\n", "fixture");
     assert(!unquoted.ok);
+    assert(unquoted.code == FormatResultCode::SyntaxError);
     assert(unquoted.errors.front().code == FormatResultCode::SyntaxError);
 
     auto emptyKey = readTomlStaticConfig(" = \"EDI\"\n", "fixture");
@@ -41,6 +43,7 @@ int main()
     invalid[""] = "bad";
     auto badWrite = writeTomlStaticConfig(invalid, "fixture");
     assert(!badWrite.ok);
+    assert(badWrite.code == FormatResultCode::EmptyKey);
     assert(badWrite.errors.front().code == FormatResultCode::EmptyKey);
 
     return 0;

@@ -86,6 +86,10 @@ if(BUILD_TESTING)
             NAME drawing_canvas_hit_test_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_hit_test_tests.js
         )
+        add_test(
+            NAME drawing_canvas_snap_tests
+            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_snap_tests.js
+        )
     endif()
 
     add_executable(drawing_core_smoke

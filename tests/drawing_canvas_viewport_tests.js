@@ -20,7 +20,7 @@ function expectNear(actual, expected, message) {
 }
 
 function loadViewportModule() {
-    const modulePath = path.join(__dirname, "..", "src", "features", "drawing_tool", "DrawingCanvasViewport.js")
+    const modulePath = path.join(__dirname, "..", "src", "runtime", "DrawingCanvasViewport.js")
     const source = fs.readFileSync(modulePath, "utf8").replace(".pragma library", "")
     const context = {
         Math,

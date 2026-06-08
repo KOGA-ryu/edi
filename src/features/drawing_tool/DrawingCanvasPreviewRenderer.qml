@@ -1,6 +1,6 @@
 import QtQuick
 import "../../style"
-import "DrawingCanvasViewport.js" as CanvasViewport
+import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 QtObject {
     id: previewRenderer

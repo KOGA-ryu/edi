@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
-import "DrawingCanvasViewport.js" as CanvasViewport
+import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
     id: drawingWorkspace

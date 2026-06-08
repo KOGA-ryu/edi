@@ -8,7 +8,7 @@
     "model": {
       "objectCount": 1,
       "objects": [
-        { "kind": "circle" }
+        { "kind": "circle", "cx": 0.5, "cy": 0.5, "radius": 0.125 }
       ]
     },
     "metricsByMode": {

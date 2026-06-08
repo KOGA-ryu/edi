@@ -30,10 +30,52 @@ function finite(value) {
     return Number.isFinite(Number(value))
 }
 
+function near(actual, expected, tolerance) {
+    return Math.abs(Number(actual) - Number(expected)) <= Number(tolerance)
+}
+
 function parsePrefixedJsonLines(output, prefix) {
     return output.split(/\r?\n/)
         .filter(line => line.indexOf(prefix) >= 0)
         .map(line => JSON.parse(line.slice(line.indexOf(prefix) + prefix.length)))
+}
+
+function expectedGeometryFields(object) {
+    return [
+        "x",
+        "y",
+        "cx",
+        "cy",
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "width",
+        "height",
+        "radius",
+    ].filter(field => object[field] !== undefined)
+}
+
+function reducedObject(object) {
+    return {
+        id: String(object && object.id || ""),
+        kind: String(object && object.kind || ""),
+        x: Number(object && object.x || 0),
+        y: Number(object && object.y || 0),
+        cx: Number(object && object.cx || 0),
+        cy: Number(object && object.cy || 0),
+        x1: Number(object && object.x1 || 0),
+        y1: Number(object && object.y1 || 0),
+        x2: Number(object && object.x2 || 0),
+        y2: Number(object && object.y2 || 0),
+        width: Number(object && object.width || 0),
+        height: Number(object && object.height || 0),
+        radius: Number(object && object.radius || 0),
+    }
+}
+
+function reducedObjects(summary) {
+    return Array.isArray(summary && summary.objects) ? summary.objects.map(reducedObject) : []
 }
 
 function reducedMetricRecord(record) {
@@ -165,8 +207,17 @@ function checkSummary(script, summary, label, scriptFailures) {
     }
     const expectedObjects = Array.isArray(expectedModel.objects) ? expectedModel.objects : []
     for (const expectedObject of expectedObjects) {
-        expectInBucket((summary.objects || []).some(object => String(object.kind || "") === String(expectedObject.kind || "")),
-            `${label} should include object kind ${expectedObject.kind}`, scriptFailures)
+        const actualObject = (summary.objects || []).find(object => String(object.kind || "") === String(expectedObject.kind || ""))
+        expectInBucket(!!actualObject, `${label} should include object kind ${expectedObject.kind}`, scriptFailures)
+        if (!actualObject) {
+            continue
+        }
+        const tolerance = Number(expectedObject.tolerance !== undefined ? expectedObject.tolerance : expectedModel.tolerance !== undefined ? expectedModel.tolerance : 0.0001)
+        for (const field of expectedGeometryFields(expectedObject)) {
+            expectInBucket(finite(actualObject[field]), `${label} ${expectedObject.kind}.${field} should be finite`, scriptFailures)
+            expectInBucket(near(actualObject[field], expectedObject[field], tolerance),
+                `${label} ${expectedObject.kind}.${field} expected ${expectedObject[field]}, got ${actualObject[field]}`, scriptFailures)
+        }
     }
     const expectedSelection = script.expect && script.expect.selection ? script.expect.selection : {}
     if (expectedSelection.minSelected !== undefined) {
@@ -281,6 +332,7 @@ function runFixture(repoRoot, fixtureName) {
         }
     }
     const summary = summaries.length === 1 ? reducedSummary(summaries[0]) : reducedSummary({})
+    const objects = summaries.length === 1 ? reducedObjects(summaries[0]) : []
     return {
         name: String(script.name || fixtureName),
         fixture: fixtureName,
@@ -288,6 +340,7 @@ function runFixture(repoRoot, fixtureName) {
         failures: scriptFailures,
         budgetFailures,
         summary,
+        objects,
         modes,
     }
 }

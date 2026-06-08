@@ -17,7 +17,7 @@
     "model": {
       "objectCount": 1,
       "objects": [
-        { "kind": "rectangle" }
+        { "kind": "rectangle", "x": 0.1875, "y": 0.5, "width": 0.25, "height": 0.1875 }
       ]
     },
     "metricsByMode": {

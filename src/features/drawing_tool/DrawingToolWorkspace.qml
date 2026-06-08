@@ -67,6 +67,8 @@ Rectangle {
                         kind: String(object.kind || ""),
                         x: Number(object.x !== undefined ? object.x : object.x_px || 0),
                         y: Number(object.y !== undefined ? object.y : object.y_px || 0),
+                        cx: Number(object.cx !== undefined ? object.cx : object.cx_px || 0),
+                        cy: Number(object.cy !== undefined ? object.cy : object.cy_px || 0),
                         x1: Number(object.x1 !== undefined ? object.x1 : object.x1_px || 0),
                         y1: Number(object.y1 !== undefined ? object.y1 : object.y1_px || 0),
                         x2: Number(object.x2 !== undefined ? object.x2 : object.x2_px || 0),

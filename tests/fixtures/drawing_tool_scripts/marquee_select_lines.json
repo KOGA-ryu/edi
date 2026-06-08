@@ -13,7 +13,10 @@
   ],
   "expect": {
     "model": {
-      "objectCount": 1
+      "objectCount": 1,
+      "objects": [
+        { "kind": "line", "x1": 0.25, "y1": 0.25, "x2": 0.5, "y2": 0.25 }
+      ]
     },
     "selection": {
       "minSelected": 1

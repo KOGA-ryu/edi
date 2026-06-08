@@ -17,7 +17,7 @@
     "model": {
       "objectCount": 1,
       "objects": [
-        { "kind": "point" }
+        { "kind": "point", "x": 0.25, "y": 0.75 }
       ]
     },
     "metricsByMode": {

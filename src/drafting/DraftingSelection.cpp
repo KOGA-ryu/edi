@@ -21,6 +21,19 @@ void selectOnly(DraftingDocument &document, DraftingObjectId id)
     }
 }
 
+void selectMany(DraftingDocument &document, std::vector<DraftingObjectId> ids)
+{
+    document.selectedObjectIds.clear();
+    document.activeObjectId.reset();
+    for (DraftingObjectId &id : ids) {
+        if (!containsObject(document, id) || isSelected(document, id)) {
+            continue;
+        }
+        document.activeObjectId = id;
+        document.selectedObjectIds.push_back(std::move(id));
+    }
+}
+
 void toggleSelection(DraftingDocument &document, DraftingObjectId id)
 {
     auto it = std::find(document.selectedObjectIds.begin(), document.selectedObjectIds.end(), id);

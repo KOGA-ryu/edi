@@ -76,6 +76,16 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
         drawObject(painter, value.toMap());
     }
 
+    if (drawing_canvas::isMarquee(m_gestureState) && m_gestureState.value(QStringLiteral("moved")).toBool()) {
+        const QVariantMap start = m_gestureState.value(QStringLiteral("startPoint")).toMap();
+        const QVariantMap last = m_gestureState.value(QStringLiteral("lastPoint")).toMap();
+        const QRectF marquee(canvasToScreen(start.value(QStringLiteral("x")).toDouble(), start.value(QStringLiteral("y")).toDouble()),
+            canvasToScreen(last.value(QStringLiteral("x")).toDouble(), last.value(QStringLiteral("y")).toDouble()));
+        painter.setPen(QPen(QColor("#75c7ff"), 1, Qt::DashLine));
+        painter.setBrush(QColor(117, 199, 255, 32));
+        painter.drawRect(marquee.normalized());
+    }
+
     painter.setPen(QColor("#aeb7c7"));
     painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
         QString("Tool: %1\nSelected: %2")
@@ -117,6 +127,8 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
             selectedIds,
             {});
         m_lastDragCanvasPoint = point;
+    } else if (m_controller->selectedToolId() == QStringLiteral("select_move")) {
+        m_gestureState = drawing_canvas::beginMarquee(m_gestureState, {point.x(), point.y()}, {});
     }
 }
 
@@ -149,6 +161,12 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
+    if (drawing_canvas::isMarquee(m_gestureState)) {
+        update();
+        event->accept();
+        return;
+    }
+
     QWidget::mouseMoveEvent(event);
 }
 
@@ -166,6 +184,20 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
     }
     if (event->button() == Qt::LeftButton && drawing_canvas::isObjectDrag(m_gestureState)) {
         m_gestureState = drawing_canvas::finishGesture(m_gestureState, {{QStringLiteral("incremental"), true}}).value(QStringLiteral("state")).toMap();
+        event->accept();
+        return;
+    }
+    if (event->button() == Qt::LeftButton && drawing_canvas::isMarquee(m_gestureState)) {
+        const QVariantMap start = m_gestureState.value(QStringLiteral("startPoint")).toMap();
+        const QVariantMap last = m_gestureState.value(QStringLiteral("lastPoint")).toMap();
+        if (m_gestureState.value(QStringLiteral("moved")).toBool() && m_controller != nullptr) {
+            m_controller->selectObjectsInBoundsNormalized(
+                start.value(QStringLiteral("x")).toDouble(),
+                start.value(QStringLiteral("y")).toDouble(),
+                last.value(QStringLiteral("x")).toDouble(),
+                last.value(QStringLiteral("y")).toDouble());
+        }
+        m_gestureState = drawing_canvas::finishGesture(m_gestureState, {}).value(QStringLiteral("state")).toMap();
         event->accept();
         return;
     }

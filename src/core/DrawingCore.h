@@ -26,6 +26,7 @@ public:
     void clickCanvasNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
+    bool selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2);
 
 signals:
     void modelChanged();

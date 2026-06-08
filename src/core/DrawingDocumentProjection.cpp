@@ -70,10 +70,16 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
     for (const DraftingObject &object : document.objects) {
         objects.push_back(draftingObjectToCanvasProjection(object));
     }
+    QVariantList selectedObjectIds;
+    for (const DraftingObjectId &id : document.selectedObjectIds) {
+        selectedObjectIds.push_back(qStringFromStdString(id));
+    }
 
     return {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
+        {QStringLiteral("selected_object_ids"), selectedObjectIds},
+        {QStringLiteral("active_object_id"), document.activeObjectId ? qStringFromStdString(*document.activeObjectId) : QString()},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},
         {QStringLiteral("snap"), QVariantMap{
             {QStringLiteral("grid_enabled"), snapSettings.gridEnabled},

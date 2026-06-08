@@ -12,6 +12,7 @@
 #include <cmath>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -65,6 +66,14 @@ std::optional<DraftingObject> buildObjectForTool(const QString &toolId, const QS
     }
     built.object.metadata.toolProvenance = toolId.toStdString();
     return built.object;
+}
+
+bool boundsIntersect(Bounds2D a, Bounds2D b)
+{
+    return a.x <= b.x + b.width
+        && a.x + a.width >= b.x
+        && a.y <= b.y + b.height
+        && a.y + a.height >= b.y;
 }
 
 } // namespace
@@ -205,6 +214,29 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
         return false;
     }
 
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2)
+{
+    const double left = std::min(clamp01(x1), clamp01(x2));
+    const double top = std::min(clamp01(y1), clamp01(y2));
+    const double right = std::max(clamp01(x1), clamp01(x2));
+    const double bottom = std::max(clamp01(y1), clamp01(y2));
+    const Bounds2D marquee{left, top, right - left, bottom - top};
+
+    std::vector<DraftingObjectId> objectIds;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.visible && boundsIntersect(object.bounds, marquee)) {
+            objectIds.push_back(object.id);
+        }
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectsCommand{objectIds});
+    if (!result.ok) {
+        return false;
+    }
     emit modelChanged();
     return true;
 }

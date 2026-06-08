@@ -108,5 +108,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(snappedPoint.value("x").toDouble(), 0.25));
     assert(nearlyEqual(snappedPoint.value("y").toDouble(), 0.25));
 
+    DrawingDocumentController selectionController;
+    selectionController.setSelectedToolId("point_tool");
+    selectionController.clickCanvasNormalized(0.1, 0.1);
+    selectionController.clickCanvasNormalized(0.4, 0.4);
+    selectionController.clickCanvasNormalized(0.8, 0.8);
+    assert(selectionController.selectObjectsInBoundsNormalized(0.0, 0.0, 0.5, 0.5));
+    QVariantMap selectionModel = selectionController.modelDocument();
+    QVariantList selectedIds = selectionModel.value("selected_object_ids").toList();
+    assert(selectedIds.size() == 2);
+    assert(selectionModel.value("active_object_id").toString() == selectedIds.back().toString());
+
     return 0;
 }

@@ -46,6 +46,10 @@ struct SelectObjectCommand {
     DraftingObjectId objectId;
 };
 
+struct SelectObjectsCommand {
+    std::vector<DraftingObjectId> objectIds;
+};
+
 using DraftingCommand = std::variant<
     CreateObjectCommand,
     DeleteObjectCommand,
@@ -54,7 +58,8 @@ using DraftingCommand = std::variant<
     EditObjectHandleCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
-    SelectObjectCommand>;
+    SelectObjectCommand,
+    SelectObjectsCommand>;
 
 struct DraftingCommandResult {
     bool ok = false;

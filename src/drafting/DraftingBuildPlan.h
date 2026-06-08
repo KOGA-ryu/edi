@@ -16,6 +16,17 @@ struct BuildPlanNote {
     std::string constructionNote;
 };
 
+struct BuildPlanNoteResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    BuildPlanNote note;
+
+    static BuildPlanNoteResult accepted(BuildPlanNote note);
+    static BuildPlanNoteResult rejected(DraftingResultCode code, std::string message, BuildPlanNote note);
+};
+
+BuildPlanNoteResult buildPlanNoteForObjectChecked(const DraftingObject &object);
 BuildPlanNote buildPlanNoteForObject(const DraftingObject &object);
 
 } // namespace edi::drafting

@@ -17,7 +17,10 @@ int main()
     measuredRect.metadata.measurement.canvasUnitsPerRealUnit = 2.0;
     measuredRect.metadata.measurementNote = "cut from acrylic";
 
-    BuildPlanNote rectNote = buildPlanNoteForObject(measuredRect);
+    auto checkedRectNote = buildPlanNoteForObjectChecked(measuredRect);
+    assert(checkedRectNote.ok);
+    assert(checkedRectNote.code == DraftingResultCode::None);
+    BuildPlanNote rectNote = checkedRectNote.note;
     assert(rectNote.objectId == "panel_01");
     assert(rectNote.materialNote.empty());
     assert(rectNote.constructionNote == "cut from acrylic");
@@ -33,7 +36,9 @@ int main()
     measuredLine.metadata.measurement.unit = MeasurementUnit::Inch;
     measuredLine.metadata.measurement.canvasUnitsPerRealUnit = 4.0;
 
-    BuildPlanNote lineNote = buildPlanNoteForObject(measuredLine);
+    auto checkedLineNote = buildPlanNoteForObjectChecked(measuredLine);
+    assert(checkedLineNote.ok);
+    BuildPlanNote lineNote = checkedLineNote.note;
     assert(lineNote.objectId == "rail_01");
     assert(lineNote.constructionNote.empty());
     assert(lineNote.measurementLines.size() == 3);
@@ -43,6 +48,12 @@ int main()
 
     DraftingObject invalidMeasuredRect = measuredRect;
     invalidMeasuredRect.metadata.measurement.canvasUnitsPerRealUnit = 0.0;
+    auto checkedInvalidNote = buildPlanNoteForObjectChecked(invalidMeasuredRect);
+    assert(!checkedInvalidNote.ok);
+    assert(checkedInvalidNote.code == DraftingResultCode::InvalidMetadata);
+    assert(checkedInvalidNote.note.objectId == "panel_01");
+    assert(checkedInvalidNote.note.measurementLines.empty());
+    assert(checkedInvalidNote.note.constructionNote == "cut from acrylic");
     BuildPlanNote invalidNote = buildPlanNoteForObject(invalidMeasuredRect);
     assert(invalidNote.objectId == "panel_01");
     assert(invalidNote.measurementLines.empty());

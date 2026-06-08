@@ -125,6 +125,17 @@ if(BUILD_TESTING)
 
     add_test(NAME drawing_canvas_adapter_tests COMMAND drawing_canvas_adapter_tests)
 
+    add_executable(no_javascript_files_tests
+        tests/no_javascript_files_tests.cpp
+    )
+
+    target_compile_definitions(no_javascript_files_tests PRIVATE
+        PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+
+    add_test(NAME no_javascript_files_tests COMMAND no_javascript_files_tests)
+    set_tests_properties(no_javascript_files_tests PROPERTIES DISABLED TRUE)
+
     add_executable(drawing_object_model_tests
         tests/drawing_object_model_tests.cpp
         src/core/DrawingObjectModel.h

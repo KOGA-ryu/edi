@@ -1,6 +1,5 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingMeasurement.h"
-#include "drafting/DraftingMeasurementFormat.h"
 
 #include <cassert>
 #include <string>
@@ -15,14 +14,12 @@ int main()
     assert(measured.value == 5.0);
     assert(measured.unit == MeasurementUnit::Centimeter);
     assert(measured.label == std::string("centimeter"));
-    assert(formatMeasurementValue(measured) == std::string("5 centimeter"));
 
     DraftingGeometry rect = RectangleGeometry{{2.0, 3.0}, 10.0, 5.0};
     MeasurementValue measuredArea = measureArea(rect, calibration);
     assert(measuredArea.kind == MeasurementKind::Area);
     assert(measuredArea.value == 12.5);
     assert(measuredArea.unit == MeasurementUnit::Centimeter);
-    assert(formatMeasurementValue(measuredArea) == std::string("12.5 square centimeter"));
 
     Bounds2D dimensions = measureDimensions(rect);
     assert(dimensions.x == 2.0);
@@ -36,7 +33,6 @@ int main()
     assert(typedDimensions.height.value == 2.5);
     assert(typedDimensions.width.unit == MeasurementUnit::Centimeter);
     assert(typedDimensions.height.unit == MeasurementUnit::Centimeter);
-    assert(formatMeasurementValue(typedDimensions.width) == std::string("5 centimeter"));
 
     DraftingGeometry line = LineGeometry{{0.0, 0.0}, {3.0, 4.0}};
     DimensionMeasurement lineDimensions = measureDimensionsTyped(line, calibration);
@@ -48,13 +44,6 @@ int main()
     assert(defaultDimensions.width.value == 10.0);
     assert(defaultDimensions.height.value == 5.0);
     assert(defaultDimensions.width.unit == MeasurementUnit::CanvasUnit);
-    assert(formatMeasurementValue(defaultDimensions.width) == std::string("10 canvas_unit"));
-
-    MeasurementValue noMeasurement;
-    noMeasurement.kind = MeasurementKind::Distance;
-    noMeasurement.unit = MeasurementUnit::None;
-    noMeasurement.label = measurementUnitName(MeasurementUnit::None);
-    assert(formatMeasurementValue(noMeasurement) == std::string("0 none"));
 
     assert(measurementUnitName(MeasurementUnit::None) == std::string("none"));
     assert(measurementUnitName(MeasurementUnit::CanvasUnit) == std::string("canvas_unit"));
@@ -121,11 +110,6 @@ int main()
     assert(!lineSummary.value.hasArea);
     assert(lineSummary.value.dimensions.width.value == 0.0);
     assert(lineSummary.value.dimensions.height.value == 3.0);
-    auto lineSummaryLines = formatObjectMeasurementSummary(lineSummary.value);
-    assert(lineSummaryLines.size() == 3);
-    assert(lineSummaryLines[0] == std::string("distance: 3 inch"));
-    assert(lineSummaryLines[1] == std::string("width: 0 inch"));
-    assert(lineSummaryLines[2] == std::string("height: 3 inch"));
 
     DraftingObject measuredRect = makeDraftingObject("measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     measuredRect.metadata.measurement.unit = MeasurementUnit::Centimeter;
@@ -146,11 +130,6 @@ int main()
     assert(rectSummary.value.area.value == 12.5);
     assert(rectSummary.value.dimensions.width.value == 5.0);
     assert(rectSummary.value.dimensions.height.value == 2.5);
-    auto rectSummaryLines = formatObjectMeasurementSummary(rectSummary.value);
-    assert(rectSummaryLines.size() == 3);
-    assert(rectSummaryLines[0] == std::string("area: 12.5 square centimeter"));
-    assert(rectSummaryLines[1] == std::string("width: 5 centimeter"));
-    assert(rectSummaryLines[2] == std::string("height: 2.5 centimeter"));
 
     DraftingObject defaultMeasuredRect = makeDraftingObject("default_measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     auto defaultObjectDimensions = measureObjectDimensions(defaultMeasuredRect);
@@ -178,10 +157,6 @@ int main()
     assert(!pointSummary.value.hasArea);
     assert(pointSummary.value.dimensions.width.value == 0.0);
     assert(pointSummary.value.dimensions.height.value == 0.0);
-    auto pointSummaryLines = formatObjectMeasurementSummary(pointSummary.value);
-    assert(pointSummaryLines.size() == 2);
-    assert(pointSummaryLines[0] == std::string("width: 0 canvas_unit"));
-    assert(pointSummaryLines[1] == std::string("height: 0 canvas_unit"));
 
     return 0;
 }

@@ -438,13 +438,76 @@ function writeWorkflowBaselines(repoRoot, baseline) {
     return filePath
 }
 
+function baselineDeltaKind(pathName, baselineValue, actualValue) {
+    const name = String(pathName || "")
+    if (name === "workflow") {
+        return "missing_baseline"
+    }
+    if (/^modes\.[^.]+$/.test(name)) {
+        return baselineValue === null ? "mode_added" : "mode_missing"
+    }
+    if (/^modes\.[^.]+\.fields\.[^.]+$/.test(name)) {
+        return baselineValue === null ? "metric_added" : "metric_missing"
+    }
+    if (name.indexOf(".fields.durationMs.max") >= 0) {
+        return "duration_regressed"
+    }
+    if (name.indexOf(".fields.") >= 0) {
+        return "metric_regressed"
+    }
+    return "summary_changed"
+}
+
+function metricNameFromBaselinePath(pathName) {
+    const match = String(pathName || "").match(/\.fields\.([^.]+)/)
+    return match ? match[1] : ""
+}
+
+function baselineDeltaRecommendation(kind, pathName) {
+    const metric = metricNameFromBaselinePath(pathName)
+    if (kind === "missing_baseline") {
+        return "Run this workflow once, inspect the result, then update baselines only if the behavior is accepted."
+    }
+    if (kind === "mode_added" || kind === "mode_missing") {
+        return "Inspect the workflow script and gesture classification; mode changes usually mean the interaction lifecycle changed."
+    }
+    if (kind === "metric_added" || kind === "metric_missing") {
+        return "Inspect the metric recorder and baseline schema before accepting this as a behavior change."
+    }
+    if (kind === "duration_regressed") {
+        return "Inspect expensive work in the selected workflow, then use narrower metrics to separate launch, rendering, and controller cost."
+    }
+    if (metric === "renderRequests" || metric === "renderRequestsPerPointerMove") {
+        return "Inspect rendering invalidation or repeated update calls for this workflow."
+    }
+    if (metric === "controllerMutations" || metric === "revisionDelta" || metric === "mutationsPerPointerMove") {
+        return "Inspect gesture lifecycle and controller mutation coalescing for repeated state changes."
+    }
+    if (metric === "hitTests" || metric === "hitTestsPerPointerMove") {
+        return "Inspect hit-test targeting and pointer move routing for unnecessary queries."
+    }
+    if (metric === "snapResolutions" || metric === "snapResolutionsPerPointerMove") {
+        return "Inspect snap resolution calls and ensure only coordinate-changing input asks for snap."
+    }
+    if (metric === "handlePlans" || metric === "handlePlansPerPointerMove") {
+        return "Inspect handle drag planning and avoid recomputing edit plans outside active handle gestures."
+    }
+    if (metric === "pointerMoves") {
+        return "Inspect the workflow fixture; pointer move changes usually mean the scripted gesture changed."
+    }
+    return "Inspect the workflow summary first, then update the baseline only after the changed behavior is accepted."
+}
+
 function addBaselineDelta(deltas, severity, fixture, pathName, baselineValue, actualValue, message) {
+    const kind = baselineDeltaKind(pathName, baselineValue, actualValue)
     deltas.push({
+        kind,
         severity,
         fixture,
         path: pathName,
         baseline: baselineValue,
         actual: actualValue,
+        recommendation: baselineDeltaRecommendation(kind, pathName),
         message,
     })
 }

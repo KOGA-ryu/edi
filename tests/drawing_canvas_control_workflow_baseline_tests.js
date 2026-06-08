@@ -56,6 +56,10 @@ function syntheticReport(overrides) {
     }
 }
 
+function clone(value) {
+    return JSON.parse(JSON.stringify(value))
+}
+
 function runBaselineProjectionContract() {
     const baseline = WorkflowHarness.workflowBaselineFromReport(syntheticReport())
     const workflow = baseline.workflows["line_drag_end_handle.json"]
@@ -86,6 +90,8 @@ function runMissingBaselineContract() {
     })
     expect(comparison.ok === false, "missing workflow baseline should fail")
     expect(comparison.topDeltas[0].path === "workflow", "missing workflow failure should identify workflow path")
+    expect(comparison.topDeltas[0].kind === "missing_baseline", "missing workflow failure should classify missing baseline")
+    expect(String(comparison.topDeltas[0].recommendation || "").length > 0, "missing workflow failure should include recommendation")
 }
 
 function runInvariantDeltaContract() {
@@ -96,8 +102,11 @@ function runInvariantDeltaContract() {
         },
     }), baseline)
     expect(comparison.ok === false, "changed render request max should fail baseline comparison")
-    expect(comparison.topDeltas.some(delta => delta.path === "modes.dragging_handle.fields.renderRequests.max"),
+    const delta = comparison.topDeltas.find(item => item.path === "modes.dragging_handle.fields.renderRequests.max")
+    expect(!!delta,
         "metric max delta should identify exact metric path")
+    expect(delta.kind === "metric_regressed", "metric max delta should classify metric regression")
+    expect(delta.recommendation.indexOf("rendering") >= 0, "render metric delta should recommend rendering inspection")
 }
 
 function runDurationThresholdContract() {
@@ -115,8 +124,82 @@ function runDurationThresholdContract() {
         },
     }), baseline)
     expect(regression.ok === false, "large duration regression should fail baseline comparison")
-    expect(regression.topDeltas.some(delta => delta.path === "modes.dragging_handle.fields.durationMs.max"),
+    const delta = regression.topDeltas.find(item => item.path === "modes.dragging_handle.fields.durationMs.max")
+    expect(!!delta,
         "duration regression should identify duration max path")
+    expect(delta.kind === "duration_regressed", "duration delta should classify duration regression")
+}
+
+function runSummaryDeltaContract() {
+    const baseline = WorkflowHarness.workflowBaselineFromReport(syntheticReport())
+    const comparison = WorkflowHarness.compareWorkflowBaseline(syntheticReport({
+        summary: {
+            objectCount: 2,
+        },
+    }), baseline)
+    const delta = comparison.topDeltas.find(item => item.path === "summary.objectCount")
+    expect(comparison.ok === false, "summary changes should fail baseline comparison")
+    expect(!!delta, "summary delta should identify exact summary path")
+    expect(delta.kind === "summary_changed", "summary delta should classify summary change")
+}
+
+function runModeDeltaContract() {
+    const report = syntheticReport()
+    const baseline = WorkflowHarness.workflowBaselineFromReport(report)
+    const addedModeReport = clone(report)
+    addedModeReport.scripts[0].modes.dragging_object = {
+        records: [
+            {
+                durationMs: 1,
+                pointerMoves: 1,
+                controllerMutations: 1,
+                renderRequests: 1,
+                hitTests: 0,
+                snapResolutions: 0,
+                handlePlans: 0,
+                revisionDelta: 1,
+            },
+        ],
+    }
+    const added = WorkflowHarness.compareWorkflowBaseline(addedModeReport, baseline)
+    const addedDelta = added.topDeltas.find(item => item.path === "modes.dragging_object")
+    expect(added.ok === false, "added mode should fail baseline comparison")
+    expect(!!addedDelta, "added mode should identify mode path")
+    expect(addedDelta.kind === "mode_added", "added mode should classify mode addition")
+
+    const missingBaseline = clone(baseline)
+    missingBaseline.workflows["line_drag_end_handle.json"].modes.dragging_object = {
+        samples: 1,
+        fields: {},
+    }
+    const missing = WorkflowHarness.compareWorkflowBaseline(report, missingBaseline)
+    const missingDelta = missing.topDeltas.find(item => item.path === "modes.dragging_object")
+    expect(missing.ok === false, "missing mode should fail baseline comparison")
+    expect(!!missingDelta, "missing mode should identify mode path")
+    expect(missingDelta.kind === "mode_missing", "missing mode should classify mode removal")
+}
+
+function runMetricSchemaDeltaContract() {
+    const report = syntheticReport()
+    const baseline = WorkflowHarness.workflowBaselineFromReport(report)
+    const metricAddedBaseline = clone(baseline)
+    delete metricAddedBaseline.workflows["line_drag_end_handle.json"].modes.dragging_handle.fields.hitTests
+    const added = WorkflowHarness.compareWorkflowBaseline(report, metricAddedBaseline)
+    const addedDelta = added.topDeltas.find(item => item.path === "modes.dragging_handle.fields.hitTests")
+    expect(added.ok === false, "added metric field should fail baseline comparison")
+    expect(!!addedDelta, "added metric should identify field path")
+    expect(addedDelta.kind === "metric_added", "added metric should classify metric addition")
+
+    const metricMissingBaseline = clone(baseline)
+    metricMissingBaseline.workflows["line_drag_end_handle.json"].modes.dragging_handle.fields.extraMetric = {
+        max: 1,
+        mean: 1,
+    }
+    const missing = WorkflowHarness.compareWorkflowBaseline(report, metricMissingBaseline)
+    const missingDelta = missing.topDeltas.find(item => item.path === "modes.dragging_handle.fields.extraMetric")
+    expect(missing.ok === false, "missing metric field should fail baseline comparison")
+    expect(!!missingDelta, "missing metric should identify field path")
+    expect(missingDelta.kind === "metric_missing", "missing metric should classify metric removal")
 }
 
 function runMergeContract() {
@@ -150,6 +233,9 @@ runBaselineComparisonContract()
 runMissingBaselineContract()
 runInvariantDeltaContract()
 runDurationThresholdContract()
+runSummaryDeltaContract()
+runModeDeltaContract()
+runMetricSchemaDeltaContract()
 runMergeContract()
 
 if (process.exitCode) {

@@ -70,6 +70,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingSelection.cpp
     src/drafting/DraftingMeasurement.h
     src/drafting/DraftingMeasurement.cpp
+    src/drafting/DraftingMeasurementFormat.h
+    src/drafting/DraftingMeasurementFormat.cpp
 )
 
 target_include_directories(edi_drafting_core PUBLIC

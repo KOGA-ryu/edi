@@ -1,5 +1,6 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingMeasurement.h"
+#include "drafting/DraftingMeasurementFormat.h"
 
 #include <cassert>
 #include <string>

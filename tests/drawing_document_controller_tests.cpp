@@ -151,5 +151,46 @@ int main(int argc, char **argv)
     assert(!cancelPreviewController.modelDocument().contains("preview_object"));
     assert(cancelPreviewController.modelDocument().value("drawing_objects").toList().empty());
 
+    DrawingDocumentController snappedPreviewController;
+    snappedPreviewController.setGridSnapEnabled(true);
+    snappedPreviewController.setSelectedToolId("rectangle_tool");
+    snappedPreviewController.clickCanvasNormalized(0.14, 0.14);
+    snappedPreviewController.updateCreationPreviewNormalized(0.36, 0.36);
+    QVariantMap snappedPreview = snappedPreviewController.modelDocument().value("preview_object").toMap();
+    assert(snappedPreview.value("kind").toString() == "rectangle");
+    assert(nearlyEqual(snappedPreview.value("x").toDouble(), 0.125));
+    assert(nearlyEqual(snappedPreview.value("y").toDouble(), 0.125));
+    assert(nearlyEqual(snappedPreview.value("width").toDouble(), 0.25));
+    assert(nearlyEqual(snappedPreview.value("height").toDouble(), 0.25));
+    assert(snappedPreviewController.modelDocument().value("drawing_objects").toList().empty());
+    snappedPreviewController.clickCanvasNormalized(0.36, 0.36);
+    QVariantMap snappedCommitted = snappedPreviewController.modelDocument();
+    assert(snappedCommitted.value("drawing_objects").toList().size() == 1);
+    assert(!snappedCommitted.contains("preview_object"));
+
+    DrawingDocumentController zeroSizeController;
+    zeroSizeController.setSelectedToolId("circle_tool");
+    zeroSizeController.clickCanvasNormalized(0.5, 0.5);
+    zeroSizeController.updateCreationPreviewNormalized(0.5, 0.5);
+    QVariantMap zeroCirclePreview = zeroSizeController.modelDocument().value("preview_object").toMap();
+    assert(zeroCirclePreview.value("kind").toString() == "circle");
+    assert(nearlyEqual(zeroCirclePreview.value("radius").toDouble(), 0.0));
+    zeroSizeController.clickCanvasNormalized(0.5, 0.5);
+    QVariantMap zeroCircleCommitted = zeroSizeController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(zeroCircleCommitted.value("radius").toDouble(), 0.0));
+
+    DrawingDocumentController selectionIsolationController;
+    selectionIsolationController.setSelectedToolId("point_tool");
+    selectionIsolationController.clickCanvasNormalized(0.2, 0.2);
+    QString selectedBeforePreview = selectionIsolationController.selectedObjectId();
+    selectionIsolationController.setSelectedToolId("line_tool");
+    selectionIsolationController.clickCanvasNormalized(0.4, 0.4);
+    selectionIsolationController.updateCreationPreviewNormalized(0.8, 0.8);
+    assert(selectionIsolationController.modelDocument().contains("preview_object"));
+    assert(selectionIsolationController.selectedObjectId() == selectedBeforePreview);
+    selectionIsolationController.setSelectedToolId("select_move");
+    selectionIsolationController.clickCanvasNormalized(0.8, 0.8);
+    assert(selectionIsolationController.selectedObjectId().isEmpty());
+
     return 0;
 }

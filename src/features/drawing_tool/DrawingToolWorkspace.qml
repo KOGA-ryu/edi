@@ -4,6 +4,7 @@ import "../../style"
 import "../../runtime/DrawingCanvasHandles.js" as CanvasHandles
 import "../../runtime/DrawingCanvasGestureState.js" as CanvasGestureState
 import "../../runtime/DrawingCanvasInteractionMetrics.js" as CanvasInteractionMetrics
+import "../../runtime/DrawingCanvasInteractionTelemetry.js" as CanvasInteractionTelemetry
 import "../../runtime/DrawingCanvasProjection.js" as CanvasProjection
 import "../../runtime/DrawingCanvasViewport.js" as CanvasViewport
 
@@ -375,6 +376,9 @@ Rectangle {
                 property var interactionMetricsState: CanvasInteractionMetrics.initialMetricsState()
                 property var lastInteractionMetrics: ({})
                 property bool interactionMetricsLogEnabled: false
+                property var interactionTelemetryState: CanvasInteractionTelemetry.initialTelemetryState()
+                property var lastInteractionEvents: []
+                property bool interactionTelemetryLogEnabled: false
                 cursorShape: selectionCursorShape()
 
                 function selectedToolLabel() {
@@ -504,6 +508,7 @@ Rectangle {
 
                 function beginInteractionMetrics(mode) {
                     interactionMetricsState = CanvasInteractionMetrics.beginInteraction(interactionMetricsState, mode, metricsNowMs(), metricsSnapshot())
+                    interactionTelemetryState = CanvasInteractionTelemetry.beginInteraction(interactionTelemetryState, mode, metricsNowMs(), metricsSnapshot())
                 }
 
                 function finishInteractionMetrics(canceled) {
@@ -518,30 +523,44 @@ Rectangle {
                     if (interactionMetricsLogEnabled) {
                         console.log("drawing_canvas_interaction_metrics " + JSON.stringify(lastInteractionMetrics))
                     }
+                    var telemetry = canceled
+                            ? CanvasInteractionTelemetry.cancelInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
+                            : CanvasInteractionTelemetry.finishInteraction(interactionTelemetryState, metricsNowMs(), metricsSnapshot())
+                    interactionTelemetryState = telemetry.state
+                    lastInteractionEvents = telemetry.events
+                    if (interactionTelemetryLogEnabled) {
+                        console.log("drawing_canvas_interaction_events " + JSON.stringify(lastInteractionEvents))
+                    }
                 }
 
                 function recordPointerMoveMetric() {
                     interactionMetricsState = CanvasInteractionMetrics.recordPointerMove(interactionMetricsState)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordPointerMove(interactionTelemetryState)
                 }
 
                 function recordControllerMutationMetric(kind) {
                     interactionMetricsState = CanvasInteractionMetrics.recordControllerMutation(interactionMetricsState, kind)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordControllerMutation(interactionTelemetryState, kind)
                 }
 
                 function recordRenderRequestMetric() {
                     interactionMetricsState = CanvasInteractionMetrics.recordRenderRequest(interactionMetricsState)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordRenderRequest(interactionTelemetryState)
                 }
 
                 function recordHitTestMetric() {
                     interactionMetricsState = CanvasInteractionMetrics.recordHitTest(interactionMetricsState)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordHitTest(interactionTelemetryState)
                 }
 
                 function recordSnapMetric() {
                     interactionMetricsState = CanvasInteractionMetrics.recordSnap(interactionMetricsState)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordSnap(interactionTelemetryState)
                 }
 
                 function recordHandlePlanMetric() {
                     interactionMetricsState = CanvasInteractionMetrics.recordHandlePlan(interactionMetricsState)
+                    interactionTelemetryState = CanvasInteractionTelemetry.recordHandlePlan(interactionTelemetryState)
                 }
 
                 function requestCanvasPaint() {

@@ -75,6 +75,10 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     for (const QVariant &value : model.value("drawing_objects").toList()) {
         drawObject(painter, value.toMap());
     }
+    const QVariantMap previewObject = model.value(QStringLiteral("preview_object")).toMap();
+    if (!previewObject.isEmpty()) {
+        drawPreviewObject(painter, previewObject);
+    }
 
     if (drawing_canvas::isMarquee(m_gestureState) && m_gestureState.value(QStringLiteral("moved")).toBool()) {
         const QVariantMap start = m_gestureState.value(QStringLiteral("startPoint")).toMap();
@@ -134,12 +138,26 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
 
 void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    if (m_controller == nullptr || !(event->buttons() & Qt::LeftButton)) {
+    if (m_controller == nullptr) {
         QWidget::mouseMoveEvent(event);
         return;
     }
 
     const QPointF point = screenToCanvas(event->position());
+    const bool creationTool = m_controller->selectedToolId() == QStringLiteral("line_tool")
+        || m_controller->selectedToolId() == QStringLiteral("rectangle_tool")
+        || m_controller->selectedToolId() == QStringLiteral("circle_tool");
+    if (creationTool && !(event->buttons() & Qt::LeftButton)) {
+        m_controller->updateCreationPreviewNormalized(point.x(), point.y());
+        event->accept();
+        return;
+    }
+
+    if (!(event->buttons() & Qt::LeftButton)) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+
     m_gestureState = drawing_canvas::updateGesture(m_gestureState, {
         {QStringLiteral("point"), QVariantMap{{QStringLiteral("x"), point.x()}, {QStringLiteral("y"), point.y()}}},
     });
@@ -298,6 +316,34 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
     if (selected) {
         drawSelectedHandles(painter, object);
     }
+}
+
+void DrawingCanvasWidget::drawPreviewObject(QPainter &painter, const QVariantMap &object) const
+{
+    painter.save();
+    QPen pen(QColor("#75c7ff"), 2, Qt::DashLine);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    const QString kind = object.value(QStringLiteral("kind")).toString();
+    if (kind == QStringLiteral("line")) {
+        painter.drawLine(
+            canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
+            canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));
+    } else if (kind == QStringLiteral("rectangle")) {
+        const QPointF origin = canvasToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
+        const QPointF extent = canvasToScreen(
+            object.value(QStringLiteral("x")).toDouble() + object.value(QStringLiteral("width")).toDouble(),
+            object.value(QStringLiteral("y")).toDouble() + object.value(QStringLiteral("height")).toDouble());
+        painter.drawRect(QRectF(origin, extent).normalized());
+    } else if (kind == QStringLiteral("circle")) {
+        const QPointF center = canvasToScreen(object.value(QStringLiteral("cx")).toDouble(), object.value(QStringLiteral("cy")).toDouble());
+        const double radius = object.value(QStringLiteral("radius")).toDouble() * boardRect().width();
+        painter.drawEllipse(center, radius, radius);
+    }
+    painter.restore();
 }
 
 void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantMap &object) const

@@ -28,6 +28,7 @@ private:
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
+    void drawPreviewObject(QPainter &painter, const QVariantMap &object) const;
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;
 
     DrawingDocumentController *m_controller = nullptr;

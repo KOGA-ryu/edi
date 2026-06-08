@@ -123,19 +123,6 @@ function dryRunOutput(manifest, compact) {
     return output
 }
 
-function recommendationOutput(expectations) {
-    return {
-        ok: true,
-        recommendedSelectors: (Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : [])
-            .map(selector => ({
-                id: selector.id,
-                description: selector.description,
-                command: selector.command,
-                runCommand: selector.runCommand,
-            })),
-    }
-}
-
 function run() {
     const args = parseArgs(process.argv.slice(2))
     if (args.help) {
@@ -144,7 +131,7 @@ function run() {
     }
     const repoRoot = path.join(__dirname, "..", "..")
     if (args.recommend) {
-        console.log(JSON.stringify(recommendationOutput(WorkflowHarness.workflowCoverageExpectations(repoRoot)), null, 2))
+        console.log(JSON.stringify(WorkflowHarness.recommendedSelectorOutput(WorkflowHarness.workflowCoverageExpectations(repoRoot)), null, 2))
         return 0
     }
     if (!hasSelector(args)) {

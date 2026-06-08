@@ -174,6 +174,19 @@ function evaluateWorkflowCoverage(coverage, expectations) {
     }
 }
 
+function recommendedSelectorOutput(expectations) {
+    return {
+        ok: true,
+        recommendedSelectors: (Array.isArray(expectations && expectations.recommendedSelectors) ? expectations.recommendedSelectors : [])
+            .map(selector => ({
+                id: selector.id,
+                description: selector.description,
+                command: selector.command,
+                runCommand: selector.runCommand,
+            })),
+    }
+}
+
 function groupScriptsByMetadata(scripts, field) {
     const groups = {}
     for (const script of scripts) {
@@ -475,6 +488,7 @@ module.exports = {
     readJson,
     selectWorkflows,
     evaluateWorkflowCoverage,
+    recommendedSelectorOutput,
     workflowCoverage,
     workflowCoverageExpectations,
     workflowBudgetPolicy,

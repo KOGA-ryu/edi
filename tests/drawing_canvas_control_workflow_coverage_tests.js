@@ -62,7 +62,11 @@ function runRecommendedSelectorContract(repoRoot) {
     const selectors = Array.isArray(expectations.selectors) ? expectations.selectors : []
     const selectorIds = new Set(selectors.map(selector => String(selector.id || "")))
     const recommendedSelectors = Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : []
+    const output = WorkflowHarness.recommendedSelectorOutput(expectations)
     expect(recommendedSelectors.length >= 3, "workflow coverage expectations should include recommended selectors")
+    expect(output.ok === true, "recommended selector output should report ok")
+    expect(output.recommendedSelectors.length === recommendedSelectors.length, "recommended selector output should preserve recommendation count")
+    expect(output.recommendedSelectors.every(selector => selector.selectorId === undefined), "recommended selector output should omit internal selector ids")
 
     for (const recommendation of recommendedSelectors) {
         const id = String(recommendation.id || "")

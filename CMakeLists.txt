@@ -72,6 +72,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingMeasurement.cpp
     src/drafting/DraftingMeasurementFormat.h
     src/drafting/DraftingMeasurementFormat.cpp
+    src/drafting/DraftingBuildPlan.h
+    src/drafting/DraftingBuildPlan.cpp
 )
 
 target_include_directories(edi_drafting_core PUBLIC
@@ -154,6 +156,7 @@ add_edi_contract_test(drafting_geometry_tests tests/drafting_geometry_tests.cpp 
 add_edi_contract_test(drafting_metadata_tests tests/drafting_metadata_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_measurement_tests tests/drafting_measurement_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_measurement_format_tests tests/drafting_measurement_format_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_build_plan_tests tests/drafting_build_plan_tests.cpp edi_drafting_core)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)
 add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)

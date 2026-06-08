@@ -1,7 +1,10 @@
 #include "drafting/DraftingStore.h"
 
+#include "drafting/DraftingSelection.h"
+
 #include <cassert>
 #include <limits>
+#include <optional>
 
 using namespace edi::drafting;
 
@@ -26,11 +29,26 @@ int main()
     assert(add.ok);
     assert(document.objects.size() == 1);
     assert(document.objects.front().bounds.width == 10.0);
+    assert(objectIndexById(document, "line_1") == 0);
+
+    auto addSecond = addObject(document, makeLine("line_2"));
+    assert(addSecond.ok);
+    auto addThird = addObject(document, makeLine("line_3"));
+    assert(addThird.ok);
+    assert(document.objects.size() == 3);
+    assert(document.objects[0].id == "line_1");
+    assert(document.objects[1].id == "line_2");
+    assert(document.objects[2].id == "line_3");
+    assert(objectIndexById(document, "line_2") == 1);
+    assert(objectIndexById(document, "missing") == std::nullopt);
 
     auto duplicate = addObject(document, makeLine("line_1"));
     assert(!duplicate.ok);
     assert(duplicate.code == DraftingResultCode::DuplicateObjectId);
-    assert(document.objects.size() == 1);
+    assert(document.objects.size() == 3);
+    assert(document.objects[0].id == "line_1");
+    assert(document.objects[1].id == "line_2");
+    assert(document.objects[2].id == "line_3");
     const auto revisionAfterDuplicate = document.revision;
 
     DraftingObject emptyId = makeLine("");
@@ -70,8 +88,28 @@ int main()
     assert(badMove.code == DraftingResultCode::InvalidGeometry);
     assert(document.revision == revisionAfterMove);
 
+    selectOnly(document, "line_2");
+    auto removeMiddle = removeObject(document, "line_2");
+    assert(removeMiddle.ok);
+    assert(document.objects.size() == 2);
+    assert(document.objects[0].id == "line_1");
+    assert(document.objects[1].id == "line_3");
+    assert(objectIndexById(document, "line_3") == 1);
+    assert(document.selectedObjectIds.empty());
+    assert(!document.activeObjectId);
+
+    const auto revisionAfterRemoveMiddle = document.revision;
+    auto missingRemoveBeforeOrder = removeObject(document, "missing");
+    assert(!missingRemoveBeforeOrder.ok);
+    assert(missingRemoveBeforeOrder.code == DraftingResultCode::ObjectNotFound);
+    assert(document.revision == revisionAfterRemoveMiddle);
+    assert(document.objects[0].id == "line_1");
+    assert(document.objects[1].id == "line_3");
+
     auto remove = removeObject(document, "line_1");
     assert(remove.ok);
+    auto removeLastRemaining = removeObject(document, "line_3");
+    assert(removeLastRemaining.ok);
     assert(document.objects.empty());
 
     auto missingRemove = removeObject(document, "line_1");

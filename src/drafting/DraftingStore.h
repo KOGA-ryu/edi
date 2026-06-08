@@ -2,6 +2,8 @@
 
 #include "drafting/DraftingDocument.h"
 
+#include <cstddef>
+#include <optional>
 #include <string>
 
 namespace edi::drafting {
@@ -15,6 +17,7 @@ struct DraftingStoreResult {
     static DraftingStoreResult rejected(DraftingResultCode code, std::string message);
 };
 
+std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object);
 DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjectId &id);
 DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const DraftingObjectId &id, DraftingGeometry geometry);

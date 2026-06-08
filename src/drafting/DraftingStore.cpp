@@ -3,7 +3,6 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingSelection.h"
 
-#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -19,12 +18,22 @@ DraftingStoreResult DraftingStoreResult::rejected(DraftingResultCode code, std::
     return {false, code, std::move(message)};
 }
 
+std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id)
+{
+    for (std::size_t index = 0; index < document.objects.size(); ++index) {
+        if (document.objects[index].id == id) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
 DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 {
     if (object.id.empty()) {
         return DraftingStoreResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
     }
-    if (containsObject(document, object.id)) {
+    if (objectIndexById(document, object.id)) {
         return DraftingStoreResult::rejected(DraftingResultCode::DuplicateObjectId, "object id already exists");
     }
     if (!kindMatchesGeometry(object.kind, object.geometry)) {
@@ -46,17 +55,12 @@ DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
 
 DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjectId &id)
 {
-    const auto before = document.objects.size();
-    document.objects.erase(
-        std::remove_if(document.objects.begin(), document.objects.end(), [&](const DraftingObject &object) {
-            return object.id == id;
-        }),
-        document.objects.end());
-
-    if (document.objects.size() == before) {
+    const auto index = objectIndexById(document, id);
+    if (!index) {
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
+    document.objects.erase(document.objects.begin() + static_cast<std::ptrdiff_t>(*index));
     normalizeSelection(document);
     ++document.revision;
     return DraftingStoreResult::accepted();
@@ -64,11 +68,12 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
 
 DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const DraftingObjectId &id, DraftingGeometry geometry)
 {
-    DraftingObject *object = findObject(document, id);
-    if (object == nullptr) {
+    const auto index = objectIndexById(document, id);
+    if (!index) {
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
-    if (!kindMatchesGeometry(object->kind, geometry)) {
+    DraftingObject &object = document.objects[*index];
+    if (!kindMatchesGeometry(object.kind, geometry)) {
         return DraftingStoreResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
     }
     const auto geometryValidation = validateGeometry(geometry);
@@ -76,43 +81,44 @@ DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const Draft
         return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
 
-    object->geometry = std::move(geometry);
-    object->bounds = computeBounds(object->geometry);
+    object.geometry = std::move(geometry);
+    object.bounds = computeBounds(object.geometry);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }
 
 DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const DraftingObjectId &id, ObjectMetadata metadata)
 {
-    DraftingObject *object = findObject(document, id);
-    if (object == nullptr) {
+    const auto index = objectIndexById(document, id);
+    if (!index) {
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
 
-    object->metadata = std::move(metadata);
+    document.objects[*index].metadata = std::move(metadata);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }
 
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy)
 {
-    DraftingObject *object = findObject(document, id);
-    if (object == nullptr) {
+    const auto index = objectIndexById(document, id);
+    if (!index) {
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
+    DraftingObject &object = document.objects[*index];
 
     if (!std::isfinite(dx) || !std::isfinite(dy)) {
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
     }
 
-    DraftingGeometry movedGeometry = translateGeometry(object->geometry, dx, dy);
+    DraftingGeometry movedGeometry = translateGeometry(object.geometry, dx, dy);
     const auto geometryValidation = validateGeometry(movedGeometry);
     if (!geometryValidation.ok) {
         return DraftingStoreResult::rejected(geometryValidation.code, geometryValidation.message);
     }
 
-    object->geometry = std::move(movedGeometry);
-    object->bounds = computeBounds(object->geometry);
+    object.geometry = std::move(movedGeometry);
+    object.bounds = computeBounds(object.geometry);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }

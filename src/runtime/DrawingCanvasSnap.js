@@ -1,5 +1,8 @@
 .pragma library
 
+// Legacy parity reference for the C++ drawing_canvas_core runtime.
+// App QML should call drawingCanvasRuntime instead of importing this file.
+
 function finiteNumber(value, fallback) {
     var number = Number(value)
     return Number.isFinite(number) ? number : fallback

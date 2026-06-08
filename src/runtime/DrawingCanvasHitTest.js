@@ -1,5 +1,8 @@
 .pragma library
 
+// Legacy parity reference for the C++ drawing_canvas_core runtime.
+// App QML should call drawingCanvasRuntime instead of importing this file.
+
 function asArray(value) {
     if (!value) {
         return []

@@ -105,6 +105,22 @@ if(BUILD_TESTING)
 
     add_test(NAME drawing_canvas_contract_tests COMMAND drawing_canvas_contract_tests)
 
+    add_executable(drawing_canvas_adapter_tests
+        tests/drawing_canvas_adapter_tests.cpp
+    )
+
+    target_include_directories(drawing_canvas_adapter_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(drawing_canvas_adapter_tests
+        PRIVATE
+            drawing_canvas_core
+            Qt6::Core
+    )
+
+    add_test(NAME drawing_canvas_adapter_tests COMMAND drawing_canvas_adapter_tests)
+
     add_executable(drawing_object_model_tests
         tests/drawing_object_model_tests.cpp
         src/core/DrawingObjectModel.h
@@ -124,10 +140,6 @@ if(BUILD_TESTING)
 
     find_program(NODE_EXECUTABLE node)
     if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS AND NODE_EXECUTABLE)
-        add_test(
-            NAME drawing_canvas_viewport_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_viewport_tests.js
-        )
         add_test(
             NAME drawing_canvas_hit_test_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_hit_test_tests.js

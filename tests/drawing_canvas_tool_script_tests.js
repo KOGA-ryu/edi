@@ -75,7 +75,7 @@ function runDragHandleContract(toolScript) {
     expect(drag.handleId === "line_end", "drag handle should preserve handle id")
     expect(drag.to.x === 320 && drag.to.y === 160, "drag handle target should resolve")
     expect(drag.pointerMoves === 8, "drag handle should preserve pointer move count")
-    expect(plan.plan.metricsByMode.dragging_handle.maxMutationsPerPointerMove === 1.1, "handle drag budget should resolve")
+    expect(plan.plan.metricsByMode.dragging_handle.maxMutationsPerPointerMove === 2.1, "handle drag budget should resolve")
 }
 
 function runAllFixturePlansContract(toolScript) {

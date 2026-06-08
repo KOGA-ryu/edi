@@ -53,14 +53,59 @@ Rectangle {
                 constructionCanvas.requestPaint()
             }
 
+            function drawingControlObjectSummary() {
+                var objects = drawingWorkspace.controller ? canvasInput.asArray(drawingWorkspace.controller.drawingCanvasObjects(drawingWorkspace.controller.revision)) : []
+                var summary = []
+                for (var index = 0; index < objects.length; ++index) {
+                    var object = objects[index] || ({})
+                    var id = String(object.id || "")
+                    if (id.indexOf("script_") !== 0) {
+                        continue
+                    }
+                    summary.push({
+                        id: id,
+                        kind: String(object.kind || ""),
+                        x: Number(object.x !== undefined ? object.x : object.x_px || 0),
+                        y: Number(object.y !== undefined ? object.y : object.y_px || 0),
+                        x1: Number(object.x1 !== undefined ? object.x1 : object.x1_px || 0),
+                        y1: Number(object.y1 !== undefined ? object.y1 : object.y1_px || 0),
+                        x2: Number(object.x2 !== undefined ? object.x2 : object.x2_px || 0),
+                        y2: Number(object.y2 !== undefined ? object.y2 : object.y2_px || 0),
+                        width: Number(object.width !== undefined ? object.width : object.width_px || 0),
+                        height: Number(object.height !== undefined ? object.height : object.height_px || 0),
+                        radius: Number(object.radius !== undefined ? object.radius : object.radius_px || 0)
+                    })
+                }
+                return summary
+            }
+
+            function drawingControlSelectedCount() {
+                var selectedCount = drawingWorkspace.controller ? canvasInput.selectedObjectIdList().length : 0
+                if (selectedCount <= 0 && drawingWorkspace.controller && String(drawingWorkspace.controller.selectedDrawingObjectId || "").indexOf("script_") === 0) {
+                    selectedCount = 1
+                }
+                return selectedCount
+            }
+
+            function drawingControlScriptObjectCount() {
+                return drawingControlObjectSummary().length
+            }
+
             function drawingControlScriptSummary(result) {
                 return {
                     ok: result && result.ok === true,
                     failures: result && result.failures ? result.failures : [],
                     executed: result && result.executed !== undefined ? Number(result.executed || 0) : 0,
-                    objectCount: drawingWorkspace.controller ? canvasInput.visibleObjectCount() : 0,
+                    objectCount: drawingControlScriptObjectCount(),
+                    objects: drawingControlObjectSummary(),
                     selectedObjectId: drawingWorkspace.controller ? String(drawingWorkspace.controller.selectedDrawingObjectId || "") : "",
-                    revision: drawingWorkspace.controller ? Number(drawingWorkspace.controller.revision || 0) : 0
+                    selectedCount: drawingControlSelectedCount(),
+                    revision: drawingWorkspace.controller ? Number(drawingWorkspace.controller.revision || 0) : 0,
+                    viewport: {
+                        zoom: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasZoom || 1) : 1,
+                        panX: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanXPx || 0) : 0,
+                        panY: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanYPx || 0) : 0
+                    }
                 }
             }
 
@@ -658,6 +703,186 @@ Rectangle {
                     recordControllerMutationMetric("zoom_viewport")
                     requestCanvasPaint()
                     finishInteractionMetrics(false)
+                    return { ok: true }
+                }
+
+                function finiteControlPoint(point) {
+                    var x = Number(point && point.x)
+                    var y = Number(point && point.y)
+                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                        return null
+                    }
+                    return {
+                        x: Math.max(0, Math.min(1, x)),
+                        y: Math.max(0, Math.min(1, y))
+                    }
+                }
+
+                function controlMoveCount(pointerMoves) {
+                    return Math.max(1, Math.round(Number(pointerMoves || 1)))
+                }
+
+                function interpolatedPoint(fromPoint, toPoint, index, count) {
+                    var t = Math.max(0, Math.min(1, Number(index || 0) / Math.max(1, Number(count || 1))))
+                    return {
+                        x: fromPoint.x + (toPoint.x - fromPoint.x) * t,
+                        y: fromPoint.y + (toPoint.y - fromPoint.y) * t
+                    }
+                }
+
+                function screenPointForNormalizedPoint(point) {
+                    var bounds = boardBounds()
+                    return {
+                        x: CanvasViewport.canvasToScreenX(bounds, point.x),
+                        y: CanvasViewport.canvasToScreenY(bounds, point.y)
+                    }
+                }
+
+                function ensureControlSelectionAt(point) {
+                    if (!drawingWorkspace.controller) {
+                        return ""
+                    }
+                    var objectId = drawingWorkspace.controller.hitDrawingObjectAtNormalized(point.x, point.y)
+                    if (String(objectId || "").length > 0 && !selectedObjectIdsContain(objectId)) {
+                        drawingWorkspace.controller.selectDrawingObjectAtNormalized(point.x, point.y)
+                    }
+                    return String(objectId || "")
+                }
+
+                function controlDragObject(fromPoint, toPoint, pointerMoves) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    var from = finiteControlPoint(fromPoint)
+                    var to = finiteControlPoint(toPoint)
+                    if (!from || !to) {
+                        return { ok: false, message: "drag object requires finite from/to points" }
+                    }
+                    var objectId = ensureControlSelectionAt(from)
+                    if (objectId.length <= 0) {
+                        return { ok: false, message: "drag object target not found" }
+                    }
+                    activeModifiers = Qt.NoModifier
+                    var dragStart = snapResolver.gridSnappedPoint(from)
+                    beginInteractionMetrics("dragging_object")
+                    recordHitTestMetric()
+                    recordSnapMetric()
+                    gestureState = CanvasGestureState.beginObjectDrag(gestureState, objectId, dragStart, selectedObjectIdList(), gestureModifiers(Qt.NoModifier))
+                    drawingWorkspace.controller.beginDrawingObjectMove()
+
+                    var moves = controlMoveCount(pointerMoves)
+                    for (var index = 1; index <= moves; ++index) {
+                        recordPointerMoveMetric()
+                        recordSnapMetric()
+                        var movePoint = snapResolver.gridSnappedPoint(interpolatedPoint(from, to, index, moves))
+                        var previousPoint = gestureState.lastPoint
+                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                            point: movePoint,
+                            modifiers: gestureModifiers(Qt.NoModifier)
+                        })
+                        var dx = movePoint.x - previousPoint.x
+                        var dy = movePoint.y - previousPoint.y
+                        if (Math.abs(dx) >= 0.000001 || Math.abs(dy) >= 0.000001) {
+                            drawingWorkspace.controller.moveSelectedDrawingObjectBy(dx, dy)
+                            recordControllerMutationMetric("move_selected")
+                            requestCanvasPaint()
+                        }
+                    }
+
+                    CanvasGestureState.finishGesture(gestureState, {
+                        point: to,
+                        incremental: true
+                    })
+                    finishInteractionMetrics(false)
+                    gestureState = CanvasGestureState.initialGestureState()
+                    drawingWorkspace.controller.endDrawingObjectMove()
+                    updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
+                    return { ok: true }
+                }
+
+                function controlDragHandle(handleId, fromPoint, toPoint, pointerMoves) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    var from = finiteControlPoint(fromPoint)
+                    var to = finiteControlPoint(toPoint)
+                    if (!from || !to) {
+                        return { ok: false, message: "drag handle requires finite from/to points" }
+                    }
+                    ensureControlSelectionAt(from)
+                    var screenFrom = screenPointForNormalizedPoint(from)
+                    var handle = hitSelectedHandle(screenFrom.x, screenFrom.y)
+                    if (String(handle.id || "") !== String(handleId || "")) {
+                        return { ok: false, message: "drag handle target not found: " + String(handleId || "") }
+                    }
+                    activeModifiers = Qt.NoModifier
+                    beginInteractionMetrics("dragging_handle")
+                    recordHitTestMetric()
+                    gestureState = CanvasGestureState.beginHandleDrag(gestureState, String(selectedGeneratedObject().id || ""), String(handle.id || ""), from, gestureModifiers(Qt.NoModifier))
+                    drawingWorkspace.controller.beginDrawingObjectMove()
+
+                    var moves = controlMoveCount(pointerMoves)
+                    for (var index = 1; index <= moves; ++index) {
+                        recordPointerMoveMetric()
+                        recordSnapMetric()
+                        var handlePoint = snapResolver.gridSnappedPoint(interpolatedPoint(from, to, index, moves))
+                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                            point: handlePoint,
+                            modifiers: gestureModifiers(Qt.NoModifier)
+                        })
+                        applySelectedHandleDrag(gestureState.handleId, handlePoint)
+                        requestCanvasPaint()
+                    }
+
+                    CanvasGestureState.finishGesture(gestureState, {
+                        point: to,
+                        incremental: true
+                    })
+                    finishInteractionMetrics(false)
+                    gestureState = CanvasGestureState.initialGestureState()
+                    drawingWorkspace.controller.endDrawingObjectMove()
+                    updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
+                    return { ok: true }
+                }
+
+                function controlMarqueeSelect(fromPoint, toPoint, pointerMoves) {
+                    if (!drawingWorkspace.controller) {
+                        return { ok: false, message: "controller unavailable" }
+                    }
+                    var from = finiteControlPoint(fromPoint)
+                    var to = finiteControlPoint(toPoint)
+                    if (!from || !to) {
+                        return { ok: false, message: "marquee select requires finite from/to points" }
+                    }
+                    activeModifiers = Qt.NoModifier
+                    beginInteractionMetrics("marquee_select")
+                    recordHitTestMetric()
+                    gestureState = CanvasGestureState.beginMarquee(gestureState, from, gestureModifiers(Qt.NoModifier))
+                    requestCanvasPaint()
+
+                    var moves = controlMoveCount(pointerMoves)
+                    for (var index = 1; index <= moves; ++index) {
+                        recordPointerMoveMetric()
+                        var point = interpolatedPoint(from, to, index, moves)
+                        gestureState = CanvasGestureState.updateGesture(gestureState, {
+                            point: point,
+                            modifiers: gestureModifiers(Qt.NoModifier),
+                            moveTolerance: 0
+                        })
+                        requestCanvasPaint()
+                    }
+
+                    var marqueeFinish = CanvasGestureState.finishGesture(gestureState, {
+                        point: to,
+                        objectIds: marqueeSelectionIds()
+                    })
+                    if (marqueeFinish.intent.kind === "select_objects") {
+                        drawingWorkspace.controller.selectDrawingObjects(marqueeFinish.intent.objectIds)
+                        recordControllerMutationMetric("select_objects")
+                    }
+                    finishInteractionMetrics(false)
+                    gestureState = CanvasGestureState.initialGestureState()
+                    updateSelectionHover(screenPointForNormalizedPoint(to).x, screenPointForNormalizedPoint(to).y, to)
                     return { ok: true }
                 }
 

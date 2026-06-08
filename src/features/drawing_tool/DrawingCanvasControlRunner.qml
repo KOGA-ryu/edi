@@ -93,6 +93,40 @@ QtObject {
         return inputArea.controlZoomCanvasAt(finiteNumber(step.factor, 1), screenPointForCanvasPx(step.point || ({ x: canvasSizePx() / 2, y: canvasSizePx() / 2 })))
     }
 
+    function pointerMoveCount(step) {
+        return Math.max(1, Math.round(finiteNumber(step && step.pointerMoves, 1)))
+    }
+
+    function runDragObject(step) {
+        if (!inputArea || typeof inputArea.controlDragObject !== "function") {
+            return fail("inputArea.controlDragObject unavailable")
+        }
+        if (!step.from || !step.to) {
+            return fail("dragObject requires resolved from/to points")
+        }
+        return inputArea.controlDragObject(normalizedPoint(step.from), normalizedPoint(step.to), pointerMoveCount(step))
+    }
+
+    function runDragHandle(step) {
+        if (!inputArea || typeof inputArea.controlDragHandle !== "function") {
+            return fail("inputArea.controlDragHandle unavailable")
+        }
+        if (!step.from || !step.to) {
+            return fail("dragHandle requires resolved from/to points")
+        }
+        return inputArea.controlDragHandle(String(step.handleId || ""), normalizedPoint(step.from), normalizedPoint(step.to), pointerMoveCount(step))
+    }
+
+    function runMarqueeSelect(step) {
+        if (!inputArea || typeof inputArea.controlMarqueeSelect !== "function") {
+            return fail("inputArea.controlMarqueeSelect unavailable")
+        }
+        if (!step.from || !step.to) {
+            return fail("marqueeSelect requires resolved from/to points")
+        }
+        return inputArea.controlMarqueeSelect(normalizedPoint(step.from), normalizedPoint(step.to), pointerMoveCount(step))
+    }
+
     function runStep(step) {
         var type = String(step && step.type || "")
         if (type === "selectTool") {
@@ -106,6 +140,15 @@ QtObject {
         }
         if (type === "zoomCanvas") {
             return runZoomCanvas(step)
+        }
+        if (type === "dragObject") {
+            return runDragObject(step)
+        }
+        if (type === "dragHandle") {
+            return runDragHandle(step)
+        }
+        if (type === "marqueeSelect") {
+            return runMarqueeSelect(step)
         }
         return fail("unsupported internal control step " + type)
     }

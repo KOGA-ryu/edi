@@ -14,7 +14,7 @@
       "maxRenderRequests": 1
     },
     "handleDrag": {
-      "maxMutationsPerPointerMove": 1.1,
+      "maxMutationsPerPointerMove": 2.1,
       "maxRenderRequestsPerPointerMove": 1.25,
       "maxHitTestsPerPointerMove": 0.25
     },

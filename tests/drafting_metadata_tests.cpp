@@ -28,6 +28,9 @@ int main()
 
     auto validTimestampValidation = validateObjectMetadata(validMetadata());
     assert(validTimestampValidation.ok);
+    assert(isValidMetadataTimestamp("2026-06-08T12:30:00Z"));
+    assert(isValidMetadataTimestamp(""));
+    assert(isValidMetadataText("metadata", kMetadataShortTextLimit));
 
     ObjectMetadata badVersion = validMetadata();
     badVersion.schemaVersion = 0;
@@ -37,36 +40,38 @@ int main()
 
     ObjectMetadata badTimestamp = validMetadata();
     badTimestamp.createdAt = "June 8";
+    assert(!isValidMetadataTimestamp(badTimestamp.createdAt));
     auto badTimestampValidation = validateObjectMetadata(badTimestamp);
     assert(!badTimestampValidation.ok);
     assert(badTimestampValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badAuthor = validMetadata();
     badAuthor.author = "bad\nauthor";
+    assert(!isValidMetadataText(badAuthor.author, kMetadataShortTextLimit));
     auto badAuthorValidation = validateObjectMetadata(badAuthor);
     assert(!badAuthorValidation.ok);
     assert(badAuthorValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longAuthor = validMetadata();
-    longAuthor.author = std::string(129, 'x');
+    longAuthor.author = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longAuthorValidation = validateObjectMetadata(longAuthor);
     assert(!longAuthorValidation.ok);
     assert(longAuthorValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longSource = validMetadata();
-    longSource.source = std::string(129, 'x');
+    longSource.source = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longSourceValidation = validateObjectMetadata(longSource);
     assert(!longSourceValidation.ok);
     assert(longSourceValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longToolProvenance = validMetadata();
-    longToolProvenance.toolProvenance = std::string(129, 'x');
+    longToolProvenance.toolProvenance = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longToolProvenanceValidation = validateObjectMetadata(longToolProvenance);
     assert(!longToolProvenanceValidation.ok);
     assert(longToolProvenanceValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longMeasurementNote = validMetadata();
-    longMeasurementNote.measurementNote = std::string(513, 'x');
+    longMeasurementNote.measurementNote = std::string(kMetadataMeasurementNoteLimit + 1, 'x');
     auto longMeasurementNoteValidation = validateObjectMetadata(longMeasurementNote);
     assert(!longMeasurementNoteValidation.ok);
     assert(longMeasurementNoteValidation.code == DraftingResultCode::InvalidMetadata);

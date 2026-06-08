@@ -10,9 +10,6 @@ namespace edi::drafting {
 
 namespace {
 
-constexpr std::size_t kMetadataShortTextLimit = 128;
-constexpr std::size_t kMetadataMeasurementNoteLimit = 512;
-
 bool isPrintableAscii(std::string_view value)
 {
     return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
@@ -25,12 +22,12 @@ DraftingMetadataValidationResult validateMetadataText(
     std::string_view value,
     std::size_t limit)
 {
-    if (value.size() > limit) {
-        return DraftingMetadataValidationResult::rejected(
-            DraftingResultCode::InvalidMetadata,
-            std::string(fieldName) + " is too long");
-    }
-    if (!isPrintableAscii(value)) {
+    if (!isValidMetadataText(value, limit)) {
+        if (value.size() > limit) {
+            return DraftingMetadataValidationResult::rejected(
+                DraftingResultCode::InvalidMetadata,
+                std::string(fieldName) + " is too long");
+        }
         return DraftingMetadataValidationResult::rejected(
             DraftingResultCode::InvalidMetadata,
             std::string(fieldName) + " must be printable ASCII");
@@ -48,7 +45,24 @@ bool hasCharAt(std::string_view value, std::size_t index, char expected)
     return index < value.size() && value[index] == expected;
 }
 
-bool isUtcTimestampShape(std::string_view value)
+} // namespace
+
+DraftingMetadataValidationResult DraftingMetadataValidationResult::accepted()
+{
+    return {true, DraftingResultCode::None, {}};
+}
+
+DraftingMetadataValidationResult DraftingMetadataValidationResult::rejected(DraftingResultCode code, std::string message)
+{
+    return {false, code, std::move(message)};
+}
+
+bool isValidMetadataText(std::string_view value, std::size_t limit)
+{
+    return value.size() <= limit && isPrintableAscii(value);
+}
+
+bool isValidMetadataTimestamp(std::string_view value)
 {
     if (value.empty()) {
         return true;
@@ -79,18 +93,6 @@ bool isUtcTimestampShape(std::string_view value)
         && hasCharAt(value, 19, 'Z');
 }
 
-} // namespace
-
-DraftingMetadataValidationResult DraftingMetadataValidationResult::accepted()
-{
-    return {true, DraftingResultCode::None, {}};
-}
-
-DraftingMetadataValidationResult DraftingMetadataValidationResult::rejected(DraftingResultCode code, std::string message)
-{
-    return {false, code, std::move(message)};
-}
-
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata)
 {
     if (metadata.schemaVersion == 0) {
@@ -113,7 +115,7 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
     if (!createdAtTextValidation.ok) {
         return createdAtTextValidation;
     }
-    if (!isUtcTimestampShape(metadata.createdAt)) {
+    if (!isValidMetadataTimestamp(metadata.createdAt)) {
         return DraftingMetadataValidationResult::rejected(
             DraftingResultCode::InvalidMetadata,
             "created at must use YYYY-MM-DDTHH:MM:SSZ");

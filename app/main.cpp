@@ -28,6 +28,7 @@
 #include "io/ShellLayoutStore.h"
 #include "io/TextEditorStore.h"
 #include "runtime/DrawingRuntimeCore.h"
+#include "widgets/DrawingCanvasWidget.h"
 
 namespace {
 
@@ -140,10 +141,7 @@ QWidget *buildWorkspace(const QVariantMap &profile, DrawingDocumentController &d
     summary->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(summary);
 
-    auto *canvasPlaceholder = new QTextEdit;
-    canvasPlaceholder->setReadOnly(true);
-    canvasPlaceholder->setPlainText("C++ Widgets shell active.\nDrawing canvas widget replacement is the next slice.\nThe DrawingDocumentController remains the drawing model source of truth.");
-    layout->addWidget(canvasPlaceholder, 1);
+    layout->addWidget(new DrawingCanvasWidget(&drawingController), 1);
     return workspace;
 }
 

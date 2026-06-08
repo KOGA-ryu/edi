@@ -105,6 +105,68 @@ void applyGridToSnap(DraftingSnapSettings &snapSettings, const DraftingGridSetti
     snapSettings.gridStep = snapSettings.gridStepX;
 }
 
+QString tolerancePresetId(double tolerance)
+{
+    if (tolerance <= 0.015) {
+        return QStringLiteral("tight");
+    }
+    if (tolerance >= 0.06) {
+        return QStringLiteral("loose");
+    }
+    return QStringLiteral("normal");
+}
+
+double toleranceForPreset(const QString &presetId)
+{
+    if (presetId == QStringLiteral("tight")) {
+        return 0.015;
+    }
+    if (presetId == QStringLiteral("loose")) {
+        return 0.06;
+    }
+    return 0.03;
+}
+
+bool pointInsideBounds(Point2D point, Bounds2D bounds)
+{
+    return point.x >= bounds.x
+        && point.y >= bounds.y
+        && point.x <= bounds.x + bounds.width
+        && point.y <= bounds.y + bounds.height;
+}
+
+QVariantMap pointToMap(Point2D point)
+{
+    return {
+        {QStringLiteral("x"), point.x},
+        {QStringLiteral("y"), point.y},
+    };
+}
+
+QVariantMap pointerProjectionToMap(Point2D rawPoint,
+    const DraftingDocument &document,
+    const DraftingSnapSettings &snapSettings,
+    const DraftingGridProjection &grid)
+{
+    const Point2D raw = normalizeDraftingPoint(rawPoint);
+    const DraftingSnapResult snap = resolveSnap(raw, document, snapSettings);
+    return {
+        {QStringLiteral("raw"), pointToMap(raw)},
+        {QStringLiteral("snapped"), pointToMap(snap.point)},
+        {QStringLiteral("kind"), QString::fromLatin1(draftingSnapKindName(snap.kind))},
+        {QStringLiteral("source"), QString::fromLatin1(draftingSnapSourceKindName(snap.sourceKind))},
+        {QStringLiteral("label"), QString::fromStdString(snap.label)},
+        {QStringLiteral("source_object_id"), drawing_core::qStringFromStdString(snap.sourceObjectId)},
+        {QStringLiteral("unit"), QString::fromLatin1(draftingGridUnitName(grid.settings.unit))},
+        {QStringLiteral("unit_label"), QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit))},
+        {QStringLiteral("raw_unit_x"), raw.x * grid.settings.width},
+        {QStringLiteral("raw_unit_y"), raw.y * grid.settings.height},
+        {QStringLiteral("snapped_unit_x"), snap.point.x * grid.settings.width},
+        {QStringLiteral("snapped_unit_y"), snap.point.y * grid.settings.height},
+        {QStringLiteral("inside_drawable"), pointInsideBounds(snap.point, grid.drawableBounds)},
+    };
+}
+
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
@@ -120,6 +182,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
     QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
+    if (m_pointerRawPoint) {
+        model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
+    }
 
     QVariantList warnings;
     for (const DraftingObject &object : m_document.objects) {
@@ -154,9 +219,39 @@ bool DrawingDocumentController::objectSnapEnabled() const
     return m_snapSettings.objectSnapEnabled;
 }
 
+bool DrawingDocumentController::endpointSnapEnabled() const
+{
+    return m_snapSettings.endpointEnabled;
+}
+
+bool DrawingDocumentController::vertexSnapEnabled() const
+{
+    return m_snapSettings.vertexEnabled;
+}
+
+bool DrawingDocumentController::midpointSnapEnabled() const
+{
+    return m_snapSettings.midpointEnabled;
+}
+
+bool DrawingDocumentController::centerSnapEnabled() const
+{
+    return m_snapSettings.centerEnabled;
+}
+
+bool DrawingDocumentController::objectSnapPriorityBeforeGrid() const
+{
+    return m_snapSettings.objectPriorityBeforeGrid;
+}
+
 QString DrawingDocumentController::gridPresetId() const
 {
     return QString::fromLatin1(draftingGridPresetName(m_gridSettings.preset));
+}
+
+QString DrawingDocumentController::objectSnapTolerancePresetId() const
+{
+    return tolerancePresetId(m_snapSettings.objectTolerance);
 }
 
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
@@ -188,6 +283,61 @@ void DrawingDocumentController::setObjectSnapEnabled(bool enabled)
     emit modelChanged();
 }
 
+void DrawingDocumentController::setEndpointSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.endpointEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.endpointEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setVertexSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.vertexEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.vertexEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setMidpointSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.midpointEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.midpointEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setCenterSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.centerEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.centerEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setObjectSnapPriorityBeforeGrid(bool enabled)
+{
+    if (m_snapSettings.objectPriorityBeforeGrid == enabled) {
+        return;
+    }
+    m_snapSettings.objectPriorityBeforeGrid = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setObjectSnapTolerancePreset(QString presetId)
+{
+    const double tolerance = toleranceForPreset(presetId);
+    if (m_snapSettings.objectTolerance == tolerance) {
+        return;
+    }
+    m_snapSettings.objectTolerance = tolerance;
+    emit modelChanged();
+}
+
 void DrawingDocumentController::setGridPresetId(const QString &presetId)
 {
     const DraftingGridPreset preset = draftingGridPresetFromName(presetId.toStdString());
@@ -196,6 +346,16 @@ void DrawingDocumentController::setGridPresetId(const QString &presetId)
     }
     m_gridSettings = draftingGridPresetSettings(preset);
     applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::updatePointerNormalized(double x, double y)
+{
+    const Point2D point{clamp01(x), clamp01(y)};
+    if (m_pointerRawPoint && m_pointerRawPoint->x == point.x && m_pointerRawPoint->y == point.y) {
+        return;
+    }
+    m_pointerRawPoint = point;
     emit modelChanged();
 }
 

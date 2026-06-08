@@ -231,14 +231,46 @@ QWidget *EdiShellWindow::buildLeftPanel()
     m_gridSnap->setChecked(m_controller->gridSnapEnabled());
     m_objectSnap = new QCheckBox(QStringLiteral("Object snap"));
     m_objectSnap->setChecked(m_controller->objectSnapEnabled());
+    m_endpointSnap = new QCheckBox(QStringLiteral("Endpoint"));
+    m_endpointSnap->setChecked(m_controller->endpointSnapEnabled());
+    m_vertexSnap = new QCheckBox(QStringLiteral("Vertex"));
+    m_vertexSnap->setChecked(m_controller->vertexSnapEnabled());
+    m_midpointSnap = new QCheckBox(QStringLiteral("Midpoint"));
+    m_midpointSnap->setChecked(m_controller->midpointSnapEnabled());
+    m_centerSnap = new QCheckBox(QStringLiteral("Center"));
+    m_centerSnap->setChecked(m_controller->centerSnapEnabled());
+    m_objectPrioritySnap = new QCheckBox(QStringLiteral("Object before grid"));
+    m_objectPrioritySnap->setChecked(m_controller->objectSnapPriorityBeforeGrid());
+    m_objectTolerance = new QComboBox;
+    m_objectTolerance->addItem(QStringLiteral("Tight tolerance"), QStringLiteral("tight"));
+    m_objectTolerance->addItem(QStringLiteral("Normal tolerance"), QStringLiteral("normal"));
+    m_objectTolerance->addItem(QStringLiteral("Loose tolerance"), QStringLiteral("loose"));
+    const int toleranceIndex = m_objectTolerance->findData(m_controller->objectSnapTolerancePresetId());
+    if (toleranceIndex >= 0) {
+        m_objectTolerance->setCurrentIndex(toleranceIndex);
+    }
     layout->addWidget(m_gridSnap);
     layout->addWidget(m_objectSnap);
+    layout->addWidget(m_endpointSnap);
+    layout->addWidget(m_vertexSnap);
+    layout->addWidget(m_midpointSnap);
+    layout->addWidget(m_centerSnap);
+    layout->addWidget(m_objectPrioritySnap);
+    layout->addWidget(m_objectTolerance);
 
     connect(m_gridPreset, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
         m_controller->setGridPresetId(m_gridPreset->itemData(index).toString());
     });
     connect(m_gridSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridSnapEnabled);
     connect(m_objectSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapEnabled);
+    connect(m_endpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setEndpointSnapEnabled);
+    connect(m_vertexSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setVertexSnapEnabled);
+    connect(m_midpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setMidpointSnapEnabled);
+    connect(m_centerSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setCenterSnapEnabled);
+    connect(m_objectPrioritySnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapPriorityBeforeGrid);
+    connect(m_objectTolerance, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
+        m_controller->setObjectSnapTolerancePreset(m_objectTolerance->itemData(index).toString());
+    });
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Next Surfaces")));
     layout->addWidget(makeValueLabel(QStringLiteral("Text editor")));
@@ -314,9 +346,11 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
+    m_pointerValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
+    layout->addWidget(m_pointerValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);
 
@@ -405,6 +439,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantList selected = document.value(QStringLiteral("selected_object_ids")).toList();
     const QVariantMap snap = document.value(QStringLiteral("snap")).toMap();
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
+    const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
 
@@ -449,9 +484,10 @@ void EdiShellWindow::refreshInspector()
         m_revisionValue->setText(QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));
     }
     if (m_snapValue != nullptr) {
-        m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2")
+        m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2   Priority: %3")
             .arg(yesNo(snap.value(QStringLiteral("grid_enabled")).toBool()))
-            .arg(yesNo(snap.value(QStringLiteral("object_enabled")).toBool())));
+            .arg(yesNo(snap.value(QStringLiteral("object_enabled")).toBool()))
+            .arg(snap.value(QStringLiteral("object_priority_before_grid")).toBool() ? QStringLiteral("object") : QStringLiteral("grid")));
     }
     if (m_gridValue != nullptr) {
         m_gridValue->setText(QStringLiteral("Bed: %1, %2 x %3 %4, step %5")
@@ -460,6 +496,25 @@ void EdiShellWindow::refreshInspector()
             .arg(formatNumber(grid.value(QStringLiteral("height")).toDouble()))
             .arg(grid.value(QStringLiteral("unit_label")).toString())
             .arg(formatNumber(grid.value(QStringLiteral("minor_step")).toDouble())));
+    }
+    if (m_pointerValue != nullptr) {
+        if (pointer.isEmpty()) {
+            m_pointerValue->setText(QStringLiteral("Pointer: none"));
+        } else {
+            const QVariantMap raw = pointer.value(QStringLiteral("raw")).toMap();
+            const QVariantMap snapped = pointer.value(QStringLiteral("snapped")).toMap();
+            m_pointerValue->setText(QStringLiteral("Pointer: raw %1,%2  snap %3,%4 %5/%6  unit %7,%8 %9  %10")
+                .arg(formatNumber(raw.value(QStringLiteral("x")).toDouble()))
+                .arg(formatNumber(raw.value(QStringLiteral("y")).toDouble()))
+                .arg(formatNumber(snapped.value(QStringLiteral("x")).toDouble()))
+                .arg(formatNumber(snapped.value(QStringLiteral("y")).toDouble()))
+                .arg(pointer.value(QStringLiteral("kind")).toString())
+                .arg(pointer.value(QStringLiteral("source")).toString())
+                .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_x")).toDouble()))
+                .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_y")).toDouble()))
+                .arg(pointer.value(QStringLiteral("unit_label")).toString())
+                .arg(pointer.value(QStringLiteral("inside_drawable")).toBool() ? QStringLiteral("inside") : QStringLiteral("outside")));
+        }
     }
     if (m_previewValue != nullptr) {
         m_previewValue->setText(QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));

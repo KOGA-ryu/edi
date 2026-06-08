@@ -91,6 +91,7 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     if (!previewObject.isEmpty()) {
         drawPreviewObject(painter, previewObject);
     }
+    drawPointerSnapMarker(painter, model);
 
     if (drawing_canvas::isMarquee(m_gestureState) && m_gestureState.value(QStringLiteral("moved")).toBool()) {
         const QVariantMap start = m_gestureState.value(QStringLiteral("startPoint")).toMap();
@@ -139,6 +140,7 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
     }
 
     const QPointF point = screenToCanvas(event->position());
+    m_controller->updatePointerNormalized(point.x(), point.y());
     m_controller->clickCanvasNormalized(point.x(), point.y());
     if (m_controller->selectedToolId() == QStringLiteral("select_move") && !m_controller->selectedObjectId().isEmpty()) {
         QVariantList selectedIds;
@@ -163,6 +165,7 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
     }
 
     const QPointF point = screenToCanvas(event->position());
+    m_controller->updatePointerNormalized(point.x(), point.y());
     const bool creationTool = m_controller->selectedToolId() == QStringLiteral("line_tool")
         || m_controller->selectedToolId() == QStringLiteral("rectangle_tool")
         || m_controller->selectedToolId() == QStringLiteral("circle_tool");
@@ -317,6 +320,42 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
 
     painter.setPen(QPen(QColor("#3d4452"), 1));
     painter.drawRect(board);
+}
+
+void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const
+{
+    const QVariantMap pointer = model.value(QStringLiteral("pointer")).toMap();
+    if (pointer.isEmpty()) {
+        return;
+    }
+
+    const QVariantMap snapped = pointer.value(QStringLiteral("snapped")).toMap();
+    const QPointF point = canvasToScreen(
+        snapped.value(QStringLiteral("x")).toDouble(),
+        snapped.value(QStringLiteral("y")).toDouble());
+    const QString kind = pointer.value(QStringLiteral("kind")).toString();
+    const bool inside = pointer.value(QStringLiteral("inside_drawable")).toBool();
+    QColor color("#9aa8b6");
+    if (!inside) {
+        color = QColor("#d98b8b");
+    } else if (kind == QStringLiteral("grid")) {
+        color = QColor("#8fb4d8");
+    } else if (kind == QStringLiteral("object")) {
+        color = QColor("#91c89b");
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(QPen(color, 1.5));
+    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 44));
+    painter.drawEllipse(point, 7.0, 7.0);
+    painter.drawLine(QPointF(point.x() - 10.0, point.y()), QPointF(point.x() + 10.0, point.y()));
+    painter.drawLine(QPointF(point.x(), point.y() - 10.0), QPointF(point.x(), point.y() + 10.0));
+
+    const QString label = pointer.value(QStringLiteral("label")).toString();
+    painter.setPen(color);
+    painter.drawText(point + QPointF(12.0, -10.0), label.isEmpty() ? kind : label);
+    painter.restore();
 }
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const

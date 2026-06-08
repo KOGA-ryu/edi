@@ -31,6 +31,39 @@ int main(int argc, char **argv)
     assert(!initialGrid.value("lines").toList().empty());
     assert(!controller.gridSnapEnabled());
     assert(!controller.objectSnapEnabled());
+    QVariantMap initialSnap = initial.value("snap").toMap();
+    assert(initialSnap.value("endpoint_enabled").toBool());
+    assert(initialSnap.value("vertex_enabled").toBool());
+    assert(initialSnap.value("midpoint_enabled").toBool());
+    assert(initialSnap.value("center_enabled").toBool());
+    assert(initialSnap.value("object_priority_before_grid").toBool());
+    assert(controller.objectSnapTolerancePresetId() == "normal");
+
+    controller.setEndpointSnapEnabled(false);
+    controller.setVertexSnapEnabled(false);
+    controller.setMidpointSnapEnabled(false);
+    controller.setCenterSnapEnabled(false);
+    controller.setObjectSnapPriorityBeforeGrid(false);
+    controller.setObjectSnapTolerancePreset("tight");
+    QVariantMap changedSnap = controller.modelDocument().value("snap").toMap();
+    assert(!controller.endpointSnapEnabled());
+    assert(!controller.vertexSnapEnabled());
+    assert(!controller.midpointSnapEnabled());
+    assert(!controller.centerSnapEnabled());
+    assert(!controller.objectSnapPriorityBeforeGrid());
+    assert(controller.objectSnapTolerancePresetId() == "tight");
+    assert(!changedSnap.value("endpoint_enabled").toBool());
+    assert(!changedSnap.value("vertex_enabled").toBool());
+    assert(!changedSnap.value("midpoint_enabled").toBool());
+    assert(!changedSnap.value("center_enabled").toBool());
+    assert(!changedSnap.value("object_priority_before_grid").toBool());
+    assert(nearlyEqual(changedSnap.value("object_tolerance").toDouble(), 0.015));
+    controller.setEndpointSnapEnabled(true);
+    controller.setVertexSnapEnabled(true);
+    controller.setMidpointSnapEnabled(true);
+    controller.setCenterSnapEnabled(true);
+    controller.setObjectSnapPriorityBeforeGrid(true);
+    controller.setObjectSnapTolerancePreset("normal");
 
     controller.setSelectedToolId("point_tool");
     controller.clickCanvasNormalized(0.25, 0.5);
@@ -137,6 +170,23 @@ int main(int argc, char **argv)
     QVariantMap snappedPoint = snappedObjects.back().toMap();
     assert(nearlyEqual(snappedPoint.value("x").toDouble(), 0.25));
     assert(nearlyEqual(snappedPoint.value("y").toDouble(), 0.25));
+
+    QVariantList beforePointerObjects = objectSnapController.modelDocument().value("drawing_objects").toList();
+    objectSnapController.updatePointerNormalized(0.26, 0.24);
+    QVariantMap pointerModel = objectSnapController.modelDocument();
+    QVariantMap pointer = pointerModel.value("pointer").toMap();
+    assert(!pointer.isEmpty());
+    assert(nearlyEqual(pointer.value("raw").toMap().value("x").toDouble(), 0.26));
+    assert(nearlyEqual(pointer.value("raw").toMap().value("y").toDouble(), 0.24));
+    assert(pointer.value("kind").toString() == "object");
+    assert(pointer.value("source").toString() == "endpoint");
+    assert(nearlyEqual(pointer.value("snapped").toMap().value("x").toDouble(), 0.25));
+    assert(nearlyEqual(pointer.value("snapped").toMap().value("y").toDouble(), 0.25));
+    assert(nearlyEqual(pointer.value("snapped_unit_x").toDouble(), 3.0));
+    assert(nearlyEqual(pointer.value("snapped_unit_y").toDouble(), 3.0));
+    assert(pointer.value("unit_label").toString() == "in");
+    assert(pointer.value("inside_drawable").toBool());
+    assert(pointerModel.value("drawing_objects").toList().size() == beforePointerObjects.size());
 
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");

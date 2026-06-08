@@ -56,6 +56,31 @@ int main()
     std::vector<DraftingSnapCandidate> lineCandidates = snapCandidatesForObject(document.objects[1], objectSettings);
     assert(lineCandidates.size() == 3);
 
+    DraftingSnapSettings noEndpointSettings = objectSettings;
+    noEndpointSettings.endpointEnabled = false;
+    std::vector<DraftingSnapCandidate> noEndpointLineCandidates = snapCandidatesForObject(document.objects[1], noEndpointSettings);
+    assert(noEndpointLineCandidates.size() == 1);
+    assert(noEndpointLineCandidates.front().sourceKind == DraftingSnapSourceKind::Midpoint);
+
+    DraftingSnapSettings noMidpointSettings = objectSettings;
+    noMidpointSettings.midpointEnabled = false;
+    std::vector<DraftingSnapCandidate> noMidpointLineCandidates = snapCandidatesForObject(document.objects[1], noMidpointSettings);
+    assert(noMidpointLineCandidates.size() == 2);
+
+    DraftingSnapSettings noVertexSettings = objectSettings;
+    noVertexSettings.vertexEnabled = false;
+    std::vector<DraftingSnapCandidate> noVertexRectCandidates = snapCandidatesForObject(document.objects[2], noVertexSettings);
+    for (const DraftingSnapCandidate &candidate : noVertexRectCandidates) {
+        assert(candidate.sourceKind != DraftingSnapSourceKind::Vertex);
+    }
+
+    DraftingSnapSettings noCenterSettings = objectSettings;
+    noCenterSettings.centerEnabled = false;
+    std::vector<DraftingSnapCandidate> noCenterRectCandidates = snapCandidatesForObject(document.objects[2], noCenterSettings);
+    for (const DraftingSnapCandidate &candidate : noCenterRectCandidates) {
+        assert(candidate.sourceKind != DraftingSnapSourceKind::Center);
+    }
+
     DraftingSnapResult endpoint = resolveSnap({0.11, 0.09}, document, objectSettings);
     assert(endpoint.kind == DraftingSnapKind::Object);
     assert(endpoint.sourceKind == DraftingSnapSourceKind::Endpoint);
@@ -73,9 +98,21 @@ int main()
     DraftingSnapSettings prioritySettings = objectSettings;
     prioritySettings.gridEnabled = true;
     prioritySettings.gridStep = 0.25;
+    DraftingSnapResult objectFirst = resolveSnap({0.11, 0.09}, document, prioritySettings);
+    assert(objectFirst.kind == DraftingSnapKind::Object);
     prioritySettings.objectPriorityBeforeGrid = false;
     DraftingSnapResult gridFirst = resolveSnap({0.11, 0.09}, document, prioritySettings);
     assert(gridFirst.kind == DraftingSnapKind::Grid);
+
+    DraftingSnapSettings tightTolerance = objectSettings;
+    tightTolerance.objectTolerance = 0.005;
+    DraftingSnapResult tightMiss = resolveSnap({0.11, 0.09}, document, tightTolerance);
+    assert(tightMiss.kind == DraftingSnapKind::None);
+
+    DraftingSnapSettings looseTolerance = objectSettings;
+    looseTolerance.objectTolerance = 0.06;
+    DraftingSnapResult looseHit = resolveSnap({0.14, 0.14}, document, looseTolerance);
+    assert(looseHit.kind == DraftingSnapKind::Object);
 
     DraftingSnapSettings noSnap;
     DraftingSnapResult none = resolveSnap({2.0, -1.0}, document, noSnap);

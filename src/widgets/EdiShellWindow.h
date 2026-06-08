@@ -46,6 +46,12 @@ private:
     QComboBox *m_gridPreset = nullptr;
     QCheckBox *m_gridSnap = nullptr;
     QCheckBox *m_objectSnap = nullptr;
+    QCheckBox *m_endpointSnap = nullptr;
+    QCheckBox *m_vertexSnap = nullptr;
+    QCheckBox *m_midpointSnap = nullptr;
+    QCheckBox *m_centerSnap = nullptr;
+    QCheckBox *m_objectPrioritySnap = nullptr;
+    QComboBox *m_objectTolerance = nullptr;
     QLabel *m_workspaceTitle = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;
@@ -57,6 +63,7 @@ private:
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;
     QLabel *m_gridValue = nullptr;
+    QLabel *m_pointerValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;
 };

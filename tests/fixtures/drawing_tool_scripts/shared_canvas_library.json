@@ -4,10 +4,13 @@
     "lineEnd": { "x": 256, "y": 128 },
     "lineEndMoved": { "x": 320, "y": 160 },
     "pointCreate": { "x": 96, "y": 352 },
+    "pointMoved": { "x": 128, "y": 384 },
     "circleCenter": { "x": 256, "y": 256 },
     "circleRadius": { "x": 320, "y": 256 },
+    "circleRadiusMoved": { "x": 352, "y": 256 },
     "rectStart": { "x": 96, "y": 256 },
     "rectEnd": { "x": 192, "y": 320 },
+    "rectEndMoved": { "x": 224, "y": 352 },
     "moveStart": { "x": 192, "y": 128 },
     "moveEnd": { "x": 256, "y": 160 },
     "marqueeStart": { "x": 96, "y": 96 },
@@ -20,6 +23,16 @@
     },
     "handleDrag": {
       "maxMutationsPerPointerMove": 2.1,
+      "maxRenderRequestsPerPointerMove": 1.25,
+      "maxHitTestsPerPointerMove": 0.25
+    },
+    "singleFieldHandleDrag": {
+      "maxMutationsPerPointerMove": 1.1,
+      "maxRenderRequestsPerPointerMove": 1.25,
+      "maxHitTestsPerPointerMove": 0.25
+    },
+    "rectangleCornerHandleDrag": {
+      "maxMutationsPerPointerMove": 4.1,
       "maxRenderRequestsPerPointerMove": 1.25,
       "maxHitTestsPerPointerMove": 0.25
     },

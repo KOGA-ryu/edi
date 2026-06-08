@@ -1,0 +1,28 @@
+{
+  "name": "rectangle_drag_corner_handle",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicRectangle" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "dragHandle",
+      "object": "latest",
+      "handleId": "rect_se",
+      "from": "rectEnd",
+      "to": "rectEndMoved",
+      "pointerMoves": 8
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "rectangle" }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "dragging_handle": "rectangleCornerHandleDrag"
+    }
+  }
+}

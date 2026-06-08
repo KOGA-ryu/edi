@@ -89,5 +89,34 @@
         }
       }
     }
+  ],
+  "recommendedSelectors": [
+    {
+      "id": "line_system",
+      "selectorId": "line_tag",
+      "description": "Line create, edit, move, and selection coverage.",
+      "command": "node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
+      "runCommand": "node tests/helpers/drawing_control_workflow_report.js --tag line"
+    },
+    {
+      "id": "handle_edits",
+      "selectorId": "edit_category",
+      "description": "Editable handle coverage across line, point, circle, and rectangle.",
+      "command": "node tests/helpers/drawing_control_workflow_report.js --category edit --dry-run --compact",
+      "runCommand": "node tests/helpers/drawing_control_workflow_report.js --category edit"
+    },
+    {
+      "id": "arc_parameters",
+      "selectorId": "arc_fixture",
+      "description": "Arc parameter workflow for exact fixture checks.",
+      "command": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json --dry-run --compact",
+      "runCommand": "node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic.json"
+    },
+    {
+      "id": "all_workflows",
+      "description": "Full workflow coverage overview.",
+      "command": "node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact",
+      "runCommand": "node tests/helpers/drawing_control_workflow_report.js --all"
+    }
   ]
 }

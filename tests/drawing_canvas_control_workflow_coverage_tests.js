@@ -42,6 +42,52 @@ function runSelectorCoverageContract(repoRoot) {
     }
 }
 
+function selectorEnvFromCommand(command) {
+    const result = {}
+    const tokens = String(command || "").split(/\s+/).filter(token => token.length > 0)
+    for (let index = 0; index < tokens.length; ++index) {
+        if (tokens[index] === "--tag") {
+            result.DRAWING_WORKFLOW_TAG = tokens[++index] || ""
+        } else if (tokens[index] === "--category") {
+            result.DRAWING_WORKFLOW_CATEGORY = tokens[++index] || ""
+        } else if (tokens[index] === "--fixture") {
+            result.DRAWING_WORKFLOW_FIXTURE = tokens[++index] || ""
+        }
+    }
+    return result
+}
+
+function runRecommendedSelectorContract(repoRoot) {
+    const expectations = WorkflowHarness.workflowCoverageExpectations(repoRoot)
+    const selectors = Array.isArray(expectations.selectors) ? expectations.selectors : []
+    const selectorIds = new Set(selectors.map(selector => String(selector.id || "")))
+    const recommendedSelectors = Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : []
+    expect(recommendedSelectors.length >= 3, "workflow coverage expectations should include recommended selectors")
+
+    for (const recommendation of recommendedSelectors) {
+        const id = String(recommendation.id || "")
+        const description = String(recommendation.description || "")
+        const command = String(recommendation.command || "")
+        const runCommand = String(recommendation.runCommand || "")
+        expect(id.length > 0, "recommended selector should include id")
+        expect(description.length > 0, `${id} should include description`)
+        expect(command.length > 0, `${id} should include command`)
+        expect(runCommand.length > 0, `${id} should include runCommand`)
+        expect(command.indexOf("--dry-run") >= 0, `${id} command should use dry-run`)
+        expect(command.indexOf("--compact") >= 0, `${id} command should use compact output`)
+        expect(runCommand.indexOf("--dry-run") < 0, `${id} runCommand should execute real metrics`)
+        expect(runCommand.indexOf("--compact") < 0, `${id} runCommand should not use compact dry-run`)
+
+        const selectorId = String(recommendation.selectorId || "")
+        if (selectorId.length > 0) {
+            expect(selectorIds.has(selectorId), `${id} selectorId should reference a selector coverage contract`)
+        } else {
+            const manifest = WorkflowHarness.workflowFixtures(repoRoot, selectorEnvFromCommand(command))
+            expect(manifest.selectedWorkflows.length > 0, `${id} command should select workflows`)
+        }
+    }
+}
+
 function runFailureContract(repoRoot) {
     const manifest = WorkflowHarness.workflowFixtures(repoRoot, {})
     const coverage = WorkflowHarness.workflowCoverage(manifest.workflows)
@@ -63,6 +109,7 @@ function runFailureContract(repoRoot) {
 const repoRoot = path.join(__dirname, "..")
 runCoverageContract(repoRoot)
 runSelectorCoverageContract(repoRoot)
+runRecommendedSelectorContract(repoRoot)
 runFailureContract(repoRoot)
 
 if (process.exitCode) {

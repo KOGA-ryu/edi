@@ -74,6 +74,8 @@ node tests/helpers/drawing_control_workflow_report.js --fixture arc_create_basic
 
 The same file also protects focused selectors such as `--tag line`, `--category edit`, and exact fixture runs. This keeps the cheap probe commands useful as the workflow set changes.
 
+`recommendedSelectors` in that file is the data-backed navigation map for agents. Start there when choosing a probe for a line, handle-edit, exact-fixture, or full-suite question.
+
 ## Operating Rule
 
 Probe with `--dry-run --compact`, then run the smallest selector that covers the behavior under investigation. Use full dry-run only when you need exact fixture names.

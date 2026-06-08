@@ -114,6 +114,7 @@ function workflowCoverageExpectations(repoRoot) {
         schemaVersion: Number(expectations.schemaVersion || 1),
         minimums: expectations.minimums || {},
         selectors: Array.isArray(expectations.selectors) ? expectations.selectors : [],
+        recommendedSelectors: Array.isArray(expectations.recommendedSelectors) ? expectations.recommendedSelectors : [],
     }
 }
 

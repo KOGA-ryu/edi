@@ -1,3 +1,4 @@
+#include "drafting/DraftingDocument.h"
 #include "drafting/DraftingMeasurement.h"
 
 #include <cassert>
@@ -103,6 +104,44 @@ int main()
     auto checkedInvalidLabelCalibration = scaleCalibrationFromMetadataChecked(invalidLabelCalibration);
     assert(!checkedInvalidLabelCalibration.ok);
     assert(checkedInvalidLabelCalibration.code == DraftingResultCode::InvalidMetadata);
+
+    DraftingObject measuredLine = makeDraftingObject("measured_line", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {0.0, 12.0}});
+    measuredLine.metadata.measurement.unit = MeasurementUnit::Inch;
+    measuredLine.metadata.measurement.canvasUnitsPerRealUnit = 4.0;
+    auto objectDistance = measureObjectDistance(measuredLine);
+    assert(objectDistance.ok);
+    assert(objectDistance.value.kind == MeasurementKind::Distance);
+    assert(objectDistance.value.value == 3.0);
+    assert(objectDistance.value.unit == MeasurementUnit::Inch);
+
+    DraftingObject measuredRect = makeDraftingObject("measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
+    measuredRect.metadata.measurement.unit = MeasurementUnit::Centimeter;
+    measuredRect.metadata.measurement.canvasUnitsPerRealUnit = 2.0;
+    auto objectArea = measureObjectArea(measuredRect);
+    assert(objectArea.ok);
+    assert(objectArea.value.kind == MeasurementKind::Area);
+    assert(objectArea.value.value == 12.5);
+    assert(objectArea.value.unit == MeasurementUnit::Centimeter);
+    auto objectDimensions = measureObjectDimensions(measuredRect);
+    assert(objectDimensions.ok);
+    assert(objectDimensions.value.width.value == 5.0);
+    assert(objectDimensions.value.height.value == 2.5);
+
+    DraftingObject defaultMeasuredRect = makeDraftingObject("default_measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
+    auto defaultObjectDimensions = measureObjectDimensions(defaultMeasuredRect);
+    assert(defaultObjectDimensions.ok);
+    assert(defaultObjectDimensions.value.width.unit == MeasurementUnit::CanvasUnit);
+    assert(defaultObjectDimensions.value.width.value == 10.0);
+
+    DraftingObject invalidMeasuredRect = measuredRect;
+    invalidMeasuredRect.metadata.measurement.canvasUnitsPerRealUnit = 0.0;
+    auto invalidObjectArea = measureObjectArea(invalidMeasuredRect);
+    assert(!invalidObjectArea.ok);
+    assert(invalidObjectArea.code == DraftingResultCode::InvalidMetadata);
+
+    auto rectDistance = measureObjectDistance(measuredRect);
+    assert(!rectDistance.ok);
+    assert(rectDistance.code == DraftingResultCode::InvalidGeometry);
 
     return 0;
 }

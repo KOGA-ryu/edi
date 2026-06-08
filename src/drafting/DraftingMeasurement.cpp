@@ -1,10 +1,12 @@
 #include "drafting/DraftingMeasurement.h"
 
+#include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMetadata.h"
 
 #include <sstream>
 #include <utility>
+#include <variant>
 
 namespace edi::drafting {
 
@@ -16,6 +18,26 @@ double applyScale(double canvasValue, const ScaleCalibration &calibration)
         return canvasValue;
     }
     return canvasValue / calibration.canvasUnitsPerRealUnit;
+}
+
+template <typename T>
+ObjectMeasurementResult<T> acceptedObjectMeasurement(T value)
+{
+    ObjectMeasurementResult<T> result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.value = std::move(value);
+    return result;
+}
+
+template <typename T>
+ObjectMeasurementResult<T> rejectedObjectMeasurement(DraftingResultCode code, std::string message)
+{
+    ObjectMeasurementResult<T> result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
 }
 
 } // namespace
@@ -99,6 +121,41 @@ DimensionMeasurement measureDimensionsTyped(const DraftingGeometry &geometry, co
             label,
         },
     };
+}
+
+ObjectMeasurementResult<MeasurementValue> measureObjectDistance(const DraftingObject &object)
+{
+    const auto calibration = scaleCalibrationFromMetadataChecked(object.metadata.measurement);
+    if (!calibration.ok) {
+        return rejectedObjectMeasurement<MeasurementValue>(calibration.code, calibration.message);
+    }
+
+    const auto *line = std::get_if<LineGeometry>(&object.geometry);
+    if (line == nullptr) {
+        return rejectedObjectMeasurement<MeasurementValue>(
+            DraftingResultCode::InvalidGeometry,
+            "object geometry does not define a distance");
+    }
+
+    return acceptedObjectMeasurement(measureDistance(line->a, line->b, calibration.calibration));
+}
+
+ObjectMeasurementResult<MeasurementValue> measureObjectArea(const DraftingObject &object)
+{
+    const auto calibration = scaleCalibrationFromMetadataChecked(object.metadata.measurement);
+    if (!calibration.ok) {
+        return rejectedObjectMeasurement<MeasurementValue>(calibration.code, calibration.message);
+    }
+    return acceptedObjectMeasurement(measureArea(object.geometry, calibration.calibration));
+}
+
+ObjectMeasurementResult<DimensionMeasurement> measureObjectDimensions(const DraftingObject &object)
+{
+    const auto calibration = scaleCalibrationFromMetadataChecked(object.metadata.measurement);
+    if (!calibration.ok) {
+        return rejectedObjectMeasurement<DimensionMeasurement>(calibration.code, calibration.message);
+    }
+    return acceptedObjectMeasurement(measureDimensionsTyped(object.geometry, calibration.calibration));
 }
 
 const char *measurementUnitName(MeasurementUnit unit)

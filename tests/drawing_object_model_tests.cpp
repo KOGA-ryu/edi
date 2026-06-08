@@ -201,6 +201,49 @@ bool runDrawingStoreCircleArcContract() {
     return ok;
 }
 
+bool runDrawingStoreRectangleContract() {
+    using namespace drawing_core;
+
+    DrawingStore store;
+    DrawingObject rectangle;
+    rectangle.id = {QStringLiteral("obj_rectangle_01")};
+    rectangle.kind = ShapeKind::Rectangle;
+    rectangle.geometry = RectangleGeometry{{0.125, 0.25}, 0.5, 0.25, 0.0};
+    rectangle.style = {QStringLiteral("stroke_default")};
+    rectangle.layer = {QStringLiteral("layer_test")};
+    rectangle.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("rectangle_contract_test"));
+    rectangle.metadata.values.insert(QStringLiteral("version"), 1);
+    rectangle.attributes.insert(QStringLiteral("kind"), QStringLiteral("image_reference_frame"));
+    rectangle.attributes.insert(QStringLiteral("label"), QStringLiteral("contract image frame"));
+
+    bool ok = true;
+    ok &= expect(store.addObject(rectangle), QStringLiteral("store should add a valid rectangle object"));
+    ok &= expect(store.updateGeometry({QStringLiteral("obj_rectangle_01")}, RectangleGeometry{{0.25, 0.375}, 0.25, 0.125, 15.0}),
+                 QStringLiteral("store should update rectangle geometry"));
+
+    const DrawingObject *storedRectangle = store.find({QStringLiteral("obj_rectangle_01")});
+    ok &= expect(storedRectangle != nullptr, QStringLiteral("store should find rectangle by id"));
+    if (storedRectangle != nullptr) {
+        ok &= expectNear(storedRectangle->bounds.x, 0.25, QStringLiteral("rectangle bounds x should derive from geometry"));
+        ok &= expectNear(storedRectangle->bounds.w, 0.25, QStringLiteral("rectangle bounds width should derive from geometry"));
+    }
+
+    const QJsonObject serialized = store.serializeObject({QStringLiteral("obj_rectangle_01")}, 512);
+    ok &= expect(serialized.value(QStringLiteral("kind")).toString() == QStringLiteral("image_reference_frame"),
+                 QStringLiteral("serialized rectangle should preserve specialized projected kind"));
+    ok &= expectNear(serialized.value(QStringLiteral("x")).toDouble(), 0.25,
+                     QStringLiteral("serialized rectangle should keep normalized x"));
+    ok &= expectNear(serialized.value(QStringLiteral("rect_px")).toArray().at(2).toDouble(), 128.0,
+                     QStringLiteral("serialized rectangle should project width"));
+    ok &= expectNear(serialized.value(QStringLiteral("rotation_deg")).toDouble(), 15.0,
+                     QStringLiteral("serialized rectangle should preserve rotation"));
+    ok &= expectNear(serialized.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("x")).toDouble(), 128.0,
+                     QStringLiteral("serialized rectangle bounds should project x"));
+    ok &= expectNear(serialized.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("h")).toDouble(), 64.0,
+                     QStringLiteral("serialized rectangle bounds should project height"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -209,5 +252,6 @@ int main(int argc, char **argv) {
     ok &= runDrawingStoreLineContract();
     ok &= runDrawingStorePointContract();
     ok &= runDrawingStoreCircleArcContract();
+    ok &= runDrawingStoreRectangleContract();
     return ok ? 0 : 1;
 }

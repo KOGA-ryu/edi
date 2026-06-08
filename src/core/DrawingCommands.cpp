@@ -341,20 +341,33 @@ void addRectangleObject(State &state, const Point &start, const Point &end, cons
     const double top = std::min(start.y, end.y);
     const double width = std::abs(end.x - start.x);
     const double height = std::abs(end.y - start.y);
-    QJsonObject object;
-    object.insert("id", nextId(state, kind));
-    object.insert("label", label);
-    object.insert("kind", kind);
-    object.insert("detail", detail);
-    applyActiveStyle(state, object);
-    writeRectangleGeometry(object, {{left / state.canvasPx, top / state.canvasPx}, width / state.canvasPx, height / state.canvasPx, 0.0}, state.canvasPx);
-    applyCreationMetadata(
-        object,
+    const QString objectId = nextId(state, kind);
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), label);
+    attributes.insert(QStringLiteral("kind"), kind);
+    attributes.insert(QStringLiteral("detail"), detail);
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Rectangle;
+    object.geometry = RectangleGeometry{{left / state.canvasPx, top / state.canvasPx}, width / state.canvasPx, height / state.canvasPx, 0.0};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(
+        QStringLiteral("created_by"),
         kind == QStringLiteral("image_reference_frame") ? QStringLiteral("ImageReferenceFrameTool")
             : kind == QStringLiteral("ascii_crop_frame") ? QStringLiteral("AsciiCropFrameTool")
             : kind == QStringLiteral("ascii_cell_region") ? QStringLiteral("AsciiCellRegionTool")
                                                          : QStringLiteral("RectangleTool"));
-    pushObject(state, object);
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("rectangle command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addRectangle(State &state, const Point &start, const Point &end) {

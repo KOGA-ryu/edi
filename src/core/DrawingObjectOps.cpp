@@ -37,6 +37,13 @@ bool replaceStoreAttributesFromJson(State &state, QJsonObject &object) {
     return refreshStoreProjection(state, object);
 }
 
+bool rectangleLikeKind(const QString &kind) {
+    return kind == QStringLiteral("rectangle")
+        || kind == QStringLiteral("image_reference_frame")
+        || kind == QStringLiteral("ascii_crop_frame")
+        || kind == QStringLiteral("ascii_cell_region");
+}
+
 bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     const QString kind = object.value(QStringLiteral("kind")).toString();
     if (kind != QStringLiteral("point")
@@ -44,7 +51,8 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
         && kind != QStringLiteral("line")
         && kind != QStringLiteral("glyph_baseline")
         && kind != QStringLiteral("circle")
-        && kind != QStringLiteral("arc")) {
+        && kind != QStringLiteral("arc")
+        && !rectangleLikeKind(kind)) {
         return true;
     }
     const QString objectId = object.value(QStringLiteral("id")).toString();
@@ -63,9 +71,12 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     } else if (kind == QStringLiteral("arc")) {
         typed.kind = ShapeKind::Circle;
         typed.geometry = arcGeometryFromObject(object);
-    } else {
+    } else if (kind == QStringLiteral("circle")) {
         typed.kind = ShapeKind::Circle;
         typed.geometry = circleGeometryFromObject(object);
+    } else {
+        typed.kind = ShapeKind::Rectangle;
+        typed.geometry = rectangleGeometryFromObject(object);
     }
     typed.style = {object.value(QStringLiteral("style_id")).toString(QStringLiteral("inline_active_stroke"))};
     typed.layer = {object.value(QStringLiteral("layer_id")).toString(QString::fromLatin1(kScriptLayer))};
@@ -519,15 +530,14 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     }
                 }
                 updated = true;
-            } else if (kind == QStringLiteral("rectangle")
-                       || kind == QStringLiteral("image_reference_frame")
-                       || kind == QStringLiteral("ascii_crop_frame")
-                       || kind == QStringLiteral("ascii_cell_region")) {
-                double x = object.value("x").toDouble() * canvas;
-                double y = object.value("y").toDouble() * canvas;
-                double width = object.value("width").toDouble() * canvas;
-                double height = object.value("height").toDouble() * canvas;
-                double rotation = object.value("rotation_deg").toDouble();
+            } else if (rectangleLikeKind(kind)) {
+                const DrawingObject *storeObject = state.store.find({objectId});
+                const RectangleGeometry *storeRectangle = storeObject == nullptr ? nullptr : std::get_if<RectangleGeometry>(&storeObject->geometry);
+                double x = storeRectangle == nullptr ? object.value("x").toDouble() * canvas : storeRectangle->origin.x * canvas;
+                double y = storeRectangle == nullptr ? object.value("y").toDouble() * canvas : storeRectangle->origin.y * canvas;
+                double width = storeRectangle == nullptr ? object.value("width").toDouble() * canvas : storeRectangle->width * canvas;
+                double height = storeRectangle == nullptr ? object.value("height").toDouble() * canvas : storeRectangle->height * canvas;
+                double rotation = storeRectangle == nullptr ? object.value("rotation_deg").toDouble() : storeRectangle->rotationDeg;
                 if (field == QStringLiteral("x_px")) {
                     x = value;
                 } else if (field == QStringLiteral("y_px")) {
@@ -542,9 +552,18 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                     state.errors.append("update_object unsupported rectangle field: " + field);
                     return;
                 }
-                rebuildRectangle(object, state.canvasPx, x, y, width, height);
-                object.insert("rotation_deg", rotation);
-                writeRectangleGeometry(object, rectangleGeometryFromObject(object), state.canvasPx);
+                const RectangleGeometry updatedRectangle{{x / canvas, y / canvas}, width / canvas, height / canvas, rotation};
+                if (storeObject != nullptr) {
+                    if (storeRectangle == nullptr || !state.store.updateGeometry({objectId}, updatedRectangle)) {
+                        state.errors.append("update_object could not update typed rectangle: " + objectId);
+                        return;
+                    }
+                    object = state.store.serializeObject({objectId}, state.canvasPx);
+                } else {
+                    rebuildRectangle(object, state.canvasPx, x, y, width, height);
+                    object.insert("rotation_deg", rotation);
+                    writeRectangleGeometry(object, rectangleGeometryFromObject(object), state.canvasPx);
+                }
                 updated = true;
             } else if (kind == QStringLiteral("polygon")) {
                 double cx = object.value("cx").toDouble() * canvas;

@@ -691,6 +691,58 @@ bool runControllerCircleArcStoreLifecycleSmoke() {
     return ok;
 }
 
+bool runControllerRectangleStoreLifecycleSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("rectangle_polygon"));
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+
+    const QString rectangleId = QStringLiteral("script_rectangle_01");
+    controller.selectObject(rectangleId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("panel"));
+    controller.moveObjectBy(rectangleId, 0.125, 0.0);
+    controller.updateObjectField(rectangleId, QStringLiteral("width_px"), 192.0);
+    controller.updateObjectField(rectangleId, QStringLiteral("rotation_deg"), 15.0);
+
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
+    QJsonObject rectangle = objectById(model.value(QStringLiteral("generated_objects")).toArray(), rectangleId);
+    QJsonObject rectangleGeometry = rectangle.value(QStringLiteral("geometry")).toObject();
+    QJsonObject rectangleBounds = rectangle.value(QStringLiteral("bounds")).toObject();
+
+    ok &= expect(rectangle.value(QStringLiteral("role")).toString() == QStringLiteral("panel"),
+                 QStringLiteral("store-backed rectangle should preserve top-level metadata after projection"));
+    ok &= expect(rectangle.value(QStringLiteral("source")).toString() == QStringLiteral("cpp_drawing_core"),
+                 QStringLiteral("store-backed rectangle should preserve source attribute after projection"));
+    ok &= expectNear(rectangleGeometry.value(QStringLiteral("origin")).toObject().value(QStringLiteral("x")).toDouble(), 192.0,
+                     QStringLiteral("store-backed rectangle move should update typed origin x"));
+    ok &= expectNear(rectangleGeometry.value(QStringLiteral("width")).toDouble(), 192.0,
+                     QStringLiteral("store-backed rectangle width edit should update typed width"));
+    ok &= expectNear(rectangleGeometry.value(QStringLiteral("rotation_deg")).toDouble(), 15.0,
+                     QStringLiteral("store-backed rectangle rotation edit should update typed rotation"));
+    ok &= expectNear(rectangleBounds.value(QStringLiteral("x")).toDouble(), 192.0,
+                     QStringLiteral("store-backed rectangle bounds should derive from moved geometry"));
+    ok &= expectNear(rectangleBounds.value(QStringLiteral("w")).toDouble(), 192.0,
+                     QStringLiteral("store-backed rectangle bounds should derive from edited width"));
+    ok &= expect(controller.exportSvg().contains(QStringLiteral("data-role=\"panel\"")),
+                 QStringLiteral("store-backed rectangle svg export should preserve metadata"));
+
+    controller.deleteObject(rectangleId);
+    model = checkedControllerModel(controller, ok);
+    ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), rectangleId).isEmpty(),
+                 QStringLiteral("store-backed rectangle delete should remove JSON projection"));
+
+    controller.undo();
+    model = checkedControllerModel(controller, ok);
+    rectangle = objectById(model.value(QStringLiteral("generated_objects")).toArray(), rectangleId);
+    rectangleGeometry = rectangle.value(QStringLiteral("geometry")).toObject();
+    ok &= expect(rectangle.value(QStringLiteral("role")).toString() == QStringLiteral("panel"),
+                 QStringLiteral("undo after rectangle delete should rebuild store-backed metadata"));
+    ok &= expectNear(rectangleGeometry.value(QStringLiteral("rotation_deg")).toDouble(), 15.0,
+                     QStringLiteral("undo after rectangle delete should rebuild typed rotation edit"));
+    return ok;
+}
+
 bool runControllerObjectFieldUpdateSmoke() {
     DrawingDocumentController controller;
     controller.selectTool(QStringLiteral("rectangle_polygon"));
@@ -1117,6 +1169,7 @@ int main(int argc, char **argv) {
     ok &= runControllerLineStoreLifecycleSmoke();
     ok &= runControllerPointStoreLifecycleSmoke();
     ok &= runControllerCircleArcStoreLifecycleSmoke();
+    ok &= runControllerRectangleStoreLifecycleSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
     ok &= runControllerObjectMetadataSmoke();

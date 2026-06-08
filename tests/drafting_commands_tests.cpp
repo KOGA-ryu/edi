@@ -15,7 +15,9 @@ int main()
     assert(!rejectedResult.ok);
     assert(rejectedResult.code == DraftingResultCode::ObjectNotFound);
 
-    DraftingObject point = makeDraftingObject("point_1", DraftingShapeKind::Point, PointGeometry{{4.0, 5.0}});
+    auto builtPoint = buildDraftingObject("point_1", DraftingShapeKind::Point, PointGeometry{{4.0, 5.0}});
+    assert(builtPoint.ok);
+    DraftingObject point = builtPoint.object;
 
     auto create = applyDraftingCommand(document, CreateObjectCommand{point});
     assert(create.ok);

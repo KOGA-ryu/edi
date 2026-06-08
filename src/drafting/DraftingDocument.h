@@ -41,8 +41,19 @@ struct DraftingDocument {
     std::uint64_t revision = 0;
 };
 
+struct DraftingObjectBuildResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    DraftingObject object;
+
+    static DraftingObjectBuildResult accepted(DraftingObject object);
+    static DraftingObjectBuildResult rejected(DraftingResultCode code, std::string message);
+};
+
 DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title = {});
 DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
+DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order = 0);
 DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);

@@ -1,9 +1,29 @@
 #include "drafting/DraftingDocument.h"
 
+#include "drafting/DraftingGeometry.h"
+
 #include <algorithm>
 #include <utility>
 
 namespace edi::drafting {
+
+DraftingObjectBuildResult DraftingObjectBuildResult::accepted(DraftingObject object)
+{
+    DraftingObjectBuildResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.object = std::move(object);
+    return result;
+}
+
+DraftingObjectBuildResult DraftingObjectBuildResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingObjectBuildResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
 
 DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
@@ -12,6 +32,22 @@ DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, D
     object.kind = kind;
     object.geometry = std::move(geometry);
     return object;
+}
+
+DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
+{
+    if (!isValidDraftingObjectId(id)) {
+        return DraftingObjectBuildResult::rejected(DraftingResultCode::EmptyObjectId, "object id is required");
+    }
+    if (!kindMatchesGeometry(kind, geometry)) {
+        return DraftingObjectBuildResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+    const auto geometryValidation = validateGeometry(geometry);
+    if (!geometryValidation.ok) {
+        return DraftingObjectBuildResult::rejected(geometryValidation.code, geometryValidation.message);
+    }
+
+    return DraftingObjectBuildResult::accepted(makeDraftingObject(std::move(id), kind, std::move(geometry)));
 }
 
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order)

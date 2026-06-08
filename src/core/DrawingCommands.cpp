@@ -245,15 +245,28 @@ void addPolyline(State &state, const QJsonArray &rawPoints) {
         }
         points.push_back({point.nx, point.ny});
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, "polyline"));
-    object.insert("label", "script polyline");
-    object.insert("kind", "polyline");
-    object.insert("detail", "C++ generated polyline");
-    applyActiveStyle(state, object);
-    writePolylineGeometry(object, {points}, state.canvasPx);
-    applyCreationMetadata(object, QStringLiteral("PolylineTool"));
-    pushObject(state, object);
+    const QString objectId = nextId(state, QStringLiteral("polyline"));
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), QStringLiteral("script polyline"));
+    attributes.insert(QStringLiteral("kind"), QStringLiteral("polyline"));
+    attributes.insert(QStringLiteral("detail"), QStringLiteral("C++ generated polyline"));
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Polyline;
+    object.geometry = PolylineGeometry{points};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("PolylineTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("polyline command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void addCircle(State &state, const Point &center, const QJsonObject &command) {
@@ -393,15 +406,28 @@ void addPolygon(State &state, const Point &center, const QJsonObject &command) {
         const double py = center.y + std::sin(angle) * radiusPx;
         points.push_back({px / state.canvasPx, py / state.canvasPx});
     }
-    QJsonObject object;
-    object.insert("id", nextId(state, "polygon"));
-    object.insert("label", "script polygon");
-    object.insert("kind", "polygon");
-    object.insert("detail", "C++ generated regular polygon");
-    applyActiveStyle(state, object);
-    writePolygonGeometry(object, {{center.nx, center.ny}, radiusPx / state.canvasPx, sides, rotationDeg, points}, state.canvasPx);
-    applyCreationMetadata(object, QStringLiteral("PolygonTool"));
-    pushObject(state, object);
+    const QString objectId = nextId(state, QStringLiteral("polygon"));
+    QJsonObject attributes;
+    attributes.insert(QStringLiteral("label"), QStringLiteral("script polygon"));
+    attributes.insert(QStringLiteral("kind"), QStringLiteral("polygon"));
+    attributes.insert(QStringLiteral("detail"), QStringLiteral("C++ generated regular polygon"));
+    applyActiveStyle(state, attributes);
+
+    DrawingObject object;
+    object.id = {objectId};
+    object.kind = ShapeKind::Polygon;
+    object.geometry = PolygonGeometry{{center.nx, center.ny}, radiusPx / state.canvasPx, sides, rotationDeg, points};
+    object.style = {QStringLiteral("inline_active_stroke")};
+    object.layer = {QString::fromLatin1(kScriptLayer)};
+    object.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("PolygonTool"));
+    object.metadata.values.insert(QStringLiteral("version"), 1);
+    object.attributes = attributes;
+
+    if (!state.store.addObject(object)) {
+        state.errors.append(QStringLiteral("polygon command could not add typed object: ") + objectId);
+        return;
+    }
+    pushObject(state, state.store.serializeObject({objectId}, state.canvasPx));
 }
 
 void runTwoPointTool(State &state, const Point &point, const std::function<void(const Point &, const Point &)> &complete) {

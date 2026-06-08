@@ -244,6 +244,62 @@ bool runDrawingStoreRectangleContract() {
     return ok;
 }
 
+bool runDrawingStorePolylinePolygonContract() {
+    using namespace drawing_core;
+
+    DrawingStore store;
+    DrawingObject polyline;
+    polyline.id = {QStringLiteral("obj_polyline_01")};
+    polyline.kind = ShapeKind::Polyline;
+    polyline.geometry = PolylineGeometry{{{0.125, 0.125}, {0.25, 0.375}, {0.5, 0.25}}};
+    polyline.style = {QStringLiteral("stroke_default")};
+    polyline.layer = {QStringLiteral("layer_test")};
+    polyline.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("polyline_contract_test"));
+    polyline.metadata.values.insert(QStringLiteral("version"), 1);
+    polyline.attributes.insert(QStringLiteral("kind"), QStringLiteral("polyline"));
+
+    DrawingObject polygon;
+    polygon.id = {QStringLiteral("obj_polygon_01")};
+    polygon.kind = ShapeKind::Polygon;
+    polygon.geometry = PolygonGeometry{{0.5, 0.5}, 0.25, 4, 0.0, {{0.75, 0.5}, {0.5, 0.75}, {0.25, 0.5}, {0.5, 0.25}}};
+    polygon.style = {QStringLiteral("stroke_default")};
+    polygon.layer = {QStringLiteral("layer_test")};
+    polygon.metadata.values.insert(QStringLiteral("created_by"), QStringLiteral("polygon_contract_test"));
+    polygon.metadata.values.insert(QStringLiteral("version"), 1);
+    polygon.attributes.insert(QStringLiteral("kind"), QStringLiteral("polygon"));
+
+    bool ok = true;
+    ok &= expect(store.addObject(polyline), QStringLiteral("store should add a valid polyline object"));
+    ok &= expect(store.addObject(polygon), QStringLiteral("store should add a valid polygon object"));
+    ok &= expect(store.translateObject({QStringLiteral("obj_polyline_01")}, 0.125, 0.0),
+                 QStringLiteral("store should translate polyline geometry"));
+    ok &= expect(store.updateGeometry({QStringLiteral("obj_polygon_01")}, PolygonGeometry{{0.25, 0.25}, 0.125, 3, 30.0, {{0.358253, 0.3125}, {0.141747, 0.3125}, {0.25, 0.125}}}),
+                 QStringLiteral("store should update polygon geometry"));
+
+    const QJsonObject serializedPolyline = store.serializeObject({QStringLiteral("obj_polyline_01")}, 512);
+    ok &= expect(serializedPolyline.value(QStringLiteral("kind")).toString() == QStringLiteral("polyline"),
+                 QStringLiteral("serialized polyline should preserve kind"));
+    ok &= expect(serializedPolyline.value(QStringLiteral("points")).toArray().size() == 3,
+                 QStringLiteral("serialized polyline should preserve normalized points"));
+    ok &= expectNear(serializedPolyline.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("points")).toArray().at(0).toArray().at(0).toDouble(), 128.0,
+                     QStringLiteral("serialized polyline geometry should project translated x"));
+    ok &= expectNear(serializedPolyline.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("x")).toDouble(), 128.0,
+                     QStringLiteral("serialized polyline bounds should derive from translated points"));
+
+    const QJsonObject serializedPolygon = store.serializeObject({QStringLiteral("obj_polygon_01")}, 512);
+    ok &= expect(serializedPolygon.value(QStringLiteral("kind")).toString() == QStringLiteral("polygon"),
+                 QStringLiteral("serialized polygon should preserve kind"));
+    ok &= expect(serializedPolygon.value(QStringLiteral("sides")).toInt() == 3,
+                 QStringLiteral("serialized polygon should preserve side count"));
+    ok &= expectNear(serializedPolygon.value(QStringLiteral("rotation_deg")).toDouble(), 30.0,
+                     QStringLiteral("serialized polygon should preserve rotation"));
+    ok &= expect(serializedPolygon.value(QStringLiteral("geometry")).toObject().value(QStringLiteral("points")).toArray().size() == 3,
+                 QStringLiteral("serialized polygon geometry should project points"));
+    ok &= expectNear(serializedPolygon.value(QStringLiteral("bounds")).toObject().value(QStringLiteral("y")).toDouble(), 64.0,
+                     QStringLiteral("serialized polygon bounds should derive from points"));
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -253,5 +309,6 @@ int main(int argc, char **argv) {
     ok &= runDrawingStorePointContract();
     ok &= runDrawingStoreCircleArcContract();
     ok &= runDrawingStoreRectangleContract();
+    ok &= runDrawingStorePolylinePolygonContract();
     return ok ? 0 : 1;
 }

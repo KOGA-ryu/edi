@@ -44,6 +44,16 @@ bool rectangleLikeKind(const QString &kind) {
         || kind == QStringLiteral("ascii_cell_region");
 }
 
+std::vector<Point2D> regularPolygonPoints(double cx, double cy, double radius, int sides, double rotationDeg) {
+    std::vector<Point2D> points;
+    points.reserve(static_cast<std::size_t>(std::max(0, sides)));
+    for (int index = 0; index < sides; ++index) {
+        const double angle = degreesToRadians(rotationDeg + 360.0 * index / sides);
+        points.push_back({cx + std::cos(angle) * radius, cy + std::sin(angle) * radius});
+    }
+    return points;
+}
+
 bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     const QString kind = object.value(QStringLiteral("kind")).toString();
     if (kind != QStringLiteral("point")
@@ -52,7 +62,9 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
         && kind != QStringLiteral("glyph_baseline")
         && kind != QStringLiteral("circle")
         && kind != QStringLiteral("arc")
-        && !rectangleLikeKind(kind)) {
+        && !rectangleLikeKind(kind)
+        && kind != QStringLiteral("polyline")
+        && kind != QStringLiteral("polygon")) {
         return true;
     }
     const QString objectId = object.value(QStringLiteral("id")).toString();
@@ -74,6 +86,12 @@ bool addStoreObjectFromJson(State &state, const QJsonObject &object) {
     } else if (kind == QStringLiteral("circle")) {
         typed.kind = ShapeKind::Circle;
         typed.geometry = circleGeometryFromObject(object);
+    } else if (kind == QStringLiteral("polyline")) {
+        typed.kind = ShapeKind::Polyline;
+        typed.geometry = polylineGeometryFromObject(object);
+    } else if (kind == QStringLiteral("polygon")) {
+        typed.kind = ShapeKind::Polygon;
+        typed.geometry = polygonGeometryFromObject(object);
     } else {
         typed.kind = ShapeKind::Rectangle;
         typed.geometry = rectangleGeometryFromObject(object);
@@ -566,26 +584,43 @@ void updateObjectField(State &state, const QString &objectId, const QString &fie
                 }
                 updated = true;
             } else if (kind == QStringLiteral("polygon")) {
-                double cx = object.value("cx").toDouble() * canvas;
-                double cy = object.value("cy").toDouble() * canvas;
-                double radius = object.value("radius_px").toDouble();
-                int sides = object.value("sides").toInt(6);
-                double rotation = object.value("rotation_deg").toDouble();
+                const DrawingObject *storeObject = state.store.find({objectId});
+                const PolygonGeometry *storePolygon = storeObject == nullptr ? nullptr : std::get_if<PolygonGeometry>(&storeObject->geometry);
+                double cx = storePolygon == nullptr ? object.value("cx").toDouble() * canvas : storePolygon->center.x * canvas;
+                double cy = storePolygon == nullptr ? object.value("cy").toDouble() * canvas : storePolygon->center.y * canvas;
+                double radius = storePolygon == nullptr ? object.value("radius_px").toDouble() : storePolygon->radius * canvas;
+                int sides = storePolygon == nullptr ? object.value("sides").toInt(6) : storePolygon->sides;
+                double rotation = storePolygon == nullptr ? object.value("rotation_deg").toDouble() : storePolygon->rotationDeg;
                 if (field == QStringLiteral("cx_px")) {
                     cx = value;
                 } else if (field == QStringLiteral("cy_px")) {
                     cy = value;
                 } else if (field == QStringLiteral("radius_px")) {
-                    radius = value;
+                    radius = positivePx(value);
                 } else if (field == QStringLiteral("sides")) {
-                    sides = static_cast<int>(std::round(value));
+                    sides = std::max(3, static_cast<int>(std::round(value)));
                 } else if (field == QStringLiteral("rotation_deg")) {
                     rotation = value;
                 } else {
                     state.errors.append("update_object unsupported polygon field: " + field);
                     return;
                 }
-                rebuildPolygon(object, state.canvasPx, cx, cy, radius, sides, rotation);
+                const PolygonGeometry updatedPolygon{
+                    {cx / canvas, cy / canvas},
+                    radius / canvas,
+                    sides,
+                    rotation,
+                    regularPolygonPoints(cx / canvas, cy / canvas, radius / canvas, sides, rotation),
+                };
+                if (storeObject != nullptr) {
+                    if (storePolygon == nullptr || !state.store.updateGeometry({objectId}, updatedPolygon)) {
+                        state.errors.append("update_object could not update typed polygon: " + objectId);
+                        return;
+                    }
+                    object = state.store.serializeObject({objectId}, state.canvasPx);
+                } else {
+                    rebuildPolygon(object, state.canvasPx, cx, cy, radius, sides, rotation);
+                }
                 updated = true;
             } else {
                 state.errors.append("update_object unsupported kind: " + kind);

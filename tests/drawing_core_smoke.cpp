@@ -743,6 +743,79 @@ bool runControllerRectangleStoreLifecycleSmoke() {
     return ok;
 }
 
+bool runControllerPolylinePolygonStoreLifecycleSmoke() {
+    DrawingDocumentController controller;
+    controller.selectTool(QStringLiteral("line_polyline"));
+    controller.setToolParameter(QStringLiteral("line_variant"), QStringLiteral("polyline"));
+    controller.clickCanvasNormalizedWithSnapStep(0.125, 0.125, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.250, 0.250, 8);
+
+    const QString polylineId = QStringLiteral("script_polyline_01");
+    controller.selectObject(polylineId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("route"));
+    controller.moveObjectBy(polylineId, 0.125, 0.0);
+
+    controller.selectTool(QStringLiteral("regular_polygon"));
+    controller.setToolParameter(QStringLiteral("regular_polygon_sides"), 5.0);
+    controller.setToolParameter(QStringLiteral("regular_polygon_rotation_deg"), 18.0);
+    controller.clickCanvasNormalizedWithSnapStep(0.500, 0.500, 8);
+    controller.clickCanvasNormalizedWithSnapStep(0.625, 0.500, 8);
+
+    const QString polygonId = QStringLiteral("script_polygon_01");
+    controller.selectObject(polygonId);
+    controller.updateSelectedObjectMetadataField(QStringLiteral("role"), QStringLiteral("zone"));
+    controller.moveObjectBy(polygonId, 0.0, 0.125);
+    controller.updateObjectField(polygonId, QStringLiteral("radius_px"), 96.0);
+    controller.updateObjectField(polygonId, QStringLiteral("sides"), 6.0);
+    controller.updateObjectField(polygonId, QStringLiteral("rotation_deg"), 30.0);
+
+    bool ok = true;
+    QJsonObject model = checkedControllerModel(controller, ok);
+    QJsonObject polyline = objectById(model.value(QStringLiteral("generated_objects")).toArray(), polylineId);
+    QJsonObject polylineGeometry = polyline.value(QStringLiteral("geometry")).toObject();
+    QJsonArray polylinePoints = polylineGeometry.value(QStringLiteral("points")).toArray();
+    QJsonObject polygon = objectById(model.value(QStringLiteral("generated_objects")).toArray(), polygonId);
+    QJsonObject polygonGeometry = polygon.value(QStringLiteral("geometry")).toObject();
+
+    ok &= expect(polyline.value(QStringLiteral("role")).toString() == QStringLiteral("route"),
+                 QStringLiteral("store-backed polyline should preserve top-level metadata after projection"));
+    ok &= expectNear(polylinePoints.at(0).toArray().at(0).toDouble(), 128.0,
+                     QStringLiteral("store-backed polyline move should update typed first point x"));
+    ok &= expect(controller.exportSvg().contains(QStringLiteral("data-role=\"route\"")),
+                 QStringLiteral("store-backed polyline svg export should preserve metadata"));
+
+    ok &= expect(polygon.value(QStringLiteral("role")).toString() == QStringLiteral("zone"),
+                 QStringLiteral("store-backed polygon should preserve top-level metadata after projection"));
+    ok &= expectNear(polygonGeometry.value(QStringLiteral("center")).toObject().value(QStringLiteral("y")).toDouble(), 320.0,
+                     QStringLiteral("store-backed polygon move should update typed center y"));
+    ok &= expectNear(polygonGeometry.value(QStringLiteral("radius")).toDouble(), 96.0,
+                     QStringLiteral("store-backed polygon radius edit should update typed radius"));
+    ok &= expect(polygonGeometry.value(QStringLiteral("sides")).toInt() == 6,
+                 QStringLiteral("store-backed polygon side edit should update typed side count"));
+    ok &= expectNear(polygonGeometry.value(QStringLiteral("rotation_deg")).toDouble(), 30.0,
+                     QStringLiteral("store-backed polygon rotation edit should update typed rotation"));
+    ok &= expect(controller.exportSvg().contains(QStringLiteral("data-role=\"zone\"")),
+                 QStringLiteral("store-backed polygon svg export should preserve metadata"));
+
+    controller.deleteObject(polylineId);
+    controller.deleteObject(polygonId);
+    model = checkedControllerModel(controller, ok);
+    ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), polylineId).isEmpty(),
+                 QStringLiteral("store-backed polyline delete should remove JSON projection"));
+    ok &= expect(objectById(model.value(QStringLiteral("generated_objects")).toArray(), polygonId).isEmpty(),
+                 QStringLiteral("store-backed polygon delete should remove JSON projection"));
+
+    controller.undo();
+    model = checkedControllerModel(controller, ok);
+    polygon = objectById(model.value(QStringLiteral("generated_objects")).toArray(), polygonId);
+    polygonGeometry = polygon.value(QStringLiteral("geometry")).toObject();
+    ok &= expect(polygon.value(QStringLiteral("role")).toString() == QStringLiteral("zone"),
+                 QStringLiteral("undo after polygon delete should rebuild store-backed metadata"));
+    ok &= expectNear(polygonGeometry.value(QStringLiteral("rotation_deg")).toDouble(), 30.0,
+                     QStringLiteral("undo after polygon delete should rebuild typed rotation edit"));
+    return ok;
+}
+
 bool runControllerObjectFieldUpdateSmoke() {
     DrawingDocumentController controller;
     controller.selectTool(QStringLiteral("rectangle_polygon"));
@@ -1170,6 +1243,7 @@ int main(int argc, char **argv) {
     ok &= runControllerPointStoreLifecycleSmoke();
     ok &= runControllerCircleArcStoreLifecycleSmoke();
     ok &= runControllerRectangleStoreLifecycleSmoke();
+    ok &= runControllerPolylinePolygonStoreLifecycleSmoke();
     ok &= runControllerObjectFieldUpdateSmoke();
     ok &= runControllerObjectFieldGestureCoalescingSmoke();
     ok &= runControllerObjectMetadataSmoke();

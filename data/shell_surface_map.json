@@ -7,7 +7,7 @@
     "Project profiles choose activity modes and feature surfaces.",
     "Feature code fills declared surfaces; it does not fork shell regions.",
     "Blank mode must stay free of project content and review taxonomy state.",
-    "Builder agents should plan from this map before reading broad QML context."
+    "Builder agents should plan from this map before reading broad C++ context."
   ],
   "entry_documents": [
     "docs/design_philosophy.md",
@@ -52,7 +52,7 @@
     {
       "profile_id": "draftsman_text_editor",
       "path": "data/project_profiles/draftsman_text_editor.json",
-      "purpose": "Native QML text editor profile for scratch text, review notes, and snippets.",
+      "purpose": "Native C++ text editor profile for scratch text, review notes, and snippets.",
       "default_activity": "text_editor",
       "enabled_features": [
         "text_editor",
@@ -94,7 +94,7 @@
     {
       "surface_id": "window",
       "kind": "shell_root",
-      "owner_file": "src/Main.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "window",
       "activity_modes": [
         "blank",
@@ -127,7 +127,7 @@
     {
       "surface_id": "top_chrome",
       "kind": "region",
-      "owner_file": "src/regions/WindowTitleBar.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "top_chrome",
       "activity_modes": [
         "blank",
@@ -162,7 +162,7 @@
     {
       "surface_id": "activity_rail",
       "kind": "region",
-      "owner_file": "src/regions/ActivityRail.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "activity_rail",
       "activity_modes": [
         "blank",
@@ -193,7 +193,7 @@
     {
       "surface_id": "left_panel",
       "kind": "region_host",
-      "owner_file": "src/regions/LeftPanel.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "left_panel",
       "activity_modes": [
         "blank",
@@ -236,7 +236,7 @@
     {
       "surface_id": "main_workspace",
       "kind": "region_host",
-      "owner_file": "src/regions/MainWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "main_workspace",
       "activity_modes": [
         "blank",
@@ -278,7 +278,7 @@
     {
       "surface_id": "right_panel",
       "kind": "region_host",
-      "owner_file": "src/regions/RightPanel.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "right_panel",
       "activity_modes": [
         "blank",
@@ -319,7 +319,7 @@
     {
       "surface_id": "bottom_panel",
       "kind": "region_host",
-      "owner_file": "src/regions/BottomPanel.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "bottom_panel",
       "activity_modes": [
         "blank",
@@ -359,7 +359,7 @@
     {
       "surface_id": "status_bar",
       "kind": "region",
-      "owner_file": "src/regions/StatusBar.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "status_bar",
       "activity_modes": [
         "blank",
@@ -390,7 +390,7 @@
     {
       "surface_id": "settings",
       "kind": "feature_surface",
-      "owner_file": "src/features/settings/ThemeSettingsWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "activity_modes": [
         "settings"
       ],
@@ -422,7 +422,7 @@
     {
       "surface_id": "blank_canvas",
       "kind": "feature_surface",
-      "owner_file": "src/features/blank/BlankWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "blank_workspace",
       "activity_modes": [
         "blank"
@@ -445,7 +445,7 @@
     {
       "surface_id": "ui_taxonomy_review",
       "kind": "feature_surface",
-      "owner_file": "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "activity_modes": [
         "review"
       ],
@@ -472,7 +472,7 @@
     {
       "surface_id": "drawing_tool_blank",
       "kind": "feature_surface",
-      "owner_file": "src/features/drawing_tool/DrawingToolWorkspace.qml",
+      "owner_file": "src/widgets/DrawingCanvasWidget.cpp",
       "data_ui": "drawing_tool_workspace",
       "activity_modes": [
         "drawing_tool"
@@ -498,7 +498,7 @@
     {
       "surface_id": "text_editor",
       "kind": "feature_surface",
-      "owner_file": "src/features/text_editor/TextEditorWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "text_editor_workspace",
       "activity_modes": [
         "text_editor"
@@ -537,7 +537,7 @@
     {
       "surface_id": "csv_map_editor",
       "kind": "feature_surface",
-      "owner_file": "src/features/csv_map_editor/CsvMapEditorWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "activity_modes": [
         "map_editor"
       ],
@@ -568,7 +568,7 @@
     {
       "surface_id": "blender_recipe_lab",
       "kind": "feature_surface",
-      "owner_file": "src/features/blender_recipe_lab/BlenderRecipeLabWorkspace.qml",
+      "owner_file": "app/main.cpp",
       "data_ui": "blender_recipe_lab_workspace",
       "activity_modes": [
         "blender_recipe_lab"

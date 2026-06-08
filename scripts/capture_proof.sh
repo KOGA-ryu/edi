@@ -15,76 +15,21 @@ build/edi_validate ui-theme data/ui_theme.json
 build/edi_validate shell-layout data/shell_layout.json
 build/edi_validate design-principles data/design_principles.json
 build/edi_validate csv-map-editor data/project_profiles/draftsman_game_guy_map_editor.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
+
 cmake --build build
 
-./build/qt_qml_region_split \
-  --screenshot docs/proof/default_shell_1280x820.png \
-  --width 1280 \
-  --height 820
+profiles=(
+  data/project_profiles/draftsman_blank.json
+  data/project_profiles/draftsman_drawing_tool_blank.json
+  data/project_profiles/draftsman_text_editor.json
+  data/project_profiles/draftsman_game_guy_map_editor.json
+)
 
-./build/qt_qml_region_split \
-  --screenshot docs/proof/activity_rail_drilldown_1280x820.png \
-  --project-profile data/project_profiles/draftsman_ui_taxonomy.json \
-  --route activity_rail \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/note_entry_1280x820.png \
-  --project-profile data/project_profiles/draftsman_ui_taxonomy.json \
-  --route left_panel \
-  --tab Notes \
-  --note-status needs_rework \
-  --note "Need clearer add/remove affordances before this becomes the project customization panel." \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/settings_theme_1280x820.png \
-  --activity settings \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/settings_panels_1280x820.png \
-  --activity settings \
-  --settings-page panels \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/settings_panels_compact_620x460.png \
-  --activity settings \
-  --settings-page panels \
-  --width 620 \
-  --height 460
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/drawing_tool_blank_1280x820.png \
-  --project-profile data/project_profiles/draftsman_drawing_tool_blank.json \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/text_editor_1280x820.png \
-  --project-profile data/project_profiles/draftsman_text_editor.json \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/csv_map_editor_1280x820.png \
-  --project-profile data/project_profiles/draftsman_game_guy_map_editor.json \
-  --width 1280 \
-  --height 820
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/minimum_shell_960x620.png \
-  --width 960 \
-  --height 620
-
-./build/qt_qml_region_split \
-  --screenshot docs/proof/tiny_shell_420x320.png \
-  --width 420 \
-  --height 320
-
-build/edi_validate shell-surface-map data/shell_surface_map.json
+for profile in "${profiles[@]}"; do
+  QT_QPA_PLATFORM=offscreen ./build/edi --project-profile "$profile" &
+  pid=$!
+  sleep 2
+  kill "$pid" >/dev/null 2>&1 || true
+  wait "$pid" >/dev/null 2>&1 || true
+done

@@ -56,7 +56,7 @@ It should classify findings into shell surface, feature surface, project profile
 
 Theme Dex protects visual comfort.
 
-It should work through `data/ui_theme.json` and `src/style/UiStyle.qml`. It should not hard-code colors in feature QML unless a missing token is documented and added.
+It should work through `data/ui_theme.json` and `src/style/UiStyle.cpp`. It should not hard-code colors in feature C++ unless a missing token is documented and added.
 
 ## Design Profiles
 

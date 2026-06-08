@@ -1,8 +1,8 @@
 # Drawing Tool Workflow Fixtures
 
-These fixtures drive deterministic drawing-tool workflows through the QML control runner. Use them to measure specific interaction paths instead of clicking around manually.
+These fixtures drive deterministic drawing-tool workflows through the C++ control runner. Use them to measure specific interaction paths instead of clicking around manually.
 
-Status: this legacy JS/QML telemetry harness is disabled by default while the canvas is migrated to C++. Real workflow runs require:
+Status: telemetry collection is disabled by default. Real workflow runs require:
 
 ```sh
 DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 build/drawing_control_workflow_report --all --compare-baseline
@@ -127,7 +127,7 @@ build/drawing_control_workflow_report --fixture arc_create_basic.json
 
 ## Coverage Contract
 
-`workflow_coverage_expectations.json` turns dry-run coverage into a testable contract. If a fixture is removed or retagged and coverage drops below the minimums, `drawing_canvas_control_workflow_coverage_tests` fails before any app launch is needed.
+`workflow_coverage_expectations.json` turns dry-run coverage into a testable contract. If a fixture is removed or retagged and coverage drops below the minimums, `drawing_control_workflow_report_dry_run_tests` fails before any app launch is needed.
 
 The same file also protects focused selectors such as `--tag line`, `--category edit`, and exact fixture runs. This keeps the cheap probe commands useful as the workflow set changes.
 

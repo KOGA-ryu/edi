@@ -14,7 +14,7 @@
       "label": "Draftsman UI",
       "type": "root",
       "status": "pending",
-      "summary": "Root route for reviewing the clean Draftsman QML shell.",
+      "summary": "Root route for reviewing the clean Draftsman C++ shell.",
       "purpose": "Give the human one navigable map of every UI region, panel, object, behavior, and code reference.",
       "objects": [
         "Activity rail",
@@ -38,9 +38,9 @@
         "proof_review"
       ],
       "code_refs": [
-        "src/Main.qml",
-        "src/runtime/RuntimeController.qml",
-        "src/style/UiStyle.qml"
+        "app/main.cpp",
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Does the shell read as a draftsman table?",
@@ -68,8 +68,8 @@
         "top_chrome/shell_toggles"
       ],
       "code_refs": [
-        "src/Main.qml",
-        "src/regions/StatusBar.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Do we need a top bar, or is the status bar enough?",
@@ -91,8 +91,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/Main.qml",
-        "src/regions/StatusBar.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Should title live in top chrome or status bar?",
@@ -114,8 +114,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/ReviewBreadcrumb.qml",
-        "src/regions/StatusBar.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Is the breadcrumb enough?",
@@ -137,8 +137,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/Main.qml",
-        "src/style/UiStyle.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Are toggles needed now?",
@@ -167,8 +167,8 @@
         "activity_rail/proof"
       ],
       "code_refs": [
-        "src/regions/ActivityRail.qml",
-        "src/components/UiIconButton.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Are labels/icons clear?",
@@ -191,7 +191,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/ActivityRail.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should binder be default later?",
@@ -213,8 +213,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/ActivityRail.qml",
-        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Is review mode clearly different from binder mode?"
@@ -235,7 +235,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/ActivityRail.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should settings also be in the left panel?"
@@ -256,7 +256,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/ActivityRail.qml",
+        "app/main.cpp",
         "docs/proof/"
       ],
       "prompts": [
@@ -284,8 +284,8 @@
         "left_panel/settings_entry"
       ],
       "code_refs": [
-        "src/regions/LeftPanel.qml",
-        "src/components/UiListRow.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Is this project organization or just placeholder rows?",
@@ -308,7 +308,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/LeftPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should project slots come from JSON?",
@@ -331,7 +331,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/LeftPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Which workflow states are real?",
@@ -352,7 +352,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/LeftPanel.qml",
+        "app/main.cpp",
         "data/review_subjects/draftsman_ui_taxonomy.json"
       ],
       "prompts": [
@@ -375,7 +375,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/LeftPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Duplicate with activity rail or useful?",
@@ -406,8 +406,8 @@
         "main_workspace/comments"
       ],
       "code_refs": [
-        "src/regions/MainWorkspace.qml",
-        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Is one selected route clearly dominant?",
@@ -429,7 +429,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/UiTaxonomyWorkspace.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Is the header too large?",
@@ -450,7 +450,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/ReviewBreadcrumb.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should breadcrumb segments be clickable?",
@@ -474,7 +474,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/UiTaxonomyFocusPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Is the review prompt direct enough?",
@@ -496,8 +496,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/ReviewRouteCards.qml",
-        "src/components/UiRouteCard.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Are cards scannable?",
@@ -520,8 +520,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/ReviewCommentThread.qml",
-        "src/runtime/RuntimeController.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Is in-memory clearly marked?",
@@ -550,8 +550,8 @@
         "right_panel/write_boundary"
       ],
       "code_refs": [
-        "src/regions/RightPanel.qml",
-        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Does it follow the selected center route?",
@@ -574,7 +574,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Are facts enough for an agent handoff?"
@@ -595,8 +595,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/components/UiCodeRefRow.qml",
-        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Should code refs validate file existence?",
@@ -618,7 +618,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/features/ui_taxonomy/UiTaxonomyInspector.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should this preview all route notes or only the latest?"
@@ -638,7 +638,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/runtime/RuntimeController.qml",
+        "app/main.cpp",
         "data/review_notes/draftsman_ui_taxonomy_notes.json"
       ],
       "prompts": [
@@ -666,7 +666,7 @@
         "bottom_panel/log"
       ],
       "code_refs": [
-        "src/regions/BottomPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should this be collapsible?",
@@ -688,7 +688,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/BottomPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Is this useful enough to keep visible?"
@@ -728,7 +728,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/runtime/RuntimeController.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "What should a receipt contain?"
@@ -749,7 +749,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/BottomPanel.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should log persist?"
@@ -772,7 +772,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/regions/StatusBar.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Is this too dense?",
@@ -800,7 +800,7 @@
         "settings/write_rules"
       ],
       "code_refs": [
-        "src/style/UiStyle.qml",
+        "app/main.cpp",
         "docs/coding_methods.md"
       ],
       "prompts": [
@@ -825,7 +825,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/style/UiStyle.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should colors be editable in-app now?",
@@ -848,8 +848,8 @@
       ],
       "children": [],
       "code_refs": [
-        "src/style/UiStyle.qml",
-        "src/Main.qml"
+        "app/main.cpp",
+        "app/main.cpp"
       ],
       "prompts": [
         "Should splitters write settings?",
@@ -871,7 +871,7 @@
       ],
       "children": [],
       "code_refs": [
-        "src/runtime/FeatureRegistry.qml"
+        "app/main.cpp"
       ],
       "prompts": [
         "Should feature settings exist before multiple features?"
@@ -988,7 +988,7 @@
         "docs/TODO.md"
       ],
       "prompts": [
-        "Do we need this in QML now?"
+        "Do we need this in C++ now?"
       ]
     },
     {

@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
     const QCommandLineOption themeOption(QStringList() << "theme", "Load UI theme JSON from <path>.", "path");
     const QCommandLineOption projectProfileOption(QStringList() << "project-profile", "Load project profile JSON from <path>.", "path");
     const QCommandLineOption shellLayoutOption(QStringList() << "shell-layout", "Load shell layout JSON from <path>.", "path");
-    const QCommandLineOption actionOption(QStringList() << "action", "Accepted for compatibility with the former QML shell.", "action_id");
+    const QCommandLineOption actionOption(QStringList() << "action", "Accepted for compatibility with older shell automation.", "action_id");
     const QCommandLineOption drawingControlScriptOption(QStringList() << "drawing-control-script", "Validate drawing control script JSON from <path>.", "path");
     const QCommandLineOption drawingControlLibraryOption(QStringList() << "drawing-control-library", "Load reusable drawing control script library JSON from <path>.", "path");
     const QCommandLineOption drawingControlScriptExitOption(QStringList() << "drawing-control-script-exit", "Exit after control script validation.");

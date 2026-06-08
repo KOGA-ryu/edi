@@ -51,15 +51,15 @@ csv_map_editor
 Shell region files are shared infrastructure:
 
 ```text
-src/Main.qml
-src/regions/WindowTitleBar.qml
-src/regions/ActivityRail.qml
-src/regions/LeftPanel.qml
-src/regions/MainWorkspace.qml
-src/regions/RightPanel.qml
-src/regions/BottomPanel.qml
-src/regions/StatusBar.qml
-src/runtime/RuntimeController.qml
+app/main.cpp
+app/main.cpp
+app/main.cpp
+app/main.cpp
+app/main.cpp
+app/main.cpp
+app/main.cpp
+app/main.cpp
+src/runtime/RuntimeController.cpp
 ```
 
 Edit them only when the work requires shared routing, panel behavior, layout policy, or reusable shell behavior.
@@ -104,7 +104,7 @@ Preferred integration order:
 
 1. Add or update project profile data.
 2. Add feature data contracts.
-3. Add feature QML under `src/features/<feature_id>/`.
+3. Add feature C++ under `src/features/<feature_id>/`.
 4. Route feature surfaces through the smallest possible shell host edit.
 5. Update `data/shell_surface_map.json`.
 6. Validate, build, and capture proof.

@@ -221,7 +221,6 @@ QJsonObject dryRunOutput(const QJsonArray &workflows, const QJsonArray &selected
 
 QString commandText(QString command)
 {
-    command.replace("node tests/helpers/drawing_control_workflow_report.js", "build/drawing_control_workflow_report");
     return command;
 }
 
@@ -369,7 +368,7 @@ int main(int argc, char **argv)
     printJson(QJsonObject{
         {"ok", true},
         {"skipped", true},
-        {"reason", "C++ workflow execution is deferred until the QML canvas runner is removed"},
+        {"reason", "C++ workflow execution is deferred until the legacy canvas runner is replaced"},
         {"selectedWorkflowCount", selected.size()},
     });
     return 0;

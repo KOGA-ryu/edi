@@ -164,7 +164,7 @@
       "must_read": [
         "docs/design_philosophy.md",
         "data/ui_theme.json",
-        "src/style/UiStyle.qml"
+        "app/main.cpp"
       ],
       "must_produce": [
         "token changes",
@@ -172,7 +172,7 @@
         "affected surface list"
       ],
       "must_not_do": [
-        "hard-code colors in feature QML",
+        "hard-code colors in feature C++ widgets",
         "introduce bright default surfaces",
         "create one-note palettes"
       ]
@@ -294,7 +294,7 @@
     {
       "check_id": "theme_escape",
       "question": "Did a feature hard-code visual colors instead of using theme tokens?",
-      "fail_if": "Feature QML introduces project colors without a theme contract."
+      "fail_if": "Feature C++ UI introduces project colors without a theme contract."
     }
   ]
 }

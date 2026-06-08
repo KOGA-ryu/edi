@@ -1,8 +1,8 @@
 # Right Inspector Contract
 
-The right panel renders a generic inspector document. Project-specific code should build this shape and pass it to `RightInspector.qml`; the renderer should not know about a project domain.
+The right panel renders a generic inspector document. Project-specific C++ code should build this shape and pass it to the shell/widget inspector adapter; the renderer should not know about a project domain.
 
-```js
+```json
 {
   id: "route_inspector",
   targetId: "right_panel",
@@ -34,7 +34,7 @@ The right panel renders a generic inspector document. Project-specific code shou
       type: "code_refs",
       visible: true,
       items: [
-        { path: "src/regions/RightPanel.qml", role: "source" }
+        { path: "app/main.cpp", role: "source" }
       ]
     },
     {

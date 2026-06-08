@@ -14,14 +14,13 @@ existing drawing, text, and external script/ASCII pipeline.
 
 ## Runtime Boundary
 
-Blender Recipe Lab owns Blender-specific state under:
+Blender Recipe Lab state is data-driven under:
 
 ```text
-src/features/blender_recipe_lab/BlenderRecipeLabSession.qml
-src/features/blender_recipe_lab/BlenderRecipeLabSessionStore.js
+data/features/blender_recipe_lab/
 ```
 
-Use that session for operation-chain selection, script dry-run state, ASCII
-preview state, materialize status, and selected recipe nodes. Do not add that
-state to the shell runtime controller. If a feature appears to require new shell
+Use C++ controllers/widgets for operation-chain selection, script dry-run state,
+ASCII preview state, materialize status, and selected recipe nodes. Do not add
+that state to unrelated shell code. If a feature appears to require new shell
 controller API, stop and refactor the feature boundary first.

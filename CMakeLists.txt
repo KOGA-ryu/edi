@@ -9,13 +9,8 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 include(CTest)
 
-set(DRAFTSMAN_SHELL_TARGET_NAME "qt_qml_region_split" CACHE STRING "Draftsman shell executable target name.")
+set(DRAFTSMAN_SHELL_TARGET_NAME "edi")
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
-option(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS "Register optional JS drawing telemetry, tooling, and workflow harness tests." OFF)
-option(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS "Compatibility alias for DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS." OFF)
-if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS)
-    set(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS ON CACHE BOOL "Register optional JS drawing telemetry, tooling, and workflow harness tests." FORCE)
-endif()
 
 add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasTypes.h
@@ -206,7 +201,6 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME no_javascript_files_tests COMMAND no_javascript_files_tests)
-    set_tests_properties(no_javascript_files_tests PROPERTIES DISABLED TRUE)
 
     add_test(
         NAME drawing_control_workflow_report_dry_run_tests

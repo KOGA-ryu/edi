@@ -3,24 +3,16 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PROFILE="${PROJECT_PROFILE:-$ROOT_DIR/data/project_profiles/draftsman_blender_recipe_lab.json}"
-ACTIVITY="${ACTIVITY:-blender_recipe_lab}"
-SCREENSHOT="${SCREENSHOT:-}"
-WIDTH="${SCREENSHOT_WIDTH:-1280}"
-HEIGHT="${SCREENSHOT_HEIGHT:-820}"
 OFFSCREEN="${OFFSCREEN:-0}"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  open_blender_recipe_lab.sh [--activity <id>] [--project <path>] [--screenshot <path>] [--offscreen]
+  open_blender_recipe_lab.sh [--project <path>] [--offscreen]
 
 Environment:
-  PROJECT_PROFILE    Path to project profile (default: draftsman_blender_recipe_lab.json in this repo)
-  ACTIVITY          Activity id to start (default: blender_recipe_lab)
-  SCREENSHOT        Optional screenshot path
-  SCREENSHOT_WIDTH  Optional screenshot width (default: 1280)
-  SCREENSHOT_HEIGHT Optional screenshot height (default: 820)
-  OFFSCREEN         Set to 1 to force offscreen launch
+  PROJECT_PROFILE    Path to project profile.
+  OFFSCREEN          Set to 1 to force offscreen launch.
 USAGE
 }
 
@@ -30,16 +22,8 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
-    --activity)
-      ACTIVITY="$2"
-      shift 2
-      ;;
     --project)
       PROJECT_PROFILE="$2"
-      shift 2
-      ;;
-    --screenshot)
-      SCREENSHOT="$2"
       shift 2
       ;;
     --offscreen)
@@ -54,17 +38,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-APP="$ROOT_DIR/build/qt_qml_region_split"
+APP="$ROOT_DIR/build/edi"
 if [[ ! -x "$APP" ]]; then
   echo "Executable not found: $APP" >&2
   echo "Run cmake --build build first." >&2
   exit 1
 fi
 
-CMD=("$APP" --project-profile "$PROJECT_PROFILE" --activity "$ACTIVITY")
-if [[ -n "$SCREENSHOT" ]]; then
-  CMD+=(--screenshot "$SCREENSHOT" --width "$WIDTH" --height "$HEIGHT")
-fi
+CMD=("$APP" --project-profile "$PROJECT_PROFILE")
 
 if [[ "$OFFSCREEN" == "1" ]]; then
   QT_QPA_PLATFORM=offscreen "${CMD[@]}"

@@ -7,7 +7,7 @@ Draftsman shell code is shared source. Project apps should not copy `src/` into 
 Use one authoritative Draftsman shell source tree:
 
 ```text
-qt_qml_region_split/src/
+qt_cpp_region_split/src/
 ```
 
 Consumer apps keep their own data:
@@ -27,12 +27,12 @@ Consumer apps can point the launcher at the shared shell source and their own da
 
 ```cmake
 set(DRAFTSMAN_SHELL_TARGET_NAME my_project_shell CACHE STRING "" FORCE)
-set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "/Users/kogaryu/draft/draftsman/qt_qml_region_split/src" CACHE PATH "" FORCE)
+set(DRAFTSMAN_SHELL_C++_SOURCE_DIR "/Users/kogaryu/draft/draftsman/qt_cpp_region_split/src" CACHE PATH "" FORCE)
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "" FORCE)
-add_subdirectory("/Users/kogaryu/draft/draftsman/qt_qml_region_split" draftsman_shell_build)
+add_subdirectory("/Users/kogaryu/draft/draftsman/qt_cpp_region_split" draftsman_shell_build)
 ```
 
-The consumer app should treat the shared Draftsman repo like a submodule, sibling checkout, or other pinned dependency. The important part is that the QML source path points to the shared source, not a copy.
+The consumer app should treat the shared Draftsman repo like a submodule, sibling checkout, or other pinned dependency. The important part is that the C++ source path points to the shared source, not a copy.
 
 ## Runtime Overrides
 
@@ -58,4 +58,4 @@ If a project needs a shell improvement, make it in the shared source first. If i
 
 ## Dex Planning Entry Point
 
-Any Dex preparing an integration plan should read `docs/design_philosophy.md`, `data/design_principles.json`, `data/shell_surface_map.json`, and `docs/surface_contract.md` before inspecting QML. The design files define taste and review checks; the map defines stable surface ids, owner files, proof hooks, and edit boundaries.
+Any Dex preparing an integration plan should read `docs/design_philosophy.md`, `data/design_principles.json`, `data/shell_surface_map.json`, and `docs/surface_contract.md` before inspecting C++. The design files define taste and review checks; the map defines stable surface ids, owner files, proof hooks, and edit boundaries.

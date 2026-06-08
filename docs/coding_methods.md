@@ -1,13 +1,13 @@
 # Coding Methods
 
-- Keep `Main.qml` as a composer only.
+- Keep `Main.cpp` as a composer only.
 - Put region internals in `src/regions/`.
 - Put reusable controls in `src/components/`.
 - Put custom feature surfaces in `src/features/`.
 - Put shared runtime state in `src/runtime/`.
-- Keep style constants in `src/style/UiStyle.qml`.
+- Keep style constants in `src/style/UiStyle.cpp`.
 - Do not scatter hardcoded colors, spacing, fonts, or panel sizes.
-- Prefer simple QML properties and functions before creating framework abstractions.
+- Prefer simple C++ properties and functions before creating framework abstractions.
 - Keep review taxonomy in `data/review_subjects/` JSON.
 - Keep editable theme defaults in `data/ui_theme.json`.
 - Validate review subjects with `build/edi_validate review-subjects`.

@@ -32,12 +32,12 @@
     }
   },
   "native_surfaces": {
-    "workspace": "src/features/blender_recipe_lab/BlenderRecipeLabWorkspace.qml",
-    "left_panel": "src/features/blender_recipe_lab/BlenderRecipeLabLeftPanel.qml",
-    "right_panel": "src/features/blender_recipe_lab/BlenderRecipeLabRightContext.qml",
-    "bottom_panel": "src/features/blender_recipe_lab/BlenderRecipeLabBottomPanel.qml",
-    "session": "src/features/blender_recipe_lab/BlenderRecipeLabSession.qml",
-    "session_store": "src/features/blender_recipe_lab/BlenderRecipeLabSessionStore.js",
+    "workspace": "app/main.cpp",
+    "left_panel": "app/main.cpp",
+    "right_panel": "app/main.cpp",
+    "bottom_panel": "app/main.cpp",
+    "session": "app/main.cpp",
+    "session_store": "data/features/blender_recipe_lab/tool_lane_manifest.json",
     "runner": "app/main.cpp"
   },
   "native_data": {

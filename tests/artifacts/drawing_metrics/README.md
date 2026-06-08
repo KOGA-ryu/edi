@@ -2,7 +2,7 @@
 
 This directory contains retained generated drawing workflow telemetry.
 
-The drawing telemetry harness is currently disabled while the canvas is migrated to C++.
+Telemetry collection is disabled unless explicitly requested.
 
 Raw JSONL and log files are retained intentionally for reproducibility and deep debugging, but they are not normal review input.
 

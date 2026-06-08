@@ -25,16 +25,11 @@ Before edits, confirm:
 - git root is `/Users/kogaryu/edi`
 - `git status --short` has been checked
 
-Legacy drawing workflow metric artifacts are retained for reference, but the drawing telemetry harness is disabled while canvas behavior is migrated to C++.
+Legacy drawing workflow metric artifacts are retained for reference, but telemetry collection is disabled unless explicitly requested.
 
 Do not run telemetry collection unless the user explicitly re-enables it.
 
-CMake does not register legacy JS/QML canvas harness tests by default. To opt in temporarily:
-
-```bash
-cmake -S . -B build -DDRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS=ON
-DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 build/drawing_control_workflow_report --all --compare-baseline --failures-only
-```
+The repo has no JavaScript or QML runtime. Use the C++ workflow report CLI for compact review.
 
 Do not read raw telemetry directly during normal review:
 

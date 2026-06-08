@@ -1,6 +1,6 @@
 # Project Profile Contract
 
-Project profiles tell the Draftsman shell what project it is hosting without rewriting QML.
+Project profiles tell the Draftsman shell what project it is hosting without rewriting C++.
 
 Default profile:
 
@@ -69,7 +69,7 @@ The default profile is a true blank shell. It starts in `blank` activity, render
 The meta UI taxonomy review is still available as an explicit profile:
 
 ```sh
-./build/qt_qml_region_split --project-profile data/project_profiles/draftsman_ui_taxonomy.json
+./build/qt_cpp_region_split --project-profile data/project_profiles/draftsman_ui_taxonomy.json
 ```
 
 ## Builder Rules
@@ -106,7 +106,7 @@ Settings may declare `exclusive_group: "system"` or omit the field. Do not place
 
 ## Custom Actions
 
-`custom_actions` are optional declarative menu actions. They let a profile add project commands without forking shell QML.
+`custom_actions` are optional declarative menu actions. They let a profile add project commands without forking shell C++.
 
 ```js
 custom_actions: [
@@ -144,7 +144,7 @@ Supported first-pass handlers:
 Custom actions can also be triggered for proof/automation runs:
 
 ```sh
-./build/qt_qml_region_split \
+./build/qt_cpp_region_split \
   --project-profile data/project_profiles/draftsman_text_editor.json \
   --activity text_editor \
   --action export_dex_handoff

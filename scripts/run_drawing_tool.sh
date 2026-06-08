@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_DIR="${APP_DIR}/build"
-APP_BIN="${BUILD_DIR}/qt_qml_region_split"
+APP_BIN="${BUILD_DIR}/edi"
 PROFILE_NAME="${1:-blank}"
 
 case "${PROFILE_NAME}" in
@@ -31,5 +31,4 @@ cmake --build "${BUILD_DIR}"
 
 exec "${APP_BIN}" \
   --project-profile "${PROFILE_PATH}" \
-  --activity drawing_tool \
   "$@"

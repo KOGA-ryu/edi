@@ -8,7 +8,7 @@ Feature id: `drawing_tool_blank`
 
 Owning project/profile: `data/project_profiles/draftsman_drawing_tool_blank.json`
 
-Human goal: provide a clean Draftsman shell copy for a drawing tool without forking the shared UI.
+Human goal: provide a clean EDI C++ shell profile for a drawing tool without forking the shared UI.
 
 Design principles inherited:
 
@@ -37,19 +37,11 @@ Default panel state: left open, right closed, bottom closed.
 
 ## Code Plan
 
-Feature directory:
+Shell/widget ownership:
 
 ```text
-src/features/drawing_tool/
-```
-
-Shell routing edits:
-
-```text
-src/regions/LeftPanel.qml
-src/regions/MainWorkspace.qml
-src/regions/RightPanel.qml
-src/regions/BottomPanel.qml
+app/main.cpp
+src/widgets/DrawingCanvasWidget.cpp
 ```
 
 No drawing engine, persistence, layer stack, brush toolbar, asset browser, or export workflow is implemented in this blank copy.
@@ -60,7 +52,7 @@ Content to show: only the shared shell identity and blank workspace surface.
 
 Content to hide: placeholder palette buttons, fake layers, disabled export/save controls, broad drawing claims.
 
-Theme behavior: use `UiStyle` tokens only.
+Theme behavior: use `data/ui_theme.json` values through C++ adapters only.
 
 Future drawing-tool work should add real controls only when their behavior and data contract exist.
 
@@ -73,8 +65,4 @@ cmake --build build
 scripts/capture_proof.sh
 ```
 
-Proof screenshot:
-
-```text
-docs/proof/drawing_tool_blank_1280x820.png
-```
+Proof is now validation and offscreen startup through `scripts/capture_proof.sh`.

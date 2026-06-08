@@ -1,34 +1,8 @@
-# Qt/QML Region Split Shell
+# EDI
 
-This is a clean editable QML shell foundation for Draftsman.
+EDI is a C++ Qt Widgets shell for the drawing-core workbench and related project profiles.
 
-Main rule: `src/Main.qml` composes major regions only. Region internals live in `src/regions/`. Shared styling lives in `src/style/UiStyle.qml`.
-
-Reuse rule: other apps should consume this shell source instead of copying it. See `docs/reusable_shell_contract.md`.
-
-Dex planning rule: start feature plans from `docs/design_philosophy.md`, `data/design_principles.json`, `data/shell_surface_map.json`, and `docs/surface_contract.md`.
-
-## Edit map
-
-- Change colors, spacing, fonts, region widths: `src/style/UiStyle.qml`
-- Change shell composition: `src/Main.qml`
-- Change left panel internals: `src/regions/LeftPanel.qml`
-- Change right panel internals: `src/regions/RightPanel.qml`
-- Change main workspace internals: `src/regions/MainWorkspace.qml`
-- Change bottom panel internals: `src/regions/BottomPanel.qml`
-- Change activity rail internals: `src/regions/ActivityRail.qml`
-- Change status bar internals: `src/regions/StatusBar.qml`
-- Change reusable controls: `src/components/`
-
-## Intended repo placement
-
-Recommended target:
-
-```text
-/Users/kogaryu/ui/renderers/qt_qml_static/src/
-```
-
-If generation is still used, update the generator to emit this structure instead of one giant `Main.qml`.
+The current runtime rule is simple: app behavior lives in typed C++ contracts and controllers. JSON remains data and projection format. JavaScript and QML are not part of the repo runtime.
 
 ## Build
 
@@ -39,123 +13,43 @@ cmake --build build
 
 ## Run
 
-From the built app:
-
 ```sh
-./build/qt_qml_region_split
+./build/edi
+./build/edi --project-profile data/project_profiles/draftsman_drawing_tool_blank.json
+./build/edi --project-profile data/project_profiles/draftsman_text_editor.json
+./build/edi --project-profile data/project_profiles/draftsman_game_guy_map_editor.json
 ```
 
-Launch the optional Draftsman UI taxonomy review profile:
-
-```sh
-./build/qt_qml_region_split --project-profile data/project_profiles/draftsman_ui_taxonomy.json
-```
-
-Load a specific theme JSON:
-
-```sh
-./build/qt_qml_region_split --theme data/ui_theme.json
-```
-
-Load a specific shell layout JSON:
-
-```sh
-./build/qt_qml_region_split --shell-layout data/shell_layout.json
-```
-
-Build another app against this shared UI source:
-
-```cmake
-set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "/Users/kogaryu/draft/draftsman/qt_qml_region_split/src" CACHE PATH "" FORCE)
-set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "" FORCE)
-add_subdirectory("/Users/kogaryu/draft/draftsman/qt_qml_region_split" draftsman_shell_build)
-```
-
-For quick source-mode QML iteration:
-
-```sh
-/opt/homebrew/bin/qml --verbose -I src src/Main.qml
-```
-
-The C++ launcher is required for JSON review-subject loading. Direct `qml` runs are useful for layout smoke checks only.
-
-## Qt Creator
-
-Open this folder or `CMakeLists.txt` in Qt Creator:
-
-```text
-/Users/kogaryu/draft/draftsman/qt_qml_region_split
-```
-
-The source authority is `src/`. Do not create a competing `qml/` tree unless the imports are moved intentionally.
-
-## Where To Edit
-
-- Overall region composition: `src/Main.qml`
-- Shared colors, sizing, fonts: `src/style/UiStyle.qml`
-- Left/right/main/bottom/status regions: `src/regions/`
-- Reusable controls: `src/components/`
-- Blank canvas feature: `src/features/blank/`
-- Optional UI taxonomy review feature: `src/features/ui_taxonomy/`
-- Runtime state and navigation: `src/runtime/RuntimeController.qml`
-- Machine-readable surface map: `data/shell_surface_map.json`
-- Machine-readable design principles: `data/design_principles.json`
-- Builder surface contract: `docs/surface_contract.md`
-- Design philosophy: `docs/design_philosophy.md`
-
-## How To Change Colors
-
-Theme defaults live in `data/ui_theme.json`. Open Settings in the activity rail to preview changes to:
-
-- theme mode
-- base color
-- surface color
-- accent color
-- text/font color
-- UI font
-- code font
-- UI font size
-- code font size
-
-The running UI updates live. Saving is intentionally disabled until the backup, validation, and receipt contract is approved.
-
-Validate a theme file:
+## Validate
 
 ```sh
 build/edi_validate ui-theme data/ui_theme.json
+build/edi_validate project-profiles data/project_profiles/draftsman_blank.json data/project_profiles/draftsman_drawing_tool_blank.json
+build/edi_validate shell-layout data/shell_layout.json
+build/edi_validate shell-surface-map data/shell_surface_map.json
+build/edi_validate design-principles data/design_principles.json
+build/drawing_control_workflow_report --all --compare-baseline --failures-only
+ctest --test-dir build --output-on-failure
 ```
 
-## How To Add A Region
+## Source Map
 
-1. Add the region file under `src/regions/`.
-2. Compose it from `src/Main.qml`.
-3. Add any reusable controls under `src/components/`.
-4. Add taxonomy routes and code refs in `src/runtime/RuntimeController.qml`.
+- App shell and widget composition: `app/main.cpp`
+- Drawing canvas widget: `src/widgets/DrawingCanvasWidget.cpp`
+- Drawing model contracts: `src/core/`
+- Canvas behavior contracts: `src/canvas/`
+- Runtime catalogs and workflow planning: `src/runtime/`
+- Validation and report CLIs: `src/tools/`
+- Project data and profiles: `data/`
+- Contract and work-order documentation: `docs/`
 
-## How To Add A Review Subject
+## Zero JavaScript Guard
 
-Review subject taxonomy lives in JSON under `data/review_subjects/`. The app reads the selected JSON at launch and normalizes it into the runtime route model.
+The required guard is `no_javascript_files_tests`. It fails if source-control-visible JavaScript, TypeScript, JSX, TSX, or QML files appear outside `.git` and `build`.
 
-The default project profile is intentionally blank. Use `data/project_profiles/draftsman_ui_taxonomy.json` when you want the meta review UI.
-
-Do not add persistence or file writes until the write contract is approved.
-
-Validate a review subject before launching it:
-
-```sh
-build/edi_validate review-subjects data/review_subjects/draftsman_ui_taxonomy.json
-```
-
-## Proof
-
-Capture proof screenshots from the app window:
+Manual scan:
 
 ```sh
-scripts/capture_proof.sh
-```
-
-Single screenshot example:
-
-```sh
-./build/qt_qml_region_split --screenshot docs/proof/default_shell_1280x820.png --width 1280 --height 820
+find . -path './.git' -prune -o -path './build' -prune -o \
+  \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.qml' \) -print
 ```

@@ -62,19 +62,9 @@ Feature directory:
 src/features/csv_map_editor/
 ```
 
-Shell routing edits:
+Shell/widget ownership:
 
 ```text
-src/regions/LeftPanel.qml
-src/regions/MainWorkspace.qml
-src/regions/RightPanel.qml
-src/regions/BottomPanel.qml
-```
-
-Runtime additions:
-
-```text
-src/runtime/RuntimeController.qml
 app/main.cpp
 ```
 
@@ -86,7 +76,7 @@ Content to hide: generator controls, save/persistence claims, disabled future bu
 
 Density requirements: no duplicate titles, compact cells, compact inspector rows.
 
-Theme behavior: use `UiStyle` tokens only.
+Theme behavior: use `data/ui_theme.json` values through C++ adapters only.
 
 Small-window behavior: grid scrolls; right/bottom panels remain controlled by existing panel policy.
 
@@ -100,10 +90,4 @@ cmake --build build
 scripts/capture_proof.sh
 ```
 
-Proof screenshot:
-
-```text
-docs/proof/csv_map_editor_1280x820.png
-```
-
-Known gaps: no generator, no persistence, no CSV write-back, no token editing palette actions yet.
+Known gaps: no generator, no persistence, no CSV write-back, no token editing palette actions yet. Proof is validation and offscreen startup through `scripts/capture_proof.sh`.

@@ -161,6 +161,31 @@ bool testHitSnapProjectionGestureAdapter(DrawingCanvasRuntimeAdapter &adapter) {
     const QVariantMap finish = adapter.finishGesture(gesture, {{QStringLiteral("point"), point(0.2, 0.25)}}).value(QStringLiteral("intent")).toMap();
     ok &= expect(finish.value(QStringLiteral("kind")).toString() == QStringLiteral("move_object"), QStringLiteral("adapter gesture finish kind"));
     ok &= expectNear(finish.value(QStringLiteral("dx")).toDouble(), 0.1, QStringLiteral("adapter gesture dx"));
+
+    QVariantMap handleGesture = adapter.beginHandleDrag(adapter.initialGestureState(), QStringLiteral("script_line"), QStringLiteral("line_end"), point(0.75, 0.25), {});
+    ok &= expect(adapter.isHandleDrag(handleGesture), QStringLiteral("adapter beginHandleDrag state"));
+    ok &= expect(adapter.gestureLabel(handleGesture) == QStringLiteral("drag handle"), QStringLiteral("adapter handle gesture label"));
+    const QVariantMap handleFinish = adapter.finishGesture(handleGesture, {{QStringLiteral("point"), point(0.8, 0.3)}}).value(QStringLiteral("intent")).toMap();
+    ok &= expect(handleFinish.value(QStringLiteral("kind")).toString() == QStringLiteral("update_handle"), QStringLiteral("adapter handle finish intent"));
+
+    QVariantMap marquee = adapter.beginMarquee(adapter.initialGestureState(), point(0.1, 0.1), {});
+    marquee = adapter.updateGesture(marquee, {{QStringLiteral("point"), point(0.3, 0.3)}, {QStringLiteral("moveTolerance"), 0.01}});
+    ok &= expect(adapter.isMarquee(marquee), QStringLiteral("adapter beginMarquee state"));
+    ok &= expect(adapter.finishKind(marquee) == QStringLiteral("marquee_select"), QStringLiteral("adapter marquee finish kind"));
+    const QVariantMap marqueeAction = adapter.finishAction(marquee);
+    ok &= expect(marqueeAction.value(QStringLiteral("shouldSelectMarquee")).toBool(), QStringLiteral("adapter marquee finish action"));
+
+    QVariantMap pan = adapter.beginPan(adapter.initialGestureState(), point(100.0, 200.0), {{QStringLiteral("meta"), true}});
+    pan = adapter.updateGesture(pan, {{QStringLiteral("screenPoint"), point(124.0, 176.0)}});
+    const QVariantMap panIntent = adapter.finishGesture(pan, {{QStringLiteral("screenPoint"), point(124.0, 176.0)}}).value(QStringLiteral("intent")).toMap();
+    ok &= expect(panIntent.value(QStringLiteral("kind")).toString() == QStringLiteral("pan"), QStringLiteral("adapter pan finish intent"));
+    ok &= expectNear(panIntent.value(QStringLiteral("dxPx")).toDouble(), 24.0, QStringLiteral("adapter pan dx"));
+    ok &= expectNear(panIntent.value(QStringLiteral("dyPx")).toDouble(), -24.0, QStringLiteral("adapter pan dy"));
+
+    const QVariantMap canceled = adapter.cancelGesture(handleGesture);
+    ok &= expect(canceled.value(QStringLiteral("state")).toMap().value(QStringLiteral("mode")).toString() == QStringLiteral("idle"), QStringLiteral("adapter cancel resets state"));
+    ok &= expect(canceled.value(QStringLiteral("intent")).toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("none"), QStringLiteral("adapter cancel emits no intent"));
+    ok &= expect(!adapter.transitionAllowed(QStringLiteral("dragging_handle"), QStringLiteral("dragging_object")), QStringLiteral("adapter transitionAllowed rejects active switch"));
     return ok;
 }
 

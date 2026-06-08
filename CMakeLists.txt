@@ -12,7 +12,11 @@ include(CTest)
 set(DRAFTSMAN_SHELL_TARGET_NAME "qt_qml_region_split" CACHE STRING "Draftsman shell executable target name.")
 set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Shared Draftsman QML shell source directory.")
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
-option(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS "Register legacy JS/QML drawing canvas prototype and telemetry harness tests." OFF)
+option(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS "Register optional JS drawing telemetry, tooling, and workflow harness tests." OFF)
+option(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS "Compatibility alias for DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS." OFF)
+if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS)
+    set(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS ON CACHE BOOL "Register optional JS drawing telemetry, tooling, and workflow harness tests." FORCE)
+endif()
 
 add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasTypes.h
@@ -139,11 +143,7 @@ if(BUILD_TESTING)
     add_test(NAME drawing_object_model_tests COMMAND drawing_object_model_tests)
 
     find_program(NODE_EXECUTABLE node)
-    if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS AND NODE_EXECUTABLE)
-        add_test(
-            NAME drawing_canvas_gesture_state_tests
-            COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_gesture_state_tests.js
-        )
+    if(DRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS AND NODE_EXECUTABLE)
         add_test(
             NAME drawing_canvas_interaction_metrics_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_interaction_metrics_tests.js
@@ -207,6 +207,27 @@ if(BUILD_TESTING)
         add_test(
             NAME drawing_canvas_control_negative_launch_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_control_negative_launch_tests.js
+        )
+        set(DRAWING_JS_HARNESS_TEST_NAMES
+            drawing_canvas_interaction_metrics_tests
+            drawing_canvas_interaction_script_tests
+            drawing_canvas_interaction_replay_tests
+            drawing_canvas_interaction_telemetry_tests
+            drawing_canvas_metric_reducer_tests
+            drawing_canvas_metric_report_tests
+            drawing_canvas_gui_metric_capture_tests
+            drawing_canvas_gui_metric_capture_cli_tests
+            drawing_canvas_tool_script_tests
+            drawing_canvas_tool_script_driver_tests
+            drawing_canvas_control_script_launch_tests
+            drawing_canvas_control_workflow_launch_tests
+            drawing_canvas_control_workflow_cli_tests
+            drawing_canvas_control_workflow_coverage_tests
+            drawing_canvas_control_workflow_baseline_tests
+            drawing_canvas_control_negative_launch_tests
+        )
+        set_tests_properties(${DRAWING_JS_HARNESS_TEST_NAMES}
+            PROPERTIES ENVIRONMENT "DRAFTSMAN_ENABLE_DRAWING_HARNESS=1"
         )
     endif()
 

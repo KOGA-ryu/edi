@@ -32,7 +32,7 @@ Do not run telemetry collection unless the user explicitly re-enables it.
 CMake does not register legacy JS/QML canvas harness tests by default. To opt in temporarily:
 
 ```bash
-cmake -S . -B build -DDRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS=ON
+cmake -S . -B build -DDRAFTSMAN_ENABLE_DRAWING_JS_HARNESS_TESTS=ON
 DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
 ```
 

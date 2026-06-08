@@ -20,3 +20,23 @@ No raw format objects should leak into app logic. Format readers convert bytes i
 No blind conversion is allowed. Migration must be category-aware, covered by inventory, and backed by validation or inspection tooling for the target format.
 
 No canonical JSON should remain long-term. Existing JSON and JSONL files are inventory inputs until each data family has an explicit migration plan.
+
+## Inventory Commands
+
+Inventory is read-only and does not convert, delete, or reject JSON by default.
+
+```bash
+build/edi_format_inventory --repo .
+build/edi_format_inventory --repo . --summary
+build/edi_format_inventory --repo . --target MessagePack
+build/edi_format_inventory --repo . --category internal_authored_json --summary
+```
+
+Use failure modes only as explicit audits:
+
+```bash
+build/edi_format_inventory --repo . --fail-unknown
+build/edi_format_inventory --repo . --fail-blocked
+```
+
+Do not register those failure modes as hard migration guards until the repo has a committed conversion plan for each data family.

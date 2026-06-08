@@ -55,5 +55,18 @@ int main()
     require(header.contains("proposed_target_format"), "header includes target field");
     require(edi::formats::inventoryRowLine(edi::formats::classifyInventoryPath("data/ui_theme.json", 10)).contains("theme_config"), "row line includes family");
 
+    const QVector<edi::formats::InventoryRow> rows{
+        edi::formats::classifyInventoryPath("data/ui_theme.json", 10),
+        edi::formats::classifyInventoryPath("tests/fixtures/drawing_tool_scripts/line_create_basic.json", 11),
+        edi::formats::classifyInventoryPath("misc/unowned.json", 12),
+    };
+    const QVector<edi::formats::InventoryRow> messagePackRows = edi::formats::filterInventoryRows(rows, {{}, {}, {"MessagePack"}, {}});
+    require(messagePackRows.size() == 1, "target filter keeps matching row only");
+    require(messagePackRows.first().path.contains("line_create_basic"), "target filter returns fixture row");
+    const QVector<edi::formats::InventoryRow> blockedRows = edi::formats::filterInventoryRows(rows, {{}, {}, {}, {"blocked"}});
+    require(blockedRows.size() == 1, "priority filter finds blocked rows");
+    require(edi::formats::inventoryUnknownCount(rows) == 1, "unknown count detects unclassified rows");
+    require(edi::formats::inventoryBlockedCount(rows) == 1, "blocked count detects blocked migration rows");
+
     return 0;
 }

@@ -1,7 +1,6 @@
 #include "formats/FormatInventory.h"
 
 #include <QDir>
-#include <QDirIterator>
 #include <QFileInfo>
 #include <QMap>
 #include <QStringList>
@@ -59,6 +58,29 @@ QString escapeCell(QString value)
     value.replace(QStringLiteral("\n"), QStringLiteral(" "));
     value.replace(QStringLiteral("\r"), QStringLiteral(" "));
     return value;
+}
+
+bool listEmptyOrContains(const QStringList &values, const QString &value)
+{
+    return values.isEmpty() || values.contains(value);
+}
+
+void appendInventoryRows(const QDir &root, const QString &relativeDir, QVector<InventoryRow> *rows)
+{
+    const QDir dir(relativeDir.isEmpty() ? root.absolutePath() : root.absoluteFilePath(relativeDir));
+    const QFileInfoList files = dir.entryInfoList({QStringLiteral("*.json"), QStringLiteral("*.jsonl")}, QDir::Files, QDir::Name);
+    for (const QFileInfo &file : files) {
+        rows->push_back(classifyInventoryPath(root.relativeFilePath(file.absoluteFilePath()), file.size()));
+    }
+
+    const QFileInfoList dirs = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QFileInfo &child : dirs) {
+        const QString name = child.fileName();
+        if (name == QStringLiteral(".git") || name == QStringLiteral("build") || name == QStringLiteral("third_party")) {
+            continue;
+        }
+        appendInventoryRows(root, root.relativeFilePath(child.absoluteFilePath()), rows);
+    }
 }
 
 } // namespace
@@ -159,22 +181,44 @@ QVector<InventoryRow> inventoryRepoJsonFiles(const QString &repoRoot)
 {
     QVector<InventoryRow> rows;
     const QDir root(repoRoot.isEmpty() ? QStringLiteral(".") : repoRoot);
-    QDirIterator it(root.absolutePath(), {QStringLiteral("*.json"), QStringLiteral("*.jsonl")}, QDir::Files, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        const QString absolutePath = it.next();
-        const QString relative = root.relativeFilePath(absolutePath);
-        const QString normalized = normalizedInventoryPath(relative);
-        if (hasPrefix(normalized, QStringLiteral(".git"))
-            || hasPrefix(normalized, QStringLiteral("build"))
-            || hasPrefix(normalized, QStringLiteral("third_party"))) {
-            continue;
-        }
-        rows.push_back(classifyInventoryPath(normalized, QFileInfo(absolutePath).size()));
-    }
+    appendInventoryRows(root, QString(), &rows);
     std::sort(rows.begin(), rows.end(), [](const InventoryRow &a, const InventoryRow &b) {
         return a.path < b.path;
     });
     return rows;
+}
+
+bool inventoryRowMatchesFilter(const InventoryRow &row, const InventoryFilter &filter)
+{
+    return listEmptyOrContains(filter.categories, row.category)
+        && listEmptyOrContains(filter.dataFamilies, row.dataFamily)
+        && listEmptyOrContains(filter.targetFormats, row.proposedTargetFormat)
+        && listEmptyOrContains(filter.priorities, row.migrationPriority);
+}
+
+QVector<InventoryRow> filterInventoryRows(const QVector<InventoryRow> &rows, const InventoryFilter &filter)
+{
+    QVector<InventoryRow> result;
+    for (const InventoryRow &row : rows) {
+        if (inventoryRowMatchesFilter(row, filter)) {
+            result.push_back(row);
+        }
+    }
+    return result;
+}
+
+int inventoryUnknownCount(const QVector<InventoryRow> &rows)
+{
+    return std::count_if(rows.begin(), rows.end(), [](const InventoryRow &row) {
+        return row.category == QStringLiteral("unknown_json") || row.dataFamily == QStringLiteral("unknown");
+    });
+}
+
+int inventoryBlockedCount(const QVector<InventoryRow> &rows)
+{
+    return std::count_if(rows.begin(), rows.end(), [](const InventoryRow &row) {
+        return row.migrationPriority == QStringLiteral("blocked");
+    });
 }
 
 QString inventoryRowHeader()

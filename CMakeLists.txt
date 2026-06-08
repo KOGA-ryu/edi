@@ -54,6 +54,20 @@ target_link_libraries(drawing_runtime_core
         Qt6::Core
 )
 
+add_library(format_inventory STATIC
+    src/formats/FormatInventory.h
+    src/formats/FormatInventory.cpp
+)
+
+target_include_directories(format_inventory PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(format_inventory
+    PUBLIC
+        Qt6::Core
+)
+
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
@@ -120,6 +134,16 @@ target_compile_definitions(drawing_control_workflow_report PRIVATE
 
 target_link_libraries(drawing_control_workflow_report
     PRIVATE
+        Qt6::Core
+)
+
+add_executable(edi_format_inventory
+    src/tools/EdiFormatInventory.cpp
+)
+
+target_link_libraries(edi_format_inventory
+    PRIVATE
+        format_inventory
         Qt6::Core
 )
 
@@ -201,6 +225,22 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME no_javascript_files_tests COMMAND no_javascript_files_tests)
+
+    add_executable(format_inventory_tests
+        tests/format_inventory_tests.cpp
+    )
+
+    target_include_directories(format_inventory_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(format_inventory_tests
+        PRIVATE
+            format_inventory
+            Qt6::Core
+    )
+
+    add_test(NAME format_inventory_tests COMMAND format_inventory_tests)
 
     add_test(
         NAME drawing_control_workflow_report_dry_run_tests

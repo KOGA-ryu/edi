@@ -1,0 +1,74 @@
+#include "app/AppState.h"
+#include "app/ProjectWorkspace.h"
+
+#include <cassert>
+#include <string>
+
+using namespace edi::app;
+using namespace edi::drafting;
+
+int main()
+{
+    AppState state = defaultAppState();
+    assert(!isDirty(state));
+    assert(state.mode == WorkspaceMode::Drafting);
+    setWorkspaceMode(state, WorkspaceMode::Text);
+    assert(workspaceModeName(state.mode) == std::string("text"));
+    setStatusMessage(state, "ready");
+    assert(state.statusMessage == "ready");
+
+    ProjectWorkspace workspace = makeProjectWorkspace("project_1");
+    assert(workspace.id == "project_1");
+    assert(workspace.name == "project_1");
+    assert(projectWorkspaceResultCodeName(ProjectWorkspaceResultCode::DuplicateDocumentId) == std::string("duplicate_document_id"));
+    assert(isValidWorkspaceName(workspace.name));
+
+    auto first = addDraftingDocument(workspace, makeDraftingDocument("draft_1"));
+    assert(first.ok);
+    assert(first.code == ProjectWorkspaceResultCode::None);
+    assert(workspace.activeDraftingDocumentId == "draft_1");
+
+    auto second = addDraftingDocument(workspace, makeDraftingDocument("draft_2"));
+    assert(second.ok);
+    assert(workspace.activeDraftingDocumentId == "draft_1");
+
+    auto duplicate = addDraftingDocument(workspace, makeDraftingDocument("draft_1"));
+    assert(!duplicate.ok);
+    assert(duplicate.code == ProjectWorkspaceResultCode::DuplicateDocumentId);
+    assert(workspace.draftingDocuments.size() == 2);
+    assert(workspace.activeDraftingDocumentId == "draft_1");
+
+    auto missingActive = setActiveDraftingDocument(workspace, "missing");
+    assert(!missingActive.ok);
+    assert(missingActive.code == ProjectWorkspaceResultCode::DocumentNotFound);
+    assert(workspace.activeDraftingDocumentId == "draft_1");
+
+    auto setActive = setActiveDraftingDocument(workspace, "draft_2");
+    assert(setActive.ok);
+    assert(workspace.activeDraftingDocumentId == "draft_2");
+
+    auto removeActive = removeDraftingDocument(workspace, "draft_2");
+    assert(removeActive.ok);
+    assert(workspace.activeDraftingDocumentId == "draft_1");
+
+    auto removeLast = removeDraftingDocument(workspace, "draft_1");
+    assert(removeLast.ok);
+    assert(!workspace.activeDraftingDocumentId);
+
+    auto missingRemove = removeDraftingDocument(workspace, "draft_1");
+    assert(!missingRemove.ok);
+    assert(missingRemove.code == ProjectWorkspaceResultCode::DocumentNotFound);
+
+    ProjectWorkspace invalidWorkspace = makeProjectWorkspace("");
+    auto invalidAdd = addDraftingDocument(invalidWorkspace, makeDraftingDocument("draft"));
+    assert(!invalidAdd.ok);
+    assert(invalidAdd.code == ProjectWorkspaceResultCode::EmptyWorkspaceId);
+
+    ProjectWorkspace invalidName = makeProjectWorkspace("project_2", "Project");
+    invalidName.name.clear();
+    auto invalidNameAdd = addDraftingDocument(invalidName, makeDraftingDocument("draft"));
+    assert(!invalidNameAdd.ok);
+    assert(invalidNameAdd.code == ProjectWorkspaceResultCode::InvalidWorkspaceName);
+
+    return 0;
+}

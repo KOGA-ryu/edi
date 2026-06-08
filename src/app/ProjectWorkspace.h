@@ -9,6 +9,15 @@
 
 namespace edi::app {
 
+enum class ProjectWorkspaceResultCode {
+    None,
+    EmptyWorkspaceId,
+    EmptyDocumentId,
+    DuplicateDocumentId,
+    DocumentNotFound,
+    InvalidWorkspaceName
+};
+
 struct ProjectWorkspace {
     std::string id;
     std::string name;
@@ -21,13 +30,16 @@ struct ProjectWorkspace {
 
 struct ProjectWorkspaceResult {
     bool ok = false;
+    ProjectWorkspaceResultCode code = ProjectWorkspaceResultCode::None;
     std::string message;
 
     static ProjectWorkspaceResult accepted();
-    static ProjectWorkspaceResult rejected(std::string message);
+    static ProjectWorkspaceResult rejected(ProjectWorkspaceResultCode code, std::string message);
 };
 
 ProjectWorkspace makeProjectWorkspace(std::string id, std::string name = {});
+const char *projectWorkspaceResultCodeName(ProjectWorkspaceResultCode code);
+bool isValidWorkspaceName(const std::string &name);
 edi::drafting::DraftingDocument *findDraftingDocument(ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 const edi::drafting::DraftingDocument *findDraftingDocument(const ProjectWorkspace &workspace, const edi::drafting::DraftingDocumentId &id);
 ProjectWorkspaceResult addDraftingDocument(ProjectWorkspace &workspace, edi::drafting::DraftingDocument document);

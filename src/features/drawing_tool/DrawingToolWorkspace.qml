@@ -1133,6 +1133,23 @@ Rectangle {
                     return marqueeFinish.intent
                 }
 
+                function applyReleaseAction(action, releasePoint) {
+                    if (drawingWorkspace.controller && action.shouldSelectMarquee) {
+                        finishMarqueeActiveGesture(releasePoint, marqueeSelectionIds())
+                        suppressClickOnce = true
+                    } else if (action.shouldFinishIncrementalDrag) {
+                        finishIncrementalActiveGesture(releasePoint, true)
+                    }
+                    if (selectionTogglePressed || dragAnchorId.length > 0 || action.shouldSuppressClick) {
+                        suppressClickOnce = true
+                    }
+                    if (action.shouldResetLifecycle
+                            && !action.shouldFinishIncrementalDrag
+                            && !action.shouldSelectMarquee) {
+                        resetActiveGestureLifecycle(false, action.shouldEndObjectMove)
+                    }
+                }
+
                 function cancelActiveGesture() {
                     CanvasGestureState.cancelGesture(gestureState)
                     resetActiveGestureLifecycle(true, true)
@@ -1322,21 +1339,7 @@ Rectangle {
                 onReleased: function(mouse) {
                     activeModifiers = mouse.modifiers
                     var releasePoint = normalizedPoint(mouse.x, mouse.y)
-                    var releaseAction = CanvasGestureState.finishAction(gestureState)
-                    if (drawingWorkspace.controller && releaseAction.shouldSelectMarquee) {
-                        finishMarqueeActiveGesture(releasePoint, marqueeSelectionIds())
-                        suppressClickOnce = true
-                    } else if (releaseAction.shouldFinishIncrementalDrag) {
-                        finishIncrementalActiveGesture(releasePoint, true)
-                    }
-                    if (selectionTogglePressed || dragAnchorId.length > 0 || releaseAction.shouldSuppressClick) {
-                        suppressClickOnce = true
-                    }
-                    if (releaseAction.shouldResetLifecycle
-                            && !releaseAction.shouldFinishIncrementalDrag
-                            && !releaseAction.shouldSelectMarquee) {
-                        resetActiveGestureLifecycle(false, releaseAction.shouldEndObjectMove)
-                    }
+                    applyReleaseAction(CanvasGestureState.finishAction(gestureState), releasePoint)
                     updateSelectionHover(mouse.x, mouse.y, releasePoint)
                 }
 

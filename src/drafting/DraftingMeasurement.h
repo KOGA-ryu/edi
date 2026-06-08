@@ -11,12 +11,23 @@ struct ScaleCalibration {
     MeasurementUnit realUnit = MeasurementUnit::CanvasUnit;
 };
 
+struct MeasurementCalibrationResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    ScaleCalibration calibration;
+
+    static MeasurementCalibrationResult accepted(ScaleCalibration calibration);
+    static MeasurementCalibrationResult rejected(DraftingResultCode code, std::string message);
+};
+
 struct MeasurementValue {
     double value = 0.0;
     MeasurementUnit unit = MeasurementUnit::CanvasUnit;
     std::string label;
 };
 
+MeasurementCalibrationResult scaleCalibrationFromMetadataChecked(const MeasurementMetadata &metadata);
 ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadata);
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration = {});
 MeasurementValue measureArea(const DraftingGeometry &geometry, const ScaleCalibration &calibration = {});

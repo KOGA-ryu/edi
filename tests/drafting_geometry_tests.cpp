@@ -34,6 +34,11 @@ int main()
     MeasurementMetadata metadataCalibration;
     metadataCalibration.unit = MeasurementUnit::Inch;
     metadataCalibration.canvasUnitsPerRealUnit = 4.0;
+    auto checkedFromMetadata = scaleCalibrationFromMetadataChecked(metadataCalibration);
+    assert(checkedFromMetadata.ok);
+    assert(checkedFromMetadata.code == DraftingResultCode::None);
+    assert(checkedFromMetadata.calibration.realUnit == MeasurementUnit::Inch);
+    assert(checkedFromMetadata.calibration.canvasUnitsPerRealUnit == 4.0);
     ScaleCalibration fromMetadata = scaleCalibrationFromMetadata(metadataCalibration);
     assert(fromMetadata.realUnit == MeasurementUnit::Inch);
     assert(fromMetadata.canvasUnitsPerRealUnit == 4.0);
@@ -44,6 +49,28 @@ int main()
     ScaleCalibration defaultFromMetadata = scaleCalibrationFromMetadata(MeasurementMetadata{});
     assert(defaultFromMetadata.realUnit == MeasurementUnit::CanvasUnit);
     assert(defaultFromMetadata.canvasUnitsPerRealUnit == 1.0);
+    auto checkedDefaultFromMetadata = scaleCalibrationFromMetadataChecked(MeasurementMetadata{});
+    assert(checkedDefaultFromMetadata.ok);
+    assert(checkedDefaultFromMetadata.calibration.realUnit == MeasurementUnit::CanvasUnit);
+    assert(checkedDefaultFromMetadata.calibration.canvasUnitsPerRealUnit == 1.0);
+
+    MeasurementMetadata invalidCalibration;
+    invalidCalibration.unit = MeasurementUnit::Foot;
+    invalidCalibration.canvasUnitsPerRealUnit = 0.0;
+    auto checkedInvalidCalibration = scaleCalibrationFromMetadataChecked(invalidCalibration);
+    assert(!checkedInvalidCalibration.ok);
+    assert(checkedInvalidCalibration.code == DraftingResultCode::InvalidMetadata);
+    ScaleCalibration fallbackFromInvalid = scaleCalibrationFromMetadata(invalidCalibration);
+    assert(fallbackFromInvalid.realUnit == MeasurementUnit::CanvasUnit);
+    assert(fallbackFromInvalid.canvasUnitsPerRealUnit == 1.0);
+
+    MeasurementMetadata invalidLabelCalibration;
+    invalidLabelCalibration.unit = MeasurementUnit::Foot;
+    invalidLabelCalibration.canvasUnitsPerRealUnit = 2.0;
+    invalidLabelCalibration.label = "bad\nlabel";
+    auto checkedInvalidLabelCalibration = scaleCalibrationFromMetadataChecked(invalidLabelCalibration);
+    assert(!checkedInvalidLabelCalibration.ok);
+    assert(checkedInvalidLabelCalibration.code == DraftingResultCode::InvalidMetadata);
 
     assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
     assert(validateGeometry(line).ok);

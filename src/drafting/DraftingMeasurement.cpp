@@ -1,6 +1,9 @@
 #include "drafting/DraftingMeasurement.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingMetadata.h"
+
+#include <utility>
 
 namespace edi::drafting {
 
@@ -16,12 +19,39 @@ double applyScale(double canvasValue, const ScaleCalibration &calibration)
 
 } // namespace
 
+MeasurementCalibrationResult MeasurementCalibrationResult::accepted(ScaleCalibration calibration)
+{
+    MeasurementCalibrationResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.calibration = calibration;
+    return result;
+}
+
+MeasurementCalibrationResult MeasurementCalibrationResult::rejected(DraftingResultCode code, std::string message)
+{
+    MeasurementCalibrationResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+MeasurementCalibrationResult scaleCalibrationFromMetadataChecked(const MeasurementMetadata &metadata)
+{
+    if (!isValidMeasurementMetadata(metadata)) {
+        return MeasurementCalibrationResult::rejected(DraftingResultCode::InvalidMetadata, "measurement metadata is invalid");
+    }
+    if (metadata.unit == MeasurementUnit::None) {
+        return MeasurementCalibrationResult::accepted({});
+    }
+    return MeasurementCalibrationResult::accepted({metadata.canvasUnitsPerRealUnit, metadata.unit});
+}
+
 ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadata)
 {
-    if (metadata.unit == MeasurementUnit::None) {
-        return {};
-    }
-    return {metadata.canvasUnitsPerRealUnit, metadata.unit};
+    const auto result = scaleCalibrationFromMetadataChecked(metadata);
+    return result.ok ? result.calibration : ScaleCalibration{};
 }
 
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration)

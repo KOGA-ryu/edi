@@ -2,25 +2,25 @@
   "schemaVersion": 1,
   "minimums": {
     "kinds": {
-      "line": 4,
+      "line": 5,
       "point": 2,
-      "circle": 2,
-      "rectangle": 2,
+      "circle": 3,
+      "rectangle": 3,
       "arc": 1,
       "polygon": 1,
       "viewport": 1
     },
     "categories": {
       "create": 6,
-      "edit": 4,
+      "edit": 7,
       "move": 1,
       "selection": 1,
       "viewport": 1
     },
     "tags": {
-      "geometry": 11,
-      "handle": 4,
-      "line": 4,
+      "geometry": 14,
+      "handle": 7,
+      "line": 5,
       "smoke": 4,
       "parameter": 2,
       "viewport": 1
@@ -34,18 +34,18 @@
       },
       "minimums": {
         "kinds": {
-          "line": 4
+          "line": 5
         },
         "categories": {
           "create": 1,
-          "edit": 1,
+          "edit": 2,
           "move": 1,
           "selection": 1
         },
         "tags": {
-          "line": 4,
-          "geometry": 3,
-          "handle": 1
+          "line": 5,
+          "geometry": 4,
+          "handle": 2
         }
       }
     },
@@ -56,17 +56,17 @@
       },
       "minimums": {
         "kinds": {
-          "line": 1,
+          "line": 2,
           "point": 1,
-          "circle": 1,
-          "rectangle": 1
+          "circle": 2,
+          "rectangle": 2
         },
         "categories": {
-          "edit": 4
+          "edit": 7
         },
         "tags": {
-          "handle": 4,
-          "geometry": 4
+          "handle": 7,
+          "geometry": 7
         }
       }
     },

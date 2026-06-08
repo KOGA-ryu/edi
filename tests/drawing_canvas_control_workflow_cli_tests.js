@@ -124,14 +124,14 @@ expect(dryRun.status === 0, "workflow report CLI dry-run should pass without lau
 const dryRunOutput = JSON.parse(dryRun.stdout)
 expect(dryRunOutput.ok === true, "dry-run output should report ok")
 expect(dryRunOutput.dryRun === true, "dry-run output should identify dry-run mode")
-expect(dryRunOutput.selectedWorkflowCount === 4, "dry-run should select line workflows")
+expect(dryRunOutput.selectedWorkflowCount === 5, "dry-run should select line workflows")
 expect(dryRunOutput.totalWorkflowCount >= dryRunOutput.selectedWorkflowCount, "dry-run should include total workflow count")
 expect(dryRunOutput.filters.tags.indexOf("line") >= 0, "dry-run should preserve tag filter")
-expect(dryRunOutput.coverage.byKind.line === 4, "dry-run should count selected workflows by kind")
+expect(dryRunOutput.coverage.byKind.line === 5, "dry-run should count selected workflows by kind")
 expect(dryRunOutput.coverage.byCategory.create === 1, "dry-run should count selected workflows by category")
-expect(dryRunOutput.coverage.byCategory.edit === 1, "dry-run should include edit category coverage")
-expect(dryRunOutput.coverage.byTag.line === 4, "dry-run should count selected workflows by tag")
-expect(dryRunOutput.coverage.byTag.geometry === 3, "dry-run should count non-selector tags")
+expect(dryRunOutput.coverage.byCategory.edit === 2, "dry-run should include edit category coverage")
+expect(dryRunOutput.coverage.byTag.line === 5, "dry-run should count selected workflows by tag")
+expect(dryRunOutput.coverage.byTag.geometry === 4, "dry-run should count non-selector tags")
 expect(dryRunOutput.workflows.every(workflow => workflow.tags.indexOf("line") >= 0), "dry-run should list selected workflows only")
 
 const compactDryRun = spawnSync(process.execPath, [
@@ -153,8 +153,8 @@ expect(compactDryRun.status === 0, "workflow report CLI compact dry-run should p
 
 const compactDryRunOutput = JSON.parse(compactDryRun.stdout)
 expect(compactDryRunOutput.ok === true, "compact dry-run output should report ok")
-expect(compactDryRunOutput.selectedWorkflowCount === 4, "compact dry-run should preserve selected workflow count")
-expect(compactDryRunOutput.coverage.byKind.line === 4, "compact dry-run should preserve coverage")
+expect(compactDryRunOutput.selectedWorkflowCount === 5, "compact dry-run should preserve selected workflow count")
+expect(compactDryRunOutput.coverage.byKind.line === 5, "compact dry-run should preserve coverage")
 expect(compactDryRunOutput.workflows === undefined, "compact dry-run should omit workflow list")
 
 if (!fs.existsSync(executable)) {

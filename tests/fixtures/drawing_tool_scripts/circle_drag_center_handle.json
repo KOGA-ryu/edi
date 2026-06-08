@@ -1,0 +1,28 @@
+{
+  "name": "circle_drag_center_handle",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicCircle" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "dragHandle",
+      "object": "latest",
+      "handleId": "circle_center",
+      "from": "circleCenter",
+      "to": "circleCenterMoved",
+      "pointerMoves": 8
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "circle", "cx": 0.5625, "cy": 0.5625, "radius": 0.125 }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "dragging_handle": "handleDrag"
+    }
+  }
+}

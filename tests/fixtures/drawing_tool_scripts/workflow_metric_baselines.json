@@ -28,7 +28,7 @@
       "handlePlansPerPointerMove"
     ]
   },
-  "workflowCount": 13,
+  "workflowCount": 16,
   "workflows": {
     "point_create_basic.json": {
       "fixture": "point_create_basic.json",
@@ -49,8 +49,8 @@
           "samples": 1,
           "fields": {
             "durationMs": {
-              "max": 1,
-              "mean": 1
+              "max": 2,
+              "mean": 2
             },
             "pointerMoves": {
               "max": 0,
@@ -197,8 +197,8 @@
           "samples": 2,
           "fields": {
             "durationMs": {
-              "max": 2,
-              "mean": 1.5
+              "max": 1,
+              "mean": 1
             },
             "pointerMoves": {
               "max": 0,
@@ -419,7 +419,7 @@
           "samples": 2,
           "fields": {
             "durationMs": {
-              "max": 3,
+              "max": 2,
               "mean": 1.5
             },
             "pointerMoves": {
@@ -493,8 +493,8 @@
           "samples": 1,
           "fields": {
             "durationMs": {
-              "max": 26,
-              "mean": 26
+              "max": 25,
+              "mean": 25
             },
             "pointerMoves": {
               "max": 8,
@@ -527,399 +527,6 @@
             "mutationsPerPointerMove": {
               "max": 2,
               "mean": 2
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0.125,
-              "mean": 0.125
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlansPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            }
-          }
-        },
-        "draw_click": {
-          "samples": 2,
-          "fields": {
-            "durationMs": {
-              "max": 1,
-              "mean": 1
-            },
-            "pointerMoves": {
-              "max": 0,
-              "mean": 0
-            },
-            "controllerMutations": {
-              "max": 1,
-              "mean": 1
-            },
-            "renderRequests": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTests": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutions": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlans": {
-              "max": 0,
-              "mean": 0
-            },
-            "revisionDelta": {
-              "max": 1,
-              "mean": 1
-            },
-            "mutationsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "handlePlansPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            }
-          }
-        }
-      }
-    },
-    "point_drag_handle.json": {
-      "fixture": "point_drag_handle.json",
-      "kind": "point",
-      "category": "edit",
-      "tags": [
-        "point",
-        "handle",
-        "geometry"
-      ],
-      "summary": {
-        "executed": 4,
-        "objectCount": 1,
-        "selectedCount": 1
-      },
-      "modes": {
-        "dragging_handle": {
-          "samples": 1,
-          "fields": {
-            "durationMs": {
-              "max": 23,
-              "mean": 23
-            },
-            "pointerMoves": {
-              "max": 8,
-              "mean": 8
-            },
-            "controllerMutations": {
-              "max": 16,
-              "mean": 16
-            },
-            "renderRequests": {
-              "max": 8,
-              "mean": 8
-            },
-            "hitTests": {
-              "max": 1,
-              "mean": 1
-            },
-            "snapResolutions": {
-              "max": 8,
-              "mean": 8
-            },
-            "handlePlans": {
-              "max": 8,
-              "mean": 8
-            },
-            "revisionDelta": {
-              "max": 16,
-              "mean": 16
-            },
-            "mutationsPerPointerMove": {
-              "max": 2,
-              "mean": 2
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0.125,
-              "mean": 0.125
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlansPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            }
-          }
-        },
-        "draw_click": {
-          "samples": 1,
-          "fields": {
-            "durationMs": {
-              "max": 1,
-              "mean": 1
-            },
-            "pointerMoves": {
-              "max": 0,
-              "mean": 0
-            },
-            "controllerMutations": {
-              "max": 1,
-              "mean": 1
-            },
-            "renderRequests": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTests": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutions": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlans": {
-              "max": 0,
-              "mean": 0
-            },
-            "revisionDelta": {
-              "max": 1,
-              "mean": 1
-            },
-            "mutationsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "handlePlansPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            }
-          }
-        }
-      }
-    },
-    "circle_drag_radius_handle.json": {
-      "fixture": "circle_drag_radius_handle.json",
-      "kind": "circle",
-      "category": "edit",
-      "tags": [
-        "circle",
-        "handle",
-        "geometry"
-      ],
-      "summary": {
-        "executed": 5,
-        "objectCount": 1,
-        "selectedCount": 1
-      },
-      "modes": {
-        "dragging_handle": {
-          "samples": 1,
-          "fields": {
-            "durationMs": {
-              "max": 14,
-              "mean": 14
-            },
-            "pointerMoves": {
-              "max": 8,
-              "mean": 8
-            },
-            "controllerMutations": {
-              "max": 8,
-              "mean": 8
-            },
-            "renderRequests": {
-              "max": 8,
-              "mean": 8
-            },
-            "hitTests": {
-              "max": 1,
-              "mean": 1
-            },
-            "snapResolutions": {
-              "max": 8,
-              "mean": 8
-            },
-            "handlePlans": {
-              "max": 8,
-              "mean": 8
-            },
-            "revisionDelta": {
-              "max": 8,
-              "mean": 8
-            },
-            "mutationsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0.125,
-              "mean": 0.125
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlansPerPointerMove": {
-              "max": 1,
-              "mean": 1
-            }
-          }
-        },
-        "draw_click": {
-          "samples": 2,
-          "fields": {
-            "durationMs": {
-              "max": 1,
-              "mean": 1
-            },
-            "pointerMoves": {
-              "max": 0,
-              "mean": 0
-            },
-            "controllerMutations": {
-              "max": 1,
-              "mean": 1
-            },
-            "renderRequests": {
-              "max": 1,
-              "mean": 1
-            },
-            "hitTests": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutions": {
-              "max": 1,
-              "mean": 1
-            },
-            "handlePlans": {
-              "max": 0,
-              "mean": 0
-            },
-            "revisionDelta": {
-              "max": 1,
-              "mean": 1
-            },
-            "mutationsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "renderRequestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "hitTestsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "snapResolutionsPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            },
-            "handlePlansPerPointerMove": {
-              "max": 0,
-              "mean": 0
-            }
-          }
-        }
-      }
-    },
-    "rectangle_drag_corner_handle.json": {
-      "fixture": "rectangle_drag_corner_handle.json",
-      "kind": "rectangle",
-      "category": "edit",
-      "tags": [
-        "rectangle",
-        "handle",
-        "geometry"
-      ],
-      "summary": {
-        "executed": 5,
-        "objectCount": 1,
-        "selectedCount": 1
-      },
-      "modes": {
-        "dragging_handle": {
-          "samples": 1,
-          "fields": {
-            "durationMs": {
-              "max": 50,
-              "mean": 50
-            },
-            "pointerMoves": {
-              "max": 8,
-              "mean": 8
-            },
-            "controllerMutations": {
-              "max": 32,
-              "mean": 32
-            },
-            "renderRequests": {
-              "max": 8,
-              "mean": 8
-            },
-            "hitTests": {
-              "max": 1,
-              "mean": 1
-            },
-            "snapResolutions": {
-              "max": 8,
-              "mean": 8
-            },
-            "handlePlans": {
-              "max": 8,
-              "mean": 8
-            },
-            "revisionDelta": {
-              "max": 32,
-              "mean": 32
-            },
-            "mutationsPerPointerMove": {
-              "max": 4,
-              "mean": 4
             },
             "renderRequestsPerPointerMove": {
               "max": 1,
@@ -998,6 +605,399 @@
         }
       }
     },
+    "point_drag_handle.json": {
+      "fixture": "point_drag_handle.json",
+      "kind": "point",
+      "category": "edit",
+      "tags": [
+        "point",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 4,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 19,
+              "mean": 19
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 16,
+              "mean": 16
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 16,
+              "mean": 16
+            },
+            "mutationsPerPointerMove": {
+              "max": 2,
+              "mean": 2
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 2,
+              "mean": 2
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
+    "circle_drag_radius_handle.json": {
+      "fixture": "circle_drag_radius_handle.json",
+      "kind": "circle",
+      "category": "edit",
+      "tags": [
+        "circle",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 5,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 12,
+              "mean": 12
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 8,
+              "mean": 8
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 8,
+              "mean": 8
+            },
+            "mutationsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 2,
+          "fields": {
+            "durationMs": {
+              "max": 2,
+              "mean": 1
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
+    "rectangle_drag_corner_handle.json": {
+      "fixture": "rectangle_drag_corner_handle.json",
+      "kind": "rectangle",
+      "category": "edit",
+      "tags": [
+        "rectangle",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 5,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 53,
+              "mean": 53
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 32,
+              "mean": 32
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 32,
+              "mean": 32
+            },
+            "mutationsPerPointerMove": {
+              "max": 4,
+              "mean": 4
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 2,
+          "fields": {
+            "durationMs": {
+              "max": 2,
+              "mean": 1
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
     "line_move_object.json": {
       "fixture": "line_move_object.json",
       "kind": "line",
@@ -1017,8 +1017,8 @@
           "samples": 1,
           "fields": {
             "durationMs": {
-              "max": 6,
-              "mean": 6
+              "max": 7,
+              "mean": 7
             },
             "pointerMoves": {
               "max": 8,
@@ -1148,8 +1148,8 @@
           "samples": 2,
           "fields": {
             "durationMs": {
-              "max": 2,
-              "mean": 1.5
+              "max": 1,
+              "mean": 1
             },
             "pointerMoves": {
               "max": 0,
@@ -1279,8 +1279,8 @@
           "samples": 1,
           "fields": {
             "durationMs": {
-              "max": 1,
-              "mean": 1
+              "max": 0,
+              "mean": 0
             },
             "pointerMoves": {
               "max": 0,
@@ -1301,6 +1301,399 @@
             "snapResolutions": {
               "max": 0,
               "mean": 0
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
+    "line_drag_start_handle.json": {
+      "fixture": "line_drag_start_handle.json",
+      "kind": "line",
+      "category": "edit",
+      "tags": [
+        "line",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 5,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 25,
+              "mean": 25
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 16,
+              "mean": 16
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 16,
+              "mean": 16
+            },
+            "mutationsPerPointerMove": {
+              "max": 2,
+              "mean": 2
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 2,
+          "fields": {
+            "durationMs": {
+              "max": 2,
+              "mean": 1
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
+    "circle_drag_center_handle.json": {
+      "fixture": "circle_drag_center_handle.json",
+      "kind": "circle",
+      "category": "edit",
+      "tags": [
+        "circle",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 5,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 22,
+              "mean": 22
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 16,
+              "mean": 16
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 16,
+              "mean": 16
+            },
+            "mutationsPerPointerMove": {
+              "max": 2,
+              "mean": 2
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 2,
+          "fields": {
+            "durationMs": {
+              "max": 1,
+              "mean": 1
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlans": {
+              "max": 0,
+              "mean": 0
+            },
+            "revisionDelta": {
+              "max": 1,
+              "mean": 1
+            },
+            "mutationsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            },
+            "handlePlansPerPointerMove": {
+              "max": 0,
+              "mean": 0
+            }
+          }
+        }
+      }
+    },
+    "rectangle_drag_nw_corner_handle.json": {
+      "fixture": "rectangle_drag_nw_corner_handle.json",
+      "kind": "rectangle",
+      "category": "edit",
+      "tags": [
+        "rectangle",
+        "handle",
+        "geometry"
+      ],
+      "summary": {
+        "executed": 5,
+        "objectCount": 1,
+        "selectedCount": 1
+      },
+      "modes": {
+        "dragging_handle": {
+          "samples": 1,
+          "fields": {
+            "durationMs": {
+              "max": 55,
+              "mean": 55
+            },
+            "pointerMoves": {
+              "max": 8,
+              "mean": 8
+            },
+            "controllerMutations": {
+              "max": 32,
+              "mean": 32
+            },
+            "renderRequests": {
+              "max": 8,
+              "mean": 8
+            },
+            "hitTests": {
+              "max": 1,
+              "mean": 1
+            },
+            "snapResolutions": {
+              "max": 8,
+              "mean": 8
+            },
+            "handlePlans": {
+              "max": 8,
+              "mean": 8
+            },
+            "revisionDelta": {
+              "max": 32,
+              "mean": 32
+            },
+            "mutationsPerPointerMove": {
+              "max": 4,
+              "mean": 4
+            },
+            "renderRequestsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTestsPerPointerMove": {
+              "max": 0.125,
+              "mean": 0.125
+            },
+            "snapResolutionsPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            },
+            "handlePlansPerPointerMove": {
+              "max": 1,
+              "mean": 1
+            }
+          }
+        },
+        "draw_click": {
+          "samples": 2,
+          "fields": {
+            "durationMs": {
+              "max": 3,
+              "mean": 1.5
+            },
+            "pointerMoves": {
+              "max": 0,
+              "mean": 0
+            },
+            "controllerMutations": {
+              "max": 1,
+              "mean": 1
+            },
+            "renderRequests": {
+              "max": 1,
+              "mean": 1
+            },
+            "hitTests": {
+              "max": 0,
+              "mean": 0
+            },
+            "snapResolutions": {
+              "max": 1,
+              "mean": 1
             },
             "handlePlans": {
               "max": 0,

@@ -1,14 +1,17 @@
 {
   "points": {
     "lineStart": { "x": 128, "y": 128 },
+    "lineStartMoved": { "x": 96, "y": 160 },
     "lineEnd": { "x": 256, "y": 128 },
     "lineEndMoved": { "x": 320, "y": 160 },
     "pointCreate": { "x": 96, "y": 352 },
     "pointMoved": { "x": 128, "y": 384 },
     "circleCenter": { "x": 256, "y": 256 },
+    "circleCenterMoved": { "x": 288, "y": 288 },
     "circleRadius": { "x": 320, "y": 256 },
     "circleRadiusMoved": { "x": 352, "y": 256 },
     "rectStart": { "x": 96, "y": 256 },
+    "rectStartMoved": { "x": 64, "y": 224 },
     "rectEnd": { "x": 192, "y": 320 },
     "rectEndMoved": { "x": 224, "y": 352 },
     "moveStart": { "x": 192, "y": 128 },

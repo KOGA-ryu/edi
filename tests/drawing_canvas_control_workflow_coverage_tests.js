@@ -18,10 +18,10 @@ function runCoverageContract(repoRoot) {
     const coverage = WorkflowHarness.workflowCoverage(manifest.workflows)
     const result = WorkflowHarness.evaluateWorkflowCoverage(coverage, expectations)
 
-    expect(manifest.workflows.length === 13, "workflow manifest should expose the expected workflow count")
-    expect(coverage.byKind.line === 4, "coverage should count line workflows")
+    expect(manifest.workflows.length === 16, "workflow manifest should expose the expected workflow count")
+    expect(coverage.byKind.line === 5, "coverage should count line workflows")
     expect(coverage.byCategory.create === 6, "coverage should count create workflows")
-    expect(coverage.byTag.geometry === 11, "coverage should count geometry-tagged workflows")
+    expect(coverage.byTag.geometry === 14, "coverage should count geometry-tagged workflows")
     expect(result.ok, `workflow coverage expectations should pass: ${result.failures.map(failure => failure.message).join(", ")}`)
 }
 

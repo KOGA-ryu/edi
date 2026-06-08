@@ -44,6 +44,12 @@
       "tags": ["line", "handle", "geometry"]
     },
     {
+      "fixture": "line_drag_start_handle.json",
+      "kind": "line",
+      "category": "edit",
+      "tags": ["line", "handle", "geometry"]
+    },
+    {
       "fixture": "point_drag_handle.json",
       "kind": "point",
       "category": "edit",
@@ -56,7 +62,19 @@
       "tags": ["circle", "handle", "geometry"]
     },
     {
+      "fixture": "circle_drag_center_handle.json",
+      "kind": "circle",
+      "category": "edit",
+      "tags": ["circle", "handle", "geometry"]
+    },
+    {
       "fixture": "rectangle_drag_corner_handle.json",
+      "kind": "rectangle",
+      "category": "edit",
+      "tags": ["rectangle", "handle", "geometry"]
+    },
+    {
+      "fixture": "rectangle_drag_nw_corner_handle.json",
       "kind": "rectangle",
       "category": "edit",
       "tags": ["rectangle", "handle", "geometry"]

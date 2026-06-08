@@ -1,0 +1,28 @@
+{
+  "name": "line_drag_start_handle",
+  "profile": "data/project_profiles/draftsman_drawing_tool_blank.json",
+  "steps": [
+    { "use": "createBasicLine" },
+    { "use": "selectMoveTool" },
+    {
+      "type": "dragHandle",
+      "object": "latest",
+      "handleId": "line_start",
+      "from": "lineStart",
+      "to": "lineStartMoved",
+      "pointerMoves": 8
+    }
+  ],
+  "expect": {
+    "model": {
+      "objectCount": 1,
+      "objects": [
+        { "kind": "line", "x1": 0.1875, "y1": 0.3125, "x2": 0.5, "y2": 0.25 }
+      ]
+    },
+    "metricsByMode": {
+      "draw_click": "cheapClick",
+      "dragging_handle": "handleDrag"
+    }
+  }
+}

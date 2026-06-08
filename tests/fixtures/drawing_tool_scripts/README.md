@@ -96,6 +96,8 @@ Run edit workflows:
 node tests/helpers/drawing_control_workflow_report.js --category edit
 ```
 
+Edit coverage includes representative handle roles across line endpoints, point position, circle center/radius, and rectangle corners.
+
 Run one fixture:
 
 ```sh

@@ -17,6 +17,7 @@ function usage() {
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --dry-run --compact",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline",
         "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering",
+        "  node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --failures-only",
         "  node tests/helpers/drawing_control_workflow_report.js --all --update-baseline",
         "",
         "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists.",
@@ -46,6 +47,7 @@ function parseArgs(argv) {
         compareBaseline: false,
         updateBaseline: false,
         subsystem: "",
+        failuresOnly: false,
     }
     for (let index = 0; index < argv.length; ++index) {
         const token = argv[index]
@@ -67,6 +69,8 @@ function parseArgs(argv) {
             args.updateBaseline = true
         } else if (token === "--subsystem") {
             args.subsystem = String(argv[++index] || "")
+        } else if (token === "--failures-only") {
+            args.failuresOnly = true
         } else if (token === "--fixture") {
             pushValue(args.fixtures, argv[++index])
         } else if (token === "--category") {
@@ -156,6 +160,32 @@ function compactBaselineComparison(repoRoot, report, subsystem) {
     }, filterBaselineComparison(comparison, subsystem))
 }
 
+function failuresOnlyBaselineComparison(comparison) {
+    const hasDeltas = Number(comparison && comparison.failureCount || 0) > 0
+        || Number(comparison && comparison.warningCount || 0) > 0
+    const result = {
+        ok: comparison && comparison.ok === true,
+        failureCount: Number(comparison && comparison.failureCount || 0),
+        warningCount: Number(comparison && comparison.warningCount || 0),
+    }
+    if (comparison && comparison.selectedSubsystem !== undefined) {
+        result.selectedSubsystem = comparison.selectedSubsystem
+        result.selectedSubsystemDeltaCount = Number(comparison.selectedSubsystemDeltaCount || 0)
+    }
+    if (hasDeltas) {
+        result.bySubsystem = comparison.bySubsystem || {}
+        result.topDeltas = Array.isArray(comparison.topDeltas) ? comparison.topDeltas : []
+    }
+    return result
+}
+
+function failuresOnlyOutput(output) {
+    return {
+        ok: output.ok === true,
+        baselineComparison: failuresOnlyBaselineComparison(output.baselineComparison || {}),
+    }
+}
+
 function dryRunOutput(manifest, compact) {
     const output = {
         ok: true,
@@ -194,6 +224,9 @@ function run() {
     if (args.subsystem.length > 0 && !args.compareBaseline) {
         throw new Error("--subsystem requires --compare-baseline")
     }
+    if (args.failuresOnly && !args.compareBaseline) {
+        throw new Error("--failures-only requires --compare-baseline")
+    }
 
     const manifest = WorkflowHarness.workflowFixtures(repoRoot, args.all ? {} : selectorEnv(args))
     if (manifest.selectedWorkflows.length <= 0) {
@@ -205,6 +238,9 @@ function run() {
         }
         if (args.subsystem.length > 0) {
             throw new Error("--subsystem requires --compare-baseline")
+        }
+        if (args.failuresOnly) {
+            throw new Error("--failures-only requires --compare-baseline")
         }
         console.log(JSON.stringify(dryRunOutput(manifest, args.compact), null, 2))
         return 0
@@ -238,6 +274,10 @@ function run() {
     if (args.compareBaseline) {
         output.baselineComparison = compactBaselineComparison(repoRoot, report, args.subsystem)
         output.ok = output.ok && output.baselineComparison.ok
+    }
+    if (args.failuresOnly) {
+        console.log(JSON.stringify(failuresOnlyOutput(output), null, 2))
+        return output.ok ? 0 : 1
     }
     console.log(JSON.stringify(output, null, 2))
     return output.ok ? 0 : 1

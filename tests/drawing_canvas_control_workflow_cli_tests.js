@@ -82,6 +82,20 @@ const missingRecommendationOutput = JSON.parse(missingRecommendation.stdout)
 expect(missingRecommendationOutput.ok === false, "missing recommendation output should report not ok")
 expect(missingRecommendationOutput.recommendedSelectors.length === 0, "missing recommendation output should return no selectors")
 
+const invalidFailuresOnly = spawnSync(process.execPath, [
+    helper,
+    "--all",
+    "--failures-only",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+expect(invalidFailuresOnly.status === 1, "failures-only should require baseline comparison")
+expect(invalidFailuresOnly.stderr.indexOf("--failures-only requires --compare-baseline") >= 0,
+    "failures-only error should explain required baseline comparison")
+
 const dryRun = spawnSync(process.execPath, [
     helper,
     "--tag", "line",
@@ -211,6 +225,36 @@ expect(subsystemBaselineOutput.ok === true, "subsystem baseline CLI output shoul
 expect(subsystemBaselineOutput.baselineComparison.selectedSubsystem === "rendering", "subsystem baseline comparison should preserve selected subsystem")
 expect(subsystemBaselineOutput.baselineComparison.selectedSubsystemDeltaCount === 0, "passing subsystem baseline comparison should report zero selected deltas")
 expect(Array.isArray(subsystemBaselineOutput.baselineComparison.topDeltas), "subsystem baseline comparison should include delta list")
+
+const failuresOnlyResult = spawnSync(process.execPath, [
+    helper,
+    "--fixture", "arc_create_basic.json",
+    "--compare-baseline",
+    "--subsystem", "rendering",
+    "--failures-only",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 10000,
+})
+
+if (failuresOnlyResult.status !== 0) {
+    console.error(failuresOnlyResult.stdout)
+    console.error(failuresOnlyResult.stderr)
+}
+expect(failuresOnlyResult.status === 0, "workflow report CLI failures-only baseline comparison should pass selected fixture")
+
+const failuresOnlyOutput = JSON.parse(failuresOnlyResult.stdout)
+expect(failuresOnlyOutput.ok === true, "failures-only output should report ok")
+expect(failuresOnlyOutput.metricSamples === undefined, "failures-only output should omit metric samples")
+expect(failuresOnlyOutput.reportPath === undefined, "failures-only output should omit report path")
+expect(failuresOnlyOutput.worstFailure === undefined, "failures-only output should omit worst failure")
+expect(failuresOnlyOutput.baselineComparison.ok === true, "failures-only baseline comparison should report ok")
+expect(failuresOnlyOutput.baselineComparison.failureCount === 0, "failures-only baseline comparison should preserve failure count")
+expect(failuresOnlyOutput.baselineComparison.warningCount === 0, "failures-only baseline comparison should preserve warning count")
+expect(failuresOnlyOutput.baselineComparison.selectedSubsystem === "rendering", "failures-only output should preserve selected subsystem")
+expect(failuresOnlyOutput.baselineComparison.selectedSubsystemDeltaCount === 0, "failures-only output should preserve selected subsystem delta count")
+expect(failuresOnlyOutput.baselineComparison.topDeltas === undefined, "passing failures-only output should omit empty deltas")
 
 if (process.exitCode) {
     process.exit(process.exitCode)

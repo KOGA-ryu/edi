@@ -76,6 +76,12 @@ Focus baseline deltas on one subsystem:
 node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering
 ```
 
+Ask only whether meaningful baseline failures exist:
+
+```sh
+node tests/helpers/drawing_control_workflow_report.js --tag line --compare-baseline --subsystem rendering --failures-only
+```
+
 Refresh accepted baselines after a known-good full run:
 
 ```sh
@@ -124,6 +130,8 @@ Baseline `topDeltas` include `kind`, `subsystem`, and `recommendation` so agents
 Baseline comparison also includes `bySubsystem`, a compact routing table keyed by areas such as `baseline`, `workflow_fixture`, `gesture`, `controller`, `rendering`, `hit_test`, `snap`, `handles`, and `metrics`.
 
 Use `--compare-baseline` when asking "what changed?" Use `--update-baseline` only after the changed behavior is understood and accepted.
+
+Use `--failures-only` with baseline comparison when the caller only needs the failure state and actionable deltas, not normal run fields such as `metricSamples`, `reportPath`, or `worstFailure`.
 
 ## Operating Rule
 

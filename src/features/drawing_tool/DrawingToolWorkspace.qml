@@ -100,7 +100,7 @@ Rectangle {
             function drawingControlScriptSummary(result) {
                 return {
                     ok: result && result.ok === true,
-                    failures: result && result.failures ? result.failures : [],
+                    failures: drawingControlFailureDetails(result && result.failures ? result.failures : []),
                     executed: result && result.executed !== undefined ? Number(result.executed || 0) : 0,
                     objectCount: drawingControlScriptObjectCount(),
                     objects: drawingControlObjectSummary(),
@@ -113,6 +113,28 @@ Rectangle {
                         panY: drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanYPx || 0) : 0
                     }
                 }
+            }
+
+            function drawingControlFailureDetails(failures) {
+                var result = []
+                var source = failures || []
+                for (var index = 0; index < source.length; ++index) {
+                    var failure = source[index]
+                    if (failure && typeof failure === "object") {
+                        result.push({
+                            stepIndex: Number(failure.stepIndex !== undefined ? failure.stepIndex : -1),
+                            stepType: String(failure.stepType || "runtime"),
+                            message: String(failure.message || "control script failure")
+                        })
+                    } else {
+                        result.push({
+                            stepIndex: -1,
+                            stepType: "validation",
+                            message: String(failure || "control script validation failure")
+                        })
+                    }
+                }
+                return result
             }
 
             function maybeRunInitialControlScript() {

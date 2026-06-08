@@ -49,6 +49,15 @@ function runValidationContract(toolScript) {
     expect(!invalid.ok, "invalid script should fail")
     expect(invalid.failures.some(message => message.indexOf("dragHandle requires handleId") >= 0), "validation should explain missing handleId")
     expect(invalid.failures.some(message => message.indexOf("unknown fragment") >= 0), "validation should explain missing fragment")
+
+    const invalidParameter = toolScript.validateScript({
+        name: "bad_parameter",
+        steps: [
+            { type: "setToolParameter", parameter: "circle_arc_mode", value: "banana" },
+        ],
+    })
+    expect(!invalidParameter.ok, "invalid tool parameter should fail")
+    expect(invalidParameter.failures.some(message => message.indexOf("invalid circle_arc_mode") >= 0), "validation should explain invalid tool parameter")
 }
 
 function runCompositionContract(toolScript) {

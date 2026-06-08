@@ -80,6 +80,51 @@ function validName(value) {
     return String(value || "").trim().length > 0
 }
 
+function stringToolParameterValues(parameter) {
+    if (parameter === "circle_arc_mode") {
+        return ["circle", "arc"]
+    }
+    return []
+}
+
+function numericToolParameter(parameter) {
+    return [
+        "circle_arc_start_angle_deg",
+        "circle_arc_end_angle_deg",
+        "regular_polygon_sides",
+        "regular_polygon_rotation_deg",
+        "line_thickness",
+        "stroke_opacity"
+    ].indexOf(String(parameter || "")) >= 0
+}
+
+function validateToolParameterStep(step, index, failures) {
+    var parameter = String(step && step.parameter || "")
+    if (!validName(parameter)) {
+        failures.push("steps[" + String(index) + "] setToolParameter requires parameter")
+        return
+    }
+    if (!step || step.value === undefined) {
+        failures.push("steps[" + String(index) + "] setToolParameter requires value")
+        return
+    }
+    var stringValues = stringToolParameterValues(parameter)
+    if (stringValues.length > 0) {
+        var value = String(step.value || "").trim().toLowerCase()
+        if (stringValues.indexOf(value) < 0) {
+            failures.push("steps[" + String(index) + "] setToolParameter invalid " + parameter + ": " + String(step.value))
+        }
+        return
+    }
+    if (numericToolParameter(parameter)) {
+        if (!Number.isFinite(Number(step.value))) {
+            failures.push("steps[" + String(index) + "] setToolParameter requires numeric value for " + parameter)
+        }
+        return
+    }
+    failures.push("steps[" + String(index) + "] setToolParameter unsupported parameter " + parameter)
+}
+
 function validatePointRecord(name, value, failures) {
     if (!pointFromValue(value, {})) {
         failures.push("points." + String(name) + " requires finite x/y")
@@ -139,12 +184,7 @@ function validateStep(step, index, script, failures) {
     }
 
     if (type === "setToolParameter") {
-        if (!validName(step.parameter)) {
-            failures.push("steps[" + String(index) + "] setToolParameter requires parameter")
-        }
-        if (!step || step.value === undefined) {
-            failures.push("steps[" + String(index) + "] setToolParameter requires value")
-        }
+        validateToolParameterStep(step, index, failures)
         return
     }
 

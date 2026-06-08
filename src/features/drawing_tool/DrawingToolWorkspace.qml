@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../../style"
+import "DrawingCanvasViewport.js" as CanvasViewport
 
 Rectangle {
     id: drawingWorkspace
@@ -220,23 +221,18 @@ Rectangle {
                 property real previewY: 0
 
                 function pxX(bounds, normalizedX) {
-                    return bounds.x + Number(normalizedX) * bounds.size
+                    return CanvasViewport.canvasToScreenX(bounds, normalizedX)
                 }
 
                 function pxY(bounds, normalizedY) {
-                    return bounds.y + Number(normalizedY) * bounds.size
+                    return CanvasViewport.canvasToScreenY(bounds, normalizedY)
                 }
 
                 function boardBounds() {
                     var zoom = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasZoom || 1.0) : 1.0
                     var panX = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanXPx || 0) : 0
                     var panY = drawingWorkspace.controller ? Number(drawingWorkspace.controller.drawingCanvasPanYPx || 0) : 0
-                    var board = Math.max(32, Math.min(width, height) - 16) * zoom
-                    return {
-                        x: Math.round((width - board) / 2 + panX),
-                        y: Math.round((height - board) / 2 + panY),
-                        size: board
-                    }
+                    return CanvasViewport.boardBounds(width, height, zoom, panX, panY)
                 }
 
                 function drawSnapIndicator(ctx, bounds) {
@@ -501,11 +497,7 @@ Rectangle {
                 }
 
                 function normalizedPoint(mouseX, mouseY) {
-                    var bounds = boardBounds()
-                    return {
-                        x: (mouseX - bounds.x) / bounds.size,
-                        y: (mouseY - bounds.y) / bounds.size
-                    }
+                    return CanvasViewport.screenToCanvas(boardBounds(), mouseX, mouseY)
                 }
 
                 function asArray(value) {

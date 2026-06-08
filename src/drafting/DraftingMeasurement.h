@@ -21,7 +21,14 @@ struct MeasurementCalibrationResult {
     static MeasurementCalibrationResult rejected(DraftingResultCode code, std::string message);
 };
 
+enum class MeasurementKind {
+    Distance,
+    Area,
+    Dimension
+};
+
 struct MeasurementValue {
+    MeasurementKind kind = MeasurementKind::Distance;
     double value = 0.0;
     MeasurementUnit unit = MeasurementUnit::CanvasUnit;
     std::string label;

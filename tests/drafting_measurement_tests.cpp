@@ -9,12 +9,14 @@ int main()
 {
     ScaleCalibration calibration{2.0, MeasurementUnit::Centimeter};
     MeasurementValue measured = measureDistance({0.0, 0.0}, {0.0, 10.0}, calibration);
+    assert(measured.kind == MeasurementKind::Distance);
     assert(measured.value == 5.0);
     assert(measured.unit == MeasurementUnit::Centimeter);
     assert(measured.label == std::string("centimeter"));
 
     DraftingGeometry rect = RectangleGeometry{{2.0, 3.0}, 10.0, 5.0};
     MeasurementValue measuredArea = measureArea(rect, calibration);
+    assert(measuredArea.kind == MeasurementKind::Area);
     assert(measuredArea.value == 12.5);
     assert(measuredArea.unit == MeasurementUnit::Centimeter);
 
@@ -44,6 +46,7 @@ int main()
     assert(fromMetadata.realUnit == MeasurementUnit::Inch);
     assert(fromMetadata.canvasUnitsPerRealUnit == 4.0);
     MeasurementValue metadataMeasured = measureDistance({0.0, 0.0}, {0.0, 12.0}, fromMetadata);
+    assert(metadataMeasured.kind == MeasurementKind::Distance);
     assert(metadataMeasured.value == 3.0);
     assert(metadataMeasured.unit == MeasurementUnit::Inch);
 

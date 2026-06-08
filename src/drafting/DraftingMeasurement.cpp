@@ -56,13 +56,23 @@ ScaleCalibration scaleCalibrationFromMetadata(const MeasurementMetadata &metadat
 
 MeasurementValue measureDistance(Point2D a, Point2D b, const ScaleCalibration &calibration)
 {
-    return {applyScale(distance(a, b), calibration), calibration.realUnit, measurementUnitName(calibration.realUnit)};
+    return {
+        MeasurementKind::Distance,
+        applyScale(distance(a, b), calibration),
+        calibration.realUnit,
+        measurementUnitName(calibration.realUnit),
+    };
 }
 
 MeasurementValue measureArea(const DraftingGeometry &geometry, const ScaleCalibration &calibration)
 {
     const double scale = calibration.canvasUnitsPerRealUnit == 0.0 ? 1.0 : calibration.canvasUnitsPerRealUnit;
-    return {area(geometry) / (scale * scale), calibration.realUnit, measurementUnitName(calibration.realUnit)};
+    return {
+        MeasurementKind::Area,
+        area(geometry) / (scale * scale),
+        calibration.realUnit,
+        measurementUnitName(calibration.realUnit),
+    };
 }
 
 Bounds2D measureDimensions(const DraftingGeometry &geometry)

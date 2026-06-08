@@ -46,6 +46,20 @@ target_link_libraries(drawing_canvas_core
         Qt6::Core
 )
 
+add_library(drawing_runtime_core STATIC
+    src/runtime/DrawingRuntimeCore.h
+    src/runtime/DrawingRuntimeCore.cpp
+)
+
+target_include_directories(drawing_runtime_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(drawing_runtime_core
+    PUBLIC
+        Qt6::Core
+)
+
 qt_add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
@@ -86,6 +100,7 @@ target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
 target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
         drawing_canvas_core
+        drawing_runtime_core
         Qt6::Core
         Qt6::Gui
         Qt6::Qml
@@ -133,6 +148,22 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME drawing_canvas_adapter_tests COMMAND drawing_canvas_adapter_tests)
+
+    add_executable(drawing_runtime_core_tests
+        tests/drawing_runtime_core_tests.cpp
+    )
+
+    target_include_directories(drawing_runtime_core_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(drawing_runtime_core_tests
+        PRIVATE
+            drawing_runtime_core
+            Qt6::Core
+    )
+
+    add_test(NAME drawing_runtime_core_tests COMMAND drawing_runtime_core_tests)
 
     add_executable(no_javascript_files_tests
         tests/no_javascript_files_tests.cpp

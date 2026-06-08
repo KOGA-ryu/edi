@@ -28,6 +28,7 @@
 #include "io/DrawingDocumentStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextEditorStore.h"
+#include "runtime/DrawingRuntimeCore.h"
 
 int main(int argc, char *argv[]) {
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
@@ -180,6 +181,8 @@ int main(int argc, char *argv[]) {
     const QVariant drawingMetadataPresets = loadJsonObject(drawingMetadataPresetsPath);
     DrawingDocumentController drawingController;
     DrawingCanvasRuntimeAdapter drawingCanvasRuntime;
+    DrawingToolCatalog drawingToolCatalog;
+    DrawingRuntimeRows drawingRuntimeRows;
     QString drawingRecentFilesPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (drawingRecentFilesPath.trimmed().isEmpty()) {
         drawingRecentFilesPath = QStringLiteral(PROJECT_SOURCE_DIR) + QStringLiteral("/.draftsman_runtime");
@@ -235,6 +238,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingModel"), drawingController.modelDocument());
     engine.rootContext()->setContextProperty(QStringLiteral("nativeDrawingController"), &drawingController);
     engine.rootContext()->setContextProperty(QStringLiteral("drawingCanvasRuntime"), &drawingCanvasRuntime);
+    engine.rootContext()->setContextProperty(QStringLiteral("drawingToolCatalog"), &drawingToolCatalog);
+    engine.rootContext()->setContextProperty(QStringLiteral("drawingRuntimeRows"), &drawingRuntimeRows);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFiles"), drawingRecentFiles);
     engine.rootContext()->setContextProperty(QStringLiteral("initialDrawingRecentFilesPath"), drawingRecentFilesPath);
     engine.rootContext()->setContextProperty(QStringLiteral("initialShellLayout"), shellLayout);

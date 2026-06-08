@@ -1,6 +1,4 @@
 import QtQuick
-import "DrawingToolCatalog.js" as DrawingToolCatalog
-import "DrawingRuntimeRows.js" as DrawingRuntimeRows
 
 QtObject {
     id: drawingSession
@@ -21,17 +19,17 @@ QtObject {
     property string drawingToolRegistryPath: ""
     property var drawingMetadataPresetsDocument: ({})
     property string drawingMetadataPresetsPath: ""
-    property var drawingToolModes: DrawingToolCatalog.toolModes()
-    property var drawingToolSettingsById: DrawingToolCatalog.toolSettingsById()
-    property var drawingPrecisionTools: DrawingToolCatalog.precisionTools()
-    property var drawingDataTools: DrawingToolCatalog.dataTools()
-    property var drawingImageTools: DrawingToolCatalog.imageTools()
-    property var drawingExternalToolSettingsById: DrawingToolCatalog.externalToolSettingsById()
-    property var drawingAssetSources: DrawingToolCatalog.assetSources()
-    property var drawingPatternFamilies: DrawingToolCatalog.patternFamilies()
-    property var drawingToolPresets: DrawingToolCatalog.toolPresets()
-    property var drawingLayerStack: DrawingToolCatalog.layerStack()
-    property var drawingSidebarSections: DrawingToolCatalog.sidebarSections()
+    property var drawingToolModes: drawingToolCatalog.toolModes()
+    property var drawingToolSettingsById: drawingToolCatalog.toolSettingsById()
+    property var drawingPrecisionTools: drawingToolCatalog.precisionTools()
+    property var drawingDataTools: drawingToolCatalog.dataTools()
+    property var drawingImageTools: drawingToolCatalog.imageTools()
+    property var drawingExternalToolSettingsById: drawingToolCatalog.externalToolSettingsById()
+    property var drawingAssetSources: drawingToolCatalog.assetSources()
+    property var drawingPatternFamilies: drawingToolCatalog.patternFamilies()
+    property var drawingToolPresets: drawingToolCatalog.toolPresets()
+    property var drawingLayerStack: drawingToolCatalog.layerStack()
+    property var drawingSidebarSections: drawingToolCatalog.sidebarSections()
     property DrawingAnchorSession anchorSession: DrawingAnchorSession {
         id: anchorSession
     }
@@ -425,7 +423,7 @@ QtObject {
     function loadDrawingToolRegistry(document, path) {
         drawingToolRegistryDocument = document || ({})
         drawingToolRegistryPath = String(path || "")
-        drawingToolModes = filterEnabledDrawingTools(DrawingToolCatalog.toolModes())
+        drawingToolModes = filterEnabledDrawingTools(drawingToolCatalog.toolModes())
         if (!drawingFindById(drawingToolModes, selectedDrawingToolId, null) && drawingToolModes.length > 0) {
             selectedDrawingToolId = String(drawingToolModes[0].id || "")
         }
@@ -1307,31 +1305,31 @@ QtObject {
     }
 
     function drawingModelValidationRows(unusedRevision) {
-        return DrawingRuntimeRows.modelValidationRows(drawingSession)
+        return drawingRuntimeRows.modelValidationRows(drawingSession)
     }
 
     function drawingFitTransform(unusedRevision) {
-        return DrawingRuntimeRows.fitTransform(drawingSession)
+        return drawingRuntimeRows.fitTransform(drawingSession)
     }
 
     function drawingEditNumber(value) {
-        return DrawingRuntimeRows.editNumber(value)
+        return drawingRuntimeRows.editNumber(value)
     }
 
     function drawingObjectEditRows(unusedRevision) {
-        return DrawingRuntimeRows.objectEditRows(drawingSession)
+        return drawingRuntimeRows.objectEditRows(drawingSession)
     }
 
     function drawingInspectorRows(unusedRevision) {
-        return DrawingRuntimeRows.inspectorRows(drawingSession)
+        return drawingRuntimeRows.inspectorRows(drawingSession)
     }
 
     function drawingToolSettingsRows(unusedRevision) {
-        return DrawingRuntimeRows.toolSettingsRows(drawingSession)
+        return drawingRuntimeRows.toolSettingsRows(drawingSession)
     }
 
     function drawingToolParameterEditRows(unusedRevision) {
-        return DrawingRuntimeRows.toolParameterEditRows(drawingSession)
+        return drawingRuntimeRows.toolParameterEditRows(drawingSession)
     }
 
     function hasSelectedDrawingExternalTool(unusedRevision) {
@@ -1339,19 +1337,19 @@ QtObject {
     }
 
     function drawingExternalToolRows(unusedRevision) {
-        return DrawingRuntimeRows.externalToolRows(drawingSession)
+        return drawingRuntimeRows.externalToolRows(drawingSession)
     }
 
     function drawingSidebarRows(section, unusedRevision) {
-        return DrawingRuntimeRows.sidebarRows(drawingSession, section)
+        return drawingRuntimeRows.sidebarRows(drawingSession, section)
     }
 
     function drawingSidebarRowSelected(section, row, unusedRevision) {
-        return DrawingRuntimeRows.sidebarRowSelected(drawingSession, section, row)
+        return drawingRuntimeRows.sidebarRowSelected(drawingSession, section, row)
     }
 
     function drawingSidebarRowClickable(section, unusedRevision) {
-        return DrawingRuntimeRows.sidebarRowClickable(section)
+        return drawingRuntimeRows.sidebarRowClickable(section)
     }
 
     function drawingSidebarRowClicked(section, row) {
@@ -1371,26 +1369,26 @@ QtObject {
     }
 
     function drawingToolPaletteRows(unusedRevision) {
-        return DrawingRuntimeRows.toolPaletteRows(drawingSession)
+        return drawingRuntimeRows.toolPaletteRows(drawingSession)
     }
 
     function drawingValidationRows(unusedRevision) {
-        return DrawingRuntimeRows.validationRows(drawingSession)
+        return drawingRuntimeRows.validationRows(drawingSession)
     }
 
     function drawingModelObjectRows(unusedRevision) {
-        return DrawingRuntimeRows.modelObjectRows(drawingSession)
+        return drawingRuntimeRows.modelObjectRows(drawingSession)
     }
 
     function drawingLogRows(unusedRevision) {
-        return DrawingRuntimeRows.logRows(drawingSession)
+        return drawingRuntimeRows.logRows(drawingSession)
     }
 
     function drawingExportRows(unusedRevision) {
-        return DrawingRuntimeRows.exportRows(drawingSession)
+        return drawingRuntimeRows.exportRows(drawingSession)
     }
 
     function drawingManifestRows(unusedRevision) {
-        return DrawingRuntimeRows.manifestRows(drawingSession)
+        return drawingRuntimeRows.manifestRows(drawingSession)
     }
 }

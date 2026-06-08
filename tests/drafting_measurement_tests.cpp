@@ -113,6 +113,13 @@ int main()
     assert(objectDistance.value.kind == MeasurementKind::Distance);
     assert(objectDistance.value.value == 3.0);
     assert(objectDistance.value.unit == MeasurementUnit::Inch);
+    auto lineSummary = summarizeObjectMeasurement(measuredLine);
+    assert(lineSummary.ok);
+    assert(lineSummary.value.hasDistance);
+    assert(lineSummary.value.distance.value == 3.0);
+    assert(!lineSummary.value.hasArea);
+    assert(lineSummary.value.dimensions.width.value == 0.0);
+    assert(lineSummary.value.dimensions.height.value == 3.0);
 
     DraftingObject measuredRect = makeDraftingObject("measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     measuredRect.metadata.measurement.unit = MeasurementUnit::Centimeter;
@@ -126,6 +133,13 @@ int main()
     assert(objectDimensions.ok);
     assert(objectDimensions.value.width.value == 5.0);
     assert(objectDimensions.value.height.value == 2.5);
+    auto rectSummary = summarizeObjectMeasurement(measuredRect);
+    assert(rectSummary.ok);
+    assert(!rectSummary.value.hasDistance);
+    assert(rectSummary.value.hasArea);
+    assert(rectSummary.value.area.value == 12.5);
+    assert(rectSummary.value.dimensions.width.value == 5.0);
+    assert(rectSummary.value.dimensions.height.value == 2.5);
 
     DraftingObject defaultMeasuredRect = makeDraftingObject("default_measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     auto defaultObjectDimensions = measureObjectDimensions(defaultMeasuredRect);
@@ -138,10 +152,21 @@ int main()
     auto invalidObjectArea = measureObjectArea(invalidMeasuredRect);
     assert(!invalidObjectArea.ok);
     assert(invalidObjectArea.code == DraftingResultCode::InvalidMetadata);
+    auto invalidSummary = summarizeObjectMeasurement(invalidMeasuredRect);
+    assert(!invalidSummary.ok);
+    assert(invalidSummary.code == DraftingResultCode::InvalidMetadata);
 
     auto rectDistance = measureObjectDistance(measuredRect);
     assert(!rectDistance.ok);
     assert(rectDistance.code == DraftingResultCode::InvalidGeometry);
+
+    DraftingObject measuredPoint = makeDraftingObject("measured_point", DraftingShapeKind::Point, PointGeometry{{2.0, 3.0}});
+    auto pointSummary = summarizeObjectMeasurement(measuredPoint);
+    assert(pointSummary.ok);
+    assert(!pointSummary.value.hasDistance);
+    assert(!pointSummary.value.hasArea);
+    assert(pointSummary.value.dimensions.width.value == 0.0);
+    assert(pointSummary.value.dimensions.height.value == 0.0);
 
     return 0;
 }

@@ -41,6 +41,14 @@ struct DimensionMeasurement {
     MeasurementValue height;
 };
 
+struct ObjectMeasurementSummary {
+    bool hasDistance = false;
+    MeasurementValue distance;
+    bool hasArea = false;
+    MeasurementValue area;
+    DimensionMeasurement dimensions;
+};
+
 template <typename T>
 struct ObjectMeasurementResult {
     bool ok = false;
@@ -58,6 +66,7 @@ DimensionMeasurement measureDimensionsTyped(const DraftingGeometry &geometry, co
 ObjectMeasurementResult<MeasurementValue> measureObjectDistance(const DraftingObject &object);
 ObjectMeasurementResult<MeasurementValue> measureObjectArea(const DraftingObject &object);
 ObjectMeasurementResult<DimensionMeasurement> measureObjectDimensions(const DraftingObject &object);
+ObjectMeasurementResult<ObjectMeasurementSummary> summarizeObjectMeasurement(const DraftingObject &object);
 const char *measurementUnitName(MeasurementUnit unit);
 std::string formatMeasurementValue(const MeasurementValue &value);
 

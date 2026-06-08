@@ -40,6 +40,13 @@ ObjectMeasurementResult<T> rejectedObjectMeasurement(DraftingResultCode code, st
     return result;
 }
 
+bool geometrySupportsSummaryArea(const DraftingGeometry &geometry)
+{
+    return std::holds_alternative<RectangleGeometry>(geometry)
+        || std::holds_alternative<CircleGeometry>(geometry)
+        || std::holds_alternative<PolygonGeometry>(geometry);
+}
+
 } // namespace
 
 MeasurementCalibrationResult MeasurementCalibrationResult::accepted(ScaleCalibration calibration)
@@ -156,6 +163,29 @@ ObjectMeasurementResult<DimensionMeasurement> measureObjectDimensions(const Draf
         return rejectedObjectMeasurement<DimensionMeasurement>(calibration.code, calibration.message);
     }
     return acceptedObjectMeasurement(measureDimensionsTyped(object.geometry, calibration.calibration));
+}
+
+ObjectMeasurementResult<ObjectMeasurementSummary> summarizeObjectMeasurement(const DraftingObject &object)
+{
+    const auto calibration = scaleCalibrationFromMetadataChecked(object.metadata.measurement);
+    if (!calibration.ok) {
+        return rejectedObjectMeasurement<ObjectMeasurementSummary>(calibration.code, calibration.message);
+    }
+
+    ObjectMeasurementSummary summary;
+    summary.dimensions = measureDimensionsTyped(object.geometry, calibration.calibration);
+
+    if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+        summary.hasDistance = true;
+        summary.distance = measureDistance(line->a, line->b, calibration.calibration);
+    }
+
+    if (geometrySupportsSummaryArea(object.geometry)) {
+        summary.hasArea = true;
+        summary.area = measureArea(object.geometry, calibration.calibration);
+    }
+
+    return acceptedObjectMeasurement(summary);
 }
 
 const char *measurementUnitName(MeasurementUnit unit)

@@ -25,7 +25,16 @@ Before edits, confirm:
 - git root is `/Users/kogaryu/edi`
 - `git status --short` has been checked
 
-Drawing workflow metric artifacts are intentional data.
+Legacy drawing workflow metric artifacts are retained for reference, but the drawing telemetry harness is disabled while canvas behavior is migrated to C++.
+
+Do not run telemetry collection unless the user explicitly re-enables it.
+
+CMake does not register legacy JS/QML canvas harness tests by default. To opt in temporarily:
+
+```bash
+cmake -S . -B build -DDRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS=ON
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+```
 
 Do not read raw telemetry directly during normal review:
 
@@ -33,13 +42,13 @@ Do not read raw telemetry directly during normal review:
 - `tests/artifacts/drawing_metrics_cli/raw/*.jsonl`
 - `tests/artifacts/drawing_metrics/*.log`
 
-Use compact reports first:
+If the harness is explicitly re-enabled, use compact reports first:
 
 ```bash
 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
 ```
 
-For selection preview:
+For selection preview without launching the app:
 
 ```bash
 node tests/helpers/drawing_control_workflow_report.js --all --dry-run --compact

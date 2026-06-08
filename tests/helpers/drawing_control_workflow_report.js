@@ -22,7 +22,8 @@ function usage() {
         "",
         "Selectors may be repeated or comma-separated. --dry-run prints selected workflows without launching the app; --compact omits workflow lists.",
         "--compare-baseline reports compact metric deltas against workflow_metric_baselines.json.",
-        "--update-baseline refreshes selected workflow baselines after a known-good run."
+        "--update-baseline refreshes selected workflow baselines after a known-good run.",
+        "Real workflow runs are disabled unless DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 is set."
     ].join("\n")
 }
 
@@ -94,6 +95,28 @@ function selectorEnv(args) {
 
 function hasSelector(args) {
     return args.all || args.fixtures.length > 0 || args.categories.length > 0 || args.tags.length > 0
+}
+
+function drawingHarnessEnabled(env) {
+    return String(env && env.DRAFTSMAN_ENABLE_DRAWING_HARNESS || "") === "1"
+}
+
+function disabledHarnessOutput(args) {
+    const comparison = args.compareBaseline ? {
+        ok: true,
+        skipped: true,
+        reason: "drawing workflow harness is disabled",
+    } : undefined
+    const output = {
+        ok: true,
+        skipped: true,
+        reason: "drawing workflow harness is disabled",
+        enableWith: "DRAFTSMAN_ENABLE_DRAWING_HARNESS=1",
+    }
+    if (comparison) {
+        output.baselineComparison = comparison
+    }
+    return output
 }
 
 function firstScriptFailure(report) {
@@ -243,6 +266,11 @@ function run() {
             throw new Error("--failures-only requires --compare-baseline")
         }
         console.log(JSON.stringify(dryRunOutput(manifest, args.compact), null, 2))
+        return 0
+    }
+
+    if (!drawingHarnessEnabled(process.env)) {
+        console.log(JSON.stringify(disabledHarnessOutput(args), null, 2))
         return 0
     }
 

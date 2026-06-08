@@ -2,6 +2,14 @@
 
 These fixtures drive deterministic drawing-tool workflows through the QML control runner. Use them to measure specific interaction paths instead of clicking around manually.
 
+Status: this legacy JS/QML telemetry harness is disabled by default while the canvas is migrated to C++. Real workflow runs require:
+
+```sh
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline
+```
+
+Dry-run selector inspection still works without launching the app.
+
 ## Files
 
 - `workflow_manifest.json`: selector metadata for each workflow.

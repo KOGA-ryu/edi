@@ -12,6 +12,7 @@ include(CTest)
 set(DRAFTSMAN_SHELL_TARGET_NAME "qt_qml_region_split" CACHE STRING "Draftsman shell executable target name.")
 set(DRAFTSMAN_SHELL_QML_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Shared Draftsman QML shell source directory.")
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
+option(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS "Register legacy JS/QML drawing canvas prototype and telemetry harness tests." OFF)
 
 add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasTypes.h
@@ -122,7 +123,7 @@ if(BUILD_TESTING)
     add_test(NAME drawing_object_model_tests COMMAND drawing_object_model_tests)
 
     find_program(NODE_EXECUTABLE node)
-    if(NODE_EXECUTABLE)
+    if(DRAFTSMAN_ENABLE_LEGACY_JS_CANVAS_TESTS AND NODE_EXECUTABLE)
         add_test(
             NAME drawing_canvas_viewport_tests
             COMMAND ${NODE_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/drawing_canvas_viewport_tests.js

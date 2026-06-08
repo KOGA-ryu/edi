@@ -1,10 +1,18 @@
 # Drawing metric artifacts
 
-This directory contains generated drawing workflow telemetry.
+This directory contains retained generated drawing workflow telemetry.
+
+The drawing telemetry harness is currently disabled while the canvas is migrated to C++.
 
 Raw JSONL and log files are retained intentionally for reproducibility and deep debugging, but they are not normal review input.
 
-Normal review entrypoint:
+Re-enable only when explicitly needed:
+
+```bash
+DRAFTSMAN_ENABLE_DRAWING_HARNESS=1 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only
+```
+
+Legacy compact entrypoint:
 
 ```bash
 node tests/helpers/drawing_control_workflow_report.js --all --compare-baseline --failures-only

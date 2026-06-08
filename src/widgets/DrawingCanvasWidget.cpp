@@ -32,8 +32,25 @@ void DrawingCanvasWidget::refresh()
 
 QRectF DrawingCanvasWidget::boardRect() const
 {
-    const double side = std::max(1.0, std::min(width(), height()) - 40.0);
-    return QRectF((width() - side) * 0.5, (height() - side) * 0.5, side, side);
+    double aspect = 1.0;
+    if (m_controller != nullptr) {
+        const QVariantMap grid = m_controller->modelDocument().value(QStringLiteral("grid")).toMap();
+        const double gridWidth = grid.value(QStringLiteral("width"), 1.0).toDouble();
+        const double gridHeight = grid.value(QStringLiteral("height"), 1.0).toDouble();
+        if (std::isfinite(gridWidth) && std::isfinite(gridHeight) && gridWidth > 0.0 && gridHeight > 0.0) {
+            aspect = gridWidth / gridHeight;
+        }
+    }
+
+    const double availableWidth = std::max(1.0, static_cast<double>(width()) - 48.0);
+    const double availableHeight = std::max(1.0, static_cast<double>(height()) - 48.0);
+    double boardWidth = availableWidth;
+    double boardHeight = boardWidth / aspect;
+    if (boardHeight > availableHeight) {
+        boardHeight = availableHeight;
+        boardWidth = boardHeight * aspect;
+    }
+    return QRectF((width() - boardWidth) * 0.5, (height() - boardHeight) * 0.5, boardWidth, boardHeight);
 }
 
 QPointF DrawingCanvasWidget::canvasToScreen(double x, double y) const
@@ -56,22 +73,17 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.fillRect(rect(), QColor("#17191f"));
 
-    const QRectF board = boardRect();
-    painter.fillRect(board, QColor("#222630"));
-    painter.setPen(QPen(QColor("#3d4452"), 1));
-    painter.drawRect(board);
-
-    painter.setPen(QPen(QColor("#313744"), 1));
-    for (int i = 1; i < 16; ++i) {
-        const double t = static_cast<double>(i) / 16.0;
-        painter.drawLine(canvasToScreen(t, 0), canvasToScreen(t, 1));
-        painter.drawLine(canvasToScreen(0, t), canvasToScreen(1, t));
-    }
-
     if (m_controller == nullptr) {
+        const QRectF board = boardRect();
+        painter.fillRect(board, QColor("#222630"));
+        painter.setPen(QPen(QColor("#3d4452"), 1));
+        painter.drawRect(board);
         return;
     }
     const QVariantMap model = m_controller->modelDocument();
+    const QRectF board = boardRect();
+    drawPhysicalGrid(painter, model);
+
     for (const QVariant &value : model.value("drawing_objects").toList()) {
         drawObject(painter, value.toMap());
     }
@@ -91,9 +103,16 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     }
 
     painter.setPen(QColor("#aeb7c7"));
+    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+    const QVariantList warnings = model.value(QStringLiteral("warnings")).toList();
     painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
-        QString("Tool: %1\nSelected: %2")
-            .arg(m_controller->selectedToolId(), m_controller->selectedObjectId().isEmpty() ? "none" : m_controller->selectedObjectId()));
+        QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nWarnings: %6")
+            .arg(m_controller->selectedToolId(),
+                m_controller->selectedObjectId().isEmpty() ? "none" : m_controller->selectedObjectId(),
+                QString::number(grid.value(QStringLiteral("width")).toDouble(), 'f', 2),
+                grid.value(QStringLiteral("unit_label")).toString(),
+                QString::number(grid.value(QStringLiteral("height")).toDouble(), 'f', 2),
+                QString::number(warnings.size())));
 }
 
 void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
@@ -260,6 +279,46 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
     return hit.ok && hit.kind == QStringLiteral("handle") ? hit.objectId : QString();
 }
 
+void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const
+{
+    const QRectF board = boardRect();
+    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+    painter.fillRect(board, QColor("#222630"));
+
+    const QVariantList lines = grid.value(QStringLiteral("lines")).toList();
+    for (const QVariant &lineValue : lines) {
+        const QVariantMap line = lineValue.toMap();
+        const bool major = line.value(QStringLiteral("major")).toBool();
+        painter.setPen(QPen(major ? QColor("#465162") : QColor("#313744"), major ? 1.25 : 1.0));
+        const double position = line.value(QStringLiteral("position")).toDouble();
+        if (line.value(QStringLiteral("axis")).toString() == QStringLiteral("vertical")) {
+            painter.drawLine(canvasToScreen(position, 0.0), canvasToScreen(position, 1.0));
+        } else {
+            painter.drawLine(canvasToScreen(0.0, position), canvasToScreen(1.0, position));
+        }
+    }
+
+    const QVariantMap drawable = grid.value(QStringLiteral("drawable_bounds")).toMap();
+    const QPointF drawableTopLeft = canvasToScreen(
+        drawable.value(QStringLiteral("x")).toDouble(),
+        drawable.value(QStringLiteral("y")).toDouble());
+    const QPointF drawableBottomRight = canvasToScreen(
+        drawable.value(QStringLiteral("x")).toDouble() + drawable.value(QStringLiteral("width")).toDouble(),
+        drawable.value(QStringLiteral("y")).toDouble() + drawable.value(QStringLiteral("height")).toDouble());
+    painter.setPen(QPen(QColor("#8fb4d8"), 1, Qt::DashLine));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRectF(drawableTopLeft, drawableBottomRight).normalized());
+
+    const QVariantMap origin = grid.value(QStringLiteral("origin")).toMap();
+    const QPointF originPoint = canvasToScreen(origin.value(QStringLiteral("x")).toDouble(), origin.value(QStringLiteral("y")).toDouble());
+    painter.setPen(QPen(QColor("#d5bb78"), 1.5));
+    painter.drawLine(QPointF(originPoint.x() - 8.0, originPoint.y()), QPointF(originPoint.x() + 8.0, originPoint.y()));
+    painter.drawLine(QPointF(originPoint.x(), originPoint.y() - 8.0), QPointF(originPoint.x(), originPoint.y() + 8.0));
+
+    painter.setPen(QPen(QColor("#3d4452"), 1));
+    painter.drawRect(board);
+}
+
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
 {
     const QString kind = object.value(QStringLiteral("kind")).toString();
@@ -267,6 +326,17 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
     const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();
 
     QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
+    const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
+    const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};
+    const QVariantMap drawable = model.value(QStringLiteral("grid")).toMap().value(QStringLiteral("drawable_bounds")).toMap();
+    const bool outside = !bounds.isEmpty() && !drawable.isEmpty()
+        && (bounds.value(QStringLiteral("x")).toDouble() < drawable.value(QStringLiteral("x")).toDouble()
+            || bounds.value(QStringLiteral("y")).toDouble() < drawable.value(QStringLiteral("y")).toDouble()
+            || bounds.value(QStringLiteral("x")).toDouble() + bounds.value(QStringLiteral("width")).toDouble() > drawable.value(QStringLiteral("x")).toDouble() + drawable.value(QStringLiteral("width")).toDouble()
+            || bounds.value(QStringLiteral("y")).toDouble() + bounds.value(QStringLiteral("height")).toDouble() > drawable.value(QStringLiteral("y")).toDouble() + drawable.value(QStringLiteral("height")).toDouble());
+    if (outside) {
+        pen.setColor(QColor("#d98b8b"));
+    }
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);

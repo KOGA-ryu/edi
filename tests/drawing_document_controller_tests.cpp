@@ -25,6 +25,10 @@ int main(int argc, char **argv)
     QVariantMap initial = controller.modelDocument();
     assert(initial.value("engine").toString() == "cpp_drafting_document");
     assert(initial.value("drawing_objects").toList().empty());
+    QVariantMap initialGrid = initial.value("grid").toMap();
+    assert(initialGrid.value("preset").toString() == "square_art_board");
+    assert(initialGrid.value("unit_label").toString() == "in");
+    assert(!initialGrid.value("lines").toList().empty());
     assert(!controller.gridSnapEnabled());
     assert(!controller.objectSnapEnabled());
 
@@ -44,6 +48,18 @@ int main(int argc, char **argv)
     assert(pointBounds.value("width").toDouble() == 0.0);
     assert(pointBounds.value("height").toDouble() == 0.0);
     assert(controller.selectedObjectId() == point.value("id").toString());
+
+    controller.setGridPresetId("letter");
+    QVariantMap letterModel = controller.modelDocument();
+    QVariantMap letterGrid = letterModel.value("grid").toMap();
+    assert(controller.gridPresetId() == "letter");
+    assert(letterGrid.value("preset").toString() == "letter");
+    assert(letterGrid.value("unit_label").toString() == "in");
+    assert(nearlyEqual(letterGrid.value("width").toDouble(), 8.5));
+    assert(nearlyEqual(letterGrid.value("height").toDouble(), 11.0));
+    QVariantMap letterSnap = letterModel.value("snap").toMap();
+    assert(nearlyEqual(letterSnap.value("grid_step_x").toDouble(), 0.25 / 8.5));
+    assert(nearlyEqual(letterSnap.value("grid_step_y").toDouble(), 0.25 / 11.0));
 
     controller.setSelectedToolId("line_tool");
     controller.clickCanvasNormalized(0.1, 0.2);
@@ -105,8 +121,10 @@ int main(int argc, char **argv)
     gridController.setSelectedToolId("point_tool");
     gridController.clickCanvasNormalized(0.14, 0.14);
     QVariantMap gridPoint = gridController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(gridPoint.value("x").toDouble(), 0.125));
-    assert(nearlyEqual(gridPoint.value("y").toDouble(), 0.125));
+    const double squareQuarterInchStep = 0.25 / 12.0;
+    const double snappedSquarePoint = 7.0 * squareQuarterInchStep;
+    assert(nearlyEqual(gridPoint.value("x").toDouble(), snappedSquarePoint));
+    assert(nearlyEqual(gridPoint.value("y").toDouble(), snappedSquarePoint));
 
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
@@ -170,10 +188,11 @@ int main(int argc, char **argv)
     snappedPreviewController.updateCreationPreviewNormalized(0.36, 0.36);
     QVariantMap snappedPreview = snappedPreviewController.modelDocument().value("preview_object").toMap();
     assert(snappedPreview.value("kind").toString() == "rectangle");
-    assert(nearlyEqual(snappedPreview.value("x").toDouble(), 0.125));
-    assert(nearlyEqual(snappedPreview.value("y").toDouble(), 0.125));
-    assert(nearlyEqual(snappedPreview.value("width").toDouble(), 0.25));
-    assert(nearlyEqual(snappedPreview.value("height").toDouble(), 0.25));
+    assert(nearlyEqual(snappedPreview.value("x").toDouble(), snappedSquarePoint));
+    assert(nearlyEqual(snappedPreview.value("y").toDouble(), snappedSquarePoint));
+    const double snappedSquareExtent = 10.0 * squareQuarterInchStep;
+    assert(nearlyEqual(snappedPreview.value("width").toDouble(), snappedSquareExtent));
+    assert(nearlyEqual(snappedPreview.value("height").toDouble(), snappedSquareExtent));
     assert(snappedPreviewController.modelDocument().value("drawing_objects").toList().empty());
     snappedPreviewController.clickCanvasNormalized(0.36, 0.36);
     QVariantMap snappedCommitted = snappedPreviewController.modelDocument();

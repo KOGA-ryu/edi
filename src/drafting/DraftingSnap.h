@@ -30,6 +30,8 @@ struct DraftingSnapSettings {
     bool midpointEnabled = true;
     bool centerEnabled = true;
     double gridStep = 1.0 / 16.0;
+    double gridStepX = 0.0;
+    double gridStepY = 0.0;
     double objectTolerance = 0.03;
 };
 

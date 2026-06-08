@@ -26,6 +26,22 @@ double safeGridStep(const DraftingSnapSettings &settings)
     return std::clamp(settings.gridStep, 0.000001, 1.0);
 }
 
+double safeGridStepX(const DraftingSnapSettings &settings)
+{
+    if (std::isfinite(settings.gridStepX) && settings.gridStepX > 0.0) {
+        return std::clamp(settings.gridStepX, 0.000001, 1.0);
+    }
+    return safeGridStep(settings);
+}
+
+double safeGridStepY(const DraftingSnapSettings &settings)
+{
+    if (std::isfinite(settings.gridStepY) && settings.gridStepY > 0.0) {
+        return std::clamp(settings.gridStepY, 0.000001, 1.0);
+    }
+    return safeGridStep(settings);
+}
+
 void addCandidate(std::vector<DraftingSnapCandidate> &candidates,
     const DraftingObject &object,
     Point2D point,
@@ -227,9 +243,10 @@ DraftingSnapResult noneSnap(Point2D point)
 DraftingSnapResult gridSnap(Point2D point, const DraftingSnapSettings &settings)
 {
     const Point2D safe = normalizeDraftingPoint(point);
-    const double step = safeGridStep(settings);
+    const double stepX = safeGridStepX(settings);
+    const double stepY = safeGridStepY(settings);
     return {
-        normalizeDraftingPoint({std::round(safe.x / step) * step, std::round(safe.y / step) * step}),
+        normalizeDraftingPoint({std::round(safe.x / stepX) * stepX, std::round(safe.y / stepY) * stepY}),
         DraftingSnapKind::Grid,
         DraftingSnapSourceKind::None,
         "grid",

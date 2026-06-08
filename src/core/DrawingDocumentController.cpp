@@ -4,6 +4,7 @@
 #include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGrid.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
@@ -58,17 +59,79 @@ bool boundsIntersect(Bounds2D a, Bounds2D b)
         && a.y + a.height >= b.y;
 }
 
+QVariantMap boundsToMap(Bounds2D bounds)
+{
+    return {
+        {QStringLiteral("x"), bounds.x},
+        {QStringLiteral("y"), bounds.y},
+        {QStringLiteral("width"), bounds.width},
+        {QStringLiteral("height"), bounds.height},
+    };
+}
+
+QVariantMap gridProjectionToMap(const DraftingGridProjection &grid)
+{
+    QVariantList lines;
+    for (const DraftingGridLine &line : grid.lines) {
+        lines.push_back(QVariantMap{
+            {QStringLiteral("axis"), line.axis == DraftingGridLineAxis::Vertical ? QStringLiteral("vertical") : QStringLiteral("horizontal")},
+            {QStringLiteral("position"), line.position},
+            {QStringLiteral("major"), line.major},
+        });
+    }
+
+    return {
+        {QStringLiteral("preset"), QString::fromLatin1(draftingGridPresetName(grid.settings.preset))},
+        {QStringLiteral("preset_label"), QString::fromLatin1(draftingGridPresetLabel(grid.settings.preset))},
+        {QStringLiteral("unit"), QString::fromLatin1(draftingGridUnitName(grid.settings.unit))},
+        {QStringLiteral("unit_label"), QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit))},
+        {QStringLiteral("width"), grid.settings.width},
+        {QStringLiteral("height"), grid.settings.height},
+        {QStringLiteral("minor_step"), grid.settings.minorStep},
+        {QStringLiteral("major_line_every"), grid.settings.majorLineEvery},
+        {QStringLiteral("visible"), grid.settings.visible},
+        {QStringLiteral("page_bounds"), boundsToMap(grid.pageBounds)},
+        {QStringLiteral("drawable_bounds"), boundsToMap(grid.drawableBounds)},
+        {QStringLiteral("origin"), QVariantMap{{QStringLiteral("x"), grid.origin.x}, {QStringLiteral("y"), grid.origin.y}}},
+        {QStringLiteral("lines"), lines},
+    };
+}
+
+void applyGridToSnap(DraftingSnapSettings &snapSettings, const DraftingGridSettings &gridSettings)
+{
+    const DraftingGridSettings safe = sanitizeDraftingGridSettings(gridSettings);
+    snapSettings.gridStepX = safe.minorStep / safe.width;
+    snapSettings.gridStepY = safe.minorStep / safe.height;
+    snapSettings.gridStep = snapSettings.gridStepX;
+}
+
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
     : QObject(parent)
     , m_document(makeDraftingDocument("active_drawing", "Active Drawing"))
+    , m_gridSettings(defaultDraftingGridSettings())
 {
+    applyGridToSnap(m_snapSettings, m_gridSettings);
 }
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    return drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
+    QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
+
+    QVariantList warnings;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.visible && boundsOutsideDrawableArea(object.bounds, grid)) {
+            warnings.push_back(QVariantMap{
+                {QStringLiteral("kind"), QStringLiteral("out_of_drawable_bounds")},
+                {QStringLiteral("object_id"), drawing_core::qStringFromStdString(object.id)},
+            });
+        }
+    }
+    model.insert(QStringLiteral("warnings"), warnings);
+    return model;
 }
 
 QString DrawingDocumentController::selectedToolId() const
@@ -89,6 +152,11 @@ bool DrawingDocumentController::gridSnapEnabled() const
 bool DrawingDocumentController::objectSnapEnabled() const
 {
     return m_snapSettings.objectSnapEnabled;
+}
+
+QString DrawingDocumentController::gridPresetId() const
+{
+    return QString::fromLatin1(draftingGridPresetName(m_gridSettings.preset));
 }
 
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
@@ -117,6 +185,17 @@ void DrawingDocumentController::setObjectSnapEnabled(bool enabled)
         return;
     }
     m_snapSettings.objectSnapEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridPresetId(const QString &presetId)
+{
+    const DraftingGridPreset preset = draftingGridPresetFromName(presetId.toStdString());
+    if (m_gridSettings.preset == preset) {
+        return;
+    }
+    m_gridSettings = draftingGridPresetSettings(preset);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 

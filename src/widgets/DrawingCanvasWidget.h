@@ -27,6 +27,7 @@ private:
     QPointF screenToCanvas(const QPointF &point) const;
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
+    void drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
     void drawPreviewObject(QPainter &painter, const QVariantMap &object) const;
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;

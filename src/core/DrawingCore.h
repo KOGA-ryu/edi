@@ -7,6 +7,7 @@
 #include <QVector>
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingGrid.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
 
@@ -23,9 +24,11 @@ public:
     QString selectedObjectId() const;
     bool gridSnapEnabled() const;
     bool objectSnapEnabled() const;
+    QString gridPresetId() const;
     void setSelectedToolId(const QString &toolId);
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
+    void setGridPresetId(const QString &presetId);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
@@ -38,6 +41,7 @@ signals:
 private:
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;
+    edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;

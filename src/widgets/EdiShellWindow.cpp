@@ -3,6 +3,7 @@
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -216,6 +217,16 @@ QWidget *EdiShellWindow::buildLeftPanel()
     });
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
+    m_gridPreset = new QComboBox;
+    m_gridPreset->addItem(QStringLiteral("Square art board"), QStringLiteral("square_art_board"));
+    m_gridPreset->addItem(QStringLiteral("Letter"), QStringLiteral("letter"));
+    m_gridPreset->addItem(QStringLiteral("A4"), QStringLiteral("a4"));
+    const int presetIndex = m_gridPreset->findData(m_controller->gridPresetId());
+    if (presetIndex >= 0) {
+        m_gridPreset->setCurrentIndex(presetIndex);
+    }
+    layout->addWidget(m_gridPreset);
+
     m_gridSnap = new QCheckBox(QStringLiteral("Grid snap"));
     m_gridSnap->setChecked(m_controller->gridSnapEnabled());
     m_objectSnap = new QCheckBox(QStringLiteral("Object snap"));
@@ -223,6 +234,9 @@ QWidget *EdiShellWindow::buildLeftPanel()
     layout->addWidget(m_gridSnap);
     layout->addWidget(m_objectSnap);
 
+    connect(m_gridPreset, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
+        m_controller->setGridPresetId(m_gridPreset->itemData(index).toString());
+    });
     connect(m_gridSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridSnapEnabled);
     connect(m_objectSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapEnabled);
 
@@ -299,8 +313,10 @@ QWidget *EdiShellWindow::buildRightPanel()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
     m_snapValue = makeValueLabel();
+    m_gridValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
+    layout->addWidget(m_gridValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);
 
@@ -388,6 +404,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantList objects = document.value(QStringLiteral("drawing_objects")).toList();
     const QVariantList selected = document.value(QStringLiteral("selected_object_ids")).toList();
     const QVariantMap snap = document.value(QStringLiteral("snap")).toMap();
+    const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
 
@@ -432,9 +449,17 @@ void EdiShellWindow::refreshInspector()
         m_revisionValue->setText(QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));
     }
     if (m_snapValue != nullptr) {
-        m_snapValue->setText(QStringLiteral("Grid: %1   Object: %2")
+        m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2")
             .arg(yesNo(snap.value(QStringLiteral("grid_enabled")).toBool()))
             .arg(yesNo(snap.value(QStringLiteral("object_enabled")).toBool())));
+    }
+    if (m_gridValue != nullptr) {
+        m_gridValue->setText(QStringLiteral("Bed: %1, %2 x %3 %4, step %5")
+            .arg(grid.value(QStringLiteral("preset_label")).toString())
+            .arg(formatNumber(grid.value(QStringLiteral("width")).toDouble()))
+            .arg(formatNumber(grid.value(QStringLiteral("height")).toDouble()))
+            .arg(grid.value(QStringLiteral("unit_label")).toString())
+            .arg(formatNumber(grid.value(QStringLiteral("minor_step")).toDouble())));
     }
     if (m_previewValue != nullptr) {
         m_previewValue->setText(QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
@@ -522,6 +547,17 @@ void EdiShellWindow::applyShellStyle()
         QCheckBox {
             color: #dce5ee;
             spacing: 8px;
+        }
+        QComboBox {
+            color: #dce5ee;
+            background: #202a35;
+            border: 1px solid #31404f;
+            border-radius: 5px;
+            padding: 6px 8px;
+        }
+        QComboBox::drop-down {
+            border: 0;
+            width: 22px;
         }
         QCheckBox::indicator {
             width: 15px;

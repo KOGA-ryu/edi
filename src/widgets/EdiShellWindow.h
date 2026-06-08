@@ -8,6 +8,7 @@
 class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QPushButton;
 class QWidget;
@@ -42,6 +43,7 @@ private:
     DrawingCanvasWidget *m_canvas = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
     QButtonGroup *m_toolGroup = nullptr;
+    QComboBox *m_gridPreset = nullptr;
     QCheckBox *m_gridSnap = nullptr;
     QCheckBox *m_objectSnap = nullptr;
     QLabel *m_workspaceTitle = nullptr;
@@ -54,6 +56,7 @@ private:
     QLabel *m_objectsValue = nullptr;
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;
+    QLabel *m_gridValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;
 };

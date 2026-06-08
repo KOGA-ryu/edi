@@ -39,6 +39,12 @@ int main()
     assert(nearlyEqual(grid.point.x, 0.25));
     assert(nearlyEqual(grid.point.y, 0.5));
 
+    gridSettings.gridStepX = 0.2;
+    gridSettings.gridStepY = 0.1;
+    DraftingSnapResult rectangularGrid = gridSnap({0.37, 0.62}, gridSettings);
+    assert(nearlyEqual(rectangularGrid.point.x, 0.4));
+    assert(nearlyEqual(rectangularGrid.point.y, 0.6));
+
     DraftingDocument document = makeDraftingDocument("snap_doc");
     assert(addObject(document, object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}})).ok);
     assert(addObject(document, object("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.4}, {0.8, 0.4}})).ok);

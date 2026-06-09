@@ -1,4 +1,5 @@
 #include "drafting/DraftingSnap.h"
+#include "drafting/DraftingGrid.h"
 #include "drafting/DraftingStore.h"
 
 #include <cassert>
@@ -38,6 +39,16 @@ int main()
     assert(nearlyEqual(draftingSnapToleranceForPreset("normal"), 0.03));
     assert(nearlyEqual(draftingSnapToleranceForPreset("loose"), 0.06));
     assert(nearlyEqual(draftingSnapToleranceForPreset("unknown"), 0.03));
+
+    DraftingGridSettings physicalGrid;
+    physicalGrid.width = 10.0;
+    physicalGrid.height = 5.0;
+    physicalGrid.minorStep = 2.0;
+    DraftingSnapSettings snapFromGrid;
+    applyDraftingGridToSnapSettings(snapFromGrid, physicalGrid);
+    assert(nearlyEqual(snapFromGrid.gridStepX, 0.2));
+    assert(nearlyEqual(snapFromGrid.gridStepY, 0.4));
+    assert(nearlyEqual(snapFromGrid.gridStep, 0.2));
 
     DraftingSnapSettings gridSettings;
     gridSettings.gridEnabled = true;

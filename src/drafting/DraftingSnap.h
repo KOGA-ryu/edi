@@ -7,6 +7,8 @@
 
 namespace edi::drafting {
 
+struct DraftingGridSettings;
+
 enum class DraftingSnapKind {
     None,
     Grid,
@@ -57,6 +59,7 @@ const char *draftingSnapKindName(DraftingSnapKind kind);
 const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind);
 const char *draftingSnapTolerancePresetId(double tolerance);
 double draftingSnapToleranceForPreset(const std::string &presetId);
+void applyDraftingGridToSnapSettings(DraftingSnapSettings &snapSettings, const DraftingGridSettings &gridSettings);
 std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject &object, const DraftingSnapSettings &settings = {});
 std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocument &document, const DraftingSnapSettings &settings = {});
 DraftingSnapResult noneSnap(Point2D point);

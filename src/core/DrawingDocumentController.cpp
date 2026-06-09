@@ -162,14 +162,6 @@ QVariantMap gridProjectionToMap(const DraftingGridProjection &grid)
     };
 }
 
-void applyGridToSnap(DraftingSnapSettings &snapSettings, const DraftingGridSettings &gridSettings)
-{
-    const DraftingGridSettings safe = sanitizeDraftingGridSettings(gridSettings);
-    snapSettings.gridStepX = safe.minorStep / safe.width;
-    snapSettings.gridStepY = safe.minorStep / safe.height;
-    snapSettings.gridStep = snapSettings.gridStepX;
-}
-
 DraftingGridUnit gridUnitFromId(const QString &unitId)
 {
     const std::string id = unitId.toStdString();
@@ -527,7 +519,7 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
     , m_gridSettings(defaultDraftingGridSettings())
     , m_plotSettings(defaultDraftingPlotSettings())
 {
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
 }
 
 QVariantMap DrawingDocumentController::modelDocument() const
@@ -773,7 +765,7 @@ void DrawingDocumentController::setGridPresetId(const QString &presetId)
         return;
     }
     m_gridSettings = draftingGridPresetSettings(preset);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -783,7 +775,7 @@ void DrawingDocumentController::setGridUnitId(const QString &unitId)
     settings.preset = DraftingGridPreset::Custom;
     settings.unit = gridUnitFromId(unitId);
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -794,7 +786,7 @@ void DrawingDocumentController::setGridSize(double width, double height)
     settings.width = width;
     settings.height = height;
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -807,7 +799,7 @@ void DrawingDocumentController::setGridMargins(double left, double top, double r
     settings.marginRight = right;
     settings.marginBottom = bottom;
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -817,7 +809,7 @@ void DrawingDocumentController::setGridStep(double minorStep)
     settings.preset = DraftingGridPreset::Custom;
     settings.minorStep = minorStep;
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -827,7 +819,7 @@ void DrawingDocumentController::setGridMajorLineEvery(int majorLineEvery)
     settings.preset = DraftingGridPreset::Custom;
     settings.majorLineEvery = majorLineEvery;
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
@@ -837,7 +829,7 @@ void DrawingDocumentController::setGridVisible(bool visible)
     settings.preset = DraftingGridPreset::Custom;
     settings.visible = visible;
     m_gridSettings = sanitizeDraftingGridSettings(settings);
-    applyGridToSnap(m_snapSettings, m_gridSettings);
+    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 

@@ -1,6 +1,7 @@
 #include "drafting/DraftingSnap.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGrid.h"
 
 #include <algorithm>
 #include <cmath>
@@ -243,6 +244,14 @@ double draftingSnapToleranceForPreset(const std::string &presetId)
         return 0.06;
     }
     return 0.03;
+}
+
+void applyDraftingGridToSnapSettings(DraftingSnapSettings &snapSettings, const DraftingGridSettings &gridSettings)
+{
+    const DraftingGridSettings safe = sanitizeDraftingGridSettings(gridSettings);
+    snapSettings.gridStepX = safe.minorStep / safe.width;
+    snapSettings.gridStepY = safe.minorStep / safe.height;
+    snapSettings.gridStep = snapSettings.gridStepX;
 }
 
 std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject &object, const DraftingSnapSettings &settings)

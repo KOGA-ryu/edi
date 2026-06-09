@@ -106,6 +106,24 @@ DraftingMetadataValidationResult DraftingMetadataValidationResult::rejected(Draf
     return {false, code, std::move(message)};
 }
 
+DraftingMetadataUpdatePlan DraftingMetadataUpdatePlan::accepted(ObjectMetadata metadata)
+{
+    DraftingMetadataUpdatePlan result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.metadata = std::move(metadata);
+    return result;
+}
+
+DraftingMetadataUpdatePlan DraftingMetadataUpdatePlan::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingMetadataUpdatePlan result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
 bool isValidMetadataText(std::string_view value, std::size_t limit)
 {
     return value.size() <= limit && isPrintableAscii(value);
@@ -251,6 +269,47 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
     }
 
     return DraftingMetadataValidationResult::accepted();
+}
+
+namespace {
+
+DraftingMetadataUpdatePlan validatedMetadataUpdate(ObjectMetadata metadata)
+{
+    const DraftingMetadataValidationResult validation = validateObjectMetadata(metadata);
+    if (!validation.ok) {
+        return DraftingMetadataUpdatePlan::rejected(validation.code, validation.message);
+    }
+    return DraftingMetadataUpdatePlan::accepted(std::move(metadata));
+}
+
+} // namespace
+
+DraftingMetadataUpdatePlan planGuideVisualLabelUpdate(const ObjectMetadata &metadata, std::string label)
+{
+    ObjectMetadata next = metadata;
+    next.guideVisual.label = std::move(label);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planGuideVisualColorUpdate(const ObjectMetadata &metadata, std::string color)
+{
+    ObjectMetadata next = metadata;
+    next.guideVisual.color = std::move(color);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planGuideVisualDashStyleUpdate(const ObjectMetadata &metadata, std::string dashStyle)
+{
+    ObjectMetadata next = metadata;
+    next.guideVisual.dashStyle = std::move(dashStyle);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planGuideVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible)
+{
+    ObjectMetadata next = metadata;
+    next.guideVisual.showLabel = visible;
+    return validatedMetadataUpdate(std::move(next));
 }
 
 } // namespace edi::drafting

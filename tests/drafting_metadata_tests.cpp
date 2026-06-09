@@ -158,5 +158,35 @@ int main()
     assert(!badGuideDashValidation.ok);
     assert(badGuideDashValidation.code == DraftingResultCode::InvalidMetadata);
 
+    ObjectMetadata guidePlanBase = validMetadata();
+    auto labelPlan = planGuideVisualLabelUpdate(guidePlanBase, "cut line");
+    assert(labelPlan.ok);
+    assert(labelPlan.metadata.guideVisual.label == "cut line");
+    assert(labelPlan.metadata.author == guidePlanBase.author);
+
+    auto colorPlan = planGuideVisualColorUpdate(guidePlanBase, "#f6c65b");
+    assert(colorPlan.ok);
+    assert(colorPlan.metadata.guideVisual.color == "#f6c65b");
+
+    auto dashPlan = planGuideVisualDashStyleUpdate(guidePlanBase, "dot");
+    assert(dashPlan.ok);
+    assert(dashPlan.metadata.guideVisual.dashStyle == "dot");
+
+    auto visibilityPlan = planGuideVisualLabelVisibleUpdate(guidePlanBase, false);
+    assert(visibilityPlan.ok);
+    assert(!visibilityPlan.metadata.guideVisual.showLabel);
+
+    auto badLabelPlan = planGuideVisualLabelUpdate(guidePlanBase, "bad\nlabel");
+    assert(!badLabelPlan.ok);
+    assert(badLabelPlan.code == DraftingResultCode::InvalidMetadata);
+
+    auto badColorPlan = planGuideVisualColorUpdate(guidePlanBase, "blue");
+    assert(!badColorPlan.ok);
+    assert(badColorPlan.code == DraftingResultCode::InvalidMetadata);
+
+    auto badDashPlan = planGuideVisualDashStyleUpdate(guidePlanBase, "stripe");
+    assert(!badDashPlan.ok);
+    assert(badDashPlan.code == DraftingResultCode::InvalidMetadata);
+
     return 0;
 }

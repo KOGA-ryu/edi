@@ -12,6 +12,7 @@
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingLayerOps.h"
+#include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingOffset.h"
@@ -1008,11 +1009,13 @@ bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
         return false;
     }
 
-    ObjectMetadata metadata = object->metadata;
-    metadata.guideVisual.label = toStdString(label);
+    const DraftingMetadataUpdatePlan plan = planGuideVisualLabelUpdate(object->metadata, toStdString(label));
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
     if (!result.ok) {
         return false;
     }
@@ -1031,11 +1034,13 @@ bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
         return false;
     }
 
-    ObjectMetadata metadata = object->metadata;
-    metadata.guideVisual.color = toStdString(color);
+    const DraftingMetadataUpdatePlan plan = planGuideVisualColorUpdate(object->metadata, toStdString(color));
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
     if (!result.ok) {
         return false;
     }
@@ -1054,11 +1059,13 @@ bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashSty
         return false;
     }
 
-    ObjectMetadata metadata = object->metadata;
-    metadata.guideVisual.dashStyle = toStdString(dashStyle);
+    const DraftingMetadataUpdatePlan plan = planGuideVisualDashStyleUpdate(object->metadata, toStdString(dashStyle));
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
     if (!result.ok) {
         return false;
     }
@@ -1077,11 +1084,13 @@ bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
         return false;
     }
 
-    ObjectMetadata metadata = object->metadata;
-    metadata.guideVisual.showLabel = visible;
+    const DraftingMetadataUpdatePlan plan = planGuideVisualLabelVisibleUpdate(object->metadata, visible);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
     if (!result.ok) {
         return false;
     }

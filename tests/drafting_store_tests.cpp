@@ -35,6 +35,8 @@ int main()
     assert(!isValidDraftingDocumentTitle(""));
     assert(isValidDraftingObjectId("line_1"));
     assert(!isValidDraftingObjectId(""));
+    assert(draftingObjectIdForSerial("line", 7) == "line_0007");
+    assert(draftingObjectIdForSerial("guide", 42) == "guide_0042");
     assert(isValidLayerId("default"));
     assert(!isValidLayerId(""));
     assert(isValidLayerName("Default"));

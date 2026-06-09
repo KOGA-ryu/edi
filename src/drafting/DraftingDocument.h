@@ -57,6 +57,7 @@ DraftingDocument makeDraftingDocument(DraftingDocumentId id, std::string title =
 DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
 DraftingObjectBuildResult validateDraftingObjectShape(const DraftingObject &object);
 DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
+DraftingObjectId draftingObjectIdForSerial(const std::string &prefix, int serial);
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order = 0);
 DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);

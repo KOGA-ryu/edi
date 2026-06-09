@@ -37,7 +37,7 @@ using namespace edi::drafting;
 
 QString nextObjectId(const QString &kind, int serial)
 {
-    return QStringLiteral("%1_%2").arg(kind, QString::number(serial).rightJustified(4, QLatin1Char('0')));
+    return drawing_core::qStringFromStdString(draftingObjectIdForSerial(kind.toStdString(), serial));
 }
 
 std::string toStdString(const QString &value)

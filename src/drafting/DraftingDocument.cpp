@@ -2,6 +2,8 @@
 
 #include "drafting/DraftingGeometry.h"
 
+#include <iomanip>
+#include <sstream>
 #include <utility>
 
 namespace edi::drafting {
@@ -57,6 +59,13 @@ DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShape
         return validation;
     }
     return DraftingObjectBuildResult::accepted(std::move(object));
+}
+
+DraftingObjectId draftingObjectIdForSerial(const std::string &prefix, int serial)
+{
+    std::ostringstream stream;
+    stream << prefix << '_' << std::setfill('0') << std::setw(4) << serial;
+    return stream.str();
 }
 
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order)

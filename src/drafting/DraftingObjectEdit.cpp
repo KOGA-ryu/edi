@@ -1,6 +1,7 @@
 #include "drafting/DraftingObjectEdit.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingPhysicalGeometry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -139,13 +140,11 @@ Point2D dimensionMidpoint(const DimensionGeometry &dimension)
 
 Point2D dimensionOffsetPoint(const DimensionGeometry &dimension)
 {
-    const double dx = dimension.b.x - dimension.a.x;
-    const double dy = dimension.b.y - dimension.a.y;
-    const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
     const Point2D midpoint = dimensionMidpoint(dimension);
+    const Point2D offset = dimensionOffsetVector(dimension);
     return {
-        midpoint.x - dy / length * dimension.offset,
-        midpoint.y + dx / length * dimension.offset,
+        midpoint.x + offset.x,
+        midpoint.y + offset.y,
     };
 }
 

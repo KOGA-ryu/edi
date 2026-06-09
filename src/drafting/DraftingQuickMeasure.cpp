@@ -22,20 +22,6 @@ double angleDegrees(Point2D a, Point2D b, double widthScale = 1.0, double height
     return std::atan2((b.y - a.y) * heightScale, (b.x - a.x) * widthScale) * 180.0 / pi;
 }
 
-double physicalDimensionOffset(const DimensionGeometry &dimension, const DraftingGridProjection &grid)
-{
-    const double normalizedLength = distance(dimension.a, dimension.b);
-    if (normalizedLength <= 0.000001) {
-        return 0.0;
-    }
-    const double nx = -(dimension.b.y - dimension.a.y) / normalizedLength * dimension.offset;
-    const double ny = (dimension.b.x - dimension.a.x) / normalizedLength * dimension.offset;
-    const double dx = physicalWidth(nx, grid);
-    const double dy = physicalHeight(ny, grid);
-    const double magnitude = std::sqrt(dx * dx + dy * dy);
-    return dimension.offset < 0.0 ? -magnitude : magnitude;
-}
-
 std::string compactNumber(double value)
 {
     std::ostringstream stream;

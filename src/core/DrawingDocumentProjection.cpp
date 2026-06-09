@@ -28,18 +28,6 @@ QVariantMap pointToMap(Point2D point)
     };
 }
 
-Point2D dimensionOffsetVector(const DimensionGeometry &geometry)
-{
-    const double length = distance(geometry.a, geometry.b);
-    if (length <= 0.000001) {
-        return {};
-    }
-    return {
-        -(geometry.b.y - geometry.a.y) / length * geometry.offset,
-        (geometry.b.x - geometry.a.x) / length * geometry.offset,
-    };
-}
-
 QVariantMap layerToMap(const DraftingLayer &layer)
 {
     return {
@@ -265,15 +253,6 @@ QString defaultGuideLabel(const DraftingObject &object, const GuideGeometry &geo
         .arg(prefix,
             QString::number(geometry.position, 'f', 3),
             object.locked ? QStringLiteral(" locked") : QString());
-}
-
-double physicalDimensionOffset(const DimensionGeometry &geometry, const DraftingGridProjection &grid)
-{
-    const Point2D offset = dimensionOffsetVector(geometry);
-    const double dx = physicalWidth(offset.x, grid);
-    const double dy = physicalHeight(offset.y, grid);
-    const double magnitude = std::sqrt(dx * dx + dy * dy);
-    return geometry.offset < 0.0 ? -magnitude : magnitude;
 }
 
 double displayedDimensionDistance(double distanceValue, DimensionKind kind)

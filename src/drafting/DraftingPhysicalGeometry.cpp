@@ -47,4 +47,27 @@ double physicalAngleDegrees(Point2D a, Point2D b, const DraftingGridProjection &
     return std::atan2(dy, dx) * 180.0 / pi;
 }
 
+Point2D dimensionOffsetVector(const DimensionGeometry &dimension)
+{
+    const double normalizedLength = std::sqrt(
+        (dimension.b.x - dimension.a.x) * (dimension.b.x - dimension.a.x)
+        + (dimension.b.y - dimension.a.y) * (dimension.b.y - dimension.a.y));
+    if (normalizedLength <= 0.000001) {
+        return {};
+    }
+    return {
+        -(dimension.b.y - dimension.a.y) / normalizedLength * dimension.offset,
+        (dimension.b.x - dimension.a.x) / normalizedLength * dimension.offset,
+    };
+}
+
+double physicalDimensionOffset(const DimensionGeometry &dimension, const DraftingGridProjection &grid)
+{
+    const Point2D offset = dimensionOffsetVector(dimension);
+    const double dx = physicalWidth(offset.x, grid);
+    const double dy = physicalHeight(offset.y, grid);
+    const double magnitude = std::sqrt(dx * dx + dy * dy);
+    return dimension.offset < 0.0 ? -magnitude : magnitude;
+}
+
 } // namespace edi::drafting

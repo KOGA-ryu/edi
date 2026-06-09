@@ -22,6 +22,13 @@ int main()
     Bounds2D bounds = computeBounds(line);
     assert(bounds.width == 3.0);
     assert(bounds.height == 4.0);
+    Bounds2D combined = includeBounds({0.25, 0.25, 0.25, 0.25}, {0.1, 0.4, 0.3, 0.3});
+    assert(nearlyEqual(combined.x, 0.1));
+    assert(nearlyEqual(combined.y, 0.25));
+    assert(nearlyEqual(combined.width, 0.4));
+    assert(nearlyEqual(combined.height, 0.45));
+    assert(boundsContainsPoint({0.25, 0.25, 0.5, 0.5}, {0.5, 0.5}));
+    assert(!boundsContainsPoint({0.25, 0.25, 0.5, 0.5}, {0.1, 0.5}));
     assert(distance({0.0, 0.0}, {3.0, 4.0}) == 5.0);
     assert(nearlyEqual(lineAngleDegrees(LineGeometry{{0.0, 0.0}, {3.0, 4.0}}), 53.1301023542));
 

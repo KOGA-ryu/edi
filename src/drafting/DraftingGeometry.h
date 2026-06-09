@@ -25,6 +25,8 @@ bool isFinite(Point2D point);
 bool isFinite(const Bounds2D &bounds);
 GeometryValidationResult validateGeometry(const DraftingGeometry &geometry);
 Bounds2D computeBounds(const DraftingGeometry &geometry);
+Bounds2D includeBounds(Bounds2D bounds, Bounds2D next);
+bool boundsContainsPoint(Bounds2D bounds, Point2D point);
 DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, double dy);
 Point2D translatePoint(Point2D point, double dx, double dy);
 double distance(Point2D a, Point2D b);

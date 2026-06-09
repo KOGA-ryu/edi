@@ -339,6 +339,23 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
     }, geometry);
 }
 
+Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
+{
+    const double left = std::min(bounds.x, next.x);
+    const double top = std::min(bounds.y, next.y);
+    const double right = std::max(bounds.x + bounds.width, next.x + next.width);
+    const double bottom = std::max(bounds.y + bounds.height, next.y + next.height);
+    return {left, top, right - left, bottom - top};
+}
+
+bool boundsContainsPoint(Bounds2D bounds, Point2D point)
+{
+    return point.x >= bounds.x
+        && point.y >= bounds.y
+        && point.x <= bounds.x + bounds.width
+        && point.y <= bounds.y + bounds.height;
+}
+
 Point2D translatePoint(Point2D point, double dx, double dy)
 {
     point.x += dx;

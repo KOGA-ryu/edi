@@ -9,15 +9,6 @@
 namespace edi::drafting {
 namespace {
 
-Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
-{
-    const double left = std::min(bounds.x, next.x);
-    const double top = std::min(bounds.y, next.y);
-    const double right = std::max(bounds.x + bounds.width, next.x + next.width);
-    const double bottom = std::max(bounds.y + bounds.height, next.y + next.height);
-    return {left, top, right - left, bottom - top};
-}
-
 Bounds2D boundsForPoints(Point2D a, Point2D b)
 {
     const double left = std::min(a.x, b.x);

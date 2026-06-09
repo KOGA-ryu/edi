@@ -68,15 +68,6 @@ DraftingToolCreationRequest creationRequest(const QString &toolId, const QString
     return {toolKind(toolId), toStdString(objectId), layerId, start, end, toStdString(toolId)};
 }
 
-Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
-{
-    const double left = std::min(bounds.x, next.x);
-    const double top = std::min(bounds.y, next.y);
-    const double right = std::max(bounds.x + bounds.width, next.x + next.width);
-    const double bottom = std::max(bounds.y + bounds.height, next.y + next.height);
-    return {left, top, right - left, bottom - top};
-}
-
 bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId &id)
 {
     return std::find(ids.begin(), ids.end(), id) != ids.end();
@@ -162,14 +153,6 @@ QVariantMap gridProjectionToMap(const DraftingGridProjection &grid)
     };
 }
 
-bool pointInsideBounds(Point2D point, Bounds2D bounds)
-{
-    return point.x >= bounds.x
-        && point.y >= bounds.y
-        && point.x <= bounds.x + bounds.width
-        && point.y <= bounds.y + bounds.height;
-}
-
 QVariantMap pointToMap(Point2D point)
 {
     return {
@@ -229,7 +212,7 @@ QVariantMap pointerProjectionToMap(Point2D rawPoint,
         {QStringLiteral("raw_unit_y"), raw.y * grid.settings.height},
         {QStringLiteral("snapped_unit_x"), snap.point.x * grid.settings.width},
         {QStringLiteral("snapped_unit_y"), snap.point.y * grid.settings.height},
-        {QStringLiteral("inside_drawable"), pointInsideBounds(snap.point, grid.drawableBounds)},
+        {QStringLiteral("inside_drawable"), boundsContainsPoint(grid.drawableBounds, snap.point)},
     };
 }
 

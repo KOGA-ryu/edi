@@ -3,7 +3,6 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
-#include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
 #include "drafting/DraftingPhysicalGeometry.h"
 
@@ -255,14 +254,9 @@ QString defaultGuideLabel(const DraftingObject &object, const GuideGeometry &geo
             object.locked ? QStringLiteral(" locked") : QString());
 }
 
-double displayedDimensionDistance(double distanceValue, DimensionKind kind)
-{
-    return kind == DimensionKind::Diameter ? distanceValue * 2.0 : distanceValue;
-}
-
 QString physicalDimensionLabel(double distanceValue, DimensionKind kind, const DraftingGridProjection &grid)
 {
-    const double value = displayedDimensionDistance(distanceValue, kind);
+    const double value = displayedDimensionLength(distanceValue, kind);
     return QStringLiteral("%1 %2")
         .arg(QString::number(value, 'g', 6),
             QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit)));
@@ -317,8 +311,8 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
             result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
             result.insert(QStringLiteral("offset"), physicalDimensionOffset(geometry, grid));
-            result.insert(QStringLiteral("dimension_distance"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
-            result.insert(QStringLiteral("dimension_length"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
+            result.insert(QStringLiteral("dimension_distance"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
+            result.insert(QStringLiteral("dimension_length"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("dimension_label"), physicalDimensionLabel(physicalDistance(geometry.a, geometry.b, grid), geometry.kind, grid));
         }
@@ -500,9 +494,9 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             const Point2D dimA{geometry.a.x + offset.x, geometry.a.y + offset.y};
             const Point2D dimB{geometry.b.x + offset.x, geometry.b.y + offset.y};
             const MeasurementValue measuredDistance = measureDistance(geometry.a, geometry.b, scaleCalibrationFromMetadata(object.metadata.measurement));
-            const double normalizedDistance = displayedDimensionDistance(distance(geometry.a, geometry.b), geometry.kind);
+            const double normalizedDistance = displayedDimensionLength(distance(geometry.a, geometry.b), geometry.kind);
             MeasurementValue displayedDistance = measuredDistance;
-            displayedDistance.value = displayedDimensionDistance(measuredDistance.value, geometry.kind);
+            displayedDistance.value = displayedDimensionLength(measuredDistance.value, geometry.kind);
             result.insert(QStringLiteral("x1"), geometry.a.x);
             result.insert(QStringLiteral("y1"), geometry.a.y);
             result.insert(QStringLiteral("x2"), geometry.b.x);

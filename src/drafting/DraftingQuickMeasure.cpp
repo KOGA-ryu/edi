@@ -5,7 +5,6 @@
 #include "drafting/DraftingPhysicalGeometry.h"
 #include "drafting/DraftingSnap.h"
 
-#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <type_traits>
@@ -15,12 +14,6 @@
 namespace edi::drafting {
 
 namespace {
-
-double angleDegrees(Point2D a, Point2D b, double widthScale = 1.0, double heightScale = 1.0)
-{
-    constexpr double pi = 3.14159265358979323846;
-    return std::atan2((b.y - a.y) * heightScale, (b.x - a.x) * widthScale) * 180.0 / pi;
-}
 
 std::string compactNumber(double value)
 {
@@ -127,7 +120,7 @@ DraftingQuickMeasureResult quickMeasureAt(
         } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
             result.kind = DraftingQuickMeasureKind::Line;
             result.length = distance(geometry.a, geometry.b);
-            result.angleDeg = angleDegrees(geometry.a, geometry.b);
+            result.angleDeg = lineAngleDegrees(geometry);
             result.physicalLength = physicalDistance(geometry.a, geometry.b, grid);
             result.physicalAngleDeg = physicalAngleDegrees(geometry.a, geometry.b, grid);
             result.label = "line " + compactNumber(result.physicalLength) + " " + result.unitLabel + " @ "
@@ -154,14 +147,13 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.label = "circle r " + compactNumber(result.physicalRadius) + " " + result.unitLabel + ", d "
                 + compactNumber(result.physicalDiameter);
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
-            const double displayedMultiplier = geometry.kind == DimensionKind::Diameter ? 2.0 : 1.0;
             result.kind = DraftingQuickMeasureKind::Dimension;
             result.dimensionKind = geometry.kind;
             result.length = distance(geometry.a, geometry.b);
-            result.displayedLength = result.length * displayedMultiplier;
-            result.angleDeg = angleDegrees(geometry.a, geometry.b);
+            result.displayedLength = displayedDimensionLength(result.length, geometry.kind);
+            result.angleDeg = dimensionAngleDegrees(geometry);
             result.physicalLength = physicalDistance(geometry.a, geometry.b, grid);
-            result.physicalDisplayedLength = result.physicalLength * displayedMultiplier;
+            result.physicalDisplayedLength = displayedDimensionLength(result.physicalLength, geometry.kind);
             result.physicalAngleDeg = physicalAngleDegrees(geometry.a, geometry.b, grid);
             result.offset = geometry.offset;
             result.physicalOffset = physicalDimensionOffset(geometry, grid);

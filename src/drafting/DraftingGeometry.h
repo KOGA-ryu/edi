@@ -28,6 +28,10 @@ Bounds2D computeBounds(const DraftingGeometry &geometry);
 DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, double dy);
 Point2D translatePoint(Point2D point, double dx, double dy);
 double distance(Point2D a, Point2D b);
+double lineAngleDegrees(const LineGeometry &line);
+double dimensionAngleDegrees(const DimensionGeometry &dimension);
+double displayedDimensionLength(double storedLength, DimensionKind kind);
+double storedDimensionLength(double displayedLength, DimensionKind kind);
 double area(const DraftingGeometry &geometry);
 std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry);
 

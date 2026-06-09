@@ -1,5 +1,7 @@
 #include "drafting/DraftingNumericEdit.h"
 
+#include "drafting/DraftingGeometry.h"
+
 #include <cassert>
 #include <cmath>
 #include <limits>

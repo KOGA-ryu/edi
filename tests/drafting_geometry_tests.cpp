@@ -23,6 +23,7 @@ int main()
     assert(bounds.width == 3.0);
     assert(bounds.height == 4.0);
     assert(distance({0.0, 0.0}, {3.0, 4.0}) == 5.0);
+    assert(nearlyEqual(lineAngleDegrees(LineGeometry{{0.0, 0.0}, {3.0, 4.0}}), 53.1301023542));
 
     DraftingGeometry rect = RectangleGeometry{{2.0, 3.0}, 10.0, 5.0};
     Bounds2D rectBounds = computeBounds(rect);
@@ -46,6 +47,11 @@ int main()
     assert(!validateGeometry(ConstructionLineGeometry{{0.5, 0.5}, {0.5, 0.5}}).ok);
     assert(validateGeometry(DimensionGeometry{DimensionKind::Distance, {0.0, 0.0}, {0.3, 0.4}, 0.04}).ok);
     assert(!validateGeometry(DimensionGeometry{DimensionKind::Distance, {0.2, 0.2}, {0.2, 0.2}, 0.04}).ok);
+    assert(nearlyEqual(dimensionAngleDegrees(DimensionGeometry{DimensionKind::Distance, {0.0, 0.0}, {0.3, 0.4}, 0.04}), 53.1301023542));
+    assert(nearlyEqual(displayedDimensionLength(0.5, DimensionKind::Distance), 0.5));
+    assert(nearlyEqual(displayedDimensionLength(0.5, DimensionKind::Diameter), 1.0));
+    assert(nearlyEqual(storedDimensionLength(1.0, DimensionKind::Distance), 1.0));
+    assert(nearlyEqual(storedDimensionLength(1.0, DimensionKind::Diameter), 0.5));
     assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
     assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
     assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);

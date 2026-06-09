@@ -387,6 +387,28 @@ double distance(Point2D a, Point2D b)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+double lineAngleDegrees(const LineGeometry &line)
+{
+    constexpr double pi = 3.14159265358979323846;
+    return std::atan2(line.b.y - line.a.y, line.b.x - line.a.x) * 180.0 / pi;
+}
+
+double dimensionAngleDegrees(const DimensionGeometry &dimension)
+{
+    constexpr double pi = 3.14159265358979323846;
+    return std::atan2(dimension.b.y - dimension.a.y, dimension.b.x - dimension.a.x) * 180.0 / pi;
+}
+
+double displayedDimensionLength(double storedLength, DimensionKind kind)
+{
+    return kind == DimensionKind::Diameter ? storedLength * 2.0 : storedLength;
+}
+
+double storedDimensionLength(double displayedLength, DimensionKind kind)
+{
+    return kind == DimensionKind::Diameter ? displayedLength / 2.0 : displayedLength;
+}
+
 double area(const DraftingGeometry &geometry)
 {
     if (const auto *rect = std::get_if<RectangleGeometry>(&geometry)) {

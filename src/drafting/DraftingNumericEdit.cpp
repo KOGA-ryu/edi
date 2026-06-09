@@ -22,16 +22,6 @@ double lineLength(const LineGeometry &line)
     return distance(line.a, line.b);
 }
 
-double displayedDimensionLength(double length, DimensionKind kind)
-{
-    return kind == DimensionKind::Diameter ? length * 2.0 : length;
-}
-
-double storedDimensionLength(double displayedLength, DimensionKind kind)
-{
-    return kind == DimensionKind::Diameter ? displayedLength / 2.0 : displayedLength;
-}
-
 DraftingNumericEditResult acceptedIfValid(DraftingGeometry geometry)
 {
     const GeometryValidationResult validation = validateGeometry(geometry);
@@ -59,16 +49,6 @@ DraftingNumericEditResult DraftingNumericEditResult::rejected(DraftingResultCode
     result.code = code;
     result.message = std::move(message);
     return result;
-}
-
-double lineAngleDegrees(const LineGeometry &line)
-{
-    return std::atan2(line.b.y - line.a.y, line.b.x - line.a.x) * 180.0 / kPi;
-}
-
-double dimensionAngleDegrees(const DimensionGeometry &dimension)
-{
-    return std::atan2(dimension.b.y - dimension.a.y, dimension.b.x - dimension.a.x) * 180.0 / kPi;
 }
 
 DraftingNumericEditResult applyNumericGeometryEdit(

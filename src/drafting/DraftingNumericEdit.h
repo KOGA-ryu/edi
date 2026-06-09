@@ -21,7 +21,4 @@ DraftingNumericEditResult applyNumericGeometryEdit(
     const std::string &fieldId,
     double value);
 
-double lineAngleDegrees(const LineGeometry &line);
-double dimensionAngleDegrees(const DimensionGeometry &dimension);
-
 } // namespace edi::drafting

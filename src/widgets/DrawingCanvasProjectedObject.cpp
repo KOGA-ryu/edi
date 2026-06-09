@@ -5,6 +5,7 @@
 #include <QVariantList>
 
 #include <algorithm>
+#include <cmath>
 
 namespace drawing_canvas {
 namespace {
@@ -18,6 +19,20 @@ DrawingCanvasProjectedHandleShape handleShapeFromString(const QString &shape)
         return DrawingCanvasProjectedHandleShape::Diamond;
     }
     return DrawingCanvasProjectedHandleShape::Circle;
+}
+
+bool readFinite(const QVariantMap &object, const QString &field, double &target)
+{
+    if (!object.contains(field)) {
+        return false;
+    }
+    bool ok = false;
+    const double value = object.value(field).toDouble(&ok);
+    if (!ok || !std::isfinite(value)) {
+        return false;
+    }
+    target = value;
+    return true;
 }
 
 } // namespace
@@ -42,6 +57,85 @@ DrawingCanvasProjectedObjectSummary projectedObjectSummary(const QVariantMap &ob
         summary.bounds.height = finiteNumber(bounds.value(QStringLiteral("height")), 0.0);
     }
     return summary;
+}
+
+DrawingCanvasProjectedPointObject projectedPointObject(const QVariantMap &object)
+{
+    DrawingCanvasProjectedPointObject point;
+    point.ok = readFinite(object, QStringLiteral("x"), point.x)
+        && readFinite(object, QStringLiteral("y"), point.y);
+    return point;
+}
+
+DrawingCanvasProjectedLine projectedLine(const QVariantMap &object)
+{
+    DrawingCanvasProjectedLine line;
+    line.ok = readFinite(object, QStringLiteral("x1"), line.x1)
+        && readFinite(object, QStringLiteral("y1"), line.y1)
+        && readFinite(object, QStringLiteral("x2"), line.x2)
+        && readFinite(object, QStringLiteral("y2"), line.y2);
+    return line;
+}
+
+DrawingCanvasProjectedRectangle projectedRectangle(const QVariantMap &object)
+{
+    DrawingCanvasProjectedRectangle rectangle;
+    rectangle.ok = readFinite(object, QStringLiteral("x"), rectangle.x)
+        && readFinite(object, QStringLiteral("y"), rectangle.y)
+        && readFinite(object, QStringLiteral("width"), rectangle.width)
+        && readFinite(object, QStringLiteral("height"), rectangle.height);
+    rectangle.rotationDeg = finiteNumber(object.value(QStringLiteral("rotation_deg")), 0.0);
+    return rectangle;
+}
+
+DrawingCanvasProjectedCircle projectedCircle(const QVariantMap &object)
+{
+    DrawingCanvasProjectedCircle circle;
+    circle.ok = readFinite(object, QStringLiteral("cx"), circle.cx)
+        && readFinite(object, QStringLiteral("cy"), circle.cy)
+        && readFinite(object, QStringLiteral("radius"), circle.radius);
+    return circle;
+}
+
+DrawingCanvasProjectedPolygon projectedPolygon(const QVariantMap &object)
+{
+    DrawingCanvasProjectedPolygon polygon;
+    polygon.points = projectedObjectPoints(object);
+    polygon.ok = !polygon.points.empty();
+    return polygon;
+}
+
+DrawingCanvasProjectedGuide projectedGuide(const QVariantMap &object)
+{
+    DrawingCanvasProjectedGuide guide;
+    guide.ok = readFinite(object, QStringLiteral("position"), guide.position);
+    guide.orientation = object.value(QStringLiteral("orientation")).toString() == QStringLiteral("horizontal")
+        ? DrawingCanvasProjectedGuideOrientation::Horizontal
+        : DrawingCanvasProjectedGuideOrientation::Vertical;
+    guide.locked = object.value(QStringLiteral("locked")).toBool();
+    guide.color = object.value(QStringLiteral("guide_color"), guide.color).toString();
+    guide.dashStyle = object.value(QStringLiteral("guide_dash_style"), guide.dashStyle).toString();
+    guide.showLabel = object.value(QStringLiteral("guide_show_label"), true).toBool();
+    guide.label = object.value(QStringLiteral("guide_label")).toString();
+    return guide;
+}
+
+DrawingCanvasProjectedDimension projectedDimension(const QVariantMap &object)
+{
+    DrawingCanvasProjectedDimension dimension;
+    dimension.ok = readFinite(object, QStringLiteral("x1"), dimension.x1)
+        && readFinite(object, QStringLiteral("y1"), dimension.y1)
+        && readFinite(object, QStringLiteral("x2"), dimension.x2)
+        && readFinite(object, QStringLiteral("y2"), dimension.y2)
+        && readFinite(object, QStringLiteral("dimension_x1"), dimension.dimensionX1)
+        && readFinite(object, QStringLiteral("dimension_y1"), dimension.dimensionY1)
+        && readFinite(object, QStringLiteral("dimension_x2"), dimension.dimensionX2)
+        && readFinite(object, QStringLiteral("dimension_y2"), dimension.dimensionY2)
+        && readFinite(object, QStringLiteral("label_x"), dimension.labelX)
+        && readFinite(object, QStringLiteral("label_y"), dimension.labelY);
+    dimension.showLabel = object.value(QStringLiteral("dimension_show_label"), true).toBool();
+    dimension.label = object.value(QStringLiteral("label")).toString();
+    return dimension;
 }
 
 std::vector<DrawingCanvasProjectedPoint> projectedObjectPoints(const QVariantMap &object)

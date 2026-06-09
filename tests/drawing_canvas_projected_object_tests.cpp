@@ -61,6 +61,122 @@ int main()
     assert(defaultSummary.visible);
     assert(!defaultSummary.bounds.ok);
 
+    const DrawingCanvasProjectedPointObject pointObject = projectedPointObject(QVariantMap{
+        {QStringLiteral("x"), 0.12},
+        {QStringLiteral("y"), 0.34}
+    });
+    assert(pointObject.ok);
+    assert(pointObject.x == 0.12);
+    assert(pointObject.y == 0.34);
+    assert(!projectedPointObject(QVariantMap{{QStringLiteral("x"), 0.12}}).ok);
+
+    const DrawingCanvasProjectedLine line = projectedLine(QVariantMap{
+        {QStringLiteral("x1"), 0.1},
+        {QStringLiteral("y1"), 0.2},
+        {QStringLiteral("x2"), 0.3},
+        {QStringLiteral("y2"), 0.4}
+    });
+    assert(line.ok);
+    assert(line.x1 == 0.1);
+    assert(line.y1 == 0.2);
+    assert(line.x2 == 0.3);
+    assert(line.y2 == 0.4);
+    assert(!projectedLine(QVariantMap{
+        {QStringLiteral("x1"), 0.1},
+        {QStringLiteral("y1"), 0.2},
+        {QStringLiteral("x2"), std::numeric_limits<double>::quiet_NaN()},
+        {QStringLiteral("y2"), 0.4}
+    }).ok);
+
+    const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(QVariantMap{
+        {QStringLiteral("x"), 0.2},
+        {QStringLiteral("y"), 0.3},
+        {QStringLiteral("width"), 0.4},
+        {QStringLiteral("height"), 0.5},
+        {QStringLiteral("rotation_deg"), 15.0}
+    });
+    assert(rectangle.ok);
+    assert(rectangle.x == 0.2);
+    assert(rectangle.y == 0.3);
+    assert(rectangle.width == 0.4);
+    assert(rectangle.height == 0.5);
+    assert(rectangle.rotationDeg == 15.0);
+    assert(projectedRectangle(QVariantMap{
+        {QStringLiteral("x"), 0.2},
+        {QStringLiteral("y"), 0.3},
+        {QStringLiteral("width"), 0.4},
+        {QStringLiteral("height"), 0.5},
+        {QStringLiteral("rotation_deg"), std::numeric_limits<double>::quiet_NaN()}
+    }).rotationDeg == 0.0);
+
+    const DrawingCanvasProjectedCircle circle = projectedCircle(QVariantMap{
+        {QStringLiteral("cx"), 0.45},
+        {QStringLiteral("cy"), 0.55},
+        {QStringLiteral("radius"), 0.1}
+    });
+    assert(circle.ok);
+    assert(circle.cx == 0.45);
+    assert(circle.cy == 0.55);
+    assert(circle.radius == 0.1);
+    assert(!projectedCircle(QVariantMap{
+        {QStringLiteral("cx"), 0.45},
+        {QStringLiteral("cy"), QStringLiteral("nope")},
+        {QStringLiteral("radius"), 0.1}
+    }).ok);
+
+    const DrawingCanvasProjectedPolygon polygon = projectedPolygon(QVariantMap{
+        {QStringLiteral("points"), points}
+    });
+    assert(polygon.ok);
+    assert(polygon.points.size() == 3);
+    assert(!projectedPolygon({}).ok);
+
+    const DrawingCanvasProjectedGuide guide = projectedGuide(QVariantMap{
+        {QStringLiteral("orientation"), QStringLiteral("horizontal")},
+        {QStringLiteral("position"), 0.625},
+        {QStringLiteral("locked"), true},
+        {QStringLiteral("guide_color"), QStringLiteral("#abcdef")},
+        {QStringLiteral("guide_dash_style"), QStringLiteral("dot")},
+        {QStringLiteral("guide_show_label"), false},
+        {QStringLiteral("guide_label"), QStringLiteral("datum")}
+    });
+    assert(guide.ok);
+    assert(guide.orientation == DrawingCanvasProjectedGuideOrientation::Horizontal);
+    assert(guide.position == 0.625);
+    assert(guide.locked);
+    assert(guide.color == QStringLiteral("#abcdef"));
+    assert(guide.dashStyle == QStringLiteral("dot"));
+    assert(!guide.showLabel);
+    assert(guide.label == QStringLiteral("datum"));
+    assert(!projectedGuide({}).ok);
+
+    const DrawingCanvasProjectedDimension dimension = projectedDimension(QVariantMap{
+        {QStringLiteral("x1"), 0.1},
+        {QStringLiteral("y1"), 0.2},
+        {QStringLiteral("x2"), 0.3},
+        {QStringLiteral("y2"), 0.4},
+        {QStringLiteral("dimension_x1"), 0.12},
+        {QStringLiteral("dimension_y1"), 0.22},
+        {QStringLiteral("dimension_x2"), 0.32},
+        {QStringLiteral("dimension_y2"), 0.42},
+        {QStringLiteral("label_x"), 0.5},
+        {QStringLiteral("label_y"), 0.6},
+        {QStringLiteral("dimension_show_label"), false},
+        {QStringLiteral("label"), QStringLiteral("12 mm")}
+    });
+    assert(dimension.ok);
+    assert(dimension.x1 == 0.1);
+    assert(dimension.y1 == 0.2);
+    assert(dimension.dimensionX2 == 0.32);
+    assert(dimension.dimensionY2 == 0.42);
+    assert(dimension.labelX == 0.5);
+    assert(dimension.labelY == 0.6);
+    assert(!dimension.showLabel);
+    assert(dimension.label == QStringLiteral("12 mm"));
+    assert(!projectedDimension(QVariantMap{
+        {QStringLiteral("x1"), 0.1}
+    }).ok);
+
     QVariantList handles;
     handles.push_back(QVariantMap{
         {QStringLiteral("id"), QStringLiteral("move_handle")},

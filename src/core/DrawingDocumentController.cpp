@@ -6,6 +6,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingMirror.h"
 #include "drafting/DraftingOffset.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
@@ -241,6 +242,11 @@ double nudgeScaleForMode(const QString &stepMode)
 DraftingOffsetSide offsetSideFromId(const QString &sideId)
 {
     return sideId == QStringLiteral("right") ? DraftingOffsetSide::Right : DraftingOffsetSide::Left;
+}
+
+DraftingMirrorAxis mirrorAxisFromId(const QString &axisId)
+{
+    return axisId == QStringLiteral("vertical") ? DraftingMirrorAxis::Vertical : DraftingMirrorAxis::Horizontal;
 }
 
 } // namespace
@@ -516,6 +522,31 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
     applyDraftingCommand(m_document, SelectObjectCommand{offset.object.id});
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr) {
+        return false;
+    }
+
+    const QString id = nextObjectId(QStringLiteral("mirror"), m_nextObjectSerial++);
+    const DraftingMirrorResult mirror = mirrorDraftingObject(*source, toStdString(id), mirrorAxisFromId(axisId));
+    if (!mirror.ok) {
+        return false;
+    }
+
+    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{mirror.object});
+    if (!create.ok) {
+        return false;
+    }
+    applyDraftingCommand(m_document, SelectObjectCommand{mirror.object.id});
     emit modelChanged();
     return true;
 }

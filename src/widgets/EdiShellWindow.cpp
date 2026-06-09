@@ -363,6 +363,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
     layout->addWidget(buildOffsetControls());
+    layout->addWidget(buildMirrorControls());
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -452,6 +453,34 @@ QWidget *EdiShellWindow::buildOffsetControls()
         m_controller->offsetSelectedObject(QStringLiteral("right"));
     });
     layout->addWidget(right, 1, 1);
+
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildMirrorControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("mirrorControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Mirror")), 0, 0, 1, 2);
+
+    auto *horizontal = new QPushButton(QStringLiteral("Mirror H"));
+    horizontal->setObjectName(QStringLiteral("mirrorButton"));
+    connect(horizontal, &QPushButton::clicked, this, [this]() {
+        m_controller->mirrorSelectedObject(QStringLiteral("horizontal"));
+    });
+    layout->addWidget(horizontal, 1, 0);
+
+    auto *vertical = new QPushButton(QStringLiteral("Mirror V"));
+    vertical->setObjectName(QStringLiteral("mirrorButton"));
+    connect(vertical, &QPushButton::clicked, this, [this]() {
+        m_controller->mirrorSelectedObject(QStringLiteral("vertical"));
+    });
+    layout->addWidget(vertical, 1, 1);
 
     return panel;
 }

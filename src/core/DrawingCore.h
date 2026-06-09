@@ -45,6 +45,7 @@ public:
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
     bool nudgeSelection(const QString &direction, const QString &stepMode);
     bool offsetSelectedObject(const QString &sideId);
+    bool mirrorSelectedObject(const QString &axisId);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);

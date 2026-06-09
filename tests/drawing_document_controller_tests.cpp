@@ -190,10 +190,28 @@ int main(int argc, char **argv)
     assert(nearlyEqual(offsetLine.value("x2").toDouble(), 0.7646446609));
     assert(nearlyEqual(offsetLine.value("y2").toDouble(), 0.6353553391));
 
+    assert(controller.mirrorSelectedObject("vertical"));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    assert(objects.size() == 4);
+    QVariantMap mirroredLine = objects.back().toMap();
+    assert(mirroredLine.value("kind").toString() == "line");
+    assert(controller.selectedObjectId() == mirroredLine.value("id").toString());
+    assert(nearlyEqual(mirroredLine.value("x1").toDouble(), 0.7646446609));
+    assert(nearlyEqual(mirroredLine.value("y1").toDouble(), 0.0353553391));
+    assert(nearlyEqual(mirroredLine.value("x2").toDouble(), 0.1646446609));
+    assert(nearlyEqual(mirroredLine.value("y2").toDouble(), 0.6353553391));
+
     controller.clickCanvasNormalized(0.3, 0.35);
     const int beforeUnsupportedOffsetCount = controller.modelDocument().value("drawing_objects").toList().size();
     assert(!controller.offsetSelectedObject("right"));
     assert(controller.modelDocument().value("drawing_objects").toList().size() == beforeUnsupportedOffsetCount);
+    assert(controller.mirrorSelectedObject("horizontal"));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    assert(objects.size() == beforeUnsupportedOffsetCount + 1);
+    QVariantMap mirroredPoint = objects.back().toMap();
+    assert(mirroredPoint.value("kind").toString() == "point");
+    assert(nearlyEqual(mirroredPoint.value("x").toDouble(), 0.3));
+    assert(nearlyEqual(mirroredPoint.value("y").toDouble(), 0.35));
     assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
 
     DrawingDocumentController gridController;
@@ -252,6 +270,15 @@ int main(int argc, char **argv)
     assert(nearlyEqual(offsetConstruction.value("y1").toDouble(), 0.0));
     assert(nearlyEqual(offsetConstruction.value("x2").toDouble(), 0.55));
     assert(nearlyEqual(offsetConstruction.value("y2").toDouble(), 1.0));
+    assert(constructionController.mirrorSelectedObject("horizontal"));
+    constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
+    assert(constructionObjects.size() == 4);
+    QVariantMap mirroredConstruction = constructionObjects.back().toMap();
+    assert(mirroredConstruction.value("kind").toString() == "construction_line");
+    assert(nearlyEqual(mirroredConstruction.value("x1").toDouble(), 0.55));
+    assert(nearlyEqual(mirroredConstruction.value("y1").toDouble(), 1.0));
+    assert(nearlyEqual(mirroredConstruction.value("x2").toDouble(), 0.55));
+    assert(nearlyEqual(mirroredConstruction.value("y2").toDouble(), 0.0));
 
     DrawingDocumentController angledConstructionController;
     angledConstructionController.setSelectedToolId("angled_construction_line_tool");

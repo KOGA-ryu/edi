@@ -4,6 +4,8 @@
 #include <QVariantMap>
 #include <QWidget>
 
+#include "widgets/DrawingCanvasGestureState.h"
+
 class DrawingDocumentController;
 
 class DrawingCanvasWidget : public QWidget {
@@ -41,7 +43,7 @@ private:
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;
 
     DrawingDocumentController *m_controller = nullptr;
-    QVariantMap m_gestureState;
+    drawing_canvas::DrawingCanvasGestureState m_gestureState;
     QPointF m_lastDragCanvasPoint;
     bool m_plotPreviewVisible = false;
 };

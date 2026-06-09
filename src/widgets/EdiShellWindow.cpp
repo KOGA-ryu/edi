@@ -916,8 +916,15 @@ QWidget *EdiShellWindow::buildCalibrationControls()
     });
     layout->addWidget(record, 2, 2);
 
+    auto *applyScale = new QPushButton(QStringLiteral("Apply scale"));
+    applyScale->setObjectName(QStringLiteral("calibrationButton"));
+    connect(applyScale, &QPushButton::clicked, this, [this]() {
+        m_controller->applyCalibrationCorrection();
+    });
+    layout->addWidget(applyScale, 3, 0, 1, 3);
+
     m_calibrationMeasurementValue = makeValueLabel(QStringLiteral("Calibration measurement: none"));
-    layout->addWidget(m_calibrationMeasurementValue, 3, 0, 1, 3);
+    layout->addWidget(m_calibrationMeasurementValue, 4, 0, 1, 3);
 
     return panel;
 }
@@ -1092,6 +1099,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
     const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
+    const QVariantMap calibrationCorrection = document.value(QStringLiteral("calibration_correction")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const QVariantList layers = document.value(QStringLiteral("layers")).toList();
     const QString activeLayerId = document.value(QStringLiteral("active_layer_id")).toString();
@@ -1286,12 +1294,16 @@ void EdiShellWindow::refreshInspector()
     if (m_calibrationMeasurementValue != nullptr) {
         m_calibrationMeasurementValue->setText(calibrationMeasurement.isEmpty()
             ? QStringLiteral("Calibration measurement: none")
-            : QStringLiteral("Calibration: %1 expected %2 measured %3 error %4 (%5%)")
+            : QStringLiteral("Calibration: %1 expected %2 measured %3 error %4 (%5%)\nApply scale: %6   active scale: %7")
                 .arg(calibrationMeasurement.value(QStringLiteral("pattern_id")).toString())
                 .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("expected_value")).toDouble()))
                 .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("measured_value")).toDouble()))
                 .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("error_value")).toDouble()))
-                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("percent_error")).toDouble())));
+                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("percent_error")).toDouble()))
+                .arg(calibrationCorrection.isEmpty()
+                    ? QStringLiteral("none")
+                    : formatNumber(calibrationCorrection.value(QStringLiteral("scale_factor")).toDouble()))
+                .arg(formatNumber(plot.value(QStringLiteral("calibration_scale")).toDouble())));
     }
     if (m_plotOrderMode != nullptr) {
         const QSignalBlocker blocker(m_plotOrderMode);

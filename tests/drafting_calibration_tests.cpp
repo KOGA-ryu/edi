@@ -81,6 +81,13 @@ int main()
     assert(nearlyEqual(squareMeasurement.measurement.errorValue, 0.002));
     assert(nearlyEqual(squareMeasurement.measurement.percentError, 0.8));
     assert(formatDraftingCalibrationMeasurementNote(squareMeasurement.measurement).find("calibration_square") != std::string::npos);
+    const DraftingCalibrationCorrectionPlan squareCorrection = planDraftingCalibrationCorrection(squareMeasurement.measurement);
+    assert(squareCorrection.ok);
+    assert(squareCorrection.patternId == "calibration_square");
+    assert(nearlyEqual(squareCorrection.expectedValue, 0.25));
+    assert(nearlyEqual(squareCorrection.measuredValue, 0.252));
+    assert(nearlyEqual(squareCorrection.scaleFactor, 0.25 / 0.252));
+    assert(squareCorrection.correctionPercent < 0.0);
 
     const DraftingCalibrationMeasurementResult circleMeasurement = measureDraftingCalibrationPattern(
         {circle.objects, 0.2475, "bench_check"});
@@ -97,6 +104,9 @@ int main()
     assert(nearlyEqual(spacingMeasurement.measurement.expectedValue, 0.05));
     assert(nearlyEqual(spacingMeasurement.measurement.errorValue, 0.001));
     assert(nearlyEqual(spacingMeasurement.measurement.percentError, 2.0));
+    const DraftingCalibrationCorrectionPlan spacingCorrection = planDraftingCalibrationCorrection(spacingMeasurement.measurement);
+    assert(spacingCorrection.ok);
+    assert(nearlyEqual(spacingCorrection.scaleFactor, 0.05 / 0.051));
 
     DraftingObject nonCalibrationObject = square.objects.front();
     nonCalibrationObject.metadata.toolProvenance.clear();
@@ -107,6 +117,12 @@ int main()
     std::vector<DraftingObject> mixedObjects = square.objects;
     mixedObjects.push_back(circle.objects.front());
     assert(!measureDraftingCalibrationPattern({mixedObjects, 0.25, "bench_check"}).ok);
+    DraftingCalibrationMeasurement invalidMeasurement = squareMeasurement.measurement;
+    invalidMeasurement.expectedValue = 0.0;
+    assert(!planDraftingCalibrationCorrection(invalidMeasurement).ok);
+    invalidMeasurement = squareMeasurement.measurement;
+    invalidMeasurement.measuredValue = 0.0;
+    assert(!planDraftingCalibrationCorrection(invalidMeasurement).ok);
 
     DraftingCalibrationPatternRequest invalid = squareRequest;
     invalid.idPrefix.clear();

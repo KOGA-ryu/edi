@@ -41,6 +41,11 @@ bool isValidLayerPlotStyle(const LayerPlotStyle &plot)
         && plot.strokeWidth > 0.0;
 }
 
+double safeCalibrationScale(double value)
+{
+    return std::isfinite(value) && value > 0.0 ? value : 1.0;
+}
+
 double pointDistance(Point2D a, Point2D b)
 {
     const double dx = b.x - a.x;
@@ -455,6 +460,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
     DraftingPlotPlan plan;
     plan.orderMode = settings.orderMode;
     plan.directionMode = settings.directionMode;
+    plan.calibrationScale = safeCalibrationScale(settings.calibrationScale);
 
     std::vector<const DraftingObject *> sortedObjects;
     sortedObjects.reserve(document.objects.size());

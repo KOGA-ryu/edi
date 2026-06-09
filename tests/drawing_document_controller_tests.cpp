@@ -673,8 +673,19 @@ int main(int argc, char **argv)
     assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.238));
     assert(nearlyEqual(calibrationMeasurement.value("error_value").toDouble(), -0.002));
     assert(calibrationMeasurement.value("percent_error").toDouble() < 0.0);
+    QVariantMap calibrationCorrection = calibrationModel.value("calibration_correction").toMap();
+    assert(calibrationCorrection.value("ok").toBool());
+    assert(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.24 / 0.238));
+    assert(calibrationCorrection.value("correction_percent").toDouble() > 0.0);
+    assert(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 1.0));
     calibrationSquare = calibrationModel.value("drawing_objects").toList().front().toMap();
     assert(calibrationSquare.value("measurement_note").toString().contains("calibration_square"));
+    const double calibrationSquareXBeforeApply = calibrationSquare.value("x").toDouble();
+    assert(calibrationController.applyCalibrationCorrection());
+    calibrationModel = calibrationController.modelDocument();
+    assert(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 0.24 / 0.238));
+    calibrationSquare = calibrationModel.value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(calibrationSquare.value("x").toDouble(), calibrationSquareXBeforeApply));
 
     assert(calibrationController.createLayer());
     assert(calibrationController.activeLayerId() == "layer_2");
@@ -709,6 +720,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.04));
     assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.041));
     assert(calibrationMeasurement.value("percent_error").toDouble() > 0.0);
+    calibrationCorrection = calibrationModel.value("calibration_correction").toMap();
+    assert(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.04 / 0.041));
+    assert(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 0.24 / 0.238));
     calibrationObjects = calibrationModel.value("drawing_objects").toList();
     for (int index = 2; index < calibrationObjects.size(); ++index) {
         const QVariantMap line = calibrationObjects[index].toMap();

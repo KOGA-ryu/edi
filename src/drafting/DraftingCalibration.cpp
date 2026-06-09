@@ -149,6 +149,35 @@ DraftingCalibrationMeasurementResult DraftingCalibrationMeasurementResult::rejec
     return {false, code, std::move(message), {}};
 }
 
+DraftingCalibrationCorrectionPlan DraftingCalibrationCorrectionPlan::accepted(const DraftingCalibrationMeasurement &measurement)
+{
+    const double scaleFactor = measurement.expectedValue / measurement.measuredValue;
+    return {
+        true,
+        DraftingResultCode::None,
+        {},
+        measurement.patternId,
+        measurement.expectedValue,
+        measurement.measuredValue,
+        scaleFactor,
+        (scaleFactor - 1.0) * 100.0,
+    };
+}
+
+DraftingCalibrationCorrectionPlan DraftingCalibrationCorrectionPlan::rejected(DraftingResultCode code, std::string message)
+{
+    return {
+        false,
+        code,
+        std::move(message),
+        {},
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+    };
+}
+
 DraftingCalibrationPatternKind draftingCalibrationPatternKindFromId(const std::string &patternId)
 {
     if (patternId == "test_circle") {
@@ -257,6 +286,20 @@ DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const Dra
     measurement.errorValue = measurement.measuredValue - measurement.expectedValue;
     measurement.percentError = (measurement.errorValue / measurement.expectedValue) * 100.0;
     return DraftingCalibrationMeasurementResult::accepted(std::move(measurement));
+}
+
+DraftingCalibrationCorrectionPlan planDraftingCalibrationCorrection(const DraftingCalibrationMeasurement &measurement)
+{
+    if (measurement.patternId.empty()) {
+        return DraftingCalibrationCorrectionPlan::rejected(DraftingResultCode::InvalidMetadata, "calibration correction requires a pattern id");
+    }
+    if (!std::isfinite(measurement.expectedValue) || measurement.expectedValue <= 0.0) {
+        return DraftingCalibrationCorrectionPlan::rejected(DraftingResultCode::InvalidGeometry, "calibration correction requires a positive expected value");
+    }
+    if (!std::isfinite(measurement.measuredValue) || measurement.measuredValue <= 0.0) {
+        return DraftingCalibrationCorrectionPlan::rejected(DraftingResultCode::InvalidGeometry, "calibration correction requires a positive measured value");
+    }
+    return DraftingCalibrationCorrectionPlan::accepted(measurement);
 }
 
 std::string formatDraftingCalibrationMeasurementNote(const DraftingCalibrationMeasurement &measurement)

@@ -21,6 +21,7 @@ enum class DraftingPlotDirectionMode {
 struct DraftingPlotSettings {
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
     DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;
+    double calibrationScale = 1.0;
 };
 
 struct DraftingPlotObject {
@@ -90,6 +91,7 @@ struct DraftingPlotPlan {
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
     DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;
     double travelDistance = 0.0;
+    double calibrationScale = 1.0;
 };
 
 DraftingPlotSettings defaultDraftingPlotSettings();

@@ -205,6 +205,19 @@ QVariantMap calibrationMeasurementToMap(const DraftingCalibrationMeasurement &me
     };
 }
 
+QVariantMap calibrationCorrectionToMap(const DraftingCalibrationCorrectionPlan &correction)
+{
+    return {
+        {QStringLiteral("ok"), correction.ok},
+        {QStringLiteral("pattern_id"), drawing_core::qStringFromStdString(correction.patternId)},
+        {QStringLiteral("expected_value"), correction.expectedValue},
+        {QStringLiteral("measured_value"), correction.measuredValue},
+        {QStringLiteral("scale_factor"), correction.scaleFactor},
+        {QStringLiteral("correction_percent"), correction.correctionPercent},
+        {QStringLiteral("message"), drawing_core::qStringFromStdString(correction.message)},
+    };
+}
+
 const DraftingLayer *layerForObject(const DraftingDocument &document, const DraftingObject &object)
 {
     return findLayer(document, object.layerId);
@@ -316,6 +329,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
         {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
         {QStringLiteral("direction_mode"), QString::fromLatin1(draftingPlotDirectionModeName(plan.directionMode))},
+        {QStringLiteral("calibration_scale"), plan.calibrationScale},
         {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
         {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
         {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -328,6 +342,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("preview"), QVariantMap{
             {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
             {QStringLiteral("direction_mode"), QString::fromLatin1(draftingPlotDirectionModeName(plan.directionMode))},
+            {QStringLiteral("calibration_scale"), plan.calibrationScale},
             {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
             {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
             {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -412,6 +427,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
     }
     if (m_latestCalibrationMeasurement) {
         model.insert(QStringLiteral("calibration_measurement"), calibrationMeasurementToMap(*m_latestCalibrationMeasurement));
+    }
+    if (m_pendingCalibrationCorrection) {
+        model.insert(QStringLiteral("calibration_correction"), calibrationCorrectionToMap(*m_pendingCalibrationCorrection));
     }
 
     QVariantList warnings;
@@ -1127,6 +1145,21 @@ bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValu
 
     m_document = std::move(candidate);
     m_latestCalibrationMeasurement = measurement.measurement;
+    m_pendingCalibrationCorrection = planDraftingCalibrationCorrection(measurement.measurement);
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::applyCalibrationCorrection()
+{
+    if (!m_pendingCalibrationCorrection || !m_pendingCalibrationCorrection->ok) {
+        return false;
+    }
+    if (!std::isfinite(m_pendingCalibrationCorrection->scaleFactor) || m_pendingCalibrationCorrection->scaleFactor <= 0.0) {
+        return false;
+    }
+
+    m_plotSettings.calibrationScale = m_pendingCalibrationCorrection->scaleFactor;
     emit modelChanged();
     return true;
 }

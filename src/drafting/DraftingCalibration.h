@@ -59,10 +59,25 @@ struct DraftingCalibrationMeasurementResult {
     static DraftingCalibrationMeasurementResult rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingCalibrationCorrectionPlan {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    std::string patternId;
+    double expectedValue = 0.0;
+    double measuredValue = 0.0;
+    double scaleFactor = 1.0;
+    double correctionPercent = 0.0;
+
+    static DraftingCalibrationCorrectionPlan accepted(const DraftingCalibrationMeasurement &measurement);
+    static DraftingCalibrationCorrectionPlan rejected(DraftingResultCode code, std::string message);
+};
+
 DraftingCalibrationPatternKind draftingCalibrationPatternKindFromId(const std::string &patternId);
 const char *draftingCalibrationPatternKindName(DraftingCalibrationPatternKind kind);
 DraftingCalibrationPatternResult buildDraftingCalibrationPattern(const DraftingCalibrationPatternRequest &request);
 DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const DraftingCalibrationMeasurementRequest &request);
+DraftingCalibrationCorrectionPlan planDraftingCalibrationCorrection(const DraftingCalibrationMeasurement &measurement);
 std::string formatDraftingCalibrationMeasurementNote(const DraftingCalibrationMeasurement &measurement);
 
 } // namespace edi::drafting

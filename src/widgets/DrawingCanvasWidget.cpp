@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include "canvas/DrawingCanvasGestureState.h"
 #include "canvas/DrawingCanvasHandles.h"
@@ -98,9 +99,11 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     const QRectF board = boardRect();
     drawPhysicalGrid(painter, model);
 
-    for (const QVariant &value : model.value("drawing_objects").toList()) {
+    const QVariantList objects = model.value("drawing_objects").toList();
+    for (const QVariant &value : objects) {
         drawObject(painter, value.toMap());
     }
+    drawGuideIntersections(painter, objects);
     if (m_plotPreviewVisible) {
         drawPlotPreview(painter, model);
     }
@@ -506,6 +509,46 @@ void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVari
     painter.restore();
 }
 
+void DrawingCanvasWidget::drawGuideIntersections(QPainter &painter, const QVariantList &objects) const
+{
+    std::vector<double> vertical;
+    std::vector<double> horizontal;
+    for (const QVariant &value : objects) {
+        const QVariantMap object = value.toMap();
+        if (object.value(QStringLiteral("kind")).toString() != QStringLiteral("guide")
+            || !object.value(QStringLiteral("effective_visible"), object.value(QStringLiteral("visible"), true)).toBool()) {
+            continue;
+        }
+        const double position = object.value(QStringLiteral("position")).toDouble();
+        if (!std::isfinite(position)) {
+            continue;
+        }
+        if (object.value(QStringLiteral("orientation")).toString() == QStringLiteral("horizontal")) {
+            horizontal.push_back(position);
+        } else {
+            vertical.push_back(position);
+        }
+    }
+    if (vertical.empty() || horizontal.empty()) {
+        return;
+    }
+
+    painter.save();
+    QColor marker("#b7d7e8");
+    marker.setAlpha(120);
+    painter.setPen(QPen(marker, 1.0));
+    painter.setBrush(QColor(marker.red(), marker.green(), marker.blue(), 30));
+    for (double x : vertical) {
+        for (double y : horizontal) {
+            const QPointF point = canvasToScreen(x, y);
+            painter.drawEllipse(point, 3.0, 3.0);
+            painter.drawLine(QPointF(point.x() - 5.0, point.y()), QPointF(point.x() + 5.0, point.y()));
+            painter.drawLine(QPointF(point.x(), point.y() - 5.0), QPointF(point.x(), point.y() + 5.0));
+        }
+    }
+    painter.restore();
+}
+
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
 {
     if (!object.value(QStringLiteral("effective_visible"), object.value(QStringLiteral("visible"), true)).toBool()) {
@@ -517,15 +560,38 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
     const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();
 
     if (kind == QStringLiteral("guide")) {
-        QPen guidePen(selected ? QColor("#f6c65b") : QColor("#8fb4d8"), selected ? 2 : 1, Qt::DashLine);
+        const bool locked = object.value(QStringLiteral("locked")).toBool();
+        QColor guideColor = selected ? QColor("#f6c65b") : QColor("#83aeca");
+        if (locked && !selected) {
+            guideColor = QColor("#6f8295");
+        }
+        guideColor.setAlpha(selected ? 230 : 165);
+        QPen guidePen(guideColor, selected ? 2.0 : 1.25, locked ? Qt::DotLine : Qt::DashLine);
+        guidePen.setCapStyle(Qt::RoundCap);
+        painter.save();
         painter.setPen(guidePen);
         painter.setBrush(Qt::NoBrush);
         const double position = object.value(QStringLiteral("position")).toDouble();
+        if (!std::isfinite(position)) {
+            painter.restore();
+            return;
+        }
+        const QString orientation = object.value(QStringLiteral("orientation")).toString();
+        const QString prefix = orientation == QStringLiteral("horizontal") ? QStringLiteral("H") : QStringLiteral("V");
+        const QString label = QStringLiteral("%1 guide %2%3")
+            .arg(prefix,
+                QString::number(position, 'f', 3),
+                locked ? QStringLiteral(" locked") : QString());
         if (object.value(QStringLiteral("orientation")).toString() == QStringLiteral("horizontal")) {
             painter.drawLine(canvasToScreen(0.0, position), canvasToScreen(1.0, position));
+            painter.setPen(guideColor);
+            painter.drawText(canvasToScreen(0.0, position) + QPointF(8.0, -6.0), label);
         } else {
             painter.drawLine(canvasToScreen(position, 0.0), canvasToScreen(position, 1.0));
+            painter.setPen(guideColor);
+            painter.drawText(canvasToScreen(position, 0.0) + QPointF(8.0, 16.0), label);
         }
+        painter.restore();
         return;
     }
 

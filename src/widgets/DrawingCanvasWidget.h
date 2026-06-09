@@ -34,6 +34,7 @@ private:
     void drawPlotPreview(QPainter &painter, const QVariantMap &model) const;
     void drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const;
     void drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const;
+    void drawGuideIntersections(QPainter &painter, const QVariantList &objects) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
     void drawPreviewObject(QPainter &painter, const QVariantMap &object) const;
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;

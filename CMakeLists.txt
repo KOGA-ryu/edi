@@ -44,6 +44,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingPhysicalGeometry.cpp
     src/drafting/DraftingCommands.h
     src/drafting/DraftingCommands.cpp
+    src/drafting/DraftingConstructionOps.h
+    src/drafting/DraftingConstructionOps.cpp
     src/drafting/DraftingGeometry.h
     src/drafting/DraftingGeometry.cpp
     src/drafting/DraftingHitTest.h
@@ -164,6 +166,7 @@ endfunction()
 
 add_edi_contract_test(drafting_store_tests tests/drafting_store_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_commands_tests tests/drafting_commands_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_construction_ops_tests tests/drafting_construction_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_geometry_tests tests/drafting_geometry_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_hit_test_tests tests/drafting_hit_test_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_snap_tests tests/drafting_snap_tests.cpp edi_drafting_core)

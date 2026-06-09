@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingCalibration.h"
+#include "drafting/DraftingConstructionOps.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
@@ -2055,25 +2056,14 @@ bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
         return false;
     }
 
-    constexpr double epsilon = 0.0000001;
-    const bool horizontal = std::abs(line->a.y - line->b.y) < epsilon;
-    const bool vertical = std::abs(line->a.x - line->b.x) < epsilon;
-    if (!horizontal && !vertical) {
-        return false;
-    }
-
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    ConstructionLineGeometry next = *line;
-    if (horizontal) {
-        next.a = {grid.drawableBounds.x, line->a.y};
-        next.b = {grid.drawableBounds.x + grid.drawableBounds.width, line->a.y};
-    } else {
-        next.a = {line->a.x, grid.drawableBounds.y};
-        next.b = {line->a.x, grid.drawableBounds.y + grid.drawableBounds.height};
+    const DraftingConstructionLinePlan plan = fitConstructionLineToDrawable(*line, grid.drawableBounds);
+    if (!plan.ok) {
+        return false;
     }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, next});
+        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
     if (!result.ok) {
         return false;
     }

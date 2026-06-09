@@ -13,8 +13,14 @@ enum class DraftingPlotOrderMode {
     NearestNext,
 };
 
+enum class DraftingPlotDirectionMode {
+    PreserveDirection,
+    AllowReverseSegments,
+};
+
 struct DraftingPlotSettings {
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
+    DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;
 };
 
 struct DraftingPlotObject {
@@ -55,12 +61,15 @@ struct DraftingPlotPlan {
     std::vector<DraftingPlotTravelSegment> travelSegments;
     std::vector<DraftingPlotWarning> warnings;
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
+    DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;
     double travelDistance = 0.0;
 };
 
 DraftingPlotSettings defaultDraftingPlotSettings();
 const char *draftingPlotOrderModeName(DraftingPlotOrderMode mode);
 DraftingPlotOrderMode draftingPlotOrderModeFromName(const std::string &name);
+const char *draftingPlotDirectionModeName(DraftingPlotDirectionMode mode);
+DraftingPlotDirectionMode draftingPlotDirectionModeFromName(const std::string &name);
 bool draftingShapeCanPlot(DraftingShapeKind kind);
 DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const DraftingGridProjection &grid);
 DraftingPlotPlan buildDraftingPlotPlan(

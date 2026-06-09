@@ -266,6 +266,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
     return {
         {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
         {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
+        {QStringLiteral("direction_mode"), QString::fromLatin1(draftingPlotDirectionModeName(plan.directionMode))},
         {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
         {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
         {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -275,6 +276,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
         {QStringLiteral("preview"), QVariantMap{
             {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
+            {QStringLiteral("direction_mode"), QString::fromLatin1(draftingPlotDirectionModeName(plan.directionMode))},
             {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
             {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
             {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -436,6 +438,11 @@ QString DrawingDocumentController::plotOrderModeId() const
     return QString::fromLatin1(draftingPlotOrderModeName(m_plotSettings.orderMode));
 }
 
+QString DrawingDocumentController::plotDirectionModeId() const
+{
+    return QString::fromLatin1(draftingPlotDirectionModeName(m_plotSettings.directionMode));
+}
+
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
 {
     if (m_selectedToolId == toolId) {
@@ -538,6 +545,16 @@ void DrawingDocumentController::setPlotOrderModeId(const QString &modeId)
         return;
     }
     m_plotSettings.orderMode = mode;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setPlotDirectionModeId(const QString &modeId)
+{
+    const DraftingPlotDirectionMode mode = draftingPlotDirectionModeFromName(modeId.toStdString());
+    if (m_plotSettings.directionMode == mode) {
+        return;
+    }
+    m_plotSettings.directionMode = mode;
     emit modelChanged();
 }
 

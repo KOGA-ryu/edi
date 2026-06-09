@@ -137,7 +137,15 @@ void appendTravelSegments(DraftingPlotPlan &plan)
     }
 }
 
-void reorderSegmentsNearestNext(std::vector<DraftingPlotSegment> &segments, Point2D start)
+void reverseSegment(DraftingPlotSegment &segment)
+{
+    std::swap(segment.a, segment.b);
+}
+
+void reorderSegmentsNearestNext(
+    std::vector<DraftingPlotSegment> &segments,
+    Point2D start,
+    DraftingPlotDirectionMode directionMode)
 {
     if (segments.size() < 2) {
         return;
@@ -151,15 +159,36 @@ void reorderSegmentsNearestNext(std::vector<DraftingPlotSegment> &segments, Poin
     while (!remaining.empty()) {
         std::size_t nearestIndex = 0;
         double nearestDistance = pointDistance(current, remaining.front().a);
+        bool reverseNearest = false;
+        if (directionMode == DraftingPlotDirectionMode::AllowReverseSegments) {
+            const double reverseDistance = pointDistance(current, remaining.front().b);
+            if (reverseDistance < nearestDistance) {
+                nearestDistance = reverseDistance;
+                reverseNearest = true;
+            }
+        }
         for (std::size_t index = 1; index < remaining.size(); ++index) {
             const double candidateDistance = pointDistance(current, remaining[index].a);
             if (candidateDistance < nearestDistance) {
                 nearestIndex = index;
                 nearestDistance = candidateDistance;
+                reverseNearest = false;
+            }
+            if (directionMode == DraftingPlotDirectionMode::AllowReverseSegments) {
+                const double reverseDistance = pointDistance(current, remaining[index].b);
+                if (reverseDistance < nearestDistance) {
+                    nearestIndex = index;
+                    nearestDistance = reverseDistance;
+                    reverseNearest = true;
+                }
             }
         }
 
-        ordered.push_back(remaining[nearestIndex]);
+        DraftingPlotSegment selected = remaining[nearestIndex];
+        if (reverseNearest) {
+            reverseSegment(selected);
+        }
+        ordered.push_back(selected);
         current = ordered.back().b;
         remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(nearestIndex));
     }
@@ -193,6 +222,25 @@ DraftingPlotOrderMode draftingPlotOrderModeFromName(const std::string &name)
     return DraftingPlotOrderMode::LayerOrder;
 }
 
+const char *draftingPlotDirectionModeName(DraftingPlotDirectionMode mode)
+{
+    switch (mode) {
+    case DraftingPlotDirectionMode::AllowReverseSegments:
+        return "allow_reverse_segments";
+    case DraftingPlotDirectionMode::PreserveDirection:
+        return "preserve_direction";
+    }
+    return "preserve_direction";
+}
+
+DraftingPlotDirectionMode draftingPlotDirectionModeFromName(const std::string &name)
+{
+    if (name == "allow_reverse_segments") {
+        return DraftingPlotDirectionMode::AllowReverseSegments;
+    }
+    return DraftingPlotDirectionMode::PreserveDirection;
+}
+
 bool draftingShapeCanPlot(DraftingShapeKind kind)
 {
     return kind != DraftingShapeKind::Guide
@@ -212,6 +260,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
 {
     DraftingPlotPlan plan;
     plan.orderMode = settings.orderMode;
+    plan.directionMode = settings.directionMode;
 
     std::vector<const DraftingObject *> sortedObjects;
     sortedObjects.reserve(document.objects.size());
@@ -248,7 +297,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
     }
 
     if (settings.orderMode == DraftingPlotOrderMode::NearestNext) {
-        reorderSegmentsNearestNext(plan.segments, grid.origin);
+        reorderSegmentsNearestNext(plan.segments, grid.origin, settings.directionMode);
     }
     appendTravelSegments(plan);
 

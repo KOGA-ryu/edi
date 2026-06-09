@@ -450,6 +450,17 @@ QWidget *EdiShellWindow::buildRightPanel()
     connect(m_plotOrderMode, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_controller->setPlotOrderModeId(m_plotOrderMode->itemData(index).toString());
     });
+    m_plotDirectionMode = new QComboBox;
+    m_plotDirectionMode->setObjectName(QStringLiteral("plotDirectionMode"));
+    m_plotDirectionMode->addItem(QStringLiteral("Direction: preserve"), QStringLiteral("preserve_direction"));
+    m_plotDirectionMode->addItem(QStringLiteral("Direction: reversible"), QStringLiteral("allow_reverse_segments"));
+    const int plotDirectionIndex = m_plotDirectionMode->findData(m_controller->plotDirectionModeId());
+    if (plotDirectionIndex >= 0) {
+        m_plotDirectionMode->setCurrentIndex(plotDirectionIndex);
+    }
+    connect(m_plotDirectionMode, &QComboBox::currentIndexChanged, this, [this](int index) {
+        m_controller->setPlotDirectionModeId(m_plotDirectionMode->itemData(index).toString());
+    });
     m_plotPreviewVisible = new QCheckBox(QStringLiteral("Show plot preview"));
     m_plotPreviewVisible->setObjectName(QStringLiteral("plotPreviewCheckbox"));
     m_plotPreviewVisible->setChecked(false);
@@ -464,6 +475,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_gridValue);
     layout->addWidget(m_plotValue);
     layout->addWidget(m_plotOrderMode);
+    layout->addWidget(m_plotDirectionMode);
     layout->addWidget(m_plotPreviewVisible);
     layout->addWidget(m_pointerValue);
     layout->addWidget(m_previewValue);
@@ -1120,6 +1132,11 @@ void EdiShellWindow::refreshInspector()
         const QSignalBlocker blocker(m_plotOrderMode);
         const int index = m_plotOrderMode->findData(plot.value(QStringLiteral("order_mode")).toString());
         m_plotOrderMode->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_plotDirectionMode != nullptr) {
+        const QSignalBlocker blocker(m_plotDirectionMode);
+        const int index = m_plotDirectionMode->findData(plot.value(QStringLiteral("direction_mode")).toString());
+        m_plotDirectionMode->setCurrentIndex(index >= 0 ? index : 0);
     }
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {

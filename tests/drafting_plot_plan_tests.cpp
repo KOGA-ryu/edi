@@ -74,6 +74,7 @@ int main()
 
     const DraftingPlotPlan plan = buildDraftingPlotPlan(document, plotGrid());
     assert(plan.orderMode == DraftingPlotOrderMode::LayerOrder);
+    assert(plan.directionMode == DraftingPlotDirectionMode::PreserveDirection);
     assert(plan.objects.size() == 3);
     assert(plan.objects[0].objectId == "default_line");
     assert(plan.objects[0].penId == "pen_black");
@@ -186,6 +187,31 @@ int main()
     assert(draftingPlotOrderModeFromName("nearest_next") == DraftingPlotOrderMode::NearestNext);
     assert(draftingPlotOrderModeFromName("unknown") == DraftingPlotOrderMode::LayerOrder);
     assert(std::string(draftingPlotOrderModeName(DraftingPlotOrderMode::NearestNext)) == "nearest_next");
+
+    DraftingDocument directionDocument = makeDraftingDocument("direction_doc");
+    assert(addObject(directionDocument, makeObject("first", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {0.2, 0.0}})).ok);
+    assert(addObject(directionDocument, makeObject("second", DraftingShapeKind::Line, LineGeometry{{0.9, 0.0}, {0.3, 0.0}})).ok);
+    DraftingPlotSettings preserveDirection = defaultDraftingPlotSettings();
+    preserveDirection.orderMode = DraftingPlotOrderMode::NearestNext;
+    const DraftingPlotPlan preserveDirectionPlan = buildDraftingPlotPlan(directionDocument, orderGrid, preserveDirection);
+    DraftingPlotSettings reverseDirection = preserveDirection;
+    reverseDirection.directionMode = DraftingPlotDirectionMode::AllowReverseSegments;
+    const DraftingPlotPlan reverseDirectionPlan = buildDraftingPlotPlan(directionDocument, orderGrid, reverseDirection);
+    assert(preserveDirectionPlan.directionMode == DraftingPlotDirectionMode::PreserveDirection);
+    assert(reverseDirectionPlan.directionMode == DraftingPlotDirectionMode::AllowReverseSegments);
+    assert(preserveDirectionPlan.segments.size() == reverseDirectionPlan.segments.size());
+    assert(reverseDirectionPlan.segments[0].objectId == "first");
+    assert(reverseDirectionPlan.segments[1].objectId == "second");
+    assert(nearlyEqual(preserveDirectionPlan.segments[1].a.x, 0.9));
+    assert(nearlyEqual(preserveDirectionPlan.segments[1].b.x, 0.3));
+    assert(nearlyEqual(reverseDirectionPlan.segments[1].a.x, 0.3));
+    assert(nearlyEqual(reverseDirectionPlan.segments[1].b.x, 0.9));
+    assert(reverseDirectionPlan.segments[1].layerId == preserveDirectionPlan.segments[1].layerId);
+    assert(reverseDirectionPlan.segments[1].penId == preserveDirectionPlan.segments[1].penId);
+    assert(reverseDirectionPlan.travelDistance < preserveDirectionPlan.travelDistance);
+    assert(draftingPlotDirectionModeFromName("allow_reverse_segments") == DraftingPlotDirectionMode::AllowReverseSegments);
+    assert(draftingPlotDirectionModeFromName("unknown") == DraftingPlotDirectionMode::PreserveDirection);
+    assert(std::string(draftingPlotDirectionModeName(DraftingPlotDirectionMode::AllowReverseSegments)) == "allow_reverse_segments");
 
     return 0;
 }

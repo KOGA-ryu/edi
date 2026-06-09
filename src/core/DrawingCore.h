@@ -34,6 +34,7 @@ public:
     QString gridPresetId() const;
     QString objectSnapTolerancePresetId() const;
     QString plotOrderModeId() const;
+    QString plotDirectionModeId() const;
     void setSelectedToolId(const QString &toolId);
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
@@ -45,6 +46,7 @@ public:
     void setObjectSnapTolerancePreset(QString presetId);
     void setGridPresetId(const QString &presetId);
     void setPlotOrderModeId(const QString &modeId);
+    void setPlotDirectionModeId(const QString &modeId);
     void updatePointerNormalized(double x, double y);
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
     bool setSelectedObjectLocked(bool locked);

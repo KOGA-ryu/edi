@@ -93,6 +93,7 @@ private:
     QLabel *m_gridValue = nullptr;
     QLabel *m_plotValue = nullptr;
     QComboBox *m_plotOrderMode = nullptr;
+    QComboBox *m_plotDirectionMode = nullptr;
     QCheckBox *m_plotPreviewVisible = nullptr;
     QLabel *m_pointerValue = nullptr;
     QLabel *m_previewValue = nullptr;

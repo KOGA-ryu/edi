@@ -7,6 +7,7 @@
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingOffset.h"
@@ -752,57 +753,6 @@ std::optional<DraftingAlignmentMode> distributeModeFromAxisId(const QString &axi
         return DraftingAlignmentMode::DistributeY;
     }
     return std::nullopt;
-}
-
-bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
-{
-    constexpr double epsilon = 0.000001;
-    return a.orientation == b.orientation && std::abs(a.position - b.position) <= epsilon;
-}
-
-std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide)
-{
-    for (const DraftingObject &object : document.objects) {
-        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
-            continue;
-        }
-        const auto *existing = std::get_if<GuideGeometry>(&object.geometry);
-        if (existing != nullptr && sameGuide(*existing, guide)) {
-            return object.id;
-        }
-    }
-    return std::nullopt;
-}
-
-std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &document, GuideOrientation orientation, double target)
-{
-    if (!std::isfinite(target)) {
-        return std::nullopt;
-    }
-
-    bool found = false;
-    double bestPosition = 0.0;
-    double bestDistance = std::numeric_limits<double>::max();
-    for (const DraftingObject &object : document.objects) {
-        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
-            continue;
-        }
-        const DraftingLayer *layer = findLayer(document, object.layerId);
-        if (!object.visible || layer == nullptr || !layer->visible) {
-            continue;
-        }
-        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
-        if (guide == nullptr || guide->orientation != orientation || !std::isfinite(guide->position)) {
-            continue;
-        }
-        const double distance = std::abs(guide->position - target);
-        if (!found || distance < bestDistance) {
-            found = true;
-            bestDistance = distance;
-            bestPosition = guide->position;
-        }
-    }
-    return found ? std::optional<double>{bestPosition} : std::nullopt;
 }
 
 } // namespace
@@ -2021,13 +1971,13 @@ bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()
     }
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    GuideGeometry next = *guide;
-    next.position = guide->orientation == GuideOrientation::Horizontal
-        ? grid.drawableBounds.y
-        : grid.drawableBounds.x;
+    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Origin);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, next});
+        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
     if (!result.ok) {
         return false;
     }
@@ -2051,13 +2001,13 @@ bool DrawingDocumentController::centerSelectedGuideInDrawable()
     }
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    GuideGeometry next = *guide;
-    next.position = guide->orientation == GuideOrientation::Horizontal
-        ? grid.drawableBounds.y + grid.drawableBounds.height / 2.0
-        : grid.drawableBounds.x + grid.drawableBounds.width / 2.0;
+    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Center);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, next});
+        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
     if (!result.ok) {
         return false;
     }
@@ -2081,13 +2031,13 @@ bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
     }
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    GuideGeometry next = *guide;
-    next.position = guide->orientation == GuideOrientation::Horizontal
-        ? grid.drawableBounds.y + grid.drawableBounds.height
-        : grid.drawableBounds.x + grid.drawableBounds.width;
+    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Max);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, next});
+        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
     if (!result.ok) {
         return false;
     }
@@ -2113,20 +2063,13 @@ bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, co
     const double scale = nudgeScaleForMode(stepMode);
     const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
     const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
-    double delta = 0.0;
-    if (direction == QStringLiteral("negative")) {
-        delta = -(guide->orientation == GuideOrientation::Horizontal ? stepY : stepX) * scale;
-    } else if (direction == QStringLiteral("positive")) {
-        delta = (guide->orientation == GuideOrientation::Horizontal ? stepY : stepX) * scale;
-    } else {
+    const DraftingGuidePlan plan = offsetGuide(*guide, toStdString(direction), stepX, stepY, scale);
+    if (!plan.ok) {
         return false;
     }
-
-    GuideGeometry next = *guide;
-    next.position += delta;
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, next});
+        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
     if (!result.ok) {
         return false;
     }
@@ -2193,23 +2136,11 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
         return false;
     }
 
-    GuideGeometry guide;
-    const Bounds2D bounds = source->bounds;
-    if (placementId == QStringLiteral("left")) {
-        guide = {GuideOrientation::Vertical, bounds.x};
-    } else if (placementId == QStringLiteral("right")) {
-        guide = {GuideOrientation::Vertical, bounds.x + bounds.width};
-    } else if (placementId == QStringLiteral("vertical_center")) {
-        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0};
-    } else if (placementId == QStringLiteral("top")) {
-        guide = {GuideOrientation::Horizontal, bounds.y};
-    } else if (placementId == QStringLiteral("bottom")) {
-        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height};
-    } else if (placementId == QStringLiteral("horizontal_center")) {
-        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0};
-    } else {
+    const DraftingGuidePlan plan = guideFromBoundsPlacement(source->bounds, toStdString(placementId));
+    if (!plan.ok) {
         return false;
     }
+    const GuideGeometry guide = plan.geometry;
 
     if (existingGuideId(m_document, guide)) {
         return true;
@@ -2251,27 +2182,11 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
     const double scale = nudgeScaleForMode(stepMode);
     const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep) * scale;
     const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep) * scale;
-    const Bounds2D bounds = source->bounds;
-    GuideGeometry guide;
-    if (placementId == QStringLiteral("left")) {
-        guide = {GuideOrientation::Vertical, bounds.x - stepX};
-    } else if (placementId == QStringLiteral("right")) {
-        guide = {GuideOrientation::Vertical, bounds.x + bounds.width + stepX};
-    } else if (placementId == QStringLiteral("center_x_minus")) {
-        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0 - stepX};
-    } else if (placementId == QStringLiteral("center_x_plus")) {
-        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0 + stepX};
-    } else if (placementId == QStringLiteral("top")) {
-        guide = {GuideOrientation::Horizontal, bounds.y - stepY};
-    } else if (placementId == QStringLiteral("bottom")) {
-        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height + stepY};
-    } else if (placementId == QStringLiteral("center_y_minus")) {
-        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0 - stepY};
-    } else if (placementId == QStringLiteral("center_y_plus")) {
-        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0 + stepY};
-    } else {
+    const DraftingGuidePlan plan = offsetGuideFromBoundsPlacement(source->bounds, toStdString(placementId), stepX, stepY);
+    if (!plan.ok) {
         return false;
     }
+    const GuideGeometry guide = plan.geometry;
 
     if (existingGuideId(m_document, guide)) {
         return true;

@@ -821,12 +821,24 @@ QWidget *EdiShellWindow::buildNudgeControls()
         });
         layout->addWidget(button, row, column);
     };
+    auto addSafeButton = [this, layout](const QString &label, const QString &direction, int row, int column) {
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("nudgeButton"));
+        connect(button, &QPushButton::clicked, this, [this, direction]() {
+            m_controller->nudgeSelectionInsideDrawable(direction, QStringLiteral("grid"));
+        });
+        layout->addWidget(button, row, column);
+    };
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Nudge")), 0, 0, 1, 3);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Nudge")), 0, 0, 1, 4);
     addButton(QStringLiteral("Grid Up"), QStringLiteral("up"), QStringLiteral("grid"), 1, 1);
     addButton(QStringLiteral("Grid Left"), QStringLiteral("left"), QStringLiteral("grid"), 2, 0);
     addButton(QStringLiteral("Grid Right"), QStringLiteral("right"), QStringLiteral("grid"), 2, 2);
     addButton(QStringLiteral("Grid Down"), QStringLiteral("down"), QStringLiteral("grid"), 3, 1);
+    addSafeButton(QStringLiteral("Safe Up"), QStringLiteral("up"), 1, 3);
+    addSafeButton(QStringLiteral("Safe Left"), QStringLiteral("left"), 2, 3);
+    addSafeButton(QStringLiteral("Safe Right"), QStringLiteral("right"), 3, 3);
+    addSafeButton(QStringLiteral("Safe Down"), QStringLiteral("down"), 4, 3);
     addButton(QStringLiteral("Fine Up"), QStringLiteral("up"), QStringLiteral("fine"), 4, 1);
     addButton(QStringLiteral("Fine Left"), QStringLiteral("left"), QStringLiteral("fine"), 5, 0);
     addButton(QStringLiteral("Fine Right"), QStringLiteral("right"), QStringLiteral("fine"), 5, 2);

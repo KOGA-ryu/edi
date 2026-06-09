@@ -65,6 +65,7 @@ public:
     bool moveActiveLayer(const QString &direction);
     bool moveSelectedObjectToLayer(const QString &layerId);
     bool nudgeSelection(const QString &direction, const QString &stepMode);
+    bool nudgeSelectionInsideDrawable(const QString &direction, const QString &stepMode);
     bool offsetSelectedObject(const QString &sideId);
     bool mirrorSelectedObject(const QString &axisId);
     bool repeatSelectedObject(const QString &axisId);

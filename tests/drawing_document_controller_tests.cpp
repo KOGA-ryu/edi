@@ -746,6 +746,43 @@ int main(int argc, char **argv)
     assert(!fitNonPlottingController.fitSelectionToDrawableBounds());
     assert(fitNonPlottingController.modelDocument().value("revision").toInt() == fitNonPlottingRevision);
 
+    DrawingDocumentController safeNudgeNoSelectionController;
+    assert(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("right", "grid"));
+    assert(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("diagonal", "grid"));
+
+    DrawingDocumentController safeNudgeController;
+    safeNudgeController.setSelectedToolId("point_tool");
+    safeNudgeController.clickCanvasNormalized(0.5, 0.5);
+    assert(safeNudgeController.nudgeSelectionInsideDrawable("right", "grid"));
+    QVariantMap safeNudgedPoint = safeNudgeController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(safeNudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
+    assert(nearlyEqual(safeNudgedPoint.value("y").toDouble(), 0.5));
+
+    DrawingDocumentController safeNudgeBlockedController;
+    safeNudgeBlockedController.setSelectedToolId("point_tool");
+    safeNudgeBlockedController.clickCanvasNormalized(0.0, 0.0);
+    assert(safeNudgeBlockedController.fitSelectionToDrawableBounds());
+    const int safeNudgeBlockedRevision = safeNudgeBlockedController.modelDocument().value("revision").toInt();
+    assert(!safeNudgeBlockedController.nudgeSelectionInsideDrawable("left", "grid"));
+    QVariantMap safeNudgeBlockedPoint = safeNudgeBlockedController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(safeNudgeBlockedController.modelDocument().value("revision").toInt() == safeNudgeBlockedRevision);
+    assert(nearlyEqual(safeNudgeBlockedPoint.value("x").toDouble(), squareQuarterInchStep + 0.005));
+
+    DrawingDocumentController safeNudgeLockedController;
+    safeNudgeLockedController.setSelectedToolId("point_tool");
+    safeNudgeLockedController.clickCanvasNormalized(0.5, 0.5);
+    assert(safeNudgeLockedController.setSelectedObjectLocked(true));
+    const int safeNudgeLockedRevision = safeNudgeLockedController.modelDocument().value("revision").toInt();
+    assert(!safeNudgeLockedController.nudgeSelectionInsideDrawable("right", "grid"));
+    assert(safeNudgeLockedController.modelDocument().value("revision").toInt() == safeNudgeLockedRevision);
+
+    DrawingDocumentController safeNudgeNonPlottingController;
+    safeNudgeNonPlottingController.setSelectedToolId("horizontal_guide_tool");
+    safeNudgeNonPlottingController.clickCanvasNormalized(0.5, 0.5);
+    const int safeNudgeNonPlottingRevision = safeNudgeNonPlottingController.modelDocument().value("revision").toInt();
+    assert(!safeNudgeNonPlottingController.nudgeSelectionInsideDrawable("right", "grid"));
+    assert(safeNudgeNonPlottingController.modelDocument().value("revision").toInt() == safeNudgeNonPlottingRevision);
+
     DrawingDocumentController calibrationController;
     assert(calibrationController.createCalibrationPattern("test_square"));
     QVariantMap calibrationModel = calibrationController.modelDocument();

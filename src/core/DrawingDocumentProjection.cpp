@@ -1,6 +1,7 @@
 #include "core/DrawingDocumentProjection.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
 #include "drafting/DraftingObjectEdit.h"
@@ -221,16 +222,15 @@ bool canAlignToGuide(const DraftingObject &object)
 
 bool equivalentGuide(const DraftingObject &a, const DraftingObject &b)
 {
-    if (a.kind != DraftingShapeKind::Guide || b.kind != DraftingShapeKind::Guide) {
+    if (!isGuideObject(a) || !isGuideObject(b)) {
         return false;
     }
     const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
     const auto *guideB = std::get_if<GuideGeometry>(&b.geometry);
-    if (guideA == nullptr || guideB == nullptr || guideA->orientation != guideB->orientation) {
+    if (guideA == nullptr || guideB == nullptr) {
         return false;
     }
-    constexpr double epsilon = 0.000001;
-    return std::abs(guideA->position - guideB->position) <= epsilon;
+    return sameGuide(*guideA, *guideB);
 }
 
 bool hasPriorEquivalentGuide(const std::vector<const DraftingObject *> &objects, std::size_t index)
@@ -597,7 +597,7 @@ QVariantMap draftingDocumentToModelProjection(
     int duplicateGuideCount = 0;
     for (std::size_t index = 0; index < sortedObjects.size(); ++index) {
         const DraftingObject &object = *sortedObjects[index];
-        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+        if (!isGuideObject(object)) {
             continue;
         }
         ++guideCount;

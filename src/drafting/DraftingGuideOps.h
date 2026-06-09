@@ -24,6 +24,7 @@ struct DraftingGuidePlan {
 };
 
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b);
+bool isGuideObject(const DraftingObject &object);
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide);
 std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &document, GuideOrientation orientation, double target);
 DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawable, DraftingGuideDrawablePlacement placement);

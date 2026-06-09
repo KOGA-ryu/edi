@@ -32,10 +32,15 @@ bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
     return a.orientation == b.orientation && std::abs(a.position - b.position) <= epsilon;
 }
 
+bool isGuideObject(const DraftingObject &object)
+{
+    return object.kind == DraftingShapeKind::Guide && kindMatchesGeometry(object.kind, object.geometry);
+}
+
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide)
 {
     for (const DraftingObject &object : document.objects) {
-        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+        if (!isGuideObject(object)) {
             continue;
         }
         const auto *existing = std::get_if<GuideGeometry>(&object.geometry);
@@ -56,7 +61,7 @@ std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &docume
     double bestPosition = 0.0;
     double bestDistance = std::numeric_limits<double>::max();
     for (const DraftingObject &object : document.objects) {
-        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+        if (!isGuideObject(object)) {
             continue;
         }
         const DraftingLayer *layer = findLayer(document, object.layerId);

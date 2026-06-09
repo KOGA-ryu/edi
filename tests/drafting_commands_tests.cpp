@@ -269,5 +269,64 @@ int main()
     assert(badSelectionMove.code == DraftingResultCode::InvalidGeometry);
     assert(editDocument.revision == revisionBeforeBadMove);
 
+    DraftingDocument guideCommandDocument = makeDraftingDocument("guide_command_doc");
+    auto guideA = buildDraftingObject("guide_a", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25});
+    auto guideDuplicate = buildDraftingObject("guide_dup", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.2500005});
+    auto guideHorizontal = buildDraftingObject("guide_h", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.25});
+    auto guideLine = buildDraftingObject("guide_line", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.0}});
+    assert(guideA.ok);
+    assert(guideDuplicate.ok);
+    assert(guideHorizontal.ok);
+    assert(guideLine.ok);
+    assert(applyDraftingCommand(guideCommandDocument, CreateObjectCommand{guideA.object}).ok);
+    assert(applyDraftingCommand(guideCommandDocument, CreateObjectCommand{guideDuplicate.object}).ok);
+    assert(applyDraftingCommand(guideCommandDocument, CreateObjectCommand{guideHorizontal.object}).ok);
+    assert(applyDraftingCommand(guideCommandDocument, CreateObjectCommand{guideLine.object}).ok);
+    assert(applyDraftingCommand(guideCommandDocument, SelectObjectCommand{"guide_dup"}).ok);
+    const auto revisionBeforeGuideMerge = guideCommandDocument.revision;
+    auto mergeGuides = applyDraftingCommand(guideCommandDocument, MergeDuplicateGuidesCommand{});
+    assert(mergeGuides.ok);
+    assert(guideCommandDocument.revision == revisionBeforeGuideMerge + 1);
+    assert(containsObject(guideCommandDocument, "guide_a"));
+    assert(!containsObject(guideCommandDocument, "guide_dup"));
+    assert(containsObject(guideCommandDocument, "guide_h"));
+    assert(containsObject(guideCommandDocument, "guide_line"));
+    assert(!guideCommandDocument.activeObjectId);
+
+    const auto revisionBeforeNoopGuideMerge = guideCommandDocument.revision;
+    auto noopMergeGuides = applyDraftingCommand(guideCommandDocument, MergeDuplicateGuidesCommand{});
+    assert(noopMergeGuides.ok);
+    assert(guideCommandDocument.revision == revisionBeforeNoopGuideMerge);
+
+    auto hideGuides = applyDraftingCommand(guideCommandDocument, SetAllGuidesVisibleCommand{false});
+    assert(hideGuides.ok);
+    const DraftingObject *hiddenGuideA = findObject(guideCommandDocument, "guide_a");
+    const DraftingObject *hiddenGuideH = findObject(guideCommandDocument, "guide_h");
+    const DraftingObject *visibleLine = findObject(guideCommandDocument, "guide_line");
+    assert(hiddenGuideA != nullptr);
+    assert(hiddenGuideH != nullptr);
+    assert(visibleLine != nullptr);
+    assert(!hiddenGuideA->visible);
+    assert(!hiddenGuideH->visible);
+    assert(visibleLine->visible);
+
+    auto lockGuides = applyDraftingCommand(guideCommandDocument, SetAllGuidesLockedCommand{true});
+    assert(lockGuides.ok);
+    hiddenGuideA = findObject(guideCommandDocument, "guide_a");
+    hiddenGuideH = findObject(guideCommandDocument, "guide_h");
+    visibleLine = findObject(guideCommandDocument, "guide_line");
+    assert(hiddenGuideA != nullptr);
+    assert(hiddenGuideH != nullptr);
+    assert(visibleLine != nullptr);
+    assert(hiddenGuideA->locked);
+    assert(hiddenGuideH->locked);
+    assert(!visibleLine->locked);
+
+    auto deleteGuides = applyDraftingCommand(guideCommandDocument, DeleteAllGuidesCommand{});
+    assert(deleteGuides.ok);
+    assert(!containsObject(guideCommandDocument, "guide_a"));
+    assert(!containsObject(guideCommandDocument, "guide_h"));
+    assert(containsObject(guideCommandDocument, "guide_line"));
+
     return 0;
 }

@@ -1,5 +1,6 @@
 #include "drafting/DraftingCommands.h"
 
+#include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
 #include "drafting/DraftingSelection.h"
@@ -37,20 +38,14 @@ bool commandModeIsDistribute(DraftingAlignmentMode mode)
     return mode == DraftingAlignmentMode::DistributeX || mode == DraftingAlignmentMode::DistributeY;
 }
 
-bool isGuideObject(const DraftingObject &object)
-{
-    return object.kind == DraftingShapeKind::Guide && kindMatchesGeometry(object.kind, object.geometry);
-}
-
 bool sameGuidePosition(const DraftingObject &a, const DraftingObject &b)
 {
     const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
     const auto *guideB = std::get_if<GuideGeometry>(&b.geometry);
-    if (guideA == nullptr || guideB == nullptr || guideA->orientation != guideB->orientation) {
+    if (guideA == nullptr || guideB == nullptr) {
         return false;
     }
-    constexpr double epsilon = 0.000001;
-    return std::abs(guideA->position - guideB->position) <= epsilon;
+    return sameGuide(*guideA, *guideB);
 }
 
 bool hasEarlierEquivalentGuide(const std::vector<DraftingObject> &objects, std::size_t index)

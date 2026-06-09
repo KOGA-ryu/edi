@@ -30,6 +30,8 @@ int main()
 {
     assert(sameGuide({GuideOrientation::Vertical, 0.5}, {GuideOrientation::Vertical, 0.5000005}));
     assert(!sameGuide({GuideOrientation::Vertical, 0.5}, {GuideOrientation::Horizontal, 0.5}));
+    assert(isGuideObject(object("guide_kind", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.1})));
+    assert(!isGuideObject(object("point_kind", DraftingShapeKind::Point, PointGeometry{{0.1, 0.2}})));
 
     DraftingDocument document = makeDraftingDocument("guide_ops_doc");
     assert(addLayer(document, makeDraftingLayer("hidden", "Hidden", 2)).ok);

@@ -1529,7 +1529,7 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
     if (!plan.ok) {
         return false;
     }
-    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
+    if (!translationHasEffect(plan.dx, plan.dy)) {
         return true;
     }
 
@@ -1555,7 +1555,7 @@ bool DrawingDocumentController::centerSelectionInDrawable()
     if (!plan.ok) {
         return false;
     }
-    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
+    if (!translationHasEffect(plan.dx, plan.dy)) {
         return true;
     }
 
@@ -1581,7 +1581,7 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
     if (!plan.ok) {
         return false;
     }
-    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
+    if (!translationHasEffect(plan.dx, plan.dy)) {
         return true;
     }
 
@@ -1903,7 +1903,7 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
     if (!plan.ok) {
         return false;
     }
-    if (std::abs(plan.dx) <= 0.0000001 && std::abs(plan.dy) <= 0.0000001) {
+    if (!translationHasEffect(plan.dx, plan.dy)) {
         return true;
     }
 

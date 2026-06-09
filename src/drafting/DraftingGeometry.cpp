@@ -397,6 +397,14 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
     }, geometry);
 }
 
+bool translationHasEffect(double dx, double dy)
+{
+    constexpr double epsilon = 0.0000001;
+    return std::isfinite(dx)
+        && std::isfinite(dy)
+        && (std::abs(dx) >= epsilon || std::abs(dy) >= epsilon);
+}
+
 double distance(Point2D a, Point2D b)
 {
     const double dx = b.x - a.x;

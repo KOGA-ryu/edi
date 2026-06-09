@@ -29,6 +29,7 @@ Bounds2D includeBounds(Bounds2D bounds, Bounds2D next);
 bool boundsContainsPoint(Bounds2D bounds, Point2D point);
 DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, double dy);
 Point2D translatePoint(Point2D point, double dx, double dy);
+bool translationHasEffect(double dx, double dy);
 double distance(Point2D a, Point2D b);
 double lineAngleDegrees(const LineGeometry &line);
 double dimensionAngleDegrees(const DimensionGeometry &dimension);

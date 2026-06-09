@@ -75,6 +75,11 @@ int main()
     const auto *movedGuideGeometry = std::get_if<GuideGeometry>(&movedGuide);
     assert(movedGuideGeometry != nullptr);
     assert(movedGuideGeometry->position == 0.5);
+    assert(!translationHasEffect(0.0, 0.0));
+    assert(!translationHasEffect(0.00000001, 0.0));
+    assert(translationHasEffect(0.0000001, 0.0));
+    assert(translationHasEffect(0.0, -0.0000001));
+    assert(!translationHasEffect(std::numeric_limits<double>::infinity(), 0.0));
 
     DraftingGeometry construction = ConstructionLineGeometry{{0.2, 0.3}, {0.8, 0.9}};
     Bounds2D constructionBounds = computeBounds(construction);

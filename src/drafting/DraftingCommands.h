@@ -68,6 +68,11 @@ struct SetActiveLayerCommand {
     LayerId layerId;
 };
 
+struct MoveLayerCommand {
+    LayerId layerId;
+    int delta = 0;
+};
+
 struct UpdateLayerFlagsCommand {
     LayerId layerId;
     bool locked = false;
@@ -103,6 +108,7 @@ using DraftingCommand = std::variant<
     CreateLayerCommand,
     RenameLayerCommand,
     SetActiveLayerCommand,
+    MoveLayerCommand,
     UpdateLayerFlagsCommand,
     AlignSelectionCommand,
     DistributeSelectionCommand,

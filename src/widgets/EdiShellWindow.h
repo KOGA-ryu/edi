@@ -80,6 +80,8 @@ private:
     QComboBox *m_activeLayer = nullptr;
     QComboBox *m_selectedObjectLayer = nullptr;
     QPushButton *m_addLayerButton = nullptr;
+    QPushButton *m_layerUpButton = nullptr;
+    QPushButton *m_layerDownButton = nullptr;
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;

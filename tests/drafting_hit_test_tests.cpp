@@ -65,6 +65,21 @@ int main()
     DraftingHitTestResult miss = hitTestDocument(document, {0.9, 0.9}, DraftingHitTestSettings{0.01});
     assert(!miss.ok);
 
+    DraftingDocument layeredHitDocument = makeDraftingDocument("layered_hit_doc");
+    assert(addLayer(layeredHitDocument, makeDraftingLayer("top", "Top", 1)).ok);
+    DraftingObject bottomRect = object("bottom_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.25, 0.25}, 0.5, 0.5});
+    DraftingObject topRect = object("top_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.25, 0.25}, 0.5, 0.5});
+    topRect.layerId = "top";
+    assert(addObject(layeredHitDocument, bottomRect).ok);
+    assert(addObject(layeredHitDocument, topRect).ok);
+    DraftingHitTestResult topLayerHit = hitTestDocument(layeredHitDocument, {0.5, 0.5});
+    assert(topLayerHit.ok);
+    assert(topLayerHit.objectId == "top_rect");
+    assert(updateLayerFlags(layeredHitDocument, "top", false, false).ok);
+    DraftingHitTestResult hiddenTopLayerHit = hitTestDocument(layeredHitDocument, {0.5, 0.5});
+    assert(hiddenTopLayerHit.ok);
+    assert(hiddenTopLayerHit.objectId == "bottom_rect");
+
     document.objects[2].visible = false;
     DraftingHitTestResult hiddenMiss = hitTestDocument(document, {0.5, 0.5});
     assert(hiddenMiss.ok);

@@ -509,6 +509,29 @@ int main(int argc, char **argv)
     assert(!layerManagementController.moveSelectedObjectToLayer("layer_2"));
     assert(layerManagementController.setActiveLayerLocked(false));
 
+    DrawingDocumentController layerOrderController;
+    layerOrderController.setSelectedToolId("point_tool");
+    layerOrderController.clickCanvasNormalized(0.1, 0.1);
+    assert(layerOrderController.createLayer());
+    assert(layerOrderController.activeLayerId() == "layer_2");
+    layerOrderController.clickCanvasNormalized(0.2, 0.2);
+    QVariantMap layerOrderModel = layerOrderController.modelDocument();
+    QVariantList orderedLayers = layerOrderModel.value("layers").toList();
+    assert(orderedLayers[0].toMap().value("id").toString() == "default");
+    assert(orderedLayers[1].toMap().value("id").toString() == "layer_2");
+    QVariantList orderedObjects = layerOrderModel.value("drawing_objects").toList();
+    assert(orderedObjects[0].toMap().value("layer_id").toString() == "default");
+    assert(orderedObjects[1].toMap().value("layer_id").toString() == "layer_2");
+    assert(layerOrderController.moveActiveLayer("down"));
+    layerOrderModel = layerOrderController.modelDocument();
+    orderedLayers = layerOrderModel.value("layers").toList();
+    assert(orderedLayers[0].toMap().value("id").toString() == "layer_2");
+    assert(orderedLayers[1].toMap().value("id").toString() == "default");
+    orderedObjects = layerOrderModel.value("drawing_objects").toList();
+    assert(orderedObjects[0].toMap().value("layer_id").toString() == "layer_2");
+    assert(orderedObjects[1].toMap().value("layer_id").toString() == "default");
+    assert(!layerOrderController.moveActiveLayer("sideways"));
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);

@@ -67,6 +67,15 @@ int main()
     auto setDefaultLayerCommand = applyDraftingCommand(layerCommandDocument, SetActiveLayerCommand{"default"});
     assert(setDefaultLayerCommand.ok);
     assert(layerCommandDocument.activeLayerId == "default");
+    const auto revisionBeforeMoveLayerCommand = layerCommandDocument.revision;
+    auto moveDefaultLayerUpCommand = applyDraftingCommand(layerCommandDocument, MoveLayerCommand{"default", 1});
+    assert(moveDefaultLayerUpCommand.ok);
+    assert(layerCommandDocument.layers[0].id == "ink");
+    assert(layerCommandDocument.layers[1].id == "default");
+    assert(layerCommandDocument.revision == revisionBeforeMoveLayerCommand + 1);
+    auto moveMissingLayerCommand = applyDraftingCommand(layerCommandDocument, MoveLayerCommand{"missing_layer", 1});
+    assert(!moveMissingLayerCommand.ok);
+    assert(moveMissingLayerCommand.code == DraftingResultCode::LayerNotFound);
     auto commandLineBuild = buildDraftingObject("command_line", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.0}});
     assert(commandLineBuild.ok);
     assert(applyDraftingCommand(layerCommandDocument, CreateObjectCommand{commandLineBuild.object}).ok);

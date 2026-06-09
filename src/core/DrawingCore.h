@@ -53,6 +53,7 @@ public:
     bool createLayer();
     bool renameActiveLayer(const QString &name);
     bool setActiveLayerId(const QString &layerId);
+    bool moveActiveLayer(const QString &direction);
     bool moveSelectedObjectToLayer(const QString &layerId);
     bool nudgeSelection(const QString &direction, const QString &stepMode);
     bool offsetSelectedObject(const QString &sideId);

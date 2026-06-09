@@ -7,7 +7,10 @@
 
 #include <QVariantList>
 
+#include <algorithm>
+#include <limits>
 #include <type_traits>
+#include <vector>
 
 namespace drawing_core {
 namespace {
@@ -43,6 +46,12 @@ QVariantMap layerToMap(const DraftingLayer &layer)
         {QStringLiteral("visible"), layer.visible},
         {QStringLiteral("locked"), layer.locked},
     };
+}
+
+int layerOrderForObject(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    return layer == nullptr ? std::numeric_limits<int>::max() : layer->order;
 }
 
 } // namespace
@@ -143,7 +152,16 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
 QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, const DraftingSnapSettings &snapSettings, const DraftingObject *previewObject)
 {
     QVariantList objects;
+    std::vector<const DraftingObject *> sortedObjects;
+    sortedObjects.reserve(document.objects.size());
     for (const DraftingObject &object : document.objects) {
+        sortedObjects.push_back(&object);
+    }
+    std::stable_sort(sortedObjects.begin(), sortedObjects.end(), [&](const DraftingObject *a, const DraftingObject *b) {
+        return layerOrderForObject(document, *a) < layerOrderForObject(document, *b);
+    });
+    for (const DraftingObject *objectPointer : sortedObjects) {
+        const DraftingObject &object = *objectPointer;
         QVariantMap projected = draftingObjectToCanvasProjection(object);
         const DraftingLayer *layer = findLayer(document, object.layerId);
         const bool layerVisible = layer == nullptr ? false : layer->visible;
@@ -159,8 +177,16 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
         selectedObjectIds.push_back(qStringFromStdString(id));
     }
     QVariantList layers;
+    std::vector<const DraftingLayer *> sortedLayers;
+    sortedLayers.reserve(document.layers.size());
     for (const DraftingLayer &layer : document.layers) {
-        layers.push_back(layerToMap(layer));
+        sortedLayers.push_back(&layer);
+    }
+    std::stable_sort(sortedLayers.begin(), sortedLayers.end(), [](const DraftingLayer *a, const DraftingLayer *b) {
+        return a->order < b->order;
+    });
+    for (const DraftingLayer *layer : sortedLayers) {
+        layers.push_back(layerToMap(*layer));
     }
 
     QVariantMap result {

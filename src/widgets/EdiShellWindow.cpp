@@ -502,6 +502,28 @@ QWidget *EdiShellWindow::buildLayerControls()
     });
     layout->addWidget(m_addLayerButton);
 
+    auto *orderRow = new QWidget;
+    auto *orderLayout = new QHBoxLayout(orderRow);
+    orderLayout->setContentsMargins(0, 0, 0, 0);
+    orderLayout->setSpacing(6);
+
+    m_layerDownButton = new QPushButton(QStringLiteral("Down"));
+    m_layerDownButton->setObjectName(QStringLiteral("layerOrderButton"));
+    connect(m_layerDownButton, &QPushButton::clicked, this, [this]() {
+        m_controller->moveActiveLayer(QStringLiteral("down"));
+    });
+
+    m_layerUpButton = new QPushButton(QStringLiteral("Up"));
+    m_layerUpButton->setObjectName(QStringLiteral("layerOrderButton"));
+    connect(m_layerUpButton, &QPushButton::clicked, this, [this]() {
+        m_controller->moveActiveLayer(QStringLiteral("up"));
+    });
+
+    orderLayout->addWidget(m_layerDownButton);
+    orderLayout->addWidget(m_layerUpButton);
+    orderLayout->addStretch(1);
+    layout->addWidget(orderRow);
+
     auto *row = new QWidget;
     auto *rowLayout = new QHBoxLayout(row);
     rowLayout->setContentsMargins(0, 0, 0, 0);
@@ -946,6 +968,12 @@ void EdiShellWindow::refreshInspector()
         const QSignalBlocker blocker(m_defaultLayerVisible);
         m_defaultLayerVisible->setEnabled(!activeLayer.isEmpty());
         m_defaultLayerVisible->setChecked(activeLayer.isEmpty() ? false : activeLayer.value(QStringLiteral("visible")).toBool());
+    }
+    if (m_layerDownButton != nullptr) {
+        m_layerDownButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() > 0);
+    }
+    if (m_layerUpButton != nullptr) {
+        m_layerUpButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() + 1 < layers.size());
     }
     refreshLayerCombo(m_activeLayer, layers, activeLayerId, true);
     refreshLayerCombo(

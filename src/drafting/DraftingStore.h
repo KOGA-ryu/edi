@@ -24,6 +24,7 @@ DraftingStoreResult moveObjectToLayer(DraftingDocument &document, const Drafting
 DraftingStoreResult addLayer(DraftingDocument &document, DraftingLayer layer, bool makeActive = false);
 DraftingStoreResult renameLayer(DraftingDocument &document, const LayerId &id, std::string name);
 DraftingStoreResult setActiveLayer(DraftingDocument &document, const LayerId &id);
+DraftingStoreResult moveLayer(DraftingDocument &document, const LayerId &id, int delta);
 DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible);
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy);
 

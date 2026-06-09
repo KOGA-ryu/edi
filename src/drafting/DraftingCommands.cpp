@@ -93,6 +93,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(renameLayer(document, typedCommand.layerId, typedCommand.name));
         } else if constexpr (std::is_same_v<Command, SetActiveLayerCommand>) {
             return fromStoreResult(setActiveLayer(document, typedCommand.layerId));
+        } else if constexpr (std::is_same_v<Command, MoveLayerCommand>) {
+            return fromStoreResult(moveLayer(document, typedCommand.layerId, typedCommand.delta));
         } else if constexpr (std::is_same_v<Command, UpdateLayerFlagsCommand>) {
             return fromStoreResult(updateLayerFlags(document, typedCommand.layerId, typedCommand.locked, typedCommand.visible));
         } else if constexpr (std::is_same_v<Command, AlignSelectionCommand>) {

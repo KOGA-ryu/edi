@@ -629,6 +629,28 @@ bool DrawingDocumentController::setActiveLayerId(const QString &layerId)
     return true;
 }
 
+bool DrawingDocumentController::moveActiveLayer(const QString &direction)
+{
+    int delta = 0;
+    if (direction == QStringLiteral("up")) {
+        delta = 1;
+    } else if (direction == QStringLiteral("down")) {
+        delta = -1;
+    } else {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        MoveLayerCommand{m_document.activeLayerId, delta});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::moveSelectedObjectToLayer(const QString &layerId)
 {
     if (!m_document.activeObjectId) {

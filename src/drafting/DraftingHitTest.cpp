@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <type_traits>
+#include <vector>
 
 namespace edi::drafting {
 namespace {
@@ -42,6 +43,12 @@ double distanceToVertexList(const std::vector<Point2D> &vertices, Point2D point,
         best = std::min(best, distanceToSegment(vertices.back(), vertices.front(), point));
     }
     return best;
+}
+
+int layerOrderForObject(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    return layer == nullptr ? std::numeric_limits<int>::max() : layer->order;
 }
 
 } // namespace
@@ -117,7 +124,17 @@ DraftingHitTestResult hitTestDocument(const DraftingDocument &document, Point2D 
 
     DraftingHitTestResult best;
     best.distance = settings.tolerance;
+    std::vector<const DraftingObject *> sortedObjects;
+    sortedObjects.reserve(document.objects.size());
     for (const DraftingObject &object : document.objects) {
+        sortedObjects.push_back(&object);
+    }
+    std::stable_sort(sortedObjects.begin(), sortedObjects.end(), [&](const DraftingObject *a, const DraftingObject *b) {
+        return layerOrderForObject(document, *a) < layerOrderForObject(document, *b);
+    });
+
+    for (const DraftingObject *objectPointer : sortedObjects) {
+        const DraftingObject &object = *objectPointer;
         const DraftingLayer *layer = findLayer(document, object.layerId);
         if (layer == nullptr || !layer->visible) {
             continue;

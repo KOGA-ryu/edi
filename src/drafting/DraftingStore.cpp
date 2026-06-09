@@ -4,10 +4,45 @@
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingSelection.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <utility>
+#include <vector>
 
 namespace edi::drafting {
+
+namespace {
+
+bool assignSequentialLayerOrders(DraftingDocument &document)
+{
+    bool changed = false;
+    for (std::size_t index = 0; index < document.layers.size(); ++index) {
+        changed = changed || document.layers[index].order != static_cast<int>(index);
+        document.layers[index].order = static_cast<int>(index);
+    }
+    return changed;
+}
+
+bool sortAndNormalizeLayerOrder(DraftingDocument &document)
+{
+    std::vector<LayerId> before;
+    before.reserve(document.layers.size());
+    for (const DraftingLayer &layer : document.layers) {
+        before.push_back(layer.id);
+    }
+
+    std::stable_sort(document.layers.begin(), document.layers.end(), [](const DraftingLayer &a, const DraftingLayer &b) {
+        return a.order < b.order;
+    });
+    bool changed = assignSequentialLayerOrders(document);
+    for (std::size_t index = 0; index < document.layers.size(); ++index) {
+        changed = changed || before[index] != document.layers[index].id;
+    }
+    return changed;
+}
+
+} // namespace
 
 DraftingStoreResult DraftingStoreResult::accepted()
 {
@@ -179,9 +214,11 @@ DraftingStoreResult addLayer(DraftingDocument &document, DraftingLayer layer, bo
         return DraftingStoreResult::rejected(DraftingResultCode::DuplicateLayerId, "layer id already exists");
     }
 
+    const LayerId newLayerId = layer.id;
     document.layers.push_back(std::move(layer));
+    sortAndNormalizeLayerOrder(document);
     if (makeActive) {
-        document.activeLayerId = document.layers.back().id;
+        document.activeLayerId = newLayerId;
     }
     ++document.revision;
     return DraftingStoreResult::accepted();
@@ -215,6 +252,33 @@ DraftingStoreResult setActiveLayer(DraftingDocument &document, const LayerId &id
         return DraftingStoreResult::accepted();
     }
     document.activeLayerId = id;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult moveLayer(DraftingDocument &document, const LayerId &id, int delta)
+{
+    if (delta == 0) {
+        return DraftingStoreResult::accepted();
+    }
+
+    if (!containsLayer(document, id)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+
+    const bool normalized = sortAndNormalizeLayerOrder(document);
+    const auto index = layerIndexById(document, id);
+    const int direction = delta < 0 ? -1 : 1;
+    const auto target = static_cast<std::ptrdiff_t>(*index) + direction;
+    if (target < 0 || target >= static_cast<std::ptrdiff_t>(document.layers.size())) {
+        if (normalized) {
+            ++document.revision;
+        }
+        return DraftingStoreResult::accepted();
+    }
+
+    std::swap(document.layers[*index], document.layers[static_cast<std::size_t>(target)]);
+    assignSequentialLayerOrders(document);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }

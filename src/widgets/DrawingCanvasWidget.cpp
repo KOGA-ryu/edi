@@ -5,13 +5,13 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <algorithm>
 #include <cmath>
 
 #include "core/DrawingCore.h"
 #include "widgets/DrawingCanvasGestureState.h"
 #include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
+#include "widgets/DrawingCanvasViewport.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
     : QWidget(parent)
@@ -47,39 +47,25 @@ bool DrawingCanvasWidget::plotPreviewVisible() const
 
 QRectF DrawingCanvasWidget::boardRect() const
 {
-    double aspect = 1.0;
+    drawing_canvas::DrawingCanvasViewportInput input;
+    input.widgetWidth = width();
+    input.widgetHeight = height();
     if (m_controller != nullptr) {
         const QVariantMap grid = m_controller->modelDocument().value(QStringLiteral("grid")).toMap();
-        const double gridWidth = grid.value(QStringLiteral("width"), 1.0).toDouble();
-        const double gridHeight = grid.value(QStringLiteral("height"), 1.0).toDouble();
-        if (std::isfinite(gridWidth) && std::isfinite(gridHeight) && gridWidth > 0.0 && gridHeight > 0.0) {
-            aspect = gridWidth / gridHeight;
-        }
+        input.gridWidth = grid.value(QStringLiteral("width"), 1.0).toDouble();
+        input.gridHeight = grid.value(QStringLiteral("height"), 1.0).toDouble();
     }
-
-    const double availableWidth = std::max(1.0, static_cast<double>(width()) - 48.0);
-    const double availableHeight = std::max(1.0, static_cast<double>(height()) - 48.0);
-    double boardWidth = availableWidth;
-    double boardHeight = boardWidth / aspect;
-    if (boardHeight > availableHeight) {
-        boardHeight = availableHeight;
-        boardWidth = boardHeight * aspect;
-    }
-    return QRectF((width() - boardWidth) * 0.5, (height() - boardHeight) * 0.5, boardWidth, boardHeight);
+    return drawing_canvas::viewportBoardRect(input);
 }
 
 QPointF DrawingCanvasWidget::canvasToScreen(double x, double y) const
 {
-    const QRectF board = boardRect();
-    return QPointF(board.left() + x * board.width(), board.top() + y * board.height());
+    return drawing_canvas::canvasToScreen(boardRect(), x, y);
 }
 
 QPointF DrawingCanvasWidget::screenToCanvas(const QPointF &point) const
 {
-    const QRectF board = boardRect();
-    const double x = std::clamp((point.x() - board.left()) / board.width(), 0.0, 1.0);
-    const double y = std::clamp((point.y() - board.top()) / board.height(), 0.0, 1.0);
-    return QPointF(x, y);
+    return drawing_canvas::screenToCanvas(boardRect(), point);
 }
 
 void DrawingCanvasWidget::paintEvent(QPaintEvent *)

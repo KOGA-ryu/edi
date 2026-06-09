@@ -137,7 +137,11 @@ int main()
     assert(nearlyEqual(editedHeightDimension->b.y, 0.9));
 
     DraftingObject polygon = object("polygon_1", DraftingShapeKind::Polygon, PolygonGeometry{{{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}}});
-    assert(draftingHandlesForObject(polygon).empty());
+    auto polygonHandles = draftingHandlesForObject(polygon);
+    assert(polygonHandles.size() == 3);
+    assert(polygonHandles[0].id == "vertex_0");
+    assert(polygonHandles[0].role == "vertex");
+    assert(polygonHandles[0].readOnly);
     assert(!handleEditPlan(polygon, "vertex_0", {0.5, 0.5}).ok);
 
     auto badPointPlan = handleEditPlan(point, "point_position", {std::numeric_limits<double>::infinity(), 0.0});

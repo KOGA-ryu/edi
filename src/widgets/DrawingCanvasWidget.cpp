@@ -2,6 +2,7 @@
 
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPolygonF>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -304,7 +305,7 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
         double bestDistance = 999.0;
         for (const QVariant &handleValue : projectedHandles) {
             const QVariantMap handle = handleValue.toMap();
-            if (handle.value(QStringLiteral("read_only")).toBool()) {
+            if (!handle.value(QStringLiteral("editable"), !handle.value(QStringLiteral("read_only")).toBool()).toBool()) {
                 continue;
             }
             const QPointF point = canvasToScreen(
@@ -313,7 +314,7 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
             const double dx = screenPoint.x() - point.x();
             const double dy = screenPoint.y() - point.y();
             const double distance = std::sqrt(dx * dx + dy * dy);
-            const double threshold = handle.value(QStringLiteral("role")).toString() == QStringLiteral("rotate") ? 18.0 : 14.0;
+            const double threshold = handle.value(QStringLiteral("hit_tolerance_px"), 14.0).toDouble();
             if (distance <= threshold && distance <= bestDistance) {
                 bestDistance = distance;
                 bestId = handle.value(QStringLiteral("id")).toString();
@@ -867,7 +868,6 @@ void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantM
     const QVariantList projectedHandles = object.value(QStringLiteral("edit_handles")).toList();
     if (!projectedHandles.isEmpty()) {
         painter.setPen(QPen(QColor("#1d1f26"), 2));
-        painter.setBrush(QColor("#f6c65b"));
         for (const QVariant &handleValue : projectedHandles) {
             const QVariantMap handle = handleValue.toMap();
             const QPointF point = canvasToScreen(
@@ -879,8 +879,23 @@ void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantM
                     handle.value(QStringLiteral("anchor_y")).toDouble());
                 painter.drawLine(anchor, point);
             }
-            const double size = handle.value(QStringLiteral("role")).toString() == QStringLiteral("rotate") ? 10.0 : 8.0;
-            painter.drawEllipse(QRectF(point.x() - size * 0.5, point.y() - size * 0.5, size, size));
+            const bool editable = handle.value(QStringLiteral("editable"), !handle.value(QStringLiteral("read_only")).toBool()).toBool();
+            const double size = std::max(2.0, handle.value(QStringLiteral("size_px"), 8.0).toDouble());
+            const QRectF rect(point.x() - size * 0.5, point.y() - size * 0.5, size, size);
+            painter.setBrush(editable ? QColor("#f6c65b") : QColor("#79828f"));
+            const QString shape = handle.value(QStringLiteral("shape"), QStringLiteral("circle")).toString();
+            if (shape == QStringLiteral("square")) {
+                painter.drawRect(rect);
+            } else if (shape == QStringLiteral("diamond")) {
+                QPolygonF diamond;
+                diamond << QPointF(point.x(), point.y() - size * 0.55)
+                        << QPointF(point.x() + size * 0.55, point.y())
+                        << QPointF(point.x(), point.y() + size * 0.55)
+                        << QPointF(point.x() - size * 0.55, point.y());
+                painter.drawPolygon(diamond);
+            } else {
+                painter.drawEllipse(rect);
+            }
         }
         return;
     }

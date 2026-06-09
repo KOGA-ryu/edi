@@ -331,13 +331,66 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
     return result;
 }
 
+QString cursorForHandle(const DraftingHandleDescriptor &handle)
+{
+    if (handle.readOnly) {
+        return QStringLiteral("default");
+    }
+    if (handle.role == "rotate") {
+        return QStringLiteral("rotate");
+    }
+    if (handle.role == "offset" || handle.role == "point" || handle.role == "center") {
+        return QStringLiteral("move");
+    }
+    return QStringLiteral("resize");
+}
+
+QString shapeForHandle(const DraftingHandleDescriptor &handle)
+{
+    if (handle.readOnly) {
+        return QStringLiteral("square");
+    }
+    if (handle.role == "offset") {
+        return QStringLiteral("diamond");
+    }
+    return QStringLiteral("circle");
+}
+
+double sizePxForHandle(const DraftingHandleDescriptor &handle)
+{
+    if (handle.readOnly) {
+        return 6.0;
+    }
+    if (handle.role == "rotate") {
+        return 10.0;
+    }
+    return 8.0;
+}
+
+double hitTolerancePxForHandle(const DraftingHandleDescriptor &handle)
+{
+    if (handle.readOnly) {
+        return 0.0;
+    }
+    if (handle.role == "rotate") {
+        return 18.0;
+    }
+    return 14.0;
+}
+
 QVariantList editHandlesForObject(const DraftingObject &object)
 {
     QVariantList result;
     for (const DraftingHandleDescriptor &handle : draftingHandlesForObject(object)) {
+        const double sizePx = sizePxForHandle(handle);
         QVariantMap projected {
             {QStringLiteral("id"), QString::fromStdString(handle.id)},
             {QStringLiteral("role"), QString::fromStdString(handle.role)},
+            {QStringLiteral("cursor"), cursorForHandle(handle)},
+            {QStringLiteral("shape"), shapeForHandle(handle)},
+            {QStringLiteral("size_px"), sizePx},
+            {QStringLiteral("hit_tolerance_px"), hitTolerancePxForHandle(handle)},
+            {QStringLiteral("editable"), !handle.readOnly},
             {QStringLiteral("x"), handle.point.x},
             {QStringLiteral("y"), handle.point.y},
             {QStringLiteral("read_only"), handle.readOnly},
@@ -368,6 +421,13 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             measurementLines.push_back(qStringFromStdString(line));
         }
     }
+    const QVariantList editHandles = editHandlesForObject(object);
+    int editableHandleCount = 0;
+    for (const QVariant &handleValue : editHandles) {
+        if (handleValue.toMap().value(QStringLiteral("editable")).toBool()) {
+            ++editableHandleCount;
+        }
+    }
 
     QVariantMap result {
         {QStringLiteral("id"), qStringFromStdString(object.id)},
@@ -385,13 +445,14 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
-        {QStringLiteral("edit_handles"), editHandlesForObject(object)},
+        {QStringLiteral("edit_handles"), editHandles},
+        {QStringLiteral("handle_count"), editHandles.size()},
+        {QStringLiteral("editable_handle_count"), editableHandleCount},
         {QStringLiteral("guide_drawable_controls"), object.kind == DraftingShapeKind::Guide},
         {QStringLiteral("construction_drawable_controls"), constructionLineCanFitDrawable(object)},
         {QStringLiteral("bounds_guide_controls"), canCreateGuideFromBounds(object)},
         {QStringLiteral("align_to_guide_controls"), canAlignToGuide(object)},
     };
-    result.insert(QStringLiteral("editable_handle_count"), result.value(QStringLiteral("edit_handles")).toList().size());
 
     if (grid != nullptr) {
         result.insert(QStringLiteral("physical_geometry"), physicalGeometryForObject(object, *grid));

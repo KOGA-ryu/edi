@@ -1,4 +1,7 @@
 #include "core/DrawingCore.h"
+#include "core/DrawingDocumentProjection.h"
+
+#include "drafting/DraftingDocument.h"
 
 #include <QCoreApplication>
 #include <QStringList>
@@ -1023,12 +1026,38 @@ int main(int argc, char **argv)
     }
     assert(!dimensionOffsetHandle.isEmpty());
     assert(dimensionOffsetHandle.value("role").toString() == "offset");
+    assert(dimensionOffsetHandle.value("editable").toBool());
+    assert(dimensionOffsetHandle.value("cursor").toString() == "move");
+    assert(dimensionOffsetHandle.value("shape").toString() == "diamond");
+    assert(nearlyEqual(dimensionOffsetHandle.value("size_px").toDouble(), 8.0));
+    assert(nearlyEqual(dimensionOffsetHandle.value("hit_tolerance_px").toDouble(), 14.0));
     assert(nearlyEqual(dimensionOffsetHandle.value("x").toDouble(), 0.218));
     assert(nearlyEqual(dimensionOffsetHandle.value("y").toDouble(), 0.424));
     assert(dimensionOffsetHandle.value("has_anchor").toBool());
     assert(nearlyEqual(dimensionOffsetHandle.value("anchor_x").toDouble(), 0.25));
     assert(nearlyEqual(dimensionOffsetHandle.value("anchor_y").toDouble(), 0.4));
     assert(dimension.value("label").toString() == "0.5 canvas_unit");
+
+    auto projectedPolygonBuild = edi::drafting::buildDraftingObject(
+        "projected_polygon",
+        edi::drafting::DraftingShapeKind::Polygon,
+        edi::drafting::PolygonGeometry{{{0.1, 0.1}, {0.4, 0.1}, {0.4, 0.4}}});
+    assert(projectedPolygonBuild.ok);
+    QVariantMap projectedPolygon = drawing_core::draftingObjectToCanvasProjection(projectedPolygonBuild.object);
+    QVariantList projectedPolygonHandles = projectedPolygon.value("edit_handles").toList();
+    assert(projectedPolygon.value("handle_count").toInt() == 3);
+    assert(projectedPolygon.value("editable_handle_count").toInt() == 0);
+    assert(projectedPolygonHandles.size() == 3);
+    QVariantMap projectedVertex = projectedPolygonHandles.front().toMap();
+    assert(projectedVertex.value("id").toString() == "vertex_0");
+    assert(projectedVertex.value("role").toString() == "vertex");
+    assert(!projectedVertex.value("editable").toBool());
+    assert(projectedVertex.value("read_only").toBool());
+    assert(projectedVertex.value("cursor").toString() == "default");
+    assert(projectedVertex.value("shape").toString() == "square");
+    assert(nearlyEqual(projectedVertex.value("size_px").toDouble(), 6.0));
+    assert(nearlyEqual(projectedVertex.value("hit_tolerance_px").toDouble(), 0.0));
+
     QVariantMap dimensionPhysical = dimension.value("physical_geometry").toMap();
     assert(dimensionPhysical.value("unit_label").toString() == "in");
     assert(nearlyEqual(dimensionPhysical.value("dimension_distance").toDouble(), 6.0));

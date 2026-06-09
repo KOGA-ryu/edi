@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -264,6 +265,19 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"dimension_end", "endpoint", geometry.b},
                 offset,
             };
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>) {
+            std::vector<DraftingHandleDescriptor> handles;
+            handles.reserve(geometry.vertices.size());
+            for (std::size_t index = 0; index < geometry.vertices.size(); ++index) {
+                DraftingHandleDescriptor handle {
+                    "vertex_" + std::to_string(index),
+                    "vertex",
+                    geometry.vertices[index],
+                };
+                handle.readOnly = true;
+                handles.push_back(handle);
+            }
+            return handles;
         } else {
             return {};
         }

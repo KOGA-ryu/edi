@@ -9,6 +9,7 @@
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingOffset.h"
 #include "drafting/DraftingPhysicalEdit.h"
@@ -82,42 +83,6 @@ QString objectIdPrefix(DraftingToolKind kind)
 DraftingToolCreationRequest creationRequest(const QString &toolId, const QString &objectId, const LayerId &layerId, Point2D start, Point2D end)
 {
     return {toolKind(toolId), toStdString(objectId), layerId, start, end, toStdString(toolId)};
-}
-
-QString nextLayerId(const DraftingDocument &document)
-{
-    int serial = static_cast<int>(document.layers.size()) + 1;
-    while (containsLayer(document, toStdString(QStringLiteral("layer_%1").arg(serial)))) {
-        ++serial;
-    }
-    return QStringLiteral("layer_%1").arg(serial);
-}
-
-LayerPlotStyle plotStyleForPenPreset(LayerPlotStyle plot, const QString &presetId)
-{
-    if (presetId == QStringLiteral("pen_blue")) {
-        plot.penId = "pen_blue";
-        plot.strokeColor = "#75c7ff";
-    } else if (presetId == QStringLiteral("pen_red")) {
-        plot.penId = "pen_red";
-        plot.strokeColor = "#d98b8b";
-    } else {
-        plot.penId = "pen_black";
-        plot.strokeColor = "#d7dde8";
-    }
-    return plot;
-}
-
-LayerPlotStyle plotStyleForWidthPreset(LayerPlotStyle plot, const QString &presetId)
-{
-    if (presetId == QStringLiteral("fine")) {
-        plot.strokeWidth = 1.0;
-    } else if (presetId == QStringLiteral("bold")) {
-        plot.strokeWidth = 3.0;
-    } else {
-        plot.strokeWidth = 2.0;
-    }
-    return plot;
 }
 
 bool boundsIntersect(Bounds2D a, Bounds2D b)
@@ -1470,7 +1435,7 @@ bool DrawingDocumentController::setActiveLayerPenPreset(const QString &presetId)
         return false;
     }
 
-    const LayerPlotStyle plot = plotStyleForPenPreset(layer->plot, presetId);
+    const LayerPlotStyle plot = layerPlotStyleForPenPreset(layer->plot, toStdString(presetId));
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateLayerPlotStyleCommand{layer->id, plot});
@@ -1489,7 +1454,7 @@ bool DrawingDocumentController::setActiveLayerStrokeWidthPreset(const QString &p
         return false;
     }
 
-    const LayerPlotStyle plot = plotStyleForWidthPreset(layer->plot, presetId);
+    const LayerPlotStyle plot = layerPlotStyleForWidthPreset(layer->plot, toStdString(presetId));
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateLayerPlotStyleCommand{layer->id, plot});
@@ -1503,11 +1468,13 @@ bool DrawingDocumentController::setActiveLayerStrokeWidthPreset(const QString &p
 
 bool DrawingDocumentController::createLayer()
 {
-    const QString id = nextLayerId(m_document);
-    const QString name = QStringLiteral("Layer %1").arg(m_document.layers.size() + 1);
+    const DraftingLayerCreationPlan plan = planCreateDraftingLayer(m_document);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        CreateLayerCommand{makeDraftingLayer(toStdString(id), toStdString(name), static_cast<int>(m_document.layers.size())), true});
+        CreateLayerCommand{plan.layer, plan.makeActive});
     if (!result.ok) {
         return false;
     }
@@ -1544,18 +1511,14 @@ bool DrawingDocumentController::setActiveLayerId(const QString &layerId)
 
 bool DrawingDocumentController::moveActiveLayer(const QString &direction)
 {
-    int delta = 0;
-    if (direction == QStringLiteral("up")) {
-        delta = 1;
-    } else if (direction == QStringLiteral("down")) {
-        delta = -1;
-    } else {
+    const std::optional<int> delta = layerMoveDeltaFromDirection(toStdString(direction));
+    if (!delta) {
         return false;
     }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        MoveLayerCommand{m_document.activeLayerId, delta});
+        MoveLayerCommand{m_document.activeLayerId, *delta});
     if (!result.ok) {
         return false;
     }

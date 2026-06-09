@@ -713,9 +713,10 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         return;
     }
 
+    const drawing_canvas::DrawingCanvasProjectedStyle style = drawing_canvas::projectedObjectStyle(object);
     QPen pen(
-        selected ? QColor("#f6c65b") : QColor(object.value(QStringLiteral("effective_stroke_color"), QStringLiteral("#d7dde8")).toString()),
-        selected ? 3.0 : object.value(QStringLiteral("effective_stroke_width"), 2.0).toDouble());
+        selected ? QColor("#f6c65b") : QColor(style.strokeColor),
+        selected ? 3.0 : style.strokeWidth);
     if (summary.plotBlocked) {
         pen.setColor(QColor("#d98b8b"));
     }

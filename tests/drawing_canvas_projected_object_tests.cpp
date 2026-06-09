@@ -61,6 +61,27 @@ int main()
     assert(defaultSummary.visible);
     assert(!defaultSummary.bounds.ok);
 
+    const DrawingCanvasProjectedStyle style = projectedObjectStyle(QVariantMap{
+        {QStringLiteral("effective_stroke_color"), QStringLiteral("#123456")},
+        {QStringLiteral("effective_stroke_width"), 4.5}
+    });
+    assert(style.strokeColor == QStringLiteral("#123456"));
+    assert(style.strokeWidth == 4.5);
+
+    const DrawingCanvasProjectedStyle defaultStyle = projectedObjectStyle({});
+    assert(defaultStyle.strokeColor == QStringLiteral("#d7dde8"));
+    assert(defaultStyle.strokeWidth == 2.0);
+
+    const DrawingCanvasProjectedStyle nonFiniteStyle = projectedObjectStyle(QVariantMap{
+        {QStringLiteral("effective_stroke_width"), std::numeric_limits<double>::quiet_NaN()}
+    });
+    assert(nonFiniteStyle.strokeWidth == 2.0);
+
+    const DrawingCanvasProjectedStyle clampedStyle = projectedObjectStyle(QVariantMap{
+        {QStringLiteral("effective_stroke_width"), -10.0}
+    });
+    assert(clampedStyle.strokeWidth == 0.25);
+
     const DrawingCanvasProjectedPointObject pointObject = projectedPointObject(QVariantMap{
         {QStringLiteral("x"), 0.12},
         {QStringLiteral("y"), 0.34}

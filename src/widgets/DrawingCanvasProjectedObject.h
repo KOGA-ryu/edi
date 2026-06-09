@@ -29,6 +29,11 @@ struct DrawingCanvasProjectedObjectSummary {
     DrawingCanvasProjectedBounds bounds;
 };
 
+struct DrawingCanvasProjectedStyle {
+    QString strokeColor = QStringLiteral("#d7dde8");
+    double strokeWidth = 2.0;
+};
+
 struct DrawingCanvasProjectedPointObject {
     bool ok = false;
     double x = 0.0;
@@ -116,6 +121,7 @@ struct DrawingCanvasProjectedHandle {
 };
 
 DrawingCanvasProjectedObjectSummary projectedObjectSummary(const QVariantMap &object);
+DrawingCanvasProjectedStyle projectedObjectStyle(const QVariantMap &object);
 DrawingCanvasProjectedPointObject projectedPointObject(const QVariantMap &object);
 DrawingCanvasProjectedLine projectedLine(const QVariantMap &object);
 DrawingCanvasProjectedRectangle projectedRectangle(const QVariantMap &object);

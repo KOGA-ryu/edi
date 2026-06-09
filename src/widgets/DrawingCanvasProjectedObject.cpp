@@ -59,6 +59,14 @@ DrawingCanvasProjectedObjectSummary projectedObjectSummary(const QVariantMap &ob
     return summary;
 }
 
+DrawingCanvasProjectedStyle projectedObjectStyle(const QVariantMap &object)
+{
+    DrawingCanvasProjectedStyle style;
+    style.strokeColor = object.value(QStringLiteral("effective_stroke_color"), style.strokeColor).toString();
+    style.strokeWidth = std::max(0.25, finiteNumber(object.value(QStringLiteral("effective_stroke_width")), style.strokeWidth));
+    return style;
+}
+
 DrawingCanvasProjectedPointObject projectedPointObject(const QVariantMap &object)
 {
     DrawingCanvasProjectedPointObject point;

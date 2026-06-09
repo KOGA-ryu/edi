@@ -35,6 +35,8 @@ struct DraftingPlotObject {
 struct DraftingPlotSegment {
     DraftingObjectId objectId;
     LayerId layerId;
+    Point2D rawA;
+    Point2D rawB;
     Point2D a;
     Point2D b;
     std::string penId;
@@ -47,6 +49,8 @@ struct DraftingPlotTravelSegment {
     DraftingObjectId toObjectId;
     LayerId toLayerId;
     std::string toPenId;
+    Point2D rawA;
+    Point2D rawB;
     Point2D a;
     Point2D b;
     double distance = 0.0;

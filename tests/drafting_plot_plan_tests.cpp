@@ -283,5 +283,36 @@ int main()
     assert(!invalidPenPlan.penStats.front().ready);
     assert(invalidPenPlan.penStats.front().blockedReason == "missing_pen_id");
 
+    DraftingDocument calibrationDocument = makeDraftingDocument("calibrated_plot_doc");
+    assert(addObject(calibrationDocument, makeObject("scaled_line", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {0.5, 0.0}})).ok);
+    assert(addObject(calibrationDocument, makeObject("scaled_line_2", DraftingShapeKind::Line, LineGeometry{{0.75, 0.0}, {1.0, 0.0}})).ok);
+    DraftingPlotSettings calibratedSettings = defaultDraftingPlotSettings();
+    calibratedSettings.calibrationScale = 2.0;
+    const DraftingPlotPlan calibratedPlan = buildDraftingPlotPlan(calibrationDocument, orderGrid, calibratedSettings);
+    assert(nearlyEqual(calibratedPlan.calibrationScale, 2.0));
+    assert(calibratedPlan.segments.size() == 2);
+    assert(nearlyEqual(calibratedPlan.segments.front().rawA.x, 0.0));
+    assert(nearlyEqual(calibratedPlan.segments.front().rawB.x, 0.5));
+    assert(nearlyEqual(calibratedPlan.segments.front().a.x, 0.0));
+    assert(nearlyEqual(calibratedPlan.segments.front().b.x, 1.0));
+    assert(calibratedPlan.travelSegments.size() == 1);
+    assert(nearlyEqual(calibratedPlan.travelSegments.front().rawA.x, 0.5));
+    assert(nearlyEqual(calibratedPlan.travelSegments.front().rawB.x, 0.75));
+    assert(nearlyEqual(calibratedPlan.travelSegments.front().a.x, 1.0));
+    assert(nearlyEqual(calibratedPlan.travelSegments.front().b.x, 1.5));
+    assert(nearlyEqual(calibratedPlan.travelDistance, 0.5));
+    assert(calibratedPlan.layerStats.size() == 1);
+    assert(nearlyEqual(calibratedPlan.layerStats.front().strokeDistance, 1.5));
+    assert(nearlyEqual(calibratedPlan.layerStats.front().travelDistance, 0.5));
+    assert(calibratedPlan.penStats.size() == 1);
+    assert(nearlyEqual(calibratedPlan.penStats.front().strokeDistance, 1.5));
+    assert(nearlyEqual(calibratedPlan.penStats.front().travelDistance, 0.5));
+
+    calibratedSettings.calibrationScale = -2.0;
+    const DraftingPlotPlan invalidScalePlan = buildDraftingPlotPlan(calibrationDocument, orderGrid, calibratedSettings);
+    assert(nearlyEqual(invalidScalePlan.calibrationScale, 1.0));
+    assert(nearlyEqual(invalidScalePlan.segments.front().rawB.x, 0.5));
+    assert(nearlyEqual(invalidScalePlan.segments.front().b.x, 0.5));
+
     return 0;
 }

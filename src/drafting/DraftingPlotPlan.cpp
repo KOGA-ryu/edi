@@ -46,6 +46,11 @@ double safeCalibrationScale(double value)
     return std::isfinite(value) && value > 0.0 ? value : 1.0;
 }
 
+Point2D scalePoint(Point2D point, double scale)
+{
+    return {point.x * scale, point.y * scale};
+}
+
 double pointDistance(Point2D a, Point2D b)
 {
     const double dx = b.x - a.x;
@@ -63,6 +68,8 @@ void appendSegment(
     plan.segments.push_back({
         object.id,
         object.layerId,
+        a,
+        b,
         a,
         b,
         layer.plot.penId,
@@ -159,6 +166,8 @@ void appendTravelSegments(DraftingPlotPlan &plan)
             to.objectId,
             to.layerId,
             to.penId,
+            from.rawB,
+            to.rawA,
             from.b,
             to.a,
             travelDistance,
@@ -169,7 +178,19 @@ void appendTravelSegments(DraftingPlotPlan &plan)
 
 void reverseSegment(DraftingPlotSegment &segment)
 {
+    std::swap(segment.rawA, segment.rawB);
     std::swap(segment.a, segment.b);
+}
+
+void applyCalibrationScale(DraftingPlotPlan &plan)
+{
+    if (plan.calibrationScale == 1.0) {
+        return;
+    }
+    for (DraftingPlotSegment &segment : plan.segments) {
+        segment.a = scalePoint(segment.rawA, plan.calibrationScale);
+        segment.b = scalePoint(segment.rawB, plan.calibrationScale);
+    }
 }
 
 void reorderSegmentsNearestNext(
@@ -499,6 +520,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
     if (settings.orderMode == DraftingPlotOrderMode::NearestNext) {
         reorderSegmentsNearestNext(plan.segments, grid.origin, settings.directionMode);
     }
+    applyCalibrationScale(plan);
     appendTravelSegments(plan);
     appendPlotStats(plan, document);
 

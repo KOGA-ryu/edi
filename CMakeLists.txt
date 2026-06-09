@@ -198,6 +198,9 @@ target_include_directories(drawing_canvas_projected_document_tests PRIVATE ${CMA
 add_edi_contract_test(drawing_canvas_projected_plot_tests tests/drawing_canvas_projected_plot_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_projected_plot_tests PRIVATE src/widgets/DrawingCanvasProjectedPlot.cpp)
 target_include_directories(drawing_canvas_projected_plot_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(drawing_canvas_projected_grid_tests tests/drawing_canvas_projected_grid_tests.cpp Qt6::Core)
+target_sources(drawing_canvas_projected_grid_tests PRIVATE src/widgets/DrawingCanvasProjectedGrid.cpp)
+target_include_directories(drawing_canvas_projected_grid_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(drawing_canvas_projected_pointer_tests tests/drawing_canvas_projected_pointer_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_projected_pointer_tests PRIVATE src/widgets/DrawingCanvasProjectedPointer.cpp)
 target_include_directories(drawing_canvas_projected_pointer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -277,6 +280,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasProjectedDocument.cpp
     src/widgets/DrawingCanvasProjectedPlot.h
     src/widgets/DrawingCanvasProjectedPlot.cpp
+    src/widgets/DrawingCanvasProjectedGrid.h
+    src/widgets/DrawingCanvasProjectedGrid.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
     src/widgets/DrawingCanvasObjectPainter.h

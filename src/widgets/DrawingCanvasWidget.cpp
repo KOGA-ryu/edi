@@ -12,6 +12,7 @@
 #include "widgets/DrawingCanvasHandleHitTest.h"
 #include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasProjectedDocument.h"
+#include "widgets/DrawingCanvasProjectedGrid.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasProjectedPlot.h"
 #include "widgets/DrawingCanvasProjectedPointer.h"
@@ -281,38 +282,34 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
 void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const
 {
     const QRectF board = boardRect();
-    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+    const drawing_canvas::DrawingCanvasProjectedGrid grid = drawing_canvas::projectedGrid(model);
     painter.fillRect(board, QColor("#222630"));
 
-    const QVariantList lines = grid.value(QStringLiteral("lines")).toList();
-    for (const QVariant &lineValue : lines) {
-        const QVariantMap line = lineValue.toMap();
-        const bool major = line.value(QStringLiteral("major")).toBool();
-        painter.setPen(QPen(major ? QColor("#465162") : QColor("#313744"), major ? 1.25 : 1.0));
-        const double position = line.value(QStringLiteral("position")).toDouble();
-        if (line.value(QStringLiteral("axis")).toString() == QStringLiteral("vertical")) {
-            painter.drawLine(canvasToScreen(position, 0.0), canvasToScreen(position, 1.0));
+    for (const drawing_canvas::DrawingCanvasProjectedGridLine &line : grid.lines) {
+        painter.setPen(QPen(line.major ? QColor("#465162") : QColor("#313744"), line.major ? 1.25 : 1.0));
+        if (line.axis == QStringLiteral("vertical")) {
+            painter.drawLine(canvasToScreen(line.position, 0.0), canvasToScreen(line.position, 1.0));
         } else {
-            painter.drawLine(canvasToScreen(0.0, position), canvasToScreen(1.0, position));
+            painter.drawLine(canvasToScreen(0.0, line.position), canvasToScreen(1.0, line.position));
         }
     }
 
-    const QVariantMap drawable = grid.value(QStringLiteral("drawable_bounds")).toMap();
-    const QPointF drawableTopLeft = canvasToScreen(
-        drawable.value(QStringLiteral("x")).toDouble(),
-        drawable.value(QStringLiteral("y")).toDouble());
-    const QPointF drawableBottomRight = canvasToScreen(
-        drawable.value(QStringLiteral("x")).toDouble() + drawable.value(QStringLiteral("width")).toDouble(),
-        drawable.value(QStringLiteral("y")).toDouble() + drawable.value(QStringLiteral("height")).toDouble());
-    painter.setPen(QPen(QColor("#8fb4d8"), 1, Qt::DashLine));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawRect(QRectF(drawableTopLeft, drawableBottomRight).normalized());
+    if (grid.drawableBounds.visible) {
+        const QPointF drawableTopLeft = canvasToScreen(grid.drawableBounds.x, grid.drawableBounds.y);
+        const QPointF drawableBottomRight = canvasToScreen(
+            grid.drawableBounds.x + grid.drawableBounds.width,
+            grid.drawableBounds.y + grid.drawableBounds.height);
+        painter.setPen(QPen(QColor("#8fb4d8"), 1, Qt::DashLine));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRect(QRectF(drawableTopLeft, drawableBottomRight).normalized());
+    }
 
-    const QVariantMap origin = grid.value(QStringLiteral("origin")).toMap();
-    const QPointF originPoint = canvasToScreen(origin.value(QStringLiteral("x")).toDouble(), origin.value(QStringLiteral("y")).toDouble());
-    painter.setPen(QPen(QColor("#d5bb78"), 1.5));
-    painter.drawLine(QPointF(originPoint.x() - 8.0, originPoint.y()), QPointF(originPoint.x() + 8.0, originPoint.y()));
-    painter.drawLine(QPointF(originPoint.x(), originPoint.y() - 8.0), QPointF(originPoint.x(), originPoint.y() + 8.0));
+    if (grid.origin.visible) {
+        const QPointF originPoint = canvasToScreen(grid.origin.x, grid.origin.y);
+        painter.setPen(QPen(QColor("#d5bb78"), 1.5));
+        painter.drawLine(QPointF(originPoint.x() - 8.0, originPoint.y()), QPointF(originPoint.x() + 8.0, originPoint.y()));
+        painter.drawLine(QPointF(originPoint.x(), originPoint.y() - 8.0), QPointF(originPoint.x(), originPoint.y() + 8.0));
+    }
 
     painter.setPen(QPen(QColor("#3d4452"), 1));
     painter.drawRect(board);

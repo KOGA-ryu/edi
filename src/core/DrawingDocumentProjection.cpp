@@ -150,6 +150,14 @@ bool constructionLineCanFitDrawable(const DraftingObject &object)
         || std::abs(line->a.x - line->b.x) < epsilon;
 }
 
+bool canCreateGuideFromBounds(const DraftingObject &object)
+{
+    return object.kind != DraftingShapeKind::Guide
+        && object.kind != DraftingShapeKind::ConstructionLine
+        && object.kind != DraftingShapeKind::Dimension
+        && isFinite(object.bounds);
+}
+
 double physicalX(Point2D point, const DraftingGridProjection &grid)
 {
     return point.x * grid.settings.width;
@@ -275,6 +283,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
         {QStringLiteral("guide_drawable_controls"), object.kind == DraftingShapeKind::Guide},
         {QStringLiteral("construction_drawable_controls"), constructionLineCanFitDrawable(object)},
+        {QStringLiteral("bounds_guide_controls"), canCreateGuideFromBounds(object)},
     };
 
     if (grid != nullptr) {

@@ -20,6 +20,8 @@
 #include <QVBoxLayout>
 #include <QVector>
 
+#include <utility>
+
 #include "core/DrawingCore.h"
 #include "widgets/DrawingCanvasWidget.h"
 
@@ -704,6 +706,24 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->fitSelectedConstructionLineToDrawable();
     });
     layout->addWidget(m_fitConstructionToDrawableButton);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Bounds Guides")));
+    const QVector<QPair<QString, QString>> boundsGuideButtons {
+        {QStringLiteral("left"), QStringLiteral("Guide Left")},
+        {QStringLiteral("right"), QStringLiteral("Guide Right")},
+        {QStringLiteral("top"), QStringLiteral("Guide Top")},
+        {QStringLiteral("bottom"), QStringLiteral("Guide Bottom")},
+        {QStringLiteral("vertical_center"), QStringLiteral("Guide V Center")},
+        {QStringLiteral("horizontal_center"), QStringLiteral("Guide H Center")},
+    };
+    for (const auto &buttonSpec : boundsGuideButtons) {
+        auto *button = new QPushButton(buttonSpec.second);
+        button->setObjectName(QStringLiteral("boundsGuide_%1").arg(buttonSpec.first));
+        connect(button, &QPushButton::clicked, this, [this, placementId = buttonSpec.first]() {
+            m_controller->createGuideFromSelectedBounds(placementId);
+        });
+        m_boundsGuideButtons.insert(buttonSpec.first, button);
+        layout->addWidget(button);
+    }
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1506,6 +1526,10 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_fitConstructionToDrawableButton != nullptr) {
         m_fitConstructionToDrawableButton->setEnabled(selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
+    }
+    const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
+    for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
+        button->setEnabled(boundsGuideControlsEnabled);
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

@@ -1664,6 +1664,57 @@ bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
     return true;
 }
 
+bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &placementId)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr
+        || source->kind == DraftingShapeKind::Guide
+        || source->kind == DraftingShapeKind::ConstructionLine
+        || source->kind == DraftingShapeKind::Dimension
+        || source->locked
+        || objectLayerLocked(m_document, *source)
+        || !objectEffectivelyVisible(m_document, *source)
+        || !isFinite(source->bounds)) {
+        return false;
+    }
+
+    GuideGeometry guide;
+    const Bounds2D bounds = source->bounds;
+    if (placementId == QStringLiteral("left")) {
+        guide = {GuideOrientation::Vertical, bounds.x};
+    } else if (placementId == QStringLiteral("right")) {
+        guide = {GuideOrientation::Vertical, bounds.x + bounds.width};
+    } else if (placementId == QStringLiteral("vertical_center")) {
+        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0};
+    } else if (placementId == QStringLiteral("top")) {
+        guide = {GuideOrientation::Horizontal, bounds.y};
+    } else if (placementId == QStringLiteral("bottom")) {
+        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height};
+    } else if (placementId == QStringLiteral("horizontal_center")) {
+        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0};
+    } else {
+        return false;
+    }
+
+    const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
+    auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide);
+    if (!built.ok) {
+        return false;
+    }
+    built.object.layerId = source->layerId;
+    built.object.metadata.toolProvenance = "bounds_guide";
+    const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QVariantMap>
 
 #include <vector>
@@ -19,6 +20,22 @@ struct DrawingCanvasProjectedPlotPreview {
     bool hasPlotBounds = false;
 };
 
+struct DrawingCanvasProjectedPlotBounds {
+    double x = 0.0;
+    double y = 0.0;
+    double width = 0.0;
+    double height = 0.0;
+};
+
+struct DrawingCanvasProjectedBoundsOverlay {
+    bool visible = false;
+    DrawingCanvasProjectedPlotBounds bounds;
+    bool calibratedBoundsWarning = false;
+    QString warningKind;
+    QString warningObjectId;
+};
+
 DrawingCanvasProjectedPlotPreview projectedPlotPreview(const QVariantMap &plotSummary);
+DrawingCanvasProjectedBoundsOverlay projectedPlotBoundsOverlay(const QVariantMap &plotSummary);
 
 } // namespace drawing_canvas

@@ -436,45 +436,27 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
 
 void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const
 {
-    if (!plot.value(QStringLiteral("has_plot_bounds")).toBool()) {
+    const drawing_canvas::DrawingCanvasProjectedBoundsOverlay overlay = drawing_canvas::projectedPlotBoundsOverlay(plot);
+    if (!overlay.visible) {
         return;
     }
 
-    const QVariantMap bounds = plot.value(QStringLiteral("plot_bounds")).toMap();
-    const double x = bounds.value(QStringLiteral("x")).toDouble();
-    const double y = bounds.value(QStringLiteral("y")).toDouble();
-    const double width = bounds.value(QStringLiteral("width")).toDouble();
-    const double height = bounds.value(QStringLiteral("height")).toDouble();
-    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) {
-        return;
-    }
-
-    bool calibratedBoundsWarning = false;
-    const QVariantList warnings = plot.value(QStringLiteral("warnings")).toList();
-    for (const QVariant &warningValue : warnings) {
-        const QVariantMap warning = warningValue.toMap();
-        if (warning.value(QStringLiteral("kind")).toString() == QStringLiteral("calibrated_plot_out_of_drawable_bounds")) {
-            calibratedBoundsWarning = true;
-            break;
-        }
-    }
-
-    const QColor color = calibratedBoundsWarning ? QColor("#d98b8b") : QColor("#91c89b");
-    const QPointF topLeft = canvasToScreen(x, y);
-    const QPointF bottomRight = canvasToScreen(x + width, y + height);
+    const QColor color = overlay.calibratedBoundsWarning ? QColor("#d98b8b") : QColor("#91c89b");
+    const QPointF topLeft = canvasToScreen(overlay.bounds.x, overlay.bounds.y);
+    const QPointF bottomRight = canvasToScreen(
+        overlay.bounds.x + overlay.bounds.width,
+        overlay.bounds.y + overlay.bounds.height);
     const QRectF rect(topLeft, bottomRight);
-    QPen pen(color, calibratedBoundsWarning ? 2.0 : 1.5, calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
+    QPen pen(color, overlay.calibratedBoundsWarning ? 2.0 : 1.5, overlay.calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), calibratedBoundsWarning ? 34 : 18));
+    painter.setBrush(QColor(color.red(), color.green(), color.blue(), overlay.calibratedBoundsWarning ? 34 : 18));
     painter.drawRect(rect.normalized());
 
-    const QString warningKind = plot.value(QStringLiteral("first_warning_kind")).toString();
-    const QString warningObjectId = plot.value(QStringLiteral("first_warning_object_id")).toString();
-    if (!warningKind.isEmpty()) {
-        const QString label = warningObjectId.isEmpty()
-            ? warningKind
-            : QStringLiteral("%1: %2").arg(warningKind, warningObjectId);
+    if (!overlay.warningKind.isEmpty()) {
+        const QString label = overlay.warningObjectId.isEmpty()
+            ? overlay.warningKind
+            : QStringLiteral("%1: %2").arg(overlay.warningKind, overlay.warningObjectId);
         painter.setPen(color);
         painter.drawText(rect.normalized().topLeft() + QPointF(8.0, -8.0), label);
     }

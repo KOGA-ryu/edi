@@ -52,4 +52,34 @@ DrawingCanvasProjectedPlotPreview projectedPlotPreview(const QVariantMap &plotSu
     return projected;
 }
 
+DrawingCanvasProjectedBoundsOverlay projectedPlotBoundsOverlay(const QVariantMap &plotSummary)
+{
+    DrawingCanvasProjectedBoundsOverlay overlay;
+    if (!plotSummary.value(QStringLiteral("has_plot_bounds")).toBool()) {
+        return overlay;
+    }
+
+    const QVariantMap bounds = plotSummary.value(QStringLiteral("plot_bounds")).toMap();
+    overlay.visible = readFinite(bounds, QStringLiteral("x"), overlay.bounds.x)
+        && readFinite(bounds, QStringLiteral("y"), overlay.bounds.y)
+        && readFinite(bounds, QStringLiteral("width"), overlay.bounds.width)
+        && readFinite(bounds, QStringLiteral("height"), overlay.bounds.height);
+    if (!overlay.visible) {
+        return {};
+    }
+
+    const QVariantList warnings = plotSummary.value(QStringLiteral("warnings")).toList();
+    for (const QVariant &warningValue : warnings) {
+        const QVariantMap warning = warningValue.toMap();
+        if (warning.value(QStringLiteral("kind")).toString() == QStringLiteral("calibrated_plot_out_of_drawable_bounds")) {
+            overlay.calibratedBoundsWarning = true;
+            break;
+        }
+    }
+
+    overlay.warningKind = plotSummary.value(QStringLiteral("first_warning_kind")).toString();
+    overlay.warningObjectId = plotSummary.value(QStringLiteral("first_warning_object_id")).toString();
+    return overlay;
+}
+
 } // namespace drawing_canvas

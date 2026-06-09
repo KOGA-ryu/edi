@@ -652,6 +652,53 @@ int main(int argc, char **argv)
     assert(layerPlotSummary.value("blocked").toBool());
     assert(!layerPlotSummary.value("first_warning_object_id").toString().isEmpty());
 
+    DrawingDocumentController calibrationController;
+    assert(calibrationController.createCalibrationPattern("test_square"));
+    QVariantMap calibrationModel = calibrationController.modelDocument();
+    QVariantList calibrationObjects = calibrationModel.value("drawing_objects").toList();
+    assert(calibrationObjects.size() == 1);
+    QVariantMap calibrationSquare = calibrationObjects.front().toMap();
+    assert(calibrationSquare.value("kind").toString() == "rectangle");
+    assert(calibrationSquare.value("layer_id").toString() == "default");
+    assert(nearlyEqual(calibrationSquare.value("x").toDouble(), 0.15));
+    assert(nearlyEqual(calibrationSquare.value("y").toDouble(), 0.15));
+    assert(nearlyEqual(calibrationSquare.value("width").toDouble(), 0.24));
+    assert(nearlyEqual(calibrationSquare.value("height").toDouble(), 0.24));
+    assert(calibrationModel.value("selected_object_ids").toList().size() == 1);
+
+    assert(calibrationController.createLayer());
+    assert(calibrationController.activeLayerId() == "layer_2");
+    assert(calibrationController.createCalibrationPattern("test_circle"));
+    calibrationModel = calibrationController.modelDocument();
+    calibrationObjects = calibrationModel.value("drawing_objects").toList();
+    assert(calibrationObjects.size() == 2);
+    QVariantMap calibrationCircle = calibrationObjects.back().toMap();
+    assert(calibrationCircle.value("kind").toString() == "circle");
+    assert(calibrationCircle.value("layer_id").toString() == "layer_2");
+    assert(nearlyEqual(calibrationCircle.value("cx").toDouble(), 0.27));
+    assert(nearlyEqual(calibrationCircle.value("cy").toDouble(), 0.27));
+    assert(nearlyEqual(calibrationCircle.value("radius").toDouble(), 0.12));
+
+    assert(calibrationController.createCalibrationPattern("line_spacing"));
+    calibrationModel = calibrationController.modelDocument();
+    calibrationObjects = calibrationModel.value("drawing_objects").toList();
+    assert(calibrationObjects.size() == 7);
+    QVariantList calibrationSelection = calibrationModel.value("selected_object_ids").toList();
+    assert(calibrationSelection.size() == 5);
+    for (int index = 2; index < calibrationObjects.size(); ++index) {
+        const QVariantMap line = calibrationObjects[index].toMap();
+        assert(line.value("kind").toString() == "line");
+        assert(line.value("layer_id").toString() == "layer_2");
+        assert(nearlyEqual(line.value("x1").toDouble(), 0.15));
+        assert(nearlyEqual(line.value("x2").toDouble(), 0.39));
+    }
+    QVariantMap calibrationPlotSummary = calibrationModel.value("plot_summary").toMap();
+    assert(calibrationPlotSummary.value("plot_object_count").toInt() == 7);
+    assert(calibrationPlotSummary.value("segment_count").toInt() > 7);
+    assert(!calibrationPlotSummary.value("blocked").toBool());
+    assert(calibrationController.setActiveLayerLocked(true));
+    assert(!calibrationController.createCalibrationPattern("test_square"));
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);

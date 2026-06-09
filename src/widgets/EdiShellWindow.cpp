@@ -474,6 +474,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(buildOffsetControls());
     layout->addWidget(buildMirrorControls());
     layout->addWidget(buildRepeatControls());
+    layout->addWidget(buildCalibrationControls());
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -868,6 +869,32 @@ QWidget *EdiShellWindow::buildBottomPanel()
 
     layout->addWidget(tabs);
     layout->addWidget(status);
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildCalibrationControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("calibrationControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    auto addButton = [this, layout](const QString &label, const QString &patternId, int row, int column) {
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("calibrationButton"));
+        connect(button, &QPushButton::clicked, this, [this, patternId]() {
+            m_controller->createCalibrationPattern(patternId);
+        });
+        layout->addWidget(button, row, column);
+    };
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Calibration")), 0, 0, 1, 3);
+    addButton(QStringLiteral("Test square"), QStringLiteral("test_square"), 1, 0);
+    addButton(QStringLiteral("Test circle"), QStringLiteral("test_circle"), 1, 1);
+    addButton(QStringLiteral("Line spacing"), QStringLiteral("line_spacing"), 1, 2);
+
     return panel;
 }
 

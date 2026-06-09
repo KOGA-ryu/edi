@@ -4,6 +4,7 @@
 #include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
+#include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingHitTest.h"
@@ -1030,6 +1031,41 @@ bool DrawingDocumentController::distributeSelection(const QString &axisId)
         return false;
     }
 
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::createCalibrationPattern(const QString &patternId)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr || layer->locked) {
+        return false;
+    }
+
+    DraftingCalibrationPatternRequest request;
+    request.kind = draftingCalibrationPatternKindFromId(toStdString(patternId));
+    request.idPrefix = toStdString(nextObjectId(QStringLiteral("calibration"), m_nextObjectSerial++));
+    request.layerId = m_document.activeLayerId;
+    request.origin = {0.15, 0.15};
+    request.size = 0.24;
+    request.spacing = 0.04;
+    request.lineCount = 5;
+
+    const DraftingCalibrationPatternResult pattern = buildDraftingCalibrationPattern(request);
+    if (!pattern.ok || pattern.objects.empty()) {
+        return false;
+    }
+
+    std::vector<DraftingObjectId> selectedIds;
+    selectedIds.reserve(pattern.objects.size());
+    for (const DraftingObject &object : pattern.objects) {
+        const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
+        if (!create.ok) {
+            return false;
+        }
+        selectedIds.push_back(object.id);
+    }
+    applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
     emit modelChanged();
     return true;
 }

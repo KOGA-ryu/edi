@@ -42,6 +42,7 @@ private:
     QWidget *buildOffsetControls();
     QWidget *buildMirrorControls();
     QWidget *buildRepeatControls();
+    QWidget *buildCalibrationControls();
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;

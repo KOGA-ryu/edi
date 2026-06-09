@@ -26,6 +26,19 @@ DraftingObject object(std::string id, DraftingShapeKind kind, DraftingGeometry g
 
 int main()
 {
+    const std::optional<DraftingArrayRepeatSettings> repeatX = draftingArrayRepeatSettingsFromAxisId("x");
+    assert(repeatX);
+    assert(repeatX->copyCount == 3);
+    assert(nearlyEqual(repeatX->spacingX, 0.1));
+    assert(nearlyEqual(repeatX->spacingY, 0.0));
+
+    const std::optional<DraftingArrayRepeatSettings> repeatY = draftingArrayRepeatSettingsFromAxisId("y");
+    assert(repeatY);
+    assert(repeatY->copyCount == 3);
+    assert(nearlyEqual(repeatY->spacingX, 0.0));
+    assert(nearlyEqual(repeatY->spacingY, 0.1));
+    assert(!draftingArrayRepeatSettingsFromAxisId("diagonal"));
+
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.2}, {0.4, 0.2}});
     line.stroke.color = "#55ccaa";
     auto repeatedLine = repeatDraftingObject(line, {"repeat_1", "repeat_2", "repeat_3"}, 0.1, 0.0);

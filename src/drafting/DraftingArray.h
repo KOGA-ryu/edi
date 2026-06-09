@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingDocument.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,13 @@ struct DraftingArrayResult {
     static DraftingArrayResult rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingArrayRepeatSettings {
+    int copyCount = 0;
+    double spacingX = 0.0;
+    double spacingY = 0.0;
+};
+
+std::optional<DraftingArrayRepeatSettings> draftingArrayRepeatSettingsFromAxisId(const std::string &axisId);
 DraftingArrayResult repeatDraftingObject(
     const DraftingObject &source,
     const std::vector<DraftingObjectId> &newObjectIds,

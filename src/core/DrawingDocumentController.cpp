@@ -1367,7 +1367,8 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 {
-    if (axisId != QStringLiteral("x") && axisId != QStringLiteral("y")) {
+    const std::optional<DraftingArrayRepeatSettings> settings = draftingArrayRepeatSettingsFromAxisId(toStdString(axisId));
+    if (!settings) {
         return false;
     }
     if (!m_document.activeObjectId) {
@@ -1378,16 +1379,13 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
 
-    constexpr int copyCount = 3;
     std::vector<DraftingObjectId> objectIds;
-    objectIds.reserve(copyCount);
-    for (int index = 0; index < copyCount; ++index) {
+    objectIds.reserve(settings->copyCount);
+    for (int index = 0; index < settings->copyCount; ++index) {
         objectIds.push_back(toStdString(nextObjectId(QStringLiteral("repeat"), m_nextObjectSerial++)));
     }
 
-    const double spacingX = axisId == QStringLiteral("y") ? 0.0 : 0.1;
-    const double spacingY = axisId == QStringLiteral("y") ? 0.1 : 0.0;
-    const DraftingArrayResult repeat = repeatDraftingObject(*source, objectIds, spacingX, spacingY);
+    const DraftingArrayResult repeat = repeatDraftingObject(*source, objectIds, settings->spacingX, settings->spacingY);
     if (!repeat.ok) {
         return false;
     }

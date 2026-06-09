@@ -26,6 +26,17 @@ DraftingArrayResult DraftingArrayResult::rejected(DraftingResultCode code, std::
     return result;
 }
 
+std::optional<DraftingArrayRepeatSettings> draftingArrayRepeatSettingsFromAxisId(const std::string &axisId)
+{
+    if (axisId == "x") {
+        return DraftingArrayRepeatSettings{3, 0.1, 0.0};
+    }
+    if (axisId == "y") {
+        return DraftingArrayRepeatSettings{3, 0.0, 0.1};
+    }
+    return std::nullopt;
+}
+
 DraftingArrayResult repeatDraftingObject(
     const DraftingObject &source,
     const std::vector<DraftingObjectId> &newObjectIds,

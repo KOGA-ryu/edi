@@ -505,8 +505,8 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, &grid, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
     model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));

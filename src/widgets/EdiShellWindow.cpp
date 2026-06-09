@@ -1136,6 +1136,8 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
     m_geometryFields.clear();
 
     const QVariantList fields = selectedObject.value(QStringLiteral("numeric_fields")).toList();
+    const QVariantMap physicalGeometry = selectedObject.value(QStringLiteral("physical_geometry")).toMap();
+    const QString unitLabel = physicalGeometry.value(QStringLiteral("unit_label")).toString();
 
     int row = 0;
     for (const QVariant &fieldValue : fields) {
@@ -1163,6 +1165,14 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         });
         layout->addWidget(label, row, 0);
         layout->addWidget(spin, row, 1);
+        if (physicalGeometry.contains(fieldId)) {
+            const bool angleValue = fieldId == QStringLiteral("line_angle_deg") || fieldId == QStringLiteral("rotation_deg");
+            auto *physicalLabel = new QLabel(QStringLiteral("%1 %2")
+                .arg(formatNumber(physicalGeometry.value(fieldId).toDouble()))
+                .arg(angleValue ? QStringLiteral("deg") : unitLabel));
+            physicalLabel->setObjectName(QStringLiteral("valueLabel"));
+            layout->addWidget(physicalLabel, row, 2);
+        }
         m_geometryFields.insert(fieldId, spin);
         ++row;
     }

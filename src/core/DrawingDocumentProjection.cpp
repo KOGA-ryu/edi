@@ -8,6 +8,7 @@
 #include <QVariantList>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -135,6 +136,96 @@ bool shapeCanPlot(DraftingShapeKind kind)
         && kind != DraftingShapeKind::Dimension;
 }
 
+double physicalX(Point2D point, const DraftingGridProjection &grid)
+{
+    return point.x * grid.settings.width;
+}
+
+double physicalY(Point2D point, const DraftingGridProjection &grid)
+{
+    return point.y * grid.settings.height;
+}
+
+double physicalWidth(double normalizedWidth, const DraftingGridProjection &grid)
+{
+    return normalizedWidth * grid.settings.width;
+}
+
+double physicalHeight(double normalizedHeight, const DraftingGridProjection &grid)
+{
+    return normalizedHeight * grid.settings.height;
+}
+
+double physicalDistance(Point2D a, Point2D b, const DraftingGridProjection &grid)
+{
+    const double dx = physicalWidth(b.x - a.x, grid);
+    const double dy = physicalHeight(b.y - a.y, grid);
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+double physicalAngleDegrees(Point2D a, Point2D b, const DraftingGridProjection &grid)
+{
+    const double dx = physicalWidth(b.x - a.x, grid);
+    const double dy = physicalHeight(b.y - a.y, grid);
+    constexpr double pi = 3.14159265358979323846;
+    return std::atan2(dy, dx) * 180.0 / pi;
+}
+
+QVariantMap physicalGeometryForObject(const DraftingObject &object, const DraftingGridProjection &grid)
+{
+    QVariantMap result {
+        {QStringLiteral("unit"), QString::fromLatin1(draftingGridUnitName(grid.settings.unit))},
+        {QStringLiteral("unit_label"), QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit))},
+    };
+
+    std::visit([&](const auto &geometry) {
+        using Geometry = std::decay_t<decltype(geometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            result.insert(QStringLiteral("x"), physicalX(geometry.point, grid));
+            result.insert(QStringLiteral("y"), physicalY(geometry.point, grid));
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
+            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
+            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
+            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+            result.insert(QStringLiteral("line_length"), physicalDistance(geometry.a, geometry.b, grid));
+            result.insert(QStringLiteral("line_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            result.insert(QStringLiteral("x"), physicalX(geometry.origin, grid));
+            result.insert(QStringLiteral("y"), physicalY(geometry.origin, grid));
+            result.insert(QStringLiteral("width"), physicalWidth(geometry.width, grid));
+            result.insert(QStringLiteral("height"), physicalHeight(geometry.height, grid));
+            result.insert(QStringLiteral("rotation_deg"), geometry.rotationDeg);
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            result.insert(QStringLiteral("cx"), physicalX(geometry.center, grid));
+            result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
+            result.insert(QStringLiteral("radius"), physicalWidth(geometry.radius, grid));
+            result.insert(QStringLiteral("diameter"), physicalWidth(geometry.radius * 2.0, grid));
+            result.insert(QStringLiteral("radius_y"), physicalHeight(geometry.radius, grid));
+            result.insert(QStringLiteral("diameter_y"), physicalHeight(geometry.radius * 2.0, grid));
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (geometry.orientation == GuideOrientation::Horizontal) {
+                result.insert(QStringLiteral("position"), geometry.position * grid.settings.height);
+            } else {
+                result.insert(QStringLiteral("position"), geometry.position * grid.settings.width);
+            }
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
+            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
+            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
+            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
+            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
+            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
+            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+            result.insert(QStringLiteral("offset"), physicalDistance({0.0, 0.0}, {geometry.offset, geometry.offset}, grid));
+        }
+    }, object.geometry);
+
+    return result;
+}
+
 } // namespace
 
 QString qStringFromStdString(const std::string &value)
@@ -142,7 +233,7 @@ QString qStringFromStdString(const std::string &value)
     return QString::fromStdString(value);
 }
 
-QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
+QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const DraftingGridProjection *grid)
 {
     QVariantList measurementLines;
     const auto measurement = summarizeObjectMeasurement(object);
@@ -169,6 +260,10 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
         {QStringLiteral("measurement_lines"), measurementLines},
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
     };
+
+    if (grid != nullptr) {
+        result.insert(QStringLiteral("physical_geometry"), physicalGeometryForObject(object, *grid));
+    }
 
     std::visit([&](const auto &geometry) {
         using Geometry = std::decay_t<decltype(geometry)>;
@@ -233,7 +328,11 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
     return result;
 }
 
-QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, const DraftingSnapSettings &snapSettings, const DraftingObject *previewObject)
+QVariantMap draftingDocumentToModelProjection(
+    const DraftingDocument &document,
+    const DraftingSnapSettings &snapSettings,
+    const DraftingGridProjection *grid,
+    const DraftingObject *previewObject)
 {
     QVariantList objects;
     std::vector<const DraftingObject *> sortedObjects;
@@ -246,7 +345,7 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
     });
     for (const DraftingObject *objectPointer : sortedObjects) {
         const DraftingObject &object = *objectPointer;
-        QVariantMap projected = draftingObjectToCanvasProjection(object);
+        QVariantMap projected = draftingObjectToCanvasProjection(object, grid);
         const DraftingLayer *layer = findLayer(document, object.layerId);
         const bool layerVisible = layer == nullptr ? false : layer->visible;
         const bool layerLocked = layer == nullptr ? false : layer->locked;
@@ -309,7 +408,7 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
         {QStringLiteral("validation"), QVariantList{}},
     };
     if (previewObject != nullptr) {
-        result.insert(QStringLiteral("preview_object"), draftingObjectToCanvasProjection(*previewObject));
+        result.insert(QStringLiteral("preview_object"), draftingObjectToCanvasProjection(*previewObject, grid));
     }
     return result;
 }

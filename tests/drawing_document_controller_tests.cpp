@@ -84,6 +84,10 @@ int main(int argc, char **argv)
     assert(point.value("x").toDouble() == 0.25);
     assert(point.value("y").toDouble() == 0.5);
     assert(numericFieldIds(point) == QStringList({QStringLiteral("x"), QStringLiteral("y")}));
+    QVariantMap pointPhysical = point.value("physical_geometry").toMap();
+    assert(pointPhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(pointPhysical.value("x").toDouble(), 3.0));
+    assert(nearlyEqual(pointPhysical.value("y").toDouble(), 6.0));
     assert(point.value("layer_id").toString() == "default");
     assert(!point.value("locked").toBool());
     QVariantMap pointBounds = point.value("bounds").toMap();
@@ -114,6 +118,11 @@ int main(int argc, char **argv)
     QVariantMap letterSnap = letterModel.value("snap").toMap();
     assert(nearlyEqual(letterSnap.value("grid_step_x").toDouble(), 0.25 / 8.5));
     assert(nearlyEqual(letterSnap.value("grid_step_y").toDouble(), 0.25 / 11.0));
+    QVariantMap letterPoint = letterModel.value("drawing_objects").toList().front().toMap();
+    QVariantMap letterPointPhysical = letterPoint.value("physical_geometry").toMap();
+    assert(letterPointPhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(letterPointPhysical.value("x").toDouble(), 0.3 * 8.5));
+    assert(nearlyEqual(letterPointPhysical.value("y").toDouble(), 0.35 * 11.0));
 
     controller.setSelectedToolId("line_tool");
     controller.clickCanvasNormalized(0.1, 0.2);
@@ -1006,6 +1015,11 @@ int main(int argc, char **argv)
         QStringLiteral("height"),
         QStringLiteral("rotation_deg"),
     }));
+    QVariantMap numericRectPhysical = numericRect.value("physical_geometry").toMap();
+    assert(numericRectPhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(numericRectPhysical.value("width").toDouble(), 6.0));
+    assert(nearlyEqual(numericRectPhysical.value("height").toDouble(), 3.0));
+    assert(nearlyEqual(numericRectPhysical.value("rotation_deg").toDouble(), 45.0));
     assert(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
     assert(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
     assert(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
@@ -1030,6 +1044,10 @@ int main(int argc, char **argv)
         QStringLiteral("radius"),
         QStringLiteral("diameter"),
     }));
+    QVariantMap numericCirclePhysical = numericCircle.value("physical_geometry").toMap();
+    assert(numericCirclePhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(numericCirclePhysical.value("radius").toDouble(), 1.5));
+    assert(nearlyEqual(numericCirclePhysical.value("diameter").toDouble(), 3.0));
     assert(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
     assert(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
     assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
@@ -1060,6 +1078,14 @@ int main(int argc, char **argv)
         QStringLiteral("line_length"),
         QStringLiteral("line_angle_deg"),
     }));
+    QVariantMap numericLinePhysical = numericLine.value("physical_geometry").toMap();
+    assert(numericLinePhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(numericLinePhysical.value("x1").toDouble(), 1.2));
+    assert(nearlyEqual(numericLinePhysical.value("y1").toDouble(), 2.4));
+    assert(nearlyEqual(numericLinePhysical.value("x2").toDouble(), 4.8));
+    assert(nearlyEqual(numericLinePhysical.value("y2").toDouble(), 7.2));
+    assert(nearlyEqual(numericLinePhysical.value("line_length").toDouble(), 6.0));
+    assert(nearlyEqual(numericLinePhysical.value("line_angle_deg").toDouble(), 53.1301023542));
     assert(nearlyEqual(numericLine.value("line_length").toDouble(), 0.5));
     assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 53.1301023542));
     assert(numericLineController.updateSelectedObjectGeometryField("line_length", 1.0));

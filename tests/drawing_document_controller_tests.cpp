@@ -910,6 +910,77 @@ int main(int argc, char **argv)
     guidePointer = guidePointerController.modelDocument().value("pointer").toMap();
     assert(guidePointer.value("kind").toString() == "none");
 
+    DrawingDocumentController guideCreationSnapController;
+    guideCreationSnapController.setSelectedToolId("horizontal_guide_tool");
+    guideCreationSnapController.clickCanvasNormalized(0.2, 0.75);
+    guideCreationSnapController.setSelectedToolId("vertical_guide_tool");
+    guideCreationSnapController.clickCanvasNormalized(0.33, 0.2);
+    guideCreationSnapController.setObjectSnapEnabled(true);
+    guideCreationSnapController.setSelectedToolId("point_tool");
+    guideCreationSnapController.clickCanvasNormalized(0.34, 0.74);
+    QVariantList guideSnappedObjects = guideCreationSnapController.modelDocument().value("drawing_objects").toList();
+    assert(guideSnappedObjects.size() == 3);
+    QVariantMap guideSnappedPoint = guideSnappedObjects.back().toMap();
+    assert(guideSnappedPoint.value("kind").toString() == "point");
+    assert(nearlyEqual(guideSnappedPoint.value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guideSnappedPoint.value("y").toDouble(), 0.75));
+    DrawingDocumentController guideCreationSnapDisabledController;
+    guideCreationSnapDisabledController.setSelectedToolId("horizontal_guide_tool");
+    guideCreationSnapDisabledController.clickCanvasNormalized(0.2, 0.75);
+    guideCreationSnapDisabledController.setSelectedToolId("vertical_guide_tool");
+    guideCreationSnapDisabledController.clickCanvasNormalized(0.33, 0.2);
+    guideCreationSnapDisabledController.setObjectSnapEnabled(true);
+    guideCreationSnapDisabledController.setGuideSnapEnabled(false);
+    guideCreationSnapDisabledController.setSelectedToolId("point_tool");
+    guideCreationSnapDisabledController.clickCanvasNormalized(0.34, 0.74);
+    QVariantMap guideUnsnappedPoint = guideCreationSnapDisabledController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideUnsnappedPoint.value("x").toDouble(), 0.34));
+    assert(nearlyEqual(guideUnsnappedPoint.value("y").toDouble(), 0.74));
+
+    DrawingDocumentController hiddenGuideCreationController;
+    hiddenGuideCreationController.setSelectedToolId("horizontal_guide_tool");
+    hiddenGuideCreationController.clickCanvasNormalized(0.2, 0.75);
+    hiddenGuideCreationController.setSelectedToolId("vertical_guide_tool");
+    hiddenGuideCreationController.clickCanvasNormalized(0.33, 0.2);
+    hiddenGuideCreationController.setObjectSnapEnabled(true);
+    assert(hiddenGuideCreationController.setAllGuidesVisible(false));
+    hiddenGuideCreationController.setSelectedToolId("point_tool");
+    hiddenGuideCreationController.clickCanvasNormalized(0.34, 0.74);
+    QVariantMap hiddenGuideUnsnappedPoint = hiddenGuideCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(hiddenGuideUnsnappedPoint.value("x").toDouble(), 0.34));
+    assert(nearlyEqual(hiddenGuideUnsnappedPoint.value("y").toDouble(), 0.74));
+
+    DrawingDocumentController hiddenGuideLayerCreationController;
+    assert(hiddenGuideLayerCreationController.createLayer());
+    hiddenGuideLayerCreationController.setSelectedToolId("vertical_guide_tool");
+    hiddenGuideLayerCreationController.clickCanvasNormalized(0.33, 0.2);
+    assert(hiddenGuideLayerCreationController.setActiveLayerVisible(false));
+    assert(hiddenGuideLayerCreationController.setActiveLayerId(QStringLiteral("default")));
+    hiddenGuideLayerCreationController.setObjectSnapEnabled(true);
+    hiddenGuideLayerCreationController.setSelectedToolId("point_tool");
+    hiddenGuideLayerCreationController.clickCanvasNormalized(0.34, 0.2);
+    QVariantMap hiddenGuideLayerPoint;
+    for (const QVariant &objectValue : hiddenGuideLayerCreationController.modelDocument().value("drawing_objects").toList()) {
+        const QVariantMap objectMap = objectValue.toMap();
+        if (objectMap.value("kind").toString() == "point") {
+            hiddenGuideLayerPoint = objectMap;
+        }
+    }
+    assert(!hiddenGuideLayerPoint.isEmpty());
+    assert(nearlyEqual(hiddenGuideLayerPoint.value("x").toDouble(), 0.34));
+    assert(nearlyEqual(hiddenGuideLayerPoint.value("y").toDouble(), 0.2));
+
+    DrawingDocumentController lockedGuideCreationController;
+    lockedGuideCreationController.setSelectedToolId("vertical_guide_tool");
+    lockedGuideCreationController.clickCanvasNormalized(0.33, 0.2);
+    assert(lockedGuideCreationController.setSelectedObjectLocked(true));
+    lockedGuideCreationController.setObjectSnapEnabled(true);
+    lockedGuideCreationController.setSelectedToolId("point_tool");
+    lockedGuideCreationController.clickCanvasNormalized(0.34, 0.2);
+    QVariantMap lockedGuideSnappedPoint = lockedGuideCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(lockedGuideSnappedPoint.value("x").toDouble(), 0.33));
+    assert(nearlyEqual(lockedGuideSnappedPoint.value("y").toDouble(), 0.2));
+
     DrawingDocumentController invisibleSnapController;
     invisibleSnapController.setSelectedToolId("point_tool");
     invisibleSnapController.clickCanvasNormalized(0.25, 0.25);
@@ -1498,6 +1569,77 @@ int main(int argc, char **argv)
     QVariantMap snappedCommitted = snappedPreviewController.modelDocument();
     assert(snappedCommitted.value("drawing_objects").toList().size() == 1);
     assert(!snappedCommitted.contains("preview_object"));
+
+    DrawingDocumentController guideLinePreviewController;
+    guideLinePreviewController.setSelectedToolId("horizontal_guide_tool");
+    guideLinePreviewController.clickCanvasNormalized(0.2, 0.75);
+    guideLinePreviewController.setSelectedToolId("vertical_guide_tool");
+    guideLinePreviewController.clickCanvasNormalized(0.33, 0.2);
+    guideLinePreviewController.setObjectSnapEnabled(true);
+    guideLinePreviewController.setSelectedToolId("line_tool");
+    guideLinePreviewController.clickCanvasNormalized(0.34, 0.74);
+    guideLinePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
+    QVariantMap guideLinePreview = guideLinePreviewController.modelDocument().value("preview_object").toMap();
+    assert(guideLinePreview.value("kind").toString() == "line");
+    assert(nearlyEqual(guideLinePreview.value("x1").toDouble(), 0.33));
+    assert(nearlyEqual(guideLinePreview.value("y1").toDouble(), 0.75));
+    assert(nearlyEqual(guideLinePreview.value("x2").toDouble(), 0.52));
+    assert(nearlyEqual(guideLinePreview.value("y2").toDouble(), 0.75));
+    guideLinePreviewController.clickCanvasNormalized(0.52, 0.74);
+    QVariantMap guideLineCommitted = guideLinePreviewController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(guideLineCommitted.value("kind").toString() == "line");
+    assert(nearlyEqual(guideLineCommitted.value("x1").toDouble(), 0.33));
+    assert(nearlyEqual(guideLineCommitted.value("y1").toDouble(), 0.75));
+    assert(nearlyEqual(guideLineCommitted.value("x2").toDouble(), 0.52));
+    assert(nearlyEqual(guideLineCommitted.value("y2").toDouble(), 0.75));
+
+    DrawingDocumentController guideRectanglePreviewController;
+    guideRectanglePreviewController.setSelectedToolId("horizontal_guide_tool");
+    guideRectanglePreviewController.clickCanvasNormalized(0.2, 0.75);
+    guideRectanglePreviewController.setSelectedToolId("vertical_guide_tool");
+    guideRectanglePreviewController.clickCanvasNormalized(0.33, 0.2);
+    guideRectanglePreviewController.setObjectSnapEnabled(true);
+    guideRectanglePreviewController.setSelectedToolId("rectangle_tool");
+    guideRectanglePreviewController.clickCanvasNormalized(0.34, 0.70);
+    guideRectanglePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
+    QVariantMap guideRectanglePreview = guideRectanglePreviewController.modelDocument().value("preview_object").toMap();
+    assert(guideRectanglePreview.value("kind").toString() == "rectangle");
+    assert(nearlyEqual(guideRectanglePreview.value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guideRectanglePreview.value("y").toDouble(), 0.70));
+    assert(nearlyEqual(guideRectanglePreview.value("width").toDouble(), 0.19));
+    assert(nearlyEqual(guideRectanglePreview.value("height").toDouble(), 0.05));
+
+    DrawingDocumentController guideCirclePreviewController;
+    guideCirclePreviewController.setSelectedToolId("horizontal_guide_tool");
+    guideCirclePreviewController.clickCanvasNormalized(0.2, 0.75);
+    guideCirclePreviewController.setSelectedToolId("vertical_guide_tool");
+    guideCirclePreviewController.clickCanvasNormalized(0.33, 0.2);
+    guideCirclePreviewController.setObjectSnapEnabled(true);
+    guideCirclePreviewController.setSelectedToolId("circle_tool");
+    guideCirclePreviewController.clickCanvasNormalized(0.34, 0.74);
+    guideCirclePreviewController.updateCreationPreviewNormalized(0.43, 0.74);
+    QVariantMap guideCirclePreview = guideCirclePreviewController.modelDocument().value("preview_object").toMap();
+    assert(guideCirclePreview.value("kind").toString() == "circle");
+    assert(nearlyEqual(guideCirclePreview.value("cx").toDouble(), 0.33));
+    assert(nearlyEqual(guideCirclePreview.value("cy").toDouble(), 0.75));
+    assert(nearlyEqual(guideCirclePreview.value("radius").toDouble(), 0.10));
+
+    DrawingDocumentController disabledGuideLinePreviewController;
+    disabledGuideLinePreviewController.setSelectedToolId("horizontal_guide_tool");
+    disabledGuideLinePreviewController.clickCanvasNormalized(0.2, 0.75);
+    disabledGuideLinePreviewController.setSelectedToolId("vertical_guide_tool");
+    disabledGuideLinePreviewController.clickCanvasNormalized(0.33, 0.2);
+    disabledGuideLinePreviewController.setObjectSnapEnabled(true);
+    disabledGuideLinePreviewController.setGuideSnapEnabled(false);
+    disabledGuideLinePreviewController.setSelectedToolId("line_tool");
+    disabledGuideLinePreviewController.clickCanvasNormalized(0.34, 0.74);
+    disabledGuideLinePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
+    QVariantMap disabledGuideLinePreview = disabledGuideLinePreviewController.modelDocument().value("preview_object").toMap();
+    assert(disabledGuideLinePreview.value("kind").toString() == "line");
+    assert(nearlyEqual(disabledGuideLinePreview.value("x1").toDouble(), 0.34));
+    assert(nearlyEqual(disabledGuideLinePreview.value("y1").toDouble(), 0.74));
+    assert(nearlyEqual(disabledGuideLinePreview.value("x2").toDouble(), 0.52));
+    assert(nearlyEqual(disabledGuideLinePreview.value("y2").toDouble(), 0.74));
 
     DrawingDocumentController zeroSizeController;
     zeroSizeController.setSelectedToolId("circle_tool");

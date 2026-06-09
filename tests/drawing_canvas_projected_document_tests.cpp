@@ -26,6 +26,34 @@ QVariantMap modelWithObjects(const QVariantList &objects)
 
 int main()
 {
+    const DrawingCanvasProjectedDocumentSurface missingSurface = projectedDocumentSurface({});
+    assert(missingSurface.drawingObjects.empty());
+    assert(missingSurface.previewObject.isEmpty());
+    assert(missingSurface.plotSummary.isEmpty());
+
+    const DrawingCanvasProjectedDocumentSurface surface = projectedDocumentSurface(QVariantMap{
+        {QStringLiteral("drawing_objects"), QVariantList{
+            object(QStringLiteral("first")),
+            object(QStringLiteral("second")),
+        }},
+        {QStringLiteral("preview_object"), object(QStringLiteral("preview"), QStringLiteral("rectangle"))},
+        {QStringLiteral("plot_summary"), QVariantMap{
+            {QStringLiteral("status"), QStringLiteral("ready")},
+        }},
+    });
+    assert(surface.drawingObjects.size() == 2);
+    assert(surface.previewObject.value(QStringLiteral("id")).toString() == QStringLiteral("preview"));
+    assert(surface.plotSummary.value(QStringLiteral("status")).toString() == QStringLiteral("ready"));
+
+    const DrawingCanvasProjectedDocumentSurface malformedSurface = projectedDocumentSurface(QVariantMap{
+        {QStringLiteral("drawing_objects"), QStringLiteral("ignored")},
+        {QStringLiteral("preview_object"), QStringLiteral("ignored")},
+        {QStringLiteral("plot_summary"), QStringLiteral("ignored")},
+    });
+    assert(malformedSurface.drawingObjects.empty());
+    assert(malformedSurface.previewObject.isEmpty());
+    assert(malformedSurface.plotSummary.isEmpty());
+
     const QVariantMap model = modelWithObjects(QVariantList{
         object(QStringLiteral("first")),
         object(QStringLiteral("target"), QStringLiteral("circle")),

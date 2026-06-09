@@ -84,22 +84,21 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     }
     const QVariantMap model = m_controller->modelDocument();
     const QRectF board = boardRect();
+    const drawing_canvas::DrawingCanvasProjectedDocumentSurface document = drawing_canvas::projectedDocumentSurface(model);
     const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{board, m_controller->selectedObjectId()};
     drawPhysicalGrid(painter, model);
 
-    const QVariantList objects = model.value("drawing_objects").toList();
-    for (const QVariant &value : objects) {
+    for (const QVariant &value : document.drawingObjects) {
         drawing_canvas::drawObject(painter, value.toMap(), objectPainterContext);
     }
-    drawing_canvas::drawGuideIntersections(painter, objects, objectPainterContext);
+    drawing_canvas::drawGuideIntersections(painter, document.drawingObjects, objectPainterContext);
     if (m_plotPreviewVisible) {
-        drawPlotPreview(painter, model);
+        drawPlotPreview(painter, document.plotSummary);
     }
-    drawPlotSafetyOverlay(painter, model.value(QStringLiteral("plot_summary")).toMap());
+    drawPlotSafetyOverlay(painter, document.plotSummary);
     drawSelectionPlotBounds(painter, model);
-    const QVariantMap previewObject = model.value(QStringLiteral("preview_object")).toMap();
-    if (!previewObject.isEmpty()) {
-        drawing_canvas::drawPreviewObject(painter, previewObject, objectPainterContext);
+    if (!document.previewObject.isEmpty()) {
+        drawing_canvas::drawPreviewObject(painter, document.previewObject, objectPainterContext);
     }
     drawGuideDragSnapIntent(painter, model);
     drawPointerSnapMarker(painter, model);
@@ -380,10 +379,9 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
     painter.restore();
 }
 
-void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &model) const
+void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &plotSummary) const
 {
-    const QVariantMap plot = model.value(QStringLiteral("plot_summary")).toMap();
-    const drawing_canvas::DrawingCanvasProjectedPlotPreview preview = drawing_canvas::projectedPlotPreview(plot);
+    const drawing_canvas::DrawingCanvasProjectedPlotPreview preview = drawing_canvas::projectedPlotPreview(plotSummary);
     if (preview.travelSegments.empty() && preview.strokeSegments.empty() && !preview.hasPlotBounds) {
         return;
     }

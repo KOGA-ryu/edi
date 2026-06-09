@@ -25,6 +25,7 @@ int main()
     assert(draftingToolKindFromId("point_tool") == DraftingToolKind::Point);
     assert(draftingToolKindFromId("line_tool") == DraftingToolKind::Line);
     assert(draftingToolKindFromId("horizontal_guide_tool") == DraftingToolKind::HorizontalGuide);
+    assert(draftingToolKindFromId("angled_construction_line_tool") == DraftingToolKind::AngledConstructionLine);
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
     auto point = build("point_1", DraftingToolKind::Point, {0.1, 0.2}, {0.3, 0.4});
@@ -72,6 +73,39 @@ int main()
     assert(verticalGuideGeometry != nullptr);
     assert(verticalGuideGeometry->orientation == GuideOrientation::Vertical);
     assert(nearlyEqual(verticalGuideGeometry->position, 0.7));
+
+    auto horizontalConstruction = build("construction_h", DraftingToolKind::HorizontalConstructionLine, {0.1, 0.2}, {0.7, 0.4});
+    assert(horizontalConstruction.ok);
+    assert(horizontalConstruction.object.kind == DraftingShapeKind::ConstructionLine);
+    assert(horizontalConstruction.object.metadata.toolProvenance == "horizontal_construction_line");
+    const auto *horizontalConstructionGeometry = std::get_if<ConstructionLineGeometry>(&horizontalConstruction.object.geometry);
+    assert(horizontalConstructionGeometry != nullptr);
+    assert(nearlyEqual(horizontalConstructionGeometry->a.x, 0.0));
+    assert(nearlyEqual(horizontalConstructionGeometry->a.y, 0.4));
+    assert(nearlyEqual(horizontalConstructionGeometry->b.x, 1.0));
+    assert(nearlyEqual(horizontalConstructionGeometry->b.y, 0.4));
+
+    auto verticalConstruction = build("construction_v", DraftingToolKind::VerticalConstructionLine, {0.1, 0.2}, {0.7, 0.4});
+    assert(verticalConstruction.ok);
+    const auto *verticalConstructionGeometry = std::get_if<ConstructionLineGeometry>(&verticalConstruction.object.geometry);
+    assert(verticalConstructionGeometry != nullptr);
+    assert(nearlyEqual(verticalConstructionGeometry->a.x, 0.7));
+    assert(nearlyEqual(verticalConstructionGeometry->a.y, 0.0));
+    assert(nearlyEqual(verticalConstructionGeometry->b.x, 0.7));
+    assert(nearlyEqual(verticalConstructionGeometry->b.y, 1.0));
+
+    auto angledConstruction = build("construction_a", DraftingToolKind::AngledConstructionLine, {0.1, 0.2}, {0.7, 0.4});
+    assert(angledConstruction.ok);
+    const auto *angledConstructionGeometry = std::get_if<ConstructionLineGeometry>(&angledConstruction.object.geometry);
+    assert(angledConstructionGeometry != nullptr);
+    assert(nearlyEqual(angledConstructionGeometry->a.x, 0.1));
+    assert(nearlyEqual(angledConstructionGeometry->a.y, 0.2));
+    assert(nearlyEqual(angledConstructionGeometry->b.x, 0.7));
+    assert(nearlyEqual(angledConstructionGeometry->b.y, 0.4));
+
+    auto zeroConstruction = build("construction_zero", DraftingToolKind::AngledConstructionLine, {0.2, 0.2}, {0.2, 0.2});
+    assert(!zeroConstruction.ok);
+    assert(zeroConstruction.code == DraftingResultCode::InvalidGeometry);
 
     auto unknown = build("bad_1", DraftingToolKind::Unknown, {0.0, 0.0}, {1.0, 1.0});
     assert(!unknown.ok);

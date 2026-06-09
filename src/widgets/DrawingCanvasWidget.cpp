@@ -377,6 +377,17 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         return;
     }
 
+    if (kind == QStringLiteral("construction_line")) {
+        QPen constructionPen(selected ? QColor("#f6c65b") : QColor("#9fb2c7"), selected ? 2 : 1, Qt::DotLine);
+        constructionPen.setCapStyle(Qt::RoundCap);
+        painter.setPen(constructionPen);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(
+            canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
+            canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));
+        return;
+    }
+
     QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
     const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};
@@ -451,6 +462,13 @@ void DrawingCanvasWidget::drawPreviewObject(QPainter &painter, const QVariantMap
 
     const QString kind = object.value(QStringLiteral("kind")).toString();
     if (kind == QStringLiteral("line")) {
+        painter.drawLine(
+            canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
+            canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));
+    } else if (kind == QStringLiteral("construction_line")) {
+        QPen constructionPen(QColor("#75c7ff"), 1.5, Qt::DotLine);
+        constructionPen.setCapStyle(Qt::RoundCap);
+        painter.setPen(constructionPen);
         painter.drawLine(
             canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
             canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));

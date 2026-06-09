@@ -19,7 +19,8 @@ enum class DraftingShapeKind {
     Circle,
     Polygon,
     Polyline,
-    Guide
+    Guide,
+    ConstructionLine
 };
 
 enum class GuideOrientation {
@@ -131,6 +132,11 @@ struct GuideGeometry {
     double position = 0.0;
 };
 
+struct ConstructionLineGeometry {
+    Point2D a;
+    Point2D b;
+};
+
 using DraftingGeometry = std::variant<
     PointGeometry,
     LineGeometry,
@@ -138,7 +144,8 @@ using DraftingGeometry = std::variant<
     CircleGeometry,
     PolygonGeometry,
     PolylineGeometry,
-    GuideGeometry>;
+    GuideGeometry,
+    ConstructionLineGeometry>;
 
 const char *shapeKindName(DraftingShapeKind kind);
 const char *guideOrientationName(GuideOrientation orientation);

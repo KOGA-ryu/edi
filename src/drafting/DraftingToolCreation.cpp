@@ -30,6 +30,15 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "vertical_guide_tool") {
         return DraftingToolKind::VerticalGuide;
     }
+    if (toolId == "horizontal_construction_line_tool") {
+        return DraftingToolKind::HorizontalConstructionLine;
+    }
+    if (toolId == "vertical_construction_line_tool") {
+        return DraftingToolKind::VerticalConstructionLine;
+    }
+    if (toolId == "angled_construction_line_tool") {
+        return DraftingToolKind::AngledConstructionLine;
+    }
     return DraftingToolKind::Unknown;
 }
 
@@ -50,6 +59,12 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "horizontal_guide";
     case DraftingToolKind::VerticalGuide:
         return "vertical_guide";
+    case DraftingToolKind::HorizontalConstructionLine:
+        return "horizontal_construction_line";
+    case DraftingToolKind::VerticalConstructionLine:
+        return "vertical_construction_line";
+    case DraftingToolKind::AngledConstructionLine:
+        return "angled_construction_line";
     case DraftingToolKind::Unknown:
         return "unknown";
     }
@@ -82,6 +97,15 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::VerticalGuide) {
         kind = DraftingShapeKind::Guide;
         geometry = GuideGeometry{GuideOrientation::Vertical, request.end.x};
+    } else if (request.tool == DraftingToolKind::HorizontalConstructionLine) {
+        kind = DraftingShapeKind::ConstructionLine;
+        geometry = ConstructionLineGeometry{{0.0, request.end.y}, {1.0, request.end.y}};
+    } else if (request.tool == DraftingToolKind::VerticalConstructionLine) {
+        kind = DraftingShapeKind::ConstructionLine;
+        geometry = ConstructionLineGeometry{{request.end.x, 0.0}, {request.end.x, 1.0}};
+    } else if (request.tool == DraftingToolKind::AngledConstructionLine) {
+        kind = DraftingShapeKind::ConstructionLine;
+        geometry = ConstructionLineGeometry{request.start, request.end};
     } else {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry, "tool cannot create a drafting object");
     }

@@ -92,6 +92,13 @@ QString geometrySummary(const QVariantMap &object)
             .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
             .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()));
     }
+    if (kind == QStringLiteral("construction_line")) {
+        return QStringLiteral("Geometry: construction (%1, %2) -> (%3, %4)")
+            .arg(formatNumber(object.value(QStringLiteral("x1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()));
+    }
     if (kind == QStringLiteral("rectangle")) {
         return QStringLiteral("Geometry: rect x %1, y %2, w %3, h %4, rot %5")
             .arg(formatNumber(object.value(QStringLiteral("x")).toDouble()))
@@ -210,6 +217,9 @@ QWidget *EdiShellWindow::buildLeftPanel()
         {QStringLiteral("circle_tool"), QStringLiteral("Circle")},
         {QStringLiteral("horizontal_guide_tool"), QStringLiteral("H Guide")},
         {QStringLiteral("vertical_guide_tool"), QStringLiteral("V Guide")},
+        {QStringLiteral("horizontal_construction_line_tool"), QStringLiteral("H Construct")},
+        {QStringLiteral("vertical_construction_line_tool"), QStringLiteral("V Construct")},
+        {QStringLiteral("angled_construction_line_tool"), QStringLiteral("A Construct")},
     };
 
     for (const auto &tool : tools) {

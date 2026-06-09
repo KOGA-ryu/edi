@@ -72,6 +72,8 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
                 return std::abs(point.y - typedGeometry.position);
             }
             return std::abs(point.x - typedGeometry.position);
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            return distanceToSegment(typedGeometry.a, typedGeometry.b, point);
         } else {
             return distanceToVertexList(typedGeometry.vertices, point, false);
         }

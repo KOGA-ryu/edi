@@ -76,6 +76,12 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("orientation"), QString::fromLatin1(guideOrientationName(geometry.orientation)));
             result.insert(QStringLiteral("position"), geometry.position);
             result.insert(QStringLiteral("plot_ready"), false);
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            result.insert(QStringLiteral("x1"), geometry.a.x);
+            result.insert(QStringLiteral("y1"), geometry.a.y);
+            result.insert(QStringLiteral("x2"), geometry.b.x);
+            result.insert(QStringLiteral("y2"), geometry.b.y);
+            result.insert(QStringLiteral("plot_ready"), false);
         } else {
             QVariantList points;
             for (Point2D point : geometry.vertices) {

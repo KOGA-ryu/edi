@@ -7,6 +7,15 @@
 
 using namespace edi::drafting;
 
+namespace {
+
+bool nearlyEqual(double a, double b)
+{
+    return std::abs(a - b) < 0.000001;
+}
+
+} // namespace
+
 int main()
 {
     DraftingGeometry line = LineGeometry{{0.0, 0.0}, {3.0, 4.0}};
@@ -27,10 +36,13 @@ int main()
 
     assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
     assert(shapeKindName(DraftingShapeKind::Guide) == std::string("guide"));
+    assert(shapeKindName(DraftingShapeKind::ConstructionLine) == std::string("construction_line"));
     assert(guideOrientationName(GuideOrientation::Vertical) == std::string("vertical"));
     assert(validateGeometry(line).ok);
     assert(validateGeometry(GuideGeometry{GuideOrientation::Horizontal, 0.5}).ok);
     assert(!validateGeometry(GuideGeometry{GuideOrientation::Vertical, 2.0}).ok);
+    assert(validateGeometry(ConstructionLineGeometry{{0.0, 0.25}, {1.0, 0.75}}).ok);
+    assert(!validateGeometry(ConstructionLineGeometry{{0.5, 0.5}, {0.5, 0.5}}).ok);
     assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
     assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
     assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);
@@ -47,6 +59,18 @@ int main()
     const auto *movedGuideGeometry = std::get_if<GuideGeometry>(&movedGuide);
     assert(movedGuideGeometry != nullptr);
     assert(movedGuideGeometry->position == 0.5);
+
+    DraftingGeometry construction = ConstructionLineGeometry{{0.2, 0.3}, {0.8, 0.9}};
+    Bounds2D constructionBounds = computeBounds(construction);
+    assert(nearlyEqual(constructionBounds.x, 0.2));
+    assert(nearlyEqual(constructionBounds.y, 0.3));
+    assert(nearlyEqual(constructionBounds.width, 0.6));
+    assert(nearlyEqual(constructionBounds.height, 0.6));
+    DraftingGeometry movedConstruction = translateGeometry(construction, 0.1, -0.2);
+    const auto *movedConstructionGeometry = std::get_if<ConstructionLineGeometry>(&movedConstruction);
+    assert(movedConstructionGeometry != nullptr);
+    assert(nearlyEqual(movedConstructionGeometry->a.x, 0.3));
+    assert(nearlyEqual(movedConstructionGeometry->a.y, 0.1));
 
     return 0;
 }

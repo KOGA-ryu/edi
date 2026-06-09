@@ -80,6 +80,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "polyline";
     case DraftingShapeKind::Guide:
         return "guide";
+    case DraftingShapeKind::ConstructionLine:
+        return "construction_line";
     }
     return "unknown";
 }
@@ -136,8 +138,10 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Polygon;
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             return DraftingShapeKind::Polyline;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             return DraftingShapeKind::Guide;
+        } else {
+            return DraftingShapeKind::ConstructionLine;
         }
     }, geometry);
 }
@@ -242,12 +246,19 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
                     return GeometryValidationResult::rejected("polyline vertices must be finite");
                 }
             }
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (!std::isfinite(typedGeometry.position)) {
                 return GeometryValidationResult::rejected("guide position must be finite");
             }
             if (typedGeometry.position < 0.0 || typedGeometry.position > 1.0) {
                 return GeometryValidationResult::rejected("guide position must be normalized");
+            }
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            if (!isFinite(typedGeometry.a) || !isFinite(typedGeometry.b)) {
+                return GeometryValidationResult::rejected("construction line endpoints must be finite");
+            }
+            if (distance(typedGeometry.a, typedGeometry.b) <= 0.000001) {
+                return GeometryValidationResult::rejected("construction line requires two distinct points");
             }
         }
         return GeometryValidationResult::accepted();
@@ -277,6 +288,8 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
                 return {0.0, typedGeometry.position, 1.0, 0.0};
             }
             return {typedGeometry.position, 0.0, 0.0, 1.0};
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            return boundsFromPoints({typedGeometry.a, typedGeometry.b});
         } else {
             return boundsFromPoints(typedGeometry.vertices);
         }
@@ -309,6 +322,9 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             } else {
                 typedGeometry.position += dx;
             }
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            typedGeometry.a = translatePoint(typedGeometry.a, dx, dy);
+            typedGeometry.b = translatePoint(typedGeometry.b, dx, dy);
         } else {
             for (Point2D &point : typedGeometry.vertices) {
                 point = translatePoint(point, dx, dy);
@@ -374,6 +390,10 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             } else {
                 handles.push_back({"guide", {typedGeometry.position, 0.5}});
             }
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            handles.push_back({"construction_start", typedGeometry.a});
+            handles.push_back({"construction_midpoint", {(typedGeometry.a.x + typedGeometry.b.x) / 2.0, (typedGeometry.a.y + typedGeometry.b.y) / 2.0}});
+            handles.push_back({"construction_end", typedGeometry.b});
         } else {
             for (std::size_t i = 0; i < typedGeometry.vertices.size(); ++i) {
                 handles.push_back({"vertex_" + std::to_string(i), typedGeometry.vertices[i]});

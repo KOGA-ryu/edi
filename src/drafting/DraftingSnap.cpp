@@ -182,6 +182,14 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                     addCandidate(candidates, object, {geometry.position, 0.5}, DraftingSnapSourceKind::Center);
                 }
             }
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            if (settings.endpointEnabled) {
+                addCandidate(candidates, object, geometry.a, DraftingSnapSourceKind::Endpoint);
+                addCandidate(candidates, object, geometry.b, DraftingSnapSourceKind::Endpoint);
+            }
+            if (settings.midpointEnabled) {
+                addCandidate(candidates, object, {(geometry.a.x + geometry.b.x) / 2.0, (geometry.a.y + geometry.b.y) / 2.0}, DraftingSnapSourceKind::Midpoint);
+            }
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             if (settings.vertexEnabled) {
                 for (Point2D point : geometry.vertices) {

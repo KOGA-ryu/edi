@@ -6,6 +6,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingOffset.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
@@ -235,6 +236,11 @@ double nudgeScaleForMode(const QString &stepMode)
         return 0.25;
     }
     return 1.0;
+}
+
+DraftingOffsetSide offsetSideFromId(const QString &sideId)
+{
+    return sideId == QStringLiteral("right") ? DraftingOffsetSide::Right : DraftingOffsetSide::Left;
 }
 
 } // namespace
@@ -485,6 +491,31 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
         return false;
     }
 
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr) {
+        return false;
+    }
+
+    const QString id = nextObjectId(QStringLiteral("offset"), m_nextObjectSerial++);
+    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), 0.05, offsetSideFromId(sideId));
+    if (!offset.ok) {
+        return false;
+    }
+
+    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{offset.object});
+    if (!create.ok) {
+        return false;
+    }
+    applyDraftingCommand(m_document, SelectObjectCommand{offset.object.id});
     emit modelChanged();
     return true;
 }

@@ -362,6 +362,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
+    layout->addWidget(buildOffsetControls());
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -423,6 +424,34 @@ QWidget *EdiShellWindow::buildNudgeControls()
     addButton(QStringLiteral("Fine Left"), QStringLiteral("left"), QStringLiteral("fine"), 5, 0);
     addButton(QStringLiteral("Fine Right"), QStringLiteral("right"), QStringLiteral("fine"), 5, 2);
     addButton(QStringLiteral("Fine Down"), QStringLiteral("down"), QStringLiteral("fine"), 6, 1);
+
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildOffsetControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("offsetControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Offset")), 0, 0, 1, 2);
+
+    auto *left = new QPushButton(QStringLiteral("Left +0.05"));
+    left->setObjectName(QStringLiteral("offsetButton"));
+    connect(left, &QPushButton::clicked, this, [this]() {
+        m_controller->offsetSelectedObject(QStringLiteral("left"));
+    });
+    layout->addWidget(left, 1, 0);
+
+    auto *right = new QPushButton(QStringLiteral("Right +0.05"));
+    right->setObjectName(QStringLiteral("offsetButton"));
+    connect(right, &QPushButton::clicked, this, [this]() {
+        m_controller->offsetSelectedObject(QStringLiteral("right"));
+    });
+    layout->addWidget(right, 1, 1);
 
     return panel;
 }

@@ -76,6 +76,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingGrid.cpp
     src/drafting/DraftingToolCreation.h
     src/drafting/DraftingToolCreation.cpp
+    src/drafting/DraftingOffset.h
+    src/drafting/DraftingOffset.cpp
     src/drafting/DraftingSelection.h
     src/drafting/DraftingSelection.cpp
     src/drafting/DraftingMeasurement.h
@@ -167,6 +169,7 @@ add_edi_contract_test(drafting_hit_test_tests tests/drafting_hit_test_tests.cpp 
 add_edi_contract_test(drafting_snap_tests tests/drafting_snap_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_grid_tests tests/drafting_grid_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_tool_creation_tests tests/drafting_tool_creation_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_offset_tests tests/drafting_offset_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_object_edit_tests tests/drafting_object_edit_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_metadata_tests tests/drafting_metadata_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_measurement_tests tests/drafting_measurement_tests.cpp edi_drafting_core)

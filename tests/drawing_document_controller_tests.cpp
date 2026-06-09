@@ -178,6 +178,22 @@ int main(int argc, char **argv)
     assert(nearlyEqual(movedLine.value("y1").toDouble(), 0.0));
     assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.8));
     assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.6));
+
+    assert(controller.offsetSelectedObject("left"));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    assert(objects.size() == 3);
+    QVariantMap offsetLine = objects.back().toMap();
+    assert(offsetLine.value("kind").toString() == "line");
+    assert(controller.selectedObjectId() == offsetLine.value("id").toString());
+    assert(nearlyEqual(offsetLine.value("x1").toDouble(), 0.1646446609));
+    assert(nearlyEqual(offsetLine.value("y1").toDouble(), 0.0353553391));
+    assert(nearlyEqual(offsetLine.value("x2").toDouble(), 0.7646446609));
+    assert(nearlyEqual(offsetLine.value("y2").toDouble(), 0.6353553391));
+
+    controller.clickCanvasNormalized(0.3, 0.35);
+    const int beforeUnsupportedOffsetCount = controller.modelDocument().value("drawing_objects").toList().size();
+    assert(!controller.offsetSelectedObject("right"));
+    assert(controller.modelDocument().value("drawing_objects").toList().size() == beforeUnsupportedOffsetCount);
     assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
 
     DrawingDocumentController gridController;
@@ -226,6 +242,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(verticalConstruction.value("y1").toDouble(), 0.0));
     assert(nearlyEqual(verticalConstruction.value("x2").toDouble(), 0.6));
     assert(nearlyEqual(verticalConstruction.value("y2").toDouble(), 1.0));
+    assert(constructionController.selectedObjectId() == verticalConstruction.value("id").toString());
+    assert(constructionController.offsetSelectedObject("left"));
+    constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
+    assert(constructionObjects.size() == 3);
+    QVariantMap offsetConstruction = constructionObjects.back().toMap();
+    assert(offsetConstruction.value("kind").toString() == "construction_line");
+    assert(nearlyEqual(offsetConstruction.value("x1").toDouble(), 0.55));
+    assert(nearlyEqual(offsetConstruction.value("y1").toDouble(), 0.0));
+    assert(nearlyEqual(offsetConstruction.value("x2").toDouble(), 0.55));
+    assert(nearlyEqual(offsetConstruction.value("y2").toDouble(), 1.0));
 
     DrawingDocumentController angledConstructionController;
     angledConstructionController.setSelectedToolId("angled_construction_line_tool");

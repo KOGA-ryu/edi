@@ -90,6 +90,9 @@ private:
     QPushButton *m_fitSelectionToDrawableButton = nullptr;
     QPushButton *m_centerSelectionInDrawableButton = nullptr;
     QPushButton *m_moveSelectionToDrawableOriginButton = nullptr;
+    QPushButton *m_moveGuideToDrawableOriginButton = nullptr;
+    QPushButton *m_centerGuideInDrawableButton = nullptr;
+    QPushButton *m_fitConstructionToDrawableButton = nullptr;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;

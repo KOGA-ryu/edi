@@ -1563,6 +1563,107 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
     return true;
 }
 
+bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
+    if (guide == nullptr) {
+        return false;
+    }
+
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    GuideGeometry next = *guide;
+    next.position = guide->orientation == GuideOrientation::Horizontal
+        ? grid.drawableBounds.y
+        : grid.drawableBounds.x;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, next});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::centerSelectedGuideInDrawable()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
+    if (guide == nullptr) {
+        return false;
+    }
+
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    GuideGeometry next = *guide;
+    next.position = guide->orientation == GuideOrientation::Horizontal
+        ? grid.drawableBounds.y + grid.drawableBounds.height / 2.0
+        : grid.drawableBounds.x + grid.drawableBounds.width / 2.0;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, next});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::ConstructionLine) {
+        return false;
+    }
+    const auto *line = std::get_if<ConstructionLineGeometry>(&object->geometry);
+    if (line == nullptr) {
+        return false;
+    }
+
+    constexpr double epsilon = 0.0000001;
+    const bool horizontal = std::abs(line->a.y - line->b.y) < epsilon;
+    const bool vertical = std::abs(line->a.x - line->b.x) < epsilon;
+    if (!horizontal && !vertical) {
+        return false;
+    }
+
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    ConstructionLineGeometry next = *line;
+    if (horizontal) {
+        next.a = {grid.drawableBounds.x, line->a.y};
+        next.b = {grid.drawableBounds.x + grid.drawableBounds.width, line->a.y};
+    } else {
+        next.a = {line->a.x, grid.drawableBounds.y};
+        next.b = {line->a.x, grid.drawableBounds.y + grid.drawableBounds.height};
+    }
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, next});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);

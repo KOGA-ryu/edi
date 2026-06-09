@@ -136,6 +136,20 @@ bool shapeCanPlot(DraftingShapeKind kind)
         && kind != DraftingShapeKind::Dimension;
 }
 
+bool constructionLineCanFitDrawable(const DraftingObject &object)
+{
+    if (object.kind != DraftingShapeKind::ConstructionLine) {
+        return false;
+    }
+    const auto *line = std::get_if<ConstructionLineGeometry>(&object.geometry);
+    if (line == nullptr) {
+        return false;
+    }
+    constexpr double epsilon = 0.0000001;
+    return std::abs(line->a.y - line->b.y) < epsilon
+        || std::abs(line->a.x - line->b.x) < epsilon;
+}
+
 double physicalX(Point2D point, const DraftingGridProjection &grid)
 {
     return point.x * grid.settings.width;
@@ -259,6 +273,8 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
+        {QStringLiteral("guide_drawable_controls"), object.kind == DraftingShapeKind::Guide},
+        {QStringLiteral("construction_drawable_controls"), constructionLineCanFitDrawable(object)},
     };
 
     if (grid != nullptr) {

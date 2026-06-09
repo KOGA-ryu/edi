@@ -686,6 +686,24 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->moveSelectionToDrawableOrigin();
     });
     layout->addWidget(m_moveSelectionToDrawableOriginButton);
+    m_moveGuideToDrawableOriginButton = new QPushButton(QStringLiteral("Guide To Drawable Origin"));
+    m_moveGuideToDrawableOriginButton->setObjectName(QStringLiteral("guideToDrawableOriginButton"));
+    connect(m_moveGuideToDrawableOriginButton, &QPushButton::clicked, this, [this]() {
+        m_controller->moveSelectedGuideToDrawableOrigin();
+    });
+    layout->addWidget(m_moveGuideToDrawableOriginButton);
+    m_centerGuideInDrawableButton = new QPushButton(QStringLiteral("Center Guide"));
+    m_centerGuideInDrawableButton->setObjectName(QStringLiteral("centerGuideButton"));
+    connect(m_centerGuideInDrawableButton, &QPushButton::clicked, this, [this]() {
+        m_controller->centerSelectedGuideInDrawable();
+    });
+    layout->addWidget(m_centerGuideInDrawableButton);
+    m_fitConstructionToDrawableButton = new QPushButton(QStringLiteral("Fit Construction To Drawable"));
+    m_fitConstructionToDrawableButton->setObjectName(QStringLiteral("fitConstructionToDrawableButton"));
+    connect(m_fitConstructionToDrawableButton, &QPushButton::clicked, this, [this]() {
+        m_controller->fitSelectedConstructionLineToDrawable();
+    });
+    layout->addWidget(m_fitConstructionToDrawableButton);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1479,6 +1497,15 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_moveSelectionToDrawableOriginButton != nullptr) {
         m_moveSelectionToDrawableOriginButton->setEnabled(!selectedObject.isEmpty());
+    }
+    if (m_moveGuideToDrawableOriginButton != nullptr) {
+        m_moveGuideToDrawableOriginButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    }
+    if (m_centerGuideInDrawableButton != nullptr) {
+        m_centerGuideInDrawableButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    }
+    if (m_fitConstructionToDrawableButton != nullptr) {
+        m_fitConstructionToDrawableButton->setEnabled(selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

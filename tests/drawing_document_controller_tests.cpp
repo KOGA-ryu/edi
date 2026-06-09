@@ -334,6 +334,15 @@ int main(int argc, char **argv)
     assert(!horizontalGuide.value("plot_ready").toBool());
     assert(verticalGuide.value("orientation").toString() == "vertical");
     assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
+    assert(verticalGuide.value("guide_drawable_controls").toBool());
+    assert(guideController.moveSelectedGuideToDrawableOrigin());
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), squareQuarterInchStep));
+    assert(guideController.centerSelectedGuideInDrawable());
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.5));
     assert(guideController.updateSelectedObjectGeometryField("position", 0.8));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
@@ -341,6 +350,34 @@ int main(int argc, char **argv)
     const int guideRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
     assert(!guideController.updateSelectedObjectGeometryField("position", 1.2));
     assert(guideController.modelDocument().value("revision").toInt() == guideRevisionBeforeInvalid);
+
+    DrawingDocumentController horizontalGuidePlacementController;
+    horizontalGuidePlacementController.setSelectedToolId("horizontal_guide_tool");
+    horizontalGuidePlacementController.clickCanvasNormalized(0.2, 0.3);
+    assert(horizontalGuidePlacementController.moveSelectedGuideToDrawableOrigin());
+    QVariantMap horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), squareQuarterInchStep));
+    assert(horizontalGuidePlacementController.centerSelectedGuideInDrawable());
+    horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
+
+    DrawingDocumentController lockedGuidePlacementController;
+    lockedGuidePlacementController.setSelectedToolId("horizontal_guide_tool");
+    lockedGuidePlacementController.clickCanvasNormalized(0.2, 0.3);
+    assert(lockedGuidePlacementController.setSelectedObjectLocked(true));
+    const int lockedGuideRevision = lockedGuidePlacementController.modelDocument().value("revision").toInt();
+    assert(!lockedGuidePlacementController.moveSelectedGuideToDrawableOrigin());
+    assert(lockedGuidePlacementController.modelDocument().value("revision").toInt() == lockedGuideRevision);
+
+    DrawingDocumentController layerLockedGuidePlacementController;
+    layerLockedGuidePlacementController.setSelectedToolId("vertical_guide_tool");
+    layerLockedGuidePlacementController.clickCanvasNormalized(0.6, 0.7);
+    assert(layerLockedGuidePlacementController.setActiveLayerLocked(true));
+    const int layerLockedGuideRevision = layerLockedGuidePlacementController.modelDocument().value("revision").toInt();
+    assert(!layerLockedGuidePlacementController.centerSelectedGuideInDrawable());
+    assert(layerLockedGuidePlacementController.modelDocument().value("revision").toInt() == layerLockedGuideRevision);
 
     DrawingDocumentController constructionController;
     constructionController.setSelectedToolId("horizontal_construction_line_tool");
@@ -361,6 +398,7 @@ int main(int argc, char **argv)
     assert(nearlyEqual(verticalConstruction.value("y1").toDouble(), 0.0));
     assert(nearlyEqual(verticalConstruction.value("x2").toDouble(), 0.6));
     assert(nearlyEqual(verticalConstruction.value("y2").toDouble(), 1.0));
+    assert(verticalConstruction.value("construction_drawable_controls").toBool());
     assert(constructionController.selectedObjectId() == verticalConstruction.value("id").toString());
     assert(constructionController.offsetSelectedObject("left"));
     constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
@@ -391,6 +429,44 @@ int main(int argc, char **argv)
     assert(nearlyEqual(repeatedConstruction.value("x2").toDouble(), 0.55));
     assert(nearlyEqual(repeatedConstruction.value("y2").toDouble(), 0.3));
 
+    DrawingDocumentController verticalConstructionPlacementController;
+    verticalConstructionPlacementController.setSelectedToolId("vertical_construction_line_tool");
+    verticalConstructionPlacementController.clickCanvasNormalized(0.6, 0.7);
+    assert(verticalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    QVariantMap verticalFittedConstruction = verticalConstructionPlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(verticalFittedConstruction.value("x1").toDouble(), 0.6));
+    assert(nearlyEqual(verticalFittedConstruction.value("y1").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(verticalFittedConstruction.value("x2").toDouble(), 0.6));
+    assert(nearlyEqual(verticalFittedConstruction.value("y2").toDouble(), 1.0 - squareQuarterInchStep));
+
+    DrawingDocumentController horizontalConstructionPlacementController;
+    horizontalConstructionPlacementController.setSelectedToolId("horizontal_construction_line_tool");
+    horizontalConstructionPlacementController.clickCanvasNormalized(0.2, 0.3);
+    assert(horizontalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    QVariantMap horizontalFittedConstruction = horizontalConstructionPlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(horizontalFittedConstruction.value("x1").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(horizontalFittedConstruction.value("y1").toDouble(), 0.3));
+    assert(nearlyEqual(horizontalFittedConstruction.value("x2").toDouble(), 1.0 - squareQuarterInchStep));
+    assert(nearlyEqual(horizontalFittedConstruction.value("y2").toDouble(), 0.3));
+
+    DrawingDocumentController lockedConstructionPlacementController;
+    lockedConstructionPlacementController.setSelectedToolId("vertical_construction_line_tool");
+    lockedConstructionPlacementController.clickCanvasNormalized(0.6, 0.7);
+    assert(lockedConstructionPlacementController.setSelectedObjectLocked(true));
+    const int lockedConstructionRevision = lockedConstructionPlacementController.modelDocument().value("revision").toInt();
+    assert(!lockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    assert(lockedConstructionPlacementController.modelDocument().value("revision").toInt() == lockedConstructionRevision);
+
+    DrawingDocumentController layerLockedConstructionPlacementController;
+    layerLockedConstructionPlacementController.setSelectedToolId("horizontal_construction_line_tool");
+    layerLockedConstructionPlacementController.clickCanvasNormalized(0.2, 0.3);
+    assert(layerLockedConstructionPlacementController.setActiveLayerLocked(true));
+    const int layerLockedConstructionRevision = layerLockedConstructionPlacementController.modelDocument().value("revision").toInt();
+    assert(!layerLockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    assert(layerLockedConstructionPlacementController.modelDocument().value("revision").toInt() == layerLockedConstructionRevision);
+
     DrawingDocumentController angledConstructionController;
     angledConstructionController.setSelectedToolId("angled_construction_line_tool");
     angledConstructionController.clickCanvasNormalized(0.1, 0.2);
@@ -415,6 +491,10 @@ int main(int argc, char **argv)
     assert(nearlyEqual(angledConstruction.value("y1").toDouble(), 0.2));
     assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.7));
     assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.4));
+    assert(!angledConstruction.value("construction_drawable_controls").toBool());
+    const int angledConstructionFitRevision = angledConstructionController.modelDocument().value("revision").toInt();
+    assert(!angledConstructionController.fitSelectedConstructionLineToDrawable());
+    assert(angledConstructionController.modelDocument().value("revision").toInt() == angledConstructionFitRevision);
     assert(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.8));
     assert(angledConstructionController.updateSelectedObjectGeometryField("y2", 0.5));
     angledConstruction = angledConstructionController.modelDocument().value("drawing_objects").toList().front().toMap();

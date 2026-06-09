@@ -117,5 +117,6 @@ private:
     std::optional<edi::drafting::Point2D> m_pointerRawPoint;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;
+    QVariantMap m_lastGuideDragSnap;
     int m_nextObjectSerial = 1;
 };

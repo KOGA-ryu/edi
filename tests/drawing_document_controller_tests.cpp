@@ -1002,9 +1002,21 @@ int main(int argc, char **argv)
     guideMoveSnapController.clickCanvasNormalized(0.2, 0.2);
     guideMoveSnapController.setObjectSnapEnabled(true);
     assert(guideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
-    QVariantMap guideMovedPoint = guideMoveSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
+    QVariantMap guideMoveModel = guideMoveSnapController.modelDocument();
+    QVariantMap guideMovedPoint = guideMoveModel.value("drawing_objects").toList().back().toMap();
     assert(nearlyEqual(guideMovedPoint.value("x").toDouble(), 0.33));
     assert(nearlyEqual(guideMovedPoint.value("y").toDouble(), 0.75));
+    QVariantMap guideDragSnap = guideMoveModel.value("guide_drag_snap").toMap();
+    assert(!guideDragSnap.isEmpty());
+    assert(guideDragSnap.value("kind").toString() == "guide");
+    assert(guideDragSnap.value("mode").toString() == "move_selection");
+    assert(guideDragSnap.value("anchor_label").toString() == "point");
+    assert(guideDragSnap.value("intersection").toBool());
+    assert(!guideDragSnap.value("source_object_id").toString().isEmpty());
+    assert(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("x").toDouble(), 0.34));
+    assert(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("y").toDouble(), 0.74));
+    assert(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("y").toDouble(), 0.75));
 
     DrawingDocumentController disabledGuideMoveSnapController;
     disabledGuideMoveSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1016,9 +1028,11 @@ int main(int argc, char **argv)
     disabledGuideMoveSnapController.setObjectSnapEnabled(true);
     disabledGuideMoveSnapController.setGuideSnapEnabled(false);
     assert(disabledGuideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
-    QVariantMap disabledGuideMovedPoint = disabledGuideMoveSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
+    QVariantMap disabledGuideMoveModel = disabledGuideMoveSnapController.modelDocument();
+    QVariantMap disabledGuideMovedPoint = disabledGuideMoveModel.value("drawing_objects").toList().back().toMap();
     assert(nearlyEqual(disabledGuideMovedPoint.value("x").toDouble(), 0.34));
     assert(nearlyEqual(disabledGuideMovedPoint.value("y").toDouble(), 0.74));
+    assert(!disabledGuideMoveModel.contains("guide_drag_snap"));
 
     DrawingDocumentController hiddenGuideMoveSnapController;
     hiddenGuideMoveSnapController.setSelectedToolId("horizontal_guide_tool");

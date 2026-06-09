@@ -31,6 +31,7 @@ private:
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const;
     void drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const;
+    void drawGuideDragSnapIntent(QPainter &painter, const QVariantMap &model) const;
     void drawPlotPreview(QPainter &painter, const QVariantMap &model) const;
     void drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const;
     void drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const;

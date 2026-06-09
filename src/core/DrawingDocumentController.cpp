@@ -123,6 +123,7 @@ bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId
 struct MoveSnapAnchor {
     Point2D point;
     int rank = 3;
+    QString label;
 };
 
 struct MoveSnapChoice {
@@ -132,6 +133,10 @@ struct MoveSnapChoice {
     int anchorRank = 3;
     double dx = 0.0;
     double dy = 0.0;
+    Point2D intendedAnchor;
+    Point2D snappedAnchor;
+    DraftingObjectId sourceObjectId;
+    QString anchorLabel;
 };
 
 bool guideSnapChoiceBetter(const MoveSnapChoice &candidate, const MoveSnapChoice &current)
@@ -152,7 +157,27 @@ bool guideSnapChoiceBetter(const MoveSnapChoice &candidate, const MoveSnapChoice
     return false;
 }
 
-void addUniqueAnchor(std::vector<MoveSnapAnchor> &anchors, Point2D point, int rank)
+QString moveAnchorLabelForHandle(const std::string &handleId)
+{
+    if (handleId == "point") {
+        return QStringLiteral("point");
+    }
+    if (handleId == "line_start" || handleId == "line_end") {
+        return QStringLiteral("endpoint");
+    }
+    if (handleId == "circle_center") {
+        return QStringLiteral("center");
+    }
+    if (handleId == "circle_radius") {
+        return QStringLiteral("radius");
+    }
+    if (handleId.rfind("rect_", 0) == 0) {
+        return QStringLiteral("corner");
+    }
+    return QStringLiteral("handle");
+}
+
+void addUniqueAnchor(std::vector<MoveSnapAnchor> &anchors, Point2D point, int rank, QString label)
 {
     if (!isFinite(point)) {
         return;
@@ -162,7 +187,7 @@ void addUniqueAnchor(std::vector<MoveSnapAnchor> &anchors, Point2D point, int ra
         return std::abs(existing.point.x - point.x) < epsilon && std::abs(existing.point.y - point.y) < epsilon;
     });
     if (duplicate == anchors.end()) {
-        anchors.push_back({point, rank});
+        anchors.push_back({point, rank, std::move(label)});
     }
 }
 
@@ -170,7 +195,7 @@ std::vector<MoveSnapAnchor> moveSnapAnchorsForObject(const DraftingObject &objec
 {
     std::vector<MoveSnapAnchor> anchors;
     for (const HandleAnchor &handle : handleAnchors(object.geometry)) {
-        addUniqueAnchor(anchors, handle.point, 0);
+        addUniqueAnchor(anchors, handle.point, 0, moveAnchorLabelForHandle(handle.id));
     }
 
     const Bounds2D bounds = object.bounds;
@@ -181,15 +206,15 @@ std::vector<MoveSnapAnchor> moveSnapAnchorsForObject(const DraftingObject &objec
         const double bottom = bounds.y + bounds.height;
         const double centerX = bounds.x + bounds.width / 2.0;
         const double centerY = bounds.y + bounds.height / 2.0;
-        addUniqueAnchor(anchors, {centerX, centerY}, 1);
-        addUniqueAnchor(anchors, {left, centerY}, 2);
-        addUniqueAnchor(anchors, {right, centerY}, 2);
-        addUniqueAnchor(anchors, {centerX, top}, 2);
-        addUniqueAnchor(anchors, {centerX, bottom}, 2);
-        addUniqueAnchor(anchors, {left, top}, 3);
-        addUniqueAnchor(anchors, {right, top}, 3);
-        addUniqueAnchor(anchors, {right, bottom}, 3);
-        addUniqueAnchor(anchors, {left, bottom}, 3);
+        addUniqueAnchor(anchors, {centerX, centerY}, 1, QStringLiteral("center"));
+        addUniqueAnchor(anchors, {left, centerY}, 2, QStringLiteral("edge"));
+        addUniqueAnchor(anchors, {right, centerY}, 2, QStringLiteral("edge"));
+        addUniqueAnchor(anchors, {centerX, top}, 2, QStringLiteral("edge"));
+        addUniqueAnchor(anchors, {centerX, bottom}, 2, QStringLiteral("edge"));
+        addUniqueAnchor(anchors, {left, top}, 3, QStringLiteral("corner"));
+        addUniqueAnchor(anchors, {right, top}, 3, QStringLiteral("corner"));
+        addUniqueAnchor(anchors, {right, bottom}, 3, QStringLiteral("corner"));
+        addUniqueAnchor(anchors, {left, bottom}, 3, QStringLiteral("corner"));
     }
     return anchors;
 }
@@ -688,6 +713,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
     }
+    if (!m_lastGuideDragSnap.isEmpty()) {
+        model.insert(QStringLiteral("guide_drag_snap"), m_lastGuideDragSnap);
+    }
     if (m_latestCalibrationMeasurement) {
         model.insert(QStringLiteral("calibration_measurement"), calibrationMeasurementToMap(*m_latestCalibrationMeasurement));
     }
@@ -782,6 +810,7 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     m_selectedToolId = toolId;
     m_pendingCreation.reset();
     m_previewObject.reset();
+    m_lastGuideDragSnap.clear();
     emit modelChanged();
 }
 
@@ -845,6 +874,7 @@ void DrawingDocumentController::setGuideSnapEnabled(bool enabled)
         return;
     }
     m_snapSettings.guideEnabled = enabled;
+    m_lastGuideDragSnap.clear();
     emit modelChanged();
 }
 
@@ -1343,6 +1373,7 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
     if (m_document.selectedObjectIds.empty()) {
         return false;
     }
+    m_lastGuideDragSnap.clear();
 
     const double scale = nudgeScaleForMode(stepMode);
     const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
@@ -1373,6 +1404,7 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
 
 bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &direction, const QString &stepMode)
 {
+    m_lastGuideDragSnap.clear();
     const double scale = nudgeScaleForMode(stepMode);
     const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
     const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
@@ -2056,6 +2088,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     x = clamp01(x);
     y = clamp01(y);
     const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
+    m_lastGuideDragSnap.clear();
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
         const DraftingHitTestResult hit = hitTestDocument(m_document, point);
@@ -2138,6 +2171,7 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
     if (handleId.isEmpty() || !m_document.activeObjectId) {
         return false;
     }
+    m_lastGuideDragSnap.clear();
 
     const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
     const DraftingCommandResult result = applyDraftingCommand(
@@ -2157,6 +2191,7 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
         return false;
     }
 
+    m_lastGuideDragSnap.clear();
     if (m_document.activeObjectId && containsId(m_document.selectedObjectIds, *m_document.activeObjectId)) {
         const DraftingObject *active = findObject(m_document, *m_document.activeObjectId);
         if (active != nullptr
@@ -2180,6 +2215,10 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
                     anchor.rank,
                     dx + snap.point.x - intendedAnchor.x,
                     dy + snap.point.y - intendedAnchor.y,
+                    intendedAnchor,
+                    snap.point,
+                    snap.sourceObjectId,
+                    anchor.label,
                 };
                 if (guideSnapChoiceBetter(candidate, best)) {
                     best = candidate;
@@ -2188,6 +2227,17 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
             if (best.ok) {
                 dx = best.dx;
                 dy = best.dy;
+                m_lastGuideDragSnap = QVariantMap{
+                    {QStringLiteral("kind"), QStringLiteral("guide")},
+                    {QStringLiteral("mode"), QStringLiteral("move_selection")},
+                    {QStringLiteral("anchor_label"), best.anchorLabel},
+                    {QStringLiteral("anchor_rank"), best.anchorRank},
+                    {QStringLiteral("raw_anchor"), pointToMap(best.intendedAnchor)},
+                    {QStringLiteral("snapped_anchor"), pointToMap(best.snappedAnchor)},
+                    {QStringLiteral("source_object_id"), drawing_core::qStringFromStdString(best.sourceObjectId)},
+                    {QStringLiteral("intersection"), best.intersection},
+                    {QStringLiteral("distance"), best.distance},
+                };
             }
         }
     }

@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingGeometry.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -66,6 +67,91 @@ DraftingGuideAlignmentPlan DraftingGuideAlignmentPlan::rejected(DraftingResultCo
     return result;
 }
 
+DraftingGuideMoveSnapPlan DraftingGuideMoveSnapPlan::accepted(bool intersection,
+    double distance,
+    int anchorRank,
+    double dx,
+    double dy,
+    Point2D intendedAnchor,
+    Point2D snappedAnchor,
+    DraftingObjectId sourceObjectId,
+    std::string anchorLabel)
+{
+    DraftingGuideMoveSnapPlan result;
+    result.ok = true;
+    result.intersection = intersection;
+    result.distance = distance;
+    result.anchorRank = anchorRank;
+    result.dx = dx;
+    result.dy = dy;
+    result.intendedAnchor = intendedAnchor;
+    result.snappedAnchor = snappedAnchor;
+    result.sourceObjectId = std::move(sourceObjectId);
+    result.anchorLabel = std::move(anchorLabel);
+    return result;
+}
+
+namespace {
+
+bool containsObjectId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId &id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
+bool guideSnapChoiceBetter(const DraftingGuideMoveSnapPlan &candidate, const DraftingGuideMoveSnapPlan &current)
+{
+    if (!current.ok) {
+        return true;
+    }
+    if (candidate.intersection != current.intersection) {
+        return candidate.intersection;
+    }
+    constexpr double epsilon = 0.000001;
+    if (std::abs(candidate.distance - current.distance) > epsilon) {
+        return candidate.distance < current.distance;
+    }
+    if (candidate.anchorRank != current.anchorRank) {
+        return candidate.anchorRank < current.anchorRank;
+    }
+    return false;
+}
+
+std::string moveAnchorLabelForHandle(const std::string &handleId)
+{
+    if (handleId == "point") {
+        return "point";
+    }
+    if (handleId == "line_start" || handleId == "line_end") {
+        return "endpoint";
+    }
+    if (handleId == "circle_center") {
+        return "center";
+    }
+    if (handleId == "circle_radius") {
+        return "radius";
+    }
+    if (handleId.rfind("rect_", 0) == 0) {
+        return "corner";
+    }
+    return "handle";
+}
+
+void addUniqueAnchor(std::vector<DraftingGuideMoveSnapAnchor> &anchors, Point2D point, int rank, std::string label)
+{
+    if (!isFinite(point)) {
+        return;
+    }
+    constexpr double epsilon = 0.000001;
+    const auto duplicate = std::find_if(anchors.begin(), anchors.end(), [point](const DraftingGuideMoveSnapAnchor &existing) {
+        return std::abs(existing.point.x - point.x) < epsilon && std::abs(existing.point.y - point.y) < epsilon;
+    });
+    if (duplicate == anchors.end()) {
+        anchors.push_back({point, rank, std::move(label)});
+    }
+}
+
+} // namespace
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
 {
     constexpr double epsilon = 0.000001;
@@ -120,6 +206,34 @@ std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &docume
         }
     }
     return found ? std::optional<double>{bestPosition} : std::nullopt;
+}
+
+std::vector<DraftingGuideMoveSnapAnchor> guideMoveSnapAnchorsForObject(const DraftingObject &object)
+{
+    std::vector<DraftingGuideMoveSnapAnchor> anchors;
+    for (const HandleAnchor &handle : handleAnchors(object.geometry)) {
+        addUniqueAnchor(anchors, handle.point, 0, moveAnchorLabelForHandle(handle.id));
+    }
+
+    const Bounds2D bounds = object.bounds;
+    if (isFinite(bounds)) {
+        const double left = bounds.x;
+        const double top = bounds.y;
+        const double right = bounds.x + bounds.width;
+        const double bottom = bounds.y + bounds.height;
+        const double centerX = bounds.x + bounds.width / 2.0;
+        const double centerY = bounds.y + bounds.height / 2.0;
+        addUniqueAnchor(anchors, {centerX, centerY}, 1, "center");
+        addUniqueAnchor(anchors, {left, centerY}, 2, "edge");
+        addUniqueAnchor(anchors, {right, centerY}, 2, "edge");
+        addUniqueAnchor(anchors, {centerX, top}, 2, "edge");
+        addUniqueAnchor(anchors, {centerX, bottom}, 2, "edge");
+        addUniqueAnchor(anchors, {left, top}, 3, "corner");
+        addUniqueAnchor(anchors, {right, top}, 3, "corner");
+        addUniqueAnchor(anchors, {right, bottom}, 3, "corner");
+        addUniqueAnchor(anchors, {left, bottom}, 3, "corner");
+    }
+    return anchors;
 }
 
 DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawable, DraftingGuideDrawablePlacement placement)
@@ -317,6 +431,46 @@ DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &doc
     return orientation == GuideOrientation::Vertical
         ? DraftingGuideAlignmentPlan::accepted(orientation, target, *guidePosition, delta, 0.0)
         : DraftingGuideAlignmentPlan::accepted(orientation, target, *guidePosition, 0.0, delta);
+}
+
+DraftingGuideMoveSnapPlan guideMoveSnapPlan(const DraftingDocument &document,
+    const DraftingObject &object,
+    const std::vector<DraftingObjectId> &selectedObjectIds,
+    const DraftingSnapSettings &settings,
+    double dx,
+    double dy)
+{
+    if (!std::isfinite(dx) || !std::isfinite(dy) || object.kind == DraftingShapeKind::Guide || !isFinite(object.bounds)) {
+        return {};
+    }
+
+    DraftingGuideMoveSnapPlan best;
+    for (const DraftingGuideMoveSnapAnchor &anchor : guideMoveSnapAnchorsForObject(object)) {
+        const Point2D intendedAnchor {anchor.point.x + dx, anchor.point.y + dy};
+        const DraftingSnapResult snap = resolveSnap(intendedAnchor, document, settings);
+        if (snap.sourceKind != DraftingSnapSourceKind::Guide || containsObjectId(selectedObjectIds, snap.sourceObjectId)) {
+            continue;
+        }
+
+        constexpr double epsilon = 0.000001;
+        const bool movesX = std::abs(snap.point.x - intendedAnchor.x) > epsilon;
+        const bool movesY = std::abs(snap.point.y - intendedAnchor.y) > epsilon;
+        const DraftingGuideMoveSnapPlan candidate = DraftingGuideMoveSnapPlan::accepted(
+            movesX && movesY,
+            distance(intendedAnchor, snap.point),
+            anchor.rank,
+            dx + snap.point.x - intendedAnchor.x,
+            dy + snap.point.y - intendedAnchor.y,
+            intendedAnchor,
+            snap.point,
+            snap.sourceObjectId,
+            anchor.label);
+        if (guideSnapChoiceBetter(candidate, best)) {
+            best = candidate;
+        }
+    }
+
+    return best;
 }
 
 } // namespace edi::drafting

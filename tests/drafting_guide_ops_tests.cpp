@@ -176,5 +176,50 @@ int main()
     assert(!noGuideAlignment.ok);
     assert(noGuideAlignment.code == DraftingResultCode::ObjectNotFound);
 
+    DraftingSnapSettings guideSnapSettings;
+    guideSnapSettings.objectSnapEnabled = true;
+    guideSnapSettings.guideEnabled = true;
+    guideSnapSettings.objectTolerance = 0.03;
+
+    DraftingObject lineForSnap = object(
+        "line_for_snap",
+        DraftingShapeKind::Line,
+        LineGeometry{{0.1, 0.5}, {0.2, 0.5}});
+    std::vector<DraftingGuideMoveSnapAnchor> lineAnchors = guideMoveSnapAnchorsForObject(lineForSnap);
+    assert(!lineAnchors.empty());
+    assert(lineAnchors[0].rank == 0);
+    assert(lineAnchors[0].label == "endpoint");
+
+    auto verticalMoveSnap = guideMoveSnapPlan(document, lineForSnap, {"line_for_snap"}, guideSnapSettings, 0.04, 0.0);
+    assert(verticalMoveSnap.ok);
+    assert(!verticalMoveSnap.intersection);
+    assert(verticalMoveSnap.anchorRank == 0);
+    assert(verticalMoveSnap.anchorLabel == "endpoint");
+    assert(verticalMoveSnap.sourceObjectId == "guide_v");
+    assert(near(verticalMoveSnap.intendedAnchor.x, 0.24));
+    assert(near(verticalMoveSnap.snappedAnchor.x, 0.25));
+    assert(near(verticalMoveSnap.dx, 0.05));
+    assert(near(verticalMoveSnap.dy, 0.0));
+
+    auto selectedGuideIgnored = guideMoveSnapPlan(document, lineForSnap, {"line_for_snap", "guide_v"}, guideSnapSettings, 0.04, 0.0);
+    assert(!selectedGuideIgnored.ok);
+
+    DraftingObject lineForIntersection = object(
+        "line_for_intersection",
+        DraftingShapeKind::Line,
+        LineGeometry{{0.1, 0.7}, {0.2, 0.7}});
+    auto intersectionSnap = guideMoveSnapPlan(document, lineForIntersection, {"line_for_intersection"}, guideSnapSettings, 0.04, 0.04);
+    assert(intersectionSnap.ok);
+    assert(intersectionSnap.intersection);
+    assert(intersectionSnap.sourceObjectId == "guide_v");
+    assert(near(intersectionSnap.snappedAnchor.x, 0.25));
+    assert(near(intersectionSnap.snappedAnchor.y, 0.75));
+    assert(near(intersectionSnap.dx, 0.05));
+    assert(near(intersectionSnap.dy, 0.05));
+
+    DraftingSnapSettings guideSnapDisabled = guideSnapSettings;
+    guideSnapDisabled.guideEnabled = false;
+    assert(!guideMoveSnapPlan(document, lineForSnap, {"line_for_snap"}, guideSnapDisabled, 0.04, 0.0).ok);
+
     return 0;
 }

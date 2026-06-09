@@ -1,6 +1,7 @@
 #pragma once
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingSnap.h"
 
 #include <optional>
 #include <string>
@@ -54,15 +55,51 @@ struct DraftingGuideAlignmentPlan {
     static DraftingGuideAlignmentPlan rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingGuideMoveSnapAnchor {
+    Point2D point;
+    int rank = 3;
+    std::string label;
+};
+
+struct DraftingGuideMoveSnapPlan {
+    bool ok = false;
+    bool intersection = false;
+    double distance = 0.0;
+    int anchorRank = 3;
+    double dx = 0.0;
+    double dy = 0.0;
+    Point2D intendedAnchor;
+    Point2D snappedAnchor;
+    DraftingObjectId sourceObjectId;
+    std::string anchorLabel;
+
+    static DraftingGuideMoveSnapPlan accepted(bool intersection,
+        double distance,
+        int anchorRank,
+        double dx,
+        double dy,
+        Point2D intendedAnchor,
+        Point2D snappedAnchor,
+        DraftingObjectId sourceObjectId,
+        std::string anchorLabel);
+};
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b);
 bool isGuideObject(const DraftingObject &object);
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide);
 std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &document, GuideOrientation orientation, double target);
+std::vector<DraftingGuideMoveSnapAnchor> guideMoveSnapAnchorsForObject(const DraftingObject &object);
 DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawable, DraftingGuideDrawablePlacement placement);
 DraftingGuidePlan offsetGuide(const GuideGeometry &guide, const std::string &direction, double stepX, double stepY, double scale);
 DraftingGuidePlan guideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId);
 DraftingGuidePlan offsetGuideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId, double stepX, double stepY);
 DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Bounds2D drawable);
 DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &document, Bounds2D bounds, const std::string &modeId);
+DraftingGuideMoveSnapPlan guideMoveSnapPlan(const DraftingDocument &document,
+    const DraftingObject &object,
+    const std::vector<DraftingObjectId> &selectedObjectIds,
+    const DraftingSnapSettings &settings,
+    double dx,
+    double dy);
 
 } // namespace edi::drafting

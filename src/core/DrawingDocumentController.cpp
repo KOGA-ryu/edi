@@ -26,7 +26,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -126,105 +125,6 @@ QVariantMap editStatus(bool ok, const QString &mode, const QString &fieldId, Dra
         {QStringLiteral("code"), resultCodeName(code)},
         {QStringLiteral("message"), message},
     };
-}
-
-struct MoveSnapAnchor {
-    Point2D point;
-    int rank = 3;
-    QString label;
-};
-
-struct MoveSnapChoice {
-    bool ok = false;
-    bool intersection = false;
-    double distance = std::numeric_limits<double>::max();
-    int anchorRank = 3;
-    double dx = 0.0;
-    double dy = 0.0;
-    Point2D intendedAnchor;
-    Point2D snappedAnchor;
-    DraftingObjectId sourceObjectId;
-    QString anchorLabel;
-};
-
-bool guideSnapChoiceBetter(const MoveSnapChoice &candidate, const MoveSnapChoice &current)
-{
-    if (!current.ok) {
-        return true;
-    }
-    if (candidate.intersection != current.intersection) {
-        return candidate.intersection;
-    }
-    constexpr double epsilon = 0.000001;
-    if (std::abs(candidate.distance - current.distance) > epsilon) {
-        return candidate.distance < current.distance;
-    }
-    if (candidate.anchorRank != current.anchorRank) {
-        return candidate.anchorRank < current.anchorRank;
-    }
-    return false;
-}
-
-QString moveAnchorLabelForHandle(const std::string &handleId)
-{
-    if (handleId == "point") {
-        return QStringLiteral("point");
-    }
-    if (handleId == "line_start" || handleId == "line_end") {
-        return QStringLiteral("endpoint");
-    }
-    if (handleId == "circle_center") {
-        return QStringLiteral("center");
-    }
-    if (handleId == "circle_radius") {
-        return QStringLiteral("radius");
-    }
-    if (handleId.rfind("rect_", 0) == 0) {
-        return QStringLiteral("corner");
-    }
-    return QStringLiteral("handle");
-}
-
-void addUniqueAnchor(std::vector<MoveSnapAnchor> &anchors, Point2D point, int rank, QString label)
-{
-    if (!isFinite(point)) {
-        return;
-    }
-    constexpr double epsilon = 0.000001;
-    const auto duplicate = std::find_if(anchors.begin(), anchors.end(), [point](const MoveSnapAnchor &existing) {
-        return std::abs(existing.point.x - point.x) < epsilon && std::abs(existing.point.y - point.y) < epsilon;
-    });
-    if (duplicate == anchors.end()) {
-        anchors.push_back({point, rank, std::move(label)});
-    }
-}
-
-std::vector<MoveSnapAnchor> moveSnapAnchorsForObject(const DraftingObject &object)
-{
-    std::vector<MoveSnapAnchor> anchors;
-    for (const HandleAnchor &handle : handleAnchors(object.geometry)) {
-        addUniqueAnchor(anchors, handle.point, 0, moveAnchorLabelForHandle(handle.id));
-    }
-
-    const Bounds2D bounds = object.bounds;
-    if (isFinite(bounds)) {
-        const double left = bounds.x;
-        const double top = bounds.y;
-        const double right = bounds.x + bounds.width;
-        const double bottom = bounds.y + bounds.height;
-        const double centerX = bounds.x + bounds.width / 2.0;
-        const double centerY = bounds.y + bounds.height / 2.0;
-        addUniqueAnchor(anchors, {centerX, centerY}, 1, QStringLiteral("center"));
-        addUniqueAnchor(anchors, {left, centerY}, 2, QStringLiteral("edge"));
-        addUniqueAnchor(anchors, {right, centerY}, 2, QStringLiteral("edge"));
-        addUniqueAnchor(anchors, {centerX, top}, 2, QStringLiteral("edge"));
-        addUniqueAnchor(anchors, {centerX, bottom}, 2, QStringLiteral("edge"));
-        addUniqueAnchor(anchors, {left, top}, 3, QStringLiteral("corner"));
-        addUniqueAnchor(anchors, {right, top}, 3, QStringLiteral("corner"));
-        addUniqueAnchor(anchors, {right, bottom}, 3, QStringLiteral("corner"));
-        addUniqueAnchor(anchors, {left, bottom}, 3, QStringLiteral("corner"));
-    }
-    return anchors;
 }
 
 QVariantMap boundsToMap(Bounds2D bounds)
@@ -2307,46 +2207,26 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
         if (active != nullptr
             && active->kind != DraftingShapeKind::Guide
             && isFinite(active->bounds)) {
-            MoveSnapChoice best;
-            for (const MoveSnapAnchor &anchor : moveSnapAnchorsForObject(*active)) {
-                const Point2D intendedAnchor {anchor.point.x + dx, anchor.point.y + dy};
-                const DraftingSnapResult snap = resolveSnap(intendedAnchor, m_document, m_snapSettings);
-                if (snap.sourceKind != DraftingSnapSourceKind::Guide
-                    || containsId(m_document.selectedObjectIds, snap.sourceObjectId)) {
-                    continue;
-                }
-                constexpr double epsilon = 0.000001;
-                const bool movesX = std::abs(snap.point.x - intendedAnchor.x) > epsilon;
-                const bool movesY = std::abs(snap.point.y - intendedAnchor.y) > epsilon;
-                const MoveSnapChoice candidate {
-                    true,
-                    movesX && movesY,
-                    distance(intendedAnchor, snap.point),
-                    anchor.rank,
-                    dx + snap.point.x - intendedAnchor.x,
-                    dy + snap.point.y - intendedAnchor.y,
-                    intendedAnchor,
-                    snap.point,
-                    snap.sourceObjectId,
-                    anchor.label,
-                };
-                if (guideSnapChoiceBetter(candidate, best)) {
-                    best = candidate;
-                }
-            }
-            if (best.ok) {
-                dx = best.dx;
-                dy = best.dy;
+            const DraftingGuideMoveSnapPlan plan = guideMoveSnapPlan(
+                m_document,
+                *active,
+                m_document.selectedObjectIds,
+                m_snapSettings,
+                dx,
+                dy);
+            if (plan.ok) {
+                dx = plan.dx;
+                dy = plan.dy;
                 m_lastGuideDragSnap = QVariantMap{
                     {QStringLiteral("kind"), QStringLiteral("guide")},
                     {QStringLiteral("mode"), QStringLiteral("move_selection")},
-                    {QStringLiteral("anchor_label"), best.anchorLabel},
-                    {QStringLiteral("anchor_rank"), best.anchorRank},
-                    {QStringLiteral("raw_anchor"), pointToMap(best.intendedAnchor)},
-                    {QStringLiteral("snapped_anchor"), pointToMap(best.snappedAnchor)},
-                    {QStringLiteral("source_object_id"), drawing_core::qStringFromStdString(best.sourceObjectId)},
-                    {QStringLiteral("intersection"), best.intersection},
-                    {QStringLiteral("distance"), best.distance},
+                    {QStringLiteral("anchor_label"), drawing_core::qStringFromStdString(plan.anchorLabel)},
+                    {QStringLiteral("anchor_rank"), plan.anchorRank},
+                    {QStringLiteral("raw_anchor"), pointToMap(plan.intendedAnchor)},
+                    {QStringLiteral("snapped_anchor"), pointToMap(plan.snappedAnchor)},
+                    {QStringLiteral("source_object_id"), drawing_core::qStringFromStdString(plan.sourceObjectId)},
+                    {QStringLiteral("intersection"), plan.intersection},
+                    {QStringLiteral("distance"), plan.distance},
                 };
             }
         }

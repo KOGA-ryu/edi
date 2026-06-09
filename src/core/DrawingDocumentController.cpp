@@ -142,6 +142,11 @@ bool boundsInside(Bounds2D bounds, Bounds2D container)
         && bounds.y + bounds.height <= container.y + container.height;
 }
 
+QString boundsStatus(Bounds2D bounds, Bounds2D drawable)
+{
+    return boundsInside(bounds, drawable) ? QStringLiteral("inside") : QStringLiteral("outside");
+}
+
 QVariantMap boundsToMap(Bounds2D bounds)
 {
     return {
@@ -600,6 +605,22 @@ QVariantMap DrawingDocumentController::modelDocument() const
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
     model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
     annotateProjectedObjectsWithPlotSafety(model, plotPlan);
+    const SelectedOutputBoundsResult selectionPlotBounds = selectedPlotOutputBounds(
+        m_document,
+        m_document.selectedObjectIds,
+        grid,
+        m_plotSettings);
+    model.insert(QStringLiteral("has_selection_plot_bounds"), selectionPlotBounds.ok);
+    if (selectionPlotBounds.ok) {
+        model.insert(QStringLiteral("selection_plot_bounds"), boundsToMap(selectionPlotBounds.bounds));
+        model.insert(QStringLiteral("selection_plot_bounds_status"), boundsStatus(selectionPlotBounds.bounds, grid.drawableBounds));
+        model.insert(QStringLiteral("selection_plot_bounds_width"), selectionPlotBounds.bounds.width);
+        model.insert(QStringLiteral("selection_plot_bounds_height"), selectionPlotBounds.bounds.height);
+    } else {
+        model.insert(QStringLiteral("selection_plot_bounds_status"), QStringLiteral("unavailable"));
+        model.insert(QStringLiteral("selection_plot_bounds_width"), 0.0);
+        model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
+    }
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
     }

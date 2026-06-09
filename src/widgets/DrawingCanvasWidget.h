@@ -33,6 +33,7 @@ private:
     void drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const;
     void drawPlotPreview(QPainter &painter, const QVariantMap &model) const;
     void drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const;
+    void drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
     void drawPreviewObject(QPainter &painter, const QVariantMap &object) const;
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;

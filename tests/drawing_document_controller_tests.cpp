@@ -722,6 +722,15 @@ int main(int argc, char **argv)
     assert(nearlyEqual(fitPointMark.value("x").toDouble(), squareQuarterInchStep + 0.005));
     assert(nearlyEqual(fitPointMark.value("y").toDouble(), squareQuarterInchStep + 0.005));
     assert(!fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
+    assert(fitPointMarkModel.value("has_selection_plot_bounds").toBool());
+    QVariantMap fitPointMarkSelectionBounds = fitPointMarkModel.value("selection_plot_bounds").toMap();
+    assert(nearlyEqual(fitPointMarkSelectionBounds.value("x").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(fitPointMarkSelectionBounds.value("y").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(fitPointMarkSelectionBounds.value("width").toDouble(), 0.01));
+    assert(nearlyEqual(fitPointMarkSelectionBounds.value("height").toDouble(), 0.01));
+    assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_width").toDouble(), 0.01));
+    assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_height").toDouble(), 0.01));
+    assert(fitPointMarkModel.value("selection_plot_bounds_status").toString() == "inside");
 
     DrawingDocumentController fitTooLargeController;
     fitTooLargeController.setSelectedToolId("line_tool");

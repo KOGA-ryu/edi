@@ -198,6 +198,18 @@ QString selectedPlotSafetySummary(const QVariantMap &object, const QVariantMap &
     return QStringLiteral("Plot safety:\n%1").arg(lines.join(QLatin1Char('\n')));
 }
 
+QString selectionPlotBoundsSummary(const QVariantMap &document)
+{
+    if (!document.value(QStringLiteral("has_selection_plot_bounds")).toBool()) {
+        return QStringLiteral("Selection plot bounds: unavailable");
+    }
+    return QStringLiteral("Selection plot bounds:\n%1\nw %2, h %3\n%4")
+        .arg(formatBoundsValue(document.value(QStringLiteral("selection_plot_bounds")).toMap()))
+        .arg(formatNumber(document.value(QStringLiteral("selection_plot_bounds_width")).toDouble()))
+        .arg(formatNumber(document.value(QStringLiteral("selection_plot_bounds_height")).toDouble()))
+        .arg(document.value(QStringLiteral("selection_plot_bounds_status")).toString());
+}
+
 QVariantMap activeObjectProjection(const QVariantMap &document)
 {
     const QString activeId = document.value(QStringLiteral("active_object_id")).toString();
@@ -563,12 +575,14 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_objectLayerValue = makeValueLabel();
     m_objectMeasurementValue = makeValueLabel();
     m_objectPlotSafetyValue = makeValueLabel();
+    m_selectionPlotBoundsValue = makeValueLabel();
     layout->addWidget(m_objectKindValue);
     layout->addWidget(m_objectBoundsValue);
     layout->addWidget(m_objectGeometryValue);
     layout->addWidget(m_objectLayerValue);
     layout->addWidget(m_objectMeasurementValue);
     layout->addWidget(m_objectPlotSafetyValue);
+    layout->addWidget(m_selectionPlotBoundsValue);
     m_fitSelectionToDrawableButton = new QPushButton(QStringLiteral("Fit To Drawable"));
     m_fitSelectionToDrawableButton->setObjectName(QStringLiteral("fitToDrawableButton"));
     connect(m_fitSelectionToDrawableButton, &QPushButton::clicked, this, [this]() {
@@ -1329,6 +1343,9 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_objectPlotSafetyValue != nullptr) {
         m_objectPlotSafetyValue->setText(selectedPlotSafetySummary(selectedObject, plot));
+    }
+    if (m_selectionPlotBoundsValue != nullptr) {
+        m_selectionPlotBoundsValue->setText(selectionPlotBoundsSummary(document));
     }
     if (m_fitSelectionToDrawableButton != nullptr) {
         m_fitSelectionToDrawableButton->setEnabled(!selectedObject.isEmpty());

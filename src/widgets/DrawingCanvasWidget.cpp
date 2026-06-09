@@ -105,6 +105,7 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
         drawPlotPreview(painter, model);
     }
     drawPlotSafetyOverlay(painter, model.value(QStringLiteral("plot_summary")).toMap());
+    drawSelectionPlotBounds(painter, model);
     const QVariantMap previewObject = model.value(QStringLiteral("preview_object")).toMap();
     if (!previewObject.isEmpty()) {
         drawPreviewObject(painter, previewObject);
@@ -472,6 +473,37 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
         painter.setPen(color);
         painter.drawText(rect.normalized().topLeft() + QPointF(8.0, -8.0), label);
     }
+}
+
+void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const
+{
+    if (!model.value(QStringLiteral("has_selection_plot_bounds")).toBool()) {
+        return;
+    }
+
+    const QVariantMap bounds = model.value(QStringLiteral("selection_plot_bounds")).toMap();
+    const double x = bounds.value(QStringLiteral("x")).toDouble();
+    const double y = bounds.value(QStringLiteral("y")).toDouble();
+    const double width = bounds.value(QStringLiteral("width")).toDouble();
+    const double height = bounds.value(QStringLiteral("height")).toDouble();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) {
+        return;
+    }
+
+    const QColor color = model.value(QStringLiteral("selection_plot_bounds_status")).toString() == QStringLiteral("inside")
+        ? QColor("#f6c65b")
+        : QColor("#d98b8b");
+    QRectF rect(canvasToScreen(x, y), canvasToScreen(x + width, y + height));
+    rect = rect.normalized();
+    if (rect.width() < 10.0 || rect.height() < 10.0) {
+        rect = rect.adjusted(-5.0, -5.0, 5.0, 5.0);
+    }
+
+    painter.save();
+    painter.setPen(QPen(color, 1.75, Qt::DashLine));
+    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 24));
+    painter.drawRect(rect);
+    painter.restore();
 }
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const

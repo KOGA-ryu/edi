@@ -2,16 +2,30 @@
 
 #include "widgets/DrawingCanvasProjectedObject.h"
 
+#include <QMetaType>
 #include <QVariantList>
 
 namespace drawing_canvas {
+namespace {
+
+QVariantList strictList(const QVariant &value)
+{
+    return value.metaType().id() == QMetaType::QVariantList ? value.toList() : QVariantList{};
+}
+
+QVariantMap strictMap(const QVariant &value)
+{
+    return value.metaType().id() == QMetaType::QVariantMap ? value.toMap() : QVariantMap{};
+}
+
+} // namespace
 
 DrawingCanvasProjectedDocumentSurface projectedDocumentSurface(const QVariantMap &model)
 {
     DrawingCanvasProjectedDocumentSurface surface;
-    surface.drawingObjects = model.value(QStringLiteral("drawing_objects")).toList();
-    surface.previewObject = model.value(QStringLiteral("preview_object")).toMap();
-    surface.plotSummary = model.value(QStringLiteral("plot_summary")).toMap();
+    surface.drawingObjects = strictList(model.value(QStringLiteral("drawing_objects")));
+    surface.previewObject = strictMap(model.value(QStringLiteral("preview_object")));
+    surface.plotSummary = strictMap(model.value(QStringLiteral("plot_summary")));
     return surface;
 }
 

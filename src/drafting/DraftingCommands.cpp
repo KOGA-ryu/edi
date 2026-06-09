@@ -1,5 +1,6 @@
 #include "drafting/DraftingCommands.h"
 
+#include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingStore.h"
@@ -129,6 +130,16 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }
             const DraftingObjectEditResult edit = applyObjectEdit(*object, plan.edit);
+            if (!edit.ok) {
+                return DraftingCommandResult::rejected(edit.code, edit.message);
+            }
+            return fromStoreResult(updateObjectGeometry(document, typedCommand.objectId, edit.geometry));
+        } else if constexpr (std::is_same_v<Command, NumericGeometryEditCommand>) {
+            const DraftingObject *object = findObject(document, typedCommand.objectId);
+            if (object == nullptr) {
+                return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+            }
+            const DraftingNumericEditResult edit = applyNumericGeometryEdit(*object, typedCommand.fieldId, typedCommand.value);
             if (!edit.ok) {
                 return DraftingCommandResult::rejected(edit.code, edit.message);
             }

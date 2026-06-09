@@ -124,6 +124,39 @@ int main()
     assert(editedLine->b.y == 5.0);
     assert(editDocument.revision == revisionAfterLineCreate + 1);
 
+    const auto revisionBeforeNumericEdit = editDocument.revision;
+    auto numericLineEdit = applyDraftingCommand(editDocument, NumericGeometryEditCommand{"line_1", "x2", 12.0});
+    assert(numericLineEdit.ok);
+    editedLineObject = findObject(editDocument, "line_1");
+    assert(editedLineObject != nullptr);
+    editedLine = std::get_if<LineGeometry>(&editedLineObject->geometry);
+    assert(editedLine != nullptr);
+    assert(editedLine->b.x == 12.0);
+    assert(editedLine->b.y == 5.0);
+    assert(editDocument.revision == revisionBeforeNumericEdit + 1);
+
+    const auto revisionAfterNumericEdit = editDocument.revision;
+    auto invalidNumericField = applyDraftingCommand(editDocument, NumericGeometryEditCommand{"line_1", "missing_field", 0.0});
+    assert(!invalidNumericField.ok);
+    assert(invalidNumericField.code == DraftingResultCode::InvalidGeometry);
+    editedLineObject = findObject(editDocument, "line_1");
+    assert(editedLineObject != nullptr);
+    editedLine = std::get_if<LineGeometry>(&editedLineObject->geometry);
+    assert(editedLine != nullptr);
+    assert(editedLine->b.x == 12.0);
+    assert(editedLine->b.y == 5.0);
+    assert(editDocument.revision == revisionAfterNumericEdit);
+
+    auto invalidNumericValue = applyDraftingCommand(editDocument, NumericGeometryEditCommand{"line_1", "x2", std::numeric_limits<double>::infinity()});
+    assert(!invalidNumericValue.ok);
+    assert(invalidNumericValue.code == DraftingResultCode::InvalidGeometry);
+    assert(editDocument.revision == revisionAfterNumericEdit);
+
+    auto missingNumericObject = applyDraftingCommand(editDocument, NumericGeometryEditCommand{"missing_line", "x2", 1.0});
+    assert(!missingNumericObject.ok);
+    assert(missingNumericObject.code == DraftingResultCode::ObjectNotFound);
+    assert(editDocument.revision == revisionAfterNumericEdit);
+
     const auto revisionAfterLineEdit = editDocument.revision;
     auto badHandle = applyDraftingCommand(editDocument, EditObjectHandleCommand{"line_1", "missing_handle", {1.0, 1.0}});
     assert(!badHandle.ok);
@@ -141,6 +174,9 @@ int main()
     auto lockedEdit = applyDraftingCommand(editDocument, EditObjectHandleCommand{"line_1", "line_end", {30.0, 30.0}});
     assert(!lockedEdit.ok);
     assert(lockedEdit.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedNumericEdit = applyDraftingCommand(editDocument, NumericGeometryEditCommand{"line_1", "x2", 30.0});
+    assert(!lockedNumericEdit.ok);
+    assert(lockedNumericEdit.code == DraftingResultCode::InvalidSelectionTarget);
     auto lockedMove = applyDraftingCommand(editDocument, MoveObjectCommand{"line_1", 1.0, 0.0});
     assert(!lockedMove.ok);
     assert(lockedMove.code == DraftingResultCode::InvalidSelectionTarget);

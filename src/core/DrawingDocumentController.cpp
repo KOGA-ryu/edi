@@ -1051,14 +1051,9 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
         return false;
     }
 
-    const DraftingNumericEditResult edit = applyNumericGeometryEdit(*object, toStdString(fieldId), value);
-    if (!edit.ok) {
-        return false;
-    }
-
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, edit.geometry});
+        NumericGeometryEditCommand{*m_document.activeObjectId, toStdString(fieldId), value});
     if (!result.ok) {
         return false;
     }

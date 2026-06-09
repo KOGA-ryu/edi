@@ -39,6 +39,12 @@ struct EditObjectHandleCommand {
     Point2D point;
 };
 
+struct NumericGeometryEditCommand {
+    DraftingObjectId objectId;
+    std::string fieldId;
+    double value = 0.0;
+};
+
 struct UpdateGeometryCommand {
     DraftingObjectId objectId;
     DraftingGeometry geometry = PointGeometry{};
@@ -122,6 +128,7 @@ using DraftingCommand = std::variant<
     MoveObjectCommand,
     MoveSelectionCommand,
     EditObjectHandleCommand,
+    NumericGeometryEditCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,

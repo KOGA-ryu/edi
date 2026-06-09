@@ -28,6 +28,17 @@ QStringList numericFieldIds(const QVariantMap &object)
     return ids;
 }
 
+QVariantMap numericField(const QVariantMap &object, const QString &id)
+{
+    for (const QVariant &field : object.value("numeric_fields").toList()) {
+        const QVariantMap map = field.toMap();
+        if (map.value("id").toString() == id) {
+            return map;
+        }
+    }
+    return {};
+}
+
 QStringList editHandleIds(const QVariantMap &object)
 {
     QStringList ids;
@@ -118,6 +129,12 @@ int main(int argc, char **argv)
     assert(point.value("x").toDouble() == 0.25);
     assert(point.value("y").toDouble() == 0.5);
     assert(numericFieldIds(point) == QStringList({QStringLiteral("x"), QStringLiteral("y")}));
+    QVariantMap pointXField = numericField(point, "x");
+    assert(pointXField.value("physical_editable").toBool());
+    assert(pointXField.value("physical_unit_kind").toString() == "length");
+    assert(pointXField.value("physical_unit_label").toString() == "in");
+    assert(nearlyEqual(pointXField.value("physical_minimum").toDouble(), -100000.0));
+    assert(nearlyEqual(pointXField.value("physical_maximum").toDouble(), 100000.0));
     QVariantMap pointPhysical = point.value("physical_geometry").toMap();
     assert(pointPhysical.value("unit_label").toString() == "in");
     assert(nearlyEqual(pointPhysical.value("x").toDouble(), 3.0));
@@ -228,6 +245,16 @@ int main(int argc, char **argv)
     assert(line.value("y1").toDouble() == 0.2);
     assert(line.value("x2").toDouble() == 0.8);
     assert(line.value("y2").toDouble() == 0.9);
+    QVariantMap lineLengthField = numericField(line, "line_length");
+    assert(lineLengthField.value("physical_editable").toBool());
+    assert(lineLengthField.value("physical_unit_kind").toString() == "length");
+    assert(lineLengthField.value("physical_unit_label").toString() == "in");
+    assert(nearlyEqual(lineLengthField.value("physical_minimum").toDouble(), 0.0));
+    QVariantMap lineAngleField = numericField(line, "line_angle_deg");
+    assert(lineAngleField.value("physical_editable").toBool());
+    assert(lineAngleField.value("physical_unit_kind").toString() == "angle");
+    assert(lineAngleField.value("physical_unit_label").toString() == "deg");
+    assert(nearlyEqual(lineAngleField.value("physical_step").toDouble(), 1.0));
     QVariantMap lineBounds = line.value("bounds").toMap();
     assert(nearlyEqual(lineBounds.value("x").toDouble(), 0.1));
     assert(nearlyEqual(lineBounds.value("y").toDouble(), 0.2));
@@ -1011,6 +1038,15 @@ int main(int argc, char **argv)
     QStringList dimensionFieldIds = numericFieldIds(dimension);
     assert(dimensionFieldIds.contains("dimension_length"));
     assert(dimensionFieldIds.contains("dimension_angle_deg"));
+    QVariantMap dimensionLengthField = numericField(dimension, "dimension_length");
+    assert(dimensionLengthField.value("physical_editable").toBool());
+    assert(dimensionLengthField.value("physical_unit_kind").toString() == "length");
+    assert(dimensionLengthField.value("physical_unit_label").toString() == "in");
+    assert(nearlyEqual(dimensionLengthField.value("physical_minimum").toDouble(), 0.0));
+    QVariantMap dimensionAngleField = numericField(dimension, "dimension_angle_deg");
+    assert(dimensionAngleField.value("physical_editable").toBool());
+    assert(dimensionAngleField.value("physical_unit_kind").toString() == "angle");
+    assert(dimensionAngleField.value("physical_unit_label").toString() == "deg");
     QStringList dimensionHandleIds = editHandleIds(dimension);
     assert(dimension.value("editable_handle_count").toInt() == 3);
     assert(dimensionHandleIds.contains("dimension_start"));
@@ -1037,6 +1073,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(dimensionOffsetHandle.value("anchor_x").toDouble(), 0.25));
     assert(nearlyEqual(dimensionOffsetHandle.value("anchor_y").toDouble(), 0.4));
     assert(dimension.value("label").toString() == "0.5 canvas_unit");
+
+    auto projectedPointBuild = edi::drafting::buildDraftingObject(
+        "projected_point",
+        edi::drafting::DraftingShapeKind::Point,
+        edi::drafting::PointGeometry{{0.2, 0.3}});
+    assert(projectedPointBuild.ok);
+    QVariantMap projectedPoint = drawing_core::draftingObjectToCanvasProjection(projectedPointBuild.object);
+    QVariantMap projectedPointXField = numericField(projectedPoint, "x");
+    assert(!projectedPointXField.value("physical_editable").toBool());
+    assert(!projectedPoint.contains("physical_geometry"));
 
     auto projectedPolygonBuild = edi::drafting::buildDraftingObject(
         "projected_polygon",

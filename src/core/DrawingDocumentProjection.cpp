@@ -72,49 +72,100 @@ QVariantMap numericField(
     };
 }
 
-QVariantList numericFieldsForObject(const DraftingObject &object)
+bool isAngleField(const QString &id)
+{
+    return id == QStringLiteral("line_angle_deg")
+        || id == QStringLiteral("dimension_angle_deg")
+        || id == QStringLiteral("rotation_deg");
+}
+
+bool isNonNegativePhysicalField(const QString &id)
+{
+    return id == QStringLiteral("width")
+        || id == QStringLiteral("height")
+        || id == QStringLiteral("radius")
+        || id == QStringLiteral("diameter")
+        || id == QStringLiteral("line_length")
+        || id == QStringLiteral("dimension_length");
+}
+
+void addPhysicalEditorMetadata(QVariantMap &field, const DraftingGridProjection *grid)
+{
+    if (grid == nullptr) {
+        field.insert(QStringLiteral("physical_editable"), false);
+        return;
+    }
+
+    const QString id = field.value(QStringLiteral("id")).toString();
+    const bool angle = isAngleField(id);
+    field.insert(QStringLiteral("physical_editable"), true);
+    field.insert(QStringLiteral("physical_unit_kind"), angle ? QStringLiteral("angle") : QStringLiteral("length"));
+    field.insert(QStringLiteral("physical_unit_label"), angle
+            ? QStringLiteral("deg")
+            : QString::fromLatin1(draftingGridUnitLabel(grid->settings.unit)));
+    field.insert(QStringLiteral("physical_decimals"), angle ? 2 : field.value(QStringLiteral("decimals"), 4).toInt());
+    field.insert(QStringLiteral("physical_step"), angle ? 1.0 : field.value(QStringLiteral("step"), 0.01).toDouble());
+    if (isNonNegativePhysicalField(id)) {
+        field.insert(QStringLiteral("physical_minimum"), 0.0);
+        field.insert(QStringLiteral("physical_maximum"), 100000.0);
+    } else if (angle) {
+        field.insert(QStringLiteral("physical_minimum"), -360.0);
+        field.insert(QStringLiteral("physical_maximum"), 360.0);
+    } else {
+        field.insert(QStringLiteral("physical_minimum"), -100000.0);
+        field.insert(QStringLiteral("physical_maximum"), 100000.0);
+    }
+}
+
+void pushNumericField(QVariantList &fields, QVariantMap field, const DraftingGridProjection *grid)
+{
+    addPhysicalEditorMetadata(field, grid);
+    fields.push_back(field);
+}
+
+QVariantList numericFieldsForObject(const DraftingObject &object, const DraftingGridProjection *grid)
 {
     QVariantList fields;
     switch (object.kind) {
     case DraftingShapeKind::Point:
-        fields.push_back(numericField(QStringLiteral("x"), QStringLiteral("X")));
-        fields.push_back(numericField(QStringLiteral("y"), QStringLiteral("Y")));
+        pushNumericField(fields, numericField(QStringLiteral("x"), QStringLiteral("X")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y"), QStringLiteral("Y")), grid);
         break;
     case DraftingShapeKind::Line:
-        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
-        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
-        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
-        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
-        fields.push_back(numericField(QStringLiteral("line_length"), QStringLiteral("Length"), 0.0));
-        fields.push_back(numericField(QStringLiteral("line_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2));
+        pushNumericField(fields, numericField(QStringLiteral("x1"), QStringLiteral("X1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y1"), QStringLiteral("Y1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("x2"), QStringLiteral("X2")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y2"), QStringLiteral("Y2")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("line_length"), QStringLiteral("Length"), 0.0), grid);
+        pushNumericField(fields, numericField(QStringLiteral("line_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2), grid);
         break;
     case DraftingShapeKind::Rectangle:
-        fields.push_back(numericField(QStringLiteral("x"), QStringLiteral("X")));
-        fields.push_back(numericField(QStringLiteral("y"), QStringLiteral("Y")));
-        fields.push_back(numericField(QStringLiteral("width"), QStringLiteral("Width"), 0.0));
-        fields.push_back(numericField(QStringLiteral("height"), QStringLiteral("Height"), 0.0));
-        fields.push_back(numericField(QStringLiteral("rotation_deg"), QStringLiteral("Rotation"), -360.0, 360.0, 1.0, 2));
+        pushNumericField(fields, numericField(QStringLiteral("x"), QStringLiteral("X")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y"), QStringLiteral("Y")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("width"), QStringLiteral("Width"), 0.0), grid);
+        pushNumericField(fields, numericField(QStringLiteral("height"), QStringLiteral("Height"), 0.0), grid);
+        pushNumericField(fields, numericField(QStringLiteral("rotation_deg"), QStringLiteral("Rotation"), -360.0, 360.0, 1.0, 2), grid);
         break;
     case DraftingShapeKind::Circle:
-        fields.push_back(numericField(QStringLiteral("cx"), QStringLiteral("CX")));
-        fields.push_back(numericField(QStringLiteral("cy"), QStringLiteral("CY")));
-        fields.push_back(numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0));
-        fields.push_back(numericField(QStringLiteral("diameter"), QStringLiteral("Diameter"), 0.0));
+        pushNumericField(fields, numericField(QStringLiteral("cx"), QStringLiteral("CX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("cy"), QStringLiteral("CY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0), grid);
+        pushNumericField(fields, numericField(QStringLiteral("diameter"), QStringLiteral("Diameter"), 0.0), grid);
         break;
     case DraftingShapeKind::Guide:
-        fields.push_back(numericField(QStringLiteral("position"), QStringLiteral("Position"), 0.0, 1.0));
+        pushNumericField(fields, numericField(QStringLiteral("position"), QStringLiteral("Position"), 0.0, 1.0), grid);
         break;
     case DraftingShapeKind::ConstructionLine:
-        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
-        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
-        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
-        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        pushNumericField(fields, numericField(QStringLiteral("x1"), QStringLiteral("X1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y1"), QStringLiteral("Y1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("x2"), QStringLiteral("X2")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y2"), QStringLiteral("Y2")), grid);
         break;
     case DraftingShapeKind::Dimension:
-        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
-        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
-        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
-        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        pushNumericField(fields, numericField(QStringLiteral("x1"), QStringLiteral("X1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y1"), QStringLiteral("Y1")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("x2"), QStringLiteral("X2")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("y2"), QStringLiteral("Y2")), grid);
         if (const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry)) {
             QString lengthLabel = QStringLiteral("Distance");
             if (dimension->kind == DimensionKind::Width) {
@@ -126,12 +177,12 @@ QVariantList numericFieldsForObject(const DraftingObject &object)
             } else if (dimension->kind == DimensionKind::Diameter) {
                 lengthLabel = QStringLiteral("Diameter");
             }
-            fields.push_back(numericField(QStringLiteral("dimension_length"), lengthLabel, 0.0));
+            pushNumericField(fields, numericField(QStringLiteral("dimension_length"), lengthLabel, 0.0), grid);
             if (dimension->kind != DimensionKind::Width && dimension->kind != DimensionKind::Height) {
-                fields.push_back(numericField(QStringLiteral("dimension_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2));
+                pushNumericField(fields, numericField(QStringLiteral("dimension_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2), grid);
             }
         }
-        fields.push_back(numericField(QStringLiteral("offset"), QStringLiteral("Offset")));
+        pushNumericField(fields, numericField(QStringLiteral("offset"), QStringLiteral("Offset")), grid);
         break;
     case DraftingShapeKind::Polygon:
     case DraftingShapeKind::Polyline:
@@ -444,7 +495,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("tool_provenance"), qStringFromStdString(object.metadata.toolProvenance)},
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
-        {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
+        {QStringLiteral("numeric_fields"), numericFieldsForObject(object, grid)},
         {QStringLiteral("edit_handles"), editHandles},
         {QStringLiteral("handle_count"), editHandles.size()},
         {QStringLiteral("editable_handle_count"), editableHandleCount},

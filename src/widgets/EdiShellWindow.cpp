@@ -1488,26 +1488,14 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         });
         layout->addWidget(label, row, 0);
         layout->addWidget(spin, row, 1);
-        if (physicalGeometry.contains(fieldId)) {
-            const bool angleValue = fieldId == QStringLiteral("line_angle_deg")
-                || fieldId == QStringLiteral("dimension_angle_deg")
-                || fieldId == QStringLiteral("rotation_deg");
+        if (field.value(QStringLiteral("physical_editable")).toBool() && physicalGeometry.contains(fieldId)) {
             auto *physicalSpin = new QDoubleSpinBox;
             physicalSpin->setObjectName(QStringLiteral("geometryField"));
-            physicalSpin->setDecimals(angleValue ? 2 : field.value(QStringLiteral("decimals"), 4).toInt());
-            physicalSpin->setSingleStep(angleValue ? 1.0 : field.value(QStringLiteral("step"), 0.01).toDouble());
-            if (fieldId == QStringLiteral("width")
-                || fieldId == QStringLiteral("height")
-                || fieldId == QStringLiteral("radius")
-                || fieldId == QStringLiteral("diameter")
-                || fieldId == QStringLiteral("line_length")
-                || fieldId == QStringLiteral("dimension_length")) {
-                physicalSpin->setRange(0.0, 100000.0);
-            } else if (angleValue) {
-                physicalSpin->setRange(-360.0, 360.0);
-            } else {
-                physicalSpin->setRange(-100000.0, 100000.0);
-            }
+            physicalSpin->setDecimals(field.value(QStringLiteral("physical_decimals"), field.value(QStringLiteral("decimals"), 4)).toInt());
+            physicalSpin->setSingleStep(field.value(QStringLiteral("physical_step"), field.value(QStringLiteral("step"), 0.01)).toDouble());
+            physicalSpin->setRange(
+                field.value(QStringLiteral("physical_minimum"), -100000.0).toDouble(),
+                field.value(QStringLiteral("physical_maximum"), 100000.0).toDouble());
             physicalSpin->setValue(physicalGeometry.value(fieldId).toDouble());
             physicalSpin->setProperty("fieldId", fieldId);
             connect(physicalSpin, &QDoubleSpinBox::editingFinished, this, [this, physicalSpin]() {
@@ -1515,7 +1503,7 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
                     refreshInspector();
                 }
             });
-            auto *physicalLabel = new QLabel(angleValue ? QStringLiteral("deg") : unitLabel);
+            auto *physicalLabel = new QLabel(field.value(QStringLiteral("physical_unit_label"), unitLabel).toString());
             physicalLabel->setObjectName(QStringLiteral("valueLabel"));
             layout->addWidget(physicalSpin, row, 2);
             layout->addWidget(physicalLabel, row, 3);

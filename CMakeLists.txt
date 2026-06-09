@@ -177,6 +177,9 @@ add_edi_contract_test(drafting_plot_job_report_tests tests/drafting_plot_job_rep
 add_edi_contract_test(drawing_canvas_gesture_state_tests tests/drawing_canvas_gesture_state_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_gesture_state_tests PRIVATE src/widgets/DrawingCanvasGestureState.cpp)
 target_include_directories(drawing_canvas_gesture_state_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(drawing_canvas_projected_object_tests tests/drawing_canvas_projected_object_tests.cpp Qt6::Core)
+target_sources(drawing_canvas_projected_object_tests PRIVATE src/widgets/DrawingCanvasProjectedObject.cpp src/widgets/DrawingCanvasGestureState.cpp)
+target_include_directories(drawing_canvas_projected_object_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)
 add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)
@@ -244,6 +247,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasGestureState.h
     src/widgets/DrawingCanvasGestureState.cpp
+    src/widgets/DrawingCanvasProjectedObject.h
+    src/widgets/DrawingCanvasProjectedObject.cpp
 )
 
 target_include_directories(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE

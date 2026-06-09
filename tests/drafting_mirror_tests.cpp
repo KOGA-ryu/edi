@@ -61,7 +61,7 @@ int main()
     assert(nearlyEqual(constructionGeometry->b.x, 0.2));
     assert(nearlyEqual(constructionGeometry->b.y, 1.0));
 
-    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.2, 0.3}, {0.8, 0.5}, 0.04});
+    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.2, 0.3}, {0.8, 0.5}, 0.04});
     auto mirroredDimension = mirrorDraftingObject(dimension, "dimension_mirror", DraftingMirrorAxis::Horizontal);
     assert(mirroredDimension.ok);
     const auto *dimensionGeometry = std::get_if<DimensionGeometry>(&mirroredDimension.object.geometry);

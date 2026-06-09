@@ -195,7 +195,12 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
     m_controller->updatePointerNormalized(point.x(), point.y());
     const bool creationTool = m_controller->selectedToolId() == QStringLiteral("line_tool")
         || m_controller->selectedToolId() == QStringLiteral("rectangle_tool")
-        || m_controller->selectedToolId() == QStringLiteral("circle_tool");
+        || m_controller->selectedToolId() == QStringLiteral("circle_tool")
+        || m_controller->selectedToolId() == QStringLiteral("distance_dimension_tool")
+        || m_controller->selectedToolId() == QStringLiteral("width_dimension_tool")
+        || m_controller->selectedToolId() == QStringLiteral("height_dimension_tool")
+        || m_controller->selectedToolId() == QStringLiteral("radius_dimension_tool")
+        || m_controller->selectedToolId() == QStringLiteral("diameter_dimension_tool");
     if (creationTool && !(event->buttons() & Qt::LeftButton)) {
         m_controller->updateCreationPreviewNormalized(point.x(), point.y());
         event->accept();
@@ -676,16 +681,34 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         const QPointF dimA = canvasToScreen(object.value(QStringLiteral("dimension_x1")).toDouble(), object.value(QStringLiteral("dimension_y1")).toDouble());
         const QPointF dimB = canvasToScreen(object.value(QStringLiteral("dimension_x2")).toDouble(), object.value(QStringLiteral("dimension_y2")).toDouble());
         const QPointF label = canvasToScreen(object.value(QStringLiteral("label_x")).toDouble(), object.value(QStringLiteral("label_y")).toDouble());
-        QPen dimensionPen(selected ? QColor("#f6c65b") : QColor("#b6d28f"), selected ? 2 : 1.5);
+        const bool showLabel = object.value(QStringLiteral("dimension_show_label"), true).toBool();
+        const QColor dimensionColor = selected ? QColor("#f6c65b") : QColor("#b6d28f");
+        QPen dimensionPen(dimensionColor, selected ? 2.0 : 1.5);
         dimensionPen.setCapStyle(Qt::RoundCap);
+        dimensionPen.setJoinStyle(Qt::RoundJoin);
         painter.setPen(dimensionPen);
         painter.setBrush(Qt::NoBrush);
         painter.drawLine(a, dimA);
         painter.drawLine(b, dimB);
         painter.drawLine(dimA, dimB);
-        painter.drawLine(dimA + QPointF(-5.0, -5.0), dimA + QPointF(5.0, 5.0));
-        painter.drawLine(dimB + QPointF(-5.0, -5.0), dimB + QPointF(5.0, 5.0));
-        painter.drawText(label + QPointF(6.0, -6.0), object.value(QStringLiteral("label")).toString());
+        painter.drawLine(dimA + QPointF(-6.0, -6.0), dimA + QPointF(6.0, 6.0));
+        painter.drawLine(dimA + QPointF(-6.0, 6.0), dimA + QPointF(6.0, -6.0));
+        painter.drawLine(dimB + QPointF(-6.0, -6.0), dimB + QPointF(6.0, 6.0));
+        painter.drawLine(dimB + QPointF(-6.0, 6.0), dimB + QPointF(6.0, -6.0));
+        if (showLabel) {
+            const QString text = object.value(QStringLiteral("label")).toString();
+            const QRect textBounds = painter.fontMetrics().boundingRect(text);
+            QRectF labelRect(
+                label.x() - textBounds.width() / 2.0 - 6.0,
+                label.y() - textBounds.height() - 8.0,
+                textBounds.width() + 12.0,
+                textBounds.height() + 8.0);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor(23, 25, 31, selected ? 230 : 190));
+            painter.drawRoundedRect(labelRect, 4.0, 4.0);
+            painter.setPen(dimensionColor);
+            painter.drawText(labelRect, Qt::AlignCenter, text);
+        }
         return;
     }
 

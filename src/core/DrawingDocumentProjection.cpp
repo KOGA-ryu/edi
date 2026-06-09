@@ -233,6 +233,19 @@ double physicalAngleDegrees(Point2D a, Point2D b, const DraftingGridProjection &
     return std::atan2(dy, dx) * 180.0 / pi;
 }
 
+double displayedDimensionDistance(double distanceValue, DimensionKind kind)
+{
+    return kind == DimensionKind::Diameter ? distanceValue * 2.0 : distanceValue;
+}
+
+QString physicalDimensionLabel(double distanceValue, DimensionKind kind, const DraftingGridProjection &grid)
+{
+    const double value = displayedDimensionDistance(distanceValue, kind);
+    return QStringLiteral("%1 %2")
+        .arg(QString::number(value, 'g', 6),
+            QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit)));
+}
+
 QVariantMap physicalGeometryForObject(const DraftingObject &object, const DraftingGridProjection &grid)
 {
     QVariantMap result {
@@ -282,6 +295,9 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
             result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
             result.insert(QStringLiteral("offset"), physicalDistance({0.0, 0.0}, {geometry.offset, geometry.offset}, grid));
+            result.insert(QStringLiteral("dimension_distance"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
+            result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
+            result.insert(QStringLiteral("dimension_label"), physicalDimensionLabel(physicalDistance(geometry.a, geometry.b, grid), geometry.kind, grid));
         }
     }, object.geometry);
 
@@ -377,18 +393,33 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             const Point2D dimA{geometry.a.x + offset.x, geometry.a.y + offset.y};
             const Point2D dimB{geometry.b.x + offset.x, geometry.b.y + offset.y};
             const MeasurementValue measuredDistance = measureDistance(geometry.a, geometry.b, scaleCalibrationFromMetadata(object.metadata.measurement));
+            const double normalizedDistance = displayedDimensionDistance(distance(geometry.a, geometry.b), geometry.kind);
+            MeasurementValue displayedDistance = measuredDistance;
+            displayedDistance.value = displayedDimensionDistance(measuredDistance.value, geometry.kind);
             result.insert(QStringLiteral("x1"), geometry.a.x);
             result.insert(QStringLiteral("y1"), geometry.a.y);
             result.insert(QStringLiteral("x2"), geometry.b.x);
             result.insert(QStringLiteral("y2"), geometry.b.y);
             result.insert(QStringLiteral("offset"), geometry.offset);
+            result.insert(QStringLiteral("dimension_kind"), QString::fromLatin1(dimensionKindName(geometry.kind)));
             result.insert(QStringLiteral("dimension_x1"), dimA.x);
             result.insert(QStringLiteral("dimension_y1"), dimA.y);
             result.insert(QStringLiteral("dimension_x2"), dimB.x);
             result.insert(QStringLiteral("dimension_y2"), dimB.y);
+            result.insert(QStringLiteral("extension_x1"), geometry.a.x);
+            result.insert(QStringLiteral("extension_y1"), geometry.a.y);
+            result.insert(QStringLiteral("extension_x2"), dimA.x);
+            result.insert(QStringLiteral("extension_y2"), dimA.y);
+            result.insert(QStringLiteral("extension2_x1"), geometry.b.x);
+            result.insert(QStringLiteral("extension2_y1"), geometry.b.y);
+            result.insert(QStringLiteral("extension2_x2"), dimB.x);
+            result.insert(QStringLiteral("extension2_y2"), dimB.y);
             result.insert(QStringLiteral("label_x"), (dimA.x + dimB.x) / 2.0);
             result.insert(QStringLiteral("label_y"), (dimA.y + dimB.y) / 2.0);
-            result.insert(QStringLiteral("label"), qStringFromStdString(formatMeasurementValue(measuredDistance)));
+            result.insert(QStringLiteral("dimension_distance"), normalizedDistance);
+            result.insert(QStringLiteral("dimension_show_label"), object.metadata.dimensionVisual.showLabel);
+            result.insert(QStringLiteral("dimension_visual_controls"), true);
+            result.insert(QStringLiteral("label"), qStringFromStdString(formatMeasurementValue(displayedDistance)));
             result.insert(QStringLiteral("plot_ready"), false);
         } else {
             QVariantList points;

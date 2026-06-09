@@ -108,6 +108,8 @@ private:
     QComboBox *m_guideColor = nullptr;
     QComboBox *m_guideDashStyle = nullptr;
     QCheckBox *m_guideShowLabel = nullptr;
+    QLabel *m_dimensionReadout = nullptr;
+    QCheckBox *m_dimensionShowLabel = nullptr;
     QMap<QString, QPushButton *> m_guideOffsetButtons;
     QMap<QString, QPushButton *> m_boundsGuideButtons;
     QMap<QString, QPushButton *> m_offsetGuideButtons;

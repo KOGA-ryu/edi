@@ -67,6 +67,7 @@ public:
     bool setSelectedGuideColor(const QString &color);
     bool setSelectedGuideDashStyle(const QString &dashStyle);
     bool setSelectedGuideLabelVisible(bool visible);
+    bool setSelectedDimensionLabelVisible(bool visible);
     bool setDefaultLayerLocked(bool locked);
     bool setDefaultLayerVisible(bool visible);
     bool setActiveLayerLocked(bool locked);

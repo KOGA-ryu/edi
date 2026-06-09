@@ -29,6 +29,14 @@ enum class GuideOrientation {
     Vertical
 };
 
+enum class DimensionKind {
+    Distance,
+    Width,
+    Height,
+    Radius,
+    Diameter
+};
+
 enum class DraftingResultCode {
     None,
     EmptyObjectId,
@@ -104,6 +112,10 @@ struct GuideVisualMetadata {
     bool showLabel = true;
 };
 
+struct DimensionVisualMetadata {
+    bool showLabel = true;
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -113,6 +125,7 @@ struct ObjectMetadata {
     std::string measurementNote;
     MeasurementMetadata measurement;
     GuideVisualMetadata guideVisual;
+    DimensionVisualMetadata dimensionVisual;
 };
 
 struct PointGeometry {
@@ -155,6 +168,7 @@ struct ConstructionLineGeometry {
 };
 
 struct DimensionGeometry {
+    DimensionKind kind = DimensionKind::Distance;
     Point2D a;
     Point2D b;
     double offset = 0.04;
@@ -173,6 +187,7 @@ using DraftingGeometry = std::variant<
 
 const char *shapeKindName(DraftingShapeKind kind);
 const char *guideOrientationName(GuideOrientation orientation);
+const char *dimensionKindName(DimensionKind kind);
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);

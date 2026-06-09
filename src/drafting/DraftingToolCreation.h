@@ -18,6 +18,10 @@ enum class DraftingToolKind {
     VerticalConstructionLine,
     AngledConstructionLine,
     DistanceDimension,
+    WidthDimension,
+    HeightDimension,
+    RadiusDimension,
+    DiameterDimension,
     Unknown
 };
 

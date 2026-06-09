@@ -53,7 +53,7 @@ int main()
     assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.75})).ok);
     assert(addObject(document, object("guide_2", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.33})).ok);
     assert(addObject(document, object("construction_1", DraftingShapeKind::ConstructionLine, ConstructionLineGeometry{{0.1, 0.9}, {0.9, 0.9}})).ok);
-    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.7}, {0.9, 0.7}, 0.04})).ok);
+    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.7}, {0.9, 0.7}, 0.04})).ok);
 
     DraftingSnapSettings objectSettings;
     objectSettings.objectSnapEnabled = true;

@@ -98,7 +98,7 @@ int main()
     assert(!fullyCollapsedConstruction.ok);
     assert(fullyCollapsedConstruction.code == DraftingResultCode::InvalidGeometry);
 
-    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.2}, {0.5, 0.6}, 0.04});
+    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.2}, {0.5, 0.6}, 0.04});
     auto dimensionOffset = applyNumericGeometryEdit(dimension, "offset", -0.08);
     assert(dimensionOffset.ok);
     const auto *editedDimension = std::get_if<DimensionGeometry>(&dimensionOffset.geometry);

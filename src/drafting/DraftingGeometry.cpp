@@ -99,6 +99,23 @@ const char *guideOrientationName(GuideOrientation orientation)
     return "horizontal";
 }
 
+const char *dimensionKindName(DimensionKind kind)
+{
+    switch (kind) {
+    case DimensionKind::Distance:
+        return "distance";
+    case DimensionKind::Width:
+        return "width";
+    case DimensionKind::Height:
+        return "height";
+    case DimensionKind::Radius:
+        return "radius";
+    case DimensionKind::Diameter:
+        return "diameter";
+    }
+    return "distance";
+}
+
 const char *draftingResultCodeName(DraftingResultCode code)
 {
     switch (code) {

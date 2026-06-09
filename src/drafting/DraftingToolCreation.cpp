@@ -42,6 +42,18 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "distance_dimension_tool") {
         return DraftingToolKind::DistanceDimension;
     }
+    if (toolId == "width_dimension_tool") {
+        return DraftingToolKind::WidthDimension;
+    }
+    if (toolId == "height_dimension_tool") {
+        return DraftingToolKind::HeightDimension;
+    }
+    if (toolId == "radius_dimension_tool") {
+        return DraftingToolKind::RadiusDimension;
+    }
+    if (toolId == "diameter_dimension_tool") {
+        return DraftingToolKind::DiameterDimension;
+    }
     return DraftingToolKind::Unknown;
 }
 
@@ -70,6 +82,14 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "angled_construction_line";
     case DraftingToolKind::DistanceDimension:
         return "distance_dimension";
+    case DraftingToolKind::WidthDimension:
+        return "width_dimension";
+    case DraftingToolKind::HeightDimension:
+        return "height_dimension";
+    case DraftingToolKind::RadiusDimension:
+        return "radius_dimension";
+    case DraftingToolKind::DiameterDimension:
+        return "diameter_dimension";
     case DraftingToolKind::Unknown:
         return "unknown";
     }
@@ -113,7 +133,19 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         geometry = ConstructionLineGeometry{request.start, request.end};
     } else if (request.tool == DraftingToolKind::DistanceDimension) {
         kind = DraftingShapeKind::Dimension;
-        geometry = DimensionGeometry{request.start, request.end, 0.04};
+        geometry = DimensionGeometry{DimensionKind::Distance, request.start, request.end, 0.04};
+    } else if (request.tool == DraftingToolKind::WidthDimension) {
+        kind = DraftingShapeKind::Dimension;
+        geometry = DimensionGeometry{DimensionKind::Width, request.start, {request.end.x, request.start.y}, 0.04};
+    } else if (request.tool == DraftingToolKind::HeightDimension) {
+        kind = DraftingShapeKind::Dimension;
+        geometry = DimensionGeometry{DimensionKind::Height, request.start, {request.start.x, request.end.y}, 0.04};
+    } else if (request.tool == DraftingToolKind::RadiusDimension) {
+        kind = DraftingShapeKind::Dimension;
+        geometry = DimensionGeometry{DimensionKind::Radius, request.start, request.end, 0.04};
+    } else if (request.tool == DraftingToolKind::DiameterDimension) {
+        kind = DraftingShapeKind::Dimension;
+        geometry = DimensionGeometry{DimensionKind::Diameter, request.start, request.end, 0.04};
     } else {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry, "tool cannot create a drafting object");
     }

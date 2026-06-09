@@ -31,7 +31,7 @@ int main()
     assert(nearlyEqual(hitDistance(CircleGeometry{{0.5, 0.5}, 0.2}, {0.7, 0.5}), 0.0));
     assert(nearlyEqual(hitDistance(GuideGeometry{GuideOrientation::Horizontal, 0.25}, {0.7, 0.35}), 0.1));
     assert(nearlyEqual(hitDistance(ConstructionLineGeometry{{0.0, 0.25}, {1.0, 0.75}}, {0.5, 0.6}), 0.0894427));
-    assert(nearlyEqual(hitDistance(DimensionGeometry{{0.0, 0.25}, {1.0, 0.25}, 0.1}, {0.5, 0.35}), 0.0));
+    assert(nearlyEqual(hitDistance(DimensionGeometry{DimensionKind::Distance, {0.0, 0.25}, {1.0, 0.25}, 0.1}, {0.5, 0.35}), 0.0));
     assert(hitDistance(PointGeometry{{0.0, 0.0}}, {std::numeric_limits<double>::infinity(), 0.0}) > 1.0e100);
 
     DraftingDocument document = makeDraftingDocument("hit_doc");
@@ -40,7 +40,7 @@ int main()
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.45, 0.45}, 0.2, 0.2})).ok);
     assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25})).ok);
     assert(addObject(document, object("construction_1", DraftingShapeKind::ConstructionLine, ConstructionLineGeometry{{0.7, 0.0}, {0.7, 1.0}})).ok);
-    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.85}, {0.5, 0.85}, 0.04})).ok);
+    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.85}, {0.5, 0.85}, 0.04})).ok);
 
     DraftingHitTestResult lineHit = hitTestDocument(document, {0.4, 0.51});
     assert(lineHit.ok);

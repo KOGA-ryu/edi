@@ -452,7 +452,11 @@ QWidget *EdiShellWindow::buildLeftPanel()
         {QStringLiteral("horizontal_construction_line_tool"), QStringLiteral("H Construct")},
         {QStringLiteral("vertical_construction_line_tool"), QStringLiteral("V Construct")},
         {QStringLiteral("angled_construction_line_tool"), QStringLiteral("A Construct")},
-        {QStringLiteral("distance_dimension_tool"), QStringLiteral("Dimension")},
+        {QStringLiteral("distance_dimension_tool"), QStringLiteral("Dim Distance")},
+        {QStringLiteral("width_dimension_tool"), QStringLiteral("Dim Width")},
+        {QStringLiteral("height_dimension_tool"), QStringLiteral("Dim Height")},
+        {QStringLiteral("radius_dimension_tool"), QStringLiteral("Dim Radius")},
+        {QStringLiteral("diameter_dimension_tool"), QStringLiteral("Dim Diameter")},
     };
 
     for (const auto &tool : tools) {
@@ -884,6 +888,15 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->setSelectedGuideLabelVisible(checked);
     });
     layout->addWidget(m_guideShowLabel);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
+    m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
+    layout->addWidget(m_dimensionReadout);
+    m_dimensionShowLabel = new QCheckBox(QStringLiteral("Show dimension label"));
+    m_dimensionShowLabel->setObjectName(QStringLiteral("dimensionShowLabelCheckbox"));
+    connect(m_dimensionShowLabel, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setSelectedDimensionLabelVisible(checked);
+    });
+    layout->addWidget(m_dimensionShowLabel);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1735,6 +1748,21 @@ void EdiShellWindow::refreshInspector()
         const QSignalBlocker blocker(m_guideShowLabel);
         m_guideShowLabel->setEnabled(guideVisualControlsEnabled);
         m_guideShowLabel->setChecked(selectedObject.value(QStringLiteral("guide_show_label"), true).toBool());
+    }
+    const bool dimensionControlsEnabled = selectedObject.value(QStringLiteral("dimension_visual_controls")).toBool();
+    if (m_dimensionReadout != nullptr) {
+        const QVariantMap physical = selectedObject.value(QStringLiteral("physical_geometry")).toMap();
+        m_dimensionReadout->setText(dimensionControlsEnabled
+                ? QStringLiteral("Dimension: %1   Physical: %2   Kind: %3")
+                    .arg(selectedObject.value(QStringLiteral("label")).toString(),
+                        physical.value(QStringLiteral("dimension_label")).toString(),
+                        selectedObject.value(QStringLiteral("dimension_kind")).toString())
+                : QStringLiteral("Dimension: none"));
+    }
+    if (m_dimensionShowLabel != nullptr) {
+        const QSignalBlocker blocker(m_dimensionShowLabel);
+        m_dimensionShowLabel->setEnabled(dimensionControlsEnabled);
+        m_dimensionShowLabel->setChecked(selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool());
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

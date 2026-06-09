@@ -111,7 +111,7 @@ int main()
     assert(lineSummary.value.dimensions.width.value == 0.0);
     assert(lineSummary.value.dimensions.height.value == 3.0);
 
-    DraftingObject measuredDimension = makeDraftingObject("measured_dimension", DraftingShapeKind::Dimension, DimensionGeometry{{0.0, 0.0}, {3.0, 4.0}, 0.25});
+    DraftingObject measuredDimension = makeDraftingObject("measured_dimension", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.0, 0.0}, {3.0, 4.0}, 0.25});
     auto dimensionDistance = measureObjectDistance(measuredDimension);
     assert(dimensionDistance.ok);
     assert(dimensionDistance.value.kind == MeasurementKind::Distance);

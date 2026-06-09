@@ -1276,6 +1276,29 @@ bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
     return true;
 }
 
+bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Dimension) {
+        return false;
+    }
+
+    ObjectMetadata metadata = object->metadata;
+    metadata.dimensionVisual.showLabel = visible;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
 {
     const DraftingLayer *layer = findLayer(m_document, "default");

@@ -44,8 +44,8 @@ int main()
     assert(!validateGeometry(GuideGeometry{GuideOrientation::Vertical, 2.0}).ok);
     assert(validateGeometry(ConstructionLineGeometry{{0.0, 0.25}, {1.0, 0.75}}).ok);
     assert(!validateGeometry(ConstructionLineGeometry{{0.5, 0.5}, {0.5, 0.5}}).ok);
-    assert(validateGeometry(DimensionGeometry{{0.0, 0.0}, {0.3, 0.4}, 0.04}).ok);
-    assert(!validateGeometry(DimensionGeometry{{0.2, 0.2}, {0.2, 0.2}, 0.04}).ok);
+    assert(validateGeometry(DimensionGeometry{DimensionKind::Distance, {0.0, 0.0}, {0.3, 0.4}, 0.04}).ok);
+    assert(!validateGeometry(DimensionGeometry{DimensionKind::Distance, {0.2, 0.2}, {0.2, 0.2}, 0.04}).ok);
     assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
     assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
     assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);
@@ -75,7 +75,7 @@ int main()
     assert(nearlyEqual(movedConstructionGeometry->a.x, 0.3));
     assert(nearlyEqual(movedConstructionGeometry->a.y, 0.1));
 
-    DraftingGeometry dimension = DimensionGeometry{{0.2, 0.3}, {0.8, 0.3}, 0.1};
+    DraftingGeometry dimension = DimensionGeometry{DimensionKind::Distance, {0.2, 0.3}, {0.8, 0.3}, 0.1};
     Bounds2D dimensionBounds = computeBounds(dimension);
     assert(nearlyEqual(dimensionBounds.x, 0.2));
     assert(nearlyEqual(dimensionBounds.y, 0.3));

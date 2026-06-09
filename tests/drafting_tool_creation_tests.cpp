@@ -34,6 +34,10 @@ int main()
     assert(draftingToolKindFromId("horizontal_guide_tool") == DraftingToolKind::HorizontalGuide);
     assert(draftingToolKindFromId("angled_construction_line_tool") == DraftingToolKind::AngledConstructionLine);
     assert(draftingToolKindFromId("distance_dimension_tool") == DraftingToolKind::DistanceDimension);
+    assert(draftingToolKindFromId("width_dimension_tool") == DraftingToolKind::WidthDimension);
+    assert(draftingToolKindFromId("height_dimension_tool") == DraftingToolKind::HeightDimension);
+    assert(draftingToolKindFromId("radius_dimension_tool") == DraftingToolKind::RadiusDimension);
+    assert(draftingToolKindFromId("diameter_dimension_tool") == DraftingToolKind::DiameterDimension);
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
     auto point = build("point_1", DraftingToolKind::Point, {0.1, 0.2}, {0.3, 0.4});
@@ -121,11 +125,44 @@ int main()
     assert(distanceDimension.object.metadata.toolProvenance == "distance_dimension");
     const auto *dimensionGeometry = std::get_if<DimensionGeometry>(&distanceDimension.object.geometry);
     assert(dimensionGeometry != nullptr);
+    assert(dimensionGeometry->kind == DimensionKind::Distance);
     assert(nearlyEqual(dimensionGeometry->a.x, 0.1));
     assert(nearlyEqual(dimensionGeometry->a.y, 0.2));
     assert(nearlyEqual(dimensionGeometry->b.x, 0.7));
     assert(nearlyEqual(dimensionGeometry->b.y, 0.4));
     assert(nearlyEqual(dimensionGeometry->offset, 0.04));
+
+    auto widthDimension = build("dimension_width", DraftingToolKind::WidthDimension, {0.1, 0.2}, {0.7, 0.4});
+    assert(widthDimension.ok);
+    const auto *widthDimensionGeometry = std::get_if<DimensionGeometry>(&widthDimension.object.geometry);
+    assert(widthDimensionGeometry != nullptr);
+    assert(widthDimensionGeometry->kind == DimensionKind::Width);
+    assert(nearlyEqual(widthDimensionGeometry->a.x, 0.1));
+    assert(nearlyEqual(widthDimensionGeometry->a.y, 0.2));
+    assert(nearlyEqual(widthDimensionGeometry->b.x, 0.7));
+    assert(nearlyEqual(widthDimensionGeometry->b.y, 0.2));
+
+    auto heightDimension = build("dimension_height", DraftingToolKind::HeightDimension, {0.1, 0.2}, {0.7, 0.4});
+    assert(heightDimension.ok);
+    const auto *heightDimensionGeometry = std::get_if<DimensionGeometry>(&heightDimension.object.geometry);
+    assert(heightDimensionGeometry != nullptr);
+    assert(heightDimensionGeometry->kind == DimensionKind::Height);
+    assert(nearlyEqual(heightDimensionGeometry->a.x, 0.1));
+    assert(nearlyEqual(heightDimensionGeometry->a.y, 0.2));
+    assert(nearlyEqual(heightDimensionGeometry->b.x, 0.1));
+    assert(nearlyEqual(heightDimensionGeometry->b.y, 0.4));
+
+    auto radiusDimension = build("dimension_radius", DraftingToolKind::RadiusDimension, {0.1, 0.2}, {0.7, 0.4});
+    assert(radiusDimension.ok);
+    const auto *radiusDimensionGeometry = std::get_if<DimensionGeometry>(&radiusDimension.object.geometry);
+    assert(radiusDimensionGeometry != nullptr);
+    assert(radiusDimensionGeometry->kind == DimensionKind::Radius);
+
+    auto diameterDimension = build("dimension_diameter", DraftingToolKind::DiameterDimension, {0.1, 0.2}, {0.7, 0.4});
+    assert(diameterDimension.ok);
+    const auto *diameterDimensionGeometry = std::get_if<DimensionGeometry>(&diameterDimension.object.geometry);
+    assert(diameterDimensionGeometry != nullptr);
+    assert(diameterDimensionGeometry->kind == DimensionKind::Diameter);
 
     auto zeroDimension = build("dimension_zero", DraftingToolKind::DistanceDimension, {0.2, 0.2}, {0.2, 0.2});
     assert(!zeroDimension.ok);

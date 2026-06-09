@@ -1122,6 +1122,34 @@ int main(int argc, char **argv)
     assert(nearlyEqual(scaledOffsetDimension.value("offset").toDouble(), 0.2));
     assert(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 1.2));
 
+    DrawingDocumentController dimensionKindController;
+    dimensionKindController.setSelectedToolId("distance_dimension_tool");
+    dimensionKindController.clickCanvasNormalized(0.1, 0.2);
+    dimensionKindController.clickCanvasNormalized(0.4, 0.6);
+    QVariantMap dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(dimensionKindObject.value("dimension_kind").toString() == "distance");
+    assert(dimensionKindController.setSelectedDimensionKind("width"));
+    dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(dimensionKindObject.value("dimension_kind").toString() == "width");
+    assert(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.6));
+    assert(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.2));
+    QStringList switchedWidthFields = numericFieldIds(dimensionKindObject);
+    assert(switchedWidthFields.contains("dimension_length"));
+    assert(!switchedWidthFields.contains("dimension_angle_deg"));
+    assert(dimensionKindController.setSelectedDimensionKind("height"));
+    dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(dimensionKindObject.value("dimension_kind").toString() == "height");
+    assert(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.1));
+    assert(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.7));
+    assert(!dimensionKindController.setSelectedDimensionKind("ordinal"));
+    const int dimensionKindRevisionBeforeInvalidLength = dimensionKindController.modelDocument().value("revision").toInt();
+    assert(!dimensionKindController.updateSelectedObjectGeometryField("dimension_length", 0.0));
+    assert(dimensionKindController.modelDocument().value("revision").toInt() == dimensionKindRevisionBeforeInvalidLength);
+    DrawingDocumentController nonDimensionKindController;
+    nonDimensionKindController.setSelectedToolId("point_tool");
+    nonDimensionKindController.clickCanvasNormalized(0.2, 0.2);
+    assert(!nonDimensionKindController.setSelectedDimensionKind("width"));
+
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
     objectSnapController.clickCanvasNormalized(0.25, 0.25);

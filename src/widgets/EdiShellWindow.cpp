@@ -891,6 +891,17 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
     m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
     layout->addWidget(m_dimensionReadout);
+    m_dimensionKind = new QComboBox;
+    m_dimensionKind->setObjectName(QStringLiteral("dimensionKindCombo"));
+    m_dimensionKind->addItem(QStringLiteral("Distance"), QStringLiteral("distance"));
+    m_dimensionKind->addItem(QStringLiteral("Width"), QStringLiteral("width"));
+    m_dimensionKind->addItem(QStringLiteral("Height"), QStringLiteral("height"));
+    m_dimensionKind->addItem(QStringLiteral("Radius"), QStringLiteral("radius"));
+    m_dimensionKind->addItem(QStringLiteral("Diameter"), QStringLiteral("diameter"));
+    connect(m_dimensionKind, &QComboBox::currentIndexChanged, this, [this](int index) {
+        m_controller->setSelectedDimensionKind(m_dimensionKind->itemData(index).toString());
+    });
+    layout->addWidget(m_dimensionKind);
     m_dimensionShowLabel = new QCheckBox(QStringLiteral("Show dimension label"));
     m_dimensionShowLabel->setObjectName(QStringLiteral("dimensionShowLabelCheckbox"));
     connect(m_dimensionShowLabel, &QCheckBox::toggled, this, [this](bool checked) {
@@ -1761,6 +1772,13 @@ void EdiShellWindow::refreshInspector()
                         physical.value(QStringLiteral("dimension_label")).toString(),
                         selectedObject.value(QStringLiteral("dimension_kind")).toString())
                 : QStringLiteral("Dimension: none"));
+    }
+    if (m_dimensionKind != nullptr) {
+        const QSignalBlocker blocker(m_dimensionKind);
+        const QString dimensionKind = selectedObject.value(QStringLiteral("dimension_kind")).toString();
+        const int index = m_dimensionKind->findData(dimensionKind);
+        m_dimensionKind->setEnabled(dimensionControlsEnabled);
+        m_dimensionKind->setCurrentIndex(index >= 0 ? index : 0);
     }
     if (m_dimensionShowLabel != nullptr) {
         const QSignalBlocker blocker(m_dimensionShowLabel);

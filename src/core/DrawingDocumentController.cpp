@@ -52,6 +52,26 @@ DraftingToolKind toolKind(const QString &toolId)
     return draftingToolKindFromId(toStdString(toolId));
 }
 
+std::optional<DimensionKind> dimensionKindFromId(const QString &kindId)
+{
+    if (kindId == QStringLiteral("distance")) {
+        return DimensionKind::Distance;
+    }
+    if (kindId == QStringLiteral("width")) {
+        return DimensionKind::Width;
+    }
+    if (kindId == QStringLiteral("height")) {
+        return DimensionKind::Height;
+    }
+    if (kindId == QStringLiteral("radius")) {
+        return DimensionKind::Radius;
+    }
+    if (kindId == QStringLiteral("diameter")) {
+        return DimensionKind::Diameter;
+    }
+    return std::nullopt;
+}
+
 QString objectIdPrefix(DraftingToolKind kind)
 {
     return QString::fromLatin1(draftingToolKindName(kind));
@@ -1361,6 +1381,49 @@ bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const std::optional<DimensionKind> kind = dimensionKindFromId(kindId);
+    if (!kind) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Dimension) {
+        return false;
+    }
+    const auto *dimension = std::get_if<DimensionGeometry>(&object->geometry);
+    if (dimension == nullptr) {
+        return false;
+    }
+
+    DimensionGeometry next = *dimension;
+    const double currentLength = distance(next.a, next.b);
+    if (!std::isfinite(currentLength) || currentLength <= 0.000001) {
+        return false;
+    }
+    next.kind = *kind;
+    if (next.kind == DimensionKind::Width) {
+        const double sign = next.b.x < next.a.x ? -1.0 : 1.0;
+        next.b = {next.a.x + sign * currentLength, next.a.y};
+    } else if (next.kind == DimensionKind::Height) {
+        const double sign = next.b.y < next.a.y ? -1.0 : 1.0;
+        next.b = {next.a.x, next.a.y + sign * currentLength};
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{next}});
     if (!result.ok) {
         return false;
     }

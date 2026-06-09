@@ -43,6 +43,7 @@ public:
     void setGridPresetId(const QString &presetId);
     void updatePointerNormalized(double x, double y);
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
+    bool nudgeSelection(const QString &direction, const QString &stepMode);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);

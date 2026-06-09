@@ -229,6 +229,14 @@ std::optional<DraftingGeometry> geometryWithUpdatedField(const DraftingObject &o
     }, object.geometry);
 }
 
+double nudgeScaleForMode(const QString &stepMode)
+{
+    if (stepMode == QStringLiteral("fine")) {
+        return 0.25;
+    }
+    return 1.0;
+}
+
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
@@ -440,6 +448,39 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::nudgeSelection(const QString &direction, const QString &stepMode)
+{
+    if (m_document.selectedObjectIds.empty()) {
+        return false;
+    }
+
+    const double scale = nudgeScaleForMode(stepMode);
+    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
+    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
+
+    double dx = 0.0;
+    double dy = 0.0;
+    if (direction == QStringLiteral("left")) {
+        dx = -stepX * scale;
+    } else if (direction == QStringLiteral("right")) {
+        dx = stepX * scale;
+    } else if (direction == QStringLiteral("up")) {
+        dy = -stepY * scale;
+    } else if (direction == QStringLiteral("down")) {
+        dy = stepY * scale;
+    } else {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
     if (!result.ok) {
         return false;
     }

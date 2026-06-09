@@ -338,6 +338,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectLayerValue);
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
+    layout->addWidget(buildNudgeControls());
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -370,6 +371,37 @@ QWidget *EdiShellWindow::buildGeometryEditor()
     layout->setHorizontalSpacing(6);
     layout->setVerticalSpacing(6);
     return editor;
+}
+
+QWidget *EdiShellWindow::buildNudgeControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("nudgeControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    auto addButton = [this, layout](const QString &label, const QString &direction, const QString &stepMode, int row, int column) {
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("nudgeButton"));
+        connect(button, &QPushButton::clicked, this, [this, direction, stepMode]() {
+            m_controller->nudgeSelection(direction, stepMode);
+        });
+        layout->addWidget(button, row, column);
+    };
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Nudge")), 0, 0, 1, 3);
+    addButton(QStringLiteral("Grid Up"), QStringLiteral("up"), QStringLiteral("grid"), 1, 1);
+    addButton(QStringLiteral("Grid Left"), QStringLiteral("left"), QStringLiteral("grid"), 2, 0);
+    addButton(QStringLiteral("Grid Right"), QStringLiteral("right"), QStringLiteral("grid"), 2, 2);
+    addButton(QStringLiteral("Grid Down"), QStringLiteral("down"), QStringLiteral("grid"), 3, 1);
+    addButton(QStringLiteral("Fine Up"), QStringLiteral("up"), QStringLiteral("fine"), 4, 1);
+    addButton(QStringLiteral("Fine Left"), QStringLiteral("left"), QStringLiteral("fine"), 5, 0);
+    addButton(QStringLiteral("Fine Right"), QStringLiteral("right"), QStringLiteral("fine"), 5, 2);
+    addButton(QStringLiteral("Fine Down"), QStringLiteral("down"), QStringLiteral("fine"), 6, 1);
+
+    return panel;
 }
 
 QWidget *EdiShellWindow::buildBottomPanel()

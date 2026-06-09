@@ -315,6 +315,17 @@ int main(int argc, char **argv)
 
     DrawingDocumentController noSelectionEditController;
     assert(!noSelectionEditController.updateSelectedObjectGeometryField("x", 0.2));
+    assert(!noSelectionEditController.nudgeSelection("right", "grid"));
+
+    DrawingDocumentController nudgeController;
+    nudgeController.setSelectedToolId("point_tool");
+    nudgeController.clickCanvasNormalized(0.5, 0.5);
+    assert(nudgeController.nudgeSelection("right", "grid"));
+    assert(nudgeController.nudgeSelection("up", "fine"));
+    QVariantMap nudgedPoint = nudgeController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(nudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
+    assert(nearlyEqual(nudgedPoint.value("y").toDouble(), 0.5 - squareQuarterInchStep * 0.25));
+    assert(!nudgeController.nudgeSelection("diagonal", "grid"));
 
     DrawingDocumentController selectionIsolationController;
     selectionIsolationController.setSelectedToolId("point_tool");

@@ -645,6 +645,24 @@ int main(int argc, char **argv)
     assert(pointer.value("inside_drawable").toBool());
     assert(pointerModel.value("drawing_objects").toList().size() == beforePointerObjects.size());
 
+    DrawingDocumentController guidePointerController;
+    guidePointerController.setSelectedToolId("horizontal_guide_tool");
+    guidePointerController.clickCanvasNormalized(0.2, 0.75);
+    guidePointerController.setSelectedToolId("vertical_guide_tool");
+    guidePointerController.clickCanvasNormalized(0.33, 0.2);
+    guidePointerController.setObjectSnapEnabled(true);
+    QVariantList beforeGuidePointerObjects = guidePointerController.modelDocument().value("drawing_objects").toList();
+    guidePointerController.updatePointerNormalized(0.34, 0.74);
+    QVariantMap guidePointerModel = guidePointerController.modelDocument();
+    QVariantMap guidePointer = guidePointerModel.value("pointer").toMap();
+    assert(guidePointer.value("kind").toString() == "object");
+    assert(guidePointer.value("source").toString() == "guide");
+    assert(guidePointer.value("label").toString() == "guide");
+    assert(!guidePointer.value("source_object_id").toString().isEmpty());
+    assert(nearlyEqual(guidePointer.value("snapped").toMap().value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guidePointer.value("snapped").toMap().value("y").toDouble(), 0.75));
+    assert(guidePointerModel.value("drawing_objects").toList().size() == beforeGuidePointerObjects.size());
+
     DrawingDocumentController invisibleSnapController;
     invisibleSnapController.setSelectedToolId("point_tool");
     invisibleSnapController.clickCanvasNormalized(0.25, 0.25);

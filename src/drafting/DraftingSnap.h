@@ -18,7 +18,8 @@ enum class DraftingSnapSourceKind {
     Endpoint,
     Vertex,
     Midpoint,
-    Center
+    Center,
+    Guide
 };
 
 struct DraftingSnapSettings {

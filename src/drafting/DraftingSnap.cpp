@@ -69,6 +69,95 @@ DraftingSnapResult candidateSnap(const DraftingSnapCandidate &candidate)
     };
 }
 
+bool guideSnapCandidate(const DraftingObject &object, Point2D point, DraftingSnapCandidate &candidate, double &candidateDistance)
+{
+    if (!object.visible || object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+        return false;
+    }
+    const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
+    if (guide == nullptr || !std::isfinite(guide->position)) {
+        return false;
+    }
+
+    if (guide->orientation == GuideOrientation::Horizontal) {
+        candidate = {
+            normalizeDraftingPoint({point.x, guide->position}),
+            DraftingSnapSourceKind::Guide,
+            draftingSnapSourceKindName(DraftingSnapSourceKind::Guide),
+            object.id,
+        };
+        candidateDistance = std::abs(point.y - guide->position);
+        return true;
+    }
+
+    candidate = {
+        normalizeDraftingPoint({guide->position, point.y}),
+        DraftingSnapSourceKind::Guide,
+        draftingSnapSourceKindName(DraftingSnapSourceKind::Guide),
+        object.id,
+    };
+    candidateDistance = std::abs(point.x - guide->position);
+    return true;
+}
+
+DraftingSnapResult nearestGuideSnap(Point2D point, const DraftingDocument &document, const DraftingSnapSettings &settings)
+{
+    if (!settings.objectSnapEnabled || !std::isfinite(settings.objectTolerance) || settings.objectTolerance < 0.0) {
+        return noneSnap(point);
+    }
+
+    bool hasVertical = false;
+    bool hasHorizontal = false;
+    DraftingSnapCandidate bestVertical;
+    DraftingSnapCandidate bestHorizontal;
+    double bestVerticalDistance = settings.objectTolerance;
+    double bestHorizontalDistance = settings.objectTolerance;
+    for (const DraftingObject &object : document.objects) {
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !layer->visible) {
+            continue;
+        }
+
+        DraftingSnapCandidate candidate;
+        double candidateDistance = 0.0;
+        if (!guideSnapCandidate(object, point, candidate, candidateDistance) || candidateDistance > settings.objectTolerance) {
+            continue;
+        }
+
+        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
+        if (guide->orientation == GuideOrientation::Vertical && candidateDistance <= bestVerticalDistance) {
+            bestVerticalDistance = candidateDistance;
+            bestVertical = candidate;
+            hasVertical = true;
+        } else if (guide->orientation == GuideOrientation::Horizontal && candidateDistance <= bestHorizontalDistance) {
+            bestHorizontalDistance = candidateDistance;
+            bestHorizontal = candidate;
+            hasHorizontal = true;
+        }
+    }
+
+    if (hasVertical && hasHorizontal) {
+        const double intersectionDistance = std::hypot(bestVerticalDistance, bestHorizontalDistance);
+        if (intersectionDistance <= settings.objectTolerance) {
+            return {
+                normalizeDraftingPoint({bestVertical.point.x, bestHorizontal.point.y}),
+                DraftingSnapKind::Object,
+                DraftingSnapSourceKind::Guide,
+                draftingSnapSourceKindName(DraftingSnapSourceKind::Guide),
+                bestVertical.sourceObjectId.empty() ? bestHorizontal.sourceObjectId : bestVertical.sourceObjectId,
+            };
+        }
+    }
+
+    if (hasVertical && (!hasHorizontal || bestVerticalDistance <= bestHorizontalDistance)) {
+        return candidateSnap(bestVertical);
+    }
+    if (hasHorizontal) {
+        return candidateSnap(bestHorizontal);
+    }
+    return noneSnap(point);
+}
+
 DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &document, const DraftingSnapSettings &settings)
 {
     if (!settings.objectSnapEnabled || !std::isfinite(settings.objectTolerance) || settings.objectTolerance < 0.0) {
@@ -78,6 +167,12 @@ DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &docu
     bool found = false;
     DraftingSnapCandidate best;
     double bestDistance = settings.objectTolerance;
+    DraftingSnapResult guide = nearestGuideSnap(point, document, settings);
+    if (guide.kind == DraftingSnapKind::Object) {
+        best = {guide.point, guide.sourceKind, guide.label, guide.sourceObjectId};
+        bestDistance = distance(point, guide.point);
+        found = true;
+    }
     for (const DraftingSnapCandidate &candidate : snapCandidatesForDocument(document, settings)) {
         const double candidateDistance = distance(point, candidate.point);
         if (candidateDistance <= bestDistance) {
@@ -122,6 +217,8 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
         return "midpoint";
     case DraftingSnapSourceKind::Center:
         return "center";
+    case DraftingSnapSourceKind::Guide:
+        return "guide";
     }
     return "unknown";
 }
@@ -175,13 +272,7 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
             }
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
-            if (settings.centerEnabled) {
-                if (geometry.orientation == GuideOrientation::Horizontal) {
-                    addCandidate(candidates, object, {0.5, geometry.position}, DraftingSnapSourceKind::Center);
-                } else {
-                    addCandidate(candidates, object, {geometry.position, 0.5}, DraftingSnapSourceKind::Center);
-                }
-            }
+            return;
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             if (settings.endpointEnabled) {
                 addCandidate(candidates, object, geometry.a, DraftingSnapSourceKind::Endpoint);

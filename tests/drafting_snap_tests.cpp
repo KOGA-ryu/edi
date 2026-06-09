@@ -30,6 +30,7 @@ int main()
     assert(normalized.y == 1.0);
     assert(std::string(draftingSnapKindName(DraftingSnapKind::Object)) == "object");
     assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Midpoint)) == "midpoint");
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Guide)) == "guide");
 
     DraftingSnapSettings gridSettings;
     gridSettings.gridEnabled = true;
@@ -50,6 +51,7 @@ int main()
     assert(addObject(document, object("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.4}, {0.8, 0.4}})).ok);
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.25, 0.25}, 0.25, 0.25})).ok);
     assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.75})).ok);
+    assert(addObject(document, object("guide_2", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.33})).ok);
     assert(addObject(document, object("construction_1", DraftingShapeKind::ConstructionLine, ConstructionLineGeometry{{0.1, 0.9}, {0.9, 0.9}})).ok);
     assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.7}, {0.9, 0.7}, 0.04})).ok);
 
@@ -98,12 +100,42 @@ int main()
     assert(nearlyEqual(midpoint.point.x, 0.5));
     assert(nearlyEqual(midpoint.point.y, 0.4));
 
-    DraftingSnapResult guideCenter = resolveSnap({0.51, 0.74}, document, objectSettings);
-    assert(guideCenter.kind == DraftingSnapKind::Object);
-    assert(guideCenter.sourceKind == DraftingSnapSourceKind::Center);
-    assert(guideCenter.sourceObjectId == "guide_1");
-    assert(nearlyEqual(guideCenter.point.x, 0.5));
-    assert(nearlyEqual(guideCenter.point.y, 0.75));
+    std::vector<DraftingSnapCandidate> guideCandidates = snapCandidatesForObject(document.objects[3], objectSettings);
+    assert(guideCandidates.empty());
+
+    DraftingSnapResult horizontalGuide = resolveSnap({0.51, 0.74}, document, objectSettings);
+    assert(horizontalGuide.kind == DraftingSnapKind::Object);
+    assert(horizontalGuide.sourceKind == DraftingSnapSourceKind::Guide);
+    assert(horizontalGuide.sourceObjectId == "guide_1");
+    assert(horizontalGuide.label == "guide");
+    assert(nearlyEqual(horizontalGuide.point.x, 0.51));
+    assert(nearlyEqual(horizontalGuide.point.y, 0.75));
+
+    DraftingSnapResult verticalGuide = resolveSnap({0.34, 0.2}, document, objectSettings);
+    assert(verticalGuide.kind == DraftingSnapKind::Object);
+    assert(verticalGuide.sourceKind == DraftingSnapSourceKind::Guide);
+    assert(verticalGuide.sourceObjectId == "guide_2");
+    assert(verticalGuide.label == "guide");
+    assert(nearlyEqual(verticalGuide.point.x, 0.33));
+    assert(nearlyEqual(verticalGuide.point.y, 0.2));
+
+    DraftingSnapResult guideIntersection = resolveSnap({0.34, 0.74}, document, objectSettings);
+    assert(guideIntersection.kind == DraftingSnapKind::Object);
+    assert(guideIntersection.sourceKind == DraftingSnapSourceKind::Guide);
+    assert(guideIntersection.label == "guide");
+    assert(nearlyEqual(guideIntersection.point.x, 0.33));
+    assert(nearlyEqual(guideIntersection.point.y, 0.75));
+
+    DraftingSnapSettings guideSnapDisabled = objectSettings;
+    guideSnapDisabled.objectSnapEnabled = false;
+    DraftingSnapResult disabledGuide = resolveSnap({0.34, 0.74}, document, guideSnapDisabled);
+    assert(disabledGuide.kind == DraftingSnapKind::None);
+
+    DraftingSnapSettings guideSnapWithoutCenter = objectSettings;
+    guideSnapWithoutCenter.centerEnabled = false;
+    DraftingSnapResult guideIgnoresCenterToggle = resolveSnap({0.34, 0.2}, document, guideSnapWithoutCenter);
+    assert(guideIgnoresCenterToggle.kind == DraftingSnapKind::Object);
+    assert(guideIgnoresCenterToggle.sourceKind == DraftingSnapSourceKind::Guide);
 
     DraftingSnapResult constructionEndpoint = resolveSnap({0.09, 0.91}, document, objectSettings);
     assert(constructionEndpoint.kind == DraftingSnapKind::Object);
@@ -161,6 +193,34 @@ int main()
     document.objects.front().visible = false;
     DraftingSnapResult hiddenMiss = resolveSnap({0.11, 0.09}, document, objectSettings);
     assert(hiddenMiss.kind == DraftingSnapKind::None);
+
+    DraftingDocument hiddenGuideDocument = makeDraftingDocument("hidden_guide_doc");
+    DraftingObject hiddenGuide = object("hidden_guide", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.4});
+    hiddenGuide.visible = false;
+    assert(addObject(hiddenGuideDocument, hiddenGuide).ok);
+    DraftingSnapResult hiddenGuideMiss = resolveSnap({0.41, 0.2}, hiddenGuideDocument, objectSettings);
+    assert(hiddenGuideMiss.kind == DraftingSnapKind::None);
+
+    DraftingDocument hiddenLayerGuideDocument = makeDraftingDocument("hidden_layer_guide_doc");
+    DraftingLayer hiddenLayer = makeDraftingLayer("hidden", "Hidden", 1);
+    hiddenLayer.visible = false;
+    hiddenLayerGuideDocument.layers.push_back(hiddenLayer);
+    DraftingObject hiddenLayerGuide = object("hidden_layer_guide", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.4});
+    hiddenLayerGuide.layerId = "hidden";
+    assert(addObject(hiddenLayerGuideDocument, hiddenLayerGuide).ok);
+    DraftingSnapResult hiddenLayerGuideMiss = resolveSnap({0.2, 0.41}, hiddenLayerGuideDocument, objectSettings);
+    assert(hiddenLayerGuideMiss.kind == DraftingSnapKind::None);
+
+    DraftingDocument lockedGuideDocument = makeDraftingDocument("locked_guide_doc");
+    DraftingObject lockedGuide = object("locked_guide", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.4});
+    lockedGuide.locked = true;
+    assert(addObject(lockedGuideDocument, lockedGuide).ok);
+    DraftingSnapResult lockedGuideHit = resolveSnap({0.41, 0.2}, lockedGuideDocument, objectSettings);
+    assert(lockedGuideHit.kind == DraftingSnapKind::Object);
+    assert(lockedGuideHit.sourceKind == DraftingSnapSourceKind::Guide);
+    assert(lockedGuideHit.sourceObjectId == "locked_guide");
+    assert(nearlyEqual(lockedGuideHit.point.x, 0.4));
+    assert(nearlyEqual(lockedGuideHit.point.y, 0.2));
 
     return 0;
 }

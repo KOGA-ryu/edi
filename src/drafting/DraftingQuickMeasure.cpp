@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingPhysicalGeometry.h"
 #include "drafting/DraftingSnap.h"
 
 #include <cmath>
@@ -14,23 +15,6 @@
 namespace edi::drafting {
 
 namespace {
-
-double physicalWidthOf(double normalizedWidth, const DraftingGridProjection &grid)
-{
-    return normalizedWidth * grid.settings.width;
-}
-
-double physicalHeightOf(double normalizedHeight, const DraftingGridProjection &grid)
-{
-    return normalizedHeight * grid.settings.height;
-}
-
-double physicalDistance(Point2D a, Point2D b, const DraftingGridProjection &grid)
-{
-    const double dx = physicalWidthOf(b.x - a.x, grid);
-    const double dy = physicalHeightOf(b.y - a.y, grid);
-    return std::sqrt(dx * dx + dy * dy);
-}
 
 double angleDegrees(Point2D a, Point2D b, double widthScale = 1.0, double heightScale = 1.0)
 {
@@ -134,8 +118,8 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.kind = DraftingQuickMeasureKind::Point;
             result.x = geometry.point.x;
             result.y = geometry.point.y;
-            result.physicalX = physicalWidthOf(geometry.point.x, grid);
-            result.physicalY = physicalHeightOf(geometry.point.y, grid);
+            result.physicalX = physicalX(geometry.point, grid);
+            result.physicalY = physicalY(geometry.point, grid);
             result.label = "point " + compactNumber(result.physicalX) + "," + compactNumber(result.physicalY) + " "
                 + result.unitLabel;
         } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
@@ -143,7 +127,7 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.length = distance(geometry.a, geometry.b);
             result.angleDeg = angleDegrees(geometry.a, geometry.b);
             result.physicalLength = physicalDistance(geometry.a, geometry.b, grid);
-            result.physicalAngleDeg = angleDegrees(geometry.a, geometry.b, grid.settings.width, grid.settings.height);
+            result.physicalAngleDeg = physicalAngleDegrees(geometry.a, geometry.b, grid);
             result.label = "line " + compactNumber(result.physicalLength) + " " + result.unitLabel + " @ "
                 + compactNumber(result.physicalAngleDeg) + " deg";
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
@@ -151,8 +135,8 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.width = geometry.width;
             result.height = geometry.height;
             result.area = geometry.width * geometry.height;
-            result.physicalWidth = physicalWidthOf(geometry.width, grid);
-            result.physicalHeight = physicalHeightOf(geometry.height, grid);
+            result.physicalWidth = physicalWidth(geometry.width, grid);
+            result.physicalHeight = physicalHeight(geometry.height, grid);
             result.physicalArea = result.physicalWidth * result.physicalHeight;
             result.label = "rect " + compactNumber(result.physicalWidth) + " x "
                 + compactNumber(result.physicalHeight) + " " + result.unitLabel + ", area "
@@ -161,9 +145,9 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.kind = DraftingQuickMeasureKind::Circle;
             result.radius = geometry.radius;
             result.diameter = geometry.radius * 2.0;
-            result.physicalRadius = physicalWidthOf(geometry.radius, grid);
+            result.physicalRadius = physicalWidth(geometry.radius, grid);
             result.physicalDiameter = result.physicalRadius * 2.0;
-            result.physicalRadiusY = physicalHeightOf(geometry.radius, grid);
+            result.physicalRadiusY = physicalHeight(geometry.radius, grid);
             result.physicalDiameterY = result.physicalRadiusY * 2.0;
             result.label = "circle r " + compactNumber(result.physicalRadius) + " " + result.unitLabel + ", d "
                 + compactNumber(result.physicalDiameter);

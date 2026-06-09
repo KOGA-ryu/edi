@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingNumericEdit.h"
+#include "drafting/DraftingPhysicalGeometry.h"
 
 #include <cmath>
 #include <utility>
@@ -11,14 +12,6 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kMinLength = 0.000001;
-
-bool validPhysicalGrid(const DraftingGridProjection &grid)
-{
-    return std::isfinite(grid.settings.width)
-        && std::isfinite(grid.settings.height)
-        && grid.settings.width > 0.0
-        && grid.settings.height > 0.0;
-}
 
 DraftingPhysicalGeometryEditPlan commandFromNumericEdit(
     const DraftingObject &object,

@@ -5,6 +5,7 @@
 #include "drafting/DraftingMeasurementFormat.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
+#include "drafting/DraftingPhysicalGeometry.h"
 
 #include <QVariantList>
 
@@ -266,33 +267,6 @@ QString defaultGuideLabel(const DraftingObject &object, const GuideGeometry &geo
             object.locked ? QStringLiteral(" locked") : QString());
 }
 
-double physicalX(Point2D point, const DraftingGridProjection &grid)
-{
-    return point.x * grid.settings.width;
-}
-
-double physicalY(Point2D point, const DraftingGridProjection &grid)
-{
-    return point.y * grid.settings.height;
-}
-
-double physicalWidth(double normalizedWidth, const DraftingGridProjection &grid)
-{
-    return normalizedWidth * grid.settings.width;
-}
-
-double physicalHeight(double normalizedHeight, const DraftingGridProjection &grid)
-{
-    return normalizedHeight * grid.settings.height;
-}
-
-double physicalDistance(Point2D a, Point2D b, const DraftingGridProjection &grid)
-{
-    const double dx = physicalWidth(b.x - a.x, grid);
-    const double dy = physicalHeight(b.y - a.y, grid);
-    return std::sqrt(dx * dx + dy * dy);
-}
-
 double physicalDimensionOffset(const DimensionGeometry &geometry, const DraftingGridProjection &grid)
 {
     const Point2D offset = dimensionOffsetVector(geometry);
@@ -300,14 +274,6 @@ double physicalDimensionOffset(const DimensionGeometry &geometry, const Drafting
     const double dy = physicalHeight(offset.y, grid);
     const double magnitude = std::sqrt(dx * dx + dy * dy);
     return geometry.offset < 0.0 ? -magnitude : magnitude;
-}
-
-double physicalAngleDegrees(Point2D a, Point2D b, const DraftingGridProjection &grid)
-{
-    const double dx = physicalWidth(b.x - a.x, grid);
-    const double dy = physicalHeight(b.y - a.y, grid);
-    constexpr double pi = 3.14159265358979323846;
-    return std::atan2(dy, dx) * 180.0 / pi;
 }
 
 double displayedDimensionDistance(double distanceValue, DimensionKind kind)

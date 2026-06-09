@@ -1377,6 +1377,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(lineMeasure.value("physical_length").toDouble(), 6.0));
     assert(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), 53.1301023542));
     assert(lineMeasure.value("unit_label").toString() == "in");
+    QVariantMap projectedLinePhysical = lineMeasureModel.value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
+    assert(nearlyEqual(lineMeasure.value("physical_length").toDouble(), projectedLinePhysical.value("line_length").toDouble()));
+    assert(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), projectedLinePhysical.value("line_angle_deg").toDouble()));
     assert(lineMeasureModel.value("revision").toInt() == lineMeasureRevision);
     assert(lineMeasureModel.value("drawing_objects").toList().size() == lineMeasureObjectCount);
 
@@ -1392,6 +1395,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(circleMeasure.value("diameter").toDouble(), 0.4));
     assert(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), 2.4));
     assert(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), 4.8));
+    QVariantMap projectedCirclePhysical = circleMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
+    assert(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), projectedCirclePhysical.value("radius").toDouble()));
+    assert(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), projectedCirclePhysical.value("diameter").toDouble()));
 
     DrawingDocumentController rectMeasureController;
     rectMeasureController.setSelectedToolId("rectangle_tool");
@@ -1406,6 +1412,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(rectMeasure.value("physical_width").toDouble(), 3.6));
     assert(nearlyEqual(rectMeasure.value("physical_height").toDouble(), 4.8));
     assert(nearlyEqual(rectMeasure.value("physical_area").toDouble(), 17.28));
+    QVariantMap projectedRectPhysical = rectMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
+    assert(nearlyEqual(rectMeasure.value("physical_width").toDouble(), projectedRectPhysical.value("width").toDouble()));
+    assert(nearlyEqual(rectMeasure.value("physical_height").toDouble(), projectedRectPhysical.value("height").toDouble()));
 
     DrawingDocumentController pointMeasureController;
     pointMeasureController.setSelectedToolId("point_tool");
@@ -1416,6 +1425,9 @@ int main(int argc, char **argv)
     assert(pointMeasure.value("kind").toString() == "point");
     assert(nearlyEqual(pointMeasure.value("physical_x").toDouble(), 3.0));
     assert(nearlyEqual(pointMeasure.value("physical_y").toDouble(), 6.0));
+    QVariantMap projectedPointPhysical = pointMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
+    assert(nearlyEqual(pointMeasure.value("physical_x").toDouble(), projectedPointPhysical.value("x").toDouble()));
+    assert(nearlyEqual(pointMeasure.value("physical_y").toDouble(), projectedPointPhysical.value("y").toDouble()));
 
     DrawingDocumentController guideCreationSnapController;
     guideCreationSnapController.setSelectedToolId("horizontal_guide_tool");

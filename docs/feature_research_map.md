@@ -6,6 +6,8 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 
 For Phase 1 drafting-surface decisions, also use `docs/phase1_real_world_tool_research.md` as the concrete reference for grid, units, origin, bounds, and cursor readout.
 
+For Phase 2 editing decisions, use `docs/phase2_editing_research.md` as the concrete reference for typed objects, handles, selection, snapping, inspector behavior, and transform tools.
+
 ## Drafting And Drawing Surface
 
 ### Physical Grid And Workspace

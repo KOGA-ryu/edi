@@ -115,6 +115,11 @@ Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
     return {left, top, right - left, bottom - top};
 }
 
+bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId &id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
 QVariantMap boundsToMap(Bounds2D bounds)
 {
     return {
@@ -2076,6 +2081,24 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
 {
     if (m_document.selectedObjectIds.empty() || !std::isfinite(dx) || !std::isfinite(dy)) {
         return false;
+    }
+
+    if (m_document.activeObjectId && containsId(m_document.selectedObjectIds, *m_document.activeObjectId)) {
+        const DraftingObject *active = findObject(m_document, *m_document.activeObjectId);
+        if (active != nullptr
+            && active->kind != DraftingShapeKind::Guide
+            && isFinite(active->bounds)) {
+            const Point2D intendedAnchor {
+                active->bounds.x + active->bounds.width / 2.0 + dx,
+                active->bounds.y + active->bounds.height / 2.0 + dy,
+            };
+            const DraftingSnapResult snap = resolveSnap(intendedAnchor, m_document, m_snapSettings);
+            if (snap.sourceKind == DraftingSnapSourceKind::Guide
+                && !containsId(m_document.selectedObjectIds, snap.sourceObjectId)) {
+                dx += snap.point.x - intendedAnchor.x;
+                dy += snap.point.y - intendedAnchor.y;
+            }
+        }
     }
 
     const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});

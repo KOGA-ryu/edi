@@ -16,6 +16,7 @@
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasProjectedPlot.h"
 #include "widgets/DrawingCanvasProjectedPointer.h"
+#include "widgets/DrawingCanvasProjectedStatus.h"
 #include "widgets/DrawingCanvasViewport.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -117,20 +118,17 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     }
 
     painter.setPen(QColor("#aeb7c7"));
-    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
-    const QVariantMap plot = model.value(QStringLiteral("plot_summary")).toMap();
-    const QString plotStatus = plot.value(QStringLiteral("status"), QStringLiteral("blocked")).toString();
-    const QString firstWarningKind = plot.value(QStringLiteral("first_warning_kind")).toString();
+    const drawing_canvas::DrawingCanvasProjectedStatus status = drawing_canvas::projectedCanvasStatus(model);
     painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
         QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nPlot: %6 (%7 warnings)%8")
             .arg(m_controller->selectedToolId(),
                 m_controller->selectedObjectId().isEmpty() ? "none" : m_controller->selectedObjectId(),
-                QString::number(grid.value(QStringLiteral("width")).toDouble(), 'f', 2),
-                grid.value(QStringLiteral("unit_label")).toString(),
-                QString::number(grid.value(QStringLiteral("height")).toDouble(), 'f', 2),
-                plotStatus,
-                QString::number(plot.value(QStringLiteral("warning_count")).toInt()),
-                firstWarningKind.isEmpty() ? QString() : QStringLiteral("\n%1").arg(firstWarningKind)));
+                QString::number(status.gridWidth, 'f', 2),
+                status.gridUnitLabel,
+                QString::number(status.gridHeight, 'f', 2),
+                status.plotStatus,
+                QString::number(status.plotWarningCount),
+                status.firstWarningKind.isEmpty() ? QString() : QStringLiteral("\n%1").arg(status.firstWarningKind)));
 }
 
 void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)

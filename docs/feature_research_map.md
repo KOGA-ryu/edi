@@ -4,6 +4,8 @@
 
 This is a large feature inventory for EDI as a data-oriented creative drafting, drawing, plotter, ASCII, and planning tool. Each feature has subfeatures to research further before implementation. C++ remains the durable owner of geometry, commands, validation, state, and mutation.
 
+For Phase 1 drafting-surface decisions, also use `docs/phase1_real_world_tool_research.md` as the concrete reference for grid, units, origin, bounds, and cursor readout.
+
 ## Drafting And Drawing Surface
 
 ### Physical Grid And Workspace

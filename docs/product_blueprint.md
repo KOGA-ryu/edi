@@ -25,6 +25,7 @@ These surfaces should share project state, command discipline, and format owners
 - Define project/workspace settings before wiring persistent storage.
 - Add format readers and writers only after the C++ contracts they serve are clear.
 - Use `docs/feature_research_map.md` as the broad research inventory before promoting features into the compact feature matrix.
+- Use `docs/phase1_real_world_tool_research.md` as the Phase 1 reference for grid, unit, origin, bounds, and cursor-readout decisions.
 
 ## Future State
 

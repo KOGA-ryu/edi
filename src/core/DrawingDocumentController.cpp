@@ -113,6 +113,20 @@ Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
     return {left, top, right - left, bottom - top};
 }
 
+Bounds2D boundsForPoints(Point2D a, Point2D b)
+{
+    const double left = std::min(a.x, b.x);
+    const double top = std::min(a.y, b.y);
+    const double right = std::max(a.x, b.x);
+    const double bottom = std::max(a.y, b.y);
+    return {left, top, right - left, bottom - top};
+}
+
+bool containsObjectId(const std::vector<DraftingObjectId> &objectIds, const DraftingObjectId &objectId)
+{
+    return std::find(objectIds.begin(), objectIds.end(), objectId) != objectIds.end();
+}
+
 QVariantMap boundsToMap(Bounds2D bounds)
 {
     return {
@@ -1258,8 +1272,8 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
         return false;
     }
 
-    bool hasBounds = false;
-    Bounds2D selectedBounds;
+    bool hasObjectBounds = false;
+    Bounds2D selectedObjectBounds;
     for (const DraftingObjectId &objectId : m_document.selectedObjectIds) {
         const DraftingObject *object = findObject(m_document, objectId);
         if (object == nullptr) {
@@ -1271,14 +1285,30 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
         if (!isFinite(object->bounds)) {
             return false;
         }
-        selectedBounds = hasBounds ? includeBounds(selectedBounds, object->bounds) : object->bounds;
-        hasBounds = true;
+        selectedObjectBounds = hasObjectBounds ? includeBounds(selectedObjectBounds, object->bounds) : object->bounds;
+        hasObjectBounds = true;
     }
-    if (!hasBounds) {
+    if (!hasObjectBounds) {
         return false;
     }
 
-    const Bounds2D drawable = projectDraftingGrid(m_gridSettings).drawableBounds;
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const Bounds2D drawable = grid.drawableBounds;
+    const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
+    bool hasPlotBounds = false;
+    Bounds2D selectedPlotBounds;
+    for (const DraftingPlotSegment &segment : plotPlan.segments) {
+        if (!containsObjectId(m_document.selectedObjectIds, segment.objectId)
+            || !isFinite(segment.rawA)
+            || !isFinite(segment.rawB)) {
+            continue;
+        }
+        const Bounds2D segmentBounds = boundsForPoints(segment.rawA, segment.rawB);
+        selectedPlotBounds = hasPlotBounds ? includeBounds(selectedPlotBounds, segmentBounds) : segmentBounds;
+        hasPlotBounds = true;
+    }
+
+    const Bounds2D selectedBounds = hasPlotBounds ? selectedPlotBounds : selectedObjectBounds;
     if (!isFinite(drawable)
         || selectedBounds.width > drawable.width
         || selectedBounds.height > drawable.height) {

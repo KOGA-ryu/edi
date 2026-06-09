@@ -711,6 +711,18 @@ int main(int argc, char **argv)
     assert(nearlyEqual(fitOutsideLine.value("y2").toDouble(), 0.5));
     assert(!fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
 
+    DrawingDocumentController fitPointMarkController;
+    fitPointMarkController.setSelectedToolId("point_tool");
+    fitPointMarkController.clickCanvasNormalized(0.0, 0.0);
+    QVariantMap fitPointMarkModel = fitPointMarkController.modelDocument();
+    assert(fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
+    assert(fitPointMarkController.fitSelectionToDrawableBounds());
+    fitPointMarkModel = fitPointMarkController.modelDocument();
+    QVariantMap fitPointMark = fitPointMarkModel.value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(fitPointMark.value("x").toDouble(), squareQuarterInchStep + 0.005));
+    assert(nearlyEqual(fitPointMark.value("y").toDouble(), squareQuarterInchStep + 0.005));
+    assert(!fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
+
     DrawingDocumentController fitTooLargeController;
     fitTooLargeController.setSelectedToolId("line_tool");
     fitTooLargeController.clickCanvasNormalized(0.0, 0.5);

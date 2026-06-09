@@ -158,6 +158,11 @@ bool canCreateGuideFromBounds(const DraftingObject &object)
         && isFinite(object.bounds);
 }
 
+bool canAlignToGuide(const DraftingObject &object)
+{
+    return canCreateGuideFromBounds(object);
+}
+
 bool equivalentGuide(const DraftingObject &a, const DraftingObject &b)
 {
     if (a.kind != DraftingShapeKind::Guide || b.kind != DraftingShapeKind::Guide) {
@@ -308,6 +313,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("guide_drawable_controls"), object.kind == DraftingShapeKind::Guide},
         {QStringLiteral("construction_drawable_controls"), constructionLineCanFitDrawable(object)},
         {QStringLiteral("bounds_guide_controls"), canCreateGuideFromBounds(object)},
+        {QStringLiteral("align_to_guide_controls"), canAlignToGuide(object)},
     };
 
     if (grid != nullptr) {

@@ -490,6 +490,105 @@ int main(int argc, char **argv)
     assert(mergedGuides.front().toMap().value("kind").toString() == "guide");
     assert(!mergedGuides.front().toMap().value("locked").toBool());
 
+    DrawingDocumentController guideAlignLeftController;
+    guideAlignLeftController.setSelectedToolId("vertical_guide_tool");
+    guideAlignLeftController.clickCanvasNormalized(0.1, 0.2);
+    guideAlignLeftController.setSelectedToolId("rectangle_tool");
+    guideAlignLeftController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignLeftController.clickCanvasNormalized(0.5, 0.5);
+    QVariantMap guideAlignRect = guideAlignLeftController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(guideAlignRect.value("align_to_guide_controls").toBool());
+    assert(guideAlignLeftController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    guideAlignRect = guideAlignLeftController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.1));
+
+    DrawingDocumentController guideAlignCenterXController;
+    guideAlignCenterXController.setSelectedToolId("vertical_guide_tool");
+    guideAlignCenterXController.clickCanvasNormalized(0.6, 0.2);
+    guideAlignCenterXController.setSelectedToolId("rectangle_tool");
+    guideAlignCenterXController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignCenterXController.clickCanvasNormalized(0.5, 0.5);
+    assert(guideAlignCenterXController.alignSelectionToNearestGuide(QStringLiteral("center_x")));
+    guideAlignRect = guideAlignCenterXController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.5));
+
+    DrawingDocumentController guideAlignRightController;
+    guideAlignRightController.setSelectedToolId("vertical_guide_tool");
+    guideAlignRightController.clickCanvasNormalized(0.8, 0.2);
+    guideAlignRightController.setSelectedToolId("rectangle_tool");
+    guideAlignRightController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignRightController.clickCanvasNormalized(0.5, 0.5);
+    assert(guideAlignRightController.alignSelectionToNearestGuide(QStringLiteral("right")));
+    guideAlignRect = guideAlignRightController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.6));
+
+    DrawingDocumentController guideAlignTopController;
+    guideAlignTopController.setSelectedToolId("horizontal_guide_tool");
+    guideAlignTopController.clickCanvasNormalized(0.2, 0.1);
+    guideAlignTopController.setSelectedToolId("rectangle_tool");
+    guideAlignTopController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignTopController.clickCanvasNormalized(0.5, 0.5);
+    assert(guideAlignTopController.alignSelectionToNearestGuide(QStringLiteral("top")));
+    guideAlignRect = guideAlignTopController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.1));
+
+    DrawingDocumentController guideAlignCenterYController;
+    guideAlignCenterYController.setSelectedToolId("horizontal_guide_tool");
+    guideAlignCenterYController.clickCanvasNormalized(0.2, 0.6);
+    guideAlignCenterYController.setSelectedToolId("rectangle_tool");
+    guideAlignCenterYController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignCenterYController.clickCanvasNormalized(0.5, 0.5);
+    assert(guideAlignCenterYController.alignSelectionToNearestGuide(QStringLiteral("center_y")));
+    guideAlignRect = guideAlignCenterYController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.5));
+
+    DrawingDocumentController guideAlignBottomController;
+    guideAlignBottomController.setSelectedToolId("horizontal_guide_tool");
+    guideAlignBottomController.clickCanvasNormalized(0.2, 0.8);
+    guideAlignBottomController.setSelectedToolId("rectangle_tool");
+    guideAlignBottomController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignBottomController.clickCanvasNormalized(0.5, 0.5);
+    assert(guideAlignBottomController.alignSelectionToNearestGuide(QStringLiteral("bottom")));
+    guideAlignRect = guideAlignBottomController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.6));
+
+    DrawingDocumentController guideAlignNoGuideController;
+    guideAlignNoGuideController.setSelectedToolId("rectangle_tool");
+    guideAlignNoGuideController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignNoGuideController.clickCanvasNormalized(0.5, 0.5);
+    const int guideAlignNoGuideRevision = guideAlignNoGuideController.modelDocument().value("revision").toInt();
+    assert(!guideAlignNoGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    assert(guideAlignNoGuideController.modelDocument().value("revision").toInt() == guideAlignNoGuideRevision);
+
+    DrawingDocumentController guideAlignHiddenGuideController;
+    guideAlignHiddenGuideController.setSelectedToolId("vertical_guide_tool");
+    guideAlignHiddenGuideController.clickCanvasNormalized(0.1, 0.2);
+    assert(guideAlignHiddenGuideController.setAllGuidesVisible(false));
+    guideAlignHiddenGuideController.setSelectedToolId("rectangle_tool");
+    guideAlignHiddenGuideController.clickCanvasNormalized(0.3, 0.3);
+    guideAlignHiddenGuideController.clickCanvasNormalized(0.5, 0.5);
+    const int guideAlignHiddenGuideRevision = guideAlignHiddenGuideController.modelDocument().value("revision").toInt();
+    assert(!guideAlignHiddenGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    assert(guideAlignHiddenGuideController.modelDocument().value("revision").toInt() == guideAlignHiddenGuideRevision);
+
+    DrawingDocumentController lockedGuideAlignController;
+    lockedGuideAlignController.setSelectedToolId("vertical_guide_tool");
+    lockedGuideAlignController.clickCanvasNormalized(0.1, 0.2);
+    lockedGuideAlignController.setSelectedToolId("rectangle_tool");
+    lockedGuideAlignController.clickCanvasNormalized(0.3, 0.3);
+    lockedGuideAlignController.clickCanvasNormalized(0.5, 0.5);
+    assert(lockedGuideAlignController.setSelectedObjectLocked(true));
+    const int lockedGuideAlignRevision = lockedGuideAlignController.modelDocument().value("revision").toInt();
+    assert(!lockedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    assert(lockedGuideAlignController.modelDocument().value("revision").toInt() == lockedGuideAlignRevision);
+
+    DrawingDocumentController unsupportedGuideAlignController;
+    unsupportedGuideAlignController.setSelectedToolId("vertical_guide_tool");
+    unsupportedGuideAlignController.clickCanvasNormalized(0.1, 0.2);
+    const int unsupportedGuideAlignRevision = unsupportedGuideAlignController.modelDocument().value("revision").toInt();
+    assert(!unsupportedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    assert(unsupportedGuideAlignController.modelDocument().value("revision").toInt() == unsupportedGuideAlignRevision);
+
     DrawingDocumentController deleteSelectedGuideController;
     deleteSelectedGuideController.setSelectedToolId("point_tool");
     deleteSelectedGuideController.clickCanvasNormalized(0.1, 0.1);

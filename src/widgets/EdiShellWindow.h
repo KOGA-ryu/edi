@@ -101,6 +101,7 @@ private:
     QPushButton *m_lockAllGuidesButton = nullptr;
     QPushButton *m_unlockAllGuidesButton = nullptr;
     QMap<QString, QPushButton *> m_boundsGuideButtons;
+    QMap<QString, QPushButton *> m_alignToGuideButtons;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;

@@ -724,6 +724,24 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_boundsGuideButtons.insert(buttonSpec.first, button);
         layout->addWidget(button);
     }
+    layout->addWidget(makeSectionLabel(QStringLiteral("Align To Guide")));
+    const QVector<QPair<QString, QString>> alignToGuideButtons {
+        {QStringLiteral("left"), QStringLiteral("To V Guide Left")},
+        {QStringLiteral("center_x"), QStringLiteral("To V Guide Center")},
+        {QStringLiteral("right"), QStringLiteral("To V Guide Right")},
+        {QStringLiteral("top"), QStringLiteral("To H Guide Top")},
+        {QStringLiteral("center_y"), QStringLiteral("To H Guide Center")},
+        {QStringLiteral("bottom"), QStringLiteral("To H Guide Bottom")},
+    };
+    for (const auto &buttonSpec : alignToGuideButtons) {
+        auto *button = new QPushButton(buttonSpec.second);
+        button->setObjectName(QStringLiteral("alignToGuide_%1").arg(buttonSpec.first));
+        connect(button, &QPushButton::clicked, this, [this, modeId = buttonSpec.first]() {
+            m_controller->alignSelectionToNearestGuide(modeId);
+        });
+        m_alignToGuideButtons.insert(buttonSpec.first, button);
+        layout->addWidget(button);
+    }
     layout->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
     m_deleteSelectedGuideButton = new QPushButton(QStringLiteral("Delete Selected Guide"));
     m_deleteSelectedGuideButton->setObjectName(QStringLiteral("deleteSelectedGuideButton"));
@@ -1575,6 +1593,10 @@ void EdiShellWindow::refreshInspector()
     const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
     for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
         button->setEnabled(boundsGuideControlsEnabled);
+    }
+    const bool alignToGuideControlsEnabled = selectedObject.value(QStringLiteral("align_to_guide_controls")).toBool();
+    for (QPushButton *button : std::as_const(m_alignToGuideButtons)) {
+        button->setEnabled(alignToGuideControlsEnabled);
     }
     const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
     if (m_deleteSelectedGuideButton != nullptr) {

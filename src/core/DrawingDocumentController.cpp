@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -532,6 +533,37 @@ std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document
         }
     }
     return std::nullopt;
+}
+
+std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &document, GuideOrientation orientation, double target)
+{
+    if (!std::isfinite(target)) {
+        return std::nullopt;
+    }
+
+    bool found = false;
+    double bestPosition = 0.0;
+    double bestDistance = std::numeric_limits<double>::max();
+    for (const DraftingObject &object : document.objects) {
+        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+            continue;
+        }
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (!object.visible || layer == nullptr || !layer->visible) {
+            continue;
+        }
+        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
+        if (guide == nullptr || guide->orientation != orientation || !std::isfinite(guide->position)) {
+            continue;
+        }
+        const double distance = std::abs(guide->position - target);
+        if (!found || distance < bestDistance) {
+            found = true;
+            bestDistance = distance;
+            bestPosition = guide->position;
+        }
+    }
+    return found ? std::optional<double>{bestPosition} : std::nullopt;
 }
 
 } // namespace
@@ -1731,6 +1763,65 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     built.object.layerId = source->layerId;
     built.object.metadata.toolProvenance = "bounds_guide";
     const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &modeId)
+{
+    if (!m_document.activeObjectId || m_document.selectedObjectIds.empty()) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr
+        || source->kind == DraftingShapeKind::Guide
+        || source->kind == DraftingShapeKind::ConstructionLine
+        || source->kind == DraftingShapeKind::Dimension
+        || source->locked
+        || objectLayerLocked(m_document, *source)
+        || !objectEffectivelyVisible(m_document, *source)
+        || !isFinite(source->bounds)) {
+        return false;
+    }
+
+    const Bounds2D bounds = source->bounds;
+    GuideOrientation orientation = GuideOrientation::Vertical;
+    double target = 0.0;
+    if (modeId == QStringLiteral("left")) {
+        target = bounds.x;
+    } else if (modeId == QStringLiteral("right")) {
+        target = bounds.x + bounds.width;
+    } else if (modeId == QStringLiteral("center_x")) {
+        target = bounds.x + bounds.width / 2.0;
+    } else if (modeId == QStringLiteral("top")) {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y;
+    } else if (modeId == QStringLiteral("bottom")) {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y + bounds.height;
+    } else if (modeId == QStringLiteral("center_y")) {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y + bounds.height / 2.0;
+    } else {
+        return false;
+    }
+
+    const std::optional<double> guidePosition = nearestVisibleGuidePosition(m_document, orientation, target);
+    if (!guidePosition) {
+        return false;
+    }
+    const double delta = *guidePosition - target;
+    if (std::abs(delta) <= 0.0000001) {
+        return true;
+    }
+
+    const DraftingCommandResult result = orientation == GuideOrientation::Vertical
+        ? applyDraftingCommand(m_document, MoveSelectionCommand{delta, 0.0})
+        : applyDraftingCommand(m_document, MoveSelectionCommand{0.0, delta});
     if (!result.ok) {
         return false;
     }

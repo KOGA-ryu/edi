@@ -1586,9 +1586,11 @@ bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValu
         if (object == nullptr) {
             return false;
         }
-        ObjectMetadata metadata = object->metadata;
-        metadata.measurementNote = note;
-        const DraftingCommandResult result = applyDraftingCommand(candidate, UpdateMetadataCommand{objectId, metadata});
+        const DraftingMetadataUpdatePlan plan = planMeasurementNoteUpdate(object->metadata, note);
+        if (!plan.ok) {
+            return false;
+        }
+        const DraftingCommandResult result = applyDraftingCommand(candidate, UpdateMetadataCommand{objectId, plan.metadata});
         if (!result.ok) {
             return false;
         }

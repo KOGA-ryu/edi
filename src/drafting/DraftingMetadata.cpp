@@ -319,4 +319,11 @@ DraftingMetadataUpdatePlan planDimensionVisualLabelVisibleUpdate(const ObjectMet
     return validatedMetadataUpdate(std::move(next));
 }
 
+DraftingMetadataUpdatePlan planMeasurementNoteUpdate(const ObjectMetadata &metadata, std::string note)
+{
+    ObjectMetadata next = metadata;
+    next.measurementNote = std::move(note);
+    return validatedMetadataUpdate(std::move(next));
+}
+
 } // namespace edi::drafting

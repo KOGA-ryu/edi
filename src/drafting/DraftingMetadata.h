@@ -41,5 +41,6 @@ DraftingMetadataUpdatePlan planGuideVisualColorUpdate(const ObjectMetadata &meta
 DraftingMetadataUpdatePlan planGuideVisualDashStyleUpdate(const ObjectMetadata &metadata, std::string dashStyle);
 DraftingMetadataUpdatePlan planGuideVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible);
 DraftingMetadataUpdatePlan planDimensionVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible);
+DraftingMetadataUpdatePlan planMeasurementNoteUpdate(const ObjectMetadata &metadata, std::string note);
 
 } // namespace edi::drafting

@@ -199,5 +199,14 @@ int main()
     assert(!rejectedDimensionVisibilityPlan.ok);
     assert(rejectedDimensionVisibilityPlan.code == DraftingResultCode::InvalidMetadata);
 
+    auto measurementNotePlan = planMeasurementNoteUpdate(guidePlanBase, "measured on plotter");
+    assert(measurementNotePlan.ok);
+    assert(measurementNotePlan.metadata.measurementNote == "measured on plotter");
+    assert(measurementNotePlan.metadata.author == guidePlanBase.author);
+
+    auto badMeasurementNotePlan = planMeasurementNoteUpdate(guidePlanBase, std::string(kMetadataMeasurementNoteLimit + 1, 'x'));
+    assert(!badMeasurementNotePlan.ok);
+    assert(badMeasurementNotePlan.code == DraftingResultCode::InvalidMetadata);
+
     return 0;
 }

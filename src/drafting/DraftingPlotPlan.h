@@ -15,6 +15,16 @@ struct DraftingPlotObject {
     double strokeWidth = 0.0;
 };
 
+struct DraftingPlotSegment {
+    DraftingObjectId objectId;
+    LayerId layerId;
+    Point2D a;
+    Point2D b;
+    std::string penId;
+    std::string strokeColor;
+    double strokeWidth = 0.0;
+};
+
 struct DraftingPlotWarning {
     DraftingObjectId objectId;
     std::string kind;
@@ -23,6 +33,7 @@ struct DraftingPlotWarning {
 
 struct DraftingPlotPlan {
     std::vector<DraftingPlotObject> objects;
+    std::vector<DraftingPlotSegment> segments;
     std::vector<DraftingPlotWarning> warnings;
 };
 

@@ -236,13 +236,34 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
             {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
         });
     }
+    QVariantList segments;
+    for (const DraftingPlotSegment &segment : plan.segments) {
+        segments.push_back(QVariantMap{
+            {QStringLiteral("object_id"), drawing_core::qStringFromStdString(segment.objectId)},
+            {QStringLiteral("layer_id"), drawing_core::qStringFromStdString(segment.layerId)},
+            {QStringLiteral("x1"), segment.a.x},
+            {QStringLiteral("y1"), segment.a.y},
+            {QStringLiteral("x2"), segment.b.x},
+            {QStringLiteral("y2"), segment.b.y},
+            {QStringLiteral("pen_id"), drawing_core::qStringFromStdString(segment.penId)},
+            {QStringLiteral("stroke_color"), drawing_core::qStringFromStdString(segment.strokeColor)},
+            {QStringLiteral("stroke_width"), segment.strokeWidth},
+        });
+    }
 
     return {
         {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
+        {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
+        {QStringLiteral("travel_segment_count"), 0},
         {QStringLiteral("warning_count"), static_cast<int>(plan.warnings.size())},
         {QStringLiteral("blocked"), !plan.warnings.empty()},
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
+        {QStringLiteral("preview"), QVariantMap{
+            {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
+            {QStringLiteral("travel_segment_count"), 0},
+            {QStringLiteral("segments"), segments},
+        }},
         {QStringLiteral("warnings"), warnings},
     };
 }

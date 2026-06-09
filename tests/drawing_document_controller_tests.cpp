@@ -549,6 +549,12 @@ int main(int argc, char **argv)
     assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
     QVariantMap layerPlotSummary = layerPlotModel.value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    assert(layerPlotSummary.value("segment_count").toInt() == 2);
+    assert(layerPlotSummary.value("travel_segment_count").toInt() == 0);
+    QVariantMap layerPlotPreview = layerPlotSummary.value("preview").toMap();
+    assert(layerPlotPreview.value("segment_count").toInt() == 2);
+    assert(layerPlotPreview.value("travel_segment_count").toInt() == 0);
+    assert(layerPlotPreview.value("segments").toList().size() == 2);
     assert(layerPlotSummary.value("warning_count").toInt() == 0);
     assert(!layerPlotSummary.value("blocked").toBool());
     assert(layerPlotController.setActiveLayerPlotEnabled(false));
@@ -558,6 +564,7 @@ int main(int argc, char **argv)
     assert(!layerPlotPoint.value("plot_ready").toBool());
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 0);
+    assert(layerPlotSummary.value("segment_count").toInt() == 0);
     assert(layerPlotController.setActiveLayerPlotEnabled(true));
     layerPlotController.setSelectedToolId("horizontal_guide_tool");
     layerPlotController.clickCanvasNormalized(0.4, 0.4);
@@ -568,10 +575,12 @@ int main(int argc, char **argv)
     assert(!layerPlotGuide.value("plot_ready").toBool());
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    assert(layerPlotSummary.value("segment_count").toInt() == 2);
     layerPlotController.setSelectedToolId("point_tool");
     layerPlotController.clickCanvasNormalized(0.0, 0.0);
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 2);
+    assert(layerPlotSummary.value("segment_count").toInt() == 4);
     assert(layerPlotSummary.value("warning_count").toInt() == 1);
     assert(layerPlotSummary.value("blocked").toBool());
     assert(!layerPlotSummary.value("first_warning_object_id").toString().isEmpty());

@@ -1080,12 +1080,14 @@ void EdiShellWindow::refreshInspector()
     if (m_plotValue != nullptr) {
         const bool blocked = plot.value(QStringLiteral("blocked")).toBool();
         m_plotValue->setText(blocked
-            ? QStringLiteral("Plot: %1 objects, %2 warnings, first %3")
+            ? QStringLiteral("Plot: %1 objects, %2 strokes, %3 warnings, first %4")
                 .arg(plot.value(QStringLiteral("plot_object_count")).toInt())
+                .arg(plot.value(QStringLiteral("segment_count")).toInt())
                 .arg(plot.value(QStringLiteral("warning_count")).toInt())
                 .arg(plot.value(QStringLiteral("first_warning_object_id")).toString())
-            : QStringLiteral("Plot: %1 objects, ready")
-                .arg(plot.value(QStringLiteral("plot_object_count")).toInt()));
+            : QStringLiteral("Plot: %1 objects, %2 strokes, ready")
+                .arg(plot.value(QStringLiteral("plot_object_count")).toInt())
+                .arg(plot.value(QStringLiteral("segment_count")).toInt()));
     }
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {

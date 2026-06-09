@@ -1321,7 +1321,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
 
@@ -1346,7 +1346,7 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
 
@@ -1375,7 +1375,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
 
@@ -1752,14 +1752,7 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr
-        || source->kind == DraftingShapeKind::Guide
-        || source->kind == DraftingShapeKind::ConstructionLine
-        || source->kind == DraftingShapeKind::Dimension
-        || source->locked
-        || draftingObjectLayerLocked(m_document, *source)
-        || !draftingObjectEffectivelyVisible(m_document, *source)
-        || !isFinite(source->bounds)) {
+    if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
         return false;
     }
 
@@ -1793,14 +1786,7 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr
-        || source->kind == DraftingShapeKind::Guide
-        || source->kind == DraftingShapeKind::ConstructionLine
-        || source->kind == DraftingShapeKind::Dimension
-        || source->locked
-        || draftingObjectLayerLocked(m_document, *source)
-        || !draftingObjectEffectivelyVisible(m_document, *source)
-        || !isFinite(source->bounds)) {
+    if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
         return false;
     }
 
@@ -1883,14 +1869,7 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr
-        || source->kind == DraftingShapeKind::Guide
-        || source->kind == DraftingShapeKind::ConstructionLine
-        || source->kind == DraftingShapeKind::Dimension
-        || source->locked
-        || draftingObjectLayerLocked(m_document, *source)
-        || !draftingObjectEffectivelyVisible(m_document, *source)
-        || !isFinite(source->bounds)) {
+    if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
         return false;
     }
 

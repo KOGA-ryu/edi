@@ -68,6 +68,22 @@ bool draftingObjectEffectivelyVisible(const DraftingDocument &document, const Dr
     return object.visible && layer != nullptr && layer->visible;
 }
 
+bool draftingObjectEffectivelyEditable(const DraftingDocument &document, const DraftingObject &object)
+{
+    return !object.locked
+        && !draftingObjectLayerLocked(document, object)
+        && draftingObjectEffectivelyVisible(document, object);
+}
+
+bool draftingObjectUsableAsBoundsSource(const DraftingDocument &document, const DraftingObject &object)
+{
+    return draftingObjectEffectivelyEditable(document, object)
+        && object.kind != DraftingShapeKind::Guide
+        && object.kind != DraftingShapeKind::ConstructionLine
+        && object.kind != DraftingShapeKind::Dimension
+        && isFinite(object.bounds);
+}
+
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId)
 {
     if (presetId == "pen_blue") {

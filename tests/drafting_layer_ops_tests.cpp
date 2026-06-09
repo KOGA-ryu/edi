@@ -27,17 +27,33 @@ int main()
     assert(addObject(document, object.object).ok);
     assert(!draftingObjectLayerLocked(document, document.objects.back()));
     assert(draftingObjectEffectivelyVisible(document, document.objects.back()));
+    assert(draftingObjectEffectivelyEditable(document, document.objects.back()));
+    assert(draftingObjectUsableAsBoundsSource(document, document.objects.back()));
 
     document.layers.front().locked = true;
     assert(draftingObjectLayerLocked(document, document.objects.back()));
+    assert(!draftingObjectEffectivelyEditable(document, document.objects.back()));
+    assert(!draftingObjectUsableAsBoundsSource(document, document.objects.back()));
     document.layers.front().locked = false;
 
     document.layers.front().visible = false;
     assert(!draftingObjectEffectivelyVisible(document, document.objects.back()));
+    assert(!draftingObjectEffectivelyEditable(document, document.objects.back()));
     document.layers.front().visible = true;
 
     document.objects.back().visible = false;
     assert(!draftingObjectEffectivelyVisible(document, document.objects.back()));
+    assert(!draftingObjectEffectivelyEditable(document, document.objects.back()));
+    document.objects.back().visible = true;
+    document.objects.back().locked = true;
+    assert(!draftingObjectEffectivelyEditable(document, document.objects.back()));
+    document.objects.back().locked = false;
+
+    auto guideObject = buildDraftingObject("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.2});
+    assert(guideObject.ok);
+    assert(addObject(document, guideObject.object).ok);
+    assert(draftingObjectEffectivelyEditable(document, document.objects.back()));
+    assert(!draftingObjectUsableAsBoundsSource(document, document.objects.back()));
 
     LayerPlotStyle plot;
     plot.plotEnabled = false;

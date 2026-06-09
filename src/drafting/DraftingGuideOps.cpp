@@ -26,6 +26,24 @@ DraftingGuidePlan DraftingGuidePlan::rejected(DraftingResultCode code, std::stri
     return result;
 }
 
+DraftingGuidePresetPlan DraftingGuidePresetPlan::accepted(std::vector<DraftingGuidePresetGuide> guides)
+{
+    DraftingGuidePresetPlan result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.guides = std::move(guides);
+    return result;
+}
+
+DraftingGuidePresetPlan DraftingGuidePresetPlan::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingGuidePresetPlan result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
 {
     constexpr double epsilon = 0.000001;
@@ -184,6 +202,61 @@ DraftingGuidePlan offsetGuideFromBoundsPlacement(Bounds2D bounds, const std::str
         return DraftingGuidePlan::accepted({GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0 + stepY});
     }
     return DraftingGuidePlan::rejected(DraftingResultCode::InvalidGeometry, "guide offset bounds placement is invalid");
+}
+
+DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Bounds2D drawable)
+{
+    if (!isFinite(drawable) || drawable.width <= 0.0 || drawable.height <= 0.0) {
+        return DraftingGuidePresetPlan::rejected(DraftingResultCode::InvalidGeometry, "drawable bounds must be positive and finite");
+    }
+
+    std::vector<DraftingGuidePresetGuide> guides;
+    const auto addVertical = [&](double x, std::string label, std::string color) {
+        guides.push_back({GuideGeometry{GuideOrientation::Vertical, x}, std::move(label), std::move(color)});
+    };
+    const auto addHorizontal = [&](double y, std::string label, std::string color) {
+        guides.push_back({GuideGeometry{GuideOrientation::Horizontal, y}, std::move(label), std::move(color)});
+    };
+
+    const double left = drawable.x;
+    const double right = drawable.x + drawable.width;
+    const double top = drawable.y;
+    const double bottom = drawable.y + drawable.height;
+    const double centerX = drawable.x + drawable.width / 2.0;
+    const double centerY = drawable.y + drawable.height / 2.0;
+
+    if (presetId == "drawable_bounds") {
+        addVertical(left, "drawable left", "#f6c65b");
+        addVertical(right, "drawable right", "#f6c65b");
+        addHorizontal(top, "drawable top", "#f6c65b");
+        addHorizontal(bottom, "drawable bottom", "#f6c65b");
+    } else if (presetId == "drawable_centerlines") {
+        addVertical(centerX, "center x", "#54d2c6");
+        addHorizontal(centerY, "center y", "#54d2c6");
+    } else if (presetId == "thirds") {
+        addVertical(drawable.x + drawable.width / 3.0, "third x 1", "#91c89b");
+        addVertical(drawable.x + drawable.width * 2.0 / 3.0, "third x 2", "#91c89b");
+        addHorizontal(drawable.y + drawable.height / 3.0, "third y 1", "#91c89b");
+        addHorizontal(drawable.y + drawable.height * 2.0 / 3.0, "third y 2", "#91c89b");
+    } else if (presetId == "quarters") {
+        addVertical(drawable.x + drawable.width / 4.0, "quarter x 1", "#83aeca");
+        addVertical(centerX, "quarter x 2", "#83aeca");
+        addVertical(drawable.x + drawable.width * 3.0 / 4.0, "quarter x 3", "#83aeca");
+        addHorizontal(drawable.y + drawable.height / 4.0, "quarter y 1", "#83aeca");
+        addHorizontal(centerY, "quarter y 2", "#83aeca");
+        addHorizontal(drawable.y + drawable.height * 3.0 / 4.0, "quarter y 3", "#83aeca");
+    } else if (presetId == "margin_safe") {
+        addVertical(left, "safe left", "#d98b8b");
+        addVertical(right, "safe right", "#d98b8b");
+        addHorizontal(top, "safe top", "#d98b8b");
+        addHorizontal(bottom, "safe bottom", "#d98b8b");
+        addVertical(centerX, "safe center x", "#d98b8b");
+        addHorizontal(centerY, "safe center y", "#d98b8b");
+    } else {
+        return DraftingGuidePresetPlan::rejected(DraftingResultCode::InvalidGeometry, "guide preset is invalid");
+    }
+
+    return DraftingGuidePresetPlan::accepted(std::move(guides));
 }
 
 } // namespace edi::drafting

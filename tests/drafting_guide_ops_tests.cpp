@@ -95,5 +95,41 @@ int main()
     assert(near(centerYMinus.geometry.position, 0.45));
     assert(!offsetGuideFromBoundsPlacement(bounds, "missing", 0.05, 0.1).ok);
 
+    auto drawableBoundsPreset = guidePresetForDrawable("drawable_bounds", drawable);
+    assert(drawableBoundsPreset.ok);
+    assert(drawableBoundsPreset.guides.size() == 4);
+    assert(drawableBoundsPreset.guides[0].geometry.orientation == GuideOrientation::Vertical);
+    assert(near(drawableBoundsPreset.guides[0].geometry.position, 0.1));
+    assert(drawableBoundsPreset.guides[0].label == "drawable left");
+    assert(drawableBoundsPreset.guides[0].color == "#f6c65b");
+    assert(drawableBoundsPreset.guides[3].geometry.orientation == GuideOrientation::Horizontal);
+    assert(near(drawableBoundsPreset.guides[3].geometry.position, 0.6));
+
+    auto centerlinePreset = guidePresetForDrawable("drawable_centerlines", drawable);
+    assert(centerlinePreset.ok);
+    assert(centerlinePreset.guides.size() == 2);
+    assert(near(centerlinePreset.guides[0].geometry.position, 0.4));
+    assert(near(centerlinePreset.guides[1].geometry.position, 0.4));
+
+    auto thirdsPreset = guidePresetForDrawable("thirds", drawable);
+    assert(thirdsPreset.ok);
+    assert(thirdsPreset.guides.size() == 4);
+    assert(near(thirdsPreset.guides[0].geometry.position, 0.3));
+    assert(near(thirdsPreset.guides[2].geometry.position, 0.3333333333333333));
+
+    auto quartersPreset = guidePresetForDrawable("quarters", drawable);
+    assert(quartersPreset.ok);
+    assert(quartersPreset.guides.size() == 6);
+    assert(near(quartersPreset.guides[2].geometry.position, 0.55));
+    assert(near(quartersPreset.guides[5].geometry.position, 0.5));
+
+    auto marginPreset = guidePresetForDrawable("margin_safe", drawable);
+    assert(marginPreset.ok);
+    assert(marginPreset.guides.size() == 6);
+    assert(marginPreset.guides[0].label == "safe left");
+    assert(marginPreset.guides[0].color == "#d98b8b");
+    assert(!guidePresetForDrawable("missing", drawable).ok);
+    assert(!guidePresetForDrawable("drawable_bounds", Bounds2D{0.0, 0.0, 0.0, 1.0}).ok);
+
     return 0;
 }

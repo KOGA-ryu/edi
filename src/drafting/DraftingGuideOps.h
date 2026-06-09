@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -23,6 +24,22 @@ struct DraftingGuidePlan {
     static DraftingGuidePlan rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingGuidePresetGuide {
+    GuideGeometry geometry;
+    std::string label;
+    std::string color;
+};
+
+struct DraftingGuidePresetPlan {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    std::vector<DraftingGuidePresetGuide> guides;
+
+    static DraftingGuidePresetPlan accepted(std::vector<DraftingGuidePresetGuide> guides);
+    static DraftingGuidePresetPlan rejected(DraftingResultCode code, std::string message);
+};
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b);
 bool isGuideObject(const DraftingObject &object);
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide);
@@ -31,5 +48,6 @@ DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawa
 DraftingGuidePlan offsetGuide(const GuideGeometry &guide, const std::string &direction, double stepX, double stepY, double scale);
 DraftingGuidePlan guideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId);
 DraftingGuidePlan offsetGuideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId, double stepX, double stepY);
+DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Bounds2D drawable);
 
 } // namespace edi::drafting

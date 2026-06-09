@@ -2055,67 +2055,15 @@ bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
         return false;
     }
 
-    struct PresetGuide {
-        GuideGeometry geometry;
-        std::string label;
-        std::string color;
-    };
-
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const Bounds2D drawable = grid.drawableBounds;
-    if (!isFinite(drawable) || drawable.width <= 0.0 || drawable.height <= 0.0) {
-        return false;
-    }
-
-    std::vector<PresetGuide> guides;
-    const auto addVertical = [&](double x, std::string label, std::string color) {
-        guides.push_back({GuideGeometry{GuideOrientation::Vertical, x}, std::move(label), std::move(color)});
-    };
-    const auto addHorizontal = [&](double y, std::string label, std::string color) {
-        guides.push_back({GuideGeometry{GuideOrientation::Horizontal, y}, std::move(label), std::move(color)});
-    };
-
-    const double left = drawable.x;
-    const double right = drawable.x + drawable.width;
-    const double top = drawable.y;
-    const double bottom = drawable.y + drawable.height;
-    const double centerX = drawable.x + drawable.width / 2.0;
-    const double centerY = drawable.y + drawable.height / 2.0;
-
-    if (presetId == QStringLiteral("drawable_bounds")) {
-        addVertical(left, "drawable left", "#f6c65b");
-        addVertical(right, "drawable right", "#f6c65b");
-        addHorizontal(top, "drawable top", "#f6c65b");
-        addHorizontal(bottom, "drawable bottom", "#f6c65b");
-    } else if (presetId == QStringLiteral("drawable_centerlines")) {
-        addVertical(centerX, "center x", "#54d2c6");
-        addHorizontal(centerY, "center y", "#54d2c6");
-    } else if (presetId == QStringLiteral("thirds")) {
-        addVertical(drawable.x + drawable.width / 3.0, "third x 1", "#91c89b");
-        addVertical(drawable.x + drawable.width * 2.0 / 3.0, "third x 2", "#91c89b");
-        addHorizontal(drawable.y + drawable.height / 3.0, "third y 1", "#91c89b");
-        addHorizontal(drawable.y + drawable.height * 2.0 / 3.0, "third y 2", "#91c89b");
-    } else if (presetId == QStringLiteral("quarters")) {
-        addVertical(drawable.x + drawable.width / 4.0, "quarter x 1", "#83aeca");
-        addVertical(centerX, "quarter x 2", "#83aeca");
-        addVertical(drawable.x + drawable.width * 3.0 / 4.0, "quarter x 3", "#83aeca");
-        addHorizontal(drawable.y + drawable.height / 4.0, "quarter y 1", "#83aeca");
-        addHorizontal(centerY, "quarter y 2", "#83aeca");
-        addHorizontal(drawable.y + drawable.height * 3.0 / 4.0, "quarter y 3", "#83aeca");
-    } else if (presetId == QStringLiteral("margin_safe")) {
-        addVertical(left, "safe left", "#d98b8b");
-        addVertical(right, "safe right", "#d98b8b");
-        addHorizontal(top, "safe top", "#d98b8b");
-        addHorizontal(bottom, "safe bottom", "#d98b8b");
-        addVertical(centerX, "safe center x", "#d98b8b");
-        addHorizontal(centerY, "safe center y", "#d98b8b");
-    } else {
+    const DraftingGuidePresetPlan preset = guidePresetForDrawable(toStdString(presetId), grid.drawableBounds);
+    if (!preset.ok) {
         return false;
     }
 
     DraftingDocument candidate = m_document;
     bool changed = false;
-    for (const PresetGuide &guide : guides) {
+    for (const DraftingGuidePresetGuide &guide : preset.guides) {
         if (existingGuideId(candidate, guide.geometry)) {
             continue;
         }

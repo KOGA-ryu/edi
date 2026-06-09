@@ -11,6 +11,7 @@
 #include "widgets/DrawingCanvasGestureState.h"
 #include "widgets/DrawingCanvasHandleHitTest.h"
 #include "widgets/DrawingCanvasObjectPainter.h"
+#include "widgets/DrawingCanvasProjectedDocument.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasViewport.h"
 
@@ -263,14 +264,7 @@ QVariantMap DrawingCanvasWidget::selectedObjectProjection() const
     if (m_controller == nullptr || m_controller->selectedObjectId().isEmpty()) {
         return {};
     }
-    const QVariantMap model = m_controller->modelDocument();
-    for (const QVariant &value : model.value("drawing_objects").toList()) {
-        const QVariantMap object = value.toMap();
-        if (drawing_canvas::projectedObjectSummary(object).id == m_controller->selectedObjectId()) {
-            return object;
-        }
-    }
-    return {};
+    return drawing_canvas::projectedObjectById(m_controller->modelDocument(), m_controller->selectedObjectId());
 }
 
 QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const

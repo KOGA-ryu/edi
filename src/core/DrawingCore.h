@@ -99,6 +99,7 @@ public:
     bool fitSelectedConstructionLineToDrawable();
     bool createGuideFromSelectedBounds(const QString &placementId);
     bool createOffsetGuideFromSelectedBounds(const QString &placementId, const QString &stepMode);
+    bool applyGuidePreset(const QString &presetId);
     bool alignSelectionToNearestGuide(const QString &modeId);
     bool deleteSelectedGuide();
     bool deleteAllGuides();

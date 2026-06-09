@@ -518,6 +518,72 @@ int main(int argc, char **argv)
     assert(!boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("diagonal")));
     assert(boundsGuideController.modelDocument().value("revision").toInt() == boundsGuideRevisionBeforeInvalid);
 
+    DrawingDocumentController guidePresetController;
+    guidePresetController.setSelectedToolId("point_tool");
+    guidePresetController.clickCanvasNormalized(0.4, 0.4);
+    const QString guidePresetSelectedId = guidePresetController.selectedObjectId();
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    QVariantMap guidePresetModel = guidePresetController.modelDocument();
+    QVariantList guidePresetObjects = guidePresetModel.value("drawing_objects").toList();
+    assert(guidePresetObjects.size() == 5);
+    assert(guidePresetModel.value("guide_count").toInt() == 4);
+    assert(guidePresetModel.value("visible_guide_count").toInt() == 4);
+    assert(guidePresetController.selectedObjectId() == guidePresetSelectedId);
+    const int guidePresetDuplicateRevision = guidePresetModel.value("revision").toInt();
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    guidePresetModel = guidePresetController.modelDocument();
+    assert(guidePresetModel.value("revision").toInt() == guidePresetDuplicateRevision);
+    assert(guidePresetModel.value("guide_count").toInt() == 4);
+
+    bool foundDrawableLeft = false;
+    bool foundDrawableBottom = false;
+    for (const QVariant &objectValue : guidePresetModel.value("drawing_objects").toList()) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("kind").toString() != "guide") {
+            continue;
+        }
+        if (object.value("guide_label").toString() == "drawable left") {
+            foundDrawableLeft = true;
+            assert(object.value("orientation").toString() == "vertical");
+            assert(nearlyEqual(object.value("position").toDouble(), squareQuarterInchStep));
+            assert(object.value("guide_color").toString() == "#f6c65b");
+        } else if (object.value("guide_label").toString() == "drawable bottom") {
+            foundDrawableBottom = true;
+            assert(object.value("orientation").toString() == "horizontal");
+            assert(nearlyEqual(object.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+            assert(object.value("guide_color").toString() == "#f6c65b");
+        }
+    }
+    assert(foundDrawableLeft);
+    assert(foundDrawableBottom);
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_centerlines")));
+    guidePresetModel = guidePresetController.modelDocument();
+    assert(guidePresetModel.value("guide_count").toInt() == 6);
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("thirds")));
+    guidePresetModel = guidePresetController.modelDocument();
+    assert(guidePresetModel.value("guide_count").toInt() == 10);
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("quarters")));
+    guidePresetModel = guidePresetController.modelDocument();
+    assert(guidePresetModel.value("guide_count").toInt() == 14);
+    assert(guidePresetController.applyGuidePreset(QStringLiteral("margin_safe")));
+    guidePresetModel = guidePresetController.modelDocument();
+    assert(guidePresetModel.value("guide_count").toInt() == 14);
+    assert(!guidePresetController.applyGuidePreset(QStringLiteral("unknown_preset")));
+
+    DrawingDocumentController hiddenGuidePresetController;
+    assert(hiddenGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    assert(hiddenGuidePresetController.setAllGuidesVisible(false));
+    QVariantMap hiddenGuidePresetModel = hiddenGuidePresetController.modelDocument();
+    assert(hiddenGuidePresetModel.value("guide_count").toInt() == 4);
+    assert(hiddenGuidePresetModel.value("visible_guide_count").toInt() == 0);
+
+    DrawingDocumentController lockedLayerGuidePresetController;
+    assert(lockedLayerGuidePresetController.setActiveLayerLocked(true));
+    const int lockedLayerGuidePresetRevision = lockedLayerGuidePresetController.modelDocument().value("revision").toInt();
+    assert(!lockedLayerGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    assert(lockedLayerGuidePresetController.modelDocument().value("revision").toInt() == lockedLayerGuidePresetRevision);
+    assert(lockedLayerGuidePresetController.modelDocument().value("guide_count").toInt() == 0);
+
     DrawingDocumentController offsetGuideController;
     offsetGuideController.setSelectedToolId("rectangle_tool");
     offsetGuideController.clickCanvasNormalized(0.2, 0.3);

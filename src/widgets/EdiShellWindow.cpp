@@ -733,6 +733,22 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_guideOffsetButtons.insert(buttonSpec.first, button);
         layout->addWidget(button);
     }
+    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Presets")));
+    const QVector<QPair<QString, QString>> guidePresetButtons {
+        {QStringLiteral("drawable_bounds"), QStringLiteral("Preset Bounds")},
+        {QStringLiteral("drawable_centerlines"), QStringLiteral("Preset Centerlines")},
+        {QStringLiteral("thirds"), QStringLiteral("Preset Thirds")},
+        {QStringLiteral("quarters"), QStringLiteral("Preset Quarters")},
+        {QStringLiteral("margin_safe"), QStringLiteral("Preset Margin Safe")},
+    };
+    for (const auto &buttonSpec : guidePresetButtons) {
+        auto *button = new QPushButton(buttonSpec.second);
+        button->setObjectName(QStringLiteral("guidePreset_%1").arg(buttonSpec.first));
+        connect(button, &QPushButton::clicked, this, [this, presetId = buttonSpec.first]() {
+            m_controller->applyGuidePreset(presetId);
+        });
+        layout->addWidget(button);
+    }
     m_fitConstructionToDrawableButton = new QPushButton(QStringLiteral("Fit Construction To Drawable"));
     m_fitConstructionToDrawableButton->setObjectName(QStringLiteral("fitConstructionToDrawableButton"));
     connect(m_fitConstructionToDrawableButton, &QPushButton::clicked, this, [this]() {

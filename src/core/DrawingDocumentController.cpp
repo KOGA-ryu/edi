@@ -1852,18 +1852,13 @@ bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
         }
 
         const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-        GuideVisualMetadata visual;
-        visual.label = guide.label;
-        visual.color = guide.color;
-        visual.dashStyle = "dash";
-        visual.showLabel = true;
         auto built = buildDraftingGuideObject(
             toStdString(id),
             guide.geometry,
             m_document.activeLayerId,
             "guide_preset",
             toStdString(presetId),
-            visual);
+            guidePresetVisualMetadata(guide));
         if (!built.ok) {
             return false;
         }

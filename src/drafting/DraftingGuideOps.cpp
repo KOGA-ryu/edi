@@ -421,6 +421,16 @@ DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Boun
     return DraftingGuidePresetPlan::accepted(std::move(guides));
 }
 
+GuideVisualMetadata guidePresetVisualMetadata(const DraftingGuidePresetGuide &guide)
+{
+    GuideVisualMetadata visual;
+    visual.label = guide.label;
+    visual.color = guide.color;
+    visual.dashStyle = "dash";
+    visual.showLabel = true;
+    return visual;
+}
+
 DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &document, Bounds2D bounds, const std::string &modeId)
 {
     if (!isFinite(bounds)) {

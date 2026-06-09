@@ -100,6 +100,7 @@ DraftingGuidePlan offsetGuide(const GuideGeometry &guide, const std::string &dir
 DraftingGuidePlan guideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId);
 DraftingGuidePlan offsetGuideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId, double stepX, double stepY);
 DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Bounds2D drawable);
+GuideVisualMetadata guidePresetVisualMetadata(const DraftingGuidePresetGuide &guide);
 DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &document, Bounds2D bounds, const std::string &modeId);
 DraftingGuideMoveSnapPlan guideMoveSnapPlan(const DraftingDocument &document,
     const DraftingObject &object,

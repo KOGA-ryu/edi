@@ -102,6 +102,11 @@ int main()
     assert(near(drawableBoundsPreset.guides[0].geometry.position, 0.1));
     assert(drawableBoundsPreset.guides[0].label == "drawable left");
     assert(drawableBoundsPreset.guides[0].color == "#f6c65b");
+    GuideVisualMetadata drawableLeftVisual = guidePresetVisualMetadata(drawableBoundsPreset.guides[0]);
+    assert(drawableLeftVisual.label == "drawable left");
+    assert(drawableLeftVisual.color == "#f6c65b");
+    assert(drawableLeftVisual.dashStyle == "dash");
+    assert(drawableLeftVisual.showLabel);
     assert(drawableBoundsPreset.guides[3].geometry.orientation == GuideOrientation::Horizontal);
     assert(near(drawableBoundsPreset.guides[3].geometry.position, 0.6));
 

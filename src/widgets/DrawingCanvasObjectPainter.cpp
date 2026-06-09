@@ -1,6 +1,7 @@
 #include "widgets/DrawingCanvasObjectPainter.h"
 
 #include "widgets/DrawingCanvasProjectedObject.h"
+#include "widgets/DrawingCanvasViewport.h"
 
 #include <QPainter>
 #include <QPolygonF>
@@ -9,12 +10,6 @@
 
 namespace drawing_canvas {
 namespace {
-
-QPointF canvasToScreen(const DrawingCanvasObjectPainterContext &context, double x, double y)
-{
-    return QPointF(context.board.left() + x * context.board.width(),
-        context.board.top() + y * context.board.height());
-}
 
 void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
@@ -25,9 +20,9 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
 
     painter.setPen(QPen(QColor("#1d1f26"), 2));
     for (const DrawingCanvasProjectedHandle &handle : projectedHandles) {
-        const QPointF point = canvasToScreen(context, handle.x, handle.y);
+        const QPointF point = drawing_canvas::canvasToScreen(context.board, handle.x, handle.y);
         if (handle.hasAnchor) {
-            const QPointF anchor = canvasToScreen(context, handle.anchorX, handle.anchorY);
+            const QPointF anchor = drawing_canvas::canvasToScreen(context.board, handle.anchorX, handle.anchorY);
             painter.drawLine(anchor, point);
         }
         const QRectF rect(point.x() - handle.sizePx * 0.5, point.y() - handle.sizePx * 0.5, handle.sizePx, handle.sizePx);
@@ -80,7 +75,7 @@ void drawGuideIntersections(QPainter &painter, const QVariantList &objects, cons
     painter.setBrush(QColor(marker.red(), marker.green(), marker.blue(), 30));
     for (double x : vertical) {
         for (double y : horizontal) {
-            const QPointF point = canvasToScreen(context, x, y);
+            const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);
             painter.drawEllipse(point, 3.0, 3.0);
             painter.drawLine(QPointF(point.x() - 5.0, point.y()), QPointF(point.x() + 5.0, point.y()));
             painter.drawLine(QPointF(point.x(), point.y() - 5.0), QPointF(point.x(), point.y() + 5.0));
@@ -126,16 +121,16 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         painter.setPen(guidePen);
         painter.setBrush(Qt::NoBrush);
         if (guide.orientation == DrawingCanvasProjectedGuideOrientation::Horizontal) {
-            painter.drawLine(canvasToScreen(context, 0.0, guide.position), canvasToScreen(context, 1.0, guide.position));
+            painter.drawLine(drawing_canvas::canvasToScreen(context.board, 0.0, guide.position), drawing_canvas::canvasToScreen(context.board, 1.0, guide.position));
             if (guide.showLabel && !guide.label.isEmpty()) {
                 painter.setPen(guideColor);
-                painter.drawText(canvasToScreen(context, 0.0, guide.position) + QPointF(8.0, -6.0), guide.label);
+                painter.drawText(drawing_canvas::canvasToScreen(context.board, 0.0, guide.position) + QPointF(8.0, -6.0), guide.label);
             }
         } else {
-            painter.drawLine(canvasToScreen(context, guide.position, 0.0), canvasToScreen(context, guide.position, 1.0));
+            painter.drawLine(drawing_canvas::canvasToScreen(context.board, guide.position, 0.0), drawing_canvas::canvasToScreen(context.board, guide.position, 1.0));
             if (guide.showLabel && !guide.label.isEmpty()) {
                 painter.setPen(guideColor);
-                painter.drawText(canvasToScreen(context, guide.position, 0.0) + QPointF(8.0, 16.0), guide.label);
+                painter.drawText(drawing_canvas::canvasToScreen(context.board, guide.position, 0.0) + QPointF(8.0, 16.0), guide.label);
             }
         }
         painter.restore();
@@ -151,7 +146,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.setBrush(Qt::NoBrush);
-        painter.drawLine(canvasToScreen(context, line.x1, line.y1), canvasToScreen(context, line.x2, line.y2));
+        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
         return;
     }
 
@@ -160,11 +155,11 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!dimension.ok) {
             return;
         }
-        const QPointF a = canvasToScreen(context, dimension.x1, dimension.y1);
-        const QPointF b = canvasToScreen(context, dimension.x2, dimension.y2);
-        const QPointF dimA = canvasToScreen(context, dimension.dimensionX1, dimension.dimensionY1);
-        const QPointF dimB = canvasToScreen(context, dimension.dimensionX2, dimension.dimensionY2);
-        const QPointF label = canvasToScreen(context, dimension.labelX, dimension.labelY);
+        const QPointF a = drawing_canvas::canvasToScreen(context.board, dimension.x1, dimension.y1);
+        const QPointF b = drawing_canvas::canvasToScreen(context.board, dimension.x2, dimension.y2);
+        const QPointF dimA = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX1, dimension.dimensionY1);
+        const QPointF dimB = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX2, dimension.dimensionY2);
+        const QPointF label = drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY);
         const QColor dimensionColor = selected ? QColor("#f6c65b") : QColor("#b6d28f");
         QPen dimensionPen(dimensionColor, selected ? 2.0 : 1.5);
         dimensionPen.setCapStyle(Qt::RoundCap);
@@ -212,7 +207,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!pointObject.ok) {
             return;
         }
-        const QPointF point = canvasToScreen(context, pointObject.x, pointObject.y);
+        const QPointF point = drawing_canvas::canvasToScreen(context.board, pointObject.x, pointObject.y);
         painter.setBrush(selected ? QColor("#f6c65b") : QColor("#d7dde8"));
         painter.drawEllipse(point, 4.0, 4.0);
     } else if (kind == QStringLiteral("line")) {
@@ -220,14 +215,14 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!line.ok) {
             return;
         }
-        painter.drawLine(canvasToScreen(context, line.x1, line.y1), canvasToScreen(context, line.x2, line.y2));
+        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (!rectangle.ok) {
             return;
         }
-        const QPointF origin = canvasToScreen(context, rectangle.x, rectangle.y);
-        const QPointF extent = canvasToScreen(context, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
+        const QPointF origin = drawing_canvas::canvasToScreen(context.board, rectangle.x, rectangle.y);
+        const QPointF extent = drawing_canvas::canvasToScreen(context.board, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
         QRectF rect(origin, extent);
         if (std::abs(rectangle.rotationDeg) > 0.000001) {
             painter.save();
@@ -244,7 +239,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!circle.ok) {
             return;
         }
-        const QPointF center = canvasToScreen(context, circle.cx, circle.cy);
+        const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
@@ -254,7 +249,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         }
         QPolygonF polygon;
         for (const DrawingCanvasProjectedPoint &point : projected.points) {
-            polygon.push_back(canvasToScreen(context, point.x, point.y));
+            polygon.push_back(drawing_canvas::canvasToScreen(context.board, point.x, point.y));
         }
         if (kind == QStringLiteral("polygon")) {
             painter.drawPolygon(polygon);
@@ -264,9 +259,9 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     }
 
     if (summary.plotBlocked && summary.bounds.ok) {
-        const QPointF topLeft = canvasToScreen(context, summary.bounds.x, summary.bounds.y);
-        const QPointF bottomRight = canvasToScreen(
-            context,
+        const QPointF topLeft = drawing_canvas::canvasToScreen(context.board, summary.bounds.x, summary.bounds.y);
+        const QPointF bottomRight = drawing_canvas::canvasToScreen(
+            context.board,
             summary.bounds.x + summary.bounds.width,
             summary.bounds.y + summary.bounds.height);
         QRectF warningRect(topLeft, bottomRight);
@@ -301,7 +296,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
     if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
         if (line.ok) {
-            painter.drawLine(canvasToScreen(context, line.x1, line.y1), canvasToScreen(context, line.x2, line.y2));
+            painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
         }
     } else if (kind == QStringLiteral("construction_line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
@@ -312,32 +307,32 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
         QPen constructionPen(QColor("#75c7ff"), 1.5, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
-        painter.drawLine(canvasToScreen(context, line.x1, line.y1), canvasToScreen(context, line.x2, line.y2));
+        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
     } else if (kind == QStringLiteral("dimension")) {
         const DrawingCanvasProjectedDimension dimension = projectedDimension(object);
         if (!dimension.ok) {
             painter.restore();
             return;
         }
-        const QPointF a = canvasToScreen(context, dimension.x1, dimension.y1);
-        const QPointF b = canvasToScreen(context, dimension.x2, dimension.y2);
-        const QPointF dimA = canvasToScreen(context, dimension.dimensionX1, dimension.dimensionY1);
-        const QPointF dimB = canvasToScreen(context, dimension.dimensionX2, dimension.dimensionY2);
+        const QPointF a = drawing_canvas::canvasToScreen(context.board, dimension.x1, dimension.y1);
+        const QPointF b = drawing_canvas::canvasToScreen(context.board, dimension.x2, dimension.y2);
+        const QPointF dimA = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX1, dimension.dimensionY1);
+        const QPointF dimB = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX2, dimension.dimensionY2);
         painter.drawLine(a, dimA);
         painter.drawLine(b, dimB);
         painter.drawLine(dimA, dimB);
-        painter.drawText(canvasToScreen(context, dimension.labelX, dimension.labelY) + QPointF(6.0, -6.0), dimension.label);
+        painter.drawText(drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY) + QPointF(6.0, -6.0), dimension.label);
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (rectangle.ok) {
-            const QPointF origin = canvasToScreen(context, rectangle.x, rectangle.y);
-            const QPointF extent = canvasToScreen(context, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
+            const QPointF origin = drawing_canvas::canvasToScreen(context.board, rectangle.x, rectangle.y);
+            const QPointF extent = drawing_canvas::canvasToScreen(context.board, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
             painter.drawRect(QRectF(origin, extent).normalized());
         }
     } else if (kind == QStringLiteral("circle")) {
         const DrawingCanvasProjectedCircle circle = projectedCircle(object);
         if (circle.ok) {
-            const QPointF center = canvasToScreen(context, circle.cx, circle.cy);
+            const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
             const double radius = circle.radius * context.board.width();
             painter.drawEllipse(center, radius, radius);
         }

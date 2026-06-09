@@ -292,25 +292,21 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
         return {};
     }
 
-    const QVariantList projectedHandles = object.value(QStringLiteral("edit_handles")).toList();
-    if (!projectedHandles.isEmpty()) {
+    const std::vector<drawing_canvas::DrawingCanvasProjectedHandle> projectedHandles = drawing_canvas::projectedObjectHandles(object);
+    if (!projectedHandles.empty()) {
         QString bestId;
         double bestDistance = 999.0;
-        for (const QVariant &handleValue : projectedHandles) {
-            const QVariantMap handle = handleValue.toMap();
-            if (!handle.value(QStringLiteral("editable"), !handle.value(QStringLiteral("read_only")).toBool()).toBool()) {
+        for (const drawing_canvas::DrawingCanvasProjectedHandle &handle : projectedHandles) {
+            if (!handle.editable) {
                 continue;
             }
-            const QPointF point = canvasToScreen(
-                handle.value(QStringLiteral("x")).toDouble(),
-                handle.value(QStringLiteral("y")).toDouble());
+            const QPointF point = canvasToScreen(handle.x, handle.y);
             const double dx = screenPoint.x() - point.x();
             const double dy = screenPoint.y() - point.y();
             const double distance = std::sqrt(dx * dx + dy * dy);
-            const double threshold = handle.value(QStringLiteral("hit_tolerance_px"), 14.0).toDouble();
-            if (distance <= threshold && distance <= bestDistance) {
+            if (distance <= handle.hitTolerancePx && distance <= bestDistance) {
                 bestDistance = distance;
-                bestId = handle.value(QStringLiteral("id")).toString();
+                bestId = handle.id;
             }
         }
         return bestId;
@@ -845,33 +841,25 @@ void DrawingCanvasWidget::drawPreviewObject(QPainter &painter, const QVariantMap
 
 void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantMap &object) const
 {
-    const QVariantList projectedHandles = object.value(QStringLiteral("edit_handles")).toList();
-    if (!projectedHandles.isEmpty()) {
+    const std::vector<drawing_canvas::DrawingCanvasProjectedHandle> projectedHandles = drawing_canvas::projectedObjectHandles(object);
+    if (!projectedHandles.empty()) {
         painter.setPen(QPen(QColor("#1d1f26"), 2));
-        for (const QVariant &handleValue : projectedHandles) {
-            const QVariantMap handle = handleValue.toMap();
-            const QPointF point = canvasToScreen(
-                handle.value(QStringLiteral("x")).toDouble(),
-                handle.value(QStringLiteral("y")).toDouble());
-            if (handle.value(QStringLiteral("has_anchor")).toBool()) {
-                const QPointF anchor = canvasToScreen(
-                    handle.value(QStringLiteral("anchor_x")).toDouble(),
-                    handle.value(QStringLiteral("anchor_y")).toDouble());
+        for (const drawing_canvas::DrawingCanvasProjectedHandle &handle : projectedHandles) {
+            const QPointF point = canvasToScreen(handle.x, handle.y);
+            if (handle.hasAnchor) {
+                const QPointF anchor = canvasToScreen(handle.anchorX, handle.anchorY);
                 painter.drawLine(anchor, point);
             }
-            const bool editable = handle.value(QStringLiteral("editable"), !handle.value(QStringLiteral("read_only")).toBool()).toBool();
-            const double size = std::max(2.0, handle.value(QStringLiteral("size_px"), 8.0).toDouble());
-            const QRectF rect(point.x() - size * 0.5, point.y() - size * 0.5, size, size);
-            painter.setBrush(editable ? QColor("#f6c65b") : QColor("#79828f"));
-            const QString shape = handle.value(QStringLiteral("shape"), QStringLiteral("circle")).toString();
-            if (shape == QStringLiteral("square")) {
+            const QRectF rect(point.x() - handle.sizePx * 0.5, point.y() - handle.sizePx * 0.5, handle.sizePx, handle.sizePx);
+            painter.setBrush(handle.editable ? QColor("#f6c65b") : QColor("#79828f"));
+            if (handle.shape == drawing_canvas::DrawingCanvasProjectedHandleShape::Square) {
                 painter.drawRect(rect);
-            } else if (shape == QStringLiteral("diamond")) {
+            } else if (handle.shape == drawing_canvas::DrawingCanvasProjectedHandleShape::Diamond) {
                 QPolygonF diamond;
-                diamond << QPointF(point.x(), point.y() - size * 0.55)
-                        << QPointF(point.x() + size * 0.55, point.y())
-                        << QPointF(point.x(), point.y() + size * 0.55)
-                        << QPointF(point.x() - size * 0.55, point.y());
+                diamond << QPointF(point.x(), point.y() - handle.sizePx * 0.55)
+                        << QPointF(point.x() + handle.sizePx * 0.55, point.y())
+                        << QPointF(point.x(), point.y() + handle.sizePx * 0.55)
+                        << QPointF(point.x() - handle.sizePx * 0.55, point.y());
                 painter.drawPolygon(diamond);
             } else {
                 painter.drawEllipse(rect);

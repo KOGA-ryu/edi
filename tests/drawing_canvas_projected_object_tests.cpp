@@ -3,6 +3,7 @@
 #include <QVariantList>
 
 #include <cassert>
+#include <cmath>
 #include <limits>
 
 using namespace drawing_canvas;
@@ -30,6 +31,58 @@ int main()
 
     const std::vector<DrawingCanvasProjectedPoint> missing = projectedObjectPoints({});
     assert(missing.empty());
+
+    QVariantList handles;
+    handles.push_back(QVariantMap{
+        {QStringLiteral("id"), QStringLiteral("move_handle")},
+        {QStringLiteral("x"), 0.25},
+        {QStringLiteral("y"), 0.5},
+        {QStringLiteral("editable"), true},
+        {QStringLiteral("has_anchor"), true},
+        {QStringLiteral("anchor_x"), 0.1},
+        {QStringLiteral("anchor_y"), 0.2},
+        {QStringLiteral("shape"), QStringLiteral("diamond")},
+        {QStringLiteral("size_px"), 10.0},
+        {QStringLiteral("hit_tolerance_px"), 18.0}
+    });
+    handles.push_back(QVariantMap{
+        {QStringLiteral("id"), QStringLiteral("readonly_vertex")},
+        {QStringLiteral("x"), 0.75},
+        {QStringLiteral("y"), 0.9},
+        {QStringLiteral("read_only"), true},
+        {QStringLiteral("shape"), QStringLiteral("square")},
+        {QStringLiteral("size_px"), 1.0},
+        {QStringLiteral("hit_tolerance_px"), -5.0}
+    });
+    handles.push_back(QVariantMap{
+        {QStringLiteral("x"), 0.4},
+        {QStringLiteral("y"), 0.4}
+    });
+    handles.push_back(QStringLiteral("ignored"));
+
+    const std::vector<DrawingCanvasProjectedHandle> parsedHandles = projectedObjectHandles(QVariantMap{
+        {QStringLiteral("edit_handles"), handles}
+    });
+
+    assert(parsedHandles.size() == 2);
+    assert(parsedHandles[0].id == QStringLiteral("move_handle"));
+    assert(parsedHandles[0].editable);
+    assert(parsedHandles[0].hasAnchor);
+    assert(parsedHandles[0].anchorX == 0.1);
+    assert(parsedHandles[0].anchorY == 0.2);
+    assert(parsedHandles[0].shape == DrawingCanvasProjectedHandleShape::Diamond);
+    assert(parsedHandles[0].sizePx == 10.0);
+    assert(parsedHandles[0].hitTolerancePx == 18.0);
+
+    assert(parsedHandles[1].id == QStringLiteral("readonly_vertex"));
+    assert(!parsedHandles[1].editable);
+    assert(!parsedHandles[1].hasAnchor);
+    assert(parsedHandles[1].shape == DrawingCanvasProjectedHandleShape::Square);
+    assert(parsedHandles[1].sizePx == 2.0);
+    assert(parsedHandles[1].hitTolerancePx == 0.0);
+
+    const std::vector<DrawingCanvasProjectedHandle> missingHandles = projectedObjectHandles({});
+    assert(missingHandles.empty());
 
     return 0;
 }

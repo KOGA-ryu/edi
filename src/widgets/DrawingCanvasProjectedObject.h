@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QVariantMap>
+#include <QString>
 
 #include <vector>
 
@@ -11,6 +12,26 @@ struct DrawingCanvasProjectedPoint {
     double y = 0.0;
 };
 
+enum class DrawingCanvasProjectedHandleShape {
+    Circle,
+    Square,
+    Diamond
+};
+
+struct DrawingCanvasProjectedHandle {
+    QString id;
+    double x = 0.0;
+    double y = 0.0;
+    bool editable = true;
+    bool hasAnchor = false;
+    double anchorX = 0.0;
+    double anchorY = 0.0;
+    double sizePx = 8.0;
+    double hitTolerancePx = 14.0;
+    DrawingCanvasProjectedHandleShape shape = DrawingCanvasProjectedHandleShape::Circle;
+};
+
 std::vector<DrawingCanvasProjectedPoint> projectedObjectPoints(const QVariantMap &object);
+std::vector<DrawingCanvasProjectedHandle> projectedObjectHandles(const QVariantMap &object);
 
 } // namespace drawing_canvas

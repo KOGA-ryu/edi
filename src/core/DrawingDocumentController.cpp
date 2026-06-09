@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -183,6 +184,24 @@ QVariantMap pointToMap(Point2D point)
     return {
         {QStringLiteral("x"), point.x},
         {QStringLiteral("y"), point.y},
+    };
+}
+
+QVariantMap calibrationMeasurementToMap(const DraftingCalibrationMeasurement &measurement)
+{
+    QVariantList objectIds;
+    for (const DraftingObjectId &objectId : measurement.objectIds) {
+        objectIds.push_back(drawing_core::qStringFromStdString(objectId));
+    }
+
+    return {
+        {QStringLiteral("pattern_id"), drawing_core::qStringFromStdString(measurement.patternId)},
+        {QStringLiteral("object_ids"), objectIds},
+        {QStringLiteral("expected_value"), measurement.expectedValue},
+        {QStringLiteral("measured_value"), measurement.measuredValue},
+        {QStringLiteral("error_value"), measurement.errorValue},
+        {QStringLiteral("percent_error"), measurement.percentError},
+        {QStringLiteral("source"), drawing_core::qStringFromStdString(measurement.source)},
     };
 }
 
@@ -390,6 +409,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
     model.insert(QStringLiteral("plot_summary"), plotPlanToMap(buildDraftingPlotPlan(m_document, grid, m_plotSettings)));
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
+    }
+    if (m_latestCalibrationMeasurement) {
+        model.insert(QStringLiteral("calibration_measurement"), calibrationMeasurementToMap(*m_latestCalibrationMeasurement));
     }
 
     QVariantList warnings;
@@ -1066,6 +1088,45 @@ bool DrawingDocumentController::createCalibrationPattern(const QString &patternI
         selectedIds.push_back(object.id);
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValue)
+{
+    std::vector<DraftingObject> selectedObjects;
+    selectedObjects.reserve(m_document.selectedObjectIds.size());
+    for (const DraftingObjectId &objectId : m_document.selectedObjectIds) {
+        const DraftingObject *object = findObject(m_document, objectId);
+        if (object == nullptr) {
+            return false;
+        }
+        selectedObjects.push_back(*object);
+    }
+
+    const DraftingCalibrationMeasurementResult measurement = measureDraftingCalibrationPattern(
+        {std::move(selectedObjects), measuredValue, "manual_ui"});
+    if (!measurement.ok) {
+        return false;
+    }
+
+    DraftingDocument candidate = m_document;
+    const std::string note = formatDraftingCalibrationMeasurementNote(measurement.measurement);
+    for (const DraftingObjectId &objectId : measurement.measurement.objectIds) {
+        const DraftingObject *object = findObject(candidate, objectId);
+        if (object == nullptr) {
+            return false;
+        }
+        ObjectMetadata metadata = object->metadata;
+        metadata.measurementNote = note;
+        const DraftingCommandResult result = applyDraftingCommand(candidate, UpdateMetadataCommand{objectId, metadata});
+        if (!result.ok) {
+            return false;
+        }
+    }
+
+    m_document = std::move(candidate);
+    m_latestCalibrationMeasurement = measurement.measurement;
     emit modelChanged();
     return true;
 }

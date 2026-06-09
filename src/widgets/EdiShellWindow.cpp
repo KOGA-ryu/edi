@@ -895,6 +895,30 @@ QWidget *EdiShellWindow::buildCalibrationControls()
     addButton(QStringLiteral("Test circle"), QStringLiteral("test_circle"), 1, 1);
     addButton(QStringLiteral("Line spacing"), QStringLiteral("line_spacing"), 1, 2);
 
+    auto *measuredLabel = new QLabel(QStringLiteral("Measured"));
+    measuredLabel->setObjectName(QStringLiteral("fieldLabel"));
+    layout->addWidget(measuredLabel, 2, 0);
+
+    m_calibrationMeasuredValue = new QDoubleSpinBox;
+    m_calibrationMeasuredValue->setObjectName(QStringLiteral("geometryField"));
+    m_calibrationMeasuredValue->setRange(0.000001, 1000000.0);
+    m_calibrationMeasuredValue->setDecimals(6);
+    m_calibrationMeasuredValue->setSingleStep(0.001);
+    m_calibrationMeasuredValue->setValue(0.24);
+    layout->addWidget(m_calibrationMeasuredValue, 2, 1);
+
+    auto *record = new QPushButton(QStringLiteral("Record"));
+    record->setObjectName(QStringLiteral("calibrationButton"));
+    connect(record, &QPushButton::clicked, this, [this]() {
+        if (m_calibrationMeasuredValue != nullptr) {
+            m_controller->recordCalibrationMeasurement(m_calibrationMeasuredValue->value());
+        }
+    });
+    layout->addWidget(record, 2, 2);
+
+    m_calibrationMeasurementValue = makeValueLabel(QStringLiteral("Calibration measurement: none"));
+    layout->addWidget(m_calibrationMeasurementValue, 3, 0, 1, 3);
+
     return panel;
 }
 
@@ -1067,6 +1091,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
+    const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const QVariantList layers = document.value(QStringLiteral("layers")).toList();
     const QString activeLayerId = document.value(QStringLiteral("active_layer_id")).toString();
@@ -1257,6 +1282,16 @@ void EdiShellWindow::refreshInspector()
         m_plotReadinessValue->setText(formatPlotReadinessChecklist(
             plot.value(QStringLiteral("layer_stats")).toList(),
             plot.value(QStringLiteral("pen_stats")).toList()));
+    }
+    if (m_calibrationMeasurementValue != nullptr) {
+        m_calibrationMeasurementValue->setText(calibrationMeasurement.isEmpty()
+            ? QStringLiteral("Calibration measurement: none")
+            : QStringLiteral("Calibration: %1 expected %2 measured %3 error %4 (%5%)")
+                .arg(calibrationMeasurement.value(QStringLiteral("pattern_id")).toString())
+                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("expected_value")).toDouble()))
+                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("measured_value")).toDouble()))
+                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("error_value")).toDouble()))
+                .arg(formatNumber(calibrationMeasurement.value(QStringLiteral("percent_error")).toDouble())));
     }
     if (m_plotOrderMode != nullptr) {
         const QSignalBlocker blocker(m_plotOrderMode);

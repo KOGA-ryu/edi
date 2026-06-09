@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cmath>
+#include <string>
+#include <vector>
 
 using namespace edi::drafting;
 
@@ -67,6 +69,44 @@ int main()
         assert(nearlyEqual(object.bounds.width, 0.4));
         assert(nearlyEqual(object.bounds.height, 0.0));
     }
+
+    const DraftingCalibrationMeasurementResult squareMeasurement = measureDraftingCalibrationPattern(
+        {square.objects, 0.252, "bench_check"});
+    assert(squareMeasurement.ok);
+    assert(squareMeasurement.measurement.patternId == "calibration_square");
+    assert(squareMeasurement.measurement.objectIds.size() == 1);
+    assert(squareMeasurement.measurement.objectIds.front() == "calibration_0001_square");
+    assert(nearlyEqual(squareMeasurement.measurement.expectedValue, 0.25));
+    assert(nearlyEqual(squareMeasurement.measurement.measuredValue, 0.252));
+    assert(nearlyEqual(squareMeasurement.measurement.errorValue, 0.002));
+    assert(nearlyEqual(squareMeasurement.measurement.percentError, 0.8));
+    assert(formatDraftingCalibrationMeasurementNote(squareMeasurement.measurement).find("calibration_square") != std::string::npos);
+
+    const DraftingCalibrationMeasurementResult circleMeasurement = measureDraftingCalibrationPattern(
+        {circle.objects, 0.2475, "bench_check"});
+    assert(circleMeasurement.ok);
+    assert(circleMeasurement.measurement.patternId == "calibration_circle");
+    assert(nearlyEqual(circleMeasurement.measurement.expectedValue, 0.25));
+    assert(nearlyEqual(circleMeasurement.measurement.errorValue, -0.0025));
+
+    const DraftingCalibrationMeasurementResult spacingMeasurement = measureDraftingCalibrationPattern(
+        {spacing.objects, 0.051, "bench_check"});
+    assert(spacingMeasurement.ok);
+    assert(spacingMeasurement.measurement.patternId == "calibration_line_spacing");
+    assert(spacingMeasurement.measurement.objectIds.size() == 4);
+    assert(nearlyEqual(spacingMeasurement.measurement.expectedValue, 0.05));
+    assert(nearlyEqual(spacingMeasurement.measurement.errorValue, 0.001));
+    assert(nearlyEqual(spacingMeasurement.measurement.percentError, 2.0));
+
+    DraftingObject nonCalibrationObject = square.objects.front();
+    nonCalibrationObject.metadata.toolProvenance.clear();
+    assert(!measureDraftingCalibrationPattern({{}, 0.25, "bench_check"}).ok);
+    assert(!measureDraftingCalibrationPattern({square.objects, 0.0, "bench_check"}).ok);
+    assert(!measureDraftingCalibrationPattern({std::vector<DraftingObject>{nonCalibrationObject}, 0.25, "bench_check"}).ok);
+
+    std::vector<DraftingObject> mixedObjects = square.objects;
+    mixedObjects.push_back(circle.objects.front());
+    assert(!measureDraftingCalibrationPattern({mixedObjects, 0.25, "bench_check"}).ok);
 
     DraftingCalibrationPatternRequest invalid = squareRequest;
     invalid.idPrefix.clear();

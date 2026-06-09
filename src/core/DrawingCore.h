@@ -7,6 +7,7 @@
 #include <QVector>
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSnap.h"
@@ -70,6 +71,7 @@ public:
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
+    bool recordCalibrationMeasurement(double measuredValue);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
@@ -85,6 +87,7 @@ private:
     edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;
     edi::drafting::DraftingPlotSettings m_plotSettings;
+    std::optional<edi::drafting::DraftingCalibrationMeasurement> m_latestCalibrationMeasurement;
     std::optional<edi::drafting::Point2D> m_pointerRawPoint;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;

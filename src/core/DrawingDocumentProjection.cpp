@@ -94,6 +94,8 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
         }},
         {QStringLiteral("layer_id"), qStringFromStdString(object.layerId)},
         {QStringLiteral("locked"), object.locked},
+        {QStringLiteral("tool_provenance"), qStringFromStdString(object.metadata.toolProvenance)},
+        {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
     };
 

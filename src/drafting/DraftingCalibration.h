@@ -33,8 +33,36 @@ struct DraftingCalibrationPatternResult {
     static DraftingCalibrationPatternResult rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingCalibrationMeasurement {
+    std::string patternId;
+    std::vector<DraftingObjectId> objectIds;
+    double expectedValue = 0.0;
+    double measuredValue = 0.0;
+    double errorValue = 0.0;
+    double percentError = 0.0;
+    std::string source;
+};
+
+struct DraftingCalibrationMeasurementRequest {
+    std::vector<DraftingObject> objects;
+    double measuredValue = 0.0;
+    std::string source;
+};
+
+struct DraftingCalibrationMeasurementResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    DraftingCalibrationMeasurement measurement;
+
+    static DraftingCalibrationMeasurementResult accepted(DraftingCalibrationMeasurement measurement);
+    static DraftingCalibrationMeasurementResult rejected(DraftingResultCode code, std::string message);
+};
+
 DraftingCalibrationPatternKind draftingCalibrationPatternKindFromId(const std::string &patternId);
 const char *draftingCalibrationPatternKindName(DraftingCalibrationPatternKind kind);
 DraftingCalibrationPatternResult buildDraftingCalibrationPattern(const DraftingCalibrationPatternRequest &request);
+DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const DraftingCalibrationMeasurementRequest &request);
+std::string formatDraftingCalibrationMeasurementNote(const DraftingCalibrationMeasurement &measurement);
 
 } // namespace edi::drafting

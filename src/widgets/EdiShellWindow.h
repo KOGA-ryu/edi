@@ -99,6 +99,8 @@ private:
     QComboBox *m_plotOrderMode = nullptr;
     QComboBox *m_plotDirectionMode = nullptr;
     QCheckBox *m_plotPreviewVisible = nullptr;
+    QDoubleSpinBox *m_calibrationMeasuredValue = nullptr;
+    QLabel *m_calibrationMeasurementValue = nullptr;
     QLabel *m_pointerValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;

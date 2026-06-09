@@ -665,6 +665,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(calibrationSquare.value("width").toDouble(), 0.24));
     assert(nearlyEqual(calibrationSquare.value("height").toDouble(), 0.24));
     assert(calibrationModel.value("selected_object_ids").toList().size() == 1);
+    assert(calibrationController.recordCalibrationMeasurement(0.238));
+    calibrationModel = calibrationController.modelDocument();
+    QVariantMap calibrationMeasurement = calibrationModel.value("calibration_measurement").toMap();
+    assert(calibrationMeasurement.value("pattern_id").toString() == "calibration_square");
+    assert(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.24));
+    assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.238));
+    assert(nearlyEqual(calibrationMeasurement.value("error_value").toDouble(), -0.002));
+    assert(calibrationMeasurement.value("percent_error").toDouble() < 0.0);
+    calibrationSquare = calibrationModel.value("drawing_objects").toList().front().toMap();
+    assert(calibrationSquare.value("measurement_note").toString().contains("calibration_square"));
 
     assert(calibrationController.createLayer());
     assert(calibrationController.activeLayerId() == "layer_2");
@@ -691,6 +701,18 @@ int main(int argc, char **argv)
         assert(line.value("layer_id").toString() == "layer_2");
         assert(nearlyEqual(line.value("x1").toDouble(), 0.15));
         assert(nearlyEqual(line.value("x2").toDouble(), 0.39));
+    }
+    assert(calibrationController.recordCalibrationMeasurement(0.041));
+    calibrationModel = calibrationController.modelDocument();
+    calibrationMeasurement = calibrationModel.value("calibration_measurement").toMap();
+    assert(calibrationMeasurement.value("pattern_id").toString() == "calibration_line_spacing");
+    assert(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.04));
+    assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.041));
+    assert(calibrationMeasurement.value("percent_error").toDouble() > 0.0);
+    calibrationObjects = calibrationModel.value("drawing_objects").toList();
+    for (int index = 2; index < calibrationObjects.size(); ++index) {
+        const QVariantMap line = calibrationObjects[index].toMap();
+        assert(line.value("measurement_note").toString().contains("calibration_line_spacing"));
     }
     QVariantMap calibrationPlotSummary = calibrationModel.value("plot_summary").toMap();
     assert(calibrationPlotSummary.value("plot_object_count").toInt() == 7);

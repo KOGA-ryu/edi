@@ -25,8 +25,6 @@ add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasProjection.cpp
     src/canvas/DrawingCanvasGestureState.h
     src/canvas/DrawingCanvasGestureState.cpp
-    src/canvas/DrawingCanvasRuntimeAdapter.h
-    src/canvas/DrawingCanvasRuntimeAdapter.cpp
 )
 
 target_include_directories(drawing_canvas_core PUBLIC

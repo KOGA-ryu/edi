@@ -13,6 +13,7 @@
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMirror.h"
+#include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingOffset.h"
 #include "drafting/DraftingPhysicalEdit.h"
 #include "drafting/DraftingPlotBounds.h"
@@ -645,17 +646,6 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         }},
         {QStringLiteral("warnings"), warnings},
     };
-}
-
-double nudgeScaleForMode(const QString &stepMode)
-{
-    if (stepMode == QStringLiteral("fine")) {
-        return 0.25;
-    }
-    if (stepMode == QStringLiteral("coarse")) {
-        return 4.0;
-    }
-    return 1.0;
 }
 
 DraftingOffsetSide offsetSideFromId(const QString &sideId)
@@ -1524,25 +1514,12 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
     }
     m_lastGuideDragSnap.clear();
 
-    const double scale = nudgeScaleForMode(stepMode);
-    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
-    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
-
-    double dx = 0.0;
-    double dy = 0.0;
-    if (direction == QStringLiteral("left")) {
-        dx = -stepX * scale;
-    } else if (direction == QStringLiteral("right")) {
-        dx = stepX * scale;
-    } else if (direction == QStringLiteral("up")) {
-        dy = -stepY * scale;
-    } else if (direction == QStringLiteral("down")) {
-        dy = stepY * scale;
-    } else {
+    const DraftingNudgePlan plan = planNudgeDelta(toStdString(direction), m_snapSettings, toStdString(stepMode));
+    if (!plan.ok) {
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }
@@ -1554,36 +1531,18 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
 bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &direction, const QString &stepMode)
 {
     m_lastGuideDragSnap.clear();
-    const double scale = nudgeScaleForMode(stepMode);
-    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
-    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
-
-    double dx = 0.0;
-    double dy = 0.0;
-    if (direction == QStringLiteral("left")) {
-        dx = -stepX * scale;
-    } else if (direction == QStringLiteral("right")) {
-        dx = stepX * scale;
-    } else if (direction == QStringLiteral("up")) {
-        dy = -stepY * scale;
-    } else if (direction == QStringLiteral("down")) {
-        dy = stepY * scale;
-    } else {
-        return false;
-    }
-
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
     const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok
-        || !isFinite(drawable)
-        || selected.bounds.width > drawable.width
-        || selected.bounds.height > drawable.height
-        || !boundsInsideDrawable(translateBounds(selected.bounds, dx, dy), drawable)) {
+    if (!selected.ok) {
+        return false;
+    }
+    const DraftingNudgePlan plan = planNudgeInsideDrawable(toStdString(direction), m_snapSettings, toStdString(stepMode), selected.bounds, drawable);
+    if (!plan.ok) {
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }
@@ -1996,9 +1955,9 @@ bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, co
         return false;
     }
 
-    const double scale = nudgeScaleForMode(stepMode);
-    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
-    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
+    const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
+    const double stepX = effectiveNudgeStepX(m_snapSettings);
+    const double stepY = effectiveNudgeStepY(m_snapSettings);
     const DraftingGuidePlan plan = offsetGuide(*guide, toStdString(direction), stepX, stepY, scale);
     if (!plan.ok) {
         return false;
@@ -2104,9 +2063,9 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
         return false;
     }
 
-    const double scale = nudgeScaleForMode(stepMode);
-    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep) * scale;
-    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep) * scale;
+    const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
+    const double stepX = effectiveNudgeStepX(m_snapSettings) * scale;
+    const double stepY = effectiveNudgeStepY(m_snapSettings) * scale;
     const DraftingGuidePlan plan = offsetGuideFromBoundsPlacement(source->bounds, toStdString(placementId), stepX, stepY);
     if (!plan.ok) {
         return false;

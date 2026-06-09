@@ -1,5 +1,8 @@
 #include "core/DrawingDocumentProjection.h"
 
+#include "drafting/DraftingMeasurement.h"
+#include "drafting/DraftingMeasurementFormat.h"
+
 #include <QVariantList>
 
 #include <type_traits>
@@ -26,6 +29,14 @@ QString qStringFromStdString(const std::string &value)
 
 QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
 {
+    QVariantList measurementLines;
+    const auto measurement = summarizeObjectMeasurement(object);
+    if (measurement.ok) {
+        for (const std::string &line : formatObjectMeasurementSummary(measurement.value)) {
+            measurementLines.push_back(qStringFromStdString(line));
+        }
+    }
+
     QVariantMap result {
         {QStringLiteral("id"), qStringFromStdString(object.id)},
         {QStringLiteral("kind"), QString::fromLatin1(shapeKindName(object.kind))},
@@ -38,6 +49,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
         }},
         {QStringLiteral("layer_id"), qStringFromStdString(object.layerId)},
         {QStringLiteral("locked"), object.locked},
+        {QStringLiteral("measurement_lines"), measurementLines},
     };
 
     std::visit([&](const auto &geometry) {

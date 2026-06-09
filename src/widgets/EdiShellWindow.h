@@ -66,6 +66,7 @@ private:
     QLabel *m_objectBoundsValue = nullptr;
     QLabel *m_objectGeometryValue = nullptr;
     QLabel *m_objectLayerValue = nullptr;
+    QLabel *m_objectMeasurementValue = nullptr;
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;

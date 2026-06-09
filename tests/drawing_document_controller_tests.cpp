@@ -80,6 +80,10 @@ int main(int argc, char **argv)
     assert(pointBounds.value("y").toDouble() == 0.5);
     assert(pointBounds.value("width").toDouble() == 0.0);
     assert(pointBounds.value("height").toDouble() == 0.0);
+    QVariantList pointMeasurement = point.value("measurement_lines").toList();
+    assert(pointMeasurement.size() == 2);
+    assert(pointMeasurement[0].toString() == "width: 0 canvas_unit");
+    assert(pointMeasurement[1].toString() == "height: 0 canvas_unit");
     assert(controller.selectedObjectId() == point.value("id").toString());
     assert(controller.updateSelectedObjectGeometryField("x", 0.3));
     assert(controller.updateSelectedObjectGeometryField("y", 0.35));
@@ -117,6 +121,11 @@ int main(int argc, char **argv)
     assert(nearlyEqual(lineBounds.value("y").toDouble(), 0.2));
     assert(nearlyEqual(lineBounds.value("width").toDouble(), 0.7));
     assert(nearlyEqual(lineBounds.value("height").toDouble(), 0.7));
+    QVariantList lineMeasurement = line.value("measurement_lines").toList();
+    assert(lineMeasurement.size() == 3);
+    assert(lineMeasurement[0].toString().startsWith("distance: "));
+    assert(lineMeasurement[1].toString().startsWith("width: "));
+    assert(lineMeasurement[2].toString().startsWith("height: "));
 
     controller.setSelectedToolId("select_move");
     controller.clickCanvasNormalized(0.3, 0.35);
@@ -294,6 +303,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
     assert(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
     assert(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
+    QVariantList numericRectMeasurement = numericRect.value("measurement_lines").toList();
+    assert(numericRectMeasurement.size() == 3);
+    assert(numericRectMeasurement[0].toString().startsWith("area: "));
     assert(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
     QVariantMap numericRectAfterInvalid = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
@@ -309,6 +321,9 @@ int main(int argc, char **argv)
     assert(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
     assert(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
     assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
+    QVariantList numericCircleMeasurement = numericCircle.value("measurement_lines").toList();
+    assert(numericCircleMeasurement.size() == 3);
+    assert(numericCircleMeasurement[0].toString().startsWith("area: "));
     assert(!numericCircleController.updateSelectedObjectGeometryField("radius", -0.01));
     QVariantMap numericCircleAfterInvalid = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericCircleAfterInvalid.value("radius").toDouble(), 0.125));

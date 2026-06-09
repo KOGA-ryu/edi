@@ -332,10 +332,12 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_objectBoundsValue = makeValueLabel();
     m_objectGeometryValue = makeValueLabel();
     m_objectLayerValue = makeValueLabel();
+    m_objectMeasurementValue = makeValueLabel();
     layout->addWidget(m_objectKindValue);
     layout->addWidget(m_objectBoundsValue);
     layout->addWidget(m_objectGeometryValue);
     layout->addWidget(m_objectLayerValue);
+    layout->addWidget(m_objectMeasurementValue);
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
@@ -606,6 +608,16 @@ void EdiShellWindow::refreshInspector()
             : QStringLiteral("Layer: %1   Locked: %2")
                 .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
                 .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool())));
+    }
+    if (m_objectMeasurementValue != nullptr) {
+        const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();
+        QStringList formatted;
+        for (const QVariant &line : lines) {
+            formatted.push_back(line.toString());
+        }
+        m_objectMeasurementValue->setText(formatted.isEmpty()
+            ? QStringLiteral("Measurement: none")
+            : QStringLiteral("Measurement:\n%1").arg(formatted.join(QLatin1Char('\n'))));
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

@@ -158,6 +158,30 @@ bool canCreateGuideFromBounds(const DraftingObject &object)
         && isFinite(object.bounds);
 }
 
+bool equivalentGuide(const DraftingObject &a, const DraftingObject &b)
+{
+    if (a.kind != DraftingShapeKind::Guide || b.kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+    const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
+    const auto *guideB = std::get_if<GuideGeometry>(&b.geometry);
+    if (guideA == nullptr || guideB == nullptr || guideA->orientation != guideB->orientation) {
+        return false;
+    }
+    constexpr double epsilon = 0.000001;
+    return std::abs(guideA->position - guideB->position) <= epsilon;
+}
+
+bool hasPriorEquivalentGuide(const std::vector<const DraftingObject *> &objects, std::size_t index)
+{
+    for (std::size_t previous = 0; previous < index; ++previous) {
+        if (equivalentGuide(*objects[previous], *objects[index])) {
+            return true;
+        }
+    }
+    return false;
+}
+
 double physicalX(Point2D point, const DraftingGridProjection &grid)
 {
     return point.x * grid.settings.width;
@@ -409,6 +433,24 @@ QVariantMap draftingDocumentToModelProjection(
         layers.push_back(layerToMap(*layer));
     }
 
+    int guideCount = 0;
+    int visibleGuideCount = 0;
+    int duplicateGuideCount = 0;
+    for (std::size_t index = 0; index < sortedObjects.size(); ++index) {
+        const DraftingObject &object = *sortedObjects[index];
+        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+            continue;
+        }
+        ++guideCount;
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (object.visible && layer != nullptr && layer->visible) {
+            ++visibleGuideCount;
+        }
+        if (hasPriorEquivalentGuide(sortedObjects, index)) {
+            ++duplicateGuideCount;
+        }
+    }
+
     QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
@@ -417,6 +459,9 @@ QVariantMap draftingDocumentToModelProjection(
         {QStringLiteral("selected_object_ids"), selectedObjectIds},
         {QStringLiteral("active_object_id"), document.activeObjectId ? qStringFromStdString(*document.activeObjectId) : QString()},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},
+        {QStringLiteral("guide_count"), guideCount},
+        {QStringLiteral("visible_guide_count"), visibleGuideCount},
+        {QStringLiteral("duplicate_guide_count"), duplicateGuideCount},
         {QStringLiteral("snap"), QVariantMap{
             {QStringLiteral("grid_enabled"), snapSettings.gridEnabled},
             {QStringLiteral("object_enabled"), snapSettings.objectSnapEnabled},

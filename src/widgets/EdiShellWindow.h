@@ -95,6 +95,7 @@ private:
     QPushButton *m_fitConstructionToDrawableButton = nullptr;
     QPushButton *m_deleteSelectedGuideButton = nullptr;
     QPushButton *m_deleteAllGuidesButton = nullptr;
+    QPushButton *m_mergeDuplicateGuidesButton = nullptr;
     QPushButton *m_hideAllGuidesButton = nullptr;
     QPushButton *m_showAllGuidesButton = nullptr;
     QPushButton *m_lockAllGuidesButton = nullptr;
@@ -115,6 +116,7 @@ private:
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;
+    QLabel *m_guidesValue = nullptr;
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;
     QLabel *m_gridValue = nullptr;

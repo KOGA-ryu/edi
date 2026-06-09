@@ -392,12 +392,20 @@ int main(int argc, char **argv)
     boundsGuideModel = boundsGuideController.modelDocument();
     boundsGuideObjects = boundsGuideModel.value("drawing_objects").toList();
     assert(boundsGuideObjects.size() == 2);
+    assert(boundsGuideModel.value("guide_count").toInt() == 1);
+    assert(boundsGuideModel.value("visible_guide_count").toInt() == 1);
+    assert(boundsGuideModel.value("duplicate_guide_count").toInt() == 0);
     QVariantMap boundsGuide = boundsGuideObjects.back().toMap();
     assert(boundsGuide.value("kind").toString() == "guide");
     assert(boundsGuide.value("orientation").toString() == "vertical");
     assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.2));
     assert(!boundsGuide.value("plot_ready").toBool());
     assert(boundsGuideController.selectedObjectId() == boundsGuideSourceId);
+    const int duplicateBoundsGuideRevision = boundsGuideController.modelDocument().value("revision").toInt();
+    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    boundsGuideModel = boundsGuideController.modelDocument();
+    assert(boundsGuideModel.value("revision").toInt() == duplicateBoundsGuideRevision);
+    assert(boundsGuideModel.value("drawing_objects").toList().size() == 2);
     assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("right")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
     assert(boundsGuide.value("orientation").toString() == "vertical");
@@ -451,6 +459,36 @@ int main(int argc, char **argv)
     const int unsupportedBoundsGuideRevision = unsupportedBoundsGuideController.modelDocument().value("revision").toInt();
     assert(!unsupportedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
     assert(unsupportedBoundsGuideController.modelDocument().value("revision").toInt() == unsupportedBoundsGuideRevision);
+
+    DrawingDocumentController directDuplicateGuideController;
+    directDuplicateGuideController.setSelectedToolId("horizontal_guide_tool");
+    directDuplicateGuideController.clickCanvasNormalized(0.2, 0.3);
+    const QString directGuideId = directDuplicateGuideController.selectedObjectId();
+    directDuplicateGuideController.clickCanvasNormalized(0.8, 0.3);
+    QVariantMap directDuplicateGuideModel = directDuplicateGuideController.modelDocument();
+    assert(directDuplicateGuideModel.value("drawing_objects").toList().size() == 1);
+    assert(directDuplicateGuideModel.value("guide_count").toInt() == 1);
+    assert(directDuplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
+    assert(directDuplicateGuideController.selectedObjectId() == directGuideId);
+
+    DrawingDocumentController mergeDuplicateGuideController;
+    mergeDuplicateGuideController.setSelectedToolId("horizontal_guide_tool");
+    mergeDuplicateGuideController.clickCanvasNormalized(0.2, 0.3);
+    mergeDuplicateGuideController.clickCanvasNormalized(0.2, 0.4);
+    assert(mergeDuplicateGuideController.updateSelectedObjectGeometryField(QStringLiteral("position"), 0.3));
+    assert(mergeDuplicateGuideController.setSelectedObjectLocked(true));
+    QVariantMap duplicateGuideModel = mergeDuplicateGuideController.modelDocument();
+    assert(duplicateGuideModel.value("drawing_objects").toList().size() == 2);
+    assert(duplicateGuideModel.value("guide_count").toInt() == 2);
+    assert(duplicateGuideModel.value("duplicate_guide_count").toInt() == 1);
+    assert(mergeDuplicateGuideController.mergeDuplicateGuides());
+    duplicateGuideModel = mergeDuplicateGuideController.modelDocument();
+    QVariantList mergedGuides = duplicateGuideModel.value("drawing_objects").toList();
+    assert(mergedGuides.size() == 1);
+    assert(duplicateGuideModel.value("guide_count").toInt() == 1);
+    assert(duplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
+    assert(mergedGuides.front().toMap().value("kind").toString() == "guide");
+    assert(!mergedGuides.front().toMap().value("locked").toBool());
 
     DrawingDocumentController deleteSelectedGuideController;
     deleteSelectedGuideController.setSelectedToolId("point_tool");

@@ -90,6 +90,7 @@ public:
     bool createGuideFromSelectedBounds(const QString &placementId);
     bool deleteSelectedGuide();
     bool deleteAllGuides();
+    bool mergeDuplicateGuides();
     bool setAllGuidesVisible(bool visible);
     bool setAllGuidesLocked(bool locked);
     void clickCanvasNormalized(double x, double y);

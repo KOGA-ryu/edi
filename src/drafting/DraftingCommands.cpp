@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -40,6 +41,27 @@ bool isGuideObject(const DraftingObject &object)
     return object.kind == DraftingShapeKind::Guide && kindMatchesGeometry(object.kind, object.geometry);
 }
 
+bool sameGuidePosition(const DraftingObject &a, const DraftingObject &b)
+{
+    const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
+    const auto *guideB = std::get_if<GuideGeometry>(&b.geometry);
+    if (guideA == nullptr || guideB == nullptr || guideA->orientation != guideB->orientation) {
+        return false;
+    }
+    constexpr double epsilon = 0.000001;
+    return std::abs(guideA->position - guideB->position) <= epsilon;
+}
+
+bool hasEarlierEquivalentGuide(const std::vector<DraftingObject> &objects, std::size_t index)
+{
+    for (std::size_t previous = 0; previous < index; ++previous) {
+        if (isGuideObject(objects[previous]) && sameGuidePosition(objects[previous], objects[index])) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const DraftingCommand &command)
@@ -54,6 +76,24 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             const auto before = document.objects.size();
             document.objects.erase(std::remove_if(document.objects.begin(), document.objects.end(), isGuideObject), document.objects.end());
             if (document.objects.size() != before) {
+                normalizeSelection(document);
+                ++document.revision;
+            }
+            return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, MergeDuplicateGuidesCommand>) {
+            std::vector<DraftingObject> merged;
+            merged.reserve(document.objects.size());
+            bool changed = false;
+            for (std::size_t index = 0; index < document.objects.size(); ++index) {
+                const DraftingObject &object = document.objects[index];
+                if (isGuideObject(object) && hasEarlierEquivalentGuide(document.objects, index)) {
+                    changed = true;
+                    continue;
+                }
+                merged.push_back(object);
+            }
+            if (changed) {
+                document.objects = std::move(merged);
                 normalizeSelection(document);
                 ++document.revision;
             }

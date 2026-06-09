@@ -19,6 +19,9 @@ struct DeleteObjectCommand {
 struct DeleteAllGuidesCommand {
 };
 
+struct MergeDuplicateGuidesCommand {
+};
+
 struct MoveObjectCommand {
     DraftingObjectId objectId;
     double dx = 0.0;
@@ -115,6 +118,7 @@ using DraftingCommand = std::variant<
     CreateObjectCommand,
     DeleteObjectCommand,
     DeleteAllGuidesCommand,
+    MergeDuplicateGuidesCommand,
     MoveObjectCommand,
     MoveSelectionCommand,
     EditObjectHandleCommand,

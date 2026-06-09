@@ -737,6 +737,12 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->deleteAllGuides();
     });
     layout->addWidget(m_deleteAllGuidesButton);
+    m_mergeDuplicateGuidesButton = new QPushButton(QStringLiteral("Merge Duplicate Guides"));
+    m_mergeDuplicateGuidesButton->setObjectName(QStringLiteral("mergeDuplicateGuidesButton"));
+    connect(m_mergeDuplicateGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->mergeDuplicateGuides();
+    });
+    layout->addWidget(m_mergeDuplicateGuidesButton);
     m_hideAllGuidesButton = new QPushButton(QStringLiteral("Hide All Guides"));
     m_hideAllGuidesButton->setObjectName(QStringLiteral("hideAllGuidesButton"));
     connect(m_hideAllGuidesButton, &QPushButton::clicked, this, [this]() {
@@ -775,9 +781,11 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
     m_objectsValue = makeValueLabel();
+    m_guidesValue = makeValueLabel();
     m_revisionValue = makeValueLabel();
     layout->addWidget(m_toolValue);
     layout->addWidget(m_objectsValue);
+    layout->addWidget(m_guidesValue);
     layout->addWidget(m_revisionValue);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
@@ -1575,6 +1583,12 @@ void EdiShellWindow::refreshInspector()
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {
         m_objectsValue->setText(QStringLiteral("Objects: %1").arg(objects.size()));
+    }
+    if (m_guidesValue != nullptr) {
+        m_guidesValue->setText(QStringLiteral("Guides: %1 visible / %2 total / %3 duplicate")
+            .arg(document.value(QStringLiteral("visible_guide_count")).toInt())
+            .arg(document.value(QStringLiteral("guide_count")).toInt())
+            .arg(document.value(QStringLiteral("duplicate_guide_count")).toInt()));
     }
     if (m_revisionValue != nullptr) {
         m_revisionValue->setText(QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));

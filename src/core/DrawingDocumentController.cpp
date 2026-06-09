@@ -514,6 +514,26 @@ std::optional<DraftingAlignmentMode> distributeModeFromAxisId(const QString &axi
     return std::nullopt;
 }
 
+bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
+{
+    constexpr double epsilon = 0.000001;
+    return a.orientation == b.orientation && std::abs(a.position - b.position) <= epsilon;
+}
+
+std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide)
+{
+    for (const DraftingObject &object : document.objects) {
+        if (object.kind != DraftingShapeKind::Guide || !kindMatchesGeometry(object.kind, object.geometry)) {
+            continue;
+        }
+        const auto *existing = std::get_if<GuideGeometry>(&object.geometry);
+        if (existing != nullptr && sameGuide(*existing, guide)) {
+            return object.id;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
@@ -1699,6 +1719,10 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
         return false;
     }
 
+    if (existingGuideId(m_document, guide)) {
+        return true;
+    }
+
     const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
     auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide);
     if (!built.ok) {
@@ -1737,6 +1761,17 @@ bool DrawingDocumentController::deleteSelectedGuide()
 bool DrawingDocumentController::deleteAllGuides()
 {
     const DraftingCommandResult result = applyDraftingCommand(m_document, DeleteAllGuidesCommand{});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::mergeDuplicateGuides()
+{
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MergeDuplicateGuidesCommand{});
     if (!result.ok) {
         return false;
     }
@@ -1796,6 +1831,15 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point));
         if (object.ok) {
+            if (object.object.kind == DraftingShapeKind::Guide) {
+                const auto *guide = std::get_if<GuideGeometry>(&object.object.geometry);
+                const std::optional<DraftingObjectId> existing = guide == nullptr ? std::nullopt : existingGuideId(m_document, *guide);
+                if (existing) {
+                    applyDraftingCommand(m_document, SelectObjectCommand{*existing});
+                    emit modelChanged();
+                    return;
+                }
+            }
             applyDraftingCommand(m_document, CreateObjectCommand{object.object});
             applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
         }

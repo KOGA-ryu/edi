@@ -86,11 +86,13 @@ QString geometrySummary(const QVariantMap &object)
             .arg(formatNumber(object.value(QStringLiteral("y")).toDouble()));
     }
     if (kind == QStringLiteral("line")) {
-        return QStringLiteral("Geometry: line (%1, %2) -> (%3, %4)")
+        return QStringLiteral("Geometry: line (%1, %2) -> (%3, %4), len %5, ang %6")
             .arg(formatNumber(object.value(QStringLiteral("x1")).toDouble()))
             .arg(formatNumber(object.value(QStringLiteral("y1")).toDouble()))
             .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
-            .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()));
+            .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("line_length")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("line_angle_deg")).toDouble()));
     }
     if (kind == QStringLiteral("construction_line")) {
         return QStringLiteral("Geometry: construction (%1, %2) -> (%3, %4)")
@@ -116,10 +118,11 @@ QString geometrySummary(const QVariantMap &object)
             .arg(formatNumber(object.value(QStringLiteral("rotation_deg")).toDouble()));
     }
     if (kind == QStringLiteral("circle")) {
-        return QStringLiteral("Geometry: circle cx %1, cy %2, r %3")
+        return QStringLiteral("Geometry: circle cx %1, cy %2, r %3, d %4")
             .arg(formatNumber(object.value(QStringLiteral("cx")).toDouble()))
             .arg(formatNumber(object.value(QStringLiteral("cy")).toDouble()))
-            .arg(formatNumber(object.value(QStringLiteral("radius")).toDouble()));
+            .arg(formatNumber(object.value(QStringLiteral("radius")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("diameter")).toDouble()));
     }
 
     const QVariantList points = object.value(QStringLiteral("points")).toList();
@@ -658,6 +661,8 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
             {QStringLiteral("y1"), QStringLiteral("Y1")},
             {QStringLiteral("x2"), QStringLiteral("X2")},
             {QStringLiteral("y2"), QStringLiteral("Y2")},
+            {QStringLiteral("line_length"), QStringLiteral("Len")},
+            {QStringLiteral("line_angle_deg"), QStringLiteral("Ang")},
         };
     } else if (kind == QStringLiteral("rectangle")) {
         fields = {
@@ -672,6 +677,7 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
             {QStringLiteral("cx"), QStringLiteral("CX")},
             {QStringLiteral("cy"), QStringLiteral("CY")},
             {QStringLiteral("radius"), QStringLiteral("R")},
+            {QStringLiteral("diameter"), QStringLiteral("D")},
         };
     }
 
@@ -684,9 +690,13 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         spin->setDecimals(4);
         spin->setSingleStep(0.01);
         spin->setRange(-10.0, 10.0);
-        if (field.first == QStringLiteral("width") || field.first == QStringLiteral("height") || field.first == QStringLiteral("radius")) {
+        if (field.first == QStringLiteral("width")
+            || field.first == QStringLiteral("height")
+            || field.first == QStringLiteral("radius")
+            || field.first == QStringLiteral("diameter")
+            || field.first == QStringLiteral("line_length")) {
             spin->setRange(0.0, 10.0);
-        } else if (field.first == QStringLiteral("rotation_deg")) {
+        } else if (field.first == QStringLiteral("rotation_deg") || field.first == QStringLiteral("line_angle_deg")) {
             spin->setRange(-360.0, 360.0);
             spin->setSingleStep(1.0);
             spin->setDecimals(2);

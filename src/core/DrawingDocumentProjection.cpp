@@ -3,6 +3,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
+#include "drafting/DraftingNumericEdit.h"
 
 #include <QVariantList>
 
@@ -75,6 +76,8 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("y1"), geometry.a.y);
             result.insert(QStringLiteral("x2"), geometry.b.x);
             result.insert(QStringLiteral("y2"), geometry.b.y);
+            result.insert(QStringLiteral("line_length"), distance(geometry.a, geometry.b));
+            result.insert(QStringLiteral("line_angle_deg"), lineAngleDegrees(geometry));
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), geometry.origin.x);
             result.insert(QStringLiteral("y"), geometry.origin.y);
@@ -85,6 +88,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("cx"), geometry.center.x);
             result.insert(QStringLiteral("cy"), geometry.center.y);
             result.insert(QStringLiteral("radius"), geometry.radius);
+            result.insert(QStringLiteral("diameter"), geometry.radius * 2.0);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             result.insert(QStringLiteral("orientation"), QString::fromLatin1(guideOrientationName(geometry.orientation)));
             result.insert(QStringLiteral("position"), geometry.position);

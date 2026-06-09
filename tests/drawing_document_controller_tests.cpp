@@ -39,6 +39,11 @@ QVariantMap numericField(const QVariantMap &object, const QString &id)
     return {};
 }
 
+QVariantMap editStatus(const DrawingDocumentController &controller)
+{
+    return controller.modelDocument().value("edit_status").toMap();
+}
+
 QStringList editHandleIds(const QVariantMap &object)
 {
     QStringList ids;
@@ -426,6 +431,10 @@ int main(int argc, char **argv)
     assert(verticalGuidePhysical.value("unit_label").toString() == "in");
     assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 7.2));
     assert(guideController.updateSelectedObjectPhysicalGeometryField("position", 3.0));
+    QVariantMap guideEditStatus = editStatus(guideController);
+    assert(guideEditStatus.value("ok").toBool());
+    assert(guideEditStatus.value("mode").toString() == "physical");
+    assert(guideEditStatus.value("field_id").toString() == "position");
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
     assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.25));
@@ -433,6 +442,12 @@ int main(int argc, char **argv)
     assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 3.0));
     const int guidePhysicalRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
     assert(!guideController.updateSelectedObjectPhysicalGeometryField("position", 13.0));
+    guideEditStatus = editStatus(guideController);
+    assert(!guideEditStatus.value("ok").toBool());
+    assert(guideEditStatus.value("mode").toString() == "physical");
+    assert(guideEditStatus.value("field_id").toString() == "position");
+    assert(guideEditStatus.value("code").toString() == "invalid_geometry");
+    assert(guideEditStatus.value("message").toString() == "guide position must be normalized");
     assert(guideController.modelDocument().value("revision").toInt() == guidePhysicalRevisionBeforeInvalid);
     assert(guideController.moveSelectedGuideToDrawableOrigin());
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
@@ -2333,9 +2348,20 @@ int main(int argc, char **argv)
     assert(numericRectMeasurement.size() == 3);
     assert(numericRectMeasurement[0].toString().startsWith("area: "));
     assert(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
+    QVariantMap rectEditStatus = editStatus(numericRectController);
+    assert(!rectEditStatus.value("ok").toBool());
+    assert(rectEditStatus.value("mode").toString() == "normalized");
+    assert(rectEditStatus.value("field_id").toString() == "width");
+    assert(rectEditStatus.value("code").toString() == "invalid_geometry");
+    assert(rectEditStatus.value("message").toString() == "rectangle dimensions must be non-negative");
     QVariantMap numericRectAfterInvalid = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
     assert(numericRectController.updateSelectedObjectPhysicalGeometryField("width", 3.0));
+    rectEditStatus = editStatus(numericRectController);
+    assert(rectEditStatus.value("ok").toBool());
+    assert(rectEditStatus.value("mode").toString() == "physical");
+    assert(rectEditStatus.value("field_id").toString() == "width");
+    assert(rectEditStatus.value("message").toString().isEmpty());
     assert(numericRectController.updateSelectedObjectPhysicalGeometryField("height", 6.0));
     QVariantMap physicalRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(physicalRect.value("width").toDouble(), 0.25));
@@ -2381,7 +2407,15 @@ int main(int argc, char **argv)
     assert(nearlyEqual(physicalCircle.value("diameter").toDouble(), 0.5));
     const int circleRevisionBeforePhysicalInvalid = numericCircleController.modelDocument().value("revision").toInt();
     assert(!numericCircleController.updateSelectedObjectPhysicalGeometryField("diameter", -1.0));
+    QVariantMap circleEditStatus = editStatus(numericCircleController);
+    assert(!circleEditStatus.value("ok").toBool());
+    assert(circleEditStatus.value("mode").toString() == "physical");
+    assert(circleEditStatus.value("field_id").toString() == "diameter");
+    assert(circleEditStatus.value("code").toString() == "invalid_geometry");
+    assert(circleEditStatus.value("message").toString() == "circle diameter must be non-negative");
     assert(numericCircleController.modelDocument().value("revision").toInt() == circleRevisionBeforePhysicalInvalid);
+    numericCircleController.setSelectedToolId("select_move");
+    assert(editStatus(numericCircleController).isEmpty());
 
     DrawingDocumentController numericLineController;
     numericLineController.setSelectedToolId("line_tool");

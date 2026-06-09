@@ -128,6 +128,7 @@ private:
     QComboBox *m_activeLayerPen = nullptr;
     QComboBox *m_activeLayerStrokeWidth = nullptr;
     QWidget *m_geometryEditor = nullptr;
+    QLabel *m_geometryEditStatus = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;
     QLabel *m_guidesValue = nullptr;

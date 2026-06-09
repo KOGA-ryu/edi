@@ -912,6 +912,10 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
+    m_geometryEditStatus = makeValueLabel();
+    m_geometryEditStatus->setObjectName(QStringLiteral("editErrorLabel"));
+    m_geometryEditStatus->setVisible(false);
+    layout->addWidget(m_geometryEditStatus);
     layout->addWidget(buildNudgeControls());
     layout->addWidget(buildAlignControls());
     layout->addWidget(buildOffsetControls());
@@ -1534,6 +1538,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap guideDragSnap = document.value(QStringLiteral("guide_drag_snap")).toMap();
     const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
     const QVariantMap calibrationCorrection = document.value(QStringLiteral("calibration_correction")).toMap();
+    const QVariantMap editStatus = document.value(QStringLiteral("edit_status")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const QVariantList layers = document.value(QStringLiteral("layers")).toList();
     const QString activeLayerId = document.value(QStringLiteral("active_layer_id")).toString();
@@ -1566,6 +1571,13 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_objectGeometryValue != nullptr) {
         m_objectGeometryValue->setText(selectedObject.isEmpty() ? QStringLiteral("Geometry: none") : geometrySummary(selectedObject));
+    }
+    if (m_geometryEditStatus != nullptr) {
+        const bool showFailure = !editStatus.isEmpty() && !editStatus.value(QStringLiteral("ok")).toBool();
+        m_geometryEditStatus->setVisible(showFailure);
+        m_geometryEditStatus->setText(showFailure
+            ? QStringLiteral("Edit rejected: %1").arg(editStatus.value(QStringLiteral("message")).toString())
+            : QString());
     }
     if (m_objectLayerValue != nullptr) {
         m_objectLayerValue->setText(selectedObject.isEmpty()
@@ -1988,6 +2000,13 @@ void EdiShellWindow::applyShellStyle()
             color: #9aa8b6;
             background: #1b232d;
             border: 1px solid #24313e;
+            border-radius: 5px;
+            padding: 6px 8px;
+        }
+        #editErrorLabel {
+            color: #f0c8c8;
+            background: #2a1d21;
+            border: 1px solid #6b343f;
             border-radius: 5px;
             padding: 6px 8px;
         }

@@ -130,5 +130,6 @@ private:
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;
     QVariantMap m_lastGuideDragSnap;
+    QVariantMap m_lastEditStatus;
     int m_nextObjectSerial = 1;
 };

@@ -140,6 +140,44 @@ bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId
     return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
+QString resultCodeName(DraftingResultCode code)
+{
+    switch (code) {
+    case DraftingResultCode::None:
+        return QStringLiteral("none");
+    case DraftingResultCode::EmptyObjectId:
+        return QStringLiteral("empty_object_id");
+    case DraftingResultCode::DuplicateObjectId:
+        return QStringLiteral("duplicate_object_id");
+    case DraftingResultCode::DuplicateLayerId:
+        return QStringLiteral("duplicate_layer_id");
+    case DraftingResultCode::ObjectNotFound:
+        return QStringLiteral("object_not_found");
+    case DraftingResultCode::LayerNotFound:
+        return QStringLiteral("layer_not_found");
+    case DraftingResultCode::KindGeometryMismatch:
+        return QStringLiteral("kind_geometry_mismatch");
+    case DraftingResultCode::InvalidGeometry:
+        return QStringLiteral("invalid_geometry");
+    case DraftingResultCode::InvalidSelectionTarget:
+        return QStringLiteral("invalid_selection_target");
+    case DraftingResultCode::InvalidMetadata:
+        return QStringLiteral("invalid_metadata");
+    }
+    return QStringLiteral("unknown");
+}
+
+QVariantMap editStatus(bool ok, const QString &mode, const QString &fieldId, DraftingResultCode code, const QString &message)
+{
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("mode"), mode},
+        {QStringLiteral("field_id"), fieldId},
+        {QStringLiteral("code"), resultCodeName(code)},
+        {QStringLiteral("message"), message},
+    };
+}
+
 struct MoveSnapAnchor {
     Point2D point;
     int rank = 3;
@@ -745,6 +783,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
     if (m_pendingCalibrationCorrection) {
         model.insert(QStringLiteral("calibration_correction"), calibrationCorrectionToMap(*m_pendingCalibrationCorrection));
     }
+    if (!m_lastEditStatus.isEmpty()) {
+        model.insert(QStringLiteral("edit_status"), m_lastEditStatus);
+    }
 
     model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
     return model;
@@ -839,6 +880,7 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
+    m_lastEditStatus.clear();
     emit modelChanged();
 }
 
@@ -1043,11 +1085,15 @@ void DrawingDocumentController::updatePointerNormalized(double x, double y)
 bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString &fieldId, double value)
 {
     if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, DraftingResultCode::InvalidGeometry, QStringLiteral("geometry edit requires a selected object, field id, and finite value"));
+        emit modelChanged();
         return false;
     }
 
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
     if (object == nullptr) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
+        emit modelChanged();
         return false;
     }
 
@@ -1055,9 +1101,12 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
         m_document,
         NumericGeometryEditCommand{*m_document.activeObjectId, toStdString(fieldId), value});
     if (!result.ok) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, result.code, drawing_core::qStringFromStdString(result.message));
+        emit modelChanged();
         return false;
     }
 
+    m_lastEditStatus = editStatus(true, QStringLiteral("normalized"), fieldId, DraftingResultCode::None, {});
     emit modelChanged();
     return true;
 }
@@ -1065,25 +1114,34 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
 bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value)
 {
     if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, DraftingResultCode::InvalidGeometry, QStringLiteral("physical edit requires a selected object, field id, and finite value"));
+        emit modelChanged();
         return false;
     }
 
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
     if (object == nullptr) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
+        emit modelChanged();
         return false;
     }
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const DraftingPhysicalGeometryEditPlan plan = planPhysicalGeometryEdit(*object, grid, toStdString(fieldId), value);
     if (!plan.ok || !plan.command) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, plan.code, drawing_core::qStringFromStdString(plan.message));
+        emit modelChanged();
         return false;
     }
 
     const DraftingCommandResult result = applyDraftingCommand(m_document, *plan.command);
     if (!result.ok) {
+        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, result.code, drawing_core::qStringFromStdString(result.message));
+        emit modelChanged();
         return false;
     }
 
+    m_lastEditStatus = editStatus(true, QStringLiteral("physical"), fieldId, DraftingResultCode::None, {});
     emit modelChanged();
     return true;
 }
@@ -2387,6 +2445,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     y = clamp01(y);
     const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
     m_lastGuideDragSnap.clear();
+    m_lastEditStatus.clear();
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
         const DraftingHitTestResult hit = hitTestDocument(m_document, point);
@@ -2568,6 +2627,7 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
     if (!result.ok) {
         return false;
     }
+    m_lastEditStatus.clear();
     emit modelChanged();
     return true;
 }

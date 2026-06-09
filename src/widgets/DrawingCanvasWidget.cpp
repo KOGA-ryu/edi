@@ -360,25 +360,39 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
         snapped.value(QStringLiteral("x")).toDouble(),
         snapped.value(QStringLiteral("y")).toDouble());
     const QString kind = pointer.value(QStringLiteral("kind")).toString();
+    const QString source = pointer.value(QStringLiteral("source")).toString();
     const bool inside = pointer.value(QStringLiteral("inside_drawable")).toBool();
     QColor color("#9aa8b6");
+    Qt::PenStyle markerStyle = Qt::SolidLine;
+    double markerRadius = 5.0;
     if (!inside) {
         color = QColor("#d98b8b");
+        markerRadius = 8.0;
     } else if (kind == QStringLiteral("grid")) {
         color = QColor("#8fb4d8");
+        markerRadius = 7.0;
+    } else if (source == QStringLiteral("guide")) {
+        color = QColor("#54d2c6");
+        markerStyle = Qt::DashLine;
+        markerRadius = 8.0;
     } else if (kind == QStringLiteral("object")) {
         color = QColor("#91c89b");
+        markerRadius = 7.0;
     }
 
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(QPen(color, 1.5));
+    painter.setPen(QPen(color, source == QStringLiteral("guide") ? 2.0 : 1.5, markerStyle));
     painter.setBrush(QColor(color.red(), color.green(), color.blue(), 44));
-    painter.drawEllipse(point, 7.0, 7.0);
+    painter.drawEllipse(point, markerRadius, markerRadius);
     painter.drawLine(QPointF(point.x() - 10.0, point.y()), QPointF(point.x() + 10.0, point.y()));
     painter.drawLine(QPointF(point.x(), point.y() - 10.0), QPointF(point.x(), point.y() + 10.0));
 
-    const QString label = pointer.value(QStringLiteral("label")).toString();
+    QString label = pointer.value(QStringLiteral("label")).toString();
+    const QString sourceObjectId = pointer.value(QStringLiteral("source_object_id")).toString();
+    if (source == QStringLiteral("guide") && !sourceObjectId.isEmpty()) {
+        label = QStringLiteral("guide %1").arg(sourceObjectId);
+    }
     painter.setPen(color);
     painter.drawText(point + QPointF(12.0, -10.0), label.isEmpty() ? kind : label);
     painter.restore();

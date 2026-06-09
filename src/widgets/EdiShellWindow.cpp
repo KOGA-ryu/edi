@@ -1753,13 +1753,15 @@ void EdiShellWindow::refreshInspector()
         } else {
             const QVariantMap raw = pointer.value(QStringLiteral("raw")).toMap();
             const QVariantMap snapped = pointer.value(QStringLiteral("snapped")).toMap();
-            m_pointerValue->setText(QStringLiteral("Pointer: raw %1,%2  snap %3,%4 %5/%6  unit %7,%8 %9  %10")
+            const QString sourceObjectId = pointer.value(QStringLiteral("source_object_id")).toString();
+            m_pointerValue->setText(QStringLiteral("Pointer: raw %1,%2  snap %3,%4 %5/%6  source %7  unit %8,%9 %10  %11")
                 .arg(formatNumber(raw.value(QStringLiteral("x")).toDouble()))
                 .arg(formatNumber(raw.value(QStringLiteral("y")).toDouble()))
                 .arg(formatNumber(snapped.value(QStringLiteral("x")).toDouble()))
                 .arg(formatNumber(snapped.value(QStringLiteral("y")).toDouble()))
                 .arg(pointer.value(QStringLiteral("kind")).toString())
                 .arg(pointer.value(QStringLiteral("source")).toString())
+                .arg(sourceObjectId.isEmpty() ? QStringLiteral("none") : sourceObjectId)
                 .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_x")).toDouble()))
                 .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_y")).toDouble()))
                 .arg(pointer.value(QStringLiteral("unit_label")).toString())

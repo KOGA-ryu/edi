@@ -356,6 +356,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("layer_stats"), layerStats},
         {QStringLiteral("pen_stats"), penStats},
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
+        {QStringLiteral("first_warning_kind"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().kind)},
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
         {QStringLiteral("preview"), QVariantMap{
             {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},

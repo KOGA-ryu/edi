@@ -377,10 +377,11 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
 
 void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &model) const
 {
-    const QVariantMap preview = model.value(QStringLiteral("plot_summary")).toMap().value(QStringLiteral("preview")).toMap();
+    const QVariantMap plot = model.value(QStringLiteral("plot_summary")).toMap();
+    const QVariantMap preview = plot.value(QStringLiteral("preview")).toMap();
     const QVariantList travelSegments = preview.value(QStringLiteral("travel_segments")).toList();
     const QVariantList segments = preview.value(QStringLiteral("segments")).toList();
-    if (travelSegments.isEmpty() && segments.isEmpty()) {
+    if (travelSegments.isEmpty() && segments.isEmpty() && !plot.value(QStringLiteral("has_plot_bounds")).toBool()) {
         return;
     }
 
@@ -419,7 +420,54 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
         painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
     }
 
+    drawPlotSafetyOverlay(painter, plot);
     painter.restore();
+}
+
+void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const
+{
+    if (!plot.value(QStringLiteral("has_plot_bounds")).toBool()) {
+        return;
+    }
+
+    const QVariantMap bounds = plot.value(QStringLiteral("plot_bounds")).toMap();
+    const double x = bounds.value(QStringLiteral("x")).toDouble();
+    const double y = bounds.value(QStringLiteral("y")).toDouble();
+    const double width = bounds.value(QStringLiteral("width")).toDouble();
+    const double height = bounds.value(QStringLiteral("height")).toDouble();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) {
+        return;
+    }
+
+    bool calibratedBoundsWarning = false;
+    const QVariantList warnings = plot.value(QStringLiteral("warnings")).toList();
+    for (const QVariant &warningValue : warnings) {
+        const QVariantMap warning = warningValue.toMap();
+        if (warning.value(QStringLiteral("kind")).toString() == QStringLiteral("calibrated_plot_out_of_drawable_bounds")) {
+            calibratedBoundsWarning = true;
+            break;
+        }
+    }
+
+    const QColor color = calibratedBoundsWarning ? QColor("#d98b8b") : QColor("#91c89b");
+    const QPointF topLeft = canvasToScreen(x, y);
+    const QPointF bottomRight = canvasToScreen(x + width, y + height);
+    const QRectF rect(topLeft, bottomRight);
+    QPen pen(color, calibratedBoundsWarning ? 2.0 : 1.5, calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+    painter.setBrush(QColor(color.red(), color.green(), color.blue(), calibratedBoundsWarning ? 34 : 18));
+    painter.drawRect(rect.normalized());
+
+    const QString warningKind = plot.value(QStringLiteral("first_warning_kind")).toString();
+    const QString warningObjectId = plot.value(QStringLiteral("first_warning_object_id")).toString();
+    if (!warningKind.isEmpty()) {
+        const QString label = warningObjectId.isEmpty()
+            ? warningKind
+            : QStringLiteral("%1: %2").arg(warningKind, warningObjectId);
+        painter.setPen(color);
+        painter.drawText(rect.normalized().topLeft() + QPointF(8.0, -8.0), label);
+    }
 }
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const

@@ -650,6 +650,7 @@ int main(int argc, char **argv)
     assert(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
     assert(layerPlotSummary.value("warning_count").toInt() == 1);
     assert(layerPlotSummary.value("blocked").toBool());
+    assert(layerPlotSummary.value("first_warning_kind").toString() == "raw_out_of_drawable_bounds");
     assert(!layerPlotSummary.value("first_warning_object_id").toString().isEmpty());
 
     DrawingDocumentController calibrationController;

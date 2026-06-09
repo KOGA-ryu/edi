@@ -206,6 +206,20 @@ add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_c
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 
+add_executable(edi_plot_job_report
+    src/tools/EdiPlotJobReport.cpp
+)
+target_include_directories(edi_plot_job_report PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(edi_plot_job_report PRIVATE
+    edi_drafting_core
+)
+add_test(
+    NAME edi_plot_job_report_cli_smoke
+    COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/plot_job_report_cli_smoke.sh $<TARGET_FILE:edi_plot_job_report>
+)
+
 add_executable(drawing_document_controller_tests
     tests/drawing_document_controller_tests.cpp
     src/core/DrawingCore.h

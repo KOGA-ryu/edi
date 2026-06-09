@@ -241,6 +241,15 @@ double physicalDistance(Point2D a, Point2D b, const DraftingGridProjection &grid
     return std::sqrt(dx * dx + dy * dy);
 }
 
+double physicalDimensionOffset(const DimensionGeometry &geometry, const DraftingGridProjection &grid)
+{
+    const Point2D offset = dimensionOffsetVector(geometry);
+    const double dx = physicalWidth(offset.x, grid);
+    const double dy = physicalHeight(offset.y, grid);
+    const double magnitude = std::sqrt(dx * dx + dy * dy);
+    return geometry.offset < 0.0 ? -magnitude : magnitude;
+}
+
 double physicalAngleDegrees(Point2D a, Point2D b, const DraftingGridProjection &grid)
 {
     const double dx = physicalWidth(b.x - a.x, grid);
@@ -310,7 +319,7 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
             result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
             result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
-            result.insert(QStringLiteral("offset"), physicalDistance({0.0, 0.0}, {geometry.offset, geometry.offset}, grid));
+            result.insert(QStringLiteral("offset"), physicalDimensionOffset(geometry, grid));
             result.insert(QStringLiteral("dimension_distance"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_length"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));

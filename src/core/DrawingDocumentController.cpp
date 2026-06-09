@@ -1183,6 +1183,26 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
         return true;
     }
 
+    if (fieldId == QStringLiteral("offset")) {
+        const auto *dimension = std::get_if<DimensionGeometry>(&object->geometry);
+        if (object->kind != DraftingShapeKind::Dimension || dimension == nullptr) {
+            return false;
+        }
+        const double dx = dimension->b.x - dimension->a.x;
+        const double dy = dimension->b.y - dimension->a.y;
+        const double normalizedLength = std::sqrt(dx * dx + dy * dy);
+        if (!std::isfinite(normalizedLength) || normalizedLength <= 0.000001) {
+            return false;
+        }
+        const double nx = -dy / normalizedLength;
+        const double ny = dx / normalizedLength;
+        const double physicalPerNormalizedOffset = std::sqrt((nx * width) * (nx * width) + (ny * height) * (ny * height));
+        if (!std::isfinite(physicalPerNormalizedOffset) || physicalPerNormalizedOffset <= 0.000001) {
+            return false;
+        }
+        return updateSelectedObjectGeometryField(fieldId, value / physicalPerNormalizedOffset);
+    }
+
     double normalizedValue = value;
     if (fieldId == QStringLiteral("position")) {
         const auto *guide = std::get_if<GuideGeometry>(&object->geometry);

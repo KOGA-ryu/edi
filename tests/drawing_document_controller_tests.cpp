@@ -1005,6 +1005,7 @@ int main(int argc, char **argv)
     assert(nearlyEqual(dimensionPhysical.value("dimension_distance").toDouble(), 6.0));
     assert(nearlyEqual(dimensionPhysical.value("dimension_length").toDouble(), 6.0));
     assert(nearlyEqual(dimensionPhysical.value("dimension_angle_deg").toDouble(), 53.1301023542));
+    assert(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 0.48));
     assert(dimensionPhysical.value("dimension_label").toString() == "6 in");
     assert(nearlyEqual(dimension.value("dimension_x1").toDouble(), 0.068));
     assert(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
@@ -1018,6 +1019,11 @@ int main(int argc, char **argv)
     assert(dimensionController.setSelectedDimensionLabelVisible(false));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(!dimension.value("dimension_show_label").toBool());
+    assert(dimensionController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
+    dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.1));
+    dimensionPhysical = dimension.value("physical_geometry").toMap();
+    assert(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 1.2));
     assert(dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 3.0));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(dimension.value("x2").toDouble(), 0.25));
@@ -1101,6 +1107,20 @@ int main(int argc, char **argv)
     assert(nearlyEqual(diameterDimension.value("x2").toDouble(), 0.25));
     assert(nearlyEqual(diameterDimension.value("y2").toDouble(), 0.4));
     assert(nearlyEqual(diameterDimension.value("dimension_distance").toDouble(), 0.5));
+
+    DrawingDocumentController dimensionOffsetScaleController;
+    dimensionOffsetScaleController.setGridSize(12.0, 6.0);
+    dimensionOffsetScaleController.setSelectedToolId("distance_dimension_tool");
+    dimensionOffsetScaleController.clickCanvasNormalized(0.1, 0.2);
+    dimensionOffsetScaleController.clickCanvasNormalized(0.4, 0.2);
+    QVariantMap scaledOffsetDimension = dimensionOffsetScaleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    QVariantMap scaledOffsetPhysical = scaledOffsetDimension.value("physical_geometry").toMap();
+    assert(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 0.24));
+    assert(dimensionOffsetScaleController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
+    scaledOffsetDimension = dimensionOffsetScaleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    scaledOffsetPhysical = scaledOffsetDimension.value("physical_geometry").toMap();
+    assert(nearlyEqual(scaledOffsetDimension.value("offset").toDouble(), 0.2));
+    assert(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 1.2));
 
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");

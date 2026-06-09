@@ -1353,6 +1353,70 @@ int main(int argc, char **argv)
     guidePointer = guidePointerController.modelDocument().value("pointer").toMap();
     assert(guidePointer.value("kind").toString() == "none");
 
+    DrawingDocumentController emptyMeasureController;
+    emptyMeasureController.updatePointerNormalized(0.5, 0.5);
+    QVariantMap emptyMeasureModel = emptyMeasureController.modelDocument();
+    QVariantMap emptyMeasure = emptyMeasureModel.value("quick_measurement").toMap();
+    assert(!emptyMeasure.value("ok").toBool());
+    assert(emptyMeasure.value("kind").toString() == "none");
+    assert(emptyMeasure.value("message").toString() == "no measurable target");
+
+    DrawingDocumentController lineMeasureController;
+    lineMeasureController.setSelectedToolId("line_tool");
+    lineMeasureController.clickCanvasNormalized(0.1, 0.2);
+    lineMeasureController.clickCanvasNormalized(0.4, 0.6);
+    const int lineMeasureRevision = lineMeasureController.modelDocument().value("revision").toInt();
+    const int lineMeasureObjectCount = lineMeasureController.modelDocument().value("drawing_objects").toList().size();
+    lineMeasureController.updatePointerNormalized(0.25, 0.4);
+    QVariantMap lineMeasureModel = lineMeasureController.modelDocument();
+    QVariantMap lineMeasure = lineMeasureModel.value("quick_measurement").toMap();
+    assert(lineMeasure.value("ok").toBool());
+    assert(lineMeasure.value("kind").toString() == "line");
+    assert(lineMeasure.value("object_kind").toString() == "line");
+    assert(nearlyEqual(lineMeasure.value("length").toDouble(), 0.5));
+    assert(nearlyEqual(lineMeasure.value("physical_length").toDouble(), 6.0));
+    assert(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), 53.1301023542));
+    assert(lineMeasure.value("unit_label").toString() == "in");
+    assert(lineMeasureModel.value("revision").toInt() == lineMeasureRevision);
+    assert(lineMeasureModel.value("drawing_objects").toList().size() == lineMeasureObjectCount);
+
+    DrawingDocumentController circleMeasureController;
+    circleMeasureController.setSelectedToolId("circle_tool");
+    circleMeasureController.clickCanvasNormalized(0.5, 0.5);
+    circleMeasureController.clickCanvasNormalized(0.7, 0.5);
+    circleMeasureController.updatePointerNormalized(0.7, 0.5);
+    QVariantMap circleMeasure = circleMeasureController.modelDocument().value("quick_measurement").toMap();
+    assert(circleMeasure.value("ok").toBool());
+    assert(circleMeasure.value("kind").toString() == "circle");
+    assert(nearlyEqual(circleMeasure.value("radius").toDouble(), 0.2));
+    assert(nearlyEqual(circleMeasure.value("diameter").toDouble(), 0.4));
+    assert(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), 2.4));
+    assert(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), 4.8));
+
+    DrawingDocumentController rectMeasureController;
+    rectMeasureController.setSelectedToolId("rectangle_tool");
+    rectMeasureController.clickCanvasNormalized(0.1, 0.2);
+    rectMeasureController.clickCanvasNormalized(0.4, 0.6);
+    rectMeasureController.updatePointerNormalized(0.2, 0.3);
+    QVariantMap rectMeasure = rectMeasureController.modelDocument().value("quick_measurement").toMap();
+    assert(rectMeasure.value("ok").toBool());
+    assert(rectMeasure.value("kind").toString() == "rectangle");
+    assert(nearlyEqual(rectMeasure.value("width").toDouble(), 0.3));
+    assert(nearlyEqual(rectMeasure.value("height").toDouble(), 0.4));
+    assert(nearlyEqual(rectMeasure.value("physical_width").toDouble(), 3.6));
+    assert(nearlyEqual(rectMeasure.value("physical_height").toDouble(), 4.8));
+    assert(nearlyEqual(rectMeasure.value("physical_area").toDouble(), 17.28));
+
+    DrawingDocumentController pointMeasureController;
+    pointMeasureController.setSelectedToolId("point_tool");
+    pointMeasureController.clickCanvasNormalized(0.25, 0.5);
+    pointMeasureController.updatePointerNormalized(0.25, 0.5);
+    QVariantMap pointMeasure = pointMeasureController.modelDocument().value("quick_measurement").toMap();
+    assert(pointMeasure.value("ok").toBool());
+    assert(pointMeasure.value("kind").toString() == "point");
+    assert(nearlyEqual(pointMeasure.value("physical_x").toDouble(), 3.0));
+    assert(nearlyEqual(pointMeasure.value("physical_y").toDouble(), 6.0));
+
     DrawingDocumentController guideCreationSnapController;
     guideCreationSnapController.setSelectedToolId("horizontal_guide_tool");
     guideCreationSnapController.clickCanvasNormalized(0.2, 0.75);

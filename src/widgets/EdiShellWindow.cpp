@@ -973,6 +973,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         }
     });
     m_pointerValue = makeValueLabel();
+    m_quickMeasureValue = makeValueLabel();
     m_guideDragValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
@@ -986,6 +987,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_plotDirectionMode);
     layout->addWidget(m_plotPreviewVisible);
     layout->addWidget(m_pointerValue);
+    layout->addWidget(m_quickMeasureValue);
     layout->addWidget(m_guideDragValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);
@@ -1566,6 +1568,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
+    const QVariantMap quickMeasurement = document.value(QStringLiteral("quick_measurement")).toMap();
     const QVariantMap guideDragSnap = document.value(QStringLiteral("guide_drag_snap")).toMap();
     const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
     const QVariantMap calibrationCorrection = document.value(QStringLiteral("calibration_correction")).toMap();
@@ -1959,6 +1962,15 @@ void EdiShellWindow::refreshInspector()
                 .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_y")).toDouble()))
                 .arg(pointer.value(QStringLiteral("unit_label")).toString())
                 .arg(pointer.value(QStringLiteral("inside_drawable")).toBool() ? QStringLiteral("inside") : QStringLiteral("outside")));
+        }
+    }
+    if (m_quickMeasureValue != nullptr) {
+        if (quickMeasurement.isEmpty() || !quickMeasurement.value(QStringLiteral("ok")).toBool()) {
+            m_quickMeasureValue->setText(QStringLiteral("Quick measure: none"));
+        } else {
+            m_quickMeasureValue->setText(QStringLiteral("Quick measure: %1  target %2")
+                .arg(quickMeasurement.value(QStringLiteral("label")).toString())
+                .arg(quickMeasurement.value(QStringLiteral("object_id")).toString()));
         }
     }
     if (m_guideDragValue != nullptr) {

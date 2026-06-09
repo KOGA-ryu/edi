@@ -1126,6 +1126,17 @@ int main(int argc, char **argv)
     assert(nearlyEqual(dimensionPhysical.value("dimension_angle_deg").toDouble(), 53.1301023542));
     assert(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 0.48));
     assert(dimensionPhysical.value("dimension_label").toString() == "6 in");
+    dimensionController.updatePointerNormalized(0.218, 0.424);
+    QVariantMap dimensionQuickMeasure = dimensionController.modelDocument().value("quick_measurement").toMap();
+    assert(dimensionQuickMeasure.value("ok").toBool());
+    assert(dimensionQuickMeasure.value("kind").toString() == "dimension");
+    assert(dimensionQuickMeasure.value("object_kind").toString() == "dimension");
+    assert(dimensionQuickMeasure.value("dimension_kind").toString() == "distance");
+    assert(nearlyEqual(dimensionQuickMeasure.value("length").toDouble(), dimension.value("dimension_length").toDouble()));
+    assert(nearlyEqual(dimensionQuickMeasure.value("displayed_length").toDouble(), dimension.value("dimension_length").toDouble()));
+    assert(nearlyEqual(dimensionQuickMeasure.value("physical_displayed_length").toDouble(), dimensionPhysical.value("dimension_length").toDouble()));
+    assert(nearlyEqual(dimensionQuickMeasure.value("physical_angle_deg").toDouble(), dimensionPhysical.value("dimension_angle_deg").toDouble()));
+    assert(nearlyEqual(dimensionQuickMeasure.value("physical_offset").toDouble(), dimensionPhysical.value("offset").toDouble()));
     assert(nearlyEqual(dimension.value("dimension_x1").toDouble(), 0.068));
     assert(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
     assert(nearlyEqual(dimension.value("dimension_x2").toDouble(), 0.368));

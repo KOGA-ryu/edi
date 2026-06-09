@@ -494,6 +494,17 @@ QVariantMap quickMeasurementProjectionToMap(const DraftingQuickMeasureResult &me
         result.insert(QStringLiteral("physical_length"), measurement.physicalLength);
         result.insert(QStringLiteral("physical_angle_deg"), measurement.physicalAngleDeg);
         break;
+    case DraftingQuickMeasureKind::Dimension:
+        result.insert(QStringLiteral("dimension_kind"), QString::fromLatin1(dimensionKindName(measurement.dimensionKind)));
+        result.insert(QStringLiteral("length"), measurement.length);
+        result.insert(QStringLiteral("displayed_length"), measurement.displayedLength);
+        result.insert(QStringLiteral("angle_deg"), measurement.angleDeg);
+        result.insert(QStringLiteral("physical_length"), measurement.physicalLength);
+        result.insert(QStringLiteral("physical_displayed_length"), measurement.physicalDisplayedLength);
+        result.insert(QStringLiteral("physical_angle_deg"), measurement.physicalAngleDeg);
+        result.insert(QStringLiteral("offset"), measurement.offset);
+        result.insert(QStringLiteral("physical_offset"), measurement.physicalOffset);
+        break;
     case DraftingQuickMeasureKind::Rectangle:
         result.insert(QStringLiteral("width"), measurement.width);
         result.insert(QStringLiteral("height"), measurement.height);

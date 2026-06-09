@@ -13,6 +13,7 @@ enum class DraftingQuickMeasureKind {
     Line,
     Rectangle,
     Circle,
+    Dimension,
     Unsupported
 };
 
@@ -28,6 +29,7 @@ struct DraftingQuickMeasureResult {
     std::string unitName;
     std::string unitLabel;
     std::string label;
+    DimensionKind dimensionKind = DimensionKind::Distance;
 
     double x = 0.0;
     double y = 0.0;
@@ -38,6 +40,10 @@ struct DraftingQuickMeasureResult {
     double angleDeg = 0.0;
     double physicalLength = 0.0;
     double physicalAngleDeg = 0.0;
+    double displayedLength = 0.0;
+    double physicalDisplayedLength = 0.0;
+    double offset = 0.0;
+    double physicalOffset = 0.0;
 
     double width = 0.0;
     double height = 0.0;

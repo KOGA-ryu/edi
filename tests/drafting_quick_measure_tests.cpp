@@ -52,6 +52,7 @@ int main()
     assert(addObject(document, object("circle_1", DraftingShapeKind::Circle, CircleGeometry{{0.25, 0.75}, 0.1})).ok);
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.65, 0.1}, 0.2, 0.3})).ok);
     assert(addObject(document, object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}})).ok);
+    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.9}, {0.5, 0.9}, 0.05})).ok);
     assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.92})).ok);
 
     const std::uint64_t revisionBefore = document.revision;
@@ -98,6 +99,32 @@ int main()
     assert(nearlyEqual(pointMeasure.physicalX, 1.2));
     assert(nearlyEqual(pointMeasure.physicalY, 0.8));
 
+    DraftingQuickMeasureResult dimensionMeasure = quickMeasureAt(document, {0.3, 0.95}, grid);
+    assert(dimensionMeasure.ok);
+    assert(dimensionMeasure.kind == DraftingQuickMeasureKind::Dimension);
+    assert(dimensionMeasure.objectId == "dimension_1");
+    assert(dimensionMeasure.dimensionKind == DimensionKind::Distance);
+    assert(nearlyEqual(dimensionMeasure.length, 0.4));
+    assert(nearlyEqual(dimensionMeasure.displayedLength, 0.4));
+    assert(nearlyEqual(dimensionMeasure.physicalLength, 4.8));
+    assert(nearlyEqual(dimensionMeasure.physicalDisplayedLength, 4.8));
+    assert(nearlyEqual(dimensionMeasure.angleDeg, 0.0));
+    assert(nearlyEqual(dimensionMeasure.physicalAngleDeg, 0.0));
+    assert(nearlyEqual(dimensionMeasure.offset, 0.05));
+    assert(nearlyEqual(dimensionMeasure.physicalOffset, 0.4));
+    assert(dimensionMeasure.label == "dimension distance 4.8 in @ 0 deg");
+
+    DraftingDocument diameterDocument = makeDraftingDocument("diameter_measure_doc");
+    assert(addObject(diameterDocument, object("diameter_dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Diameter, {0.1, 0.5}, {0.3, 0.5}, 0.05})).ok);
+    DraftingQuickMeasureResult diameterMeasure = quickMeasureAt(diameterDocument, {0.2, 0.55}, grid);
+    assert(diameterMeasure.ok);
+    assert(diameterMeasure.kind == DraftingQuickMeasureKind::Dimension);
+    assert(diameterMeasure.dimensionKind == DimensionKind::Diameter);
+    assert(nearlyEqual(diameterMeasure.length, 0.2));
+    assert(nearlyEqual(diameterMeasure.displayedLength, 0.4));
+    assert(nearlyEqual(diameterMeasure.physicalLength, 2.4));
+    assert(nearlyEqual(diameterMeasure.physicalDisplayedLength, 4.8));
+
     DraftingQuickMeasureResult guideMeasure = quickMeasureAt(document, {0.92, 0.5}, grid);
     assert(!guideMeasure.ok);
     assert(guideMeasure.kind == DraftingQuickMeasureKind::Unsupported);
@@ -112,6 +139,7 @@ int main()
     assert(draftingQuickMeasureKindName(DraftingQuickMeasureKind::Line) == std::string("line"));
     assert(draftingQuickMeasureKindName(DraftingQuickMeasureKind::Rectangle) == std::string("rectangle"));
     assert(draftingQuickMeasureKindName(DraftingQuickMeasureKind::Circle) == std::string("circle"));
+    assert(draftingQuickMeasureKindName(DraftingQuickMeasureKind::Dimension) == std::string("dimension"));
     assert(draftingQuickMeasureKindName(DraftingQuickMeasureKind::Unsupported) == std::string("unsupported"));
 
     return 0;

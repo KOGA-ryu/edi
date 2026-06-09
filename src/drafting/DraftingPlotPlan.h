@@ -44,9 +44,30 @@ struct DraftingPlotSegment {
 struct DraftingPlotTravelSegment {
     DraftingObjectId fromObjectId;
     DraftingObjectId toObjectId;
+    LayerId toLayerId;
+    std::string toPenId;
     Point2D a;
     Point2D b;
     double distance = 0.0;
+};
+
+struct DraftingPlotLayerStats {
+    LayerId layerId;
+    std::string layerName;
+    int objectCount = 0;
+    int segmentCount = 0;
+    double strokeDistance = 0.0;
+    double travelDistance = 0.0;
+};
+
+struct DraftingPlotPenStats {
+    std::string penId;
+    std::string strokeColor;
+    double strokeWidth = 0.0;
+    int objectCount = 0;
+    int segmentCount = 0;
+    double strokeDistance = 0.0;
+    double travelDistance = 0.0;
 };
 
 struct DraftingPlotWarning {
@@ -59,6 +80,8 @@ struct DraftingPlotPlan {
     std::vector<DraftingPlotObject> objects;
     std::vector<DraftingPlotSegment> segments;
     std::vector<DraftingPlotTravelSegment> travelSegments;
+    std::vector<DraftingPlotLayerStats> layerStats;
+    std::vector<DraftingPlotPenStats> penStats;
     std::vector<DraftingPlotWarning> warnings;
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
     DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;

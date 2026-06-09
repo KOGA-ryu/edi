@@ -129,6 +129,8 @@ void appendTravelSegments(DraftingPlotPlan &plan)
         plan.travelSegments.push_back({
             from.objectId,
             to.objectId,
+            to.layerId,
+            to.penId,
             from.b,
             to.a,
             travelDistance,
@@ -194,6 +196,87 @@ void reorderSegmentsNearestNext(
     }
 
     segments = std::move(ordered);
+}
+
+DraftingPlotLayerStats &ensureLayerStats(DraftingPlotPlan &plan, const DraftingDocument &document, const LayerId &layerId)
+{
+    const auto found = std::find_if(plan.layerStats.begin(), plan.layerStats.end(), [&](const DraftingPlotLayerStats &stats) {
+        return stats.layerId == layerId;
+    });
+    if (found != plan.layerStats.end()) {
+        return *found;
+    }
+
+    std::string layerName = layerId;
+    if (const DraftingLayer *layer = findLayer(document, layerId)) {
+        layerName = layer->name;
+    }
+    plan.layerStats.push_back({layerId, layerName});
+    return plan.layerStats.back();
+}
+
+DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotSegment &segment)
+{
+    const auto found = std::find_if(plan.penStats.begin(), plan.penStats.end(), [&](const DraftingPlotPenStats &stats) {
+        return stats.penId == segment.penId;
+    });
+    if (found != plan.penStats.end()) {
+        return *found;
+    }
+
+    plan.penStats.push_back({
+        segment.penId,
+        segment.strokeColor,
+        segment.strokeWidth,
+    });
+    return plan.penStats.back();
+}
+
+DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotTravelSegment &segment)
+{
+    const auto found = std::find_if(plan.penStats.begin(), plan.penStats.end(), [&](const DraftingPlotPenStats &stats) {
+        return stats.penId == segment.toPenId;
+    });
+    if (found != plan.penStats.end()) {
+        return *found;
+    }
+
+    plan.penStats.push_back({segment.toPenId});
+    return plan.penStats.back();
+}
+
+void appendPlotStats(DraftingPlotPlan &plan, const DraftingDocument &document)
+{
+    for (const DraftingPlotObject &object : plan.objects) {
+        DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, object.layerId);
+        ++layerStats.objectCount;
+
+        DraftingPlotSegment segment;
+        segment.penId = object.penId;
+        segment.strokeColor = object.strokeColor;
+        segment.strokeWidth = object.strokeWidth;
+        DraftingPlotPenStats &penStats = ensurePenStats(plan, segment);
+        ++penStats.objectCount;
+    }
+
+    for (const DraftingPlotSegment &segment : plan.segments) {
+        const double strokeDistance = pointDistance(segment.a, segment.b);
+        DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, segment.layerId);
+        ++layerStats.segmentCount;
+        layerStats.strokeDistance += strokeDistance;
+
+        DraftingPlotPenStats &penStats = ensurePenStats(plan, segment);
+        ++penStats.segmentCount;
+        penStats.strokeDistance += strokeDistance;
+    }
+
+    for (const DraftingPlotTravelSegment &segment : plan.travelSegments) {
+        DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, segment.toLayerId);
+        layerStats.travelDistance += segment.distance;
+
+        DraftingPlotPenStats &penStats = ensurePenStats(plan, segment);
+        penStats.travelDistance += segment.distance;
+    }
 }
 
 } // namespace
@@ -300,6 +383,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
         reorderSegmentsNearestNext(plan.segments, grid.origin, settings.directionMode);
     }
     appendTravelSegments(plan);
+    appendPlotStats(plan, document);
 
     return plan;
 }

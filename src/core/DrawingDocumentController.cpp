@@ -255,11 +255,36 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         travelSegments.push_back(QVariantMap{
             {QStringLiteral("from_object_id"), drawing_core::qStringFromStdString(segment.fromObjectId)},
             {QStringLiteral("to_object_id"), drawing_core::qStringFromStdString(segment.toObjectId)},
+            {QStringLiteral("to_layer_id"), drawing_core::qStringFromStdString(segment.toLayerId)},
+            {QStringLiteral("to_pen_id"), drawing_core::qStringFromStdString(segment.toPenId)},
             {QStringLiteral("x1"), segment.a.x},
             {QStringLiteral("y1"), segment.a.y},
             {QStringLiteral("x2"), segment.b.x},
             {QStringLiteral("y2"), segment.b.y},
             {QStringLiteral("distance"), segment.distance},
+        });
+    }
+    QVariantList layerStats;
+    for (const DraftingPlotLayerStats &stats : plan.layerStats) {
+        layerStats.push_back(QVariantMap{
+            {QStringLiteral("layer_id"), drawing_core::qStringFromStdString(stats.layerId)},
+            {QStringLiteral("layer_name"), drawing_core::qStringFromStdString(stats.layerName)},
+            {QStringLiteral("object_count"), stats.objectCount},
+            {QStringLiteral("segment_count"), stats.segmentCount},
+            {QStringLiteral("stroke_distance"), stats.strokeDistance},
+            {QStringLiteral("travel_distance"), stats.travelDistance},
+        });
+    }
+    QVariantList penStats;
+    for (const DraftingPlotPenStats &stats : plan.penStats) {
+        penStats.push_back(QVariantMap{
+            {QStringLiteral("pen_id"), drawing_core::qStringFromStdString(stats.penId)},
+            {QStringLiteral("stroke_color"), drawing_core::qStringFromStdString(stats.strokeColor)},
+            {QStringLiteral("stroke_width"), stats.strokeWidth},
+            {QStringLiteral("object_count"), stats.objectCount},
+            {QStringLiteral("segment_count"), stats.segmentCount},
+            {QStringLiteral("stroke_distance"), stats.strokeDistance},
+            {QStringLiteral("travel_distance"), stats.travelDistance},
         });
     }
 
@@ -272,6 +297,8 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("travel_distance"), plan.travelDistance},
         {QStringLiteral("warning_count"), static_cast<int>(plan.warnings.size())},
         {QStringLiteral("blocked"), !plan.warnings.empty()},
+        {QStringLiteral("layer_stats"), layerStats},
+        {QStringLiteral("pen_stats"), penStats},
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
         {QStringLiteral("preview"), QVariantMap{

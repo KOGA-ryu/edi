@@ -439,6 +439,8 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
+    m_plotLayerStatsValue = makeValueLabel();
+    m_plotPenStatsValue = makeValueLabel();
     m_plotOrderMode = new QComboBox;
     m_plotOrderMode->setObjectName(QStringLiteral("plotOrderMode"));
     m_plotOrderMode->addItem(QStringLiteral("Plot order: layer"), QStringLiteral("layer_order"));
@@ -474,6 +476,8 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
     layout->addWidget(m_plotValue);
+    layout->addWidget(m_plotLayerStatsValue);
+    layout->addWidget(m_plotPenStatsValue);
     layout->addWidget(m_plotOrderMode);
     layout->addWidget(m_plotDirectionMode);
     layout->addWidget(m_plotPreviewVisible);
@@ -1127,6 +1131,44 @@ void EdiShellWindow::refreshInspector()
                 .arg(plot.value(QStringLiteral("segment_count")).toInt())
                 .arg(travelSegmentCount)
                 .arg(travelDistance));
+    }
+    if (m_plotLayerStatsValue != nullptr) {
+        QVariantMap activeLayerStats;
+        const QVariantList layerStats = plot.value(QStringLiteral("layer_stats")).toList();
+        for (const QVariant &statsValue : layerStats) {
+            const QVariantMap stats = statsValue.toMap();
+            if (stats.value(QStringLiteral("layer_id")).toString() == activeLayerId) {
+                activeLayerStats = stats;
+                break;
+            }
+        }
+        m_plotLayerStatsValue->setText(activeLayerStats.isEmpty()
+            ? QStringLiteral("Layer plot: none")
+            : QStringLiteral("Layer plot: %1 obj, %2 strokes, draw %3, travel %4")
+                .arg(activeLayerStats.value(QStringLiteral("object_count")).toInt())
+                .arg(activeLayerStats.value(QStringLiteral("segment_count")).toInt())
+                .arg(formatNumber(activeLayerStats.value(QStringLiteral("stroke_distance")).toDouble()))
+                .arg(formatNumber(activeLayerStats.value(QStringLiteral("travel_distance")).toDouble())));
+    }
+    if (m_plotPenStatsValue != nullptr) {
+        QVariantMap activePenStats;
+        const QString activePenId = activeLayer.value(QStringLiteral("pen_id")).toString();
+        const QVariantList penStats = plot.value(QStringLiteral("pen_stats")).toList();
+        for (const QVariant &statsValue : penStats) {
+            const QVariantMap stats = statsValue.toMap();
+            if (stats.value(QStringLiteral("pen_id")).toString() == activePenId) {
+                activePenStats = stats;
+                break;
+            }
+        }
+        m_plotPenStatsValue->setText(activePenStats.isEmpty()
+            ? QStringLiteral("Pen plot: none")
+            : QStringLiteral("Pen plot: %1, %2 obj, %3 strokes, draw %4, travel %5")
+                .arg(activePenStats.value(QStringLiteral("pen_id")).toString())
+                .arg(activePenStats.value(QStringLiteral("object_count")).toInt())
+                .arg(activePenStats.value(QStringLiteral("segment_count")).toInt())
+                .arg(formatNumber(activePenStats.value(QStringLiteral("stroke_distance")).toDouble()))
+                .arg(formatNumber(activePenStats.value(QStringLiteral("travel_distance")).toDouble())));
     }
     if (m_plotOrderMode != nullptr) {
         const QSignalBlocker blocker(m_plotOrderMode);

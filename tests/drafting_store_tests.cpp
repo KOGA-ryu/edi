@@ -250,6 +250,38 @@ int main()
     assert(missingMetadataUpdate.code == DraftingResultCode::ObjectNotFound);
     assert(document.revision == revisionBeforeMissingMetadata);
 
+    const auto revisionBeforeFlags = document.revision;
+    auto flagUpdate = updateObjectFlags(document, "line_1", true, false);
+    assert(flagUpdate.ok);
+    const auto *flaggedLine = findObject(document, "line_1");
+    assert(flaggedLine != nullptr);
+    assert(flaggedLine->locked);
+    assert(!flaggedLine->visible);
+    assert(document.revision == revisionBeforeFlags + 1);
+
+    const auto revisionBeforeLockedMove = document.revision;
+    auto lockedMove = moveObject(document, "line_1", 1.0, 0.0);
+    assert(!lockedMove.ok);
+    assert(lockedMove.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(document.revision == revisionBeforeLockedMove);
+    auto lockedGeometryUpdate = updateObjectGeometry(document, "line_1", LineGeometry{{0.0, 0.0}, {2.0, 0.0}});
+    assert(!lockedGeometryUpdate.ok);
+    assert(lockedGeometryUpdate.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(document.revision == revisionBeforeLockedMove);
+
+    auto unlockLine = updateObjectFlags(document, "line_1", false, true);
+    assert(unlockLine.ok);
+    flaggedLine = findObject(document, "line_1");
+    assert(flaggedLine != nullptr);
+    assert(!flaggedLine->locked);
+    assert(flaggedLine->visible);
+
+    const auto revisionBeforeMissingFlags = document.revision;
+    auto missingFlags = updateObjectFlags(document, "missing", true, false);
+    assert(!missingFlags.ok);
+    assert(missingFlags.code == DraftingResultCode::ObjectNotFound);
+    assert(document.revision == revisionBeforeMissingFlags);
+
     selectOnly(document, "line_2");
     auto removeMiddle = removeObject(document, "line_2");
     assert(removeMiddle.ok);

@@ -44,6 +44,9 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
     if (!index) {
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
+    if (document.objects[*index].locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
 
     document.objects.erase(document.objects.begin() + static_cast<std::ptrdiff_t>(*index));
     normalizeSelection(document);
@@ -58,6 +61,9 @@ DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const Draft
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
     DraftingObject &object = document.objects[*index];
+    if (object.locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
 
     DraftingObject candidate = object;
     candidate.geometry = std::move(geometry);
@@ -91,6 +97,23 @@ DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const Draft
     return DraftingStoreResult::accepted();
 }
 
+DraftingStoreResult updateObjectFlags(DraftingDocument &document, const DraftingObjectId &id, bool locked, bool visible)
+{
+    const auto index = objectIndexById(document, id);
+    if (!index) {
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+    }
+
+    DraftingObject &object = document.objects[*index];
+    if (object.locked == locked && object.visible == visible) {
+        return DraftingStoreResult::accepted();
+    }
+    object.locked = locked;
+    object.visible = visible;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy)
 {
     const auto index = objectIndexById(document, id);
@@ -98,6 +121,9 @@ DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectI
         return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
     }
     DraftingObject &object = document.objects[*index];
+    if (object.locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
 
     if (!std::isfinite(dx) || !std::isfinite(dy)) {
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");

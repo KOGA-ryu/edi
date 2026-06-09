@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QPair>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QStringList>
 #include <QVariantList>
@@ -368,6 +369,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectGeometryValue);
     layout->addWidget(m_objectLayerValue);
     layout->addWidget(m_objectMeasurementValue);
+    layout->addWidget(buildObjectFlagControls());
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
@@ -407,6 +409,32 @@ QWidget *EdiShellWindow::buildGeometryEditor()
     layout->setHorizontalSpacing(6);
     layout->setVerticalSpacing(6);
     return editor;
+}
+
+QWidget *EdiShellWindow::buildObjectFlagControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("objectFlagControls"));
+    auto *layout = new QHBoxLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(10);
+
+    m_selectedLocked = new QCheckBox(QStringLiteral("Locked"));
+    m_selectedLocked->setObjectName(QStringLiteral("objectFlagCheckbox"));
+    connect(m_selectedLocked, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setSelectedObjectLocked(checked);
+    });
+
+    m_selectedVisible = new QCheckBox(QStringLiteral("Visible"));
+    m_selectedVisible->setObjectName(QStringLiteral("objectFlagCheckbox"));
+    connect(m_selectedVisible, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setSelectedObjectVisible(checked);
+    });
+
+    layout->addWidget(m_selectedLocked);
+    layout->addWidget(m_selectedVisible);
+    layout->addStretch(1);
+    return panel;
 }
 
 QWidget *EdiShellWindow::buildNudgeControls()
@@ -790,9 +818,20 @@ void EdiShellWindow::refreshInspector()
     if (m_objectLayerValue != nullptr) {
         m_objectLayerValue->setText(selectedObject.isEmpty()
             ? QStringLiteral("Layer: none")
-            : QStringLiteral("Layer: %1   Locked: %2")
+            : QStringLiteral("Layer: %1   Locked: %2   Visible: %3")
                 .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
-                .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool())));
+                .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool()))
+                .arg(yesNo(selectedObject.value(QStringLiteral("visible")).toBool())));
+    }
+    if (m_selectedLocked != nullptr) {
+        const QSignalBlocker blocker(m_selectedLocked);
+        m_selectedLocked->setEnabled(!selectedObject.isEmpty());
+        m_selectedLocked->setChecked(selectedObject.value(QStringLiteral("locked")).toBool());
+    }
+    if (m_selectedVisible != nullptr) {
+        const QSignalBlocker blocker(m_selectedVisible);
+        m_selectedVisible->setEnabled(!selectedObject.isEmpty());
+        m_selectedVisible->setChecked(selectedObject.isEmpty() ? false : selectedObject.value(QStringLiteral("visible")).toBool());
     }
     if (m_objectMeasurementValue != nullptr) {
         const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();

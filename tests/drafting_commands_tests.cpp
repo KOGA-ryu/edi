@@ -75,6 +75,27 @@ int main()
     assert(badHandle.code == DraftingResultCode::InvalidSelectionTarget);
     assert(editDocument.revision == revisionAfterLineEdit);
 
+    const auto revisionBeforeLock = editDocument.revision;
+    auto lockLine = applyDraftingCommand(editDocument, UpdateObjectFlagsCommand{"line_1", true, true});
+    assert(lockLine.ok);
+    const auto *lockedLineObject = findObject(editDocument, "line_1");
+    assert(lockedLineObject != nullptr);
+    assert(lockedLineObject->locked);
+    assert(editDocument.revision == revisionBeforeLock + 1);
+    const auto revisionAfterLock = editDocument.revision;
+    auto lockedEdit = applyDraftingCommand(editDocument, EditObjectHandleCommand{"line_1", "line_end", {30.0, 30.0}});
+    assert(!lockedEdit.ok);
+    assert(lockedEdit.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedMove = applyDraftingCommand(editDocument, MoveObjectCommand{"line_1", 1.0, 0.0});
+    assert(!lockedMove.ok);
+    assert(lockedMove.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedDelete = applyDraftingCommand(editDocument, DeleteObjectCommand{"line_1"});
+    assert(!lockedDelete.ok);
+    assert(lockedDelete.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(editDocument.revision == revisionAfterLock);
+    auto unlockLine = applyDraftingCommand(editDocument, UpdateObjectFlagsCommand{"line_1", false, true});
+    assert(unlockLine.ok);
+
     auto builtRect = buildDraftingObject("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{1.0, 1.0}, 3.0, 4.0});
     assert(builtRect.ok);
     assert(applyDraftingCommand(editDocument, CreateObjectCommand{builtRect.object}).ok);

@@ -443,6 +443,48 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
     return true;
 }
 
+bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateObjectFlagsCommand{*m_document.activeObjectId, locked, object->visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateObjectFlagsCommand{*m_document.activeObjectId, object->locked, visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::nudgeSelection(const QString &direction, const QString &stepMode)
 {
     if (m_document.selectedObjectIds.empty()) {
@@ -482,7 +524,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr) {
+    if (source == nullptr || source->locked) {
         return false;
     }
 
@@ -507,7 +549,7 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr) {
+    if (source == nullptr || source->locked) {
         return false;
     }
 
@@ -535,7 +577,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr) {
+    if (source == nullptr || source->locked) {
         return false;
     }
 

@@ -43,6 +43,12 @@ struct UpdateMetadataCommand {
     ObjectMetadata metadata;
 };
 
+struct UpdateObjectFlagsCommand {
+    DraftingObjectId objectId;
+    bool locked = false;
+    bool visible = true;
+};
+
 struct AlignSelectionCommand {
     DraftingAlignmentMode mode = DraftingAlignmentMode::Left;
 };
@@ -67,6 +73,7 @@ using DraftingCommand = std::variant<
     EditObjectHandleCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
+    UpdateObjectFlagsCommand,
     AlignSelectionCommand,
     DistributeSelectionCommand,
     SelectObjectCommand,

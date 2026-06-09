@@ -414,6 +414,28 @@ int main(int argc, char **argv)
     assert(pointer.value("inside_drawable").toBool());
     assert(pointerModel.value("drawing_objects").toList().size() == beforePointerObjects.size());
 
+    DrawingDocumentController invisibleSnapController;
+    invisibleSnapController.setSelectedToolId("point_tool");
+    invisibleSnapController.clickCanvasNormalized(0.25, 0.25);
+    assert(invisibleSnapController.setSelectedObjectVisible(false));
+    QVariantMap invisiblePoint = invisibleSnapController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(!invisiblePoint.value("visible").toBool());
+    invisibleSnapController.setObjectSnapEnabled(true);
+    invisibleSnapController.clickCanvasNormalized(0.26, 0.24);
+    QVariantList invisibleSnapObjects = invisibleSnapController.modelDocument().value("drawing_objects").toList();
+    assert(invisibleSnapObjects.size() == 2);
+    QVariantMap unsnappedPoint = invisibleSnapObjects.back().toMap();
+    assert(nearlyEqual(unsnappedPoint.value("x").toDouble(), 0.26));
+    assert(nearlyEqual(unsnappedPoint.value("y").toDouble(), 0.24));
+
+    DrawingDocumentController invisibleHitController;
+    invisibleHitController.setSelectedToolId("point_tool");
+    invisibleHitController.clickCanvasNormalized(0.25, 0.25);
+    assert(invisibleHitController.setSelectedObjectVisible(false));
+    invisibleHitController.setSelectedToolId("select_move");
+    invisibleHitController.clickCanvasNormalized(0.25, 0.25);
+    assert(invisibleHitController.selectedObjectId().isEmpty());
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);
@@ -573,8 +595,33 @@ int main(int argc, char **argv)
     assert(!numericLineController.updateSelectedObjectGeometryField("line_angle_deg", std::numeric_limits<double>::infinity()));
     assert(numericLineController.modelDocument().value("revision").toInt() == lineRevisionBeforeInvalid);
 
+    DrawingDocumentController lockedLineController;
+    lockedLineController.setSelectedToolId("line_tool");
+    lockedLineController.clickCanvasNormalized(0.1, 0.1);
+    lockedLineController.clickCanvasNormalized(0.4, 0.4);
+    QVariantMap lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(!lockedLine.value("locked").toBool());
+    assert(lockedLine.value("visible").toBool());
+    assert(lockedLineController.setSelectedObjectLocked(true));
+    lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(lockedLine.value("locked").toBool());
+    const int lockedRevision = lockedLineController.modelDocument().value("revision").toInt();
+    assert(!lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
+    assert(!lockedLineController.editSelectedHandleNormalized("line_end", 0.8, 0.8));
+    assert(!lockedLineController.moveSelectionNormalized(0.1, 0.0));
+    assert(!lockedLineController.offsetSelectedObject("left"));
+    assert(!lockedLineController.mirrorSelectedObject("vertical"));
+    assert(!lockedLineController.repeatSelectedObject("x"));
+    assert(lockedLineController.modelDocument().value("revision").toInt() == lockedRevision);
+    assert(lockedLineController.setSelectedObjectLocked(false));
+    assert(lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
+    lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(lockedLine.value("x2").toDouble(), 0.8));
+
     DrawingDocumentController noSelectionEditController;
     assert(!noSelectionEditController.updateSelectedObjectGeometryField("x", 0.2));
+    assert(!noSelectionEditController.setSelectedObjectLocked(true));
+    assert(!noSelectionEditController.setSelectedObjectVisible(false));
     assert(!noSelectionEditController.nudgeSelection("right", "grid"));
 
     DrawingDocumentController nudgeController;

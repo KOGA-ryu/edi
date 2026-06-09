@@ -83,6 +83,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectGeometry(document, typedCommand.objectId, typedCommand.geometry));
         } else if constexpr (std::is_same_v<Command, UpdateMetadataCommand>) {
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
+        } else if constexpr (std::is_same_v<Command, UpdateObjectFlagsCommand>) {
+            return fromStoreResult(updateObjectFlags(document, typedCommand.objectId, typedCommand.locked, typedCommand.visible));
         } else if constexpr (std::is_same_v<Command, AlignSelectionCommand>) {
             if (commandModeIsDistribute(typedCommand.mode)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "align command requires an align mode");

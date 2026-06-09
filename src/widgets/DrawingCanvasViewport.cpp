@@ -4,6 +4,19 @@
 #include <cmath>
 
 namespace drawing_canvas {
+namespace {
+
+double positiveFiniteNumber(const QVariant &value, double fallback)
+{
+    bool ok = false;
+    const double number = value.toDouble(&ok);
+    if (!ok || !std::isfinite(number) || number <= 0.0) {
+        return fallback;
+    }
+    return number;
+}
+
+} // namespace
 
 double viewportAspect(double gridWidth, double gridHeight)
 {
@@ -11,6 +24,18 @@ double viewportAspect(double gridWidth, double gridHeight)
         return 1.0;
     }
     return gridWidth / gridHeight;
+}
+
+DrawingCanvasViewportInput viewportInputFromModel(const QVariantMap &model, double widgetWidth, double widgetHeight)
+{
+    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+
+    DrawingCanvasViewportInput input;
+    input.widgetWidth = widgetWidth;
+    input.widgetHeight = widgetHeight;
+    input.gridWidth = positiveFiniteNumber(grid.value(QStringLiteral("width")), 1.0);
+    input.gridHeight = positiveFiniteNumber(grid.value(QStringLiteral("height")), 1.0);
+    return input;
 }
 
 QRectF viewportBoardRect(const DrawingCanvasViewportInput &input)

@@ -1,5 +1,7 @@
 #include "widgets/DrawingCanvasViewport.h"
 
+#include <QVariantMap>
+
 #include <cassert>
 #include <cmath>
 #include <limits>
@@ -87,6 +89,30 @@ int main()
     const QPointF badInput = canvasToScreen(wide, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN());
     assert(near(badInput.x(), wide.left()));
     assert(near(badInput.y(), wide.top()));
+
+    const DrawingCanvasViewportInput projected = viewportInputFromModel(QVariantMap{
+        {QStringLiteral("grid"), QVariantMap{
+            {QStringLiteral("width"), 11.0},
+            {QStringLiteral("height"), 8.5},
+        }},
+    },
+        600.0,
+        400.0);
+    assert(near(projected.widgetWidth, 600.0));
+    assert(near(projected.widgetHeight, 400.0));
+    assert(near(projected.gridWidth, 11.0));
+    assert(near(projected.gridHeight, 8.5));
+
+    const DrawingCanvasViewportInput badProjected = viewportInputFromModel(QVariantMap{
+        {QStringLiteral("grid"), QVariantMap{
+            {QStringLiteral("width"), QStringLiteral("bad")},
+            {QStringLiteral("height"), -8.5},
+        }},
+    },
+        600.0,
+        400.0);
+    assert(near(badProjected.gridWidth, 1.0));
+    assert(near(badProjected.gridHeight, 1.0));
 
     return 0;
 }

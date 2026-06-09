@@ -2,6 +2,7 @@
 
 #include <QPointF>
 #include <QRectF>
+#include <QVariantMap>
 
 namespace drawing_canvas {
 
@@ -14,6 +15,7 @@ struct DrawingCanvasViewportInput {
 };
 
 double viewportAspect(double gridWidth, double gridHeight);
+DrawingCanvasViewportInput viewportInputFromModel(const QVariantMap &model, double widgetWidth, double widgetHeight);
 QRectF viewportBoardRect(const DrawingCanvasViewportInput &input);
 QPointF canvasToScreen(const QRectF &board, double x, double y);
 QPointF screenToCanvas(const QRectF &board, const QPointF &point);

@@ -53,14 +53,9 @@ bool DrawingCanvasWidget::plotPreviewVisible() const
 
 QRectF DrawingCanvasWidget::boardRect() const
 {
-    drawing_canvas::DrawingCanvasViewportInput input;
-    input.widgetWidth = width();
-    input.widgetHeight = height();
-    if (m_controller != nullptr) {
-        const QVariantMap grid = m_controller->modelDocument().value(QStringLiteral("grid")).toMap();
-        input.gridWidth = grid.value(QStringLiteral("width"), 1.0).toDouble();
-        input.gridHeight = grid.value(QStringLiteral("height"), 1.0).toDouble();
-    }
+    const QVariantMap model = m_controller == nullptr ? QVariantMap{} : m_controller->modelDocument();
+    const drawing_canvas::DrawingCanvasViewportInput input =
+        drawing_canvas::viewportInputFromModel(model, width(), height());
     return drawing_canvas::viewportBoardRect(input);
 }
 

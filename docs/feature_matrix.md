@@ -7,6 +7,8 @@ Status values:
 - `experimental`: Useful for discovery, but not durable until promoted.
 - `deferred`: Intentionally later.
 
+Use `docs/feature_research_map.md` for the larger research inventory. This matrix only tracks promoted feature families and near-term implementation shape.
+
 ## Drafting App
 
 | Feature | Status | Required Subfeatures |

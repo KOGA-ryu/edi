@@ -24,6 +24,7 @@ These surfaces should share project state, command discipline, and format owners
 - Rebuild the text document model around plain text, document roles, document metadata, and export/handoff boundaries.
 - Define project/workspace settings before wiring persistent storage.
 - Add format readers and writers only after the C++ contracts they serve are clear.
+- Use `docs/feature_research_map.md` as the broad research inventory before promoting features into the compact feature matrix.
 
 ## Future State
 

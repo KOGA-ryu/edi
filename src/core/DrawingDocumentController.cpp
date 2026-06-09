@@ -14,6 +14,7 @@
 #include "drafting/DraftingPlotBounds.h"
 #include "drafting/DraftingPlotJob.h"
 #include "drafting/DraftingPlotPlan.h"
+#include "drafting/DraftingQuickMeasure.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
@@ -22,9 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace {
@@ -457,115 +456,64 @@ QVariantMap pointerProjectionToMap(Point2D rawPoint,
     };
 }
 
-double physicalWidth(double normalizedWidth, const DraftingGridProjection &grid)
-{
-    return normalizedWidth * grid.settings.width;
-}
-
-double physicalHeight(double normalizedHeight, const DraftingGridProjection &grid)
-{
-    return normalizedHeight * grid.settings.height;
-}
-
-double physicalDistance(Point2D a, Point2D b, const DraftingGridProjection &grid)
-{
-    const double dx = physicalWidth(b.x - a.x, grid);
-    const double dy = physicalHeight(b.y - a.y, grid);
-    return std::sqrt(dx * dx + dy * dy);
-}
-
-double angleDegrees(Point2D a, Point2D b, double widthScale = 1.0, double heightScale = 1.0)
-{
-    constexpr double pi = 3.14159265358979323846;
-    return std::atan2((b.y - a.y) * heightScale, (b.x - a.x) * widthScale) * 180.0 / pi;
-}
-
-QString compactNumber(double value)
-{
-    return QString::number(value, 'g', 6);
-}
-
-QVariantMap quickMeasurementProjectionToMap(Point2D rawPoint, const DraftingDocument &document, const DraftingGridProjection &grid)
+QVariantMap quickMeasurementProjectionToMap(const DraftingQuickMeasureResult &measurement)
 {
     QVariantMap result {
-        {QStringLiteral("ok"), false},
-        {QStringLiteral("unit"), QString::fromLatin1(draftingGridUnitName(grid.settings.unit))},
-        {QStringLiteral("unit_label"), QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit))},
+        {QStringLiteral("ok"), measurement.ok},
+        {QStringLiteral("kind"), QString::fromLatin1(draftingQuickMeasureKindName(measurement.kind))},
+        {QStringLiteral("unit"), drawing_core::qStringFromStdString(measurement.unitName)},
+        {QStringLiteral("unit_label"), drawing_core::qStringFromStdString(measurement.unitLabel)},
     };
-
-    const Point2D raw = normalizeDraftingPoint(rawPoint);
-    const DraftingHitTestResult hit = hitTestDocument(document, raw);
-    if (!hit.ok) {
-        result.insert(QStringLiteral("kind"), QStringLiteral("none"));
-        result.insert(QStringLiteral("message"), QStringLiteral("no measurable target"));
-        return result;
+    if (!measurement.message.empty()) {
+        result.insert(QStringLiteral("message"), drawing_core::qStringFromStdString(measurement.message));
     }
-
-    const DraftingObject *object = findObject(document, hit.objectId);
-    if (object == nullptr || !kindMatchesGeometry(object->kind, object->geometry)) {
-        result.insert(QStringLiteral("kind"), QStringLiteral("none"));
-        result.insert(QStringLiteral("message"), QStringLiteral("measurable target is unavailable"));
-        return result;
-    }
-
-    result.insert(QStringLiteral("ok"), true);
-    result.insert(QStringLiteral("object_id"), drawing_core::qStringFromStdString(object->id));
-    result.insert(QStringLiteral("object_kind"), QString::fromLatin1(shapeKindName(object->kind)));
-    result.insert(QStringLiteral("hit_distance"), hit.distance);
-
-    const QString unitLabel = QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit));
-    std::visit([&](const auto &geometry) {
-        using Geometry = std::decay_t<decltype(geometry)>;
-        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
-            const double physicalX = physicalWidth(geometry.point.x, grid);
-            const double physicalY = physicalHeight(geometry.point.y, grid);
-            result.insert(QStringLiteral("kind"), QStringLiteral("point"));
-            result.insert(QStringLiteral("x"), geometry.point.x);
-            result.insert(QStringLiteral("y"), geometry.point.y);
-            result.insert(QStringLiteral("physical_x"), physicalX);
-            result.insert(QStringLiteral("physical_y"), physicalY);
-            result.insert(QStringLiteral("label"), QStringLiteral("point %1,%2 %3")
-                    .arg(compactNumber(physicalX), compactNumber(physicalY), unitLabel));
-        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
-            const double physicalLength = physicalDistance(geometry.a, geometry.b, grid);
-            const double physicalAngle = angleDegrees(geometry.a, geometry.b, grid.settings.width, grid.settings.height);
-            result.insert(QStringLiteral("kind"), QStringLiteral("line"));
-            result.insert(QStringLiteral("length"), distance(geometry.a, geometry.b));
-            result.insert(QStringLiteral("angle_deg"), angleDegrees(geometry.a, geometry.b));
-            result.insert(QStringLiteral("physical_length"), physicalLength);
-            result.insert(QStringLiteral("physical_angle_deg"), physicalAngle);
-            result.insert(QStringLiteral("label"), QStringLiteral("line %1 %2 @ %3 deg")
-                    .arg(compactNumber(physicalLength), unitLabel, compactNumber(physicalAngle)));
-        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
-            const double width = physicalWidth(geometry.width, grid);
-            const double height = physicalHeight(geometry.height, grid);
-            result.insert(QStringLiteral("kind"), QStringLiteral("rectangle"));
-            result.insert(QStringLiteral("width"), geometry.width);
-            result.insert(QStringLiteral("height"), geometry.height);
-            result.insert(QStringLiteral("area"), geometry.width * geometry.height);
-            result.insert(QStringLiteral("physical_width"), width);
-            result.insert(QStringLiteral("physical_height"), height);
-            result.insert(QStringLiteral("physical_area"), width * height);
-            result.insert(QStringLiteral("label"), QStringLiteral("rect %1 x %2 %3, area %4")
-                    .arg(compactNumber(width), compactNumber(height), unitLabel, compactNumber(width * height)));
-        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            const double radiusX = physicalWidth(geometry.radius, grid);
-            const double radiusY = physicalHeight(geometry.radius, grid);
-            result.insert(QStringLiteral("kind"), QStringLiteral("circle"));
-            result.insert(QStringLiteral("radius"), geometry.radius);
-            result.insert(QStringLiteral("diameter"), geometry.radius * 2.0);
-            result.insert(QStringLiteral("physical_radius"), radiusX);
-            result.insert(QStringLiteral("physical_diameter"), radiusX * 2.0);
-            result.insert(QStringLiteral("physical_radius_y"), radiusY);
-            result.insert(QStringLiteral("physical_diameter_y"), radiusY * 2.0);
-            result.insert(QStringLiteral("label"), QStringLiteral("circle r %1 %2, d %3")
-                    .arg(compactNumber(radiusX), unitLabel, compactNumber(radiusX * 2.0)));
-        } else {
-            result.insert(QStringLiteral("ok"), false);
-            result.insert(QStringLiteral("kind"), QStringLiteral("unsupported"));
-            result.insert(QStringLiteral("message"), QStringLiteral("target has no quick measurement yet"));
+    if (!measurement.ok) {
+        if (!measurement.objectId.empty()) {
+            result.insert(QStringLiteral("object_id"), drawing_core::qStringFromStdString(measurement.objectId));
+            result.insert(QStringLiteral("object_kind"), QString::fromLatin1(shapeKindName(measurement.objectKind)));
+            result.insert(QStringLiteral("hit_distance"), measurement.hitDistance);
         }
-    }, object->geometry);
+        return result;
+    }
+
+    result.insert(QStringLiteral("object_id"), drawing_core::qStringFromStdString(measurement.objectId));
+    result.insert(QStringLiteral("object_kind"), QString::fromLatin1(shapeKindName(measurement.objectKind)));
+    result.insert(QStringLiteral("hit_distance"), measurement.hitDistance);
+    result.insert(QStringLiteral("label"), drawing_core::qStringFromStdString(measurement.label));
+
+    switch (measurement.kind) {
+    case DraftingQuickMeasureKind::Point:
+        result.insert(QStringLiteral("x"), measurement.x);
+        result.insert(QStringLiteral("y"), measurement.y);
+        result.insert(QStringLiteral("physical_x"), measurement.physicalX);
+        result.insert(QStringLiteral("physical_y"), measurement.physicalY);
+        break;
+    case DraftingQuickMeasureKind::Line:
+        result.insert(QStringLiteral("length"), measurement.length);
+        result.insert(QStringLiteral("angle_deg"), measurement.angleDeg);
+        result.insert(QStringLiteral("physical_length"), measurement.physicalLength);
+        result.insert(QStringLiteral("physical_angle_deg"), measurement.physicalAngleDeg);
+        break;
+    case DraftingQuickMeasureKind::Rectangle:
+        result.insert(QStringLiteral("width"), measurement.width);
+        result.insert(QStringLiteral("height"), measurement.height);
+        result.insert(QStringLiteral("area"), measurement.area);
+        result.insert(QStringLiteral("physical_width"), measurement.physicalWidth);
+        result.insert(QStringLiteral("physical_height"), measurement.physicalHeight);
+        result.insert(QStringLiteral("physical_area"), measurement.physicalArea);
+        break;
+    case DraftingQuickMeasureKind::Circle:
+        result.insert(QStringLiteral("radius"), measurement.radius);
+        result.insert(QStringLiteral("diameter"), measurement.diameter);
+        result.insert(QStringLiteral("physical_radius"), measurement.physicalRadius);
+        result.insert(QStringLiteral("physical_diameter"), measurement.physicalDiameter);
+        result.insert(QStringLiteral("physical_radius_y"), measurement.physicalRadiusY);
+        result.insert(QStringLiteral("physical_diameter_y"), measurement.physicalDiameterY);
+        break;
+    case DraftingQuickMeasureKind::None:
+    case DraftingQuickMeasureKind::Unsupported:
+        break;
+    }
 
     return result;
 }
@@ -888,7 +836,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     }
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
-        model.insert(QStringLiteral("quick_measurement"), quickMeasurementProjectionToMap(*m_pointerRawPoint, m_document, grid));
+        model.insert(QStringLiteral("quick_measurement"), quickMeasurementProjectionToMap(quickMeasureAt(m_document, *m_pointerRawPoint, grid)));
     }
     if (!m_lastGuideDragSnap.isEmpty()) {
         model.insert(QStringLiteral("guide_drag_snap"), m_lastGuideDragSnap);

@@ -104,6 +104,7 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     if (m_plotPreviewVisible) {
         drawPlotPreview(painter, model);
     }
+    drawPlotSafetyOverlay(painter, model.value(QStringLiteral("plot_summary")).toMap());
     const QVariantMap previewObject = model.value(QStringLiteral("preview_object")).toMap();
     if (!previewObject.isEmpty()) {
         drawPreviewObject(painter, previewObject);
@@ -122,15 +123,19 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
 
     painter.setPen(QColor("#aeb7c7"));
     const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
-    const QVariantList warnings = model.value(QStringLiteral("warnings")).toList();
+    const QVariantMap plot = model.value(QStringLiteral("plot_summary")).toMap();
+    const QString plotStatus = plot.value(QStringLiteral("status"), QStringLiteral("blocked")).toString();
+    const QString firstWarningKind = plot.value(QStringLiteral("first_warning_kind")).toString();
     painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
-        QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nWarnings: %6")
+        QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nPlot: %6 (%7 warnings)%8")
             .arg(m_controller->selectedToolId(),
                 m_controller->selectedObjectId().isEmpty() ? "none" : m_controller->selectedObjectId(),
                 QString::number(grid.value(QStringLiteral("width")).toDouble(), 'f', 2),
                 grid.value(QStringLiteral("unit_label")).toString(),
                 QString::number(grid.value(QStringLiteral("height")).toDouble(), 'f', 2),
-                QString::number(warnings.size())));
+                plotStatus,
+                QString::number(plot.value(QStringLiteral("warning_count")).toInt()),
+                firstWarningKind.isEmpty() ? QString() : QStringLiteral("\n%1").arg(firstWarningKind)));
 }
 
 void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
@@ -420,7 +425,6 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
         painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
     }
 
-    drawPlotSafetyOverlay(painter, plot);
     painter.restore();
 }
 
@@ -527,14 +531,8 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         selected ? QColor("#f6c65b") : QColor(object.value(QStringLiteral("effective_stroke_color"), QStringLiteral("#d7dde8")).toString()),
         selected ? 3.0 : object.value(QStringLiteral("effective_stroke_width"), 2.0).toDouble());
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
-    const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};
-    const QVariantMap drawable = model.value(QStringLiteral("grid")).toMap().value(QStringLiteral("drawable_bounds")).toMap();
-    const bool outside = !bounds.isEmpty() && !drawable.isEmpty()
-        && (bounds.value(QStringLiteral("x")).toDouble() < drawable.value(QStringLiteral("x")).toDouble()
-            || bounds.value(QStringLiteral("y")).toDouble() < drawable.value(QStringLiteral("y")).toDouble()
-            || bounds.value(QStringLiteral("x")).toDouble() + bounds.value(QStringLiteral("width")).toDouble() > drawable.value(QStringLiteral("x")).toDouble() + drawable.value(QStringLiteral("width")).toDouble()
-            || bounds.value(QStringLiteral("y")).toDouble() + bounds.value(QStringLiteral("height")).toDouble() > drawable.value(QStringLiteral("y")).toDouble() + drawable.value(QStringLiteral("height")).toDouble());
-    if (outside) {
+    const bool plotBlocked = object.value(QStringLiteral("plot_blocked")).toBool();
+    if (plotBlocked) {
         pen.setColor(QColor("#d98b8b"));
     }
     pen.setCapStyle(Qt::RoundCap);
@@ -580,6 +578,28 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
             painter.drawPolygon(polygon);
         } else {
             painter.drawPolyline(polygon);
+        }
+    }
+
+    if (plotBlocked && !bounds.isEmpty()) {
+        const QPointF topLeft = canvasToScreen(
+            bounds.value(QStringLiteral("x")).toDouble(),
+            bounds.value(QStringLiteral("y")).toDouble());
+        const QPointF bottomRight = canvasToScreen(
+            bounds.value(QStringLiteral("x")).toDouble() + bounds.value(QStringLiteral("width")).toDouble(),
+            bounds.value(QStringLiteral("y")).toDouble() + bounds.value(QStringLiteral("height")).toDouble());
+        QRectF warningRect(topLeft, bottomRight);
+        warningRect = warningRect.normalized();
+        if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
+            warningRect = warningRect.adjusted(-6.0, -6.0, 6.0, 6.0);
+        }
+        painter.setPen(QPen(QColor("#d98b8b"), 1.5, Qt::DashLine));
+        painter.setBrush(QColor(217, 139, 139, 24));
+        painter.drawRect(warningRect);
+        const QString warningKind = object.value(QStringLiteral("plot_warning_kind")).toString();
+        if (!warningKind.isEmpty()) {
+            painter.setPen(QColor("#d98b8b"));
+            painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), warningKind);
         }
     }
 

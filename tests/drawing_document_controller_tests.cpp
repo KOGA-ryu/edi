@@ -544,6 +544,9 @@ int main(int argc, char **argv)
     assert(layerPlotPoint.value("effective_plot_enabled").toBool());
     assert(layerPlotPoint.value("effective_plot_ready").toBool());
     assert(layerPlotPoint.value("plot_ready").toBool());
+    assert(!layerPlotPoint.value("plot_blocked").toBool());
+    assert(layerPlotPoint.value("plot_safety_state").toString() == "ready");
+    assert(layerPlotPoint.value("plot_warning_count").toInt() == 0);
     assert(layerPlotPoint.value("effective_pen_id").toString() == "pen_blue");
     assert(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
     assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
@@ -590,7 +593,10 @@ int main(int argc, char **argv)
     assert(layerPlotTravelSegment.value("to_pen_id").toString() == "pen_blue");
     assert(layerPlotTravelSegment.value("distance").toDouble() > 0.0);
     assert(layerPlotSummary.value("warning_count").toInt() == 0);
+    assert(layerPlotSummary.value("ready").toBool());
+    assert(layerPlotSummary.value("status").toString() == "ready");
     assert(!layerPlotSummary.value("blocked").toBool());
+    assert(layerPlotSummary.value("blocked_reason_count").toInt() == 0);
     assert(layerPlotController.plotOrderModeId() == "layer_order");
     layerPlotController.setPlotOrderModeId("nearest_next");
     assert(layerPlotController.plotOrderModeId() == "nearest_next");
@@ -643,15 +649,37 @@ int main(int argc, char **argv)
     assert(layerPlotSummary.value("travel_segment_count").toInt() == 1);
     layerPlotController.setSelectedToolId("point_tool");
     layerPlotController.clickCanvasNormalized(0.0, 0.0);
-    layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
+    QVariantMap blockedPlotModel = layerPlotController.modelDocument();
+    layerPlotSummary = blockedPlotModel.value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 2);
     assert(layerPlotSummary.value("segment_count").toInt() == 4);
     assert(layerPlotSummary.value("travel_segment_count").toInt() == 3);
     assert(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
     assert(layerPlotSummary.value("warning_count").toInt() == 1);
+    assert(!layerPlotSummary.value("ready").toBool());
+    assert(layerPlotSummary.value("status").toString() == "blocked");
     assert(layerPlotSummary.value("blocked").toBool());
+    assert(layerPlotSummary.value("blocked_reason_count").toInt() == 1);
+    assert(layerPlotSummary.value("blocked_reasons").toList().front().toString() == "raw_out_of_drawable_bounds");
     assert(layerPlotSummary.value("first_warning_kind").toString() == "raw_out_of_drawable_bounds");
-    assert(!layerPlotSummary.value("first_warning_object_id").toString().isEmpty());
+    const QString blockedObjectId = layerPlotSummary.value("first_warning_object_id").toString();
+    assert(!blockedObjectId.isEmpty());
+    QVariantMap blockedObject;
+    for (const QVariant &objectValue : blockedPlotModel.value("drawing_objects").toList()) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("id").toString() == blockedObjectId) {
+            blockedObject = object;
+            break;
+        }
+    }
+    assert(!blockedObject.isEmpty());
+    assert(blockedObject.value("plot_blocked").toBool());
+    assert(blockedObject.value("plot_safety_state").toString() == "blocked");
+    assert(blockedObject.value("plot_warning_count").toInt() == 1);
+    assert(blockedObject.value("plot_warning_kind").toString() == "raw_out_of_drawable_bounds");
+    assert(blockedObject.value("outside_drawable").toBool());
+    assert(!blockedObject.value("calibrated_outside_drawable").toBool());
+    assert(blockedPlotModel.value("warnings").toList().size() == 1);
 
     DrawingDocumentController calibrationController;
     assert(calibrationController.createCalibrationPattern("test_square"));

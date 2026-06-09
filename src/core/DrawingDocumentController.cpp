@@ -11,6 +11,7 @@
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingOffset.h"
+#include "drafting/DraftingPlotJob.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
@@ -259,16 +260,69 @@ QVariantMap pointerProjectionToMap(Point2D rawPoint,
     };
 }
 
-QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
+QVariantList plotWarningsToList(const std::vector<DraftingPlotWarning> &plotWarnings)
 {
     QVariantList warnings;
-    for (const DraftingPlotWarning &warning : plan.warnings) {
+    for (const DraftingPlotWarning &warning : plotWarnings) {
         warnings.push_back(QVariantMap{
             {QStringLiteral("object_id"), drawing_core::qStringFromStdString(warning.objectId)},
             {QStringLiteral("kind"), drawing_core::qStringFromStdString(warning.kind)},
             {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
         });
     }
+    return warnings;
+}
+
+QVariantList blockedReasonsToList(const std::vector<std::string> &blockedReasons)
+{
+    QVariantList reasons;
+    for (const std::string &reason : blockedReasons) {
+        reasons.push_back(drawing_core::qStringFromStdString(reason));
+    }
+    return reasons;
+}
+
+void annotateProjectedObjectsWithPlotSafety(QVariantMap &model, const DraftingPlotPlan &plan)
+{
+    QVariantList objects = model.value(QStringLiteral("drawing_objects")).toList();
+    for (QVariant &objectValue : objects) {
+        QVariantMap object = objectValue.toMap();
+        const QString objectId = object.value(QStringLiteral("id")).toString();
+        QVariantList objectWarnings;
+        bool rawOutsideDrawable = false;
+        bool calibratedOutsideDrawable = false;
+
+        for (const DraftingPlotWarning &warning : plan.warnings) {
+            if (drawing_core::qStringFromStdString(warning.objectId) != objectId) {
+                continue;
+            }
+            const QString kind = drawing_core::qStringFromStdString(warning.kind);
+            objectWarnings.push_back(QVariantMap{
+                {QStringLiteral("kind"), kind},
+                {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
+            });
+            rawOutsideDrawable = rawOutsideDrawable || kind == QStringLiteral("raw_out_of_drawable_bounds");
+            calibratedOutsideDrawable = calibratedOutsideDrawable || kind == QStringLiteral("calibrated_plot_out_of_drawable_bounds");
+        }
+
+        const QVariantMap firstWarning = objectWarnings.isEmpty() ? QVariantMap{} : objectWarnings.front().toMap();
+        object.insert(QStringLiteral("plot_warning_count"), objectWarnings.size());
+        object.insert(QStringLiteral("plot_warnings"), objectWarnings);
+        object.insert(QStringLiteral("plot_blocked"), !objectWarnings.isEmpty());
+        object.insert(QStringLiteral("plot_safety_state"), objectWarnings.isEmpty() ? QStringLiteral("ready") : QStringLiteral("blocked"));
+        object.insert(QStringLiteral("plot_warning_kind"), firstWarning.value(QStringLiteral("kind")).toString());
+        object.insert(QStringLiteral("plot_warning_message"), firstWarning.value(QStringLiteral("message")).toString());
+        object.insert(QStringLiteral("outside_drawable"), rawOutsideDrawable);
+        object.insert(QStringLiteral("calibrated_outside_drawable"), calibratedOutsideDrawable);
+        objectValue = object;
+    }
+    model.insert(QStringLiteral("drawing_objects"), objects);
+}
+
+QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
+{
+    const DraftingPlotJob job = buildDraftingPlotJob(plan);
+    const QVariantList warnings = plotWarningsToList(plan.warnings);
     QVariantList segments;
     for (const DraftingPlotSegment &segment : plan.segments) {
         segments.push_back(QVariantMap{
@@ -352,7 +406,11 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
         {QStringLiteral("travel_distance"), plan.travelDistance},
         {QStringLiteral("warning_count"), static_cast<int>(plan.warnings.size())},
-        {QStringLiteral("blocked"), !plan.warnings.empty()},
+        {QStringLiteral("ready"), job.ready},
+        {QStringLiteral("blocked"), !job.ready},
+        {QStringLiteral("status"), job.ready ? QStringLiteral("ready") : QStringLiteral("blocked")},
+        {QStringLiteral("blocked_reason_count"), static_cast<int>(job.blockedReasons.size())},
+        {QStringLiteral("blocked_reasons"), blockedReasonsToList(job.blockedReasons)},
         {QStringLiteral("layer_stats"), layerStats},
         {QStringLiteral("pen_stats"), penStats},
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
@@ -439,8 +497,10 @@ QVariantMap DrawingDocumentController::modelDocument() const
 {
     QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
-    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(buildDraftingPlotPlan(m_document, grid, m_plotSettings)));
+    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
+    annotateProjectedObjectsWithPlotSafety(model, plotPlan);
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
     }
@@ -451,16 +511,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
         model.insert(QStringLiteral("calibration_correction"), calibrationCorrectionToMap(*m_pendingCalibrationCorrection));
     }
 
-    QVariantList warnings;
-    for (const DraftingObject &object : m_document.objects) {
-        if (objectEffectivelyVisible(m_document, object) && boundsOutsideDrawableArea(object.bounds, grid)) {
-            warnings.push_back(QVariantMap{
-                {QStringLiteral("kind"), QStringLiteral("raw_out_of_drawable_bounds")},
-                {QStringLiteral("object_id"), drawing_core::qStringFromStdString(object.id)},
-            });
-        }
-    }
-    model.insert(QStringLiteral("warnings"), warnings);
+    model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
     return model;
 }
 

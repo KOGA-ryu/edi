@@ -1,8 +1,25 @@
 #include "drafting/DraftingSelection.h"
 
+#include "drafting/DraftingGeometry.h"
+
 #include <algorithm>
 
 namespace edi::drafting {
+
+namespace {
+
+bool boundsIntersect(Bounds2D a, Bounds2D b)
+{
+    if (!isFinite(a) || !isFinite(b)) {
+        return false;
+    }
+    return a.x <= b.x + b.width
+        && a.x + a.width >= b.x
+        && a.y <= b.y + b.height
+        && a.y + a.height >= b.y;
+}
+
+} // namespace
 
 void clearSelection(DraftingDocument &document)
 {
@@ -58,6 +75,25 @@ void toggleSelection(DraftingDocument &document, DraftingObjectId id)
 bool isSelected(const DraftingDocument &document, const DraftingObjectId &id)
 {
     return std::find(document.selectedObjectIds.begin(), document.selectedObjectIds.end(), id) != document.selectedObjectIds.end();
+}
+
+std::vector<DraftingObjectId> selectableObjectsInBounds(const DraftingDocument &document, Bounds2D bounds)
+{
+    if (!isFinite(bounds)) {
+        return {};
+    }
+
+    std::vector<DraftingObjectId> objectIds;
+    for (const DraftingObject &object : document.objects) {
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (object.visible
+            && layer != nullptr
+            && layer->visible
+            && boundsIntersect(object.bounds, bounds)) {
+            objectIds.push_back(object.id);
+        }
+    }
+    return objectIds;
 }
 
 void normalizeSelection(DraftingDocument &document)

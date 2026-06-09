@@ -67,14 +67,6 @@ DraftingToolCreationRequest creationRequest(const QString &toolId, const QString
     return {toolKind(toolId), toStdString(objectId), layerId, start, end, toStdString(toolId)};
 }
 
-bool boundsIntersect(Bounds2D a, Bounds2D b)
-{
-    return a.x <= b.x + b.width
-        && a.x + a.width >= b.x
-        && a.y <= b.y + b.height
-        && a.y + a.height >= b.y;
-}
-
 Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
 {
     const double left = std::min(bounds.x, next.x);
@@ -2239,12 +2231,7 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
     const double bottom = std::max(clamp01(y1), clamp01(y2));
     const Bounds2D marquee{left, top, right - left, bottom - top};
 
-    std::vector<DraftingObjectId> objectIds;
-    for (const DraftingObject &object : m_document.objects) {
-        if (objectEffectivelyVisible(m_document, object) && boundsIntersect(object.bounds, marquee)) {
-            objectIds.push_back(object.id);
-        }
-    }
+    const std::vector<DraftingObjectId> objectIds = selectableObjectsInBounds(m_document, marquee);
 
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectsCommand{objectIds});
     if (!result.ok) {

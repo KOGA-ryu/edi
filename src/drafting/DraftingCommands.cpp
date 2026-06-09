@@ -85,6 +85,14 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
         } else if constexpr (std::is_same_v<Command, UpdateObjectFlagsCommand>) {
             return fromStoreResult(updateObjectFlags(document, typedCommand.objectId, typedCommand.locked, typedCommand.visible));
+        } else if constexpr (std::is_same_v<Command, MoveObjectToLayerCommand>) {
+            return fromStoreResult(moveObjectToLayer(document, typedCommand.objectId, typedCommand.layerId));
+        } else if constexpr (std::is_same_v<Command, CreateLayerCommand>) {
+            return fromStoreResult(addLayer(document, typedCommand.layer, typedCommand.makeActive));
+        } else if constexpr (std::is_same_v<Command, RenameLayerCommand>) {
+            return fromStoreResult(renameLayer(document, typedCommand.layerId, typedCommand.name));
+        } else if constexpr (std::is_same_v<Command, SetActiveLayerCommand>) {
+            return fromStoreResult(setActiveLayer(document, typedCommand.layerId));
         } else if constexpr (std::is_same_v<Command, UpdateLayerFlagsCommand>) {
             return fromStoreResult(updateLayerFlags(document, typedCommand.layerId, typedCommand.locked, typedCommand.visible));
         } else if constexpr (std::is_same_v<Command, AlignSelectionCommand>) {

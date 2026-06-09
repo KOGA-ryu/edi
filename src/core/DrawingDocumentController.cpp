@@ -51,9 +51,18 @@ QString objectIdPrefix(DraftingToolKind kind)
     return QString::fromLatin1(draftingToolKindName(kind));
 }
 
-DraftingToolCreationRequest creationRequest(const QString &toolId, const QString &objectId, Point2D start, Point2D end)
+DraftingToolCreationRequest creationRequest(const QString &toolId, const QString &objectId, const LayerId &layerId, Point2D start, Point2D end)
 {
-    return {toolKind(toolId), toStdString(objectId), start, end, toStdString(toolId)};
+    return {toolKind(toolId), toStdString(objectId), layerId, start, end, toStdString(toolId)};
+}
+
+QString nextLayerId(const DraftingDocument &document)
+{
+    int serial = static_cast<int>(document.layers.size()) + 1;
+    while (containsLayer(document, toStdString(QStringLiteral("layer_%1").arg(serial)))) {
+        ++serial;
+    }
+    return QStringLiteral("layer_%1").arg(serial);
 }
 
 bool boundsIntersect(Bounds2D a, Bounds2D b)
@@ -281,6 +290,11 @@ QString DrawingDocumentController::selectedToolId() const
 QString DrawingDocumentController::selectedObjectId() const
 {
     return m_document.activeObjectId ? drawing_core::qStringFromStdString(*m_document.activeObjectId) : QString();
+}
+
+QString DrawingDocumentController::activeLayerId() const
+{
+    return drawing_core::qStringFromStdString(m_document.activeLayerId);
 }
 
 bool DrawingDocumentController::gridSnapEnabled() const
@@ -538,6 +552,100 @@ bool DrawingDocumentController::setDefaultLayerVisible(bool visible)
     return true;
 }
 
+bool DrawingDocumentController::setActiveLayerLocked(bool locked)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerFlagsCommand{layer->id, locked, layer->visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setActiveLayerVisible(bool visible)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerFlagsCommand{layer->id, layer->locked, visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::createLayer()
+{
+    const QString id = nextLayerId(m_document);
+    const QString name = QStringLiteral("Layer %1").arg(m_document.layers.size() + 1);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        CreateLayerCommand{makeDraftingLayer(toStdString(id), toStdString(name), static_cast<int>(m_document.layers.size())), true});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::renameActiveLayer(const QString &name)
+{
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        RenameLayerCommand{m_document.activeLayerId, toStdString(name)});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setActiveLayerId(const QString &layerId)
+{
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        SetActiveLayerCommand{toStdString(layerId)});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::moveSelectedObjectToLayer(const QString &layerId)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        MoveObjectToLayerCommand{*m_document.activeObjectId, toStdString(layerId)});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::nudgeSelection(const QString &direction, const QString &stepMode)
 {
     if (m_document.selectedObjectIds.empty()) {
@@ -721,7 +829,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         || kind == DraftingToolKind::HorizontalConstructionLine
         || kind == DraftingToolKind::VerticalConstructionLine) {
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
-        const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, point, point));
+        const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point));
         if (object.ok) {
             applyDraftingCommand(m_document, CreateObjectCommand{object.object});
             applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
@@ -732,7 +840,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 
     if (!m_pendingCreation) {
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
-        m_pendingCreation = creationRequest(m_selectedToolId, id, point, point);
+        m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
         m_previewObject.reset();
         emit modelChanged();
         return;

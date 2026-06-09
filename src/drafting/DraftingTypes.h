@@ -33,6 +33,7 @@ enum class DraftingResultCode {
     None,
     EmptyObjectId,
     DuplicateObjectId,
+    DuplicateLayerId,
     ObjectNotFound,
     LayerNotFound,
     KindGeometryMismatch,

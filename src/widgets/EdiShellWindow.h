@@ -77,6 +77,9 @@ private:
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;
     QCheckBox *m_defaultLayerVisible = nullptr;
+    QComboBox *m_activeLayer = nullptr;
+    QComboBox *m_selectedObjectLayer = nullptr;
+    QPushButton *m_addLayerButton = nullptr;
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;

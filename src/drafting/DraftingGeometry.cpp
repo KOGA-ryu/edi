@@ -108,6 +108,8 @@ const char *draftingResultCodeName(DraftingResultCode code)
         return "empty_object_id";
     case DraftingResultCode::DuplicateObjectId:
         return "duplicate_object_id";
+    case DraftingResultCode::DuplicateLayerId:
+        return "duplicate_layer_id";
     case DraftingResultCode::ObjectNotFound:
         return "object_not_found";
     case DraftingResultCode::LayerNotFound:

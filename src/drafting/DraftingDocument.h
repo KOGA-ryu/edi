@@ -35,6 +35,7 @@ struct DraftingDocument {
     DraftingDocumentId id;
     std::string title;
     std::vector<DraftingLayer> layers;
+    LayerId activeLayerId = "default";
     std::vector<DraftingObject> objects;
     std::vector<DraftingObjectId> selectedObjectIds;
     std::optional<DraftingObjectId> activeObjectId;

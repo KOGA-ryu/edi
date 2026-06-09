@@ -130,6 +130,95 @@ DraftingStoreResult updateObjectFlags(DraftingDocument &document, const Drafting
     return DraftingStoreResult::accepted();
 }
 
+DraftingStoreResult moveObjectToLayer(DraftingDocument &document, const DraftingObjectId &objectId, const LayerId &layerId)
+{
+    const auto index = objectIndexById(document, objectId);
+    if (!index) {
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+    }
+
+    DraftingObject &object = document.objects[*index];
+    if (object.locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
+
+    const DraftingLayer *sourceLayer = findLayer(document, object.layerId);
+    if (sourceLayer == nullptr) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "object layer does not exist");
+    }
+    if (sourceLayer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
+    }
+
+    const DraftingLayer *targetLayer = findLayer(document, layerId);
+    if (targetLayer == nullptr) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "target layer does not exist");
+    }
+    if (targetLayer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "target layer is locked");
+    }
+
+    if (object.layerId == layerId) {
+        return DraftingStoreResult::accepted();
+    }
+
+    object.layerId = layerId;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult addLayer(DraftingDocument &document, DraftingLayer layer, bool makeActive)
+{
+    if (!isValidLayerId(layer.id)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer id is required");
+    }
+    if (!isValidLayerName(layer.name)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "layer name is required");
+    }
+    if (containsLayer(document, layer.id)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::DuplicateLayerId, "layer id already exists");
+    }
+
+    document.layers.push_back(std::move(layer));
+    if (makeActive) {
+        document.activeLayerId = document.layers.back().id;
+    }
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult renameLayer(DraftingDocument &document, const LayerId &id, std::string name)
+{
+    if (!isValidLayerName(name)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "layer name is required");
+    }
+
+    DraftingLayer *layer = findLayer(document, id);
+    if (layer == nullptr) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+
+    if (layer->name == name) {
+        return DraftingStoreResult::accepted();
+    }
+    layer->name = std::move(name);
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult setActiveLayer(DraftingDocument &document, const LayerId &id)
+{
+    if (!containsLayer(document, id)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+    if (document.activeLayerId == id) {
+        return DraftingStoreResult::accepted();
+    }
+    document.activeLayerId = id;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
 DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible)
 {
     DraftingLayer *layer = findLayer(document, id);

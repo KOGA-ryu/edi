@@ -49,6 +49,25 @@ struct UpdateObjectFlagsCommand {
     bool visible = true;
 };
 
+struct MoveObjectToLayerCommand {
+    DraftingObjectId objectId;
+    LayerId layerId;
+};
+
+struct CreateLayerCommand {
+    DraftingLayer layer;
+    bool makeActive = false;
+};
+
+struct RenameLayerCommand {
+    LayerId layerId;
+    std::string name;
+};
+
+struct SetActiveLayerCommand {
+    LayerId layerId;
+};
+
 struct UpdateLayerFlagsCommand {
     LayerId layerId;
     bool locked = false;
@@ -80,6 +99,10 @@ using DraftingCommand = std::variant<
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,
+    MoveObjectToLayerCommand,
+    CreateLayerCommand,
+    RenameLayerCommand,
+    SetActiveLayerCommand,
     UpdateLayerFlagsCommand,
     AlignSelectionCommand,
     DistributeSelectionCommand,

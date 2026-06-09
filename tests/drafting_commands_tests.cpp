@@ -54,6 +54,34 @@ int main()
     assert(invalidCreate.code == DraftingResultCode::InvalidGeometry);
     assert(document.revision == revisionAfterDelete);
 
+    DraftingDocument layerCommandDocument = makeDraftingDocument("layer_command_doc");
+    auto createLayer = applyDraftingCommand(layerCommandDocument, CreateLayerCommand{makeDraftingLayer("ink", "Ink", 1), true});
+    assert(createLayer.ok);
+    assert(layerCommandDocument.activeLayerId == "ink");
+    assert(layerCommandDocument.layers.size() == 2);
+    auto renameLayerCommand = applyDraftingCommand(layerCommandDocument, RenameLayerCommand{"ink", "Ink Layer"});
+    assert(renameLayerCommand.ok);
+    const DraftingLayer *inkLayer = findLayer(layerCommandDocument, "ink");
+    assert(inkLayer != nullptr);
+    assert(inkLayer->name == "Ink Layer");
+    auto setDefaultLayerCommand = applyDraftingCommand(layerCommandDocument, SetActiveLayerCommand{"default"});
+    assert(setDefaultLayerCommand.ok);
+    assert(layerCommandDocument.activeLayerId == "default");
+    auto commandLineBuild = buildDraftingObject("command_line", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.0}});
+    assert(commandLineBuild.ok);
+    assert(applyDraftingCommand(layerCommandDocument, CreateObjectCommand{commandLineBuild.object}).ok);
+    auto moveToInkLayer = applyDraftingCommand(layerCommandDocument, MoveObjectToLayerCommand{"command_line", "ink"});
+    assert(moveToInkLayer.ok);
+    const DraftingObject *commandLine = findObject(layerCommandDocument, "command_line");
+    assert(commandLine != nullptr);
+    assert(commandLine->layerId == "ink");
+    assert(applyDraftingCommand(layerCommandDocument, UpdateLayerFlagsCommand{"ink", true, true}).ok);
+    const auto revisionBeforeLockedLayerMove = layerCommandDocument.revision;
+    auto moveFromLockedLayer = applyDraftingCommand(layerCommandDocument, MoveObjectToLayerCommand{"command_line", "default"});
+    assert(!moveFromLockedLayer.ok);
+    assert(moveFromLockedLayer.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(layerCommandDocument.revision == revisionBeforeLockedLayerMove);
+
     DraftingDocument editDocument = makeDraftingDocument("edit_doc");
     auto builtLine = buildDraftingObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {10.0, 10.0}});
     assert(builtLine.ok);

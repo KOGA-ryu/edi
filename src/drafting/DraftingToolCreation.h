@@ -24,6 +24,7 @@ enum class DraftingToolKind {
 struct DraftingToolCreationRequest {
     DraftingToolKind tool = DraftingToolKind::Unknown;
     DraftingObjectId objectId;
+    LayerId layerId = "default";
     Point2D start;
     Point2D end;
     std::string toolProvenance;

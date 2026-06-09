@@ -480,6 +480,35 @@ int main(int argc, char **argv)
     layerController.clickCanvasNormalized(0.5, 0.5);
     assert(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount + 1);
 
+    DrawingDocumentController layerManagementController;
+    assert(layerManagementController.createLayer());
+    QVariantMap layerManagementModel = layerManagementController.modelDocument();
+    assert(layerManagementModel.value("active_layer_id").toString() == "layer_2");
+    QVariantList managedLayers = layerManagementModel.value("layers").toList();
+    assert(managedLayers.size() == 2);
+    assert(layerManagementController.renameActiveLayer("Ink"));
+    managedLayers = layerManagementController.modelDocument().value("layers").toList();
+    assert(managedLayers[1].toMap().value("name").toString() == "Ink");
+    layerManagementController.setSelectedToolId("point_tool");
+    layerManagementController.clickCanvasNormalized(0.2, 0.2);
+    QVariantList managedObjects = layerManagementController.modelDocument().value("drawing_objects").toList();
+    assert(managedObjects.size() == 1);
+    QVariantMap managedPoint = managedObjects.front().toMap();
+    assert(managedPoint.value("layer_id").toString() == "layer_2");
+    assert(layerManagementController.moveSelectedObjectToLayer("default"));
+    managedPoint = layerManagementController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(managedPoint.value("layer_id").toString() == "default");
+    assert(layerManagementController.setActiveLayerId("layer_2"));
+    assert(layerManagementController.setActiveLayerLocked(true));
+    const int managedObjectCountBeforeLockedCreate = layerManagementController.modelDocument().value("drawing_objects").toList().size();
+    layerManagementController.clickCanvasNormalized(0.4, 0.4);
+    assert(layerManagementController.modelDocument().value("drawing_objects").toList().size() == managedObjectCountBeforeLockedCreate);
+    assert(layerManagementController.setActiveLayerLocked(false));
+    assert(layerManagementController.setActiveLayerId("default"));
+    assert(layerManagementController.setActiveLayerLocked(true));
+    assert(!layerManagementController.moveSelectedObjectToLayer("layer_2"));
+    assert(layerManagementController.setActiveLayerLocked(false));
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);

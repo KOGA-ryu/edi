@@ -15,7 +15,14 @@ bool nearlyEqual(double a, double b)
 
 DraftingObjectBuildResult build(std::string id, DraftingToolKind tool, Point2D start, Point2D end)
 {
-    return buildDraftingObjectForTool({tool, std::move(id), start, end, draftingToolKindName(tool)});
+    DraftingToolCreationRequest request;
+    request.tool = tool;
+    request.objectId = std::move(id);
+    request.layerId = "default";
+    request.start = start;
+    request.end = end;
+    request.toolProvenance = draftingToolKindName(tool);
+    return buildDraftingObjectForTool(request);
 }
 
 } // namespace

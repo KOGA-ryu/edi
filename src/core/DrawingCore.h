@@ -22,6 +22,7 @@ public:
     QVariantMap modelDocument() const;
     QString selectedToolId() const;
     QString selectedObjectId() const;
+    QString activeLayerId() const;
     bool gridSnapEnabled() const;
     bool objectSnapEnabled() const;
     bool endpointSnapEnabled() const;
@@ -47,6 +48,12 @@ public:
     bool setSelectedObjectVisible(bool visible);
     bool setDefaultLayerLocked(bool locked);
     bool setDefaultLayerVisible(bool visible);
+    bool setActiveLayerLocked(bool locked);
+    bool setActiveLayerVisible(bool visible);
+    bool createLayer();
+    bool renameActiveLayer(const QString &name);
+    bool setActiveLayerId(const QString &layerId);
+    bool moveSelectedObjectToLayer(const QString &layerId);
     bool nudgeSelection(const QString &direction, const QString &stepMode);
     bool offsetSelectedObject(const QString &sideId);
     bool mirrorSelectedObject(const QString &axisId);

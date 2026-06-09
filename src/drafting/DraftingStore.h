@@ -20,6 +20,10 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
 DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const DraftingObjectId &id, DraftingGeometry geometry);
 DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const DraftingObjectId &id, ObjectMetadata metadata);
 DraftingStoreResult updateObjectFlags(DraftingDocument &document, const DraftingObjectId &id, bool locked, bool visible);
+DraftingStoreResult moveObjectToLayer(DraftingDocument &document, const DraftingObjectId &objectId, const LayerId &layerId);
+DraftingStoreResult addLayer(DraftingDocument &document, DraftingLayer layer, bool makeActive = false);
+DraftingStoreResult renameLayer(DraftingDocument &document, const LayerId &id, std::string name);
+DraftingStoreResult setActiveLayer(DraftingDocument &document, const LayerId &id);
 DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible);
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy);
 

@@ -122,6 +122,7 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     if (!built.ok) {
         return built;
     }
+    built.object.layerId = request.layerId;
     built.object.metadata.toolProvenance = request.toolProvenance.empty()
         ? draftingToolKindName(request.tool)
         : request.toolProvenance;

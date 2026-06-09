@@ -65,16 +65,41 @@ QVariantMap activeObjectProjection(const QVariantMap &document)
     return {};
 }
 
-QVariantMap defaultLayerProjection(const QVariantMap &document)
+QVariantMap layerProjection(const QVariantMap &document, const QString &layerId)
 {
     const QVariantList layers = document.value(QStringLiteral("layers")).toList();
     for (const QVariant &layerValue : layers) {
         const QVariantMap layer = layerValue.toMap();
-        if (layer.value(QStringLiteral("id")).toString() == QStringLiteral("default")) {
+        if (layer.value(QStringLiteral("id")).toString() == layerId) {
             return layer;
         }
     }
     return {};
+}
+
+void refreshLayerCombo(QComboBox *combo, const QVariantList &layers, const QString &currentLayerId, bool enabled)
+{
+    if (combo == nullptr) {
+        return;
+    }
+
+    const QSignalBlocker blocker(combo);
+    combo->clear();
+    for (const QVariant &layerValue : layers) {
+        const QVariantMap layer = layerValue.toMap();
+        const QString id = layer.value(QStringLiteral("id")).toString();
+        const QString label = QStringLiteral("%1 (%2%3)")
+            .arg(layer.value(QStringLiteral("name")).toString())
+            .arg(layer.value(QStringLiteral("visible")).toBool() ? QStringLiteral("V") : QStringLiteral("-"))
+            .arg(layer.value(QStringLiteral("locked")).toBool() ? QStringLiteral("L") : QStringLiteral("-"));
+        combo->addItem(label, id);
+    }
+
+    const int index = combo->findData(currentLayerId);
+    if (index >= 0) {
+        combo->setCurrentIndex(index);
+    }
+    combo->setEnabled(enabled && !layers.empty());
 }
 
 QString boundsSummary(const QVariantMap &object)
@@ -458,7 +483,24 @@ QWidget *EdiShellWindow::buildLayerControls()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(4);
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Default Layer")));
+    layout->addWidget(makeSectionLabel(QStringLiteral("Layers")));
+
+    m_activeLayer = new QComboBox;
+    m_activeLayer->setObjectName(QStringLiteral("activeLayerCombo"));
+    connect(m_activeLayer, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        m_controller->setActiveLayerId(m_activeLayer->itemData(index).toString());
+    });
+    layout->addWidget(m_activeLayer);
+
+    m_addLayerButton = new QPushButton(QStringLiteral("Add Layer"));
+    m_addLayerButton->setObjectName(QStringLiteral("addLayerButton"));
+    connect(m_addLayerButton, &QPushButton::clicked, this, [this]() {
+        m_controller->createLayer();
+    });
+    layout->addWidget(m_addLayerButton);
 
     auto *row = new QWidget;
     auto *rowLayout = new QHBoxLayout(row);
@@ -468,19 +510,29 @@ QWidget *EdiShellWindow::buildLayerControls()
     m_defaultLayerLocked = new QCheckBox(QStringLiteral("Locked"));
     m_defaultLayerLocked->setObjectName(QStringLiteral("layerFlagCheckbox"));
     connect(m_defaultLayerLocked, &QCheckBox::toggled, this, [this](bool checked) {
-        m_controller->setDefaultLayerLocked(checked);
+        m_controller->setActiveLayerLocked(checked);
     });
 
     m_defaultLayerVisible = new QCheckBox(QStringLiteral("Visible"));
     m_defaultLayerVisible->setObjectName(QStringLiteral("layerFlagCheckbox"));
     connect(m_defaultLayerVisible, &QCheckBox::toggled, this, [this](bool checked) {
-        m_controller->setDefaultLayerVisible(checked);
+        m_controller->setActiveLayerVisible(checked);
     });
 
     rowLayout->addWidget(m_defaultLayerLocked);
     rowLayout->addWidget(m_defaultLayerVisible);
     rowLayout->addStretch(1);
     layout->addWidget(row);
+
+    m_selectedObjectLayer = new QComboBox;
+    m_selectedObjectLayer->setObjectName(QStringLiteral("selectedObjectLayerCombo"));
+    connect(m_selectedObjectLayer, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        m_controller->moveSelectedObjectToLayer(m_selectedObjectLayer->itemData(index).toString());
+    });
+    layout->addWidget(m_selectedObjectLayer);
     return panel;
 }
 
@@ -833,7 +885,9 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
-    const QVariantMap defaultLayer = defaultLayerProjection(document);
+    const QVariantList layers = document.value(QStringLiteral("layers")).toList();
+    const QString activeLayerId = document.value(QStringLiteral("active_layer_id")).toString();
+    const QVariantMap activeLayer = layerProjection(document, activeLayerId);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
 
     if (m_workspaceTitle != nullptr) {
@@ -866,10 +920,12 @@ void EdiShellWindow::refreshInspector()
     if (m_objectLayerValue != nullptr) {
         m_objectLayerValue->setText(selectedObject.isEmpty()
             ? QStringLiteral("Layer: none")
-            : QStringLiteral("Layer: %1   Locked: %2   Visible: %3")
+            : QStringLiteral("Layer: %1   Obj L/V: %2/%3   Effective L/V: %4/%5")
                 .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
                 .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool()))
-                .arg(yesNo(selectedObject.value(QStringLiteral("visible")).toBool())));
+                .arg(yesNo(selectedObject.value(QStringLiteral("visible")).toBool()))
+                .arg(yesNo(selectedObject.value(QStringLiteral("effective_locked")).toBool()))
+                .arg(yesNo(selectedObject.value(QStringLiteral("effective_visible")).toBool())));
     }
     if (m_selectedLocked != nullptr) {
         const QSignalBlocker blocker(m_selectedLocked);
@@ -883,14 +939,20 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_defaultLayerLocked != nullptr) {
         const QSignalBlocker blocker(m_defaultLayerLocked);
-        m_defaultLayerLocked->setEnabled(!defaultLayer.isEmpty());
-        m_defaultLayerLocked->setChecked(defaultLayer.value(QStringLiteral("locked")).toBool());
+        m_defaultLayerLocked->setEnabled(!activeLayer.isEmpty());
+        m_defaultLayerLocked->setChecked(activeLayer.value(QStringLiteral("locked")).toBool());
     }
     if (m_defaultLayerVisible != nullptr) {
         const QSignalBlocker blocker(m_defaultLayerVisible);
-        m_defaultLayerVisible->setEnabled(!defaultLayer.isEmpty());
-        m_defaultLayerVisible->setChecked(defaultLayer.isEmpty() ? false : defaultLayer.value(QStringLiteral("visible")).toBool());
+        m_defaultLayerVisible->setEnabled(!activeLayer.isEmpty());
+        m_defaultLayerVisible->setChecked(activeLayer.isEmpty() ? false : activeLayer.value(QStringLiteral("visible")).toBool());
     }
+    refreshLayerCombo(m_activeLayer, layers, activeLayerId, true);
+    refreshLayerCombo(
+        m_selectedObjectLayer,
+        layers,
+        selectedObject.value(QStringLiteral("layer_id")).toString(),
+        !selectedObject.isEmpty());
     if (m_objectMeasurementValue != nullptr) {
         const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();
         QStringList formatted;

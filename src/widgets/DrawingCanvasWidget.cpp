@@ -14,6 +14,7 @@
 #include "widgets/DrawingCanvasProjectedDocument.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasProjectedPlot.h"
+#include "widgets/DrawingCanvasProjectedPointer.h"
 #include "widgets/DrawingCanvasViewport.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -319,51 +320,44 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
 
 void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const
 {
-    const QVariantMap pointer = model.value(QStringLiteral("pointer")).toMap();
-    if (pointer.isEmpty()) {
+    const drawing_canvas::DrawingCanvasProjectedPointer pointer = drawing_canvas::projectedPointer(model);
+    if (!pointer.visible) {
         return;
     }
 
-    const QVariantMap snapped = pointer.value(QStringLiteral("snapped")).toMap();
-    const QPointF point = canvasToScreen(
-        snapped.value(QStringLiteral("x")).toDouble(),
-        snapped.value(QStringLiteral("y")).toDouble());
-    const QString kind = pointer.value(QStringLiteral("kind")).toString();
-    const QString source = pointer.value(QStringLiteral("source")).toString();
-    const bool inside = pointer.value(QStringLiteral("inside_drawable")).toBool();
+    const QPointF point = canvasToScreen(pointer.snappedX, pointer.snappedY);
     QColor color("#9aa8b6");
     Qt::PenStyle markerStyle = Qt::SolidLine;
     double markerRadius = 5.0;
-    if (!inside) {
+    if (!pointer.insideDrawable) {
         color = QColor("#d98b8b");
         markerRadius = 8.0;
-    } else if (kind == QStringLiteral("grid")) {
+    } else if (pointer.kind == QStringLiteral("grid")) {
         color = QColor("#8fb4d8");
         markerRadius = 7.0;
-    } else if (source == QStringLiteral("guide")) {
+    } else if (pointer.source == QStringLiteral("guide")) {
         color = QColor("#54d2c6");
         markerStyle = Qt::DashLine;
         markerRadius = 8.0;
-    } else if (kind == QStringLiteral("object")) {
+    } else if (pointer.kind == QStringLiteral("object")) {
         color = QColor("#91c89b");
         markerRadius = 7.0;
     }
 
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(QPen(color, source == QStringLiteral("guide") ? 2.0 : 1.5, markerStyle));
+    painter.setPen(QPen(color, pointer.source == QStringLiteral("guide") ? 2.0 : 1.5, markerStyle));
     painter.setBrush(QColor(color.red(), color.green(), color.blue(), 44));
     painter.drawEllipse(point, markerRadius, markerRadius);
     painter.drawLine(QPointF(point.x() - 10.0, point.y()), QPointF(point.x() + 10.0, point.y()));
     painter.drawLine(QPointF(point.x(), point.y() - 10.0), QPointF(point.x(), point.y() + 10.0));
 
-    QString label = pointer.value(QStringLiteral("label")).toString();
-    const QString sourceObjectId = pointer.value(QStringLiteral("source_object_id")).toString();
-    if (source == QStringLiteral("guide") && !sourceObjectId.isEmpty()) {
-        label = QStringLiteral("guide %1").arg(sourceObjectId);
+    QString label = pointer.label;
+    if (pointer.source == QStringLiteral("guide") && !pointer.sourceObjectId.isEmpty()) {
+        label = QStringLiteral("guide %1").arg(pointer.sourceObjectId);
     }
     painter.setPen(color);
-    painter.drawText(point + QPointF(12.0, -10.0), label.isEmpty() ? kind : label);
+    painter.drawText(point + QPointF(12.0, -10.0), label.isEmpty() ? pointer.kind : label);
     painter.restore();
 }
 

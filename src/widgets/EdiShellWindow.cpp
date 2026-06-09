@@ -48,6 +48,46 @@ QString formatNumber(double value)
     return QString::number(value, 'f', 3);
 }
 
+QString formatBoundsValue(const QVariantMap &bounds)
+{
+    if (bounds.isEmpty()) {
+        return QStringLiteral("unavailable");
+    }
+    return QStringLiteral("x %1, y %2, w %3, h %4")
+        .arg(formatNumber(bounds.value(QStringLiteral("x")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("y")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("width")).toDouble()))
+        .arg(formatNumber(bounds.value(QStringLiteral("height")).toDouble()));
+}
+
+QString plotBoundsStatus(const QVariantMap &plot)
+{
+    if (!plot.value(QStringLiteral("has_plot_bounds")).toBool()) {
+        return QStringLiteral("unavailable");
+    }
+    const QString warningKind = plot.value(QStringLiteral("first_warning_kind")).toString();
+    if (warningKind == QStringLiteral("raw_out_of_drawable_bounds")
+        || warningKind == QStringLiteral("calibrated_plot_out_of_drawable_bounds")) {
+        return QStringLiteral("outside");
+    }
+    return QStringLiteral("inside");
+}
+
+QString plotBoundsSummary(const QVariantMap &grid, const QVariantMap &plot)
+{
+    const QString unit = grid.value(QStringLiteral("unit_label")).toString();
+    const QString plotBounds = plot.value(QStringLiteral("has_plot_bounds")).toBool()
+        ? formatBoundsValue(plot.value(QStringLiteral("plot_bounds")).toMap())
+        : QStringLiteral("unavailable");
+
+    return QStringLiteral("Bounds (%1):\nBed: %2\nDrawable: %3\nPlot: %4\nPlot status: %5")
+        .arg(unit.isEmpty() ? QStringLiteral("unit") : unit)
+        .arg(formatBoundsValue(grid.value(QStringLiteral("page_bounds")).toMap()))
+        .arg(formatBoundsValue(grid.value(QStringLiteral("drawable_bounds")).toMap()))
+        .arg(plotBounds)
+        .arg(plotBoundsStatus(plot));
+}
+
 QString formatPlotReadinessChecklist(const QVariantList &layerStats, const QVariantList &penStats)
 {
     int readyLayers = 0;
@@ -552,6 +592,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
+    m_plotBoundsValue = makeValueLabel();
     m_plotLayerStatsValue = makeValueLabel();
     m_plotPenStatsValue = makeValueLabel();
     m_plotReadinessValue = makeValueLabel();
@@ -590,6 +631,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
     layout->addWidget(m_plotValue);
+    layout->addWidget(m_plotBoundsValue);
     layout->addWidget(m_plotLayerStatsValue);
     layout->addWidget(m_plotPenStatsValue);
     layout->addWidget(m_plotReadinessValue);
@@ -1308,6 +1350,9 @@ void EdiShellWindow::refreshInspector()
                 .arg(plot.value(QStringLiteral("segment_count")).toInt())
                 .arg(travelSegmentCount)
                 .arg(travelDistance));
+    }
+    if (m_plotBoundsValue != nullptr) {
+        m_plotBoundsValue->setText(plotBoundsSummary(grid, plot));
     }
     if (m_plotLayerStatsValue != nullptr) {
         QVariantMap activeLayerStats;

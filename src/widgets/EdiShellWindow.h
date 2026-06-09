@@ -94,6 +94,7 @@ private:
     QLabel *m_snapValue = nullptr;
     QLabel *m_gridValue = nullptr;
     QLabel *m_plotValue = nullptr;
+    QLabel *m_plotBoundsValue = nullptr;
     QLabel *m_plotLayerStatsValue = nullptr;
     QLabel *m_plotPenStatsValue = nullptr;
     QLabel *m_plotReadinessValue = nullptr;

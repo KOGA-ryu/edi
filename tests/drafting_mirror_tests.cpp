@@ -23,6 +23,10 @@ DraftingObject object(std::string id, DraftingShapeKind kind, DraftingGeometry g
 
 int main()
 {
+    assert(draftingMirrorAxisFromId("vertical") == DraftingMirrorAxis::Vertical);
+    assert(draftingMirrorAxisFromId("horizontal") == DraftingMirrorAxis::Horizontal);
+    assert(draftingMirrorAxisFromId("missing") == DraftingMirrorAxis::Horizontal);
+
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.5}});
     line.stroke.color = "#22ccff";
     auto verticalLine = mirrorDraftingObject(line, "line_mirror_v", DraftingMirrorAxis::Vertical);

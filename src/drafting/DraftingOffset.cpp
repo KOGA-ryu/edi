@@ -57,6 +57,11 @@ DraftingOffsetResult DraftingOffsetResult::rejected(DraftingResultCode code, std
     return result;
 }
 
+DraftingOffsetSide draftingOffsetSideFromId(const std::string &sideId)
+{
+    return sideId == "right" ? DraftingOffsetSide::Right : DraftingOffsetSide::Left;
+}
+
 DraftingOffsetResult offsetDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

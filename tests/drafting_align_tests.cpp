@@ -43,6 +43,16 @@ const DraftingTranslation *findTranslation(const DraftingAlignmentResult &result
 int main()
 {
     assert(std::string(draftingAlignmentModeName(DraftingAlignmentMode::CenterX)) == "center_x");
+    assert(draftingAlignmentModeFromId("left") == DraftingAlignmentMode::Left);
+    assert(draftingAlignmentModeFromId("right") == DraftingAlignmentMode::Right);
+    assert(draftingAlignmentModeFromId("top") == DraftingAlignmentMode::Top);
+    assert(draftingAlignmentModeFromId("bottom") == DraftingAlignmentMode::Bottom);
+    assert(draftingAlignmentModeFromId("center_x") == DraftingAlignmentMode::CenterX);
+    assert(draftingAlignmentModeFromId("center_y") == DraftingAlignmentMode::CenterY);
+    assert(!draftingAlignmentModeFromId("distribute_x"));
+    assert(draftingDistributeModeFromAxisId("x") == DraftingAlignmentMode::DistributeX);
+    assert(draftingDistributeModeFromAxisId("y") == DraftingAlignmentMode::DistributeY);
+    assert(!draftingDistributeModeFromAxisId("z"));
 
     DraftingDocument document = makeDraftingDocument("align_doc");
     add(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.2, 0.3}, 0.2, 0.1}));

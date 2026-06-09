@@ -79,6 +79,11 @@ DraftingMirrorResult DraftingMirrorResult::rejected(DraftingResultCode code, std
     return result;
 }
 
+DraftingMirrorAxis draftingMirrorAxisFromId(const std::string &axisId)
+{
+    return axisId == "vertical" ? DraftingMirrorAxis::Vertical : DraftingMirrorAxis::Horizontal;
+}
+
 DraftingMirrorResult mirrorDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

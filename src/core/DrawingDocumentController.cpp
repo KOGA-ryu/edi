@@ -648,50 +648,6 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
     };
 }
 
-DraftingOffsetSide offsetSideFromId(const QString &sideId)
-{
-    return sideId == QStringLiteral("right") ? DraftingOffsetSide::Right : DraftingOffsetSide::Left;
-}
-
-DraftingMirrorAxis mirrorAxisFromId(const QString &axisId)
-{
-    return axisId == QStringLiteral("vertical") ? DraftingMirrorAxis::Vertical : DraftingMirrorAxis::Horizontal;
-}
-
-std::optional<DraftingAlignmentMode> alignmentModeFromId(const QString &modeId)
-{
-    if (modeId == QStringLiteral("left")) {
-        return DraftingAlignmentMode::Left;
-    }
-    if (modeId == QStringLiteral("right")) {
-        return DraftingAlignmentMode::Right;
-    }
-    if (modeId == QStringLiteral("top")) {
-        return DraftingAlignmentMode::Top;
-    }
-    if (modeId == QStringLiteral("bottom")) {
-        return DraftingAlignmentMode::Bottom;
-    }
-    if (modeId == QStringLiteral("center_x")) {
-        return DraftingAlignmentMode::CenterX;
-    }
-    if (modeId == QStringLiteral("center_y")) {
-        return DraftingAlignmentMode::CenterY;
-    }
-    return std::nullopt;
-}
-
-std::optional<DraftingAlignmentMode> distributeModeFromAxisId(const QString &axisId)
-{
-    if (axisId == QStringLiteral("x")) {
-        return DraftingAlignmentMode::DistributeX;
-    }
-    if (axisId == QStringLiteral("y")) {
-        return DraftingAlignmentMode::DistributeY;
-    }
-    return std::nullopt;
-}
-
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
@@ -1562,7 +1518,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
     }
 
     const QString id = nextObjectId(QStringLiteral("offset"), m_nextObjectSerial++);
-    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), 0.05, offsetSideFromId(sideId));
+    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), 0.05, draftingOffsetSideFromId(toStdString(sideId)));
     if (!offset.ok) {
         return false;
     }
@@ -1587,7 +1543,7 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
     }
 
     const QString id = nextObjectId(QStringLiteral("mirror"), m_nextObjectSerial++);
-    const DraftingMirrorResult mirror = mirrorDraftingObject(*source, toStdString(id), mirrorAxisFromId(axisId));
+    const DraftingMirrorResult mirror = mirrorDraftingObject(*source, toStdString(id), draftingMirrorAxisFromId(toStdString(axisId)));
     if (!mirror.ok) {
         return false;
     }
@@ -1644,7 +1600,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::alignSelection(const QString &modeId)
 {
-    const std::optional<DraftingAlignmentMode> mode = alignmentModeFromId(modeId);
+    const std::optional<DraftingAlignmentMode> mode = draftingAlignmentModeFromId(toStdString(modeId));
     if (!mode) {
         return false;
     }
@@ -1660,7 +1616,7 @@ bool DrawingDocumentController::alignSelection(const QString &modeId)
 
 bool DrawingDocumentController::distributeSelection(const QString &axisId)
 {
-    const std::optional<DraftingAlignmentMode> mode = distributeModeFromAxisId(axisId);
+    const std::optional<DraftingAlignmentMode> mode = draftingDistributeModeFromAxisId(toStdString(axisId));
     if (!mode) {
         return false;
     }

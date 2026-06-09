@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingDocument.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,8 @@ struct DraftingAlignmentResult {
 };
 
 const char *draftingAlignmentModeName(DraftingAlignmentMode mode);
+std::optional<DraftingAlignmentMode> draftingAlignmentModeFromId(const std::string &modeId);
+std::optional<DraftingAlignmentMode> draftingDistributeModeFromAxisId(const std::string &axisId);
 
 DraftingAlignmentResult planDraftingAlignment(
     const DraftingDocument &document,

@@ -21,6 +21,7 @@ struct DraftingOffsetResult {
     static DraftingOffsetResult rejected(DraftingResultCode code, std::string message);
 };
 
+DraftingOffsetSide draftingOffsetSideFromId(const std::string &sideId);
 DraftingOffsetResult offsetDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

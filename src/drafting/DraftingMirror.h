@@ -21,6 +21,7 @@ struct DraftingMirrorResult {
     static DraftingMirrorResult rejected(DraftingResultCode code, std::string message);
 };
 
+DraftingMirrorAxis draftingMirrorAxisFromId(const std::string &axisId);
 DraftingMirrorResult mirrorDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

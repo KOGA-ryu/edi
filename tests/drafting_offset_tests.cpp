@@ -24,6 +24,10 @@ DraftingObject object(std::string id, DraftingShapeKind kind, DraftingGeometry g
 
 int main()
 {
+    assert(draftingOffsetSideFromId("right") == DraftingOffsetSide::Right);
+    assert(draftingOffsetSideFromId("left") == DraftingOffsetSide::Left);
+    assert(draftingOffsetSideFromId("missing") == DraftingOffsetSide::Left);
+
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.0}});
     line.stroke.color = "#ffaa00";
     line.layerId = "default";

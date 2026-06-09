@@ -188,6 +188,40 @@ const char *draftingAlignmentModeName(DraftingAlignmentMode mode)
     return "unknown";
 }
 
+std::optional<DraftingAlignmentMode> draftingAlignmentModeFromId(const std::string &modeId)
+{
+    if (modeId == "left") {
+        return DraftingAlignmentMode::Left;
+    }
+    if (modeId == "right") {
+        return DraftingAlignmentMode::Right;
+    }
+    if (modeId == "top") {
+        return DraftingAlignmentMode::Top;
+    }
+    if (modeId == "bottom") {
+        return DraftingAlignmentMode::Bottom;
+    }
+    if (modeId == "center_x") {
+        return DraftingAlignmentMode::CenterX;
+    }
+    if (modeId == "center_y") {
+        return DraftingAlignmentMode::CenterY;
+    }
+    return std::nullopt;
+}
+
+std::optional<DraftingAlignmentMode> draftingDistributeModeFromAxisId(const std::string &axisId)
+{
+    if (axisId == "x") {
+        return DraftingAlignmentMode::DistributeX;
+    }
+    if (axisId == "y") {
+        return DraftingAlignmentMode::DistributeY;
+    }
+    return std::nullopt;
+}
+
 DraftingAlignmentResult planDraftingAlignment(
     const DraftingDocument &document,
     const std::vector<DraftingObjectId> &objectIds,

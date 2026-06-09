@@ -96,6 +96,68 @@ QString formatPlotReadinessChecklist(const QVariantList &layerStats, const QVari
     return summary;
 }
 
+QVariantMap plotStatsByField(const QVariantList &statsList, const QString &field, const QString &value)
+{
+    for (const QVariant &statsValue : statsList) {
+        const QVariantMap stats = statsValue.toMap();
+        if (stats.value(field).toString() == value) {
+            return stats;
+        }
+    }
+    return {};
+}
+
+QString readinessText(const QVariantMap &stats)
+{
+    if (stats.isEmpty()) {
+        return QStringLiteral("none");
+    }
+    return stats.value(QStringLiteral("ready")).toBool()
+        ? QStringLiteral("ready")
+        : stats.value(QStringLiteral("blocked_reason")).toString();
+}
+
+QString selectedPlotSafetySummary(const QVariantMap &object, const QVariantMap &plot)
+{
+    if (object.isEmpty()) {
+        return QStringLiteral("Plot safety: no selection");
+    }
+
+    QString objectStatus = QStringLiteral("non-plotting");
+    if (object.value(QStringLiteral("plot_blocked")).toBool()) {
+        objectStatus = QStringLiteral("blocked");
+    } else if (object.value(QStringLiteral("effective_plot_ready")).toBool()) {
+        objectStatus = QStringLiteral("ready");
+    }
+
+    const QVariantMap layerStats = plotStatsByField(
+        plot.value(QStringLiteral("layer_stats")).toList(),
+        QStringLiteral("layer_id"),
+        object.value(QStringLiteral("layer_id")).toString());
+    const QVariantMap penStats = plotStatsByField(
+        plot.value(QStringLiteral("pen_stats")).toList(),
+        QStringLiteral("pen_id"),
+        object.value(QStringLiteral("effective_pen_id")).toString());
+
+    QStringList lines;
+    lines.push_back(QStringLiteral("Object: %1").arg(objectStatus));
+    lines.push_back(QStringLiteral("Warning: %1")
+        .arg(object.value(QStringLiteral("plot_warning_kind")).toString().isEmpty()
+                ? QStringLiteral("none")
+                : object.value(QStringLiteral("plot_warning_kind")).toString()));
+    const QString message = object.value(QStringLiteral("plot_warning_message")).toString();
+    if (!message.isEmpty()) {
+        lines.push_back(QStringLiteral("Message: %1").arg(message));
+    }
+    lines.push_back(QStringLiteral("Bounds: raw %1, calibrated %2")
+        .arg(yesNo(object.value(QStringLiteral("outside_drawable")).toBool()))
+        .arg(yesNo(object.value(QStringLiteral("calibrated_outside_drawable")).toBool())));
+    lines.push_back(QStringLiteral("Layer: %1").arg(readinessText(layerStats)));
+    lines.push_back(QStringLiteral("Pen: %1").arg(readinessText(penStats)));
+
+    return QStringLiteral("Plot safety:\n%1").arg(lines.join(QLatin1Char('\n')));
+}
+
 QVariantMap activeObjectProjection(const QVariantMap &document)
 {
     const QString activeId = document.value(QStringLiteral("active_object_id")).toString();
@@ -460,11 +522,13 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_objectGeometryValue = makeValueLabel();
     m_objectLayerValue = makeValueLabel();
     m_objectMeasurementValue = makeValueLabel();
+    m_objectPlotSafetyValue = makeValueLabel();
     layout->addWidget(m_objectKindValue);
     layout->addWidget(m_objectBoundsValue);
     layout->addWidget(m_objectGeometryValue);
     layout->addWidget(m_objectLayerValue);
     layout->addWidget(m_objectMeasurementValue);
+    layout->addWidget(m_objectPlotSafetyValue);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1202,6 +1266,9 @@ void EdiShellWindow::refreshInspector()
         m_objectMeasurementValue->setText(formatted.isEmpty()
             ? QStringLiteral("Measurement: none")
             : QStringLiteral("Measurement:\n%1").arg(formatted.join(QLatin1Char('\n'))));
+    }
+    if (m_objectPlotSafetyValue != nullptr) {
+        m_objectPlotSafetyValue->setText(selectedPlotSafetySummary(selectedObject, plot));
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

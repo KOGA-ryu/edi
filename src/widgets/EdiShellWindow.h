@@ -74,6 +74,7 @@ private:
     QLabel *m_objectGeometryValue = nullptr;
     QLabel *m_objectLayerValue = nullptr;
     QLabel *m_objectMeasurementValue = nullptr;
+    QLabel *m_objectPlotSafetyValue = nullptr;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;

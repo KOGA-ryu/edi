@@ -256,6 +256,13 @@ int main(int argc, char **argv)
     assert(!horizontalGuide.value("plot_ready").toBool());
     assert(verticalGuide.value("orientation").toString() == "vertical");
     assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
+    assert(guideController.updateSelectedObjectGeometryField("position", 0.8));
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.8));
+    const int guideRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
+    assert(!guideController.updateSelectedObjectGeometryField("position", 1.2));
+    assert(guideController.modelDocument().value("revision").toInt() == guideRevisionBeforeInvalid);
 
     DrawingDocumentController constructionController;
     constructionController.setSelectedToolId("horizontal_construction_line_tool");
@@ -330,6 +337,15 @@ int main(int argc, char **argv)
     assert(nearlyEqual(angledConstruction.value("y1").toDouble(), 0.2));
     assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.7));
     assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.4));
+    assert(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.8));
+    assert(angledConstructionController.updateSelectedObjectGeometryField("y2", 0.5));
+    angledConstruction = angledConstructionController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.8));
+    assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.5));
+    assert(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.1));
+    const int constructionRevisionBeforeInvalid = angledConstructionController.modelDocument().value("revision").toInt();
+    assert(!angledConstructionController.updateSelectedObjectGeometryField("y2", 0.2));
+    assert(angledConstructionController.modelDocument().value("revision").toInt() == constructionRevisionBeforeInvalid);
 
     DrawingDocumentController dimensionController;
     dimensionController.setSelectedToolId("distance_dimension_tool");
@@ -358,6 +374,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
     assert(nearlyEqual(dimension.value("dimension_x2").toDouble(), 0.368));
     assert(nearlyEqual(dimension.value("dimension_y2").toDouble(), 0.624));
+    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.04));
+    assert(dimensionController.updateSelectedObjectGeometryField("offset", 0.08));
+    assert(dimensionController.updateSelectedObjectGeometryField("x2", 0.5));
+    dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.08));
+    assert(nearlyEqual(dimension.value("x2").toDouble(), 0.5));
+    assert(dimensionController.updateSelectedObjectGeometryField("x2", 0.1));
+    const int dimensionRevisionBeforeInvalid = dimensionController.modelDocument().value("revision").toInt();
+    assert(!dimensionController.updateSelectedObjectGeometryField("y2", 0.2));
+    assert(dimensionController.modelDocument().value("revision").toInt() == dimensionRevisionBeforeInvalid);
 
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");

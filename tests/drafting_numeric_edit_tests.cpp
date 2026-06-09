@@ -72,6 +72,51 @@ int main()
     assert(!negativeWidth.ok);
     assert(negativeWidth.code == DraftingResultCode::InvalidGeometry);
 
+    DraftingObject guide = object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25});
+    auto guidePosition = applyNumericGeometryEdit(guide, "position", 0.75);
+    assert(guidePosition.ok);
+    const auto *editedGuide = std::get_if<GuideGeometry>(&guidePosition.geometry);
+    assert(editedGuide != nullptr);
+    assert(editedGuide->orientation == GuideOrientation::Vertical);
+    assert(nearlyEqual(editedGuide->position, 0.75));
+    auto invalidGuidePosition = applyNumericGeometryEdit(guide, "position", 1.5);
+    assert(!invalidGuidePosition.ok);
+    assert(invalidGuidePosition.code == DraftingResultCode::InvalidGeometry);
+
+    DraftingObject construction = object("construction_1", DraftingShapeKind::ConstructionLine, ConstructionLineGeometry{{0.1, 0.2}, {0.6, 0.7}});
+    auto constructionEnd = applyNumericGeometryEdit(construction, "x2", 0.9);
+    assert(constructionEnd.ok);
+    const auto *editedConstruction = std::get_if<ConstructionLineGeometry>(&constructionEnd.geometry);
+    assert(editedConstruction != nullptr);
+    assert(nearlyEqual(editedConstruction->a.x, 0.1));
+    assert(nearlyEqual(editedConstruction->b.x, 0.9));
+    auto collapsedConstruction = applyNumericGeometryEdit(construction, "x2", 0.1);
+    assert(collapsedConstruction.ok);
+    DraftingObject partiallyCollapsed = construction;
+    partiallyCollapsed.geometry = collapsedConstruction.geometry;
+    auto fullyCollapsedConstruction = applyNumericGeometryEdit(partiallyCollapsed, "y2", 0.2);
+    assert(!fullyCollapsedConstruction.ok);
+    assert(fullyCollapsedConstruction.code == DraftingResultCode::InvalidGeometry);
+
+    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.2}, {0.5, 0.6}, 0.04});
+    auto dimensionOffset = applyNumericGeometryEdit(dimension, "offset", -0.08);
+    assert(dimensionOffset.ok);
+    const auto *editedDimension = std::get_if<DimensionGeometry>(&dimensionOffset.geometry);
+    assert(editedDimension != nullptr);
+    assert(nearlyEqual(editedDimension->offset, -0.08));
+    auto dimensionEnd = applyNumericGeometryEdit(dimension, "y2", 0.6);
+    assert(dimensionEnd.ok);
+    const auto *dimensionWithNewEnd = std::get_if<DimensionGeometry>(&dimensionEnd.geometry);
+    assert(dimensionWithNewEnd != nullptr);
+    assert(nearlyEqual(dimensionWithNewEnd->b.y, 0.6));
+    auto collapsedDimension = applyNumericGeometryEdit(dimension, "x2", 0.1);
+    assert(collapsedDimension.ok);
+    DraftingObject partiallyCollapsedDimension = dimension;
+    partiallyCollapsedDimension.geometry = collapsedDimension.geometry;
+    auto fullyCollapsedDimension = applyNumericGeometryEdit(partiallyCollapsedDimension, "y2", 0.2);
+    assert(!fullyCollapsedDimension.ok);
+    assert(fullyCollapsedDimension.code == DraftingResultCode::InvalidGeometry);
+
     auto pointX = applyNumericGeometryEdit(object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.2}}), "x", 0.5);
     assert(pointX.ok);
     const auto *point = std::get_if<PointGeometry>(&pointX.geometry);

@@ -142,6 +142,41 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to circle");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (fieldId == "position") {
+                geometry.position = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to guide");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            if (fieldId == "x1") {
+                geometry.a.x = value;
+            } else if (fieldId == "y1") {
+                geometry.a.y = value;
+            } else if (fieldId == "x2") {
+                geometry.b.x = value;
+            } else if (fieldId == "y2") {
+                geometry.b.y = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to construction line");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            if (fieldId == "x1") {
+                geometry.a.x = value;
+            } else if (fieldId == "y1") {
+                geometry.a.y = value;
+            } else if (fieldId == "x2") {
+                geometry.b.x = value;
+            } else if (fieldId == "y2") {
+                geometry.b.y = value;
+            } else if (fieldId == "offset") {
+                geometry.offset = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to dimension");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
         } else {
             return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to this geometry");
         }

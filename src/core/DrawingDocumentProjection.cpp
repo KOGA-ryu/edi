@@ -108,6 +108,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("y1"), geometry.a.y);
             result.insert(QStringLiteral("x2"), geometry.b.x);
             result.insert(QStringLiteral("y2"), geometry.b.y);
+            result.insert(QStringLiteral("offset"), geometry.offset);
             result.insert(QStringLiteral("dimension_x1"), dimA.x);
             result.insert(QStringLiteral("dimension_y1"), dimA.y);
             result.insert(QStringLiteral("dimension_x2"), dimB.x);

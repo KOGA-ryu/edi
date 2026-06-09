@@ -14,7 +14,7 @@ These surfaces should share project state, command discipline, and format owners
 ## Current State
 
 - The app shell is C++ Qt Widgets.
-- Canvas math contracts exist under `src/canvas`.
+- Drafting geometry, snap, hit-test, and edit contracts live under `src/drafting`; canvas interaction and painting live under `src/widgets`.
 - Core drawing and storage files are present but partially rebuilt as stubs after cleanup.
 - Runtime behavior is C++ owned.
 

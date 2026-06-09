@@ -1,4 +1,4 @@
-#include "DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasGestureState.h"
 
 #include <cmath>
 
@@ -59,14 +59,6 @@ QVariantMap cloneState(const QVariantMap &state) {
         {QStringLiteral("targetHandleId"), source.value(QStringLiteral("targetHandleId")).toString()},
         {QStringLiteral("rejected"), source.value(QStringLiteral("rejected")).toBool()}
     };
-}
-
-bool activeMode(const QString &mode) {
-    return mode == QStringLiteral("drawing_pending_shape")
-        || mode == QStringLiteral("dragging_object")
-        || mode == QStringLiteral("dragging_handle")
-        || mode == QStringLiteral("marquee_select")
-        || mode == QStringLiteral("panning");
 }
 
 bool transitionAllowedInternal(const QString &fromMode, const QString &toMode) {
@@ -185,6 +177,29 @@ QString finishKindInternal(const QVariantMap &state) {
 }
 
 } // namespace
+
+double finiteNumber(double value, double fallback) {
+    return std::isfinite(value) ? value : fallback;
+}
+
+double finiteNumber(const QVariant &value, double fallback) {
+    bool ok = false;
+    const double number = value.toDouble(&ok);
+    return ok && std::isfinite(number) ? number : fallback;
+}
+
+CanvasPoint pointFromVariant(const QVariant &value) {
+    const QVariantMap map = value.toMap();
+    return {finiteNumber(map.value(QStringLiteral("x")), 0.0),
+            finiteNumber(map.value(QStringLiteral("y")), 0.0)};
+}
+
+QVariantMap pointToVariant(const CanvasPoint &point) {
+    return {
+        {QStringLiteral("x"), finiteNumber(point.x, 0.0)},
+        {QStringLiteral("y"), finiteNumber(point.y, 0.0)}
+    };
+}
 
 QVariantMap initialGestureState() {
     return {

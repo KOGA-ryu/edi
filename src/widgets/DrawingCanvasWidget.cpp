@@ -10,9 +10,36 @@
 #include <cmath>
 #include <vector>
 
-#include "canvas/DrawingCanvasGestureState.h"
-#include "canvas/DrawingCanvasTypes.h"
 #include "core/DrawingCore.h"
+#include "widgets/DrawingCanvasGestureState.h"
+
+namespace {
+
+std::vector<drawing_canvas::CanvasPoint> projectedPoints(const QVariantMap &object)
+{
+    std::vector<drawing_canvas::CanvasPoint> result;
+    const QVariantList source = object.value(QStringLiteral("points")).toList();
+    result.reserve(static_cast<std::size_t>(source.size()));
+    for (const QVariant &entry : source) {
+        if (entry.typeId() == QMetaType::QVariantList) {
+            const QVariantList list = entry.toList();
+            if (list.size() >= 2) {
+                result.push_back({drawing_canvas::finiteNumber(list.at(0), 0.0), drawing_canvas::finiteNumber(list.at(1), 0.0)});
+            }
+            continue;
+        }
+        const QVariantMap point = entry.toMap();
+        if (!point.isEmpty()) {
+            result.push_back({
+                drawing_canvas::finiteNumber(point.value(QStringLiteral("x")), 0.0),
+                drawing_canvas::finiteNumber(point.value(QStringLiteral("y")), 0.0)
+            });
+        }
+    }
+    return result;
+}
+
+} // namespace
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
     : QWidget(parent)
@@ -768,7 +795,7 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         painter.drawEllipse(center, radius, radius);
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
         QPolygonF polygon;
-        for (const drawing_canvas::CanvasPoint &point : drawing_canvas::CanvasObjectView{object}.points()) {
+        for (const drawing_canvas::CanvasPoint &point : projectedPoints(object)) {
             polygon.push_back(canvasToScreen(point.x, point.y));
         }
         if (kind == QStringLiteral("polygon")) {

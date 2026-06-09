@@ -12,24 +12,6 @@ include(CTest)
 set(DRAFTSMAN_SHELL_TARGET_NAME "edi")
 set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Project data root used for default profiles, themes, layouts, and review subjects.")
 
-add_library(drawing_canvas_core STATIC
-    src/canvas/DrawingCanvasTypes.h
-    src/canvas/DrawingCanvasTypes.cpp
-    src/canvas/DrawingCanvasGestureState.h
-    src/canvas/DrawingCanvasGestureState.cpp
-)
-
-set_target_properties(drawing_canvas_core PROPERTIES AUTOMOC OFF)
-
-target_include_directories(drawing_canvas_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_link_libraries(drawing_canvas_core
-    PUBLIC
-        Qt6::Core
-)
-
 add_library(drawing_runtime_core STATIC
     src/runtime/DrawingRuntimeCore.h
     src/runtime/DrawingRuntimeCore.cpp
@@ -257,6 +239,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/EdiShellWindow.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasGestureState.h
+    src/widgets/DrawingCanvasGestureState.cpp
 )
 
 target_include_directories(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
@@ -269,7 +253,6 @@ target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
 
 target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
-        drawing_canvas_core
         drawing_runtime_core
         edi_app_core
         edi_drafting_core

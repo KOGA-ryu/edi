@@ -27,5 +27,6 @@ ctest --test-dir build --output-on-failure
 
 - App shell: `app/main.cpp`
 - Drawing model contracts: `src/core/`
-- Canvas behavior contracts: `src/canvas/`
+- Drafting contracts: `src/drafting/`
+- Canvas widget interaction: `src/widgets/`
 - Runtime catalogs and workflow planning: `src/runtime/`

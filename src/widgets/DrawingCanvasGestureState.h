@@ -1,10 +1,24 @@
 #pragma once
 
-#include "DrawingCanvasTypes.h"
-
 #include <QVariantList>
+#include <QVariantMap>
 
 namespace drawing_canvas {
+
+struct CanvasPoint {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+struct ScreenPoint {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+double finiteNumber(double value, double fallback);
+double finiteNumber(const QVariant &value, double fallback);
+CanvasPoint pointFromVariant(const QVariant &value);
+QVariantMap pointToVariant(const CanvasPoint &point);
 
 QVariantMap initialGestureState();
 QVariantMap beginHover(const QVariantMap &state, const CanvasPoint &point, const QVariantMap &target);

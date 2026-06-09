@@ -1,6 +1,7 @@
 #include "core/DrawingCore.h"
 
 #include <QCoreApplication>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -13,6 +14,15 @@ namespace {
 bool nearlyEqual(double a, double b)
 {
     return std::abs(a - b) < 0.000001;
+}
+
+QStringList numericFieldIds(const QVariantMap &object)
+{
+    QStringList ids;
+    for (const QVariant &field : object.value("numeric_fields").toList()) {
+        ids.push_back(field.toMap().value("id").toString());
+    }
+    return ids;
 }
 
 } // namespace
@@ -73,6 +83,7 @@ int main(int argc, char **argv)
     assert(point.value("kind").toString() == "point");
     assert(point.value("x").toDouble() == 0.25);
     assert(point.value("y").toDouble() == 0.5);
+    assert(numericFieldIds(point) == QStringList({QStringLiteral("x"), QStringLiteral("y")}));
     assert(point.value("layer_id").toString() == "default");
     assert(!point.value("locked").toBool());
     QVariantMap pointBounds = point.value("bounds").toMap();
@@ -988,6 +999,13 @@ int main(int argc, char **argv)
     assert(numericRectController.updateSelectedObjectGeometryField("height", 0.25));
     assert(numericRectController.updateSelectedObjectGeometryField("rotation_deg", 45.0));
     QVariantMap numericRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(numericFieldIds(numericRect) == QStringList({
+        QStringLiteral("x"),
+        QStringLiteral("y"),
+        QStringLiteral("width"),
+        QStringLiteral("height"),
+        QStringLiteral("rotation_deg"),
+    }));
     assert(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
     assert(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
     assert(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
@@ -1006,6 +1024,12 @@ int main(int argc, char **argv)
     assert(numericCircleController.updateSelectedObjectGeometryField("cy", 0.45));
     assert(numericCircleController.updateSelectedObjectGeometryField("radius", 0.125));
     QVariantMap numericCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(numericFieldIds(numericCircle) == QStringList({
+        QStringLiteral("cx"),
+        QStringLiteral("cy"),
+        QStringLiteral("radius"),
+        QStringLiteral("diameter"),
+    }));
     assert(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
     assert(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
     assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
@@ -1028,6 +1052,14 @@ int main(int argc, char **argv)
     numericLineController.clickCanvasNormalized(0.1, 0.2);
     numericLineController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(numericFieldIds(numericLine) == QStringList({
+        QStringLiteral("x1"),
+        QStringLiteral("y1"),
+        QStringLiteral("x2"),
+        QStringLiteral("y2"),
+        QStringLiteral("line_length"),
+        QStringLiteral("line_angle_deg"),
+    }));
     assert(nearlyEqual(numericLine.value("line_length").toDouble(), 0.5));
     assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 53.1301023542));
     assert(numericLineController.updateSelectedObjectGeometryField("line_length", 1.0));

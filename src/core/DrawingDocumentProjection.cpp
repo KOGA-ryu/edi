@@ -52,6 +52,76 @@ QVariantMap layerToMap(const DraftingLayer &layer)
     };
 }
 
+QVariantMap numericField(
+    const QString &id,
+    const QString &label,
+    double minimum = -10.0,
+    double maximum = 10.0,
+    double step = 0.01,
+    int decimals = 4)
+{
+    return {
+        {QStringLiteral("id"), id},
+        {QStringLiteral("label"), label},
+        {QStringLiteral("minimum"), minimum},
+        {QStringLiteral("maximum"), maximum},
+        {QStringLiteral("step"), step},
+        {QStringLiteral("decimals"), decimals},
+    };
+}
+
+QVariantList numericFieldsForObject(const DraftingObject &object)
+{
+    QVariantList fields;
+    switch (object.kind) {
+    case DraftingShapeKind::Point:
+        fields.push_back(numericField(QStringLiteral("x"), QStringLiteral("X")));
+        fields.push_back(numericField(QStringLiteral("y"), QStringLiteral("Y")));
+        break;
+    case DraftingShapeKind::Line:
+        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
+        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
+        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
+        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        fields.push_back(numericField(QStringLiteral("line_length"), QStringLiteral("Length"), 0.0));
+        fields.push_back(numericField(QStringLiteral("line_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2));
+        break;
+    case DraftingShapeKind::Rectangle:
+        fields.push_back(numericField(QStringLiteral("x"), QStringLiteral("X")));
+        fields.push_back(numericField(QStringLiteral("y"), QStringLiteral("Y")));
+        fields.push_back(numericField(QStringLiteral("width"), QStringLiteral("Width"), 0.0));
+        fields.push_back(numericField(QStringLiteral("height"), QStringLiteral("Height"), 0.0));
+        fields.push_back(numericField(QStringLiteral("rotation_deg"), QStringLiteral("Rotation"), -360.0, 360.0, 1.0, 2));
+        break;
+    case DraftingShapeKind::Circle:
+        fields.push_back(numericField(QStringLiteral("cx"), QStringLiteral("CX")));
+        fields.push_back(numericField(QStringLiteral("cy"), QStringLiteral("CY")));
+        fields.push_back(numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0));
+        fields.push_back(numericField(QStringLiteral("diameter"), QStringLiteral("Diameter"), 0.0));
+        break;
+    case DraftingShapeKind::Guide:
+        fields.push_back(numericField(QStringLiteral("position"), QStringLiteral("Position"), 0.0, 1.0));
+        break;
+    case DraftingShapeKind::ConstructionLine:
+        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
+        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
+        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
+        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        break;
+    case DraftingShapeKind::Dimension:
+        fields.push_back(numericField(QStringLiteral("x1"), QStringLiteral("X1")));
+        fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
+        fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
+        fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        fields.push_back(numericField(QStringLiteral("offset"), QStringLiteral("Offset")));
+        break;
+    case DraftingShapeKind::Polygon:
+    case DraftingShapeKind::Polyline:
+        break;
+    }
+    return fields;
+}
+
 int layerOrderForObject(const DraftingDocument &document, const DraftingObject &object)
 {
     const DraftingLayer *layer = findLayer(document, object.layerId);
@@ -97,6 +167,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
         {QStringLiteral("tool_provenance"), qStringFromStdString(object.metadata.toolProvenance)},
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
+        {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
     };
 
     std::visit([&](const auto &geometry) {

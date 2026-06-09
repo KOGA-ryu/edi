@@ -1135,89 +1135,39 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
     }
     m_geometryFields.clear();
 
-    const QString kind = selectedObject.value(QStringLiteral("kind")).toString();
-    QVector<QPair<QString, QString>> fields;
-    if (kind == QStringLiteral("point")) {
-        fields = {{QStringLiteral("x"), QStringLiteral("X")}, {QStringLiteral("y"), QStringLiteral("Y")}};
-    } else if (kind == QStringLiteral("line")) {
-        fields = {
-            {QStringLiteral("x1"), QStringLiteral("X1")},
-            {QStringLiteral("y1"), QStringLiteral("Y1")},
-            {QStringLiteral("x2"), QStringLiteral("X2")},
-            {QStringLiteral("y2"), QStringLiteral("Y2")},
-            {QStringLiteral("line_length"), QStringLiteral("Len")},
-            {QStringLiteral("line_angle_deg"), QStringLiteral("Ang")},
-        };
-    } else if (kind == QStringLiteral("rectangle")) {
-        fields = {
-            {QStringLiteral("x"), QStringLiteral("X")},
-            {QStringLiteral("y"), QStringLiteral("Y")},
-            {QStringLiteral("width"), QStringLiteral("W")},
-            {QStringLiteral("height"), QStringLiteral("H")},
-            {QStringLiteral("rotation_deg"), QStringLiteral("Rot")},
-        };
-    } else if (kind == QStringLiteral("circle")) {
-        fields = {
-            {QStringLiteral("cx"), QStringLiteral("CX")},
-            {QStringLiteral("cy"), QStringLiteral("CY")},
-            {QStringLiteral("radius"), QStringLiteral("R")},
-            {QStringLiteral("diameter"), QStringLiteral("D")},
-        };
-    } else if (kind == QStringLiteral("guide")) {
-        fields = {
-            {QStringLiteral("position"), QStringLiteral("Pos")},
-        };
-    } else if (kind == QStringLiteral("construction_line")) {
-        fields = {
-            {QStringLiteral("x1"), QStringLiteral("X1")},
-            {QStringLiteral("y1"), QStringLiteral("Y1")},
-            {QStringLiteral("x2"), QStringLiteral("X2")},
-            {QStringLiteral("y2"), QStringLiteral("Y2")},
-        };
-    } else if (kind == QStringLiteral("dimension")) {
-        fields = {
-            {QStringLiteral("x1"), QStringLiteral("X1")},
-            {QStringLiteral("y1"), QStringLiteral("Y1")},
-            {QStringLiteral("x2"), QStringLiteral("X2")},
-            {QStringLiteral("y2"), QStringLiteral("Y2")},
-            {QStringLiteral("offset"), QStringLiteral("Off")},
-        };
-    }
+    const QVariantList fields = selectedObject.value(QStringLiteral("numeric_fields")).toList();
 
     int row = 0;
-    for (const auto &field : fields) {
-        auto *label = new QLabel(field.second);
+    for (const QVariant &fieldValue : fields) {
+        const QVariantMap field = fieldValue.toMap();
+        const QString fieldId = field.value(QStringLiteral("id")).toString();
+        if (fieldId.isEmpty() || !selectedObject.contains(fieldId)) {
+            continue;
+        }
+
+        auto *label = new QLabel(field.value(QStringLiteral("label")).toString());
         label->setObjectName(QStringLiteral("fieldLabel"));
         auto *spin = new QDoubleSpinBox;
         spin->setObjectName(QStringLiteral("geometryField"));
-        spin->setDecimals(4);
-        spin->setSingleStep(0.01);
-        spin->setRange(-10.0, 10.0);
-        if (field.first == QStringLiteral("width")
-            || field.first == QStringLiteral("height")
-            || field.first == QStringLiteral("radius")
-            || field.first == QStringLiteral("diameter")
-            || field.first == QStringLiteral("line_length")) {
-            spin->setRange(0.0, 10.0);
-        } else if (field.first == QStringLiteral("position")) {
-            spin->setRange(0.0, 1.0);
-        } else if (field.first == QStringLiteral("rotation_deg") || field.first == QStringLiteral("line_angle_deg")) {
-            spin->setRange(-360.0, 360.0);
-            spin->setSingleStep(1.0);
-            spin->setDecimals(2);
-        }
-        spin->setValue(selectedObject.value(field.first).toDouble());
-        spin->setProperty("fieldId", field.first);
+        spin->setDecimals(field.value(QStringLiteral("decimals"), 4).toInt());
+        spin->setSingleStep(field.value(QStringLiteral("step"), 0.01).toDouble());
+        spin->setRange(
+            field.value(QStringLiteral("minimum"), -10.0).toDouble(),
+            field.value(QStringLiteral("maximum"), 10.0).toDouble());
+        spin->setValue(selectedObject.value(fieldId).toDouble());
+        spin->setProperty("fieldId", fieldId);
         connect(spin, &QDoubleSpinBox::editingFinished, this, [this, spin]() {
-            m_controller->updateSelectedObjectGeometryField(spin->property("fieldId").toString(), spin->value());
+            if (!m_controller->updateSelectedObjectGeometryField(spin->property("fieldId").toString(), spin->value())) {
+                refreshInspector();
+            }
         });
         layout->addWidget(label, row, 0);
         layout->addWidget(spin, row, 1);
-        m_geometryFields.insert(field.first, spin);
+        m_geometryFields.insert(fieldId, spin);
         ++row;
     }
 
-    setGeometryEditorVisible(!fields.empty());
+    setGeometryEditorVisible(row > 0);
 }
 
 void EdiShellWindow::setGeometryEditorVisible(bool visible)

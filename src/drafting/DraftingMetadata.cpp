@@ -312,4 +312,11 @@ DraftingMetadataUpdatePlan planGuideVisualLabelVisibleUpdate(const ObjectMetadat
     return validatedMetadataUpdate(std::move(next));
 }
 
+DraftingMetadataUpdatePlan planDimensionVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible)
+{
+    ObjectMetadata next = metadata;
+    next.dimensionVisual.showLabel = visible;
+    return validatedMetadataUpdate(std::move(next));
+}
+
 } // namespace edi::drafting

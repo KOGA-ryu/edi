@@ -188,5 +188,16 @@ int main()
     assert(!badDashPlan.ok);
     assert(badDashPlan.code == DraftingResultCode::InvalidMetadata);
 
+    auto dimensionVisibilityPlan = planDimensionVisualLabelVisibleUpdate(guidePlanBase, false);
+    assert(dimensionVisibilityPlan.ok);
+    assert(!dimensionVisibilityPlan.metadata.dimensionVisual.showLabel);
+    assert(dimensionVisibilityPlan.metadata.guideVisual.color == guidePlanBase.guideVisual.color);
+
+    ObjectMetadata badBaseForDimensionPlan = guidePlanBase;
+    badBaseForDimensionPlan.guideVisual.color = "bad";
+    auto rejectedDimensionVisibilityPlan = planDimensionVisualLabelVisibleUpdate(badBaseForDimensionPlan, false);
+    assert(!rejectedDimensionVisibilityPlan.ok);
+    assert(rejectedDimensionVisibilityPlan.code == DraftingResultCode::InvalidMetadata);
+
     return 0;
 }

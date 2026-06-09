@@ -1143,11 +1143,13 @@ bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
         return false;
     }
 
-    ObjectMetadata metadata = object->metadata;
-    metadata.dimensionVisual.showLabel = visible;
+    const DraftingMetadataUpdatePlan plan = planDimensionVisualLabelVisibleUpdate(object->metadata, visible);
+    if (!plan.ok) {
+        return false;
+    }
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
     if (!result.ok) {
         return false;
     }

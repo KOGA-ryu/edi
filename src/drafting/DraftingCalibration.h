@@ -77,6 +77,11 @@ DraftingCalibrationPatternKind draftingCalibrationPatternKindFromId(const std::s
 const char *draftingCalibrationPatternKindName(DraftingCalibrationPatternKind kind);
 DraftingCalibrationPatternResult buildDraftingCalibrationPattern(const DraftingCalibrationPatternRequest &request);
 DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const DraftingCalibrationMeasurementRequest &request);
+DraftingCalibrationMeasurementResult measureSelectedDraftingCalibrationPattern(
+    const DraftingDocument &document,
+    const std::vector<DraftingObjectId> &objectIds,
+    double measuredValue,
+    std::string source);
 DraftingCalibrationCorrectionPlan planDraftingCalibrationCorrection(const DraftingCalibrationMeasurement &measurement);
 std::string formatDraftingCalibrationMeasurementNote(const DraftingCalibrationMeasurement &measurement);
 

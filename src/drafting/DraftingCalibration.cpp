@@ -288,6 +288,27 @@ DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const Dra
     return DraftingCalibrationMeasurementResult::accepted(std::move(measurement));
 }
 
+DraftingCalibrationMeasurementResult measureSelectedDraftingCalibrationPattern(
+    const DraftingDocument &document,
+    const std::vector<DraftingObjectId> &objectIds,
+    double measuredValue,
+    std::string source)
+{
+    std::vector<DraftingObject> selectedObjects;
+    selectedObjects.reserve(objectIds.size());
+    for (const DraftingObjectId &objectId : objectIds) {
+        const DraftingObject *object = findObject(document, objectId);
+        if (object == nullptr) {
+            return DraftingCalibrationMeasurementResult::rejected(
+                DraftingResultCode::InvalidSelectionTarget,
+                "calibration selection target does not exist");
+        }
+        selectedObjects.push_back(*object);
+    }
+
+    return measureDraftingCalibrationPattern({std::move(selectedObjects), measuredValue, std::move(source)});
+}
+
 DraftingCalibrationCorrectionPlan planDraftingCalibrationCorrection(const DraftingCalibrationMeasurement &measurement)
 {
     if (measurement.patternId.empty()) {

@@ -1,4 +1,5 @@
 #include "drafting/DraftingCalibration.h"
+#include "drafting/DraftingStore.h"
 
 #include <cassert>
 #include <cstddef>
@@ -107,6 +108,32 @@ int main()
     const DraftingCalibrationCorrectionPlan spacingCorrection = planDraftingCalibrationCorrection(spacingMeasurement.measurement);
     assert(spacingCorrection.ok);
     assert(nearlyEqual(spacingCorrection.scaleFactor, 0.05 / 0.051));
+
+    DraftingDocument selectedMeasurementDocument = makeDraftingDocument("selected_calibration_doc");
+    assert(addLayer(selectedMeasurementDocument, makeDraftingLayer("plot_layer", "Plot Layer", 1)).ok);
+    for (const DraftingObject &object : spacing.objects) {
+        assert(addObject(selectedMeasurementDocument, object).ok);
+        selectedMeasurementDocument.selectedObjectIds.push_back(object.id);
+    }
+    const DraftingCalibrationMeasurementResult selectedSpacingMeasurement = measureSelectedDraftingCalibrationPattern(
+        selectedMeasurementDocument,
+        selectedMeasurementDocument.selectedObjectIds,
+        0.052,
+        "selection_test");
+    assert(selectedSpacingMeasurement.ok);
+    assert(selectedSpacingMeasurement.measurement.source == "selection_test");
+    assert(selectedSpacingMeasurement.measurement.objectIds.size() == spacing.objects.size());
+    assert(nearlyEqual(selectedSpacingMeasurement.measurement.expectedValue, 0.05));
+    assert(nearlyEqual(selectedSpacingMeasurement.measurement.measuredValue, 0.052));
+
+    assert(!measureSelectedDraftingCalibrationPattern(selectedMeasurementDocument, {}, 0.05, "selection_test").ok);
+    auto missingSelectionMeasurement = measureSelectedDraftingCalibrationPattern(
+        selectedMeasurementDocument,
+        {"missing_object"},
+        0.05,
+        "selection_test");
+    assert(!missingSelectionMeasurement.ok);
+    assert(missingSelectionMeasurement.code == DraftingResultCode::InvalidSelectionTarget);
 
     DraftingObject nonCalibrationObject = square.objects.front();
     nonCalibrationObject.metadata.toolProvenance.clear();

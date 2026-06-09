@@ -1570,18 +1570,11 @@ bool DrawingDocumentController::createCalibrationPattern(const QString &patternI
 
 bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValue)
 {
-    std::vector<DraftingObject> selectedObjects;
-    selectedObjects.reserve(m_document.selectedObjectIds.size());
-    for (const DraftingObjectId &objectId : m_document.selectedObjectIds) {
-        const DraftingObject *object = findObject(m_document, objectId);
-        if (object == nullptr) {
-            return false;
-        }
-        selectedObjects.push_back(*object);
-    }
-
-    const DraftingCalibrationMeasurementResult measurement = measureDraftingCalibrationPattern(
-        {std::move(selectedObjects), measuredValue, "manual_ui"});
+    const DraftingCalibrationMeasurementResult measurement = measureSelectedDraftingCalibrationPattern(
+        m_document,
+        m_document.selectedObjectIds,
+        measuredValue,
+        "manual_ui");
     if (!measurement.ok) {
         return false;
     }

@@ -11,6 +11,7 @@
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingOffset.h"
+#include "drafting/DraftingPlotBounds.h"
 #include "drafting/DraftingPlotJob.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSelection.h"
@@ -111,40 +112,6 @@ Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
     const double right = std::max(bounds.x + bounds.width, next.x + next.width);
     const double bottom = std::max(bounds.y + bounds.height, next.y + next.height);
     return {left, top, right - left, bottom - top};
-}
-
-Bounds2D boundsForPoints(Point2D a, Point2D b)
-{
-    const double left = std::min(a.x, b.x);
-    const double top = std::min(a.y, b.y);
-    const double right = std::max(a.x, b.x);
-    const double bottom = std::max(a.y, b.y);
-    return {left, top, right - left, bottom - top};
-}
-
-bool containsObjectId(const std::vector<DraftingObjectId> &objectIds, const DraftingObjectId &objectId)
-{
-    return std::find(objectIds.begin(), objectIds.end(), objectId) != objectIds.end();
-}
-
-Bounds2D translateBounds(Bounds2D bounds, double dx, double dy)
-{
-    bounds.x += dx;
-    bounds.y += dy;
-    return bounds;
-}
-
-bool boundsInside(Bounds2D bounds, Bounds2D container)
-{
-    return bounds.x >= container.x
-        && bounds.y >= container.y
-        && bounds.x + bounds.width <= container.x + container.width
-        && bounds.y + bounds.height <= container.y + container.height;
-}
-
-QString boundsStatus(Bounds2D bounds, Bounds2D drawable)
-{
-    return boundsInside(bounds, drawable) ? QStringLiteral("inside") : QStringLiteral("outside");
 }
 
 QVariantMap boundsToMap(Bounds2D bounds)
@@ -277,67 +244,6 @@ bool objectEffectivelyVisible(const DraftingDocument &document, const DraftingOb
 {
     const DraftingLayer *layer = layerForObject(document, object);
     return object.visible && layer != nullptr && layer->visible;
-}
-
-bool objectEffectivelyPlotReady(const DraftingDocument &document, const DraftingObject &object)
-{
-    const DraftingLayer *layer = layerForObject(document, object);
-    return objectEffectivelyVisible(document, object)
-        && layer != nullptr
-        && layer->plot.plotEnabled
-        && draftingShapeCanPlot(object.kind);
-}
-
-struct SelectedOutputBoundsResult {
-    bool ok = false;
-    Bounds2D bounds;
-};
-
-SelectedOutputBoundsResult selectedPlotOutputBounds(
-    const DraftingDocument &document,
-    const std::vector<DraftingObjectId> &objectIds,
-    const DraftingGridProjection &grid,
-    const DraftingPlotSettings &plotSettings)
-{
-    if (objectIds.empty()) {
-        return {};
-    }
-
-    bool hasObjectBounds = false;
-    Bounds2D selectedObjectBounds;
-    for (const DraftingObjectId &objectId : objectIds) {
-        const DraftingObject *object = findObject(document, objectId);
-        if (object == nullptr) {
-            return {};
-        }
-        if (object->locked || objectLayerLocked(document, *object) || !objectEffectivelyPlotReady(document, *object)) {
-            return {};
-        }
-        if (!isFinite(object->bounds)) {
-            return {};
-        }
-        selectedObjectBounds = hasObjectBounds ? includeBounds(selectedObjectBounds, object->bounds) : object->bounds;
-        hasObjectBounds = true;
-    }
-    if (!hasObjectBounds) {
-        return {};
-    }
-
-    const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(document, grid, plotSettings);
-    bool hasPlotBounds = false;
-    Bounds2D selectedPlotBounds;
-    for (const DraftingPlotSegment &segment : plotPlan.segments) {
-        if (!containsObjectId(objectIds, segment.objectId)
-            || !isFinite(segment.rawA)
-            || !isFinite(segment.rawB)) {
-            continue;
-        }
-        const Bounds2D segmentBounds = boundsForPoints(segment.rawA, segment.rawB);
-        selectedPlotBounds = hasPlotBounds ? includeBounds(selectedPlotBounds, segmentBounds) : segmentBounds;
-        hasPlotBounds = true;
-    }
-
-    return {true, hasPlotBounds ? selectedPlotBounds : selectedObjectBounds};
 }
 
 QVariantMap pointerProjectionToMap(Point2D rawPoint,
@@ -605,7 +511,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
     model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
     annotateProjectedObjectsWithPlotSafety(model, plotPlan);
-    const SelectedOutputBoundsResult selectionPlotBounds = selectedPlotOutputBounds(
+    const DraftingPlotBoundsResult selectionPlotBounds = selectedRawPlotOutputBounds(
         m_document,
         m_document.selectedObjectIds,
         grid,
@@ -613,7 +519,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     model.insert(QStringLiteral("has_selection_plot_bounds"), selectionPlotBounds.ok);
     if (selectionPlotBounds.ok) {
         model.insert(QStringLiteral("selection_plot_bounds"), boundsToMap(selectionPlotBounds.bounds));
-        model.insert(QStringLiteral("selection_plot_bounds_status"), boundsStatus(selectionPlotBounds.bounds, grid.drawableBounds));
+        model.insert(QStringLiteral("selection_plot_bounds_status"), QString::fromLatin1(draftingPlotBoundsStatusName(selectionPlotBounds.status)));
         model.insert(QStringLiteral("selection_plot_bounds_width"), selectionPlotBounds.bounds.width);
         model.insert(QStringLiteral("selection_plot_bounds_height"), selectionPlotBounds.bounds.height);
     } else {
@@ -1164,12 +1070,12 @@ bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &dire
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
-    const SelectedOutputBoundsResult selected = selectedPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
+    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
     if (!selected.ok
         || !isFinite(drawable)
         || selected.bounds.width > drawable.width
         || selected.bounds.height > drawable.height
-        || !boundsInside(translateBounds(selected.bounds, dx, dy), drawable)) {
+        || !boundsInsideDrawable(translateBounds(selected.bounds, dx, dy), drawable)) {
         return false;
     }
 
@@ -1398,7 +1304,7 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
 {
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
-    const SelectedOutputBoundsResult selected = selectedPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
+    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
     if (!selected.ok
         || !isFinite(drawable)
         || selected.bounds.width > drawable.width

@@ -98,6 +98,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingBuildPlan.cpp
     src/drafting/DraftingPlotPlan.h
     src/drafting/DraftingPlotPlan.cpp
+    src/drafting/DraftingPlotBounds.h
+    src/drafting/DraftingPlotBounds.cpp
     src/drafting/DraftingPlotJob.h
     src/drafting/DraftingPlotJob.cpp
     src/drafting/DraftingPlotJobReport.h
@@ -197,6 +199,7 @@ add_edi_contract_test(drafting_measurement_tests tests/drafting_measurement_test
 add_edi_contract_test(drafting_measurement_format_tests tests/drafting_measurement_format_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_build_plan_tests tests/drafting_build_plan_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_plan_tests tests/drafting_plot_plan_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_plot_bounds_tests tests/drafting_plot_bounds_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_tests tests/drafting_plot_job_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_report_tests tests/drafting_plot_job_report_tests.cpp edi_drafting_core)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)

@@ -72,5 +72,60 @@ int main()
     assert(missingInside.label.isEmpty());
     assert(missingInside.sourceObjectId.isEmpty());
 
+    const DrawingCanvasProjectedGuideDragSnapIntent missingGuide = projectedGuideDragSnapIntent({});
+    assert(!missingGuide.visible);
+
+    const DrawingCanvasProjectedGuideDragSnapIntent validGuide = projectedGuideDragSnapIntent(QVariantMap{
+        {QStringLiteral("guide_drag_snap"), QVariantMap{
+            {QStringLiteral("raw_anchor"), snapped(0.34, 0.74)},
+            {QStringLiteral("snapped_anchor"), snapped(0.33, 0.75)},
+            {QStringLiteral("anchor_label"), QStringLiteral("point")},
+            {QStringLiteral("source_object_id"), QStringLiteral("point_1")},
+            {QStringLiteral("intersection"), true},
+        }},
+    });
+    assert(validGuide.visible);
+    assert(validGuide.rawX == 0.34);
+    assert(validGuide.rawY == 0.74);
+    assert(validGuide.snappedX == 0.33);
+    assert(validGuide.snappedY == 0.75);
+    assert(validGuide.label == QStringLiteral("point"));
+    assert(validGuide.sourceObjectId == QStringLiteral("point_1"));
+    assert(validGuide.intersection);
+
+    const DrawingCanvasProjectedGuideDragSnapIntent defaultGuide = projectedGuideDragSnapIntent(QVariantMap{
+        {QStringLiteral("guide_drag_snap"), QVariantMap{
+            {QStringLiteral("raw_anchor"), snapped(0.1, 0.2)},
+            {QStringLiteral("snapped_anchor"), snapped(0.3, 0.4)},
+            {QStringLiteral("anchor_label"), QString()},
+        }},
+    });
+    assert(defaultGuide.visible);
+    assert(defaultGuide.label == QStringLiteral("anchor"));
+    assert(defaultGuide.sourceObjectId.isEmpty());
+    assert(!defaultGuide.intersection);
+
+    const DrawingCanvasProjectedGuideDragSnapIntent badRawGuide = projectedGuideDragSnapIntent(QVariantMap{
+        {QStringLiteral("guide_drag_snap"), QVariantMap{
+            {QStringLiteral("raw_anchor"), QVariantMap{
+                {QStringLiteral("x"), 0.1},
+                {QStringLiteral("y"), std::numeric_limits<double>::infinity()},
+            }},
+            {QStringLiteral("snapped_anchor"), snapped(0.3, 0.4)},
+        }},
+    });
+    assert(!badRawGuide.visible);
+
+    const DrawingCanvasProjectedGuideDragSnapIntent badSnappedGuide = projectedGuideDragSnapIntent(QVariantMap{
+        {QStringLiteral("guide_drag_snap"), QVariantMap{
+            {QStringLiteral("raw_anchor"), snapped(0.1, 0.2)},
+            {QStringLiteral("snapped_anchor"), QVariantMap{
+                {QStringLiteral("x"), 0.3},
+                {QStringLiteral("y"), QStringLiteral("bad")},
+            }},
+        }},
+    });
+    assert(!badSnappedGuide.visible);
+
     return 0;
 }

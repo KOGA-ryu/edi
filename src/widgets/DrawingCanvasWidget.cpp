@@ -363,38 +363,30 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
 
 void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVariantMap &model) const
 {
-    const QVariantMap snap = model.value(QStringLiteral("guide_drag_snap")).toMap();
-    if (snap.isEmpty()) {
+    const drawing_canvas::DrawingCanvasProjectedGuideDragSnapIntent snap =
+        drawing_canvas::projectedGuideDragSnapIntent(model);
+    if (!snap.visible) {
         return;
     }
 
-    const QVariantMap rawAnchor = snap.value(QStringLiteral("raw_anchor")).toMap();
-    const QVariantMap snappedAnchor = snap.value(QStringLiteral("snapped_anchor")).toMap();
-    const QPointF raw = canvasToScreen(
-        rawAnchor.value(QStringLiteral("x")).toDouble(),
-        rawAnchor.value(QStringLiteral("y")).toDouble());
-    const QPointF snapped = canvasToScreen(
-        snappedAnchor.value(QStringLiteral("x")).toDouble(),
-        snappedAnchor.value(QStringLiteral("y")).toDouble());
-    const QString label = snap.value(QStringLiteral("anchor_label"), QStringLiteral("anchor")).toString();
-    const QString sourceId = snap.value(QStringLiteral("source_object_id")).toString();
-    const bool intersection = snap.value(QStringLiteral("intersection")).toBool();
+    const QPointF raw = canvasToScreen(snap.rawX, snap.rawY);
+    const QPointF snapped = canvasToScreen(snap.snappedX, snap.snappedY);
 
     painter.save();
     QColor color("#54d2c6");
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(QPen(color, intersection ? 2.0 : 1.5, Qt::DashLine));
+    painter.setPen(QPen(color, snap.intersection ? 2.0 : 1.5, Qt::DashLine));
     painter.setBrush(Qt::NoBrush);
     painter.drawLine(raw, snapped);
     painter.setBrush(QColor(color.red(), color.green(), color.blue(), 56));
     painter.drawEllipse(raw, 5.0, 5.0);
     painter.setBrush(QColor(color.red(), color.green(), color.blue(), 96));
-    painter.drawEllipse(snapped, intersection ? 8.0 : 6.0, intersection ? 8.0 : 6.0);
+    painter.drawEllipse(snapped, snap.intersection ? 8.0 : 6.0, snap.intersection ? 8.0 : 6.0);
     painter.setPen(color);
     painter.drawText(snapped + QPointF(10.0, -12.0),
-        sourceId.isEmpty()
-            ? QStringLiteral("%1 guide").arg(label)
-            : QStringLiteral("%1 guide %2").arg(label, sourceId));
+        snap.sourceObjectId.isEmpty()
+            ? QStringLiteral("%1 guide").arg(snap.label)
+            : QStringLiteral("%1 guide %2").arg(snap.label, snap.sourceObjectId));
     painter.restore();
 }
 

@@ -3,6 +3,7 @@
 
 #include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
+#include "drafting/DraftingArray.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingHitTest.h"
@@ -547,6 +548,47 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
         return false;
     }
     applyDraftingCommand(m_document, SelectObjectCommand{mirror.object.id});
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
+{
+    if (axisId != QStringLiteral("x") && axisId != QStringLiteral("y")) {
+        return false;
+    }
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr) {
+        return false;
+    }
+
+    constexpr int copyCount = 3;
+    std::vector<DraftingObjectId> objectIds;
+    objectIds.reserve(copyCount);
+    for (int index = 0; index < copyCount; ++index) {
+        objectIds.push_back(toStdString(nextObjectId(QStringLiteral("repeat"), m_nextObjectSerial++)));
+    }
+
+    const double spacingX = axisId == QStringLiteral("y") ? 0.0 : 0.1;
+    const double spacingY = axisId == QStringLiteral("y") ? 0.1 : 0.0;
+    const DraftingArrayResult repeat = repeatDraftingObject(*source, objectIds, spacingX, spacingY);
+    if (!repeat.ok) {
+        return false;
+    }
+
+    std::vector<DraftingObjectId> selectedIds;
+    selectedIds.reserve(repeat.objects.size());
+    for (const DraftingObject &object : repeat.objects) {
+        const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
+        if (!create.ok) {
+            return false;
+        }
+        selectedIds.push_back(object.id);
+    }
+    applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
     emit modelChanged();
     return true;
 }

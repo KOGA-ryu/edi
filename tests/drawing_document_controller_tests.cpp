@@ -201,6 +201,22 @@ int main(int argc, char **argv)
     assert(nearlyEqual(mirroredLine.value("x2").toDouble(), 0.1646446609));
     assert(nearlyEqual(mirroredLine.value("y2").toDouble(), 0.6353553391));
 
+    assert(controller.repeatSelectedObject("x"));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    assert(objects.size() == 7);
+    QVariantMap repeatedLine1 = objects[4].toMap();
+    QVariantMap repeatedLine3 = objects[6].toMap();
+    assert(repeatedLine1.value("kind").toString() == "line");
+    assert(nearlyEqual(repeatedLine1.value("x1").toDouble(), 0.8646446609));
+    assert(nearlyEqual(repeatedLine1.value("y1").toDouble(), 0.0353553391));
+    assert(nearlyEqual(repeatedLine1.value("x2").toDouble(), 0.2646446609));
+    assert(nearlyEqual(repeatedLine3.value("x1").toDouble(), 1.0646446609));
+    assert(nearlyEqual(repeatedLine3.value("x2").toDouble(), 0.4646446609));
+    QVariantList repeatedSelection = controller.modelDocument().value("selected_object_ids").toList();
+    assert(repeatedSelection.size() == 3);
+    assert(!controller.repeatSelectedObject("diagonal"));
+    assert(controller.modelDocument().value("drawing_objects").toList().size() == 7);
+
     controller.clickCanvasNormalized(0.3, 0.35);
     const int beforeUnsupportedOffsetCount = controller.modelDocument().value("drawing_objects").toList().size();
     assert(!controller.offsetSelectedObject("right"));
@@ -279,6 +295,16 @@ int main(int argc, char **argv)
     assert(nearlyEqual(mirroredConstruction.value("y1").toDouble(), 1.0));
     assert(nearlyEqual(mirroredConstruction.value("x2").toDouble(), 0.55));
     assert(nearlyEqual(mirroredConstruction.value("y2").toDouble(), 0.0));
+
+    assert(constructionController.repeatSelectedObject("y"));
+    constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
+    assert(constructionObjects.size() == 7);
+    QVariantMap repeatedConstruction = constructionObjects.back().toMap();
+    assert(repeatedConstruction.value("kind").toString() == "construction_line");
+    assert(nearlyEqual(repeatedConstruction.value("x1").toDouble(), 0.55));
+    assert(nearlyEqual(repeatedConstruction.value("y1").toDouble(), 1.3));
+    assert(nearlyEqual(repeatedConstruction.value("x2").toDouble(), 0.55));
+    assert(nearlyEqual(repeatedConstruction.value("y2").toDouble(), 0.3));
 
     DrawingDocumentController angledConstructionController;
     angledConstructionController.setSelectedToolId("angled_construction_line_tool");

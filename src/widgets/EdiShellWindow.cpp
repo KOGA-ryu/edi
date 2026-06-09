@@ -364,6 +364,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(buildNudgeControls());
     layout->addWidget(buildOffsetControls());
     layout->addWidget(buildMirrorControls());
+    layout->addWidget(buildRepeatControls());
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -481,6 +482,34 @@ QWidget *EdiShellWindow::buildMirrorControls()
         m_controller->mirrorSelectedObject(QStringLiteral("vertical"));
     });
     layout->addWidget(vertical, 1, 1);
+
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildRepeatControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("repeatControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Repeat")), 0, 0, 1, 2);
+
+    auto *x = new QPushButton(QStringLiteral("Repeat X"));
+    x->setObjectName(QStringLiteral("repeatButton"));
+    connect(x, &QPushButton::clicked, this, [this]() {
+        m_controller->repeatSelectedObject(QStringLiteral("x"));
+    });
+    layout->addWidget(x, 1, 0);
+
+    auto *y = new QPushButton(QStringLiteral("Repeat Y"));
+    y->setObjectName(QStringLiteral("repeatButton"));
+    connect(y, &QPushButton::clicked, this, [this]() {
+        m_controller->repeatSelectedObject(QStringLiteral("y"));
+    });
+    layout->addWidget(y, 1, 1);
 
     return panel;
 }

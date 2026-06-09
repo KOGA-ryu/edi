@@ -208,7 +208,7 @@ QString selectionPlotBoundsSummary(const QVariantMap &document)
         .arg(formatBoundsValue(document.value(QStringLiteral("selection_plot_bounds")).toMap()))
         .arg(formatNumber(document.value(QStringLiteral("selection_plot_bounds_width")).toDouble()))
         .arg(formatNumber(document.value(QStringLiteral("selection_plot_bounds_height")).toDouble()))
-        .arg(document.value(QStringLiteral("selection_plot_bounds_status")).toString());
+        .arg(document.value(QStringLiteral("selection_drawable_relation")).toString());
 }
 
 QVariantMap activeObjectProjection(const QVariantMap &document)
@@ -674,6 +674,18 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->fitSelectionToDrawableBounds();
     });
     layout->addWidget(m_fitSelectionToDrawableButton);
+    m_centerSelectionInDrawableButton = new QPushButton(QStringLiteral("Center In Drawable"));
+    m_centerSelectionInDrawableButton->setObjectName(QStringLiteral("centerInDrawableButton"));
+    connect(m_centerSelectionInDrawableButton, &QPushButton::clicked, this, [this]() {
+        m_controller->centerSelectionInDrawable();
+    });
+    layout->addWidget(m_centerSelectionInDrawableButton);
+    m_moveSelectionToDrawableOriginButton = new QPushButton(QStringLiteral("Move To Drawable Origin"));
+    m_moveSelectionToDrawableOriginButton->setObjectName(QStringLiteral("moveToDrawableOriginButton"));
+    connect(m_moveSelectionToDrawableOriginButton, &QPushButton::clicked, this, [this]() {
+        m_controller->moveSelectionToDrawableOrigin();
+    });
+    layout->addWidget(m_moveSelectionToDrawableOriginButton);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1461,6 +1473,12 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_fitSelectionToDrawableButton != nullptr) {
         m_fitSelectionToDrawableButton->setEnabled(!selectedObject.isEmpty());
+    }
+    if (m_centerSelectionInDrawableButton != nullptr) {
+        m_centerSelectionInDrawableButton->setEnabled(!selectedObject.isEmpty());
+    }
+    if (m_moveSelectionToDrawableOriginButton != nullptr) {
+        m_moveSelectionToDrawableOriginButton->setEnabled(!selectedObject.isEmpty());
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

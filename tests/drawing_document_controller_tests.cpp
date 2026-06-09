@@ -767,6 +767,7 @@ int main(int argc, char **argv)
     fitInsideController.clickCanvasNormalized(0.5, 0.5);
     QVariantMap fitInsideModel = fitInsideController.modelDocument();
     const int fitInsideRevision = fitInsideModel.value("revision").toInt();
+    assert(fitInsideModel.value("selection_drawable_relation").toString() == "inside");
     assert(fitInsideController.fitSelectionToDrawableBounds());
     fitInsideModel = fitInsideController.modelDocument();
     QVariantMap fitInsidePoint = fitInsideModel.value("drawing_objects").toList().front().toMap();
@@ -780,6 +781,7 @@ int main(int argc, char **argv)
     fitOutsideController.clickCanvasNormalized(0.1, 0.5);
     QVariantMap fitOutsideModel = fitOutsideController.modelDocument();
     assert(fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
+    assert(fitOutsideModel.value("selection_drawable_relation").toString() == "partially_outside");
     assert(fitOutsideController.fitSelectionToDrawableBounds());
     fitOutsideModel = fitOutsideController.modelDocument();
     QVariantMap fitOutsideLine = fitOutsideModel.value("drawing_objects").toList().front().toMap();
@@ -809,14 +811,46 @@ int main(int argc, char **argv)
     assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_width").toDouble(), 0.01));
     assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_height").toDouble(), 0.01));
     assert(fitPointMarkModel.value("selection_plot_bounds_status").toString() == "inside");
+    assert(fitPointMarkModel.value("selection_drawable_relation").toString() == "inside");
 
     DrawingDocumentController fitTooLargeController;
     fitTooLargeController.setSelectedToolId("line_tool");
     fitTooLargeController.clickCanvasNormalized(0.0, 0.5);
     fitTooLargeController.clickCanvasNormalized(1.0, 0.5);
     const int fitTooLargeRevision = fitTooLargeController.modelDocument().value("revision").toInt();
+    assert(fitTooLargeController.modelDocument().value("selection_drawable_relation").toString() == "too_large");
     assert(!fitTooLargeController.fitSelectionToDrawableBounds());
     assert(fitTooLargeController.modelDocument().value("revision").toInt() == fitTooLargeRevision);
+
+    DrawingDocumentController fullyOutsideController;
+    fullyOutsideController.setSelectedToolId("point_tool");
+    fullyOutsideController.clickCanvasNormalized(0.5, 0.5);
+    assert(fullyOutsideController.updateSelectedObjectGeometryField("x", 2.0));
+    assert(fullyOutsideController.updateSelectedObjectGeometryField("y", 2.0));
+    assert(fullyOutsideController.modelDocument().value("selection_drawable_relation").toString() == "fully_outside");
+
+    DrawingDocumentController centerDrawableController;
+    centerDrawableController.setSelectedToolId("line_tool");
+    centerDrawableController.clickCanvasNormalized(0.0, 0.5);
+    centerDrawableController.clickCanvasNormalized(0.1, 0.5);
+    assert(centerDrawableController.centerSelectionInDrawable());
+    QVariantMap centeredLine = centerDrawableController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(centeredLine.value("x1").toDouble(), 0.45));
+    assert(nearlyEqual(centeredLine.value("x2").toDouble(), 0.55));
+    assert(nearlyEqual(centeredLine.value("y1").toDouble(), 0.5));
+    assert(nearlyEqual(centeredLine.value("y2").toDouble(), 0.5));
+    assert(centerDrawableController.modelDocument().value("selection_drawable_relation").toString() == "inside");
+
+    DrawingDocumentController originDrawableController;
+    originDrawableController.setSelectedToolId("line_tool");
+    originDrawableController.clickCanvasNormalized(0.5, 0.5);
+    originDrawableController.clickCanvasNormalized(0.6, 0.7);
+    assert(originDrawableController.moveSelectionToDrawableOrigin());
+    QVariantMap originLine = originDrawableController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(originLine.value("x1").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(originLine.value("y1").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(originLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
+    assert(nearlyEqual(originLine.value("y2").toDouble(), squareQuarterInchStep + 0.2));
 
     DrawingDocumentController fitLockedController;
     fitLockedController.setSelectedToolId("point_tool");

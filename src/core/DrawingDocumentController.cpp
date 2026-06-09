@@ -542,10 +542,12 @@ QVariantMap DrawingDocumentController::modelDocument() const
     if (selectionPlotBounds.ok) {
         model.insert(QStringLiteral("selection_plot_bounds"), boundsToMap(selectionPlotBounds.bounds));
         model.insert(QStringLiteral("selection_plot_bounds_status"), QString::fromLatin1(draftingPlotBoundsStatusName(selectionPlotBounds.status)));
+        model.insert(QStringLiteral("selection_drawable_relation"), QString::fromLatin1(draftingDrawableBoundsRelationName(selectionPlotBounds.relation)));
         model.insert(QStringLiteral("selection_plot_bounds_width"), selectionPlotBounds.bounds.width);
         model.insert(QStringLiteral("selection_plot_bounds_height"), selectionPlotBounds.bounds.height);
     } else {
         model.insert(QStringLiteral("selection_plot_bounds_status"), QStringLiteral("unavailable"));
+        model.insert(QStringLiteral("selection_drawable_relation"), QStringLiteral("unavailable"));
         model.insert(QStringLiteral("selection_plot_bounds_width"), 0.0);
         model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
     }
@@ -1498,6 +1500,56 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
         dy = drawable.y + drawable.height - (selected.bounds.y + selected.bounds.height);
     }
 
+    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+        return true;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::centerSelectionInDrawable()
+{
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const Bounds2D drawable = grid.drawableBounds;
+    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
+    if (!selected.ok || !isFinite(drawable)) {
+        return false;
+    }
+
+    const double targetX = drawable.x + (drawable.width - selected.bounds.width) / 2.0;
+    const double targetY = drawable.y + (drawable.height - selected.bounds.height) / 2.0;
+    const double dx = targetX - selected.bounds.x;
+    const double dy = targetY - selected.bounds.y;
+    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+        return true;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::moveSelectionToDrawableOrigin()
+{
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const Bounds2D drawable = grid.drawableBounds;
+    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
+    if (!selected.ok || !isFinite(drawable)) {
+        return false;
+    }
+
+    const double dx = drawable.x - selected.bounds.x;
+    const double dy = drawable.y - selected.bounds.y;
     if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
         return true;
     }

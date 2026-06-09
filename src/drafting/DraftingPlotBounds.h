@@ -14,13 +14,24 @@ enum class DraftingPlotBoundsStatus {
     OutsideDrawable,
 };
 
+enum class DraftingDrawableBoundsRelation {
+    Unavailable,
+    Inside,
+    PartiallyOutside,
+    FullyOutside,
+    TooLarge,
+};
+
 struct DraftingPlotBoundsResult {
     bool ok = false;
     Bounds2D bounds;
     DraftingPlotBoundsStatus status = DraftingPlotBoundsStatus::Unavailable;
+    DraftingDrawableBoundsRelation relation = DraftingDrawableBoundsRelation::Unavailable;
 };
 
 const char *draftingPlotBoundsStatusName(DraftingPlotBoundsStatus status);
+const char *draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation relation);
+DraftingDrawableBoundsRelation classifyBoundsAgainstDrawable(Bounds2D bounds, Bounds2D drawable);
 bool boundsInsideDrawable(Bounds2D bounds, Bounds2D drawable);
 Bounds2D translateBounds(Bounds2D bounds, double dx, double dy);
 DraftingPlotBoundsResult rawPlotOutputBounds(

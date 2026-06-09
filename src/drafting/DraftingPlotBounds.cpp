@@ -47,12 +47,12 @@ bool objectEffectivelyPlotReady(const DraftingDocument &document, const Drafting
         && draftingShapeCanPlot(object.kind);
 }
 
-DraftingPlotBoundsStatus statusForBounds(Bounds2D bounds, Bounds2D drawable)
+DraftingPlotBoundsStatus statusForRelation(DraftingDrawableBoundsRelation relation)
 {
-    if (!isFinite(bounds) || !isFinite(drawable)) {
+    if (relation == DraftingDrawableBoundsRelation::Unavailable) {
         return DraftingPlotBoundsStatus::Unavailable;
     }
-    return boundsInsideDrawable(bounds, drawable)
+    return relation == DraftingDrawableBoundsRelation::Inside
         ? DraftingPlotBoundsStatus::InsideDrawable
         : DraftingPlotBoundsStatus::OutsideDrawable;
 }
@@ -70,6 +70,44 @@ const char *draftingPlotBoundsStatusName(DraftingPlotBoundsStatus status)
         return "unavailable";
     }
     return "unavailable";
+}
+
+const char *draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation relation)
+{
+    switch (relation) {
+    case DraftingDrawableBoundsRelation::Inside:
+        return "inside";
+    case DraftingDrawableBoundsRelation::PartiallyOutside:
+        return "partially_outside";
+    case DraftingDrawableBoundsRelation::FullyOutside:
+        return "fully_outside";
+    case DraftingDrawableBoundsRelation::TooLarge:
+        return "too_large";
+    case DraftingDrawableBoundsRelation::Unavailable:
+        return "unavailable";
+    }
+    return "unavailable";
+}
+
+DraftingDrawableBoundsRelation classifyBoundsAgainstDrawable(Bounds2D bounds, Bounds2D drawable)
+{
+    if (!isFinite(bounds) || !isFinite(drawable)) {
+        return DraftingDrawableBoundsRelation::Unavailable;
+    }
+    if (bounds.width > drawable.width || bounds.height > drawable.height) {
+        return DraftingDrawableBoundsRelation::TooLarge;
+    }
+    if (boundsInsideDrawable(bounds, drawable)) {
+        return DraftingDrawableBoundsRelation::Inside;
+    }
+
+    const bool intersects = bounds.x <= drawable.x + drawable.width
+        && bounds.x + bounds.width >= drawable.x
+        && bounds.y <= drawable.y + drawable.height
+        && bounds.y + bounds.height >= drawable.y;
+    return intersects
+        ? DraftingDrawableBoundsRelation::PartiallyOutside
+        : DraftingDrawableBoundsRelation::FullyOutside;
 }
 
 bool boundsInsideDrawable(Bounds2D bounds, Bounds2D drawable)
@@ -111,7 +149,8 @@ DraftingPlotBoundsResult rawPlotOutputBounds(
         return {};
     }
 
-    return {true, bounds, statusForBounds(bounds, grid.drawableBounds)};
+    const DraftingDrawableBoundsRelation relation = classifyBoundsAgainstDrawable(bounds, grid.drawableBounds);
+    return {true, bounds, statusForRelation(relation), relation};
 }
 
 DraftingPlotBoundsResult selectedRawPlotOutputBounds(
@@ -160,7 +199,8 @@ DraftingPlotBoundsResult selectedRawPlotOutputBounds(
     }
 
     const Bounds2D bounds = hasPlotBounds ? selectedPlotBounds : selectedObjectBounds;
-    return {true, bounds, statusForBounds(bounds, grid.drawableBounds)};
+    const DraftingDrawableBoundsRelation relation = classifyBoundsAgainstDrawable(bounds, grid.drawableBounds);
+    return {true, bounds, statusForRelation(relation), relation};
 }
 
 } // namespace edi::drafting

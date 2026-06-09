@@ -88,6 +88,8 @@ private:
     QLabel *m_objectPlotSafetyValue = nullptr;
     QLabel *m_selectionPlotBoundsValue = nullptr;
     QPushButton *m_fitSelectionToDrawableButton = nullptr;
+    QPushButton *m_centerSelectionInDrawableButton = nullptr;
+    QPushButton *m_moveSelectionToDrawableOriginButton = nullptr;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;

@@ -51,7 +51,9 @@ int main()
     assert(pointBounds.ok);
     assertBounds(pointBounds.bounds, 0.495, 0.495, 0.01, 0.01);
     assert(pointBounds.status == DraftingPlotBoundsStatus::InsideDrawable);
+    assert(pointBounds.relation == DraftingDrawableBoundsRelation::Inside);
     assert(std::string(draftingPlotBoundsStatusName(pointBounds.status)) == "inside");
+    assert(std::string(draftingDrawableBoundsRelationName(pointBounds.relation)) == "inside");
 
     DraftingDocument lineDocument = makeDraftingDocument("line_bounds_doc");
     assert(addObject(lineDocument, makeObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.4, 0.5}})).ok);
@@ -85,9 +87,16 @@ int main()
     const DraftingPlotBoundsResult outsideBounds = selectedRawPlotOutputBounds(outsideDocument, {"outside_point"}, grid);
     assert(outsideBounds.ok);
     assert(outsideBounds.status == DraftingPlotBoundsStatus::OutsideDrawable);
+    assert(outsideBounds.relation == DraftingDrawableBoundsRelation::FullyOutside);
     assert(std::string(draftingPlotBoundsStatusName(outsideBounds.status)) == "outside");
     assert(!boundsInsideDrawable(outsideBounds.bounds, grid.drawableBounds));
 
+    assert(classifyBoundsAgainstDrawable({0.2, 0.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::Inside);
+    assert(classifyBoundsAgainstDrawable({0.0, 0.2, 0.2, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::PartiallyOutside);
+    assert(classifyBoundsAgainstDrawable({1.2, 1.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::FullyOutside);
+    assert(classifyBoundsAgainstDrawable({0.0, 0.2, 1.0, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::TooLarge);
+    assert(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::FullyOutside)) == "fully_outside");
+    assert(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::TooLarge)) == "too_large");
     assert(!selectedRawPlotOutputBounds(outsideDocument, {}, grid).ok);
     assert(std::string(draftingPlotBoundsStatusName(DraftingPlotBoundsStatus::Unavailable)) == "unavailable");
     assertBounds(translateBounds({0.1, 0.2, 0.3, 0.4}, 0.05, -0.1), 0.15, 0.1, 0.3, 0.4);

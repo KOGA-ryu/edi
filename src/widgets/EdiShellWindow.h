@@ -93,6 +93,12 @@ private:
     QPushButton *m_moveGuideToDrawableOriginButton = nullptr;
     QPushButton *m_centerGuideInDrawableButton = nullptr;
     QPushButton *m_fitConstructionToDrawableButton = nullptr;
+    QPushButton *m_deleteSelectedGuideButton = nullptr;
+    QPushButton *m_deleteAllGuidesButton = nullptr;
+    QPushButton *m_hideAllGuidesButton = nullptr;
+    QPushButton *m_showAllGuidesButton = nullptr;
+    QPushButton *m_lockAllGuidesButton = nullptr;
+    QPushButton *m_unlockAllGuidesButton = nullptr;
     QMap<QString, QPushButton *> m_boundsGuideButtons;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;

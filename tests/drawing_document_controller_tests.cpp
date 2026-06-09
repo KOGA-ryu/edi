@@ -452,6 +452,68 @@ int main(int argc, char **argv)
     assert(!unsupportedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
     assert(unsupportedBoundsGuideController.modelDocument().value("revision").toInt() == unsupportedBoundsGuideRevision);
 
+    DrawingDocumentController deleteSelectedGuideController;
+    deleteSelectedGuideController.setSelectedToolId("point_tool");
+    deleteSelectedGuideController.clickCanvasNormalized(0.1, 0.1);
+    deleteSelectedGuideController.setSelectedToolId("horizontal_guide_tool");
+    deleteSelectedGuideController.clickCanvasNormalized(0.2, 0.3);
+    assert(deleteSelectedGuideController.deleteSelectedGuide());
+    QVariantList deleteSelectedGuideObjects = deleteSelectedGuideController.modelDocument().value("drawing_objects").toList();
+    assert(deleteSelectedGuideObjects.size() == 1);
+    assert(deleteSelectedGuideObjects.front().toMap().value("kind").toString() == "point");
+
+    DrawingDocumentController lockedDeleteSelectedGuideController;
+    lockedDeleteSelectedGuideController.setSelectedToolId("vertical_guide_tool");
+    lockedDeleteSelectedGuideController.clickCanvasNormalized(0.6, 0.7);
+    assert(lockedDeleteSelectedGuideController.setSelectedObjectLocked(true));
+    const int lockedDeleteSelectedGuideRevision = lockedDeleteSelectedGuideController.modelDocument().value("revision").toInt();
+    assert(!lockedDeleteSelectedGuideController.deleteSelectedGuide());
+    assert(lockedDeleteSelectedGuideController.modelDocument().value("revision").toInt() == lockedDeleteSelectedGuideRevision);
+    assert(lockedDeleteSelectedGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+    DrawingDocumentController deleteAllGuidesController;
+    deleteAllGuidesController.setSelectedToolId("point_tool");
+    deleteAllGuidesController.clickCanvasNormalized(0.1, 0.1);
+    deleteAllGuidesController.setSelectedToolId("horizontal_guide_tool");
+    deleteAllGuidesController.clickCanvasNormalized(0.2, 0.3);
+    deleteAllGuidesController.setSelectedToolId("vertical_guide_tool");
+    deleteAllGuidesController.clickCanvasNormalized(0.6, 0.7);
+    assert(deleteAllGuidesController.setAllGuidesLocked(true));
+    assert(deleteAllGuidesController.deleteAllGuides());
+    QVariantList deleteAllGuideObjects = deleteAllGuidesController.modelDocument().value("drawing_objects").toList();
+    assert(deleteAllGuideObjects.size() == 1);
+    assert(deleteAllGuideObjects.front().toMap().value("kind").toString() == "point");
+
+    DrawingDocumentController guideLifecycleController;
+    guideLifecycleController.setSelectedToolId("horizontal_guide_tool");
+    guideLifecycleController.clickCanvasNormalized(0.2, 0.75);
+    guideLifecycleController.setSelectedToolId("vertical_guide_tool");
+    guideLifecycleController.clickCanvasNormalized(0.33, 0.2);
+    guideLifecycleController.setObjectSnapEnabled(true);
+    guideLifecycleController.updatePointerNormalized(0.34, 0.74);
+    QVariantMap guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
+    assert(guideLifecyclePointer.value("source").toString() == "guide");
+    assert(guideLifecycleController.setAllGuidesVisible(false));
+    QVariantList hiddenGuideObjects = guideLifecycleController.modelDocument().value("drawing_objects").toList();
+    assert(!hiddenGuideObjects[0].toMap().value("visible").toBool());
+    assert(!hiddenGuideObjects[1].toMap().value("visible").toBool());
+    guideLifecycleController.updatePointerNormalized(0.34, 0.74);
+    guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
+    assert(guideLifecyclePointer.value("kind").toString() == "none");
+    assert(guideLifecycleController.setAllGuidesVisible(true));
+    assert(guideLifecycleController.setAllGuidesLocked(true));
+    QVariantList lockedGuideObjects = guideLifecycleController.modelDocument().value("drawing_objects").toList();
+    assert(lockedGuideObjects[0].toMap().value("locked").toBool());
+    assert(lockedGuideObjects[1].toMap().value("locked").toBool());
+    const int lockedGuideMoveRevision = guideLifecycleController.modelDocument().value("revision").toInt();
+    assert(!guideLifecycleController.moveSelectedGuideToDrawableOrigin());
+    assert(guideLifecycleController.modelDocument().value("revision").toInt() == lockedGuideMoveRevision);
+    guideLifecycleController.updatePointerNormalized(0.34, 0.74);
+    guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
+    assert(guideLifecyclePointer.value("source").toString() == "guide");
+    assert(guideLifecycleController.setAllGuidesLocked(false));
+    assert(guideLifecycleController.moveSelectedGuideToDrawableOrigin());
+
     DrawingDocumentController constructionController;
     constructionController.setSelectedToolId("horizontal_construction_line_tool");
     constructionController.clickCanvasNormalized(0.2, 0.3);

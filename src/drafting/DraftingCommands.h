@@ -16,6 +16,9 @@ struct DeleteObjectCommand {
     DraftingObjectId objectId;
 };
 
+struct DeleteAllGuidesCommand {
+};
+
 struct MoveObjectCommand {
     DraftingObjectId objectId;
     double dx = 0.0;
@@ -47,6 +50,14 @@ struct UpdateObjectFlagsCommand {
     DraftingObjectId objectId;
     bool locked = false;
     bool visible = true;
+};
+
+struct SetAllGuidesVisibleCommand {
+    bool visible = true;
+};
+
+struct SetAllGuidesLockedCommand {
+    bool locked = false;
 };
 
 struct MoveObjectToLayerCommand {
@@ -103,12 +114,15 @@ struct SelectObjectsCommand {
 using DraftingCommand = std::variant<
     CreateObjectCommand,
     DeleteObjectCommand,
+    DeleteAllGuidesCommand,
     MoveObjectCommand,
     MoveSelectionCommand,
     EditObjectHandleCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,
+    SetAllGuidesVisibleCommand,
+    SetAllGuidesLockedCommand,
     MoveObjectToLayerCommand,
     CreateLayerCommand,
     RenameLayerCommand,

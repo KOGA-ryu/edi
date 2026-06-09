@@ -4,6 +4,7 @@
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingStore.h"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -34,6 +35,11 @@ bool commandModeIsDistribute(DraftingAlignmentMode mode)
     return mode == DraftingAlignmentMode::DistributeX || mode == DraftingAlignmentMode::DistributeY;
 }
 
+bool isGuideObject(const DraftingObject &object)
+{
+    return object.kind == DraftingShapeKind::Guide && kindMatchesGeometry(object.kind, object.geometry);
+}
+
 } // namespace
 
 DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const DraftingCommand &command)
@@ -44,6 +50,14 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(addObject(document, typedCommand.object));
         } else if constexpr (std::is_same_v<Command, DeleteObjectCommand>) {
             return fromStoreResult(removeObject(document, typedCommand.objectId));
+        } else if constexpr (std::is_same_v<Command, DeleteAllGuidesCommand>) {
+            const auto before = document.objects.size();
+            document.objects.erase(std::remove_if(document.objects.begin(), document.objects.end(), isGuideObject), document.objects.end());
+            if (document.objects.size() != before) {
+                normalizeSelection(document);
+                ++document.revision;
+            }
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, MoveObjectCommand>) {
             return fromStoreResult(moveObject(document, typedCommand.objectId, typedCommand.dx, typedCommand.dy));
         } else if constexpr (std::is_same_v<Command, MoveSelectionCommand>) {
@@ -85,6 +99,31 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
         } else if constexpr (std::is_same_v<Command, UpdateObjectFlagsCommand>) {
             return fromStoreResult(updateObjectFlags(document, typedCommand.objectId, typedCommand.locked, typedCommand.visible));
+        } else if constexpr (std::is_same_v<Command, SetAllGuidesVisibleCommand>) {
+            bool changed = false;
+            for (DraftingObject &object : document.objects) {
+                if (isGuideObject(object) && object.visible != typedCommand.visible) {
+                    object.visible = typedCommand.visible;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                normalizeSelection(document);
+                ++document.revision;
+            }
+            return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, SetAllGuidesLockedCommand>) {
+            bool changed = false;
+            for (DraftingObject &object : document.objects) {
+                if (isGuideObject(object) && object.locked != typedCommand.locked) {
+                    object.locked = typedCommand.locked;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                ++document.revision;
+            }
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, MoveObjectToLayerCommand>) {
             return fromStoreResult(moveObjectToLayer(document, typedCommand.objectId, typedCommand.layerId));
         } else if constexpr (std::is_same_v<Command, CreateLayerCommand>) {

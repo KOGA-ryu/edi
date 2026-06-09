@@ -1715,6 +1715,58 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     return true;
 }
 
+bool DrawingDocumentController::deleteSelectedGuide()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, DeleteObjectCommand{*m_document.activeObjectId});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::deleteAllGuides()
+{
+    const DraftingCommandResult result = applyDraftingCommand(m_document, DeleteAllGuidesCommand{});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setAllGuidesVisible(bool visible)
+{
+    const DraftingCommandResult result = applyDraftingCommand(m_document, SetAllGuidesVisibleCommand{visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setAllGuidesLocked(bool locked)
+{
+    const DraftingCommandResult result = applyDraftingCommand(m_document, SetAllGuidesLockedCommand{locked});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     x = clamp01(x);

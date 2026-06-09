@@ -88,6 +88,10 @@ public:
     bool centerSelectedGuideInDrawable();
     bool fitSelectedConstructionLineToDrawable();
     bool createGuideFromSelectedBounds(const QString &placementId);
+    bool deleteSelectedGuide();
+    bool deleteAllGuides();
+    bool setAllGuidesVisible(bool visible);
+    bool setAllGuidesLocked(bool locked);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);

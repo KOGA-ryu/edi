@@ -724,6 +724,43 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_boundsGuideButtons.insert(buttonSpec.first, button);
         layout->addWidget(button);
     }
+    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
+    m_deleteSelectedGuideButton = new QPushButton(QStringLiteral("Delete Selected Guide"));
+    m_deleteSelectedGuideButton->setObjectName(QStringLiteral("deleteSelectedGuideButton"));
+    connect(m_deleteSelectedGuideButton, &QPushButton::clicked, this, [this]() {
+        m_controller->deleteSelectedGuide();
+    });
+    layout->addWidget(m_deleteSelectedGuideButton);
+    m_deleteAllGuidesButton = new QPushButton(QStringLiteral("Delete All Guides"));
+    m_deleteAllGuidesButton->setObjectName(QStringLiteral("deleteAllGuidesButton"));
+    connect(m_deleteAllGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->deleteAllGuides();
+    });
+    layout->addWidget(m_deleteAllGuidesButton);
+    m_hideAllGuidesButton = new QPushButton(QStringLiteral("Hide All Guides"));
+    m_hideAllGuidesButton->setObjectName(QStringLiteral("hideAllGuidesButton"));
+    connect(m_hideAllGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->setAllGuidesVisible(false);
+    });
+    layout->addWidget(m_hideAllGuidesButton);
+    m_showAllGuidesButton = new QPushButton(QStringLiteral("Show All Guides"));
+    m_showAllGuidesButton->setObjectName(QStringLiteral("showAllGuidesButton"));
+    connect(m_showAllGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->setAllGuidesVisible(true);
+    });
+    layout->addWidget(m_showAllGuidesButton);
+    m_lockAllGuidesButton = new QPushButton(QStringLiteral("Lock All Guides"));
+    m_lockAllGuidesButton->setObjectName(QStringLiteral("lockAllGuidesButton"));
+    connect(m_lockAllGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->setAllGuidesLocked(true);
+    });
+    layout->addWidget(m_lockAllGuidesButton);
+    m_unlockAllGuidesButton = new QPushButton(QStringLiteral("Unlock All Guides"));
+    m_unlockAllGuidesButton->setObjectName(QStringLiteral("unlockAllGuidesButton"));
+    connect(m_unlockAllGuidesButton, &QPushButton::clicked, this, [this]() {
+        m_controller->setAllGuidesLocked(false);
+    });
+    layout->addWidget(m_unlockAllGuidesButton);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1530,6 +1567,10 @@ void EdiShellWindow::refreshInspector()
     const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
     for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
         button->setEnabled(boundsGuideControlsEnabled);
+    }
+    const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
+    if (m_deleteSelectedGuideButton != nullptr) {
+        m_deleteSelectedGuideButton->setEnabled(selectedGuideControlsEnabled);
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

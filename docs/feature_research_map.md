@@ -8,6 +8,8 @@ For Phase 1 drafting-surface decisions, also use `docs/phase1_real_world_tool_re
 
 For Phase 2 editing decisions, use `docs/phase2_editing_research.md` as the concrete reference for typed objects, handles, selection, snapping, inspector behavior, and transform tools.
 
+For Phase 3-4 measurement and output decisions, use `docs/phase3_phase4_measurement_plotter_research.md` as the concrete reference for measurement, dimensions, plotter preview, hatch/fill, and calibration.
+
 ## Drafting And Drawing Surface
 
 ### Physical Grid And Workspace

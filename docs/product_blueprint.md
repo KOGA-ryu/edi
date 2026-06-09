@@ -27,6 +27,7 @@ These surfaces should share project state, command discipline, and format owners
 - Use `docs/feature_research_map.md` as the broad research inventory before promoting features into the compact feature matrix.
 - Use `docs/phase1_real_world_tool_research.md` as the Phase 1 reference for grid, unit, origin, bounds, and cursor-readout decisions.
 - Use `docs/phase2_editing_research.md` as the Phase 2 reference for typed objects, handles, selection, snapping, inspector behavior, and transforms.
+- Use `docs/phase3_phase4_measurement_plotter_research.md` as the Phase 3-4 reference for measurement, dimensions, plotter preview, hatch/fill, and calibration decisions.
 
 ## Future State
 

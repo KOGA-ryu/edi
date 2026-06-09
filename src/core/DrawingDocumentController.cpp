@@ -273,6 +273,8 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
             {QStringLiteral("segment_count"), stats.segmentCount},
             {QStringLiteral("stroke_distance"), stats.strokeDistance},
             {QStringLiteral("travel_distance"), stats.travelDistance},
+            {QStringLiteral("ready"), stats.ready},
+            {QStringLiteral("blocked_reason"), drawing_core::qStringFromStdString(stats.blockedReason)},
         });
     }
     QVariantList penStats;
@@ -285,6 +287,8 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
             {QStringLiteral("segment_count"), stats.segmentCount},
             {QStringLiteral("stroke_distance"), stats.strokeDistance},
             {QStringLiteral("travel_distance"), stats.travelDistance},
+            {QStringLiteral("ready"), stats.ready},
+            {QStringLiteral("blocked_reason"), drawing_core::qStringFromStdString(stats.blockedReason)},
         });
     }
 

@@ -18,6 +18,29 @@ int layerOrderForObject(const DraftingDocument &document, const DraftingObject &
     return layer == nullptr ? std::numeric_limits<int>::max() : layer->order;
 }
 
+bool isHexDigit(char value)
+{
+    return (value >= '0' && value <= '9')
+        || (value >= 'a' && value <= 'f')
+        || (value >= 'A' && value <= 'F');
+}
+
+bool isValidStrokeColor(const std::string &value)
+{
+    if (value.size() != 7 || value.front() != '#') {
+        return false;
+    }
+    return std::all_of(value.begin() + 1, value.end(), isHexDigit);
+}
+
+bool isValidLayerPlotStyle(const LayerPlotStyle &plot)
+{
+    return !plot.penId.empty()
+        && isValidStrokeColor(plot.strokeColor)
+        && std::isfinite(plot.strokeWidth)
+        && plot.strokeWidth > 0.0;
+}
+
 double pointDistance(Point2D a, Point2D b)
 {
     const double dx = b.x - a.x;
@@ -232,6 +255,23 @@ DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotS
     return plan.penStats.back();
 }
 
+DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const LayerPlotStyle &plot)
+{
+    const auto found = std::find_if(plan.penStats.begin(), plan.penStats.end(), [&](const DraftingPlotPenStats &stats) {
+        return stats.penId == plot.penId;
+    });
+    if (found != plan.penStats.end()) {
+        return *found;
+    }
+
+    plan.penStats.push_back({
+        plot.penId,
+        plot.strokeColor,
+        plot.strokeWidth,
+    });
+    return plan.penStats.back();
+}
+
 DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotTravelSegment &segment)
 {
     const auto found = std::find_if(plan.penStats.begin(), plan.penStats.end(), [&](const DraftingPlotPenStats &stats) {
@@ -245,17 +285,86 @@ DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotT
     return plan.penStats.back();
 }
 
+bool layerHasOutOfBoundsWarning(const DraftingPlotPlan &plan, const DraftingDocument &document, const LayerId &layerId)
+{
+    for (const DraftingPlotWarning &warning : plan.warnings) {
+        if (warning.kind != "out_of_drawable_bounds") {
+            continue;
+        }
+        const DraftingObject *object = findObject(document, warning.objectId);
+        if (object != nullptr && object->layerId == layerId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void finalizePlotStatsReadiness(DraftingPlotPlan &plan, const DraftingDocument &document)
+{
+    for (DraftingPlotLayerStats &stats : plan.layerStats) {
+        const DraftingLayer *layer = findLayer(document, stats.layerId);
+        if (layer == nullptr) {
+            stats.ready = false;
+            stats.blockedReason = "missing_layer";
+        } else if (!layer->visible) {
+            stats.ready = false;
+            stats.blockedReason = "hidden";
+        } else if (!layer->plot.plotEnabled) {
+            stats.ready = false;
+            stats.blockedReason = "plot_disabled";
+        } else if (!isValidLayerPlotStyle(layer->plot)) {
+            stats.ready = false;
+            stats.blockedReason = "invalid_plot_style";
+        } else if (stats.objectCount <= 0) {
+            stats.ready = false;
+            stats.blockedReason = "no_plotted_objects";
+        } else if (stats.segmentCount <= 0) {
+            stats.ready = false;
+            stats.blockedReason = "no_assigned_segments";
+        } else if (layerHasOutOfBoundsWarning(plan, document, stats.layerId)) {
+            stats.ready = false;
+            stats.blockedReason = "out_of_drawable_bounds";
+        } else {
+            stats.ready = true;
+            stats.blockedReason = "ready";
+        }
+    }
+
+    for (DraftingPlotPenStats &stats : plan.penStats) {
+        if (stats.penId.empty()) {
+            stats.ready = false;
+            stats.blockedReason = "missing_pen_id";
+        } else if (!std::isfinite(stats.strokeWidth) || stats.strokeWidth <= 0.0) {
+            stats.ready = false;
+            stats.blockedReason = "invalid_stroke_width";
+        } else if (!isValidStrokeColor(stats.strokeColor)) {
+            stats.ready = false;
+            stats.blockedReason = "invalid_stroke_color";
+        } else if (stats.objectCount <= 0) {
+            stats.ready = false;
+            stats.blockedReason = "no_assigned_objects";
+        } else if (stats.segmentCount <= 0) {
+            stats.ready = false;
+            stats.blockedReason = "no_assigned_segments";
+        } else {
+            stats.ready = true;
+            stats.blockedReason = "ready";
+        }
+    }
+}
+
 void appendPlotStats(DraftingPlotPlan &plan, const DraftingDocument &document)
 {
-    for (const DraftingPlotObject &object : plan.objects) {
-        DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, object.layerId);
+    for (const DraftingObject &object : document.objects) {
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !object.visible || !draftingShapeCanPlot(object.kind)) {
+            continue;
+        }
+
+        DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, layer->id);
         ++layerStats.objectCount;
 
-        DraftingPlotSegment segment;
-        segment.penId = object.penId;
-        segment.strokeColor = object.strokeColor;
-        segment.strokeWidth = object.strokeWidth;
-        DraftingPlotPenStats &penStats = ensurePenStats(plan, segment);
+        DraftingPlotPenStats &penStats = ensurePenStats(plan, layer->plot);
         ++penStats.objectCount;
     }
 
@@ -277,6 +386,8 @@ void appendPlotStats(DraftingPlotPlan &plan, const DraftingDocument &document)
         DraftingPlotPenStats &penStats = ensurePenStats(plan, segment);
         penStats.travelDistance += segment.distance;
     }
+
+    finalizePlotStatsReadiness(plan, document);
 }
 
 } // namespace

@@ -58,6 +58,8 @@ struct DraftingPlotLayerStats {
     int segmentCount = 0;
     double strokeDistance = 0.0;
     double travelDistance = 0.0;
+    bool ready = false;
+    std::string blockedReason = "no_plotted_objects";
 };
 
 struct DraftingPlotPenStats {
@@ -68,6 +70,8 @@ struct DraftingPlotPenStats {
     int segmentCount = 0;
     double strokeDistance = 0.0;
     double travelDistance = 0.0;
+    bool ready = false;
+    std::string blockedReason = "no_assigned_segments";
 };
 
 struct DraftingPlotWarning {

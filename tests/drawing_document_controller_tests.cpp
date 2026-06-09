@@ -562,6 +562,8 @@ int main(int argc, char **argv)
     assert(layerStatsEntry.value("segment_count").toInt() == 2);
     assert(layerStatsEntry.value("stroke_distance").toDouble() > 0.0);
     assert(layerStatsEntry.value("travel_distance").toDouble() > 0.0);
+    assert(layerStatsEntry.value("ready").toBool());
+    assert(layerStatsEntry.value("blocked_reason").toString() == "ready");
     QVariantList penStats = layerPlotSummary.value("pen_stats").toList();
     assert(penStats.size() == 1);
     QVariantMap penStatsEntry = penStats.front().toMap();
@@ -570,6 +572,8 @@ int main(int argc, char **argv)
     assert(penStatsEntry.value("segment_count").toInt() == 2);
     assert(penStatsEntry.value("stroke_distance").toDouble() > 0.0);
     assert(penStatsEntry.value("travel_distance").toDouble() > 0.0);
+    assert(penStatsEntry.value("ready").toBool());
+    assert(penStatsEntry.value("blocked_reason").toString() == "ready");
     QVariantMap layerPlotPreview = layerPlotSummary.value("preview").toMap();
     assert(layerPlotPreview.value("order_mode").toString() == "layer_order");
     assert(layerPlotPreview.value("direction_mode").toString() == "preserve_direction");
@@ -611,8 +615,18 @@ int main(int argc, char **argv)
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
     assert(layerPlotSummary.value("plot_object_count").toInt() == 0);
     assert(layerPlotSummary.value("segment_count").toInt() == 0);
-    assert(layerPlotSummary.value("layer_stats").toList().empty());
-    assert(layerPlotSummary.value("pen_stats").toList().empty());
+    layerStats = layerPlotSummary.value("layer_stats").toList();
+    assert(layerStats.size() == 1);
+    layerStatsEntry = layerStats.front().toMap();
+    assert(layerStatsEntry.value("layer_id").toString() == "layer_2");
+    assert(!layerStatsEntry.value("ready").toBool());
+    assert(layerStatsEntry.value("blocked_reason").toString() == "plot_disabled");
+    penStats = layerPlotSummary.value("pen_stats").toList();
+    assert(penStats.size() == 1);
+    penStatsEntry = penStats.front().toMap();
+    assert(penStatsEntry.value("pen_id").toString() == "pen_blue");
+    assert(!penStatsEntry.value("ready").toBool());
+    assert(penStatsEntry.value("blocked_reason").toString() == "no_assigned_segments");
     assert(layerPlotSummary.value("travel_segment_count").toInt() == 0);
     assert(nearlyEqual(layerPlotSummary.value("travel_distance").toDouble(), 0.0));
     assert(layerPlotController.setActiveLayerPlotEnabled(true));

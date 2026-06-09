@@ -35,14 +35,6 @@ namespace {
 
 using namespace edi::drafting;
 
-double clamp01(double value)
-{
-    if (!std::isfinite(value)) {
-        return 0.0;
-    }
-    return std::clamp(value, 0.0, 1.0);
-}
-
 QString nextObjectId(const QString &kind, int serial)
 {
     return QStringLiteral("%1_%2").arg(kind, QString::number(serial).rightJustified(4, QLatin1Char('0')));
@@ -66,11 +58,6 @@ QString objectIdPrefix(DraftingToolKind kind)
 DraftingToolCreationRequest creationRequest(const QString &toolId, const QString &objectId, const LayerId &layerId, Point2D start, Point2D end)
 {
     return {toolKind(toolId), toStdString(objectId), layerId, start, end, toStdString(toolId)};
-}
-
-bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId &id)
-{
-    return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
 QString resultCodeName(DraftingResultCode code)
@@ -803,7 +790,7 @@ void DrawingDocumentController::setPlotDirectionModeId(const QString &modeId)
 
 void DrawingDocumentController::updatePointerNormalized(double x, double y)
 {
-    const Point2D point{clamp01(x), clamp01(y)};
+    const Point2D point = normalizeDraftingPoint({x, y});
     if (m_pointerRawPoint && m_pointerRawPoint->x == point.x && m_pointerRawPoint->y == point.y) {
         return;
     }
@@ -2000,9 +1987,8 @@ bool DrawingDocumentController::setAllGuidesLocked(bool locked)
 
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
-    x = clamp01(x);
-    y = clamp01(y);
-    const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
+    const Point2D normalized = normalizeDraftingPoint({x, y});
+    const Point2D point = resolveSnap(normalized, m_document, m_snapSettings).point;
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
 
@@ -2070,7 +2056,7 @@ void DrawingDocumentController::updateCreationPreviewNormalized(double x, double
         return;
     }
 
-    const Point2D point = resolveSnap({clamp01(x), clamp01(y)}, m_document, m_snapSettings).point;
+    const Point2D point = resolveSnap(normalizeDraftingPoint({x, y}), m_document, m_snapSettings).point;
     DraftingToolCreationRequest preview = *m_pendingCreation;
     preview.end = point;
     const auto object = buildDraftingObjectForTool(preview);
@@ -2108,7 +2094,7 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
     }
 
     m_lastGuideDragSnap.clear();
-    if (m_guideMoveSnapEnabled && m_document.activeObjectId && containsId(m_document.selectedObjectIds, *m_document.activeObjectId)) {
+    if (m_guideMoveSnapEnabled && m_document.activeObjectId && isSelected(m_document, *m_document.activeObjectId)) {
         const DraftingObject *active = findObject(m_document, *m_document.activeObjectId);
         if (active != nullptr
             && active->kind != DraftingShapeKind::Guide
@@ -2149,10 +2135,12 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
 
 bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2)
 {
-    const double left = std::min(clamp01(x1), clamp01(x2));
-    const double top = std::min(clamp01(y1), clamp01(y2));
-    const double right = std::max(clamp01(x1), clamp01(x2));
-    const double bottom = std::max(clamp01(y1), clamp01(y2));
+    const Point2D a = normalizeDraftingPoint({x1, y1});
+    const Point2D b = normalizeDraftingPoint({x2, y2});
+    const double left = std::min(a.x, b.x);
+    const double top = std::min(a.y, b.y);
+    const double right = std::max(a.x, b.x);
+    const double bottom = std::max(a.y, b.y);
     const Bounds2D marquee{left, top, right - left, bottom - top};
 
     const std::vector<DraftingObjectId> objectIds = selectableObjectsInBounds(m_document, marquee);

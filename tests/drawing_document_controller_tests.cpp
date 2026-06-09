@@ -1073,6 +1073,8 @@ int main(int argc, char **argv)
     assert(nearlyEqual(guideTopEdgeRect.value("height").toDouble(), 0.2));
 
     DrawingDocumentController guideLineEndpointMoveController;
+    guideLineEndpointMoveController.setSelectedToolId("horizontal_guide_tool");
+    guideLineEndpointMoveController.clickCanvasNormalized(0.2, 0.75);
     guideLineEndpointMoveController.setSelectedToolId("vertical_guide_tool");
     guideLineEndpointMoveController.clickCanvasNormalized(0.33, 0.2);
     guideLineEndpointMoveController.setSelectedToolId("line_tool");
@@ -1082,9 +1084,25 @@ int main(int argc, char **argv)
     assert(guideLineEndpointMoveController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap guideEndpointLine = lastObjectOfKind(guideLineEndpointMoveController.modelDocument(), QStringLiteral("line"));
     assert(nearlyEqual(guideEndpointLine.value("x1").toDouble(), 0.23));
-    assert(nearlyEqual(guideEndpointLine.value("y1").toDouble(), 0.64));
+    assert(nearlyEqual(guideEndpointLine.value("y1").toDouble(), 0.65));
     assert(nearlyEqual(guideEndpointLine.value("x2").toDouble(), 0.33));
-    assert(nearlyEqual(guideEndpointLine.value("y2").toDouble(), 0.74));
+    assert(nearlyEqual(guideEndpointLine.value("y2").toDouble(), 0.75));
+
+    DrawingDocumentController guideRectangleCornerMoveController;
+    guideRectangleCornerMoveController.setSelectedToolId("horizontal_guide_tool");
+    guideRectangleCornerMoveController.clickCanvasNormalized(0.2, 0.75);
+    guideRectangleCornerMoveController.setSelectedToolId("vertical_guide_tool");
+    guideRectangleCornerMoveController.clickCanvasNormalized(0.33, 0.2);
+    guideRectangleCornerMoveController.setSelectedToolId("rectangle_tool");
+    guideRectangleCornerMoveController.clickCanvasNormalized(0.2, 0.2);
+    guideRectangleCornerMoveController.clickCanvasNormalized(0.4, 0.4);
+    guideRectangleCornerMoveController.setObjectSnapEnabled(true);
+    assert(guideRectangleCornerMoveController.moveSelectionNormalized(-0.06, 0.34));
+    QVariantMap guideCornerRect = lastObjectOfKind(guideRectangleCornerMoveController.modelDocument(), QStringLiteral("rectangle"));
+    assert(nearlyEqual(guideCornerRect.value("x").toDouble(), 0.13));
+    assert(nearlyEqual(guideCornerRect.value("y").toDouble(), 0.55));
+    assert(nearlyEqual(guideCornerRect.value("width").toDouble(), 0.2));
+    assert(nearlyEqual(guideCornerRect.value("height").toDouble(), 0.2));
 
     DrawingDocumentController disabledGuideRectangleEdgeMoveController;
     disabledGuideRectangleEdgeMoveController.setSelectedToolId("vertical_guide_tool");

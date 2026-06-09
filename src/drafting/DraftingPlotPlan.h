@@ -3,9 +3,19 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGrid.h"
 
+#include <string>
 #include <vector>
 
 namespace edi::drafting {
+
+enum class DraftingPlotOrderMode {
+    LayerOrder,
+    NearestNext,
+};
+
+struct DraftingPlotSettings {
+    DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
+};
 
 struct DraftingPlotObject {
     DraftingObjectId objectId;
@@ -44,10 +54,18 @@ struct DraftingPlotPlan {
     std::vector<DraftingPlotSegment> segments;
     std::vector<DraftingPlotTravelSegment> travelSegments;
     std::vector<DraftingPlotWarning> warnings;
+    DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
     double travelDistance = 0.0;
 };
 
+DraftingPlotSettings defaultDraftingPlotSettings();
+const char *draftingPlotOrderModeName(DraftingPlotOrderMode mode);
+DraftingPlotOrderMode draftingPlotOrderModeFromName(const std::string &name);
 bool draftingShapeCanPlot(DraftingShapeKind kind);
 DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const DraftingGridProjection &grid);
+DraftingPlotPlan buildDraftingPlotPlan(
+    const DraftingDocument &document,
+    const DraftingGridProjection &grid,
+    const DraftingPlotSettings &settings);
 
 } // namespace edi::drafting

@@ -8,6 +8,7 @@
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
 
@@ -32,6 +33,7 @@ public:
     bool objectSnapPriorityBeforeGrid() const;
     QString gridPresetId() const;
     QString objectSnapTolerancePresetId() const;
+    QString plotOrderModeId() const;
     void setSelectedToolId(const QString &toolId);
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
@@ -42,6 +44,7 @@ public:
     void setObjectSnapPriorityBeforeGrid(bool enabled);
     void setObjectSnapTolerancePreset(QString presetId);
     void setGridPresetId(const QString &presetId);
+    void setPlotOrderModeId(const QString &modeId);
     void updatePointerNormalized(double x, double y);
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
     bool setSelectedObjectLocked(bool locked);
@@ -78,6 +81,7 @@ private:
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;
+    edi::drafting::DraftingPlotSettings m_plotSettings;
     std::optional<edi::drafting::Point2D> m_pointerRawPoint;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;

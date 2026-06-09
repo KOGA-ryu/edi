@@ -265,6 +265,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
 
     return {
         {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
+        {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
         {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
         {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
         {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -273,6 +274,7 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
         {QStringLiteral("preview"), QVariantMap{
+            {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
             {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
             {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
             {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -341,6 +343,7 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
     : QObject(parent)
     , m_document(makeDraftingDocument("active_drawing", "Active Drawing"))
     , m_gridSettings(defaultDraftingGridSettings())
+    , m_plotSettings(defaultDraftingPlotSettings())
 {
     applyGridToSnap(m_snapSettings, m_gridSettings);
 }
@@ -350,7 +353,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
-    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(buildDraftingPlotPlan(m_document, grid)));
+    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(buildDraftingPlotPlan(m_document, grid, m_plotSettings)));
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
     }
@@ -426,6 +429,11 @@ QString DrawingDocumentController::gridPresetId() const
 QString DrawingDocumentController::objectSnapTolerancePresetId() const
 {
     return tolerancePresetId(m_snapSettings.objectTolerance);
+}
+
+QString DrawingDocumentController::plotOrderModeId() const
+{
+    return QString::fromLatin1(draftingPlotOrderModeName(m_plotSettings.orderMode));
 }
 
 void DrawingDocumentController::setSelectedToolId(const QString &toolId)
@@ -520,6 +528,16 @@ void DrawingDocumentController::setGridPresetId(const QString &presetId)
     }
     m_gridSettings = draftingGridPresetSettings(preset);
     applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setPlotOrderModeId(const QString &modeId)
+{
+    const DraftingPlotOrderMode mode = draftingPlotOrderModeFromName(modeId.toStdString());
+    if (m_plotSettings.orderMode == mode) {
+        return;
+    }
+    m_plotSettings.orderMode = mode;
     emit modelChanged();
 }
 

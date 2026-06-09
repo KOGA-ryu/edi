@@ -439,6 +439,17 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
+    m_plotOrderMode = new QComboBox;
+    m_plotOrderMode->setObjectName(QStringLiteral("plotOrderMode"));
+    m_plotOrderMode->addItem(QStringLiteral("Plot order: layer"), QStringLiteral("layer_order"));
+    m_plotOrderMode->addItem(QStringLiteral("Plot order: nearest"), QStringLiteral("nearest_next"));
+    const int plotOrderIndex = m_plotOrderMode->findData(m_controller->plotOrderModeId());
+    if (plotOrderIndex >= 0) {
+        m_plotOrderMode->setCurrentIndex(plotOrderIndex);
+    }
+    connect(m_plotOrderMode, &QComboBox::currentIndexChanged, this, [this](int index) {
+        m_controller->setPlotOrderModeId(m_plotOrderMode->itemData(index).toString());
+    });
     m_plotPreviewVisible = new QCheckBox(QStringLiteral("Show plot preview"));
     m_plotPreviewVisible->setObjectName(QStringLiteral("plotPreviewCheckbox"));
     m_plotPreviewVisible->setChecked(false);
@@ -452,6 +463,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
     layout->addWidget(m_plotValue);
+    layout->addWidget(m_plotOrderMode);
     layout->addWidget(m_plotPreviewVisible);
     layout->addWidget(m_pointerValue);
     layout->addWidget(m_previewValue);
@@ -1103,6 +1115,11 @@ void EdiShellWindow::refreshInspector()
                 .arg(plot.value(QStringLiteral("segment_count")).toInt())
                 .arg(travelSegmentCount)
                 .arg(travelDistance));
+    }
+    if (m_plotOrderMode != nullptr) {
+        const QSignalBlocker blocker(m_plotOrderMode);
+        const int index = m_plotOrderMode->findData(plot.value(QStringLiteral("order_mode")).toString());
+        m_plotOrderMode->setCurrentIndex(index >= 0 ? index : 0);
     }
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {

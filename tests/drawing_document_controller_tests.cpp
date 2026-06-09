@@ -548,11 +548,13 @@ int main(int argc, char **argv)
     assert(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
     assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
     QVariantMap layerPlotSummary = layerPlotModel.value("plot_summary").toMap();
+    assert(layerPlotSummary.value("order_mode").toString() == "layer_order");
     assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
     assert(layerPlotSummary.value("segment_count").toInt() == 2);
     assert(layerPlotSummary.value("travel_segment_count").toInt() == 1);
     assert(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
     QVariantMap layerPlotPreview = layerPlotSummary.value("preview").toMap();
+    assert(layerPlotPreview.value("order_mode").toString() == "layer_order");
     assert(layerPlotPreview.value("segment_count").toInt() == 2);
     assert(layerPlotPreview.value("travel_segment_count").toInt() == 1);
     assert(layerPlotPreview.value("travel_distance").toDouble() > 0.0);
@@ -565,6 +567,14 @@ int main(int argc, char **argv)
     assert(layerPlotTravelSegment.value("distance").toDouble() > 0.0);
     assert(layerPlotSummary.value("warning_count").toInt() == 0);
     assert(!layerPlotSummary.value("blocked").toBool());
+    assert(layerPlotController.plotOrderModeId() == "layer_order");
+    layerPlotController.setPlotOrderModeId("nearest_next");
+    assert(layerPlotController.plotOrderModeId() == "nearest_next");
+    layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
+    assert(layerPlotSummary.value("order_mode").toString() == "nearest_next");
+    assert(layerPlotSummary.value("preview").toMap().value("order_mode").toString() == "nearest_next");
+    layerPlotController.setPlotOrderModeId("unknown");
+    assert(layerPlotController.plotOrderModeId() == "layer_order");
     assert(layerPlotController.setActiveLayerPlotEnabled(false));
     layerPlotPoint = layerPlotController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(!layerPlotPoint.value("effective_plot_enabled").toBool());

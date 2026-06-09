@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <string>
 
 using namespace edi::drafting;
 
@@ -72,6 +73,7 @@ int main()
     assert(addObject(document, outsideLine).ok);
 
     const DraftingPlotPlan plan = buildDraftingPlotPlan(document, plotGrid());
+    assert(plan.orderMode == DraftingPlotOrderMode::LayerOrder);
     assert(plan.objects.size() == 3);
     assert(plan.objects[0].objectId == "default_line");
     assert(plan.objects[0].penId == "pen_black");
@@ -161,6 +163,29 @@ int main()
     assert(nearlyEqual(travelPlan.travelSegments.front().b.x, 0.7));
     assert(nearlyEqual(travelPlan.travelSegments.front().b.y, 0.7));
     assert(nearlyEqual(travelPlan.travelDistance, std::sqrt(0.52)));
+
+    DraftingDocument orderDocument = makeDraftingDocument("order_doc");
+    assert(addObject(orderDocument, makeObject("far", DraftingShapeKind::Line, LineGeometry{{0.8, 0.8}, {0.9, 0.8}})).ok);
+    assert(addObject(orderDocument, makeObject("near_a", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.2, 0.1}})).ok);
+    assert(addObject(orderDocument, makeObject("near_b", DraftingShapeKind::Line, LineGeometry{{0.2, 0.1}, {0.3, 0.1}})).ok);
+    assert(addObject(orderDocument, makeObject("mid", DraftingShapeKind::Line, LineGeometry{{0.4, 0.4}, {0.5, 0.4}})).ok);
+    const DraftingGridProjection orderGrid = projectDraftingGrid(defaultDraftingGridSettings());
+    const DraftingPlotPlan layerOrderPlan = buildDraftingPlotPlan(orderDocument, orderGrid);
+    DraftingPlotSettings nearestSettings = defaultDraftingPlotSettings();
+    nearestSettings.orderMode = DraftingPlotOrderMode::NearestNext;
+    const DraftingPlotPlan nearestPlan = buildDraftingPlotPlan(orderDocument, orderGrid, nearestSettings);
+    assert(layerOrderPlan.orderMode == DraftingPlotOrderMode::LayerOrder);
+    assert(nearestPlan.orderMode == DraftingPlotOrderMode::NearestNext);
+    assert(layerOrderPlan.segments.size() == nearestPlan.segments.size());
+    assert(layerOrderPlan.segments.front().objectId == "far");
+    assert(nearestPlan.segments[0].objectId == "near_a");
+    assert(nearestPlan.segments[1].objectId == "near_b");
+    assert(nearestPlan.segments[2].objectId == "mid");
+    assert(nearestPlan.segments[3].objectId == "far");
+    assert(nearestPlan.travelDistance < layerOrderPlan.travelDistance);
+    assert(draftingPlotOrderModeFromName("nearest_next") == DraftingPlotOrderMode::NearestNext);
+    assert(draftingPlotOrderModeFromName("unknown") == DraftingPlotOrderMode::LayerOrder);
+    assert(std::string(draftingPlotOrderModeName(DraftingPlotOrderMode::NearestNext)) == "nearest_next");
 
     return 0;
 }

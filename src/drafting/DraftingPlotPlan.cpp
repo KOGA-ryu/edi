@@ -1,9 +1,12 @@
 #include "drafting/DraftingPlotPlan.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <limits>
+#include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace edi::drafting {
@@ -134,7 +137,61 @@ void appendTravelSegments(DraftingPlotPlan &plan)
     }
 }
 
+void reorderSegmentsNearestNext(std::vector<DraftingPlotSegment> &segments, Point2D start)
+{
+    if (segments.size() < 2) {
+        return;
+    }
+
+    std::vector<DraftingPlotSegment> remaining = std::move(segments);
+    std::vector<DraftingPlotSegment> ordered;
+    ordered.reserve(remaining.size());
+    Point2D current = start;
+
+    while (!remaining.empty()) {
+        std::size_t nearestIndex = 0;
+        double nearestDistance = pointDistance(current, remaining.front().a);
+        for (std::size_t index = 1; index < remaining.size(); ++index) {
+            const double candidateDistance = pointDistance(current, remaining[index].a);
+            if (candidateDistance < nearestDistance) {
+                nearestIndex = index;
+                nearestDistance = candidateDistance;
+            }
+        }
+
+        ordered.push_back(remaining[nearestIndex]);
+        current = ordered.back().b;
+        remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(nearestIndex));
+    }
+
+    segments = std::move(ordered);
+}
+
 } // namespace
+
+DraftingPlotSettings defaultDraftingPlotSettings()
+{
+    return {};
+}
+
+const char *draftingPlotOrderModeName(DraftingPlotOrderMode mode)
+{
+    switch (mode) {
+    case DraftingPlotOrderMode::NearestNext:
+        return "nearest_next";
+    case DraftingPlotOrderMode::LayerOrder:
+        return "layer_order";
+    }
+    return "layer_order";
+}
+
+DraftingPlotOrderMode draftingPlotOrderModeFromName(const std::string &name)
+{
+    if (name == "nearest_next") {
+        return DraftingPlotOrderMode::NearestNext;
+    }
+    return DraftingPlotOrderMode::LayerOrder;
+}
 
 bool draftingShapeCanPlot(DraftingShapeKind kind)
 {
@@ -145,7 +202,16 @@ bool draftingShapeCanPlot(DraftingShapeKind kind)
 
 DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const DraftingGridProjection &grid)
 {
+    return buildDraftingPlotPlan(document, grid, defaultDraftingPlotSettings());
+}
+
+DraftingPlotPlan buildDraftingPlotPlan(
+    const DraftingDocument &document,
+    const DraftingGridProjection &grid,
+    const DraftingPlotSettings &settings)
+{
     DraftingPlotPlan plan;
+    plan.orderMode = settings.orderMode;
 
     std::vector<const DraftingObject *> sortedObjects;
     sortedObjects.reserve(document.objects.size());
@@ -181,6 +247,9 @@ DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const D
         }
     }
 
+    if (settings.orderMode == DraftingPlotOrderMode::NearestNext) {
+        reorderSegmentsNearestNext(plan.segments, grid.origin);
+    }
     appendTravelSegments(plan);
 
     return plan;

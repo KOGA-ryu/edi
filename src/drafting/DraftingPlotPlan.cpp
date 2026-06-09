@@ -51,6 +51,24 @@ Point2D scalePoint(Point2D point, double scale)
     return {point.x * scale, point.y * scale};
 }
 
+Bounds2D boundsForPoints(Point2D a, Point2D b)
+{
+    const double left = std::min(a.x, b.x);
+    const double top = std::min(a.y, b.y);
+    const double right = std::max(a.x, b.x);
+    const double bottom = std::max(a.y, b.y);
+    return {left, top, right - left, bottom - top};
+}
+
+Bounds2D includePoint(Bounds2D bounds, Point2D point)
+{
+    const double left = std::min(bounds.x, point.x);
+    const double top = std::min(bounds.y, point.y);
+    const double right = std::max(bounds.x + bounds.width, point.x);
+    const double bottom = std::max(bounds.y + bounds.height, point.y);
+    return {left, top, right - left, bottom - top};
+}
+
 double pointDistance(Point2D a, Point2D b)
 {
     const double dx = b.x - a.x;
@@ -193,6 +211,56 @@ void applyCalibrationScale(DraftingPlotPlan &plan)
     }
 }
 
+bool planHasWarning(const DraftingPlotPlan &plan, const DraftingObjectId &objectId, const std::string &kind)
+{
+    return std::any_of(plan.warnings.begin(), plan.warnings.end(), [&](const DraftingPlotWarning &warning) {
+        return warning.objectId == objectId && warning.kind == kind;
+    });
+}
+
+bool objectHasRawOutOfBoundsWarning(const DraftingPlotPlan &plan, const DraftingObjectId &objectId)
+{
+    return planHasWarning(plan, objectId, "raw_out_of_drawable_bounds");
+}
+
+void computeCalibratedPlotBounds(DraftingPlotPlan &plan)
+{
+    plan.hasPlotBounds = false;
+    plan.plotBounds = {};
+    for (const DraftingPlotSegment &segment : plan.segments) {
+        if (!std::isfinite(segment.a.x)
+            || !std::isfinite(segment.a.y)
+            || !std::isfinite(segment.b.x)
+            || !std::isfinite(segment.b.y)) {
+            continue;
+        }
+        if (!plan.hasPlotBounds) {
+            plan.plotBounds = boundsForPoints(segment.a, segment.b);
+            plan.hasPlotBounds = true;
+            continue;
+        }
+        plan.plotBounds = includePoint(includePoint(plan.plotBounds, segment.a), segment.b);
+    }
+}
+
+void appendCalibratedPlotBoundsWarnings(DraftingPlotPlan &plan, const DraftingGridProjection &grid)
+{
+    for (const DraftingPlotSegment &segment : plan.segments) {
+        if (objectHasRawOutOfBoundsWarning(plan, segment.objectId)
+            || planHasWarning(plan, segment.objectId, "calibrated_plot_out_of_drawable_bounds")) {
+            continue;
+        }
+        if (!boundsOutsideDrawableArea(boundsForPoints(segment.a, segment.b), grid)) {
+            continue;
+        }
+        plan.warnings.push_back({
+            segment.objectId,
+            "calibrated_plot_out_of_drawable_bounds",
+            "calibrated plot output is outside drawable bounds",
+        });
+    }
+}
+
 void reorderSegmentsNearestNext(
     std::vector<DraftingPlotSegment> &segments,
     Point2D start,
@@ -311,18 +379,18 @@ DraftingPlotPenStats &ensurePenStats(DraftingPlotPlan &plan, const DraftingPlotT
     return plan.penStats.back();
 }
 
-bool layerHasOutOfBoundsWarning(const DraftingPlotPlan &plan, const DraftingDocument &document, const LayerId &layerId)
+std::string layerBoundsBlockedReason(const DraftingPlotPlan &plan, const DraftingDocument &document, const LayerId &layerId)
 {
     for (const DraftingPlotWarning &warning : plan.warnings) {
-        if (warning.kind != "out_of_drawable_bounds") {
+        if (warning.kind != "raw_out_of_drawable_bounds" && warning.kind != "calibrated_plot_out_of_drawable_bounds") {
             continue;
         }
         const DraftingObject *object = findObject(document, warning.objectId);
         if (object != nullptr && object->layerId == layerId) {
-            return true;
+            return warning.kind;
         }
     }
-    return false;
+    return {};
 }
 
 void finalizePlotStatsReadiness(DraftingPlotPlan &plan, const DraftingDocument &document)
@@ -347,9 +415,9 @@ void finalizePlotStatsReadiness(DraftingPlotPlan &plan, const DraftingDocument &
         } else if (stats.segmentCount <= 0) {
             stats.ready = false;
             stats.blockedReason = "no_assigned_segments";
-        } else if (layerHasOutOfBoundsWarning(plan, document, stats.layerId)) {
+        } else if (const std::string blockedReason = layerBoundsBlockedReason(plan, document, stats.layerId); !blockedReason.empty()) {
             stats.ready = false;
-            stats.blockedReason = "out_of_drawable_bounds";
+            stats.blockedReason = blockedReason;
         } else {
             stats.ready = true;
             stats.blockedReason = "ready";
@@ -511,7 +579,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
         if (boundsOutsideDrawableArea(object.bounds, grid)) {
             plan.warnings.push_back({
                 object.id,
-                "out_of_drawable_bounds",
+                "raw_out_of_drawable_bounds",
                 "plot object is outside drawable bounds",
             });
         }
@@ -521,6 +589,8 @@ DraftingPlotPlan buildDraftingPlotPlan(
         reorderSegmentsNearestNext(plan.segments, grid.origin, settings.directionMode);
     }
     applyCalibrationScale(plan);
+    computeCalibratedPlotBounds(plan);
+    appendCalibratedPlotBoundsWarnings(plan, grid);
     appendTravelSegments(plan);
     appendPlotStats(plan, document);
 

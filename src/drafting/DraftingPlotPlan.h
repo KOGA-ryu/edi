@@ -94,8 +94,10 @@ struct DraftingPlotPlan {
     std::vector<DraftingPlotWarning> warnings;
     DraftingPlotOrderMode orderMode = DraftingPlotOrderMode::LayerOrder;
     DraftingPlotDirectionMode directionMode = DraftingPlotDirectionMode::PreserveDirection;
+    Bounds2D plotBounds;
     double travelDistance = 0.0;
     double calibrationScale = 1.0;
+    bool hasPlotBounds = false;
 };
 
 DraftingPlotSettings defaultDraftingPlotSettings();

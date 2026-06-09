@@ -112,7 +112,7 @@ int main()
     assert(nearlyEqual(plan.layerStats[1].strokeDistance, std::sqrt(0.02) + std::sqrt(0.005)));
     assert(nearlyEqual(plan.layerStats[1].travelDistance, plan.travelDistance));
     assert(!plan.layerStats[1].ready);
-    assert(plan.layerStats[1].blockedReason == "out_of_drawable_bounds");
+    assert(plan.layerStats[1].blockedReason == "raw_out_of_drawable_bounds");
     assert(plan.layerStats[2].layerId == "disabled");
     assert(plan.layerStats[2].objectCount == 1);
     assert(plan.layerStats[2].segmentCount == 0);
@@ -135,7 +135,7 @@ int main()
     assert(plan.penStats[1].blockedReason == "ready");
     assert(plan.warnings.size() == 1);
     assert(plan.warnings.front().objectId == "outside_line");
-    assert(plan.warnings.front().kind == "out_of_drawable_bounds");
+    assert(plan.warnings.front().kind == "raw_out_of_drawable_bounds");
 
     assert(updateLayerFlags(document, "ink", false, false).ok);
     const DraftingPlotPlan hiddenInkPlan = buildDraftingPlotPlan(document, plotGrid());
@@ -313,6 +313,23 @@ int main()
     assert(nearlyEqual(invalidScalePlan.calibrationScale, 1.0));
     assert(nearlyEqual(invalidScalePlan.segments.front().rawB.x, 0.5));
     assert(nearlyEqual(invalidScalePlan.segments.front().b.x, 0.5));
+
+    DraftingDocument calibratedBoundsDocument = makeDraftingDocument("calibrated_bounds_doc");
+    assert(addObject(calibratedBoundsDocument, makeObject("inside_raw_scaled_out", DraftingShapeKind::Line, LineGeometry{{0.2, 0.2}, {0.5, 0.2}})).ok);
+    DraftingPlotSettings calibratedBoundsSettings = defaultDraftingPlotSettings();
+    calibratedBoundsSettings.calibrationScale = 2.0;
+    const DraftingPlotPlan calibratedBoundsPlan = buildDraftingPlotPlan(calibratedBoundsDocument, orderGrid, calibratedBoundsSettings);
+    assert(calibratedBoundsPlan.hasPlotBounds);
+    assert(nearlyEqual(calibratedBoundsPlan.plotBounds.x, 0.4));
+    assert(nearlyEqual(calibratedBoundsPlan.plotBounds.y, 0.4));
+    assert(nearlyEqual(calibratedBoundsPlan.plotBounds.width, 0.6));
+    assert(nearlyEqual(calibratedBoundsPlan.plotBounds.height, 0.0));
+    assert(calibratedBoundsPlan.warnings.size() == 1);
+    assert(calibratedBoundsPlan.warnings.front().objectId == "inside_raw_scaled_out");
+    assert(calibratedBoundsPlan.warnings.front().kind == "calibrated_plot_out_of_drawable_bounds");
+    assert(calibratedBoundsPlan.layerStats.size() == 1);
+    assert(!calibratedBoundsPlan.layerStats.front().ready);
+    assert(calibratedBoundsPlan.layerStats.front().blockedReason == "calibrated_plot_out_of_drawable_bounds");
 
     return 0;
 }

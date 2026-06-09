@@ -686,6 +686,10 @@ int main(int argc, char **argv)
     const double appliedCalibrationScale = 0.24 / 0.238;
     const QVariantMap appliedCalibrationPlot = calibrationModel.value("plot_summary").toMap();
     assert(nearlyEqual(appliedCalibrationPlot.value("calibration_scale").toDouble(), appliedCalibrationScale));
+    assert(appliedCalibrationPlot.value("has_plot_bounds").toBool());
+    const QVariantMap appliedCalibrationPlotBounds = appliedCalibrationPlot.value("plot_bounds").toMap();
+    assert(nearlyEqual(appliedCalibrationPlotBounds.value("x").toDouble(), 0.15 * appliedCalibrationScale));
+    assert(nearlyEqual(appliedCalibrationPlotBounds.value("width").toDouble(), 0.24 * appliedCalibrationScale));
     const QVariantList appliedCalibrationSegments = appliedCalibrationPlot.value("preview").toMap().value("segments").toList();
     assert(!appliedCalibrationSegments.isEmpty());
     const QVariantMap appliedCalibrationSegment = appliedCalibrationSegments.front().toMap();

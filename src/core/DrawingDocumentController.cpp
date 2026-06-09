@@ -346,6 +346,8 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
         {QStringLiteral("order_mode"), QString::fromLatin1(draftingPlotOrderModeName(plan.orderMode))},
         {QStringLiteral("direction_mode"), QString::fromLatin1(draftingPlotDirectionModeName(plan.directionMode))},
         {QStringLiteral("calibration_scale"), plan.calibrationScale},
+        {QStringLiteral("has_plot_bounds"), plan.hasPlotBounds},
+        {QStringLiteral("plot_bounds"), boundsToMap(plan.plotBounds)},
         {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
         {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
         {QStringLiteral("travel_distance"), plan.travelDistance},
@@ -452,7 +454,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     for (const DraftingObject &object : m_document.objects) {
         if (objectEffectivelyVisible(m_document, object) && boundsOutsideDrawableArea(object.bounds, grid)) {
             warnings.push_back(QVariantMap{
-                {QStringLiteral("kind"), QStringLiteral("out_of_drawable_bounds")},
+                {QStringLiteral("kind"), QStringLiteral("raw_out_of_drawable_bounds")},
                 {QStringLiteral("object_id"), drawing_core::qStringFromStdString(object.id)},
             });
         }

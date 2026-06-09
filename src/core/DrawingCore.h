@@ -32,6 +32,7 @@ public:
     bool midpointSnapEnabled() const;
     bool centerSnapEnabled() const;
     bool guideSnapEnabled() const;
+    bool guideMoveSnapEnabled() const;
     bool objectSnapPriorityBeforeGrid() const;
     QString gridPresetId() const;
     QString objectSnapTolerancePresetId() const;
@@ -45,6 +46,7 @@ public:
     void setMidpointSnapEnabled(bool enabled);
     void setCenterSnapEnabled(bool enabled);
     void setGuideSnapEnabled(bool enabled);
+    void setGuideMoveSnapEnabled(bool enabled);
     void setObjectSnapPriorityBeforeGrid(bool enabled);
     void setObjectSnapTolerancePreset(QString presetId);
     void setGridPresetId(const QString &presetId);
@@ -111,6 +113,7 @@ private:
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;
+    bool m_guideMoveSnapEnabled = true;
     edi::drafting::DraftingPlotSettings m_plotSettings;
     std::optional<edi::drafting::DraftingCalibrationMeasurement> m_latestCalibrationMeasurement;
     std::optional<edi::drafting::DraftingCalibrationCorrectionPlan> m_pendingCalibrationCorrection;

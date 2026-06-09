@@ -76,6 +76,7 @@ private:
     QCheckBox *m_midpointSnap = nullptr;
     QCheckBox *m_centerSnap = nullptr;
     QCheckBox *m_guideSnap = nullptr;
+    QCheckBox *m_guideMoveSnap = nullptr;
     QCheckBox *m_objectPrioritySnap = nullptr;
     QComboBox *m_objectTolerance = nullptr;
     QLabel *m_workspaceTitle = nullptr;

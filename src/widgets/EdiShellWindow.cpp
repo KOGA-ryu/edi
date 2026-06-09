@@ -544,6 +544,8 @@ QWidget *EdiShellWindow::buildLeftPanel()
     m_centerSnap->setChecked(m_controller->centerSnapEnabled());
     m_guideSnap = new QCheckBox(QStringLiteral("Guide"));
     m_guideSnap->setChecked(m_controller->guideSnapEnabled());
+    m_guideMoveSnap = new QCheckBox(QStringLiteral("Guide move snap"));
+    m_guideMoveSnap->setChecked(m_controller->guideMoveSnapEnabled());
     m_objectPrioritySnap = new QCheckBox(QStringLiteral("Object before grid"));
     m_objectPrioritySnap->setChecked(m_controller->objectSnapPriorityBeforeGrid());
     m_objectTolerance = new QComboBox;
@@ -561,6 +563,7 @@ QWidget *EdiShellWindow::buildLeftPanel()
     layout->addWidget(m_midpointSnap);
     layout->addWidget(m_centerSnap);
     layout->addWidget(m_guideSnap);
+    layout->addWidget(m_guideMoveSnap);
     layout->addWidget(m_objectPrioritySnap);
     layout->addWidget(m_objectTolerance);
 
@@ -601,6 +604,7 @@ QWidget *EdiShellWindow::buildLeftPanel()
     connect(m_midpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setMidpointSnapEnabled);
     connect(m_centerSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setCenterSnapEnabled);
     connect(m_guideSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGuideSnapEnabled);
+    connect(m_guideMoveSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGuideMoveSnapEnabled);
     connect(m_objectPrioritySnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapPriorityBeforeGrid);
     connect(m_objectTolerance, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
         m_controller->setObjectSnapTolerancePreset(m_objectTolerance->itemData(index).toString());
@@ -1642,10 +1646,11 @@ void EdiShellWindow::refreshInspector()
         m_revisionValue->setText(QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));
     }
     if (m_snapValue != nullptr) {
-        m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2   Guide: %3   Priority: %4")
+        m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2   Guide: %3   Move: %4   Priority: %5")
             .arg(yesNo(snap.value(QStringLiteral("grid_enabled")).toBool()))
             .arg(yesNo(snap.value(QStringLiteral("object_enabled")).toBool()))
             .arg(yesNo(snap.value(QStringLiteral("guide_enabled")).toBool()))
+            .arg(yesNo(snap.value(QStringLiteral("guide_move_enabled")).toBool()))
             .arg(snap.value(QStringLiteral("object_priority_before_grid")).toBool() ? QStringLiteral("object") : QStringLiteral("grid")));
     }
     if (m_gridValue != nullptr) {

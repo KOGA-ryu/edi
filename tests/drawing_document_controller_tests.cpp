@@ -59,6 +59,7 @@ int main(int argc, char **argv)
     assert(initialSnap.value("midpoint_enabled").toBool());
     assert(initialSnap.value("center_enabled").toBool());
     assert(initialSnap.value("guide_enabled").toBool());
+    assert(initialSnap.value("guide_move_enabled").toBool());
     assert(initialSnap.value("object_priority_before_grid").toBool());
     assert(controller.objectSnapTolerancePresetId() == "normal");
 
@@ -67,6 +68,7 @@ int main(int argc, char **argv)
     controller.setMidpointSnapEnabled(false);
     controller.setCenterSnapEnabled(false);
     controller.setGuideSnapEnabled(false);
+    controller.setGuideMoveSnapEnabled(false);
     controller.setObjectSnapPriorityBeforeGrid(false);
     controller.setObjectSnapTolerancePreset("tight");
     QVariantMap changedSnap = controller.modelDocument().value("snap").toMap();
@@ -75,6 +77,7 @@ int main(int argc, char **argv)
     assert(!controller.midpointSnapEnabled());
     assert(!controller.centerSnapEnabled());
     assert(!controller.guideSnapEnabled());
+    assert(!controller.guideMoveSnapEnabled());
     assert(!controller.objectSnapPriorityBeforeGrid());
     assert(controller.objectSnapTolerancePresetId() == "tight");
     assert(!changedSnap.value("endpoint_enabled").toBool());
@@ -82,6 +85,7 @@ int main(int argc, char **argv)
     assert(!changedSnap.value("midpoint_enabled").toBool());
     assert(!changedSnap.value("center_enabled").toBool());
     assert(!changedSnap.value("guide_enabled").toBool());
+    assert(!changedSnap.value("guide_move_enabled").toBool());
     assert(!changedSnap.value("object_priority_before_grid").toBool());
     assert(nearlyEqual(changedSnap.value("object_tolerance").toDouble(), 0.015));
     controller.setEndpointSnapEnabled(true);
@@ -89,6 +93,7 @@ int main(int argc, char **argv)
     controller.setMidpointSnapEnabled(true);
     controller.setCenterSnapEnabled(true);
     controller.setGuideSnapEnabled(true);
+    controller.setGuideMoveSnapEnabled(true);
     controller.setObjectSnapPriorityBeforeGrid(true);
     controller.setObjectSnapTolerancePreset("normal");
 
@@ -936,6 +941,21 @@ int main(int argc, char **argv)
     assert(guideSnappedPoint.value("kind").toString() == "point");
     assert(nearlyEqual(guideSnappedPoint.value("x").toDouble(), 0.33));
     assert(nearlyEqual(guideSnappedPoint.value("y").toDouble(), 0.75));
+
+    DrawingDocumentController guideMoveDisabledCreationController;
+    guideMoveDisabledCreationController.setSelectedToolId("horizontal_guide_tool");
+    guideMoveDisabledCreationController.clickCanvasNormalized(0.2, 0.75);
+    guideMoveDisabledCreationController.setSelectedToolId("vertical_guide_tool");
+    guideMoveDisabledCreationController.clickCanvasNormalized(0.33, 0.2);
+    guideMoveDisabledCreationController.setObjectSnapEnabled(true);
+    guideMoveDisabledCreationController.setGuideMoveSnapEnabled(false);
+    guideMoveDisabledCreationController.setSelectedToolId("point_tool");
+    guideMoveDisabledCreationController.clickCanvasNormalized(0.34, 0.74);
+    QVariantMap guideMoveDisabledCreatedPoint = guideMoveDisabledCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(guideMoveDisabledCreatedPoint.value("kind").toString() == "point");
+    assert(nearlyEqual(guideMoveDisabledCreatedPoint.value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guideMoveDisabledCreatedPoint.value("y").toDouble(), 0.75));
+
     DrawingDocumentController guideCreationSnapDisabledController;
     guideCreationSnapDisabledController.setSelectedToolId("horizontal_guide_tool");
     guideCreationSnapDisabledController.clickCanvasNormalized(0.2, 0.75);
@@ -1033,6 +1053,22 @@ int main(int argc, char **argv)
     assert(nearlyEqual(disabledGuideMovedPoint.value("x").toDouble(), 0.34));
     assert(nearlyEqual(disabledGuideMovedPoint.value("y").toDouble(), 0.74));
     assert(!disabledGuideMoveModel.contains("guide_drag_snap"));
+
+    DrawingDocumentController disabledGuideMoveOnlySnapController;
+    disabledGuideMoveOnlySnapController.setSelectedToolId("horizontal_guide_tool");
+    disabledGuideMoveOnlySnapController.clickCanvasNormalized(0.2, 0.75);
+    disabledGuideMoveOnlySnapController.setSelectedToolId("vertical_guide_tool");
+    disabledGuideMoveOnlySnapController.clickCanvasNormalized(0.33, 0.2);
+    disabledGuideMoveOnlySnapController.setSelectedToolId("point_tool");
+    disabledGuideMoveOnlySnapController.clickCanvasNormalized(0.2, 0.2);
+    disabledGuideMoveOnlySnapController.setObjectSnapEnabled(true);
+    disabledGuideMoveOnlySnapController.setGuideMoveSnapEnabled(false);
+    assert(disabledGuideMoveOnlySnapController.moveSelectionNormalized(0.14, 0.54));
+    QVariantMap disabledGuideMoveOnlyModel = disabledGuideMoveOnlySnapController.modelDocument();
+    QVariantMap disabledGuideMoveOnlyPoint = disabledGuideMoveOnlyModel.value("drawing_objects").toList().back().toMap();
+    assert(nearlyEqual(disabledGuideMoveOnlyPoint.value("x").toDouble(), 0.34));
+    assert(nearlyEqual(disabledGuideMoveOnlyPoint.value("y").toDouble(), 0.74));
+    assert(!disabledGuideMoveOnlyModel.contains("guide_drag_snap"));
 
     DrawingDocumentController hiddenGuideMoveSnapController;
     hiddenGuideMoveSnapController.setSelectedToolId("horizontal_guide_tool");

@@ -688,6 +688,9 @@ QVariantMap DrawingDocumentController::modelDocument() const
 {
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, &grid, m_previewObject ? &*m_previewObject : nullptr);
+    QVariantMap snapProjection = model.value(QStringLiteral("snap")).toMap();
+    snapProjection.insert(QStringLiteral("guide_move_enabled"), m_guideMoveSnapEnabled);
+    model.insert(QStringLiteral("snap"), snapProjection);
     const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
     model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
@@ -775,6 +778,11 @@ bool DrawingDocumentController::centerSnapEnabled() const
 bool DrawingDocumentController::guideSnapEnabled() const
 {
     return m_snapSettings.guideEnabled;
+}
+
+bool DrawingDocumentController::guideMoveSnapEnabled() const
+{
+    return m_guideMoveSnapEnabled;
 }
 
 bool DrawingDocumentController::objectSnapPriorityBeforeGrid() const
@@ -874,6 +882,16 @@ void DrawingDocumentController::setGuideSnapEnabled(bool enabled)
         return;
     }
     m_snapSettings.guideEnabled = enabled;
+    m_lastGuideDragSnap.clear();
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGuideMoveSnapEnabled(bool enabled)
+{
+    if (m_guideMoveSnapEnabled == enabled) {
+        return;
+    }
+    m_guideMoveSnapEnabled = enabled;
     m_lastGuideDragSnap.clear();
     emit modelChanged();
 }
@@ -2192,7 +2210,7 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
     }
 
     m_lastGuideDragSnap.clear();
-    if (m_document.activeObjectId && containsId(m_document.selectedObjectIds, *m_document.activeObjectId)) {
+    if (m_guideMoveSnapEnabled && m_document.activeObjectId && containsId(m_document.selectedObjectIds, *m_document.activeObjectId)) {
         const DraftingObject *active = findObject(m_document, *m_document.activeObjectId);
         if (active != nullptr
             && active->kind != DraftingShapeKind::Guide

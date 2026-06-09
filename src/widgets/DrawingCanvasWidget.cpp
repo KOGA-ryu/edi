@@ -13,6 +13,7 @@
 #include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasProjectedDocument.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
+#include "widgets/DrawingCanvasProjectedPlot.h"
 #include "widgets/DrawingCanvasViewport.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -406,10 +407,8 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
 void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &model) const
 {
     const QVariantMap plot = model.value(QStringLiteral("plot_summary")).toMap();
-    const QVariantMap preview = plot.value(QStringLiteral("preview")).toMap();
-    const QVariantList travelSegments = preview.value(QStringLiteral("travel_segments")).toList();
-    const QVariantList segments = preview.value(QStringLiteral("segments")).toList();
-    if (travelSegments.isEmpty() && segments.isEmpty() && !plot.value(QStringLiteral("has_plot_bounds")).toBool()) {
+    const drawing_canvas::DrawingCanvasProjectedPlotPreview preview = drawing_canvas::projectedPlotPreview(plot);
+    if (preview.travelSegments.empty() && preview.strokeSegments.empty() && !preview.hasPlotBounds) {
         return;
     }
 
@@ -420,32 +419,16 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
     QPen travelPen(QColor(213, 187, 120, 130), 1.25, Qt::DashLine);
     travelPen.setCapStyle(Qt::RoundCap);
     painter.setPen(travelPen);
-    for (const QVariant &segmentValue : travelSegments) {
-        const QVariantMap segment = segmentValue.toMap();
-        const double x1 = segment.value(QStringLiteral("x1")).toDouble();
-        const double y1 = segment.value(QStringLiteral("y1")).toDouble();
-        const double x2 = segment.value(QStringLiteral("x2")).toDouble();
-        const double y2 = segment.value(QStringLiteral("y2")).toDouble();
-        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)) {
-            continue;
-        }
-        painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
+    for (const drawing_canvas::DrawingCanvasProjectedSegment &segment : preview.travelSegments) {
+        painter.drawLine(canvasToScreen(segment.x1, segment.y1), canvasToScreen(segment.x2, segment.y2));
     }
 
     QPen strokePen(QColor(117, 199, 255, 170), 1.75);
     strokePen.setCapStyle(Qt::RoundCap);
     strokePen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(strokePen);
-    for (const QVariant &segmentValue : segments) {
-        const QVariantMap segment = segmentValue.toMap();
-        const double x1 = segment.value(QStringLiteral("x1")).toDouble();
-        const double y1 = segment.value(QStringLiteral("y1")).toDouble();
-        const double x2 = segment.value(QStringLiteral("x2")).toDouble();
-        const double y2 = segment.value(QStringLiteral("y2")).toDouble();
-        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)) {
-            continue;
-        }
-        painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
+    for (const drawing_canvas::DrawingCanvasProjectedSegment &segment : preview.strokeSegments) {
+        painter.drawLine(canvasToScreen(segment.x1, segment.y1), canvasToScreen(segment.x2, segment.y2));
     }
 
     painter.restore();

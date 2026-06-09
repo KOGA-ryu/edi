@@ -1478,7 +1478,9 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         layout->addWidget(label, row, 0);
         layout->addWidget(spin, row, 1);
         if (physicalGeometry.contains(fieldId)) {
-            const bool angleValue = fieldId == QStringLiteral("line_angle_deg") || fieldId == QStringLiteral("rotation_deg");
+            const bool angleValue = fieldId == QStringLiteral("line_angle_deg")
+                || fieldId == QStringLiteral("dimension_angle_deg")
+                || fieldId == QStringLiteral("rotation_deg");
             auto *physicalSpin = new QDoubleSpinBox;
             physicalSpin->setObjectName(QStringLiteral("geometryField"));
             physicalSpin->setDecimals(angleValue ? 2 : field.value(QStringLiteral("decimals"), 4).toInt());
@@ -1487,7 +1489,8 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
                 || fieldId == QStringLiteral("height")
                 || fieldId == QStringLiteral("radius")
                 || fieldId == QStringLiteral("diameter")
-                || fieldId == QStringLiteral("line_length")) {
+                || fieldId == QStringLiteral("line_length")
+                || fieldId == QStringLiteral("dimension_length")) {
                 physicalSpin->setRange(0.0, 100000.0);
             } else if (angleValue) {
                 physicalSpin->setRange(-360.0, 360.0);

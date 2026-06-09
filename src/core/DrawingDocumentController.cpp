@@ -1110,6 +1110,79 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
         return true;
     }
 
+    if (fieldId == QStringLiteral("dimension_length") || fieldId == QStringLiteral("dimension_angle_deg")) {
+        const auto *dimension = std::get_if<DimensionGeometry>(&object->geometry);
+        if (object->kind != DraftingShapeKind::Dimension || dimension == nullptr) {
+            return false;
+        }
+        if (fieldId == QStringLiteral("dimension_angle_deg")
+            && (dimension->kind == DimensionKind::Width || dimension->kind == DimensionKind::Height)) {
+            return false;
+        }
+
+        const double ax = dimension->a.x * width;
+        const double ay = dimension->a.y * height;
+        const double bx = dimension->b.x * width;
+        const double by = dimension->b.y * height;
+        const double dx = bx - ax;
+        const double dy = by - ay;
+        constexpr double pi = 3.14159265358979323846;
+        const double currentLength = std::sqrt(dx * dx + dy * dy);
+        const double displayedLength = dimension->kind == DimensionKind::Diameter
+            ? currentLength * 2.0
+            : currentLength;
+        const double nextDisplayedLength = fieldId == QStringLiteral("dimension_length")
+            ? value
+            : displayedLength;
+        const double nextStoredLength = dimension->kind == DimensionKind::Diameter
+            ? nextDisplayedLength / 2.0
+            : nextDisplayedLength;
+        if (!std::isfinite(nextStoredLength) || nextStoredLength < 0.0) {
+            return false;
+        }
+
+        double normalizedX2 = dimension->b.x;
+        double normalizedY2 = dimension->b.y;
+        if (dimension->kind == DimensionKind::Width) {
+            const double sign = dimension->b.x < dimension->a.x ? -1.0 : 1.0;
+            normalizedX2 = (ax + sign * nextStoredLength) / width;
+            normalizedY2 = dimension->a.y;
+        } else if (dimension->kind == DimensionKind::Height) {
+            const double sign = dimension->b.y < dimension->a.y ? -1.0 : 1.0;
+            normalizedX2 = dimension->a.x;
+            normalizedY2 = (ay + sign * nextStoredLength) / height;
+        } else {
+            const double angle = fieldId == QStringLiteral("dimension_angle_deg")
+                ? value * pi / 180.0
+                : std::atan2(dy, dx);
+            if (!std::isfinite(angle)) {
+                return false;
+            }
+            normalizedX2 = (ax + std::cos(angle) * nextStoredLength) / width;
+            normalizedY2 = (ay + std::sin(angle) * nextStoredLength) / height;
+        }
+
+        const DraftingNumericEditResult xEdit = applyNumericGeometryEdit(*object, "x2", normalizedX2);
+        if (!xEdit.ok) {
+            return false;
+        }
+        DraftingObject partiallyEdited = *object;
+        partiallyEdited.geometry = xEdit.geometry;
+        const DraftingNumericEditResult yEdit = applyNumericGeometryEdit(partiallyEdited, "y2", normalizedY2);
+        if (!yEdit.ok) {
+            return false;
+        }
+        const DraftingCommandResult result = applyDraftingCommand(
+            m_document,
+            UpdateGeometryCommand{*m_document.activeObjectId, yEdit.geometry});
+        if (!result.ok) {
+            return false;
+        }
+
+        emit modelChanged();
+        return true;
+    }
+
     double normalizedValue = value;
     if (fieldId == QStringLiteral("position")) {
         const auto *guide = std::get_if<GuideGeometry>(&object->geometry);

@@ -22,6 +22,16 @@ double lineLength(const LineGeometry &line)
     return distance(line.a, line.b);
 }
 
+double displayedDimensionLength(double length, DimensionKind kind)
+{
+    return kind == DimensionKind::Diameter ? length * 2.0 : length;
+}
+
+double storedDimensionLength(double displayedLength, DimensionKind kind)
+{
+    return kind == DimensionKind::Diameter ? displayedLength / 2.0 : displayedLength;
+}
+
 DraftingNumericEditResult acceptedIfValid(DraftingGeometry geometry)
 {
     const GeometryValidationResult validation = validateGeometry(geometry);
@@ -54,6 +64,11 @@ DraftingNumericEditResult DraftingNumericEditResult::rejected(DraftingResultCode
 double lineAngleDegrees(const LineGeometry &line)
 {
     return std::atan2(line.b.y - line.a.y, line.b.x - line.a.x) * 180.0 / kPi;
+}
+
+double dimensionAngleDegrees(const DimensionGeometry &dimension)
+{
+    return std::atan2(dimension.b.y - dimension.a.y, dimension.b.x - dimension.a.x) * 180.0 / kPi;
 }
 
 DraftingNumericEditResult applyNumericGeometryEdit(
@@ -173,6 +188,34 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 geometry.b.y = value;
             } else if (fieldId == "offset") {
                 geometry.offset = value;
+            } else if (fieldId == "dimension_length") {
+                if (value < 0.0) {
+                    return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "dimension length must be non-negative");
+                }
+                const double targetLength = storedDimensionLength(value, geometry.kind);
+                if (geometry.kind == DimensionKind::Width) {
+                    const double sign = geometry.b.x < geometry.a.x ? -1.0 : 1.0;
+                    geometry.b = {geometry.a.x + sign * targetLength, geometry.a.y};
+                } else if (geometry.kind == DimensionKind::Height) {
+                    const double sign = geometry.b.y < geometry.a.y ? -1.0 : 1.0;
+                    geometry.b = {geometry.a.x, geometry.a.y + sign * targetLength};
+                } else {
+                    const double angle = degreesToRadians(dimensionAngleDegrees(geometry));
+                    geometry.b = {
+                        geometry.a.x + std::cos(angle) * targetLength,
+                        geometry.a.y + std::sin(angle) * targetLength,
+                    };
+                }
+            } else if (fieldId == "dimension_angle_deg") {
+                if (geometry.kind == DimensionKind::Width || geometry.kind == DimensionKind::Height) {
+                    return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "dimension angle does not apply to width or height dimensions");
+                }
+                const double length = storedDimensionLength(displayedDimensionLength(distance(geometry.a, geometry.b), geometry.kind), geometry.kind);
+                const double angle = degreesToRadians(value);
+                geometry.b = {
+                    geometry.a.x + std::cos(angle) * length,
+                    geometry.a.y + std::sin(angle) * length,
+                };
             } else {
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to dimension");
             }

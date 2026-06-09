@@ -114,6 +114,22 @@ QVariantList numericFieldsForObject(const DraftingObject &object)
         fields.push_back(numericField(QStringLiteral("y1"), QStringLiteral("Y1")));
         fields.push_back(numericField(QStringLiteral("x2"), QStringLiteral("X2")));
         fields.push_back(numericField(QStringLiteral("y2"), QStringLiteral("Y2")));
+        if (const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry)) {
+            QString lengthLabel = QStringLiteral("Distance");
+            if (dimension->kind == DimensionKind::Width) {
+                lengthLabel = QStringLiteral("Width");
+            } else if (dimension->kind == DimensionKind::Height) {
+                lengthLabel = QStringLiteral("Height");
+            } else if (dimension->kind == DimensionKind::Radius) {
+                lengthLabel = QStringLiteral("Radius");
+            } else if (dimension->kind == DimensionKind::Diameter) {
+                lengthLabel = QStringLiteral("Diameter");
+            }
+            fields.push_back(numericField(QStringLiteral("dimension_length"), lengthLabel, 0.0));
+            if (dimension->kind != DimensionKind::Width && dimension->kind != DimensionKind::Height) {
+                fields.push_back(numericField(QStringLiteral("dimension_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2));
+            }
+        }
         fields.push_back(numericField(QStringLiteral("offset"), QStringLiteral("Offset")));
         break;
     case DraftingShapeKind::Polygon:
@@ -296,6 +312,7 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
             result.insert(QStringLiteral("offset"), physicalDistance({0.0, 0.0}, {geometry.offset, geometry.offset}, grid));
             result.insert(QStringLiteral("dimension_distance"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
+            result.insert(QStringLiteral("dimension_length"), displayedDimensionDistance(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("dimension_label"), physicalDimensionLabel(physicalDistance(geometry.a, geometry.b, grid), geometry.kind, grid));
         }
@@ -402,6 +419,8 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("y2"), geometry.b.y);
             result.insert(QStringLiteral("offset"), geometry.offset);
             result.insert(QStringLiteral("dimension_kind"), QString::fromLatin1(dimensionKindName(geometry.kind)));
+            result.insert(QStringLiteral("dimension_length"), normalizedDistance);
+            result.insert(QStringLiteral("dimension_angle_deg"), dimensionAngleDegrees(geometry));
             result.insert(QStringLiteral("dimension_x1"), dimA.x);
             result.insert(QStringLiteral("dimension_y1"), dimA.y);
             result.insert(QStringLiteral("dimension_x2"), dimB.x);

@@ -51,6 +51,7 @@ private:
     QLabel *makeValueLabel(const QString &text = QString()) const;
     void setWorkspaceMode(edi::app::WorkspaceMode mode);
     void rebuildGeometryEditor(const QVariantMap &selectedObject);
+    void applyGeometryEditStatus(const QVariantMap &editStatus);
     void setGeometryEditorVisible(bool visible);
     void applyShellStyle();
 
@@ -130,6 +131,7 @@ private:
     QWidget *m_geometryEditor = nullptr;
     QLabel *m_geometryEditStatus = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
+    QMap<QString, QDoubleSpinBox *> m_physicalGeometryFields;
     QLabel *m_objectsValue = nullptr;
     QLabel *m_guidesValue = nullptr;
     QLabel *m_revisionValue = nullptr;

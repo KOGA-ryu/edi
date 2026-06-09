@@ -15,6 +15,7 @@
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QSpinBox>
+#include <QStyle>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -1461,6 +1462,7 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         delete item;
     }
     m_geometryFields.clear();
+    m_physicalGeometryFields.clear();
 
     const QVariantList fields = selectedObject.value(QStringLiteral("numeric_fields")).toList();
     const QVariantMap physicalGeometry = selectedObject.value(QStringLiteral("physical_geometry")).toMap();
@@ -1485,6 +1487,8 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
             field.value(QStringLiteral("maximum"), 10.0).toDouble());
         spin->setValue(selectedObject.value(fieldId).toDouble());
         spin->setProperty("fieldId", fieldId);
+        spin->setProperty("fieldMode", QStringLiteral("normalized"));
+        spin->setProperty("editInvalid", false);
         connect(spin, &QDoubleSpinBox::editingFinished, this, [this, spin]() {
             if (!m_controller->updateSelectedObjectGeometryField(spin->property("fieldId").toString(), spin->value())) {
                 refreshInspector();
@@ -1502,6 +1506,8 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
                 field.value(QStringLiteral("physical_maximum"), 100000.0).toDouble());
             physicalSpin->setValue(physicalGeometry.value(fieldId).toDouble());
             physicalSpin->setProperty("fieldId", fieldId);
+            physicalSpin->setProperty("fieldMode", QStringLiteral("physical"));
+            physicalSpin->setProperty("editInvalid", false);
             connect(physicalSpin, &QDoubleSpinBox::editingFinished, this, [this, physicalSpin]() {
                 if (!m_controller->updateSelectedObjectPhysicalGeometryField(physicalSpin->property("fieldId").toString(), physicalSpin->value())) {
                     refreshInspector();
@@ -1511,12 +1517,37 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
             physicalLabel->setObjectName(QStringLiteral("valueLabel"));
             layout->addWidget(physicalSpin, row, 2);
             layout->addWidget(physicalLabel, row, 3);
+            m_physicalGeometryFields.insert(fieldId, physicalSpin);
         }
         m_geometryFields.insert(fieldId, spin);
         ++row;
     }
 
     setGeometryEditorVisible(row > 0);
+}
+
+void EdiShellWindow::applyGeometryEditStatus(const QVariantMap &editStatus)
+{
+    const bool showFailure = !editStatus.isEmpty() && !editStatus.value(QStringLiteral("ok")).toBool();
+    const QString failedFieldId = showFailure ? editStatus.value(QStringLiteral("field_id")).toString() : QString();
+    const QString failedMode = showFailure ? editStatus.value(QStringLiteral("mode")).toString() : QString();
+
+    auto updateField = [](QDoubleSpinBox *field, bool invalid) {
+        if (field == nullptr || field->property("editInvalid").toBool() == invalid) {
+            return;
+        }
+        field->setProperty("editInvalid", invalid);
+        field->style()->unpolish(field);
+        field->style()->polish(field);
+        field->update();
+    };
+
+    for (auto it = m_geometryFields.begin(); it != m_geometryFields.end(); ++it) {
+        updateField(it.value(), failedMode == QStringLiteral("normalized") && it.key() == failedFieldId);
+    }
+    for (auto it = m_physicalGeometryFields.begin(); it != m_physicalGeometryFields.end(); ++it) {
+        updateField(it.value(), failedMode == QStringLiteral("physical") && it.key() == failedFieldId);
+    }
 }
 
 void EdiShellWindow::setGeometryEditorVisible(bool visible)
@@ -1786,6 +1817,7 @@ void EdiShellWindow::refreshInspector()
         m_dimensionShowLabel->setChecked(selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool());
     }
     rebuildGeometryEditor(selectedObject);
+    applyGeometryEditStatus(editStatus);
     if (m_objectsValue != nullptr) {
         m_objectsValue->setText(QStringLiteral("Objects: %1").arg(objects.size()));
     }
@@ -2019,6 +2051,11 @@ void EdiShellWindow::applyShellStyle()
             border: 1px solid #31404f;
             border-radius: 5px;
             padding: 4px 6px;
+        }
+        #geometryField[editInvalid="true"] {
+            color: #f4dede;
+            background: #332127;
+            border: 1px solid #c65d6a;
         }
         QPushButton {
             color: #dce5ee;

@@ -1875,12 +1875,10 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     }
 
     const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-    auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide);
+    auto built = buildDraftingGuideObject(toStdString(id), guide, source->layerId, "bounds_guide");
     if (!built.ok) {
         return false;
     }
-    built.object.layerId = source->layerId;
-    built.object.metadata.toolProvenance = "bounds_guide";
     const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
     if (!result.ok) {
         return false;
@@ -1921,12 +1919,10 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
     }
 
     const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-    auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide);
+    auto built = buildDraftingGuideObject(toStdString(id), guide, source->layerId, "offset_bounds_guide");
     if (!built.ok) {
         return false;
     }
-    built.object.layerId = source->layerId;
-    built.object.metadata.toolProvenance = "offset_bounds_guide";
     const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
     if (!result.ok) {
         return false;
@@ -1957,17 +1953,21 @@ bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
         }
 
         const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-        auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide.geometry);
+        GuideVisualMetadata visual;
+        visual.label = guide.label;
+        visual.color = guide.color;
+        visual.dashStyle = "dash";
+        visual.showLabel = true;
+        auto built = buildDraftingGuideObject(
+            toStdString(id),
+            guide.geometry,
+            m_document.activeLayerId,
+            "guide_preset",
+            toStdString(presetId),
+            visual);
         if (!built.ok) {
             return false;
         }
-        built.object.layerId = m_document.activeLayerId;
-        built.object.metadata.toolProvenance = "guide_preset";
-        built.object.metadata.source = toStdString(presetId);
-        built.object.metadata.guideVisual.label = guide.label;
-        built.object.metadata.guideVisual.color = guide.color;
-        built.object.metadata.guideVisual.dashStyle = "dash";
-        built.object.metadata.guideVisual.showLabel = true;
 
         const DraftingCommandResult result = applyDraftingCommand(candidate, CreateObjectCommand{built.object});
         if (!result.ok) {

@@ -1,6 +1,7 @@
 #include "drafting/DraftingGuideOps.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingMetadata.h"
 
 #include <algorithm>
 #include <cmath>
@@ -234,6 +235,31 @@ std::vector<DraftingGuideMoveSnapAnchor> guideMoveSnapAnchorsForObject(const Dra
         addUniqueAnchor(anchors, {left, bottom}, 3, "corner");
     }
     return anchors;
+}
+
+DraftingObjectBuildResult buildDraftingGuideObject(DraftingObjectId id,
+    GuideGeometry geometry,
+    LayerId layerId,
+    std::string toolProvenance,
+    std::string source,
+    GuideVisualMetadata visual)
+{
+    DraftingObjectBuildResult built = buildDraftingObject(std::move(id), DraftingShapeKind::Guide, geometry);
+    if (!built.ok) {
+        return built;
+    }
+
+    built.object.layerId = std::move(layerId);
+    built.object.metadata.toolProvenance = std::move(toolProvenance);
+    built.object.metadata.source = std::move(source);
+    built.object.metadata.guideVisual = std::move(visual);
+
+    const DraftingMetadataValidationResult metadataValidation = validateObjectMetadata(built.object.metadata);
+    if (!metadataValidation.ok) {
+        return DraftingObjectBuildResult::rejected(metadataValidation.code, metadataValidation.message);
+    }
+
+    return built;
 }
 
 DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawable, DraftingGuideDrawablePlacement placement)

@@ -131,6 +131,49 @@ int main()
     assert(!guidePresetForDrawable("missing", drawable).ok);
     assert(!guidePresetForDrawable("drawable_bounds", Bounds2D{0.0, 0.0, 0.0, 1.0}).ok);
 
+    auto builtGuide = buildDraftingGuideObject(
+        "built_guide",
+        GuideGeometry{GuideOrientation::Vertical, 0.42},
+        "layout",
+        "unit_test_guide",
+        "source_preset");
+    assert(builtGuide.ok);
+    assert(builtGuide.object.id == "built_guide");
+    assert(builtGuide.object.kind == DraftingShapeKind::Guide);
+    assert(builtGuide.object.layerId == "layout");
+    assert(builtGuide.object.metadata.toolProvenance == "unit_test_guide");
+    assert(builtGuide.object.metadata.source == "source_preset");
+    assert(builtGuide.object.metadata.guideVisual.color == "#83aeca");
+
+    GuideVisualMetadata guideVisual;
+    guideVisual.label = "safe edge";
+    guideVisual.color = "#54d2c6";
+    guideVisual.dashStyle = "dot";
+    guideVisual.showLabel = false;
+    auto visualGuide = buildDraftingGuideObject(
+        "visual_guide",
+        GuideGeometry{GuideOrientation::Horizontal, 0.24},
+        "layout",
+        "visual_test",
+        {},
+        guideVisual);
+    assert(visualGuide.ok);
+    assert(visualGuide.object.metadata.guideVisual.label == "safe edge");
+    assert(visualGuide.object.metadata.guideVisual.color == "#54d2c6");
+    assert(visualGuide.object.metadata.guideVisual.dashStyle == "dot");
+    assert(!visualGuide.object.metadata.guideVisual.showLabel);
+
+    guideVisual.color = "bad";
+    auto badVisualGuide = buildDraftingGuideObject(
+        "bad_visual_guide",
+        GuideGeometry{GuideOrientation::Horizontal, 0.24},
+        "layout",
+        "visual_test",
+        {},
+        guideVisual);
+    assert(!badVisualGuide.ok);
+    assert(badVisualGuide.code == DraftingResultCode::InvalidMetadata);
+
     Bounds2D alignBounds{0.2, 0.3, 0.2, 0.4};
     auto alignLeft = alignBoundsToNearestGuide(document, alignBounds, "left");
     assert(alignLeft.ok);

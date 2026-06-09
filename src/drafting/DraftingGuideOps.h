@@ -89,6 +89,12 @@ bool isGuideObject(const DraftingObject &object);
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide);
 std::optional<double> nearestVisibleGuidePosition(const DraftingDocument &document, GuideOrientation orientation, double target);
 std::vector<DraftingGuideMoveSnapAnchor> guideMoveSnapAnchorsForObject(const DraftingObject &object);
+DraftingObjectBuildResult buildDraftingGuideObject(DraftingObjectId id,
+    GuideGeometry geometry,
+    LayerId layerId,
+    std::string toolProvenance,
+    std::string source = {},
+    GuideVisualMetadata visual = {});
 DraftingGuidePlan moveGuideToDrawable(const GuideGeometry &guide, Bounds2D drawable, DraftingGuideDrawablePlacement placement);
 DraftingGuidePlan offsetGuide(const GuideGeometry &guide, const std::string &direction, double stepX, double stepY, double scale);
 DraftingGuidePlan guideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId);

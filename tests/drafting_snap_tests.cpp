@@ -31,6 +31,13 @@ int main()
     assert(std::string(draftingSnapKindName(DraftingSnapKind::Object)) == "object");
     assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Midpoint)) == "midpoint");
     assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Guide)) == "guide");
+    assert(std::string(draftingSnapTolerancePresetId(0.015)) == "tight");
+    assert(std::string(draftingSnapTolerancePresetId(0.03)) == "normal");
+    assert(std::string(draftingSnapTolerancePresetId(0.06)) == "loose");
+    assert(nearlyEqual(draftingSnapToleranceForPreset("tight"), 0.015));
+    assert(nearlyEqual(draftingSnapToleranceForPreset("normal"), 0.03));
+    assert(nearlyEqual(draftingSnapToleranceForPreset("loose"), 0.06));
+    assert(nearlyEqual(draftingSnapToleranceForPreset("unknown"), 0.03));
 
     DraftingSnapSettings gridSettings;
     gridSettings.gridEnabled = true;

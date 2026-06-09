@@ -170,28 +170,6 @@ void applyGridToSnap(DraftingSnapSettings &snapSettings, const DraftingGridSetti
     snapSettings.gridStep = snapSettings.gridStepX;
 }
 
-QString tolerancePresetId(double tolerance)
-{
-    if (tolerance <= 0.015) {
-        return QStringLiteral("tight");
-    }
-    if (tolerance >= 0.06) {
-        return QStringLiteral("loose");
-    }
-    return QStringLiteral("normal");
-}
-
-double toleranceForPreset(const QString &presetId)
-{
-    if (presetId == QStringLiteral("tight")) {
-        return 0.015;
-    }
-    if (presetId == QStringLiteral("loose")) {
-        return 0.06;
-    }
-    return 0.03;
-}
-
 DraftingGridUnit gridUnitFromId(const QString &unitId)
 {
     const std::string id = unitId.toStdString();
@@ -669,7 +647,7 @@ QString DrawingDocumentController::gridPresetId() const
 
 QString DrawingDocumentController::objectSnapTolerancePresetId() const
 {
-    return tolerancePresetId(m_snapSettings.objectTolerance);
+    return QString::fromLatin1(draftingSnapTolerancePresetId(m_snapSettings.objectTolerance));
 }
 
 QString DrawingDocumentController::plotOrderModeId() const
@@ -780,7 +758,7 @@ void DrawingDocumentController::setObjectSnapPriorityBeforeGrid(bool enabled)
 
 void DrawingDocumentController::setObjectSnapTolerancePreset(QString presetId)
 {
-    const double tolerance = toleranceForPreset(presetId);
+    const double tolerance = draftingSnapToleranceForPreset(toStdString(presetId));
     if (m_snapSettings.objectTolerance == tolerance) {
         return;
     }

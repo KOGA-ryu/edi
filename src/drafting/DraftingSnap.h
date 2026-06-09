@@ -55,6 +55,8 @@ struct DraftingSnapResult {
 Point2D normalizeDraftingPoint(Point2D point);
 const char *draftingSnapKindName(DraftingSnapKind kind);
 const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind);
+const char *draftingSnapTolerancePresetId(double tolerance);
+double draftingSnapToleranceForPreset(const std::string &presetId);
 std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject &object, const DraftingSnapSettings &settings = {});
 std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocument &document, const DraftingSnapSettings &settings = {});
 DraftingSnapResult noneSnap(Point2D point);

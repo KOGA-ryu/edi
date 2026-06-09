@@ -223,6 +223,28 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
     return "unknown";
 }
 
+const char *draftingSnapTolerancePresetId(double tolerance)
+{
+    if (tolerance <= 0.015) {
+        return "tight";
+    }
+    if (tolerance >= 0.06) {
+        return "loose";
+    }
+    return "normal";
+}
+
+double draftingSnapToleranceForPreset(const std::string &presetId)
+{
+    if (presetId == "tight") {
+        return 0.015;
+    }
+    if (presetId == "loose") {
+        return 0.06;
+    }
+    return 0.03;
+}
+
 std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject &object, const DraftingSnapSettings &settings)
 {
     std::vector<DraftingSnapCandidate> candidates;

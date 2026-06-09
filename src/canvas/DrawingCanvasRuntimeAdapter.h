@@ -19,12 +19,6 @@ public:
     Q_INVOKABLE bool isRectangleLike(const QString &kind) const;
     Q_INVOKABLE QVariantMap rotatedRectCenter(const QVariantMap &object) const;
     Q_INVOKABLE QVariantList rotatedRectCorners(const QVariantMap &object) const;
-    Q_INVOKABLE QVariantMap rotatedRectRotationHandle(const QVariantMap &object, const QVariantMap &settings) const;
-    Q_INVOKABLE QVariantList handlesForObject(const QVariantMap &object, const QVariantMap &settings) const;
-    Q_INVOKABLE QVariantList visibleHandlesForObject(const QVariantMap &object, const QVariantMap &settings) const;
-    Q_INVOKABLE QVariantMap handleById(const QVariantMap &object, const QString &handleId, const QVariantMap &settings) const;
-    Q_INVOKABLE QVariantMap hitHandleAt(const QVariantMap &object, double screenX, double screenY, const QVariantMap &viewportBounds, const QVariantMap &settings) const;
-    Q_INVOKABLE QVariantMap handleUpdatePlan(const QVariantMap &object, const QString &handleId, const QVariantMap &point, const QVariantMap &settings) const;
 
     Q_INVOKABLE double objectHitScore(const QVariantMap &object, double x, double y) const;
     Q_INVOKABLE QVariantMap hitObjectAt(const QVariantList &objects, double x, double y, double tolerance) const;

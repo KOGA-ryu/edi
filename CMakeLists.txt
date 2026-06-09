@@ -17,8 +17,6 @@ add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasTypes.cpp
     src/canvas/DrawingCanvasViewport.h
     src/canvas/DrawingCanvasViewport.cpp
-    src/canvas/DrawingCanvasHandles.h
-    src/canvas/DrawingCanvasHandles.cpp
     src/canvas/DrawingCanvasHitTest.h
     src/canvas/DrawingCanvasHitTest.cpp
     src/canvas/DrawingCanvasSnap.h
@@ -202,7 +200,6 @@ add_edi_contract_test(drafting_plot_plan_tests tests/drafting_plot_plan_tests.cp
 add_edi_contract_test(drafting_plot_bounds_tests tests/drafting_plot_bounds_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_tests tests/drafting_plot_job_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_report_tests tests/drafting_plot_job_report_tests.cpp edi_drafting_core)
-add_edi_contract_test(drawing_canvas_handles_tests tests/drawing_canvas_handles_tests.cpp drawing_canvas_core)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)
 add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)

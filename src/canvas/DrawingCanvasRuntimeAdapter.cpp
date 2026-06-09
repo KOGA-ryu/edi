@@ -1,7 +1,6 @@
 #include "DrawingCanvasRuntimeAdapter.h"
 
 #include "DrawingCanvasGestureState.h"
-#include "DrawingCanvasHandles.h"
 #include "DrawingCanvasHitTest.h"
 #include "DrawingCanvasProjection.h"
 #include "DrawingCanvasSnap.h"
@@ -19,13 +18,6 @@ CanvasBounds boundsFromVariant(const QVariantMap &bounds) {
         finiteNumber(bounds.value(QStringLiteral("maxX")), 0.0),
         finiteNumber(bounds.value(QStringLiteral("maxY")), 0.0)
     };
-}
-
-QVariantMap hitHandleResultToVariant(const HitResult &hit, const QVariantMap &handle) {
-    QVariantMap result = hitResultToVariant(hit);
-    result.insert(QStringLiteral("id"), hit.objectId);
-    result.insert(QStringLiteral("handle"), handle);
-    return result;
 }
 
 } // namespace
@@ -64,35 +56,11 @@ QVariantMap DrawingCanvasRuntimeAdapter::rotatedRectCenter(const QVariantMap &ob
 }
 
 QVariantList DrawingCanvasRuntimeAdapter::rotatedRectCorners(const QVariantMap &object) const {
-    return handlesToVariant(drawing_canvas::rotatedRectCorners({object}));
-}
-
-QVariantMap DrawingCanvasRuntimeAdapter::rotatedRectRotationHandle(const QVariantMap &object, const QVariantMap &settings) const {
-    return handleToVariant(drawing_canvas::rotatedRectRotationHandle({object}, settings));
-}
-
-QVariantList DrawingCanvasRuntimeAdapter::handlesForObject(const QVariantMap &object, const QVariantMap &settings) const {
-    return handlesToVariant(drawing_canvas::handlesForObject({object}, settings));
-}
-
-QVariantList DrawingCanvasRuntimeAdapter::visibleHandlesForObject(const QVariantMap &object, const QVariantMap &settings) const {
-    return handlesToVariant(drawing_canvas::visibleHandlesForObject({object}, settings));
-}
-
-QVariantMap DrawingCanvasRuntimeAdapter::handleById(const QVariantMap &object, const QString &handleId, const QVariantMap &settings) const {
-    const HandleDescriptor handle = drawing_canvas::handleById({object}, handleId, settings);
-    return handle.id.isEmpty() ? QVariantMap() : handleToVariant(handle);
-}
-
-QVariantMap DrawingCanvasRuntimeAdapter::hitHandleAt(const QVariantMap &object, double screenX, double screenY, const QVariantMap &viewportBounds, const QVariantMap &settings) const {
-    const CanvasObjectView view {object};
-    const HitResult hit = drawing_canvas::hitHandleAt(view, screenX, screenY, boardBoundsFromVariant(viewportBounds), settings);
-    const QVariantMap handle = hit.ok ? handleToVariant(drawing_canvas::handleById(view, hit.objectId, settings)) : QVariantMap();
-    return hitHandleResultToVariant(hit, handle);
-}
-
-QVariantMap DrawingCanvasRuntimeAdapter::handleUpdatePlan(const QVariantMap &object, const QString &handleId, const QVariantMap &point, const QVariantMap &settings) const {
-    return updatePlanToVariant(drawing_canvas::handleUpdatePlan({object}, handleId, pointFromVariant(point), settings));
+    QVariantList result;
+    for (const CanvasPoint &corner : drawing_canvas::rotatedRectCorners({object})) {
+        result.push_back(pointToVariant(corner));
+    }
+    return result;
 }
 
 double DrawingCanvasRuntimeAdapter::objectHitScore(const QVariantMap &object, double x, double y) const {

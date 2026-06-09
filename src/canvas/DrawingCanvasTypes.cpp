@@ -26,6 +26,51 @@ bool isRectangleLike(const QString &kind) {
         || kind == QStringLiteral("ascii_cell_region");
 }
 
+CanvasPoint rotatedRectCenter(const CanvasObjectView &object) {
+    return {
+        object.number(QStringLiteral("x")) + object.number(QStringLiteral("width")) / 2.0,
+        object.number(QStringLiteral("y")) + object.number(QStringLiteral("height")) / 2.0
+    };
+}
+
+std::vector<CanvasPoint> rotatedRectCorners(const CanvasObjectView &object) {
+    const double x = object.number(QStringLiteral("x"));
+    const double y = object.number(QStringLiteral("y"));
+    const double width = object.number(QStringLiteral("width"));
+    const double height = object.number(QStringLiteral("height"));
+    const double cx = x + width / 2.0;
+    const double cy = y + height / 2.0;
+    const double angle = object.number(QStringLiteral("rotation_deg")) * 3.14159265358979323846 / 180.0;
+    const double cosA = std::cos(angle);
+    const double sinA = std::sin(angle);
+    std::vector<CanvasPoint> corners = {
+        {x, y},
+        {x + width, y},
+        {x, y + height},
+        {x + width, y + height}
+    };
+    for (CanvasPoint &corner : corners) {
+        const double dx = corner.x - cx;
+        const double dy = corner.y - cy;
+        corner.x = cx + dx * cosA - dy * sinA;
+        corner.y = cy + dx * sinA + dy * cosA;
+    }
+    return corners;
+}
+
+CanvasPoint unrotatePointForRect(const CanvasObjectView &object, double x, double y) {
+    const CanvasPoint center = rotatedRectCenter(object);
+    const double angle = -object.number(QStringLiteral("rotation_deg")) * 3.14159265358979323846 / 180.0;
+    const double dx = finiteNumber(x, 0.0) - center.x;
+    const double dy = finiteNumber(y, 0.0) - center.y;
+    const double cosA = std::cos(angle);
+    const double sinA = std::sin(angle);
+    return {
+        center.x + dx * cosA - dy * sinA,
+        center.y + dx * sinA + dy * cosA
+    };
+}
+
 QString CanvasObjectView::id() const {
     return values.value(QStringLiteral("id")).toString();
 }
@@ -91,57 +136,6 @@ QVariantMap boardBoundsToVariant(const BoardBounds &bounds) {
         {QStringLiteral("x"), finiteNumber(bounds.x, 0.0)},
         {QStringLiteral("y"), finiteNumber(bounds.y, 0.0)},
         {QStringLiteral("size"), std::max(0.000001, finiteNumber(bounds.size, 1.0))}
-    };
-}
-
-QVariantMap handleToVariant(const HandleDescriptor &handle) {
-    QVariantList updateFields;
-    for (const QString &field : handle.updateFields) {
-        updateFields.push_back(field);
-    }
-
-    QVariantMap result {
-        {QStringLiteral("id"), handle.id},
-        {QStringLiteral("role"), handle.role},
-        {QStringLiteral("cursor"), handle.cursor},
-        {QStringLiteral("field"), handle.field},
-        {QStringLiteral("updateFields"), updateFields},
-        {QStringLiteral("x"), finiteNumber(handle.x, 0.0)},
-        {QStringLiteral("y"), finiteNumber(handle.y, 0.0)}
-    };
-    if (handle.readOnly) {
-        result.insert(QStringLiteral("readOnly"), true);
-    }
-    if (!handle.visible) {
-        result.insert(QStringLiteral("visible"), false);
-    }
-    if (handle.hasAnchor) {
-        result.insert(QStringLiteral("anchorX"), finiteNumber(handle.anchorX, 0.0));
-        result.insert(QStringLiteral("anchorY"), finiteNumber(handle.anchorY, 0.0));
-    }
-    return result;
-}
-
-QVariantList handlesToVariant(const std::vector<HandleDescriptor> &handles) {
-    QVariantList result;
-    result.reserve(static_cast<qsizetype>(handles.size()));
-    for (const HandleDescriptor &handle : handles) {
-        result.push_back(handleToVariant(handle));
-    }
-    return result;
-}
-
-QVariantMap updatePlanToVariant(const HandleUpdatePlan &plan) {
-    QVariantList updates;
-    for (const FieldUpdate &update : plan.updates) {
-        updates.push_back(QVariantMap {
-            {QStringLiteral("field"), update.field},
-            {QStringLiteral("value"), finiteNumber(update.value, 0.0)}
-        });
-    }
-    return {
-        {QStringLiteral("ok"), plan.ok},
-        {QStringLiteral("updates"), updates}
     };
 }
 

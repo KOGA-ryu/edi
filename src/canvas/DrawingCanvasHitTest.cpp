@@ -1,5 +1,4 @@
 #include "DrawingCanvasHitTest.h"
-#include "DrawingCanvasHandles.h"
 
 #include <algorithm>
 #include <cmath>

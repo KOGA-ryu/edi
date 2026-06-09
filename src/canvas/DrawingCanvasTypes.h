@@ -43,31 +43,6 @@ struct CanvasObjectView {
     std::vector<CanvasPoint> points() const;
 };
 
-struct HandleDescriptor {
-    QString id;
-    QString role;
-    QString cursor;
-    QString field;
-    QStringList updateFields;
-    double x = 0.0;
-    double y = 0.0;
-    bool readOnly = false;
-    bool visible = true;
-    double anchorX = 0.0;
-    double anchorY = 0.0;
-    bool hasAnchor = false;
-};
-
-struct FieldUpdate {
-    QString field;
-    double value = 0.0;
-};
-
-struct HandleUpdatePlan {
-    bool ok = false;
-    std::vector<FieldUpdate> updates;
-};
-
 struct HitResult {
     bool ok = false;
     QString objectId;
@@ -89,14 +64,14 @@ double finiteNumber(double value, double fallback);
 double finiteNumber(const QVariant &value, double fallback);
 double clamp01(double value);
 bool isRectangleLike(const QString &kind);
+CanvasPoint rotatedRectCenter(const CanvasObjectView &object);
+std::vector<CanvasPoint> rotatedRectCorners(const CanvasObjectView &object);
+CanvasPoint unrotatePointForRect(const CanvasObjectView &object, double x, double y);
 
 CanvasPoint pointFromVariant(const QVariant &value);
 QVariantMap pointToVariant(const CanvasPoint &point);
 QVariantMap boundsToVariant(const CanvasBounds &bounds);
 QVariantMap boardBoundsToVariant(const BoardBounds &bounds);
-QVariantMap handleToVariant(const HandleDescriptor &handle);
-QVariantList handlesToVariant(const std::vector<HandleDescriptor> &handles);
-QVariantMap updatePlanToVariant(const HandleUpdatePlan &plan);
 QVariantMap hitResultToVariant(const HitResult &hit);
 QVariantMap snapResultToVariant(const SnapResult &snap);
 QVariantMap objectToMap(const QVariant &value);

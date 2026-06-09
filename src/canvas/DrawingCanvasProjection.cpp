@@ -1,5 +1,4 @@
 #include "DrawingCanvasProjection.h"
-#include "DrawingCanvasHandles.h"
 
 #include <algorithm>
 #include <cmath>
@@ -57,7 +56,7 @@ CanvasBounds normalizedObjectBounds(const CanvasObjectView &object) {
         return includePointInBounds(result, cx + radius, cy + radius);
     }
     if (isRectangleLike(kind)) {
-        for (const HandleDescriptor &corner : rotatedRectCorners(object)) {
+        for (const CanvasPoint &corner : rotatedRectCorners(object)) {
             result = includePointInBounds(result, corner.x, corner.y);
         }
         return result;

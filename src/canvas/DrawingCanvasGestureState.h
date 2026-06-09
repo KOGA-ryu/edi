@@ -2,6 +2,8 @@
 
 #include "DrawingCanvasTypes.h"
 
+#include <QVariantList>
+
 namespace drawing_canvas {
 
 QVariantMap initialGestureState();

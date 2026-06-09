@@ -15,17 +15,11 @@ set(DRAFTSMAN_SHELL_DATA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Proj
 add_library(drawing_canvas_core STATIC
     src/canvas/DrawingCanvasTypes.h
     src/canvas/DrawingCanvasTypes.cpp
-    src/canvas/DrawingCanvasViewport.h
-    src/canvas/DrawingCanvasViewport.cpp
-    src/canvas/DrawingCanvasHitTest.h
-    src/canvas/DrawingCanvasHitTest.cpp
-    src/canvas/DrawingCanvasSnap.h
-    src/canvas/DrawingCanvasSnap.cpp
-    src/canvas/DrawingCanvasProjection.h
-    src/canvas/DrawingCanvasProjection.cpp
     src/canvas/DrawingCanvasGestureState.h
     src/canvas/DrawingCanvasGestureState.cpp
 )
+
+set_target_properties(drawing_canvas_core PROPERTIES AUTOMOC OFF)
 
 target_include_directories(drawing_canvas_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src

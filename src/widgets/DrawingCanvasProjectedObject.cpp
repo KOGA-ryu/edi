@@ -22,6 +22,28 @@ DrawingCanvasProjectedHandleShape handleShapeFromString(const QString &shape)
 
 } // namespace
 
+DrawingCanvasProjectedObjectSummary projectedObjectSummary(const QVariantMap &object)
+{
+    DrawingCanvasProjectedObjectSummary summary;
+    summary.id = object.value(QStringLiteral("id")).toString();
+    summary.kind = object.value(QStringLiteral("kind")).toString();
+    summary.visible = object.value(
+        QStringLiteral("effective_visible"),
+        object.value(QStringLiteral("visible"), true)).toBool();
+    summary.plotBlocked = object.value(QStringLiteral("plot_blocked")).toBool();
+    summary.plotWarningKind = object.value(QStringLiteral("plot_warning_kind")).toString();
+
+    const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
+    if (!bounds.isEmpty()) {
+        summary.bounds.ok = true;
+        summary.bounds.x = finiteNumber(bounds.value(QStringLiteral("x")), 0.0);
+        summary.bounds.y = finiteNumber(bounds.value(QStringLiteral("y")), 0.0);
+        summary.bounds.width = finiteNumber(bounds.value(QStringLiteral("width")), 0.0);
+        summary.bounds.height = finiteNumber(bounds.value(QStringLiteral("height")), 0.0);
+    }
+    return summary;
+}
+
 std::vector<DrawingCanvasProjectedPoint> projectedObjectPoints(const QVariantMap &object)
 {
     std::vector<DrawingCanvasProjectedPoint> result;

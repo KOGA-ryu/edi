@@ -278,7 +278,7 @@ QVariantMap DrawingCanvasWidget::selectedObjectProjection() const
     const QVariantMap model = m_controller->modelDocument();
     for (const QVariant &value : model.value("drawing_objects").toList()) {
         const QVariantMap object = value.toMap();
-        if (object.value(QStringLiteral("id")).toString() == m_controller->selectedObjectId()) {
+        if (drawing_canvas::projectedObjectSummary(object).id == m_controller->selectedObjectId()) {
             return object;
         }
     }
@@ -573,8 +573,8 @@ void DrawingCanvasWidget::drawGuideIntersections(QPainter &painter, const QVaria
     std::vector<double> horizontal;
     for (const QVariant &value : objects) {
         const QVariantMap object = value.toMap();
-        if (object.value(QStringLiteral("kind")).toString() != QStringLiteral("guide")
-            || !object.value(QStringLiteral("effective_visible"), object.value(QStringLiteral("visible"), true)).toBool()) {
+        const drawing_canvas::DrawingCanvasProjectedObjectSummary summary = drawing_canvas::projectedObjectSummary(object);
+        if (summary.kind != QStringLiteral("guide") || !summary.visible) {
             continue;
         }
         const double position = object.value(QStringLiteral("position")).toDouble();
@@ -609,13 +609,13 @@ void DrawingCanvasWidget::drawGuideIntersections(QPainter &painter, const QVaria
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
 {
-    if (!object.value(QStringLiteral("effective_visible"), object.value(QStringLiteral("visible"), true)).toBool()) {
+    const drawing_canvas::DrawingCanvasProjectedObjectSummary summary = drawing_canvas::projectedObjectSummary(object);
+    if (!summary.visible) {
         return;
     }
 
-    const QString kind = object.value(QStringLiteral("kind")).toString();
-    const QString id = object.value(QStringLiteral("id")).toString();
-    const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();
+    const QString &kind = summary.kind;
+    const bool selected = m_controller != nullptr && summary.id == m_controller->selectedObjectId();
 
     if (kind == QStringLiteral("guide")) {
         const bool locked = object.value(QStringLiteral("locked")).toBool();
@@ -716,9 +716,7 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
     QPen pen(
         selected ? QColor("#f6c65b") : QColor(object.value(QStringLiteral("effective_stroke_color"), QStringLiteral("#d7dde8")).toString()),
         selected ? 3.0 : object.value(QStringLiteral("effective_stroke_width"), 2.0).toDouble());
-    const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
-    const bool plotBlocked = object.value(QStringLiteral("plot_blocked")).toBool();
-    if (plotBlocked) {
+    if (summary.plotBlocked) {
         pen.setColor(QColor("#d98b8b"));
     }
     pen.setCapStyle(Qt::RoundCap);
@@ -767,13 +765,13 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         }
     }
 
-    if (plotBlocked && !bounds.isEmpty()) {
+    if (summary.plotBlocked && summary.bounds.ok) {
         const QPointF topLeft = canvasToScreen(
-            bounds.value(QStringLiteral("x")).toDouble(),
-            bounds.value(QStringLiteral("y")).toDouble());
+            summary.bounds.x,
+            summary.bounds.y);
         const QPointF bottomRight = canvasToScreen(
-            bounds.value(QStringLiteral("x")).toDouble() + bounds.value(QStringLiteral("width")).toDouble(),
-            bounds.value(QStringLiteral("y")).toDouble() + bounds.value(QStringLiteral("height")).toDouble());
+            summary.bounds.x + summary.bounds.width,
+            summary.bounds.y + summary.bounds.height);
         QRectF warningRect(topLeft, bottomRight);
         warningRect = warningRect.normalized();
         if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
@@ -782,10 +780,9 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         painter.setPen(QPen(QColor("#d98b8b"), 1.5, Qt::DashLine));
         painter.setBrush(QColor(217, 139, 139, 24));
         painter.drawRect(warningRect);
-        const QString warningKind = object.value(QStringLiteral("plot_warning_kind")).toString();
-        if (!warningKind.isEmpty()) {
+        if (!summary.plotWarningKind.isEmpty()) {
             painter.setPen(QColor("#d98b8b"));
-            painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), warningKind);
+            painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), summary.plotWarningKind);
         }
     }
 

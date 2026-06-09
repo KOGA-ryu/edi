@@ -32,6 +32,35 @@ int main()
     const std::vector<DrawingCanvasProjectedPoint> missing = projectedObjectPoints({});
     assert(missing.empty());
 
+    const DrawingCanvasProjectedObjectSummary summary = projectedObjectSummary(QVariantMap{
+        {QStringLiteral("id"), QStringLiteral("object_1")},
+        {QStringLiteral("kind"), QStringLiteral("line")},
+        {QStringLiteral("visible"), true},
+        {QStringLiteral("effective_visible"), false},
+        {QStringLiteral("plot_blocked"), true},
+        {QStringLiteral("plot_warning_kind"), QStringLiteral("outside_drawable")},
+        {QStringLiteral("bounds"), QVariantMap{
+            {QStringLiteral("x"), 0.1},
+            {QStringLiteral("y"), 0.2},
+            {QStringLiteral("width"), 0.3},
+            {QStringLiteral("height"), std::numeric_limits<double>::quiet_NaN()}
+        }}
+    });
+    assert(summary.id == QStringLiteral("object_1"));
+    assert(summary.kind == QStringLiteral("line"));
+    assert(!summary.visible);
+    assert(summary.plotBlocked);
+    assert(summary.plotWarningKind == QStringLiteral("outside_drawable"));
+    assert(summary.bounds.ok);
+    assert(summary.bounds.x == 0.1);
+    assert(summary.bounds.y == 0.2);
+    assert(summary.bounds.width == 0.3);
+    assert(summary.bounds.height == 0.0);
+
+    const DrawingCanvasProjectedObjectSummary defaultSummary = projectedObjectSummary({});
+    assert(defaultSummary.visible);
+    assert(!defaultSummary.bounds.ok);
+
     QVariantList handles;
     handles.push_back(QVariantMap{
         {QStringLiteral("id"), QStringLiteral("move_handle")},

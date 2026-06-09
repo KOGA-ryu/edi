@@ -65,6 +65,33 @@ QString nextLayerId(const DraftingDocument &document)
     return QStringLiteral("layer_%1").arg(serial);
 }
 
+LayerPlotStyle plotStyleForPenPreset(LayerPlotStyle plot, const QString &presetId)
+{
+    if (presetId == QStringLiteral("pen_blue")) {
+        plot.penId = "pen_blue";
+        plot.strokeColor = "#75c7ff";
+    } else if (presetId == QStringLiteral("pen_red")) {
+        plot.penId = "pen_red";
+        plot.strokeColor = "#d98b8b";
+    } else {
+        plot.penId = "pen_black";
+        plot.strokeColor = "#d7dde8";
+    }
+    return plot;
+}
+
+LayerPlotStyle plotStyleForWidthPreset(LayerPlotStyle plot, const QString &presetId)
+{
+    if (presetId == QStringLiteral("fine")) {
+        plot.strokeWidth = 1.0;
+    } else if (presetId == QStringLiteral("bold")) {
+        plot.strokeWidth = 3.0;
+    } else {
+        plot.strokeWidth = 2.0;
+    }
+    return plot;
+}
+
 bool boundsIntersect(Bounds2D a, Bounds2D b)
 {
     return a.x <= b.x + b.width
@@ -580,6 +607,64 @@ bool DrawingDocumentController::setActiveLayerVisible(bool visible)
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateLayerFlagsCommand{layer->id, layer->locked, visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setActiveLayerPlotEnabled(bool enabled)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    LayerPlotStyle plot = layer->plot;
+    plot.plotEnabled = enabled;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerPlotStyleCommand{layer->id, plot});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setActiveLayerPenPreset(const QString &presetId)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const LayerPlotStyle plot = plotStyleForPenPreset(layer->plot, presetId);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerPlotStyleCommand{layer->id, plot});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setActiveLayerStrokeWidthPreset(const QString &presetId)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const LayerPlotStyle plot = plotStyleForWidthPreset(layer->plot, presetId);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerPlotStyleCommand{layer->id, plot});
     if (!result.ok) {
         return false;
     }

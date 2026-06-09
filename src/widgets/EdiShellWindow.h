@@ -82,6 +82,9 @@ private:
     QPushButton *m_addLayerButton = nullptr;
     QPushButton *m_layerUpButton = nullptr;
     QPushButton *m_layerDownButton = nullptr;
+    QCheckBox *m_activeLayerPlotEnabled = nullptr;
+    QComboBox *m_activeLayerPen = nullptr;
+    QComboBox *m_activeLayerStrokeWidth = nullptr;
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;

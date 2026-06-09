@@ -84,6 +84,13 @@ struct FillStyle {
     std::string color = "#ffffff";
 };
 
+struct LayerPlotStyle {
+    bool plotEnabled = true;
+    std::string penId = "pen_black";
+    std::string strokeColor = "#d7dde8";
+    double strokeWidth = 2.0;
+};
+
 struct MeasurementMetadata {
     MeasurementUnit unit = MeasurementUnit::None;
     double canvasUnitsPerRealUnit = 0.0;

@@ -102,6 +102,17 @@ void refreshLayerCombo(QComboBox *combo, const QVariantList &layers, const QStri
     combo->setEnabled(enabled && !layers.empty());
 }
 
+QString strokeWidthPresetId(double width)
+{
+    if (width <= 1.5) {
+        return QStringLiteral("fine");
+    }
+    if (width >= 2.5) {
+        return QStringLiteral("bold");
+    }
+    return QStringLiteral("normal");
+}
+
 QString boundsSummary(const QVariantMap &object)
 {
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
@@ -546,6 +557,39 @@ QWidget *EdiShellWindow::buildLayerControls()
     rowLayout->addStretch(1);
     layout->addWidget(row);
 
+    m_activeLayerPlotEnabled = new QCheckBox(QStringLiteral("Plot"));
+    m_activeLayerPlotEnabled->setObjectName(QStringLiteral("layerPlotCheckbox"));
+    connect(m_activeLayerPlotEnabled, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setActiveLayerPlotEnabled(checked);
+    });
+    layout->addWidget(m_activeLayerPlotEnabled);
+
+    m_activeLayerPen = new QComboBox;
+    m_activeLayerPen->setObjectName(QStringLiteral("layerPenCombo"));
+    m_activeLayerPen->addItem(QStringLiteral("Black pen"), QStringLiteral("pen_black"));
+    m_activeLayerPen->addItem(QStringLiteral("Blue pen"), QStringLiteral("pen_blue"));
+    m_activeLayerPen->addItem(QStringLiteral("Red pen"), QStringLiteral("pen_red"));
+    connect(m_activeLayerPen, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        m_controller->setActiveLayerPenPreset(m_activeLayerPen->itemData(index).toString());
+    });
+    layout->addWidget(m_activeLayerPen);
+
+    m_activeLayerStrokeWidth = new QComboBox;
+    m_activeLayerStrokeWidth->setObjectName(QStringLiteral("layerStrokeWidthCombo"));
+    m_activeLayerStrokeWidth->addItem(QStringLiteral("Fine stroke"), QStringLiteral("fine"));
+    m_activeLayerStrokeWidth->addItem(QStringLiteral("Normal stroke"), QStringLiteral("normal"));
+    m_activeLayerStrokeWidth->addItem(QStringLiteral("Bold stroke"), QStringLiteral("bold"));
+    connect(m_activeLayerStrokeWidth, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        m_controller->setActiveLayerStrokeWidthPreset(m_activeLayerStrokeWidth->itemData(index).toString());
+    });
+    layout->addWidget(m_activeLayerStrokeWidth);
+
     m_selectedObjectLayer = new QComboBox;
     m_selectedObjectLayer->setObjectName(QStringLiteral("selectedObjectLayerCombo"));
     connect(m_selectedObjectLayer, &QComboBox::currentIndexChanged, this, [this](int index) {
@@ -942,12 +986,13 @@ void EdiShellWindow::refreshInspector()
     if (m_objectLayerValue != nullptr) {
         m_objectLayerValue->setText(selectedObject.isEmpty()
             ? QStringLiteral("Layer: none")
-            : QStringLiteral("Layer: %1   Obj L/V: %2/%3   Effective L/V: %4/%5")
+            : QStringLiteral("Layer: %1   Obj L/V: %2/%3   Effective L/V: %4/%5   Pen: %6")
                 .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
                 .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool()))
                 .arg(yesNo(selectedObject.value(QStringLiteral("visible")).toBool()))
                 .arg(yesNo(selectedObject.value(QStringLiteral("effective_locked")).toBool()))
-                .arg(yesNo(selectedObject.value(QStringLiteral("effective_visible")).toBool())));
+                .arg(yesNo(selectedObject.value(QStringLiteral("effective_visible")).toBool()))
+                .arg(selectedObject.value(QStringLiteral("effective_pen_id")).toString()));
     }
     if (m_selectedLocked != nullptr) {
         const QSignalBlocker blocker(m_selectedLocked);
@@ -974,6 +1019,23 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_layerUpButton != nullptr) {
         m_layerUpButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() + 1 < layers.size());
+    }
+    if (m_activeLayerPlotEnabled != nullptr) {
+        const QSignalBlocker blocker(m_activeLayerPlotEnabled);
+        m_activeLayerPlotEnabled->setEnabled(!activeLayer.isEmpty());
+        m_activeLayerPlotEnabled->setChecked(activeLayer.value(QStringLiteral("plot_enabled")).toBool());
+    }
+    if (m_activeLayerPen != nullptr) {
+        const QSignalBlocker blocker(m_activeLayerPen);
+        m_activeLayerPen->setEnabled(!activeLayer.isEmpty());
+        const int index = m_activeLayerPen->findData(activeLayer.value(QStringLiteral("pen_id")).toString());
+        m_activeLayerPen->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_activeLayerStrokeWidth != nullptr) {
+        const QSignalBlocker blocker(m_activeLayerStrokeWidth);
+        m_activeLayerStrokeWidth->setEnabled(!activeLayer.isEmpty());
+        const int index = m_activeLayerStrokeWidth->findData(strokeWidthPresetId(activeLayer.value(QStringLiteral("stroke_width")).toDouble()));
+        m_activeLayerStrokeWidth->setCurrentIndex(index >= 0 ? index : 1);
     }
     refreshLayerCombo(m_activeLayer, layers, activeLayerId, true);
     refreshLayerCombo(

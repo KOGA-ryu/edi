@@ -29,6 +29,7 @@ struct DraftingLayer {
     int order = 0;
     bool visible = true;
     bool locked = false;
+    LayerPlotStyle plot;
 };
 
 struct DraftingDocument {

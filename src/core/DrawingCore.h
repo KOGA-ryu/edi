@@ -50,6 +50,9 @@ public:
     bool setDefaultLayerVisible(bool visible);
     bool setActiveLayerLocked(bool locked);
     bool setActiveLayerVisible(bool visible);
+    bool setActiveLayerPlotEnabled(bool enabled);
+    bool setActiveLayerPenPreset(const QString &presetId);
+    bool setActiveLayerStrokeWidthPreset(const QString &presetId);
     bool createLayer();
     bool renameActiveLayer(const QString &name);
     bool setActiveLayerId(const QString &layerId);

@@ -79,6 +79,11 @@ struct UpdateLayerFlagsCommand {
     bool visible = true;
 };
 
+struct UpdateLayerPlotStyleCommand {
+    LayerId layerId;
+    LayerPlotStyle plot;
+};
+
 struct AlignSelectionCommand {
     DraftingAlignmentMode mode = DraftingAlignmentMode::Left;
 };
@@ -110,6 +115,7 @@ using DraftingCommand = std::variant<
     SetActiveLayerCommand,
     MoveLayerCommand,
     UpdateLayerFlagsCommand,
+    UpdateLayerPlotStyleCommand,
     AlignSelectionCommand,
     DistributeSelectionCommand,
     SelectObjectCommand,

@@ -97,6 +97,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(moveLayer(document, typedCommand.layerId, typedCommand.delta));
         } else if constexpr (std::is_same_v<Command, UpdateLayerFlagsCommand>) {
             return fromStoreResult(updateLayerFlags(document, typedCommand.layerId, typedCommand.locked, typedCommand.visible));
+        } else if constexpr (std::is_same_v<Command, UpdateLayerPlotStyleCommand>) {
+            return fromStoreResult(updateLayerPlotStyle(document, typedCommand.layerId, typedCommand.plot));
         } else if constexpr (std::is_same_v<Command, AlignSelectionCommand>) {
             if (commandModeIsDistribute(typedCommand.mode)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "align command requires an align mode");

@@ -45,6 +45,10 @@ QVariantMap layerToMap(const DraftingLayer &layer)
         {QStringLiteral("order"), layer.order},
         {QStringLiteral("visible"), layer.visible},
         {QStringLiteral("locked"), layer.locked},
+        {QStringLiteral("plot_enabled"), layer.plot.plotEnabled},
+        {QStringLiteral("pen_id"), QString::fromStdString(layer.plot.penId)},
+        {QStringLiteral("stroke_color"), QString::fromStdString(layer.plot.strokeColor)},
+        {QStringLiteral("stroke_width"), layer.plot.strokeWidth},
     };
 }
 
@@ -52,6 +56,13 @@ int layerOrderForObject(const DraftingDocument &document, const DraftingObject &
 {
     const DraftingLayer *layer = findLayer(document, object.layerId);
     return layer == nullptr ? std::numeric_limits<int>::max() : layer->order;
+}
+
+bool shapeCanPlot(DraftingShapeKind kind)
+{
+    return kind != DraftingShapeKind::Guide
+        && kind != DraftingShapeKind::ConstructionLine
+        && kind != DraftingShapeKind::Dimension;
 }
 
 } // namespace
@@ -166,10 +177,22 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
         const DraftingLayer *layer = findLayer(document, object.layerId);
         const bool layerVisible = layer == nullptr ? false : layer->visible;
         const bool layerLocked = layer == nullptr ? false : layer->locked;
+        const bool layerPlotEnabled = layer != nullptr && layer->plot.plotEnabled;
+        const bool effectivePlotReady = layerPlotEnabled && shapeCanPlot(object.kind);
         projected.insert(QStringLiteral("layer_visible"), layerVisible);
         projected.insert(QStringLiteral("layer_locked"), layerLocked);
         projected.insert(QStringLiteral("effective_visible"), object.visible && layerVisible);
         projected.insert(QStringLiteral("effective_locked"), object.locked || layerLocked);
+        projected.insert(QStringLiteral("effective_plot_enabled"), layerPlotEnabled);
+        projected.insert(QStringLiteral("effective_plot_ready"), effectivePlotReady);
+        projected.insert(QStringLiteral("effective_pen_id"), layer == nullptr ? QString() : qStringFromStdString(layer->plot.penId));
+        projected.insert(QStringLiteral("effective_stroke_color"), layer == nullptr ? QString() : qStringFromStdString(layer->plot.strokeColor));
+        projected.insert(QStringLiteral("effective_stroke_width"), layer == nullptr ? 0.0 : layer->plot.strokeWidth);
+        if (!shapeCanPlot(object.kind)) {
+            projected.insert(QStringLiteral("plot_ready"), false);
+        } else {
+            projected.insert(QStringLiteral("plot_ready"), effectivePlotReady);
+        }
         objects.push_back(projected);
     }
     QVariantList selectedObjectIds;

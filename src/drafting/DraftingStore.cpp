@@ -42,6 +42,29 @@ bool sortAndNormalizeLayerOrder(DraftingDocument &document)
     return changed;
 }
 
+bool isHexDigit(char value)
+{
+    return (value >= '0' && value <= '9')
+        || (value >= 'a' && value <= 'f')
+        || (value >= 'A' && value <= 'F');
+}
+
+bool isValidStrokeColor(const std::string &value)
+{
+    if (value.size() != 7 || value.front() != '#') {
+        return false;
+    }
+    return std::all_of(value.begin() + 1, value.end(), isHexDigit);
+}
+
+bool isValidLayerPlotStyle(const LayerPlotStyle &plot)
+{
+    return !plot.penId.empty()
+        && isValidStrokeColor(plot.strokeColor)
+        && std::isfinite(plot.strokeWidth)
+        && plot.strokeWidth > 0.0;
+}
+
 } // namespace
 
 DraftingStoreResult DraftingStoreResult::accepted()
@@ -295,6 +318,29 @@ DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &
     }
     layer->locked = locked;
     layer->visible = visible;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult updateLayerPlotStyle(DraftingDocument &document, const LayerId &id, LayerPlotStyle plot)
+{
+    if (!isValidLayerPlotStyle(plot)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidGeometry, "layer plot style is invalid");
+    }
+
+    DraftingLayer *layer = findLayer(document, id);
+    if (layer == nullptr) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+
+    if (layer->plot.plotEnabled == plot.plotEnabled
+        && layer->plot.penId == plot.penId
+        && layer->plot.strokeColor == plot.strokeColor
+        && layer->plot.strokeWidth == plot.strokeWidth) {
+        return DraftingStoreResult::accepted();
+    }
+
+    layer->plot = std::move(plot);
     ++document.revision;
     return DraftingStoreResult::accepted();
 }

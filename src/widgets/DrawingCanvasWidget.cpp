@@ -411,7 +411,9 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         return;
     }
 
-    QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
+    QPen pen(
+        selected ? QColor("#f6c65b") : QColor(object.value(QStringLiteral("effective_stroke_color"), QStringLiteral("#d7dde8")).toString()),
+        selected ? 3.0 : object.value(QStringLiteral("effective_stroke_width"), 2.0).toDouble());
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
     const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};
     const QVariantMap drawable = model.value(QStringLiteral("grid")).toMap().value(QStringLiteral("drawable_bounds")).toMap();

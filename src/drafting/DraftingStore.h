@@ -26,6 +26,7 @@ DraftingStoreResult renameLayer(DraftingDocument &document, const LayerId &id, s
 DraftingStoreResult setActiveLayer(DraftingDocument &document, const LayerId &id);
 DraftingStoreResult moveLayer(DraftingDocument &document, const LayerId &id, int delta);
 DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible);
+DraftingStoreResult updateLayerPlotStyle(DraftingDocument &document, const LayerId &id, LayerPlotStyle plot);
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy);
 
 } // namespace edi::drafting

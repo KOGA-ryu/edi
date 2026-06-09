@@ -532,6 +532,35 @@ int main(int argc, char **argv)
     assert(orderedObjects[1].toMap().value("layer_id").toString() == "default");
     assert(!layerOrderController.moveActiveLayer("sideways"));
 
+    DrawingDocumentController layerPlotController;
+    assert(layerPlotController.createLayer());
+    assert(layerPlotController.setActiveLayerPenPreset("pen_blue"));
+    assert(layerPlotController.setActiveLayerStrokeWidthPreset("fine"));
+    layerPlotController.setSelectedToolId("point_tool");
+    layerPlotController.clickCanvasNormalized(0.2, 0.2);
+    QVariantMap layerPlotModel = layerPlotController.modelDocument();
+    QVariantMap layerPlotPoint = layerPlotModel.value("drawing_objects").toList().front().toMap();
+    assert(layerPlotPoint.value("layer_id").toString() == "layer_2");
+    assert(layerPlotPoint.value("effective_plot_enabled").toBool());
+    assert(layerPlotPoint.value("effective_plot_ready").toBool());
+    assert(layerPlotPoint.value("plot_ready").toBool());
+    assert(layerPlotPoint.value("effective_pen_id").toString() == "pen_blue");
+    assert(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
+    assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
+    assert(layerPlotController.setActiveLayerPlotEnabled(false));
+    layerPlotPoint = layerPlotController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(!layerPlotPoint.value("effective_plot_enabled").toBool());
+    assert(!layerPlotPoint.value("effective_plot_ready").toBool());
+    assert(!layerPlotPoint.value("plot_ready").toBool());
+    assert(layerPlotController.setActiveLayerPlotEnabled(true));
+    layerPlotController.setSelectedToolId("horizontal_guide_tool");
+    layerPlotController.clickCanvasNormalized(0.4, 0.4);
+    QVariantMap layerPlotGuide = layerPlotController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(layerPlotGuide.value("kind").toString() == "guide");
+    assert(layerPlotGuide.value("effective_plot_enabled").toBool());
+    assert(!layerPlotGuide.value("effective_plot_ready").toBool());
+    assert(!layerPlotGuide.value("plot_ready").toBool());
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);

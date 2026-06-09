@@ -75,6 +75,10 @@ struct DraftingCalibrationCorrectionPlan {
 
 DraftingCalibrationPatternKind draftingCalibrationPatternKindFromId(const std::string &patternId);
 const char *draftingCalibrationPatternKindName(DraftingCalibrationPatternKind kind);
+DraftingCalibrationPatternRequest defaultDraftingCalibrationPatternRequest(
+    DraftingCalibrationPatternKind kind,
+    DraftingObjectId idPrefix,
+    LayerId layerId);
 DraftingCalibrationPatternResult buildDraftingCalibrationPattern(const DraftingCalibrationPatternRequest &request);
 DraftingCalibrationMeasurementResult measureDraftingCalibrationPattern(const DraftingCalibrationMeasurementRequest &request);
 DraftingCalibrationMeasurementResult measureSelectedDraftingCalibrationPattern(

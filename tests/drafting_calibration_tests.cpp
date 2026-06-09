@@ -20,6 +20,22 @@ bool nearlyEqual(double a, double b)
 
 int main()
 {
+    DraftingCalibrationPatternRequest defaultRequest = defaultDraftingCalibrationPatternRequest(
+        DraftingCalibrationPatternKind::LineSpacing,
+        "calibration_default",
+        "plot_layer");
+    assert(defaultRequest.kind == DraftingCalibrationPatternKind::LineSpacing);
+    assert(defaultRequest.idPrefix == "calibration_default");
+    assert(defaultRequest.layerId == "plot_layer");
+    assert(nearlyEqual(defaultRequest.origin.x, 0.15));
+    assert(nearlyEqual(defaultRequest.origin.y, 0.15));
+    assert(nearlyEqual(defaultRequest.size, 0.24));
+    assert(nearlyEqual(defaultRequest.spacing, 0.04));
+    assert(defaultRequest.lineCount == 5);
+    const DraftingCalibrationPatternResult defaultPattern = buildDraftingCalibrationPattern(defaultRequest);
+    assert(defaultPattern.ok);
+    assert(defaultPattern.objects.size() == 5);
+
     DraftingCalibrationPatternRequest squareRequest;
     squareRequest.kind = DraftingCalibrationPatternKind::Square;
     squareRequest.idPrefix = "calibration_0001";

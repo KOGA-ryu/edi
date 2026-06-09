@@ -1443,14 +1443,10 @@ bool DrawingDocumentController::createCalibrationPattern(const QString &patternI
         return false;
     }
 
-    DraftingCalibrationPatternRequest request;
-    request.kind = draftingCalibrationPatternKindFromId(toStdString(patternId));
-    request.idPrefix = toStdString(nextObjectId(QStringLiteral("calibration"), m_nextObjectSerial++));
-    request.layerId = m_document.activeLayerId;
-    request.origin = {0.15, 0.15};
-    request.size = 0.24;
-    request.spacing = 0.04;
-    request.lineCount = 5;
+    const DraftingCalibrationPatternRequest request = defaultDraftingCalibrationPatternRequest(
+        draftingCalibrationPatternKindFromId(toStdString(patternId)),
+        toStdString(nextObjectId(QStringLiteral("calibration"), m_nextObjectSerial++)),
+        m_document.activeLayerId);
 
     const DraftingCalibrationPatternResult pattern = buildDraftingCalibrationPattern(request);
     if (!pattern.ok || pattern.objects.empty()) {

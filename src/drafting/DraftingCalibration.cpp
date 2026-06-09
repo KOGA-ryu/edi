@@ -202,6 +202,22 @@ const char *draftingCalibrationPatternKindName(DraftingCalibrationPatternKind ki
     return "square";
 }
 
+DraftingCalibrationPatternRequest defaultDraftingCalibrationPatternRequest(
+    DraftingCalibrationPatternKind kind,
+    DraftingObjectId idPrefix,
+    LayerId layerId)
+{
+    DraftingCalibrationPatternRequest request;
+    request.kind = kind;
+    request.idPrefix = std::move(idPrefix);
+    request.layerId = std::move(layerId);
+    request.origin = {0.15, 0.15};
+    request.size = 0.24;
+    request.spacing = 0.04;
+    request.lineCount = 5;
+    return request;
+}
+
 DraftingCalibrationPatternResult buildDraftingCalibrationPattern(const DraftingCalibrationPatternRequest &request)
 {
     if (!isValidDraftingObjectId(request.idPrefix)) {

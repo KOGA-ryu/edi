@@ -134,6 +134,7 @@ private:
     QDoubleSpinBox *m_calibrationMeasuredValue = nullptr;
     QLabel *m_calibrationMeasurementValue = nullptr;
     QLabel *m_pointerValue = nullptr;
+    QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;
 };

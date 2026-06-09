@@ -865,6 +865,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         }
     });
     m_pointerValue = makeValueLabel();
+    m_guideDragValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
@@ -877,6 +878,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_plotDirectionMode);
     layout->addWidget(m_plotPreviewVisible);
     layout->addWidget(m_pointerValue);
+    layout->addWidget(m_guideDragValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);
 
@@ -1435,6 +1437,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
+    const QVariantMap guideDragSnap = document.value(QStringLiteral("guide_drag_snap")).toMap();
     const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
     const QVariantMap calibrationCorrection = document.value(QStringLiteral("calibration_correction")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
@@ -1766,6 +1769,18 @@ void EdiShellWindow::refreshInspector()
                 .arg(formatNumber(pointer.value(QStringLiteral("snapped_unit_y")).toDouble()))
                 .arg(pointer.value(QStringLiteral("unit_label")).toString())
                 .arg(pointer.value(QStringLiteral("inside_drawable")).toBool() ? QStringLiteral("inside") : QStringLiteral("outside")));
+        }
+    }
+    if (m_guideDragValue != nullptr) {
+        if (guideDragSnap.isEmpty()) {
+            m_guideDragValue->setText(QStringLiteral("Guide drag: none"));
+        } else {
+            const QString sourceObjectId = guideDragSnap.value(QStringLiteral("source_object_id")).toString();
+            m_guideDragValue->setText(QStringLiteral("Guide drag: %1 -> %2 %3 dist %4")
+                .arg(guideDragSnap.value(QStringLiteral("anchor_label")).toString())
+                .arg(sourceObjectId.isEmpty() ? QStringLiteral("guide") : sourceObjectId)
+                .arg(guideDragSnap.value(QStringLiteral("intersection")).toBool() ? QStringLiteral("intersection") : QStringLiteral("axis"))
+                .arg(formatNumber(guideDragSnap.value(QStringLiteral("distance")).toDouble())));
         }
     }
     if (m_previewValue != nullptr) {

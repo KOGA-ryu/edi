@@ -131,5 +131,50 @@ int main()
     assert(!guidePresetForDrawable("missing", drawable).ok);
     assert(!guidePresetForDrawable("drawable_bounds", Bounds2D{0.0, 0.0, 0.0, 1.0}).ok);
 
+    Bounds2D alignBounds{0.2, 0.3, 0.2, 0.4};
+    auto alignLeft = alignBoundsToNearestGuide(document, alignBounds, "left");
+    assert(alignLeft.ok);
+    assert(alignLeft.orientation == GuideOrientation::Vertical);
+    assert(near(alignLeft.target, 0.2));
+    assert(near(alignLeft.guidePosition, 0.25));
+    assert(near(alignLeft.dx, 0.05));
+    assert(near(alignLeft.dy, 0.0));
+
+    auto alignRight = alignBoundsToNearestGuide(document, alignBounds, "right");
+    assert(alignRight.ok);
+    assert(near(alignRight.target, 0.4));
+    assert(near(alignRight.dx, -0.15));
+
+    auto alignCenterX = alignBoundsToNearestGuide(document, alignBounds, "center_x");
+    assert(alignCenterX.ok);
+    assert(near(alignCenterX.target, 0.3));
+    assert(near(alignCenterX.dx, -0.05));
+
+    auto alignTop = alignBoundsToNearestGuide(document, alignBounds, "top");
+    assert(alignTop.ok);
+    assert(alignTop.orientation == GuideOrientation::Horizontal);
+    assert(near(alignTop.target, 0.3));
+    assert(near(alignTop.guidePosition, 0.75));
+    assert(near(alignTop.dx, 0.0));
+    assert(near(alignTop.dy, 0.45));
+
+    auto alignBottom = alignBoundsToNearestGuide(document, alignBounds, "bottom");
+    assert(alignBottom.ok);
+    assert(near(alignBottom.target, 0.7));
+    assert(near(alignBottom.dy, 0.05));
+
+    auto alignCenterY = alignBoundsToNearestGuide(document, alignBounds, "center_y");
+    assert(alignCenterY.ok);
+    assert(near(alignCenterY.target, 0.5));
+    assert(near(alignCenterY.dy, 0.25));
+
+    assert(!alignBoundsToNearestGuide(document, alignBounds, "missing").ok);
+    assert(!alignBoundsToNearestGuide(document, Bounds2D{0.0, 0.0, std::numeric_limits<double>::infinity(), 1.0}, "left").ok);
+
+    DraftingDocument noGuides = makeDraftingDocument("no_guides");
+    auto noGuideAlignment = alignBoundsToNearestGuide(noGuides, alignBounds, "left");
+    assert(!noGuideAlignment.ok);
+    assert(noGuideAlignment.code == DraftingResultCode::ObjectNotFound);
+
     return 0;
 }

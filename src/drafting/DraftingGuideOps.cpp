@@ -44,6 +44,28 @@ DraftingGuidePresetPlan DraftingGuidePresetPlan::rejected(DraftingResultCode cod
     return result;
 }
 
+DraftingGuideAlignmentPlan DraftingGuideAlignmentPlan::accepted(GuideOrientation orientation, double target, double guidePosition, double dx, double dy)
+{
+    DraftingGuideAlignmentPlan result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.orientation = orientation;
+    result.target = target;
+    result.guidePosition = guidePosition;
+    result.dx = dx;
+    result.dy = dy;
+    return result;
+}
+
+DraftingGuideAlignmentPlan DraftingGuideAlignmentPlan::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingGuideAlignmentPlan result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b)
 {
     constexpr double epsilon = 0.000001;
@@ -257,6 +279,44 @@ DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Boun
     }
 
     return DraftingGuidePresetPlan::accepted(std::move(guides));
+}
+
+DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &document, Bounds2D bounds, const std::string &modeId)
+{
+    if (!isFinite(bounds)) {
+        return DraftingGuideAlignmentPlan::rejected(DraftingResultCode::InvalidGeometry, "bounds must be finite");
+    }
+
+    GuideOrientation orientation = GuideOrientation::Vertical;
+    double target = 0.0;
+    if (modeId == "left") {
+        target = bounds.x;
+    } else if (modeId == "right") {
+        target = bounds.x + bounds.width;
+    } else if (modeId == "center_x") {
+        target = bounds.x + bounds.width / 2.0;
+    } else if (modeId == "top") {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y;
+    } else if (modeId == "bottom") {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y + bounds.height;
+    } else if (modeId == "center_y") {
+        orientation = GuideOrientation::Horizontal;
+        target = bounds.y + bounds.height / 2.0;
+    } else {
+        return DraftingGuideAlignmentPlan::rejected(DraftingResultCode::InvalidGeometry, "guide alignment mode is invalid");
+    }
+
+    const std::optional<double> guidePosition = nearestVisibleGuidePosition(document, orientation, target);
+    if (!guidePosition) {
+        return DraftingGuideAlignmentPlan::rejected(DraftingResultCode::ObjectNotFound, "matching visible guide was not found");
+    }
+
+    const double delta = *guidePosition - target;
+    return orientation == GuideOrientation::Vertical
+        ? DraftingGuideAlignmentPlan::accepted(orientation, target, *guidePosition, delta, 0.0)
+        : DraftingGuideAlignmentPlan::accepted(orientation, target, *guidePosition, 0.0, delta);
 }
 
 } // namespace edi::drafting

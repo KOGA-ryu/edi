@@ -40,6 +40,20 @@ struct DraftingGuidePresetPlan {
     static DraftingGuidePresetPlan rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingGuideAlignmentPlan {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    GuideOrientation orientation = GuideOrientation::Vertical;
+    double target = 0.0;
+    double guidePosition = 0.0;
+    double dx = 0.0;
+    double dy = 0.0;
+
+    static DraftingGuideAlignmentPlan accepted(GuideOrientation orientation, double target, double guidePosition, double dx, double dy);
+    static DraftingGuideAlignmentPlan rejected(DraftingResultCode code, std::string message);
+};
+
 bool sameGuide(const GuideGeometry &a, const GuideGeometry &b);
 bool isGuideObject(const DraftingObject &object);
 std::optional<DraftingObjectId> existingGuideId(const DraftingDocument &document, const GuideGeometry &guide);
@@ -49,5 +63,6 @@ DraftingGuidePlan offsetGuide(const GuideGeometry &guide, const std::string &dir
 DraftingGuidePlan guideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId);
 DraftingGuidePlan offsetGuideFromBoundsPlacement(Bounds2D bounds, const std::string &placementId, double stepX, double stepY);
 DraftingGuidePresetPlan guidePresetForDrawable(const std::string &presetId, Bounds2D drawable);
+DraftingGuideAlignmentPlan alignBoundsToNearestGuide(const DraftingDocument &document, Bounds2D bounds, const std::string &modeId);
 
 } // namespace edi::drafting

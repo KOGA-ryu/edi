@@ -2112,40 +2112,15 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
         return false;
     }
 
-    const Bounds2D bounds = source->bounds;
-    GuideOrientation orientation = GuideOrientation::Vertical;
-    double target = 0.0;
-    if (modeId == QStringLiteral("left")) {
-        target = bounds.x;
-    } else if (modeId == QStringLiteral("right")) {
-        target = bounds.x + bounds.width;
-    } else if (modeId == QStringLiteral("center_x")) {
-        target = bounds.x + bounds.width / 2.0;
-    } else if (modeId == QStringLiteral("top")) {
-        orientation = GuideOrientation::Horizontal;
-        target = bounds.y;
-    } else if (modeId == QStringLiteral("bottom")) {
-        orientation = GuideOrientation::Horizontal;
-        target = bounds.y + bounds.height;
-    } else if (modeId == QStringLiteral("center_y")) {
-        orientation = GuideOrientation::Horizontal;
-        target = bounds.y + bounds.height / 2.0;
-    } else {
+    const DraftingGuideAlignmentPlan plan = alignBoundsToNearestGuide(m_document, source->bounds, toStdString(modeId));
+    if (!plan.ok) {
         return false;
     }
-
-    const std::optional<double> guidePosition = nearestVisibleGuidePosition(m_document, orientation, target);
-    if (!guidePosition) {
-        return false;
-    }
-    const double delta = *guidePosition - target;
-    if (std::abs(delta) <= 0.0000001) {
+    if (std::abs(plan.dx) <= 0.0000001 && std::abs(plan.dy) <= 0.0000001) {
         return true;
     }
 
-    const DraftingCommandResult result = orientation == GuideOrientation::Vertical
-        ? applyDraftingCommand(m_document, MoveSelectionCommand{delta, 0.0})
-        : applyDraftingCommand(m_document, MoveSelectionCommand{0.0, delta});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }

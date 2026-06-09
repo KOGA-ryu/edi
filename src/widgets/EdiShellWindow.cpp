@@ -99,6 +99,14 @@ QString geometrySummary(const QVariantMap &object)
             .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
             .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()));
     }
+    if (kind == QStringLiteral("dimension")) {
+        return QStringLiteral("Geometry: dimension (%1, %2) -> (%3, %4), %5")
+            .arg(formatNumber(object.value(QStringLiteral("x1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y1")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("x2")).toDouble()))
+            .arg(formatNumber(object.value(QStringLiteral("y2")).toDouble()))
+            .arg(object.value(QStringLiteral("label")).toString());
+    }
     if (kind == QStringLiteral("rectangle")) {
         return QStringLiteral("Geometry: rect x %1, y %2, w %3, h %4, rot %5")
             .arg(formatNumber(object.value(QStringLiteral("x")).toDouble()))
@@ -220,6 +228,7 @@ QWidget *EdiShellWindow::buildLeftPanel()
         {QStringLiteral("horizontal_construction_line_tool"), QStringLiteral("H Construct")},
         {QStringLiteral("vertical_construction_line_tool"), QStringLiteral("V Construct")},
         {QStringLiteral("angled_construction_line_tool"), QStringLiteral("A Construct")},
+        {QStringLiteral("distance_dimension_tool"), QStringLiteral("Dimension")},
     };
 
     for (const auto &tool : tools) {

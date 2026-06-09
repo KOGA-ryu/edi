@@ -51,6 +51,7 @@ int main()
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.25, 0.25}, 0.25, 0.25})).ok);
     assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.75})).ok);
     assert(addObject(document, object("construction_1", DraftingShapeKind::ConstructionLine, ConstructionLineGeometry{{0.1, 0.9}, {0.9, 0.9}})).ok);
+    assert(addObject(document, object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{{0.1, 0.7}, {0.9, 0.7}, 0.04})).ok);
 
     DraftingSnapSettings objectSettings;
     objectSettings.objectSnapEnabled = true;
@@ -117,6 +118,20 @@ int main()
     assert(constructionMidpoint.sourceObjectId == "construction_1");
     assert(nearlyEqual(constructionMidpoint.point.x, 0.5));
     assert(nearlyEqual(constructionMidpoint.point.y, 0.9));
+
+    DraftingSnapResult dimensionEndpoint = resolveSnap({0.09, 0.71}, document, objectSettings);
+    assert(dimensionEndpoint.kind == DraftingSnapKind::Object);
+    assert(dimensionEndpoint.sourceKind == DraftingSnapSourceKind::Endpoint);
+    assert(dimensionEndpoint.sourceObjectId == "dimension_1");
+    assert(nearlyEqual(dimensionEndpoint.point.x, 0.1));
+    assert(nearlyEqual(dimensionEndpoint.point.y, 0.7));
+
+    DraftingSnapResult dimensionMidpoint = resolveSnap({0.51, 0.71}, document, objectSettings);
+    assert(dimensionMidpoint.kind == DraftingSnapKind::Object);
+    assert(dimensionMidpoint.sourceKind == DraftingSnapSourceKind::Midpoint);
+    assert(dimensionMidpoint.sourceObjectId == "dimension_1");
+    assert(nearlyEqual(dimensionMidpoint.point.x, 0.5));
+    assert(nearlyEqual(dimensionMidpoint.point.y, 0.7));
 
     DraftingSnapSettings prioritySettings = objectSettings;
     prioritySettings.gridEnabled = true;

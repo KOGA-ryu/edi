@@ -388,6 +388,25 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
         return;
     }
 
+    if (kind == QStringLiteral("dimension")) {
+        const QPointF a = canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble());
+        const QPointF b = canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble());
+        const QPointF dimA = canvasToScreen(object.value(QStringLiteral("dimension_x1")).toDouble(), object.value(QStringLiteral("dimension_y1")).toDouble());
+        const QPointF dimB = canvasToScreen(object.value(QStringLiteral("dimension_x2")).toDouble(), object.value(QStringLiteral("dimension_y2")).toDouble());
+        const QPointF label = canvasToScreen(object.value(QStringLiteral("label_x")).toDouble(), object.value(QStringLiteral("label_y")).toDouble());
+        QPen dimensionPen(selected ? QColor("#f6c65b") : QColor("#b6d28f"), selected ? 2 : 1.5);
+        dimensionPen.setCapStyle(Qt::RoundCap);
+        painter.setPen(dimensionPen);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(a, dimA);
+        painter.drawLine(b, dimB);
+        painter.drawLine(dimA, dimB);
+        painter.drawLine(dimA + QPointF(-5.0, -5.0), dimA + QPointF(5.0, 5.0));
+        painter.drawLine(dimB + QPointF(-5.0, -5.0), dimB + QPointF(5.0, 5.0));
+        painter.drawText(label + QPointF(6.0, -6.0), object.value(QStringLiteral("label")).toString());
+        return;
+    }
+
     QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
     const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};
@@ -472,6 +491,16 @@ void DrawingCanvasWidget::drawPreviewObject(QPainter &painter, const QVariantMap
         painter.drawLine(
             canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble()),
             canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble()));
+    } else if (kind == QStringLiteral("dimension")) {
+        const QPointF a = canvasToScreen(object.value(QStringLiteral("x1")).toDouble(), object.value(QStringLiteral("y1")).toDouble());
+        const QPointF b = canvasToScreen(object.value(QStringLiteral("x2")).toDouble(), object.value(QStringLiteral("y2")).toDouble());
+        const QPointF dimA = canvasToScreen(object.value(QStringLiteral("dimension_x1")).toDouble(), object.value(QStringLiteral("dimension_y1")).toDouble());
+        const QPointF dimB = canvasToScreen(object.value(QStringLiteral("dimension_x2")).toDouble(), object.value(QStringLiteral("dimension_y2")).toDouble());
+        painter.drawLine(a, dimA);
+        painter.drawLine(b, dimB);
+        painter.drawLine(dimA, dimB);
+        painter.drawText(canvasToScreen(object.value(QStringLiteral("label_x")).toDouble(), object.value(QStringLiteral("label_y")).toDouble()) + QPointF(6.0, -6.0),
+            object.value(QStringLiteral("label")).toString());
     } else if (kind == QStringLiteral("rectangle")) {
         const QPointF origin = canvasToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
         const QPointF extent = canvasToScreen(

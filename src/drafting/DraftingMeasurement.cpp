@@ -137,12 +137,16 @@ ObjectMeasurementResult<MeasurementValue> measureObjectDistance(const DraftingOb
     }
 
     const auto *line = std::get_if<LineGeometry>(&object.geometry);
-    if (line == nullptr) {
+    const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry);
+    if (line == nullptr && dimension == nullptr) {
         return rejectedObjectMeasurement<MeasurementValue>(
             DraftingResultCode::InvalidGeometry,
             "object geometry does not define a distance");
     }
 
+    if (dimension != nullptr) {
+        return acceptedObjectMeasurement(measureDistance(dimension->a, dimension->b, calibration.calibration));
+    }
     return acceptedObjectMeasurement(measureDistance(line->a, line->b, calibration.calibration));
 }
 
@@ -177,6 +181,10 @@ ObjectMeasurementResult<ObjectMeasurementSummary> summarizeObjectMeasurement(con
     if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
         summary.hasDistance = true;
         summary.distance = measureDistance(line->a, line->b, calibration.calibration);
+    }
+    if (const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry)) {
+        summary.hasDistance = true;
+        summary.distance = measureDistance(dimension->a, dimension->b, calibration.calibration);
     }
 
     if (geometrySupportsSummaryArea(object.geometry)) {

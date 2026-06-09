@@ -82,6 +82,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "guide";
     case DraftingShapeKind::ConstructionLine:
         return "construction_line";
+    case DraftingShapeKind::Dimension:
+        return "dimension";
     }
     return "unknown";
 }
@@ -140,8 +142,10 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Polyline;
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             return DraftingShapeKind::Guide;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return DraftingShapeKind::ConstructionLine;
+        } else {
+            return DraftingShapeKind::Dimension;
         }
     }, geometry);
 }
@@ -260,6 +264,13 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (distance(typedGeometry.a, typedGeometry.b) <= 0.000001) {
                 return GeometryValidationResult::rejected("construction line requires two distinct points");
             }
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            if (!isFinite(typedGeometry.a) || !isFinite(typedGeometry.b) || !std::isfinite(typedGeometry.offset)) {
+                return GeometryValidationResult::rejected("dimension fields must be finite");
+            }
+            if (distance(typedGeometry.a, typedGeometry.b) <= 0.000001) {
+                return GeometryValidationResult::rejected("dimension requires two distinct points");
+            }
         }
         return GeometryValidationResult::accepted();
     }, geometry);
@@ -290,6 +301,19 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
             return {typedGeometry.position, 0.0, 0.0, 1.0};
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return boundsFromPoints({typedGeometry.a, typedGeometry.b});
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            const double length = distance(typedGeometry.a, typedGeometry.b);
+            if (length <= 0.000001) {
+                return boundsFromPoints({typedGeometry.a, typedGeometry.b});
+            }
+            const double nx = -(typedGeometry.b.y - typedGeometry.a.y) / length * typedGeometry.offset;
+            const double ny = (typedGeometry.b.x - typedGeometry.a.x) / length * typedGeometry.offset;
+            return boundsFromPoints({
+                typedGeometry.a,
+                typedGeometry.b,
+                {typedGeometry.a.x + nx, typedGeometry.a.y + ny},
+                {typedGeometry.b.x + nx, typedGeometry.b.y + ny},
+            });
         } else {
             return boundsFromPoints(typedGeometry.vertices);
         }
@@ -323,6 +347,9 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
                 typedGeometry.position += dx;
             }
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            typedGeometry.a = translatePoint(typedGeometry.a, dx, dy);
+            typedGeometry.b = translatePoint(typedGeometry.b, dx, dy);
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             typedGeometry.a = translatePoint(typedGeometry.a, dx, dy);
             typedGeometry.b = translatePoint(typedGeometry.b, dx, dy);
         } else {
@@ -394,6 +421,10 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             handles.push_back({"construction_start", typedGeometry.a});
             handles.push_back({"construction_midpoint", {(typedGeometry.a.x + typedGeometry.b.x) / 2.0, (typedGeometry.a.y + typedGeometry.b.y) / 2.0}});
             handles.push_back({"construction_end", typedGeometry.b});
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            handles.push_back({"dimension_start", typedGeometry.a});
+            handles.push_back({"dimension_midpoint", {(typedGeometry.a.x + typedGeometry.b.x) / 2.0, (typedGeometry.a.y + typedGeometry.b.y) / 2.0}});
+            handles.push_back({"dimension_end", typedGeometry.b});
         } else {
             for (std::size_t i = 0; i < typedGeometry.vertices.size(); ++i) {
                 handles.push_back({"vertex_" + std::to_string(i), typedGeometry.vertices[i]});

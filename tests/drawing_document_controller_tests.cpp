@@ -252,6 +252,34 @@ int main(int argc, char **argv)
     assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.7));
     assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.4));
 
+    DrawingDocumentController dimensionController;
+    dimensionController.setSelectedToolId("distance_dimension_tool");
+    dimensionController.clickCanvasNormalized(0.1, 0.2);
+    dimensionController.updateCreationPreviewNormalized(0.4, 0.6);
+    QVariantMap dimensionPreview = dimensionController.modelDocument().value("preview_object").toMap();
+    assert(!dimensionPreview.isEmpty());
+    assert(dimensionPreview.value("kind").toString() == "dimension");
+    assert(!dimensionPreview.value("plot_ready").toBool());
+    assert(nearlyEqual(dimensionPreview.value("x1").toDouble(), 0.1));
+    assert(nearlyEqual(dimensionPreview.value("y1").toDouble(), 0.2));
+    assert(nearlyEqual(dimensionPreview.value("x2").toDouble(), 0.4));
+    assert(nearlyEqual(dimensionPreview.value("y2").toDouble(), 0.6));
+    assert(dimensionPreview.value("label").toString() == "0.5 canvas_unit");
+    assert(dimensionController.modelDocument().value("drawing_objects").toList().isEmpty());
+    dimensionController.clickCanvasNormalized(0.4, 0.6);
+    QVariantMap dimensionModel = dimensionController.modelDocument();
+    assert(!dimensionModel.contains("preview_object"));
+    QVariantList dimensionObjects = dimensionModel.value("drawing_objects").toList();
+    assert(dimensionObjects.size() == 1);
+    QVariantMap dimension = dimensionObjects.front().toMap();
+    assert(dimension.value("kind").toString() == "dimension");
+    assert(!dimension.value("plot_ready").toBool());
+    assert(dimension.value("label").toString() == "0.5 canvas_unit");
+    assert(nearlyEqual(dimension.value("dimension_x1").toDouble(), 0.068));
+    assert(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
+    assert(nearlyEqual(dimension.value("dimension_x2").toDouble(), 0.368));
+    assert(nearlyEqual(dimension.value("dimension_y2").toDouble(), 0.624));
+
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
     objectSnapController.clickCanvasNormalized(0.25, 0.25);

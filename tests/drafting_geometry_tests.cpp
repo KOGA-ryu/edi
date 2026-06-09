@@ -37,12 +37,15 @@ int main()
     assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
     assert(shapeKindName(DraftingShapeKind::Guide) == std::string("guide"));
     assert(shapeKindName(DraftingShapeKind::ConstructionLine) == std::string("construction_line"));
+    assert(shapeKindName(DraftingShapeKind::Dimension) == std::string("dimension"));
     assert(guideOrientationName(GuideOrientation::Vertical) == std::string("vertical"));
     assert(validateGeometry(line).ok);
     assert(validateGeometry(GuideGeometry{GuideOrientation::Horizontal, 0.5}).ok);
     assert(!validateGeometry(GuideGeometry{GuideOrientation::Vertical, 2.0}).ok);
     assert(validateGeometry(ConstructionLineGeometry{{0.0, 0.25}, {1.0, 0.75}}).ok);
     assert(!validateGeometry(ConstructionLineGeometry{{0.5, 0.5}, {0.5, 0.5}}).ok);
+    assert(validateGeometry(DimensionGeometry{{0.0, 0.0}, {0.3, 0.4}, 0.04}).ok);
+    assert(!validateGeometry(DimensionGeometry{{0.2, 0.2}, {0.2, 0.2}, 0.04}).ok);
     assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
     assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
     assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);
@@ -71,6 +74,18 @@ int main()
     assert(movedConstructionGeometry != nullptr);
     assert(nearlyEqual(movedConstructionGeometry->a.x, 0.3));
     assert(nearlyEqual(movedConstructionGeometry->a.y, 0.1));
+
+    DraftingGeometry dimension = DimensionGeometry{{0.2, 0.3}, {0.8, 0.3}, 0.1};
+    Bounds2D dimensionBounds = computeBounds(dimension);
+    assert(nearlyEqual(dimensionBounds.x, 0.2));
+    assert(nearlyEqual(dimensionBounds.y, 0.3));
+    assert(nearlyEqual(dimensionBounds.width, 0.6));
+    assert(nearlyEqual(dimensionBounds.height, 0.1));
+    DraftingGeometry movedDimension = translateGeometry(dimension, 0.1, 0.2);
+    const auto *movedDimensionGeometry = std::get_if<DimensionGeometry>(&movedDimension);
+    assert(movedDimensionGeometry != nullptr);
+    assert(nearlyEqual(movedDimensionGeometry->a.x, 0.3));
+    assert(nearlyEqual(movedDimensionGeometry->a.y, 0.5));
 
     return 0;
 }

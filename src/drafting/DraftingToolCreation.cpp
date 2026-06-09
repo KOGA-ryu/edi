@@ -39,6 +39,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "angled_construction_line_tool") {
         return DraftingToolKind::AngledConstructionLine;
     }
+    if (toolId == "distance_dimension_tool") {
+        return DraftingToolKind::DistanceDimension;
+    }
     return DraftingToolKind::Unknown;
 }
 
@@ -65,6 +68,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "vertical_construction_line";
     case DraftingToolKind::AngledConstructionLine:
         return "angled_construction_line";
+    case DraftingToolKind::DistanceDimension:
+        return "distance_dimension";
     case DraftingToolKind::Unknown:
         return "unknown";
     }
@@ -106,6 +111,9 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::AngledConstructionLine) {
         kind = DraftingShapeKind::ConstructionLine;
         geometry = ConstructionLineGeometry{request.start, request.end};
+    } else if (request.tool == DraftingToolKind::DistanceDimension) {
+        kind = DraftingShapeKind::Dimension;
+        geometry = DimensionGeometry{request.start, request.end, 0.04};
     } else {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry, "tool cannot create a drafting object");
     }

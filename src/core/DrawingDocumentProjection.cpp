@@ -1,5 +1,6 @@
 #include "core/DrawingDocumentProjection.h"
 
+#include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
 
@@ -17,6 +18,18 @@ QVariantMap pointToMap(Point2D point)
     return {
         {QStringLiteral("x"), point.x},
         {QStringLiteral("y"), point.y},
+    };
+}
+
+Point2D dimensionOffsetVector(const DimensionGeometry &geometry)
+{
+    const double length = distance(geometry.a, geometry.b);
+    if (length <= 0.000001) {
+        return {};
+    }
+    return {
+        -(geometry.b.y - geometry.a.y) / length * geometry.offset,
+        (geometry.b.x - geometry.a.x) / length * geometry.offset,
     };
 }
 
@@ -81,6 +94,23 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("y1"), geometry.a.y);
             result.insert(QStringLiteral("x2"), geometry.b.x);
             result.insert(QStringLiteral("y2"), geometry.b.y);
+            result.insert(QStringLiteral("plot_ready"), false);
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            const Point2D offset = dimensionOffsetVector(geometry);
+            const Point2D dimA{geometry.a.x + offset.x, geometry.a.y + offset.y};
+            const Point2D dimB{geometry.b.x + offset.x, geometry.b.y + offset.y};
+            const MeasurementValue measuredDistance = measureDistance(geometry.a, geometry.b, scaleCalibrationFromMetadata(object.metadata.measurement));
+            result.insert(QStringLiteral("x1"), geometry.a.x);
+            result.insert(QStringLiteral("y1"), geometry.a.y);
+            result.insert(QStringLiteral("x2"), geometry.b.x);
+            result.insert(QStringLiteral("y2"), geometry.b.y);
+            result.insert(QStringLiteral("dimension_x1"), dimA.x);
+            result.insert(QStringLiteral("dimension_y1"), dimA.y);
+            result.insert(QStringLiteral("dimension_x2"), dimB.x);
+            result.insert(QStringLiteral("dimension_y2"), dimB.y);
+            result.insert(QStringLiteral("label_x"), (dimA.x + dimB.x) / 2.0);
+            result.insert(QStringLiteral("label_y"), (dimA.y + dimB.y) / 2.0);
+            result.insert(QStringLiteral("label"), qStringFromStdString(formatMeasurementValue(measuredDistance)));
             result.insert(QStringLiteral("plot_ready"), false);
         } else {
             QVariantList points;

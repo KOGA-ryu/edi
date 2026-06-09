@@ -26,6 +26,7 @@ int main()
     assert(draftingToolKindFromId("line_tool") == DraftingToolKind::Line);
     assert(draftingToolKindFromId("horizontal_guide_tool") == DraftingToolKind::HorizontalGuide);
     assert(draftingToolKindFromId("angled_construction_line_tool") == DraftingToolKind::AngledConstructionLine);
+    assert(draftingToolKindFromId("distance_dimension_tool") == DraftingToolKind::DistanceDimension);
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
     auto point = build("point_1", DraftingToolKind::Point, {0.1, 0.2}, {0.3, 0.4});
@@ -106,6 +107,22 @@ int main()
     auto zeroConstruction = build("construction_zero", DraftingToolKind::AngledConstructionLine, {0.2, 0.2}, {0.2, 0.2});
     assert(!zeroConstruction.ok);
     assert(zeroConstruction.code == DraftingResultCode::InvalidGeometry);
+
+    auto distanceDimension = build("dimension_1", DraftingToolKind::DistanceDimension, {0.1, 0.2}, {0.7, 0.4});
+    assert(distanceDimension.ok);
+    assert(distanceDimension.object.kind == DraftingShapeKind::Dimension);
+    assert(distanceDimension.object.metadata.toolProvenance == "distance_dimension");
+    const auto *dimensionGeometry = std::get_if<DimensionGeometry>(&distanceDimension.object.geometry);
+    assert(dimensionGeometry != nullptr);
+    assert(nearlyEqual(dimensionGeometry->a.x, 0.1));
+    assert(nearlyEqual(dimensionGeometry->a.y, 0.2));
+    assert(nearlyEqual(dimensionGeometry->b.x, 0.7));
+    assert(nearlyEqual(dimensionGeometry->b.y, 0.4));
+    assert(nearlyEqual(dimensionGeometry->offset, 0.04));
+
+    auto zeroDimension = build("dimension_zero", DraftingToolKind::DistanceDimension, {0.2, 0.2}, {0.2, 0.2});
+    assert(!zeroDimension.ok);
+    assert(zeroDimension.code == DraftingResultCode::InvalidGeometry);
 
     auto unknown = build("bad_1", DraftingToolKind::Unknown, {0.0, 0.0}, {1.0, 1.0});
     assert(!unknown.ok);

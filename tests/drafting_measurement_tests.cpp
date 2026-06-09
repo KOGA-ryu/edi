@@ -111,6 +111,17 @@ int main()
     assert(lineSummary.value.dimensions.width.value == 0.0);
     assert(lineSummary.value.dimensions.height.value == 3.0);
 
+    DraftingObject measuredDimension = makeDraftingObject("measured_dimension", DraftingShapeKind::Dimension, DimensionGeometry{{0.0, 0.0}, {3.0, 4.0}, 0.25});
+    auto dimensionDistance = measureObjectDistance(measuredDimension);
+    assert(dimensionDistance.ok);
+    assert(dimensionDistance.value.kind == MeasurementKind::Distance);
+    assert(dimensionDistance.value.value == 5.0);
+    auto dimensionSummary = summarizeObjectMeasurement(measuredDimension);
+    assert(dimensionSummary.ok);
+    assert(dimensionSummary.value.hasDistance);
+    assert(dimensionSummary.value.distance.value == 5.0);
+    assert(!dimensionSummary.value.hasArea);
+
     DraftingObject measuredRect = makeDraftingObject("measured_rect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.0, 0.0}, 10.0, 5.0});
     measuredRect.metadata.measurement.unit = MeasurementUnit::Centimeter;
     measuredRect.metadata.measurement.canvasUnitsPerRealUnit = 2.0;

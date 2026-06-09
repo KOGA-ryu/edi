@@ -74,6 +74,21 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             return std::abs(point.x - typedGeometry.position);
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return distanceToSegment(typedGeometry.a, typedGeometry.b, point);
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            const double length = distance(typedGeometry.a, typedGeometry.b);
+            if (length <= 0.000001) {
+                return distance(typedGeometry.a, point);
+            }
+            const Point2D offset{
+                -(typedGeometry.b.y - typedGeometry.a.y) / length * typedGeometry.offset,
+                (typedGeometry.b.x - typedGeometry.a.x) / length * typedGeometry.offset,
+            };
+            return std::min(
+                distanceToSegment(typedGeometry.a, typedGeometry.b, point),
+                distanceToSegment(
+                    {typedGeometry.a.x + offset.x, typedGeometry.a.y + offset.y},
+                    {typedGeometry.b.x + offset.x, typedGeometry.b.y + offset.y},
+                    point));
         } else {
             return distanceToVertexList(typedGeometry.vertices, point, false);
         }

@@ -298,6 +298,30 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
         return {};
     }
 
+    const QVariantList projectedHandles = object.value(QStringLiteral("edit_handles")).toList();
+    if (!projectedHandles.isEmpty()) {
+        QString bestId;
+        double bestDistance = 999.0;
+        for (const QVariant &handleValue : projectedHandles) {
+            const QVariantMap handle = handleValue.toMap();
+            if (handle.value(QStringLiteral("read_only")).toBool()) {
+                continue;
+            }
+            const QPointF point = canvasToScreen(
+                handle.value(QStringLiteral("x")).toDouble(),
+                handle.value(QStringLiteral("y")).toDouble());
+            const double dx = screenPoint.x() - point.x();
+            const double dy = screenPoint.y() - point.y();
+            const double distance = std::sqrt(dx * dx + dy * dy);
+            const double threshold = handle.value(QStringLiteral("role")).toString() == QStringLiteral("rotate") ? 18.0 : 14.0;
+            if (distance <= threshold && distance <= bestDistance) {
+                bestDistance = distance;
+                bestId = handle.value(QStringLiteral("id")).toString();
+            }
+        }
+        return bestId;
+    }
+
     const QRectF board = boardRect();
     QVariantMap settings;
     settings.insert(QStringLiteral("canvasSizePx"), 512.0);
@@ -840,6 +864,27 @@ void DrawingCanvasWidget::drawPreviewObject(QPainter &painter, const QVariantMap
 
 void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantMap &object) const
 {
+    const QVariantList projectedHandles = object.value(QStringLiteral("edit_handles")).toList();
+    if (!projectedHandles.isEmpty()) {
+        painter.setPen(QPen(QColor("#1d1f26"), 2));
+        painter.setBrush(QColor("#f6c65b"));
+        for (const QVariant &handleValue : projectedHandles) {
+            const QVariantMap handle = handleValue.toMap();
+            const QPointF point = canvasToScreen(
+                handle.value(QStringLiteral("x")).toDouble(),
+                handle.value(QStringLiteral("y")).toDouble());
+            if (handle.value(QStringLiteral("id")).toString() == QStringLiteral("dimension_offset")) {
+                const QPointF anchor = canvasToScreen(
+                    (object.value(QStringLiteral("x1")).toDouble() + object.value(QStringLiteral("x2")).toDouble()) / 2.0,
+                    (object.value(QStringLiteral("y1")).toDouble() + object.value(QStringLiteral("y2")).toDouble()) / 2.0);
+                painter.drawLine(anchor, point);
+            }
+            const double size = handle.value(QStringLiteral("role")).toString() == QStringLiteral("rotate") ? 10.0 : 8.0;
+            painter.drawEllipse(QRectF(point.x() - size * 0.5, point.y() - size * 0.5, size, size));
+        }
+        return;
+    }
+
     QVariantMap settings;
     settings.insert(QStringLiteral("canvasSizePx"), 512.0);
     settings.insert(QStringLiteral("rotateHandleOffsetPx"), 28.0);

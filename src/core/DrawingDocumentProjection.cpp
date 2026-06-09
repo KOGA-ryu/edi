@@ -34,6 +34,17 @@ Point2D dimensionOffsetVector(const DimensionGeometry &geometry)
     };
 }
 
+QVariantMap layerToMap(const DraftingLayer &layer)
+{
+    return {
+        {QStringLiteral("id"), QString::fromStdString(layer.id)},
+        {QStringLiteral("name"), QString::fromStdString(layer.name)},
+        {QStringLiteral("order"), layer.order},
+        {QStringLiteral("visible"), layer.visible},
+        {QStringLiteral("locked"), layer.locked},
+    };
+}
+
 } // namespace
 
 QString qStringFromStdString(const std::string &value)
@@ -133,16 +144,29 @@ QVariantMap draftingDocumentToModelProjection(const DraftingDocument &document, 
 {
     QVariantList objects;
     for (const DraftingObject &object : document.objects) {
-        objects.push_back(draftingObjectToCanvasProjection(object));
+        QVariantMap projected = draftingObjectToCanvasProjection(object);
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        const bool layerVisible = layer == nullptr ? false : layer->visible;
+        const bool layerLocked = layer == nullptr ? false : layer->locked;
+        projected.insert(QStringLiteral("layer_visible"), layerVisible);
+        projected.insert(QStringLiteral("layer_locked"), layerLocked);
+        projected.insert(QStringLiteral("effective_visible"), object.visible && layerVisible);
+        projected.insert(QStringLiteral("effective_locked"), object.locked || layerLocked);
+        objects.push_back(projected);
     }
     QVariantList selectedObjectIds;
     for (const DraftingObjectId &id : document.selectedObjectIds) {
         selectedObjectIds.push_back(qStringFromStdString(id));
     }
+    QVariantList layers;
+    for (const DraftingLayer &layer : document.layers) {
+        layers.push_back(layerToMap(layer));
+    }
 
     QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
+        {QStringLiteral("layers"), layers},
         {QStringLiteral("selected_object_ids"), selectedObjectIds},
         {QStringLiteral("active_object_id"), document.activeObjectId ? qStringFromStdString(*document.activeObjectId) : QString()},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},

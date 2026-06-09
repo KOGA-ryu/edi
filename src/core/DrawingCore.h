@@ -45,6 +45,8 @@ public:
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
     bool setSelectedObjectLocked(bool locked);
     bool setSelectedObjectVisible(bool visible);
+    bool setDefaultLayerLocked(bool locked);
+    bool setDefaultLayerVisible(bool visible);
     bool nudgeSelection(const QString &direction, const QString &stepMode);
     bool offsetSelectedObject(const QString &sideId);
     bool mirrorSelectedObject(const QString &axisId);

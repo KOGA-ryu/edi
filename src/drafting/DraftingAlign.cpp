@@ -96,7 +96,7 @@ DraftingAlignmentResult collectTargets(
         if (object->locked || layer->locked) {
             return DraftingAlignmentResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target is locked");
         }
-        if (!object->visible || !kindMatchesGeometry(object->kind, object->geometry) || !isFinite(object->bounds)) {
+        if (!object->visible || !layer->visible || !kindMatchesGeometry(object->kind, object->geometry) || !isFinite(object->bounds)) {
             return DraftingAlignmentResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target is not arrangeable");
         }
         targets.push_back({object->id, object->bounds});

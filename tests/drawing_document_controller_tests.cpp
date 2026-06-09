@@ -436,6 +436,50 @@ int main(int argc, char **argv)
     invisibleHitController.clickCanvasNormalized(0.25, 0.25);
     assert(invisibleHitController.selectedObjectId().isEmpty());
 
+    DrawingDocumentController layerController;
+    layerController.setSelectedToolId("point_tool");
+    layerController.clickCanvasNormalized(0.25, 0.25);
+    QVariantMap layerModel = layerController.modelDocument();
+    QVariantList layers = layerModel.value("layers").toList();
+    assert(layers.size() == 1);
+    assert(layers.front().toMap().value("id").toString() == "default");
+    assert(layers.front().toMap().value("visible").toBool());
+    assert(!layers.front().toMap().value("locked").toBool());
+
+    assert(layerController.setDefaultLayerVisible(false));
+    layerModel = layerController.modelDocument();
+    layers = layerModel.value("layers").toList();
+    assert(!layers.front().toMap().value("visible").toBool());
+    QVariantMap hiddenLayerPoint = layerModel.value("drawing_objects").toList().front().toMap();
+    assert(hiddenLayerPoint.value("visible").toBool());
+    assert(!hiddenLayerPoint.value("effective_visible").toBool());
+    layerController.setObjectSnapEnabled(true);
+    layerController.clickCanvasNormalized(0.26, 0.24);
+    QVariantList hiddenLayerObjects = layerController.modelDocument().value("drawing_objects").toList();
+    assert(hiddenLayerObjects.size() == 2);
+    QVariantMap hiddenLayerUnsnappedPoint = hiddenLayerObjects.back().toMap();
+    assert(nearlyEqual(hiddenLayerUnsnappedPoint.value("x").toDouble(), 0.26));
+    assert(nearlyEqual(hiddenLayerUnsnappedPoint.value("y").toDouble(), 0.24));
+    layerController.setSelectedToolId("select_move");
+    layerController.clickCanvasNormalized(0.25, 0.25);
+    assert(layerController.selectedObjectId().isEmpty());
+
+    assert(layerController.setDefaultLayerVisible(true));
+    assert(layerController.setDefaultLayerLocked(true));
+    layerModel = layerController.modelDocument();
+    layers = layerModel.value("layers").toList();
+    assert(layers.front().toMap().value("locked").toBool());
+    layerController.setSelectedToolId("point_tool");
+    const int lockedLayerObjectCount = layerController.modelDocument().value("drawing_objects").toList().size();
+    layerController.clickCanvasNormalized(0.5, 0.5);
+    assert(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount);
+    assert(!layerController.setSelectedObjectLocked(true));
+    assert(!layerController.updateSelectedObjectGeometryField("x", 0.3));
+    assert(!layerController.moveSelectionNormalized(0.1, 0.0));
+    assert(layerController.setDefaultLayerLocked(false));
+    layerController.clickCanvasNormalized(0.5, 0.5);
+    assert(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount + 1);
+
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);

@@ -28,8 +28,12 @@ DraftingStoreResult addObject(DraftingDocument &document, DraftingObject object)
     if (objectIndexById(document, object.id)) {
         return DraftingStoreResult::rejected(DraftingResultCode::DuplicateObjectId, "object id already exists");
     }
-    if (!containsLayer(document, object.layerId)) {
+    DraftingLayer *layer = findLayer(document, object.layerId);
+    if (layer == nullptr) {
         return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+    if (layer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
     }
 
     object.bounds = computeBounds(object.geometry);
@@ -47,6 +51,10 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
     if (document.objects[*index].locked) {
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
     }
+    const DraftingLayer *layer = findLayer(document, document.objects[*index].layerId);
+    if (layer != nullptr && layer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
+    }
 
     document.objects.erase(document.objects.begin() + static_cast<std::ptrdiff_t>(*index));
     normalizeSelection(document);
@@ -63,6 +71,10 @@ DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const Draft
     DraftingObject &object = document.objects[*index];
     if (object.locked) {
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    if (layer != nullptr && layer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
     }
 
     DraftingObject candidate = object;
@@ -105,11 +117,31 @@ DraftingStoreResult updateObjectFlags(DraftingDocument &document, const Drafting
     }
 
     DraftingObject &object = document.objects[*index];
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    if (layer != nullptr && layer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
+    }
     if (object.locked == locked && object.visible == visible) {
         return DraftingStoreResult::accepted();
     }
     object.locked = locked;
     object.visible = visible;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
+DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible)
+{
+    DraftingLayer *layer = findLayer(document, id);
+    if (layer == nullptr) {
+        return DraftingStoreResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+    }
+
+    if (layer->locked == locked && layer->visible == visible) {
+        return DraftingStoreResult::accepted();
+    }
+    layer->locked = locked;
+    layer->visible = visible;
     ++document.revision;
     return DraftingStoreResult::accepted();
 }
@@ -123,6 +155,10 @@ DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectI
     DraftingObject &object = document.objects[*index];
     if (object.locked) {
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+    }
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    if (layer != nullptr && layer->locked) {
+        return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
     }
 
     if (!std::isfinite(dx) || !std::isfinite(dy)) {

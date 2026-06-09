@@ -49,6 +49,12 @@ struct UpdateObjectFlagsCommand {
     bool visible = true;
 };
 
+struct UpdateLayerFlagsCommand {
+    LayerId layerId;
+    bool locked = false;
+    bool visible = true;
+};
+
 struct AlignSelectionCommand {
     DraftingAlignmentMode mode = DraftingAlignmentMode::Left;
 };
@@ -74,6 +80,7 @@ using DraftingCommand = std::variant<
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,
+    UpdateLayerFlagsCommand,
     AlignSelectionCommand,
     DistributeSelectionCommand,
     SelectObjectCommand,

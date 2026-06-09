@@ -36,6 +36,7 @@ private:
     QWidget *buildBottomPanel();
     QWidget *buildGeometryEditor();
     QWidget *buildObjectFlagControls();
+    QWidget *buildLayerControls();
     QWidget *buildNudgeControls();
     QWidget *buildAlignControls();
     QWidget *buildOffsetControls();
@@ -74,6 +75,8 @@ private:
     QLabel *m_objectMeasurementValue = nullptr;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
+    QCheckBox *m_defaultLayerLocked = nullptr;
+    QCheckBox *m_defaultLayerVisible = nullptr;
     QWidget *m_geometryEditor = nullptr;
     QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;

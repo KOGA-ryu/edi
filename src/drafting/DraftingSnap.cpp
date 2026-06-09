@@ -247,6 +247,10 @@ std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocum
 {
     std::vector<DraftingSnapCandidate> candidates;
     for (const DraftingObject &object : document.objects) {
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !layer->visible) {
+            continue;
+        }
         const std::vector<DraftingSnapCandidate> objectCandidates = snapCandidatesForObject(object, settings);
         candidates.insert(candidates.end(), objectCandidates.begin(), objectCandidates.end());
     }

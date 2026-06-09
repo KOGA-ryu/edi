@@ -20,6 +20,7 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
 DraftingStoreResult updateObjectGeometry(DraftingDocument &document, const DraftingObjectId &id, DraftingGeometry geometry);
 DraftingStoreResult updateObjectMetadata(DraftingDocument &document, const DraftingObjectId &id, ObjectMetadata metadata);
 DraftingStoreResult updateObjectFlags(DraftingDocument &document, const DraftingObjectId &id, bool locked, bool visible);
+DraftingStoreResult updateLayerFlags(DraftingDocument &document, const LayerId &id, bool locked, bool visible);
 DraftingStoreResult moveObject(DraftingDocument &document, const DraftingObjectId &id, double dx, double dy);
 
 } // namespace edi::drafting

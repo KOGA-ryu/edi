@@ -153,6 +153,25 @@ int main()
     assert(badDistributeMode.code == DraftingResultCode::InvalidGeometry);
     assert(editDocument.revision == revisionBeforeBadArrangeMode);
 
+    const auto revisionBeforeLayerLock = editDocument.revision;
+    auto lockDefaultLayer = applyDraftingCommand(editDocument, UpdateLayerFlagsCommand{"default", true, false});
+    assert(lockDefaultLayer.ok);
+    const DraftingLayer *defaultLayer = findLayer(editDocument, "default");
+    assert(defaultLayer != nullptr);
+    assert(defaultLayer->locked);
+    assert(!defaultLayer->visible);
+    assert(editDocument.revision == revisionBeforeLayerLock + 1);
+    const auto revisionAfterLayerLock = editDocument.revision;
+    auto layerLockedMove = applyDraftingCommand(editDocument, MoveSelectionCommand{1.0, 0.0});
+    assert(!layerLockedMove.ok);
+    assert(layerLockedMove.code == DraftingResultCode::InvalidSelectionTarget);
+    auto layerLockedFlags = applyDraftingCommand(editDocument, UpdateObjectFlagsCommand{"line_1", true, true});
+    assert(!layerLockedFlags.ok);
+    assert(layerLockedFlags.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(editDocument.revision == revisionAfterLayerLock);
+    auto unlockDefaultLayer = applyDraftingCommand(editDocument, UpdateLayerFlagsCommand{"default", false, true});
+    assert(unlockDefaultLayer.ok);
+
     const auto revisionBeforeBadMove = editDocument.revision;
     auto badSelectionMove = applyDraftingCommand(editDocument, MoveSelectionCommand{std::numeric_limits<double>::infinity(), 0.0});
     assert(!badSelectionMove.ok);

@@ -148,6 +148,23 @@ QVariantMap pointToMap(Point2D point)
     };
 }
 
+const DraftingLayer *layerForObject(const DraftingDocument &document, const DraftingObject &object)
+{
+    return findLayer(document, object.layerId);
+}
+
+bool objectLayerLocked(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = layerForObject(document, object);
+    return layer != nullptr && layer->locked;
+}
+
+bool objectEffectivelyVisible(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = layerForObject(document, object);
+    return object.visible && layer != nullptr && layer->visible;
+}
+
 QVariantMap pointerProjectionToMap(Point2D rawPoint,
     const DraftingDocument &document,
     const DraftingSnapSettings &snapSettings,
@@ -245,7 +262,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
 
     QVariantList warnings;
     for (const DraftingObject &object : m_document.objects) {
-        if (object.visible && boundsOutsideDrawableArea(object.bounds, grid)) {
+        if (objectEffectivelyVisible(m_document, object) && boundsOutsideDrawableArea(object.bounds, grid)) {
             warnings.push_back(QVariantMap{
                 {QStringLiteral("kind"), QStringLiteral("out_of_drawable_bounds")},
                 {QStringLiteral("object_id"), drawing_core::qStringFromStdString(object.id)},
@@ -485,6 +502,42 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
     return true;
 }
 
+bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
+{
+    const DraftingLayer *layer = findLayer(m_document, "default");
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerFlagsCommand{layer->id, locked, layer->visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setDefaultLayerVisible(bool visible)
+{
+    const DraftingLayer *layer = findLayer(m_document, "default");
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerFlagsCommand{layer->id, layer->locked, visible});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::nudgeSelection(const QString &direction, const QString &stepMode)
 {
     if (m_document.selectedObjectIds.empty()) {
@@ -524,7 +577,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked) {
+    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -549,7 +602,7 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked) {
+    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -577,7 +630,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked) {
+    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -757,7 +810,7 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
 
     std::vector<DraftingObjectId> objectIds;
     for (const DraftingObject &object : m_document.objects) {
-        if (object.visible && boundsIntersect(object.bounds, marquee)) {
+        if (objectEffectivelyVisible(m_document, object) && boundsIntersect(object.bounds, marquee)) {
             objectIds.push_back(object.id);
         }
     }

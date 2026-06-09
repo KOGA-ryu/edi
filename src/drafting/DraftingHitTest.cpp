@@ -118,6 +118,10 @@ DraftingHitTestResult hitTestDocument(const DraftingDocument &document, Point2D 
     DraftingHitTestResult best;
     best.distance = settings.tolerance;
     for (const DraftingObject &object : document.objects) {
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !layer->visible) {
+            continue;
+        }
         const DraftingHitTestResult candidate = hitTestObject(object, point);
         if (candidate.ok && candidate.distance <= best.distance) {
             best = candidate;

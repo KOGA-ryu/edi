@@ -65,6 +65,18 @@ QVariantMap activeObjectProjection(const QVariantMap &document)
     return {};
 }
 
+QVariantMap defaultLayerProjection(const QVariantMap &document)
+{
+    const QVariantList layers = document.value(QStringLiteral("layers")).toList();
+    for (const QVariant &layerValue : layers) {
+        const QVariantMap layer = layerValue.toMap();
+        if (layer.value(QStringLiteral("id")).toString() == QStringLiteral("default")) {
+            return layer;
+        }
+    }
+    return {};
+}
+
 QString boundsSummary(const QVariantMap &object)
 {
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
@@ -370,6 +382,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectLayerValue);
     layout->addWidget(m_objectMeasurementValue);
     layout->addWidget(buildObjectFlagControls());
+    layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
@@ -434,6 +447,40 @@ QWidget *EdiShellWindow::buildObjectFlagControls()
     layout->addWidget(m_selectedLocked);
     layout->addWidget(m_selectedVisible);
     layout->addStretch(1);
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildLayerControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("layerControls"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(4);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Default Layer")));
+
+    auto *row = new QWidget;
+    auto *rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(0, 0, 0, 0);
+    rowLayout->setSpacing(10);
+
+    m_defaultLayerLocked = new QCheckBox(QStringLiteral("Locked"));
+    m_defaultLayerLocked->setObjectName(QStringLiteral("layerFlagCheckbox"));
+    connect(m_defaultLayerLocked, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setDefaultLayerLocked(checked);
+    });
+
+    m_defaultLayerVisible = new QCheckBox(QStringLiteral("Visible"));
+    m_defaultLayerVisible->setObjectName(QStringLiteral("layerFlagCheckbox"));
+    connect(m_defaultLayerVisible, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setDefaultLayerVisible(checked);
+    });
+
+    rowLayout->addWidget(m_defaultLayerLocked);
+    rowLayout->addWidget(m_defaultLayerVisible);
+    rowLayout->addStretch(1);
+    layout->addWidget(row);
     return panel;
 }
 
@@ -786,6 +833,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
+    const QVariantMap defaultLayer = defaultLayerProjection(document);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
 
     if (m_workspaceTitle != nullptr) {
@@ -832,6 +880,16 @@ void EdiShellWindow::refreshInspector()
         const QSignalBlocker blocker(m_selectedVisible);
         m_selectedVisible->setEnabled(!selectedObject.isEmpty());
         m_selectedVisible->setChecked(selectedObject.isEmpty() ? false : selectedObject.value(QStringLiteral("visible")).toBool());
+    }
+    if (m_defaultLayerLocked != nullptr) {
+        const QSignalBlocker blocker(m_defaultLayerLocked);
+        m_defaultLayerLocked->setEnabled(!defaultLayer.isEmpty());
+        m_defaultLayerLocked->setChecked(defaultLayer.value(QStringLiteral("locked")).toBool());
+    }
+    if (m_defaultLayerVisible != nullptr) {
+        const QSignalBlocker blocker(m_defaultLayerVisible);
+        m_defaultLayerVisible->setEnabled(!defaultLayer.isEmpty());
+        m_defaultLayerVisible->setChecked(defaultLayer.isEmpty() ? false : defaultLayer.value(QStringLiteral("visible")).toBool());
     }
     if (m_objectMeasurementValue != nullptr) {
         const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();

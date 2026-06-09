@@ -282,6 +282,43 @@ int main()
     assert(missingFlags.code == DraftingResultCode::ObjectNotFound);
     assert(document.revision == revisionBeforeMissingFlags);
 
+    const auto revisionBeforeLayerFlags = document.revision;
+    auto layerFlagUpdate = updateLayerFlags(document, "default", true, false);
+    assert(layerFlagUpdate.ok);
+    const DraftingLayer *defaultLayerState = findLayer(document, "default");
+    assert(defaultLayerState != nullptr);
+    assert(defaultLayerState->locked);
+    assert(!defaultLayerState->visible);
+    assert(document.revision == revisionBeforeLayerFlags + 1);
+
+    const auto revisionBeforeLockedLayerMutation = document.revision;
+    auto lockedLayerAdd = addObject(document, makeLine("locked_layer_line"));
+    assert(!lockedLayerAdd.ok);
+    assert(lockedLayerAdd.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedLayerObjectFlags = updateObjectFlags(document, "line_1", true, true);
+    assert(!lockedLayerObjectFlags.ok);
+    assert(lockedLayerObjectFlags.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedLayerMove = moveObject(document, "line_1", 1.0, 0.0);
+    assert(!lockedLayerMove.ok);
+    assert(lockedLayerMove.code == DraftingResultCode::InvalidSelectionTarget);
+    auto lockedLayerGeometry = updateObjectGeometry(document, "line_1", LineGeometry{{0.0, 0.0}, {2.0, 0.0}});
+    assert(!lockedLayerGeometry.ok);
+    assert(lockedLayerGeometry.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(document.revision == revisionBeforeLockedLayerMutation);
+
+    auto unlockLayer = updateLayerFlags(document, "default", false, true);
+    assert(unlockLayer.ok);
+    defaultLayerState = findLayer(document, "default");
+    assert(defaultLayerState != nullptr);
+    assert(!defaultLayerState->locked);
+    assert(defaultLayerState->visible);
+
+    const auto revisionBeforeMissingLayerFlags = document.revision;
+    auto missingLayerFlags = updateLayerFlags(document, "missing_layer", true, false);
+    assert(!missingLayerFlags.ok);
+    assert(missingLayerFlags.code == DraftingResultCode::LayerNotFound);
+    assert(document.revision == revisionBeforeMissingLayerFlags);
+
     selectOnly(document, "line_2");
     auto removeMiddle = removeObject(document, "line_2");
     assert(removeMiddle.ok);

@@ -360,6 +360,10 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
 
 void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &object) const
 {
+    if (!object.value(QStringLiteral("effective_visible"), object.value(QStringLiteral("visible"), true)).toBool()) {
+        return;
+    }
+
     const QString kind = object.value(QStringLiteral("kind")).toString();
     const QString id = object.value(QStringLiteral("id")).toString();
     const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();

@@ -21,6 +21,24 @@ int main()
     assert(creation.layer.name == "Layer 3");
     assert(creation.layer.order == 2);
     assert(creation.makeActive);
+    DraftingLayer flagLayer = makeDraftingLayer("flag_layer", "Flag Layer", 4);
+    flagLayer.locked = false;
+    flagLayer.visible = true;
+    auto lockPlan = planLayerLockedUpdate(flagLayer, true);
+    assert(lockPlan.ok);
+    assert(lockPlan.layerId == "flag_layer");
+    assert(lockPlan.locked);
+    assert(lockPlan.visible);
+    flagLayer.locked = true;
+    flagLayer.visible = false;
+    auto visiblePlan = planLayerVisibleUpdate(flagLayer, true);
+    assert(visiblePlan.ok);
+    assert(visiblePlan.layerId == "flag_layer");
+    assert(visiblePlan.locked);
+    assert(visiblePlan.visible);
+    flagLayer.id.clear();
+    assert(!planLayerLockedUpdate(flagLayer, true).ok);
+    assert(!planLayerVisibleUpdate(flagLayer, true).ok);
 
     auto object = buildDraftingObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.4, 0.4}});
     assert(object.ok);

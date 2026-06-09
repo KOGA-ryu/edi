@@ -1069,10 +1069,14 @@ bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
     if (layer == nullptr) {
         return false;
     }
+    const DraftingLayerFlagsPlan plan = planLayerLockedUpdate(*layer, locked);
+    if (!plan.ok) {
+        return false;
+    }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateLayerFlagsCommand{layer->id, locked, layer->visible});
+        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
     if (!result.ok) {
         return false;
     }
@@ -1087,10 +1091,14 @@ bool DrawingDocumentController::setDefaultLayerVisible(bool visible)
     if (layer == nullptr) {
         return false;
     }
+    const DraftingLayerFlagsPlan plan = planLayerVisibleUpdate(*layer, visible);
+    if (!plan.ok) {
+        return false;
+    }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateLayerFlagsCommand{layer->id, layer->locked, visible});
+        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
     if (!result.ok) {
         return false;
     }
@@ -1105,10 +1113,14 @@ bool DrawingDocumentController::setActiveLayerLocked(bool locked)
     if (layer == nullptr) {
         return false;
     }
+    const DraftingLayerFlagsPlan plan = planLayerLockedUpdate(*layer, locked);
+    if (!plan.ok) {
+        return false;
+    }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateLayerFlagsCommand{layer->id, locked, layer->visible});
+        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
     if (!result.ok) {
         return false;
     }
@@ -1123,10 +1135,14 @@ bool DrawingDocumentController::setActiveLayerVisible(bool visible)
     if (layer == nullptr) {
         return false;
     }
+    const DraftingLayerFlagsPlan plan = planLayerVisibleUpdate(*layer, visible);
+    if (!plan.ok) {
+        return false;
+    }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateLayerFlagsCommand{layer->id, layer->locked, visible});
+        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
     if (!result.ok) {
         return false;
     }

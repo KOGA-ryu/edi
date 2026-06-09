@@ -18,9 +18,23 @@ struct DraftingLayerCreationPlan {
     static DraftingLayerCreationPlan rejected(DraftingResultCode code, std::string message);
 };
 
+struct DraftingLayerFlagsPlan {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    LayerId layerId;
+    bool locked = false;
+    bool visible = true;
+
+    static DraftingLayerFlagsPlan accepted(LayerId layerId, bool locked, bool visible);
+    static DraftingLayerFlagsPlan rejected(DraftingResultCode code, std::string message);
+};
+
 LayerId nextDraftingLayerId(const DraftingDocument &document);
 std::string nextDraftingLayerName(const DraftingDocument &document);
 DraftingLayerCreationPlan planCreateDraftingLayer(const DraftingDocument &document);
+DraftingLayerFlagsPlan planLayerLockedUpdate(const DraftingLayer &layer, bool locked);
+DraftingLayerFlagsPlan planLayerVisibleUpdate(const DraftingLayer &layer, bool visible);
 bool draftingObjectLayerLocked(const DraftingDocument &document, const DraftingObject &object);
 bool draftingObjectEffectivelyVisible(const DraftingDocument &document, const DraftingObject &object);
 bool draftingObjectEffectivelyEditable(const DraftingDocument &document, const DraftingObject &object);

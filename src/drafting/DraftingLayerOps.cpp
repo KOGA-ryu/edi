@@ -25,6 +25,26 @@ DraftingLayerCreationPlan DraftingLayerCreationPlan::rejected(DraftingResultCode
     return result;
 }
 
+DraftingLayerFlagsPlan DraftingLayerFlagsPlan::accepted(LayerId layerId, bool locked, bool visible)
+{
+    DraftingLayerFlagsPlan result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.layerId = std::move(layerId);
+    result.locked = locked;
+    result.visible = visible;
+    return result;
+}
+
+DraftingLayerFlagsPlan DraftingLayerFlagsPlan::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingLayerFlagsPlan result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
 LayerId nextDraftingLayerId(const DraftingDocument &document)
 {
     int serial = static_cast<int>(document.layers.size()) + 1;
@@ -54,6 +74,22 @@ DraftingLayerCreationPlan planCreateDraftingLayer(const DraftingDocument &docume
         return DraftingLayerCreationPlan::rejected(DraftingResultCode::InvalidSelectionTarget, "layer name is invalid");
     }
     return DraftingLayerCreationPlan::accepted(std::move(layer), true);
+}
+
+DraftingLayerFlagsPlan planLayerLockedUpdate(const DraftingLayer &layer, bool locked)
+{
+    if (!isValidLayerId(layer.id)) {
+        return DraftingLayerFlagsPlan::rejected(DraftingResultCode::LayerNotFound, "layer id is invalid");
+    }
+    return DraftingLayerFlagsPlan::accepted(layer.id, locked, layer.visible);
+}
+
+DraftingLayerFlagsPlan planLayerVisibleUpdate(const DraftingLayer &layer, bool visible)
+{
+    if (!isValidLayerId(layer.id)) {
+        return DraftingLayerFlagsPlan::rejected(DraftingResultCode::LayerNotFound, "layer id is invalid");
+    }
+    return DraftingLayerFlagsPlan::accepted(layer.id, layer.locked, visible);
 }
 
 bool draftingObjectLayerLocked(const DraftingDocument &document, const DraftingObject &object)

@@ -25,6 +25,15 @@ QStringList numericFieldIds(const QVariantMap &object)
     return ids;
 }
 
+QStringList editHandleIds(const QVariantMap &object)
+{
+    QStringList ids;
+    for (const QVariant &handle : object.value("edit_handles").toList()) {
+        ids.push_back(handle.toMap().value("id").toString());
+    }
+    return ids;
+}
+
 QVariantMap lastObjectOfKind(const QVariantMap &model, const QString &kind)
 {
     QVariantMap result;
@@ -999,6 +1008,23 @@ int main(int argc, char **argv)
     QStringList dimensionFieldIds = numericFieldIds(dimension);
     assert(dimensionFieldIds.contains("dimension_length"));
     assert(dimensionFieldIds.contains("dimension_angle_deg"));
+    QStringList dimensionHandleIds = editHandleIds(dimension);
+    assert(dimension.value("editable_handle_count").toInt() == 3);
+    assert(dimensionHandleIds.contains("dimension_start"));
+    assert(dimensionHandleIds.contains("dimension_end"));
+    assert(dimensionHandleIds.contains("dimension_offset"));
+    QVariantList dimensionHandles = dimension.value("edit_handles").toList();
+    QVariantMap dimensionOffsetHandle;
+    for (const QVariant &handle : dimensionHandles) {
+        QVariantMap candidate = handle.toMap();
+        if (candidate.value("id").toString() == "dimension_offset") {
+            dimensionOffsetHandle = candidate;
+        }
+    }
+    assert(!dimensionOffsetHandle.isEmpty());
+    assert(dimensionOffsetHandle.value("role").toString() == "offset");
+    assert(nearlyEqual(dimensionOffsetHandle.value("x").toDouble(), 0.218));
+    assert(nearlyEqual(dimensionOffsetHandle.value("y").toDouble(), 0.424));
     assert(dimension.value("label").toString() == "0.5 canvas_unit");
     QVariantMap dimensionPhysical = dimension.value("physical_geometry").toMap();
     assert(dimensionPhysical.value("unit_label").toString() == "in");

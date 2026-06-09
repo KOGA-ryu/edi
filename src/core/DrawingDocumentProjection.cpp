@@ -4,6 +4,7 @@
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
 #include "drafting/DraftingNumericEdit.h"
+#include "drafting/DraftingObjectEdit.h"
 
 #include <QVariantList>
 
@@ -330,6 +331,21 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
     return result;
 }
 
+QVariantList editHandlesForObject(const DraftingObject &object)
+{
+    QVariantList result;
+    for (const DraftingHandleDescriptor &handle : draftingHandlesForObject(object)) {
+        result.push_back(QVariantMap{
+            {QStringLiteral("id"), QString::fromStdString(handle.id)},
+            {QStringLiteral("role"), QString::fromStdString(handle.role)},
+            {QStringLiteral("x"), handle.point.x},
+            {QStringLiteral("y"), handle.point.y},
+            {QStringLiteral("read_only"), handle.readOnly},
+        });
+    }
+    return result;
+}
+
 } // namespace
 
 QString qStringFromStdString(const std::string &value)
@@ -363,11 +379,13 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
         {QStringLiteral("measurement_lines"), measurementLines},
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object)},
+        {QStringLiteral("edit_handles"), editHandlesForObject(object)},
         {QStringLiteral("guide_drawable_controls"), object.kind == DraftingShapeKind::Guide},
         {QStringLiteral("construction_drawable_controls"), constructionLineCanFitDrawable(object)},
         {QStringLiteral("bounds_guide_controls"), canCreateGuideFromBounds(object)},
         {QStringLiteral("align_to_guide_controls"), canAlignToGuide(object)},
     };
+    result.insert(QStringLiteral("editable_handle_count"), result.value(QStringLiteral("edit_handles")).toList().size());
 
     if (grid != nullptr) {
         result.insert(QStringLiteral("physical_geometry"), physicalGeometryForObject(object, *grid));

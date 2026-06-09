@@ -95,6 +95,9 @@ int main()
     assert(dimensionHandles[2].id == "dimension_offset");
     assert(nearlyEqual(dimensionHandles[2].point.x, 0.3));
     assert(nearlyEqual(dimensionHandles[2].point.y, 0.25));
+    assert(dimensionHandles[2].hasAnchor);
+    assert(nearlyEqual(dimensionHandles[2].anchor.x, 0.3));
+    assert(nearlyEqual(dimensionHandles[2].anchor.y, 0.2));
     auto dimensionEndPlan = handleEditPlan(dimension, "dimension_end", {0.8, 0.4});
     assert(dimensionEndPlan.ok);
     auto dimensionEndEdit = applyObjectEdit(dimension, dimensionEndPlan.edit);

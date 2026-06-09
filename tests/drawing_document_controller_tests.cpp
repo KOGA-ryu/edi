@@ -1025,6 +1025,9 @@ int main(int argc, char **argv)
     assert(dimensionOffsetHandle.value("role").toString() == "offset");
     assert(nearlyEqual(dimensionOffsetHandle.value("x").toDouble(), 0.218));
     assert(nearlyEqual(dimensionOffsetHandle.value("y").toDouble(), 0.424));
+    assert(dimensionOffsetHandle.value("has_anchor").toBool());
+    assert(nearlyEqual(dimensionOffsetHandle.value("anchor_x").toDouble(), 0.25));
+    assert(nearlyEqual(dimensionOffsetHandle.value("anchor_y").toDouble(), 0.4));
     assert(dimension.value("label").toString() == "0.5 canvas_unit");
     QVariantMap dimensionPhysical = dimension.value("physical_geometry").toMap();
     assert(dimensionPhysical.value("unit_label").toString() == "in");

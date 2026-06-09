@@ -257,6 +257,8 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 dimensionOffsetPoint(geometry),
             };
             offset.readOnly = false;
+            offset.hasAnchor = true;
+            offset.anchor = dimensionMidpoint(geometry);
             return {
                 {"dimension_start", "endpoint", geometry.a},
                 {"dimension_end", "endpoint", geometry.b},

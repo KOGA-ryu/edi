@@ -335,13 +335,19 @@ QVariantList editHandlesForObject(const DraftingObject &object)
 {
     QVariantList result;
     for (const DraftingHandleDescriptor &handle : draftingHandlesForObject(object)) {
-        result.push_back(QVariantMap{
+        QVariantMap projected {
             {QStringLiteral("id"), QString::fromStdString(handle.id)},
             {QStringLiteral("role"), QString::fromStdString(handle.role)},
             {QStringLiteral("x"), handle.point.x},
             {QStringLiteral("y"), handle.point.y},
             {QStringLiteral("read_only"), handle.readOnly},
-        });
+            {QStringLiteral("has_anchor"), handle.hasAnchor},
+        };
+        if (handle.hasAnchor) {
+            projected.insert(QStringLiteral("anchor_x"), handle.anchor.x);
+            projected.insert(QStringLiteral("anchor_y"), handle.anchor.y);
+        }
+        result.push_back(projected);
     }
     return result;
 }

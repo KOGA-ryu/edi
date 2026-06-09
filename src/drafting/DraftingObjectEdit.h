@@ -25,6 +25,8 @@ struct DraftingHandleDescriptor {
     std::string role;
     Point2D point;
     bool readOnly = false;
+    bool hasAnchor = false;
+    Point2D anchor;
 };
 
 struct DraftingObjectEdit {

@@ -873,10 +873,10 @@ void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantM
             const QPointF point = canvasToScreen(
                 handle.value(QStringLiteral("x")).toDouble(),
                 handle.value(QStringLiteral("y")).toDouble());
-            if (handle.value(QStringLiteral("id")).toString() == QStringLiteral("dimension_offset")) {
+            if (handle.value(QStringLiteral("has_anchor")).toBool()) {
                 const QPointF anchor = canvasToScreen(
-                    (object.value(QStringLiteral("x1")).toDouble() + object.value(QStringLiteral("x2")).toDouble()) / 2.0,
-                    (object.value(QStringLiteral("y1")).toDouble() + object.value(QStringLiteral("y2")).toDouble()) / 2.0);
+                    handle.value(QStringLiteral("anchor_x")).toDouble(),
+                    handle.value(QStringLiteral("anchor_y")).toDouble());
                 painter.drawLine(anchor, point);
             }
             const double size = handle.value(QStringLiteral("role")).toString() == QStringLiteral("rotate") ? 10.0 : 8.0;

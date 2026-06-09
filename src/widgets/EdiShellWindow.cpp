@@ -4,7 +4,9 @@
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPair>
@@ -334,6 +336,8 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectBoundsValue);
     layout->addWidget(m_objectGeometryValue);
     layout->addWidget(m_objectLayerValue);
+    m_geometryEditor = buildGeometryEditor();
+    layout->addWidget(m_geometryEditor);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
@@ -355,6 +359,17 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addStretch(1);
 
     return panel;
+}
+
+QWidget *EdiShellWindow::buildGeometryEditor()
+{
+    auto *editor = new QWidget;
+    editor->setObjectName(QStringLiteral("geometryEditor"));
+    auto *layout = new QGridLayout(editor);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+    return editor;
 }
 
 QWidget *EdiShellWindow::buildBottomPanel()
@@ -432,6 +447,89 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
     refreshInspector();
 }
 
+void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
+{
+    if (m_geometryEditor == nullptr) {
+        return;
+    }
+
+    auto *layout = qobject_cast<QGridLayout *>(m_geometryEditor->layout());
+    if (layout == nullptr) {
+        return;
+    }
+
+    while (QLayoutItem *item = layout->takeAt(0)) {
+        if (QWidget *widget = item->widget()) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+    m_geometryFields.clear();
+
+    const QString kind = selectedObject.value(QStringLiteral("kind")).toString();
+    QVector<QPair<QString, QString>> fields;
+    if (kind == QStringLiteral("point")) {
+        fields = {{QStringLiteral("x"), QStringLiteral("X")}, {QStringLiteral("y"), QStringLiteral("Y")}};
+    } else if (kind == QStringLiteral("line")) {
+        fields = {
+            {QStringLiteral("x1"), QStringLiteral("X1")},
+            {QStringLiteral("y1"), QStringLiteral("Y1")},
+            {QStringLiteral("x2"), QStringLiteral("X2")},
+            {QStringLiteral("y2"), QStringLiteral("Y2")},
+        };
+    } else if (kind == QStringLiteral("rectangle")) {
+        fields = {
+            {QStringLiteral("x"), QStringLiteral("X")},
+            {QStringLiteral("y"), QStringLiteral("Y")},
+            {QStringLiteral("width"), QStringLiteral("W")},
+            {QStringLiteral("height"), QStringLiteral("H")},
+            {QStringLiteral("rotation_deg"), QStringLiteral("Rot")},
+        };
+    } else if (kind == QStringLiteral("circle")) {
+        fields = {
+            {QStringLiteral("cx"), QStringLiteral("CX")},
+            {QStringLiteral("cy"), QStringLiteral("CY")},
+            {QStringLiteral("radius"), QStringLiteral("R")},
+        };
+    }
+
+    int row = 0;
+    for (const auto &field : fields) {
+        auto *label = new QLabel(field.second);
+        label->setObjectName(QStringLiteral("fieldLabel"));
+        auto *spin = new QDoubleSpinBox;
+        spin->setObjectName(QStringLiteral("geometryField"));
+        spin->setDecimals(4);
+        spin->setSingleStep(0.01);
+        spin->setRange(-10.0, 10.0);
+        if (field.first == QStringLiteral("width") || field.first == QStringLiteral("height") || field.first == QStringLiteral("radius")) {
+            spin->setRange(0.0, 10.0);
+        } else if (field.first == QStringLiteral("rotation_deg")) {
+            spin->setRange(-360.0, 360.0);
+            spin->setSingleStep(1.0);
+            spin->setDecimals(2);
+        }
+        spin->setValue(selectedObject.value(field.first).toDouble());
+        spin->setProperty("fieldId", field.first);
+        connect(spin, &QDoubleSpinBox::editingFinished, this, [this, spin]() {
+            m_controller->updateSelectedObjectGeometryField(spin->property("fieldId").toString(), spin->value());
+        });
+        layout->addWidget(label, row, 0);
+        layout->addWidget(spin, row, 1);
+        m_geometryFields.insert(field.first, spin);
+        ++row;
+    }
+
+    setGeometryEditorVisible(!fields.empty());
+}
+
+void EdiShellWindow::setGeometryEditorVisible(bool visible)
+{
+    if (m_geometryEditor != nullptr) {
+        m_geometryEditor->setVisible(visible);
+    }
+}
+
 void EdiShellWindow::refreshInspector()
 {
     const QVariantMap document = m_controller->modelDocument();
@@ -477,6 +575,7 @@ void EdiShellWindow::refreshInspector()
                 .arg(selectedObject.value(QStringLiteral("layer_id")).toString())
                 .arg(yesNo(selectedObject.value(QStringLiteral("locked")).toBool())));
     }
+    rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {
         m_objectsValue->setText(QStringLiteral("Objects: %1").arg(objects.size()));
     }
@@ -577,6 +676,16 @@ void EdiShellWindow::applyShellStyle()
             border: 1px solid #24313e;
             border-radius: 5px;
             padding: 6px 8px;
+        }
+        #fieldLabel {
+            color: #9aa8b6;
+        }
+        #geometryField {
+            color: #dce5ee;
+            background: #202a35;
+            border: 1px solid #31404f;
+            border-radius: 5px;
+            padding: 4px 6px;
         }
         QPushButton {
             color: #dce5ee;

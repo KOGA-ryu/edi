@@ -167,6 +167,68 @@ QVariantMap pointerProjectionToMap(Point2D rawPoint,
     };
 }
 
+std::optional<DraftingGeometry> geometryWithUpdatedField(const DraftingObject &object, const QString &fieldId, double value)
+{
+    if (!std::isfinite(value)) {
+        return std::nullopt;
+    }
+
+    return std::visit([&](auto geometry) -> std::optional<DraftingGeometry> {
+        using Geometry = std::decay_t<decltype(geometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            if (fieldId == QStringLiteral("x")) {
+                geometry.point.x = value;
+            } else if (fieldId == QStringLiteral("y")) {
+                geometry.point.y = value;
+            } else {
+                return std::nullopt;
+            }
+            return DraftingGeometry{geometry};
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            if (fieldId == QStringLiteral("x1")) {
+                geometry.a.x = value;
+            } else if (fieldId == QStringLiteral("y1")) {
+                geometry.a.y = value;
+            } else if (fieldId == QStringLiteral("x2")) {
+                geometry.b.x = value;
+            } else if (fieldId == QStringLiteral("y2")) {
+                geometry.b.y = value;
+            } else {
+                return std::nullopt;
+            }
+            return DraftingGeometry{geometry};
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            if (fieldId == QStringLiteral("x")) {
+                geometry.origin.x = value;
+            } else if (fieldId == QStringLiteral("y")) {
+                geometry.origin.y = value;
+            } else if (fieldId == QStringLiteral("width")) {
+                geometry.width = value;
+            } else if (fieldId == QStringLiteral("height")) {
+                geometry.height = value;
+            } else if (fieldId == QStringLiteral("rotation_deg")) {
+                geometry.rotationDeg = value;
+            } else {
+                return std::nullopt;
+            }
+            return DraftingGeometry{geometry};
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            if (fieldId == QStringLiteral("cx")) {
+                geometry.center.x = value;
+            } else if (fieldId == QStringLiteral("cy")) {
+                geometry.center.y = value;
+            } else if (fieldId == QStringLiteral("radius")) {
+                geometry.radius = value;
+            } else {
+                return std::nullopt;
+            }
+            return DraftingGeometry{geometry};
+        } else {
+            return std::nullopt;
+        }
+    }, object.geometry);
+}
+
 } // namespace
 
 DrawingDocumentController::DrawingDocumentController(QObject *parent)
@@ -357,6 +419,33 @@ void DrawingDocumentController::updatePointerNormalized(double x, double y)
     }
     m_pointerRawPoint = point;
     emit modelChanged();
+}
+
+bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString &fieldId, double value)
+{
+    if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
+        return false;
+    }
+
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+
+    const std::optional<DraftingGeometry> geometry = geometryWithUpdatedField(*object, fieldId, value);
+    if (!geometry) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
 }
 
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)

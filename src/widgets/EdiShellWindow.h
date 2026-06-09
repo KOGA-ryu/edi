@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QMap>
 #include <QString>
+#include <QVariantMap>
 
 #include "app/AppState.h"
 
@@ -9,6 +11,7 @@ class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QDoubleSpinBox;
 class QLabel;
 class QPushButton;
 class QWidget;
@@ -31,11 +34,14 @@ private:
     QWidget *buildWorkspaceColumn();
     QWidget *buildRightPanel();
     QWidget *buildBottomPanel();
+    QWidget *buildGeometryEditor();
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;
     QLabel *makeValueLabel(const QString &text = QString()) const;
     void setWorkspaceMode(edi::app::WorkspaceMode mode);
+    void rebuildGeometryEditor(const QVariantMap &selectedObject);
+    void setGeometryEditorVisible(bool visible);
     void applyShellStyle();
 
     edi::app::AppState m_appState;
@@ -59,6 +65,8 @@ private:
     QLabel *m_objectBoundsValue = nullptr;
     QLabel *m_objectGeometryValue = nullptr;
     QLabel *m_objectLayerValue = nullptr;
+    QWidget *m_geometryEditor = nullptr;
+    QMap<QString, QDoubleSpinBox *> m_geometryFields;
     QLabel *m_objectsValue = nullptr;
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;

@@ -81,6 +81,12 @@ int main(int argc, char **argv)
     assert(pointBounds.value("width").toDouble() == 0.0);
     assert(pointBounds.value("height").toDouble() == 0.0);
     assert(controller.selectedObjectId() == point.value("id").toString());
+    assert(controller.updateSelectedObjectGeometryField("x", 0.3));
+    assert(controller.updateSelectedObjectGeometryField("y", 0.35));
+    QVariantMap editedPoint = controller.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(editedPoint.value("x").toDouble(), 0.3));
+    assert(nearlyEqual(editedPoint.value("y").toDouble(), 0.35));
+    assert(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
 
     controller.setGridPresetId("letter");
     QVariantMap letterModel = controller.modelDocument();
@@ -113,7 +119,7 @@ int main(int argc, char **argv)
     assert(nearlyEqual(lineBounds.value("height").toDouble(), 0.7));
 
     controller.setSelectedToolId("select_move");
-    controller.clickCanvasNormalized(0.25, 0.5);
+    controller.clickCanvasNormalized(0.3, 0.35);
     assert(controller.selectedObjectId() == point.value("id").toString());
 
     controller.clickCanvasNormalized(0.8, 0.9);
@@ -131,6 +137,23 @@ int main(int argc, char **argv)
     assert(editedLine.value("x2").toDouble() == 0.4);
     assert(editedLine.value("y2").toDouble() == 0.6);
     assert(!controller.editSelectedHandleNormalized("missing_handle", 0.1, 0.1));
+    assert(controller.updateSelectedObjectGeometryField("x2", 0.7));
+    assert(controller.updateSelectedObjectGeometryField("y2", 0.8));
+    objects = controller.modelDocument().value("drawing_objects").toList();
+    QVariantMap numericallyEditedLine;
+    for (const QVariant &objectValue : objects) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("id").toString() == line.value("id").toString()) {
+            numericallyEditedLine = object;
+        }
+    }
+    assert(!numericallyEditedLine.isEmpty());
+    assert(nearlyEqual(numericallyEditedLine.value("x2").toDouble(), 0.7));
+    assert(nearlyEqual(numericallyEditedLine.value("y2").toDouble(), 0.8));
+    QVariantMap numericLineBounds = numericallyEditedLine.value("bounds").toMap();
+    assert(nearlyEqual(numericLineBounds.value("width").toDouble(), 0.6));
+    assert(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
+    assert(!controller.updateSelectedObjectGeometryField("x2", std::numeric_limits<double>::infinity()));
 
     assert(controller.moveSelectionNormalized(0.1, -0.2));
     objects = controller.modelDocument().value("drawing_objects").toList();
@@ -144,8 +167,8 @@ int main(int argc, char **argv)
     assert(!movedLine.isEmpty());
     assert(nearlyEqual(movedLine.value("x1").toDouble(), 0.2));
     assert(nearlyEqual(movedLine.value("y1").toDouble(), 0.0));
-    assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.5));
-    assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.4));
+    assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.8));
+    assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.6));
     assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
 
     DrawingDocumentController gridController;
@@ -259,6 +282,39 @@ int main(int argc, char **argv)
     zeroSizeController.clickCanvasNormalized(0.5, 0.5);
     QVariantMap zeroCircleCommitted = zeroSizeController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(zeroCircleCommitted.value("radius").toDouble(), 0.0));
+
+    DrawingDocumentController numericRectController;
+    numericRectController.setSelectedToolId("rectangle_tool");
+    numericRectController.clickCanvasNormalized(0.1, 0.1);
+    numericRectController.clickCanvasNormalized(0.4, 0.4);
+    assert(numericRectController.updateSelectedObjectGeometryField("width", 0.5));
+    assert(numericRectController.updateSelectedObjectGeometryField("height", 0.25));
+    assert(numericRectController.updateSelectedObjectGeometryField("rotation_deg", 45.0));
+    QVariantMap numericRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
+    assert(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
+    assert(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
+    assert(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
+    QVariantMap numericRectAfterInvalid = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
+
+    DrawingDocumentController numericCircleController;
+    numericCircleController.setSelectedToolId("circle_tool");
+    numericCircleController.clickCanvasNormalized(0.5, 0.5);
+    numericCircleController.clickCanvasNormalized(0.7, 0.5);
+    assert(numericCircleController.updateSelectedObjectGeometryField("cx", 0.4));
+    assert(numericCircleController.updateSelectedObjectGeometryField("cy", 0.45));
+    assert(numericCircleController.updateSelectedObjectGeometryField("radius", 0.125));
+    QVariantMap numericCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
+    assert(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
+    assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
+    assert(!numericCircleController.updateSelectedObjectGeometryField("radius", -0.01));
+    QVariantMap numericCircleAfterInvalid = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(numericCircleAfterInvalid.value("radius").toDouble(), 0.125));
+
+    DrawingDocumentController noSelectionEditController;
+    assert(!noSelectionEditController.updateSelectedObjectGeometryField("x", 0.2));
 
     DrawingDocumentController selectionIsolationController;
     selectionIsolationController.setSelectedToolId("point_tool");

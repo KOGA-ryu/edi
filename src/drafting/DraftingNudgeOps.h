@@ -18,6 +18,12 @@ struct DraftingNudgePlan {
     static DraftingNudgePlan rejected(DraftingResultCode code, std::string message);
 };
 
+enum class DraftingSelectionDrawablePlacement {
+    FitInside,
+    Center,
+    Origin
+};
+
 double draftingNudgeScaleForMode(const std::string &stepMode);
 double effectiveNudgeStepX(const DraftingSnapSettings &settings);
 double effectiveNudgeStepY(const DraftingSnapSettings &settings);
@@ -28,5 +34,6 @@ DraftingNudgePlan planNudgeInsideDrawable(
     const std::string &stepMode,
     Bounds2D selectedBounds,
     Bounds2D drawableBounds);
+DraftingNudgePlan planSelectionDrawableMove(Bounds2D selectedBounds, Bounds2D drawableBounds, DraftingSelectionDrawablePlacement placement);
 
 } // namespace edi::drafting

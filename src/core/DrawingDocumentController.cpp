@@ -1624,31 +1624,19 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
     const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok
-        || !isFinite(drawable)
-        || selected.bounds.width > drawable.width
-        || selected.bounds.height > drawable.height) {
+    if (!selected.ok) {
         return false;
     }
 
-    double dx = 0.0;
-    double dy = 0.0;
-    if (selected.bounds.x < drawable.x) {
-        dx = drawable.x - selected.bounds.x;
-    } else if (selected.bounds.x + selected.bounds.width > drawable.x + drawable.width) {
-        dx = drawable.x + drawable.width - (selected.bounds.x + selected.bounds.width);
+    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    if (!plan.ok) {
+        return false;
     }
-    if (selected.bounds.y < drawable.y) {
-        dy = drawable.y - selected.bounds.y;
-    } else if (selected.bounds.y + selected.bounds.height > drawable.y + drawable.height) {
-        dy = drawable.y + drawable.height - (selected.bounds.y + selected.bounds.height);
-    }
-
-    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
         return true;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }
@@ -1662,19 +1650,19 @@ bool DrawingDocumentController::centerSelectionInDrawable()
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
     const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok || !isFinite(drawable)) {
+    if (!selected.ok) {
         return false;
     }
 
-    const double targetX = drawable.x + (drawable.width - selected.bounds.width) / 2.0;
-    const double targetY = drawable.y + (drawable.height - selected.bounds.height) / 2.0;
-    const double dx = targetX - selected.bounds.x;
-    const double dy = targetY - selected.bounds.y;
-    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::Center);
+    if (!plan.ok) {
+        return false;
+    }
+    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
         return true;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }
@@ -1688,17 +1676,19 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
     const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok || !isFinite(drawable)) {
+    if (!selected.ok) {
         return false;
     }
 
-    const double dx = drawable.x - selected.bounds.x;
-    const double dy = drawable.y - selected.bounds.y;
-    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::Origin);
+    if (!plan.ok) {
+        return false;
+    }
+    if (std::abs(plan.dx) < 0.0000001 && std::abs(plan.dy) < 0.0000001) {
         return true;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
     if (!result.ok) {
         return false;
     }

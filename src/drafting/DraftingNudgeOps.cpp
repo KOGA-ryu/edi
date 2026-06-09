@@ -92,4 +92,39 @@ DraftingNudgePlan planNudgeInsideDrawable(
     return delta;
 }
 
+DraftingNudgePlan planSelectionDrawableMove(Bounds2D selectedBounds, Bounds2D drawableBounds, DraftingSelectionDrawablePlacement placement)
+{
+    if (!isFinite(selectedBounds) || !isFinite(drawableBounds)) {
+        return DraftingNudgePlan::rejected(DraftingResultCode::InvalidGeometry, "selection and drawable bounds must be finite");
+    }
+
+    if (placement == DraftingSelectionDrawablePlacement::FitInside) {
+        if (selectedBounds.width > drawableBounds.width || selectedBounds.height > drawableBounds.height) {
+            return DraftingNudgePlan::rejected(DraftingResultCode::InvalidGeometry, "selection is larger than drawable bounds");
+        }
+
+        double dx = 0.0;
+        double dy = 0.0;
+        if (selectedBounds.x < drawableBounds.x) {
+            dx = drawableBounds.x - selectedBounds.x;
+        } else if (selectedBounds.x + selectedBounds.width > drawableBounds.x + drawableBounds.width) {
+            dx = drawableBounds.x + drawableBounds.width - (selectedBounds.x + selectedBounds.width);
+        }
+        if (selectedBounds.y < drawableBounds.y) {
+            dy = drawableBounds.y - selectedBounds.y;
+        } else if (selectedBounds.y + selectedBounds.height > drawableBounds.y + drawableBounds.height) {
+            dy = drawableBounds.y + drawableBounds.height - (selectedBounds.y + selectedBounds.height);
+        }
+        return DraftingNudgePlan::accepted(dx, dy);
+    }
+
+    if (placement == DraftingSelectionDrawablePlacement::Center) {
+        const double targetX = drawableBounds.x + (drawableBounds.width - selectedBounds.width) / 2.0;
+        const double targetY = drawableBounds.y + (drawableBounds.height - selectedBounds.height) / 2.0;
+        return DraftingNudgePlan::accepted(targetX - selectedBounds.x, targetY - selectedBounds.y);
+    }
+
+    return DraftingNudgePlan::accepted(drawableBounds.x - selectedBounds.x, drawableBounds.y - selectedBounds.y);
+}
+
 } // namespace edi::drafting

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 using namespace edi::drafting;
 
@@ -64,6 +65,42 @@ int main()
     auto tooLargePlan = planNudgeInsideDrawable("right", settings(), "grid", tooLarge, drawable);
     assert(!tooLargePlan.ok);
     assert(tooLargePlan.code == DraftingResultCode::InvalidGeometry);
+
+    Bounds2D outsideLeftTop{0.0, 0.05, 0.2, 0.2};
+    auto fitInside = planSelectionDrawableMove(outsideLeftTop, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    assert(fitInside.ok);
+    assert(near(fitInside.dx, 0.1));
+    assert(near(fitInside.dy, 0.05));
+
+    Bounds2D outsideRightBottom{0.7, 0.75, 0.2, 0.1};
+    auto fitFromMax = planSelectionDrawableMove(outsideRightBottom, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    assert(fitFromMax.ok);
+    assert(near(fitFromMax.dx, -0.1));
+    assert(near(fitFromMax.dy, -0.05));
+
+    auto alreadyInside = planSelectionDrawableMove(selected, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    assert(alreadyInside.ok);
+    assert(near(alreadyInside.dx, 0.0));
+    assert(near(alreadyInside.dy, 0.0));
+
+    auto tooLargeFit = planSelectionDrawableMove(tooLarge, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    assert(!tooLargeFit.ok);
+    assert(tooLargeFit.code == DraftingResultCode::InvalidGeometry);
+
+    auto center = planSelectionDrawableMove(selected, drawable, DraftingSelectionDrawablePlacement::Center);
+    assert(center.ok);
+    assert(near(center.dx, 0.15));
+    assert(near(center.dy, 0.15));
+
+    auto origin = planSelectionDrawableMove(selected, drawable, DraftingSelectionDrawablePlacement::Origin);
+    assert(origin.ok);
+    assert(near(origin.dx, -0.1));
+    assert(near(origin.dy, -0.1));
+
+    Bounds2D invalid{0.0, 0.0, std::numeric_limits<double>::infinity(), 0.2};
+    auto invalidPlacement = planSelectionDrawableMove(invalid, drawable, DraftingSelectionDrawablePlacement::Center);
+    assert(!invalidPlacement.ok);
+    assert(invalidPlacement.code == DraftingResultCode::InvalidGeometry);
 
     return 0;
 }

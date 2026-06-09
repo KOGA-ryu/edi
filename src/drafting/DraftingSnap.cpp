@@ -102,7 +102,7 @@ bool guideSnapCandidate(const DraftingObject &object, Point2D point, DraftingSna
 
 DraftingSnapResult nearestGuideSnap(Point2D point, const DraftingDocument &document, const DraftingSnapSettings &settings)
 {
-    if (!settings.objectSnapEnabled || !std::isfinite(settings.objectTolerance) || settings.objectTolerance < 0.0) {
+    if (!settings.objectSnapEnabled || !settings.guideEnabled || !std::isfinite(settings.objectTolerance) || settings.objectTolerance < 0.0) {
         return noneSnap(point);
     }
 

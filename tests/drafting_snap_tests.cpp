@@ -126,8 +126,13 @@ int main()
     assert(nearlyEqual(guideIntersection.point.x, 0.33));
     assert(nearlyEqual(guideIntersection.point.y, 0.75));
 
+    DraftingSnapSettings objectSnapDisabled = objectSettings;
+    objectSnapDisabled.objectSnapEnabled = false;
+    DraftingSnapResult disabledObjectAndGuide = resolveSnap({0.34, 0.74}, document, objectSnapDisabled);
+    assert(disabledObjectAndGuide.kind == DraftingSnapKind::None);
+
     DraftingSnapSettings guideSnapDisabled = objectSettings;
-    guideSnapDisabled.objectSnapEnabled = false;
+    guideSnapDisabled.guideEnabled = false;
     DraftingSnapResult disabledGuide = resolveSnap({0.34, 0.74}, document, guideSnapDisabled);
     assert(disabledGuide.kind == DraftingSnapKind::None);
 
@@ -173,6 +178,16 @@ int main()
     prioritySettings.objectPriorityBeforeGrid = false;
     DraftingSnapResult gridFirst = resolveSnap({0.11, 0.09}, document, prioritySettings);
     assert(gridFirst.kind == DraftingSnapKind::Grid);
+
+    DraftingSnapSettings guidePrioritySettings = objectSettings;
+    guidePrioritySettings.gridEnabled = true;
+    guidePrioritySettings.gridStep = 0.25;
+    DraftingSnapResult guideFirst = resolveSnap({0.34, 0.74}, document, guidePrioritySettings);
+    assert(guideFirst.kind == DraftingSnapKind::Object);
+    assert(guideFirst.sourceKind == DraftingSnapSourceKind::Guide);
+    guidePrioritySettings.objectPriorityBeforeGrid = false;
+    DraftingSnapResult guideAfterGrid = resolveSnap({0.34, 0.74}, document, guidePrioritySettings);
+    assert(guideAfterGrid.kind == DraftingSnapKind::Grid);
 
     DraftingSnapSettings tightTolerance = objectSettings;
     tightTolerance.objectTolerance = 0.005;

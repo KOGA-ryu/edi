@@ -46,6 +46,7 @@ int main(int argc, char **argv)
     assert(initialSnap.value("vertex_enabled").toBool());
     assert(initialSnap.value("midpoint_enabled").toBool());
     assert(initialSnap.value("center_enabled").toBool());
+    assert(initialSnap.value("guide_enabled").toBool());
     assert(initialSnap.value("object_priority_before_grid").toBool());
     assert(controller.objectSnapTolerancePresetId() == "normal");
 
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
     controller.setVertexSnapEnabled(false);
     controller.setMidpointSnapEnabled(false);
     controller.setCenterSnapEnabled(false);
+    controller.setGuideSnapEnabled(false);
     controller.setObjectSnapPriorityBeforeGrid(false);
     controller.setObjectSnapTolerancePreset("tight");
     QVariantMap changedSnap = controller.modelDocument().value("snap").toMap();
@@ -60,18 +62,21 @@ int main(int argc, char **argv)
     assert(!controller.vertexSnapEnabled());
     assert(!controller.midpointSnapEnabled());
     assert(!controller.centerSnapEnabled());
+    assert(!controller.guideSnapEnabled());
     assert(!controller.objectSnapPriorityBeforeGrid());
     assert(controller.objectSnapTolerancePresetId() == "tight");
     assert(!changedSnap.value("endpoint_enabled").toBool());
     assert(!changedSnap.value("vertex_enabled").toBool());
     assert(!changedSnap.value("midpoint_enabled").toBool());
     assert(!changedSnap.value("center_enabled").toBool());
+    assert(!changedSnap.value("guide_enabled").toBool());
     assert(!changedSnap.value("object_priority_before_grid").toBool());
     assert(nearlyEqual(changedSnap.value("object_tolerance").toDouble(), 0.015));
     controller.setEndpointSnapEnabled(true);
     controller.setVertexSnapEnabled(true);
     controller.setMidpointSnapEnabled(true);
     controller.setCenterSnapEnabled(true);
+    controller.setGuideSnapEnabled(true);
     controller.setObjectSnapPriorityBeforeGrid(true);
     controller.setObjectSnapTolerancePreset("normal");
 
@@ -900,6 +905,10 @@ int main(int argc, char **argv)
     assert(nearlyEqual(guidePointer.value("snapped").toMap().value("x").toDouble(), 0.33));
     assert(nearlyEqual(guidePointer.value("snapped").toMap().value("y").toDouble(), 0.75));
     assert(guidePointerModel.value("drawing_objects").toList().size() == beforeGuidePointerObjects.size());
+    guidePointerController.setGuideSnapEnabled(false);
+    guidePointerController.updatePointerNormalized(0.34, 0.74);
+    guidePointer = guidePointerController.modelDocument().value("pointer").toMap();
+    assert(guidePointer.value("kind").toString() == "none");
 
     DrawingDocumentController invisibleSnapController;
     invisibleSnapController.setSelectedToolId("point_tool");

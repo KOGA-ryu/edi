@@ -31,6 +31,7 @@ public:
     bool vertexSnapEnabled() const;
     bool midpointSnapEnabled() const;
     bool centerSnapEnabled() const;
+    bool guideSnapEnabled() const;
     bool objectSnapPriorityBeforeGrid() const;
     QString gridPresetId() const;
     QString objectSnapTolerancePresetId() const;
@@ -43,6 +44,7 @@ public:
     void setVertexSnapEnabled(bool enabled);
     void setMidpointSnapEnabled(bool enabled);
     void setCenterSnapEnabled(bool enabled);
+    void setGuideSnapEnabled(bool enabled);
     void setObjectSnapPriorityBeforeGrid(bool enabled);
     void setObjectSnapTolerancePreset(QString presetId);
     void setGridPresetId(const QString &presetId);

@@ -665,6 +665,11 @@ bool DrawingDocumentController::centerSnapEnabled() const
     return m_snapSettings.centerEnabled;
 }
 
+bool DrawingDocumentController::guideSnapEnabled() const
+{
+    return m_snapSettings.guideEnabled;
+}
+
 bool DrawingDocumentController::objectSnapPriorityBeforeGrid() const
 {
     return m_snapSettings.objectPriorityBeforeGrid;
@@ -752,6 +757,15 @@ void DrawingDocumentController::setCenterSnapEnabled(bool enabled)
         return;
     }
     m_snapSettings.centerEnabled = enabled;
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGuideSnapEnabled(bool enabled)
+{
+    if (m_snapSettings.guideEnabled == enabled) {
+        return;
+    }
+    m_snapSettings.guideEnabled = enabled;
     emit modelChanged();
 }
 

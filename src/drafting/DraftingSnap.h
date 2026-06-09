@@ -30,6 +30,7 @@ struct DraftingSnapSettings {
     bool vertexEnabled = true;
     bool midpointEnabled = true;
     bool centerEnabled = true;
+    bool guideEnabled = true;
     double gridStep = 1.0 / 16.0;
     double gridStepX = 0.0;
     double gridStepY = 0.0;

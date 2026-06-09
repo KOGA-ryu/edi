@@ -77,6 +77,50 @@ std::vector<HandleDescriptor> circleHandles(const CanvasObjectView &object) {
     };
 }
 
+std::vector<HandleDescriptor> dimensionHandles(const CanvasObjectView &object) {
+    const double x1 = clamp01(object.number(QStringLiteral("x1")));
+    const double y1 = clamp01(object.number(QStringLiteral("y1")));
+    const double x2 = clamp01(object.number(QStringLiteral("x2")));
+    const double y2 = clamp01(object.number(QStringLiteral("y2")));
+    const double labelX = clamp01(object.number(QStringLiteral("label_x"), (x1 + x2) / 2.0));
+    const double labelY = clamp01(object.number(QStringLiteral("label_y"), (y1 + y2) / 2.0));
+    const double midpointX = clamp01((x1 + x2) / 2.0);
+    const double midpointY = clamp01((y1 + y2) / 2.0);
+    HandleDescriptor offset {
+        QStringLiteral("dimension_offset"),
+        QStringLiteral("offset"),
+        QStringLiteral("move"),
+        QStringLiteral("offset"),
+        {QStringLiteral("offset_px")},
+        labelX,
+        labelY
+    };
+    offset.anchorX = midpointX;
+    offset.anchorY = midpointY;
+    offset.hasAnchor = true;
+    return {
+        {
+            QStringLiteral("dimension_start"),
+            QStringLiteral("endpoint"),
+            QStringLiteral("resize"),
+            QStringLiteral("x1_y1"),
+            {QStringLiteral("x1_px"), QStringLiteral("y1_px")},
+            x1,
+            y1
+        },
+        {
+            QStringLiteral("dimension_end"),
+            QStringLiteral("endpoint"),
+            QStringLiteral("resize"),
+            QStringLiteral("x2_y2"),
+            {QStringLiteral("x2_px"), QStringLiteral("y2_px")},
+            x2,
+            y2
+        },
+        offset
+    };
+}
+
 std::vector<HandleDescriptor> readOnlyVertexHandles(const CanvasObjectView &object) {
     std::vector<HandleDescriptor> handles;
     const std::vector<CanvasPoint> points = object.points();
@@ -253,6 +297,9 @@ std::vector<HandleDescriptor> handlesForObject(const CanvasObjectView &object, c
     if (kind == QStringLiteral("circle") || kind == QStringLiteral("arc")) {
         return circleHandles(object);
     }
+    if (kind == QStringLiteral("dimension")) {
+        return dimensionHandles(object);
+    }
     if (isRectangleLike(kind)) {
         std::vector<HandleDescriptor> handles = rotatedRectCorners(object);
         handles.push_back(rotatedRectRotationHandle(object, settings));
@@ -328,6 +375,27 @@ HandleUpdatePlan handleUpdatePlan(const CanvasObjectView &object, const QString 
         const double dx = x - object.number(QStringLiteral("cx"));
         const double dy = y - object.number(QStringLiteral("cy"));
         return updatePlan({{QStringLiteral("radius_px"), rawNormalizedToPx(std::sqrt(dx * dx + dy * dy), settings)}});
+    }
+    if (kind == QStringLiteral("dimension") && handleId == QStringLiteral("dimension_start")) {
+        return updatePlan({{QStringLiteral("x1_px"), normalizedToPx(x, settings)}, {QStringLiteral("y1_px"), normalizedToPx(y, settings)}});
+    }
+    if (kind == QStringLiteral("dimension") && handleId == QStringLiteral("dimension_end")) {
+        return updatePlan({{QStringLiteral("x2_px"), normalizedToPx(x, settings)}, {QStringLiteral("y2_px"), normalizedToPx(y, settings)}});
+    }
+    if (kind == QStringLiteral("dimension") && handleId == QStringLiteral("dimension_offset")) {
+        const double x1 = object.number(QStringLiteral("x1"));
+        const double y1 = object.number(QStringLiteral("y1"));
+        const double x2 = object.number(QStringLiteral("x2"));
+        const double y2 = object.number(QStringLiteral("y2"));
+        const double dx = x2 - x1;
+        const double dy = y2 - y1;
+        const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+        const double midpointX = (x1 + x2) / 2.0;
+        const double midpointY = (y1 + y2) / 2.0;
+        const double nx = -dy / length;
+        const double ny = dx / length;
+        const double offset = (x - midpointX) * nx + (y - midpointY) * ny;
+        return updatePlan({{QStringLiteral("offset_px"), rawNormalizedToPx(offset, settings)}});
     }
     if (isRectangleLike(kind) && handleId == QStringLiteral("rect_rotate")) {
         return rectangleRotateUpdatePlan(object, point, settings);

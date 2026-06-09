@@ -14,7 +14,10 @@ enum class DraftingObjectEditKind {
     MoveRectangleCorner,
     RotateRectangle,
     MoveCircleCenter,
-    SetCircleRadius
+    SetCircleRadius,
+    MoveDimensionStart,
+    MoveDimensionEnd,
+    SetDimensionOffset
 };
 
 struct DraftingHandleDescriptor {

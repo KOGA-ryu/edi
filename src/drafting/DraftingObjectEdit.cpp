@@ -128,6 +128,67 @@ DraftingObjectEditResult applyRectangleEdit(const DraftingObject &object, const 
     return validatedEditResult(object, next);
 }
 
+Point2D dimensionMidpoint(const DimensionGeometry &dimension)
+{
+    return {
+        (dimension.a.x + dimension.b.x) / 2.0,
+        (dimension.a.y + dimension.b.y) / 2.0,
+    };
+}
+
+Point2D dimensionOffsetPoint(const DimensionGeometry &dimension)
+{
+    const double dx = dimension.b.x - dimension.a.x;
+    const double dy = dimension.b.y - dimension.a.y;
+    const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+    const Point2D midpoint = dimensionMidpoint(dimension);
+    return {
+        midpoint.x - dy / length * dimension.offset,
+        midpoint.y + dx / length * dimension.offset,
+    };
+}
+
+double dimensionOffsetFromPoint(const DimensionGeometry &dimension, Point2D point)
+{
+    const double dx = dimension.b.x - dimension.a.x;
+    const double dy = dimension.b.y - dimension.a.y;
+    const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+    const Point2D midpoint = dimensionMidpoint(dimension);
+    const double nx = -dy / length;
+    const double ny = dx / length;
+    return (point.x - midpoint.x) * nx + (point.y - midpoint.y) * ny;
+}
+
+DraftingObjectEditResult applyDimensionEdit(const DraftingObject &object, const DimensionGeometry &dimension, const DraftingObjectEdit &edit)
+{
+    if (!isFinite(edit.point)) {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "dimension edit point must be finite");
+    }
+
+    DimensionGeometry next = dimension;
+    if (edit.kind == DraftingObjectEditKind::MoveDimensionStart) {
+        next.a = edit.point;
+        if (next.kind == DimensionKind::Width) {
+            next.b.y = next.a.y;
+        } else if (next.kind == DimensionKind::Height) {
+            next.b.x = next.a.x;
+        }
+    } else if (edit.kind == DraftingObjectEditKind::MoveDimensionEnd) {
+        if (next.kind == DimensionKind::Width) {
+            next.b = {edit.point.x, next.a.y};
+        } else if (next.kind == DimensionKind::Height) {
+            next.b = {next.a.x, edit.point.y};
+        } else {
+            next.b = edit.point;
+        }
+    } else if (edit.kind == DraftingObjectEditKind::SetDimensionOffset) {
+        next.offset = dimensionOffsetFromPoint(next, edit.point);
+    } else {
+        return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to dimension geometry");
+    }
+    return validatedEditResult(object, next);
+}
+
 } // namespace
 
 DraftingObjectEditResult DraftingObjectEditResult::accepted(DraftingGeometry geometry, Bounds2D bounds)
@@ -189,6 +250,18 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"circle_center", "center", geometry.center},
                 {"circle_radius", "radius", {geometry.center.x + geometry.radius, geometry.center.y}},
             };
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            DraftingHandleDescriptor offset {
+                "dimension_offset",
+                "offset",
+                dimensionOffsetPoint(geometry),
+            };
+            offset.readOnly = false;
+            return {
+                {"dimension_start", "endpoint", geometry.a},
+                {"dimension_end", "endpoint", geometry.b},
+                offset,
+            };
         } else {
             return {};
         }
@@ -249,6 +322,15 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
     if (object.kind == DraftingShapeKind::Rectangle && handle.role == "corner") {
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveRectangleCorner, handleId, point});
     }
+    if (object.kind == DraftingShapeKind::Dimension && handleId == "dimension_start") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveDimensionStart, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Dimension && handleId == "dimension_end") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveDimensionEnd, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Dimension && handleId == "dimension_offset") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetDimensionOffset, handleId, point});
+    }
 
     return DraftingHandleEditPlan::rejected(DraftingResultCode::InvalidSelectionTarget, "handle cannot produce an edit for object");
 }
@@ -287,6 +369,8 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
                 return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to circle geometry");
             }
             return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            return applyDimensionEdit(object, geometry, edit);
         } else {
             return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidSelectionTarget, "shape has no editable handles yet");
         }

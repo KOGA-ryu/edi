@@ -87,6 +87,52 @@ int main()
     assert(rotatedRect != nullptr);
     assert(nearlyEqual(rotatedRect->rotationDeg, 180.0));
 
+    DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.2}, {0.5, 0.2}, 0.05});
+    auto dimensionHandles = draftingHandlesForObject(dimension);
+    assert(dimensionHandles.size() == 3);
+    assert(dimensionHandles[0].id == "dimension_start");
+    assert(dimensionHandles[1].id == "dimension_end");
+    assert(dimensionHandles[2].id == "dimension_offset");
+    assert(nearlyEqual(dimensionHandles[2].point.x, 0.3));
+    assert(nearlyEqual(dimensionHandles[2].point.y, 0.25));
+    auto dimensionEndPlan = handleEditPlan(dimension, "dimension_end", {0.8, 0.4});
+    assert(dimensionEndPlan.ok);
+    auto dimensionEndEdit = applyObjectEdit(dimension, dimensionEndPlan.edit);
+    assert(dimensionEndEdit.ok);
+    const auto *editedDimensionEnd = std::get_if<DimensionGeometry>(&dimensionEndEdit.geometry);
+    assert(editedDimensionEnd != nullptr);
+    assert(nearlyEqual(editedDimensionEnd->b.x, 0.8));
+    assert(nearlyEqual(editedDimensionEnd->b.y, 0.4));
+    auto dimensionOffsetPlan = handleEditPlan(dimension, "dimension_offset", {0.3, 0.35});
+    assert(dimensionOffsetPlan.ok);
+    auto dimensionOffsetEdit = applyObjectEdit(dimension, dimensionOffsetPlan.edit);
+    assert(dimensionOffsetEdit.ok);
+    const auto *editedDimensionOffset = std::get_if<DimensionGeometry>(&dimensionOffsetEdit.geometry);
+    assert(editedDimensionOffset != nullptr);
+    assert(nearlyEqual(editedDimensionOffset->offset, 0.15));
+
+    DraftingObject widthDimension = object("dimension_width", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Width, {0.1, 0.2}, {0.5, 0.2}, 0.05});
+    auto widthEndPlan = handleEditPlan(widthDimension, "dimension_end", {0.8, 0.9});
+    assert(widthEndPlan.ok);
+    auto widthEndEdit = applyObjectEdit(widthDimension, widthEndPlan.edit);
+    assert(widthEndEdit.ok);
+    const auto *editedWidthDimension = std::get_if<DimensionGeometry>(&widthEndEdit.geometry);
+    assert(editedWidthDimension != nullptr);
+    assert(editedWidthDimension->kind == DimensionKind::Width);
+    assert(nearlyEqual(editedWidthDimension->b.x, 0.8));
+    assert(nearlyEqual(editedWidthDimension->b.y, 0.2));
+
+    DraftingObject heightDimension = object("dimension_height", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Height, {0.1, 0.2}, {0.1, 0.5}, 0.05});
+    auto heightEndPlan = handleEditPlan(heightDimension, "dimension_end", {0.8, 0.9});
+    assert(heightEndPlan.ok);
+    auto heightEndEdit = applyObjectEdit(heightDimension, heightEndPlan.edit);
+    assert(heightEndEdit.ok);
+    const auto *editedHeightDimension = std::get_if<DimensionGeometry>(&heightEndEdit.geometry);
+    assert(editedHeightDimension != nullptr);
+    assert(editedHeightDimension->kind == DimensionKind::Height);
+    assert(nearlyEqual(editedHeightDimension->b.x, 0.1));
+    assert(nearlyEqual(editedHeightDimension->b.y, 0.9));
+
     DraftingObject polygon = object("polygon_1", DraftingShapeKind::Polygon, PolygonGeometry{{{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}}});
     assert(draftingHandlesForObject(polygon).empty());
     assert(!handleEditPlan(polygon, "vertex_0", {0.5, 0.5}).ok);

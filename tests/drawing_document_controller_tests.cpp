@@ -1150,6 +1150,39 @@ int main(int argc, char **argv)
     nonDimensionKindController.clickCanvasNormalized(0.2, 0.2);
     assert(!nonDimensionKindController.setSelectedDimensionKind("width"));
 
+    DrawingDocumentController dimensionHandleController;
+    dimensionHandleController.setSelectedToolId("distance_dimension_tool");
+    dimensionHandleController.clickCanvasNormalized(0.1, 0.2);
+    dimensionHandleController.clickCanvasNormalized(0.5, 0.2);
+    assert(dimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.8, 0.4));
+    QVariantMap handleDimension = dimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(handleDimension.value("x2").toDouble(), 0.8));
+    assert(nearlyEqual(handleDimension.value("y2").toDouble(), 0.4));
+    assert(dimensionHandleController.editSelectedHandleNormalized("dimension_offset", 0.45, 0.45));
+    handleDimension = dimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(handleDimension.value("offset").toDouble() > 0.0);
+    assert(!dimensionHandleController.editSelectedHandleNormalized("dimension_missing", 0.2, 0.2));
+
+    DrawingDocumentController widthDimensionHandleController;
+    widthDimensionHandleController.setSelectedToolId("width_dimension_tool");
+    widthDimensionHandleController.clickCanvasNormalized(0.1, 0.2);
+    widthDimensionHandleController.clickCanvasNormalized(0.5, 0.8);
+    assert(widthDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
+    QVariantMap widthHandleDimension = widthDimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(widthHandleDimension.value("dimension_kind").toString() == "width");
+    assert(nearlyEqual(widthHandleDimension.value("x2").toDouble(), 0.9));
+    assert(nearlyEqual(widthHandleDimension.value("y2").toDouble(), 0.2));
+
+    DrawingDocumentController heightDimensionHandleController;
+    heightDimensionHandleController.setSelectedToolId("height_dimension_tool");
+    heightDimensionHandleController.clickCanvasNormalized(0.1, 0.2);
+    heightDimensionHandleController.clickCanvasNormalized(0.5, 0.8);
+    assert(heightDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
+    QVariantMap heightHandleDimension = heightDimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(heightHandleDimension.value("dimension_kind").toString() == "height");
+    assert(nearlyEqual(heightHandleDimension.value("x2").toDouble(), 0.1));
+    assert(nearlyEqual(heightHandleDimension.value("y2").toDouble(), 0.9));
+
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
     objectSnapController.clickCanvasNormalized(0.25, 0.25);

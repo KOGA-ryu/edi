@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "canvas/DrawingCanvasGestureState.h"
-#include "canvas/DrawingCanvasHandles.h"
+#include "canvas/DrawingCanvasTypes.h"
 #include "core/DrawingCore.h"
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -323,20 +323,7 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
         return bestId;
     }
 
-    const QRectF board = boardRect();
-    QVariantMap settings;
-    settings.insert(QStringLiteral("canvasSizePx"), 512.0);
-    settings.insert(QStringLiteral("rotateHandleOffsetPx"), 28.0);
-    settings.insert(QStringLiteral("handleHitTolerancePx"), 14.0);
-    settings.insert(QStringLiteral("rotateHandleHitTolerancePx"), 18.0);
-
-    const drawing_canvas::HitResult hit = drawing_canvas::hitHandleAt(
-        drawing_canvas::CanvasObjectView{object},
-        screenPoint.x(),
-        screenPoint.y(),
-        drawing_canvas::BoardBounds{board.x(), board.y(), board.width()},
-        settings);
-    return hit.ok && hit.kind == QStringLiteral("handle") ? hit.objectId : QString();
+    return {};
 }
 
 void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const
@@ -900,18 +887,4 @@ void DrawingCanvasWidget::drawSelectedHandles(QPainter &painter, const QVariantM
         return;
     }
 
-    QVariantMap settings;
-    settings.insert(QStringLiteral("canvasSizePx"), 512.0);
-    settings.insert(QStringLiteral("rotateHandleOffsetPx"), 28.0);
-    const drawing_canvas::CanvasObjectView objectView{object};
-    painter.setPen(QPen(QColor("#1d1f26"), 2));
-    painter.setBrush(QColor("#f6c65b"));
-    for (const drawing_canvas::HandleDescriptor &handle : drawing_canvas::visibleHandlesForObject(objectView, settings)) {
-        const QPointF point = canvasToScreen(handle.x, handle.y);
-        if (handle.hasAnchor) {
-            painter.drawLine(canvasToScreen(handle.anchorX, handle.anchorY), point);
-        }
-        const double size = handle.role == QStringLiteral("rotate") ? 10.0 : 8.0;
-        painter.drawEllipse(QRectF(point.x() - size * 0.5, point.y() - size * 0.5, size, size));
-    }
 }

@@ -25,6 +25,8 @@ bool draftingObjectLayerLocked(const DraftingDocument &document, const DraftingO
 bool draftingObjectEffectivelyVisible(const DraftingDocument &document, const DraftingObject &object);
 bool draftingObjectEffectivelyEditable(const DraftingDocument &document, const DraftingObject &object);
 bool draftingObjectUsableAsBoundsSource(const DraftingDocument &document, const DraftingObject &object);
+bool draftingLayerAcceptsNewObjects(const DraftingDocument &document, const LayerId &layerId);
+bool activeDraftingLayerAcceptsNewObjects(const DraftingDocument &document);
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId);
 LayerPlotStyle layerPlotStyleForWidthPreset(LayerPlotStyle plot, const std::string &presetId);
 std::optional<int> layerMoveDeltaFromDirection(const std::string &direction);

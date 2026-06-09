@@ -1438,8 +1438,7 @@ bool DrawingDocumentController::distributeSelection(const QString &axisId)
 
 bool DrawingDocumentController::createCalibrationPattern(const QString &patternId)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr || layer->locked) {
+    if (!activeDraftingLayerAcceptsNewObjects(m_document)) {
         return false;
     }
 
@@ -1819,8 +1818,7 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
 
 bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
 {
-    const DraftingLayer *activeLayer = findLayer(m_document, m_document.activeLayerId);
-    if (activeLayer == nullptr || activeLayer->locked) {
+    if (!activeDraftingLayerAcceptsNewObjects(m_document)) {
         return false;
     }
 

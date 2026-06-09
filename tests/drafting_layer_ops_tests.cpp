@@ -54,6 +54,16 @@ int main()
     assert(addObject(document, guideObject.object).ok);
     assert(draftingObjectEffectivelyEditable(document, document.objects.back()));
     assert(!draftingObjectUsableAsBoundsSource(document, document.objects.back()));
+    assert(draftingLayerAcceptsNewObjects(document, "default"));
+    assert(activeDraftingLayerAcceptsNewObjects(document));
+    document.layers.front().locked = true;
+    assert(!draftingLayerAcceptsNewObjects(document, "default"));
+    assert(!activeDraftingLayerAcceptsNewObjects(document));
+    document.layers.front().locked = false;
+    assert(!draftingLayerAcceptsNewObjects(document, "missing_layer"));
+    document.activeLayerId = "missing_layer";
+    assert(!activeDraftingLayerAcceptsNewObjects(document));
+    document.activeLayerId = "default";
 
     LayerPlotStyle plot;
     plot.plotEnabled = false;

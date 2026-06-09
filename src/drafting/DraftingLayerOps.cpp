@@ -84,6 +84,17 @@ bool draftingObjectUsableAsBoundsSource(const DraftingDocument &document, const 
         && isFinite(object.bounds);
 }
 
+bool draftingLayerAcceptsNewObjects(const DraftingDocument &document, const LayerId &layerId)
+{
+    const DraftingLayer *layer = findLayer(document, layerId);
+    return layer != nullptr && !layer->locked;
+}
+
+bool activeDraftingLayerAcceptsNewObjects(const DraftingDocument &document)
+{
+    return draftingLayerAcceptsNewObjects(document, document.activeLayerId);
+}
+
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId)
 {
     if (presetId == "pen_blue") {

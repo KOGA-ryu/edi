@@ -438,10 +438,12 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
+    m_plotValue = makeValueLabel();
     m_pointerValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
+    layout->addWidget(m_plotValue);
     layout->addWidget(m_pointerValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);
@@ -949,6 +951,7 @@ void EdiShellWindow::refreshInspector()
     const QVariantList selected = document.value(QStringLiteral("selected_object_ids")).toList();
     const QVariantMap snap = document.value(QStringLiteral("snap")).toMap();
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
+    const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
     const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
     const QVariantMap selectedObject = activeObjectProjection(document);
     const QVariantList layers = document.value(QStringLiteral("layers")).toList();
@@ -1073,6 +1076,16 @@ void EdiShellWindow::refreshInspector()
             .arg(formatNumber(grid.value(QStringLiteral("height")).toDouble()))
             .arg(grid.value(QStringLiteral("unit_label")).toString())
             .arg(formatNumber(grid.value(QStringLiteral("minor_step")).toDouble())));
+    }
+    if (m_plotValue != nullptr) {
+        const bool blocked = plot.value(QStringLiteral("blocked")).toBool();
+        m_plotValue->setText(blocked
+            ? QStringLiteral("Plot: %1 objects, %2 warnings, first %3")
+                .arg(plot.value(QStringLiteral("plot_object_count")).toInt())
+                .arg(plot.value(QStringLiteral("warning_count")).toInt())
+                .arg(plot.value(QStringLiteral("first_warning_object_id")).toString())
+            : QStringLiteral("Plot: %1 objects, ready")
+                .arg(plot.value(QStringLiteral("plot_object_count")).toInt()));
     }
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {

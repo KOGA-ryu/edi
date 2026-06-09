@@ -10,6 +10,7 @@
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingOffset.h"
+#include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
@@ -225,6 +226,27 @@ QVariantMap pointerProjectionToMap(Point2D rawPoint,
     };
 }
 
+QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
+{
+    QVariantList warnings;
+    for (const DraftingPlotWarning &warning : plan.warnings) {
+        warnings.push_back(QVariantMap{
+            {QStringLiteral("object_id"), drawing_core::qStringFromStdString(warning.objectId)},
+            {QStringLiteral("kind"), drawing_core::qStringFromStdString(warning.kind)},
+            {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
+        });
+    }
+
+    return {
+        {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
+        {QStringLiteral("warning_count"), static_cast<int>(plan.warnings.size())},
+        {QStringLiteral("blocked"), !plan.warnings.empty()},
+        {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
+        {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
+        {QStringLiteral("warnings"), warnings},
+    };
+}
+
 double nudgeScaleForMode(const QString &stepMode)
 {
     if (stepMode == QStringLiteral("fine")) {
@@ -292,6 +314,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
     QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, m_previewObject ? &*m_previewObject : nullptr);
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
+    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(buildDraftingPlotPlan(m_document, grid)));
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
     }

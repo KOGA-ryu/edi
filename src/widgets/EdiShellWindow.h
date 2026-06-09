@@ -91,6 +91,7 @@ private:
     QLabel *m_revisionValue = nullptr;
     QLabel *m_snapValue = nullptr;
     QLabel *m_gridValue = nullptr;
+    QLabel *m_plotValue = nullptr;
     QLabel *m_pointerValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;

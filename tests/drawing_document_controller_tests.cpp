@@ -547,11 +547,17 @@ int main(int argc, char **argv)
     assert(layerPlotPoint.value("effective_pen_id").toString() == "pen_blue");
     assert(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
     assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
+    QVariantMap layerPlotSummary = layerPlotModel.value("plot_summary").toMap();
+    assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    assert(layerPlotSummary.value("warning_count").toInt() == 0);
+    assert(!layerPlotSummary.value("blocked").toBool());
     assert(layerPlotController.setActiveLayerPlotEnabled(false));
     layerPlotPoint = layerPlotController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(!layerPlotPoint.value("effective_plot_enabled").toBool());
     assert(!layerPlotPoint.value("effective_plot_ready").toBool());
     assert(!layerPlotPoint.value("plot_ready").toBool());
+    layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
+    assert(layerPlotSummary.value("plot_object_count").toInt() == 0);
     assert(layerPlotController.setActiveLayerPlotEnabled(true));
     layerPlotController.setSelectedToolId("horizontal_guide_tool");
     layerPlotController.clickCanvasNormalized(0.4, 0.4);
@@ -560,6 +566,15 @@ int main(int argc, char **argv)
     assert(layerPlotGuide.value("effective_plot_enabled").toBool());
     assert(!layerPlotGuide.value("effective_plot_ready").toBool());
     assert(!layerPlotGuide.value("plot_ready").toBool());
+    layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
+    assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    layerPlotController.setSelectedToolId("point_tool");
+    layerPlotController.clickCanvasNormalized(0.0, 0.0);
+    layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
+    assert(layerPlotSummary.value("plot_object_count").toInt() == 2);
+    assert(layerPlotSummary.value("warning_count").toInt() == 1);
+    assert(layerPlotSummary.value("blocked").toBool());
+    assert(!layerPlotSummary.value("first_warning_object_id").toString().isEmpty());
 
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");

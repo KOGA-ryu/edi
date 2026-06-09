@@ -123,6 +123,15 @@ int main(int argc, char **argv)
     assert(letterPointPhysical.value("unit_label").toString() == "in");
     assert(nearlyEqual(letterPointPhysical.value("x").toDouble(), 0.3 * 8.5));
     assert(nearlyEqual(letterPointPhysical.value("y").toDouble(), 0.35 * 11.0));
+    DrawingDocumentController physicalPointController;
+    physicalPointController.setSelectedToolId("point_tool");
+    physicalPointController.clickCanvasNormalized(0.25, 0.5);
+    physicalPointController.setGridPresetId("letter");
+    assert(physicalPointController.updateSelectedObjectPhysicalGeometryField("x", 4.25));
+    assert(physicalPointController.updateSelectedObjectPhysicalGeometryField("y", 5.5));
+    QVariantMap physicalEditedPoint = physicalPointController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(physicalEditedPoint.value("x").toDouble(), 0.5));
+    assert(nearlyEqual(physicalEditedPoint.value("y").toDouble(), 0.5));
 
     controller.setSelectedToolId("line_tool");
     controller.clickCanvasNormalized(0.1, 0.2);
@@ -1029,6 +1038,11 @@ int main(int argc, char **argv)
     assert(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
     QVariantMap numericRectAfterInvalid = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
+    assert(numericRectController.updateSelectedObjectPhysicalGeometryField("width", 3.0));
+    assert(numericRectController.updateSelectedObjectPhysicalGeometryField("height", 6.0));
+    QVariantMap physicalRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(physicalRect.value("width").toDouble(), 0.25));
+    assert(nearlyEqual(physicalRect.value("height").toDouble(), 0.5));
 
     DrawingDocumentController numericCircleController;
     numericCircleController.setSelectedToolId("circle_tool");
@@ -1064,6 +1078,13 @@ int main(int argc, char **argv)
     QVariantMap numericCircleAfterInvalid = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericCircleAfterInvalid.value("radius").toDouble(), 0.25));
     assert(nearlyEqual(numericCircleAfterInvalid.value("diameter").toDouble(), 0.5));
+    assert(numericCircleController.updateSelectedObjectPhysicalGeometryField("radius", 3.0));
+    QVariantMap physicalCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(physicalCircle.value("radius").toDouble(), 0.25));
+    assert(nearlyEqual(physicalCircle.value("diameter").toDouble(), 0.5));
+    const int circleRevisionBeforePhysicalInvalid = numericCircleController.modelDocument().value("revision").toInt();
+    assert(!numericCircleController.updateSelectedObjectPhysicalGeometryField("diameter", -1.0));
+    assert(numericCircleController.modelDocument().value("revision").toInt() == circleRevisionBeforePhysicalInvalid);
 
     DrawingDocumentController numericLineController;
     numericLineController.setSelectedToolId("line_tool");
@@ -1088,20 +1109,21 @@ int main(int argc, char **argv)
     assert(nearlyEqual(numericLinePhysical.value("line_angle_deg").toDouble(), 53.1301023542));
     assert(nearlyEqual(numericLine.value("line_length").toDouble(), 0.5));
     assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 53.1301023542));
-    assert(numericLineController.updateSelectedObjectGeometryField("line_length", 1.0));
+    assert(numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", 12.0));
     numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericLine.value("x1").toDouble(), 0.1));
     assert(nearlyEqual(numericLine.value("y1").toDouble(), 0.2));
     assert(nearlyEqual(numericLine.value("x2").toDouble(), 0.7));
     assert(nearlyEqual(numericLine.value("y2").toDouble(), 1.0));
     assert(nearlyEqual(numericLine.value("line_length").toDouble(), 1.0));
-    assert(numericLineController.updateSelectedObjectGeometryField("line_angle_deg", 0.0));
+    assert(numericLineController.updateSelectedObjectPhysicalGeometryField("line_angle_deg", 0.0));
     numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(numericLine.value("x2").toDouble(), 1.1));
     assert(nearlyEqual(numericLine.value("y2").toDouble(), 0.2));
     assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 0.0));
     const int lineRevisionBeforeInvalid = numericLineController.modelDocument().value("revision").toInt();
     assert(!numericLineController.updateSelectedObjectGeometryField("line_length", -0.1));
+    assert(!numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", -1.0));
     assert(!numericLineController.updateSelectedObjectGeometryField("line_angle_deg", std::numeric_limits<double>::infinity()));
     assert(numericLineController.modelDocument().value("revision").toInt() == lineRevisionBeforeInvalid);
 

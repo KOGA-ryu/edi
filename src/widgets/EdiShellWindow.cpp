@@ -1167,11 +1167,32 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
         layout->addWidget(spin, row, 1);
         if (physicalGeometry.contains(fieldId)) {
             const bool angleValue = fieldId == QStringLiteral("line_angle_deg") || fieldId == QStringLiteral("rotation_deg");
-            auto *physicalLabel = new QLabel(QStringLiteral("%1 %2")
-                .arg(formatNumber(physicalGeometry.value(fieldId).toDouble()))
-                .arg(angleValue ? QStringLiteral("deg") : unitLabel));
+            auto *physicalSpin = new QDoubleSpinBox;
+            physicalSpin->setObjectName(QStringLiteral("geometryField"));
+            physicalSpin->setDecimals(angleValue ? 2 : field.value(QStringLiteral("decimals"), 4).toInt());
+            physicalSpin->setSingleStep(angleValue ? 1.0 : field.value(QStringLiteral("step"), 0.01).toDouble());
+            if (fieldId == QStringLiteral("width")
+                || fieldId == QStringLiteral("height")
+                || fieldId == QStringLiteral("radius")
+                || fieldId == QStringLiteral("diameter")
+                || fieldId == QStringLiteral("line_length")) {
+                physicalSpin->setRange(0.0, 100000.0);
+            } else if (angleValue) {
+                physicalSpin->setRange(-360.0, 360.0);
+            } else {
+                physicalSpin->setRange(-100000.0, 100000.0);
+            }
+            physicalSpin->setValue(physicalGeometry.value(fieldId).toDouble());
+            physicalSpin->setProperty("fieldId", fieldId);
+            connect(physicalSpin, &QDoubleSpinBox::editingFinished, this, [this, physicalSpin]() {
+                if (!m_controller->updateSelectedObjectPhysicalGeometryField(physicalSpin->property("fieldId").toString(), physicalSpin->value())) {
+                    refreshInspector();
+                }
+            });
+            auto *physicalLabel = new QLabel(angleValue ? QStringLiteral("deg") : unitLabel);
             physicalLabel->setObjectName(QStringLiteral("valueLabel"));
-            layout->addWidget(physicalLabel, row, 2);
+            layout->addWidget(physicalSpin, row, 2);
+            layout->addWidget(physicalLabel, row, 3);
         }
         m_geometryFields.insert(fieldId, spin);
         ++row;

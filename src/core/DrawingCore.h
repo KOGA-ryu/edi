@@ -50,6 +50,7 @@ public:
     void setPlotDirectionModeId(const QString &modeId);
     void updatePointerNormalized(double x, double y);
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
+    bool updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value);
     bool setSelectedObjectLocked(bool locked);
     bool setSelectedObjectVisible(bool visible);
     bool setDefaultLayerLocked(bool locked);

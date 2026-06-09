@@ -763,6 +763,93 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
     return true;
 }
 
+bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value)
+{
+    if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
+        return false;
+    }
+
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const double width = grid.settings.width;
+    const double height = grid.settings.height;
+    if (!std::isfinite(width) || !std::isfinite(height) || width <= 0.0 || height <= 0.0) {
+        return false;
+    }
+
+    if (fieldId == QStringLiteral("line_length") || fieldId == QStringLiteral("line_angle_deg")) {
+        const auto *line = std::get_if<LineGeometry>(&object->geometry);
+        if (object->kind != DraftingShapeKind::Line || line == nullptr) {
+            return false;
+        }
+
+        const double ax = line->a.x * width;
+        const double ay = line->a.y * height;
+        const double bx = line->b.x * width;
+        const double by = line->b.y * height;
+        const double dx = bx - ax;
+        const double dy = by - ay;
+        constexpr double pi = 3.14159265358979323846;
+        const double currentLength = std::sqrt(dx * dx + dy * dy);
+        const double angle = fieldId == QStringLiteral("line_angle_deg")
+            ? value * pi / 180.0
+            : std::atan2(dy, dx);
+        const double length = fieldId == QStringLiteral("line_length") ? value : currentLength;
+        if (!std::isfinite(angle) || !std::isfinite(length) || length < 0.0) {
+            return false;
+        }
+
+        const double normalizedX2 = (ax + std::cos(angle) * length) / width;
+        const double normalizedY2 = (ay + std::sin(angle) * length) / height;
+        const DraftingNumericEditResult xEdit = applyNumericGeometryEdit(*object, "x2", normalizedX2);
+        if (!xEdit.ok) {
+            return false;
+        }
+        DraftingObject partiallyEdited = *object;
+        partiallyEdited.geometry = xEdit.geometry;
+        const DraftingNumericEditResult yEdit = applyNumericGeometryEdit(partiallyEdited, "y2", normalizedY2);
+        if (!yEdit.ok) {
+            return false;
+        }
+        const DraftingCommandResult result = applyDraftingCommand(
+            m_document,
+            UpdateGeometryCommand{*m_document.activeObjectId, yEdit.geometry});
+        if (!result.ok) {
+            return false;
+        }
+
+        emit modelChanged();
+        return true;
+    }
+
+    double normalizedValue = value;
+    if (fieldId == QStringLiteral("x")
+        || fieldId == QStringLiteral("cx")
+        || fieldId == QStringLiteral("x1")
+        || fieldId == QStringLiteral("x2")
+        || fieldId == QStringLiteral("width")
+        || fieldId == QStringLiteral("radius")
+        || fieldId == QStringLiteral("diameter")) {
+        normalizedValue = value / width;
+    } else if (fieldId == QStringLiteral("y")
+        || fieldId == QStringLiteral("cy")
+        || fieldId == QStringLiteral("y1")
+        || fieldId == QStringLiteral("y2")
+        || fieldId == QStringLiteral("height")) {
+        normalizedValue = value / height;
+    } else if (fieldId == QStringLiteral("rotation_deg")) {
+        normalizedValue = value;
+    } else {
+        return false;
+    }
+
+    return updateSelectedObjectGeometryField(fieldId, normalizedValue);
+}
+
 bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
 {
     if (!m_document.activeObjectId) {

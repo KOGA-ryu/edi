@@ -14,6 +14,7 @@ class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
 class QPushButton;
+class QSpinBox;
 class QWidget;
 
 class DrawingCanvasWidget;
@@ -58,6 +59,16 @@ private:
     QButtonGroup *m_activityGroup = nullptr;
     QButtonGroup *m_toolGroup = nullptr;
     QComboBox *m_gridPreset = nullptr;
+    QComboBox *m_gridUnit = nullptr;
+    QDoubleSpinBox *m_gridWidth = nullptr;
+    QDoubleSpinBox *m_gridHeight = nullptr;
+    QDoubleSpinBox *m_gridMarginLeft = nullptr;
+    QDoubleSpinBox *m_gridMarginTop = nullptr;
+    QDoubleSpinBox *m_gridMarginRight = nullptr;
+    QDoubleSpinBox *m_gridMarginBottom = nullptr;
+    QDoubleSpinBox *m_gridMinorStep = nullptr;
+    QSpinBox *m_gridMajorEvery = nullptr;
+    QCheckBox *m_gridVisible = nullptr;
     QCheckBox *m_gridSnap = nullptr;
     QCheckBox *m_objectSnap = nullptr;
     QCheckBox *m_endpointSnap = nullptr;

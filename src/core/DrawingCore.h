@@ -46,6 +46,12 @@ public:
     void setObjectSnapPriorityBeforeGrid(bool enabled);
     void setObjectSnapTolerancePreset(QString presetId);
     void setGridPresetId(const QString &presetId);
+    void setGridUnitId(const QString &unitId);
+    void setGridSize(double width, double height);
+    void setGridMargins(double left, double top, double right, double bottom);
+    void setGridStep(double minorStep);
+    void setGridMajorLineEvery(int majorLineEvery);
+    void setGridVisible(bool visible);
     void setPlotOrderModeId(const QString &modeId);
     void setPlotDirectionModeId(const QString &modeId);
     void updatePointerNormalized(double x, double y);

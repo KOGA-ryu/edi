@@ -142,6 +142,10 @@ QVariantMap gridProjectionToMap(const DraftingGridProjection &grid)
         {QStringLiteral("unit_label"), QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit))},
         {QStringLiteral("width"), grid.settings.width},
         {QStringLiteral("height"), grid.settings.height},
+        {QStringLiteral("margin_left"), grid.settings.marginLeft},
+        {QStringLiteral("margin_top"), grid.settings.marginTop},
+        {QStringLiteral("margin_right"), grid.settings.marginRight},
+        {QStringLiteral("margin_bottom"), grid.settings.marginBottom},
         {QStringLiteral("minor_step"), grid.settings.minorStep},
         {QStringLiteral("major_line_every"), grid.settings.majorLineEvery},
         {QStringLiteral("visible"), grid.settings.visible},
@@ -180,6 +184,24 @@ double toleranceForPreset(const QString &presetId)
         return 0.06;
     }
     return 0.03;
+}
+
+DraftingGridUnit gridUnitFromId(const QString &unitId)
+{
+    const std::string id = unitId.toStdString();
+    if (id == "millimeter") {
+        return DraftingGridUnit::Millimeter;
+    }
+    if (id == "centimeter") {
+        return DraftingGridUnit::Centimeter;
+    }
+    if (id == "inch") {
+        return DraftingGridUnit::Inch;
+    }
+    if (id == "foot") {
+        return DraftingGridUnit::Foot;
+    }
+    return DraftingGridUnit::CanvasUnit;
 }
 
 bool pointInsideBounds(Point2D point, Bounds2D bounds)
@@ -702,6 +724,70 @@ void DrawingDocumentController::setGridPresetId(const QString &presetId)
         return;
     }
     m_gridSettings = draftingGridPresetSettings(preset);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridUnitId(const QString &unitId)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.unit = gridUnitFromId(unitId);
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridSize(double width, double height)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.width = width;
+    settings.height = height;
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridMargins(double left, double top, double right, double bottom)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.marginLeft = left;
+    settings.marginTop = top;
+    settings.marginRight = right;
+    settings.marginBottom = bottom;
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridStep(double minorStep)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.minorStep = minorStep;
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridMajorLineEvery(int majorLineEvery)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.majorLineEvery = majorLineEvery;
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
+    applyGridToSnap(m_snapSettings, m_gridSettings);
+    emit modelChanged();
+}
+
+void DrawingDocumentController::setGridVisible(bool visible)
+{
+    DraftingGridSettings settings = m_gridSettings;
+    settings.preset = DraftingGridPreset::Custom;
+    settings.visible = visible;
+    m_gridSettings = sanitizeDraftingGridSettings(settings);
     applyGridToSnap(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }

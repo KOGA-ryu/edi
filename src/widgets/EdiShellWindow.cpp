@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QSpinBox>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -461,14 +462,71 @@ QWidget *EdiShellWindow::buildLeftPanel()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = new QComboBox;
+    m_gridPreset->setObjectName(QStringLiteral("controlInput"));
     m_gridPreset->addItem(QStringLiteral("Square art board"), QStringLiteral("square_art_board"));
     m_gridPreset->addItem(QStringLiteral("Letter"), QStringLiteral("letter"));
     m_gridPreset->addItem(QStringLiteral("A4"), QStringLiteral("a4"));
+    m_gridPreset->addItem(QStringLiteral("Custom"), QStringLiteral("custom"));
     const int presetIndex = m_gridPreset->findData(m_controller->gridPresetId());
     if (presetIndex >= 0) {
         m_gridPreset->setCurrentIndex(presetIndex);
     }
     layout->addWidget(m_gridPreset);
+
+    auto *gridSettingsLayout = new QGridLayout;
+    gridSettingsLayout->setContentsMargins(0, 0, 0, 0);
+    gridSettingsLayout->setHorizontalSpacing(6);
+    gridSettingsLayout->setVerticalSpacing(6);
+
+    m_gridUnit = new QComboBox;
+    m_gridUnit->setObjectName(QStringLiteral("controlInput"));
+    m_gridUnit->addItem(QStringLiteral("cu"), QStringLiteral("canvas_unit"));
+    m_gridUnit->addItem(QStringLiteral("mm"), QStringLiteral("millimeter"));
+    m_gridUnit->addItem(QStringLiteral("cm"), QStringLiteral("centimeter"));
+    m_gridUnit->addItem(QStringLiteral("in"), QStringLiteral("inch"));
+    m_gridUnit->addItem(QStringLiteral("ft"), QStringLiteral("foot"));
+
+    auto makeGridSpin = []() {
+        auto *spin = new QDoubleSpinBox;
+        spin->setObjectName(QStringLiteral("geometryField"));
+        spin->setDecimals(4);
+        spin->setSingleStep(0.25);
+        spin->setRange(0.0, 100000.0);
+        return spin;
+    };
+    m_gridWidth = makeGridSpin();
+    m_gridHeight = makeGridSpin();
+    m_gridMarginLeft = makeGridSpin();
+    m_gridMarginTop = makeGridSpin();
+    m_gridMarginRight = makeGridSpin();
+    m_gridMarginBottom = makeGridSpin();
+    m_gridMinorStep = makeGridSpin();
+    m_gridMinorStep->setMinimum(0.0001);
+    m_gridMajorEvery = new QSpinBox;
+    m_gridMajorEvery->setObjectName(QStringLiteral("geometryField"));
+    m_gridMajorEvery->setRange(1, 1000);
+    m_gridVisible = new QCheckBox(QStringLiteral("Visible"));
+
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("Unit")), 0, 0);
+    gridSettingsLayout->addWidget(m_gridUnit, 0, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("W")), 1, 0);
+    gridSettingsLayout->addWidget(m_gridWidth, 1, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("H")), 2, 0);
+    gridSettingsLayout->addWidget(m_gridHeight, 2, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("ML")), 3, 0);
+    gridSettingsLayout->addWidget(m_gridMarginLeft, 3, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("MT")), 4, 0);
+    gridSettingsLayout->addWidget(m_gridMarginTop, 4, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("MR")), 5, 0);
+    gridSettingsLayout->addWidget(m_gridMarginRight, 5, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("MB")), 6, 0);
+    gridSettingsLayout->addWidget(m_gridMarginBottom, 6, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("Step")), 7, 0);
+    gridSettingsLayout->addWidget(m_gridMinorStep, 7, 1);
+    gridSettingsLayout->addWidget(new QLabel(QStringLiteral("Major")), 8, 0);
+    gridSettingsLayout->addWidget(m_gridMajorEvery, 8, 1);
+    gridSettingsLayout->addWidget(m_gridVisible, 9, 0, 1, 2);
+    layout->addLayout(gridSettingsLayout);
 
     m_gridSnap = new QCheckBox(QStringLiteral("Grid snap"));
     m_gridSnap->setChecked(m_controller->gridSnapEnabled());
@@ -504,6 +562,33 @@ QWidget *EdiShellWindow::buildLeftPanel()
     connect(m_gridPreset, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
         m_controller->setGridPresetId(m_gridPreset->itemData(index).toString());
     });
+    connect(m_gridUnit, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
+        m_controller->setGridUnitId(m_gridUnit->itemData(index).toString());
+    });
+    connect(m_gridWidth, &QDoubleSpinBox::editingFinished, m_controller, [this]() {
+        m_controller->setGridSize(m_gridWidth->value(), m_gridHeight->value());
+    });
+    connect(m_gridHeight, &QDoubleSpinBox::editingFinished, m_controller, [this]() {
+        m_controller->setGridSize(m_gridWidth->value(), m_gridHeight->value());
+    });
+    const auto applyGridMargins = [this]() {
+        m_controller->setGridMargins(
+            m_gridMarginLeft->value(),
+            m_gridMarginTop->value(),
+            m_gridMarginRight->value(),
+            m_gridMarginBottom->value());
+    };
+    connect(m_gridMarginLeft, &QDoubleSpinBox::editingFinished, m_controller, applyGridMargins);
+    connect(m_gridMarginTop, &QDoubleSpinBox::editingFinished, m_controller, applyGridMargins);
+    connect(m_gridMarginRight, &QDoubleSpinBox::editingFinished, m_controller, applyGridMargins);
+    connect(m_gridMarginBottom, &QDoubleSpinBox::editingFinished, m_controller, applyGridMargins);
+    connect(m_gridMinorStep, &QDoubleSpinBox::editingFinished, m_controller, [this]() {
+        m_controller->setGridStep(m_gridMinorStep->value());
+    });
+    connect(m_gridMajorEvery, &QSpinBox::editingFinished, m_controller, [this]() {
+        m_controller->setGridMajorLineEvery(m_gridMajorEvery->value());
+    });
+    connect(m_gridVisible, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridVisible);
     connect(m_gridSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridSnapEnabled);
     connect(m_objectSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapEnabled);
     connect(m_endpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setEndpointSnapEnabled);
@@ -1312,6 +1397,52 @@ void EdiShellWindow::refreshInspector()
         layers,
         selectedObject.value(QStringLiteral("layer_id")).toString(),
         !selectedObject.isEmpty());
+    if (m_gridPreset != nullptr) {
+        const QSignalBlocker blocker(m_gridPreset);
+        const int index = m_gridPreset->findData(grid.value(QStringLiteral("preset")).toString());
+        m_gridPreset->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_gridUnit != nullptr) {
+        const QSignalBlocker blocker(m_gridUnit);
+        const int index = m_gridUnit->findData(grid.value(QStringLiteral("unit")).toString());
+        m_gridUnit->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_gridWidth != nullptr) {
+        const QSignalBlocker blocker(m_gridWidth);
+        m_gridWidth->setValue(grid.value(QStringLiteral("width")).toDouble());
+    }
+    if (m_gridHeight != nullptr) {
+        const QSignalBlocker blocker(m_gridHeight);
+        m_gridHeight->setValue(grid.value(QStringLiteral("height")).toDouble());
+    }
+    if (m_gridMarginLeft != nullptr) {
+        const QSignalBlocker blocker(m_gridMarginLeft);
+        m_gridMarginLeft->setValue(grid.value(QStringLiteral("margin_left")).toDouble());
+    }
+    if (m_gridMarginTop != nullptr) {
+        const QSignalBlocker blocker(m_gridMarginTop);
+        m_gridMarginTop->setValue(grid.value(QStringLiteral("margin_top")).toDouble());
+    }
+    if (m_gridMarginRight != nullptr) {
+        const QSignalBlocker blocker(m_gridMarginRight);
+        m_gridMarginRight->setValue(grid.value(QStringLiteral("margin_right")).toDouble());
+    }
+    if (m_gridMarginBottom != nullptr) {
+        const QSignalBlocker blocker(m_gridMarginBottom);
+        m_gridMarginBottom->setValue(grid.value(QStringLiteral("margin_bottom")).toDouble());
+    }
+    if (m_gridMinorStep != nullptr) {
+        const QSignalBlocker blocker(m_gridMinorStep);
+        m_gridMinorStep->setValue(grid.value(QStringLiteral("minor_step")).toDouble());
+    }
+    if (m_gridMajorEvery != nullptr) {
+        const QSignalBlocker blocker(m_gridMajorEvery);
+        m_gridMajorEvery->setValue(grid.value(QStringLiteral("major_line_every")).toInt());
+    }
+    if (m_gridVisible != nullptr) {
+        const QSignalBlocker blocker(m_gridVisible);
+        m_gridVisible->setChecked(grid.value(QStringLiteral("visible")).toBool());
+    }
     if (m_objectMeasurementValue != nullptr) {
         const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();
         QStringList formatted;

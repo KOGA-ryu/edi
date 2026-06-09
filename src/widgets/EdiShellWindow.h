@@ -75,6 +75,7 @@ private:
     QLabel *m_objectLayerValue = nullptr;
     QLabel *m_objectMeasurementValue = nullptr;
     QLabel *m_objectPlotSafetyValue = nullptr;
+    QPushButton *m_fitSelectionToDrawableButton = nullptr;
     QCheckBox *m_selectedLocked = nullptr;
     QCheckBox *m_selectedVisible = nullptr;
     QCheckBox *m_defaultLayerLocked = nullptr;

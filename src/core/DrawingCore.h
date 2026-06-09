@@ -73,6 +73,7 @@ public:
     bool createCalibrationPattern(const QString &patternId);
     bool recordCalibrationMeasurement(double measuredValue);
     bool applyCalibrationCorrection();
+    bool fitSelectionToDrawableBounds();
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);

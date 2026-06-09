@@ -681,6 +681,59 @@ int main(int argc, char **argv)
     assert(!blockedObject.value("calibrated_outside_drawable").toBool());
     assert(blockedPlotModel.value("warnings").toList().size() == 1);
 
+    DrawingDocumentController fitNoSelectionController;
+    assert(!fitNoSelectionController.fitSelectionToDrawableBounds());
+
+    DrawingDocumentController fitInsideController;
+    fitInsideController.setSelectedToolId("point_tool");
+    fitInsideController.clickCanvasNormalized(0.5, 0.5);
+    QVariantMap fitInsideModel = fitInsideController.modelDocument();
+    const int fitInsideRevision = fitInsideModel.value("revision").toInt();
+    assert(fitInsideController.fitSelectionToDrawableBounds());
+    fitInsideModel = fitInsideController.modelDocument();
+    QVariantMap fitInsidePoint = fitInsideModel.value("drawing_objects").toList().front().toMap();
+    assert(fitInsideModel.value("revision").toInt() == fitInsideRevision);
+    assert(nearlyEqual(fitInsidePoint.value("x").toDouble(), 0.5));
+    assert(nearlyEqual(fitInsidePoint.value("y").toDouble(), 0.5));
+
+    DrawingDocumentController fitOutsideController;
+    fitOutsideController.setSelectedToolId("line_tool");
+    fitOutsideController.clickCanvasNormalized(0.0, 0.5);
+    fitOutsideController.clickCanvasNormalized(0.1, 0.5);
+    QVariantMap fitOutsideModel = fitOutsideController.modelDocument();
+    assert(fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
+    assert(fitOutsideController.fitSelectionToDrawableBounds());
+    fitOutsideModel = fitOutsideController.modelDocument();
+    QVariantMap fitOutsideLine = fitOutsideModel.value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(fitOutsideLine.value("x1").toDouble(), squareQuarterInchStep));
+    assert(nearlyEqual(fitOutsideLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
+    assert(nearlyEqual(fitOutsideLine.value("y1").toDouble(), 0.5));
+    assert(nearlyEqual(fitOutsideLine.value("y2").toDouble(), 0.5));
+    assert(!fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
+
+    DrawingDocumentController fitTooLargeController;
+    fitTooLargeController.setSelectedToolId("line_tool");
+    fitTooLargeController.clickCanvasNormalized(0.0, 0.5);
+    fitTooLargeController.clickCanvasNormalized(1.0, 0.5);
+    const int fitTooLargeRevision = fitTooLargeController.modelDocument().value("revision").toInt();
+    assert(!fitTooLargeController.fitSelectionToDrawableBounds());
+    assert(fitTooLargeController.modelDocument().value("revision").toInt() == fitTooLargeRevision);
+
+    DrawingDocumentController fitLockedController;
+    fitLockedController.setSelectedToolId("point_tool");
+    fitLockedController.clickCanvasNormalized(0.0, 0.0);
+    assert(fitLockedController.setSelectedObjectLocked(true));
+    const int fitLockedRevision = fitLockedController.modelDocument().value("revision").toInt();
+    assert(!fitLockedController.fitSelectionToDrawableBounds());
+    assert(fitLockedController.modelDocument().value("revision").toInt() == fitLockedRevision);
+
+    DrawingDocumentController fitNonPlottingController;
+    fitNonPlottingController.setSelectedToolId("horizontal_guide_tool");
+    fitNonPlottingController.clickCanvasNormalized(0.0, 0.0);
+    const int fitNonPlottingRevision = fitNonPlottingController.modelDocument().value("revision").toInt();
+    assert(!fitNonPlottingController.fitSelectionToDrawableBounds());
+    assert(fitNonPlottingController.modelDocument().value("revision").toInt() == fitNonPlottingRevision);
+
     DrawingDocumentController calibrationController;
     assert(calibrationController.createCalibrationPattern("test_square"));
     QVariantMap calibrationModel = calibrationController.modelDocument();

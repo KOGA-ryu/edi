@@ -569,6 +569,12 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectLayerValue);
     layout->addWidget(m_objectMeasurementValue);
     layout->addWidget(m_objectPlotSafetyValue);
+    m_fitSelectionToDrawableButton = new QPushButton(QStringLiteral("Fit To Drawable"));
+    m_fitSelectionToDrawableButton->setObjectName(QStringLiteral("fitToDrawableButton"));
+    connect(m_fitSelectionToDrawableButton, &QPushButton::clicked, this, [this]() {
+        m_controller->fitSelectionToDrawableBounds();
+    });
+    layout->addWidget(m_fitSelectionToDrawableButton);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1311,6 +1317,9 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_objectPlotSafetyValue != nullptr) {
         m_objectPlotSafetyValue->setText(selectedPlotSafetySummary(selectedObject, plot));
+    }
+    if (m_fitSelectionToDrawableButton != nullptr) {
+        m_fitSelectionToDrawableButton->setEnabled(!selectedObject.isEmpty());
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

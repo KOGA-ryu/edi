@@ -104,6 +104,15 @@ bool boundsIntersect(Bounds2D a, Bounds2D b)
         && a.y + a.height >= b.y;
 }
 
+Bounds2D includeBounds(Bounds2D bounds, Bounds2D next)
+{
+    const double left = std::min(bounds.x, next.x);
+    const double top = std::min(bounds.y, next.y);
+    const double right = std::max(bounds.x + bounds.width, next.x + next.width);
+    const double bottom = std::max(bounds.y + bounds.height, next.y + next.height);
+    return {left, top, right - left, bottom - top};
+}
+
 QVariantMap boundsToMap(Bounds2D bounds)
 {
     return {
@@ -234,6 +243,15 @@ bool objectEffectivelyVisible(const DraftingDocument &document, const DraftingOb
 {
     const DraftingLayer *layer = layerForObject(document, object);
     return object.visible && layer != nullptr && layer->visible;
+}
+
+bool objectEffectivelyPlotReady(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = layerForObject(document, object);
+    return objectEffectivelyVisible(document, object)
+        && layer != nullptr
+        && layer->plot.plotEnabled
+        && draftingShapeCanPlot(object.kind);
 }
 
 QVariantMap pointerProjectionToMap(Point2D rawPoint,
@@ -1230,6 +1248,65 @@ bool DrawingDocumentController::applyCalibrationCorrection()
     }
 
     m_plotSettings.calibrationScale = m_pendingCalibrationCorrection->scaleFactor;
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::fitSelectionToDrawableBounds()
+{
+    if (m_document.selectedObjectIds.empty()) {
+        return false;
+    }
+
+    bool hasBounds = false;
+    Bounds2D selectedBounds;
+    for (const DraftingObjectId &objectId : m_document.selectedObjectIds) {
+        const DraftingObject *object = findObject(m_document, objectId);
+        if (object == nullptr) {
+            return false;
+        }
+        if (object->locked || objectLayerLocked(m_document, *object) || !objectEffectivelyPlotReady(m_document, *object)) {
+            return false;
+        }
+        if (!isFinite(object->bounds)) {
+            return false;
+        }
+        selectedBounds = hasBounds ? includeBounds(selectedBounds, object->bounds) : object->bounds;
+        hasBounds = true;
+    }
+    if (!hasBounds) {
+        return false;
+    }
+
+    const Bounds2D drawable = projectDraftingGrid(m_gridSettings).drawableBounds;
+    if (!isFinite(drawable)
+        || selectedBounds.width > drawable.width
+        || selectedBounds.height > drawable.height) {
+        return false;
+    }
+
+    double dx = 0.0;
+    double dy = 0.0;
+    if (selectedBounds.x < drawable.x) {
+        dx = drawable.x - selectedBounds.x;
+    } else if (selectedBounds.x + selectedBounds.width > drawable.x + drawable.width) {
+        dx = drawable.x + drawable.width - (selectedBounds.x + selectedBounds.width);
+    }
+    if (selectedBounds.y < drawable.y) {
+        dy = drawable.y - selectedBounds.y;
+    } else if (selectedBounds.y + selectedBounds.height > drawable.y + drawable.height) {
+        dy = drawable.y + drawable.height - (selectedBounds.y + selectedBounds.height);
+    }
+
+    if (std::abs(dx) < 0.0000001 && std::abs(dy) < 0.0000001) {
+        return true;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
+    if (!result.ok) {
+        return false;
+    }
+
     emit modelChanged();
     return true;
 }

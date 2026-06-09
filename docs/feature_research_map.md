@@ -2,7 +2,7 @@
 
 ## Summary
 
-This is a large feature inventory for EDI as a data-oriented creative drafting, drawing, plotter, ASCII, glyph, and planning tool. Each feature has subfeatures to research further before implementation. C++ remains the durable owner of geometry, commands, validation, state, and mutation.
+This is a large feature inventory for EDI as a data-oriented creative drafting, drawing, plotter, ASCII, and planning tool. Each feature has subfeatures to research further before implementation. C++ remains the durable owner of geometry, commands, validation, state, and mutation.
 
 ## Drafting And Drawing Surface
 
@@ -47,7 +47,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Group object: selected objects treated as one transform target.
 - Symbol/component object: reusable inserted drawing object set.
 - Image reference object: imported raster used for tracing or ASCII conversion.
-- Glyph object: custom character/tool object with geometry, style, and metadata.
 
 ### Object Lifecycle
 
@@ -266,7 +265,7 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Hatch expansion: convert generated fill to raw lines.
 - Plot safety: line count, density warning, excessive travel warning.
 
-## ASCII Art And Glyph System
+## ASCII Art System
 
 ### ASCII Canvas
 
@@ -289,59 +288,18 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Palette extraction: fixed palette, adaptive palette, limited palette.
 - Dithering: threshold, ordered, error diffusion later.
 - Edge-aware conversion: preserve outlines and contrast.
-- Character ramp editor: choose glyph set for brightness.
+- Character ramp editor: choose character set for brightness.
 - Resolution controls: rows/columns, cell aspect correction.
 - Preview comparison: source image beside ASCII output.
 - Conversion presets: portrait, blueprint, high contrast, color poster.
-
-### Glyph Definitions
-
-- Glyph identity: ID, name, category, version.
-- Glyph shape: character, multi-character stamp, vector-backed glyph later.
-- Glyph metadata: source, author, intended use, physical meaning.
-- Glyph color behavior: fixed color, sampled color, palette mapped.
-- Glyph brush behavior: single stamp, repeat, scatter, pattern.
-- Glyph measurement meaning: represents unit, marker, material, symbol.
-- Glyph constraints: allowed scale, rotation, snap mode.
-- Glyph library: local presets, project presets, imported packs.
-- Glyph preview: rendered cell preview and metadata summary.
-- Glyph validation: valid character set, dimensions, metadata completeness.
-
-### Glyph Brushes
-
-- Single glyph brush: place one symbol at cursor.
-- Repeating brush: spacing, direction, count.
-- Pattern brush: tile matrix, alternating glyphs.
-- Color-sampling brush: sample image color under cursor.
-- Palette-remap brush: map sampled color to selected palette.
-- Measurement brush: place glyphs with physical spacing.
-- Path brush: draw glyphs along a line/polyline.
-- Fill brush: fill region with glyph pattern.
-- Randomized brush: controlled variation, seed, density.
-- Eraser brush: remove glyphs, color only, metadata only.
-
-### Glyph-As-Tool Behavior
-
-- Marker glyph: object anchor, reference point, registration mark.
-- Measurement glyph: known physical size or scale reference.
-- Material glyph: represents screw, cut, fold, stitch, drill point.
-- Command glyph: acts as workflow marker for later processing.
-- Annotation glyph: carries note or instruction metadata.
-- Palette glyph: stores sampled color or swatch.
-- Capture glyph: binds image sample region to glyph metadata.
-- Build-plan glyph: marks sequence step or assembly instruction.
-- Export glyph: maps to plotter symbol, text output, or structured data.
-- Validation glyph: warns if required metadata is missing.
 
 ### ASCII + Drafting Bridge
 
 - Convert drawing geometry to ASCII grid.
 - Convert ASCII cells to drafting objects.
 - Place drafting objects aligned to character cells.
-- Use glyphs as drafting symbols.
 - Use drafting measurements to define ASCII cell scale.
 - Overlay ASCII art on physical drafting grid.
-- Convert glyph pattern into plotter strokes.
 - Use image-to-ASCII output as tracing reference.
 - Export mixed drawing + ASCII document.
 - Preserve metadata across drafting and ASCII views.
@@ -396,7 +354,7 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Workspace layout: panels, toolbars, inspector state.
 - Recent files: drawings, text docs, assets.
 - Project settings: units, default grid, default format policy.
-- Asset libraries: glyphs, images, presets, materials.
+- Asset libraries: images, presets, materials.
 - Document collections: drafting docs, text docs, reference assets.
 - Autosave plan: dirty state, recovery files later.
 - Project validation: missing assets, unsupported formats, stale references.
@@ -409,7 +367,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Snap presets: drafting, loose sketching, plotter precision.
 - Style presets: stroke, fill, pen styles.
 - Tool presets: line defaults, dimension defaults, hatch presets.
-- Glyph libraries: symbols, brushes, measurement glyphs.
 - Material presets: sheet sizes and safe margins.
 - Plotter presets: device dimensions, pen mapping, calibration.
 - Export presets: image, text, plot job, handoff packet.
@@ -422,7 +379,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Drafting settings: grid, snap, handles, inspector precision.
 - Plotter settings: bed, material, pens, calibration.
 - ASCII settings: font, cell size, character ramps.
-- Glyph settings: library paths, default brush behavior.
 - Scripting settings: enable/disable recipes later.
 - Format settings: inspect tools, export defaults.
 - Diagnostics settings: debug overlays, performance counters.
@@ -450,7 +406,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Batch conversion recipes.
 - Export recipes.
 - Build-plan generation recipes.
-- Glyph pattern generation recipes.
 - Plotter preparation recipes.
 - Dry-run inspection before mutation.
 - No raw storage access.
@@ -463,7 +418,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Apply preset to selection.
 - Generate calibration pattern.
 - Generate hatch/fill for closed shapes.
-- Generate repeated glyph patterns.
 - Convert image to ASCII.
 - Convert ASCII to plotter strokes.
 - Export selected layers.
@@ -482,7 +436,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Project profile.
 - Export presets when declarative.
 - Material and pen libraries if static.
-- Glyph library manifests if human-authored.
 - Validation: stable fields, clear errors, no runtime mutation ownership.
 
 ### MessagePack
@@ -493,7 +446,6 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 - Compact plot job records.
 - Binary golden fixtures.
 - Calibration history if machine-owned.
-- Glyph object state if compact machine-owned.
 - Inspector/unpack tooling required.
 - Version/schema header required.
 - No opaque binary without readable inspection.
@@ -586,15 +538,14 @@ This is a large feature inventory for EDI as a data-oriented creative drafting, 
 4. Dimension and measurement tools.
 5. Plotter preview, calibration, pen/material mapping.
 6. ASCII cell grid and image-to-ASCII conversion.
-7. Glyph definitions, glyph brushes, and glyph-as-tool behavior.
-8. Project/workspace settings and reusable presets.
-9. Durable formats: TOML, MessagePack, TOON.
-10. Lua recipes and scripting UI after command contracts are stable.
+7. Project/workspace settings and reusable presets.
+8. Durable formats: TOML, MessagePack, TOON.
+9. Lua recipes and scripting UI after command contracts are stable.
 
 ## Assumptions
 
 - First priority is a serious physical drafting surface, not decorative drawing.
 - Plotter-readiness matters: grid, bounds, calibration, and stroke planning should shape feature decisions.
-- ASCII and glyph systems are part of the long-term product, but they should reuse the same command/data discipline as drafting.
+- ASCII systems are part of the long-term product, but they should reuse the same command/data discipline as drafting.
 - UI exposes controls, but C++ owns truth, validation, commands, and mutation.
 - This is a research map, not an implementation commitment order.

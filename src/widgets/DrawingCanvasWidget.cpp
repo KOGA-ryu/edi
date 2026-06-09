@@ -613,12 +613,24 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
 
     if (kind == QStringLiteral("guide")) {
         const bool locked = object.value(QStringLiteral("locked")).toBool();
-        QColor guideColor = selected ? QColor("#f6c65b") : QColor("#83aeca");
-        if (locked && !selected) {
+        QColor guideColor(object.value(QStringLiteral("guide_color"), QStringLiteral("#83aeca")).toString());
+        if (!guideColor.isValid()) {
+            guideColor = QColor("#83aeca");
+        }
+        if (selected) {
+            guideColor = guideColor.lighter(120);
+        } else if (locked) {
             guideColor = QColor("#6f8295");
         }
         guideColor.setAlpha(selected ? 230 : 165);
-        QPen guidePen(guideColor, selected ? 2.0 : 1.25, locked ? Qt::DotLine : Qt::DashLine);
+        Qt::PenStyle guideStyle = Qt::DashLine;
+        const QString dashStyle = object.value(QStringLiteral("guide_dash_style"), QStringLiteral("dash")).toString();
+        if (dashStyle == QStringLiteral("solid")) {
+            guideStyle = Qt::SolidLine;
+        } else if (dashStyle == QStringLiteral("dot")) {
+            guideStyle = Qt::DotLine;
+        }
+        QPen guidePen(guideColor, selected ? 2.0 : 1.25, guideStyle);
         guidePen.setCapStyle(Qt::RoundCap);
         painter.save();
         painter.setPen(guidePen);
@@ -628,20 +640,20 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
             painter.restore();
             return;
         }
-        const QString orientation = object.value(QStringLiteral("orientation")).toString();
-        const QString prefix = orientation == QStringLiteral("horizontal") ? QStringLiteral("H") : QStringLiteral("V");
-        const QString label = QStringLiteral("%1 guide %2%3")
-            .arg(prefix,
-                QString::number(position, 'f', 3),
-                locked ? QStringLiteral(" locked") : QString());
+        const bool showLabel = object.value(QStringLiteral("guide_show_label"), true).toBool();
+        const QString label = object.value(QStringLiteral("guide_label")).toString();
         if (object.value(QStringLiteral("orientation")).toString() == QStringLiteral("horizontal")) {
             painter.drawLine(canvasToScreen(0.0, position), canvasToScreen(1.0, position));
-            painter.setPen(guideColor);
-            painter.drawText(canvasToScreen(0.0, position) + QPointF(8.0, -6.0), label);
+            if (showLabel && !label.isEmpty()) {
+                painter.setPen(guideColor);
+                painter.drawText(canvasToScreen(0.0, position) + QPointF(8.0, -6.0), label);
+            }
         } else {
             painter.drawLine(canvasToScreen(position, 0.0), canvasToScreen(position, 1.0));
-            painter.setPen(guideColor);
-            painter.drawText(canvasToScreen(position, 0.0) + QPointF(8.0, 16.0), label);
+            if (showLabel && !label.isEmpty()) {
+                painter.setPen(guideColor);
+                painter.drawText(canvasToScreen(position, 0.0) + QPointF(8.0, 16.0), label);
+            }
         }
         painter.restore();
         return;

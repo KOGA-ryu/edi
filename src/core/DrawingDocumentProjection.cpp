@@ -187,6 +187,17 @@ bool hasPriorEquivalentGuide(const std::vector<const DraftingObject *> &objects,
     return false;
 }
 
+QString defaultGuideLabel(const DraftingObject &object, const GuideGeometry &geometry)
+{
+    const QString prefix = geometry.orientation == GuideOrientation::Horizontal
+        ? QStringLiteral("H")
+        : QStringLiteral("V");
+    return QStringLiteral("%1 guide %2%3")
+        .arg(prefix,
+            QString::number(geometry.position, 'f', 3),
+            object.locked ? QStringLiteral(" locked") : QString());
+}
+
 double physicalX(Point2D point, const DraftingGridProjection &grid)
 {
     return point.x * grid.settings.width;
@@ -346,6 +357,14 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             result.insert(QStringLiteral("orientation"), QString::fromLatin1(guideOrientationName(geometry.orientation)));
             result.insert(QStringLiteral("position"), geometry.position);
+            result.insert(QStringLiteral("guide_label"), object.metadata.guideVisual.label.empty()
+                    ? defaultGuideLabel(object, geometry)
+                    : qStringFromStdString(object.metadata.guideVisual.label));
+            result.insert(QStringLiteral("guide_custom_label"), qStringFromStdString(object.metadata.guideVisual.label));
+            result.insert(QStringLiteral("guide_color"), qStringFromStdString(object.metadata.guideVisual.color));
+            result.insert(QStringLiteral("guide_dash_style"), qStringFromStdString(object.metadata.guideVisual.dashStyle));
+            result.insert(QStringLiteral("guide_show_label"), object.metadata.guideVisual.showLabel);
+            result.insert(QStringLiteral("guide_visual_controls"), true);
             result.insert(QStringLiteral("plot_ready"), false);
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             result.insert(QStringLiteral("x1"), geometry.a.x);

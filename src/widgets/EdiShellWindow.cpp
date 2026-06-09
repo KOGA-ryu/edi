@@ -9,6 +9,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPair>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -809,6 +810,40 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->setAllGuidesLocked(false);
     });
     layout->addWidget(m_unlockAllGuidesButton);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Visuals")));
+    m_guideLabel = new QLineEdit;
+    m_guideLabel->setObjectName(QStringLiteral("guideLabelField"));
+    m_guideLabel->setPlaceholderText(QStringLiteral("Default guide label"));
+    connect(m_guideLabel, &QLineEdit::editingFinished, this, [this]() {
+        m_controller->setSelectedGuideLabel(m_guideLabel->text());
+    });
+    layout->addWidget(m_guideLabel);
+    m_guideColor = new QComboBox;
+    m_guideColor->setObjectName(QStringLiteral("guideColorCombo"));
+    m_guideColor->addItem(QStringLiteral("Guide blue"), QStringLiteral("#83aeca"));
+    m_guideColor->addItem(QStringLiteral("Guide teal"), QStringLiteral("#54d2c6"));
+    m_guideColor->addItem(QStringLiteral("Guide amber"), QStringLiteral("#f6c65b"));
+    m_guideColor->addItem(QStringLiteral("Guide red"), QStringLiteral("#d98b8b"));
+    m_guideColor->addItem(QStringLiteral("Guide green"), QStringLiteral("#91c89b"));
+    connect(m_guideColor, &QComboBox::currentIndexChanged, this, [this](int index) {
+        m_controller->setSelectedGuideColor(m_guideColor->itemData(index).toString());
+    });
+    layout->addWidget(m_guideColor);
+    m_guideDashStyle = new QComboBox;
+    m_guideDashStyle->setObjectName(QStringLiteral("guideDashStyleCombo"));
+    m_guideDashStyle->addItem(QStringLiteral("Dash line"), QStringLiteral("dash"));
+    m_guideDashStyle->addItem(QStringLiteral("Solid line"), QStringLiteral("solid"));
+    m_guideDashStyle->addItem(QStringLiteral("Dot line"), QStringLiteral("dot"));
+    connect(m_guideDashStyle, &QComboBox::currentIndexChanged, this, [this](int index) {
+        m_controller->setSelectedGuideDashStyle(m_guideDashStyle->itemData(index).toString());
+    });
+    layout->addWidget(m_guideDashStyle);
+    m_guideShowLabel = new QCheckBox(QStringLiteral("Show guide label"));
+    m_guideShowLabel->setObjectName(QStringLiteral("guideShowLabelCheckbox"));
+    connect(m_guideShowLabel, &QCheckBox::toggled, this, [this](bool checked) {
+        m_controller->setSelectedGuideLabelVisible(checked);
+    });
+    layout->addWidget(m_guideShowLabel);
     layout->addWidget(buildObjectFlagControls());
     layout->addWidget(buildLayerControls());
     m_geometryEditor = buildGeometryEditor();
@@ -1631,6 +1666,29 @@ void EdiShellWindow::refreshInspector()
     const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
     if (m_deleteSelectedGuideButton != nullptr) {
         m_deleteSelectedGuideButton->setEnabled(selectedGuideControlsEnabled);
+    }
+    const bool guideVisualControlsEnabled = selectedObject.value(QStringLiteral("guide_visual_controls")).toBool();
+    if (m_guideLabel != nullptr) {
+        const QSignalBlocker blocker(m_guideLabel);
+        m_guideLabel->setEnabled(guideVisualControlsEnabled);
+        m_guideLabel->setText(guideVisualControlsEnabled ? selectedObject.value(QStringLiteral("guide_custom_label")).toString() : QString());
+    }
+    if (m_guideColor != nullptr) {
+        const QSignalBlocker blocker(m_guideColor);
+        m_guideColor->setEnabled(guideVisualControlsEnabled);
+        const int index = m_guideColor->findData(selectedObject.value(QStringLiteral("guide_color")).toString());
+        m_guideColor->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_guideDashStyle != nullptr) {
+        const QSignalBlocker blocker(m_guideDashStyle);
+        m_guideDashStyle->setEnabled(guideVisualControlsEnabled);
+        const int index = m_guideDashStyle->findData(selectedObject.value(QStringLiteral("guide_dash_style")).toString());
+        m_guideDashStyle->setCurrentIndex(index >= 0 ? index : 0);
+    }
+    if (m_guideShowLabel != nullptr) {
+        const QSignalBlocker blocker(m_guideShowLabel);
+        m_guideShowLabel->setEnabled(guideVisualControlsEnabled);
+        m_guideShowLabel->setChecked(selectedObject.value(QStringLiteral("guide_show_label"), true).toBool());
     }
     rebuildGeometryEditor(selectedObject);
     if (m_objectsValue != nullptr) {

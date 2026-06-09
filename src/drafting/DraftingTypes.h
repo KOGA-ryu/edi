@@ -97,6 +97,13 @@ struct MeasurementMetadata {
     std::string label;
 };
 
+struct GuideVisualMetadata {
+    std::string label;
+    std::string color = "#83aeca";
+    std::string dashStyle = "dash";
+    bool showLabel = true;
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -105,6 +112,7 @@ struct ObjectMetadata {
     std::string toolProvenance;
     std::string measurementNote;
     MeasurementMetadata measurement;
+    GuideVisualMetadata guideVisual;
 };
 
 struct PointGeometry {

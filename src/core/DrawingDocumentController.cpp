@@ -1176,6 +1176,98 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
     return true;
 }
 
+bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+
+    ObjectMetadata metadata = object->metadata;
+    metadata.guideVisual.label = toStdString(label);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+
+    ObjectMetadata metadata = object->metadata;
+    metadata.guideVisual.color = toStdString(color);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashStyle)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+
+    ObjectMetadata metadata = object->metadata;
+    metadata.guideVisual.dashStyle = toStdString(dashStyle);
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+
+    ObjectMetadata metadata = object->metadata;
+    metadata.guideVisual.showLabel = visible;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateMetadataCommand{*m_document.activeObjectId, metadata});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
 {
     const DraftingLayer *layer = findLayer(m_document, "default");

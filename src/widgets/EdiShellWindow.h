@@ -13,6 +13,7 @@ class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
+class QLineEdit;
 class QPushButton;
 class QSpinBox;
 class QWidget;
@@ -102,6 +103,10 @@ private:
     QPushButton *m_showAllGuidesButton = nullptr;
     QPushButton *m_lockAllGuidesButton = nullptr;
     QPushButton *m_unlockAllGuidesButton = nullptr;
+    QLineEdit *m_guideLabel = nullptr;
+    QComboBox *m_guideColor = nullptr;
+    QComboBox *m_guideDashStyle = nullptr;
+    QCheckBox *m_guideShowLabel = nullptr;
     QMap<QString, QPushButton *> m_boundsGuideButtons;
     QMap<QString, QPushButton *> m_offsetGuideButtons;
     QMap<QString, QPushButton *> m_alignToGuideButtons;

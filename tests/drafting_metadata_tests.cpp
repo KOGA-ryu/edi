@@ -38,6 +38,13 @@ int main()
     assert(isValidMetadataText("metadata", kMetadataShortTextLimit));
     assert(isValidMeasurementMetadata(validMetadata().measurement));
     assert(isValidMeasurementMetadata(MeasurementMetadata{}));
+    assert(isValidGuideVisualColor("#83aeca"));
+    assert(!isValidGuideVisualColor("83aeca"));
+    assert(!isValidGuideVisualColor("#83aecx"));
+    assert(isValidGuideVisualDashStyle("solid"));
+    assert(isValidGuideVisualDashStyle("dash"));
+    assert(isValidGuideVisualDashStyle("dot"));
+    assert(!isValidGuideVisualDashStyle("stripe"));
     assert(!isValidMetadataTimestamp("2026-00-08T12:30:00Z"));
     assert(!isValidMetadataTimestamp("2026-13-08T12:30:00Z"));
     assert(!isValidMetadataTimestamp("2026-04-31T12:30:00Z"));
@@ -125,6 +132,31 @@ int main()
     auto longMeasurementLabelValidation = validateObjectMetadata(longMeasurementLabel);
     assert(!longMeasurementLabelValidation.ok);
     assert(longMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata guideVisualMetadata = validMetadata();
+    guideVisualMetadata.guideVisual.label = "material edge";
+    guideVisualMetadata.guideVisual.color = "#54d2c6";
+    guideVisualMetadata.guideVisual.dashStyle = "solid";
+    guideVisualMetadata.guideVisual.showLabel = false;
+    assert(validateObjectMetadata(guideVisualMetadata).ok);
+
+    ObjectMetadata badGuideLabel = validMetadata();
+    badGuideLabel.guideVisual.label = "bad\nlabel";
+    auto badGuideLabelValidation = validateObjectMetadata(badGuideLabel);
+    assert(!badGuideLabelValidation.ok);
+    assert(badGuideLabelValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata badGuideColor = validMetadata();
+    badGuideColor.guideVisual.color = "#xyzxyz";
+    auto badGuideColorValidation = validateObjectMetadata(badGuideColor);
+    assert(!badGuideColorValidation.ok);
+    assert(badGuideColorValidation.code == DraftingResultCode::InvalidMetadata);
+
+    ObjectMetadata badGuideDash = validMetadata();
+    badGuideDash.guideVisual.dashStyle = "stripe";
+    auto badGuideDashValidation = validateObjectMetadata(badGuideDash);
+    assert(!badGuideDashValidation.ok);
+    assert(badGuideDashValidation.code == DraftingResultCode::InvalidMetadata);
 
     return 0;
 }

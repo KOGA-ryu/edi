@@ -18,6 +18,13 @@ bool isPrintableAscii(std::string_view value)
     });
 }
 
+bool isHexDigit(char value)
+{
+    return (value >= '0' && value <= '9')
+        || (value >= 'a' && value <= 'f')
+        || (value >= 'A' && value <= 'F');
+}
+
 DraftingMetadataValidationResult validateMetadataText(
     std::string_view fieldName,
     std::string_view value,
@@ -170,6 +177,21 @@ bool isValidMeasurementMetadata(const MeasurementMetadata &measurement)
     return measurement.canvasUnitsPerRealUnit > 0.0;
 }
 
+bool isValidGuideVisualColor(std::string_view value)
+{
+    if (value.size() != 7 || value.front() != '#') {
+        return false;
+    }
+    return std::all_of(value.begin() + 1, value.end(), isHexDigit);
+}
+
+bool isValidGuideVisualDashStyle(std::string_view value)
+{
+    return value == "solid"
+        || value == "dash"
+        || value == "dot";
+}
+
 DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &metadata)
 {
     if (metadata.schemaVersion == 0) {
@@ -212,6 +234,20 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
         return DraftingMetadataValidationResult::rejected(
             DraftingResultCode::InvalidMetadata,
             "measurement canvas units per real unit must be positive");
+    }
+    auto guideLabelValidation = validateMetadataText("guide label", metadata.guideVisual.label, kMetadataShortTextLimit);
+    if (!guideLabelValidation.ok) {
+        return guideLabelValidation;
+    }
+    if (!isValidGuideVisualColor(metadata.guideVisual.color)) {
+        return DraftingMetadataValidationResult::rejected(
+            DraftingResultCode::InvalidMetadata,
+            "guide visual color must be #RRGGBB");
+    }
+    if (!isValidGuideVisualDashStyle(metadata.guideVisual.dashStyle)) {
+        return DraftingMetadataValidationResult::rejected(
+            DraftingResultCode::InvalidMetadata,
+            "guide visual dash style is invalid");
     }
 
     return DraftingMetadataValidationResult::accepted();

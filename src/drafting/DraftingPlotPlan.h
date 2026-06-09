@@ -25,6 +25,14 @@ struct DraftingPlotSegment {
     double strokeWidth = 0.0;
 };
 
+struct DraftingPlotTravelSegment {
+    DraftingObjectId fromObjectId;
+    DraftingObjectId toObjectId;
+    Point2D a;
+    Point2D b;
+    double distance = 0.0;
+};
+
 struct DraftingPlotWarning {
     DraftingObjectId objectId;
     std::string kind;
@@ -34,7 +42,9 @@ struct DraftingPlotWarning {
 struct DraftingPlotPlan {
     std::vector<DraftingPlotObject> objects;
     std::vector<DraftingPlotSegment> segments;
+    std::vector<DraftingPlotTravelSegment> travelSegments;
     std::vector<DraftingPlotWarning> warnings;
+    double travelDistance = 0.0;
 };
 
 bool draftingShapeCanPlot(DraftingShapeKind kind);

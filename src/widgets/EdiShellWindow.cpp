@@ -1079,15 +1079,21 @@ void EdiShellWindow::refreshInspector()
     }
     if (m_plotValue != nullptr) {
         const bool blocked = plot.value(QStringLiteral("blocked")).toBool();
+        const int travelSegmentCount = plot.value(QStringLiteral("travel_segment_count")).toInt();
+        const QString travelDistance = formatNumber(plot.value(QStringLiteral("travel_distance")).toDouble());
         m_plotValue->setText(blocked
-            ? QStringLiteral("Plot: %1 objects, %2 strokes, %3 warnings, first %4")
+            ? QStringLiteral("Plot: %1 objects, %2 strokes, %3 travel (%4), %5 warnings, first %6")
                 .arg(plot.value(QStringLiteral("plot_object_count")).toInt())
                 .arg(plot.value(QStringLiteral("segment_count")).toInt())
+                .arg(travelSegmentCount)
+                .arg(travelDistance)
                 .arg(plot.value(QStringLiteral("warning_count")).toInt())
                 .arg(plot.value(QStringLiteral("first_warning_object_id")).toString())
-            : QStringLiteral("Plot: %1 objects, %2 strokes, ready")
+            : QStringLiteral("Plot: %1 objects, %2 strokes, %3 travel (%4), ready")
                 .arg(plot.value(QStringLiteral("plot_object_count")).toInt())
-                .arg(plot.value(QStringLiteral("segment_count")).toInt()));
+                .arg(plot.value(QStringLiteral("segment_count")).toInt())
+                .arg(travelSegmentCount)
+                .arg(travelDistance));
     }
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {

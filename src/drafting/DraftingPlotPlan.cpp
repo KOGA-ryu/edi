@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 namespace edi::drafting {
@@ -12,6 +13,13 @@ int layerOrderForObject(const DraftingDocument &document, const DraftingObject &
 {
     const DraftingLayer *layer = findLayer(document, object.layerId);
     return layer == nullptr ? std::numeric_limits<int>::max() : layer->order;
+}
+
+double pointDistance(Point2D a, Point2D b)
+{
+    const double dx = b.x - a.x;
+    const double dy = b.y - a.y;
+    return std::sqrt(dx * dx + dy * dy);
 }
 
 void appendSegment(
@@ -100,6 +108,32 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
     }, object.geometry);
 }
 
+void appendTravelSegments(DraftingPlotPlan &plan)
+{
+    constexpr double minimumTravel = 0.000001;
+    if (plan.segments.size() < 2) {
+        return;
+    }
+
+    for (std::size_t index = 0; index + 1 < plan.segments.size(); ++index) {
+        const DraftingPlotSegment &from = plan.segments[index];
+        const DraftingPlotSegment &to = plan.segments[index + 1];
+        const double travelDistance = pointDistance(from.b, to.a);
+        if (!std::isfinite(travelDistance) || travelDistance <= minimumTravel) {
+            continue;
+        }
+
+        plan.travelSegments.push_back({
+            from.objectId,
+            to.objectId,
+            from.b,
+            to.a,
+            travelDistance,
+        });
+        plan.travelDistance += travelDistance;
+    }
+}
+
 } // namespace
 
 bool draftingShapeCanPlot(DraftingShapeKind kind)
@@ -146,6 +180,8 @@ DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const D
             });
         }
     }
+
+    appendTravelSegments(plan);
 
     return plan;
 }

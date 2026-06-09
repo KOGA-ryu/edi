@@ -87,6 +87,14 @@ int main()
     assert(nearlyEqual(plan.segments[1].a.x, 0.4));
     assert(nearlyEqual(plan.segments[1].b.y, 0.5));
     assert(plan.segments[2].objectId == "outside_line");
+    assert(plan.travelSegments.size() == 2);
+    assert(plan.travelSegments[0].fromObjectId == "default_line");
+    assert(plan.travelSegments[0].toObjectId == "ink_line");
+    assert(nearlyEqual(plan.travelSegments[0].a.x, 0.3));
+    assert(nearlyEqual(plan.travelSegments[0].b.x, 0.4));
+    assert(plan.travelSegments[1].fromObjectId == "ink_line");
+    assert(plan.travelSegments[1].toObjectId == "outside_line");
+    assert(nearlyEqual(plan.travelDistance, std::sqrt(0.02) + std::sqrt(0.5)));
     assert(plan.warnings.size() == 1);
     assert(plan.warnings.front().objectId == "outside_line");
     assert(plan.warnings.front().kind == "out_of_drawable_bounds");
@@ -95,6 +103,8 @@ int main()
     const DraftingPlotPlan hiddenInkPlan = buildDraftingPlotPlan(document, plotGrid());
     assert(hiddenInkPlan.objects.size() == 1);
     assert(hiddenInkPlan.objects.front().objectId == "default_line");
+    assert(hiddenInkPlan.travelSegments.empty());
+    assert(nearlyEqual(hiddenInkPlan.travelDistance, 0.0));
     assert(hiddenInkPlan.warnings.empty());
 
     DraftingDocument segmentDocument = makeDraftingDocument("segment_doc");
@@ -121,6 +131,36 @@ int main()
         assert(std::isfinite(segment.b.x));
         assert(std::isfinite(segment.b.y));
     }
+    for (const DraftingPlotTravelSegment &segment : segmentPlan.travelSegments) {
+        assert(std::isfinite(segment.a.x));
+        assert(std::isfinite(segment.a.y));
+        assert(std::isfinite(segment.b.x));
+        assert(std::isfinite(segment.b.y));
+        assert(std::isfinite(segment.distance));
+        assert(segment.distance > 0.0);
+    }
+    assert(std::isfinite(segmentPlan.travelDistance));
+    assert(segmentPlan.travelDistance > 0.0);
+
+    DraftingDocument travelDocument = makeDraftingDocument("travel_doc");
+    assert(addObject(travelDocument, makeObject("line_a", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.2, 0.1}})).ok);
+    assert(addObject(travelDocument, makeObject("line_b", DraftingShapeKind::Line, LineGeometry{{0.2, 0.1}, {0.3, 0.1}})).ok);
+    assert(addObject(travelDocument, makeObject("line_c", DraftingShapeKind::Line, LineGeometry{{0.7, 0.7}, {0.8, 0.8}})).ok);
+    assert(addObject(travelDocument, makeObject("travel_guide", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.5})).ok);
+    DraftingObject travelHidden = makeObject("travel_hidden", DraftingShapeKind::Line, LineGeometry{{0.9, 0.9}, {1.0, 1.0}});
+    travelHidden.visible = false;
+    assert(addObject(travelDocument, travelHidden).ok);
+    const DraftingPlotPlan travelPlan = buildDraftingPlotPlan(travelDocument, projectDraftingGrid(defaultDraftingGridSettings()));
+    assert(travelPlan.objects.size() == 3);
+    assert(travelPlan.segments.size() == 3);
+    assert(travelPlan.travelSegments.size() == 1);
+    assert(travelPlan.travelSegments.front().fromObjectId == "line_b");
+    assert(travelPlan.travelSegments.front().toObjectId == "line_c");
+    assert(nearlyEqual(travelPlan.travelSegments.front().a.x, 0.3));
+    assert(nearlyEqual(travelPlan.travelSegments.front().a.y, 0.1));
+    assert(nearlyEqual(travelPlan.travelSegments.front().b.x, 0.7));
+    assert(nearlyEqual(travelPlan.travelSegments.front().b.y, 0.7));
+    assert(nearlyEqual(travelPlan.travelDistance, std::sqrt(0.52)));
 
     return 0;
 }

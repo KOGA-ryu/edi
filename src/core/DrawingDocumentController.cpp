@@ -250,19 +250,34 @@ QVariantMap plotPlanToMap(const DraftingPlotPlan &plan)
             {QStringLiteral("stroke_width"), segment.strokeWidth},
         });
     }
+    QVariantList travelSegments;
+    for (const DraftingPlotTravelSegment &segment : plan.travelSegments) {
+        travelSegments.push_back(QVariantMap{
+            {QStringLiteral("from_object_id"), drawing_core::qStringFromStdString(segment.fromObjectId)},
+            {QStringLiteral("to_object_id"), drawing_core::qStringFromStdString(segment.toObjectId)},
+            {QStringLiteral("x1"), segment.a.x},
+            {QStringLiteral("y1"), segment.a.y},
+            {QStringLiteral("x2"), segment.b.x},
+            {QStringLiteral("y2"), segment.b.y},
+            {QStringLiteral("distance"), segment.distance},
+        });
+    }
 
     return {
         {QStringLiteral("plot_object_count"), static_cast<int>(plan.objects.size())},
         {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
-        {QStringLiteral("travel_segment_count"), 0},
+        {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
+        {QStringLiteral("travel_distance"), plan.travelDistance},
         {QStringLiteral("warning_count"), static_cast<int>(plan.warnings.size())},
         {QStringLiteral("blocked"), !plan.warnings.empty()},
         {QStringLiteral("first_warning"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().message)},
         {QStringLiteral("first_warning_object_id"), plan.warnings.empty() ? QString() : drawing_core::qStringFromStdString(plan.warnings.front().objectId)},
         {QStringLiteral("preview"), QVariantMap{
             {QStringLiteral("segment_count"), static_cast<int>(plan.segments.size())},
-            {QStringLiteral("travel_segment_count"), 0},
+            {QStringLiteral("travel_segment_count"), static_cast<int>(plan.travelSegments.size())},
+            {QStringLiteral("travel_distance"), plan.travelDistance},
             {QStringLiteral("segments"), segments},
+            {QStringLiteral("travel_segments"), travelSegments},
         }},
         {QStringLiteral("warnings"), warnings},
     };

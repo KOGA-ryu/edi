@@ -27,6 +27,7 @@ int main()
     assert(draftingOffsetSideFromId("right") == DraftingOffsetSide::Right);
     assert(draftingOffsetSideFromId("left") == DraftingOffsetSide::Left);
     assert(draftingOffsetSideFromId("missing") == DraftingOffsetSide::Left);
+    assert(nearlyEqual(defaultDraftingOffsetDistance(), 0.05));
 
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.0, 0.0}, {1.0, 0.0}});
     line.stroke.color = "#ffaa00";

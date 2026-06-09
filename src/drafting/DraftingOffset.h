@@ -22,6 +22,7 @@ struct DraftingOffsetResult {
 };
 
 DraftingOffsetSide draftingOffsetSideFromId(const std::string &sideId);
+double defaultDraftingOffsetDistance();
 DraftingOffsetResult offsetDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

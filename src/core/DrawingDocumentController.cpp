@@ -1326,7 +1326,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
     }
 
     const QString id = nextObjectId(QStringLiteral("offset"), m_nextObjectSerial++);
-    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), 0.05, draftingOffsetSideFromId(toStdString(sideId)));
+    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), defaultDraftingOffsetDistance(), draftingOffsetSideFromId(toStdString(sideId)));
     if (!offset.ok) {
         return false;
     }

@@ -62,6 +62,11 @@ DraftingOffsetSide draftingOffsetSideFromId(const std::string &sideId)
     return sideId == "right" ? DraftingOffsetSide::Right : DraftingOffsetSide::Left;
 }
 
+double defaultDraftingOffsetDistance()
+{
+    return 0.05;
+}
+
 DraftingOffsetResult offsetDraftingObject(
     const DraftingObject &source,
     DraftingObjectId newObjectId,

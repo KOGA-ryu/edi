@@ -99,6 +99,23 @@ const char *draftingGridPresetLabel(DraftingGridPreset preset)
     return "Custom";
 }
 
+DraftingGridUnit draftingGridUnitFromName(const std::string &name)
+{
+    if (name == "millimeter") {
+        return DraftingGridUnit::Millimeter;
+    }
+    if (name == "centimeter") {
+        return DraftingGridUnit::Centimeter;
+    }
+    if (name == "inch") {
+        return DraftingGridUnit::Inch;
+    }
+    if (name == "foot") {
+        return DraftingGridUnit::Foot;
+    }
+    return DraftingGridUnit::CanvasUnit;
+}
+
 DraftingGridPreset draftingGridPresetFromName(const std::string &name)
 {
     if (name == "letter") {

@@ -19,6 +19,11 @@ int main()
 {
     assert(std::string(draftingGridUnitName(DraftingGridUnit::Millimeter)) == "millimeter");
     assert(std::string(draftingGridUnitLabel(DraftingGridUnit::Inch)) == "in");
+    assert(draftingGridUnitFromName("millimeter") == DraftingGridUnit::Millimeter);
+    assert(draftingGridUnitFromName("centimeter") == DraftingGridUnit::Centimeter);
+    assert(draftingGridUnitFromName("inch") == DraftingGridUnit::Inch);
+    assert(draftingGridUnitFromName("foot") == DraftingGridUnit::Foot);
+    assert(draftingGridUnitFromName("missing") == DraftingGridUnit::CanvasUnit);
     assert(std::string(draftingGridPresetName(DraftingGridPreset::SquareArtBoard)) == "square_art_board");
     assert(std::string(draftingGridPresetLabel(DraftingGridPreset::Letter)) == "Letter");
     assert(draftingGridPresetFromName("a4") == DraftingGridPreset::A4);

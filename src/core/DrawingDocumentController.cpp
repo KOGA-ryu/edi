@@ -162,24 +162,6 @@ QVariantMap gridProjectionToMap(const DraftingGridProjection &grid)
     };
 }
 
-DraftingGridUnit gridUnitFromId(const QString &unitId)
-{
-    const std::string id = unitId.toStdString();
-    if (id == "millimeter") {
-        return DraftingGridUnit::Millimeter;
-    }
-    if (id == "centimeter") {
-        return DraftingGridUnit::Centimeter;
-    }
-    if (id == "inch") {
-        return DraftingGridUnit::Inch;
-    }
-    if (id == "foot") {
-        return DraftingGridUnit::Foot;
-    }
-    return DraftingGridUnit::CanvasUnit;
-}
-
 bool pointInsideBounds(Point2D point, Bounds2D bounds)
 {
     return point.x >= bounds.x
@@ -773,7 +755,7 @@ void DrawingDocumentController::setGridUnitId(const QString &unitId)
 {
     DraftingGridSettings settings = m_gridSettings;
     settings.preset = DraftingGridPreset::Custom;
-    settings.unit = gridUnitFromId(unitId);
+    settings.unit = draftingGridUnitFromName(toStdString(unitId));
     m_gridSettings = sanitizeDraftingGridSettings(settings);
     applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();

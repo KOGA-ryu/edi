@@ -59,6 +59,7 @@ const char *draftingGridUnitName(DraftingGridUnit unit);
 const char *draftingGridUnitLabel(DraftingGridUnit unit);
 const char *draftingGridPresetName(DraftingGridPreset preset);
 const char *draftingGridPresetLabel(DraftingGridPreset preset);
+DraftingGridUnit draftingGridUnitFromName(const std::string &name);
 DraftingGridPreset draftingGridPresetFromName(const std::string &name);
 DraftingGridSettings draftingGridPresetSettings(DraftingGridPreset preset);
 DraftingGridSettings defaultDraftingGridSettings();

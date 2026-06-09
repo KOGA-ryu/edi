@@ -48,6 +48,54 @@ QString formatNumber(double value)
     return QString::number(value, 'f', 3);
 }
 
+QString formatPlotReadinessChecklist(const QVariantList &layerStats, const QVariantList &penStats)
+{
+    int readyLayers = 0;
+    int blockedLayers = 0;
+    int readyPens = 0;
+    int blockedPens = 0;
+    QStringList blockers;
+
+    for (const QVariant &statsValue : layerStats) {
+        const QVariantMap stats = statsValue.toMap();
+        if (stats.value(QStringLiteral("ready")).toBool()) {
+            ++readyLayers;
+            continue;
+        }
+        ++blockedLayers;
+        if (blockers.size() < 4) {
+            blockers.push_back(QStringLiteral("L:%1 %2")
+                .arg(stats.value(QStringLiteral("layer_id")).toString())
+                .arg(stats.value(QStringLiteral("blocked_reason")).toString()));
+        }
+    }
+
+    for (const QVariant &statsValue : penStats) {
+        const QVariantMap stats = statsValue.toMap();
+        if (stats.value(QStringLiteral("ready")).toBool()) {
+            ++readyPens;
+            continue;
+        }
+        ++blockedPens;
+        if (blockers.size() < 4) {
+            const QString penId = stats.value(QStringLiteral("pen_id")).toString();
+            blockers.push_back(QStringLiteral("P:%1 %2")
+                .arg(penId.isEmpty() ? QStringLiteral("<none>") : penId)
+                .arg(stats.value(QStringLiteral("blocked_reason")).toString()));
+        }
+    }
+
+    QString summary = QStringLiteral("Readiness: layers %1 ready/%2 blocked, pens %3 ready/%4 blocked")
+        .arg(readyLayers)
+        .arg(blockedLayers)
+        .arg(readyPens)
+        .arg(blockedPens);
+    if (!blockers.isEmpty()) {
+        summary.append(QStringLiteral("\nBlocked: %1").arg(blockers.join(QStringLiteral("; "))));
+    }
+    return summary;
+}
+
 QVariantMap activeObjectProjection(const QVariantMap &document)
 {
     const QString activeId = document.value(QStringLiteral("active_object_id")).toString();
@@ -441,6 +489,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_plotValue = makeValueLabel();
     m_plotLayerStatsValue = makeValueLabel();
     m_plotPenStatsValue = makeValueLabel();
+    m_plotReadinessValue = makeValueLabel();
     m_plotOrderMode = new QComboBox;
     m_plotOrderMode->setObjectName(QStringLiteral("plotOrderMode"));
     m_plotOrderMode->addItem(QStringLiteral("Plot order: layer"), QStringLiteral("layer_order"));
@@ -478,6 +527,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_plotValue);
     layout->addWidget(m_plotLayerStatsValue);
     layout->addWidget(m_plotPenStatsValue);
+    layout->addWidget(m_plotReadinessValue);
     layout->addWidget(m_plotOrderMode);
     layout->addWidget(m_plotDirectionMode);
     layout->addWidget(m_plotPreviewVisible);
@@ -1175,6 +1225,11 @@ void EdiShellWindow::refreshInspector()
                 .arg(activePenStats.value(QStringLiteral("segment_count")).toInt())
                 .arg(formatNumber(activePenStats.value(QStringLiteral("stroke_distance")).toDouble()))
                 .arg(formatNumber(activePenStats.value(QStringLiteral("travel_distance")).toDouble())));
+    }
+    if (m_plotReadinessValue != nullptr) {
+        m_plotReadinessValue->setText(formatPlotReadinessChecklist(
+            plot.value(QStringLiteral("layer_stats")).toList(),
+            plot.value(QStringLiteral("pen_stats")).toList()));
     }
     if (m_plotOrderMode != nullptr) {
         const QSignalBlocker blocker(m_plotOrderMode);

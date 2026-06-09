@@ -362,6 +362,7 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_geometryEditor = buildGeometryEditor();
     layout->addWidget(m_geometryEditor);
     layout->addWidget(buildNudgeControls());
+    layout->addWidget(buildAlignControls());
     layout->addWidget(buildOffsetControls());
     layout->addWidget(buildMirrorControls());
     layout->addWidget(buildRepeatControls());
@@ -426,6 +427,45 @@ QWidget *EdiShellWindow::buildNudgeControls()
     addButton(QStringLiteral("Fine Left"), QStringLiteral("left"), QStringLiteral("fine"), 5, 0);
     addButton(QStringLiteral("Fine Right"), QStringLiteral("right"), QStringLiteral("fine"), 5, 2);
     addButton(QStringLiteral("Fine Down"), QStringLiteral("down"), QStringLiteral("fine"), 6, 1);
+
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildAlignControls()
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("alignControls"));
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+
+    auto addAlignButton = [this, layout](const QString &label, const QString &modeId, int row, int column) {
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("alignButton"));
+        connect(button, &QPushButton::clicked, this, [this, modeId]() {
+            m_controller->alignSelection(modeId);
+        });
+        layout->addWidget(button, row, column);
+    };
+    auto addDistributeButton = [this, layout](const QString &label, const QString &axisId, int row, int column) {
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("distributeButton"));
+        connect(button, &QPushButton::clicked, this, [this, axisId]() {
+            m_controller->distributeSelection(axisId);
+        });
+        layout->addWidget(button, row, column);
+    };
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Align")), 0, 0, 1, 3);
+    addAlignButton(QStringLiteral("Left"), QStringLiteral("left"), 1, 0);
+    addAlignButton(QStringLiteral("Center X"), QStringLiteral("center_x"), 1, 1);
+    addAlignButton(QStringLiteral("Right"), QStringLiteral("right"), 1, 2);
+    addAlignButton(QStringLiteral("Top"), QStringLiteral("top"), 2, 0);
+    addAlignButton(QStringLiteral("Center Y"), QStringLiteral("center_y"), 2, 1);
+    addAlignButton(QStringLiteral("Bottom"), QStringLiteral("bottom"), 2, 2);
+    addDistributeButton(QStringLiteral("Distribute X"), QStringLiteral("x"), 3, 0);
+    addDistributeButton(QStringLiteral("Distribute Y"), QStringLiteral("y"), 3, 1);
 
     return panel;
 }

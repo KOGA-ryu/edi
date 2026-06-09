@@ -97,6 +97,41 @@ int main()
     assert(movedRect->origin.x == 3.0);
     assert(movedRect->origin.y == 4.0);
 
+    const auto revisionBeforeAlign = editDocument.revision;
+    auto alignLeft = applyDraftingCommand(editDocument, AlignSelectionCommand{DraftingAlignmentMode::Left});
+    assert(alignLeft.ok);
+    assert(editDocument.revision == revisionBeforeAlign + 1);
+    movedRectObject = findObject(editDocument, "rect_1");
+    assert(movedRectObject != nullptr);
+    movedRect = std::get_if<RectangleGeometry>(&movedRectObject->geometry);
+    assert(movedRect != nullptr);
+    assert(movedRect->origin.x == 2.0);
+    assert(movedRect->origin.y == 4.0);
+
+    auto builtMiddlePoint = buildDraftingObject("middle_point", DraftingShapeKind::Point, PointGeometry{{10.0, 1.0}});
+    assert(builtMiddlePoint.ok);
+    assert(applyDraftingCommand(editDocument, CreateObjectCommand{builtMiddlePoint.object}).ok);
+    assert(applyDraftingCommand(editDocument, SelectObjectsCommand{{"line_1", "middle_point", "rect_1"}}).ok);
+    const auto revisionBeforeDistribute = editDocument.revision;
+    auto distributeY = applyDraftingCommand(editDocument, DistributeSelectionCommand{DraftingAlignmentMode::DistributeY});
+    assert(distributeY.ok);
+    assert(editDocument.revision == revisionBeforeDistribute + 1);
+    const auto *distributedLineObject = findObject(editDocument, "line_1");
+    assert(distributedLineObject != nullptr);
+    const auto *distributedLine = std::get_if<LineGeometry>(&distributedLineObject->geometry);
+    assert(distributedLine != nullptr);
+    assert(distributedLine->a.y == 1.0);
+    assert(distributedLine->b.y == 6.0);
+    const auto revisionBeforeBadArrangeMode = editDocument.revision;
+    auto badAlignMode = applyDraftingCommand(editDocument, AlignSelectionCommand{DraftingAlignmentMode::DistributeX});
+    assert(!badAlignMode.ok);
+    assert(badAlignMode.code == DraftingResultCode::InvalidGeometry);
+    assert(editDocument.revision == revisionBeforeBadArrangeMode);
+    auto badDistributeMode = applyDraftingCommand(editDocument, DistributeSelectionCommand{DraftingAlignmentMode::Left});
+    assert(!badDistributeMode.ok);
+    assert(badDistributeMode.code == DraftingResultCode::InvalidGeometry);
+    assert(editDocument.revision == revisionBeforeBadArrangeMode);
+
     const auto revisionBeforeBadMove = editDocument.revision;
     auto badSelectionMove = applyDraftingCommand(editDocument, MoveSelectionCommand{std::numeric_limits<double>::infinity(), 0.0});
     assert(!badSelectionMove.ok);

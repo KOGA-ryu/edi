@@ -36,6 +36,7 @@ private:
     QWidget *buildBottomPanel();
     QWidget *buildGeometryEditor();
     QWidget *buildNudgeControls();
+    QWidget *buildAlignControls();
     QWidget *buildOffsetControls();
     QWidget *buildMirrorControls();
     QWidget *buildRepeatControls();

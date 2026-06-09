@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drafting/DraftingAlign.h"
 #include "drafting/DraftingDocument.h"
 
 #include <string>
@@ -42,6 +43,14 @@ struct UpdateMetadataCommand {
     ObjectMetadata metadata;
 };
 
+struct AlignSelectionCommand {
+    DraftingAlignmentMode mode = DraftingAlignmentMode::Left;
+};
+
+struct DistributeSelectionCommand {
+    DraftingAlignmentMode mode = DraftingAlignmentMode::DistributeX;
+};
+
 struct SelectObjectCommand {
     DraftingObjectId objectId;
 };
@@ -58,6 +67,8 @@ using DraftingCommand = std::variant<
     EditObjectHandleCommand,
     UpdateGeometryCommand,
     UpdateMetadataCommand,
+    AlignSelectionCommand,
+    DistributeSelectionCommand,
     SelectObjectCommand,
     SelectObjectsCommand>;
 

@@ -29,6 +29,11 @@ DraftingCommandResult fromStoreResult(const DraftingStoreResult &result)
     return DraftingCommandResult::rejected(result.code, result.message);
 }
 
+bool commandModeIsDistribute(DraftingAlignmentMode mode)
+{
+    return mode == DraftingAlignmentMode::DistributeX || mode == DraftingAlignmentMode::DistributeY;
+}
+
 } // namespace
 
 DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const DraftingCommand &command)
@@ -78,6 +83,48 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectGeometry(document, typedCommand.objectId, typedCommand.geometry));
         } else if constexpr (std::is_same_v<Command, UpdateMetadataCommand>) {
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
+        } else if constexpr (std::is_same_v<Command, AlignSelectionCommand>) {
+            if (commandModeIsDistribute(typedCommand.mode)) {
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "align command requires an align mode");
+            }
+            const DraftingAlignmentResult plan = planDraftingAlignment(document, document.selectedObjectIds, typedCommand.mode);
+            if (!plan.ok) {
+                return DraftingCommandResult::rejected(plan.code, plan.message);
+            }
+
+            DraftingDocument candidate = document;
+            for (const DraftingTranslation &translation : plan.translations) {
+                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
+                if (!move.ok) {
+                    return fromStoreResult(move);
+                }
+            }
+            if (!plan.translations.empty()) {
+                candidate.revision = document.revision + 1;
+                document = std::move(candidate);
+            }
+            return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, DistributeSelectionCommand>) {
+            if (!commandModeIsDistribute(typedCommand.mode)) {
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "distribute command requires a distribute mode");
+            }
+            const DraftingAlignmentResult plan = planDraftingAlignment(document, document.selectedObjectIds, typedCommand.mode);
+            if (!plan.ok) {
+                return DraftingCommandResult::rejected(plan.code, plan.message);
+            }
+
+            DraftingDocument candidate = document;
+            for (const DraftingTranslation &translation : plan.translations) {
+                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
+                if (!move.ok) {
+                    return fromStoreResult(move);
+                }
+            }
+            if (!plan.translations.empty()) {
+                candidate.revision = document.revision + 1;
+                document = std::move(candidate);
+            }
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, SelectObjectCommand>) {
             if (!containsObject(document, typedCommand.objectId)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
@@ -85,7 +132,7 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             selectOnly(document, typedCommand.objectId);
             ++document.revision;
             return DraftingCommandResult::accepted();
-        } else {
+        } else if constexpr (std::is_same_v<Command, SelectObjectsCommand>) {
             for (const DraftingObjectId &objectId : typedCommand.objectIds) {
                 if (!containsObject(document, objectId)) {
                     return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
@@ -94,6 +141,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             selectMany(document, typedCommand.objectIds);
             ++document.revision;
             return DraftingCommandResult::accepted();
+        } else {
+            return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
         }
     }, command);
 }

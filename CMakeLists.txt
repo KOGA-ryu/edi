@@ -82,6 +82,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingMirror.cpp
     src/drafting/DraftingArray.h
     src/drafting/DraftingArray.cpp
+    src/drafting/DraftingAlign.h
+    src/drafting/DraftingAlign.cpp
     src/drafting/DraftingSelection.h
     src/drafting/DraftingSelection.cpp
     src/drafting/DraftingMeasurement.h
@@ -176,6 +178,7 @@ add_edi_contract_test(drafting_tool_creation_tests tests/drafting_tool_creation_
 add_edi_contract_test(drafting_offset_tests tests/drafting_offset_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_mirror_tests tests/drafting_mirror_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_array_tests tests/drafting_array_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_align_tests tests/drafting_align_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_object_edit_tests tests/drafting_object_edit_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_metadata_tests tests/drafting_metadata_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_measurement_tests tests/drafting_measurement_tests.cpp edi_drafting_core)

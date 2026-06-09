@@ -47,6 +47,8 @@ public:
     bool offsetSelectedObject(const QString &sideId);
     bool mirrorSelectedObject(const QString &axisId);
     bool repeatSelectedObject(const QString &axisId);
+    bool alignSelection(const QString &modeId);
+    bool distributeSelection(const QString &axisId);
     void clickCanvasNormalized(double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);

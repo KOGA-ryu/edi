@@ -399,6 +399,26 @@ int main(int argc, char **argv)
     assert(selectedIds.size() == 2);
     assert(selectionModel.value("active_object_id").toString() == selectedIds.back().toString());
 
+    DrawingDocumentController arrangeController;
+    arrangeController.setSelectedToolId("point_tool");
+    arrangeController.clickCanvasNormalized(0.2, 0.2);
+    arrangeController.clickCanvasNormalized(0.5, 0.7);
+    arrangeController.clickCanvasNormalized(0.8, 0.4);
+    assert(arrangeController.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0));
+    assert(arrangeController.alignSelection("left"));
+    QVariantList arrangedObjects = arrangeController.modelDocument().value("drawing_objects").toList();
+    assert(arrangedObjects.size() == 3);
+    assert(nearlyEqual(arrangedObjects[0].toMap().value("x").toDouble(), 0.2));
+    assert(nearlyEqual(arrangedObjects[1].toMap().value("x").toDouble(), 0.2));
+    assert(nearlyEqual(arrangedObjects[2].toMap().value("x").toDouble(), 0.2));
+    assert(!arrangeController.alignSelection("diagonal"));
+    assert(arrangeController.distributeSelection("y"));
+    arrangedObjects = arrangeController.modelDocument().value("drawing_objects").toList();
+    assert(nearlyEqual(arrangedObjects[0].toMap().value("y").toDouble(), 0.2));
+    assert(nearlyEqual(arrangedObjects[1].toMap().value("y").toDouble(), 0.7));
+    assert(nearlyEqual(arrangedObjects[2].toMap().value("y").toDouble(), 0.45));
+    assert(!arrangeController.distributeSelection("diagonal"));
+
     DrawingDocumentController previewController;
     previewController.setSelectedToolId("line_tool");
     previewController.clickCanvasNormalized(0.2, 0.2);

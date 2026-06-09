@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <vector>
 
 namespace {
@@ -248,6 +249,40 @@ DraftingOffsetSide offsetSideFromId(const QString &sideId)
 DraftingMirrorAxis mirrorAxisFromId(const QString &axisId)
 {
     return axisId == QStringLiteral("vertical") ? DraftingMirrorAxis::Vertical : DraftingMirrorAxis::Horizontal;
+}
+
+std::optional<DraftingAlignmentMode> alignmentModeFromId(const QString &modeId)
+{
+    if (modeId == QStringLiteral("left")) {
+        return DraftingAlignmentMode::Left;
+    }
+    if (modeId == QStringLiteral("right")) {
+        return DraftingAlignmentMode::Right;
+    }
+    if (modeId == QStringLiteral("top")) {
+        return DraftingAlignmentMode::Top;
+    }
+    if (modeId == QStringLiteral("bottom")) {
+        return DraftingAlignmentMode::Bottom;
+    }
+    if (modeId == QStringLiteral("center_x")) {
+        return DraftingAlignmentMode::CenterX;
+    }
+    if (modeId == QStringLiteral("center_y")) {
+        return DraftingAlignmentMode::CenterY;
+    }
+    return std::nullopt;
+}
+
+std::optional<DraftingAlignmentMode> distributeModeFromAxisId(const QString &axisId)
+{
+    if (axisId == QStringLiteral("x")) {
+        return DraftingAlignmentMode::DistributeX;
+    }
+    if (axisId == QStringLiteral("y")) {
+        return DraftingAlignmentMode::DistributeY;
+    }
+    return std::nullopt;
 }
 
 } // namespace
@@ -589,6 +624,38 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         selectedIds.push_back(object.id);
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::alignSelection(const QString &modeId)
+{
+    const std::optional<DraftingAlignmentMode> mode = alignmentModeFromId(modeId);
+    if (!mode) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, AlignSelectionCommand{*mode});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::distributeSelection(const QString &axisId)
+{
+    const std::optional<DraftingAlignmentMode> mode = distributeModeFromAxisId(axisId);
+    if (!mode) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(m_document, DistributeSelectionCommand{*mode});
+    if (!result.ok) {
+        return false;
+    }
+
     emit modelChanged();
     return true;
 }

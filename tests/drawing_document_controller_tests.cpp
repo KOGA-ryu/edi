@@ -431,6 +431,42 @@ int main(int argc, char **argv)
     assert(!boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("diagonal")));
     assert(boundsGuideController.modelDocument().value("revision").toInt() == boundsGuideRevisionBeforeInvalid);
 
+    DrawingDocumentController offsetGuideController;
+    offsetGuideController.setSelectedToolId("rectangle_tool");
+    offsetGuideController.clickCanvasNormalized(0.2, 0.3);
+    offsetGuideController.clickCanvasNormalized(0.6, 0.7);
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    QVariantMap offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "vertical");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.2 - squareQuarterInchStep));
+    const int duplicateOffsetGuideRevision = offsetGuideController.modelDocument().value("revision").toInt();
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    assert(offsetGuideController.modelDocument().value("revision").toInt() == duplicateOffsetGuideRevision);
+    assert(offsetGuideController.modelDocument().value("drawing_objects").toList().size() == 2);
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("right"), QStringLiteral("grid")));
+    offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "vertical");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.6 + squareQuarterInchStep));
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
+    offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "horizontal");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.3 - squareQuarterInchStep));
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("bottom"), QStringLiteral("grid")));
+    offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "horizontal");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.7 + squareQuarterInchStep));
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_x_plus"), QStringLiteral("fine")));
+    offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "vertical");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.4 + squareQuarterInchStep * 0.25));
+    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_y_minus"), QStringLiteral("coarse")));
+    offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
+    assert(offsetGuide.value("orientation").toString() == "horizontal");
+    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.5 - squareQuarterInchStep * 4.0));
+    const int offsetGuideRevisionBeforeInvalid = offsetGuideController.modelDocument().value("revision").toInt();
+    assert(!offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("diagonal"), QStringLiteral("grid")));
+    assert(offsetGuideController.modelDocument().value("revision").toInt() == offsetGuideRevisionBeforeInvalid);
+
     DrawingDocumentController lockedBoundsGuideController;
     lockedBoundsGuideController.setSelectedToolId("line_tool");
     lockedBoundsGuideController.clickCanvasNormalized(0.2, 0.3);
@@ -438,6 +474,7 @@ int main(int argc, char **argv)
     assert(lockedBoundsGuideController.setSelectedObjectLocked(true));
     const int lockedBoundsGuideRevision = lockedBoundsGuideController.modelDocument().value("revision").toInt();
     assert(!lockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    assert(!lockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
     assert(lockedBoundsGuideController.modelDocument().value("revision").toInt() == lockedBoundsGuideRevision);
     assert(lockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
 
@@ -448,6 +485,7 @@ int main(int argc, char **argv)
     assert(layerLockedBoundsGuideController.setActiveLayerLocked(true));
     const int layerLockedBoundsGuideRevision = layerLockedBoundsGuideController.modelDocument().value("revision").toInt();
     assert(!layerLockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("top")));
+    assert(!layerLockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
     assert(layerLockedBoundsGuideController.modelDocument().value("revision").toInt() == layerLockedBoundsGuideRevision);
     assert(layerLockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
 
@@ -458,6 +496,7 @@ int main(int argc, char **argv)
     assert(!unsupportedGuide.value("bounds_guide_controls").toBool());
     const int unsupportedBoundsGuideRevision = unsupportedBoundsGuideController.modelDocument().value("revision").toInt();
     assert(!unsupportedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    assert(!unsupportedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
     assert(unsupportedBoundsGuideController.modelDocument().value("revision").toInt() == unsupportedBoundsGuideRevision);
 
     DrawingDocumentController directDuplicateGuideController;

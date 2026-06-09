@@ -468,6 +468,9 @@ double nudgeScaleForMode(const QString &stepMode)
     if (stepMode == QStringLiteral("fine")) {
         return 0.25;
     }
+    if (stepMode == QStringLiteral("coarse")) {
+        return 4.0;
+    }
     return 1.0;
 }
 
@@ -1762,6 +1765,68 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     }
     built.object.layerId = source->layerId;
     built.object.metadata.toolProvenance = "bounds_guide";
+    const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QString &placementId, const QString &stepMode)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    if (source == nullptr
+        || source->kind == DraftingShapeKind::Guide
+        || source->kind == DraftingShapeKind::ConstructionLine
+        || source->kind == DraftingShapeKind::Dimension
+        || source->locked
+        || objectLayerLocked(m_document, *source)
+        || !objectEffectivelyVisible(m_document, *source)
+        || !isFinite(source->bounds)) {
+        return false;
+    }
+
+    const double scale = nudgeScaleForMode(stepMode);
+    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep) * scale;
+    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep) * scale;
+    const Bounds2D bounds = source->bounds;
+    GuideGeometry guide;
+    if (placementId == QStringLiteral("left")) {
+        guide = {GuideOrientation::Vertical, bounds.x - stepX};
+    } else if (placementId == QStringLiteral("right")) {
+        guide = {GuideOrientation::Vertical, bounds.x + bounds.width + stepX};
+    } else if (placementId == QStringLiteral("center_x_minus")) {
+        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0 - stepX};
+    } else if (placementId == QStringLiteral("center_x_plus")) {
+        guide = {GuideOrientation::Vertical, bounds.x + bounds.width / 2.0 + stepX};
+    } else if (placementId == QStringLiteral("top")) {
+        guide = {GuideOrientation::Horizontal, bounds.y - stepY};
+    } else if (placementId == QStringLiteral("bottom")) {
+        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height + stepY};
+    } else if (placementId == QStringLiteral("center_y_minus")) {
+        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0 - stepY};
+    } else if (placementId == QStringLiteral("center_y_plus")) {
+        guide = {GuideOrientation::Horizontal, bounds.y + bounds.height / 2.0 + stepY};
+    } else {
+        return false;
+    }
+
+    if (existingGuideId(m_document, guide)) {
+        return true;
+    }
+
+    const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
+    auto built = buildDraftingObject(toStdString(id), DraftingShapeKind::Guide, guide);
+    if (!built.ok) {
+        return false;
+    }
+    built.object.layerId = source->layerId;
+    built.object.metadata.toolProvenance = "offset_bounds_guide";
     const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
     if (!result.ok) {
         return false;

@@ -724,6 +724,22 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_boundsGuideButtons.insert(buttonSpec.first, button);
         layout->addWidget(button);
     }
+    layout->addWidget(makeSectionLabel(QStringLiteral("Offset Guides")));
+    const QVector<QPair<QString, QString>> offsetGuideButtons {
+        {QStringLiteral("left"), QStringLiteral("Offset V Left")},
+        {QStringLiteral("right"), QStringLiteral("Offset V Right")},
+        {QStringLiteral("top"), QStringLiteral("Offset H Top")},
+        {QStringLiteral("bottom"), QStringLiteral("Offset H Bottom")},
+    };
+    for (const auto &buttonSpec : offsetGuideButtons) {
+        auto *button = new QPushButton(buttonSpec.second);
+        button->setObjectName(QStringLiteral("offsetGuide_%1").arg(buttonSpec.first));
+        connect(button, &QPushButton::clicked, this, [this, placementId = buttonSpec.first]() {
+            m_controller->createOffsetGuideFromSelectedBounds(placementId, QStringLiteral("grid"));
+        });
+        m_offsetGuideButtons.insert(buttonSpec.first, button);
+        layout->addWidget(button);
+    }
     layout->addWidget(makeSectionLabel(QStringLiteral("Align To Guide")));
     const QVector<QPair<QString, QString>> alignToGuideButtons {
         {QStringLiteral("left"), QStringLiteral("To V Guide Left")},
@@ -1592,6 +1608,9 @@ void EdiShellWindow::refreshInspector()
     }
     const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
     for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
+        button->setEnabled(boundsGuideControlsEnabled);
+    }
+    for (QPushButton *button : std::as_const(m_offsetGuideButtons)) {
         button->setEnabled(boundsGuideControlsEnabled);
     }
     const bool alignToGuideControlsEnabled = selectedObject.value(QStringLiteral("align_to_guide_controls")).toBool();

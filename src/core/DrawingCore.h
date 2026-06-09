@@ -88,6 +88,7 @@ public:
     bool centerSelectedGuideInDrawable();
     bool fitSelectedConstructionLineToDrawable();
     bool createGuideFromSelectedBounds(const QString &placementId);
+    bool createOffsetGuideFromSelectedBounds(const QString &placementId, const QString &stepMode);
     bool alignSelectionToNearestGuide(const QString &modeId);
     bool deleteSelectedGuide();
     bool deleteAllGuides();

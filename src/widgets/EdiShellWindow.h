@@ -95,6 +95,7 @@ private:
     QPushButton *m_moveSelectionToDrawableOriginButton = nullptr;
     QPushButton *m_moveGuideToDrawableOriginButton = nullptr;
     QPushButton *m_centerGuideInDrawableButton = nullptr;
+    QPushButton *m_moveGuideToDrawableMaxButton = nullptr;
     QPushButton *m_fitConstructionToDrawableButton = nullptr;
     QPushButton *m_deleteSelectedGuideButton = nullptr;
     QPushButton *m_deleteAllGuidesButton = nullptr;
@@ -107,6 +108,7 @@ private:
     QComboBox *m_guideColor = nullptr;
     QComboBox *m_guideDashStyle = nullptr;
     QCheckBox *m_guideShowLabel = nullptr;
+    QMap<QString, QPushButton *> m_guideOffsetButtons;
     QMap<QString, QPushButton *> m_boundsGuideButtons;
     QMap<QString, QPushButton *> m_offsetGuideButtons;
     QMap<QString, QPushButton *> m_alignToGuideButtons;

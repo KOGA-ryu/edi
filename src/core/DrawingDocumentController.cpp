@@ -1111,7 +1111,15 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
     }
 
     double normalizedValue = value;
-    if (fieldId == QStringLiteral("x")
+    if (fieldId == QStringLiteral("position")) {
+        const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
+        if (object->kind != DraftingShapeKind::Guide || guide == nullptr) {
+            return false;
+        }
+        normalizedValue = guide->orientation == GuideOrientation::Horizontal
+            ? value / height
+            : value / width;
+    } else if (fieldId == QStringLiteral("x")
         || fieldId == QStringLiteral("cx")
         || fieldId == QStringLiteral("x1")
         || fieldId == QStringLiteral("x2")
@@ -1902,6 +1910,75 @@ bool DrawingDocumentController::centerSelectedGuideInDrawable()
     next.position = guide->orientation == GuideOrientation::Horizontal
         ? grid.drawableBounds.y + grid.drawableBounds.height / 2.0
         : grid.drawableBounds.x + grid.drawableBounds.width / 2.0;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, next});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
+    if (guide == nullptr) {
+        return false;
+    }
+
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    GuideGeometry next = *guide;
+    next.position = guide->orientation == GuideOrientation::Horizontal
+        ? grid.drawableBounds.y + grid.drawableBounds.height
+        : grid.drawableBounds.x + grid.drawableBounds.width;
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, next});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, const QString &stepMode)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+        return false;
+    }
+    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
+    if (guide == nullptr) {
+        return false;
+    }
+
+    const double scale = nudgeScaleForMode(stepMode);
+    const double stepX = std::max(0.000001, m_snapSettings.gridStepX > 0.0 ? m_snapSettings.gridStepX : m_snapSettings.gridStep);
+    const double stepY = std::max(0.000001, m_snapSettings.gridStepY > 0.0 ? m_snapSettings.gridStepY : m_snapSettings.gridStep);
+    double delta = 0.0;
+    if (direction == QStringLiteral("negative")) {
+        delta = -(guide->orientation == GuideOrientation::Horizontal ? stepY : stepX) * scale;
+    } else if (direction == QStringLiteral("positive")) {
+        delta = (guide->orientation == GuideOrientation::Horizontal ? stepY : stepX) * scale;
+    } else {
+        return false;
+    }
+
+    GuideGeometry next = *guide;
+    next.position += delta;
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         UpdateGeometryCommand{*m_document.activeObjectId, next});

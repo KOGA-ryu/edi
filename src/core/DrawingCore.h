@@ -94,6 +94,8 @@ public:
     bool moveSelectionToDrawableOrigin();
     bool moveSelectedGuideToDrawableOrigin();
     bool centerSelectedGuideInDrawable();
+    bool moveSelectedGuideToDrawableMax();
+    bool offsetSelectedGuide(const QString &direction, const QString &stepMode);
     bool fitSelectedConstructionLineToDrawable();
     bool createGuideFromSelectedBounds(const QString &placementId);
     bool createOffsetGuideFromSelectedBounds(const QString &placementId, const QString &stepMode);

@@ -383,6 +383,18 @@ int main(int argc, char **argv)
     nonGuideVisualController.setSelectedToolId("point_tool");
     nonGuideVisualController.clickCanvasNormalized(0.2, 0.3);
     assert(!nonGuideVisualController.setSelectedGuideLabel("not a guide"));
+    QVariantMap verticalGuidePhysical = verticalGuide.value("physical_geometry").toMap();
+    assert(verticalGuidePhysical.value("unit_label").toString() == "in");
+    assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 7.2));
+    assert(guideController.updateSelectedObjectPhysicalGeometryField("position", 3.0));
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.25));
+    verticalGuidePhysical = verticalGuide.value("physical_geometry").toMap();
+    assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 3.0));
+    const int guidePhysicalRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
+    assert(!guideController.updateSelectedObjectPhysicalGeometryField("position", 13.0));
+    assert(guideController.modelDocument().value("revision").toInt() == guidePhysicalRevisionBeforeInvalid);
     assert(guideController.moveSelectedGuideToDrawableOrigin());
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
@@ -391,6 +403,25 @@ int main(int argc, char **argv)
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
     assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.5));
+    assert(guideController.moveSelectedGuideToDrawableMax());
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    assert(guideController.offsetSelectedGuide("negative", "fine"));
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 0.25));
+    assert(guideController.offsetSelectedGuide("positive", "fine"));
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    assert(guideController.offsetSelectedGuide("negative", "coarse"));
+    guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    verticalGuide = guideObjects[1].toMap();
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 4.0));
+    const int guideOffsetRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
+    assert(!guideController.offsetSelectedGuide("sideways", "grid"));
+    assert(guideController.modelDocument().value("revision").toInt() == guideOffsetRevisionBeforeInvalid);
     assert(guideController.updateSelectedObjectGeometryField("position", 0.8));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
@@ -407,6 +438,14 @@ int main(int argc, char **argv)
         .value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), squareQuarterInchStep));
     assert(horizontalGuidePlacementController.centerSelectedGuideInDrawable());
+    horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
+    assert(horizontalGuidePlacementController.moveSelectedGuideToDrawableMax());
+    horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
+        .value("drawing_objects").toList().front().toMap();
+    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    assert(horizontalGuidePlacementController.updateSelectedObjectPhysicalGeometryField("position", 6.0));
     horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
     assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));

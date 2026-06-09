@@ -709,6 +709,30 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->centerSelectedGuideInDrawable();
     });
     layout->addWidget(m_centerGuideInDrawableButton);
+    m_moveGuideToDrawableMaxButton = new QPushButton(QStringLiteral("Guide To Drawable Max"));
+    m_moveGuideToDrawableMaxButton->setObjectName(QStringLiteral("guideToDrawableMaxButton"));
+    connect(m_moveGuideToDrawableMaxButton, &QPushButton::clicked, this, [this]() {
+        m_controller->moveSelectedGuideToDrawableMax();
+    });
+    layout->addWidget(m_moveGuideToDrawableMaxButton);
+    const QVector<QPair<QString, QString>> guideOffsetButtons {
+        {QStringLiteral("negative_fine"), QStringLiteral("Guide - Fine")},
+        {QStringLiteral("positive_fine"), QStringLiteral("Guide + Fine")},
+        {QStringLiteral("negative_grid"), QStringLiteral("Guide - Grid")},
+        {QStringLiteral("positive_grid"), QStringLiteral("Guide + Grid")},
+        {QStringLiteral("negative_coarse"), QStringLiteral("Guide - Coarse")},
+        {QStringLiteral("positive_coarse"), QStringLiteral("Guide + Coarse")},
+    };
+    for (const auto &buttonSpec : guideOffsetButtons) {
+        auto *button = new QPushButton(buttonSpec.second);
+        button->setObjectName(QStringLiteral("guideOffset_%1").arg(buttonSpec.first));
+        const QStringList parts = buttonSpec.first.split(QLatin1Char('_'));
+        connect(button, &QPushButton::clicked, this, [this, direction = parts.value(0), stepMode = parts.value(1)]() {
+            m_controller->offsetSelectedGuide(direction, stepMode);
+        });
+        m_guideOffsetButtons.insert(buttonSpec.first, button);
+        layout->addWidget(button);
+    }
     m_fitConstructionToDrawableButton = new QPushButton(QStringLiteral("Fit Construction To Drawable"));
     m_fitConstructionToDrawableButton->setObjectName(QStringLiteral("fitConstructionToDrawableButton"));
     connect(m_fitConstructionToDrawableButton, &QPushButton::clicked, this, [this]() {
@@ -1649,6 +1673,9 @@ void EdiShellWindow::refreshInspector()
     if (m_centerGuideInDrawableButton != nullptr) {
         m_centerGuideInDrawableButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
     }
+    if (m_moveGuideToDrawableMaxButton != nullptr) {
+        m_moveGuideToDrawableMaxButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    }
     if (m_fitConstructionToDrawableButton != nullptr) {
         m_fitConstructionToDrawableButton->setEnabled(selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
     }
@@ -1666,6 +1693,9 @@ void EdiShellWindow::refreshInspector()
     const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
     if (m_deleteSelectedGuideButton != nullptr) {
         m_deleteSelectedGuideButton->setEnabled(selectedGuideControlsEnabled);
+    }
+    for (QPushButton *button : std::as_const(m_guideOffsetButtons)) {
+        button->setEnabled(selectedGuideControlsEnabled);
     }
     const bool guideVisualControlsEnabled = selectedObject.value(QStringLiteral("guide_visual_controls")).toBool();
     if (m_guideLabel != nullptr) {

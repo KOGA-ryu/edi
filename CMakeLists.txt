@@ -245,6 +245,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/EdiShellWindow.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasObjectPainter.h
+    src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h
     src/widgets/DrawingCanvasGestureState.cpp
     src/widgets/DrawingCanvasProjectedObject.h

@@ -78,8 +78,21 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "polygon";
     case DraftingShapeKind::Polyline:
         return "polyline";
+    case DraftingShapeKind::Guide:
+        return "guide";
     }
     return "unknown";
+}
+
+const char *guideOrientationName(GuideOrientation orientation)
+{
+    switch (orientation) {
+    case GuideOrientation::Horizontal:
+        return "horizontal";
+    case GuideOrientation::Vertical:
+        return "vertical";
+    }
+    return "horizontal";
 }
 
 const char *draftingResultCodeName(DraftingResultCode code)
@@ -121,8 +134,10 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Circle;
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return DraftingShapeKind::Polygon;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             return DraftingShapeKind::Polyline;
+        } else {
+            return DraftingShapeKind::Guide;
         }
     }, geometry);
 }
@@ -218,7 +233,7 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
                     return GeometryValidationResult::rejected("polygon vertices must be finite");
                 }
             }
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             if (typedGeometry.vertices.size() < 2) {
                 return GeometryValidationResult::rejected("polyline requires at least two vertices");
             }
@@ -226,6 +241,13 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
                 if (!isFinite(point)) {
                     return GeometryValidationResult::rejected("polyline vertices must be finite");
                 }
+            }
+        } else {
+            if (!std::isfinite(typedGeometry.position)) {
+                return GeometryValidationResult::rejected("guide position must be finite");
+            }
+            if (typedGeometry.position < 0.0 || typedGeometry.position > 1.0) {
+                return GeometryValidationResult::rejected("guide position must be normalized");
             }
         }
         return GeometryValidationResult::accepted();
@@ -250,6 +272,11 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
                 radius * 2.0,
                 radius * 2.0,
             };
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (typedGeometry.orientation == GuideOrientation::Horizontal) {
+                return {0.0, typedGeometry.position, 1.0, 0.0};
+            }
+            return {typedGeometry.position, 0.0, 0.0, 1.0};
         } else {
             return boundsFromPoints(typedGeometry.vertices);
         }
@@ -276,6 +303,12 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             typedGeometry.origin = translatePoint(typedGeometry.origin, dx, dy);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (typedGeometry.orientation == GuideOrientation::Horizontal) {
+                typedGeometry.position += dy;
+            } else {
+                typedGeometry.position += dx;
+            }
         } else {
             for (Point2D &point : typedGeometry.vertices) {
                 point = translatePoint(point, dx, dy);
@@ -335,6 +368,12 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             handles.push_back({"circle_center", typedGeometry.center});
             handles.push_back({"circle_radius", {typedGeometry.center.x + typedGeometry.radius, typedGeometry.center.y}});
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (typedGeometry.orientation == GuideOrientation::Horizontal) {
+                handles.push_back({"guide", {0.5, typedGeometry.position}});
+            } else {
+                handles.push_back({"guide", {typedGeometry.position, 0.5}});
+            }
         } else {
             for (std::size_t i = 0; i < typedGeometry.vertices.size(); ++i) {
                 handles.push_back({"vertex_" + std::to_string(i), typedGeometry.vertices[i]});

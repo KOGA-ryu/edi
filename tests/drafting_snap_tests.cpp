@@ -49,6 +49,7 @@ int main()
     assert(addObject(document, object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}})).ok);
     assert(addObject(document, object("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.4}, {0.8, 0.4}})).ok);
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.25, 0.25}, 0.25, 0.25})).ok);
+    assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.75})).ok);
 
     DraftingSnapSettings objectSettings;
     objectSettings.objectSnapEnabled = true;
@@ -94,6 +95,13 @@ int main()
     assert(midpoint.sourceObjectId == "line_1");
     assert(nearlyEqual(midpoint.point.x, 0.5));
     assert(nearlyEqual(midpoint.point.y, 0.4));
+
+    DraftingSnapResult guideCenter = resolveSnap({0.51, 0.74}, document, objectSettings);
+    assert(guideCenter.kind == DraftingSnapKind::Object);
+    assert(guideCenter.sourceKind == DraftingSnapSourceKind::Center);
+    assert(guideCenter.sourceObjectId == "guide_1");
+    assert(nearlyEqual(guideCenter.point.x, 0.5));
+    assert(nearlyEqual(guideCenter.point.y, 0.75));
 
     DraftingSnapSettings prioritySettings = objectSettings;
     prioritySettings.gridEnabled = true;

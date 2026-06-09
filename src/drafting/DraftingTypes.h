@@ -18,7 +18,13 @@ enum class DraftingShapeKind {
     Rectangle,
     Circle,
     Polygon,
-    Polyline
+    Polyline,
+    Guide
+};
+
+enum class GuideOrientation {
+    Horizontal,
+    Vertical
 };
 
 enum class DraftingResultCode {
@@ -120,15 +126,22 @@ struct PolylineGeometry {
     std::vector<Point2D> vertices;
 };
 
+struct GuideGeometry {
+    GuideOrientation orientation = GuideOrientation::Horizontal;
+    double position = 0.0;
+};
+
 using DraftingGeometry = std::variant<
     PointGeometry,
     LineGeometry,
     RectangleGeometry,
     CircleGeometry,
     PolygonGeometry,
-    PolylineGeometry>;
+    PolylineGeometry,
+    GuideGeometry>;
 
 const char *shapeKindName(DraftingShapeKind kind);
+const char *guideOrientationName(GuideOrientation orientation);
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);

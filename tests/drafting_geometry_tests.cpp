@@ -26,12 +26,27 @@ int main()
     assert(handles.front().id == "line_start");
 
     assert(draftingResultCodeName(DraftingResultCode::InvalidGeometry) == std::string("invalid_geometry"));
+    assert(shapeKindName(DraftingShapeKind::Guide) == std::string("guide"));
+    assert(guideOrientationName(GuideOrientation::Vertical) == std::string("vertical"));
     assert(validateGeometry(line).ok);
+    assert(validateGeometry(GuideGeometry{GuideOrientation::Horizontal, 0.5}).ok);
+    assert(!validateGeometry(GuideGeometry{GuideOrientation::Vertical, 2.0}).ok);
     assert(!validateGeometry(CircleGeometry{{0.0, 0.0}, -1.0}).ok);
     assert(!validateGeometry(RectangleGeometry{{0.0, 0.0}, -1.0, 2.0}).ok);
     assert(!validateGeometry(PolygonGeometry{{{0.0, 0.0}, {1.0, 1.0}}}).ok);
     assert(!validateGeometry(PolylineGeometry{{{0.0, 0.0}}}).ok);
     assert(!validateGeometry(PointGeometry{{std::numeric_limits<double>::infinity(), 0.0}}).ok);
+
+    DraftingGeometry horizontalGuide = GuideGeometry{GuideOrientation::Horizontal, 0.25};
+    Bounds2D guideBounds = computeBounds(horizontalGuide);
+    assert(guideBounds.x == 0.0);
+    assert(guideBounds.y == 0.25);
+    assert(guideBounds.width == 1.0);
+    assert(guideBounds.height == 0.0);
+    DraftingGeometry movedGuide = translateGeometry(horizontalGuide, 0.0, 0.25);
+    const auto *movedGuideGeometry = std::get_if<GuideGeometry>(&movedGuide);
+    assert(movedGuideGeometry != nullptr);
+    assert(movedGuideGeometry->position == 0.5);
 
     return 0;
 }

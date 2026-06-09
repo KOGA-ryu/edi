@@ -29,16 +29,22 @@ int main()
     assert(nearlyEqual(hitDistance(LineGeometry{{0.0, 0.0}, {1.0, 0.0}}, {0.5, 0.25}), 0.25));
     assert(nearlyEqual(hitDistance(RectangleGeometry{{0.25, 0.25}, 0.25, 0.25}, {0.3, 0.3}), 0.0));
     assert(nearlyEqual(hitDistance(CircleGeometry{{0.5, 0.5}, 0.2}, {0.7, 0.5}), 0.0));
+    assert(nearlyEqual(hitDistance(GuideGeometry{GuideOrientation::Horizontal, 0.25}, {0.7, 0.35}), 0.1));
     assert(hitDistance(PointGeometry{{0.0, 0.0}}, {std::numeric_limits<double>::infinity(), 0.0}) > 1.0e100);
 
     DraftingDocument document = makeDraftingDocument("hit_doc");
     assert(addObject(document, object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}})).ok);
     assert(addObject(document, object("line_1", DraftingShapeKind::Line, LineGeometry{{0.0, 0.5}, {1.0, 0.5}})).ok);
     assert(addObject(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.45, 0.45}, 0.2, 0.2})).ok);
+    assert(addObject(document, object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25})).ok);
 
     DraftingHitTestResult lineHit = hitTestDocument(document, {0.4, 0.51});
     assert(lineHit.ok);
     assert(lineHit.objectId == "line_1");
+
+    DraftingHitTestResult guideHit = hitTestDocument(document, {0.255, 0.8});
+    assert(guideHit.ok);
+    assert(guideHit.objectId == "guide_1");
 
     DraftingHitTestResult rectHit = hitTestDocument(document, {0.5, 0.5});
     assert(rectHit.ok);
@@ -47,7 +53,7 @@ int main()
     DraftingHitTestResult miss = hitTestDocument(document, {0.9, 0.9}, DraftingHitTestSettings{0.01});
     assert(!miss.ok);
 
-    document.objects.back().visible = false;
+    document.objects[2].visible = false;
     DraftingHitTestResult hiddenMiss = hitTestDocument(document, {0.5, 0.5});
     assert(hiddenMiss.ok);
     assert(hiddenMiss.objectId == "line_1");

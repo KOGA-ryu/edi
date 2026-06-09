@@ -67,6 +67,11 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             return std::abs(distance(typedGeometry.center, point) - typedGeometry.radius);
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return distanceToVertexList(typedGeometry.vertices, point, true);
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (typedGeometry.orientation == GuideOrientation::Horizontal) {
+                return std::abs(point.y - typedGeometry.position);
+            }
+            return std::abs(point.x - typedGeometry.position);
         } else {
             return distanceToVertexList(typedGeometry.vertices, point, false);
         }

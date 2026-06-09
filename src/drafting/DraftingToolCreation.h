@@ -12,6 +12,8 @@ enum class DraftingToolKind {
     Line,
     Rectangle,
     Circle,
+    HorizontalGuide,
+    VerticalGuide,
     Unknown
 };
 

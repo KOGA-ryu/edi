@@ -24,6 +24,12 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "circle_tool") {
         return DraftingToolKind::Circle;
     }
+    if (toolId == "horizontal_guide_tool") {
+        return DraftingToolKind::HorizontalGuide;
+    }
+    if (toolId == "vertical_guide_tool") {
+        return DraftingToolKind::VerticalGuide;
+    }
     return DraftingToolKind::Unknown;
 }
 
@@ -40,6 +46,10 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "rectangle";
     case DraftingToolKind::Circle:
         return "circle";
+    case DraftingToolKind::HorizontalGuide:
+        return "horizontal_guide";
+    case DraftingToolKind::VerticalGuide:
+        return "vertical_guide";
     case DraftingToolKind::Unknown:
         return "unknown";
     }
@@ -66,6 +76,12 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::Circle) {
         kind = DraftingShapeKind::Circle;
         geometry = CircleGeometry{request.start, std::min(1.0, distance(request.start, request.end))};
+    } else if (request.tool == DraftingToolKind::HorizontalGuide) {
+        kind = DraftingShapeKind::Guide;
+        geometry = GuideGeometry{GuideOrientation::Horizontal, request.end.y};
+    } else if (request.tool == DraftingToolKind::VerticalGuide) {
+        kind = DraftingShapeKind::Guide;
+        geometry = GuideGeometry{GuideOrientation::Vertical, request.end.x};
     } else {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry, "tool cannot create a drafting object");
     }

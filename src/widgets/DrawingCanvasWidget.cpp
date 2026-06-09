@@ -364,6 +364,19 @@ void DrawingCanvasWidget::drawObject(QPainter &painter, const QVariantMap &objec
     const QString id = object.value(QStringLiteral("id")).toString();
     const bool selected = m_controller != nullptr && id == m_controller->selectedObjectId();
 
+    if (kind == QStringLiteral("guide")) {
+        QPen guidePen(selected ? QColor("#f6c65b") : QColor("#8fb4d8"), selected ? 2 : 1, Qt::DashLine);
+        painter.setPen(guidePen);
+        painter.setBrush(Qt::NoBrush);
+        const double position = object.value(QStringLiteral("position")).toDouble();
+        if (object.value(QStringLiteral("orientation")).toString() == QStringLiteral("horizontal")) {
+            painter.drawLine(canvasToScreen(0.0, position), canvasToScreen(1.0, position));
+        } else {
+            painter.drawLine(canvasToScreen(position, 0.0), canvasToScreen(position, 1.0));
+        }
+        return;
+    }
+
     QPen pen(selected ? QColor("#f6c65b") : QColor("#d7dde8"), selected ? 3 : 2);
     const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
     const QVariantMap model = m_controller != nullptr ? m_controller->modelDocument() : QVariantMap{};

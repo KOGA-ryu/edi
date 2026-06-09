@@ -174,6 +174,14 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.centerEnabled) {
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
             }
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            if (settings.centerEnabled) {
+                if (geometry.orientation == GuideOrientation::Horizontal) {
+                    addCandidate(candidates, object, {0.5, geometry.position}, DraftingSnapSourceKind::Center);
+                } else {
+                    addCandidate(candidates, object, {geometry.position, 0.5}, DraftingSnapSourceKind::Center);
+                }
+            }
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             if (settings.vertexEnabled) {
                 for (Point2D point : geometry.vertices) {

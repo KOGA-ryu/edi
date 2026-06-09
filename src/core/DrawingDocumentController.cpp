@@ -510,8 +510,8 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     }
 
     const DraftingToolKind kind = toolKind(m_selectedToolId);
-    if (kind == DraftingToolKind::Point) {
-        const QString id = nextObjectId(QStringLiteral("point"), m_nextObjectSerial++);
+    if (kind == DraftingToolKind::Point || kind == DraftingToolKind::HorizontalGuide || kind == DraftingToolKind::VerticalGuide) {
+        const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, point, point));
         if (object.ok) {
             applyDraftingCommand(m_document, CreateObjectCommand{object.object});

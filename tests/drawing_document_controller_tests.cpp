@@ -191,6 +191,22 @@ int main(int argc, char **argv)
     assert(nearlyEqual(gridPoint.value("x").toDouble(), snappedSquarePoint));
     assert(nearlyEqual(gridPoint.value("y").toDouble(), snappedSquarePoint));
 
+    DrawingDocumentController guideController;
+    guideController.setSelectedToolId("horizontal_guide_tool");
+    guideController.clickCanvasNormalized(0.2, 0.3);
+    guideController.setSelectedToolId("vertical_guide_tool");
+    guideController.clickCanvasNormalized(0.6, 0.7);
+    QVariantList guideObjects = guideController.modelDocument().value("drawing_objects").toList();
+    assert(guideObjects.size() == 2);
+    QVariantMap horizontalGuide = guideObjects[0].toMap();
+    QVariantMap verticalGuide = guideObjects[1].toMap();
+    assert(horizontalGuide.value("kind").toString() == "guide");
+    assert(horizontalGuide.value("orientation").toString() == "horizontal");
+    assert(nearlyEqual(horizontalGuide.value("position").toDouble(), 0.3));
+    assert(!horizontalGuide.value("plot_ready").toBool());
+    assert(verticalGuide.value("orientation").toString() == "vertical");
+    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
+
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
     objectSnapController.clickCanvasNormalized(0.25, 0.25);

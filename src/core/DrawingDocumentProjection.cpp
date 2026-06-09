@@ -72,6 +72,10 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object)
             result.insert(QStringLiteral("cx"), geometry.center.x);
             result.insert(QStringLiteral("cy"), geometry.center.y);
             result.insert(QStringLiteral("radius"), geometry.radius);
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            result.insert(QStringLiteral("orientation"), QString::fromLatin1(guideOrientationName(geometry.orientation)));
+            result.insert(QStringLiteral("position"), geometry.position);
+            result.insert(QStringLiteral("plot_ready"), false);
         } else {
             QVariantList points;
             for (Point2D point : geometry.vertices) {

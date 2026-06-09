@@ -24,6 +24,7 @@ int main()
 {
     assert(draftingToolKindFromId("point_tool") == DraftingToolKind::Point);
     assert(draftingToolKindFromId("line_tool") == DraftingToolKind::Line);
+    assert(draftingToolKindFromId("horizontal_guide_tool") == DraftingToolKind::HorizontalGuide);
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
     auto point = build("point_1", DraftingToolKind::Point, {0.1, 0.2}, {0.3, 0.4});
@@ -56,6 +57,21 @@ int main()
     const auto *circleGeometry = std::get_if<CircleGeometry>(&circle.object.geometry);
     assert(circleGeometry != nullptr);
     assert(nearlyEqual(circleGeometry->radius, 0.25));
+
+    auto horizontalGuide = build("guide_h", DraftingToolKind::HorizontalGuide, {0.1, 0.2}, {0.7, 0.4});
+    assert(horizontalGuide.ok);
+    assert(horizontalGuide.object.kind == DraftingShapeKind::Guide);
+    const auto *horizontalGuideGeometry = std::get_if<GuideGeometry>(&horizontalGuide.object.geometry);
+    assert(horizontalGuideGeometry != nullptr);
+    assert(horizontalGuideGeometry->orientation == GuideOrientation::Horizontal);
+    assert(nearlyEqual(horizontalGuideGeometry->position, 0.4));
+
+    auto verticalGuide = build("guide_v", DraftingToolKind::VerticalGuide, {0.1, 0.2}, {0.7, 0.4});
+    assert(verticalGuide.ok);
+    const auto *verticalGuideGeometry = std::get_if<GuideGeometry>(&verticalGuide.object.geometry);
+    assert(verticalGuideGeometry != nullptr);
+    assert(verticalGuideGeometry->orientation == GuideOrientation::Vertical);
+    assert(nearlyEqual(verticalGuideGeometry->position, 0.7));
 
     auto unknown = build("bad_1", DraftingToolKind::Unknown, {0.0, 0.0}, {1.0, 1.0});
     assert(!unknown.ok);

@@ -6,6 +6,7 @@
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingConstructionOps.h"
+#include "drafting/DraftingDimensionOps.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
@@ -54,26 +55,6 @@ std::string toStdString(const QString &value)
 DraftingToolKind toolKind(const QString &toolId)
 {
     return draftingToolKindFromId(toStdString(toolId));
-}
-
-std::optional<DimensionKind> dimensionKindFromId(const QString &kindId)
-{
-    if (kindId == QStringLiteral("distance")) {
-        return DimensionKind::Distance;
-    }
-    if (kindId == QStringLiteral("width")) {
-        return DimensionKind::Width;
-    }
-    if (kindId == QStringLiteral("height")) {
-        return DimensionKind::Height;
-    }
-    if (kindId == QStringLiteral("radius")) {
-        return DimensionKind::Radius;
-    }
-    if (kindId == QStringLiteral("diameter")) {
-        return DimensionKind::Diameter;
-    }
-    return std::nullopt;
 }
 
 QString objectIdPrefix(DraftingToolKind kind)
@@ -1276,7 +1257,7 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
     if (!m_document.activeObjectId) {
         return false;
     }
-    const std::optional<DimensionKind> kind = dimensionKindFromId(kindId);
+    const std::optional<DimensionKind> kind = draftingDimensionKindFromId(toStdString(kindId));
     if (!kind) {
         return false;
     }
@@ -1289,23 +1270,14 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
         return false;
     }
 
-    DimensionGeometry next = *dimension;
-    const double currentLength = distance(next.a, next.b);
-    if (!std::isfinite(currentLength) || currentLength <= 0.000001) {
+    const DraftingDimensionPlan plan = planDimensionKindChange(*dimension, *kind);
+    if (!plan.ok) {
         return false;
-    }
-    next.kind = *kind;
-    if (next.kind == DimensionKind::Width) {
-        const double sign = next.b.x < next.a.x ? -1.0 : 1.0;
-        next.b = {next.a.x + sign * currentLength, next.a.y};
-    } else if (next.kind == DimensionKind::Height) {
-        const double sign = next.b.y < next.a.y ? -1.0 : 1.0;
-        next.b = {next.a.x, next.a.y + sign * currentLength};
     }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{next}});
+        UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{plan.geometry}});
     if (!result.ok) {
         return false;
     }

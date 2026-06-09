@@ -155,5 +155,38 @@ int main()
     assert(!noWarning.calibratedBoundsWarning);
     assert(noWarning.warningKind.isEmpty());
 
+    const DrawingCanvasProjectedSelectionBoundsOverlay noSelection = projectedSelectionBoundsOverlay(QVariantMap{
+        {QStringLiteral("has_selection_plot_bounds"), false},
+        {QStringLiteral("selection_plot_bounds"), bounds(0.1, 0.2, 0.3, 0.4)},
+    });
+    assert(!noSelection.visible);
+
+    const DrawingCanvasProjectedSelectionBoundsOverlay selection = projectedSelectionBoundsOverlay(QVariantMap{
+        {QStringLiteral("has_selection_plot_bounds"), true},
+        {QStringLiteral("selection_plot_bounds"), bounds(0.2, 0.3, 0.4, 0.5)},
+        {QStringLiteral("selection_plot_bounds_status"), QStringLiteral("inside")},
+    });
+    assert(selection.visible);
+    assert(selection.bounds.x == 0.2);
+    assert(selection.bounds.y == 0.3);
+    assert(selection.bounds.width == 0.4);
+    assert(selection.bounds.height == 0.5);
+    assert(selection.status == QStringLiteral("inside"));
+
+    const DrawingCanvasProjectedSelectionBoundsOverlay badSelection = projectedSelectionBoundsOverlay(QVariantMap{
+        {QStringLiteral("has_selection_plot_bounds"), true},
+        {QStringLiteral("selection_plot_bounds"), bounds(0.2, 0.3, 0.4, std::numeric_limits<double>::quiet_NaN())},
+        {QStringLiteral("selection_plot_bounds_status"), QStringLiteral("inside")},
+    });
+    assert(!badSelection.visible);
+    assert(badSelection.status.isEmpty());
+
+    const DrawingCanvasProjectedSelectionBoundsOverlay missingStatus = projectedSelectionBoundsOverlay(QVariantMap{
+        {QStringLiteral("has_selection_plot_bounds"), true},
+        {QStringLiteral("selection_plot_bounds"), bounds(0.0, 0.0, 1.0, 1.0)},
+    });
+    assert(missingStatus.visible);
+    assert(missingStatus.status.isEmpty());
+
     return 0;
 }

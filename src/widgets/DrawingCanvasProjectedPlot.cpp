@@ -39,6 +39,14 @@ std::vector<DrawingCanvasProjectedSegment> projectedSegments(const QVariantList 
     return segments;
 }
 
+bool readBounds(const QVariantMap &source, DrawingCanvasProjectedPlotBounds &target)
+{
+    return readFinite(source, QStringLiteral("x"), target.x)
+        && readFinite(source, QStringLiteral("y"), target.y)
+        && readFinite(source, QStringLiteral("width"), target.width)
+        && readFinite(source, QStringLiteral("height"), target.height);
+}
+
 } // namespace
 
 DrawingCanvasProjectedPlotPreview projectedPlotPreview(const QVariantMap &plotSummary)
@@ -60,10 +68,7 @@ DrawingCanvasProjectedBoundsOverlay projectedPlotBoundsOverlay(const QVariantMap
     }
 
     const QVariantMap bounds = plotSummary.value(QStringLiteral("plot_bounds")).toMap();
-    overlay.visible = readFinite(bounds, QStringLiteral("x"), overlay.bounds.x)
-        && readFinite(bounds, QStringLiteral("y"), overlay.bounds.y)
-        && readFinite(bounds, QStringLiteral("width"), overlay.bounds.width)
-        && readFinite(bounds, QStringLiteral("height"), overlay.bounds.height);
+    overlay.visible = readBounds(bounds, overlay.bounds);
     if (!overlay.visible) {
         return {};
     }
@@ -79,6 +84,23 @@ DrawingCanvasProjectedBoundsOverlay projectedPlotBoundsOverlay(const QVariantMap
 
     overlay.warningKind = plotSummary.value(QStringLiteral("first_warning_kind")).toString();
     overlay.warningObjectId = plotSummary.value(QStringLiteral("first_warning_object_id")).toString();
+    return overlay;
+}
+
+DrawingCanvasProjectedSelectionBoundsOverlay projectedSelectionBoundsOverlay(const QVariantMap &model)
+{
+    DrawingCanvasProjectedSelectionBoundsOverlay overlay;
+    if (!model.value(QStringLiteral("has_selection_plot_bounds")).toBool()) {
+        return overlay;
+    }
+
+    const QVariantMap bounds = model.value(QStringLiteral("selection_plot_bounds")).toMap();
+    overlay.visible = readBounds(bounds, overlay.bounds);
+    if (!overlay.visible) {
+        return {};
+    }
+
+    overlay.status = model.value(QStringLiteral("selection_plot_bounds_status")).toString();
     return overlay;
 }
 

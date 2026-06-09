@@ -464,23 +464,17 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
 
 void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const
 {
-    if (!model.value(QStringLiteral("has_selection_plot_bounds")).toBool()) {
+    const drawing_canvas::DrawingCanvasProjectedSelectionBoundsOverlay overlay = drawing_canvas::projectedSelectionBoundsOverlay(model);
+    if (!overlay.visible) {
         return;
     }
 
-    const QVariantMap bounds = model.value(QStringLiteral("selection_plot_bounds")).toMap();
-    const double x = bounds.value(QStringLiteral("x")).toDouble();
-    const double y = bounds.value(QStringLiteral("y")).toDouble();
-    const double width = bounds.value(QStringLiteral("width")).toDouble();
-    const double height = bounds.value(QStringLiteral("height")).toDouble();
-    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) {
-        return;
-    }
-
-    const QColor color = model.value(QStringLiteral("selection_plot_bounds_status")).toString() == QStringLiteral("inside")
+    const QColor color = overlay.status == QStringLiteral("inside")
         ? QColor("#f6c65b")
         : QColor("#d98b8b");
-    QRectF rect(canvasToScreen(x, y), canvasToScreen(x + width, y + height));
+    QRectF rect(
+        canvasToScreen(overlay.bounds.x, overlay.bounds.y),
+        canvasToScreen(overlay.bounds.x + overlay.bounds.width, overlay.bounds.y + overlay.bounds.height));
     rect = rect.normalized();
     if (rect.width() < 10.0 || rect.height() < 10.0) {
         rect = rect.adjusted(-5.0, -5.0, 5.0, 5.0);

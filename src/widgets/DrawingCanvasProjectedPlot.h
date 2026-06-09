@@ -35,7 +35,14 @@ struct DrawingCanvasProjectedBoundsOverlay {
     QString warningObjectId;
 };
 
+struct DrawingCanvasProjectedSelectionBoundsOverlay {
+    bool visible = false;
+    DrawingCanvasProjectedPlotBounds bounds;
+    QString status;
+};
+
 DrawingCanvasProjectedPlotPreview projectedPlotPreview(const QVariantMap &plotSummary);
 DrawingCanvasProjectedBoundsOverlay projectedPlotBoundsOverlay(const QVariantMap &plotSummary);
+DrawingCanvasProjectedSelectionBoundsOverlay projectedSelectionBoundsOverlay(const QVariantMap &model);
 
 } // namespace drawing_canvas

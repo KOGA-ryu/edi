@@ -209,23 +209,6 @@ QVariantMap calibrationCorrectionToMap(const DraftingCalibrationCorrectionPlan &
     };
 }
 
-const DraftingLayer *layerForObject(const DraftingDocument &document, const DraftingObject &object)
-{
-    return findLayer(document, object.layerId);
-}
-
-bool objectLayerLocked(const DraftingDocument &document, const DraftingObject &object)
-{
-    const DraftingLayer *layer = layerForObject(document, object);
-    return layer != nullptr && layer->locked;
-}
-
-bool objectEffectivelyVisible(const DraftingDocument &document, const DraftingObject &object)
-{
-    const DraftingLayer *layer = layerForObject(document, object);
-    return object.visible && layer != nullptr && layer->visible;
-}
-
 QVariantMap pointerProjectionToMap(Point2D rawPoint,
     const DraftingDocument &document,
     const DraftingSnapSettings &snapSettings,
@@ -1368,7 +1351,7 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -1393,7 +1376,7 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -1421,7 +1404,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
     const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || source->locked || objectLayerLocked(m_document, *source) || !objectEffectivelyVisible(m_document, *source)) {
+    if (source == nullptr || source->locked || draftingObjectLayerLocked(m_document, *source) || !draftingObjectEffectivelyVisible(m_document, *source)) {
         return false;
     }
 
@@ -1810,8 +1793,8 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
         || source->kind == DraftingShapeKind::ConstructionLine
         || source->kind == DraftingShapeKind::Dimension
         || source->locked
-        || objectLayerLocked(m_document, *source)
-        || !objectEffectivelyVisible(m_document, *source)
+        || draftingObjectLayerLocked(m_document, *source)
+        || !draftingObjectEffectivelyVisible(m_document, *source)
         || !isFinite(source->bounds)) {
         return false;
     }
@@ -1851,8 +1834,8 @@ bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QStrin
         || source->kind == DraftingShapeKind::ConstructionLine
         || source->kind == DraftingShapeKind::Dimension
         || source->locked
-        || objectLayerLocked(m_document, *source)
-        || !objectEffectivelyVisible(m_document, *source)
+        || draftingObjectLayerLocked(m_document, *source)
+        || !draftingObjectEffectivelyVisible(m_document, *source)
         || !isFinite(source->bounds)) {
         return false;
     }
@@ -1946,8 +1929,8 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
         || source->kind == DraftingShapeKind::ConstructionLine
         || source->kind == DraftingShapeKind::Dimension
         || source->locked
-        || objectLayerLocked(m_document, *source)
-        || !objectEffectivelyVisible(m_document, *source)
+        || draftingObjectLayerLocked(m_document, *source)
+        || !draftingObjectEffectivelyVisible(m_document, *source)
         || !isFinite(source->bounds)) {
         return false;
     }

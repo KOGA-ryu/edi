@@ -22,6 +22,23 @@ int main()
     assert(creation.layer.order == 2);
     assert(creation.makeActive);
 
+    auto object = buildDraftingObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.4, 0.4}});
+    assert(object.ok);
+    assert(addObject(document, object.object).ok);
+    assert(!draftingObjectLayerLocked(document, document.objects.back()));
+    assert(draftingObjectEffectivelyVisible(document, document.objects.back()));
+
+    document.layers.front().locked = true;
+    assert(draftingObjectLayerLocked(document, document.objects.back()));
+    document.layers.front().locked = false;
+
+    document.layers.front().visible = false;
+    assert(!draftingObjectEffectivelyVisible(document, document.objects.back()));
+    document.layers.front().visible = true;
+
+    document.objects.back().visible = false;
+    assert(!draftingObjectEffectivelyVisible(document, document.objects.back()));
+
     LayerPlotStyle plot;
     plot.plotEnabled = false;
     auto blue = layerPlotStyleForPenPreset(plot, "pen_blue");

@@ -1,6 +1,7 @@
 #include "drafting/DraftingPlotBounds.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingLayerOps.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,12 +30,6 @@ Bounds2D boundsForPoints(Point2D a, Point2D b)
 bool containsObjectId(const std::vector<DraftingObjectId> &objectIds, const DraftingObjectId &objectId)
 {
     return std::find(objectIds.begin(), objectIds.end(), objectId) != objectIds.end();
-}
-
-bool objectLayerLocked(const DraftingDocument &document, const DraftingObject &object)
-{
-    const DraftingLayer *layer = findLayer(document, object.layerId);
-    return layer != nullptr && layer->locked;
 }
 
 bool objectEffectivelyPlotReady(const DraftingDocument &document, const DraftingObject &object)
@@ -170,7 +165,7 @@ DraftingPlotBoundsResult selectedRawPlotOutputBounds(
         if (object == nullptr) {
             return {};
         }
-        if (object->locked || objectLayerLocked(document, *object) || !objectEffectivelyPlotReady(document, *object)) {
+        if (object->locked || draftingObjectLayerLocked(document, *object) || !objectEffectivelyPlotReady(document, *object)) {
             return {};
         }
         if (!isFinite(object->bounds)) {

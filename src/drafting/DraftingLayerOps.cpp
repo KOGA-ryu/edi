@@ -56,6 +56,18 @@ DraftingLayerCreationPlan planCreateDraftingLayer(const DraftingDocument &docume
     return DraftingLayerCreationPlan::accepted(std::move(layer), true);
 }
 
+bool draftingObjectLayerLocked(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    return layer != nullptr && layer->locked;
+}
+
+bool draftingObjectEffectivelyVisible(const DraftingDocument &document, const DraftingObject &object)
+{
+    const DraftingLayer *layer = findLayer(document, object.layerId);
+    return object.visible && layer != nullptr && layer->visible;
+}
+
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId)
 {
     if (presetId == "pen_blue") {

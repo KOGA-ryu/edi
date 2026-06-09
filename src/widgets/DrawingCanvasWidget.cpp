@@ -30,6 +30,20 @@ void DrawingCanvasWidget::refresh()
     update();
 }
 
+void DrawingCanvasWidget::setPlotPreviewVisible(bool visible)
+{
+    if (m_plotPreviewVisible == visible) {
+        return;
+    }
+    m_plotPreviewVisible = visible;
+    update();
+}
+
+bool DrawingCanvasWidget::plotPreviewVisible() const
+{
+    return m_plotPreviewVisible;
+}
+
 QRectF DrawingCanvasWidget::boardRect() const
 {
     double aspect = 1.0;
@@ -86,6 +100,9 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
 
     for (const QVariant &value : model.value("drawing_objects").toList()) {
         drawObject(painter, value.toMap());
+    }
+    if (m_plotPreviewVisible) {
+        drawPlotPreview(painter, model);
     }
     const QVariantMap previewObject = model.value(QStringLiteral("preview_object")).toMap();
     if (!previewObject.isEmpty()) {
@@ -355,6 +372,53 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
     const QString label = pointer.value(QStringLiteral("label")).toString();
     painter.setPen(color);
     painter.drawText(point + QPointF(12.0, -10.0), label.isEmpty() ? kind : label);
+    painter.restore();
+}
+
+void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &model) const
+{
+    const QVariantMap preview = model.value(QStringLiteral("plot_summary")).toMap().value(QStringLiteral("preview")).toMap();
+    const QVariantList travelSegments = preview.value(QStringLiteral("travel_segments")).toList();
+    const QVariantList segments = preview.value(QStringLiteral("segments")).toList();
+    if (travelSegments.isEmpty() && segments.isEmpty()) {
+        return;
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setBrush(Qt::NoBrush);
+
+    QPen travelPen(QColor(213, 187, 120, 130), 1.25, Qt::DashLine);
+    travelPen.setCapStyle(Qt::RoundCap);
+    painter.setPen(travelPen);
+    for (const QVariant &segmentValue : travelSegments) {
+        const QVariantMap segment = segmentValue.toMap();
+        const double x1 = segment.value(QStringLiteral("x1")).toDouble();
+        const double y1 = segment.value(QStringLiteral("y1")).toDouble();
+        const double x2 = segment.value(QStringLiteral("x2")).toDouble();
+        const double y2 = segment.value(QStringLiteral("y2")).toDouble();
+        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)) {
+            continue;
+        }
+        painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
+    }
+
+    QPen strokePen(QColor(117, 199, 255, 170), 1.75);
+    strokePen.setCapStyle(Qt::RoundCap);
+    strokePen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(strokePen);
+    for (const QVariant &segmentValue : segments) {
+        const QVariantMap segment = segmentValue.toMap();
+        const double x1 = segment.value(QStringLiteral("x1")).toDouble();
+        const double y1 = segment.value(QStringLiteral("y1")).toDouble();
+        const double x2 = segment.value(QStringLiteral("x2")).toDouble();
+        const double y2 = segment.value(QStringLiteral("y2")).toDouble();
+        if (!std::isfinite(x1) || !std::isfinite(y1) || !std::isfinite(x2) || !std::isfinite(y2)) {
+            continue;
+        }
+        painter.drawLine(canvasToScreen(x1, y1), canvasToScreen(x2, y2));
+    }
+
     painter.restore();
 }
 

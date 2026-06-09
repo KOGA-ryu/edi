@@ -11,6 +11,8 @@ class DrawingCanvasWidget : public QWidget {
 
 public:
     explicit DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent = nullptr);
+    void setPlotPreviewVisible(bool visible);
+    bool plotPreviewVisible() const;
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -29,6 +31,7 @@ private:
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const;
     void drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const;
+    void drawPlotPreview(QPainter &painter, const QVariantMap &model) const;
     void drawObject(QPainter &painter, const QVariantMap &object) const;
     void drawPreviewObject(QPainter &painter, const QVariantMap &object) const;
     void drawSelectedHandles(QPainter &painter, const QVariantMap &object) const;
@@ -36,4 +39,5 @@ private:
     DrawingDocumentController *m_controller = nullptr;
     QVariantMap m_gestureState;
     QPointF m_lastDragCanvasPoint;
+    bool m_plotPreviewVisible = false;
 };

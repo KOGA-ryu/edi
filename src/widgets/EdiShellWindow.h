@@ -92,6 +92,7 @@ private:
     QLabel *m_snapValue = nullptr;
     QLabel *m_gridValue = nullptr;
     QLabel *m_plotValue = nullptr;
+    QCheckBox *m_plotPreviewVisible = nullptr;
     QLabel *m_pointerValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;

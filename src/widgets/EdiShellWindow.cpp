@@ -439,11 +439,20 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
+    m_plotPreviewVisible = new QCheckBox(QStringLiteral("Show plot preview"));
+    m_plotPreviewVisible->setObjectName(QStringLiteral("plotPreviewCheckbox"));
+    m_plotPreviewVisible->setChecked(false);
+    connect(m_plotPreviewVisible, &QCheckBox::toggled, this, [this](bool checked) {
+        if (m_canvas != nullptr) {
+            m_canvas->setPlotPreviewVisible(checked);
+        }
+    });
     m_pointerValue = makeValueLabel();
     m_previewValue = makeValueLabel();
     layout->addWidget(m_snapValue);
     layout->addWidget(m_gridValue);
     layout->addWidget(m_plotValue);
+    layout->addWidget(m_plotPreviewVisible);
     layout->addWidget(m_pointerValue);
     layout->addWidget(m_previewValue);
     layout->addStretch(1);

@@ -557,7 +557,12 @@ int main(int argc, char **argv)
     assert(layerPlotPreview.value("travel_segment_count").toInt() == 1);
     assert(layerPlotPreview.value("travel_distance").toDouble() > 0.0);
     assert(layerPlotPreview.value("segments").toList().size() == 2);
-    assert(layerPlotPreview.value("travel_segments").toList().size() == 1);
+    const QVariantList layerPlotTravelSegments = layerPlotPreview.value("travel_segments").toList();
+    assert(layerPlotTravelSegments.size() == 1);
+    const QVariantMap layerPlotTravelSegment = layerPlotTravelSegments.front().toMap();
+    assert(layerPlotTravelSegment.value("from_object_id").toString() == layerPlotPoint.value("id").toString());
+    assert(layerPlotTravelSegment.value("to_object_id").toString() == layerPlotPoint.value("id").toString());
+    assert(layerPlotTravelSegment.value("distance").toDouble() > 0.0);
     assert(layerPlotSummary.value("warning_count").toInt() == 0);
     assert(!layerPlotSummary.value("blocked").toBool());
     assert(layerPlotController.setActiveLayerPlotEnabled(false));

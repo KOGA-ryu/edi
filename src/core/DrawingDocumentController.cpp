@@ -120,6 +120,48 @@ bool containsId(const std::vector<DraftingObjectId> &ids, const DraftingObjectId
     return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
+void addUniquePoint(std::vector<Point2D> &points, Point2D point)
+{
+    if (!isFinite(point)) {
+        return;
+    }
+    constexpr double epsilon = 0.000001;
+    const auto duplicate = std::find_if(points.begin(), points.end(), [point](Point2D existing) {
+        return std::abs(existing.x - point.x) < epsilon && std::abs(existing.y - point.y) < epsilon;
+    });
+    if (duplicate == points.end()) {
+        points.push_back(point);
+    }
+}
+
+std::vector<Point2D> moveSnapAnchorsForObject(const DraftingObject &object)
+{
+    std::vector<Point2D> anchors;
+    for (const HandleAnchor &handle : handleAnchors(object.geometry)) {
+        addUniquePoint(anchors, handle.point);
+    }
+
+    const Bounds2D bounds = object.bounds;
+    if (isFinite(bounds)) {
+        const double left = bounds.x;
+        const double top = bounds.y;
+        const double right = bounds.x + bounds.width;
+        const double bottom = bounds.y + bounds.height;
+        const double centerX = bounds.x + bounds.width / 2.0;
+        const double centerY = bounds.y + bounds.height / 2.0;
+        addUniquePoint(anchors, {centerX, centerY});
+        addUniquePoint(anchors, {left, centerY});
+        addUniquePoint(anchors, {right, centerY});
+        addUniquePoint(anchors, {centerX, top});
+        addUniquePoint(anchors, {centerX, bottom});
+        addUniquePoint(anchors, {left, top});
+        addUniquePoint(anchors, {right, top});
+        addUniquePoint(anchors, {right, bottom});
+        addUniquePoint(anchors, {left, bottom});
+    }
+    return anchors;
+}
+
 QVariantMap boundsToMap(Bounds2D bounds)
 {
     return {
@@ -2088,15 +2130,28 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
         if (active != nullptr
             && active->kind != DraftingShapeKind::Guide
             && isFinite(active->bounds)) {
-            const Point2D intendedAnchor {
-                active->bounds.x + active->bounds.width / 2.0 + dx,
-                active->bounds.y + active->bounds.height / 2.0 + dy,
-            };
-            const DraftingSnapResult snap = resolveSnap(intendedAnchor, m_document, m_snapSettings);
-            if (snap.sourceKind == DraftingSnapSourceKind::Guide
-                && !containsId(m_document.selectedObjectIds, snap.sourceObjectId)) {
-                dx += snap.point.x - intendedAnchor.x;
-                dy += snap.point.y - intendedAnchor.y;
+            bool foundGuideSnap = false;
+            double bestDistance = std::numeric_limits<double>::max();
+            double bestDx = dx;
+            double bestDy = dy;
+            for (Point2D anchor : moveSnapAnchorsForObject(*active)) {
+                const Point2D intendedAnchor {anchor.x + dx, anchor.y + dy};
+                const DraftingSnapResult snap = resolveSnap(intendedAnchor, m_document, m_snapSettings);
+                if (snap.sourceKind != DraftingSnapSourceKind::Guide
+                    || containsId(m_document.selectedObjectIds, snap.sourceObjectId)) {
+                    continue;
+                }
+                const double snapDistance = distance(intendedAnchor, snap.point);
+                if (snapDistance < bestDistance) {
+                    bestDistance = snapDistance;
+                    bestDx = dx + snap.point.x - intendedAnchor.x;
+                    bestDy = dy + snap.point.y - intendedAnchor.y;
+                    foundGuideSnap = true;
+                }
+            }
+            if (foundGuideSnap) {
+                dx = bestDx;
+                dy = bestDy;
             }
         }
     }

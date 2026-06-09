@@ -25,6 +25,18 @@ QStringList numericFieldIds(const QVariantMap &object)
     return ids;
 }
 
+QVariantMap lastObjectOfKind(const QVariantMap &model, const QString &kind)
+{
+    QVariantMap result;
+    for (const QVariant &objectValue : model.value("drawing_objects").toList()) {
+        const QVariantMap object = objectValue.toMap();
+        if (object.value("kind").toString() == kind) {
+            result = object;
+        }
+    }
+    return result;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1033,6 +1045,59 @@ int main(int argc, char **argv)
     QVariantMap lockedGuideMovedPoint = lockedGuideMoveSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
     assert(nearlyEqual(lockedGuideMovedPoint.value("x").toDouble(), 0.33));
     assert(nearlyEqual(lockedGuideMovedPoint.value("y").toDouble(), 0.2));
+
+    DrawingDocumentController guideRectangleLeftEdgeMoveController;
+    guideRectangleLeftEdgeMoveController.setSelectedToolId("vertical_guide_tool");
+    guideRectangleLeftEdgeMoveController.clickCanvasNormalized(0.33, 0.2);
+    guideRectangleLeftEdgeMoveController.setSelectedToolId("rectangle_tool");
+    guideRectangleLeftEdgeMoveController.clickCanvasNormalized(0.2, 0.2);
+    guideRectangleLeftEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
+    guideRectangleLeftEdgeMoveController.setObjectSnapEnabled(true);
+    assert(guideRectangleLeftEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
+    QVariantMap guideLeftEdgeRect = lastObjectOfKind(guideRectangleLeftEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
+    assert(nearlyEqual(guideLeftEdgeRect.value("x").toDouble(), 0.33));
+    assert(nearlyEqual(guideLeftEdgeRect.value("y").toDouble(), 0.2));
+    assert(nearlyEqual(guideLeftEdgeRect.value("width").toDouble(), 0.2));
+
+    DrawingDocumentController guideRectangleTopEdgeMoveController;
+    guideRectangleTopEdgeMoveController.setSelectedToolId("horizontal_guide_tool");
+    guideRectangleTopEdgeMoveController.clickCanvasNormalized(0.2, 0.75);
+    guideRectangleTopEdgeMoveController.setSelectedToolId("rectangle_tool");
+    guideRectangleTopEdgeMoveController.clickCanvasNormalized(0.2, 0.2);
+    guideRectangleTopEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
+    guideRectangleTopEdgeMoveController.setObjectSnapEnabled(true);
+    assert(guideRectangleTopEdgeMoveController.moveSelectionNormalized(0.0, 0.54));
+    QVariantMap guideTopEdgeRect = lastObjectOfKind(guideRectangleTopEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
+    assert(nearlyEqual(guideTopEdgeRect.value("x").toDouble(), 0.2));
+    assert(nearlyEqual(guideTopEdgeRect.value("y").toDouble(), 0.75));
+    assert(nearlyEqual(guideTopEdgeRect.value("height").toDouble(), 0.2));
+
+    DrawingDocumentController guideLineEndpointMoveController;
+    guideLineEndpointMoveController.setSelectedToolId("vertical_guide_tool");
+    guideLineEndpointMoveController.clickCanvasNormalized(0.33, 0.2);
+    guideLineEndpointMoveController.setSelectedToolId("line_tool");
+    guideLineEndpointMoveController.clickCanvasNormalized(0.1, 0.1);
+    guideLineEndpointMoveController.clickCanvasNormalized(0.2, 0.2);
+    guideLineEndpointMoveController.setObjectSnapEnabled(true);
+    assert(guideLineEndpointMoveController.moveSelectionNormalized(0.14, 0.54));
+    QVariantMap guideEndpointLine = lastObjectOfKind(guideLineEndpointMoveController.modelDocument(), QStringLiteral("line"));
+    assert(nearlyEqual(guideEndpointLine.value("x1").toDouble(), 0.23));
+    assert(nearlyEqual(guideEndpointLine.value("y1").toDouble(), 0.64));
+    assert(nearlyEqual(guideEndpointLine.value("x2").toDouble(), 0.33));
+    assert(nearlyEqual(guideEndpointLine.value("y2").toDouble(), 0.74));
+
+    DrawingDocumentController disabledGuideRectangleEdgeMoveController;
+    disabledGuideRectangleEdgeMoveController.setSelectedToolId("vertical_guide_tool");
+    disabledGuideRectangleEdgeMoveController.clickCanvasNormalized(0.33, 0.2);
+    disabledGuideRectangleEdgeMoveController.setSelectedToolId("rectangle_tool");
+    disabledGuideRectangleEdgeMoveController.clickCanvasNormalized(0.2, 0.2);
+    disabledGuideRectangleEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
+    disabledGuideRectangleEdgeMoveController.setObjectSnapEnabled(true);
+    disabledGuideRectangleEdgeMoveController.setGuideSnapEnabled(false);
+    assert(disabledGuideRectangleEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
+    QVariantMap disabledGuideEdgeRect = lastObjectOfKind(disabledGuideRectangleEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
+    assert(nearlyEqual(disabledGuideEdgeRect.value("x").toDouble(), 0.32));
+    assert(nearlyEqual(disabledGuideEdgeRect.value("y").toDouble(), 0.2));
 
     DrawingDocumentController guideHandleSnapController;
     guideHandleSnapController.setSelectedToolId("horizontal_guide_tool");

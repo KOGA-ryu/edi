@@ -180,6 +180,14 @@ target_include_directories(drawing_canvas_gesture_state_tests PRIVATE ${CMAKE_CU
 add_edi_contract_test(drawing_canvas_viewport_tests tests/drawing_canvas_viewport_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_viewport_tests PRIVATE src/widgets/DrawingCanvasViewport.cpp)
 target_include_directories(drawing_canvas_viewport_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(drawing_canvas_handle_hit_test_tests tests/drawing_canvas_handle_hit_test_tests.cpp Qt6::Core)
+target_sources(drawing_canvas_handle_hit_test_tests PRIVATE
+    src/widgets/DrawingCanvasHandleHitTest.cpp
+    src/widgets/DrawingCanvasProjectedObject.cpp
+    src/widgets/DrawingCanvasGestureState.cpp
+    src/widgets/DrawingCanvasViewport.cpp
+)
+target_include_directories(drawing_canvas_handle_hit_test_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(drawing_canvas_projected_object_tests tests/drawing_canvas_projected_object_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_projected_object_tests PRIVATE src/widgets/DrawingCanvasProjectedObject.cpp src/widgets/DrawingCanvasGestureState.cpp)
 target_include_directories(drawing_canvas_projected_object_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -250,6 +258,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasViewport.h
     src/widgets/DrawingCanvasViewport.cpp
+    src/widgets/DrawingCanvasHandleHitTest.h
+    src/widgets/DrawingCanvasHandleHitTest.cpp
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h

@@ -9,6 +9,7 @@
 
 #include "core/DrawingCore.h"
 #include "widgets/DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasHandleHitTest.h"
 #include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasViewport.h"
@@ -278,28 +279,7 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
     if (object.isEmpty()) {
         return {};
     }
-
-    const std::vector<drawing_canvas::DrawingCanvasProjectedHandle> projectedHandles = drawing_canvas::projectedObjectHandles(object);
-    if (!projectedHandles.empty()) {
-        QString bestId;
-        double bestDistance = 999.0;
-        for (const drawing_canvas::DrawingCanvasProjectedHandle &handle : projectedHandles) {
-            if (!handle.editable) {
-                continue;
-            }
-            const QPointF point = canvasToScreen(handle.x, handle.y);
-            const double dx = screenPoint.x() - point.x();
-            const double dy = screenPoint.y() - point.y();
-            const double distance = std::sqrt(dx * dx + dy * dy);
-            if (distance <= handle.hitTolerancePx && distance <= bestDistance) {
-                bestDistance = distance;
-                bestId = handle.id;
-            }
-        }
-        return bestId;
-    }
-
-    return {};
+    return drawing_canvas::hitCanvasHandleAt(object, screenPoint, boardRect()).handleId;
 }
 
 void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const

@@ -262,6 +262,14 @@ QString physicalDimensionLabel(double distanceValue, DimensionKind kind, const D
             QString::fromLatin1(draftingGridUnitLabel(grid.settings.unit)));
 }
 
+void insertPhysicalSegment(QVariantMap &map, Point2D a, Point2D b, const DraftingGridProjection &grid)
+{
+    map.insert(QStringLiteral("x1"), physicalX(a, grid));
+    map.insert(QStringLiteral("y1"), physicalY(a, grid));
+    map.insert(QStringLiteral("x2"), physicalX(b, grid));
+    map.insert(QStringLiteral("y2"), physicalY(b, grid));
+}
+
 QVariantMap physicalGeometryForObject(const DraftingObject &object, const DraftingGridProjection &grid)
 {
     QVariantMap result {
@@ -275,10 +283,7 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("x"), physicalX(geometry.point, grid));
             result.insert(QStringLiteral("y"), physicalY(geometry.point, grid));
         } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
-            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
-            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
-            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
-            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+            insertPhysicalSegment(result, geometry.a, geometry.b, grid);
             result.insert(QStringLiteral("line_length"), physicalDistance(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("line_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
@@ -301,15 +306,9 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
                 result.insert(QStringLiteral("position"), geometry.position * grid.settings.width);
             }
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
-            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
-            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
-            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
-            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+            insertPhysicalSegment(result, geometry.a, geometry.b, grid);
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
-            result.insert(QStringLiteral("x1"), physicalX(geometry.a, grid));
-            result.insert(QStringLiteral("y1"), physicalY(geometry.a, grid));
-            result.insert(QStringLiteral("x2"), physicalX(geometry.b, grid));
-            result.insert(QStringLiteral("y2"), physicalY(geometry.b, grid));
+            insertPhysicalSegment(result, geometry.a, geometry.b, grid);
             result.insert(QStringLiteral("offset"), physicalDimensionOffset(geometry, grid));
             result.insert(QStringLiteral("dimension_distance"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_length"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));

@@ -167,6 +167,13 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: %15;
             border: 1px solid %14;
         }
+        #editErrorLabel {
+            color: %14;
+            background: %15;
+            border: 1px solid %14;
+            border-radius: 5px;
+            padding: 6px 8px;
+        }
         QPushButton {
             color: %2;
             background: %13;
@@ -186,6 +193,12 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: %19;
             border-color: %7;
         }
+        #railButton {
+            min-width: 32px;
+            text-align: center;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
         QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
             color: %2;
             background: %13;
@@ -193,9 +206,29 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-radius: 5px;
             padding: 4px 6px;
         }
+        QComboBox {
+            padding: 6px 8px;
+        }
+        QComboBox::drop-down {
+            border: 0;
+            width: 22px;
+        }
         QCheckBox {
             color: %2;
-            spacing: 6px;
+            spacing: 8px;
+        }
+        QCheckBox::indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        QCheckBox::indicator:unchecked {
+            background: %13;
+            border: 1px solid %5;
+        }
+        QCheckBox::indicator:checked {
+            background: %10;
+            border: 1px solid %10;
         }
     )")
         .arg(t.base, t.text, t.uiFont)                                  // 1,2,3

@@ -66,5 +66,21 @@ int main()
     assert(qss.contains(t.accent));
     assert(qss.contains(t.surface));
 
+    // The sheet covers every selector the shell relies on — these names are the
+    // contract between the builder and the widgets' objectName() values, so a
+    // dropped block (e.g. during a refactor) fails here instead of silently
+    // unstyling a region of the app.
+    for (const char *selector : {
+             "#shellRoot", "#activityRail", "#leftPanel", "#rightPanel",
+             "#workspaceColumn", "#workspaceHeader", "#bottomPanel",
+             "#panelTitle", "#workspaceTitle", "#sectionLabel", "#valueLabel",
+             "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
+             "#railButton", "QPushButton", "QComboBox::drop-down",
+             "QCheckBox::indicator:checked"}) {
+        assert(qss.contains(QLatin1String(selector)));
+    }
+    // Error surfaces are danger-token tinted, never bespoke hex.
+    assert(qss.contains(t.danger));
+
     return 0;
 }

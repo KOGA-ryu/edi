@@ -31,6 +31,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "regular_polygon_tool") {
         return DraftingToolKind::RegularPolygon;
     }
+    if (toolId == "polyline_tool") {
+        return DraftingToolKind::Polyline;
+    }
     if (toolId == "horizontal_guide_tool") {
         return DraftingToolKind::HorizontalGuide;
     }
@@ -81,6 +84,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "arc";
     case DraftingToolKind::RegularPolygon:
         return "regular_polygon";
+    case DraftingToolKind::Polyline:
+        return "polyline";
     case DraftingToolKind::HorizontalGuide:
         return "horizontal_guide";
     case DraftingToolKind::VerticalGuide:
@@ -135,6 +140,11 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
                                              request.end.x - request.start.x) * 180.0 / M_PI;
         kind = DraftingShapeKind::Arc;
         geometry = ArcGeometry{request.start, radius, startAngle, startAngle + request.arcSweepDeg};
+    } else if (request.tool == DraftingToolKind::Polyline) {
+        kind = DraftingShapeKind::Polyline;
+        PolylineGeometry polyline;
+        polyline.vertices = request.vertices;
+        geometry = polyline;
     } else if (request.tool == DraftingToolKind::RegularPolygon) {
         // Two clicks: centre (start) then a radius point (end). Vertices sit on
         // the circumscribed circle starting at rotationDeg, stepping by 360/sides.

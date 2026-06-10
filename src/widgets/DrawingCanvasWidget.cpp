@@ -359,6 +359,22 @@ void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
     event->accept();
 }
 
+void DrawingCanvasWidget::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (m_controller == nullptr || event->button() != Qt::LeftButton) {
+        QWidget::mouseDoubleClickEvent(event);
+        return;
+    }
+    // Qt delivers press->release->dblclick: the first click of the pair has
+    // already anchored a vertex, so finishing here closes the trail at the
+    // point the user double-clicked — the standard polyline ending gesture.
+    if (m_controller->finishPendingPolyline()) {
+        event->accept();
+        return;
+    }
+    QWidget::mouseDoubleClickEvent(event);
+}
+
 void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
 {
     if (m_controller == nullptr) {
@@ -374,6 +390,12 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
         m_gestureState = drawing_canvas::cancelGesture().state;
         event->accept();
         return;
+    }
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        if (m_controller->finishPendingPolyline()) {
+            event->accept();
+            return;
+        }
     }
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         m_controller->deleteSelectedObject();

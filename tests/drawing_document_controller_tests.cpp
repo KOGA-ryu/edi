@@ -2921,5 +2921,53 @@ int main(int argc, char **argv)
         assert(nearlyEqual(coarseX - baseX, (gridX - baseX) * 4.0));
     }
 
+    // Polyline: the first multi-click tool. Clicks anchor vertices into the
+    // pending request; nothing reaches the document until the finish verb.
+    {
+        DrawingDocumentController polyController;
+        polyController.setSelectedToolId("polyline_tool");
+        polyController.clickCanvasNormalized(0.2, 0.2);
+        polyController.clickCanvasNormalized(0.5, 0.3);
+        assert(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
+
+        // The pointer previews as a provisional last vertex.
+        polyController.updateCreationPreviewNormalized(0.6, 0.6);
+        assert(polyController.modelDocument().contains("preview_object"));
+
+        polyController.clickCanvasNormalized(0.6, 0.6);
+        assert(polyController.finishPendingPolyline());
+        const QVariantList objects = polyController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 1);
+        const QVariantMap polyline = objects.front().toMap();
+        assert(polyline.value("kind").toString() == QStringLiteral("polyline"));
+        assert(polyController.selectedObjectId() == polyline.value("id").toString());
+
+        // The whole gesture is ONE undo step, not one per click.
+        assert(polyController.canUndo());
+        polyController.undo();
+        assert(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
+        polyController.redo();
+        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Finishing with nothing pending refuses; a one-vertex trail
+        // dissolves silently (same as Escape).
+        assert(!polyController.finishPendingPolyline());
+        polyController.clickCanvasNormalized(0.8, 0.8);
+        assert(!polyController.finishPendingPolyline());
+        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Escape drops an in-flight trail without touching the document.
+        polyController.clickCanvasNormalized(0.1, 0.8);
+        polyController.clickCanvasNormalized(0.3, 0.9);
+        polyController.cancelPendingCreation();
+        assert(!polyController.finishPendingPolyline());
+        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // A finished polyline is selectable by clicking near a segment.
+        polyController.setSelectedToolId("select_move");
+        polyController.clickCanvasNormalized(0.35, 0.25);
+        assert(polyController.selectedObjectId() == polyline.value("id").toString());
+    }
+
     return 0;
 }

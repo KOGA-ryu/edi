@@ -3,6 +3,7 @@
 #include "drafting/DraftingDocument.h"
 
 #include <string>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -14,6 +15,7 @@ enum class DraftingToolKind {
     Circle,
     Arc,
     RegularPolygon,
+    Polyline,
     HorizontalGuide,
     VerticalGuide,
     HorizontalConstructionLine,
@@ -39,6 +41,10 @@ struct DraftingToolCreationRequest {
     double polygonRotationDeg = 30.0;
     // Arc tool option: sweep from the start angle (legacy 15->120 = 105deg).
     double arcSweepDeg = 105.0;
+    // Polyline tool: the accumulated click trail. Multi-click tools carry
+    // their whole path here; start/end stay meaningful for two-click tools
+    // only. Validation (>= 2 finite vertices) lives with the geometry.
+    std::vector<Point2D> vertices;
 };
 
 DraftingToolKind draftingToolKindFromId(const std::string &toolId);

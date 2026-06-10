@@ -7,15 +7,18 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QStyle>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <string>
 #include <utility>
 
 #include "core/DrawingCore.h"
+#include "drafting/DraftingInspectorPlan.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/ShellWidgetHelpers.h"
 
@@ -117,6 +120,30 @@ void DraftingFeature::setGeometryEditorVisible(bool visible)
 {
     if (m_geometryEditor != nullptr) {
         m_geometryEditor->setVisible(visible);
+    }
+}
+
+void DraftingFeature::applyInspectorPlan(const QVariantMap &selectedObject)
+{
+    // Empty when the layout never mounted a right panel (partial layouts are
+    // legal); the plan then has no widgets to drive.
+    if (m_inspectorGroups.isEmpty()) {
+        return;
+    }
+    edi::drafting::DraftingInspectorInput input;
+    input.toolId = m_controller->selectedToolId().toStdString();
+    input.hasSelection = !selectedObject.isEmpty();
+    if (input.hasSelection) {
+        input.selectedKind = edi::drafting::shapeKindFromName(
+            selectedObject.value(QStringLiteral("kind")).toString().toStdString());
+    }
+    const edi::drafting::DraftingInspectorPlan plan = edi::drafting::planDraftingInspector(input);
+    QSet<QString> visibleGroups;
+    for (const std::string &groupId : plan.groupIds) {
+        visibleGroups.insert(QString::fromStdString(groupId));
+    }
+    for (auto it = m_inspectorGroups.cbegin(); it != m_inspectorGroups.cend(); ++it) {
+        it.value()->setVisible(visibleGroups.contains(it.key()));
     }
 }
 
@@ -275,6 +302,7 @@ void DraftingFeature::refreshInspector()
     refreshToggle(m_dimensionShowLabel, selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool(), dimensionControlsEnabled);
     rebuildGeometryEditor(selectedObject);
     applyGeometryEditStatus(editStatus);
+    applyInspectorPlan(selectedObject);
     setLabelText(m_objectsValue, QStringLiteral("Objects: %1").arg(objects.size()));
     if (m_guidesValue != nullptr) {
         m_guidesValue->setText(QStringLiteral("Guides: %1 visible / %2 total / %3 duplicate")

@@ -23,6 +23,7 @@ class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QSpinBox;
+class QVBoxLayout;
 class QWidget;
 
 class DrawingCanvasWidget;
@@ -64,6 +65,10 @@ private:
     QWidget *buildWorkspaceColumn();
     QWidget *buildRightPanel();
     QWidget *buildBottomPanel();
+    // F2: one container per inspector plan group id; refreshInspector toggles
+    // their visibility from planDraftingInspector — never rebuilds them.
+    QVBoxLayout *beginInspectorGroup(QVBoxLayout *panelLayout, const QString &groupId);
+    void applyInspectorPlan(const QVariantMap &selectedObject);
     QWidget *buildGeometryEditor();
     QWidget *buildObjectFlagControls();
     QWidget *buildLayerControls();
@@ -196,4 +201,5 @@ private:
     QPushButton *m_undoButton = nullptr;
     QPushButton *m_redoButton = nullptr;
     QWidget *m_recentFilesContainer = nullptr;
+    QMap<QString, QWidget *> m_inspectorGroups;
 };

@@ -195,6 +195,9 @@ using DraftingGeometry = std::variant<
     DimensionGeometry>;
 
 const char *shapeKindName(DraftingShapeKind kind);
+// Inverse of shapeKindName; unknown names fall back to Point (the serializer
+// validates names separately before trusting the result).
+DraftingShapeKind shapeKindFromName(const std::string &name);
 const char *guideOrientationName(GuideOrientation orientation);
 const char *dimensionKindName(DimensionKind kind);
 const char *draftingResultCodeName(DraftingResultCode code);

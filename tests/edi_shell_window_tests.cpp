@@ -320,6 +320,71 @@ int main(int argc, char **argv)
         assert(aligned >= 2);
     }
 
+    // F2: the inspector is a context-keyed stack — planDraftingInspector
+    // decides which groups show; everything else is hidden, never destroyed.
+    {
+        auto groupVisible = [&window](const QString &groupId) {
+            QWidget *group = window.findChild<QWidget *>(QStringLiteral("inspectorGroup_") + groupId);
+            assert(group != nullptr);
+            // isHidden() reads the group's own flag — the right panel starts
+            // collapsed, so ancestor-aware isVisibleTo() would see nothing.
+            return !group->isHidden();
+        };
+
+        // A freshly drawn line is selected -> shape context.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.22, 0.72);
+        controller->clickCanvasNormalized(0.42, 0.72);
+        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(groupVisible(QStringLiteral("selection_summary")));
+        assert(groupVisible(QStringLiteral("geometry")));
+        assert(groupVisible(QStringLiteral("transform")));
+        assert(groupVisible(QStringLiteral("object_guides")));
+        assert(!groupVisible(QStringLiteral("guide_position")));
+        assert(!groupVisible(QStringLiteral("guide_visuals")));
+        assert(!groupVisible(QStringLiteral("dimension")));
+        assert(!groupVisible(QStringLiteral("tool_polygon")));
+        assert(!groupVisible(QStringLiteral("layers_document")));
+        assert(!groupVisible(QStringLiteral("canvas_state")));
+        assert(!groupVisible(QStringLiteral("empty_state")));
+
+        // A selected guide swaps in the guide groups.
+        controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
+        controller->clickCanvasNormalized(0.5, 0.77);
+        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("guide"));
+        assert(groupVisible(QStringLiteral("guide_position")));
+        assert(groupVisible(QStringLiteral("guide_visuals")));
+        assert(groupVisible(QStringLiteral("geometry")));
+        assert(!groupVisible(QStringLiteral("transform")));
+        assert(!groupVisible(QStringLiteral("object_guides")));
+
+        // Tool options ride along with any selection: creation auto-selects,
+        // so hiding them would break the set-sides-then-draw loop.
+        controller->setSelectedToolId(QStringLiteral("regular_polygon_tool"));
+        assert(groupVisible(QStringLiteral("tool_polygon")));
+        assert(groupVisible(QStringLiteral("guide_position")));
+
+        // Drawing tool with no options, no selection -> quiet empty state.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->selectObjectsInBoundsNormalized(0.001, 0.001, 0.002, 0.002);
+        assert(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        assert(groupVisible(QStringLiteral("empty_state")));
+        assert(!groupVisible(QStringLiteral("selection_summary")));
+        assert(!groupVisible(QStringLiteral("tool_polygon")));
+        assert(!groupVisible(QStringLiteral("layers_document")));
+
+        // Neutral select tool, no selection -> document configuration groups
+        // (interim home until F4/F5 relocate them).
+        controller->setSelectedToolId(QStringLiteral("select_move"));
+        assert(groupVisible(QStringLiteral("layers_document")));
+        assert(groupVisible(QStringLiteral("guides_document")));
+        assert(groupVisible(QStringLiteral("calibration_document")));
+        assert(groupVisible(QStringLiteral("document_info")));
+        assert(groupVisible(QStringLiteral("canvas_state")));
+        assert(!groupVisible(QStringLiteral("empty_state")));
+        assert(!groupVisible(QStringLiteral("selection_summary")));
+    }
+
     // Calibration row: pattern button creates objects, record captures a
     // measurement, apply-scale consumes it.
     {

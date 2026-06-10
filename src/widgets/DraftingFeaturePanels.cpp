@@ -119,24 +119,6 @@ QWidget *DraftingFeature::buildLeftPanel()
         m_controller->setSelectedToolId(button->property("toolId").toString());
     });
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Tool Options")));
-    {
-        auto *sidesRow = new QWidget;
-        auto *sidesLayout = new QHBoxLayout(sidesRow);
-        clearLayoutMargins(sidesLayout);
-        sidesLayout->setSpacing(6);
-        sidesLayout->addWidget(new QLabel(QStringLiteral("Sides")));
-        m_polygonSidesSpin = new QSpinBox;
-        m_polygonSidesSpin->setObjectName(QStringLiteral("polygonSidesSpin"));
-        m_polygonSidesSpin->setRange(3, 24);
-        m_polygonSidesSpin->setValue(m_controller->polygonSides());
-        connect(m_polygonSidesSpin, &QSpinBox::valueChanged, m_controller, [this](int sides) {
-            m_controller->setPolygonSides(sides);
-        });
-        sidesLayout->addWidget(m_polygonSidesSpin, 1);
-        layout->addWidget(sidesRow);
-    }
-
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {
         {QStringLiteral("Square art board"), QStringLiteral("square_art_board")},
@@ -337,11 +319,48 @@ QWidget *DraftingFeature::buildRightPanel()
     title->setObjectName(QStringLiteral("panelTitle"));
     layout->addWidget(title);
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Selection")));
-    m_selectedValue = makeValueLabel();
-    layout->addWidget(m_selectedValue);
+    // F2: the inspector is a context-keyed stack (planDraftingInspector).
+    // Every group is built exactly once, in a fixed order chosen so every
+    // context reads top-to-bottom; refreshInspector only toggles visibility.
+    // The obvious alternative — rebuild the panel per context — would retire
+    // and recreate live editors on each selection change; the geometry editor
+    // keeps that rebuild pattern only because its fields depend on the
+    // selected object, not just on the context.
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Selected Object")));
+    // Tool options ride above everything: creation auto-selects the new
+    // object, so a draw loop shows them together with the object's properties.
+    QVBoxLayout *group = beginInspectorGroup(layout, QStringLiteral("tool_polygon"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Polygon Tool")));
+    {
+        auto *sidesRow = new QWidget;
+        auto *sidesLayout = new QHBoxLayout(sidesRow);
+        clearLayoutMargins(sidesLayout);
+        sidesLayout->setSpacing(6);
+        sidesLayout->addWidget(new QLabel(QStringLiteral("Sides")));
+        m_polygonSidesSpin = new QSpinBox;
+        m_polygonSidesSpin->setObjectName(QStringLiteral("polygonSidesSpin"));
+        m_polygonSidesSpin->setRange(3, 24);
+        m_polygonSidesSpin->setValue(m_controller->polygonSides());
+        connect(m_polygonSidesSpin, &QSpinBox::valueChanged, m_controller, [this](int sides) {
+            m_controller->setPolygonSides(sides);
+        });
+        sidesLayout->addWidget(m_polygonSidesSpin, 1);
+        group->addWidget(sidesRow);
+    }
+
+    group = beginInspectorGroup(layout, QStringLiteral("empty_state"));
+    {
+        auto *emptyState = makeValueLabel(QStringLiteral("Nothing selected."));
+        emptyState->setObjectName(QStringLiteral("inspectorEmptyState"));
+        group->addWidget(emptyState);
+    }
+
+    group = beginInspectorGroup(layout, QStringLiteral("selection_summary"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Selection")));
+    m_selectedValue = makeValueLabel();
+    group->addWidget(m_selectedValue);
+
+    group->addWidget(makeSectionLabel(QStringLiteral("Selected Object")));
     m_objectKindValue = makeValueLabel();
     m_objectBoundsValue = makeValueLabel();
     m_objectGeometryValue = makeValueLabel();
@@ -349,29 +368,65 @@ QWidget *DraftingFeature::buildRightPanel()
     m_objectMeasurementValue = makeValueLabel();
     m_objectPlotSafetyValue = makeValueLabel();
     m_selectionPlotBoundsValue = makeValueLabel();
-    layout->addWidget(m_objectKindValue);
-    layout->addWidget(m_objectBoundsValue);
-    layout->addWidget(m_objectGeometryValue);
-    layout->addWidget(m_objectLayerValue);
-    layout->addWidget(m_objectMeasurementValue);
-    layout->addWidget(m_objectPlotSafetyValue);
-    layout->addWidget(m_selectionPlotBoundsValue);
-    layout->addWidget(makeConditionalButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), QStringLiteral("has_selection"), [this]() {
+    group->addWidget(m_objectKindValue);
+    group->addWidget(m_objectBoundsValue);
+    group->addWidget(m_objectGeometryValue);
+    group->addWidget(m_objectLayerValue);
+    group->addWidget(m_objectMeasurementValue);
+    group->addWidget(m_objectPlotSafetyValue);
+    group->addWidget(m_selectionPlotBoundsValue);
+    group->addWidget(makeConditionalButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), QStringLiteral("has_selection"), [this]() {
         m_controller->fitSelectionToDrawableBounds();
     }));
-    layout->addWidget(makeConditionalButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), QStringLiteral("has_selection"), [this]() {
+    group->addWidget(makeConditionalButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), QStringLiteral("has_selection"), [this]() {
         m_controller->centerSelectionInDrawable();
     }));
-    layout->addWidget(makeConditionalButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), QStringLiteral("has_selection"), [this]() {
+    group->addWidget(makeConditionalButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), QStringLiteral("has_selection"), [this]() {
         m_controller->moveSelectionToDrawableOrigin();
     }));
-    layout->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), QStringLiteral("guide_drawable_controls"), [this]() {
+    group->addWidget(buildObjectFlagControls());
+    group->addWidget(makeSectionLabel(QStringLiteral("Object Layer")));
+    m_selectedObjectLayer = makeDataCombo(QStringLiteral("selectedObjectLayerCombo"), {}, [this](const QString &layerId) {
+        m_controller->moveSelectedObjectToLayer(layerId);
+    });
+    group->addWidget(m_selectedObjectLayer);
+
+    group = beginInspectorGroup(layout, QStringLiteral("geometry"));
+    m_geometryEditor = buildGeometryEditor();
+    group->addWidget(m_geometryEditor);
+    m_geometryEditStatus = makeValueLabel();
+    m_geometryEditStatus->setObjectName(QStringLiteral("editErrorLabel"));
+    m_geometryEditStatus->setVisible(false);
+    group->addWidget(m_geometryEditStatus);
+
+    group = beginInspectorGroup(layout, QStringLiteral("dimension"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
+    m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
+    group->addWidget(m_dimensionReadout);
+    m_dimensionKind = makeDataCombo(QStringLiteral("dimensionKindCombo"), {
+        {QStringLiteral("Distance"), QStringLiteral("distance")},
+        {QStringLiteral("Width"), QStringLiteral("width")},
+        {QStringLiteral("Height"), QStringLiteral("height")},
+        {QStringLiteral("Radius"), QStringLiteral("radius")},
+        {QStringLiteral("Diameter"), QStringLiteral("diameter")},
+    }, [this](const QString &kindId) {
+        m_controller->setSelectedDimensionKind(kindId);
+    });
+    group->addWidget(m_dimensionKind);
+    m_dimensionShowLabel = makeToggle(QStringLiteral("dimensionShowLabelCheckbox"), QStringLiteral("Show dimension label"), [this](bool checked) {
+        m_controller->setSelectedDimensionLabelVisible(checked);
+    });
+    group->addWidget(m_dimensionShowLabel);
+
+    group = beginInspectorGroup(layout, QStringLiteral("guide_position"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Guide")));
+    group->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableOrigin();
     }));
-    layout->addWidget(makeConditionalButton(QStringLiteral("centerGuideButton"), QStringLiteral("Center Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
+    group->addWidget(makeConditionalButton(QStringLiteral("centerGuideButton"), QStringLiteral("Center Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->centerSelectedGuideInDrawable();
     }));
-    layout->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), QStringLiteral("guide_drawable_controls"), [this]() {
+    group->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableMax();
     }));
     const QVector<QPair<QString, QString>> guideOffsetButtons {
@@ -388,26 +443,58 @@ QWidget *DraftingFeature::buildRightPanel()
             m_controller->offsetSelectedGuide(direction, stepMode);
         });
         m_guideOffsetButtons.insert(buttonSpec.first, button);
-        layout->addWidget(button);
+        group->addWidget(button);
     }
-    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Presets")));
-    const QVector<QPair<QString, QString>> guidePresetButtons {
-        {QStringLiteral("drawable_bounds"), QStringLiteral("Preset Bounds")},
-        {QStringLiteral("drawable_centerlines"), QStringLiteral("Preset Centerlines")},
-        {QStringLiteral("thirds"), QStringLiteral("Preset Thirds")},
-        {QStringLiteral("quarters"), QStringLiteral("Preset Quarters")},
-        {QStringLiteral("margin_safe"), QStringLiteral("Preset Margin Safe")},
-    };
-    for (const auto &buttonSpec : guidePresetButtons) {
-        auto *button = makeActionButton(QStringLiteral("guidePreset_%1").arg(buttonSpec.first), buttonSpec.second, [this, presetId = buttonSpec.first]() {
-            m_controller->applyGuidePreset(presetId);
-        });
-        layout->addWidget(button);
-    }
-    layout->addWidget(makeConditionalButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), QStringLiteral("construction_drawable_controls"), [this]() {
+    group->addWidget(makeConditionalButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
+        m_controller->deleteSelectedGuide();
+    }));
+
+    group = beginInspectorGroup(layout, QStringLiteral("guide_visuals"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Guide Visuals")));
+    m_guideLabel = new QLineEdit;
+    m_guideLabel->setObjectName(QStringLiteral("guideLabelField"));
+    m_guideLabel->setPlaceholderText(QStringLiteral("Default guide label"));
+    connect(m_guideLabel, &QLineEdit::editingFinished, this, [this]() {
+        m_controller->setSelectedGuideLabel(m_guideLabel->text());
+    });
+    group->addWidget(m_guideLabel);
+    m_guideColor = makeDataCombo(QStringLiteral("guideColorCombo"), {
+        {QStringLiteral("Guide blue"), QStringLiteral("#83aeca")},
+        {QStringLiteral("Guide teal"), QStringLiteral("#54d2c6")},
+        {QStringLiteral("Guide amber"), QStringLiteral("#f6c65b")},
+        {QStringLiteral("Guide red"), QStringLiteral("#d98b8b")},
+        {QStringLiteral("Guide green"), QStringLiteral("#91c89b")},
+    }, [this](const QString &color) {
+        m_controller->setSelectedGuideColor(color);
+    });
+    group->addWidget(m_guideColor);
+    m_guideDashStyle = makeDataCombo(QStringLiteral("guideDashStyleCombo"), {
+        {QStringLiteral("Dash line"), QStringLiteral("dash")},
+        {QStringLiteral("Solid line"), QStringLiteral("solid")},
+        {QStringLiteral("Dot line"), QStringLiteral("dot")},
+    }, [this](const QString &dashStyle) {
+        m_controller->setSelectedGuideDashStyle(dashStyle);
+    });
+    group->addWidget(m_guideDashStyle);
+    m_guideShowLabel = makeToggle(QStringLiteral("guideShowLabelCheckbox"), QStringLiteral("Show guide label"), [this](bool checked) {
+        m_controller->setSelectedGuideLabelVisible(checked);
+    });
+    group->addWidget(m_guideShowLabel);
+
+    group = beginInspectorGroup(layout, QStringLiteral("construction"));
+    group->addWidget(makeConditionalButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), QStringLiteral("construction_drawable_controls"), [this]() {
         m_controller->fitSelectedConstructionLineToDrawable();
     }));
-    layout->addWidget(makeSectionLabel(QStringLiteral("Bounds Guides")));
+
+    group = beginInspectorGroup(layout, QStringLiteral("transform"));
+    group->addWidget(buildNudgeControls());
+    group->addWidget(buildAlignControls());
+    group->addWidget(buildOffsetControls());
+    group->addWidget(buildMirrorControls());
+    group->addWidget(buildRepeatControls());
+
+    group = beginInspectorGroup(layout, QStringLiteral("object_guides"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Bounds Guides")));
     const QVector<QPair<QString, QString>> boundsGuideButtons {
         {QStringLiteral("left"), QStringLiteral("Guide Left")},
         {QStringLiteral("right"), QStringLiteral("Guide Right")},
@@ -421,9 +508,9 @@ QWidget *DraftingFeature::buildRightPanel()
             m_controller->createGuideFromSelectedBounds(placementId);
         });
         m_boundsGuideButtons.insert(buttonSpec.first, button);
-        layout->addWidget(button);
+        group->addWidget(button);
     }
-    layout->addWidget(makeSectionLabel(QStringLiteral("Offset Guides")));
+    group->addWidget(makeSectionLabel(QStringLiteral("Offset Guides")));
     const QVector<QPair<QString, QString>> offsetGuideButtons {
         {QStringLiteral("left"), QStringLiteral("Offset V Left")},
         {QStringLiteral("right"), QStringLiteral("Offset V Right")},
@@ -435,9 +522,9 @@ QWidget *DraftingFeature::buildRightPanel()
             m_controller->createOffsetGuideFromSelectedBounds(placementId, QStringLiteral("grid"));
         });
         m_offsetGuideButtons.insert(buttonSpec.first, button);
-        layout->addWidget(button);
+        group->addWidget(button);
     }
-    layout->addWidget(makeSectionLabel(QStringLiteral("Align To Guide")));
+    group->addWidget(makeSectionLabel(QStringLiteral("Align To Guide")));
     const QVector<QPair<QString, QString>> alignToGuideButtons {
         {QStringLiteral("left"), QStringLiteral("To V Guide Left")},
         {QStringLiteral("center_x"), QStringLiteral("To V Guide Center")},
@@ -451,109 +538,69 @@ QWidget *DraftingFeature::buildRightPanel()
             m_controller->alignSelectionToNearestGuide(modeId);
         });
         m_alignToGuideButtons.insert(buttonSpec.first, button);
-        layout->addWidget(button);
+        group->addWidget(button);
     }
-    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
-    layout->addWidget(makeConditionalButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
-        m_controller->deleteSelectedGuide();
-    }));
+
+    group = beginInspectorGroup(layout, QStringLiteral("layers_document"));
+    group->addWidget(buildLayerControls());
+
+    group = beginInspectorGroup(layout, QStringLiteral("guides_document"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Guide Presets")));
+    const QVector<QPair<QString, QString>> guidePresetButtons {
+        {QStringLiteral("drawable_bounds"), QStringLiteral("Preset Bounds")},
+        {QStringLiteral("drawable_centerlines"), QStringLiteral("Preset Centerlines")},
+        {QStringLiteral("thirds"), QStringLiteral("Preset Thirds")},
+        {QStringLiteral("quarters"), QStringLiteral("Preset Quarters")},
+        {QStringLiteral("margin_safe"), QStringLiteral("Preset Margin Safe")},
+    };
+    for (const auto &buttonSpec : guidePresetButtons) {
+        auto *button = makeActionButton(QStringLiteral("guidePreset_%1").arg(buttonSpec.first), buttonSpec.second, [this, presetId = buttonSpec.first]() {
+            m_controller->applyGuidePreset(presetId);
+        });
+        group->addWidget(button);
+    }
+    group->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
     m_deleteAllGuidesButton = makeActionButton(QStringLiteral("deleteAllGuidesButton"), QStringLiteral("Delete All Guides"), [this]() {
         m_controller->deleteAllGuides();
     });
-    layout->addWidget(m_deleteAllGuidesButton);
+    group->addWidget(m_deleteAllGuidesButton);
     m_mergeDuplicateGuidesButton = makeActionButton(QStringLiteral("mergeDuplicateGuidesButton"), QStringLiteral("Merge Duplicate Guides"), [this]() {
         m_controller->mergeDuplicateGuides();
     });
-    layout->addWidget(m_mergeDuplicateGuidesButton);
+    group->addWidget(m_mergeDuplicateGuidesButton);
     m_hideAllGuidesButton = makeActionButton(QStringLiteral("hideAllGuidesButton"), QStringLiteral("Hide All Guides"), [this]() {
         m_controller->setAllGuidesVisible(false);
     });
-    layout->addWidget(m_hideAllGuidesButton);
+    group->addWidget(m_hideAllGuidesButton);
     m_showAllGuidesButton = makeActionButton(QStringLiteral("showAllGuidesButton"), QStringLiteral("Show All Guides"), [this]() {
         m_controller->setAllGuidesVisible(true);
     });
-    layout->addWidget(m_showAllGuidesButton);
+    group->addWidget(m_showAllGuidesButton);
     m_lockAllGuidesButton = makeActionButton(QStringLiteral("lockAllGuidesButton"), QStringLiteral("Lock All Guides"), [this]() {
         m_controller->setAllGuidesLocked(true);
     });
-    layout->addWidget(m_lockAllGuidesButton);
+    group->addWidget(m_lockAllGuidesButton);
     m_unlockAllGuidesButton = makeActionButton(QStringLiteral("unlockAllGuidesButton"), QStringLiteral("Unlock All Guides"), [this]() {
         m_controller->setAllGuidesLocked(false);
     });
-    layout->addWidget(m_unlockAllGuidesButton);
-    layout->addWidget(makeSectionLabel(QStringLiteral("Guide Visuals")));
-    m_guideLabel = new QLineEdit;
-    m_guideLabel->setObjectName(QStringLiteral("guideLabelField"));
-    m_guideLabel->setPlaceholderText(QStringLiteral("Default guide label"));
-    connect(m_guideLabel, &QLineEdit::editingFinished, this, [this]() {
-        m_controller->setSelectedGuideLabel(m_guideLabel->text());
-    });
-    layout->addWidget(m_guideLabel);
-    m_guideColor = makeDataCombo(QStringLiteral("guideColorCombo"), {
-        {QStringLiteral("Guide blue"), QStringLiteral("#83aeca")},
-        {QStringLiteral("Guide teal"), QStringLiteral("#54d2c6")},
-        {QStringLiteral("Guide amber"), QStringLiteral("#f6c65b")},
-        {QStringLiteral("Guide red"), QStringLiteral("#d98b8b")},
-        {QStringLiteral("Guide green"), QStringLiteral("#91c89b")},
-    }, [this](const QString &color) {
-        m_controller->setSelectedGuideColor(color);
-    });
-    layout->addWidget(m_guideColor);
-    m_guideDashStyle = makeDataCombo(QStringLiteral("guideDashStyleCombo"), {
-        {QStringLiteral("Dash line"), QStringLiteral("dash")},
-        {QStringLiteral("Solid line"), QStringLiteral("solid")},
-        {QStringLiteral("Dot line"), QStringLiteral("dot")},
-    }, [this](const QString &dashStyle) {
-        m_controller->setSelectedGuideDashStyle(dashStyle);
-    });
-    layout->addWidget(m_guideDashStyle);
-    m_guideShowLabel = makeToggle(QStringLiteral("guideShowLabelCheckbox"), QStringLiteral("Show guide label"), [this](bool checked) {
-        m_controller->setSelectedGuideLabelVisible(checked);
-    });
-    layout->addWidget(m_guideShowLabel);
-    layout->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
-    m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
-    layout->addWidget(m_dimensionReadout);
-    m_dimensionKind = makeDataCombo(QStringLiteral("dimensionKindCombo"), {
-        {QStringLiteral("Distance"), QStringLiteral("distance")},
-        {QStringLiteral("Width"), QStringLiteral("width")},
-        {QStringLiteral("Height"), QStringLiteral("height")},
-        {QStringLiteral("Radius"), QStringLiteral("radius")},
-        {QStringLiteral("Diameter"), QStringLiteral("diameter")},
-    }, [this](const QString &kindId) {
-        m_controller->setSelectedDimensionKind(kindId);
-    });
-    layout->addWidget(m_dimensionKind);
-    m_dimensionShowLabel = makeToggle(QStringLiteral("dimensionShowLabelCheckbox"), QStringLiteral("Show dimension label"), [this](bool checked) {
-        m_controller->setSelectedDimensionLabelVisible(checked);
-    });
-    layout->addWidget(m_dimensionShowLabel);
-    layout->addWidget(buildObjectFlagControls());
-    layout->addWidget(buildLayerControls());
-    m_geometryEditor = buildGeometryEditor();
-    layout->addWidget(m_geometryEditor);
-    m_geometryEditStatus = makeValueLabel();
-    m_geometryEditStatus->setObjectName(QStringLiteral("editErrorLabel"));
-    m_geometryEditStatus->setVisible(false);
-    layout->addWidget(m_geometryEditStatus);
-    layout->addWidget(buildNudgeControls());
-    layout->addWidget(buildAlignControls());
-    layout->addWidget(buildOffsetControls());
-    layout->addWidget(buildMirrorControls());
-    layout->addWidget(buildRepeatControls());
-    layout->addWidget(buildCalibrationControls());
+    group->addWidget(m_unlockAllGuidesButton);
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Document")));
+    group = beginInspectorGroup(layout, QStringLiteral("calibration_document"));
+    group->addWidget(buildCalibrationControls());
+
+    group = beginInspectorGroup(layout, QStringLiteral("document_info"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
     m_objectsValue = makeValueLabel();
     m_guidesValue = makeValueLabel();
     m_revisionValue = makeValueLabel();
-    layout->addWidget(m_toolValue);
-    layout->addWidget(m_objectsValue);
-    layout->addWidget(m_guidesValue);
-    layout->addWidget(m_revisionValue);
+    group->addWidget(m_toolValue);
+    group->addWidget(m_objectsValue);
+    group->addWidget(m_guidesValue);
+    group->addWidget(m_revisionValue);
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
+    group = beginInspectorGroup(layout, QStringLiteral("canvas_state"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
@@ -582,23 +629,37 @@ QWidget *DraftingFeature::buildRightPanel()
     m_quickMeasureValue = makeValueLabel();
     m_guideDragValue = makeValueLabel();
     m_previewValue = makeValueLabel();
-    layout->addWidget(m_snapValue);
-    layout->addWidget(m_gridValue);
-    layout->addWidget(m_plotValue);
-    layout->addWidget(m_plotBoundsValue);
-    layout->addWidget(m_plotLayerStatsValue);
-    layout->addWidget(m_plotPenStatsValue);
-    layout->addWidget(m_plotReadinessValue);
-    layout->addWidget(m_plotOrderMode);
-    layout->addWidget(m_plotDirectionMode);
-    layout->addWidget(m_plotPreviewVisible);
-    layout->addWidget(m_pointerValue);
-    layout->addWidget(m_quickMeasureValue);
-    layout->addWidget(m_guideDragValue);
-    layout->addWidget(m_previewValue);
+    group->addWidget(m_snapValue);
+    group->addWidget(m_gridValue);
+    group->addWidget(m_plotValue);
+    group->addWidget(m_plotBoundsValue);
+    group->addWidget(m_plotLayerStatsValue);
+    group->addWidget(m_plotPenStatsValue);
+    group->addWidget(m_plotReadinessValue);
+    group->addWidget(m_plotOrderMode);
+    group->addWidget(m_plotDirectionMode);
+    group->addWidget(m_plotPreviewVisible);
+    group->addWidget(m_pointerValue);
+    group->addWidget(m_quickMeasureValue);
+    group->addWidget(m_guideDragValue);
+    group->addWidget(m_previewValue);
     layout->addStretch(1);
 
     return panel;
+}
+
+QVBoxLayout *DraftingFeature::beginInspectorGroup(QVBoxLayout *panelLayout, const QString &groupId)
+{
+    auto *groupWidget = new QWidget;
+    // The object name mirrors the plan's group id so tests assert per-context
+    // visibility against the same vocabulary the pure module speaks.
+    groupWidget->setObjectName(QStringLiteral("inspectorGroup_%1").arg(groupId));
+    auto *groupLayout = new QVBoxLayout(groupWidget);
+    clearLayoutMargins(groupLayout);
+    groupLayout->setSpacing(8); // matches the scroll panel's content spacing
+    panelLayout->addWidget(groupWidget);
+    m_inspectorGroups.insert(groupId, groupWidget);
+    return groupLayout;
 }
 
 QWidget *DraftingFeature::buildGeometryEditor()
@@ -706,11 +767,8 @@ QWidget *DraftingFeature::buildLayerControls()
         m_controller->setActiveLayerStrokeWidthPreset(presetId);
     });
     layout->addWidget(m_activeLayerStrokeWidth);
-
-    m_selectedObjectLayer = makeDataCombo(QStringLiteral("selectedObjectLayerCombo"), {}, [this](const QString &layerId) {
-        m_controller->moveSelectedObjectToLayer(layerId);
-    });
-    layout->addWidget(m_selectedObjectLayer);
+    // The move-object-to-layer combo lives in the selection_summary group now
+    // (F2): it acts on the selection, not on the document's layer table.
     return panel;
 }
 

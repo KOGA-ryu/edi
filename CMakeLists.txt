@@ -273,6 +273,49 @@ target_link_libraries(drawing_document_controller_tests PRIVATE
 )
 add_test(NAME drawing_document_controller_tests COMMAND drawing_document_controller_tests)
 
+add_executable(edi_shell_window_tests
+    tests/edi_shell_window_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/widgets/EdiShellWindow.h
+    src/widgets/EdiShellWindow.cpp
+    src/widgets/DrawingCanvasWidget.h
+    src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasViewport.h
+    src/widgets/DrawingCanvasViewport.cpp
+    src/widgets/DrawingCanvasHandleHitTest.h
+    src/widgets/DrawingCanvasHandleHitTest.cpp
+    src/widgets/DrawingCanvasProjectedDocument.h
+    src/widgets/DrawingCanvasProjectedDocument.cpp
+    src/widgets/DrawingCanvasProjectedPlot.h
+    src/widgets/DrawingCanvasProjectedPlot.cpp
+    src/widgets/DrawingCanvasProjectedGrid.h
+    src/widgets/DrawingCanvasProjectedGrid.cpp
+    src/widgets/DrawingCanvasProjectedStatus.h
+    src/widgets/DrawingCanvasProjectedStatus.cpp
+    src/widgets/DrawingCanvasProjectedPointer.h
+    src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasObjectPainter.h
+    src/widgets/DrawingCanvasObjectPainter.cpp
+    src/widgets/DrawingCanvasGestureState.h
+    src/widgets/DrawingCanvasGestureState.cpp
+    src/widgets/DrawingCanvasProjectedObject.h
+    src/widgets/DrawingCanvasProjectedObject.cpp
+)
+target_include_directories(edi_shell_window_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(edi_shell_window_tests PRIVATE
+    edi_app_core
+    edi_drafting_core
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+)
+add_test(NAME edi_shell_window_tests COMMAND edi_shell_window_tests)
+
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h

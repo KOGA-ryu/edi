@@ -182,6 +182,32 @@ BeltCrossView beltCrossView(const BeltState &state, const std::vector<bool> &occ
     return view;
 }
 
+BeltPeekView beltPeekView(const BeltState &state, const std::vector<bool> &occupied)
+{
+    BeltPeekView view;
+    if (!beltStateValid(state)) {
+        return view;
+    }
+    for (int column = 0; column < state.columns; ++column) {
+        if (beltCellOccupied(state, occupied, state.activeRow, column)) {
+            view.items.push_back({column, column == state.activeColumn});
+        }
+    }
+    // The peeks ARE one vertical step: derive them from the step function so
+    // what the half-cell shows and where the scroll lands cannot disagree.
+    const BeltState previous = beltStepRowOccupied(state, -1, occupied);
+    if (previous.activeRow != state.activeRow) {
+        view.previousRow = previous.activeRow;
+        view.previousLeadColumn = previous.activeColumn;
+    }
+    const BeltState next = beltStepRowOccupied(state, 1, occupied);
+    if (next.activeRow != state.activeRow) {
+        view.nextRow = next.activeRow;
+        view.nextLeadColumn = next.activeColumn;
+    }
+    return view;
+}
+
 std::vector<BeltCrossCell> beltCrossCells(const BeltState &state)
 {
     std::vector<BeltCrossCell> cells;

@@ -181,6 +181,37 @@ int main()
         // A wrong-length mask reads as all-empty, never as shifted rows.
         const std::vector<bool> ragged(15, true);
         assert(!beltCellOccupied(state, ragged, 0, 0));
+
+        // The peek view: active row items plus the wrapping neighbours'
+        // leads — exactly where one vertical step lands, by construction.
+        {
+            const BeltPeekView peek = beltPeekView({4, 4, 2, 3}, occupied);
+            assert(peek.items.size() == 3);
+            assert(peek.items[2].column == 3 && peek.items[2].active);
+            assert(peek.previousRow == 0 && peek.previousLeadColumn == 0);
+            assert(peek.nextRow == 3 && peek.nextLeadColumn == 0);
+        }
+        // From the top row the previous peek wraps to the bottom.
+        {
+            const BeltPeekView peek = beltPeekView({4, 4, 0, 0}, occupied);
+            assert(peek.previousRow == 3);
+            assert(peek.nextRow == 2);
+        }
+        // Two non-empty rows: the same row peeks on both sides (both scroll
+        // directions reach it). One non-empty row: no peeks at all.
+        {
+            std::vector<bool> twoRows(16, false);
+            twoRows[0] = true;
+            twoRows[12] = true;
+            const BeltPeekView peek = beltPeekView({4, 4, 0, 0}, twoRows);
+            assert(peek.previousRow == 3 && peek.nextRow == 3);
+
+            std::vector<bool> oneRow(16, false);
+            oneRow[0] = oneRow[1] = true;
+            const BeltPeekView solo = beltPeekView({4, 4, 0, 0}, oneRow);
+            assert(solo.previousRow == -1 && solo.nextRow == -1);
+            assert(solo.items.size() == 2);
+        }
     }
 
     return 0;

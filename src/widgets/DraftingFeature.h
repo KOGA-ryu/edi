@@ -68,7 +68,6 @@ public:
     // contract as buildPalettes: fresh widgets, shell owns the frame.
     std::vector<edi::shell::FeatureChromePanelSpec> buildChromePanels();
     void refreshInspector();
-    void setRecentFiles(const QStringList &paths);
     DrawingCanvasWidget *canvas() const { return m_canvas; }
 
     // The drafting tools arranged on the belt: one row per tool, the row's
@@ -121,11 +120,9 @@ private:
     void rebuildGeometryEditor(const QVariantMap &selectedObject);
     void applyGeometryEditStatus(const QVariantMap &editStatus);
     void setGeometryEditorVisible(bool visible);
-    void rebuildRecentFileButtons();
 
     DrawingDocumentController *m_controller = nullptr;
     ShellActions m_actions;
-    QStringList m_recentFiles;
     DrawingCanvasWidget *m_canvas = nullptr;
     QListWidget *m_objectList = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
@@ -213,8 +210,5 @@ private:
     QLabel *m_quickMeasureValue = nullptr;
     QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
-    QPushButton *m_undoButton = nullptr;
-    QPushButton *m_redoButton = nullptr;
-    QWidget *m_recentFilesContainer = nullptr;
     QMap<QString, QWidget *> m_inspectorGroups;
 };

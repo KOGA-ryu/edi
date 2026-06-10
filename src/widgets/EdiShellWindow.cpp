@@ -131,7 +131,6 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     drafting.buildPalettes = [this]() { return m_draftingFeature->buildPalettes(); };
     drafting.buildChromePanels = [this]() { return m_draftingFeature->buildChromePanels(); };
     drafting.instanceMounted = [this]() {
-        m_draftingFeature->setRecentFiles(m_recentFiles);
         m_draftingFeature->refreshInspector();
     };
     m_featureRegistry.features.push_back(drafting);
@@ -357,7 +356,7 @@ void EdiShellWindow::rememberRecentFile(const QString &path)
     while (m_recentFiles.size() > static_cast<int>(edi::io::kRecentFilesCap)) {
         m_recentFiles.removeLast();
     }
-    m_draftingFeature->setRecentFiles(m_recentFiles);
+    rebuildRecentFilesMenu();
     scheduleSettingsSave();
 }
 

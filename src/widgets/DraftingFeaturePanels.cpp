@@ -165,12 +165,6 @@ QWidget *DraftingFeature::buildPanel(ShellSlot slot)
     return nullptr;
 }
 
-void DraftingFeature::setRecentFiles(const QStringList &paths)
-{
-    m_recentFiles = paths;
-    rebuildRecentFileButtons();
-}
-
 std::vector<edi::shell::FeatureChromePanelSpec> DraftingFeature::buildChromePanels()
 {
     // The snap/grid settings, relocated from the left panel to a top-chrome
@@ -346,43 +340,10 @@ QWidget *DraftingFeature::buildLeftPanel()
     });
     layout->addWidget(m_objectList);
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Edit")));
-    m_undoButton = makeActionButton(QStringLiteral("undoButton"), QStringLiteral("Undo"), [this]() {
-        m_controller->undo();
-    });
-    layout->addWidget(m_undoButton);
-    m_redoButton = makeActionButton(QStringLiteral("redoButton"), QStringLiteral("Redo"), [this]() {
-        m_controller->redo();
-    });
-    layout->addWidget(m_redoButton);
-
-    layout->addWidget(makeSectionLabel(QStringLiteral("Project Files")));
-    layout->addWidget(makeActionButton(QStringLiteral("openDrawingButton"), QStringLiteral("Open…"), [this]() {
-        m_actions.openDrawing();
-    }));
-    layout->addWidget(makeActionButton(QStringLiteral("saveDrawingButton"), QStringLiteral("Save"), [this]() {
-        m_actions.saveDrawing();
-    }));
-    layout->addWidget(makeActionButton(QStringLiteral("saveDrawingAsButton"), QStringLiteral("Save As…"), [this]() {
-        m_actions.saveDrawingAs();
-    }));
-    layout->addWidget(makeActionButton(QStringLiteral("exportSvgButton"), QStringLiteral("Export SVG…"), [this]() {
-        m_actions.exportSvg();
-    }));
-    layout->addWidget(makeActionButton(QStringLiteral("exportHpglButton"), QStringLiteral("Export HPGL…"), [this]() {
-        m_actions.exportHpgl();
-    }));
-
-    m_recentFilesContainer = new QWidget;
-    m_recentFilesContainer->setObjectName(QStringLiteral("recentFilesContainer"));
-    auto *recentLayout = new QVBoxLayout(m_recentFilesContainer);
-    clearLayoutMargins(recentLayout);
-    recentLayout->setSpacing(4);
-    layout->addWidget(m_recentFilesContainer);
-
-    layout->addWidget(makeSectionLabel(QStringLiteral("Next Surfaces")));
-    layout->addWidget(makeValueLabel(QStringLiteral("Text editor")));
-    layout->addWidget(makeValueLabel(QStringLiteral("Settings")));
+    // Everything else this panel used to host has a better home now: tools
+    // float (F4), snap/grid sit in the chrome popup, undo/redo and project
+    // files live in the Edit/File menus. Navigate left, work center,
+    // configure right.
     layout->addStretch(1);
 
     return panel;
@@ -1152,30 +1113,3 @@ QLabel *DraftingFeature::makeValueLabel(const QString &text) const
     return label;
 }
 
-void DraftingFeature::rebuildRecentFileButtons()
-{
-    if (m_recentFilesContainer == nullptr) {
-        return;
-    }
-    auto *layout = qobject_cast<QVBoxLayout *>(m_recentFilesContainer->layout());
-    if (layout == nullptr) {
-        return;
-    }
-    QLayoutItem *item = nullptr;
-    while ((item = layout->takeAt(0)) != nullptr) {
-        delete item->widget();
-        delete item;
-    }
-    // Surface the five most recent files as quick-open buttons.
-    const int shown = qMin(m_recentFiles.size(), 5);
-    for (int i = 0; i < shown; ++i) {
-        const QString path = m_recentFiles.at(i);
-        auto *button = new QPushButton(QFileInfo(path).fileName());
-        button->setObjectName(QStringLiteral("recentFileButton"));
-        button->setToolTip(path);
-        connect(button, &QPushButton::clicked, this, [this, path]() {
-            m_actions.openDrawingAtPath(path);
-        });
-        layout->addWidget(button);
-    }
-}

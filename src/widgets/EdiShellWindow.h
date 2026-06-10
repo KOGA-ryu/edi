@@ -13,6 +13,8 @@
 #include "widgets/ShellPanels.h"
 #include "widgets/ShellTheme.h"
 
+class QAction;
+class QMenu;
 class QSplitter;
 
 class QTimer;
@@ -120,6 +122,10 @@ private:
     // (e.g. drafting's Snap panel). Same destroy-and-rebuild lifecycle as
     // palettes; the buttons live in m_chromePanelHost inside the title bar.
     void rebuildChromePanels();
+    // The File menu's Open Recent submenu, rebuilt whenever m_recentFiles
+    // changes (eager, not aboutToShow: deterministic for tests and cheap).
+    void rebuildRecentFilesMenu();
+    void refreshUndoRedoActions();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
     std::unique_ptr<SettingsFeature> createSettingsFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
@@ -155,6 +161,9 @@ private:
     QWidget *m_bottomGrip = nullptr;
     std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
     QWidget *m_chromePanelHost = nullptr;      // title-bar strip for feature buttons
+    QMenu *m_recentFilesMenu = nullptr;
+    QAction *m_undoAction = nullptr;
+    QAction *m_redoAction = nullptr;
     std::vector<QWidget *> m_chromePopups;     // popup frames, window children
     QWidget *m_leftPanelWidget = nullptr;
     QWidget *m_mainPanelWidget = nullptr;

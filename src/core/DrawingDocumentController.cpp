@@ -1488,7 +1488,9 @@ bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
     });
 }
 
-bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &placementId)
+bool DrawingDocumentController::createGuideFromActiveBounds(
+    const char *sourceTag,
+    const std::function<DraftingGuidePlan(const Bounds2D &bounds)> &planGuide)
 {
     if (!m_document.activeObjectId) {
         return false;
@@ -1498,7 +1500,7 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
         return false;
     }
 
-    const DraftingGuidePlan plan = guideFromBoundsPlacement(source->bounds, toStdString(placementId));
+    const DraftingGuidePlan plan = planGuide(source->bounds);
     if (!plan.ok) {
         return false;
     }
@@ -1509,7 +1511,7 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     }
 
     const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-    auto built = buildDraftingGuideObject(toStdString(id), guide, source->layerId, "bounds_guide");
+    auto built = buildDraftingGuideObject(toStdString(id), guide, source->layerId, sourceTag);
     if (!built.ok) {
         return false;
     }
@@ -1522,41 +1524,21 @@ bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &pla
     return true;
 }
 
+bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &placementId)
+{
+    return createGuideFromActiveBounds("bounds_guide", [&](const Bounds2D &bounds) {
+        return guideFromBoundsPlacement(bounds, toStdString(placementId));
+    });
+}
+
 bool DrawingDocumentController::createOffsetGuideFromSelectedBounds(const QString &placementId, const QString &stepMode)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
-        return false;
-    }
-
-    const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
-    const double stepX = effectiveNudgeStepX(m_snapSettings) * scale;
-    const double stepY = effectiveNudgeStepY(m_snapSettings) * scale;
-    const DraftingGuidePlan plan = offsetGuideFromBoundsPlacement(source->bounds, toStdString(placementId), stepX, stepY);
-    if (!plan.ok) {
-        return false;
-    }
-    const GuideGeometry guide = plan.geometry;
-
-    if (existingGuideId(m_document, guide)) {
-        return true;
-    }
-
-    const QString id = nextObjectId(QStringLiteral("guide"), m_nextObjectSerial++);
-    auto built = buildDraftingGuideObject(toStdString(id), guide, source->layerId, "offset_bounds_guide");
-    if (!built.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return createGuideFromActiveBounds("offset_bounds_guide", [&](const Bounds2D &bounds) {
+        const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
+        const double stepX = effectiveNudgeStepX(m_snapSettings) * scale;
+        const double stepY = effectiveNudgeStepY(m_snapSettings) * scale;
+        return offsetGuideFromBoundsPlacement(bounds, toStdString(placementId), stepX, stepY);
+    });
 }
 
 bool DrawingDocumentController::applyGuidePreset(const QString &presetId)

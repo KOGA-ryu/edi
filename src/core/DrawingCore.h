@@ -144,6 +144,9 @@ private:
         const std::function<std::optional<edi::drafting::DraftingObject>(
             const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
     bool createObjectsAndSelect(const std::vector<edi::drafting::DraftingObject> &objects);
+    bool createGuideFromActiveBounds(
+        const char *sourceTag,
+        const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
 
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;

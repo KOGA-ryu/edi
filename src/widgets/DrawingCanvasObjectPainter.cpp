@@ -337,9 +337,8 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (rectangle.ok) {
-            const QPointF origin = drawing_canvas::canvasToScreen(context.board, rectangle.x, rectangle.y);
-            const QPointF extent = drawing_canvas::canvasToScreen(context.board, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
-            painter.drawRect(QRectF(origin, extent).normalized());
+            painter.drawRect(drawing_canvas::boundsToScreenRect(
+                context.board, rectangle.x, rectangle.y, rectangle.width, rectangle.height));
         }
     } else if (kind == QStringLiteral("circle")) {
         const DrawingCanvasProjectedCircle circle = projectedCircle(object);

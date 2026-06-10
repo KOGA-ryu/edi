@@ -29,15 +29,15 @@ void sendClick(QWidget &widget, const QPointF &pos)
     QApplication::sendEvent(&widget, &press);
 }
 
-QVector<BeltItem> numberedItems(int count)
+QPointF viewCellCenter(int xPosition, int yPosition)
 {
-    QVector<BeltItem> items;
-    for (int i = 0; i < count; ++i) {
-        items.push_back({QStringLiteral("tool_%1").arg(i),
-                         QString::number(i),
-                         QStringLiteral("Tool %1").arg(i)});
-    }
-    return items;
+    // Mirrors the widget's metrics: 34px cells with 4px gaps.
+    return QPointF(xPosition * 38.0 + 17.0, yPosition * 38.0 + 17.0);
+}
+
+BeltItem item(const char *id)
+{
+    return {QString::fromLatin1(id), QString::fromLatin1(id).toUpper(), QString::fromLatin1(id)};
 }
 
 } // namespace
@@ -47,9 +47,19 @@ int main(int argc, char **argv)
     qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);
 
+    // A 4x4 belt shaped like the drafting arrangement: rows are tools, cells
+    // their sub-features. Row 0: a. Row 1: empty. Row 2: b,c,d (with a stored
+    // gap at column 2 — the view must compact it away). Row 3: e,f.
     BeltCrossWidget belt;
-    belt.setGridSize(6, 6);
-    belt.setItems(numberedItems(36));
+    belt.setGridSize(4, 4);
+    QVector<BeltItem> items(16);
+    items[0] = item("a");
+    items[8] = item("b");
+    items[9] = item("c");
+    items[11] = item("d");
+    items[12] = item("e");
+    items[13] = item("f");
+    belt.setItems(items);
     belt.resize(belt.sizeHint());
 
     QStringList emitted;
@@ -57,82 +67,94 @@ int main(int argc, char **argv)
         emitted.push_back(id);
     });
 
-    // Initial state: origin cell, item 0 active, nothing emitted.
-    assert(belt.activeIndex() == 0);
-    assert(belt.activeItemId() == QStringLiteral("tool_0"));
+    // Footprint from occupancy: 3 visible rows tall, widest row (3 items) wide.
+    assert(belt.sizeHint() == QSize(3 * 34 + 2 * 4, 3 * 34 + 2 * 4));
+
+    // Initial: origin cell occupied, nothing emitted.
+    assert(belt.activeItemId() == QStringLiteral("a"));
     assert(emitted.isEmpty());
 
-    // Vertical scroll down -> next row; the user's pick is emitted.
+    // One full notch down: the empty row 1 is skipped, row 2's lead lands.
     sendWheel(belt, QPoint(0, -120));
-    assert(belt.activeIndex() == 6);
-    assert(emitted == QStringList{QStringLiteral("tool_6")});
+    assert(belt.activeItemId() == QStringLiteral("b"));
+    assert(emitted == QStringList{QStringLiteral("b")});
 
-    // Vertical scroll up from row 1 -> row 0; up again wraps to the last row.
-    sendWheel(belt, QPoint(0, 120));
-    assert(belt.activeIndex() == 0);
-    sendWheel(belt, QPoint(0, 120));
-    assert(belt.activeIndex() == 30); // row 5, column 0
+    // Sub-notch deltas accumulate instead of stepping per event (the
+    // scroll-speed feedback): two 60s = one step, not two.
+    sendWheel(belt, QPoint(0, -60));
+    assert(belt.activeItemId() == QStringLiteral("b"));
+    sendWheel(belt, QPoint(0, -60));
+    assert(belt.activeItemId() == QStringLiteral("e"));
+    assert(emitted.size() == 2);
+
+    // Down again wraps to the top tool.
+    sendWheel(belt, QPoint(0, -120));
+    assert(belt.activeItemId() == QStringLiteral("a"));
+
+    // Switching axes clears the other axis's remainder: bank 60 vertical,
+    // flick horizontal, then 60 vertical again — no vertical step fires.
+    sendWheel(belt, QPoint(0, -60));
+    sendWheel(belt, QPoint(-120, 0)); // row 0 has one item: column step is a no-op
+    assert(belt.activeItemId() == QStringLiteral("a"));
+    sendWheel(belt, QPoint(0, -60));
+    assert(belt.activeItemId() == QStringLiteral("a"));
     assert(emitted.size() == 3);
+    sendWheel(belt, QPoint(0, -60)); // completes a fresh notch
+    assert(belt.activeItemId() == QStringLiteral("b"));
 
-    // Horizontal scroll right -> next column; left wraps at the row start.
+    // Horizontal walk skips the stored gap and wraps over the ragged end.
     sendWheel(belt, QPoint(-120, 0));
-    assert(belt.activeIndex() == 31);
+    assert(belt.activeItemId() == QStringLiteral("c"));
+    sendWheel(belt, QPoint(-120, 0));
+    assert(belt.activeItemId() == QStringLiteral("d")); // gap at column 2 skipped
+    sendWheel(belt, QPoint(-120, 0));
+    assert(belt.activeItemId() == QStringLiteral("b")); // wrapped
     sendWheel(belt, QPoint(120, 0));
-    sendWheel(belt, QPoint(120, 0));
-    assert(belt.activeIndex() == 35); // wrapped to the row's last column
-    assert(emitted.size() == 6);
+    assert(belt.activeItemId() == QStringLiteral("d"));
 
-    // Diagonal flicks resolve to the dominant axis (here: vertical).
-    sendWheel(belt, QPoint(40, -120));
-    assert(belt.activeIndex() == 5); // row wrapped 5 -> 0, column 5 kept
-    assert(emitted.size() == 7);
+    // Click the vertical strip: position 2 is row 3's lead (e).
+    sendClick(belt, viewCellCenter(0, 2));
+    assert(belt.activeItemId() == QStringLiteral("e"));
+    assert(emitted.last() == QStringLiteral("e"));
 
-    // Click a visible cell of the vertical arm: jump straight to it.
-    // Active is (0,5); cell (3,5) sits on the active column arm.
+    // Click the horizontal strip: the active row (position 2) lays e,f
+    // left-to-right; the second cell is f.
+    sendClick(belt, viewCellCenter(1, 2));
+    assert(belt.activeItemId() == QStringLiteral("f"));
+
+    // Dead space (right of a one-item row's strip) changes nothing.
     {
-        const QRect target(5 * 38, 3 * 38, 34, 34); // mirrors cellRect metrics
-        sendClick(belt, target.center());
-        assert(belt.activeIndex() == 3 * 6 + 5);
-        assert(emitted.last() == QStringLiteral("tool_23"));
-    }
-
-    // Click in dead space (off both arms): nothing changes, nothing emitted.
-    {
-        const int before = belt.activeIndex();
+        sendClick(belt, viewCellCenter(0, 0)); // back to a
         const int emittedBefore = emitted.size();
-        sendClick(belt, QPointF(1.0, 1.0)); // cell (0,0) is not on the cross now
-        assert(belt.activeIndex() == before);
+        sendClick(belt, viewCellCenter(2, 0)); // row 0 has no second item
+        assert(belt.activeItemId() == QStringLiteral("a"));
         assert(emitted.size() == emittedBefore);
     }
 
-    // Programmatic sync: state follows, but no selected() echo.
+    // Programmatic sync: state follows, no selected() echo.
     {
         const int emittedBefore = emitted.size();
-        belt.setActiveIndex(14);
-        assert(belt.activeIndex() == 14);
-        assert(belt.activeItemId() == QStringLiteral("tool_14"));
+        belt.setActiveIndex(9); // c
+        assert(belt.activeItemId() == QStringLiteral("c"));
         assert(emitted.size() == emittedBefore);
     }
 
-    // Empty slots: a short item list leaves tail cells blank — moving onto
-    // one repositions the cross but emits no phantom selection.
+    // Shrinking the item list re-normalizes the cursor onto what remains.
     {
-        belt.setItems(numberedItems(3));
-        belt.setActiveIndex(2);
+        QVector<BeltItem> tail(16);
+        tail[12] = item("e");
+        belt.setItems(tail);
+        assert(belt.activeItemId() == QStringLiteral("e"));
+    }
+
+    // An all-empty belt renders nothing and emits nothing.
+    {
         const int emittedBefore = emitted.size();
-        sendWheel(belt, QPoint(-120, 0)); // -> index 3, an empty slot
-        assert(belt.activeIndex() == 3);
+        belt.setItems(QVector<BeltItem>(16));
+        sendWheel(belt, QPoint(0, -120));
+        sendClick(belt, viewCellCenter(0, 0));
         assert(belt.activeItemId().isEmpty());
         assert(emitted.size() == emittedBefore);
-    }
-
-    // Grid resize that strands the active cell resets it to the origin.
-    {
-        belt.setGridSize(2, 2);
-        belt.setActiveIndex(3);
-        assert(belt.activeIndex() == 3); // (1,1) fits a 2x2 grid
-        belt.setGridSize(1, 2);
-        assert(belt.beltState().activeRow == 0 && belt.beltState().activeColumn == 0);
     }
 
     return 0;

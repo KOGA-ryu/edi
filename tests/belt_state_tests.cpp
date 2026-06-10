@@ -118,5 +118,70 @@ int main()
         assert(beltCrossCells(broken).empty());
     }
 
+    // ---- Occupancy-aware navigation (rows = tools, cells = sub-features) ----
+    // A 4x4 belt shaped like the drafting arrangement: row 0 one tool,
+    // row 1 empty, row 2 three items with a gap, row 3 two items.
+    {
+        const BeltState state{4, 4, 0, 0};
+        std::vector<bool> occupied(16, false);
+        occupied[0] = true;                            // row 0: lead only
+        occupied[8] = occupied[9] = occupied[11] = true; // row 2: cols 0,1,3
+        occupied[12] = occupied[13] = true;            // row 3: cols 0,1
+
+        assert(beltCellOccupied(state, occupied, 2, 3));
+        assert(!beltCellOccupied(state, occupied, 1, 0));
+        assert(beltRowLeadColumn(state, occupied, 2) == 0);
+        assert(beltRowLeadColumn(state, occupied, 1) == -1);
+
+        // Row steps skip the empty row entirely and land on the lead.
+        BeltState cursor = state;
+        cursor = beltStepRowOccupied(cursor, 1, occupied);
+        assert(cursor.activeRow == 2 && cursor.activeColumn == 0); // row 1 skipped
+        cursor = beltStepRowOccupied(cursor, 1, occupied);
+        assert(cursor.activeRow == 3);
+        cursor = beltStepRowOccupied(cursor, 1, occupied);
+        assert(cursor.activeRow == 0); // wrapped, still only non-empty rows
+        cursor = beltStepRowOccupied(cursor, -1, occupied);
+        assert(cursor.activeRow == 3);
+
+        // Column steps skip gaps inside the row and wrap over the ragged end.
+        cursor = beltJumpTo(cursor, 2, 1);
+        cursor = beltStepColumnOccupied(cursor, 1, occupied);
+        assert(cursor.activeColumn == 3); // col 2 is a gap
+        cursor = beltStepColumnOccupied(cursor, 1, occupied);
+        assert(cursor.activeColumn == 0); // wrapped past the ragged end
+        cursor = beltStepColumnOccupied(cursor, -1, occupied);
+        assert(cursor.activeColumn == 3);
+
+        // A single-item row makes column steps a no-op instead of a spin.
+        cursor = beltJumpTo(cursor, 0, 0);
+        assert(beltStepColumnOccupied(cursor, 1, occupied).activeColumn == 0);
+
+        // Normalize: an unoccupied cursor snaps to the first occupied cell.
+        assert(beltNormalizeToOccupied({4, 4, 1, 2}, occupied).activeRow == 0);
+        assert(beltNormalizeToOccupied({4, 4, 2, 3}, occupied).activeColumn == 3); // already occupied: kept
+
+        // The view: vertical strip lists only non-empty rows (with leads);
+        // horizontal strip lists the active row's items, gaps compacted away.
+        const BeltCrossView view = beltCrossView({4, 4, 2, 3}, occupied);
+        assert(view.rows.size() == 3);
+        assert(view.rows[0].row == 0 && view.rows[1].row == 2 && view.rows[2].row == 3);
+        assert(view.rows[1].leadColumn == 0);
+        assert(view.activeRowPosition == 1);
+        assert(view.items.size() == 3);
+        assert(view.items[0].column == 0 && !view.items[0].active);
+        assert(view.items[2].column == 3 && view.items[2].active);
+
+        // All-empty belt: steps stay put, the view is empty, normalize keeps.
+        const std::vector<bool> none(16, false);
+        assert(beltStepRowOccupied(state, 1, none).activeRow == 0);
+        assert(beltCrossView(state, none).rows.empty());
+        assert(beltNormalizeToOccupied(state, none).activeRow == 0);
+
+        // A wrong-length mask reads as all-empty, never as shifted rows.
+        const std::vector<bool> ragged(15, true);
+        assert(!beltCellOccupied(state, ragged, 0, 0));
+    }
+
     return 0;
 }

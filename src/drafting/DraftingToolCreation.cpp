@@ -135,7 +135,10 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         const double right = std::max(request.start.x, request.end.x);
         const double bottom = std::max(request.start.y, request.end.y);
         kind = DraftingShapeKind::Rectangle;
-        geometry = RectangleGeometry{{left, top}, right - left, bottom - top};
+        RectangleGeometry box{{left, top}, right - left, bottom - top};
+        box.cornerRadius = std::max(0.0, request.rectCornerRadius);
+        box.inset = std::max(0.0, request.rectInset);
+        geometry = box;
     } else if (request.tool == DraftingToolKind::Circle) {
         kind = DraftingShapeKind::Circle;
         geometry = CircleGeometry{request.start, std::min(1.0, distance(request.start, request.end))};

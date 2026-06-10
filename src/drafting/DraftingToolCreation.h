@@ -42,6 +42,10 @@ struct DraftingToolCreationRequest {
     double polygonRotationDeg = 30.0;
     // Arc tool option: sweep from the start angle (legacy 15->120 = 105deg).
     double arcSweepDeg = 105.0;
+    // Rectangle variant options (N4): both zero = plain box. Carried like
+    // polygonSides — controller tool-option state rides into the request.
+    double rectCornerRadius = 0.0;
+    double rectInset = 0.0;
     // Polyline tool: the accumulated click trail. Multi-click tools carry
     // their whole path here; start/end stay meaningful for two-click tools
     // only. Validation (>= 2 finite vertices) lives with the geometry.

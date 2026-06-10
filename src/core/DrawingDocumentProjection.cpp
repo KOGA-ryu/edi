@@ -487,6 +487,9 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("width"), geometry.width);
             result.insert(QStringLiteral("height"), geometry.height);
             result.insert(QStringLiteral("rotation_deg"), geometry.rotationDeg);
+            // N4 variant params — the painter reads these to round/frame.
+            result.insert(QStringLiteral("corner_radius"), geometry.cornerRadius);
+            result.insert(QStringLiteral("inset"), geometry.inset);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             result.insert(QStringLiteral("cx"), geometry.center.x);
             result.insert(QStringLiteral("cy"), geometry.center.y);

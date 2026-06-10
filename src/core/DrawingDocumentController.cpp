@@ -739,6 +739,38 @@ int DrawingDocumentController::polygonSides() const
     return m_polygonSides;
 }
 
+void DrawingDocumentController::setRectCornerRadius(double radius)
+{
+    // Clamp non-finite/negative to 0 (a box); the geometry validator would
+    // reject anything else, but normalizing here keeps the tool option clean.
+    m_rectCornerRadius = std::isfinite(radius) && radius > 0.0 ? radius : 0.0;
+}
+
+double DrawingDocumentController::rectCornerRadius() const
+{
+    return m_rectCornerRadius;
+}
+
+void DrawingDocumentController::setRectInset(double inset)
+{
+    m_rectInset = std::isfinite(inset) && inset > 0.0 ? inset : 0.0;
+}
+
+double DrawingDocumentController::rectInset() const
+{
+    return m_rectInset;
+}
+
+void DrawingDocumentController::setAspectLockEnabled(bool enabled)
+{
+    m_aspectLockEnabled = enabled;
+}
+
+bool DrawingDocumentController::aspectLockEnabled() const
+{
+    return m_aspectLockEnabled;
+}
+
 void DrawingDocumentController::setSnapFlag(bool DraftingSnapSettings::*flag, bool enabled)
 {
     if (m_snapSettings.*flag == enabled) {
@@ -1899,8 +1931,11 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
         // Carry tool-option state into the pending request so the second click
-        // and the live preview build with the chosen polygon side count.
+        // and the live preview build with the chosen polygon side count and
+        // rectangle variant parameters.
         m_pendingCreation->polygonSides = m_polygonSides;
+        m_pendingCreation->rectCornerRadius = m_rectCornerRadius;
+        m_pendingCreation->rectInset = m_rectInset;
         m_previewObject.reset();
         commitEdit();
         emit modelChanged();
@@ -2070,7 +2105,9 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
     m_lastGuideDragSnap.clear();
 
     const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
-    return applyCommandAndEmit(EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});
+    EditObjectHandleCommand command{*m_document.activeObjectId, handleId.toStdString(), point};
+    command.preserveAspect = m_aspectLockEnabled; // N4: rectangle corners honor the toggle
+    return applyCommandAndEmit(command);
 }
 
 bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)

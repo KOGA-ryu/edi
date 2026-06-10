@@ -3085,5 +3085,62 @@ int main(int argc, char **argv)
         assert(!noSel.setSelectedObjectMaterial("steel"));
     }
 
+    // N4 rectangle variants + aspect-lock through the controller.
+    {
+        auto activeRect = [](DrawingDocumentController &c) {
+            const QVariantMap model = c.modelDocument();
+            const QString id = model.value("active_object_id").toString();
+            for (const QVariant &v : model.value("drawing_objects").toList()) {
+                if (v.toMap().value("id").toString() == id) {
+                    return v.toMap();
+                }
+            }
+            return QVariantMap{};
+        };
+
+        // Rounded + frame options ride into the created rectangle.
+        DrawingDocumentController rectCtl;
+        rectCtl.setRectCornerRadius(0.05);
+        rectCtl.setRectInset(0.02);
+        rectCtl.setSelectedToolId("rectangle_tool");
+        rectCtl.clickCanvasNormalized(0.2, 0.2);
+        rectCtl.clickCanvasNormalized(0.6, 0.5);
+        const QVariantMap madeRect = activeRect(rectCtl);
+        assert(madeRect.value("kind").toString() == "rectangle");
+        assert(nearlyEqual(madeRect.value("corner_radius").toDouble(), 0.05));
+        assert(nearlyEqual(madeRect.value("inset").toDouble(), 0.02));
+
+        // Negative/non-finite options normalize to a plain box.
+        rectCtl.setRectCornerRadius(-1.0);
+        assert(rectCtl.rectCornerRadius() == 0.0);
+
+        // Aspect-lock: a fresh square, then a corner drag with the lock on
+        // preserves the 1:1 ratio even though the cursor demands a rectangle.
+        DrawingDocumentController lockCtl;
+        lockCtl.setSelectedToolId("rectangle_tool");
+        lockCtl.clickCanvasNormalized(0.2, 0.2);
+        lockCtl.clickCanvasNormalized(0.4, 0.4); // a square (equal w/h)
+        const QVariantMap square = activeRect(lockCtl);
+        const double w0 = square.value("bounds").toMap().value("width").toDouble();
+        const double h0 = square.value("bounds").toMap().value("height").toDouble();
+        assert(nearlyEqual(w0, h0));
+
+        lockCtl.setAspectLockEnabled(true);
+        assert(lockCtl.aspectLockEnabled());
+        // Drag the SE corner far off-square; the lock keeps width==height.
+        lockCtl.editSelectedHandleNormalized("rect_se", 0.9, 0.5);
+        const QVariantMap locked = activeRect(lockCtl);
+        const double wL = locked.value("bounds").toMap().value("width").toDouble();
+        const double hL = locked.value("bounds").toMap().value("height").toDouble();
+        assert(nearlyEqual(wL, hL));
+
+        // With the lock off, the same kind of drag frees the ratio.
+        lockCtl.setAspectLockEnabled(false);
+        lockCtl.editSelectedHandleNormalized("rect_se", 0.95, 0.45);
+        const QVariantMap freed = activeRect(lockCtl);
+        assert(!nearlyEqual(freed.value("bounds").toMap().value("width").toDouble(),
+                            freed.value("bounds").toMap().value("height").toDouble()));
+    }
+
     return 0;
 }

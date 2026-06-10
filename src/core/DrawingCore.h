@@ -79,6 +79,14 @@ public:
     void setSelectedToolId(const QString &toolId);
     void setPolygonSides(int sides);
     int polygonSides() const;
+    // N4 rectangle tool options + aspect-lock. Radius/inset ride into the next
+    // rectangle's creation; aspect-lock constrains rectangle corner drags.
+    void setRectCornerRadius(double radius);
+    double rectCornerRadius() const;
+    void setRectInset(double inset);
+    double rectInset() const;
+    void setAspectLockEnabled(bool enabled);
+    bool aspectLockEnabled() const;
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
     void setEndpointSnapEnabled(bool enabled);
@@ -235,6 +243,9 @@ private:
 
     QString m_selectedToolId = QStringLiteral("select_move");
     int m_polygonSides = 6;
+    double m_rectCornerRadius = 0.0;
+    double m_rectInset = 0.0;
+    bool m_aspectLockEnabled = false;
     // In-process copy/paste buffer (N1): plain object snapshots, never
     // serialized — copy is "remember these", not a persisted format.
     std::vector<edi::drafting::DraftingObject> m_clipboard;

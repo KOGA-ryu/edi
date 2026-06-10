@@ -122,6 +122,7 @@ signals:
     void modelChanged();
 
 private:
+    void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
     bool applyActiveObjectMetadataUpdate(
         edi::drafting::DraftingShapeKind kind,

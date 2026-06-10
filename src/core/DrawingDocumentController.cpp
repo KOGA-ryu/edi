@@ -600,58 +600,43 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     emit modelChanged();
 }
 
-void DrawingDocumentController::setGridSnapEnabled(bool enabled)
+void DrawingDocumentController::setSnapFlag(bool DraftingSnapSettings::*flag, bool enabled)
 {
-    if (m_snapSettings.gridEnabled == enabled) {
+    if (m_snapSettings.*flag == enabled) {
         return;
     }
-    m_snapSettings.gridEnabled = enabled;
+    m_snapSettings.*flag = enabled;
     emit modelChanged();
+}
+
+void DrawingDocumentController::setGridSnapEnabled(bool enabled)
+{
+    setSnapFlag(&DraftingSnapSettings::gridEnabled, enabled);
 }
 
 void DrawingDocumentController::setObjectSnapEnabled(bool enabled)
 {
-    if (m_snapSettings.objectSnapEnabled == enabled) {
-        return;
-    }
-    m_snapSettings.objectSnapEnabled = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::objectSnapEnabled, enabled);
 }
 
 void DrawingDocumentController::setEndpointSnapEnabled(bool enabled)
 {
-    if (m_snapSettings.endpointEnabled == enabled) {
-        return;
-    }
-    m_snapSettings.endpointEnabled = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::endpointEnabled, enabled);
 }
 
 void DrawingDocumentController::setVertexSnapEnabled(bool enabled)
 {
-    if (m_snapSettings.vertexEnabled == enabled) {
-        return;
-    }
-    m_snapSettings.vertexEnabled = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::vertexEnabled, enabled);
 }
 
 void DrawingDocumentController::setMidpointSnapEnabled(bool enabled)
 {
-    if (m_snapSettings.midpointEnabled == enabled) {
-        return;
-    }
-    m_snapSettings.midpointEnabled = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::midpointEnabled, enabled);
 }
 
 void DrawingDocumentController::setCenterSnapEnabled(bool enabled)
 {
-    if (m_snapSettings.centerEnabled == enabled) {
-        return;
-    }
-    m_snapSettings.centerEnabled = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::centerEnabled, enabled);
 }
 
 void DrawingDocumentController::setGuideSnapEnabled(bool enabled)
@@ -676,11 +661,7 @@ void DrawingDocumentController::setGuideMoveSnapEnabled(bool enabled)
 
 void DrawingDocumentController::setObjectSnapPriorityBeforeGrid(bool enabled)
 {
-    if (m_snapSettings.objectPriorityBeforeGrid == enabled) {
-        return;
-    }
-    m_snapSettings.objectPriorityBeforeGrid = enabled;
-    emit modelChanged();
+    setSnapFlag(&DraftingSnapSettings::objectPriorityBeforeGrid, enabled);
 }
 
 void DrawingDocumentController::setObjectSnapTolerancePreset(QString presetId)

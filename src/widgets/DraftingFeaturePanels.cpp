@@ -56,6 +56,7 @@ constexpr DraftingToolSpec kDraftingTools[] = {
     {"point_tool", "Point", "Pt", 1},
     {"line_tool", "Line", "Ln", 2},
     {"polyline_tool", "Polyline", "Py", 2},
+    {"arrow_tool", "Arrow", "→", 2},
     {"rectangle_tool", "Rectangle", "Rc", 3},
     {"circle_tool", "Circle", "Ci", 4},
     {"arc_tool", "Arc", "Ar", 5},

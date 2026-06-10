@@ -468,6 +468,9 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             insertSegment(result, kSegmentKeys, geometry.a, geometry.b);
             result.insert(QStringLiteral("line_length"), distance(geometry.a, geometry.b));
             result.insert(QStringLiteral("line_angle_deg"), lineAngleDegrees(geometry));
+            // N2: the arrow variant's distinguishing projected flag. The
+            // painter reads it to draw a head; the inspector could expose it.
+            result.insert(QStringLiteral("end_arrow"), object.metadata.lineVisual.endArrow);
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), geometry.origin.x);
             result.insert(QStringLiteral("y"), geometry.origin.y);

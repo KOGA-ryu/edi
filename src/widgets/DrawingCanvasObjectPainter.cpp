@@ -18,6 +18,21 @@ QLineF screenLine(const DrawingCanvasObjectPainterContext &context, const Drawin
         drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
 }
 
+// N2: two short strokes back from the tip (p2) form the arrowhead. Drawn in
+// SCREEN space with a fixed pixel size, so the head stays legible at any
+// zoom — a head scaled with the geometry would vanish on a short line.
+void drawArrowHead(QPainter &painter, const QLineF &screen)
+{
+    constexpr double headLength = 11.0;
+    constexpr double headSpread = 0.45; // radians from the shaft, ~26 degrees
+    const QPointF tip = screen.p2();
+    const double shaftAngle = std::atan2(screen.p1().y() - tip.y(), screen.p1().x() - tip.x());
+    painter.drawLine(tip, tip + QPointF(headLength * std::cos(shaftAngle + headSpread),
+                                        headLength * std::sin(shaftAngle + headSpread)));
+    painter.drawLine(tip, tip + QPointF(headLength * std::cos(shaftAngle - headSpread),
+                                        headLength * std::sin(shaftAngle - headSpread)));
+}
+
 void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
     const std::vector<DrawingCanvasProjectedHandle> projectedHandles = projectedObjectHandles(object);
@@ -232,7 +247,11 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!line.ok) {
             return;
         }
-        painter.drawLine(screenLine(context, line));
+        const QLineF screen = screenLine(context, line);
+        painter.drawLine(screen);
+        if (object.value(QStringLiteral("end_arrow")).toBool()) {
+            drawArrowHead(painter, screen);
+        }
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (!rectangle.ok) {
@@ -309,7 +328,11 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
     if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
         if (line.ok) {
-            painter.drawLine(screenLine(context, line));
+            const QLineF screen = screenLine(context, line);
+            painter.drawLine(screen);
+            if (object.value(QStringLiteral("end_arrow")).toBool()) {
+                drawArrowHead(painter, screen); // preview the head while dragging
+            }
         }
     } else if (kind == QStringLiteral("construction_line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);

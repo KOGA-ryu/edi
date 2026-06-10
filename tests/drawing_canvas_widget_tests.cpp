@@ -310,6 +310,29 @@ int main(int argc, char **argv)
         assert(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
     }
 
+    // N2 arrow: a two-click line whose projection carries end_arrow; a plain
+    // line does not. The DoD's "distinct projected flag".
+    {
+        DrawingDocumentController arrowController;
+        DrawingCanvasWidget arrowCanvas(&arrowController);
+        arrowCanvas.resize(640, 480);
+        arrowCanvas.show();
+
+        arrowController.setSelectedToolId(QStringLiteral("arrow_tool"));
+        clickCanvas(arrowController, arrowCanvas, 0.2, 0.2);
+        clickCanvas(arrowController, arrowCanvas, 0.6, 0.4);
+        const QVariantMap arrow = activeObject(arrowController);
+        assert(arrow.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(arrow.value(QStringLiteral("end_arrow")).toBool());
+
+        arrowController.setSelectedToolId(QStringLiteral("line_tool"));
+        clickCanvas(arrowController, arrowCanvas, 0.3, 0.7);
+        clickCanvas(arrowController, arrowCanvas, 0.7, 0.8);
+        const QVariantMap plainLine = activeObject(arrowController);
+        assert(plainLine.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(!plainLine.value(QStringLiteral("end_arrow")).toBool());
+    }
+
     // Polyline: clicks anchor vertices, a double-click finishes the trail.
     {
         DrawingDocumentController polyController;

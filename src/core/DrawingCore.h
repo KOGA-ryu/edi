@@ -122,7 +122,8 @@ signals:
 
 private:
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
-    bool applyActiveGuideMetadataUpdate(
+    bool applyActiveObjectMetadataUpdate(
+        edi::drafting::DraftingShapeKind kind,
         const std::function<edi::drafting::DraftingMetadataUpdatePlan(const edi::drafting::ObjectMetadata &)> &planMetadata);
 
     QString m_selectedToolId = QStringLiteral("select_move");

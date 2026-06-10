@@ -898,10 +898,11 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
     return true;
 }
 
-bool DrawingDocumentController::applyActiveGuideMetadataUpdate(
+bool DrawingDocumentController::applyActiveObjectMetadataUpdate(
+    DraftingShapeKind kind,
     const std::function<DraftingMetadataUpdatePlan(const ObjectMetadata &)> &planMetadata)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    const DraftingObject *object = activeObjectOfKind(m_document, kind);
     if (object == nullptr) {
         return false;
     }
@@ -923,28 +924,28 @@ bool DrawingDocumentController::applyActiveGuideMetadataUpdate(
 
 bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 {
-    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+    return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
         return planGuideVisualLabelUpdate(metadata, toStdString(label));
     });
 }
 
 bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
 {
-    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+    return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
         return planGuideVisualColorUpdate(metadata, toStdString(color));
     });
 }
 
 bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashStyle)
 {
-    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+    return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
         return planGuideVisualDashStyleUpdate(metadata, toStdString(dashStyle));
     });
 }
 
 bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
 {
-    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+    return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
         return planGuideVisualLabelVisibleUpdate(metadata, visible);
     });
 }
@@ -982,24 +983,9 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
 
 bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Dimension);
-    if (object == nullptr) {
-        return false;
-    }
-
-    const DraftingMetadataUpdatePlan plan = planDimensionVisualLabelVisibleUpdate(object->metadata, visible);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveObjectMetadataUpdate(DraftingShapeKind::Dimension, [&](const ObjectMetadata &metadata) {
+        return planDimensionVisualLabelVisibleUpdate(metadata, visible);
+    });
 }
 
 bool DrawingDocumentController::setDefaultLayerLocked(bool locked)

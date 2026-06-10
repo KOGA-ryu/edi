@@ -51,6 +51,13 @@ Style: `claude: <imperative summary>` plus a short body explaining what was cons
 why it is behavior-preserving. One vein/slice per commit; working tree clean between slices.
 (History before 2026-06-10 uses the older `codex:` prefix.)
 
+**This is a C++ learning codebase.** The user is using it to learn C++ and
+data-oriented design. Commit bodies must teach: explain WHY the design was
+chosen (data layout, dispatch mechanism, ownership), what the alternative was,
+and why it lost. Add short in-code comments where a choice would be non-obvious
+to a C++ learner. Optimization for its own sake is not a goal; clarity of
+reasoning is.
+
 If `.git/index.lock` or `.git/HEAD.lock` blocks a commit, verify it is a zero-byte stale file
 (only `fsmonitor--daemon` git processes running) before removing it.
 

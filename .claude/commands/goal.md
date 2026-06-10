@@ -51,6 +51,14 @@ OUT OF SCOPE for autonomous work (user decisions or user's own projects):
   (sabotage the code under test, confirm the test aborts, restore — and force a
   hard rebuild of the target's objects around the mutate/restore, since fast
   cycles can land within make's mtime granularity and run stale binaries).
+- **Teaching documentation (user requirement — this is a C++ learning codebase):**
+  every commit body must explain the WHY of the design choices, not just the
+  what — why this data layout, why a function pointer instead of std::function,
+  why a variant alternative ripples where it does, what the alternative was and
+  why it lost. Where a choice in the code itself is non-obvious to a C++
+  learner, add a short comment explaining the reasoning (this overrides the
+  usual keep-comments-minimal instinct: explanation is a feature here, noise
+  rules still apply — no narrating the obvious).
 - Confirm repo identity before working: `git rev-parse --show-toplevel` must be
   `/Users/kogaryu/edi`. Never touch
   `/Users/kogaryu/draft/draftsman_STALE_PARENT_DO_NOT_USE`.

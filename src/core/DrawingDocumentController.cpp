@@ -1507,7 +1507,7 @@ bool DrawingDocumentController::applyCalibrationCorrection()
     return true;
 }
 
-bool DrawingDocumentController::fitSelectionToDrawableBounds()
+bool DrawingDocumentController::applySelectionDrawablePlacement(DraftingSelectionDrawablePlacement placement)
 {
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const Bounds2D drawable = grid.drawableBounds;
@@ -1516,7 +1516,7 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
         return false;
     }
 
-    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::FitInside);
+    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, placement);
     if (!plan.ok) {
         return false;
     }
@@ -1531,58 +1531,21 @@ bool DrawingDocumentController::fitSelectionToDrawableBounds()
 
     emit modelChanged();
     return true;
+}
+
+bool DrawingDocumentController::fitSelectionToDrawableBounds()
+{
+    return applySelectionDrawablePlacement(DraftingSelectionDrawablePlacement::FitInside);
 }
 
 bool DrawingDocumentController::centerSelectionInDrawable()
 {
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const Bounds2D drawable = grid.drawableBounds;
-    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok) {
-        return false;
-    }
-
-    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::Center);
-    if (!plan.ok) {
-        return false;
-    }
-    if (!translationHasEffect(plan.dx, plan.dy)) {
-        return true;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applySelectionDrawablePlacement(DraftingSelectionDrawablePlacement::Center);
 }
 
 bool DrawingDocumentController::moveSelectionToDrawableOrigin()
 {
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const Bounds2D drawable = grid.drawableBounds;
-    const DraftingPlotBoundsResult selected = selectedRawPlotOutputBounds(m_document, m_document.selectedObjectIds, grid, m_plotSettings);
-    if (!selected.ok) {
-        return false;
-    }
-
-    const DraftingNudgePlan plan = planSelectionDrawableMove(selected.bounds, drawable, DraftingSelectionDrawablePlacement::Origin);
-    if (!plan.ok) {
-        return false;
-    }
-    if (!translationHasEffect(plan.dx, plan.dy)) {
-        return true;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applySelectionDrawablePlacement(DraftingSelectionDrawablePlacement::Origin);
 }
 
 bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()

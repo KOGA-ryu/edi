@@ -9,6 +9,7 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
@@ -118,6 +119,8 @@ signals:
     void modelChanged();
 
 private:
+    bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
+
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingGridSettings m_gridSettings;

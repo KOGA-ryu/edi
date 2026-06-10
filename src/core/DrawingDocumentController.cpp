@@ -1170,6 +1170,10 @@ bool DrawingDocumentController::createObjectsAndSelect(const std::vector<Draftin
     for (const DraftingObject &object : objects) {
         const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
         if (!create.ok) {
+            // Earlier objects in the batch are already committed; keep the view in sync.
+            if (!selectedIds.empty()) {
+                emit modelChanged();
+            }
             return false;
         }
         selectedIds.push_back(object.id);

@@ -316,6 +316,8 @@ add_executable(edi_shell_window_tests
     tests/edi_shell_window_tests.cpp
     src/io/ShellLayoutStore.h
     src/io/ShellLayoutStore.cpp
+    src/io/ProfileStore.h
+    src/io/ProfileStore.cpp
     src/core/DrawingCore.h
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
@@ -337,6 +339,8 @@ add_executable(edi_shell_window_tests
     src/widgets/ShellTheme.cpp
     src/widgets/ShellHost.h
     src/widgets/ShellHost.cpp
+    src/widgets/SettingsFeature.h
+    src/widgets/SettingsFeature.cpp
     src/widgets/ShellPanels.h
     src/widgets/ShellPanels.cpp
     src/widgets/DrawingCanvasWidget.h
@@ -450,6 +454,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/DrawingRecentFilesStore.cpp
     src/io/ShellLayoutStore.h
     src/io/ShellLayoutStore.cpp
+    src/io/ProfileStore.h
+    src/io/ProfileStore.cpp
     src/io/TextEditorStore.h
     src/io/TextEditorStore.cpp
     src/widgets/EdiShellWindow.h
@@ -465,6 +471,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/ShellTheme.cpp
     src/widgets/ShellHost.h
     src/widgets/ShellHost.cpp
+    src/widgets/SettingsFeature.h
+    src/widgets/SettingsFeature.cpp
     src/widgets/ShellPanels.h
     src/widgets/ShellPanels.cpp
     src/widgets/DrawingCanvasWidget.h

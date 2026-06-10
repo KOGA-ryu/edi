@@ -17,6 +17,9 @@ public:
     explicit DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent = nullptr);
     void setPlotPreviewVisible(bool visible);
     bool plotPreviewVisible() const;
+    // Re-theme the canvas chrome (board, grid, snap markers...). Object
+    // stroke colors are document data and are untouched by this.
+    void setCanvasPalette(const drawing_canvas::DrawingCanvasPalette &palette);
     // Where a canvas-normalized point lands on screen under the current zoom/pan.
     // Public so tests can assert anchor invariance after a zoom gesture.
     QPointF mapCanvasToScreen(double x, double y) const;

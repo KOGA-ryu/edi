@@ -10,6 +10,7 @@
 #include "io/SettingsStore.h"
 #include "widgets/ShellHost.h"
 #include "widgets/ShellPanels.h"
+#include "widgets/ShellTheme.h"
 
 class QSplitter;
 
@@ -22,6 +23,7 @@ class QWidget;
 
 class DraftingFeature;
 class DrawingDocumentController;
+class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
     Q_OBJECT
@@ -64,6 +66,22 @@ public:
     // onto the workspace history (the chrome's back/forward buttons).
     void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
 
+    // Live theming: the four palette inputs + fonts. Setting them re-derives
+    // the whole token set and restyles shell QSS and canvas chrome instantly;
+    // they persist as theme.* keys in edi.toml.
+    edi::shell::ShellThemeInputs themeInputs() const { return m_themeInputs; }
+    void setThemeInputs(const edi::shell::ShellThemeInputs &inputs);
+
+    // Profiles: named theme bundles, one TOML file each under the profiles
+    // directory (injectable for tests). edi.toml remembers the active name;
+    // the live theme always persists in edi.toml regardless, so deleting a
+    // profile file never breaks startup.
+    QStringList availableProfiles() const;
+    QString activeProfile() const { return m_activeProfile; }
+    bool saveProfileAs(const QString &name);
+    bool loadProfile(const QString &name);
+    void setProfilesDirectory(const QString &dir) { m_profilesDir = dir; }
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -92,6 +110,7 @@ private:
     void refreshChrome();
     void layoutMainArea();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
+    std::unique_ptr<SettingsFeature> createSettingsFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
     // The switch mechanics without touching history — back/forward replay
     // history entries through this.
@@ -99,6 +118,7 @@ private:
     void navigateWorkspaceHistory(int delta);
 
     edi::app::AppState m_appState;
+    edi::shell::ShellThemeInputs m_themeInputs;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
     // outlives every mounted feature widget.
     edi::shell::FeatureContext m_featureContext;
@@ -135,12 +155,14 @@ private:
     QPushButton *m_toggleLeftButton = nullptr;
     QPushButton *m_toggleBottomButton = nullptr;
     QPushButton *m_toggleRightButton = nullptr;
-    // The drafting workspace as a feature object: it owns the drafting panel
-    // widgets' wiring and the inspector refresh, so its lifetime can later
-    // match its widgets when workspace switching lands.
+    // Feature instances: lifetimes match their widgets — both are recreated
+    // on every workspace switch so no member pointer can dangle.
     std::unique_ptr<DraftingFeature> m_draftingFeature;
+    std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
     QString m_settingsPath;
+    QString m_profilesDir;
+    QString m_activeProfile;
     QStringList m_recentFiles;
     QTimer *m_settingsSaveTimer = nullptr;
 };

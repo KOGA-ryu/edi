@@ -11,6 +11,7 @@
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QListWidget>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QSpinBox>
@@ -713,6 +714,34 @@ int main(int argc, char **argv)
         assert(restored.loadWorkspaceLayout(jobPath));
         assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
         assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+    }
+
+    // F1 — the object list: a browsable projection of the document. It
+    // mirrors object count, tracks selection both ways, and selectObjectById
+    // is selection-only (no undo step, same rule as marquee).
+    {
+        auto *objectList = window.findChild<QListWidget *>(QStringLiteral("objectList"));
+        assert(objectList != nullptr);
+        const int documentObjects = objectCount(*controller);
+        assert(objectList->count() == documentObjects);
+        assert(documentObjects >= 2); // earlier sections created point(s) + guide
+
+        // Select by id through the controller; the list's current row follows.
+        const QString firstId = objectList->item(0)->data(Qt::UserRole).toString();
+        assert(!firstId.isEmpty());
+        assert(window.findChild<DrawingDocumentController *>()->selectObjectById(firstId));
+        assert(controller->selectedObjectId() == firstId);
+        assert(objectList->currentItem() != nullptr);
+        assert(objectList->currentItem()->data(Qt::UserRole).toString() == firstId);
+
+        // A bogus id is rejected and selection is untouched.
+        assert(!controller->selectObjectById(QStringLiteral("no-such-object")));
+        assert(controller->selectedObjectId() == firstId);
+
+        // Creating an object grows the list (the list is a live projection).
+        controller->setSelectedToolId(QStringLiteral("point_tool"));
+        controller->clickCanvasNormalized(0.6, 0.6);
+        assert(objectList->count() == documentObjects + 1);
     }
 
     // Live theming: setting the four inputs re-derives the stylesheet, the

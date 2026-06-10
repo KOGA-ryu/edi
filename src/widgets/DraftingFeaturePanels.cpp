@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPair>
 #include <QPushButton>
 #include <QSizePolicy>
@@ -66,6 +67,17 @@ QWidget *DraftingFeature::buildLeftPanel()
     auto *title = new QLabel(QStringLiteral("EDI Drafting"));
     title->setObjectName(QStringLiteral("panelTitle"));
     layout->addWidget(title);
+
+    // F1: the document as a browsable list — selection by name, not only by
+    // canvas click. Fixed height so it never fights the outer panel scroll.
+    layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
+    m_objectList = new QListWidget;
+    m_objectList->setObjectName(QStringLiteral("objectList"));
+    m_objectList->setFixedHeight(140);
+    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
+    });
+    layout->addWidget(m_objectList);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Tools")));
     m_toolGroup = new QButtonGroup(panel);

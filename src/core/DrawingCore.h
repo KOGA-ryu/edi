@@ -52,6 +52,8 @@ public:
     void endInteractiveEdit();
     QString selectedToolId() const;
     QString selectedObjectId() const;
+    // Select by id (the object list drives this). Selection-only: no undo step.
+    bool selectObjectById(const QString &id);
     QString activeLayerId() const;
     bool gridSnapEnabled() const;
     bool objectSnapEnabled() const;

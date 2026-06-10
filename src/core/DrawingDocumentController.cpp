@@ -1949,6 +1949,23 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
     return applyCommandAndEmit(MoveSelectionCommand{dx, dy});
 }
 
+bool DrawingDocumentController::selectObjectById(const QString &id)
+{
+    const std::string objectId = toStdString(id);
+    if (findObject(m_document, objectId) == nullptr) {
+        return false;
+    }
+    beginEdit();
+    const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectCommand{objectId});
+    if (!result.ok) {
+        return false;
+    }
+    m_lastEditStatus.clear();
+    commitEdit(); // selection-only: never an undo step (same rule as marquee)
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2)
 {
     const Point2D a = normalizeDraftingPoint({x1, y1});

@@ -5,6 +5,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QStyle>
@@ -138,6 +139,26 @@ void DraftingFeature::refreshInspector()
     const QString activeLayerId = document.value(QStringLiteral("active_layer_id")).toString();
     const QVariantMap activeLayer = layerProjection(document, activeLayerId);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
+
+    if (m_objectList != nullptr) {
+        // Rebuild the object list as a projection of the document — same
+        // recompute-whole discipline as everything else here. The blocker
+        // keeps programmatic rebuilds from re-entering selection.
+        const QSignalBlocker blocker(*m_objectList);
+        m_objectList->clear();
+        const QString activeId = document.value(QStringLiteral("active_object_id")).toString();
+        for (const QVariant &value : objects) {
+            const QVariantMap object = value.toMap();
+            const QString id = object.value(QStringLiteral("id")).toString();
+            auto *item = new QListWidgetItem(
+                QStringLiteral("%1 — %2").arg(object.value(QStringLiteral("kind")).toString(), id));
+            item->setData(Qt::UserRole, id);
+            m_objectList->addItem(item);
+            if (id == activeId) {
+                m_objectList->setCurrentItem(item);
+            }
+        }
+    }
 
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_selectedValue != nullptr) {

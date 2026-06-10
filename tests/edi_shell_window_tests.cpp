@@ -393,11 +393,12 @@ int main(int argc, char **argv)
         // The block above left select_move active; the default belt has it
         // at the origin, so belt and controller agree from the start.
         assert(belt->activeItemId() == controller->selectedToolId());
-        assert(belt->beltState().rows == 6 && belt->beltState().columns == 6);
+        // One row per tool, six columns of sub-feature room.
+        assert(belt->beltState().rows == 10 && belt->beltState().columns == 6);
 
-        // Belt -> controller: click the second cell of the active row
-        // (point_tool in the default family arrangement).
-        const QPointF pointCell(38.0 + 17.0, 17.0); // column 1 centre (34px cells, 4px gaps)
+        // Belt -> controller: click the second cell of the VERTICAL strip
+        // (the point tool's row in the one-row-per-tool arrangement).
+        const QPointF pointCell(17.0, 38.0 + 17.0); // strip position 1 centre (34px cells, 4px gaps)
         QMouseEvent press(QEvent::MouseButtonPress, pointCell, belt->mapToGlobal(pointCell),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(belt, &press);
@@ -405,10 +406,10 @@ int main(int argc, char **argv)
         assert(belt->activeItemId() == QStringLiteral("point_tool"));
 
         // Controller -> belt: a tool change from any path re-aims the cross
-        // (and lands on the dimensions family row of the default belt).
+        // (and lands on the dimension tool's row of the default belt).
         controller->setSelectedToolId(QStringLiteral("distance_dimension_tool"));
         assert(belt->activeItemId() == QStringLiteral("distance_dimension_tool"));
-        assert(belt->beltState().activeRow == 4);
+        assert(belt->beltState().activeRow == 9);
 
         controller->setSelectedToolId(QStringLiteral("select_move"));
         assert(belt->activeItemId() == QStringLiteral("select_move"));

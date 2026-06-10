@@ -38,10 +38,12 @@ using namespace edi::shell;
 namespace {
 
 // The drafting tool vocabulary in one table: id (the controller's language),
-// label (belt tooltip), glyph (belt cell face), and the default belt row
-// (one tool family per row, so vertical scroll changes category and
-// horizontal walks within it). The belt rendering AND the default
-// arrangement both read this — two hand-maintained lists would drift.
+// label (belt tooltip), glyph (belt cell face), and the default belt row.
+// Belt model (user direction 2026-06-10): each ROW is one tool, its cells
+// are that tool's sub-features — guides, construction lines, and dimensions
+// are one tool each with variants along the row; future variants (polyline,
+// rectangle kinds) extend their tool's row. The belt rendering AND the
+// default arrangement both read this — two hand-maintained lists would drift.
 struct DraftingToolSpec {
     const char *id;
     const char *label;
@@ -51,22 +53,22 @@ struct DraftingToolSpec {
 
 constexpr DraftingToolSpec kDraftingTools[] = {
     {"select_move", "Select / Move", "Se", 0},
-    {"point_tool", "Point", "Pt", 0},
-    {"line_tool", "Line", "Ln", 0},
-    {"rectangle_tool", "Rectangle", "Rc", 0},
-    {"circle_tool", "Circle", "Ci", 0},
-    {"arc_tool", "Arc", "Ar", 0},
-    {"regular_polygon_tool", "Polygon", "Pg", 1},
-    {"horizontal_guide_tool", "Horizontal Guide", "Gh", 2},
-    {"vertical_guide_tool", "Vertical Guide", "Gv", 2},
-    {"horizontal_construction_line_tool", "Horizontal Construction Line", "Ch", 3},
-    {"vertical_construction_line_tool", "Vertical Construction Line", "Cv", 3},
-    {"angled_construction_line_tool", "Angled Construction Line", "Ca", 3},
-    {"distance_dimension_tool", "Dimension: Distance", "Dd", 4},
-    {"width_dimension_tool", "Dimension: Width", "Dw", 4},
-    {"height_dimension_tool", "Dimension: Height", "Dh", 4},
-    {"radius_dimension_tool", "Dimension: Radius", "Dr", 4},
-    {"diameter_dimension_tool", "Dimension: Diameter", "Di", 4},
+    {"point_tool", "Point", "Pt", 1},
+    {"line_tool", "Line", "Ln", 2},
+    {"rectangle_tool", "Rectangle", "Rc", 3},
+    {"circle_tool", "Circle", "Ci", 4},
+    {"arc_tool", "Arc", "Ar", 5},
+    {"regular_polygon_tool", "Polygon", "Pg", 6},
+    {"horizontal_guide_tool", "Horizontal Guide", "Gh", 7},
+    {"vertical_guide_tool", "Vertical Guide", "Gv", 7},
+    {"horizontal_construction_line_tool", "Horizontal Construction Line", "Ch", 8},
+    {"vertical_construction_line_tool", "Vertical Construction Line", "Cv", 8},
+    {"angled_construction_line_tool", "Angled Construction Line", "Ca", 8},
+    {"distance_dimension_tool", "Dimension: Distance", "Dd", 9},
+    {"width_dimension_tool", "Dimension: Width", "Dw", 9},
+    {"height_dimension_tool", "Dimension: Height", "Dh", 9},
+    {"radius_dimension_tool", "Dimension: Radius", "Dr", 9},
+    {"diameter_dimension_tool", "Dimension: Diameter", "Di", 9},
 };
 
 const DraftingToolSpec *draftingToolSpec(const QString &toolId)
@@ -106,7 +108,13 @@ DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellAct
 
 BeltLayout DraftingFeature::defaultBeltLayout()
 {
-    BeltLayout belt; // 6x6 per the F3 decision
+    BeltLayout belt;
+    // One row per tool (ten tools today); six columns leave room for the
+    // sub-features the feature backlog adds (polyline/arrow on the line row,
+    // rectangle variants). Empty cells cost nothing — the cross renders and
+    // navigates occupancy, never the raw rectangle.
+    belt.rows = 10;
+    belt.columns = 6;
     belt.itemIds.assign(static_cast<std::size_t>(belt.rows) * static_cast<std::size_t>(belt.columns), QString());
     // Fill each tool into the next free column of its family row. Derived
     // from the spec table, not a second hand-written grid.

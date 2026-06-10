@@ -124,7 +124,7 @@ bool EdiShellWindow::loadSettings(const QString &path)
     for (const std::string &recent : edi::io::recentFilesFromConfig(config)) {
         m_recentFiles.push_back(QString::fromStdString(recent));
     }
-    m_draftingFeature->setRecentFiles(m_recentFiles);
+    rebuildRecentFilesMenu();
     return true;
 }
 

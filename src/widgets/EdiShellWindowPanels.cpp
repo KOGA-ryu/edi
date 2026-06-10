@@ -2,6 +2,7 @@
 
 #include <QAbstractButton>
 #include <QButtonGroup>
+#include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -119,15 +120,26 @@ QWidget *EdiShellWindow::buildTitleBar()
     };
     QMenu *fileMenu = addMenuButton(QStringLiteral("File"), QStringLiteral("fileMenu"));
     fileMenu->addAction(QStringLiteral("Open…"), this, [this]() { promptOpenDrawing(); });
+    // Quick-open recents moved here from the left panel; rebuilt eagerly by
+    // rebuildRecentFilesMenu whenever the list changes.
+    m_recentFilesMenu = fileMenu->addMenu(QStringLiteral("Open Recent"));
+    m_recentFilesMenu->setObjectName(QStringLiteral("recentFilesMenu"));
     fileMenu->addAction(QStringLiteral("Save"), this, [this]() { promptSaveDrawing(); });
     fileMenu->addAction(QStringLiteral("Save As…"), this, [this]() { promptSaveDrawingAs(); });
     fileMenu->addSeparator();
     fileMenu->addAction(QStringLiteral("Export SVG…"), this, [this]() { promptExportSvg(); });
     fileMenu->addAction(QStringLiteral("Export HPGL…"), this, [this]() { promptExportHpgl(); });
+    rebuildRecentFilesMenu();
 
     QMenu *editMenu = addMenuButton(QStringLiteral("Edit"), QStringLiteral("editMenu"));
-    editMenu->addAction(QStringLiteral("Undo"), this, [this]() { m_controller->undo(); });
-    editMenu->addAction(QStringLiteral("Redo"), this, [this]() { m_controller->redo(); });
+    m_undoAction = editMenu->addAction(QStringLiteral("Undo"), this, [this]() { m_controller->undo(); });
+    m_undoAction->setObjectName(QStringLiteral("undoAction"));
+    m_redoAction = editMenu->addAction(QStringLiteral("Redo"), this, [this]() { m_controller->redo(); });
+    m_redoAction->setObjectName(QStringLiteral("redoAction"));
+    // Enabled-state follows the undo stacks on every model change — a menu
+    // action that pretends it can undo is chrome lying about the document.
+    connect(m_controller, &DrawingDocumentController::modelChanged, this, [this]() { refreshUndoRedoActions(); });
+    refreshUndoRedoActions();
 
     // Settings holds the layout presets for now — their first UI trigger;
     // app-settings entries arrive when there is something to configure.
@@ -135,6 +147,15 @@ QWidget *EdiShellWindow::buildTitleBar()
     settingsMenu->addAction(QStringLiteral("Full layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Full); });
     settingsMenu->addAction(QStringLiteral("Focus layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Focus); });
     settingsMenu->addAction(QStringLiteral("Review layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Review); });
+
+    // Feature-supplied chrome buttons mount here (rebuildChromePanels): the
+    // strip keeps its place in the bar while workspaces swap its children.
+    m_chromePanelHost = new QWidget;
+    m_chromePanelHost->setObjectName(QStringLiteral("chromePanelHost"));
+    auto *chromePanelLayout = new QHBoxLayout(m_chromePanelHost);
+    chromePanelLayout->setContentsMargins(0, 0, 0, 0);
+    chromePanelLayout->setSpacing(6);
+    layout->addWidget(m_chromePanelHost);
 
     layout->addStretch(1); // the drag region
     // The status line the drafting feature publishes (was the workspace
@@ -154,4 +175,36 @@ QWidget *EdiShellWindow::buildTitleBar()
     bar->installEventFilter(this);
     m_titleBar = bar;
     return bar;
+}
+
+void EdiShellWindow::rebuildRecentFilesMenu()
+{
+    if (m_recentFilesMenu == nullptr) {
+        return;
+    }
+    m_recentFilesMenu->clear();
+    const int shown = qMin(m_recentFiles.size(), 5);
+    for (int i = 0; i < shown; ++i) {
+        const QString path = m_recentFiles.at(i);
+        QAction *action = m_recentFilesMenu->addAction(QFileInfo(path).fileName(), this, [this, path]() {
+            openDrawingFromPath(path);
+        });
+        action->setObjectName(QStringLiteral("recentFileAction"));
+        action->setToolTip(path);
+        action->setData(path);
+    }
+    if (shown == 0) {
+        QAction *empty = m_recentFilesMenu->addAction(QStringLiteral("No recent files"));
+        empty->setEnabled(false);
+    }
+}
+
+void EdiShellWindow::refreshUndoRedoActions()
+{
+    if (m_undoAction != nullptr) {
+        m_undoAction->setEnabled(m_controller->canUndo());
+    }
+    if (m_redoAction != nullptr) {
+        m_redoAction->setEnabled(m_controller->canRedo());
+    }
 }

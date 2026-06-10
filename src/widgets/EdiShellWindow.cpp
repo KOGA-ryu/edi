@@ -129,8 +129,8 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     };
     drafting.recreateInstance = [this]() { m_draftingFeature = createDraftingFeature(); };
     drafting.buildPalettes = [this]() { return m_draftingFeature->buildPalettes(); };
+    drafting.buildChromePanels = [this]() { return m_draftingFeature->buildChromePanels(); };
     drafting.instanceMounted = [this]() {
-        m_draftingFeature->setRecentFiles(m_recentFiles);
         m_draftingFeature->refreshInspector();
     };
     m_featureRegistry.features.push_back(drafting);
@@ -356,7 +356,7 @@ void EdiShellWindow::rememberRecentFile(const QString &path)
     while (m_recentFiles.size() > static_cast<int>(edi::io::kRecentFilesCap)) {
         m_recentFiles.removeLast();
     }
-    m_draftingFeature->setRecentFiles(m_recentFiles);
+    rebuildRecentFilesMenu();
     scheduleSettingsSave();
 }
 
@@ -502,6 +502,7 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
     }
 
     rebuildPalettes();
+    rebuildChromePanels();
 
     applyPanelSizesToSplitters();
     refreshPanelVisibility();
@@ -563,6 +564,59 @@ void EdiShellWindow::applyPalettePlacements()
     }
 }
 
+void EdiShellWindow::rebuildChromePanels()
+{
+    if (m_chromePanelHost == nullptr) {
+        return;
+    }
+    for (const SlotBinding &binding : m_workspaceLayout.bindings) {
+        const FeatureDescriptor *feature = findFeature(m_featureRegistry, binding.featureId);
+        if (feature == nullptr || !feature->buildChromePanels) {
+            continue;
+        }
+        // One build per feature id even when it fills several slots.
+        bool served = false;
+        for (const SlotBinding &earlier : m_workspaceLayout.bindings) {
+            if (&earlier == &binding) {
+                break;
+            }
+            if (earlier.featureId == binding.featureId) {
+                served = true;
+                break;
+            }
+        }
+        if (served) {
+            continue;
+        }
+        for (const FeatureChromePanelSpec &spec : feature->buildChromePanels()) {
+            if (spec.content == nullptr || spec.id.isEmpty()) {
+                continue;
+            }
+            // Qt::Popup: clicking anywhere outside dismisses it — chrome
+            // settings are a glance-and-tweak surface, not a dialog. The
+            // frame stays a QObject child of the window so tests can reach
+            // the controls inside without showing anything.
+            auto *popup = new QFrame(this, Qt::Popup);
+            popup->setObjectName(QStringLiteral("chromePopup_%1").arg(spec.id));
+            auto *popupLayout = new QVBoxLayout(popup);
+            popupLayout->setContentsMargins(12, 12, 12, 12);
+            spec.content->setParent(popup);
+            popupLayout->addWidget(spec.content);
+            m_chromePopups.push_back(popup);
+
+            auto *button = new QPushButton(spec.label, m_chromePanelHost);
+            button->setObjectName(QStringLiteral("chromePanel_%1").arg(spec.id));
+            connect(button, &QPushButton::clicked, this, [button, popup]() {
+                popup->adjustSize();
+                popup->move(button->mapToGlobal(QPoint(0, button->height() + 4)));
+                popup->show();
+            });
+            m_chromePanelHost->layout()->addWidget(button);
+            button->show();
+        }
+    }
+}
+
 void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
 {
     // Tear down the mounted slots, then retire the feature instance itself:
@@ -579,6 +633,17 @@ void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
         delete palette;
     }
     m_palettes.clear();
+    for (QWidget *popup : m_chromePopups) {
+        delete popup;
+    }
+    m_chromePopups.clear();
+    if (m_chromePanelHost != nullptr) {
+        // The buttons are children of the host strip; clearing them leaves
+        // the strip itself in the bar for the next mount.
+        for (QWidget *button : m_chromePanelHost->findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly)) {
+            delete button;
+        }
+    }
     retire(m_leftPanelWidget);
     retire(m_mainPanelWidget);
     retire(m_rightPanelWidget);

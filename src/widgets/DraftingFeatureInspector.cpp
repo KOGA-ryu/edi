@@ -473,10 +473,4 @@ void DraftingFeature::refreshInspector()
             .arg(objects.size()));
     }
 
-    if (m_undoButton != nullptr) {
-        m_undoButton->setEnabled(m_controller->canUndo());
-    }
-    if (m_redoButton != nullptr) {
-        m_redoButton->setEnabled(m_controller->canRedo());
-    }
 }

@@ -57,6 +57,20 @@ QPushButton *buttonNamed(const QWidget &root, const QString &objectName)
     return root.findChild<QPushButton *>(objectName);
 }
 
+QAction *menuActionWithText(const QWidget &root, const QString &menuName, const QString &text)
+{
+    auto *menu = root.findChild<QMenu *>(menuName);
+    if (menu == nullptr) {
+        return nullptr;
+    }
+    for (QAction *action : menu->actions()) {
+        if (action->text() == text) {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
 QPushButton *buttonWithText(const QWidget &root, const QString &text)
 {
     for (QPushButton *button : root.findChildren<QPushButton *>()) {
@@ -506,6 +520,45 @@ int main(int argc, char **argv)
         assert(clamped->geometry().bottom() <= mainArea->height());
     }
 
+    // Snap settings live behind a chrome "Snap" button now: the popup holds
+    // the same controls (the initial-sync block above already proved their
+    // wiring), and the button tears down with workspaces that lack drafting.
+    {
+        auto *snapButton = window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap"));
+        assert(snapButton != nullptr);
+        auto *snapPopup = window.findChild<QWidget *>(QStringLiteral("chromePopup_snap"));
+        assert(snapPopup != nullptr);
+        QCheckBox *popupGridSnap = toggleWithLabel(*snapPopup, QStringLiteral("Grid snap"));
+        assert(popupGridSnap != nullptr); // the controls moved INTO the popup
+        QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
+        assert(leftPanel != nullptr && toggleWithLabel(*leftPanel, QStringLiteral("Grid snap")) == nullptr);
+
+        // The left panel kept only navigation: no undo/redo buttons, no
+        // project-file buttons, no placeholder sections.
+        assert(leftPanel->findChild<QPushButton *>(QStringLiteral("undoButton")) == nullptr);
+        assert(leftPanel->findChild<QPushButton *>(QStringLiteral("openDrawingButton")) == nullptr);
+
+        edi::shell::WorkspaceLayout settingsOnly;
+        settingsOnly.id = QStringLiteral("settings");
+        settingsOnly.label = QStringLiteral("Settings");
+        settingsOnly.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("settings")}};
+        window.switchWorkspaceLayout(settingsOnly);
+        assert(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) == nullptr);
+
+        edi::shell::WorkspaceLayout draftingBack;
+        draftingBack.id = QStringLiteral("drafting");
+        draftingBack.label = QStringLiteral("Drafting");
+        draftingBack.bindings = {
+            {edi::shell::ShellSlot::Left, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Main, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Right, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Bottom, QStringLiteral("drafting")},
+        };
+        draftingBack.belt = DraftingFeature::defaultBeltLayout();
+        window.switchWorkspaceLayout(draftingBack);
+        assert(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) != nullptr);
+    }
+
     // Calibration row: pattern button creates objects, record captures a
     // measurement, apply-scale consumes it.
     {
@@ -529,9 +582,10 @@ int main(int argc, char **argv)
     // Project Files: the buttons exist and the save/open seam round-trips the
     // document while keeping window-title dirty state in sync.
     {
-        assert(buttonNamed(window, QStringLiteral("openDrawingButton")) != nullptr);
-        assert(buttonNamed(window, QStringLiteral("saveDrawingButton")) != nullptr);
-        assert(buttonNamed(window, QStringLiteral("saveDrawingAsButton")) != nullptr);
+        // Project-file verbs live in the File menu now (left panel slimmed).
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save As…")) != nullptr);
 
         QTemporaryDir tempDir;
         assert(tempDir.isValid());
@@ -576,8 +630,8 @@ int main(int argc, char **argv)
 
     // Edit section: Undo/Redo buttons exist, enable from canUndo/canRedo, and act.
     {
-        QPushButton *undoButton = buttonNamed(window, QStringLiteral("undoButton"));
-        QPushButton *redoButton = buttonNamed(window, QStringLiteral("redoButton"));
+        QAction *undoButton = window.findChild<QAction *>(QStringLiteral("undoAction"));
+        QAction *redoButton = window.findChild<QAction *>(QStringLiteral("redoAction"));
         assert(undoButton != nullptr);
         assert(redoButton != nullptr);
 
@@ -590,11 +644,11 @@ int main(int argc, char **argv)
         assert(undoButton->isEnabled());
         assert(!redoButton->isEnabled());
 
-        undoButton->click();
+        undoButton->trigger();
         assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == before);
         assert(redoButton->isEnabled());
 
-        redoButton->click();
+        redoButton->trigger();
         assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == afterCreate);
         assert(!redoButton->isEnabled());
     }
@@ -610,8 +664,8 @@ int main(int argc, char **argv)
 
     // Export buttons exist and the path seams write SVG / HPGL files.
     {
-        assert(buttonNamed(window, QStringLiteral("exportSvgButton")) != nullptr);
-        assert(buttonNamed(window, QStringLiteral("exportHpglButton")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export HPGL…")) != nullptr);
 
         controller->setSelectedToolId(QStringLiteral("line_tool"));
         controller->clickCanvasNormalized(0.2, 0.2);
@@ -652,14 +706,23 @@ int main(int argc, char **argv)
         assert(restoredController->objectSnapTolerancePresetId() == QStringLiteral("tight"));
     }
 
-    // Recent files: saving a drawing records it and surfaces a quick-open button.
+    // Recent files: saving a drawing records it and surfaces an Open Recent
+    // entry (the File menu took over from the left panel's quick buttons).
     {
         QTemporaryDir tempDir;
         assert(tempDir.isValid());
         const QString drawingPath = tempDir.filePath(QStringLiteral("recent.edidraw"));
         assert(window.saveDrawingToPath(drawingPath));
         assert(window.recentFiles().contains(drawingPath));
-        assert(buttonNamed(window, QStringLiteral("recentFileButton")) != nullptr);
+        auto *recentMenu = window.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        assert(recentMenu != nullptr);
+        bool listed = false;
+        for (QAction *action : recentMenu->actions()) {
+            if (action->data().toString() == drawingPath) {
+                listed = true;
+            }
+        }
+        assert(listed);
     }
 
     // Panel system (spec §2): collapse, presets, and auto-hide as observable
@@ -1143,7 +1206,7 @@ int main(int argc, char **argv)
         auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
         auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
         assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
-        assert(fileMenu->actions().size() == 6); // 5 verbs + separator
+        assert(fileMenu->actions().size() == 7); // 5 verbs + Open Recent + separator
 
         auto *chromeController = chrome.findChild<DrawingDocumentController *>();
         assert(chromeController != nullptr);

@@ -22,10 +22,6 @@ struct FeatureContext {
     DrawingDocumentController *drawingController = nullptr;
 };
 
-// A feature is a registered descriptor, NOT a subclass: the variation points
-// are callables, mirroring the controller's kind-and-callable helpers. One
-// feature may fill several slots; buildPanel receives the slot so it can
-// return a different panel per slot.
 // A floating palette a feature offers: id (stable, keys the stored
 // placement), title (drag-strip text), and the content widget. The shell
 // wraps the content in its FloatingPalette frame; the feature never sees
@@ -36,6 +32,20 @@ struct FeaturePaletteSpec {
     QWidget *content = nullptr;
 };
 
+// A settings panel a feature wants reachable from the top chrome: the shell
+// adds a title-bar button labelled `label` that pops `content` up beneath
+// it. Same ownership story as palettes — the shell frames and owns the
+// popup, the feature only builds the content.
+struct FeatureChromePanelSpec {
+    QString id;
+    QString label;
+    QWidget *content = nullptr;
+};
+
+// A feature is a registered descriptor, NOT a subclass: the variation points
+// are callables, mirroring the controller's kind-and-callable helpers. One
+// feature may fill several slots; buildPanel receives the slot so it can
+// return a different panel per slot.
 struct FeatureDescriptor {
     QString id;     // "drafting", "text_editor", ...
     QString label;
@@ -48,6 +58,9 @@ struct FeatureDescriptor {
     // every mount, after recreateInstance; fresh widgets each time. Optional
     // like the lifecycle hooks — most features have none.
     std::function<std::vector<FeaturePaletteSpec>()> buildPalettes;
+    // Chrome panels (popup settings reachable from the title bar). Same
+    // lifecycle and optionality as buildPalettes.
+    std::function<std::vector<FeatureChromePanelSpec>()> buildChromePanels;
     // Instance lifecycle, driven by the shell around every workspace mount:
     // recreateInstance runs BEFORE mounting (a fresh instance whose
     // widget-pointer members die with the old one — nothing can dangle), and

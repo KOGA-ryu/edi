@@ -92,6 +92,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingPlotJob.cpp
     src/drafting/DraftingPlotJobReport.h
     src/drafting/DraftingPlotJobReport.cpp
+    src/drafting/DraftingSerialize.h
+    src/drafting/DraftingSerialize.cpp
 )
 
 target_include_directories(edi_drafting_core PUBLIC
@@ -153,6 +155,10 @@ target_include_directories(edi_format_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# The drafting core's document serializer (DraftingSerialize) builds on the
+# MessagePack value codec, so it links the format core.
+target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
+
 add_library(edi_scripting_core STATIC
     src/scripting/LuaRecipe.h
     src/scripting/LuaRecipe.cpp
@@ -171,6 +177,7 @@ function(add_edi_contract_test test_name test_source)
 endfunction()
 
 add_edi_contract_test(drafting_store_tests tests/drafting_store_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_serialize_tests tests/drafting_serialize_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_document_query_tests tests/drafting_document_query_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_commands_tests tests/drafting_commands_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_construction_ops_tests tests/drafting_construction_ops_tests.cpp edi_drafting_core)

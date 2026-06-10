@@ -398,10 +398,10 @@ int main(int argc, char **argv)
         // One row per tool, six columns of sub-feature room.
         assert(belt->beltState().rows == 10 && belt->beltState().columns == 6);
 
-        // Belt -> controller: click the second cell of the VERTICAL strip
-        // (the point tool's row in the one-row-per-tool arrangement).
-        const QPointF pointCell(17.0, 38.0 + 17.0); // strip position 1 centre (34px cells, 4px gaps)
-        QMouseEvent press(QEvent::MouseButtonPress, pointCell, belt->mapToGlobal(pointCell),
+        // Belt -> controller: click the bottom peek — one step down the tool
+        // carousel, from select_move's row to the point tool's row.
+        const QPointF bottomPeek(17.0, 67.0); // peek band centre (34px cells, 4px gaps, 17px peeks)
+        QMouseEvent press(QEvent::MouseButtonPress, bottomPeek, belt->mapToGlobal(bottomPeek),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(belt, &press);
         assert(controller->selectedToolId() == QStringLiteral("point_tool"));
@@ -437,8 +437,10 @@ int main(int argc, char **argv)
         // Default placement, clamped against a real-sized main area.
         assert(palette->pos() == QPoint(12, 12));
 
-        // Drag by the grip strip: press, move (+30,+20), release.
-        const QPointF gripPoint(palette->width() / 2.0, 9.0);
+        // Drag by the grab nub: press, move (+30,+20), release.
+        QWidget *grip = palette->findChild<QWidget *>(QStringLiteral("paletteGrip"));
+        assert(grip != nullptr);
+        const QPointF gripPoint(QRectF(grip->geometry()).center());
         QMouseEvent press(QEvent::MouseButtonPress, gripPoint, palette->mapToGlobal(gripPoint),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(palette, &press);

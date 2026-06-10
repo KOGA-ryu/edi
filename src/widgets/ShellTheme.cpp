@@ -255,14 +255,14 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @accentSoft@;
         }
         #floatingPalette {
-            background: @surface@;
-            border: 1px solid @borderMajor@;
+            background: transparent;
         }
         #paletteGrip {
-            background: @base@;
-            color: @textMuted@;
-            font-size: @fontSm@px;
-            min-height: 18px;
+            background: @borderMajor@;
+            border-radius: 3px;
+        }
+        #paletteGrip:hover {
+            background: @accentSoft@;
         }
         #titleBar {
             background: @base@;

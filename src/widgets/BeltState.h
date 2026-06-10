@@ -94,4 +94,19 @@ struct BeltCrossView {
 };
 BeltCrossView beltCrossView(const BeltState &state, const std::vector<bool> &occupied);
 
+// The carousel presentation (user feedback 2026-06-10): only the active
+// row's items render full-size; the previous/next non-empty rows peek in as
+// half-cells above and below, hinting what a vertical scroll reaches. The
+// peeks wrap like the scroll does; with two rows the same row peeks on both
+// sides (both scroll directions reach it), and with one row there is no
+// peek at all (rows < 0).
+struct BeltPeekView {
+    std::vector<BeltItemEntry> items;   // active row, compacted, one active
+    int previousRow = -1;               // -1 = nothing to peek
+    int previousLeadColumn = -1;
+    int nextRow = -1;
+    int nextLeadColumn = -1;
+};
+BeltPeekView beltPeekView(const BeltState &state, const std::vector<bool> &occupied);
+
 } // namespace edi::shell

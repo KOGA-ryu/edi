@@ -39,8 +39,9 @@ Plus the scan: no `.js`/`.qml` files anywhere, no `.json` outside `.claude/`, no
 
 ## Commits
 
-Style: `codex: <imperative summary>` plus a short body explaining what was consolidated and
+Style: `claude: <imperative summary>` plus a short body explaining what was consolidated and
 why it is behavior-preserving. One vein/slice per commit; working tree clean between slices.
+(History before 2026-06-10 uses the older `codex:` prefix.)
 
 If `.git/index.lock` or `.git/HEAD.lock` blocks a commit, verify it is a zero-byte stale file
 (only `fsmonitor--daemon` git processes running) before removing it.

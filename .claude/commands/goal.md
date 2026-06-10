@@ -24,7 +24,7 @@ Do not pause to ask permission between slices.
 ## State
 
 Derive progress from the repo, not a state file:
-- `git log --oneline` — completed slices are the `codex:` commits.
+- `git log --oneline` — completed slices are the `claude:` commits (`codex:` before 2026-06-10).
 - A fresh scan of the controller — what duplication remains.
 
 ## Per-slice protocol
@@ -45,7 +45,7 @@ Derive progress from the repo, not a state file:
    - scan: no `.js`/`.qml` anywhere; no `.json` outside `.claude/`; no `QtQml`/`QtQuick` refs
    - read the diff; confirm behavior preservation (watch optional-deref guards and
      variant conversions — `DraftingGeometry{plan.geometry}` must be explicit)
-5. **Commit** in the established style: `codex: <imperative summary>` plus a short body,
+5. **Commit** in the established style: `claude: <imperative summary>` plus a short body,
    ending with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
    If `.git/index.lock` or `.git/HEAD.lock` exists, check it is zero-byte stale (only
    `fsmonitor--daemon` processes running) before removing it.

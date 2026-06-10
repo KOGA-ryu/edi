@@ -2766,5 +2766,66 @@ int main(int argc, char **argv)
         assert(capController.modelDocument().value("drawing_objects").toList().size() == 2);
     }
 
+    // Keyboard-action controller seams: cancel, delete, duplicate, coarse nudge.
+    {
+        // cancelPendingCreation clears an in-flight two-click creation + preview.
+        DrawingDocumentController cancelController;
+        cancelController.setSelectedToolId("line_tool");
+        cancelController.clickCanvasNormalized(0.2, 0.2); // first click: pending
+        cancelController.updateCreationPreviewNormalized(0.6, 0.6);
+        assert(cancelController.modelDocument().contains("preview_object"));
+        cancelController.cancelPendingCreation();
+        assert(!cancelController.modelDocument().contains("preview_object"));
+        assert(cancelController.modelDocument().value("drawing_objects").toList().isEmpty());
+        // No-op when nothing pending.
+        cancelController.cancelPendingCreation();
+
+        // deleteSelectedObject removes the active object of any kind and is undoable.
+        DrawingDocumentController deleteController;
+        deleteController.setSelectedToolId("point_tool");
+        deleteController.clickCanvasNormalized(0.4, 0.4);
+        assert(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
+        assert(deleteController.deleteSelectedObject());
+        assert(deleteController.modelDocument().value("drawing_objects").toList().isEmpty());
+        assert(deleteController.canUndo());
+        deleteController.undo();
+        assert(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
+        // Delete with nothing selected fails.
+        DrawingDocumentController emptyDeleteController;
+        assert(!emptyDeleteController.deleteSelectedObject());
+
+        // duplicateSelectedObject clones the active object at a small offset.
+        DrawingDocumentController dupController;
+        dupController.setSelectedToolId("point_tool");
+        dupController.clickCanvasNormalized(0.3, 0.3);
+        const QVariantMap original = dupController.modelDocument().value("drawing_objects").toList().front().toMap();
+        assert(dupController.duplicateSelectedObject());
+        const QVariantList afterDup = dupController.modelDocument().value("drawing_objects").toList();
+        assert(afterDup.size() == 2);
+        const QVariantMap copy = afterDup.back().toMap();
+        assert(copy.value("id").toString() != original.value("id").toString());
+        assert(nearlyEqual(copy.value("x").toDouble(), original.value("x").toDouble() + 0.02));
+        assert(nearlyEqual(copy.value("y").toDouble(), original.value("y").toDouble() + 0.02));
+        // The duplicate is selected and the action is a single undo step.
+        assert(dupController.selectedObjectId() == copy.value("id").toString());
+        dupController.undo();
+        assert(dupController.modelDocument().value("drawing_objects").toList().size() == 1);
+        DrawingDocumentController emptyDupController;
+        assert(!emptyDupController.duplicateSelectedObject());
+
+        // Shift-nudge maps to the "coarse" step (4x the grid step).
+        DrawingDocumentController coarseController;
+        coarseController.setSelectedToolId("point_tool");
+        coarseController.clickCanvasNormalized(0.5, 0.5);
+        const double baseX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
+        assert(coarseController.nudgeSelection("right", "grid"));
+        const double gridX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
+        coarseController.undo();
+        assert(coarseController.nudgeSelection("right", "coarse"));
+        const double coarseX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
+        // coarse step is 4x the grid step.
+        assert(nearlyEqual(coarseX - baseX, (gridX - baseX) * 4.0));
+    }
+
     return 0;
 }

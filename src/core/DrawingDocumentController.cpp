@@ -1750,6 +1750,37 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     emit modelChanged();
 }
 
+void DrawingDocumentController::cancelPendingCreation()
+{
+    // View state only: cancel an in-flight two-click creation and its preview.
+    if (!m_pendingCreation && !m_previewObject) {
+        return;
+    }
+    m_pendingCreation.reset();
+    m_previewObject.reset();
+    emit modelChanged();
+}
+
+bool DrawingDocumentController::deleteSelectedObject()
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    return applyCommandAndEmit(DeleteObjectCommand{*m_document.activeObjectId});
+}
+
+bool DrawingDocumentController::duplicateSelectedObject()
+{
+    return createTransformedActiveObject(QStringLiteral("copy"),
+        [](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
+            DraftingObject copy = source;
+            copy.id = newId;
+            copy.geometry = translateGeometry(source.geometry, 0.02, 0.02);
+            copy.bounds = computeBounds(copy.geometry);
+            return copy;
+        });
+}
+
 void DrawingDocumentController::updateCreationPreviewNormalized(double x, double y)
 {
     if (!m_pendingCreation) {

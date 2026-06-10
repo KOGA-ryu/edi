@@ -126,6 +126,9 @@ public:
     bool setAllGuidesVisible(bool visible);
     bool setAllGuidesLocked(bool locked);
     void clickCanvasNormalized(double x, double y);
+    void cancelPendingCreation();
+    bool deleteSelectedObject();
+    bool duplicateSelectedObject();
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);

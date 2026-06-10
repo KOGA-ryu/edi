@@ -133,8 +133,7 @@ bool saveShellLayoutToPath(const QString &path, const WorkspaceLayout &layout, c
 
 QString defaultWorkspaceLayoutPath()
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    return QDir(dir).filePath(QStringLiteral("workspace.toml"));
+    return appConfigFilePath(QStringLiteral("workspace.toml"));
 }
 
 } // namespace edi::io

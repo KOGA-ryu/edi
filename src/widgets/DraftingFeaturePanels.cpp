@@ -991,13 +991,6 @@ QPushButton *DraftingFeature::makeToolButton(const QString &toolId, const QStrin
     return button;
 }
 
-QLabel *DraftingFeature::makeSectionLabel(const QString &text) const
-{
-    auto *label = new QLabel(text);
-    label->setObjectName(QStringLiteral("sectionLabel"));
-    return label;
-}
-
 QLabel *DraftingFeature::makeValueLabel(const QString &text) const
 {
     auto *label = new QLabel(text);

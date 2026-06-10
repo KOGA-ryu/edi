@@ -41,6 +41,10 @@ ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int
 // drafting feature build these, and the button needs nothing from either.
 QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
 
+// UPPERCASE section header label (styled by the #sectionLabel QSS rule).
+// Free function: every feature builds these, and they need nothing from any.
+QLabel *makeSectionLabel(const QString &text);
+
 void clearLayoutMargins(QLayout *layout);
 
 void setWidgetEnabled(QWidget *widget, bool enabled);

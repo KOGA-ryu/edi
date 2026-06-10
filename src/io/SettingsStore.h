@@ -34,6 +34,10 @@ std::vector<std::string> pushRecentFile(std::vector<std::string> recent, const s
 // File I/O (Qt). loadSettingsFromPath returns an empty config when the file is
 // missing or unparseable. defaultSettingsPath is <AppConfigLocation>/edi.toml.
 QString defaultSettingsPath();
+
+// <AppConfigLocation>/<name> — the one place the config root is decided;
+// every store derives its path through here.
+QString appConfigFilePath(const QString &name);
 StaticConfig loadSettingsFromPath(const QString &path);
 bool saveSettingsToPath(const QString &path, const StaticConfig &config);
 

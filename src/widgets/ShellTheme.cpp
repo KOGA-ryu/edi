@@ -245,6 +245,12 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QSplitter::handle:hover, QSplitter::handle:pressed {
             background: %20;
         }
+        #rightPanelGrip, #bottomPanelGrip {
+            background: transparent;
+        }
+        #rightPanelGrip:hover, #bottomPanelGrip:hover {
+            background: %20;
+        }
         #titleBar {
             background: %1;
             border-bottom: 1px solid %5;

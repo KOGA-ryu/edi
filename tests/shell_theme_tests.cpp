@@ -84,6 +84,7 @@ int main()
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
              "QCheckBox::indicator:checked", "QSplitter::handle",
+             "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {
         assert(qss.contains(QLatin1String(selector)));
     }

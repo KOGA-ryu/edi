@@ -159,14 +159,18 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // Overlay resize grips: thin strips on the panels' inner edges. Owned by
     // the window (they survive workspace switches), positioned by
     // layoutMainArea alongside the panels they resize.
+    // WA_StyledBackground: plain QWidgets ignore stylesheet backgrounds
+    // without it, and the grips' hover affordance is pure QSS.
     m_rightGrip = new QWidget(m_mainArea);
     m_rightGrip->setObjectName(QStringLiteral("rightPanelGrip"));
     m_rightGrip->setCursor(Qt::SplitHCursor);
+    m_rightGrip->setAttribute(Qt::WA_StyledBackground, true);
     m_rightGrip->installEventFilter(this);
     m_rightGrip->hide();
     m_bottomGrip = new QWidget(m_mainArea);
     m_bottomGrip->setObjectName(QStringLiteral("bottomPanelGrip"));
     m_bottomGrip->setCursor(Qt::SplitVCursor);
+    m_bottomGrip->setAttribute(Qt::WA_StyledBackground, true);
     m_bottomGrip->installEventFilter(this);
     m_bottomGrip->hide();
 

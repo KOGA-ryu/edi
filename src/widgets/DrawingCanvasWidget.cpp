@@ -1,9 +1,11 @@
 #include "widgets/DrawingCanvasWidget.h"
 
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QWheelEvent>
 
 #include <cmath>
 
@@ -74,12 +76,25 @@ bool DrawingCanvasWidget::plotPreviewVisible() const
     return m_plotPreviewVisible;
 }
 
-QRectF DrawingCanvasWidget::boardRect() const
+drawing_canvas::DrawingCanvasViewportInput DrawingCanvasWidget::viewportInput() const
 {
     const QVariantMap model = m_controller == nullptr ? QVariantMap{} : m_controller->modelDocument();
-    const drawing_canvas::DrawingCanvasViewportInput input =
+    drawing_canvas::DrawingCanvasViewportInput input =
         drawing_canvas::viewportInputFromModel(model, width(), height());
-    return drawing_canvas::viewportBoardRect(input);
+    input.zoom = m_zoom;
+    input.panXPx = m_pan.x();
+    input.panYPx = m_pan.y();
+    return input;
+}
+
+QRectF DrawingCanvasWidget::boardRect() const
+{
+    return drawing_canvas::viewportBoardRect(viewportInput());
+}
+
+QPointF DrawingCanvasWidget::mapCanvasToScreen(double x, double y) const
+{
+    return drawing_canvas::canvasToScreen(boardRect(), x, y);
 }
 
 QPointF DrawingCanvasWidget::canvasToScreen(double x, double y) const
@@ -155,6 +170,16 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
 
 void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
 {
+    // Middle-button drag pans the view (navigation, not a document edit).
+    if (event->button() == Qt::MiddleButton) {
+        m_gestureState = drawing_canvas::beginPan(
+            m_gestureState, {event->position().x(), event->position().y()}, {});
+        m_lastPanScreenPoint = event->position();
+        setFocus(Qt::MouseFocusReason);
+        event->accept();
+        return;
+    }
+
     if (m_controller == nullptr || event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
@@ -196,6 +221,18 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
 
 void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    // While panning, translate the view by the raw screen delta.
+    if (m_gestureState.mode == drawing_canvas::DrawingCanvasGestureMode::Panning
+        && (event->buttons() & Qt::MiddleButton)) {
+        m_pan += event->position() - m_lastPanScreenPoint;
+        m_lastPanScreenPoint = event->position();
+        m_gestureState = drawing_canvas::updateGestureScreenPoint(
+            m_gestureState, {event->position().x(), event->position().y()});
+        update();
+        event->accept();
+        return;
+    }
+
     if (m_controller == nullptr) {
         QWidget::mouseMoveEvent(event);
         return;
@@ -244,6 +281,12 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 
 void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::MiddleButton
+        && m_gestureState.mode == drawing_canvas::DrawingCanvasGestureMode::Panning) {
+        m_gestureState = drawing_canvas::finishGesture(m_gestureState).state;
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton && drawing_canvas::isHandleDrag(m_gestureState)) {
         if (m_controller != nullptr) {
             const QPointF point = screenToCanvas(event->position());
@@ -272,6 +315,96 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
         return;
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
+{
+    if (m_controller == nullptr) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+
+    // Ctrl/Cmd + scroll zooms exponentially at the cursor (legacy semantics).
+    if (event->modifiers() & (Qt::ControlModifier | Qt::MetaModifier)) {
+        const double delta = event->angleDelta().y();
+        const double factor = std::pow(1.0015, delta);
+        const drawing_canvas::DrawingCanvasViewportInput zoomed =
+            drawing_canvas::zoomViewportAtPoint(viewportInput(), factor, event->position());
+        m_zoom = zoomed.zoom;
+        m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+        update();
+        event->accept();
+        return;
+    }
+
+    // Plain scroll pans: prefer high-resolution pixel deltas, fall back to the
+    // coarser angle delta (1/8 degree steps) scaled to pixels.
+    QPointF delta(event->pixelDelta());
+    if (delta.isNull()) {
+        delta = QPointF(event->angleDelta()) / 2.0;
+    }
+    m_pan += delta;
+    update();
+    event->accept();
+}
+
+void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
+{
+    if (m_controller == nullptr) {
+        QWidget::keyPressEvent(event);
+        return;
+    }
+
+    const Qt::KeyboardModifiers mods = event->modifiers();
+
+    if (event->key() == Qt::Key_Escape) {
+        m_controller->cancelPendingCreation();
+        m_gestureState = drawing_canvas::cancelGesture().state;
+        event->accept();
+        return;
+    }
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        m_controller->deleteSelectedObject();
+        event->accept();
+        return;
+    }
+    if ((mods & Qt::ControlModifier) && event->key() == Qt::Key_D) {
+        m_controller->duplicateSelectedObject();
+        event->accept();
+        return;
+    }
+
+    QString direction;
+    switch (event->key()) {
+    case Qt::Key_Left:
+        direction = QStringLiteral("left");
+        break;
+    case Qt::Key_Right:
+        direction = QStringLiteral("right");
+        break;
+    case Qt::Key_Up:
+        direction = QStringLiteral("up");
+        break;
+    case Qt::Key_Down:
+        direction = QStringLiteral("down");
+        break;
+    default:
+        break;
+    }
+    if (!direction.isEmpty()) {
+        // Plain = grid step, Alt = fine, Shift = coarse (4x).
+        QString stepMode = QStringLiteral("grid");
+        if (mods & Qt::AltModifier) {
+            stepMode = QStringLiteral("fine");
+        } else if (mods & Qt::ShiftModifier) {
+            stepMode = QStringLiteral("coarse");
+        }
+        m_controller->nudgeSelection(direction, stepMode);
+        event->accept();
+        return;
+    }
+
+    QWidget::keyPressEvent(event);
 }
 
 QVariantMap DrawingCanvasWidget::selectedObjectProjection() const

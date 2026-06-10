@@ -5,6 +5,7 @@
 #include <QWidget>
 
 #include "widgets/DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasViewport.h"
 
 class DrawingDocumentController;
 
@@ -15,17 +16,24 @@ public:
     explicit DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent = nullptr);
     void setPlotPreviewVisible(bool visible);
     bool plotPreviewVisible() const;
+    // Where a canvas-normalized point lands on screen under the current zoom/pan.
+    // Public so tests can assert anchor invariance after a zoom gesture.
+    QPointF mapCanvasToScreen(double x, double y) const;
+    double viewportZoom() const { return m_zoom; }
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
     void refresh();
 
 private:
+    drawing_canvas::DrawingCanvasViewportInput viewportInput() const;
     QRectF boardRect() const;
     QPointF canvasToScreen(double x, double y) const;
     QRectF boundsToScreenRect(double x, double y, double width, double height) const;
@@ -43,4 +51,7 @@ private:
     drawing_canvas::DrawingCanvasGestureState m_gestureState;
     QPointF m_lastDragCanvasPoint;
     bool m_plotPreviewVisible = false;
+    double m_zoom = 1.0;
+    QPointF m_pan;
+    QPointF m_lastPanScreenPoint;
 };

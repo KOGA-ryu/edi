@@ -4,10 +4,12 @@
 #include "widgets/DrawingCanvasViewport.h"
 
 #include <QApplication>
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPointF>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QWheelEvent>
 
 #include <cassert>
 #include <cmath>
@@ -21,9 +23,23 @@ QPointF screenPointFor(const DrawingDocumentController &controller, const QWidge
     return drawing_canvas::canvasToScreen(drawing_canvas::viewportBoardRect(input), x, y);
 }
 
-void sendMouse(QWidget &widget, QEvent::Type type, const QPointF &pos, Qt::MouseButton button, Qt::MouseButtons buttons)
+void sendMouse(QWidget &widget, QEvent::Type type, const QPointF &pos, Qt::MouseButton button, Qt::MouseButtons buttons,
+               Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 {
-    QMouseEvent event(type, pos, widget.mapToGlobal(pos), button, buttons, Qt::NoModifier);
+    QMouseEvent event(type, pos, widget.mapToGlobal(pos), button, buttons, modifiers);
+    QApplication::sendEvent(&widget, &event);
+}
+
+void sendWheel(QWidget &widget, const QPointF &pos, int angleDeltaY, Qt::KeyboardModifiers modifiers)
+{
+    QWheelEvent event(pos, widget.mapToGlobal(pos), QPoint(0, 0), QPoint(0, angleDeltaY),
+                      Qt::NoButton, modifiers, Qt::NoScrollPhase, false);
+    QApplication::sendEvent(&widget, &event);
+}
+
+void sendKey(QWidget &widget, int key, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
+{
+    QKeyEvent event(QEvent::KeyPress, key, modifiers);
     QApplication::sendEvent(&widget, &event);
 }
 
@@ -128,6 +144,71 @@ int main(int argc, char **argv)
     assert(near(line.value(QStringLiteral("x2")).toDouble(), 0.45));
     assert(near(line.value(QStringLiteral("y2")).toDouble(), 0.4));
     assert(near(line.value(QStringLiteral("x1")).toDouble(), 0.2));
+
+    // Ctrl + wheel zoom is anchored at the cursor: the canvas point under the
+    // anchor stays at the same screen pixel; other points move. The anchor is
+    // deliberately off-centre (the board centre is invariant under scaling
+    // regardless of pan, so it could not detect a missing pan compensation).
+    {
+        const QPointF anchor = canvas.mapCanvasToScreen(0.3, 0.7);
+        const QPointF otherBefore = canvas.mapCanvasToScreen(0.6, 0.2);
+        const double zoomBefore = canvas.viewportZoom();
+        sendWheel(canvas, anchor, 120, Qt::ControlModifier);
+        assert(canvas.viewportZoom() > zoomBefore); // zoomed in
+        const QPointF anchorAfter = canvas.mapCanvasToScreen(0.3, 0.7);
+        assert(near(anchorAfter.x(), anchor.x()));
+        assert(near(anchorAfter.y(), anchor.y()));
+        const QPointF otherAfter = canvas.mapCanvasToScreen(0.6, 0.2);
+        assert(!near(otherAfter.x(), otherBefore.x()) || !near(otherAfter.y(), otherBefore.y()));
+    }
+
+    // Plain wheel pans the view (the anchor point moves on screen).
+    {
+        const QPointF before = canvas.mapCanvasToScreen(0.5, 0.5);
+        sendWheel(canvas, before, 120, Qt::NoModifier);
+        const QPointF after = canvas.mapCanvasToScreen(0.5, 0.5);
+        assert(!near(after.x(), before.x()) || !near(after.y(), before.y()));
+    }
+
+    // Keyboard map. Use a fresh controller/canvas at zoom 1 so screenPointFor
+    // (which assumes the default board) lines up with the widget's mapping.
+    {
+        DrawingDocumentController keyController;
+        DrawingCanvasWidget keyCanvas(&keyController);
+        keyCanvas.resize(600, 450);
+
+        // Escape cancels a pending two-click creation and clears the preview.
+        keyController.setSelectedToolId(QStringLiteral("line_tool"));
+        clickCanvas(keyController, keyCanvas, 0.3, 0.3); // first click: pending
+        const QPointF mid = screenPointFor(keyController, keyCanvas, 0.6, 0.6);
+        sendMouse(keyCanvas, QEvent::MouseMove, mid, Qt::NoButton, Qt::NoButton);
+        assert(keyController.modelDocument().contains(QStringLiteral("preview_object")));
+        sendKey(keyCanvas, Qt::Key_Escape);
+        assert(!keyController.modelDocument().contains(QStringLiteral("preview_object")));
+        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+
+        // Create a point, then Delete removes it.
+        keyController.setSelectedToolId(QStringLiteral("point_tool"));
+        clickCanvas(keyController, keyCanvas, 0.5, 0.5);
+        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+        sendKey(keyCanvas, Qt::Key_Delete);
+        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+
+        // Create a point, Ctrl+D duplicates it.
+        clickCanvas(keyController, keyCanvas, 0.4, 0.4);
+        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+        sendKey(keyCanvas, Qt::Key_D, Qt::ControlModifier);
+        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
+
+        // Arrow key nudges the selection by the grid step.
+        keyController.setSelectedToolId(QStringLiteral("select_move"));
+        const QString dupId = keyController.selectedObjectId();
+        const double beforeX = activeObject(keyController).value(QStringLiteral("x")).toDouble();
+        sendKey(keyCanvas, Qt::Key_Right);
+        const double afterX = activeObject(keyController).value(QStringLiteral("x")).toDouble();
+        assert(afterX > beforeX);
+        assert(keyController.selectedObjectId() == dupId);
+    }
 
     return 0;
 }

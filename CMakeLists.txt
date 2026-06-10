@@ -169,6 +169,7 @@ function(add_edi_contract_test test_name test_source)
 endfunction()
 
 add_edi_contract_test(drafting_store_tests tests/drafting_store_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_document_query_tests tests/drafting_document_query_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_commands_tests tests/drafting_commands_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_construction_ops_tests tests/drafting_construction_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_dimension_ops_tests tests/drafting_dimension_ops_tests.cpp edi_drafting_core)

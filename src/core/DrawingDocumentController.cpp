@@ -864,10 +864,7 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
 
 bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *object = activeObject(m_document);
     if (object == nullptr) {
         return false;
     }
@@ -885,10 +882,7 @@ bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
 
 bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *object = activeObject(m_document);
     if (object == nullptr) {
         return false;
     }
@@ -906,11 +900,8 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
 
 bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
 
@@ -931,11 +922,8 @@ bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 
 bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
 
@@ -956,11 +944,8 @@ bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
 
 bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashStyle)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
 
@@ -981,11 +966,8 @@ bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashSty
 
 bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
 
@@ -1006,15 +988,12 @@ bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
 
 bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
     const std::optional<DimensionKind> kind = draftingDimensionKindFromId(toStdString(kindId));
     if (!kind) {
         return false;
     }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Dimension) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Dimension);
+    if (object == nullptr) {
         return false;
     }
     const auto *dimension = std::get_if<DimensionGeometry>(&object->geometry);
@@ -1040,11 +1019,8 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
 
 bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Dimension) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Dimension);
+    if (object == nullptr) {
         return false;
     }
 
@@ -1611,11 +1587,8 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
 
 bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
     const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
@@ -1641,11 +1614,8 @@ bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()
 
 bool DrawingDocumentController::centerSelectedGuideInDrawable()
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
     const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
@@ -1671,11 +1641,8 @@ bool DrawingDocumentController::centerSelectedGuideInDrawable()
 
 bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
     const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
@@ -1701,11 +1668,8 @@ bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
 
 bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, const QString &stepMode)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
     const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
@@ -1733,11 +1697,8 @@ bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, co
 
 bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::ConstructionLine) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::ConstructionLine);
+    if (object == nullptr) {
         return false;
     }
     const auto *line = std::get_if<ConstructionLineGeometry>(&object->geometry);
@@ -1906,11 +1867,8 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
 
 bool DrawingDocumentController::deleteSelectedGuide()
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr || object->kind != DraftingShapeKind::Guide) {
+    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
+    if (object == nullptr) {
         return false;
     }
 

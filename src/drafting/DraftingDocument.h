@@ -63,6 +63,8 @@ DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id);
 const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id);
+const DraftingObject *activeObject(const DraftingDocument &document);
+const DraftingObject *activeObjectOfKind(const DraftingDocument &document, DraftingShapeKind kind);
 std::optional<std::size_t> layerIndexById(const DraftingDocument &document, const LayerId &id);
 DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id);
 const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &id);

@@ -123,6 +123,23 @@ const DraftingObject *findObject(const DraftingDocument &document, const Draftin
     return index ? &document.objects[*index] : nullptr;
 }
 
+const DraftingObject *activeObject(const DraftingDocument &document)
+{
+    if (!document.activeObjectId) {
+        return nullptr;
+    }
+    return findObject(document, *document.activeObjectId);
+}
+
+const DraftingObject *activeObjectOfKind(const DraftingDocument &document, DraftingShapeKind kind)
+{
+    const DraftingObject *object = activeObject(document);
+    if (object == nullptr || object->kind != kind) {
+        return nullptr;
+    }
+    return object;
+}
+
 std::optional<std::size_t> layerIndexById(const DraftingDocument &document, const LayerId &id)
 {
     for (std::size_t index = 0; index < document.layers.size(); ++index) {

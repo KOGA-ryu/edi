@@ -63,6 +63,11 @@ QPointF canvasToScreen(const QRectF &board, double x, double y)
     return QPointF(board.left() + safeX * board.width(), board.top() + safeY * board.height());
 }
 
+QRectF boundsToScreenRect(const QRectF &board, double x, double y, double width, double height)
+{
+    return QRectF(canvasToScreen(board, x, y), canvasToScreen(board, x + width, y + height)).normalized();
+}
+
 QPointF screenToCanvas(const QRectF &board, const QPointF &point)
 {
     const double width = std::max(1.0, std::isfinite(board.width()) ? board.width() : 1.0);

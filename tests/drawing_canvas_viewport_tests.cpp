@@ -114,5 +114,19 @@ int main()
     assert(near(badProjected.gridWidth, 1.0));
     assert(near(badProjected.gridHeight, 1.0));
 
+    const QRectF board(100.0, 50.0, 200.0, 100.0);
+    const QRectF screenBounds = boundsToScreenRect(board, 0.25, 0.25, 0.5, 0.5);
+    assert(near(screenBounds.left(), 150.0));
+    assert(near(screenBounds.top(), 75.0));
+    assert(near(screenBounds.width(), 100.0));
+    assert(near(screenBounds.height(), 50.0));
+
+    // Negative extents normalize.
+    const QRectF inverted = boundsToScreenRect(board, 0.75, 0.75, -0.5, -0.5);
+    assert(near(inverted.left(), 150.0));
+    assert(near(inverted.top(), 75.0));
+    assert(near(inverted.width(), 100.0));
+    assert(near(inverted.height(), 50.0));
+
     return 0;
 }

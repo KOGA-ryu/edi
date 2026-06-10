@@ -91,7 +91,7 @@ QPointF DrawingCanvasWidget::canvasToScreen(double x, double y) const
 
 QRectF DrawingCanvasWidget::boundsToScreenRect(double x, double y, double width, double height) const
 {
-    return QRectF(canvasToScreen(x, y), canvasToScreen(x + width, y + height)).normalized();
+    return drawing_canvas::boundsToScreenRect(boardRect(), x, y, width, height);
 }
 
 QPointF DrawingCanvasWidget::screenToCanvas(const QPointF &point) const

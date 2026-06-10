@@ -18,6 +18,7 @@ double viewportAspect(double gridWidth, double gridHeight);
 DrawingCanvasViewportInput viewportInputFromModel(const QVariantMap &model, double widgetWidth, double widgetHeight);
 QRectF viewportBoardRect(const DrawingCanvasViewportInput &input);
 QPointF canvasToScreen(const QRectF &board, double x, double y);
+QRectF boundsToScreenRect(const QRectF &board, double x, double y, double width, double height);
 QPointF screenToCanvas(const QRectF &board, const QPointF &point);
 
 } // namespace drawing_canvas

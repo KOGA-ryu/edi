@@ -266,13 +266,8 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     }
 
     if (summary.plotBlocked && summary.bounds.ok) {
-        const QPointF topLeft = drawing_canvas::canvasToScreen(context.board, summary.bounds.x, summary.bounds.y);
-        const QPointF bottomRight = drawing_canvas::canvasToScreen(
-            context.board,
-            summary.bounds.x + summary.bounds.width,
-            summary.bounds.y + summary.bounds.height);
-        QRectF warningRect(topLeft, bottomRight);
-        warningRect = warningRect.normalized();
+        QRectF warningRect = drawing_canvas::boundsToScreenRect(
+            context.board, summary.bounds.x, summary.bounds.y, summary.bounds.width, summary.bounds.height);
         if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
             warningRect = warningRect.adjusted(-6.0, -6.0, 6.0, 6.0);
         }

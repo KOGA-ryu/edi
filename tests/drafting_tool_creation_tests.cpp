@@ -71,6 +71,44 @@ int main()
     assert(circleGeometry != nullptr);
     assert(nearlyEqual(circleGeometry->radius, 0.25));
 
+    // Regular polygon: centre + radius point, default 6 sides at 30deg.
+    {
+        DraftingToolCreationRequest request;
+        request.tool = DraftingToolKind::RegularPolygon;
+        request.objectId = "polygon_1";
+        request.start = {0.5, 0.5};   // centre
+        request.end = {0.8, 0.5};     // radius 0.3 to the right
+        request.toolProvenance = "regular_polygon";
+        auto polygon = buildDraftingObjectForTool(request);
+        assert(polygon.ok);
+        assert(polygon.object.kind == DraftingShapeKind::Polygon);
+        const auto *polygonGeometry = std::get_if<PolygonGeometry>(&polygon.object.geometry);
+        assert(polygonGeometry != nullptr);
+        assert(polygonGeometry->vertices.size() == 6); // default sides
+        // Every vertex lies on the circumscribed circle of radius 0.3.
+        for (const Point2D &v : polygonGeometry->vertices) {
+            const double r = std::hypot(v.x - 0.5, v.y - 0.5);
+            assert(nearlyEqual(r, 0.3));
+        }
+        // First vertex is at the rotation angle (default 30deg).
+        const double firstAngle = std::atan2(polygonGeometry->vertices[0].y - 0.5,
+                                             polygonGeometry->vertices[0].x - 0.5);
+        assert(nearlyEqual(firstAngle, 30.0 * M_PI / 180.0));
+
+        // Custom side count is honoured and clamped to [3, 24].
+        request.polygonSides = 3;
+        auto triangle = buildDraftingObjectForTool(request);
+        assert(std::get<PolygonGeometry>(triangle.object.geometry).vertices.size() == 3);
+        request.polygonSides = 100;
+        auto clamped = buildDraftingObjectForTool(request);
+        assert(std::get<PolygonGeometry>(clamped.object.geometry).vertices.size() == 24);
+        request.polygonSides = 1;
+        auto clampedLow = buildDraftingObjectForTool(request);
+        assert(std::get<PolygonGeometry>(clampedLow.object.geometry).vertices.size() == 3);
+    }
+    assert(std::string(draftingToolKindName(DraftingToolKind::RegularPolygon)) == "regular_polygon");
+    assert(draftingToolKindFromId("regular_polygon_tool") == DraftingToolKind::RegularPolygon);
+
     auto horizontalGuide = build("guide_h", DraftingToolKind::HorizontalGuide, {0.1, 0.2}, {0.7, 0.4});
     assert(horizontalGuide.ok);
     assert(horizontalGuide.object.kind == DraftingShapeKind::Guide);

@@ -12,6 +12,7 @@ enum class DraftingToolKind {
     Line,
     Rectangle,
     Circle,
+    RegularPolygon,
     HorizontalGuide,
     VerticalGuide,
     HorizontalConstructionLine,
@@ -32,6 +33,9 @@ struct DraftingToolCreationRequest {
     Point2D start;
     Point2D end;
     std::string toolProvenance;
+    // Regular-polygon tool options (legacy defaults: 6 sides, 30deg rotation).
+    int polygonSides = 6;
+    double polygonRotationDeg = 30.0;
 };
 
 DraftingToolKind draftingToolKindFromId(const std::string &toolId);

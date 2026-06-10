@@ -3,6 +3,7 @@
 #include "drafting/DraftingGeometry.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace edi::drafting {
@@ -23,6 +24,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     }
     if (toolId == "circle_tool") {
         return DraftingToolKind::Circle;
+    }
+    if (toolId == "regular_polygon_tool") {
+        return DraftingToolKind::RegularPolygon;
     }
     if (toolId == "horizontal_guide_tool") {
         return DraftingToolKind::HorizontalGuide;
@@ -70,6 +74,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "rectangle";
     case DraftingToolKind::Circle:
         return "circle";
+    case DraftingToolKind::RegularPolygon:
+        return "regular_polygon";
     case DraftingToolKind::HorizontalGuide:
         return "horizontal_guide";
     case DraftingToolKind::VerticalGuide:
@@ -116,6 +122,23 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::Circle) {
         kind = DraftingShapeKind::Circle;
         geometry = CircleGeometry{request.start, std::min(1.0, distance(request.start, request.end))};
+    } else if (request.tool == DraftingToolKind::RegularPolygon) {
+        // Two clicks: centre (start) then a radius point (end). Vertices sit on
+        // the circumscribed circle starting at rotationDeg, stepping by 360/sides.
+        const int sides = std::clamp(request.polygonSides, 3, 24);
+        const double radius = std::min(1.0, distance(request.start, request.end));
+        const double rotationRad = request.polygonRotationDeg * M_PI / 180.0;
+        PolygonGeometry polygon;
+        polygon.vertices.reserve(static_cast<std::size_t>(sides));
+        for (int i = 0; i < sides; ++i) {
+            const double angle = rotationRad + (2.0 * M_PI * i) / sides;
+            polygon.vertices.push_back({
+                request.start.x + radius * std::cos(angle),
+                request.start.y + radius * std::sin(angle),
+            });
+        }
+        kind = DraftingShapeKind::Polygon;
+        geometry = std::move(polygon);
     } else if (request.tool == DraftingToolKind::HorizontalGuide) {
         kind = DraftingShapeKind::Guide;
         geometry = GuideGeometry{GuideOrientation::Horizontal, request.end.y};

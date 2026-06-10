@@ -61,6 +61,19 @@ enum class MeasurementUnit {
     Foot
 };
 
+// N3: the legacy object "role" — a semantic tag the 3D/export pipeline reads
+// (a wall extrudes, a cutout subtracts, a collider is invisible but solid).
+// An enum, not a free string, because the set is closed and downstream code
+// switches on it; material / export_group / tags below stay free-form
+// because those vocabularies are open and user-defined.
+enum class ObjectRole {
+    None,
+    Wall,
+    Floor,
+    Cutout,
+    Collider
+};
+
 struct Point2D {
     double x = 0.0;
     double y = 0.0;
@@ -137,6 +150,12 @@ struct ObjectMetadata {
     GuideVisualMetadata guideVisual;
     DimensionVisualMetadata dimensionVisual;
     LineVisualMetadata lineVisual;
+    // N3 semantic/export metadata (restored from legacy). role is closed
+    // (enum); material/exportGroup/tags are open vocabularies (free text).
+    ObjectRole role = ObjectRole::None;
+    std::string material;
+    std::string exportGroup;
+    std::vector<std::string> tags;
 };
 
 struct PointGeometry {
@@ -210,6 +229,9 @@ const char *shapeKindName(DraftingShapeKind kind);
 DraftingShapeKind shapeKindFromName(const std::string &name);
 const char *guideOrientationName(GuideOrientation orientation);
 const char *dimensionKindName(DimensionKind kind);
+const char *objectRoleName(ObjectRole role);
+// Inverse of objectRoleName; unknown names fall back to None.
+ObjectRole objectRoleFromName(const std::string &name);
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);

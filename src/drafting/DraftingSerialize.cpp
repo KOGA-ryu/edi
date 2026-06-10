@@ -324,6 +324,11 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     MsgPackValue lineVisual = MsgPackValue::map({
         {"end_arrow", MsgPackValue::boolean(m.lineVisual.endArrow)},
     });
+    std::vector<MsgPackValue> tagItems;
+    tagItems.reserve(m.tags.size());
+    for (const std::string &tag : m.tags) {
+        tagItems.push_back(MsgPackValue::text(tag));
+    }
     return MsgPackValue::map({
         {"schema_version", MsgPackValue::integer(static_cast<std::int64_t>(m.schemaVersion))},
         {"author", MsgPackValue::text(m.author)},
@@ -335,6 +340,10 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"guide_visual", std::move(guideVisual)},
         {"dimension_visual", std::move(dimensionVisual)},
         {"line_visual", std::move(lineVisual)},
+        {"role", MsgPackValue::text(objectRoleName(m.role))},
+        {"material", MsgPackValue::text(m.material)},
+        {"export_group", MsgPackValue::text(m.exportGroup)},
+        {"tags", MsgPackValue::array(std::move(tagItems))},
     });
 }
 
@@ -366,6 +375,17 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
     }
     if (const MsgPackValue *lv = child(*v, "line_visual")) {
         m.lineVisual.endArrow = asBool(child(*lv, "end_arrow"), m.lineVisual.endArrow);
+    }
+    m.role = objectRoleFromName(asString(child(*v, "role"), "none"));
+    m.material = asString(child(*v, "material"), m.material);
+    m.exportGroup = asString(child(*v, "export_group"), m.exportGroup);
+    if (const MsgPackValue *tags = child(*v, "tags"); tags && tags->type == MsgPackValue::Type::Array) {
+        m.tags.clear();
+        for (const MsgPackValue &item : tags->arrayValue) {
+            if (item.type == MsgPackValue::Type::String) {
+                m.tags.push_back(item.stringValue);
+            }
+        }
     }
     return m;
 }

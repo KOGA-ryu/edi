@@ -157,6 +157,32 @@ const char *dimensionKindName(DimensionKind kind)
     return "distance";
 }
 
+const char *objectRoleName(ObjectRole role)
+{
+    switch (role) {
+    case ObjectRole::None:
+        return "none";
+    case ObjectRole::Wall:
+        return "wall";
+    case ObjectRole::Floor:
+        return "floor";
+    case ObjectRole::Cutout:
+        return "cutout";
+    case ObjectRole::Collider:
+        return "collider";
+    }
+    return "none";
+}
+
+ObjectRole objectRoleFromName(const std::string &name)
+{
+    if (name == "wall") return ObjectRole::Wall;
+    if (name == "floor") return ObjectRole::Floor;
+    if (name == "cutout") return ObjectRole::Cutout;
+    if (name == "collider") return ObjectRole::Collider;
+    return ObjectRole::None;
+}
+
 const char *draftingResultCodeName(DraftingResultCode code)
 {
     switch (code) {

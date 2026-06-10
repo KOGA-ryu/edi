@@ -96,6 +96,10 @@ DraftingDocument buildSampleDocument()
     styled.metadata.measurement.unit = MeasurementUnit::Millimeter;
     styled.metadata.measurement.canvasUnitsPerRealUnit = 10.0;
     styled.metadata.measurement.label = "10mm";
+    styled.metadata.role = ObjectRole::Cutout;
+    styled.metadata.material = "oak";
+    styled.metadata.exportGroup = "frame";
+    styled.metadata.tags = {"load-bearing", "visible"};
 
     // The line object carries the N2 arrow flag, to round-trip lineVisual.
     document.objects[1].metadata.lineVisual.endArrow = true;
@@ -153,6 +157,10 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         assert(oa.metadata.guideVisual.showLabel == ob.metadata.guideVisual.showLabel);
         assert(oa.metadata.dimensionVisual.showLabel == ob.metadata.dimensionVisual.showLabel);
         assert(oa.metadata.lineVisual.endArrow == ob.metadata.lineVisual.endArrow);
+        assert(oa.metadata.role == ob.metadata.role);
+        assert(oa.metadata.material == ob.metadata.material);
+        assert(oa.metadata.exportGroup == ob.metadata.exportGroup);
+        assert(oa.metadata.tags == ob.metadata.tags);
         assert(boundsEqual(oa.bounds, ob.bounds));
     }
 }

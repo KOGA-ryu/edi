@@ -22,7 +22,7 @@ a **teaching body** (why this design, what alternative lost) + the
 ## State at handoff
 
 - `master` green: **62 tests passing**, working tree clean, H1/H2/H3/H5-partial
-  merged. Verify with `cmake -S . -B build && cmake --build build && ctest
+  merged (now incl. DraftingFeature + switching; 62 tests). Verify with `cmake -S . -B build && cmake --build build && ctest
   --test-dir build --output-on-failure`.
 - **The user owns the look.** They said the UI is far from what they want and
   they will iterate it themselves. Do structural/mechanical shell work; do NOT
@@ -62,18 +62,18 @@ a **teaching body** (why this design, what alternative lost) + the
   when the user is in the loop. The *mechanics* (toggle buttons consuming
   `panelVisibility`, `startSystemMove`, plain-frame fallback boolean) are
   spec'd in `docs/ui_restoration_spec.md` §3.
-- **H5 — half DONE.** `ShellLayoutStore` is real (TOML encode/decode +
-  round-trip tests; forgiving decode: named slots, clamped sizes, dropped bad
-  rows, plan-struct `ok`). Panel geometry persists across restarts
-  (`workspace.toml` beside `edi.toml`; seams `loadWorkspaceLayout`/
-  `saveWorkspaceLayout`, saved in `closeEvent`, loaded in `main()`).
-  **Remaining: runtime workspace switching** — BLOCKED on extracting the
-  drafting feature out of the window first: panel builders append to member
-  collections (`m_conditionalButtons`, `m_geometryFields`, …) under a
-  built-once assumption, so tearing down/rebuilding slots would dangle
-  pointers behind `refreshInspector`. Extract the drafting feature into a
-  module whose lifetime matches its widgets (the H2 commit body records this
-  asymmetry), THEN switching is a small slice.
+- **H5 — DONE.** `ShellLayoutStore` is real (TOML encode/decode + round-trip
+  tests; forgiving decode). Panel geometry persists across restarts
+  (`workspace.toml` beside `edi.toml`). The drafting UI was extracted into
+  `DraftingFeature` (talks to the shell only through `ShellActions`
+  callables; window keeps chrome/IO/settings/panels), which unblocked
+  **runtime workspace switching**: `switchWorkspaceLayout()` deletes the slot
+  widgets, retires the feature instance (members die with it), recreates, and
+  remounts; `loadWorkspaceLayout` applies bindings (switches when they
+  differ). Splitter size apply/capture resolve sections by widget identity —
+  positional assumptions break under partial layouts. The mutation check is
+  the design proof: reusing the old feature instance across a switch
+  SEGFAULTS the suite.
 - **H6 component pass / H7 review / H8 replenish** — untouched.
 
 ## Working method that proved out
@@ -95,5 +95,6 @@ a **teaching body** (why this design, what alternative lost) + the
 
 ## Resume
 
-Run `/ui-goal` (shell; next: drafting-feature extraction → workspace
-switching, or H4 with the user present) or `/goal` (features, N1→).
+Run `/ui-goal` (shell; next: H4 chrome with the user present, H6 component
+pass, or feature #2 — script composer / ASCII preview — which forces the
+first real FeatureContext bus work) or `/goal` (features, N1→).

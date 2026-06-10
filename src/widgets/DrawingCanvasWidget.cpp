@@ -318,8 +318,7 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
     if (grid.origin.visible) {
         const QPointF originPoint = canvasToScreen(grid.origin.x, grid.origin.y);
         painter.setPen(QPen(QColor("#d5bb78"), 1.5));
-        painter.drawLine(QPointF(originPoint.x() - 8.0, originPoint.y()), QPointF(originPoint.x() + 8.0, originPoint.y()));
-        painter.drawLine(QPointF(originPoint.x(), originPoint.y() - 8.0), QPointF(originPoint.x(), originPoint.y() + 8.0));
+        drawing_canvas::drawCrosshair(painter, originPoint, 8.0);
     }
 
     painter.setPen(QPen(QColor("#3d4452"), 1));
@@ -357,8 +356,7 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
     painter.setPen(QPen(color, pointer.source == QStringLiteral("guide") ? 2.0 : 1.5, markerStyle));
     painter.setBrush(withAlpha(color, 44));
     painter.drawEllipse(point, markerRadius, markerRadius);
-    painter.drawLine(QPointF(point.x() - 10.0, point.y()), QPointF(point.x() + 10.0, point.y()));
-    painter.drawLine(QPointF(point.x(), point.y() - 10.0), QPointF(point.x(), point.y() + 10.0));
+    drawing_canvas::drawCrosshair(painter, point, 10.0);
 
     QString label = pointer.label;
     if (pointer.source == QStringLiteral("guide") && !pointer.sourceObjectId.isEmpty()) {

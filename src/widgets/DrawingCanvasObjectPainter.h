@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPointF>
 #include <QRectF>
 #include <QString>
 #include <QVariantList>
@@ -14,6 +15,8 @@ struct DrawingCanvasObjectPainterContext {
     QString selectedObjectId;
 };
 
+// Two axis-aligned lines crossing at point, each extending `extent` px per side.
+void drawCrosshair(QPainter &painter, const QPointF &point, double extent);
 void drawGuideIntersections(QPainter &painter, const QVariantList &objects, const DrawingCanvasObjectPainterContext &context);
 void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context);
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context);

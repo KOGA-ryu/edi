@@ -51,6 +51,12 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
 
 } // namespace
 
+void drawCrosshair(QPainter &painter, const QPointF &point, double extent)
+{
+    painter.drawLine(QPointF(point.x() - extent, point.y()), QPointF(point.x() + extent, point.y()));
+    painter.drawLine(QPointF(point.x(), point.y() - extent), QPointF(point.x(), point.y() + extent));
+}
+
 void drawGuideIntersections(QPainter &painter, const QVariantList &objects, const DrawingCanvasObjectPainterContext &context)
 {
     std::vector<double> vertical;
@@ -84,8 +90,7 @@ void drawGuideIntersections(QPainter &painter, const QVariantList &objects, cons
         for (double y : horizontal) {
             const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);
             painter.drawEllipse(point, 3.0, 3.0);
-            painter.drawLine(QPointF(point.x() - 5.0, point.y()), QPointF(point.x() + 5.0, point.y()));
-            painter.drawLine(QPointF(point.x(), point.y() - 5.0), QPointF(point.x(), point.y() + 5.0));
+            drawCrosshair(painter, point, 5.0);
         }
     }
     painter.restore();

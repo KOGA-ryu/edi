@@ -27,6 +27,9 @@ struct ShellTheme {
     QString control;
     QString controlHover;
     QString selected;
+    // List-row selection (spec §4): mixed from BASE, not surface, so a selected
+    // row reads as a darker notch inside a surface-colored list well.
+    QString rowSelected;
     QString text;
     QString textMuted;
     QString textFaint;

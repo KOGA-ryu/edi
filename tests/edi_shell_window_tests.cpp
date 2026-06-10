@@ -6,10 +6,13 @@
 #include "widgets/BeltCrossWidget.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/FloatingPalette.h"
+#include "widgets/ShellTheme.h"
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QColor>
 #include <QCoreApplication>
+#include <QImage>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
@@ -1319,6 +1322,39 @@ int main(int argc, char **argv)
         assert(chrome.isVisible());
         closeButton->click();
         assert(!chrome.isVisible());
+    }
+
+    // Render proof: panel surfaces and the object list must paint THEME
+    // tokens, not the platform palette. QScrollArea::setWidget() force-enables
+    // autoFillBackground on the content widget, which once painted macOS light
+    // gray edge to edge over the styled frames. Every property read looked
+    // correct — only the rendered image catches that class of bug, so this
+    // asserts on pixels.
+    {
+        EdiShellWindow proof;
+        proof.resize(1100, 760);
+        proof.show();
+        QCoreApplication::processEvents();
+
+        const edi::shell::ShellTheme theme =
+            edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
+        const QImage rendered = proof.grab().toImage();
+        assert(rendered.devicePixelRatio() == 1.0); // offscreen: probe == pixel
+
+        QWidget *leftPanel = proof.findChild<QWidget *>(QStringLiteral("leftPanel"));
+        assert(leftPanel != nullptr && leftPanel->isVisible());
+        // Probe the panel's bottom stretch area — no child widget owns it, so
+        // the color is the panel frame's own fill.
+        const QPoint panelProbe = leftPanel->mapTo(
+            &proof, QPoint(leftPanel->width() / 2, leftPanel->height() - 8));
+        assert(QColor(rendered.pixel(panelProbe)).name() == theme.surface);
+
+        auto *objectList = proof.findChild<QListWidget *>(QStringLiteral("objectList"));
+        assert(objectList != nullptr);
+        const QPoint listProbe = objectList->viewport()->mapTo(
+            &proof, QPoint(objectList->viewport()->width() / 2,
+                           objectList->viewport()->height() / 2));
+        assert(QColor(rendered.pixel(listProbe)).name() == theme.surface);
     }
 
     return 0;

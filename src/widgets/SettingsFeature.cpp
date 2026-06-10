@@ -1,6 +1,7 @@
 #include "widgets/SettingsFeature.h"
 
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QColor>
 #include <QColorDialog>
 #include <QComboBox>
@@ -42,6 +43,7 @@ QWidget *SettingsFeature::buildPanel(ShellSlot slot)
     };
     const std::vector<PageSpec> pages = {
         {QStringLiteral("theme"), QStringLiteral("Theme"), [this]() { return buildSettingsPage(); }},
+        {QStringLiteral("tool_belt"), QStringLiteral("Tool Belt"), [this]() { return buildBeltPage(); }},
     };
 
     auto *host = new QWidget;
@@ -265,6 +267,57 @@ QWidget *SettingsFeature::buildSettingsPage()
             profileCombo->setCurrentText(name);
         }
     });
+
+    layout->addStretch(1);
+    return panel;
+}
+
+QWidget *SettingsFeature::buildBeltPage()
+{
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("beltPanel"), 0, 0);
+
+    auto *title = new QLabel(QStringLiteral("Tool Belt"));
+    title->setObjectName(QStringLiteral("panelTitle"));
+    layout->addWidget(title);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("On the belt")));
+
+    const QVector<QPair<QString, QString>> inventory =
+        m_hooks.toolInventory ? m_hooks.toolInventory() : QVector<QPair<QString, QString>>{};
+    const QStringList onBelt = m_hooks.beltToolIds ? m_hooks.beltToolIds() : QStringList{};
+
+    // The checkboxes ARE the model here: a toggle re-reads every box and
+    // hands the shell the full enabled list, so there is no second copy of
+    // "what's on the belt" to fall out of sync.
+    auto *checkHost = new QWidget;
+    auto *checkLayout = new QVBoxLayout(checkHost);
+    checkLayout->setContentsMargins(0, 0, 0, 0);
+    checkLayout->setSpacing(4);
+    QVector<QCheckBox *> boxes;
+    for (const auto &tool : inventory) {
+        auto *box = new QCheckBox(tool.second);
+        box->setObjectName(QStringLiteral("beltToolCheckbox"));
+        box->setProperty("toolId", tool.first);
+        box->setChecked(onBelt.contains(tool.first));
+        checkLayout->addWidget(box);
+        boxes.push_back(box);
+    }
+    layout->addWidget(checkHost);
+
+    for (QCheckBox *box : boxes) {
+        connect(box, &QCheckBox::toggled, this, [this, boxes]() {
+            if (!m_hooks.setBeltToolIds) {
+                return;
+            }
+            QStringList enabled;
+            for (QCheckBox *candidate : boxes) {
+                if (candidate->isChecked()) {
+                    enabled.push_back(candidate->property("toolId").toString());
+                }
+            }
+            m_hooks.setBeltToolIds(enabled);
+        });
+    }
 
     layout->addStretch(1);
     return panel;

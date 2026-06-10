@@ -1,8 +1,10 @@
 #pragma once
 
 #include <QObject>
+#include <QPair>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 
 #include <functional>
 
@@ -29,6 +31,13 @@ public:
         std::function<QString()> activeProfile;
         std::function<bool(const QString &)> loadProfile;
         std::function<bool(const QString &)> saveProfile;
+        // F6, the belt page. The page is a checklist, nothing more: the
+        // shell supplies the vocabulary (id + label), answers which ids are
+        // on the belt today, and turns a new id list into an arrangement.
+        // The page never sees BeltLayout — ownership stays where it was.
+        std::function<QVector<QPair<QString, QString>>()> toolInventory;
+        std::function<QStringList()> beltToolIds;
+        std::function<void(const QStringList &)> setBeltToolIds;
     };
 
     explicit SettingsFeature(ShellHooks hooks, QObject *parent = nullptr);
@@ -42,6 +51,7 @@ private:
     // stack index — the F2 lesson: hide, don't rebuild, so live controls
     // never lose state mid-edit.
     QWidget *buildSettingsPage();
+    QWidget *buildBeltPage();
     // One row of the theme section: label + hex field + color-dialog swatch.
     // `member` selects which of the four inputs the row edits — the variation
     // point is data (a member pointer), not four near-identical functions.

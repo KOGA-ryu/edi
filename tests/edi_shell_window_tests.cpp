@@ -1082,6 +1082,57 @@ int main(int argc, char **argv)
         assert(shell.themeInputs().uiFontSize == 15);
         assert(shell.styleSheet().contains(QStringLiteral("font-size: 15px")));
 
+        // F6 — the Tool Belt page: a checklist over the tool inventory that
+        // writes the workspace's belt and re-dresses the live belt in place.
+        {
+            QPushButton *beltPageButton = nullptr;
+            for (QPushButton *button : shell.findChildren<QPushButton *>(QStringLiteral("settingsPageButton"))) {
+                if (button->property("pageId").toString() == QStringLiteral("tool_belt")) {
+                    beltPageButton = button;
+                }
+            }
+            assert(beltPageButton != nullptr);
+            beltPageButton->click();
+
+            // Default belt: every tool is on it, so every box starts checked.
+            QCheckBox *pointBox = nullptr;
+            int checkedCount = 0;
+            for (QCheckBox *box : shell.findChildren<QCheckBox *>(QStringLiteral("beltToolCheckbox"))) {
+                checkedCount += box->isChecked() ? 1 : 0;
+                if (box->property("toolId").toString() == QStringLiteral("point_tool")) {
+                    pointBox = box;
+                }
+            }
+            assert(pointBox != nullptr && pointBox->isChecked());
+            assert(checkedCount == 17); // the full drafting inventory
+
+            auto *belt = shell.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
+            assert(belt != nullptr);
+            assert(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
+
+            // Uncheck: the live belt loses the tool, and the workspace TOML
+            // would save without it.
+            pointBox->setChecked(false);
+            assert(belt->indexOfItem(QStringLiteral("point_tool")) == -1);
+            assert(belt->indexOfItem(QStringLiteral("line_tool")) >= 0); // others untouched
+            {
+                QTemporaryDir beltDir;
+                assert(beltDir.isValid());
+                const QString beltPath = beltDir.filePath(QStringLiteral("belt.toml"));
+                assert(shell.saveWorkspaceLayout(beltPath));
+                const edi::io::ShellLayoutData saved = edi::io::loadShellLayoutFromPath(beltPath);
+                bool hasPoint = false;
+                for (const QString &id : saved.layout.belt.itemIds) {
+                    hasPoint = hasPoint || id == QStringLiteral("point_tool");
+                }
+                assert(!hasPoint);
+            }
+
+            // Re-check: the tool returns to its row.
+            pointBox->setChecked(true);
+            assert(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
+        }
+
         // Closing the pop-out hides it; the theme survives, and reopening
         // through the rail brings the same frame back.
         popOut->close();

@@ -129,7 +129,8 @@ private:
     bool finishEdit(const QString &mode, const QString &fieldId, bool ok,
                     edi::drafting::DraftingResultCode code, const QString &message);
     void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
-    void applyCustomGridSettings(const std::function<void(edi::drafting::DraftingGridSettings &)> &mutate);
+    void commitGridSettings(edi::drafting::DraftingGridSettings settings);
+    void commitCustomGridSettings(edi::drafting::DraftingGridSettings settings);
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
     bool applyActiveObjectMetadataUpdate(
         edi::drafting::DraftingShapeKind kind,

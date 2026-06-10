@@ -680,65 +680,66 @@ void DrawingDocumentController::setGridPresetId(const QString &presetId)
     if (m_gridSettings.preset == preset) {
         return;
     }
-    m_gridSettings = draftingGridPresetSettings(preset);
-    applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
-    emit modelChanged();
+    commitGridSettings(draftingGridPresetSettings(preset));
 }
 
-void DrawingDocumentController::applyCustomGridSettings(const std::function<void(DraftingGridSettings &)> &mutate)
+void DrawingDocumentController::commitGridSettings(DraftingGridSettings settings)
 {
-    DraftingGridSettings settings = m_gridSettings;
-    settings.preset = DraftingGridPreset::Custom;
-    mutate(settings);
     m_gridSettings = sanitizeDraftingGridSettings(settings);
     applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     emit modelChanged();
 }
 
+void DrawingDocumentController::commitCustomGridSettings(DraftingGridSettings settings)
+{
+    settings.preset = DraftingGridPreset::Custom;
+    commitGridSettings(settings);
+}
+
 void DrawingDocumentController::setGridUnitId(const QString &unitId)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.unit = draftingGridUnitFromName(toStdString(unitId));
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.unit = draftingGridUnitFromName(toStdString(unitId));
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setGridSize(double width, double height)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.width = width;
-        settings.height = height;
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.width = width;
+    settings.height = height;
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setGridMargins(double left, double top, double right, double bottom)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.marginLeft = left;
-        settings.marginTop = top;
-        settings.marginRight = right;
-        settings.marginBottom = bottom;
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.marginLeft = left;
+    settings.marginTop = top;
+    settings.marginRight = right;
+    settings.marginBottom = bottom;
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setGridStep(double minorStep)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.minorStep = minorStep;
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.minorStep = minorStep;
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setGridMajorLineEvery(int majorLineEvery)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.majorLineEvery = majorLineEvery;
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.majorLineEvery = majorLineEvery;
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setGridVisible(bool visible)
 {
-    applyCustomGridSettings([&](DraftingGridSettings &settings) {
-        settings.visible = visible;
-    });
+    DraftingGridSettings settings = m_gridSettings;
+    settings.visible = visible;
+    commitCustomGridSettings(settings);
 }
 
 void DrawingDocumentController::setPlotOrderModeId(const QString &modeId)

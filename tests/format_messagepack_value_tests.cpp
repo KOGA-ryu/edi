@@ -161,6 +161,24 @@ int main()
         assert(!truncated.ok);
     }
 
+    // float32 (0xca) decodes even though the encoder only emits float64: a
+    // foreign buffer with a float32 0.5 (0x3f000000) widens to 0.5.
+    {
+        ByteBuffer bytes = {0xca, 0x3f, 0x00, 0x00, 0x00};
+        auto decoded = decodeMessagePack(bytes, "fixture");
+        assert(decoded.ok);
+        assert(decoded.value->type == MsgPackValue::Type::Double);
+        assert(decoded.value->doubleValue == 0.5);
+    }
+    // uint64 with the high bit set (0xcf) decodes through the int64 family.
+    {
+        ByteBuffer bytes = {0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xd2};
+        auto decoded = decodeMessagePack(bytes, "fixture");
+        assert(decoded.ok);
+        assert(decoded.value->type == MsgPackValue::Type::Int);
+        assert(decoded.value->intValue == 1234);
+    }
+
     // A hostile array32 length (near 2^32) must be rejected as truncated rather
     // than triggering a multi-GB speculative reserve / bad_alloc.
     {

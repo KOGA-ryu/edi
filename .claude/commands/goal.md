@@ -9,6 +9,34 @@ invocation: derive state from the repo, find the first incomplete phase, work it
 until its Definition of Done holds, then move to the next. Do not pause between
 slices or phases to ask permission. Pairs with `/loop /goal` for multi-session runs.
 
+## Status: backlog empty (2026-06-10)
+
+All seven phases of the first program run are complete:
+1. ✅ Projection dedup (handle visual spec, segment atoms) — 3 slices.
+2. ✅ Canvas dedup (withAlpha, boundsToScreenRect→viewport, tool set as data,
+   screenLine, drawCrosshair, DrawingCanvasValues module) — 7 slices.
+3. ✅ Core sweep — completed empty: the listed files are 4–11-line stubs and the
+   io stores are placeholders awaiting the persistence format decision. The
+   original backlog estimate was wrong; recorded here so it is not re-queued.
+4. ✅ Canvas interaction tests (`drawing_canvas_widget_tests`, mutation-checked).
+5. ✅ Shell test extension (guide visuals, dimension, geometry spins, transforms,
+   calibration; mutation-checked).
+6. ✅ Review cycle over `8627a67..` — 5 findings, 4 applied, 1 skipped with
+   reason (rotated-rectangle normalization not provably behavior-preserving).
+7. ✅ Replenish audit — no qualifying evidence-based work remains in scope.
+
+Known work that is OUT of scope for this program (needs user decisions):
+- Text-editor surface + persistence format (stores are stubbed; format must not
+  be JSON — a design decision, then feature work).
+- Angled-construction-tool creation preview gap (behavior change; spawned as a
+  user-approvable task chip).
+- `drawObject`'s rotated rectangle draws the un-normalized rect; whether
+  negative-extent rectangles should normalize there is a behavior question.
+
+To restart the program, replace this Status section with a new evidence-based
+phase backlog (each phase MUST have an objective DoD and come from a scan, a
+review finding, or a failing invariant — never invented to keep busy).
+
 ## Hard rules
 
 - **No JSON** in project source (`.claude/` exempt). **No `.js`/`.qml`** — scans stay at zero.
@@ -17,58 +45,9 @@ slices or phases to ask permission. Pairs with `/loop /goal` for multi-session r
   free functions over plain structs. No subclassing for behavior.
 - **Behavior-preserving** unless the slice is explicitly a fix or a feature phase.
 - Tests must be able to fail: when adding a test target, mutation-check it once
-  (sabotage the code under test, confirm the test aborts, restore).
-
-## State derivation (no state files)
-
-- `git log --oneline` — done slices are `claude:` commits (`codex:` before 2026-06-10).
-- `wc -l` on phase targets; `ctest --test-dir build -N` for the test inventory.
-- A fresh scan of the phase's target files for remaining veins.
-
-## Phase backlog
-
-### Phase 1 — Projection dedup: `src/core/DrawingDocumentProjection.cpp` (~646 lines)
-Scan for repeated QVariantMap-building atoms and functions differing only by
-parameterizable data; extract per the established helper patterns.
-**DoD:** no two functions differ only by a constant/enum/callable; repeated
-map-building atoms behind shared helpers; suite green.
-
-### Phase 2 — Canvas dedup: `src/widgets/DrawingCanvasWidget.cpp` + `DrawingCanvas*.cpp`
-Same treatment. The `drawing_canvas_projected_*` tests already cover projections —
-extend them when pure logic moves into testable free functions.
-**DoD:** same dedup criterion across the canvas file family; suite green.
-
-### Phase 3 — Core sweep: `DrawingCore.cpp`, `DrawingModelBuilder.cpp`, `DrawingSvgExport.cpp`, `src/io/*Store.cpp`
-Same treatment, largest file first. Newly extracted pure logic gets a focused test
-target registered in CMake.
-**DoD:** same dedup criterion per file; new pure logic tested; suite green.
-
-### Phase 4 — Canvas interaction tests
-Offscreen test target driving `DrawingCanvasWidget` mouse paths (click-create,
-drag-move, marquee select, handle edit) and asserting controller projections,
-modeled on `edi_shell_window_tests`.
-**DoD:** target registered and green; mutation-checked once; covers at minimum
-create-by-click, selection, and drag-move.
-
-### Phase 5 — Shell test extension
-Extend `edi_shell_window_tests` to the wiring it does not yet cover: guide visuals
-(label/color/dash/show-label), dimension kind combo, calibration row, nudge/align/
-offset/mirror/repeat buttons, geometry editor spins (normalized and physical).
-**DoD:** each listed control exercised with a controller-state assertion.
-
-### Phase 6 — Review cycle
-Run the find→verify review protocol (multiple independent finder angles, one
-verifier per surviving candidate, REFUTED only with constructible evidence) over
-all commits since the previous review marker (`claude: add shell window wiring tests`
-or the most recent Phase 6 commit). Apply CONFIRMED/PLAUSIBLE findings as slices;
-record skipped findings in the phase report.
-**DoD:** every surviving finding either applied or explicitly skipped with reason.
-
-### Phase 7 — Replenish or terminate
-Update `CLAUDE.md` to match reality. Rewrite this backlog: delete finished phases,
-append newly discovered work — each new phase MUST have an objective DoD and come
-from evidence (a scan, a review finding, a failing invariant), never invented to
-keep busy. If no qualifying work exists, write the final report and stop.
+  (sabotage the code under test, confirm the test aborts, restore — and force a
+  hard rebuild of the target's objects around the mutate/restore, since fast
+  cycles can land within make's mtime granularity and run stale binaries).
 
 ## Per-slice protocol
 
@@ -87,5 +66,5 @@ keep busy. If no qualifying work exists, write the final report and stop.
 - Test failure that escapes the current slice → revert the slice, report.
 - A slice needs a behavior change or API decision not covered by the phase
   definition → skip it, note it, continue with the next slice.
-- Phase 7 finds no qualifying work → final report (line counts, test count,
-  phases completed, skipped items) and stop.
+- Backlog empty → final report (line counts, test count, phases completed,
+  skipped items) and stop.

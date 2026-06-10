@@ -141,6 +141,8 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("width", MsgPackValue::number(g.width));
             fields.emplace_back("height", MsgPackValue::number(g.height));
             fields.emplace_back("rotation_deg", MsgPackValue::number(g.rotationDeg));
+            fields.emplace_back("corner_radius", MsgPackValue::number(g.cornerRadius));
+            fields.emplace_back("inset", MsgPackValue::number(g.inset));
         } else if constexpr (std::is_same_v<G, CircleGeometry>) {
             fields.emplace_back("center", pointValue(g.center));
             fields.emplace_back("radius", MsgPackValue::number(g.radius));
@@ -189,6 +191,8 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
         geo.width = asDouble(child(g, "width"), 0.0);
         geo.height = asDouble(child(g, "height"), 0.0);
         geo.rotationDeg = asDouble(child(g, "rotation_deg"), 0.0);
+        geo.cornerRadius = asDouble(child(g, "corner_radius"), 0.0);
+        geo.inset = asDouble(child(g, "inset"), 0.0);
         return geo;
     }
     case DraftingShapeKind::Circle: {

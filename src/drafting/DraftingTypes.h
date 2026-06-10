@@ -172,6 +172,12 @@ struct RectangleGeometry {
     double width = 0.0;
     double height = 0.0;
     double rotationDeg = 0.0;
+    // N4 variants on the same geometry (box is both zero): cornerRadius rounds
+    // the corners; inset hollows the rectangle into a frame of that wall
+    // thickness. Decoration on the box, not three geometry kinds — every
+    // line/bounds/snap path keeps treating it as the outer rectangle.
+    double cornerRadius = 0.0;
+    double inset = 0.0;
 };
 
 struct CircleGeometry {

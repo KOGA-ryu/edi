@@ -55,6 +55,7 @@ DraftingDocument buildSampleDocument()
     PointGeometry pt; pt.point = {0.1, 0.2};
     LineGeometry line; line.a = {0.0, 0.0}; line.b = {0.5, 0.6};
     RectangleGeometry rect; rect.origin = {0.1, 0.1}; rect.width = 0.3; rect.height = 0.2; rect.rotationDeg = 12.5;
+    rect.cornerRadius = 0.04; rect.inset = 0.015; // N4 rounded+frame variant params
     CircleGeometry circle; circle.center = {0.4, 0.4}; circle.radius = 0.15;
     ArcGeometry arc; arc.center = {0.3, 0.3}; arc.radius = 0.12; arc.startAngleDeg = 15.0; arc.endAngleDeg = 120.0;
     PolygonGeometry polygon; polygon.vertices = {{0.0, 0.0}, {0.2, 0.0}, {0.2, 0.2}, {0.0, 0.2}};
@@ -201,6 +202,8 @@ int main()
         assert(std::get<DimensionGeometry>(objects[9].geometry).kind == DimensionKind::Radius);
         assert(std::get<DimensionGeometry>(objects[9].geometry).offset == 0.07);
         assert(pointsEqual(std::get<LineGeometry>(objects[1].geometry).b, {0.5, 0.6}));
+        const auto &rectGeo = std::get<RectangleGeometry>(objects[2].geometry);
+        assert(rectGeo.cornerRadius == 0.04 && rectGeo.inset == 0.015);
         assert(std::get<PolygonGeometry>(objects[5].geometry).vertices.size() == 4);
         const auto &arcGeo = std::get<ArcGeometry>(objects[4].geometry);
         assert(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);

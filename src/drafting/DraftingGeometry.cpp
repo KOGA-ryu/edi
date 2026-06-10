@@ -307,10 +307,13 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (!isFinite(typedGeometry.origin)
                 || !std::isfinite(typedGeometry.width)
                 || !std::isfinite(typedGeometry.height)
-                || !std::isfinite(typedGeometry.rotationDeg)) {
+                || !std::isfinite(typedGeometry.rotationDeg)
+                || !std::isfinite(typedGeometry.cornerRadius)
+                || !std::isfinite(typedGeometry.inset)) {
                 return GeometryValidationResult::rejected("rectangle fields must be finite");
             }
-            if (typedGeometry.width < 0.0 || typedGeometry.height < 0.0) {
+            if (typedGeometry.width < 0.0 || typedGeometry.height < 0.0
+                || typedGeometry.cornerRadius < 0.0 || typedGeometry.inset < 0.0) {
                 return GeometryValidationResult::rejected("rectangle dimensions must be non-negative");
             }
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {

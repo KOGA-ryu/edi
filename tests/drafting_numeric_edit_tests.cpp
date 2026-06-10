@@ -65,6 +65,20 @@ int main()
     assert(!negativeDiameter.ok);
     assert(negativeDiameter.code == DraftingResultCode::InvalidGeometry);
 
+    // Arc numeric fields: cx/cy/radius/start_angle_deg/end_angle_deg.
+    DraftingObject arc = object("arc_1", DraftingShapeKind::Arc, ArcGeometry{{0.4, 0.4}, 0.15, 15.0, 120.0});
+    auto arcRadiusEdit = applyNumericGeometryEdit(arc, "radius", 0.3);
+    assert(arcRadiusEdit.ok);
+    assert(nearlyEqual(std::get<ArcGeometry>(arcRadiusEdit.geometry).radius, 0.3));
+    auto arcStartEdit = applyNumericGeometryEdit(arc, "start_angle_deg", 45.0);
+    assert(arcStartEdit.ok);
+    assert(nearlyEqual(std::get<ArcGeometry>(arcStartEdit.geometry).startAngleDeg, 45.0));
+    auto arcEndEdit = applyNumericGeometryEdit(arc, "end_angle_deg", 200.0);
+    assert(arcEndEdit.ok);
+    assert(nearlyEqual(std::get<ArcGeometry>(arcEndEdit.geometry).endAngleDeg, 200.0));
+    auto arcBadField = applyNumericGeometryEdit(arc, "diameter", 0.5);
+    assert(!arcBadField.ok); // arc has no diameter field
+
     auto negativeRadius = applyNumericGeometryEdit(circle, "radius", -0.1);
     assert(!negativeRadius.ok);
     assert(negativeRadius.code == DraftingResultCode::InvalidGeometry);

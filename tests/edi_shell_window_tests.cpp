@@ -715,6 +715,46 @@ int main(int argc, char **argv)
         assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
+    // Live theming: setting the four inputs re-derives the stylesheet, the
+    // change survives a workspace switch (fresh canvas gets the live theme),
+    // and the inputs round-trip through edi.toml.
+    {
+        using edi::shell::ShellSlot;
+        using edi::shell::ShellThemeInputs;
+        using edi::shell::WorkspaceLayout;
+        using edi::shell::deriveShellTheme;
+
+        EdiShellWindow themed;
+        ShellThemeInputs pink;
+        pink.accent = QStringLiteral("#d46ca1");
+        pink.uiFontSize = 14;
+        themed.setThemeInputs(pink);
+
+        const auto derived = deriveShellTheme(pink);
+        assert(themed.styleSheet().contains(derived.selected));      // accent-derived token landed
+        assert(themed.styleSheet().contains(QStringLiteral("font-size: 14px")));
+        assert(themed.themeInputs().accent == pink.accent);
+
+        // A workspace switch rebuilds the canvas; the live theme must follow.
+        WorkspaceLayout canvasOnly;
+        canvasOnly.id = QStringLiteral("canvas_only");
+        canvasOnly.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}};
+        themed.switchWorkspaceLayout(canvasOnly);
+        assert(themed.styleSheet().contains(derived.selected));
+
+        // Round trip through the settings file into a fresh window.
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString settingsPath = tempDir.filePath(QStringLiteral("edi.toml"));
+        assert(themed.saveSettings(settingsPath));
+        EdiShellWindow reloaded;
+        assert(!reloaded.styleSheet().contains(derived.selected)); // stock theme before load
+        assert(reloaded.loadSettings(settingsPath));
+        assert(reloaded.themeInputs().accent == pink.accent);
+        assert(reloaded.themeInputs().uiFontSize == 14);
+        assert(reloaded.styleSheet().contains(derived.selected));
+    }
+
     // Title-bar chrome: frameless flag, traffic lights, panel toggles, the
     // back/forward workspace trail, and the File/Edit/Settings menus.
     {

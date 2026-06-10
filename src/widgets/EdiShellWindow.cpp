@@ -238,6 +238,15 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
     setSettingsInt(config, "window.width", width());
     setSettingsInt(config, "window.height", height());
 
+    setSettingsString(config, "theme.base", m_themeInputs.base.toStdString());
+    setSettingsString(config, "theme.surface", m_themeInputs.surface.toStdString());
+    setSettingsString(config, "theme.accent", m_themeInputs.accent.toStdString());
+    setSettingsString(config, "theme.text", m_themeInputs.text.toStdString());
+    setSettingsString(config, "theme.ui_font", m_themeInputs.uiFont.toStdString());
+    setSettingsString(config, "theme.code_font", m_themeInputs.codeFont.toStdString());
+    setSettingsInt(config, "theme.ui_font_size", m_themeInputs.uiFontSize);
+    setSettingsInt(config, "theme.code_font_size", m_themeInputs.codeFontSize);
+
     std::vector<std::string> recent;
     for (const QString &path : m_recentFiles) {
         recent.push_back(path.toStdString());
@@ -249,6 +258,24 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
 void EdiShellWindow::applySettings(const edi::formats::StaticConfig &config)
 {
     using namespace edi::io;
+
+    // Theme first, so everything below renders under the loaded palette.
+    // Fallbacks are the struct's own defaults — an absent or partial theme
+    // section degrades to the stock look, never to black-on-black.
+    {
+        const ShellThemeInputs defaults;
+        ShellThemeInputs inputs;
+        inputs.base = QString::fromStdString(settingsString(config, "theme.base", defaults.base.toStdString()));
+        inputs.surface = QString::fromStdString(settingsString(config, "theme.surface", defaults.surface.toStdString()));
+        inputs.accent = QString::fromStdString(settingsString(config, "theme.accent", defaults.accent.toStdString()));
+        inputs.text = QString::fromStdString(settingsString(config, "theme.text", defaults.text.toStdString()));
+        inputs.uiFont = QString::fromStdString(settingsString(config, "theme.ui_font", defaults.uiFont.toStdString()));
+        inputs.codeFont = QString::fromStdString(settingsString(config, "theme.code_font", defaults.codeFont.toStdString()));
+        inputs.uiFontSize = settingsInt(config, "theme.ui_font_size", defaults.uiFontSize);
+        inputs.codeFontSize = settingsInt(config, "theme.code_font_size", defaults.codeFontSize);
+        setThemeInputs(inputs);
+    }
+
     // Grid: preset first (it resets dependent fields), then the explicit values.
     m_controller->setGridPresetId(QString::fromStdString(settingsString(config, "grid.preset", "square_art_board")));
     m_controller->setGridUnitId(QString::fromStdString(settingsString(config, "grid.unit", "inch")));
@@ -316,10 +343,21 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
 
 void EdiShellWindow::applyShellStyle()
 {
-    // The palette lives in ShellTheme as data; this method only asks for the
-    // default inputs and applies the derived sheet. Custom themes later become
-    // "construct different inputs here" — no QSS edits.
-    setStyleSheet(buildShellStyleSheet(deriveShellTheme(ShellThemeInputs{})));
+    // One derivation feeds both render paths: the shell QSS and the canvas
+    // chrome palette. Restyling the whole app is resetting a string plus one
+    // struct — which is what makes live theme editing possible at all.
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
+    setStyleSheet(buildShellStyleSheet(theme));
+    if (m_draftingFeature != nullptr && m_draftingFeature->canvas() != nullptr) {
+        m_draftingFeature->canvas()->setCanvasPalette(drawing_canvas::deriveCanvasPalette(theme));
+    }
+}
+
+void EdiShellWindow::setThemeInputs(const ShellThemeInputs &inputs)
+{
+    m_themeInputs = inputs;
+    applyShellStyle();
+    scheduleSettingsSave(); // theme.* keys ride in edi.toml with everything else
 }
 
 std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
@@ -377,6 +415,7 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
 
     applyPanelSizesToSplitters();
     refreshPanelVisibility();
+    applyShellStyle(); // a freshly mounted canvas self-derives defaults; re-push the live theme
 }
 
 void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)

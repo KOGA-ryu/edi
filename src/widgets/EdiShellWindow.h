@@ -10,6 +10,7 @@
 #include "io/SettingsStore.h"
 #include "widgets/ShellHost.h"
 #include "widgets/ShellPanels.h"
+#include "widgets/ShellTheme.h"
 
 class QSplitter;
 
@@ -64,6 +65,12 @@ public:
     // onto the workspace history (the chrome's back/forward buttons).
     void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
 
+    // Live theming: the four palette inputs + fonts. Setting them re-derives
+    // the whole token set and restyles shell QSS and canvas chrome instantly;
+    // they persist as theme.* keys in edi.toml.
+    edi::shell::ShellThemeInputs themeInputs() const { return m_themeInputs; }
+    void setThemeInputs(const edi::shell::ShellThemeInputs &inputs);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -99,6 +106,7 @@ private:
     void navigateWorkspaceHistory(int delta);
 
     edi::app::AppState m_appState;
+    edi::shell::ShellThemeInputs m_themeInputs;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
     // outlives every mounted feature widget.
     edi::shell::FeatureContext m_featureContext;

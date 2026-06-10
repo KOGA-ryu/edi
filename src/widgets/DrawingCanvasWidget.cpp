@@ -66,6 +66,12 @@ void DrawingCanvasWidget::refresh()
     update();
 }
 
+void DrawingCanvasWidget::setCanvasPalette(const drawing_canvas::DrawingCanvasPalette &palette)
+{
+    m_palette = palette;
+    update();
+}
+
 void DrawingCanvasWidget::setPlotPreviewVisible(bool visible)
 {
     if (m_plotPreviewVisible == visible) {

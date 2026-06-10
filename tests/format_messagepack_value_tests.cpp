@@ -161,5 +161,18 @@ int main()
         assert(!truncated.ok);
     }
 
+    // A hostile array32 length (near 2^32) must be rejected as truncated rather
+    // than triggering a multi-GB speculative reserve / bad_alloc.
+    {
+        ByteBuffer bytes = {0xdd, 0xff, 0xff, 0xff, 0xff}; // array32 with ~4e9 elements
+        auto hostile = decodeMessagePack(bytes, "fixture");
+        assert(!hostile.ok);
+    }
+    {
+        ByteBuffer bytes = {0xdf, 0xff, 0xff, 0xff, 0xff}; // map32 with ~4e9 entries
+        auto hostile = decodeMessagePack(bytes, "fixture");
+        assert(!hostile.ok);
+    }
+
     return 0;
 }

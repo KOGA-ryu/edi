@@ -1,5 +1,6 @@
 #include "formats/MessagePackValue.h"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 
@@ -209,10 +210,20 @@ struct Cursor {
 
 MsgPackValue decodeValue(Cursor &c);
 
+// A declared length can be attacker-controlled (up to 2^32-1 for array32/map32)
+// in a corrupt buffer; every element needs at least one byte, so the real count
+// can never exceed the bytes left. Cap the reserve to avoid a huge speculative
+// allocation — the bounded loop still rejects truncation via c.ok.
+std::size_t cappedReserve(const Cursor &c, std::size_t n)
+{
+    const std::size_t remaining = c.pos <= c.bytes.size() ? c.bytes.size() - c.pos : 0;
+    return std::min(n, remaining);
+}
+
 MsgPackValue decodeArray(Cursor &c, std::size_t n)
 {
     std::vector<MsgPackValue> items;
-    items.reserve(n);
+    items.reserve(cappedReserve(c, n));
     for (std::size_t i = 0; i < n && c.ok; ++i) {
         items.push_back(decodeValue(c));
     }
@@ -222,7 +233,7 @@ MsgPackValue decodeArray(Cursor &c, std::size_t n)
 MsgPackValue decodeMap(Cursor &c, std::size_t n)
 {
     std::vector<std::pair<std::string, MsgPackValue>> entries;
-    entries.reserve(n);
+    entries.reserve(cappedReserve(c, n));
     for (std::size_t i = 0; i < n && c.ok; ++i) {
         const std::uint8_t keyTag = c.u8();
         std::string key;

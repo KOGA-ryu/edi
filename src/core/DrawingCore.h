@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <optional>
+#include <vector>
 
 class DrawingDocumentController final : public QObject {
     Q_OBJECT
@@ -142,6 +143,7 @@ private:
         const QString &idPrefix,
         const std::function<std::optional<edi::drafting::DraftingObject>(
             const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
+    bool createObjectsAndSelect(const std::vector<edi::drafting::DraftingObject> &objects);
 
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;

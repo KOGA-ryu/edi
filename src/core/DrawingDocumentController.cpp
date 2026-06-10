@@ -1263,9 +1263,14 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
         return false;
     }
 
+    return createObjectsAndSelect(repeat.objects);
+}
+
+bool DrawingDocumentController::createObjectsAndSelect(const std::vector<DraftingObject> &objects)
+{
     std::vector<DraftingObjectId> selectedIds;
-    selectedIds.reserve(repeat.objects.size());
-    for (const DraftingObject &object : repeat.objects) {
+    selectedIds.reserve(objects.size());
+    for (const DraftingObject &object : objects) {
         const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
         if (!create.ok) {
             return false;
@@ -1325,18 +1330,7 @@ bool DrawingDocumentController::createCalibrationPattern(const QString &patternI
         return false;
     }
 
-    std::vector<DraftingObjectId> selectedIds;
-    selectedIds.reserve(pattern.objects.size());
-    for (const DraftingObject &object : pattern.objects) {
-        const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
-        if (!create.ok) {
-            return false;
-        }
-        selectedIds.push_back(object.id);
-    }
-    applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
-    emit modelChanged();
-    return true;
+    return createObjectsAndSelect(pattern.objects);
 }
 
 bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValue)

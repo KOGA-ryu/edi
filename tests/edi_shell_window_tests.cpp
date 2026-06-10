@@ -9,6 +9,7 @@
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QString>
 #include <QTemporaryDir>
 #include <QUrl>
@@ -403,6 +404,15 @@ int main(int argc, char **argv)
         redoButton->click();
         assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == afterCreate);
         assert(!redoButton->isEnabled());
+    }
+
+    // Tool Options: the Sides spin drives the controller's polygon side count.
+    {
+        auto *sidesSpin = window.findChild<QSpinBox *>(QStringLiteral("polygonSidesSpin"));
+        assert(sidesSpin != nullptr);
+        assert(sidesSpin->value() == controller->polygonSides());
+        sidesSpin->setValue(8);
+        assert(controller->polygonSides() == 8);
     }
 
     return 0;

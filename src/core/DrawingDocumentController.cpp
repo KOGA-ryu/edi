@@ -689,6 +689,16 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     emit modelChanged();
 }
 
+void DrawingDocumentController::setPolygonSides(int sides)
+{
+    m_polygonSides = std::clamp(sides, 3, 24);
+}
+
+int DrawingDocumentController::polygonSides() const
+{
+    return m_polygonSides;
+}
+
 void DrawingDocumentController::setSnapFlag(bool DraftingSnapSettings::*flag, bool enabled)
 {
     if (m_snapSettings.*flag == enabled) {
@@ -1732,6 +1742,9 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     if (!m_pendingCreation) {
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
+        // Carry tool-option state into the pending request so the second click
+        // and the live preview build with the chosen polygon side count.
+        m_pendingCreation->polygonSides = m_polygonSides;
         m_previewObject.reset();
         commitEdit();
         emit modelChanged();

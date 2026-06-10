@@ -56,6 +56,8 @@ public:
     QString plotOrderModeId() const;
     QString plotDirectionModeId() const;
     void setSelectedToolId(const QString &toolId);
+    void setPolygonSides(int sides);
+    int polygonSides() const;
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
     void setEndpointSnapEnabled(bool enabled);
@@ -185,6 +187,7 @@ private:
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
 
     QString m_selectedToolId = QStringLiteral("select_move");
+    int m_polygonSides = 6;
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;

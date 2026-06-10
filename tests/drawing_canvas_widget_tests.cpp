@@ -210,5 +210,20 @@ int main(int argc, char **argv)
         assert(keyController.selectedObjectId() == dupId);
     }
 
+    // Two-click polygon creation honours the controller's side count. A fresh
+    // controller/canvas keeps the board at zoom 1 so screenPointFor lines up.
+    {
+        DrawingDocumentController polyController;
+        DrawingCanvasWidget polyCanvas(&polyController);
+        polyCanvas.resize(600, 450);
+        polyController.setPolygonSides(5);
+        polyController.setSelectedToolId(QStringLiteral("regular_polygon_tool"));
+        clickCanvas(polyController, polyCanvas, 0.5, 0.5); // centre
+        clickCanvas(polyController, polyCanvas, 0.7, 0.5); // radius point
+        const QVariantMap polygon = activeObject(polyController);
+        assert(polygon.value(QStringLiteral("kind")).toString() == QStringLiteral("polygon"));
+        assert(polygon.value(QStringLiteral("points")).toList().size() == 5);
+    }
+
     return 0;
 }

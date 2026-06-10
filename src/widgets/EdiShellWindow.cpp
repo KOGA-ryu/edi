@@ -622,6 +622,7 @@ QWidget *EdiShellWindow::buildLeftPanel()
         {QStringLiteral("line_tool"), QStringLiteral("Line")},
         {QStringLiteral("rectangle_tool"), QStringLiteral("Rectangle")},
         {QStringLiteral("circle_tool"), QStringLiteral("Circle")},
+        {QStringLiteral("regular_polygon_tool"), QStringLiteral("Polygon")},
         {QStringLiteral("horizontal_guide_tool"), QStringLiteral("H Guide")},
         {QStringLiteral("vertical_guide_tool"), QStringLiteral("V Guide")},
         {QStringLiteral("horizontal_construction_line_tool"), QStringLiteral("H Construct")},
@@ -641,6 +642,24 @@ QWidget *EdiShellWindow::buildLeftPanel()
     connect(m_toolGroup, &QButtonGroup::buttonClicked, m_controller, [this](QAbstractButton *button) {
         m_controller->setSelectedToolId(button->property("toolId").toString());
     });
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Tool Options")));
+    {
+        auto *sidesRow = new QWidget;
+        auto *sidesLayout = new QHBoxLayout(sidesRow);
+        clearLayoutMargins(sidesLayout);
+        sidesLayout->setSpacing(6);
+        sidesLayout->addWidget(new QLabel(QStringLiteral("Sides")));
+        m_polygonSidesSpin = new QSpinBox;
+        m_polygonSidesSpin->setObjectName(QStringLiteral("polygonSidesSpin"));
+        m_polygonSidesSpin->setRange(3, 24);
+        m_polygonSidesSpin->setValue(m_controller->polygonSides());
+        connect(m_polygonSidesSpin, &QSpinBox::valueChanged, m_controller, [this](int sides) {
+            m_controller->setPolygonSides(sides);
+        });
+        sidesLayout->addWidget(m_polygonSidesSpin, 1);
+        layout->addWidget(sidesRow);
+    }
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {

@@ -102,6 +102,7 @@ private:
     DrawingCanvasWidget *m_canvas = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
     QButtonGroup *m_toolGroup = nullptr;
+    QSpinBox *m_polygonSidesSpin = nullptr;
     QComboBox *m_gridPreset = nullptr;
     QComboBox *m_gridUnit = nullptr;
     QDoubleSpinBox *m_gridWidth = nullptr;

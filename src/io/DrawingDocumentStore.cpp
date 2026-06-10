@@ -40,15 +40,15 @@ QVariantMap DrawingDocumentStore::open(const QUrl &url) const
     };
 }
 
-QVariantMap DrawingDocumentStore::exportSvg(const QUrl &url, const QString &svg) const
+QVariantMap DrawingDocumentStore::exportText(const QUrl &url, const QString &text) const
 {
     const QString path = localPath(url);
     if (path.isEmpty()) {
         return {{QStringLiteral("ok"), false}, {QStringLiteral("message"), QStringLiteral("path missing")}};
     }
     return {
-        {QStringLiteral("ok"), writeTextFile(path, svg)},
-        {QStringLiteral("message"), QStringLiteral("svg export attempted")},
+        {QStringLiteral("ok"), writeTextFile(path, text)},
+        {QStringLiteral("message"), QStringLiteral("text export attempted")},
     };
 }
 

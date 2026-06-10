@@ -35,6 +35,8 @@ public:
     QVariantMap modelDocument() const;
     bool saveDocument(const QUrl &url);
     bool openDocument(const QUrl &url);
+    bool exportSvgDocument(const QUrl &url);
+    bool exportHpglDocument(const QUrl &url);
     bool undo();
     bool redo();
     bool canUndo() const;

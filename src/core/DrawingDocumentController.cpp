@@ -21,9 +21,11 @@
 #include "drafting/DraftingPlotJob.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingQuickMeasure.h"
+#include "drafting/DraftingHpglOut.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSerialize.h"
 #include "drafting/DraftingSnap.h"
+#include "drafting/DraftingSvgOut.h"
 #include "drafting/DraftingToolCreation.h"
 
 #include <QByteArray>
@@ -594,6 +596,24 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     m_redoStack.clear();
     emit modelChanged();
     return true;
+}
+
+bool DrawingDocumentController::exportSvgDocument(const QUrl &url)
+{
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const DraftingPlotJob job = buildDraftingPlotJob(m_document, grid, m_plotSettings);
+    const std::string svg = svgFromPlotJob(job, grid);
+    const QVariantMap result = m_store.exportText(url, drawing_core::qStringFromStdString(svg));
+    return result.value(QStringLiteral("ok")).toBool();
+}
+
+bool DrawingDocumentController::exportHpglDocument(const QUrl &url)
+{
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const DraftingPlotJob job = buildDraftingPlotJob(m_document, grid, m_plotSettings);
+    const std::string hpgl = hpglFromPlotJob(job, grid);
+    const QVariantMap result = m_store.exportText(url, drawing_core::qStringFromStdString(hpgl));
+    return result.value(QStringLiteral("ok")).toBool();
 }
 
 QString DrawingDocumentController::selectedToolId() const

@@ -562,6 +562,42 @@ void EdiShellWindow::promptOpenDrawing()
     openDrawingFromPath(path);
 }
 
+bool EdiShellWindow::exportSvgToPath(const QString &path)
+{
+    return !path.isEmpty() && m_controller->exportSvgDocument(QUrl::fromLocalFile(path));
+}
+
+bool EdiShellWindow::exportHpglToPath(const QString &path)
+{
+    return !path.isEmpty() && m_controller->exportHpglDocument(QUrl::fromLocalFile(path));
+}
+
+void EdiShellWindow::promptExportSvg()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export SVG"), QString(), QStringLiteral("SVG (*.svg)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".svg"))) {
+        path += QStringLiteral(".svg");
+    }
+    exportSvgToPath(path);
+}
+
+void EdiShellWindow::promptExportHpgl()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export HPGL"), QString(), QStringLiteral("HPGL (*.hpgl)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".hpgl"))) {
+        path += QStringLiteral(".hpgl");
+    }
+    exportHpglToPath(path);
+}
+
 QWidget *EdiShellWindow::buildActivityRail()
 {
     auto *rail = makeRegionFrame(QStringLiteral("activityRail"));
@@ -820,6 +856,12 @@ QWidget *EdiShellWindow::buildLeftPanel()
     }));
     layout->addWidget(makeActionButton(QStringLiteral("saveDrawingAsButton"), QStringLiteral("Save As…"), [this]() {
         promptSaveDrawingAs();
+    }));
+    layout->addWidget(makeActionButton(QStringLiteral("exportSvgButton"), QStringLiteral("Export SVG…"), [this]() {
+        promptExportSvg();
+    }));
+    layout->addWidget(makeActionButton(QStringLiteral("exportHpglButton"), QStringLiteral("Export HPGL…"), [this]() {
+        promptExportHpgl();
     }));
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Next Surfaces")));

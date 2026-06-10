@@ -15,7 +15,7 @@ public:
     // open() returns {ok, bytes (QByteArray), message}.
     QVariantMap save(const QUrl &url, const QByteArray &bytes) const;
     QVariantMap open(const QUrl &url) const;
-    QVariantMap exportSvg(const QUrl &url, const QString &svg) const;
+    QVariantMap exportText(const QUrl &url, const QString &text) const;
 
 private:
     static QString localPath(const QUrl &url);

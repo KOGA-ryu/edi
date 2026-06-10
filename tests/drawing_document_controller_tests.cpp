@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QStringList>
+#include <QFile>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QVariantList>
@@ -2673,6 +2674,32 @@ int main(int argc, char **argv)
         const QUrl missing = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("nope.edidraw")));
         assert(!openController.openDocument(missing));
         assert(openController.modelDocument().value("drawing_objects").toList().size() == 3);
+    }
+
+    // SVG / HPGL export write files whose contents start with the right markers.
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        DrawingDocumentController exportController;
+        exportController.setSelectedToolId("line_tool");
+        exportController.clickCanvasNormalized(0.1, 0.1);
+        exportController.clickCanvasNormalized(0.9, 0.9);
+
+        const QString svgPath = tempDir.filePath(QStringLiteral("out.svg"));
+        assert(exportController.exportSvgDocument(QUrl::fromLocalFile(svgPath)));
+        QFile svgFile(svgPath);
+        assert(svgFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        const QString svg = QString::fromUtf8(svgFile.readAll());
+        assert(svg.startsWith(QStringLiteral("<svg")));
+        assert(svg.contains(QStringLiteral("<path")));
+
+        const QString hpglPath = tempDir.filePath(QStringLiteral("out.hpgl"));
+        assert(exportController.exportHpglDocument(QUrl::fromLocalFile(hpglPath)));
+        QFile hpglFile(hpglPath);
+        assert(hpglFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        const QString hpgl = QString::fromUtf8(hpglFile.readAll());
+        assert(hpgl.startsWith(QStringLiteral("IN;")));
+        assert(hpgl.contains(QStringLiteral("PD")));
     }
 
     // Undo/redo.

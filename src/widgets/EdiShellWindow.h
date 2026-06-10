@@ -36,6 +36,8 @@ public:
     // QFileDialog; tests drive them directly to avoid modal dialogs).
     bool saveDrawingToPath(const QString &path);
     bool openDrawingFromPath(const QString &path);
+    bool exportSvgToPath(const QString &path);
+    bool exportHpglToPath(const QString &path);
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
 
@@ -46,6 +48,8 @@ private:
     void promptSaveDrawing();
     void promptSaveDrawingAs();
     void promptOpenDrawing();
+    void promptExportSvg();
+    void promptExportHpgl();
     void updateWindowTitle();
     int currentDocumentRevision() const;
 

@@ -11,6 +11,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QString>
+#include <QFile>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QVariantList>
@@ -413,6 +414,25 @@ int main(int argc, char **argv)
         assert(sidesSpin->value() == controller->polygonSides());
         sidesSpin->setValue(8);
         assert(controller->polygonSides() == 8);
+    }
+
+    // Export buttons exist and the path seams write SVG / HPGL files.
+    {
+        assert(buttonNamed(window, QStringLiteral("exportSvgButton")) != nullptr);
+        assert(buttonNamed(window, QStringLiteral("exportHpglButton")) != nullptr);
+
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.2, 0.2);
+        controller->clickCanvasNormalized(0.8, 0.8);
+
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString svgPath = tempDir.filePath(QStringLiteral("shell.svg"));
+        const QString hpglPath = tempDir.filePath(QStringLiteral("shell.hpgl"));
+        assert(window.exportSvgToPath(svgPath));
+        assert(window.exportHpglToPath(hpglPath));
+        assert(QFile::exists(svgPath));
+        assert(QFile::exists(hpglPath));
     }
 
     return 0;

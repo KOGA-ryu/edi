@@ -30,6 +30,7 @@ bool isTwoClickCreationTool(const QString &toolId)
         QStringLiteral("line_tool"),
         QStringLiteral("rectangle_tool"),
         QStringLiteral("circle_tool"),
+        QStringLiteral("angled_construction_line_tool"),
         QStringLiteral("distance_dimension_tool"),
         QStringLiteral("width_dimension_tool"),
         QStringLiteral("height_dimension_tool"),

@@ -1033,8 +1033,9 @@ int main(int argc, char **argv)
         assert(reloaded.styleSheet().contains(derived.selected));
     }
 
-    // The settings workspace: the rail's Settings button switches layouts to
-    // a second feature, and the theme page's controls re-theme the app live.
+    // F5 — the settings pop-out: the rail's S button opens a modeless tool
+    // window over the canvas (theme edits stay live-visible); the drafting
+    // workspace never unmounts.
     {
         using edi::shell::ShellThemeInputs;
         using edi::shell::deriveShellTheme;
@@ -1052,11 +1053,15 @@ int main(int argc, char **argv)
         assert(settingsRail != nullptr && settingsRail->isEnabled());
         settingsRail->click();
 
-        // Drafting slots are gone; the settings page owns Main.
-        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) == nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        // The drafting job stays mounted; the settings page floats above it.
+        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        QWidget *popOut = shell.findChild<QWidget *>(QStringLiteral("settingsWindow"));
+        assert(popOut != nullptr && popOut->isVisible());
         QWidget *page = shell.findChild<QWidget *>(QStringLiteral("settingsPanel"));
-        assert(page != nullptr);
+        assert(page != nullptr && popOut->isAncestorOf(page));
+        // The rail check stays on the mounted workspace, not on S.
+        assert(!settingsRail->isChecked());
 
         // Typing a valid accent hex re-themes the window immediately; a
         // half-typed value is ignored.
@@ -1077,18 +1082,13 @@ int main(int argc, char **argv)
         assert(shell.themeInputs().uiFontSize == 15);
         assert(shell.styleSheet().contains(QStringLiteral("font-size: 15px")));
 
-        // The drafting rail button returns to the drafting job, theme intact.
-        QPushButton *draftingRail = nullptr;
-        for (QPushButton *button : shell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
-            if (button->property("modeId").toString() == QStringLiteral("drafting")) {
-                draftingRail = button;
-            }
-        }
-        assert(draftingRail != nullptr);
-        draftingRail->click();
-        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) == nullptr);
+        // Closing the pop-out hides it; the theme survives, and reopening
+        // through the rail brings the same frame back.
+        popOut->close();
+        assert(!popOut->isVisible());
         assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        settingsRail->click();
+        assert(popOut->isVisible());
 
         // Profiles: snapshot the current theme under a name via the page's
         // save button, scramble, then load the snapshot back.
@@ -1096,7 +1096,16 @@ int main(int argc, char **argv)
         assert(profileDir.isValid());
         shell.setProfilesDirectory(profileDir.path());
 
-        settingsRail->click(); // fresh page built with the profile hooks
+        // Switch workspaces (away and back) so the page rebuilds with the
+        // profile hooks now that the profiles directory is set — the pop-out
+        // frame and its visibility survive the remount.
+        edi::shell::WorkspaceLayout reset;
+        reset.id = QStringLiteral("blank");
+        reset.label = QStringLiteral("Blank");
+        reset.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("drafting")}};
+        shell.switchWorkspaceLayout(reset);
+        assert(shell.findChild<QWidget *>(QStringLiteral("settingsWindow"))->isVisible());
+        assert(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) != nullptr);
         auto *nameField = shell.findChild<QLineEdit *>(QStringLiteral("profileNameField"));
         auto *saveProfile = shell.findChild<QPushButton *>(QStringLiteral("saveProfileButton"));
         auto *profileCombo = shell.findChild<QComboBox *>(QStringLiteral("profileCombo"));

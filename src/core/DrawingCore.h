@@ -155,6 +155,15 @@ public:
     bool finishPendingPolyline();
     bool deleteSelectedObject();
     bool duplicateSelectedObject();
+    // N1 copy/cut/paste. Copy snapshots the current selection into an
+    // in-process clipboard (no document change); cut copies then deletes the
+    // selection as one undo step; paste creates fresh-id, offset clones of the
+    // clipboard, selects them, as one undo step. canPaste gates menu/shortcut
+    // state. The clipboard outlives any single selection but not the process.
+    bool copySelection();
+    bool cutSelection();
+    bool paste();
+    bool canPaste() const;
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -215,6 +224,9 @@ private:
 
     QString m_selectedToolId = QStringLiteral("select_move");
     int m_polygonSides = 6;
+    // In-process copy/paste buffer (N1): plain object snapshots, never
+    // serialized — copy is "remember these", not a persisted format.
+    std::vector<edi::drafting::DraftingObject> m_clipboard;
     edi::drafting::DraftingDocument m_document;
     edi::drafting::DraftingGridSettings m_gridSettings;
     edi::drafting::DraftingSnapSettings m_snapSettings;

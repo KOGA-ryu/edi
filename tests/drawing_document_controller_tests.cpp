@@ -4,6 +4,7 @@
 #include "drafting/DraftingDocument.h"
 
 #include <QCoreApplication>
+#include <QSet>
 #include <QStringList>
 #include <QFile>
 #include <QTemporaryDir>
@@ -2967,6 +2968,78 @@ int main(int argc, char **argv)
         polyController.setSelectedToolId("select_move");
         polyController.clickCanvasNormalized(0.35, 0.25);
         assert(polyController.selectedObjectId() == polyline.value("id").toString());
+    }
+
+    // N1 copy/cut/paste.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value("drawing_objects").toList().size();
+        };
+
+        DrawingDocumentController clip;
+        clip.setSelectedToolId("point_tool");
+        clip.clickCanvasNormalized(0.3, 0.3);
+        clip.clickCanvasNormalized(0.6, 0.6);
+        assert(objectCount(clip) == 2);
+
+        // Copy with nothing selected is a no-op (clear the click selection
+        // with an empty marquee first).
+        clip.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
+        assert(!clip.copySelection());
+        assert(!clip.canPaste());
+
+        // Marquee-select both points, copy, paste: two fresh objects appear,
+        // the originals stay, and the pasted pair is what's now selected.
+        clip.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(clip.copySelection());
+        assert(clip.canPaste());
+        const int beforePaste = objectCount(clip);
+        assert(clip.paste());
+        assert(objectCount(clip) == beforePaste + 2);
+        assert(clip.modelDocument().value("selected_object_ids").toList().size() == 2);
+
+        // Every object id in the document is unique after the paste.
+        {
+            const QVariantList objects = clip.modelDocument().value("drawing_objects").toList();
+            QSet<QString> ids;
+            for (const QVariant &value : objects) {
+                ids.insert(value.toMap().value("id").toString());
+            }
+            assert(ids.size() == objects.size());
+        }
+
+        // Paste is exactly one undo step (not one per pasted object).
+        clip.undo();
+        assert(objectCount(clip) == beforePaste);
+        clip.redo();
+        assert(objectCount(clip) == beforePaste + 2);
+
+        // The clipboard survives selection changes: clear the selection, paste
+        // again — still pastes BOTH copied points.
+        clip.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
+        const int beforeSecond = objectCount(clip);
+        assert(clip.paste());
+        assert(objectCount(clip) == beforeSecond + 2);
+
+        // Cut: copies then removes the selection as one undo step.
+        DrawingDocumentController cutter;
+        cutter.setSelectedToolId("point_tool");
+        cutter.clickCanvasNormalized(0.4, 0.4);
+        cutter.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(cutter.cutSelection());
+        assert(objectCount(cutter) == 0); // cut removed it
+        assert(cutter.canPaste());
+        cutter.undo();                    // the cut's delete is one undo step
+        assert(objectCount(cutter) == 1);
+        cutter.redo();
+        assert(objectCount(cutter) == 0);
+        assert(cutter.paste());           // the cut clipboard still pastes
+        assert(objectCount(cutter) == 1);
+
+        // Empty clipboard pastes nothing.
+        DrawingDocumentController fresh;
+        assert(!fresh.canPaste());
+        assert(!fresh.paste());
     }
 
     return 0;

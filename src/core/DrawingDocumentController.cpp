@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingCalibration.h"
+#include "drafting/DraftingClipboard.h"
 #include "drafting/DraftingConstructionOps.h"
 #include "drafting/DraftingDimensionOps.h"
 #include "drafting/DraftingGeometry.h"
@@ -1915,6 +1916,75 @@ bool DrawingDocumentController::duplicateSelectedObject()
             copy.bounds = computeBounds(copy.geometry);
             return copy;
         });
+}
+
+bool DrawingDocumentController::copySelection()
+{
+    // Snapshot in DOCUMENT order, not selection order: paste then recreates
+    // objects in the same z-order they had, so a copied group keeps its
+    // stacking. Copy never mutates the document — no beginEdit, no signal,
+    // no undo entry (copying is not an edit).
+    std::vector<DraftingObject> snapshot;
+    for (const DraftingObject &object : m_document.objects) {
+        if (std::find(m_document.selectedObjectIds.begin(), m_document.selectedObjectIds.end(), object.id)
+            != m_document.selectedObjectIds.end()) {
+            snapshot.push_back(object);
+        }
+    }
+    if (snapshot.empty()) {
+        return false; // nothing selected: leave the clipboard untouched
+    }
+    m_clipboard = std::move(snapshot);
+    return true;
+}
+
+bool DrawingDocumentController::cutSelection()
+{
+    // Copy first (fills the clipboard), then delete the same ids as ONE undo
+    // step. Capture the ids up front: deleting mutates selectedObjectIds, so
+    // iterating it live would skip objects.
+    if (!copySelection()) {
+        return false;
+    }
+    const std::vector<DraftingObjectId> ids = m_document.selectedObjectIds;
+    beginEdit();
+    for (const DraftingObjectId &id : ids) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{id});
+    }
+    commitEdit();
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::paste()
+{
+    if (m_clipboard.empty()) {
+        return false;
+    }
+    // The pure planner mints the ids and offsets the geometry; the controller
+    // only applies the result and threads its serial counter through.
+    const DraftingPasteResult plan = planDraftingPaste(
+        m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
+    m_nextObjectSerial = plan.nextSerial;
+
+    beginEdit();
+    std::vector<DraftingObjectId> newIds;
+    newIds.reserve(plan.objects.size());
+    for (const DraftingObject &object : plan.objects) {
+        if (applyDraftingCommand(m_document, CreateObjectCommand{object}).ok) {
+            newIds.push_back(object.id);
+        }
+    }
+    // Select exactly the pasted objects, so the next move/nudge acts on them.
+    applyDraftingCommand(m_document, SelectObjectsCommand{newIds});
+    commitEdit();
+    emit modelChanged();
+    return !newIds.empty();
+}
+
+bool DrawingDocumentController::canPaste() const
+{
+    return !m_clipboard.empty();
 }
 
 void DrawingDocumentController::updateCreationPreviewNormalized(double x, double y)

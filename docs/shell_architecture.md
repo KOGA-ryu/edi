@@ -178,6 +178,39 @@ ASCII render in **Bottom** ("the terminal"), scripts + script formatting in
 
 ## The Figma restructure (F-backlog — supersedes H6's component pass)
 
+**STATUS: COMPLETE (2026-06-10).** All six F-items plus three user feedback
+rounds shipped. What was actually built (where it diverged from or extended
+the plan below):
+
+- F1 object list, F2 contextual inspector (plan table in
+  `src/drafting/DraftingInspectorPlan.*`; interim "document" context under
+  the select tool holds layers/guides/calibration/plot until they get homes).
+- F3 belt, reshaped by user feedback: model is **one row per tool, the
+  row's cells its sub-features** (10×6 default, derived from the tool spec
+  table in `DraftingFeaturePanels.cpp`). The widget is a **carousel**: only
+  the active row renders full-size, neighbour tools peek at half a cell
+  above/below, wheel steps once per 120-unit notch, navigation skips empty
+  cells. **Row pinning**: a "+" nub freezes the live row into a stacked
+  always-clickable quick bar with its own "×" kill nub; pins never touch the
+  selection and are NOT persisted (flagged — would join the belt in TOML).
+  Pure ops: `src/widgets/BeltState.*`; widget: `BeltCrossWidget.*`.
+- F4 floating palettes (`FloatingPalette` + `buildPalettes` registry seam;
+  chromeless: transparent frame, 10×28 grab nub). The belt is palette
+  "tool_belt"; placements persist as `palette.N.*` in workspace.toml.
+- Post-F4 chrome work (user direction): snap/grid controls moved to a
+  title-bar "Snap" popup via a third registry seam `buildChromePanels`;
+  left panel reduced to the object list (undo/redo → Edit menu with live
+  enabled-state, project files → File menu + Open Recent submenu).
+- F5 settings pop-out (window-owned Qt::Tool frame, content rebuilt per
+  mount, deleted before the feature instance retires). The settings
+  WorkspaceLayout is gone; the rail's S opens the window.
+- F6 settings pages as a table (strip + QStackedWidget) and the Tool Belt
+  checklist page: three hooks (toolInventory / beltToolIds / setBeltToolIds),
+  edits re-dress the live belt in place — a remount would delete the
+  checkbox handler mid-click.
+
+Original plan (kept for the reasoning record):
+
 User direction (2026-06-10): navigate left, work center, configure right,
 tools float.
 

@@ -5,6 +5,8 @@
 #include <QString>
 #include <QVariantMap>
 
+#include <functional>
+
 #include "app/AppState.h"
 
 class QAbstractButton;
@@ -45,6 +47,7 @@ private:
     QWidget *buildMirrorControls();
     QWidget *buildRepeatControls();
     QWidget *buildCalibrationControls();
+    QPushButton *makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action);
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;

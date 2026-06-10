@@ -684,39 +684,27 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectMeasurementValue);
     layout->addWidget(m_objectPlotSafetyValue);
     layout->addWidget(m_selectionPlotBoundsValue);
-    m_fitSelectionToDrawableButton = new QPushButton(QStringLiteral("Fit To Drawable"));
-    m_fitSelectionToDrawableButton->setObjectName(QStringLiteral("fitToDrawableButton"));
-    connect(m_fitSelectionToDrawableButton, &QPushButton::clicked, this, [this]() {
+    m_fitSelectionToDrawableButton = makeActionButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), [this]() {
         m_controller->fitSelectionToDrawableBounds();
     });
     layout->addWidget(m_fitSelectionToDrawableButton);
-    m_centerSelectionInDrawableButton = new QPushButton(QStringLiteral("Center In Drawable"));
-    m_centerSelectionInDrawableButton->setObjectName(QStringLiteral("centerInDrawableButton"));
-    connect(m_centerSelectionInDrawableButton, &QPushButton::clicked, this, [this]() {
+    m_centerSelectionInDrawableButton = makeActionButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), [this]() {
         m_controller->centerSelectionInDrawable();
     });
     layout->addWidget(m_centerSelectionInDrawableButton);
-    m_moveSelectionToDrawableOriginButton = new QPushButton(QStringLiteral("Move To Drawable Origin"));
-    m_moveSelectionToDrawableOriginButton->setObjectName(QStringLiteral("moveToDrawableOriginButton"));
-    connect(m_moveSelectionToDrawableOriginButton, &QPushButton::clicked, this, [this]() {
+    m_moveSelectionToDrawableOriginButton = makeActionButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), [this]() {
         m_controller->moveSelectionToDrawableOrigin();
     });
     layout->addWidget(m_moveSelectionToDrawableOriginButton);
-    m_moveGuideToDrawableOriginButton = new QPushButton(QStringLiteral("Guide To Drawable Origin"));
-    m_moveGuideToDrawableOriginButton->setObjectName(QStringLiteral("guideToDrawableOriginButton"));
-    connect(m_moveGuideToDrawableOriginButton, &QPushButton::clicked, this, [this]() {
+    m_moveGuideToDrawableOriginButton = makeActionButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), [this]() {
         m_controller->moveSelectedGuideToDrawableOrigin();
     });
     layout->addWidget(m_moveGuideToDrawableOriginButton);
-    m_centerGuideInDrawableButton = new QPushButton(QStringLiteral("Center Guide"));
-    m_centerGuideInDrawableButton->setObjectName(QStringLiteral("centerGuideButton"));
-    connect(m_centerGuideInDrawableButton, &QPushButton::clicked, this, [this]() {
+    m_centerGuideInDrawableButton = makeActionButton(QStringLiteral("centerGuideButton"), QStringLiteral("Center Guide"), [this]() {
         m_controller->centerSelectedGuideInDrawable();
     });
     layout->addWidget(m_centerGuideInDrawableButton);
-    m_moveGuideToDrawableMaxButton = new QPushButton(QStringLiteral("Guide To Drawable Max"));
-    m_moveGuideToDrawableMaxButton->setObjectName(QStringLiteral("guideToDrawableMaxButton"));
-    connect(m_moveGuideToDrawableMaxButton, &QPushButton::clicked, this, [this]() {
+    m_moveGuideToDrawableMaxButton = makeActionButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), [this]() {
         m_controller->moveSelectedGuideToDrawableMax();
     });
     layout->addWidget(m_moveGuideToDrawableMaxButton);
@@ -729,10 +717,8 @@ QWidget *EdiShellWindow::buildRightPanel()
         {QStringLiteral("positive_coarse"), QStringLiteral("Guide + Coarse")},
     };
     for (const auto &buttonSpec : guideOffsetButtons) {
-        auto *button = new QPushButton(buttonSpec.second);
-        button->setObjectName(QStringLiteral("guideOffset_%1").arg(buttonSpec.first));
         const QStringList parts = buttonSpec.first.split(QLatin1Char('_'));
-        connect(button, &QPushButton::clicked, this, [this, direction = parts.value(0), stepMode = parts.value(1)]() {
+        auto *button = makeActionButton(QStringLiteral("guideOffset_%1").arg(buttonSpec.first), buttonSpec.second, [this, direction = parts.value(0), stepMode = parts.value(1)]() {
             m_controller->offsetSelectedGuide(direction, stepMode);
         });
         m_guideOffsetButtons.insert(buttonSpec.first, button);
@@ -747,16 +733,12 @@ QWidget *EdiShellWindow::buildRightPanel()
         {QStringLiteral("margin_safe"), QStringLiteral("Preset Margin Safe")},
     };
     for (const auto &buttonSpec : guidePresetButtons) {
-        auto *button = new QPushButton(buttonSpec.second);
-        button->setObjectName(QStringLiteral("guidePreset_%1").arg(buttonSpec.first));
-        connect(button, &QPushButton::clicked, this, [this, presetId = buttonSpec.first]() {
+        auto *button = makeActionButton(QStringLiteral("guidePreset_%1").arg(buttonSpec.first), buttonSpec.second, [this, presetId = buttonSpec.first]() {
             m_controller->applyGuidePreset(presetId);
         });
         layout->addWidget(button);
     }
-    m_fitConstructionToDrawableButton = new QPushButton(QStringLiteral("Fit Construction To Drawable"));
-    m_fitConstructionToDrawableButton->setObjectName(QStringLiteral("fitConstructionToDrawableButton"));
-    connect(m_fitConstructionToDrawableButton, &QPushButton::clicked, this, [this]() {
+    m_fitConstructionToDrawableButton = makeActionButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), [this]() {
         m_controller->fitSelectedConstructionLineToDrawable();
     });
     layout->addWidget(m_fitConstructionToDrawableButton);
@@ -770,9 +752,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         {QStringLiteral("horizontal_center"), QStringLiteral("Guide H Center")},
     };
     for (const auto &buttonSpec : boundsGuideButtons) {
-        auto *button = new QPushButton(buttonSpec.second);
-        button->setObjectName(QStringLiteral("boundsGuide_%1").arg(buttonSpec.first));
-        connect(button, &QPushButton::clicked, this, [this, placementId = buttonSpec.first]() {
+        auto *button = makeActionButton(QStringLiteral("boundsGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
             m_controller->createGuideFromSelectedBounds(placementId);
         });
         m_boundsGuideButtons.insert(buttonSpec.first, button);
@@ -786,9 +766,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         {QStringLiteral("bottom"), QStringLiteral("Offset H Bottom")},
     };
     for (const auto &buttonSpec : offsetGuideButtons) {
-        auto *button = new QPushButton(buttonSpec.second);
-        button->setObjectName(QStringLiteral("offsetGuide_%1").arg(buttonSpec.first));
-        connect(button, &QPushButton::clicked, this, [this, placementId = buttonSpec.first]() {
+        auto *button = makeActionButton(QStringLiteral("offsetGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
             m_controller->createOffsetGuideFromSelectedBounds(placementId, QStringLiteral("grid"));
         });
         m_offsetGuideButtons.insert(buttonSpec.first, button);
@@ -804,54 +782,38 @@ QWidget *EdiShellWindow::buildRightPanel()
         {QStringLiteral("bottom"), QStringLiteral("To H Guide Bottom")},
     };
     for (const auto &buttonSpec : alignToGuideButtons) {
-        auto *button = new QPushButton(buttonSpec.second);
-        button->setObjectName(QStringLiteral("alignToGuide_%1").arg(buttonSpec.first));
-        connect(button, &QPushButton::clicked, this, [this, modeId = buttonSpec.first]() {
+        auto *button = makeActionButton(QStringLiteral("alignToGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, modeId = buttonSpec.first]() {
             m_controller->alignSelectionToNearestGuide(modeId);
         });
         m_alignToGuideButtons.insert(buttonSpec.first, button);
         layout->addWidget(button);
     }
     layout->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
-    m_deleteSelectedGuideButton = new QPushButton(QStringLiteral("Delete Selected Guide"));
-    m_deleteSelectedGuideButton->setObjectName(QStringLiteral("deleteSelectedGuideButton"));
-    connect(m_deleteSelectedGuideButton, &QPushButton::clicked, this, [this]() {
+    m_deleteSelectedGuideButton = makeActionButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), [this]() {
         m_controller->deleteSelectedGuide();
     });
     layout->addWidget(m_deleteSelectedGuideButton);
-    m_deleteAllGuidesButton = new QPushButton(QStringLiteral("Delete All Guides"));
-    m_deleteAllGuidesButton->setObjectName(QStringLiteral("deleteAllGuidesButton"));
-    connect(m_deleteAllGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_deleteAllGuidesButton = makeActionButton(QStringLiteral("deleteAllGuidesButton"), QStringLiteral("Delete All Guides"), [this]() {
         m_controller->deleteAllGuides();
     });
     layout->addWidget(m_deleteAllGuidesButton);
-    m_mergeDuplicateGuidesButton = new QPushButton(QStringLiteral("Merge Duplicate Guides"));
-    m_mergeDuplicateGuidesButton->setObjectName(QStringLiteral("mergeDuplicateGuidesButton"));
-    connect(m_mergeDuplicateGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_mergeDuplicateGuidesButton = makeActionButton(QStringLiteral("mergeDuplicateGuidesButton"), QStringLiteral("Merge Duplicate Guides"), [this]() {
         m_controller->mergeDuplicateGuides();
     });
     layout->addWidget(m_mergeDuplicateGuidesButton);
-    m_hideAllGuidesButton = new QPushButton(QStringLiteral("Hide All Guides"));
-    m_hideAllGuidesButton->setObjectName(QStringLiteral("hideAllGuidesButton"));
-    connect(m_hideAllGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_hideAllGuidesButton = makeActionButton(QStringLiteral("hideAllGuidesButton"), QStringLiteral("Hide All Guides"), [this]() {
         m_controller->setAllGuidesVisible(false);
     });
     layout->addWidget(m_hideAllGuidesButton);
-    m_showAllGuidesButton = new QPushButton(QStringLiteral("Show All Guides"));
-    m_showAllGuidesButton->setObjectName(QStringLiteral("showAllGuidesButton"));
-    connect(m_showAllGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_showAllGuidesButton = makeActionButton(QStringLiteral("showAllGuidesButton"), QStringLiteral("Show All Guides"), [this]() {
         m_controller->setAllGuidesVisible(true);
     });
     layout->addWidget(m_showAllGuidesButton);
-    m_lockAllGuidesButton = new QPushButton(QStringLiteral("Lock All Guides"));
-    m_lockAllGuidesButton->setObjectName(QStringLiteral("lockAllGuidesButton"));
-    connect(m_lockAllGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_lockAllGuidesButton = makeActionButton(QStringLiteral("lockAllGuidesButton"), QStringLiteral("Lock All Guides"), [this]() {
         m_controller->setAllGuidesLocked(true);
     });
     layout->addWidget(m_lockAllGuidesButton);
-    m_unlockAllGuidesButton = new QPushButton(QStringLiteral("Unlock All Guides"));
-    m_unlockAllGuidesButton->setObjectName(QStringLiteral("unlockAllGuidesButton"));
-    connect(m_unlockAllGuidesButton, &QPushButton::clicked, this, [this]() {
+    m_unlockAllGuidesButton = makeActionButton(QStringLiteral("unlockAllGuidesButton"), QStringLiteral("Unlock All Guides"), [this]() {
         m_controller->setAllGuidesLocked(false);
     });
     layout->addWidget(m_unlockAllGuidesButton);
@@ -1052,9 +1014,7 @@ QWidget *EdiShellWindow::buildLayerControls()
     });
     layout->addWidget(m_activeLayer);
 
-    m_addLayerButton = new QPushButton(QStringLiteral("Add Layer"));
-    m_addLayerButton->setObjectName(QStringLiteral("addLayerButton"));
-    connect(m_addLayerButton, &QPushButton::clicked, this, [this]() {
+    m_addLayerButton = makeActionButton(QStringLiteral("addLayerButton"), QStringLiteral("Add Layer"), [this]() {
         m_controller->createLayer();
     });
     layout->addWidget(m_addLayerButton);
@@ -1064,15 +1024,11 @@ QWidget *EdiShellWindow::buildLayerControls()
     orderLayout->setContentsMargins(0, 0, 0, 0);
     orderLayout->setSpacing(6);
 
-    m_layerDownButton = new QPushButton(QStringLiteral("Down"));
-    m_layerDownButton->setObjectName(QStringLiteral("layerOrderButton"));
-    connect(m_layerDownButton, &QPushButton::clicked, this, [this]() {
+    m_layerDownButton = makeActionButton(QStringLiteral("layerOrderButton"), QStringLiteral("Down"), [this]() {
         m_controller->moveActiveLayer(QStringLiteral("down"));
     });
 
-    m_layerUpButton = new QPushButton(QStringLiteral("Up"));
-    m_layerUpButton->setObjectName(QStringLiteral("layerOrderButton"));
-    connect(m_layerUpButton, &QPushButton::clicked, this, [this]() {
+    m_layerUpButton = makeActionButton(QStringLiteral("layerOrderButton"), QStringLiteral("Up"), [this]() {
         m_controller->moveActiveLayer(QStringLiteral("up"));
     });
 
@@ -1158,17 +1114,13 @@ QWidget *EdiShellWindow::buildNudgeControls()
     layout->setVerticalSpacing(6);
 
     auto addButton = [this, layout](const QString &label, const QString &direction, const QString &stepMode, int row, int column) {
-        auto *button = new QPushButton(label);
-        button->setObjectName(QStringLiteral("nudgeButton"));
-        connect(button, &QPushButton::clicked, this, [this, direction, stepMode]() {
+        auto *button = makeActionButton(QStringLiteral("nudgeButton"), label, [this, direction, stepMode]() {
             m_controller->nudgeSelection(direction, stepMode);
         });
         layout->addWidget(button, row, column);
     };
     auto addSafeButton = [this, layout](const QString &label, const QString &direction, int row, int column) {
-        auto *button = new QPushButton(label);
-        button->setObjectName(QStringLiteral("nudgeButton"));
-        connect(button, &QPushButton::clicked, this, [this, direction]() {
+        auto *button = makeActionButton(QStringLiteral("nudgeButton"), label, [this, direction]() {
             m_controller->nudgeSelectionInsideDrawable(direction, QStringLiteral("grid"));
         });
         layout->addWidget(button, row, column);
@@ -1201,17 +1153,13 @@ QWidget *EdiShellWindow::buildAlignControls()
     layout->setVerticalSpacing(6);
 
     auto addAlignButton = [this, layout](const QString &label, const QString &modeId, int row, int column) {
-        auto *button = new QPushButton(label);
-        button->setObjectName(QStringLiteral("alignButton"));
-        connect(button, &QPushButton::clicked, this, [this, modeId]() {
+        auto *button = makeActionButton(QStringLiteral("alignButton"), label, [this, modeId]() {
             m_controller->alignSelection(modeId);
         });
         layout->addWidget(button, row, column);
     };
     auto addDistributeButton = [this, layout](const QString &label, const QString &axisId, int row, int column) {
-        auto *button = new QPushButton(label);
-        button->setObjectName(QStringLiteral("distributeButton"));
-        connect(button, &QPushButton::clicked, this, [this, axisId]() {
+        auto *button = makeActionButton(QStringLiteral("distributeButton"), label, [this, axisId]() {
             m_controller->distributeSelection(axisId);
         });
         layout->addWidget(button, row, column);
@@ -1241,16 +1189,12 @@ QWidget *EdiShellWindow::buildOffsetControls()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Offset")), 0, 0, 1, 2);
 
-    auto *left = new QPushButton(QStringLiteral("Left +0.05"));
-    left->setObjectName(QStringLiteral("offsetButton"));
-    connect(left, &QPushButton::clicked, this, [this]() {
+    auto *left = makeActionButton(QStringLiteral("offsetButton"), QStringLiteral("Left +0.05"), [this]() {
         m_controller->offsetSelectedObject(QStringLiteral("left"));
     });
     layout->addWidget(left, 1, 0);
 
-    auto *right = new QPushButton(QStringLiteral("Right +0.05"));
-    right->setObjectName(QStringLiteral("offsetButton"));
-    connect(right, &QPushButton::clicked, this, [this]() {
+    auto *right = makeActionButton(QStringLiteral("offsetButton"), QStringLiteral("Right +0.05"), [this]() {
         m_controller->offsetSelectedObject(QStringLiteral("right"));
     });
     layout->addWidget(right, 1, 1);
@@ -1269,16 +1213,12 @@ QWidget *EdiShellWindow::buildMirrorControls()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Mirror")), 0, 0, 1, 2);
 
-    auto *horizontal = new QPushButton(QStringLiteral("Mirror H"));
-    horizontal->setObjectName(QStringLiteral("mirrorButton"));
-    connect(horizontal, &QPushButton::clicked, this, [this]() {
+    auto *horizontal = makeActionButton(QStringLiteral("mirrorButton"), QStringLiteral("Mirror H"), [this]() {
         m_controller->mirrorSelectedObject(QStringLiteral("horizontal"));
     });
     layout->addWidget(horizontal, 1, 0);
 
-    auto *vertical = new QPushButton(QStringLiteral("Mirror V"));
-    vertical->setObjectName(QStringLiteral("mirrorButton"));
-    connect(vertical, &QPushButton::clicked, this, [this]() {
+    auto *vertical = makeActionButton(QStringLiteral("mirrorButton"), QStringLiteral("Mirror V"), [this]() {
         m_controller->mirrorSelectedObject(QStringLiteral("vertical"));
     });
     layout->addWidget(vertical, 1, 1);
@@ -1297,16 +1237,12 @@ QWidget *EdiShellWindow::buildRepeatControls()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Repeat")), 0, 0, 1, 2);
 
-    auto *x = new QPushButton(QStringLiteral("Repeat X"));
-    x->setObjectName(QStringLiteral("repeatButton"));
-    connect(x, &QPushButton::clicked, this, [this]() {
+    auto *x = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat X"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("x"));
     });
     layout->addWidget(x, 1, 0);
 
-    auto *y = new QPushButton(QStringLiteral("Repeat Y"));
-    y->setObjectName(QStringLiteral("repeatButton"));
-    connect(y, &QPushButton::clicked, this, [this]() {
+    auto *y = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat Y"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("y"));
     });
     layout->addWidget(y, 1, 1);
@@ -1350,9 +1286,7 @@ QWidget *EdiShellWindow::buildCalibrationControls()
     layout->setVerticalSpacing(6);
 
     auto addButton = [this, layout](const QString &label, const QString &patternId, int row, int column) {
-        auto *button = new QPushButton(label);
-        button->setObjectName(QStringLiteral("calibrationButton"));
-        connect(button, &QPushButton::clicked, this, [this, patternId]() {
+        auto *button = makeActionButton(QStringLiteral("calibrationButton"), label, [this, patternId]() {
             m_controller->createCalibrationPattern(patternId);
         });
         layout->addWidget(button, row, column);
@@ -1375,18 +1309,14 @@ QWidget *EdiShellWindow::buildCalibrationControls()
     m_calibrationMeasuredValue->setValue(0.24);
     layout->addWidget(m_calibrationMeasuredValue, 2, 1);
 
-    auto *record = new QPushButton(QStringLiteral("Record"));
-    record->setObjectName(QStringLiteral("calibrationButton"));
-    connect(record, &QPushButton::clicked, this, [this]() {
+    auto *record = makeActionButton(QStringLiteral("calibrationButton"), QStringLiteral("Record"), [this]() {
         if (m_calibrationMeasuredValue != nullptr) {
             m_controller->recordCalibrationMeasurement(m_calibrationMeasuredValue->value());
         }
     });
     layout->addWidget(record, 2, 2);
 
-    auto *applyScale = new QPushButton(QStringLiteral("Apply scale"));
-    applyScale->setObjectName(QStringLiteral("calibrationButton"));
-    connect(applyScale, &QPushButton::clicked, this, [this]() {
+    auto *applyScale = makeActionButton(QStringLiteral("calibrationButton"), QStringLiteral("Apply scale"), [this]() {
         m_controller->applyCalibrationCorrection();
     });
     layout->addWidget(applyScale, 3, 0, 1, 3);
@@ -1395,6 +1325,14 @@ QWidget *EdiShellWindow::buildCalibrationControls()
     layout->addWidget(m_calibrationMeasurementValue, 4, 0, 1, 3);
 
     return panel;
+}
+
+QPushButton *EdiShellWindow::makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action)
+{
+    auto *button = new QPushButton(label);
+    button->setObjectName(objectName);
+    connect(button, &QPushButton::clicked, this, action);
+    return button;
 }
 
 QPushButton *EdiShellWindow::makeToolButton(const QString &toolId, const QString &label)

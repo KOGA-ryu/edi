@@ -5,12 +5,15 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
 
 #include <cassert>
+#include <cmath>
 
 namespace {
 
@@ -38,6 +41,50 @@ QComboBox *comboWithFirstItemData(const QWidget &root, const QString &firstItemD
 QPushButton *buttonNamed(const QWidget &root, const QString &objectName)
 {
     return root.findChild<QPushButton *>(objectName);
+}
+
+QPushButton *buttonWithText(const QWidget &root, const QString &text)
+{
+    for (QPushButton *button : root.findChildren<QPushButton *>()) {
+        if (button->text() == text) {
+            return button;
+        }
+    }
+    return nullptr;
+}
+
+QDoubleSpinBox *geometryFieldSpin(const QWidget &root, const QString &fieldId, const QString &fieldMode)
+{
+    for (QDoubleSpinBox *spin : root.findChildren<QDoubleSpinBox *>()) {
+        if (spin->property("fieldId").toString() == fieldId
+            && spin->property("fieldMode").toString() == fieldMode) {
+            return spin;
+        }
+    }
+    return nullptr;
+}
+
+QVariantMap activeObject(const DrawingDocumentController &controller)
+{
+    const QVariantMap model = controller.modelDocument();
+    const QString activeId = model.value(QStringLiteral("active_object_id")).toString();
+    for (const QVariant &value : model.value(QStringLiteral("drawing_objects")).toList()) {
+        const QVariantMap object = value.toMap();
+        if (object.value(QStringLiteral("id")).toString() == activeId) {
+            return object;
+        }
+    }
+    return {};
+}
+
+int objectCount(const DrawingDocumentController &controller)
+{
+    return controller.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+}
+
+bool near(double a, double b, double tolerance = 0.0001)
+{
+    return std::abs(a - b) <= tolerance;
 }
 
 } // namespace
@@ -137,6 +184,151 @@ int main(int argc, char **argv)
         presetBounds->click();
         const int guidesAfter = controller->modelDocument().value(QStringLiteral("guide_count")).toInt();
         assert(guidesAfter > guidesBefore);
+    }
+
+    // Guide visuals: create and select a fresh guide, then drive label, color,
+    // dash style, and show-label through the inspector controls.
+    controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
+    controller->clickCanvasNormalized(0.5, 0.62);
+    {
+        auto *guideLabel = window.findChild<QLineEdit *>(QStringLiteral("guideLabelField"));
+        assert(guideLabel != nullptr && guideLabel->isEnabled());
+        guideLabel->setText(QStringLiteral("datum"));
+        QMetaObject::invokeMethod(guideLabel, "editingFinished");
+        assert(activeObject(*controller).value(QStringLiteral("guide_custom_label")).toString() == QStringLiteral("datum"));
+
+        QComboBox *guideColor = window.findChild<QComboBox *>(QStringLiteral("guideColorCombo"));
+        assert(guideColor != nullptr && guideColor->isEnabled());
+        guideColor->setCurrentIndex(1);
+        assert(activeObject(*controller).value(QStringLiteral("guide_color")).toString() == QStringLiteral("#54d2c6"));
+
+        QComboBox *guideDash = window.findChild<QComboBox *>(QStringLiteral("guideDashStyleCombo"));
+        assert(guideDash != nullptr);
+        guideDash->setCurrentIndex(1);
+        assert(activeObject(*controller).value(QStringLiteral("guide_dash_style")).toString() == QStringLiteral("solid"));
+
+        auto *guideShowLabel = window.findChild<QCheckBox *>(QStringLiteral("guideShowLabelCheckbox"));
+        assert(guideShowLabel != nullptr && guideShowLabel->isChecked());
+        guideShowLabel->setChecked(false);
+        assert(!activeObject(*controller).value(QStringLiteral("guide_show_label"), true).toBool());
+    }
+
+    // Dimension controls: create a distance dimension, switch kind and label
+    // visibility through the inspector.
+    controller->setSelectedToolId(QStringLiteral("distance_dimension_tool"));
+    controller->clickCanvasNormalized(0.3, 0.4);
+    controller->clickCanvasNormalized(0.6, 0.4);
+    {
+        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("dimension"));
+        QComboBox *dimensionKind = window.findChild<QComboBox *>(QStringLiteral("dimensionKindCombo"));
+        assert(dimensionKind != nullptr && dimensionKind->isEnabled());
+        dimensionKind->setCurrentIndex(1);
+        assert(activeObject(*controller).value(QStringLiteral("dimension_kind")).toString() == QStringLiteral("width"));
+
+        auto *dimensionShowLabel = window.findChild<QCheckBox *>(QStringLiteral("dimensionShowLabelCheckbox"));
+        assert(dimensionShowLabel != nullptr && dimensionShowLabel->isChecked());
+        dimensionShowLabel->setChecked(false);
+        assert(!activeObject(*controller).value(QStringLiteral("dimension_show_label"), true).toBool());
+    }
+
+    // Geometry editor spins: select a line; the rebuilt editor carries tagged
+    // spins whose edits reach the controller (normalized and physical).
+    controller->setSelectedToolId(QStringLiteral("line_tool"));
+    controller->clickCanvasNormalized(0.2, 0.2);
+    controller->clickCanvasNormalized(0.4, 0.2);
+    {
+        QDoubleSpinBox *x1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("normalized"));
+        assert(x1 != nullptr);
+        x1->setValue(0.25);
+        QMetaObject::invokeMethod(x1, "editingFinished");
+        assert(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.25));
+
+        QDoubleSpinBox *physicalX1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("physical"));
+        assert(physicalX1 != nullptr);
+        const double gridWidth = controller->modelDocument()
+            .value(QStringLiteral("grid")).toMap().value(QStringLiteral("width")).toDouble();
+        assert(gridWidth > 0.0);
+        // Re-resolve after refreshInspector rebuilt the editor, then move the
+        // physical X1 to 30% of the bed width; normalized x1 should follow.
+        physicalX1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("physical"));
+        physicalX1->setValue(0.3 * gridWidth);
+        QMetaObject::invokeMethod(physicalX1, "editingFinished");
+        assert(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.3, 0.001));
+    }
+
+    // Transform buttons: nudge moves the selection, offset/mirror/repeat create
+    // objects, align snaps two objects' edges together.
+    {
+        const QVariantMap before = activeObject(*controller);
+        QPushButton *nudgeUp = buttonWithText(window, QStringLiteral("Grid Up"));
+        assert(nudgeUp != nullptr);
+        nudgeUp->click();
+        assert(activeObject(*controller).value(QStringLiteral("y1")).toDouble()
+            < before.value(QStringLiteral("y1")).toDouble());
+    }
+    {
+        const int before = objectCount(*controller);
+        buttonWithText(window, QStringLiteral("Right +0.05"))->click();
+        assert(objectCount(*controller) == before + 1);
+    }
+    {
+        const int before = objectCount(*controller);
+        buttonWithText(window, QStringLiteral("Mirror H"))->click();
+        assert(objectCount(*controller) == before + 1);
+    }
+    {
+        const int before = objectCount(*controller);
+        buttonWithText(window, QStringLiteral("Repeat X"))->click();
+        assert(objectCount(*controller) > before);
+    }
+    {
+        // Align Left: select everything, then the left edges should match after.
+        controller->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        buttonWithText(window, QStringLiteral("Left"))->click();
+        const QVariantList objects = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        double minLeft = 2.0;
+        for (const QVariant &value : objects) {
+            const QVariantMap bounds = value.toMap().value(QStringLiteral("bounds")).toMap();
+            minLeft = std::min(minLeft, bounds.value(QStringLiteral("x")).toDouble());
+        }
+        int aligned = 0;
+        for (const QVariant &value : objects) {
+            const QVariantMap object = value.toMap();
+            if (object.value(QStringLiteral("kind")).toString() == QStringLiteral("guide")) {
+                continue;
+            }
+            const QVariantMap bounds = object.value(QStringLiteral("bounds")).toMap();
+            if (near(bounds.value(QStringLiteral("x")).toDouble(), minLeft, 0.0001)) {
+                ++aligned;
+            }
+        }
+        assert(aligned >= 2);
+    }
+
+    // Calibration row: pattern button creates objects, record captures a
+    // measurement, apply-scale consumes it.
+    {
+        const int before = objectCount(*controller);
+        QPushButton *testSquare = buttonWithText(window, QStringLiteral("Test square"));
+        assert(testSquare != nullptr);
+        testSquare->click();
+        assert(objectCount(*controller) > before);
+
+        auto *measured = window.findChild<QDoubleSpinBox *>(QStringLiteral("geometryField"));
+        QDoubleSpinBox *calibrationValue = nullptr;
+        for (QDoubleSpinBox *spin : window.findChildren<QDoubleSpinBox *>()) {
+            if (spin->decimals() == 6) {
+                calibrationValue = spin;
+                break;
+            }
+        }
+        Q_UNUSED(measured)
+        assert(calibrationValue != nullptr);
+        calibrationValue->setValue(0.25);
+        buttonWithText(window, QStringLiteral("Record"))->click();
+        assert(!controller->modelDocument().value(QStringLiteral("calibration_measurement")).toMap().isEmpty());
+        buttonWithText(window, QStringLiteral("Apply scale"))->click();
+        assert(!controller->modelDocument().value(QStringLiteral("calibration_correction")).toMap().isEmpty());
     }
 
     return 0;

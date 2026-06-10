@@ -780,11 +780,15 @@ bool DrawingDocumentController::finishEdit(const QString &mode, const QString &f
     return ok;
 }
 
-bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString &fieldId, double value)
+bool DrawingDocumentController::applyFieldEdit(
+    const QString &mode,
+    const QString &invalidMessage,
+    const QString &fieldId,
+    double value,
+    const std::function<DraftingPhysicalGeometryEditPlan(const DraftingObject &)> &planEdit)
 {
-    const QString mode = QStringLiteral("normalized");
     if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
-        return finishEdit(mode, fieldId, false, DraftingResultCode::InvalidGeometry, QStringLiteral("geometry edit requires a selected object, field id, and finite value"));
+        return finishEdit(mode, fieldId, false, DraftingResultCode::InvalidGeometry, invalidMessage);
     }
 
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
@@ -792,30 +796,7 @@ bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString 
         return finishEdit(mode, fieldId, false, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        NumericGeometryEditCommand{*m_document.activeObjectId, toStdString(fieldId), value});
-    if (!result.ok) {
-        return finishEdit(mode, fieldId, false, result.code, drawing_core::qStringFromStdString(result.message));
-    }
-
-    return finishEdit(mode, fieldId, true, DraftingResultCode::None, {});
-}
-
-bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value)
-{
-    const QString mode = QStringLiteral("physical");
-    if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
-        return finishEdit(mode, fieldId, false, DraftingResultCode::InvalidGeometry, QStringLiteral("physical edit requires a selected object, field id, and finite value"));
-    }
-
-    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
-    if (object == nullptr) {
-        return finishEdit(mode, fieldId, false, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
-    }
-
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const DraftingPhysicalGeometryEditPlan plan = planPhysicalGeometryEdit(*object, grid, toStdString(fieldId), value);
+    const DraftingPhysicalGeometryEditPlan plan = planEdit(*object);
     if (!plan.ok || !plan.command) {
         return finishEdit(mode, fieldId, false, plan.code, drawing_core::qStringFromStdString(plan.message));
     }
@@ -826,6 +807,32 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
     }
 
     return finishEdit(mode, fieldId, true, DraftingResultCode::None, {});
+}
+
+bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString &fieldId, double value)
+{
+    return applyFieldEdit(
+        QStringLiteral("normalized"),
+        QStringLiteral("geometry edit requires a selected object, field id, and finite value"),
+        fieldId,
+        value,
+        [&](const DraftingObject &) {
+            return DraftingPhysicalGeometryEditPlan::accepted(
+                NumericGeometryEditCommand{*m_document.activeObjectId, toStdString(fieldId), value});
+        });
+}
+
+bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value)
+{
+    return applyFieldEdit(
+        QStringLiteral("physical"),
+        QStringLiteral("physical edit requires a selected object, field id, and finite value"),
+        fieldId,
+        value,
+        [&](const DraftingObject &object) {
+            const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+            return planPhysicalGeometryEdit(object, grid, toStdString(fieldId), value);
+        });
 }
 
 bool DrawingDocumentController::setSelectedObjectLocked(bool locked)

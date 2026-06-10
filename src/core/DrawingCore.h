@@ -14,6 +14,7 @@
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingNudgeOps.h"
+#include "drafting/DraftingPhysicalEdit.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
@@ -128,6 +129,12 @@ private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
     bool finishEdit(const QString &mode, const QString &fieldId, bool ok,
                     edi::drafting::DraftingResultCode code, const QString &message);
+    bool applyFieldEdit(
+        const QString &mode,
+        const QString &invalidMessage,
+        const QString &fieldId,
+        double value,
+        const std::function<edi::drafting::DraftingPhysicalGeometryEditPlan(const edi::drafting::DraftingObject &)> &planEdit);
     void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
     void commitGridSettings(edi::drafting::DraftingGridSettings settings);
     void commitCustomGridSettings(edi::drafting::DraftingGridSettings settings);

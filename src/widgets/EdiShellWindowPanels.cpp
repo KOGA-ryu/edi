@@ -136,6 +136,15 @@ QWidget *EdiShellWindow::buildTitleBar()
     settingsMenu->addAction(QStringLiteral("Focus layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Focus); });
     settingsMenu->addAction(QStringLiteral("Review layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Review); });
 
+    // Feature-supplied chrome buttons mount here (rebuildChromePanels): the
+    // strip keeps its place in the bar while workspaces swap its children.
+    m_chromePanelHost = new QWidget;
+    m_chromePanelHost->setObjectName(QStringLiteral("chromePanelHost"));
+    auto *chromePanelLayout = new QHBoxLayout(m_chromePanelHost);
+    chromePanelLayout->setContentsMargins(0, 0, 0, 0);
+    chromePanelLayout->setSpacing(6);
+    layout->addWidget(m_chromePanelHost);
+
     layout->addStretch(1); // the drag region
     // The status line the drafting feature publishes (was the workspace
     // header's job; the header is gone — the grid speaks for itself).

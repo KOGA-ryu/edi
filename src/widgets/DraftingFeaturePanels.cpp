@@ -171,27 +171,20 @@ void DraftingFeature::setRecentFiles(const QStringList &paths)
     rebuildRecentFileButtons();
 }
 
-QWidget *DraftingFeature::buildLeftPanel()
+std::vector<edi::shell::FeatureChromePanelSpec> DraftingFeature::buildChromePanels()
 {
-    const PanelSpec leftSpec = panelSpec(ShellSlot::Left);
-    auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), leftSpec.minSize, leftSpec.maxSize);
+    // The snap/grid settings, relocated from the left panel to a top-chrome
+    // popup (user direction 2026-06-10): they configure how input behaves,
+    // not what the document contains, so they belong with the window's
+    // controls rather than in the navigation panel. Widgets and wiring are
+    // unchanged — refreshInspector still syncs these members on every model
+    // change, wherever they happen to be hosted.
+    auto *panel = new QWidget;
+    panel->setObjectName(QStringLiteral("snapControls"));
+    auto *layout = new QVBoxLayout(panel);
+    clearLayoutMargins(layout);
+    layout->setSpacing(8);
 
-    auto *title = new QLabel(QStringLiteral("EDI Drafting"));
-    title->setObjectName(QStringLiteral("panelTitle"));
-    layout->addWidget(title);
-
-    // F1: the document as a browsable list — selection by name, not only by
-    // canvas click. Fixed height so it never fights the outer panel scroll.
-    layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
-    m_objectList = new QListWidget;
-    m_objectList->setObjectName(QStringLiteral("objectList"));
-    m_objectList->setFixedHeight(140);
-    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
-        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
-    });
-    layout->addWidget(m_objectList);
-
-    layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {
         {QStringLiteral("Square art board"), QStringLiteral("square_art_board")},
         {QStringLiteral("Letter"), QStringLiteral("letter")},
@@ -329,6 +322,29 @@ QWidget *DraftingFeature::buildLeftPanel()
     connect(m_gridMajorEvery, &QSpinBox::editingFinished, m_controller, [this]() {
         m_controller->setGridMajorLineEvery(m_gridMajorEvery->value());
     });
+
+    return {{QStringLiteral("snap"), QStringLiteral("Snap"), panel}};
+}
+
+QWidget *DraftingFeature::buildLeftPanel()
+{
+    const PanelSpec leftSpec = panelSpec(ShellSlot::Left);
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), leftSpec.minSize, leftSpec.maxSize);
+
+    auto *title = new QLabel(QStringLiteral("EDI Drafting"));
+    title->setObjectName(QStringLiteral("panelTitle"));
+    layout->addWidget(title);
+
+    // F1: the document as a browsable list — selection by name, not only by
+    // canvas click. Fixed height so it never fights the outer panel scroll.
+    layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
+    m_objectList = new QListWidget;
+    m_objectList->setObjectName(QStringLiteral("objectList"));
+    m_objectList->setFixedHeight(140);
+    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
+    });
+    layout->addWidget(m_objectList);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Edit")));
     m_undoButton = makeActionButton(QStringLiteral("undoButton"), QStringLiteral("Undo"), [this]() {

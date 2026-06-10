@@ -64,6 +64,9 @@ public:
     // F4: the feature's floating palettes (currently just the tool belt).
     // Fresh widgets per call; the shell frames, places, and owns them.
     std::vector<edi::shell::FeaturePaletteSpec> buildPalettes();
+    // Top-chrome popup panels (currently just the Snap settings). Same
+    // contract as buildPalettes: fresh widgets, shell owns the frame.
+    std::vector<edi::shell::FeatureChromePanelSpec> buildChromePanels();
     void refreshInspector();
     void setRecentFiles(const QStringList &paths);
     DrawingCanvasWidget *canvas() const { return m_canvas; }

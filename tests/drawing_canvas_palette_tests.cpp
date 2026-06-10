@@ -34,7 +34,6 @@ int main()
     assert(p.boardOutline == QColor("#3d4452"));
     assert(p.gridMajor == QColor("#465162"));
     assert(p.gridMinor == QColor("#313744"));
-    assert(p.statusText == QColor("#aeb7c7"));
     assert(p.drawableBounds == QColor("#8fb4d8"));
     assert(p.originMarker == QColor("#d5bb78"));
     // Not the painter's old "#9aa8b6": that literal copied the legacy QML's

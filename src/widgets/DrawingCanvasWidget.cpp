@@ -164,18 +164,10 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
         painter.drawRect(marquee.normalized());
     }
 
-    painter.setPen(m_palette.statusText);
-    const drawing_canvas::DrawingCanvasProjectedStatus status = drawing_canvas::projectedCanvasStatus(model);
-    painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
-        QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nPlot: %6 (%7 warnings)%8")
-            .arg(m_controller->selectedToolId(),
-                m_controller->selectedObjectId().isEmpty() ? "none" : m_controller->selectedObjectId(),
-                QString::number(status.gridWidth, 'f', 2),
-                status.gridUnitLabel,
-                QString::number(status.gridHeight, 'f', 2),
-                status.plotStatus,
-                QString::number(status.plotWarningCount),
-                status.firstWarningKind.isEmpty() ? QString() : QStringLiteral("\n%1").arg(status.firstWarningKind)));
+    // No status text painted on the document: the grid speaks for itself
+    // (user direction). Tool/selection live in the chrome status; grid and
+    // plot detail live in the inspector (projectedCanvasStatus still serves
+    // those consumers).
 }
 
 void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)

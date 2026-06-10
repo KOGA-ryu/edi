@@ -43,6 +43,22 @@ void clearLayoutMargins(QLayout *layout)
     layout->setSpacing(0);
 }
 
+struct ControlGrid {
+    QWidget *panel = nullptr;
+    QGridLayout *layout = nullptr;
+};
+
+ControlGrid makeControlGrid(const QString &objectName)
+{
+    auto *panel = new QWidget;
+    panel->setObjectName(objectName);
+    auto *layout = new QGridLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setHorizontalSpacing(6);
+    layout->setVerticalSpacing(6);
+    return {panel, layout};
+}
+
 QString yesNo(bool value)
 {
     return value ? QStringLiteral("on") : QStringLiteral("off");
@@ -1106,12 +1122,7 @@ QWidget *EdiShellWindow::buildLayerControls()
 
 QWidget *EdiShellWindow::buildNudgeControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("nudgeControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("nudgeControls"));
 
     auto addButton = [this, layout](const QString &label, const QString &direction, const QString &stepMode, int row, int column) {
         auto *button = makeActionButton(QStringLiteral("nudgeButton"), label, [this, direction, stepMode]() {
@@ -1145,12 +1156,7 @@ QWidget *EdiShellWindow::buildNudgeControls()
 
 QWidget *EdiShellWindow::buildAlignControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("alignControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("alignControls"));
 
     auto addAlignButton = [this, layout](const QString &label, const QString &modeId, int row, int column) {
         auto *button = makeActionButton(QStringLiteral("alignButton"), label, [this, modeId]() {
@@ -1180,12 +1186,7 @@ QWidget *EdiShellWindow::buildAlignControls()
 
 QWidget *EdiShellWindow::buildOffsetControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("offsetControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("offsetControls"));
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Offset")), 0, 0, 1, 2);
 
@@ -1204,12 +1205,7 @@ QWidget *EdiShellWindow::buildOffsetControls()
 
 QWidget *EdiShellWindow::buildMirrorControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("mirrorControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("mirrorControls"));
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Mirror")), 0, 0, 1, 2);
 
@@ -1228,12 +1224,7 @@ QWidget *EdiShellWindow::buildMirrorControls()
 
 QWidget *EdiShellWindow::buildRepeatControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("repeatControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("repeatControls"));
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Repeat")), 0, 0, 1, 2);
 
@@ -1278,12 +1269,7 @@ QWidget *EdiShellWindow::buildBottomPanel()
 
 QWidget *EdiShellWindow::buildCalibrationControls()
 {
-    auto *panel = new QWidget;
-    panel->setObjectName(QStringLiteral("calibrationControls"));
-    auto *layout = new QGridLayout(panel);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
+    const auto [panel, layout] = makeControlGrid(QStringLiteral("calibrationControls"));
 
     auto addButton = [this, layout](const QString &label, const QString &patternId, int row, int column) {
         auto *button = makeActionButton(QStringLiteral("calibrationButton"), label, [this, patternId]() {

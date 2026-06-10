@@ -275,6 +275,9 @@ target_include_directories(shell_panels_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
+target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
+target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 
 add_executable(edi_plot_job_report
@@ -311,6 +314,8 @@ add_test(NAME drawing_document_controller_tests COMMAND drawing_document_control
 
 add_executable(edi_shell_window_tests
     tests/edi_shell_window_tests.cpp
+    src/io/ShellLayoutStore.h
+    src/io/ShellLayoutStore.cpp
     src/core/DrawingCore.h
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h

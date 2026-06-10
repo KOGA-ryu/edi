@@ -1,9 +1,11 @@
-# Handoff — edi (2026-06-10)
+# Handoff — edi (2026-06-10, session 2)
 
 Cold-start handoff for the next session/model. Read this, then `CLAUDE.md`,
 then the governing docs named below. The repo is `/Users/kogaryu/edi` — confirm
 with `git rev-parse --show-toplevel` before any work; never touch
-`/Users/kogaryu/draft/draftsman_STALE_PARENT_DO_NOT_USE`.
+`/Users/kogaryu/draft/draftsman_STALE_PARENT_DO_NOT_USE`. Shell work happens in
+the worktree `/Users/kogaryu/edi-ui` on branch `ui-restoration` (rebase on
+master per slice, merge to master at phase DoD).
 
 ## What edi is (and isn't)
 
@@ -14,93 +16,84 @@ Hard rules (enforced every commit): **no JSON in our own data, no `.js`/`.qml`,
 data-oriented design** (plain structs + free functions; variation as data or
 plan callables; no subclassing for behavior). Commits: `claude: <summary>` with
 a **teaching body** (why this design, what alternative lost) + the
-`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer. Full memory
-context lives in `~/.claude/projects/-Users-kogaryu-edi/memory/`.
+`Co-Authored-By` trailer. Full memory context lives in
+`~/.claude/projects/-Users-kogaryu-edi/memory/`.
 
 ## State at handoff
 
-- Branch `master`, last commit `e8530cb`. Working tree clean.
-- **Tests: 58 passing** at the last full `ctest` run (a stale build cache may
-  report fewer to `ctest -N` — run `cmake -S . -B build && cmake --build build
-  && ctest --test-dir build --output-on-failure` to confirm).
-- `git log origin/master..HEAD` reported 0, i.e. level with the remote — but
-  **verify and `git push`** before trusting that; a lot of work landed locally
-  this session.
+- `master` green: **62 tests passing**, working tree clean, H1/H2/H3/H5-partial
+  merged. Verify with `cmake -S . -B build && cmake --build build && ctest
+  --test-dir build --output-on-failure`.
+- **The user owns the look.** They said the UI is far from what they want and
+  they will iterate it themselves. Do structural/mechanical shell work; do NOT
+  spend slices polishing visuals, and do not finalize any visible change
+  without flagging it.
 
 ## The two programs (both cold-executable)
 
-1. **`/goal`** — drafting features. R1–R8 done (save/open, undo/redo,
-   zoom/pan/keyboard, arc+polygon, SVG/HPGL, TOML settings, review, replenish).
-   Next backlog: **N1 copy/paste → N2 polyline+arrow → N3 object metadata →
-   N4 rectangle variants → N5 G-code**. Spec: `docs/rebuild_roadmap.md` (R-phases,
-   historical) + `.claude/commands/goal.md` (live N-backlog).
+1. **`/goal`** — drafting features. R1–R8 done. Next backlog: **N1 copy/paste →
+   N2 polyline+arrow → N3 object metadata → N4 rectangle variants → N5 G-code**.
 2. **`/ui-goal`** — the modular **feature-host shell**. Governing design:
-   `docs/shell_architecture.md` (READ FIRST for any shell work). Backlog
-   **H1–H8**. The shell is a host that mounts composable *features* (drafting is
-   feature #1) into *slots*; slot→feature layout is data (a `WorkspaceLayout`),
-   redefinable per job. Look spec: `docs/ui_restoration_spec.md`; visual targets
-   `docs/ui_reference/*.png`; legacy source to mine read-only via
-   `git show ce0b751:<path>`.
+   `docs/shell_architecture.md` (READ FIRST). Look spec:
+   `docs/ui_restoration_spec.md`; targets `docs/ui_reference/*.png`; legacy via
+   `git show ce0b751:<path>` (read-only).
 
-## What this session did (most recent first)
+## Shell backlog status (H1–H8)
 
-- **God-file decomposition** of `EdiShellWindow.cpp` (2351 → 385 lines) into four
-  behaviour-identical TUs of the same class — `EdiShellWindowPanels.cpp` (1035,
-  the build* methods), `EdiShellWindowInspector.cpp` (434), `EdiShellWindowIo.cpp`
-  (131) — plus the shared `ShellWidgetHelpers.{h,cpp}` (the 25 free helpers).
-  These file boundaries ARE H2's feature seams. Done via subagents doing the
-  mechanical cut/paste; each verified as a pure-deletion diff + full green.
-- **H1 (theme model)**: `src/widgets/ShellTheme.{h,cpp}` — palette as a pure
-  function of four inputs (base/surface/accent/text), porting the legacy
-  `mix()`/`applyTheme()` exactly, golden-tested (`shell_theme_tests`,
-  mutation-checked). NOT yet wired into `applyShellStyle` — that is H1b.
-- **Scroll-area fix** (`3f0161e`): side panels were squashing controls into
-  unclickable slivers (one column, ~185 widgets, no scroll). `makeScrollablePanel`
-  fixed it. This is why the app is usable again.
-- **Two correctness fixes** from reviewing the prior builder session: the
-  interactive-edit bracket leaking across undo/redo/open (broke undo silently),
-  and false-clean dirty tracking via revision aliasing — now an O(1) monotonic
-  epoch. Both mutation-checked.
-
-## Next steps, in priority order
-
-1. **Push** (verify `git status` first).
-2. **H1b — wire `ShellTheme` into `applyShellStyle`.** This is a LOOK decision and
-   the user is sensitive about the UI. Default theme should reproduce today's
-   look; the derived tokens differ slightly from the current hand-tuned literals
-   (borders run less blue). The model can't see rendered colors — **have the
-   user eyeball it**; do not finalize blind. Isolated single commit.
-3. **H2 — host seam.** Promote `EdiShellWindowPanels.cpp` into a drafting
-   `FeatureDescriptor`; turn `EdiShellWindow` into the generic `ShellHost` that
-   mounts a one-binding `WorkspaceLayout`, behavior-identical. The decomposition
-   already drew the seams. Fresh-context work — don't rush at the tail of a session.
-4. **H3 — panel system** (real `QSplitter` resize/collapse/auto-hide/presets,
-   replacing the scroll-area stopgap).
-
-Decided (in `docs/shell_architecture.md`): activity rail = workspace switcher,
-distinct from Top Chrome (which holds window controls + File/Edit menu + the
-panel-collapse toggles); features are multi-slot. Still open (non-blocking):
-per-job default layout, tool-tree content (full taxonomy vs wired-only).
+- **H1 — DONE.** Shell QSS renders from `ShellTheme` tokens
+  (`buildShellStyleSheet`); canvas chrome colors live in
+  `DrawingCanvasPalette` derived from the theme. Zero hard-coded hex in
+  rendering paths outside the two palette-definition files. Known fossil: the
+  spec §1 *value column* lists `textMuted #9aa8b6`, but that was the legacy
+  QML's pre-`applyTheme()` declared default; the derivation column
+  (`surface ⊕ text 62%` → `#9199a1`) is canonical and implemented.
+- **H2 — DONE.** `ShellHost.{h,cpp}`: `ShellSlot` / `FeatureDescriptor` /
+  `FeatureRegistry` / `WorkspaceLayout` / `mountWorkspaceLayout`. The window
+  assembles from a registry + a drafting-in-all-slots layout;
+  `shell_host_tests` mounts a fake 2-slot feature. Gotcha: the descriptor
+  member is `supportedSlots` because Qt #defines `slots`.
+- **H3 — core DONE.** `ShellPanels.{h,cpp}`: panel state =
+  f(manual collapse, auto-hide, presets); QSplitters with 8px handles and
+  min/max bands from `panelSpec()`. Initial state per spec: left open,
+  right+bottom collapsed; window min is now 520x420. Splitter-handle *look*
+  (1px line treatment) deliberately left minimal — user owns look.
+- **H4 — NOT STARTED, deliberately deferred.** Frameless chrome + traffic
+  lights + title bar + rail restyle is the most look-sensitive phase; do it
+  when the user is in the loop. The *mechanics* (toggle buttons consuming
+  `panelVisibility`, `startSystemMove`, plain-frame fallback boolean) are
+  spec'd in `docs/ui_restoration_spec.md` §3.
+- **H5 — half DONE.** `ShellLayoutStore` is real (TOML encode/decode +
+  round-trip tests; forgiving decode: named slots, clamped sizes, dropped bad
+  rows, plan-struct `ok`). Panel geometry persists across restarts
+  (`workspace.toml` beside `edi.toml`; seams `loadWorkspaceLayout`/
+  `saveWorkspaceLayout`, saved in `closeEvent`, loaded in `main()`).
+  **Remaining: runtime workspace switching** — BLOCKED on extracting the
+  drafting feature out of the window first: panel builders append to member
+  collections (`m_conditionalButtons`, `m_geometryFields`, …) under a
+  built-once assumption, so tearing down/rebuilding slots would dangle
+  pointers behind `refreshInspector`. Extract the drafting feature into a
+  module whose lifetime matches its widgets (the H2 commit body records this
+  asymmetry), THEN switching is a small slice.
+- **H6 component pass / H7 review / H8 replenish** — untouched.
 
 ## Working method that proved out
 
-- **Verified slices**: one concern per commit, full `ctest` green + `.js`/`.qml`/
-  `.json` scan + diff read before each commit. Revert-the-slice on any escaped
-  failure.
-- **Mutation-check every new test target once** (sabotage code, confirm abort,
-  restore) — and force a hard rebuild around it (`rm` the target's `.o` + binary)
-  because make's mtime granularity can run stale binaries on fast cycles.
-- **Delegate mechanical bulk to subagents, own the verification gate** — keeps
-  the main (cached) context lean. Always re-verify the subagent's claim
-  independently (build/test + inspect the diff); a "pure move" is where subtle
-  changes hide.
-- Test gotcha: `rebuildGeometryEditor` retires spins with `deleteLater()` — flush
-  `QEvent::DeferredDelete` before `findChild` lookups in widget tests.
-- Stale `.git/index.lock`/`HEAD.lock` from a crashed commit: confirm zero-byte +
-  only `fsmonitor--daemon` running, then remove.
+- **Verified slices**: one concern per commit, full `ctest` green +
+  `.js`/`.qml`/`.json` scan + diff read before each commit.
+- **Mutation-check every new test target once** (sabotage, confirm abort,
+  restore). Two hard-won rules: (1) restore from a `/tmp` backup, NEVER
+  `git checkout` — it nukes uncommitted slice work; (2) force the rebuild by
+  deleting the target's `.o` (delete only the object subtree, not the whole
+  `.dir` — that holds makefiles), because same-second mtimes make `make` run
+  stale binaries. `strings` can't see `QStringLiteral` content (UTF-16) —
+  verify binaries with a UTF-16 search if it matters.
+- Offscreen widget tests: Qt defers resize events for hidden widgets —
+  `window.show()` before resize-driven assertions; `isVisibleTo(&window)`
+  reads panel visibility without a shown window.
+- Test gotcha: `rebuildGeometryEditor` retires spins with `deleteLater()` —
+  flush `QEvent::DeferredDelete` before `findChild` lookups.
 
 ## Resume
 
-Run `/ui-goal` (shell, H1b→) or `/goal` (features, N1→). Both read their own
-governing docs and need nothing from this conversation. `/loop /ui-goal` or
-`/loop /goal` for an autonomous multi-iteration run.
+Run `/ui-goal` (shell; next: drafting-feature extraction → workspace
+switching, or H4 with the user present) or `/goal` (features, N1→).

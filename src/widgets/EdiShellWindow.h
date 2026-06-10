@@ -61,6 +61,12 @@ public:
     void applyShellPanelPreset(edi::shell::PanelPreset preset);
     edi::shell::PanelVisibility shellPanelVisibility(edi::shell::ShellSlot slot) const;
 
+    // Workspace layout persistence seams (TOML at path; tests inject a temp
+    // path, main() passes defaultWorkspaceLayoutPath()). Load applies panel
+    // geometry; the bindings become switchable when workspace switching lands.
+    bool loadWorkspaceLayout(const QString &path);
+    bool saveWorkspaceLayout(const QString &path) const;
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -139,6 +145,8 @@ private:
     // Panel state lives in the pure model; the splitters and visibility flags
     // are projections of it, never the other way around.
     edi::shell::ShellPanelsState m_panelsState;
+    edi::shell::WorkspaceLayout m_workspaceLayout;
+    QString m_workspaceLayoutPath;
     QSplitter *m_bodySplitter = nullptr;
     QSplitter *m_rootSplitter = nullptr;
     QWidget *m_leftPanelWidget = nullptr;

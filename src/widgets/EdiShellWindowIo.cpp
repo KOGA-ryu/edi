@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "core/DrawingCore.h"
+#include "io/ShellLayoutStore.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 using namespace edi::shell;
@@ -128,4 +129,26 @@ bool EdiShellWindow::loadSettings(const QString &path)
 bool EdiShellWindow::saveSettings(const QString &path) const
 {
     return edi::io::saveSettingsToPath(path, captureSettings());
+}
+
+bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
+{
+    // Remember the path either way: a first run has no file yet, but closing
+    // should still write one there.
+    m_workspaceLayoutPath = path;
+    const edi::io::ShellLayoutData data = edi::io::loadShellLayoutFromPath(path);
+    if (!data.ok) {
+        return false; // keep the built-in default layout and panel state
+    }
+    // Bindings stay fixed until workspace switching lands; panel geometry is
+    // what restarting must preserve.
+    m_panelsState = data.panels;
+    applyPanelSizesToSplitters();
+    refreshPanelVisibility();
+    return true;
+}
+
+bool EdiShellWindow::saveWorkspaceLayout(const QString &path) const
+{
+    return edi::io::saveShellLayoutToPath(path, m_workspaceLayout, m_panelsState);
 }

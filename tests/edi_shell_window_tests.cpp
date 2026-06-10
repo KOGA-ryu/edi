@@ -1,6 +1,8 @@
 #include "widgets/EdiShellWindow.h"
 
 #include "core/DrawingCore.h"
+#include "io/SettingsStore.h"
+#include "io/ShellLayoutStore.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -10,6 +12,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QString>
 #include <QFile>
 #include <QTemporaryDir>
@@ -540,6 +543,55 @@ int main(int argc, char **argv)
 
         // Leave everything open so any assertions added later see a full shell.
         window.applyShellPanelPreset(PanelPreset::Full);
+    }
+
+    // Workspace layout persistence: panel geometry survives a "restart"
+    // (save from one window, load into a fresh one).
+    {
+        using edi::shell::PanelPreset;
+        using edi::shell::PanelVisibility;
+        using edi::shell::ShellSlot;
+
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString layoutPath = tempDir.filePath(QStringLiteral("workspace.toml"));
+
+        window.applyShellPanelPreset(PanelPreset::Full);
+        window.setPanelCollapsed(ShellSlot::Right, true);
+        window.setPanelCollapsed(ShellSlot::Bottom, true);
+        assert(window.saveWorkspaceLayout(layoutPath));
+
+        EdiShellWindow restored;
+        restored.applyShellPanelPreset(PanelPreset::Full); // scramble away from saved state
+        assert(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        assert(restored.loadWorkspaceLayout(layoutPath));
+        assert(restored.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        assert(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+        assert(restored.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
+
+        // A missing file reports false and leaves the built-in defaults alone.
+        EdiShellWindow fresh;
+        assert(!fresh.loadWorkspaceLayout(tempDir.filePath(QStringLiteral("absent.toml"))));
+        assert(fresh.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+
+        // Hand-edited geometry actually lands in the splitter, clamped to the
+        // slot's band on the way in.
+        EdiShellWindow sized;
+        {
+            edi::formats::StaticConfig config;
+            config["workspace.id"] = "drafting";
+            config["binding.0.slot"] = "left";
+            config["binding.0.feature"] = "drafting";
+            config["panel.left.size"] = "400";
+            config["panel.right.collapsed"] = "false";
+            const QString sizedPath = tempDir.filePath(QStringLiteral("sized.toml"));
+            assert(edi::io::saveSettingsToPath(sizedPath, config));
+            sized.show();
+            assert(sized.loadWorkspaceLayout(sizedPath));
+            auto *bodySplitter = sized.findChild<QSplitter *>(QStringLiteral("bodySplitter"));
+            assert(bodySplitter != nullptr);
+            assert(bodySplitter->sizes().value(0) == 400);
+        }
     }
 
     return 0;

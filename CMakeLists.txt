@@ -165,6 +165,20 @@ target_include_directories(edi_format_core PUBLIC
 # MessagePack value codec, so it links the format core.
 target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 
+add_library(edi_recipe_core STATIC
+    src/recipe/RecipeDocument.h
+    src/recipe/RecipeDocument.cpp
+    src/recipe/RecipeEmit.h
+    src/recipe/RecipeEmit.cpp
+)
+
+target_include_directories(edi_recipe_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Recipes resolve their measurement bindings against the drafting document.
+target_link_libraries(edi_recipe_core PUBLIC edi_drafting_core)
+
 add_library(edi_scripting_core STATIC
     src/scripting/LuaRecipe.h
     src/scripting/LuaRecipe.cpp
@@ -294,6 +308,8 @@ add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cp
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
+add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
 
 add_executable(edi_plot_job_report
     src/tools/EdiPlotJobReport.cpp

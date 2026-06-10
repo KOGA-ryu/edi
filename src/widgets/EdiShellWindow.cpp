@@ -18,6 +18,8 @@
 #include <QCloseEvent>
 #include <QShortcut>
 #include <QSignalBlocker>
+#include <QSplitter>
+#include <QResizeEvent>
 #include <QTimer>
 #include <QSizePolicy>
 #include <QSpinBox>
@@ -28,6 +30,7 @@
 #include <QVBoxLayout>
 #include <QVector>
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
@@ -43,7 +46,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     , m_appState(edi::app::defaultAppState())
 {
     setWindowTitle(QStringLiteral("EDI"));
-    setMinimumSize(960, 620);
+    // Spec §2 minimum (520x420) — auto-hide thresholds (640/520) must be
+    // reachable, which the old 960x620 minimum made impossible by definition.
+    setMinimumSize(520, 420);
     resize(1280, 820);
 
     m_controller = new DrawingDocumentController(this);
@@ -98,22 +103,49 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     const std::vector<MountedSlot> mounted = mountWorkspaceLayout(layout, registry, m_featureContext);
 
     // Geometry stays the window's job: slots have fixed places in the frame,
-    // and an unbound slot simply isn't added.
-    bodyLayout->addWidget(buildActivityRail());
-    if (QWidget *left = mountedSlotWidget(mounted, ShellSlot::Left)) {
-        bodyLayout->addWidget(left);
+    // and an unbound slot simply isn't added. Side and bottom slots sit in
+    // splitters so the user can drag-resize them; the pure ShellPanels model
+    // is the source of truth and the splitters are a projection of it.
+    m_leftPanelWidget = mountedSlotWidget(mounted, ShellSlot::Left);
+    m_rightPanelWidget = mountedSlotWidget(mounted, ShellSlot::Right);
+    m_bottomPanelWidget = mountedSlotWidget(mounted, ShellSlot::Bottom);
+    QWidget *mainWidget = mountedSlotWidget(mounted, ShellSlot::Main);
+
+    m_bodySplitter = new QSplitter(Qt::Horizontal);
+    m_bodySplitter->setObjectName(QStringLiteral("bodySplitter"));
+    m_bodySplitter->setChildrenCollapsible(false); // collapse is a modeled state, not a drag accident
+    m_bodySplitter->setHandleWidth(8);             // spec: 8px hit zone
+    if (m_leftPanelWidget != nullptr) {
+        m_bodySplitter->addWidget(m_leftPanelWidget);
     }
-    if (QWidget *main = mountedSlotWidget(mounted, ShellSlot::Main)) {
-        bodyLayout->addWidget(main, 1);
+    if (mainWidget != nullptr) {
+        m_bodySplitter->addWidget(mainWidget);
+        m_bodySplitter->setStretchFactor(m_bodySplitter->count() - 1, 1);
     }
-    if (QWidget *right = mountedSlotWidget(mounted, ShellSlot::Right)) {
-        bodyLayout->addWidget(right);
+    if (m_rightPanelWidget != nullptr) {
+        m_bodySplitter->addWidget(m_rightPanelWidget);
     }
 
-    root->addWidget(body, 1);
-    if (QWidget *bottom = mountedSlotWidget(mounted, ShellSlot::Bottom)) {
-        root->addWidget(bottom);
+    bodyLayout->addWidget(buildActivityRail());
+    bodyLayout->addWidget(m_bodySplitter, 1);
+
+    m_rootSplitter = new QSplitter(Qt::Vertical);
+    m_rootSplitter->setObjectName(QStringLiteral("rootSplitter"));
+    m_rootSplitter->setChildrenCollapsible(false);
+    m_rootSplitter->setHandleWidth(8);
+    m_rootSplitter->addWidget(body);
+    m_rootSplitter->setStretchFactor(0, 1);
+    if (m_bottomPanelWidget != nullptr) {
+        m_rootSplitter->addWidget(m_bottomPanelWidget);
     }
+    root->addWidget(m_rootSplitter, 1);
+
+    connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
+    connect(m_rootSplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
+
+    m_panelsState = defaultShellPanelsState();
+    applyPanelSizesToSplitters();
+    refreshPanelVisibility();
 
     setCentralWidget(central);
     applyShellStyle();
@@ -314,4 +346,76 @@ void EdiShellWindow::applyShellStyle()
     // default inputs and applies the derived sheet. Custom themes later become
     // "construct different inputs here" — no QSS edits.
     setStyleSheet(buildShellStyleSheet(deriveShellTheme(ShellThemeInputs{})));
+}
+
+void EdiShellWindow::setPanelCollapsed(ShellSlot slot, bool collapsed)
+{
+    panelStateFor(m_panelsState, slot).collapsed = collapsed;
+    refreshPanelVisibility();
+}
+
+void EdiShellWindow::applyShellPanelPreset(PanelPreset preset)
+{
+    m_panelsState = applyPanelPreset(m_panelsState, preset);
+    applyPanelSizesToSplitters();
+    refreshPanelVisibility();
+}
+
+PanelVisibility EdiShellWindow::shellPanelVisibility(ShellSlot slot) const
+{
+    return panelVisibility(slot, panelStateFor(m_panelsState, slot), width(), height());
+}
+
+void EdiShellWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    refreshPanelVisibility(); // auto-hide reacts to the window, not to clicks
+}
+
+void EdiShellWindow::refreshPanelVisibility()
+{
+    const auto apply = [this](ShellSlot slot, QWidget *widget) {
+        if (widget != nullptr) {
+            widget->setVisible(shellPanelVisibility(slot) == PanelVisibility::Visible);
+        }
+    };
+    apply(ShellSlot::Left, m_leftPanelWidget);
+    apply(ShellSlot::Right, m_rightPanelWidget);
+    apply(ShellSlot::Bottom, m_bottomPanelWidget);
+}
+
+void EdiShellWindow::applyPanelSizesToSplitters()
+{
+    // QSplitter::setSizes wants every section; the main slot gets whatever the
+    // panels leave over. Hidden sections keep their stored size in the model,
+    // so reopening restores the user's layout.
+    if (m_bodySplitter != nullptr && m_bodySplitter->count() == 3) {
+        const int left = m_panelsState.left.size;
+        const int right = m_panelsState.right.size;
+        m_bodySplitter->setSizes({left, std::max(0, m_bodySplitter->width() - left - right), right});
+    }
+    if (m_rootSplitter != nullptr && m_rootSplitter->count() == 2) {
+        const int bottom = m_panelsState.bottom.size;
+        m_rootSplitter->setSizes({std::max(0, m_rootSplitter->height() - bottom), bottom});
+    }
+}
+
+void EdiShellWindow::capturePanelSizes()
+{
+    // Drag feedback flows one way: splitter -> clamp -> model. Hidden panels
+    // report size 0 here, which must not overwrite the stored size they will
+    // reopen to — hence the visibility guards.
+    if (m_bodySplitter != nullptr && m_bodySplitter->count() == 3) {
+        const QList<int> sizes = m_bodySplitter->sizes();
+        if (m_leftPanelWidget != nullptr && m_leftPanelWidget->isVisible()) {
+            m_panelsState.left.size = clampPanelSize(ShellSlot::Left, sizes.value(0));
+        }
+        if (m_rightPanelWidget != nullptr && m_rightPanelWidget->isVisible()) {
+            m_panelsState.right.size = clampPanelSize(ShellSlot::Right, sizes.value(2));
+        }
+    }
+    if (m_rootSplitter != nullptr && m_rootSplitter->count() == 2
+        && m_bottomPanelWidget != nullptr && m_bottomPanelWidget->isVisible()) {
+        m_panelsState.bottom.size = clampPanelSize(ShellSlot::Bottom, m_rootSplitter->sizes().value(1));
+    }
 }

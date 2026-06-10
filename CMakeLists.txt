@@ -269,6 +269,9 @@ target_include_directories(drawing_canvas_palette_tests PRIVATE ${CMAKE_CURRENT_
 add_edi_contract_test(shell_host_tests tests/shell_host_tests.cpp Qt6::Core Qt6::Gui Qt6::Widgets)
 target_sources(shell_host_tests PRIVATE src/widgets/ShellHost.cpp)
 target_include_directories(shell_host_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(shell_panels_tests tests/shell_panels_tests.cpp Qt6::Core)
+target_sources(shell_panels_tests PRIVATE src/widgets/ShellPanels.cpp src/widgets/ShellHost.cpp)
+target_include_directories(shell_panels_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -327,6 +330,8 @@ add_executable(edi_shell_window_tests
     src/widgets/ShellTheme.cpp
     src/widgets/ShellHost.h
     src/widgets/ShellHost.cpp
+    src/widgets/ShellPanels.h
+    src/widgets/ShellPanels.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h
@@ -451,6 +456,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/ShellTheme.cpp
     src/widgets/ShellHost.h
     src/widgets/ShellHost.cpp
+    src/widgets/ShellPanels.h
+    src/widgets/ShellPanels.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h

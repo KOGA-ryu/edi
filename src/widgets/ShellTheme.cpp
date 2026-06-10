@@ -230,6 +230,12 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: %10;
             border: 1px solid %10;
         }
+        QSplitter::handle {
+            background: transparent;
+        }
+        QSplitter::handle:hover, QSplitter::handle:pressed {
+            background: %20;
+        }
     )")
         .arg(t.base, t.text, t.uiFont)                                  // 1,2,3
         .arg(t.fontSizeBody)                                            // 4
@@ -238,7 +244,8 @@ QString buildShellStyleSheet(const ShellTheme &t)
         .arg(t.accent)                                                  // 10
         .arg(t.fontSizeSm)                                              // 11
         .arg(t.textMuted, t.control, t.danger, t.surfaceRaised)         // 12,13,14,15
-        .arg(t.controlHover, t.selected, t.borderFocus, t.disabled);    // 16,17,18,19
+        .arg(t.controlHover, t.selected, t.borderFocus, t.disabled)     // 16,17,18,19
+        .arg(t.accentSoft);                                             // 20
 }
 
 } // namespace edi::shell

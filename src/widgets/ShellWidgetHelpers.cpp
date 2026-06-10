@@ -28,10 +28,13 @@ QFrame *makeRegionFrame(const QString &objectName)
     return frame;
 }
 
-ScrollablePanel makeScrollablePanel(const QString &objectName, int fixedWidth)
+ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int maxWidth)
 {
     auto *panel = makeRegionFrame(objectName);
-    panel->setFixedWidth(fixedWidth);
+    panel->setMinimumWidth(minWidth);
+    if (maxWidth > 0) {
+        panel->setMaximumWidth(maxWidth);
+    }
 
     // Outer layout holds only the scroll area, edge-to-edge.
     auto *outer = new QVBoxLayout(panel);

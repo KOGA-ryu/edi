@@ -76,7 +76,7 @@ int main()
              "#panelTitle", "#workspaceTitle", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
-             "QCheckBox::indicator:checked"}) {
+             "QCheckBox::indicator:checked", "QSplitter::handle"}) {
         assert(qss.contains(QLatin1String(selector)));
     }
     // Error surfaces are danger-token tinted, never bespoke hex.

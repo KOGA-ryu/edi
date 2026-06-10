@@ -1,71 +1,91 @@
 ---
-description: Work the DrawingDocumentController refactor, one verified slice at a time, until complete
+description: Long-horizon code-health program — work the phase backlog, one verified slice at a time, until it is empty
 ---
 
-# Goal: complete the controller refactor
+# Goal: code-health program
 
-Reduce `src/core/DrawingDocumentController.cpp` to thin delegation: every method resolves
-its inputs, delegates planning to pure functions, applies a command, and emits. All pure
-logic lives in `src/drafting/` as free functions over plain data, covered by focused tests.
-
-Work slices continuously until the Definition of Done holds or a Stop Condition fires.
-Do not pause to ask permission between slices.
+Work the phase backlog below in order, one verified slice at a time. On every
+invocation: derive state from the repo, find the first incomplete phase, work it
+until its Definition of Done holds, then move to the next. Do not pause between
+slices or phases to ask permission. Pairs with `/loop /goal` for multi-session runs.
 
 ## Hard rules
 
-- **No JSON** in project source (config, serialization, anything). `.claude/` harness files are exempt.
-- **No `.js`** and no `.qml` — keep the JS/QML scan at zero.
-- **Data-oriented design**: variation points become data (enums, kinds, plan structs) or
-  plan callables — never subclassing, never stateful objects. Pure functions over plain
-  structs, in the `Drafting*Ops` style. Behavior stays separable and testable.
-- **Behavior-preserving only.** If a slice would change observable behavior, stop and report
-  instead of committing.
+- **No JSON** in project source (`.claude/` exempt). **No `.js`/`.qml`** — scans stay at zero.
+- **Data-oriented design**: variation as data (enums, kinds, plan structs, member
+  pointers, spec aggregates) or plan callables; pure logic in `src/drafting/`-style
+  free functions over plain structs. No subclassing for behavior.
+- **Behavior-preserving** unless the slice is explicitly a fix or a feature phase.
+- Tests must be able to fail: when adding a test target, mutation-check it once
+  (sabotage the code under test, confirm the test aborts, restore).
 
-## State
+## State derivation (no state files)
 
-Derive progress from the repo, not a state file:
-- `git log --oneline` — completed slices are the `claude:` commits (`codex:` before 2026-06-10).
-- A fresh scan of the controller — what duplication remains.
+- `git log --oneline` — done slices are `claude:` commits (`codex:` before 2026-06-10).
+- `wc -l` on phase targets; `ctest --test-dir build -N` for the test inventory.
+- A fresh scan of the phase's target files for remaining veins.
+
+## Phase backlog
+
+### Phase 1 — Projection dedup: `src/core/DrawingDocumentProjection.cpp` (~646 lines)
+Scan for repeated QVariantMap-building atoms and functions differing only by
+parameterizable data; extract per the established helper patterns.
+**DoD:** no two functions differ only by a constant/enum/callable; repeated
+map-building atoms behind shared helpers; suite green.
+
+### Phase 2 — Canvas dedup: `src/widgets/DrawingCanvasWidget.cpp` + `DrawingCanvas*.cpp`
+Same treatment. The `drawing_canvas_projected_*` tests already cover projections —
+extend them when pure logic moves into testable free functions.
+**DoD:** same dedup criterion across the canvas file family; suite green.
+
+### Phase 3 — Core sweep: `DrawingCore.cpp`, `DrawingModelBuilder.cpp`, `DrawingSvgExport.cpp`, `src/io/*Store.cpp`
+Same treatment, largest file first. Newly extracted pure logic gets a focused test
+target registered in CMake.
+**DoD:** same dedup criterion per file; new pure logic tested; suite green.
+
+### Phase 4 — Canvas interaction tests
+Offscreen test target driving `DrawingCanvasWidget` mouse paths (click-create,
+drag-move, marquee select, handle edit) and asserting controller projections,
+modeled on `edi_shell_window_tests`.
+**DoD:** target registered and green; mutation-checked once; covers at minimum
+create-by-click, selection, and drag-move.
+
+### Phase 5 — Shell test extension
+Extend `edi_shell_window_tests` to the wiring it does not yet cover: guide visuals
+(label/color/dash/show-label), dimension kind combo, calibration row, nudge/align/
+offset/mirror/repeat buttons, geometry editor spins (normalized and physical).
+**DoD:** each listed control exercised with a controller-state assertion.
+
+### Phase 6 — Review cycle
+Run the find→verify review protocol (multiple independent finder angles, one
+verifier per surviving candidate, REFUTED only with constructible evidence) over
+all commits since the previous review marker (`claude: add shell window wiring tests`
+or the most recent Phase 6 commit). Apply CONFIRMED/PLAUSIBLE findings as slices;
+record skipped findings in the phase report.
+**DoD:** every surviving finding either applied or explicitly skipped with reason.
+
+### Phase 7 — Replenish or terminate
+Update `CLAUDE.md` to match reality. Rewrite this backlog: delete finished phases,
+append newly discovered work — each new phase MUST have an objective DoD and come
+from evidence (a scan, a review finding, a failing invariant), never invented to
+keep busy. If no qualifying work exists, write the final report and stop.
 
 ## Per-slice protocol
 
-1. **Clean check.** `git status --short` must be clean. If not, stop and report.
-2. **Scan.** Find the next-cleanest duplication vein in `DrawingDocumentController.cpp`:
-   - two or more methods whose bodies differ only by a constant, enum, kind, or plan call;
-   - inline validation/computation that belongs in a `Drafting*Ops` free function;
-   - repeated resolve/guard sequences not yet behind a shared query or helper.
-   Prefer the smallest, lowest-risk slice. One vein per commit.
-3. **Implement.** Extract to data-parameterized helpers (kind + callable pattern already
-   established: `applyActiveObjectMetadataUpdate`, `applyActiveObjectGeometryUpdate`,
-   `applySelectionDrawablePlacement`, `applyGuideDrawablePlacement`). New pure logic goes
-   in `src/drafting/` with a focused test target registered in CMake.
-4. **Verify — all must pass before commit:**
-   - `cmake --build build` (controller TU and `edi` must compile)
-   - focused test for anything new, then `ctest --test-dir build --output-on-failure` — fully green
-   - scan: no `.js`/`.qml` anywhere; no `.json` outside `.claude/`; no `QtQml`/`QtQuick` refs
-   - read the diff; confirm behavior preservation (watch optional-deref guards and
-     variant conversions — `DraftingGeometry{plan.geometry}` must be explicit)
-5. **Commit** in the established style: `claude: <imperative summary>` plus a short body,
-   ending with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
-   If `.git/index.lock` or `.git/HEAD.lock` exists, check it is zero-byte stale (only
-   `fsmonitor--daemon` processes running) before removing it.
-6. Repeat from step 1.
-
-## Definition of Done
-
-A full scan of the controller confirms all of:
-1. No two methods whose bodies differ only by a parameterizable constant, enum, or callable.
-2. No inline pure logic (validation, geometry math, plan construction) that could move to a
-   `Drafting*Ops` free function — only resolve → plan → apply → emit orchestration remains.
-3. Full suite green, JS/QML/JSON scan clean, tree clean.
-
-When done: report the final controller line count versus its starting ~2,137, list the veins
-consolidated, and stop.
+1. `git status --short` clean, else stop and report.
+2. Smallest, lowest-risk slice of the current phase; one vein per commit.
+3. Verify before commit: `cmake --build build` clean; `ctest --test-dir build
+   --output-on-failure` fully green; no `.js`/`.qml` anywhere, no `.json` outside
+   `.claude/`, no QtQml/QtQuick refs; read the diff for behavior preservation.
+4. Commit `claude: <imperative summary>` + short body + the Co-Authored-By trailer.
+   If `.git/index.lock`/`HEAD.lock` blocks, confirm zero-byte stale (only
+   `fsmonitor--daemon` running) before removing.
+5. Repeat. At phase DoD, state the phase result in one paragraph, continue.
 
 ## Stop conditions
 
-- A test fails and the fix isn't contained within the current slice → revert the slice
-  (`git checkout -- .`), report the failure.
-- A candidate slice requires a behavior change or an API decision → skip it, note it in the
-  final report, continue with other veins.
-- Definition of Done holds → final report.
+- Test failure that escapes the current slice → revert the slice, report.
+- A slice needs a behavior change or API decision not covered by the phase
+  definition → skip it, note it, continue with the next slice.
+- Phase 7 finds no qualifying work → final report (line counts, test count,
+  phases completed, skipped items) and stop.

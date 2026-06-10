@@ -6,6 +6,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -55,6 +56,18 @@ ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int
     scroll->setWidget(contentWidget);
 
     return {panel, content};
+}
+
+QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active, bool enabled)
+{
+    auto *button = new QPushButton(label);
+    button->setObjectName(QStringLiteral("railButton"));
+    button->setToolTip(tooltip);
+    button->setCheckable(true);
+    button->setChecked(active);
+    button->setEnabled(enabled);
+    button->setMinimumHeight(30);
+    return button;
 }
 
 void clearLayoutMargins(QLayout *layout)

@@ -7,6 +7,7 @@
 #include <optional>
 
 class QFrame;
+class QPushButton;
 class QWidget;
 class QVBoxLayout;
 class QGridLayout;
@@ -34,6 +35,11 @@ struct ScrollablePanel {
 };
 
 ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int maxWidth);
+
+// A compact checkable button as used by the activity rail and bottom-panel
+// tabs. Free function rather than a window method: both the shell and the
+// drafting feature build these, and the button needs nothing from either.
+QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
 
 void clearLayoutMargins(QLayout *layout);
 

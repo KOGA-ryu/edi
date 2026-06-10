@@ -1,15 +1,10 @@
 #pragma once
 
 #include <QMainWindow>
-#include <QMap>
-#include <QPair>
 #include <QString>
 #include <QStringList>
-#include <QVariantMap>
-#include <QVector>
 
-#include <functional>
-#include <optional>
+#include <memory>
 
 #include "app/AppState.h"
 #include "io/SettingsStore.h"
@@ -20,18 +15,10 @@ class QSplitter;
 
 class QTimer;
 
-class QAbstractButton;
 class QButtonGroup;
-class QCheckBox;
-class QComboBox;
-class QDoubleSpinBox;
-class QLabel;
-class QLineEdit;
-class QPushButton;
-class QSpinBox;
 class QWidget;
 
-class DrawingCanvasWidget;
+class DraftingFeature;
 class DrawingDocumentController;
 
 class EdiShellWindow final : public QMainWindow {
@@ -39,6 +26,9 @@ class EdiShellWindow final : public QMainWindow {
 
 public:
     explicit EdiShellWindow(QWidget *parent = nullptr);
+    // Out-of-line so the unique_ptr<DraftingFeature> member can delete a type
+    // that is only forward-declared here (the .cpp sees the full definition).
+    ~EdiShellWindow() override;
 
     // Path-based drawing I/O seams (the toolbar/shortcut handlers wrap these in
     // QFileDialog; tests drive them directly to avoid modal dialogs).
@@ -63,16 +53,17 @@ public:
 
     // Workspace layout persistence seams (TOML at path; tests inject a temp
     // path, main() passes defaultWorkspaceLayoutPath()). Load applies panel
-    // geometry; the bindings become switchable when workspace switching lands.
+    // geometry AND bindings (switching workspaces if they differ).
     bool loadWorkspaceLayout(const QString &path);
     bool saveWorkspaceLayout(const QString &path) const;
+
+    // Tear down the mounted slots and rebuild them from a different layout.
+    // The document is untouched — only the glass around it changes.
+    void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
-
-private slots:
-    void refreshInspector();
 
 private:
     void promptSaveDrawing();
@@ -84,59 +75,17 @@ private:
     edi::formats::StaticConfig captureSettings() const;
     void applySettings(const edi::formats::StaticConfig &config);
     void rememberRecentFile(const QString &path);
-    void rebuildRecentFileButtons();
     void scheduleSettingsSave();
 
 private:
     QWidget *buildActivityRail();
-    QWidget *buildLeftPanel();
-    QWidget *buildWorkspaceColumn();
-    QWidget *buildRightPanel();
-    QWidget *buildBottomPanel();
-    QWidget *buildGeometryEditor();
-    QWidget *buildObjectFlagControls();
-    QWidget *buildLayerControls();
-    QWidget *buildNudgeControls();
-    QWidget *buildAlignControls();
-    QWidget *buildOffsetControls();
-    QWidget *buildMirrorControls();
-    QWidget *buildRepeatControls();
-    QWidget *buildCalibrationControls();
-    QPushButton *makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action);
-    // Registers the button in m_conditionalButtons; refreshInspector drives its
-    // enabled state from enableKey ("has_selection" or a bool key in the selected
-    // object projection), so build and refresh cannot drift apart.
-    QPushButton *makeConditionalButton(const QString &objectName, const QString &label,
-                                       const QString &enableKey, const std::function<void()> &action);
-    QCheckBox *makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled,
-                          std::optional<bool> initialChecked = std::nullopt);
-    QComboBox *makeDataCombo(const QString &objectName,
-                             const QVector<QPair<QString, QString>> &items,
-                             const std::function<void(const QString &)> &onData,
-                             const QString &initialData = QString());
-    struct GeometryFieldSpec {
-        QString fieldId;
-        QString fieldMode;
-        int decimals = 4;
-        double step = 0.01;
-        double minimum = -10.0;
-        double maximum = 10.0;
-        double value = 0.0;
-    };
-    QDoubleSpinBox *makeGeometryFieldSpin(const GeometryFieldSpec &spec);
-    void applyGeometryFieldEdit(QDoubleSpinBox *spin);
-    QPushButton *makeToolButton(const QString &toolId, const QString &label);
-    QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
-    QLabel *makeSectionLabel(const QString &text) const;
-    QLabel *makeValueLabel(const QString &text = QString()) const;
     void setWorkspaceMode(edi::app::WorkspaceMode mode);
-    void rebuildGeometryEditor(const QVariantMap &selectedObject);
-    void applyGeometryEditStatus(const QVariantMap &editStatus);
-    void setGeometryEditorVisible(bool visible);
     void applyShellStyle();
     void refreshPanelVisibility();
     void applyPanelSizesToSplitters();
     void capturePanelSizes();
+    std::unique_ptr<DraftingFeature> createDraftingFeature();
+    void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
 
     edi::app::AppState m_appState;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
@@ -145,106 +94,21 @@ private:
     // Panel state lives in the pure model; the splitters and visibility flags
     // are projections of it, never the other way around.
     edi::shell::ShellPanelsState m_panelsState;
+    edi::shell::FeatureRegistry m_featureRegistry;
     edi::shell::WorkspaceLayout m_workspaceLayout;
     QString m_workspaceLayoutPath;
     QSplitter *m_bodySplitter = nullptr;
     QSplitter *m_rootSplitter = nullptr;
     QWidget *m_leftPanelWidget = nullptr;
+    QWidget *m_mainPanelWidget = nullptr;
     QWidget *m_rightPanelWidget = nullptr;
     QWidget *m_bottomPanelWidget = nullptr;
     DrawingDocumentController *m_controller = nullptr;
-    DrawingCanvasWidget *m_canvas = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
-    QButtonGroup *m_toolGroup = nullptr;
-    QSpinBox *m_polygonSidesSpin = nullptr;
-    QComboBox *m_gridPreset = nullptr;
-    QComboBox *m_gridUnit = nullptr;
-    QDoubleSpinBox *m_gridWidth = nullptr;
-    QDoubleSpinBox *m_gridHeight = nullptr;
-    QDoubleSpinBox *m_gridMarginLeft = nullptr;
-    QDoubleSpinBox *m_gridMarginTop = nullptr;
-    QDoubleSpinBox *m_gridMarginRight = nullptr;
-    QDoubleSpinBox *m_gridMarginBottom = nullptr;
-    QDoubleSpinBox *m_gridMinorStep = nullptr;
-    QSpinBox *m_gridMajorEvery = nullptr;
-    QCheckBox *m_gridVisible = nullptr;
-    QCheckBox *m_gridSnap = nullptr;
-    QCheckBox *m_objectSnap = nullptr;
-    QCheckBox *m_endpointSnap = nullptr;
-    QCheckBox *m_vertexSnap = nullptr;
-    QCheckBox *m_midpointSnap = nullptr;
-    QCheckBox *m_centerSnap = nullptr;
-    QCheckBox *m_guideSnap = nullptr;
-    QCheckBox *m_guideMoveSnap = nullptr;
-    QCheckBox *m_objectPrioritySnap = nullptr;
-    QComboBox *m_objectTolerance = nullptr;
-    QLabel *m_workspaceTitle = nullptr;
-    QLabel *m_toolValue = nullptr;
-    QLabel *m_selectedValue = nullptr;
-    QLabel *m_objectKindValue = nullptr;
-    QLabel *m_objectBoundsValue = nullptr;
-    QLabel *m_objectGeometryValue = nullptr;
-    QLabel *m_objectLayerValue = nullptr;
-    QLabel *m_objectMeasurementValue = nullptr;
-    QLabel *m_objectPlotSafetyValue = nullptr;
-    QLabel *m_selectionPlotBoundsValue = nullptr;
-    QVector<QPair<QPushButton *, QString>> m_conditionalButtons;
-    QPushButton *m_deleteAllGuidesButton = nullptr;
-    QPushButton *m_mergeDuplicateGuidesButton = nullptr;
-    QPushButton *m_hideAllGuidesButton = nullptr;
-    QPushButton *m_showAllGuidesButton = nullptr;
-    QPushButton *m_lockAllGuidesButton = nullptr;
-    QPushButton *m_unlockAllGuidesButton = nullptr;
-    QLineEdit *m_guideLabel = nullptr;
-    QComboBox *m_guideColor = nullptr;
-    QComboBox *m_guideDashStyle = nullptr;
-    QCheckBox *m_guideShowLabel = nullptr;
-    QLabel *m_dimensionReadout = nullptr;
-    QComboBox *m_dimensionKind = nullptr;
-    QCheckBox *m_dimensionShowLabel = nullptr;
-    QMap<QString, QPushButton *> m_guideOffsetButtons;
-    QMap<QString, QPushButton *> m_boundsGuideButtons;
-    QMap<QString, QPushButton *> m_offsetGuideButtons;
-    QMap<QString, QPushButton *> m_alignToGuideButtons;
-    QCheckBox *m_selectedLocked = nullptr;
-    QCheckBox *m_selectedVisible = nullptr;
-    QCheckBox *m_defaultLayerLocked = nullptr;
-    QCheckBox *m_defaultLayerVisible = nullptr;
-    QComboBox *m_activeLayer = nullptr;
-    QComboBox *m_selectedObjectLayer = nullptr;
-    QPushButton *m_addLayerButton = nullptr;
-    QPushButton *m_layerUpButton = nullptr;
-    QPushButton *m_layerDownButton = nullptr;
-    QCheckBox *m_activeLayerPlotEnabled = nullptr;
-    QComboBox *m_activeLayerPen = nullptr;
-    QComboBox *m_activeLayerStrokeWidth = nullptr;
-    QWidget *m_geometryEditor = nullptr;
-    QLabel *m_geometryEditStatus = nullptr;
-    QMap<QString, QDoubleSpinBox *> m_geometryFields;
-    QMap<QString, QDoubleSpinBox *> m_physicalGeometryFields;
-    QLabel *m_objectsValue = nullptr;
-    QLabel *m_guidesValue = nullptr;
-    QLabel *m_revisionValue = nullptr;
-    QLabel *m_snapValue = nullptr;
-    QLabel *m_gridValue = nullptr;
-    QLabel *m_plotValue = nullptr;
-    QLabel *m_plotBoundsValue = nullptr;
-    QLabel *m_plotLayerStatsValue = nullptr;
-    QLabel *m_plotPenStatsValue = nullptr;
-    QLabel *m_plotReadinessValue = nullptr;
-    QComboBox *m_plotOrderMode = nullptr;
-    QComboBox *m_plotDirectionMode = nullptr;
-    QCheckBox *m_plotPreviewVisible = nullptr;
-    QDoubleSpinBox *m_calibrationMeasuredValue = nullptr;
-    QLabel *m_calibrationMeasurementValue = nullptr;
-    QLabel *m_pointerValue = nullptr;
-    QLabel *m_quickMeasureValue = nullptr;
-    QLabel *m_guideDragValue = nullptr;
-    QLabel *m_previewValue = nullptr;
-    QLabel *m_statusValue = nullptr;
-    QPushButton *m_undoButton = nullptr;
-    QPushButton *m_redoButton = nullptr;
-    QWidget *m_recentFilesContainer = nullptr;
+    // The drafting workspace as a feature object: it owns the drafting panel
+    // widgets' wiring and the inspector refresh, so its lifetime can later
+    // match its widgets when workspace switching lands.
+    std::unique_ptr<DraftingFeature> m_draftingFeature;
     QString m_currentDrawingPath;
     QString m_settingsPath;
     QStringList m_recentFiles;

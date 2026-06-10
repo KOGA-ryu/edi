@@ -575,13 +575,20 @@ int main(int argc, char **argv)
         assert(fresh.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
 
         // Hand-edited geometry actually lands in the splitter, clamped to the
-        // slot's band on the way in.
+        // slot's band on the way in. (All four slots bound: this fixture is
+        // about geometry import, not about binding changes.)
         EdiShellWindow sized;
         {
             edi::formats::StaticConfig config;
             config["workspace.id"] = "drafting";
             config["binding.0.slot"] = "left";
             config["binding.0.feature"] = "drafting";
+            config["binding.1.slot"] = "main";
+            config["binding.1.feature"] = "drafting";
+            config["binding.2.slot"] = "right";
+            config["binding.2.feature"] = "drafting";
+            config["binding.3.slot"] = "bottom";
+            config["binding.3.feature"] = "drafting";
             config["panel.left.size"] = "400";
             config["panel.right.collapsed"] = "false";
             const QString sizedPath = tempDir.filePath(QStringLiteral("sized.toml"));
@@ -592,6 +599,79 @@ int main(int argc, char **argv)
             assert(bodySplitter != nullptr);
             assert(bodySplitter->sizes().value(0) == 400);
         }
+    }
+
+    // Workspace switching: tear down the mounted slots, rebuild from another
+    // layout. The document lives in the controller and must be untouched —
+    // switching changes the glass, never what is behind it.
+    {
+        using edi::shell::PanelVisibility;
+        using edi::shell::ShellSlot;
+        using edi::shell::WorkspaceLayout;
+
+        EdiShellWindow shell;
+        shell.show();
+        auto *shellController = shell.findChild<DrawingDocumentController *>();
+        assert(shellController != nullptr);
+
+        // Draw something so there is a document to preserve.
+        shellController->setSelectedToolId(QStringLiteral("point_tool"));
+        shellController->clickCanvasNormalized(0.5, 0.5);
+        const int objectsBefore = objectCount(*shellController);
+        assert(objectsBefore > 0);
+
+        WorkspaceLayout canvasOnly;
+        canvasOnly.id = QStringLiteral("canvas_only");
+        canvasOnly.label = QStringLiteral("Canvas only");
+        canvasOnly.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}};
+        shell.switchWorkspaceLayout(canvasOnly);
+
+        // Old panels are gone (immediate delete — no flush needed), the canvas
+        // is fresh, and the document survived the teardown.
+        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) == nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("bottomPanel")) == nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(objectCount(*shellController) == objectsBefore);
+
+        // Model changes must not crash the partial-layout inspector (it is
+        // wired to modelChanged on the fresh feature instance).
+        shellController->clickCanvasNormalized(0.25, 0.25);
+        assert(objectCount(*shellController) == objectsBefore + 1);
+
+        // Switch back to the full drafting job: panels return, and the rebuilt
+        // inspector tracks the live selection (the click above selected an
+        // object, so selection-conditional buttons must be enabled).
+        WorkspaceLayout full;
+        full.id = QStringLiteral("drafting");
+        full.label = QStringLiteral("Drafting");
+        full.bindings = {
+            {ShellSlot::Left, QStringLiteral("drafting")},
+            {ShellSlot::Main, QStringLiteral("drafting")},
+            {ShellSlot::Right, QStringLiteral("drafting")},
+            {ShellSlot::Bottom, QStringLiteral("drafting")},
+        };
+        shell.switchWorkspaceLayout(full);
+        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) != nullptr);
+        QPushButton *fitButton = buttonNamed(shell, QStringLiteral("fitToDrawableButton"));
+        assert(fitButton != nullptr);
+        assert(fitButton->isEnabled());
+        assert(objectCount(*shellController) == objectsBefore + 1);
+
+        // Persistence round-trips bindings: save the canvas-only job, load it
+        // into a fresh window, and the fresh window switches to it.
+        shell.switchWorkspaceLayout(canvasOnly);
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString jobPath = tempDir.filePath(QStringLiteral("job.toml"));
+        assert(shell.saveWorkspaceLayout(jobPath));
+
+        EdiShellWindow restored;
+        assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        assert(restored.loadWorkspaceLayout(jobPath));
+        assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
     return 0;

@@ -50,6 +50,13 @@ struct SlotBinding {
     QString featureId;
 };
 
+// Value semantics: a loaded layout can be compared against the mounted one to
+// decide whether switching is actually needed.
+inline bool operator==(const SlotBinding &a, const SlotBinding &b)
+{
+    return a.slot == b.slot && a.featureId == b.featureId;
+}
+
 struct WorkspaceLayout {
     QString id;     // "drafting", "blender_recipe", ...
     QString label;

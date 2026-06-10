@@ -53,9 +53,13 @@ public:
 
     // Workspace layout persistence seams (TOML at path; tests inject a temp
     // path, main() passes defaultWorkspaceLayoutPath()). Load applies panel
-    // geometry; the bindings become switchable when workspace switching lands.
+    // geometry AND bindings (switching workspaces if they differ).
     bool loadWorkspaceLayout(const QString &path);
     bool saveWorkspaceLayout(const QString &path) const;
+
+    // Tear down the mounted slots and rebuild them from a different layout.
+    // The document is untouched — only the glass around it changes.
+    void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -80,6 +84,8 @@ private:
     void refreshPanelVisibility();
     void applyPanelSizesToSplitters();
     void capturePanelSizes();
+    std::unique_ptr<DraftingFeature> createDraftingFeature();
+    void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
 
     edi::app::AppState m_appState;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
@@ -88,11 +94,13 @@ private:
     // Panel state lives in the pure model; the splitters and visibility flags
     // are projections of it, never the other way around.
     edi::shell::ShellPanelsState m_panelsState;
+    edi::shell::FeatureRegistry m_featureRegistry;
     edi::shell::WorkspaceLayout m_workspaceLayout;
     QString m_workspaceLayoutPath;
     QSplitter *m_bodySplitter = nullptr;
     QSplitter *m_rootSplitter = nullptr;
     QWidget *m_leftPanelWidget = nullptr;
+    QWidget *m_mainPanelWidget = nullptr;
     QWidget *m_rightPanelWidget = nullptr;
     QWidget *m_bottomPanelWidget = nullptr;
     DrawingDocumentController *m_controller = nullptr;

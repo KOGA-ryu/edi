@@ -66,71 +66,29 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     // The window no longer hard-wires drafting panels into regions: drafting
     // is feature #1 in a registry, and which feature fills which slot is data
-    // (the layout). The layout is a member — persistence saves it — while the
-    // registry stays a constructor local until workspace switching needs it
-    // again; the context is a member because features may hold onto the bus
-    // for as long as their widgets live.
+    // (the layout). Registry, layout, and the feature instance are members:
+    // switching workspaces re-reads all three. The context is a member because
+    // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
-
-    // The drafting feature talks back to the shell only through callables:
-    // the feature never sees the window type, so it stays mountable under any
-    // shell that can supply these verbs.
-    DraftingFeature::ShellActions actions;
-    actions.saveDrawing = [this]() { promptSaveDrawing(); };
-    actions.saveDrawingAs = [this]() { promptSaveDrawingAs(); };
-    actions.openDrawing = [this]() { promptOpenDrawing(); };
-    actions.exportSvg = [this]() { promptExportSvg(); };
-    actions.exportHpgl = [this]() { promptExportHpgl(); };
-    actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPath(path); };
-    actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
-    actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
-    m_draftingFeature = std::make_unique<DraftingFeature>(m_controller, std::move(actions));
+    m_draftingFeature = createDraftingFeature();
 
     FeatureDescriptor drafting;
     drafting.id = QStringLiteral("drafting");
     drafting.label = QStringLiteral("Drafting");
     drafting.supportedSlots = {ShellSlot::Main, ShellSlot::Left, ShellSlot::Right, ShellSlot::Bottom};
+    // Reads the member on every call, so the descriptor survives the feature
+    // instance being replaced across workspace switches.
     drafting.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
         return m_draftingFeature->buildPanel(slot);
     };
+    m_featureRegistry.features.push_back(drafting);
 
-    FeatureRegistry registry;
-    registry.features.push_back(drafting);
-
-    m_workspaceLayout.id = QStringLiteral("drafting");
-    m_workspaceLayout.label = QStringLiteral("Drafting");
-    m_workspaceLayout.bindings = {
-        {ShellSlot::Left, QStringLiteral("drafting")},
-        {ShellSlot::Main, QStringLiteral("drafting")},
-        {ShellSlot::Right, QStringLiteral("drafting")},
-        {ShellSlot::Bottom, QStringLiteral("drafting")},
-    };
-
-    const std::vector<MountedSlot> mounted = mountWorkspaceLayout(m_workspaceLayout, registry, m_featureContext);
-
-    // Geometry stays the window's job: slots have fixed places in the frame,
-    // and an unbound slot simply isn't added. Side and bottom slots sit in
-    // splitters so the user can drag-resize them; the pure ShellPanels model
-    // is the source of truth and the splitters are a projection of it.
-    m_leftPanelWidget = mountedSlotWidget(mounted, ShellSlot::Left);
-    m_rightPanelWidget = mountedSlotWidget(mounted, ShellSlot::Right);
-    m_bottomPanelWidget = mountedSlotWidget(mounted, ShellSlot::Bottom);
-    QWidget *mainWidget = mountedSlotWidget(mounted, ShellSlot::Main);
-
+    // Empty splitters first; mountWorkspace() fills them — the same path a
+    // runtime workspace switch takes, so the constructor cannot drift from it.
     m_bodySplitter = new QSplitter(Qt::Horizontal);
     m_bodySplitter->setObjectName(QStringLiteral("bodySplitter"));
     m_bodySplitter->setChildrenCollapsible(false); // collapse is a modeled state, not a drag accident
     m_bodySplitter->setHandleWidth(8);             // spec: 8px hit zone
-    if (m_leftPanelWidget != nullptr) {
-        m_bodySplitter->addWidget(m_leftPanelWidget);
-    }
-    if (mainWidget != nullptr) {
-        m_bodySplitter->addWidget(mainWidget);
-        m_bodySplitter->setStretchFactor(m_bodySplitter->count() - 1, 1);
-    }
-    if (m_rightPanelWidget != nullptr) {
-        m_bodySplitter->addWidget(m_rightPanelWidget);
-    }
 
     bodyLayout->addWidget(buildActivityRail());
     bodyLayout->addWidget(m_bodySplitter, 1);
@@ -141,17 +99,23 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     m_rootSplitter->setHandleWidth(8);
     m_rootSplitter->addWidget(body);
     m_rootSplitter->setStretchFactor(0, 1);
-    if (m_bottomPanelWidget != nullptr) {
-        m_rootSplitter->addWidget(m_bottomPanelWidget);
-    }
     root->addWidget(m_rootSplitter, 1);
 
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
     connect(m_rootSplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
 
     m_panelsState = defaultShellPanelsState();
-    applyPanelSizesToSplitters();
-    refreshPanelVisibility();
+
+    WorkspaceLayout drafting_layout;
+    drafting_layout.id = QStringLiteral("drafting");
+    drafting_layout.label = QStringLiteral("Drafting");
+    drafting_layout.bindings = {
+        {ShellSlot::Left, QStringLiteral("drafting")},
+        {ShellSlot::Main, QStringLiteral("drafting")},
+        {ShellSlot::Right, QStringLiteral("drafting")},
+        {ShellSlot::Bottom, QStringLiteral("drafting")},
+    };
+    mountWorkspace(drafting_layout);
 
     setCentralWidget(central);
     applyShellStyle();
@@ -333,6 +297,81 @@ void EdiShellWindow::applyShellStyle()
     setStyleSheet(buildShellStyleSheet(deriveShellTheme(ShellThemeInputs{})));
 }
 
+std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
+{
+    // The drafting feature talks back to the shell only through callables:
+    // the feature never sees the window type, so it stays mountable under any
+    // shell that can supply these verbs.
+    DraftingFeature::ShellActions actions;
+    actions.saveDrawing = [this]() { promptSaveDrawing(); };
+    actions.saveDrawingAs = [this]() { promptSaveDrawingAs(); };
+    actions.openDrawing = [this]() { promptOpenDrawing(); };
+    actions.exportSvg = [this]() { promptExportSvg(); };
+    actions.exportHpgl = [this]() { promptExportHpgl(); };
+    actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPath(path); };
+    actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
+    actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
+    return std::make_unique<DraftingFeature>(m_controller, std::move(actions));
+}
+
+void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
+{
+    m_workspaceLayout = layout;
+    const std::vector<MountedSlot> mounted =
+        mountWorkspaceLayout(m_workspaceLayout, m_featureRegistry, m_featureContext);
+
+    // Geometry stays the window's job: slots have fixed places in the frame,
+    // and an unbound slot simply isn't added. Side and bottom slots sit in
+    // splitters so the user can drag-resize them; the pure ShellPanels model
+    // is the source of truth and the splitters are a projection of it.
+    m_leftPanelWidget = mountedSlotWidget(mounted, ShellSlot::Left);
+    m_mainPanelWidget = mountedSlotWidget(mounted, ShellSlot::Main);
+    m_rightPanelWidget = mountedSlotWidget(mounted, ShellSlot::Right);
+    m_bottomPanelWidget = mountedSlotWidget(mounted, ShellSlot::Bottom);
+
+    if (m_leftPanelWidget != nullptr) {
+        m_bodySplitter->addWidget(m_leftPanelWidget);
+    }
+    if (m_mainPanelWidget != nullptr) {
+        m_bodySplitter->addWidget(m_mainPanelWidget);
+        m_bodySplitter->setStretchFactor(m_bodySplitter->count() - 1, 1);
+    }
+    if (m_rightPanelWidget != nullptr) {
+        m_bodySplitter->addWidget(m_rightPanelWidget);
+    }
+    if (m_bottomPanelWidget != nullptr) {
+        m_rootSplitter->addWidget(m_bottomPanelWidget);
+    }
+
+    applyPanelSizesToSplitters();
+    refreshPanelVisibility();
+}
+
+void EdiShellWindow::switchWorkspaceLayout(const WorkspaceLayout &layout)
+{
+    // Tear down the mounted slots, then retire the feature instance itself:
+    // its widget-pointer members die with it, so nothing can dangle into the
+    // next mount. This destroy-and-rebuild is the entire reason the feature
+    // moved out of the window. (Immediate delete, not deleteLater: nothing on
+    // the call stack lives inside these widgets — switching is driven from
+    // chrome, never from inside a panel.)
+    const auto retire = [](QWidget *&widget) {
+        delete widget;
+        widget = nullptr;
+    };
+    retire(m_leftPanelWidget);
+    retire(m_mainPanelWidget);
+    retire(m_rightPanelWidget);
+    retire(m_bottomPanelWidget);
+    m_draftingFeature = createDraftingFeature();
+
+    mountWorkspace(layout);
+
+    // The fresh feature starts blank; re-feed it the shell-owned state.
+    m_draftingFeature->setRecentFiles(m_recentFiles);
+    m_draftingFeature->refreshInspector();
+}
+
 void EdiShellWindow::setPanelCollapsed(ShellSlot slot, bool collapsed)
 {
     panelStateFor(m_panelsState, slot).collapsed = collapsed;
@@ -371,15 +410,31 @@ void EdiShellWindow::refreshPanelVisibility()
 
 void EdiShellWindow::applyPanelSizesToSplitters()
 {
-    // QSplitter::setSizes wants every section; the main slot gets whatever the
-    // panels leave over. Hidden sections keep their stored size in the model,
-    // so reopening restores the user's layout.
-    if (m_bodySplitter != nullptr && m_bodySplitter->count() == 3) {
-        const int left = m_panelsState.left.size;
-        const int right = m_panelsState.right.size;
-        m_bodySplitter->setSizes({left, std::max(0, m_bodySplitter->width() - left - right), right});
+    // QSplitter::setSizes wants every section, and a layout may leave any slot
+    // unbound — so sections are resolved by widget identity, never by index.
+    // The main slot absorbs whatever the panels leave over. Hidden sections
+    // keep their stored size in the model, so reopening restores the layout.
+    if (m_bodySplitter != nullptr && m_bodySplitter->count() > 0) {
+        QList<int> sizes;
+        int panelTotal = 0;
+        for (int i = 0; i < m_bodySplitter->count(); ++i) {
+            QWidget *widget = m_bodySplitter->widget(i);
+            int size = 0; // main: placeholder, filled with the remainder below
+            if (widget == m_leftPanelWidget) {
+                size = m_panelsState.left.size;
+            } else if (widget == m_rightPanelWidget) {
+                size = m_panelsState.right.size;
+            }
+            panelTotal += size;
+            sizes.push_back(size);
+        }
+        const int mainIndex = m_bodySplitter->indexOf(m_mainPanelWidget);
+        if (mainIndex >= 0) {
+            sizes[mainIndex] = std::max(0, m_bodySplitter->width() - panelTotal);
+        }
+        m_bodySplitter->setSizes(sizes);
     }
-    if (m_rootSplitter != nullptr && m_rootSplitter->count() == 2) {
+    if (m_rootSplitter != nullptr && m_rootSplitter->indexOf(m_bottomPanelWidget) >= 0) {
         const int bottom = m_panelsState.bottom.size;
         m_rootSplitter->setSizes({std::max(0, m_rootSplitter->height() - bottom), bottom});
     }
@@ -387,20 +442,24 @@ void EdiShellWindow::applyPanelSizesToSplitters()
 
 void EdiShellWindow::capturePanelSizes()
 {
-    // Drag feedback flows one way: splitter -> clamp -> model. Hidden panels
-    // report size 0 here, which must not overwrite the stored size they will
-    // reopen to — hence the visibility guards.
-    if (m_bodySplitter != nullptr && m_bodySplitter->count() == 3) {
+    // Drag feedback flows one way: splitter -> clamp -> model. Sections are
+    // found by widget identity (layouts may leave slots unbound), and hidden
+    // panels report size 0 here, which must not overwrite the stored size they
+    // will reopen to — hence the visibility guards.
+    if (m_bodySplitter != nullptr) {
         const QList<int> sizes = m_bodySplitter->sizes();
         if (m_leftPanelWidget != nullptr && m_leftPanelWidget->isVisible()) {
-            m_panelsState.left.size = clampPanelSize(ShellSlot::Left, sizes.value(0));
+            m_panelsState.left.size =
+                clampPanelSize(ShellSlot::Left, sizes.value(m_bodySplitter->indexOf(m_leftPanelWidget)));
         }
         if (m_rightPanelWidget != nullptr && m_rightPanelWidget->isVisible()) {
-            m_panelsState.right.size = clampPanelSize(ShellSlot::Right, sizes.value(2));
+            m_panelsState.right.size =
+                clampPanelSize(ShellSlot::Right, sizes.value(m_bodySplitter->indexOf(m_rightPanelWidget)));
         }
     }
-    if (m_rootSplitter != nullptr && m_rootSplitter->count() == 2
-        && m_bottomPanelWidget != nullptr && m_bottomPanelWidget->isVisible()) {
-        m_panelsState.bottom.size = clampPanelSize(ShellSlot::Bottom, m_rootSplitter->sizes().value(1));
+    if (m_rootSplitter != nullptr && m_bottomPanelWidget != nullptr && m_bottomPanelWidget->isVisible()
+        && m_rootSplitter->indexOf(m_bottomPanelWidget) >= 0) {
+        m_panelsState.bottom.size = clampPanelSize(
+            ShellSlot::Bottom, m_rootSplitter->sizes().value(m_rootSplitter->indexOf(m_bottomPanelWidget)));
     }
 }

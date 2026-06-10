@@ -141,11 +141,16 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
     if (!data.ok) {
         return false; // keep the built-in default layout and panel state
     }
-    // Bindings stay fixed until workspace switching lands; panel geometry is
-    // what restarting must preserve.
     m_panelsState = data.panels;
-    applyPanelSizesToSplitters();
-    refreshPanelVisibility();
+    if (data.layout.id != m_workspaceLayout.id
+        || data.layout.bindings != m_workspaceLayout.bindings) {
+        // Different job: tear down and rebuild the slots from the loaded
+        // bindings (panel geometry rides along inside mountWorkspace).
+        switchWorkspaceLayout(data.layout);
+    } else {
+        applyPanelSizesToSplitters();
+        refreshPanelVisibility();
+    }
     return true;
 }
 

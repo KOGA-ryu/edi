@@ -134,6 +134,7 @@ private:
     ShellActions m_actions;
     DrawingCanvasWidget *m_canvas = nullptr;
     QListWidget *m_objectList = nullptr;
+    QLabel *m_objectListEmpty = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QComboBox *m_gridPreset = nullptr;

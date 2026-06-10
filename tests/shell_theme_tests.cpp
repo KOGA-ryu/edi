@@ -101,7 +101,7 @@ int main()
              "#panelTitle", "#chromeStatus", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
-             "QListWidget::item:selected",
+             "QListWidget::item:selected", "#objectListEmpty",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {

@@ -13,6 +13,7 @@
 #include <QColor>
 #include <QCoreApplication>
 #include <QImage>
+#include <QLabel>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
@@ -1355,6 +1356,28 @@ int main(int argc, char **argv)
             &proof, QPoint(objectList->viewport()->width() / 2,
                            objectList->viewport()->height() / 2));
         assert(QColor(rendered.pixel(listProbe)).name() == theme.surface);
+    }
+
+    // F1 empty state: the object list names its own absence ("No objects
+    // yet"), and the label is a projection of the document like every other
+    // inspector readout — created objects hide it, an emptied document brings
+    // it back.
+    {
+        EdiShellWindow emptyState;
+        auto *stateController = emptyState.findChild<DrawingDocumentController *>();
+        auto *emptyLabel = emptyState.findChild<QLabel *>(QStringLiteral("objectListEmpty"));
+        assert(stateController != nullptr && emptyLabel != nullptr);
+        assert(objectCount(*stateController) == 0);
+        assert(emptyLabel->isVisibleTo(&emptyState));
+
+        stateController->setSelectedToolId(QStringLiteral("point_tool"));
+        stateController->clickCanvasNormalized(0.5, 0.5);
+        assert(objectCount(*stateController) == 1);
+        assert(!emptyLabel->isVisibleTo(&emptyState));
+
+        stateController->undo();
+        assert(objectCount(*stateController) == 0);
+        assert(emptyLabel->isVisibleTo(&emptyState));
     }
 
     return 0;

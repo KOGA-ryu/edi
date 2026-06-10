@@ -187,6 +187,9 @@ void DraftingFeature::refreshInspector()
             }
         }
     }
+    if (m_objectListEmpty != nullptr) {
+        m_objectListEmpty->setVisible(objects.isEmpty());
+    }
 
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_beltWidget != nullptr) {

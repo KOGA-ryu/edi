@@ -257,6 +257,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @rowSelected@;
             border-left: 2px solid @accent@;
         }
+        #objectListEmpty {
+            color: @textFaint@;
+            font-size: @fontSm@px;
+        }
         QCheckBox {
             color: @text@;
             spacing: 8px;
@@ -348,6 +352,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@rowSelected@", t.rowSelected},
         {"@text@", t.text},
         {"@textMuted@", t.textMuted},
+        {"@textFaint@", t.textFaint},
         {"@borderMajor@", t.borderMajor},
         {"@borderMinor@", t.borderMinor},
         {"@borderFocus@", t.borderFocus},

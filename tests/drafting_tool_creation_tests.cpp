@@ -261,5 +261,29 @@ int main()
         assert(!buildDraftingObjectForTool(tooShort).ok);
     }
 
+    // Arrow: the line tool's variant — same Line geometry/kind, distinguished
+    // only by the endArrow metadata flag. A plain line never carries it.
+    {
+        assert(draftingToolKindFromId("arrow_tool") == DraftingToolKind::Arrow);
+        assert(std::string(draftingToolKindName(DraftingToolKind::Arrow)) == "arrow");
+
+        DraftingToolCreationRequest arrow;
+        arrow.tool = DraftingToolKind::Arrow;
+        arrow.objectId = "arrow_1";
+        arrow.start = {0.1, 0.1};
+        arrow.end = {0.6, 0.4};
+        const DraftingObjectBuildResult built = buildDraftingObjectForTool(arrow);
+        assert(built.ok);
+        assert(built.object.kind == DraftingShapeKind::Line); // geometry is a line
+        assert(built.object.metadata.lineVisual.endArrow);
+        assert(std::get_if<LineGeometry>(&built.object.geometry) != nullptr);
+
+        DraftingToolCreationRequest plainLine = arrow;
+        plainLine.tool = DraftingToolKind::Line;
+        plainLine.objectId = "line_x";
+        const DraftingObjectBuildResult line = buildDraftingObjectForTool(plainLine);
+        assert(line.ok && !line.object.metadata.lineVisual.endArrow);
+    }
+
     return 0;
 }

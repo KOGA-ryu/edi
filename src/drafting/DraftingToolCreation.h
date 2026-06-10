@@ -11,6 +11,7 @@ enum class DraftingToolKind {
     SelectMove,
     Point,
     Line,
+    Arrow,
     Rectangle,
     Circle,
     Arc,

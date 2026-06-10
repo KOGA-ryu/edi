@@ -97,6 +97,9 @@ DraftingDocument buildSampleDocument()
     styled.metadata.measurement.canvasUnitsPerRealUnit = 10.0;
     styled.metadata.measurement.label = "10mm";
 
+    // The line object carries the N2 arrow flag, to round-trip lineVisual.
+    document.objects[1].metadata.lineVisual.endArrow = true;
+
     DraftingObject &guideObject = document.objects[7];
     guideObject.metadata.guideVisual.label = "centerline";
     guideObject.metadata.guideVisual.color = "#abcdef";
@@ -149,6 +152,7 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         assert(oa.metadata.guideVisual.label == ob.metadata.guideVisual.label);
         assert(oa.metadata.guideVisual.showLabel == ob.metadata.guideVisual.showLabel);
         assert(oa.metadata.dimensionVisual.showLabel == ob.metadata.dimensionVisual.showLabel);
+        assert(oa.metadata.lineVisual.endArrow == ob.metadata.lineVisual.endArrow);
         assert(boundsEqual(oa.bounds, ob.bounds));
     }
 }

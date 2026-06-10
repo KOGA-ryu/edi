@@ -321,6 +321,9 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     MsgPackValue dimensionVisual = MsgPackValue::map({
         {"show_label", MsgPackValue::boolean(m.dimensionVisual.showLabel)},
     });
+    MsgPackValue lineVisual = MsgPackValue::map({
+        {"end_arrow", MsgPackValue::boolean(m.lineVisual.endArrow)},
+    });
     return MsgPackValue::map({
         {"schema_version", MsgPackValue::integer(static_cast<std::int64_t>(m.schemaVersion))},
         {"author", MsgPackValue::text(m.author)},
@@ -331,6 +334,7 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"measurement", std::move(measurement)},
         {"guide_visual", std::move(guideVisual)},
         {"dimension_visual", std::move(dimensionVisual)},
+        {"line_visual", std::move(lineVisual)},
     });
 }
 
@@ -359,6 +363,9 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
     }
     if (const MsgPackValue *dv = child(*v, "dimension_visual")) {
         m.dimensionVisual.showLabel = asBool(child(*dv, "show_label"), m.dimensionVisual.showLabel);
+    }
+    if (const MsgPackValue *lv = child(*v, "line_visual")) {
+        m.lineVisual.endArrow = asBool(child(*lv, "end_arrow"), m.lineVisual.endArrow);
     }
     return m;
 }

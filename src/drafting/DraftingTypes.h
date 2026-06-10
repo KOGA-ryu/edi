@@ -117,6 +117,15 @@ struct DimensionVisualMetadata {
     bool showLabel = true;
 };
 
+// N2: the line tool's arrow variant. An arrowhead is decoration on a plain
+// LineGeometry, not a new geometry kind — so it lives in metadata beside the
+// other per-object visual flags (guide color, dimension label), keeping the
+// geometry variant focused on shape. endArrow draws a head at the line's b
+// endpoint (the second click).
+struct LineVisualMetadata {
+    bool endArrow = false;
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -127,6 +136,7 @@ struct ObjectMetadata {
     MeasurementMetadata measurement;
     GuideVisualMetadata guideVisual;
     DimensionVisualMetadata dimensionVisual;
+    LineVisualMetadata lineVisual;
 };
 
 struct PointGeometry {

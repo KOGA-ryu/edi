@@ -5,6 +5,13 @@ capabilities. Written to be executed cold by a model with no prior context.
 Behavioral reference: `docs/legacy_inventory.md` (mined from git history at
 `ce0b751` — read old files with `git show ce0b751:<path>`, never check out).
 
+**Status (2026-06-10): R1–R6 landed and R7 review-cycle complete.** Save/open
+(MessagePack), undo/redo, zoom/pan + keyboard map, arc + regular-polygon tools,
+SVG/HPGL export, and TOML settings all ship with tests (suite at 57). This
+document is now historical reference for those phases; the active backlog and
+the next features (the still-lost legacy items) live in
+`.claude/commands/goal.md`.
+
 ## Ground rules (read before any phase)
 
 1. Read `CLAUDE.md` first. Hard rules: **no JSON, no `.js`/`.qml`,

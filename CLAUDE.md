@@ -28,9 +28,14 @@ Qt6/C++20 2D drafting (CAD) application. CMake build, widget-based UI — delibe
   covers canvas mouse paths via synthesized QMouseEvents; extend them when adding
   controls or gestures. Test gotcha: `rebuildGeometryEditor` retires spins with
   `deleteLater()` — flush `QEvent::DeferredDelete` before widget lookups.
-- `src/io/` — persistence stores are stubs. Format decisions (2026-06-10):
-  **TOML** for configurable settings, **MessagePack** for document data,
-  **TOON** for AI handoffs — codecs already live in `src/formats/`. Never JSON.
+- `src/io/` — persistence is live. `DrawingDocumentStore` does binary drawing
+  I/O (save/open `.edidraw`) and text export (SVG/HPGL); `SettingsStore` is a
+  free-function module over `StaticConfig` persisting `edi.toml`. Format
+  decisions (2026-06-10): **TOML** for configurable settings, **MessagePack**
+  for document data (the real value codec + `EDIM` envelope live in
+  `src/formats/MessagePackValue.*` and `src/drafting/DraftingSerialize.*`),
+  **TOON** for AI handoffs. Never JSON. (`DrawingRecentFilesStore`,
+  `ShellLayoutStore`, `TextEditorStore` remain stubs.)
 - `tests/` — one focused test file per ops slice, registered in `CMakeLists.txt`.
 
 ## Build & verify

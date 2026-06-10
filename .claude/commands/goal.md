@@ -11,28 +11,74 @@ slices or phases to ask permission. Pairs with `/loop /goal` for multi-session r
 
 ## The backlog
 
-The detailed implementation spec for every phase is `docs/rebuild_roadmap.md` —
-READ IT FIRST (it is written to be executed cold, including designs, file
-locations, test plans, and per-phase DoD). Behavioral reference for the
-features being restored: `docs/legacy_inventory.md`.
+Behavioral reference for the features being restored: `docs/legacy_inventory.md`
+(read it first). `docs/rebuild_roadmap.md` is the historical cold-start spec for
+the already-landed phases R1–R6 (designs, file locations, test plans).
 
-- **R1 — MessagePack value codec + drawing save/open** (roadmap §R1)
-- **R2 — Undo/redo** (roadmap §R2)
-- **R3 — Zoom, pan, and the keyboard map** (roadmap §R3)
-- **R4 — Arc and regular polygon tools** (roadmap §R4)
-- **R5 — Plot output: SVG export + HPGL emitter** (roadmap §R5)
-- **R6 — TOML settings persistence** (roadmap §R6)
-- **R7 — Review cycle**: run the find→verify review protocol (multiple
-  independent finder angles, one verifier per surviving candidate, REFUTED only
-  with constructible evidence) over all commits since the marker
-  `claude: distill the legacy version into a rebuild spec`. Apply
-  CONFIRMED/PLAUSIBLE findings as slices; record skips with reasons.
-- **R8 — Replenish or terminate**: update CLAUDE.md and the roadmap to match
-  reality; rewrite this backlog from evidence (a scan, a review finding, a
-  failing invariant, or the remaining items in `docs/legacy_inventory.md` —
-  e.g. rulers, tool variants, object metadata, splines, hatching, SVG import);
-  each new phase MUST have an objective DoD. If nothing qualifies, final
-  report and stop.
+**Done (2026-06-10):** R1 save/open (MessagePack), R2 undo/redo, R3 zoom/pan +
+keyboard map, R4 arc + regular-polygon tools, R5 SVG/HPGL export, R6 TOML
+settings, plus a find→verify review cycle that fixed a hostile-length
+MessagePack `bad_alloc`, arc start/end-angle physical edits, a drag flooding the
+undo stack, and selection falsely marking the document dirty. Suite at 57 green.
+
+Active backlog — the still-lost legacy items (`legacy_inventory.md` §lost and
+§never-built). Work them in order; each has an objective Definition of Done.
+Within a phase, land pure core (+ tests) before controller before shell, one
+verified slice per commit, mutation-checking every new test target.
+
+- **N1 — Copy / cut / paste.** Legacy had Ctrl+C/V; R3 restored only
+  Esc/Del/Ctrl+D/arrows. Add an in-process clipboard of the selected object(s)
+  on the controller (`copySelection`/`cutSelection`/`paste`); paste fresh-id
+  copies at a small offset, selected, as one undo step; wire Ctrl+C/X/V on the
+  canvas. **DoD:** controller copy/cut/paste round-trips (cut removes, paste
+  restores at offset), paste is one undo step with non-colliding ids, Ctrl+C/X/V
+  drive them in the widget test; suite green; mutation-checked.
+
+- **N2 — Polyline tool + line/arrow variant.** `PolylineGeometry` exists with no
+  creation tool, and the legacy line tool had straight/polyline/arrow variants.
+  Add a multi-click `polyline_tool` (click vertices, Enter/Esc/double-click to
+  finish) and an arrow variant of the line tool (metadata flag + an arrowhead in
+  projection/painter). **DoD:** a polyline of N≥3 vertices is mouse-creatable in
+  the widget test and serializes; the arrow variant is creatable and carries a
+  distinct projected flag; suite green; mutation-checked.
+
+- **N3 — Object metadata: role / material / export_group / tags.**
+  `ObjectMetadata` carries author/source/provenance but not the legacy role
+  (none/wall/floor/cutout/collider), material, export_group, or tags. Extend the
+  struct, the MessagePack serializer, and the projection; add controller setters
+  + inspector controls. **DoD:** all four fields round-trip through save/open
+  (extend `drafting_serialize_tests`), are editable through the controller, and
+  surface in the shell; suite green; mutation-checked.
+
+- **N4 — Rectangle variants + aspect-lock.** Legacy rectangle had box/rounded/
+  frame variants and an aspect-lock toggle. Add a corner-radius (rounded) and
+  inset (frame) parameter path and an aspect-lock flag that constrains
+  rectangle corner-handle edits to preserve the w:h ratio. **DoD:** rounded/
+  frame rectangles are creatable and serialize; with aspect-lock on, a corner
+  drag preserves the ratio (pure `handleEditPlan` test); suite green;
+  mutation-checked.
+
+- **N5 — Plotter G-code output.** R5 shipped HPGL; G-code was never built. Add a
+  pure `gcodeFromPlotJob` emitter (G0 rapid travel / G1 stroke, pen up/down via
+  Z or M3/M5) mirroring `DraftingHpglOut`, wired to an "Export G-code" shell
+  button. **DoD:** golden test pinning exact output for the line+circle two-pen
+  fixture (pen→tool mapping, travel vs stroke, coordinate convention), shell
+  export seam; suite green; mutation-checked (break the travel/stroke
+  distinction).
+
+- **Later / needs design (do not start without a spec slice):** rulers (canvas
+  chrome — coordinate with the UI-restoration program first), spline curves,
+  hatch boundary fill, SVG import/fit, image/ASCII reference frames. Each needs
+  its own roadmap section before implementation.
+
+- **Review + replenish (recurring tail).** When the active list above is empty:
+  run the find→verify review protocol (multiple independent finder angles, one
+  verifier per surviving candidate, REFUTED only with constructible evidence)
+  over the commits since the last review; apply CONFIRMED/PLAUSIBLE findings as
+  slices (record skips with reasons). Then update CLAUDE.md, the roadmap, and
+  this backlog from evidence (a scan, a review finding, a failing invariant, or
+  a remaining `legacy_inventory.md` item), each new phase with an objective DoD.
+  If nothing qualifies, final report and stop.
 
 OUT OF SCOPE for autonomous work (user decisions or user's own projects):
 - The **text editor** surface — the user's personal learning project. Never
@@ -82,4 +128,5 @@ OUT OF SCOPE for autonomous work (user decisions or user's own projects):
 - A slice needs a design decision the roadmap does not settle → make the
   smallest reasonable choice, document it in the commit body, and continue;
   only stop if the choice is destructive or outward-facing.
-- Backlog empty after R8 → final report and stop.
+- Active backlog empty and the review+replenish tail finds nothing to add →
+  final report and stop.

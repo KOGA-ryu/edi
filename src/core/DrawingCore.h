@@ -140,7 +140,8 @@ private:
     bool applyGuideDrawablePlacement(edi::drafting::DraftingGuideDrawablePlacement placement);
     bool applyLayerFlagsUpdate(
         const edi::drafting::LayerId &layerId,
-        const std::function<edi::drafting::DraftingLayerFlagsPlan(const edi::drafting::DraftingLayer &)> &planFlags);
+        edi::drafting::DraftingLayerFlagsPlan (*planFlags)(const edi::drafting::DraftingLayer &, bool),
+        bool value);
     bool applyActiveLayerPlotStyleUpdate(
         const std::function<edi::drafting::LayerPlotStyle(const edi::drafting::DraftingLayer &)> &planPlot);
     bool createTransformedActiveObject(

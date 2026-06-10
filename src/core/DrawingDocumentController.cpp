@@ -946,13 +946,14 @@ bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
 
 bool DrawingDocumentController::applyLayerFlagsUpdate(
     const LayerId &layerId,
-    const std::function<DraftingLayerFlagsPlan(const DraftingLayer &)> &planFlags)
+    DraftingLayerFlagsPlan (*planFlags)(const DraftingLayer &, bool),
+    bool value)
 {
     const DraftingLayer *layer = findLayer(m_document, layerId);
     if (layer == nullptr) {
         return false;
     }
-    const DraftingLayerFlagsPlan plan = planFlags(*layer);
+    const DraftingLayerFlagsPlan plan = planFlags(*layer, value);
     if (!plan.ok) {
         return false;
     }
@@ -973,30 +974,22 @@ bool DrawingDocumentController::applyActiveLayerPlotStyleUpdate(
 
 bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
 {
-    return applyLayerFlagsUpdate("default", [&](const DraftingLayer &layer) {
-        return planLayerLockedUpdate(layer, locked);
-    });
+    return applyLayerFlagsUpdate("default", planLayerLockedUpdate, locked);
 }
 
 bool DrawingDocumentController::setDefaultLayerVisible(bool visible)
 {
-    return applyLayerFlagsUpdate("default", [&](const DraftingLayer &layer) {
-        return planLayerVisibleUpdate(layer, visible);
-    });
+    return applyLayerFlagsUpdate("default", planLayerVisibleUpdate, visible);
 }
 
 bool DrawingDocumentController::setActiveLayerLocked(bool locked)
 {
-    return applyLayerFlagsUpdate(m_document.activeLayerId, [&](const DraftingLayer &layer) {
-        return planLayerLockedUpdate(layer, locked);
-    });
+    return applyLayerFlagsUpdate(m_document.activeLayerId, planLayerLockedUpdate, locked);
 }
 
 bool DrawingDocumentController::setActiveLayerVisible(bool visible)
 {
-    return applyLayerFlagsUpdate(m_document.activeLayerId, [&](const DraftingLayer &layer) {
-        return planLayerVisibleUpdate(layer, visible);
-    });
+    return applyLayerFlagsUpdate(m_document.activeLayerId, planLayerVisibleUpdate, visible);
 }
 
 bool DrawingDocumentController::setActiveLayerPlotEnabled(bool enabled)

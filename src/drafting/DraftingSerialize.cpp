@@ -16,22 +16,8 @@ using edi::formats::MsgPackValue;
 
 namespace {
 
-// --- inverse name parsers (the public API only exposes name-from-enum) ------
-
-DraftingShapeKind shapeKindFromName(const std::string &name)
-{
-    if (name == "point") return DraftingShapeKind::Point;
-    if (name == "line") return DraftingShapeKind::Line;
-    if (name == "rectangle") return DraftingShapeKind::Rectangle;
-    if (name == "circle") return DraftingShapeKind::Circle;
-    if (name == "arc") return DraftingShapeKind::Arc;
-    if (name == "polygon") return DraftingShapeKind::Polygon;
-    if (name == "polyline") return DraftingShapeKind::Polyline;
-    if (name == "guide") return DraftingShapeKind::Guide;
-    if (name == "construction_line") return DraftingShapeKind::ConstructionLine;
-    if (name == "dimension") return DraftingShapeKind::Dimension;
-    return DraftingShapeKind::Point;
-}
+// --- inverse name parsers (shapeKindFromName moved to the public API when
+// the inspector plan needed it too; the remaining parsers are decode-only) ---
 
 bool isKnownShapeKindName(const std::string &name)
 {

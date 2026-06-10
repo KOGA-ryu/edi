@@ -19,6 +19,15 @@
 #include "widgets/DrawingCanvasProjectedStatus.h"
 #include "widgets/DrawingCanvasViewport.h"
 
+namespace {
+
+QColor withAlpha(const QColor &color, int alpha)
+{
+    return QColor(color.red(), color.green(), color.blue(), alpha);
+}
+
+} // namespace
+
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
     : QWidget(parent)
     , m_controller(controller)
@@ -336,7 +345,7 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(color, pointer.source == QStringLiteral("guide") ? 2.0 : 1.5, markerStyle));
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 44));
+    painter.setBrush(withAlpha(color, 44));
     painter.drawEllipse(point, markerRadius, markerRadius);
     painter.drawLine(QPointF(point.x() - 10.0, point.y()), QPointF(point.x() + 10.0, point.y()));
     painter.drawLine(QPointF(point.x(), point.y() - 10.0), QPointF(point.x(), point.y() + 10.0));
@@ -367,9 +376,9 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
     painter.setPen(QPen(color, snap.intersection ? 2.0 : 1.5, Qt::DashLine));
     painter.setBrush(Qt::NoBrush);
     painter.drawLine(raw, snapped);
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 56));
+    painter.setBrush(withAlpha(color, 56));
     painter.drawEllipse(raw, 5.0, 5.0);
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 96));
+    painter.setBrush(withAlpha(color, 96));
     painter.drawEllipse(snapped, snap.intersection ? 8.0 : 6.0, snap.intersection ? 8.0 : 6.0);
     painter.setPen(color);
     painter.drawText(snapped + QPointF(10.0, -12.0),
@@ -424,7 +433,7 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
     QPen pen(color, overlay.calibratedBoundsWarning ? 2.0 : 1.5, overlay.calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), overlay.calibratedBoundsWarning ? 34 : 18));
+    painter.setBrush(withAlpha(color, overlay.calibratedBoundsWarning ? 34 : 18));
     painter.drawRect(rect.normalized());
 
     if (!overlay.warningKind.isEmpty()) {
@@ -456,7 +465,7 @@ void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVari
 
     painter.save();
     painter.setPen(QPen(color, 1.75, Qt::DashLine));
-    painter.setBrush(QColor(color.red(), color.green(), color.blue(), 24));
+    painter.setBrush(withAlpha(color, 24));
     painter.drawRect(rect);
     painter.restore();
 }

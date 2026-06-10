@@ -313,6 +313,8 @@ add_executable(edi_shell_window_tests
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
+    src/widgets/EdiShellWindowInspector.cpp
+    src/widgets/EdiShellWindowIo.cpp
     src/widgets/ShellWidgetHelpers.h
     src/widgets/ShellWidgetHelpers.cpp
     src/widgets/ShellTheme.h
@@ -427,6 +429,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
+    src/widgets/EdiShellWindowInspector.cpp
+    src/widgets/EdiShellWindowIo.cpp
     src/widgets/ShellWidgetHelpers.h
     src/widgets/ShellWidgetHelpers.cpp
     src/widgets/ShellTheme.h

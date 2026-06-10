@@ -16,6 +16,7 @@ class QSplitter;
 class QTimer;
 
 class QButtonGroup;
+class QPushButton;
 class QWidget;
 
 class DraftingFeature;
@@ -58,12 +59,14 @@ public:
     bool saveWorkspaceLayout(const QString &path) const;
 
     // Tear down the mounted slots and rebuild them from a different layout.
-    // The document is untouched — only the glass around it changes.
+    // The document is untouched — only the glass around it changes. Pushes
+    // onto the workspace history (the chrome's back/forward buttons).
     void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void promptSaveDrawing();
@@ -79,13 +82,19 @@ private:
 
 private:
     QWidget *buildActivityRail();
+    QWidget *buildTitleBar();
     void setWorkspaceMode(edi::app::WorkspaceMode mode);
     void applyShellStyle();
     void refreshPanelVisibility();
     void applyPanelSizesToSplitters();
     void capturePanelSizes();
+    void refreshChrome();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
+    // The switch mechanics without touching history — back/forward replay
+    // history entries through this.
+    void applyWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
+    void navigateWorkspaceHistory(int delta);
 
     edi::app::AppState m_appState;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
@@ -97,6 +106,13 @@ private:
     edi::shell::FeatureRegistry m_featureRegistry;
     edi::shell::WorkspaceLayout m_workspaceLayout;
     QString m_workspaceLayoutPath;
+    // The "rabbit hole" trail: each switch pushes here, back/forward replay.
+    // Plain data — a future detail-level drill-down is just more entries.
+    std::vector<edi::shell::WorkspaceLayout> m_workspaceHistory;
+    int m_workspaceHistoryIndex = -1;
+    // Frameless custom chrome; flip to false for a native frame when
+    // debugging window-manager weirdness (the title bar stays either way).
+    bool m_framelessChrome = true;
     QSplitter *m_bodySplitter = nullptr;
     QSplitter *m_rootSplitter = nullptr;
     QWidget *m_leftPanelWidget = nullptr;
@@ -105,6 +121,12 @@ private:
     QWidget *m_bottomPanelWidget = nullptr;
     DrawingDocumentController *m_controller = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
+    QWidget *m_titleBar = nullptr;
+    QPushButton *m_backButton = nullptr;
+    QPushButton *m_forwardButton = nullptr;
+    QPushButton *m_toggleLeftButton = nullptr;
+    QPushButton *m_toggleBottomButton = nullptr;
+    QPushButton *m_toggleRightButton = nullptr;
     // The drafting workspace as a feature object: it owns the drafting panel
     // widgets' wiring and the inspector refresh, so its lifetime can later
     // match its widgets when workspace switching lands.

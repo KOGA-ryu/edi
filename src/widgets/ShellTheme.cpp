@@ -84,6 +84,15 @@ ShellTheme deriveShellTheme(const ShellThemeInputs &in)
     t.warning = QStringLiteral("#d5bb78");
     t.danger = QStringLiteral("#d98b8b");
 
+    // Traffic lights are platform colors, also fixed; each edge is the fill
+    // pulled 20% toward black (the legacy's "1px darkened border").
+    t.trafficClose = QStringLiteral("#ff5f57");
+    t.trafficMinimize = QStringLiteral("#ffbd2e");
+    t.trafficZoom = QStringLiteral("#28c840");
+    t.trafficCloseEdge = mixHex(t.trafficClose, QStringLiteral("#000000"), 0.2);
+    t.trafficMinimizeEdge = mixHex(t.trafficMinimize, QStringLiteral("#000000"), 0.2);
+    t.trafficZoomEdge = mixHex(t.trafficZoom, QStringLiteral("#000000"), 0.2);
+
     t.uiFont = in.uiFont;
     t.codeFont = in.codeFont;
     t.fontSizeBody = std::clamp(in.uiFontSize, 9, 28);
@@ -236,6 +245,46 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QSplitter::handle:hover, QSplitter::handle:pressed {
             background: %20;
         }
+        #titleBar {
+            background: %1;
+            border-bottom: 1px solid %5;
+        }
+        #titleBar QPushButton {
+            background: transparent;
+            border: none;
+            border-radius: 5px;
+            padding: 4px 8px;
+            text-align: center;
+        }
+        #titleBar QPushButton:hover {
+            background: %16;
+        }
+        #titleBar QPushButton:checked {
+            background: %17;
+        }
+        #titleBar QPushButton:disabled {
+            color: %19;
+        }
+        #trafficClose, #trafficMinimize, #trafficZoom {
+            min-width: 14px;
+            max-width: 14px;
+            min-height: 14px;
+            max-height: 14px;
+            border-radius: 7px;
+            padding: 0;
+        }
+        #trafficClose {
+            background: %21;
+            border: 1px solid %22;
+        }
+        #trafficMinimize {
+            background: %23;
+            border: 1px solid %24;
+        }
+        #trafficZoom {
+            background: %25;
+            border: 1px solid %26;
+        }
     )")
         .arg(t.base, t.text, t.uiFont)                                  // 1,2,3
         .arg(t.fontSizeBody)                                            // 4
@@ -245,7 +294,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
         .arg(t.fontSizeSm)                                              // 11
         .arg(t.textMuted, t.control, t.danger, t.surfaceRaised)         // 12,13,14,15
         .arg(t.controlHover, t.selected, t.borderFocus, t.disabled)     // 16,17,18,19
-        .arg(t.accentSoft);                                             // 20
+        .arg(t.accentSoft)                                              // 20
+        .arg(t.trafficClose, t.trafficCloseEdge)                        // 21,22
+        .arg(t.trafficMinimize, t.trafficMinimizeEdge)                  // 23,24
+        .arg(t.trafficZoom, t.trafficZoomEdge);                         // 25,26
 }
 
 } // namespace edi::shell

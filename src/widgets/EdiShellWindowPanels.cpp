@@ -70,7 +70,8 @@ QWidget *EdiShellWindow::buildActivityRail()
 
 QWidget *EdiShellWindow::buildLeftPanel()
 {
-    auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), 260);
+    const PanelSpec leftSpec = panelSpec(ShellSlot::Left);
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), leftSpec.minSize, leftSpec.maxSize);
 
     auto *title = new QLabel(QStringLiteral("EDI Drafting"));
     title->setObjectName(QStringLiteral("panelTitle"));
@@ -336,7 +337,8 @@ QWidget *EdiShellWindow::buildWorkspaceColumn()
 
 QWidget *EdiShellWindow::buildRightPanel()
 {
-    auto [panel, layout] = makeScrollablePanel(QStringLiteral("rightPanel"), 300);
+    const PanelSpec rightSpec = panelSpec(ShellSlot::Right);
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("rightPanel"), rightSpec.minSize, rightSpec.maxSize);
 
     auto *title = new QLabel(QStringLiteral("Inspector"));
     title->setObjectName(QStringLiteral("panelTitle"));
@@ -843,7 +845,9 @@ QWidget *EdiShellWindow::buildRepeatControls()
 QWidget *EdiShellWindow::buildBottomPanel()
 {
     auto *panel = makeRegionFrame(QStringLiteral("bottomPanel"));
-    panel->setFixedHeight(86);
+    const PanelSpec bottomSpec = panelSpec(ShellSlot::Bottom);
+    panel->setMinimumHeight(bottomSpec.minSize);
+    panel->setMaximumHeight(bottomSpec.maxSize);
 
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(12, 8, 12, 8);

@@ -14,6 +14,9 @@
 #include "app/AppState.h"
 #include "io/SettingsStore.h"
 #include "widgets/ShellHost.h"
+#include "widgets/ShellPanels.h"
+
+class QSplitter;
 
 class QTimer;
 
@@ -51,8 +54,16 @@ public:
     bool saveSettings(const QString &path) const;
     QStringList recentFiles() const { return m_recentFiles; }
 
+    // Panel system (spec §2): collapse, presets, and auto-hide all funnel
+    // through the pure ShellPanels model; these are the window-side verbs.
+    // Public so tests (and, in H4, the title-bar toggles) can drive them.
+    void setPanelCollapsed(edi::shell::ShellSlot slot, bool collapsed);
+    void applyShellPanelPreset(edi::shell::PanelPreset preset);
+    edi::shell::PanelVisibility shellPanelVisibility(edi::shell::ShellSlot slot) const;
+
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void refreshInspector();
@@ -117,11 +128,22 @@ private:
     void applyGeometryEditStatus(const QVariantMap &editStatus);
     void setGeometryEditorVisible(bool visible);
     void applyShellStyle();
+    void refreshPanelVisibility();
+    void applyPanelSizesToSplitters();
+    void capturePanelSizes();
 
     edi::app::AppState m_appState;
     // The cross-feature bus (docs/shell_architecture.md). Owned here so it
     // outlives every mounted feature widget.
     edi::shell::FeatureContext m_featureContext;
+    // Panel state lives in the pure model; the splitters and visibility flags
+    // are projections of it, never the other way around.
+    edi::shell::ShellPanelsState m_panelsState;
+    QSplitter *m_bodySplitter = nullptr;
+    QSplitter *m_rootSplitter = nullptr;
+    QWidget *m_leftPanelWidget = nullptr;
+    QWidget *m_rightPanelWidget = nullptr;
+    QWidget *m_bottomPanelWidget = nullptr;
     DrawingDocumentController *m_controller = nullptr;
     DrawingCanvasWidget *m_canvas = nullptr;
     QButtonGroup *m_activityGroup = nullptr;

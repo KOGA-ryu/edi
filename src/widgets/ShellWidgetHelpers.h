@@ -21,17 +21,19 @@ namespace edi::shell {
 
 QFrame *makeRegionFrame(const QString &objectName);
 
-// A fixed-width side panel whose content scrolls vertically. Returns the outer
-// frame (for the layout) and the inner content layout (for addWidget calls).
-// Without this, a panel with more controls than vertical room squashes every
-// child toward zero height — buttons become unclickable slivers. The scroll
-// area lets the content keep its natural height and offers a scrollbar instead.
+// A side panel whose content scrolls vertically. Returns the outer frame (for
+// the layout) and the inner content layout (for addWidget calls). Without
+// this, a panel with more controls than vertical room squashes every child
+// toward zero height — buttons become unclickable slivers. The scroll area
+// lets the content keep its natural height and offers a scrollbar instead.
+// Width is a [min, max] band (max 0 = unbounded) so a splitter can drag-resize
+// the panel; the splitter respects these as hard limits.
 struct ScrollablePanel {
     QFrame *panel = nullptr;
     QVBoxLayout *content = nullptr;
 };
 
-ScrollablePanel makeScrollablePanel(const QString &objectName, int fixedWidth);
+ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int maxWidth);
 
 void clearLayoutMargins(QLayout *layout);
 

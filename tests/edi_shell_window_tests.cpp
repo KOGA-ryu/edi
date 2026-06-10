@@ -470,5 +470,77 @@ int main(int argc, char **argv)
         assert(buttonNamed(window, QStringLiteral("recentFileButton")) != nullptr);
     }
 
+    // Panel system (spec §2): collapse, presets, and auto-hide as observable
+    // window states. isVisibleTo(&window) reads the panel's own visibility
+    // without requiring the offscreen window itself to be shown.
+    {
+        using edi::shell::PanelPreset;
+        using edi::shell::PanelVisibility;
+        using edi::shell::ShellSlot;
+
+        // Auto-hide reacts in resizeEvent, and Qt defers resize events for
+        // hidden widgets — show the (offscreen) window so resize() delivers
+        // them like it does in the real app.
+        window.show();
+        window.resize(1280, 820);
+        QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
+        QWidget *rightPanel = window.findChild<QWidget *>(QStringLiteral("rightPanel"));
+        QWidget *bottomPanel = window.findChild<QWidget *>(QStringLiteral("bottomPanel"));
+        assert(leftPanel != nullptr && rightPanel != nullptr && bottomPanel != nullptr);
+
+        // Initial state per spec: left open, right and bottom collapsed.
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+        assert(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
+        assert(leftPanel->isVisibleTo(&window));
+        assert(!rightPanel->isVisibleTo(&window));
+
+        // Manual collapse toggling reaches the widgets.
+        window.setPanelCollapsed(ShellSlot::Right, false);
+        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        assert(rightPanel->isVisibleTo(&window));
+
+        // Auto-hide: shrink below the left panel's 640px threshold; right
+        // never auto-hides. Growing back restores the panel.
+        window.resize(600, 820);
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::AutoHidden);
+        assert(!leftPanel->isVisibleTo(&window));
+        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        window.resize(1280, 820);
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        assert(leftPanel->isVisibleTo(&window));
+
+        // Manual collapse is sticky across resizes (it outranks auto-hide).
+        window.setPanelCollapsed(ShellSlot::Left, true);
+        window.resize(600, 820);
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        window.resize(1280, 820);
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+
+        // Presets transform the whole state.
+        window.applyShellPanelPreset(PanelPreset::Full);
+        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        assert(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Visible);
+        assert(bottomPanel->isVisibleTo(&window));
+        window.applyShellPanelPreset(PanelPreset::Focus);
+        assert(!leftPanel->isVisibleTo(&window));
+        assert(!rightPanel->isVisibleTo(&window));
+        assert(!bottomPanel->isVisibleTo(&window));
+        window.applyShellPanelPreset(PanelPreset::Review);
+        assert(leftPanel->isVisibleTo(&window));
+        assert(!rightPanel->isVisibleTo(&window));
+
+        // Drag limits surface as widget constraints the splitter must respect.
+        assert(leftPanel->minimumWidth() == 180);
+        assert(leftPanel->maximumWidth() == 520);
+        assert(rightPanel->minimumWidth() == 160);
+        assert(bottomPanel->minimumHeight() == 96);
+        assert(bottomPanel->maximumHeight() == 1000);
+
+        // Leave everything open so any assertions added later see a full shell.
+        window.applyShellPanelPreset(PanelPreset::Full);
+    }
+
     return 0;
 }

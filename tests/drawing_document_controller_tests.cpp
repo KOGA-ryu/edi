@@ -2731,6 +2731,27 @@ int main(int argc, char **argv)
         assert(dirtyController.isDocumentDirty());
     }
 
+    // Dirty tracking is epoch-based, immune to revision aliasing across undo.
+    // Regression: save at revision N, undo to N-1, then a DIFFERENT edit whose
+    // revision collides back to N must STILL read dirty. The old revision-equality
+    // shortcut reported false-clean here and silently lost changes on close.
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("alias.edidraw")));
+
+        DrawingDocumentController c;
+        c.setSelectedToolId("point_tool");
+        c.clickCanvasNormalized(0.2, 0.2); // object A (revision 1)
+        c.clickCanvasNormalized(0.8, 0.8); // object B (revision 2)
+        assert(c.saveDocument(url));
+        assert(!c.isDocumentDirty());      // saved at revision 2 -> clean
+        assert(c.undo());                  // back to {A} (revision 1)
+        assert(c.isDocumentDirty());       // diverged from the saved state -> dirty
+        c.clickCanvasNormalized(0.5, 0.5); // object C: revision aliases back to 2
+        assert(c.isDocumentDirty());       // content differs from saved {A,B} -> dirty
+    }
+
     // Undo/redo.
     {
         auto objectCount = [](DrawingDocumentController &c) {

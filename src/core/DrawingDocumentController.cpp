@@ -508,21 +508,14 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
     , m_plotSettings(defaultDraftingPlotSettings())
 {
     applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
-    m_savedDocument = m_document; // a fresh document is clean
-    m_hasSavedSnapshot = true;
+    // Fresh document: current and saved epochs both 0 -> clean.
 }
 
 bool DrawingDocumentController::isDocumentDirty() const
 {
-    if (!m_hasSavedSnapshot) {
-        return m_document.revision != 0;
-    }
-    if (m_savedDocument.revision == m_document.revision) {
-        return false; // identical content (revision is monotonic)
-    }
-    // Content changed since the last save: dirty unless the only difference is
-    // selection (which, like undo, we treat as non-modifying).
-    return !documentsDifferOnlyBySelection(m_savedDocument, m_document);
+    // O(1) and never false-clean: epochs are monotonic, so equality means the
+    // current state IS the saved state (not merely a revision-number collision).
+    return m_documentEpoch != m_savedEpoch;
 }
 
 QVariantMap DrawingDocumentController::modelDocument() const
@@ -583,8 +576,7 @@ bool DrawingDocumentController::saveDocument(const QUrl &url)
     const QVariantMap result = m_store.save(url, payload);
     const bool ok = result.value(QStringLiteral("ok")).toBool();
     if (ok) {
-        m_savedDocument = m_document; // mark the written state as clean
-        m_hasSavedSnapshot = true;
+        m_savedEpoch = m_documentEpoch; // the written state is now the clean one
     }
     return ok;
 }
@@ -616,8 +608,11 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     m_interactiveEditActive = false;
     m_undoStack.clear();
     m_redoStack.clear();
-    m_savedDocument = m_document; // a freshly loaded document is clean
-    m_hasSavedSnapshot = true;
+    // A freshly loaded document is the clean baseline: reset the epoch space so
+    // current == saved, and future edits mint epochs above it.
+    m_documentEpoch = 0;
+    m_savedEpoch = 0;
+    m_nextEpoch = 1;
     emit modelChanged();
     return true;
 }
@@ -1013,9 +1008,22 @@ bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &comma
     return true;
 }
 
+void DrawingDocumentController::pushUndoState(const DraftingDocument &before, std::uint64_t epochBefore)
+{
+    m_undoStack.push_back({before, epochBefore});
+    if (m_undoStack.size() > kUndoStackCap) {
+        m_undoStack.erase(m_undoStack.begin());
+    }
+    m_redoStack.clear();
+    // The post-mutation state is genuinely new: give it a never-reused epoch so
+    // dirty tracking can't alias it against an older state of the same revision.
+    m_documentEpoch = m_nextEpoch++;
+}
+
 void DrawingDocumentController::beginEdit()
 {
     m_editBefore = m_document;
+    m_editEpochBefore = m_documentEpoch;
     m_editCommitted = false;
 }
 
@@ -1034,11 +1042,7 @@ void DrawingDocumentController::commitEdit()
     if (documentsDifferOnlyBySelection(m_editBefore, m_document)) {
         return; // pure selection: not undoable, and must not clear the redo stack
     }
-    m_undoStack.push_back(m_editBefore);
-    if (m_undoStack.size() > kUndoStackCap) {
-        m_undoStack.erase(m_undoStack.begin());
-    }
-    m_redoStack.clear();
+    pushUndoState(m_editBefore, m_editEpochBefore);
 }
 
 void DrawingDocumentController::beginInteractiveEdit()
@@ -1048,6 +1052,7 @@ void DrawingDocumentController::beginInteractiveEdit()
     // the stale m_interactiveBefore must not survive into this fresh gesture, so
     // we overwrite it rather than early-returning on the active flag.
     m_interactiveBefore = m_document;
+    m_interactiveEpochBefore = m_documentEpoch;
     m_interactiveEditActive = true;
 }
 
@@ -1064,11 +1069,7 @@ void DrawingDocumentController::endInteractiveEdit()
     if (documentsDifferOnlyBySelection(m_interactiveBefore, m_document)) {
         return;
     }
-    m_undoStack.push_back(m_interactiveBefore);
-    if (m_undoStack.size() > kUndoStackCap) {
-        m_undoStack.erase(m_undoStack.begin());
-    }
-    m_redoStack.clear();
+    pushUndoState(m_interactiveBefore, m_interactiveEpochBefore);
 }
 
 bool DrawingDocumentController::canUndo() const
@@ -1086,9 +1087,11 @@ bool DrawingDocumentController::undo()
     if (m_undoStack.empty()) {
         return false;
     }
-    m_redoStack.push_back(m_document);
-    m_document = std::move(m_undoStack.back());
+    DocumentSnapshot restored = std::move(m_undoStack.back());
     m_undoStack.pop_back();
+    m_redoStack.push_back({m_document, m_documentEpoch});
+    m_document = std::move(restored.document);
+    m_documentEpoch = restored.epoch; // restore the state's own epoch, not a new one
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
@@ -1104,9 +1107,11 @@ bool DrawingDocumentController::redo()
     if (m_redoStack.empty()) {
         return false;
     }
-    m_undoStack.push_back(m_document);
-    m_document = std::move(m_redoStack.back());
+    DocumentSnapshot restored = std::move(m_redoStack.back());
     m_redoStack.pop_back();
+    m_undoStack.push_back({m_document, m_documentEpoch});
+    m_document = std::move(restored.document);
+    m_documentEpoch = restored.epoch;
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();

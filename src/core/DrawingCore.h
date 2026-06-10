@@ -23,6 +23,7 @@
 #include "drafting/DraftingToolCreation.h"
 
 #include <functional>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -157,6 +158,9 @@ private:
     // unless the change was pure selection. Idempotent within one action.
     void beginEdit();
     void commitEdit();
+    // Push a pre-mutation snapshot (with the epoch it held) onto the undo stack,
+    // cap, clear redo, and mint a fresh epoch for the now-current state.
+    void pushUndoState(const edi::drafting::DraftingDocument &before, std::uint64_t epochBefore);
     bool finishEdit(const QString &mode, const QString &fieldId, bool ok,
                     edi::drafting::DraftingResultCode code, const QString &message);
     bool applyFieldEdit(
@@ -212,12 +216,27 @@ private:
     QVariantMap m_lastEditStatus;
     int m_nextObjectSerial = 1;
     DrawingDocumentStore m_store;
-    std::vector<edi::drafting::DraftingDocument> m_undoStack;
-    std::vector<edi::drafting::DraftingDocument> m_redoStack;
+
+    // Undo/redo + dirty tracking share one mechanism: a monotonic "epoch"
+    // labels each distinct document state. Unlike DraftingDocument::revision
+    // (bumped with ++, so undo restores an OLD value and the counter aliases —
+    // 4→5→undo→4→5), epoch values are never reused, so dirty is a plain
+    // inequality and undoing back to the saved state compares exactly equal.
+    // Each undo/redo snapshot carries the epoch its document had, so restoring
+    // a snapshot restores its epoch too.
+    struct DocumentSnapshot {
+        edi::drafting::DraftingDocument document;
+        std::uint64_t epoch = 0;
+    };
+    std::vector<DocumentSnapshot> m_undoStack;
+    std::vector<DocumentSnapshot> m_redoStack;
     edi::drafting::DraftingDocument m_editBefore;
+    std::uint64_t m_editEpochBefore = 0;
     bool m_editCommitted = true;
     edi::drafting::DraftingDocument m_interactiveBefore;
+    std::uint64_t m_interactiveEpochBefore = 0;
     bool m_interactiveEditActive = false;
-    edi::drafting::DraftingDocument m_savedDocument;
-    bool m_hasSavedSnapshot = false;
+    std::uint64_t m_documentEpoch = 0; // epoch of the current m_document
+    std::uint64_t m_nextEpoch = 1;     // never-reused source of new epochs
+    std::uint64_t m_savedEpoch = 0;    // epoch at the last save/open (0 = fresh)
 };

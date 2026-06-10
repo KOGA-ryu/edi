@@ -26,6 +26,22 @@ QColor withAlpha(const QColor &color, int alpha)
     return QColor(color.red(), color.green(), color.blue(), alpha);
 }
 
+// Tools that create an object across two clicks and show a live preview between them.
+bool isTwoClickCreationTool(const QString &toolId)
+{
+    static const QStringList tools{
+        QStringLiteral("line_tool"),
+        QStringLiteral("rectangle_tool"),
+        QStringLiteral("circle_tool"),
+        QStringLiteral("distance_dimension_tool"),
+        QStringLiteral("width_dimension_tool"),
+        QStringLiteral("height_dimension_tool"),
+        QStringLiteral("radius_dimension_tool"),
+        QStringLiteral("diameter_dimension_tool"),
+    };
+    return tools.contains(toolId);
+}
+
 } // namespace
 
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
@@ -189,15 +205,7 @@ void DrawingCanvasWidget::mouseMoveEvent(QMouseEvent *event)
 
     const QPointF point = screenToCanvas(event->position());
     m_controller->updatePointerNormalized(point.x(), point.y());
-    const bool creationTool = m_controller->selectedToolId() == QStringLiteral("line_tool")
-        || m_controller->selectedToolId() == QStringLiteral("rectangle_tool")
-        || m_controller->selectedToolId() == QStringLiteral("circle_tool")
-        || m_controller->selectedToolId() == QStringLiteral("distance_dimension_tool")
-        || m_controller->selectedToolId() == QStringLiteral("width_dimension_tool")
-        || m_controller->selectedToolId() == QStringLiteral("height_dimension_tool")
-        || m_controller->selectedToolId() == QStringLiteral("radius_dimension_tool")
-        || m_controller->selectedToolId() == QStringLiteral("diameter_dimension_tool");
-    if (creationTool && !(event->buttons() & Qt::LeftButton)) {
+    if (isTwoClickCreationTool(m_controller->selectedToolId()) && !(event->buttons() & Qt::LeftButton)) {
         m_controller->updateCreationPreviewNormalized(point.x(), point.y());
         event->accept();
         return;

@@ -89,9 +89,19 @@ a **teaching body** (why this design, what alternative lost) + the
   per-name TOML files under <AppConfigLocation>/profiles with sanitized
   names; edi.toml always holds the live theme so startup never needs a
   profile file.
-- **H6 component pass / H7 review / H8 replenish** — untouched. Next obvious
-  arcs: feature #2 (Blender recipe lab — see the section in
-  shell_architecture.md; forces the FeatureContext bus) or /goal N-backlog.
+- **H7 review cycle — DONE** (7-angle find->verify over the session diff;
+  fixes applied: grip clamp, settings dedup, shared config-path helper;
+  refuted claims recorded in the commit body of 83c6b2d).
+- **Recipe lab slice 1 — DONE**: feature lifecycle is registry data
+  (FeatureDescriptor.recreateInstance / instanceMounted; ctor and switches
+  share one path; mutation = segfault proof).
+- **F-backlog (Figma restructure, see shell_architecture.md) — F1 DONE**
+  (object list in left panel; new controller verb selectObjectById,
+  selection-only like marquee). Four polish slices landed: de-boxed
+  inspector, no in-canvas status text, 2-col tool grid (interim until F3),
+  grips glow on hover. **Next: F2 contextual right panel, then F3 cross
+  belt.** The recipe lab continues after the F-arc (or interleaved).
+- **H6 superseded by the F-backlog; H8 replenish** — later.
 
 ## Working method that proved out
 
@@ -109,6 +119,12 @@ a **teaching body** (why this design, what alternative lost) + the
   reads panel visibility without a shown window.
 - Test gotcha: `rebuildGeometryEditor` retires spins with `deleteLater()` —
   flush `QEvent::DeferredDelete` before `findChild` lookups.
+- **QSS changes require launching the app**, not just ctest: Qt's chained
+  multi-.arg() fills the LOWEST remaining numbered placeholder, so deleting a
+  %N use silently shifts every later value with NO leftover "%" to assert on
+  (the suite stayed green on scrambled styling). buildShellStyleSheet now
+  uses @named@ tokens from an explicit table — keep it that way, and keep
+  the per-value presence assertions in shell_theme_tests.
 
 ## Resume
 

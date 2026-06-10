@@ -23,6 +23,7 @@ class QWidget;
 
 class DraftingFeature;
 class DrawingDocumentController;
+class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
     Q_OBJECT
@@ -99,6 +100,7 @@ private:
     void refreshChrome();
     void layoutMainArea();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
+    std::unique_ptr<SettingsFeature> createSettingsFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
     // The switch mechanics without touching history — back/forward replay
     // history entries through this.
@@ -143,10 +145,10 @@ private:
     QPushButton *m_toggleLeftButton = nullptr;
     QPushButton *m_toggleBottomButton = nullptr;
     QPushButton *m_toggleRightButton = nullptr;
-    // The drafting workspace as a feature object: it owns the drafting panel
-    // widgets' wiring and the inspector refresh, so its lifetime can later
-    // match its widgets when workspace switching lands.
+    // Feature instances: lifetimes match their widgets — both are recreated
+    // on every workspace switch so no member pointer can dangle.
     std::unique_ptr<DraftingFeature> m_draftingFeature;
+    std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
     QString m_settingsPath;
     QStringList m_recentFiles;

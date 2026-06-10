@@ -119,7 +119,7 @@ std::vector<WorkspaceActivity> defaultWorkspaceActivities()
         {WorkspaceMode::Text, "text", "T", "Text", "Text editor surface", false},
         {WorkspaceMode::Project, "project", "P", "Project", "Project workspace surface", false},
         {WorkspaceMode::Planning, "planning", "R", "Planning", "Review and planning surface", false},
-        {WorkspaceMode::Settings, "settings", "S", "Settings", "Application and project settings", false},
+        {WorkspaceMode::Settings, "settings", "S", "Settings", "Application and project settings", true},
     };
 }
 

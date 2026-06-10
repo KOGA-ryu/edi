@@ -39,10 +39,42 @@
 #include "core/DrawingCore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
+#include "widgets/SettingsFeature.h"
 #include "widgets/ShellTheme.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 using namespace edi::shell;
+
+namespace {
+
+// The built-in jobs. Layouts are data; these are merely the two the shell
+// ships with — loaded/saved ones replace them freely.
+WorkspaceLayout draftingWorkspaceLayout()
+{
+    WorkspaceLayout layout;
+    layout.id = QStringLiteral("drafting");
+    layout.label = QStringLiteral("Drafting");
+    layout.bindings = {
+        {ShellSlot::Left, QStringLiteral("drafting")},
+        {ShellSlot::Main, QStringLiteral("drafting")},
+        {ShellSlot::Right, QStringLiteral("drafting")},
+        {ShellSlot::Bottom, QStringLiteral("drafting")},
+    };
+    return layout;
+}
+
+WorkspaceLayout settingsWorkspaceLayout()
+{
+    WorkspaceLayout layout;
+    layout.id = QStringLiteral("settings");
+    layout.label = QStringLiteral("Settings");
+    layout.bindings = {
+        {ShellSlot::Main, QStringLiteral("settings")},
+    };
+    return layout;
+}
+
+} // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -76,6 +108,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
     m_draftingFeature = createDraftingFeature();
+    m_settingsFeature = createSettingsFeature();
 
     FeatureDescriptor drafting;
     drafting.id = QStringLiteral("drafting");
@@ -87,6 +120,15 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         return m_draftingFeature->buildPanel(slot);
     };
     m_featureRegistry.features.push_back(drafting);
+
+    FeatureDescriptor settings;
+    settings.id = QStringLiteral("settings");
+    settings.label = QStringLiteral("Settings");
+    settings.supportedSlots = {ShellSlot::Main};
+    settings.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
+        return m_settingsFeature->buildPanel(slot);
+    };
+    m_featureRegistry.features.push_back(settings);
 
     // The splitter carries only the in-flow left panel beside the main area.
     // Right and bottom panels are overlays INSIDE the main area: they cover
@@ -128,16 +170,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     m_panelsState = defaultShellPanelsState();
 
-    WorkspaceLayout drafting_layout;
-    drafting_layout.id = QStringLiteral("drafting");
-    drafting_layout.label = QStringLiteral("Drafting");
-    drafting_layout.bindings = {
-        {ShellSlot::Left, QStringLiteral("drafting")},
-        {ShellSlot::Main, QStringLiteral("drafting")},
-        {ShellSlot::Right, QStringLiteral("drafting")},
-        {ShellSlot::Bottom, QStringLiteral("drafting")},
-    };
-    mountWorkspace(drafting_layout);
+    mountWorkspace(draftingWorkspaceLayout());
     m_workspaceHistory = {m_workspaceLayout};
     m_workspaceHistoryIndex = 0;
     refreshChrome();
@@ -338,7 +371,17 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
     edi::app::setStatusMessage(m_appState, QStringLiteral("%1 workspace active")
         .arg(QString::fromLatin1(edi::app::workspaceModeLabel(mode)))
         .toStdString());
-    m_draftingFeature->refreshInspector();
+
+    // The rail is the workspace switcher: a mode maps to a layout, and the
+    // switch goes through the same trail-pushing path as everything else.
+    const WorkspaceLayout target = mode == edi::app::WorkspaceMode::Settings
+        ? settingsWorkspaceLayout()
+        : draftingWorkspaceLayout();
+    if (target.id != m_workspaceLayout.id) {
+        switchWorkspaceLayout(target);
+    } else {
+        m_draftingFeature->refreshInspector();
+    }
 }
 
 void EdiShellWindow::applyShellStyle()
@@ -380,6 +423,14 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
         }
     };
     return std::make_unique<DraftingFeature>(m_controller, std::move(actions));
+}
+
+std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
+{
+    SettingsFeature::ShellHooks hooks;
+    hooks.themeInputs = [this]() { return m_themeInputs; };
+    hooks.setThemeInputs = [this](const ShellThemeInputs &inputs) { setThemeInputs(inputs); };
+    return std::make_unique<SettingsFeature>(std::move(hooks));
 }
 
 void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
@@ -435,6 +486,7 @@ void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
     retire(m_rightPanelWidget);
     retire(m_bottomPanelWidget);
     m_draftingFeature = createDraftingFeature();
+    m_settingsFeature = createSettingsFeature();
 
     mountWorkspace(layout);
 

@@ -755,6 +755,64 @@ int main(int argc, char **argv)
         assert(reloaded.styleSheet().contains(derived.selected));
     }
 
+    // The settings workspace: the rail's Settings button switches layouts to
+    // a second feature, and the theme page's controls re-theme the app live.
+    {
+        using edi::shell::ShellThemeInputs;
+        using edi::shell::deriveShellTheme;
+
+        EdiShellWindow shell;
+        shell.show();
+
+        // Find the rail button carrying the settings mode and click it.
+        QPushButton *settingsRail = nullptr;
+        for (QPushButton *button : shell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("settings")) {
+                settingsRail = button;
+            }
+        }
+        assert(settingsRail != nullptr && settingsRail->isEnabled());
+        settingsRail->click();
+
+        // Drafting slots are gone; the settings page owns Main.
+        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) == nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        QWidget *page = shell.findChild<QWidget *>(QStringLiteral("settingsPanel"));
+        assert(page != nullptr);
+
+        // Typing a valid accent hex re-themes the window immediately; a
+        // half-typed value is ignored.
+        auto *accentField = shell.findChild<QLineEdit *>(QStringLiteral("themeAccentField"));
+        assert(accentField != nullptr);
+        assert(accentField->text() == shell.themeInputs().accent); // page mirrors live state
+        accentField->setText(QStringLiteral("#d46c"));             // incomplete: no change
+        assert(shell.themeInputs().accent != QStringLiteral("#d46c"));
+        accentField->setText(QStringLiteral("#d46ca1"));
+        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        ShellThemeInputs expected = shell.themeInputs();
+        assert(shell.styleSheet().contains(deriveShellTheme(expected).selected));
+
+        // Font size flows the same way.
+        auto *sizeSpin = shell.findChild<QSpinBox *>(QStringLiteral("uiFontSizeSpin"));
+        assert(sizeSpin != nullptr);
+        sizeSpin->setValue(15);
+        assert(shell.themeInputs().uiFontSize == 15);
+        assert(shell.styleSheet().contains(QStringLiteral("font-size: 15px")));
+
+        // The drafting rail button returns to the drafting job, theme intact.
+        QPushButton *draftingRail = nullptr;
+        for (QPushButton *button : shell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("drafting")) {
+                draftingRail = button;
+            }
+        }
+        assert(draftingRail != nullptr);
+        draftingRail->click();
+        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) == nullptr);
+        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+    }
+
     // Title-bar chrome: frameless flag, traffic lights, panel toggles, the
     // back/forward workspace trail, and the File/Edit/Settings menus.
     {

@@ -13,6 +13,7 @@
 
 #include "app/AppState.h"
 #include "io/SettingsStore.h"
+#include "widgets/ShellHost.h"
 
 class QTimer;
 
@@ -118,6 +119,9 @@ private:
     void applyShellStyle();
 
     edi::app::AppState m_appState;
+    // The cross-feature bus (docs/shell_architecture.md). Owned here so it
+    // outlives every mounted feature widget.
+    edi::shell::FeatureContext m_featureContext;
     DrawingDocumentController *m_controller = nullptr;
     DrawingCanvasWidget *m_canvas = nullptr;
     QButtonGroup *m_activityGroup = nullptr;

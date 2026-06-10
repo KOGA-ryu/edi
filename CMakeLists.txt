@@ -325,6 +325,8 @@ add_executable(edi_shell_window_tests
     src/widgets/ShellWidgetHelpers.cpp
     src/widgets/ShellTheme.h
     src/widgets/ShellTheme.cpp
+    src/widgets/ShellHost.h
+    src/widgets/ShellHost.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h
@@ -447,6 +449,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/ShellWidgetHelpers.cpp
     src/widgets/ShellTheme.h
     src/widgets/ShellTheme.cpp
+    src/widgets/ShellHost.h
+    src/widgets/ShellHost.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h

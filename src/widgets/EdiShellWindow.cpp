@@ -22,6 +22,7 @@
 #include <QVBoxLayout>
 #include <QVector>
 
+#include <optional>
 #include <utility>
 
 #include "core/DrawingCore.h"
@@ -41,6 +42,49 @@ void clearLayoutMargins(QLayout *layout)
 {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+}
+
+void refreshToggle(QCheckBox *checkbox, bool checked, std::optional<bool> enabled = std::nullopt)
+{
+    if (checkbox == nullptr) {
+        return;
+    }
+    const QSignalBlocker blocker(checkbox);
+    if (enabled) {
+        checkbox->setEnabled(*enabled);
+    }
+    checkbox->setChecked(checked);
+}
+
+void refreshComboData(QComboBox *combo, const QString &data, int fallbackIndex, std::optional<bool> enabled = std::nullopt)
+{
+    if (combo == nullptr) {
+        return;
+    }
+    const QSignalBlocker blocker(combo);
+    if (enabled) {
+        combo->setEnabled(*enabled);
+    }
+    const int index = combo->findData(data);
+    combo->setCurrentIndex(index >= 0 ? index : fallbackIndex);
+}
+
+void refreshSpinValue(QDoubleSpinBox *spin, double value)
+{
+    if (spin == nullptr) {
+        return;
+    }
+    const QSignalBlocker blocker(spin);
+    spin->setValue(value);
+}
+
+void refreshSpinValue(QSpinBox *spin, int value)
+{
+    if (spin == nullptr) {
+        return;
+    }
+    const QSignalBlocker blocker(spin);
+    spin->setValue(value);
 }
 
 struct ControlGrid {
@@ -1537,101 +1581,36 @@ void EdiShellWindow::refreshInspector()
                 .arg(yesNo(selectedObject.value(QStringLiteral("effective_visible")).toBool()))
                 .arg(selectedObject.value(QStringLiteral("effective_pen_id")).toString()));
     }
-    if (m_selectedLocked != nullptr) {
-        const QSignalBlocker blocker(m_selectedLocked);
-        m_selectedLocked->setEnabled(!selectedObject.isEmpty());
-        m_selectedLocked->setChecked(selectedObject.value(QStringLiteral("locked")).toBool());
-    }
-    if (m_selectedVisible != nullptr) {
-        const QSignalBlocker blocker(m_selectedVisible);
-        m_selectedVisible->setEnabled(!selectedObject.isEmpty());
-        m_selectedVisible->setChecked(selectedObject.isEmpty() ? false : selectedObject.value(QStringLiteral("visible")).toBool());
-    }
-    if (m_defaultLayerLocked != nullptr) {
-        const QSignalBlocker blocker(m_defaultLayerLocked);
-        m_defaultLayerLocked->setEnabled(!activeLayer.isEmpty());
-        m_defaultLayerLocked->setChecked(activeLayer.value(QStringLiteral("locked")).toBool());
-    }
-    if (m_defaultLayerVisible != nullptr) {
-        const QSignalBlocker blocker(m_defaultLayerVisible);
-        m_defaultLayerVisible->setEnabled(!activeLayer.isEmpty());
-        m_defaultLayerVisible->setChecked(activeLayer.isEmpty() ? false : activeLayer.value(QStringLiteral("visible")).toBool());
-    }
+    refreshToggle(m_selectedLocked, selectedObject.value(QStringLiteral("locked")).toBool(), !selectedObject.isEmpty());
+    refreshToggle(m_selectedVisible, selectedObject.isEmpty() ? false : selectedObject.value(QStringLiteral("visible")).toBool(), !selectedObject.isEmpty());
+    refreshToggle(m_defaultLayerLocked, activeLayer.value(QStringLiteral("locked")).toBool(), !activeLayer.isEmpty());
+    refreshToggle(m_defaultLayerVisible, activeLayer.isEmpty() ? false : activeLayer.value(QStringLiteral("visible")).toBool(), !activeLayer.isEmpty());
     if (m_layerDownButton != nullptr) {
         m_layerDownButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() > 0);
     }
     if (m_layerUpButton != nullptr) {
         m_layerUpButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() + 1 < layers.size());
     }
-    if (m_activeLayerPlotEnabled != nullptr) {
-        const QSignalBlocker blocker(m_activeLayerPlotEnabled);
-        m_activeLayerPlotEnabled->setEnabled(!activeLayer.isEmpty());
-        m_activeLayerPlotEnabled->setChecked(activeLayer.value(QStringLiteral("plot_enabled")).toBool());
-    }
-    if (m_activeLayerPen != nullptr) {
-        const QSignalBlocker blocker(m_activeLayerPen);
-        m_activeLayerPen->setEnabled(!activeLayer.isEmpty());
-        const int index = m_activeLayerPen->findData(activeLayer.value(QStringLiteral("pen_id")).toString());
-        m_activeLayerPen->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_activeLayerStrokeWidth != nullptr) {
-        const QSignalBlocker blocker(m_activeLayerStrokeWidth);
-        m_activeLayerStrokeWidth->setEnabled(!activeLayer.isEmpty());
-        const int index = m_activeLayerStrokeWidth->findData(strokeWidthPresetId(activeLayer.value(QStringLiteral("stroke_width")).toDouble()));
-        m_activeLayerStrokeWidth->setCurrentIndex(index >= 0 ? index : 1);
-    }
+    refreshToggle(m_activeLayerPlotEnabled, activeLayer.value(QStringLiteral("plot_enabled")).toBool(), !activeLayer.isEmpty());
+    refreshComboData(m_activeLayerPen, activeLayer.value(QStringLiteral("pen_id")).toString(), 0, !activeLayer.isEmpty());
+    refreshComboData(m_activeLayerStrokeWidth, strokeWidthPresetId(activeLayer.value(QStringLiteral("stroke_width")).toDouble()), 1, !activeLayer.isEmpty());
     refreshLayerCombo(m_activeLayer, layers, activeLayerId, true);
     refreshLayerCombo(
         m_selectedObjectLayer,
         layers,
         selectedObject.value(QStringLiteral("layer_id")).toString(),
         !selectedObject.isEmpty());
-    if (m_gridPreset != nullptr) {
-        const QSignalBlocker blocker(m_gridPreset);
-        const int index = m_gridPreset->findData(grid.value(QStringLiteral("preset")).toString());
-        m_gridPreset->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_gridUnit != nullptr) {
-        const QSignalBlocker blocker(m_gridUnit);
-        const int index = m_gridUnit->findData(grid.value(QStringLiteral("unit")).toString());
-        m_gridUnit->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_gridWidth != nullptr) {
-        const QSignalBlocker blocker(m_gridWidth);
-        m_gridWidth->setValue(grid.value(QStringLiteral("width")).toDouble());
-    }
-    if (m_gridHeight != nullptr) {
-        const QSignalBlocker blocker(m_gridHeight);
-        m_gridHeight->setValue(grid.value(QStringLiteral("height")).toDouble());
-    }
-    if (m_gridMarginLeft != nullptr) {
-        const QSignalBlocker blocker(m_gridMarginLeft);
-        m_gridMarginLeft->setValue(grid.value(QStringLiteral("margin_left")).toDouble());
-    }
-    if (m_gridMarginTop != nullptr) {
-        const QSignalBlocker blocker(m_gridMarginTop);
-        m_gridMarginTop->setValue(grid.value(QStringLiteral("margin_top")).toDouble());
-    }
-    if (m_gridMarginRight != nullptr) {
-        const QSignalBlocker blocker(m_gridMarginRight);
-        m_gridMarginRight->setValue(grid.value(QStringLiteral("margin_right")).toDouble());
-    }
-    if (m_gridMarginBottom != nullptr) {
-        const QSignalBlocker blocker(m_gridMarginBottom);
-        m_gridMarginBottom->setValue(grid.value(QStringLiteral("margin_bottom")).toDouble());
-    }
-    if (m_gridMinorStep != nullptr) {
-        const QSignalBlocker blocker(m_gridMinorStep);
-        m_gridMinorStep->setValue(grid.value(QStringLiteral("minor_step")).toDouble());
-    }
-    if (m_gridMajorEvery != nullptr) {
-        const QSignalBlocker blocker(m_gridMajorEvery);
-        m_gridMajorEvery->setValue(grid.value(QStringLiteral("major_line_every")).toInt());
-    }
-    if (m_gridVisible != nullptr) {
-        const QSignalBlocker blocker(m_gridVisible);
-        m_gridVisible->setChecked(grid.value(QStringLiteral("visible")).toBool());
-    }
+    refreshComboData(m_gridPreset, grid.value(QStringLiteral("preset")).toString(), 0);
+    refreshComboData(m_gridUnit, grid.value(QStringLiteral("unit")).toString(), 0);
+    refreshSpinValue(m_gridWidth, grid.value(QStringLiteral("width")).toDouble());
+    refreshSpinValue(m_gridHeight, grid.value(QStringLiteral("height")).toDouble());
+    refreshSpinValue(m_gridMarginLeft, grid.value(QStringLiteral("margin_left")).toDouble());
+    refreshSpinValue(m_gridMarginTop, grid.value(QStringLiteral("margin_top")).toDouble());
+    refreshSpinValue(m_gridMarginRight, grid.value(QStringLiteral("margin_right")).toDouble());
+    refreshSpinValue(m_gridMarginBottom, grid.value(QStringLiteral("margin_bottom")).toDouble());
+    refreshSpinValue(m_gridMinorStep, grid.value(QStringLiteral("minor_step")).toDouble());
+    refreshSpinValue(m_gridMajorEvery, grid.value(QStringLiteral("major_line_every")).toInt());
+    refreshToggle(m_gridVisible, grid.value(QStringLiteral("visible")).toBool());
     if (m_objectMeasurementValue != nullptr) {
         const QVariantList lines = selectedObject.value(QStringLiteral("measurement_lines")).toList();
         QStringList formatted;
@@ -1693,23 +1672,9 @@ void EdiShellWindow::refreshInspector()
         m_guideLabel->setEnabled(guideVisualControlsEnabled);
         m_guideLabel->setText(guideVisualControlsEnabled ? selectedObject.value(QStringLiteral("guide_custom_label")).toString() : QString());
     }
-    if (m_guideColor != nullptr) {
-        const QSignalBlocker blocker(m_guideColor);
-        m_guideColor->setEnabled(guideVisualControlsEnabled);
-        const int index = m_guideColor->findData(selectedObject.value(QStringLiteral("guide_color")).toString());
-        m_guideColor->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_guideDashStyle != nullptr) {
-        const QSignalBlocker blocker(m_guideDashStyle);
-        m_guideDashStyle->setEnabled(guideVisualControlsEnabled);
-        const int index = m_guideDashStyle->findData(selectedObject.value(QStringLiteral("guide_dash_style")).toString());
-        m_guideDashStyle->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_guideShowLabel != nullptr) {
-        const QSignalBlocker blocker(m_guideShowLabel);
-        m_guideShowLabel->setEnabled(guideVisualControlsEnabled);
-        m_guideShowLabel->setChecked(selectedObject.value(QStringLiteral("guide_show_label"), true).toBool());
-    }
+    refreshComboData(m_guideColor, selectedObject.value(QStringLiteral("guide_color")).toString(), 0, guideVisualControlsEnabled);
+    refreshComboData(m_guideDashStyle, selectedObject.value(QStringLiteral("guide_dash_style")).toString(), 0, guideVisualControlsEnabled);
+    refreshToggle(m_guideShowLabel, selectedObject.value(QStringLiteral("guide_show_label"), true).toBool(), guideVisualControlsEnabled);
     const bool dimensionControlsEnabled = selectedObject.value(QStringLiteral("dimension_visual_controls")).toBool();
     if (m_dimensionReadout != nullptr) {
         const QVariantMap physical = selectedObject.value(QStringLiteral("physical_geometry")).toMap();
@@ -1720,18 +1685,8 @@ void EdiShellWindow::refreshInspector()
                         selectedObject.value(QStringLiteral("dimension_kind")).toString())
                 : QStringLiteral("Dimension: none"));
     }
-    if (m_dimensionKind != nullptr) {
-        const QSignalBlocker blocker(m_dimensionKind);
-        const QString dimensionKind = selectedObject.value(QStringLiteral("dimension_kind")).toString();
-        const int index = m_dimensionKind->findData(dimensionKind);
-        m_dimensionKind->setEnabled(dimensionControlsEnabled);
-        m_dimensionKind->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_dimensionShowLabel != nullptr) {
-        const QSignalBlocker blocker(m_dimensionShowLabel);
-        m_dimensionShowLabel->setEnabled(dimensionControlsEnabled);
-        m_dimensionShowLabel->setChecked(selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool());
-    }
+    refreshComboData(m_dimensionKind, selectedObject.value(QStringLiteral("dimension_kind")).toString(), 0, dimensionControlsEnabled);
+    refreshToggle(m_dimensionShowLabel, selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool(), dimensionControlsEnabled);
     rebuildGeometryEditor(selectedObject);
     applyGeometryEditStatus(editStatus);
     if (m_objectsValue != nullptr) {
@@ -1846,16 +1801,8 @@ void EdiShellWindow::refreshInspector()
                     : formatNumber(calibrationCorrection.value(QStringLiteral("scale_factor")).toDouble()))
                 .arg(formatNumber(plot.value(QStringLiteral("calibration_scale")).toDouble())));
     }
-    if (m_plotOrderMode != nullptr) {
-        const QSignalBlocker blocker(m_plotOrderMode);
-        const int index = m_plotOrderMode->findData(plot.value(QStringLiteral("order_mode")).toString());
-        m_plotOrderMode->setCurrentIndex(index >= 0 ? index : 0);
-    }
-    if (m_plotDirectionMode != nullptr) {
-        const QSignalBlocker blocker(m_plotDirectionMode);
-        const int index = m_plotDirectionMode->findData(plot.value(QStringLiteral("direction_mode")).toString());
-        m_plotDirectionMode->setCurrentIndex(index >= 0 ? index : 0);
-    }
+    refreshComboData(m_plotOrderMode, plot.value(QStringLiteral("order_mode")).toString(), 0);
+    refreshComboData(m_plotDirectionMode, plot.value(QStringLiteral("direction_mode")).toString(), 0);
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {
             m_pointerValue->setText(QStringLiteral("Pointer: none"));

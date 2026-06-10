@@ -1024,13 +1024,7 @@ QWidget *EdiShellWindow::buildRightPanel()
 
 QWidget *EdiShellWindow::buildGeometryEditor()
 {
-    auto *editor = new QWidget;
-    editor->setObjectName(QStringLiteral("geometryEditor"));
-    auto *layout = new QGridLayout(editor);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(6);
-    layout->setVerticalSpacing(6);
-    return editor;
+    return makeControlGrid(QStringLiteral("geometryEditor")).panel;
 }
 
 QWidget *EdiShellWindow::buildObjectFlagControls()

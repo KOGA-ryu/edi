@@ -51,6 +51,11 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
 
 } // namespace
 
+QColor withAlpha(const QColor &color, int alpha)
+{
+    return QColor(color.red(), color.green(), color.blue(), alpha);
+}
+
 void drawCrosshair(QPainter &painter, const QPointF &point, double extent)
 {
     painter.drawLine(QPointF(point.x() - extent, point.y()), QPointF(point.x() + extent, point.y()));
@@ -85,7 +90,7 @@ void drawGuideIntersections(QPainter &painter, const QVariantList &objects, cons
     QColor marker("#b7d7e8");
     marker.setAlpha(120);
     painter.setPen(QPen(marker, 1.0));
-    painter.setBrush(QColor(marker.red(), marker.green(), marker.blue(), 30));
+    painter.setBrush(withAlpha(marker, 30));
     for (double x : vertical) {
         for (double y : horizontal) {
             const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);

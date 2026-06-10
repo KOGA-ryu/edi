@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QPointF>
 #include <QRectF>
 #include <QString>
@@ -15,6 +16,8 @@ struct DrawingCanvasObjectPainterContext {
     QString selectedObjectId;
 };
 
+// The given color with only its alpha replaced.
+QColor withAlpha(const QColor &color, int alpha);
 // Two axis-aligned lines crossing at point, each extending `extent` px per side.
 void drawCrosshair(QPainter &painter, const QPointF &point, double extent);
 void drawGuideIntersections(QPainter &painter, const QVariantList &objects, const DrawingCanvasObjectPainterContext &context);

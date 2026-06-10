@@ -21,10 +21,7 @@
 
 namespace {
 
-QColor withAlpha(const QColor &color, int alpha)
-{
-    return QColor(color.red(), color.green(), color.blue(), alpha);
-}
+using drawing_canvas::withAlpha;
 
 // Tools that create an object across two clicks and show a live preview between them.
 bool isTwoClickCreationTool(const QString &toolId)

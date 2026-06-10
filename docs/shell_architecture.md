@@ -141,12 +141,38 @@ feature #3 is not.
 - **H7 — Review cycle**, then **H8 — replenish** (next feature: ASCII preview or
   script composer forces the first real `FeatureContext` bus work).
 
-## Open questions for the user (do not decide unilaterally)
+## Chrome vs. activity rail (two distinct regions — do not merge)
 
-1. **Activity rail = workspace switcher, or feature launcher?** Legacy switched
-   whole workspaces. Confirm that's the intent vs. toggling individual features.
-2. **Can one feature occupy multiple slots at once** (drafting = canvas + tools +
-   inspector), or is a feature one-slot and a workspace composes many? (Leaning:
-   multi-slot feature — matches how drafting works today.)
-3. **Tool tree content** (open from the screenshot): rebuilt left panel shows the
-   full taxonomy with unbuilt tools disabled, or only wired tools?
+The legacy shell has TWO top/left regions, confirmed against
+`docs/ui_reference/activity_rail_drilldown_1280x820.png` and `default_shell`:
+
+- **Top Chrome** — the 42px frameless title bar. Window controls (close / min /
+  max) top-left; the `File/Edit/View/Tools/Window` menu; and the panel-collapse
+  toggles positioned **left-panel toggle near the left** (beside the menu),
+  **right-panel and bottom-panel toggles on the right**. (H4)
+- **Activity Rail** — the thin far-left *vertical* icon strip. It is the global
+  **workspace switcher** (legacy modes: Binder / Review / Settings / Proof), not
+  a feature launcher and not part of the chrome. Switching it swaps the whole
+  `WorkspaceLayout`. (H4 + H5)
+
+Keep these as separate widgets/regions; H4 builds both.
+
+## Resolved decisions
+
+1. **Activity rail = workspace switcher**, a distinct region from Top Chrome
+   (see above). Panel-collapse toggles live in Top Chrome, not the rail.
+2. **Features are multi-slot.** One feature may occupy several slots at once
+   (drafting = canvas in Main + tool tree in Left + inspector in Right + shelf
+   in Bottom). A `WorkspaceLayout` may bind one feature to many slots, or
+   compose several features across slots. `FeatureDescriptor.slots` lists every
+   slot the feature can fill; a binding names (slot, featureId, role?) so one
+   feature can render different panels per slot.
+
+## Still open (decide when constraints are known — not blocking H1–H4)
+
+- **Default layout** for the drafting job: the legacy intentionally kept the
+  left panel blank and loaded the right panel first. Final per-job layouts wait
+  until real constraints emerge — and because layout is data, this is a
+  `WorkspaceLayout` choice, never a code change, so it never blocks shell work.
+- **Tool-tree content**: rebuilt left panel shows the full taxonomy with unbuilt
+  tools disabled, or only wired tools? Decide when the tool tree is built (H6+).

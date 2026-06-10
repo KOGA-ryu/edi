@@ -22,14 +22,14 @@ struct BeltItem {
 
 } // namespace edi::shell
 
-// The game-style "weapon cross" over a belt grid. The mental model (user
-// direction 2026-06-10): each ROW is one tool, its cells are that tool's
-// sub-features. The vertical strip lists every non-empty row by its lead
-// item; the horizontal strip lays out the active row's items, gaps
-// compacted away — no blank box ever renders. Vertical scroll changes tool,
-// horizontal scroll walks its sub-features (one cell per wheel notch),
-// clicking any visible cell jumps; everything wraps and skips empties
-// (BeltState owns that math — this class owns pixels and input only).
+// The game-style weapon-belt carousel. The mental model (user direction
+// 2026-06-10): each ROW is one tool, its cells are that tool's
+// sub-features. Only the active row renders full-size; the neighbouring
+// tools peek in as half-cells above and below, hinting what a vertical
+// scroll reaches. Vertical scroll changes tool, horizontal scroll walks its
+// sub-features (one cell per wheel notch), clicking a peek steps to that
+// tool; everything wraps and skips empties (BeltState owns that math — this
+// class owns pixels and input only).
 class BeltCrossWidget final : public QWidget {
     Q_OBJECT
 
@@ -67,10 +67,13 @@ protected:
     bool event(QEvent *event) override; // tooltips for hovered cross cells
 
 private:
-    // Rect of a cell at a VIEW position (list index), not a grid coordinate:
-    // the view compacts gaps away, so screen x/y are positions in the
-    // vertical/horizontal strips.
-    QRect viewCellRect(int xPosition, int yPosition) const;
+    // Geometry of the carousel: the active row's full cells in the middle
+    // band, half-cell peeks above and below aligned over the active cell.
+    // Positions are list indexes (gaps compacted), not grid columns.
+    QRect activeCellRect(int position) const;
+    int activeItemPosition() const; // list position of the active cell, or 0
+    QRect topPeekRect() const;
+    QRect bottomPeekRect() const;
     const edi::shell::BeltItem *itemAt(int row, int column) const;
     // The visible cell under `pos` as a grid target, or nullopt for dead space.
     std::optional<edi::shell::BeltState> stateForClick(const QPoint &pos) const;

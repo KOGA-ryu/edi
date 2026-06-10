@@ -1,8 +1,7 @@
 #include "widgets/FloatingPalette.h"
 
-#include <QLabel>
+#include <QHBoxLayout>
 #include <QMouseEvent>
-#include <QVBoxLayout>
 
 #include "widgets/ShellPanels.h"
 
@@ -13,24 +12,28 @@ FloatingPalette::FloatingPalette(const QString &paletteId, const QString &title,
     , m_paletteId(paletteId)
 {
     setObjectName(QStringLiteral("floatingPalette"));
-    // Plain QWidgets ignore stylesheet backgrounds without this — same
-    // lesson as the overlay grips.
-    setAttribute(Qt::WA_StyledBackground, true);
 
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(1, 1, 1, 1); // the border is QSS; keep content off it
-    layout->setSpacing(0);
+    // Chromeless: no frame background or border — the content floats bare
+    // over the canvas, and only the nub + cells are visible.
+    auto *layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(3);
 
-    m_grip = new QLabel(title);
+    // The grab nub: a small handle beside the content, title as tooltip.
+    // WA_StyledBackground because plain QWidgets ignore stylesheet
+    // backgrounds without it — same lesson as the overlay grips.
+    m_grip = new QWidget;
     m_grip->setObjectName(QStringLiteral("paletteGrip"));
+    m_grip->setAttribute(Qt::WA_StyledBackground, true);
     m_grip->setCursor(Qt::SizeAllCursor);
-    m_grip->setAlignment(Qt::AlignCenter);
-    layout->addWidget(m_grip);
+    m_grip->setFixedSize(10, 28);
+    m_grip->setToolTip(title);
+    layout->addWidget(m_grip, 0, Qt::AlignVCenter);
 
     content->setParent(this);
     layout->addWidget(content);
 
-    // The palette is exactly as big as its strip + content; free space in
+    // The palette is exactly as big as its nub + content; free space in
     // the main area belongs to the canvas, not to palette chrome.
     layout->setSizeConstraint(QLayout::SetFixedSize);
 }

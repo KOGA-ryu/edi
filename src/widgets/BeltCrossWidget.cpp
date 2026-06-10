@@ -16,6 +16,10 @@ namespace {
 // Mechanics-grade metrics; the look (colors, sizes) is the owner's pass.
 constexpr int kCellSize = 34;
 constexpr int kCellGap = 4;
+// The neighbour rows peek in at half a cell (user feedback: ".5 of the
+// vertical choices showing") — enough to read that something is there,
+// small enough to keep the carousel one row tall.
+constexpr int kPeekSize = kCellSize / 2;
 // One physical wheel notch. Trackpads deliver many small angleDelta events;
 // stepping per EVENT made the cross fly (user feedback) — accumulate and
 // step per full notch instead.
@@ -89,9 +93,31 @@ int BeltCrossWidget::indexOfItem(const QString &id) const
     return -1;
 }
 
-QRect BeltCrossWidget::viewCellRect(int xPosition, int yPosition) const
+QRect BeltCrossWidget::activeCellRect(int position) const
 {
-    return QRect(xPosition * (kCellSize + kCellGap), yPosition * (kCellSize + kCellGap), kCellSize, kCellSize);
+    return QRect(position * (kCellSize + kCellGap), kPeekSize + kCellGap, kCellSize, kCellSize);
+}
+
+int BeltCrossWidget::activeItemPosition() const
+{
+    const BeltPeekView view = beltPeekView(m_state, m_occupied);
+    for (std::size_t position = 0; position < view.items.size(); ++position) {
+        if (view.items[position].active) {
+            return static_cast<int>(position);
+        }
+    }
+    return 0;
+}
+
+QRect BeltCrossWidget::topPeekRect() const
+{
+    return QRect(activeItemPosition() * (kCellSize + kCellGap), 0, kCellSize, kPeekSize);
+}
+
+QRect BeltCrossWidget::bottomPeekRect() const
+{
+    return QRect(activeItemPosition() * (kCellSize + kCellGap),
+                 kPeekSize + kCellGap + kCellSize + kCellGap, kCellSize, kPeekSize);
 }
 
 const BeltItem *BeltCrossWidget::itemAt(int row, int column) const
@@ -102,18 +128,18 @@ const BeltItem *BeltCrossWidget::itemAt(int row, int column) const
 
 std::optional<BeltState> BeltCrossWidget::stateForClick(const QPoint &pos) const
 {
-    const BeltCrossView view = beltCrossView(m_state, m_occupied);
-    // Horizontal strip first: it owns the whole active row's line, including
-    // the intersection cell it shares with the vertical strip (same target).
+    const BeltPeekView view = beltPeekView(m_state, m_occupied);
     for (std::size_t position = 0; position < view.items.size(); ++position) {
-        if (viewCellRect(static_cast<int>(position), view.activeRowPosition).contains(pos)) {
+        if (activeCellRect(static_cast<int>(position)).contains(pos)) {
             return beltJumpTo(m_state, m_state.activeRow, view.items[position].column);
         }
     }
-    for (std::size_t position = 0; position < view.rows.size(); ++position) {
-        if (viewCellRect(0, static_cast<int>(position)).contains(pos)) {
-            return beltJumpTo(m_state, view.rows[position].row, view.rows[position].leadColumn);
-        }
+    // A peek is one vertical step: clicking it goes where scrolling would.
+    if (view.previousRow >= 0 && topPeekRect().contains(pos)) {
+        return beltJumpTo(m_state, view.previousRow, view.previousLeadColumn);
+    }
+    if (view.nextRow >= 0 && bottomPeekRect().contains(pos)) {
+        return beltJumpTo(m_state, view.nextRow, view.nextLeadColumn);
     }
     return std::nullopt;
 }
@@ -153,7 +179,7 @@ void BeltCrossWidget::paintEvent(QPaintEvent *event)
     painter.setRenderHint(QPainter::Antialiasing, false);
 
     const QPalette colors = palette();
-    const BeltCrossView view = beltCrossView(m_state, m_occupied);
+    const BeltPeekView view = beltPeekView(m_state, m_occupied);
 
     auto paintCell = [&](const QRect &rect, const BeltItem *item, bool active) {
         painter.fillRect(rect, colors.color(active ? QPalette::Highlight : QPalette::Base));
@@ -165,21 +191,29 @@ void BeltCrossWidget::paintEvent(QPaintEvent *event)
         }
     };
 
-    // Vertical strip: every tool (non-empty row) by its lead item. The
-    // active row's line is painted by the horizontal strip below, which owns
-    // the shared intersection cell.
-    for (std::size_t position = 0; position < view.rows.size(); ++position) {
-        if (static_cast<int>(position) == view.activeRowPosition) {
-            continue;
-        }
-        const BeltRowEntry &entry = view.rows[position];
-        paintCell(viewCellRect(0, static_cast<int>(position)), itemAt(entry.row, entry.leadColumn), false);
-    }
-    // Horizontal strip: the active tool's sub-features, compacted.
+    // The active tool's sub-features, full-size.
     for (std::size_t position = 0; position < view.items.size(); ++position) {
         const BeltItemEntry &entry = view.items[position];
-        paintCell(viewCellRect(static_cast<int>(position), view.activeRowPosition),
+        paintCell(activeCellRect(static_cast<int>(position)),
                   itemAt(m_state.activeRow, entry.column), entry.active);
+    }
+    // The neighbour peeks: a full cell drawn under a half-cell clip, so the
+    // glyph reads as cut off mid-cell — visibly a continuation, not a button.
+    if (view.previousRow >= 0) {
+        const QRect band = topPeekRect();
+        painter.save();
+        painter.setClipRect(band);
+        paintCell(band.adjusted(0, -(kCellSize - kPeekSize), 0, 0),
+                  itemAt(view.previousRow, view.previousLeadColumn), false);
+        painter.restore();
+    }
+    if (view.nextRow >= 0) {
+        const QRect band = bottomPeekRect();
+        painter.save();
+        painter.setClipRect(band);
+        paintCell(QRect(band.x(), band.y(), kCellSize, kCellSize),
+                  itemAt(view.nextRow, view.nextLeadColumn), false);
+        painter.restore();
     }
 }
 
@@ -249,10 +283,9 @@ bool BeltCrossWidget::event(QEvent *event)
 
 QSize BeltCrossWidget::sizeHint() const
 {
-    // Footprint from occupancy, not the raw grid: width fits the longest
-    // tool's sub-feature strip, height fits one cell per tool. Stable across
-    // active-row changes so the layout never jumps while scrolling.
-    int stripRows = 0;
+    // Width fits the longest tool's sub-feature strip — stable across row
+    // changes so the carousel never jumps while scrolling. Height is fixed:
+    // half-cell peek, active row, half-cell peek.
     int widestRow = 1;
     for (int row = 0; row < m_state.rows; ++row) {
         int count = 0;
@@ -261,14 +294,10 @@ QSize BeltCrossWidget::sizeHint() const
                 ++count;
             }
         }
-        if (count > 0) {
-            ++stripRows;
-            widestRow = std::max(widestRow, count);
-        }
+        widestRow = std::max(widestRow, count);
     }
-    stripRows = std::max(stripRows, 1);
     return QSize(widestRow * kCellSize + (widestRow - 1) * kCellGap,
-                 stripRows * kCellSize + (stripRows - 1) * kCellGap);
+                 kPeekSize * 2 + kCellSize + 2 * kCellGap);
 }
 
 QSize BeltCrossWidget::minimumSizeHint() const

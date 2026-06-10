@@ -29,10 +29,17 @@ void sendClick(QWidget &widget, const QPointF &pos)
     QApplication::sendEvent(&widget, &press);
 }
 
-QPointF viewCellCenter(int xPosition, int yPosition)
+// Mirrors the widget's carousel metrics: 34px cells, 4px gaps, 17px peeks.
+// Active row band starts at y=21; peeks sit above (y 0..16) and below
+// (y 59..75), horizontally aligned over the active cell.
+QPointF activeCellCenter(int position)
 {
-    // Mirrors the widget's metrics: 34px cells with 4px gaps.
-    return QPointF(xPosition * 38.0 + 17.0, yPosition * 38.0 + 17.0);
+    return QPointF(position * 38.0 + 17.0, 21.0 + 17.0);
+}
+
+QPointF peekCenter(int activePosition, bool top)
+{
+    return QPointF(activePosition * 38.0 + 17.0, top ? 8.0 : 67.0);
 }
 
 BeltItem item(const char *id)
@@ -67,8 +74,9 @@ int main(int argc, char **argv)
         emitted.push_back(id);
     });
 
-    // Footprint from occupancy: 3 visible rows tall, widest row (3 items) wide.
-    assert(belt.sizeHint() == QSize(3 * 34 + 2 * 4, 3 * 34 + 2 * 4));
+    // Footprint: widest row (3 items) wide; fixed carousel height of
+    // peek + active row + peek.
+    assert(belt.sizeHint() == QSize(3 * 34 + 2 * 4, 17 * 2 + 34 + 2 * 4));
 
     // Initial: origin cell occupied, nothing emitted.
     assert(belt.activeItemId() == QStringLiteral("a"));
@@ -112,22 +120,30 @@ int main(int argc, char **argv)
     sendWheel(belt, QPoint(120, 0));
     assert(belt.activeItemId() == QStringLiteral("d"));
 
-    // Click the vertical strip: position 2 is row 3's lead (e).
-    sendClick(belt, viewCellCenter(0, 2));
+    // Click the bottom peek: one vertical step down. From row 2 (b active,
+    // position 0) the next non-empty row is 3; its lead e lands.
+    belt.setActiveIndex(8); // b
+    sendClick(belt, peekCenter(0, false));
     assert(belt.activeItemId() == QStringLiteral("e"));
     assert(emitted.last() == QStringLiteral("e"));
 
-    // Click the horizontal strip: the active row (position 2) lays e,f
-    // left-to-right; the second cell is f.
-    sendClick(belt, viewCellCenter(1, 2));
+    // Click an active-row cell: row 3 lays e,f left-to-right; cell 1 is f.
+    sendClick(belt, activeCellCenter(1));
     assert(belt.activeItemId() == QStringLiteral("f"));
 
-    // Dead space (right of a one-item row's strip) changes nothing.
+    // The peeks follow the active cell horizontally: with f active
+    // (position 1), the top peek sits over position 1 and steps up to row
+    // 2's lead.
+    sendClick(belt, peekCenter(1, true));
+    assert(belt.activeItemId() == QStringLiteral("b"));
+
+    // Dead space (the gap band between the active row and a peek, and the
+    // peek band away from the active column) changes nothing.
     {
-        sendClick(belt, viewCellCenter(0, 0)); // back to a
         const int emittedBefore = emitted.size();
-        sendClick(belt, viewCellCenter(2, 0)); // row 0 has no second item
-        assert(belt.activeItemId() == QStringLiteral("a"));
+        sendClick(belt, QPointF(17.0, 57.0)); // gap between row and bottom peek
+        sendClick(belt, QPointF(2 * 38.0 + 17.0, 8.0)); // top band, not over active cell
+        assert(belt.activeItemId() == QStringLiteral("b"));
         assert(emitted.size() == emittedBefore);
     }
 
@@ -152,7 +168,7 @@ int main(int argc, char **argv)
         const int emittedBefore = emitted.size();
         belt.setItems(QVector<BeltItem>(16));
         sendWheel(belt, QPoint(0, -120));
-        sendClick(belt, viewCellCenter(0, 0));
+        sendClick(belt, activeCellCenter(0));
         assert(belt.activeItemId().isEmpty());
         assert(emitted.size() == emittedBefore);
     }

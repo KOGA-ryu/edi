@@ -1,19 +1,9 @@
 #include "widgets/DrawingCanvasProjectedStatus.h"
 
-#include <cmath>
+#include "widgets/DrawingCanvasValues.h"
 
 namespace drawing_canvas {
 namespace {
-
-double finiteNumber(const QVariant &value, double fallback)
-{
-    bool ok = false;
-    const double number = value.toDouble(&ok);
-    if (!ok || !std::isfinite(number)) {
-        return fallback;
-    }
-    return number;
-}
 
 int nonNegativeInt(const QVariant &value)
 {

@@ -1,6 +1,6 @@
 #include "widgets/DrawingCanvasProjectedObject.h"
 
-#include "widgets/DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasValues.h"
 
 #include <QVariantList>
 
@@ -19,20 +19,6 @@ DrawingCanvasProjectedHandleShape handleShapeFromString(const QString &shape)
         return DrawingCanvasProjectedHandleShape::Diamond;
     }
     return DrawingCanvasProjectedHandleShape::Circle;
-}
-
-bool readFinite(const QVariantMap &object, const QString &field, double &target)
-{
-    if (!object.contains(field)) {
-        return false;
-    }
-    bool ok = false;
-    const double value = object.value(field).toDouble(&ok);
-    if (!ok || !std::isfinite(value)) {
-        return false;
-    }
-    target = value;
-    return true;
 }
 
 } // namespace

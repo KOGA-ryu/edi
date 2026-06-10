@@ -89,9 +89,6 @@ struct DrawingCanvasFinishResult {
     DrawingCanvasGestureIntent intent;
 };
 
-double finiteNumber(double value, double fallback);
-double finiteNumber(const QVariant &value, double fallback);
-
 DrawingCanvasGestureState initialGestureState();
 DrawingCanvasGestureState beginHover(const DrawingCanvasGestureState &state, CanvasPoint point, const QString &targetKind = QStringLiteral("none"), const QString &targetObjectId = {}, const QString &targetHandleId = {}, DrawingCanvasModifiers modifiers = {});
 DrawingCanvasGestureState beginObjectDrag(const DrawingCanvasGestureState &state, const QString &objectId, CanvasPoint point, const QStringList &selectedIds, DrawingCanvasModifiers modifiers = {});

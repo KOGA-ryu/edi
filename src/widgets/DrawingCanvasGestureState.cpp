@@ -1,5 +1,7 @@
 #include "widgets/DrawingCanvasGestureState.h"
 
+#include "widgets/DrawingCanvasValues.h"
+
 #include <cmath>
 
 namespace drawing_canvas {
@@ -108,18 +110,6 @@ DrawingCanvasGestureIntent finishIntent(const DrawingCanvasGestureState &state, 
 }
 
 } // namespace
-
-double finiteNumber(double value, double fallback)
-{
-    return std::isfinite(value) ? value : fallback;
-}
-
-double finiteNumber(const QVariant &value, double fallback)
-{
-    bool ok = false;
-    const double number = value.toDouble(&ok);
-    return ok && std::isfinite(number) ? number : fallback;
-}
 
 DrawingCanvasGestureState initialGestureState()
 {

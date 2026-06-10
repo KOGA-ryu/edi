@@ -1,20 +1,9 @@
 #include "widgets/DrawingCanvasProjectedPointer.h"
 
-#include <cmath>
+#include "widgets/DrawingCanvasValues.h"
 
 namespace drawing_canvas {
 namespace {
-
-bool readFinite(const QVariantMap &source, const QString &field, double &target)
-{
-    bool ok = false;
-    const double value = source.value(field).toDouble(&ok);
-    if (!ok || !std::isfinite(value)) {
-        return false;
-    }
-    target = value;
-    return true;
-}
 
 } // namespace
 

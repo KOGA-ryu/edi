@@ -127,10 +127,6 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #workspaceColumn {
             background: %1;
         }
-        #workspaceHeader {
-            background: %8;
-            border-bottom: 1px solid %5;
-        }
         #bottomPanel {
             background: %1;
             border-top: 1px solid %5;
@@ -142,10 +138,14 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QLabel {
             color: %2;
         }
-        #panelTitle, #workspaceTitle {
+        #panelTitle {
             color: %2;
             font-size: %9px;
             font-weight: 600;
+        }
+        #chromeStatus {
+            color: %12;
+            font-size: %11px;
         }
         #sectionLabel {
             color: %10;

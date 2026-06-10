@@ -46,6 +46,9 @@ public:
         std::function<void(const QString &)> openDrawingAtPath;
         std::function<QString()> workspaceModeLabel;
         std::function<QString()> workspaceModeName;
+        // The feature publishes its one-line status; the shell decides where
+        // it shows (currently the title-bar chrome).
+        std::function<void(const QString &)> setStatusText;
     };
 
     DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent = nullptr);
@@ -127,7 +130,6 @@ private:
     QCheckBox *m_guideMoveSnap = nullptr;
     QCheckBox *m_objectPrioritySnap = nullptr;
     QComboBox *m_objectTolerance = nullptr;
-    QLabel *m_workspaceTitle = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;
     QLabel *m_objectKindValue = nullptr;
@@ -190,7 +192,6 @@ private:
     QLabel *m_quickMeasureValue = nullptr;
     QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
-    QLabel *m_statusValue = nullptr;
     QPushButton *m_undoButton = nullptr;
     QPushButton *m_redoButton = nullptr;
     QWidget *m_recentFilesContainer = nullptr;

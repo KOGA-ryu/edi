@@ -139,11 +139,6 @@ void DraftingFeature::refreshInspector()
     const QVariantMap activeLayer = layerProjection(document, activeLayerId);
     const bool hasPreview = document.contains(QStringLiteral("preview_object"));
 
-    if (m_workspaceTitle != nullptr) {
-        m_workspaceTitle->setText(QStringLiteral("%1 Workspace")
-            .arg(m_actions.workspaceModeLabel()));
-    }
-
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_selectedValue != nullptr) {
         const QString activeObject = document.value(QStringLiteral("active_object_id")).toString();
@@ -410,8 +405,10 @@ void DraftingFeature::refreshInspector()
         }
     }
     setLabelText(m_previewValue, QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
-    if (m_statusValue != nullptr) {
-        m_statusValue->setText(QStringLiteral("%1 | %2 selected | %3 objects")
+    if (m_actions.setStatusText) {
+        // The status line is shell chrome now; the feature publishes, the
+        // shell decides where it shows.
+        m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects")
             .arg(m_actions.workspaceModeName())
             .arg(selected.size())
             .arg(objects.size()));

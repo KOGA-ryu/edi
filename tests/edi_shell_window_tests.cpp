@@ -12,6 +12,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
@@ -535,14 +536,53 @@ int main(int argc, char **argv)
         assert(leftPanel->isVisibleTo(&window));
         assert(!rightPanel->isVisibleTo(&window));
 
-        // Drag limits surface as widget constraints the splitter must respect.
+        // Drag limits surface as widget constraints. Bottom has no maximum:
+        // the terminal may grow to become the main view.
         assert(leftPanel->minimumWidth() == 180);
         assert(leftPanel->maximumWidth() == 520);
         assert(rightPanel->minimumWidth() == 160);
         assert(bottomPanel->minimumHeight() == 96);
-        assert(bottomPanel->maximumHeight() == 1000);
+        assert(bottomPanel->maximumHeight() > 100000); // QWIDGETSIZE_MAX, i.e. unbounded
 
-        // Leave everything open so any assertions added later see a full shell.
+        // Overlay behavior: the grid never resizes when panels come and go —
+        // they cover it. The canvas always fills the whole main area.
+        window.applyShellPanelPreset(PanelPreset::Full);
+        QCoreApplication::processEvents();
+        QWidget *canvas = window.findChild<QWidget *>(QStringLiteral("drawingCanvas"));
+        QWidget *mainArea = window.findChild<QWidget *>(QStringLiteral("workspaceColumn"));
+        assert(canvas != nullptr && mainArea != nullptr);
+        const QSize canvasWithPanels = canvas->size();
+        assert(canvasWithPanels == mainArea->size());
+        window.setPanelCollapsed(ShellSlot::Right, true);
+        window.setPanelCollapsed(ShellSlot::Bottom, true);
+        assert(canvas->size() == canvasWithPanels); // unchanged: overlays, not siblings
+        window.setPanelCollapsed(ShellSlot::Right, false);
+        window.setPanelCollapsed(ShellSlot::Bottom, false);
+        assert(canvas->size() == canvasWithPanels);
+        // The right overlay hugs the right edge; the bottom overlay spans the
+        // full width and sits on the bottom edge.
+        assert(rightPanel->geometry().right() + 1 == mainArea->width());
+        assert(bottomPanel->width() == mainArea->width());
+        assert(bottomPanel->geometry().bottom() + 1 == mainArea->height());
+        assert(rightPanel->geometry().bottom() < bottomPanel->geometry().top() + 1);
+
+        // The terminal grows over the grid via its grip — up to the whole
+        // main area — without the grid moving.
+        QWidget *bottomGrip = window.findChild<QWidget *>(QStringLiteral("bottomPanelGrip"));
+        assert(bottomGrip != nullptr && bottomGrip->isVisibleTo(&window));
+        const int beforeDrag = bottomPanel->height();
+        {
+            const QPointF local(4.0, 4.0);
+            const QPointF global = mainArea->mapToGlobal(QPoint(200, 10)); // drag near the top
+            QMouseEvent move(QEvent::MouseMove, local, local, global,
+                Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(bottomGrip, &move);
+        }
+        assert(bottomPanel->height() > beforeDrag);
+        assert(bottomPanel->height() >= mainArea->height() - 10); // effectively the main window
+        assert(canvas->size() == canvasWithPanels);               // grid untouched
+
+        // Leave everything open and at defaults for later assertions.
         window.applyShellPanelPreset(PanelPreset::Full);
     }
 

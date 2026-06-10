@@ -300,29 +300,12 @@ QWidget *DraftingFeature::buildLeftPanel()
 
 QWidget *DraftingFeature::buildWorkspaceColumn()
 {
-    auto *column = new QWidget;
-    column->setObjectName(QStringLiteral("workspaceColumn"));
-    auto *layout = new QVBoxLayout(column);
-    clearLayoutMargins(layout);
-
-    auto *header = makeRegionFrame(QStringLiteral("workspaceHeader"));
-    auto *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(12, 8, 12, 8);
-    headerLayout->setSpacing(10);
-
-    m_workspaceTitle = new QLabel(QStringLiteral("Drawing Canvas"));
-    m_workspaceTitle->setObjectName(QStringLiteral("workspaceTitle"));
-    headerLayout->addWidget(m_workspaceTitle);
-    headerLayout->addStretch(1);
-    m_statusValue = makeValueLabel();
-    headerLayout->addWidget(m_statusValue);
-
+    // The main slot is the grid and nothing else (user decision 2026-06-10):
+    // no header, no title — "the thing tells me what it is by the shape of
+    // it". The status line lives in the shell chrome, fed via ShellActions.
     m_canvas = new DrawingCanvasWidget(m_controller);
     m_canvas->setObjectName(QStringLiteral("drawingCanvas"));
-
-    layout->addWidget(header);
-    layout->addWidget(m_canvas, 1);
-    return column;
+    return m_canvas;
 }
 
 QWidget *DraftingFeature::buildRightPanel()
@@ -837,7 +820,9 @@ QWidget *DraftingFeature::buildBottomPanel()
     auto *panel = makeRegionFrame(QStringLiteral("bottomPanel"));
     const PanelSpec bottomSpec = panelSpec(ShellSlot::Bottom);
     panel->setMinimumHeight(bottomSpec.minSize);
-    panel->setMaximumHeight(bottomSpec.maxSize);
+    if (bottomSpec.maxSize > 0) {
+        panel->setMaximumHeight(bottomSpec.maxSize);
+    }
 
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(12, 8, 12, 8);

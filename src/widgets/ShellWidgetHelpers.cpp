@@ -77,6 +77,31 @@ QLabel *makeSectionLabel(const QString &text)
     return label;
 }
 
+QWidget *makeCollapsibleSection(const QString &title, QWidget *content, bool openInitially)
+{
+    auto *section = new QWidget;
+    section->setObjectName(QStringLiteral("collapsibleSection"));
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(4);
+
+    auto *header = new QPushButton((openInitially ? QStringLiteral("▾ ") : QStringLiteral("▸ ")) + title);
+    header->setObjectName(QStringLiteral("sectionToggle"));
+    header->setCheckable(true);
+    header->setChecked(openInitially);
+    layout->addWidget(header);
+
+    content->setVisible(openInitially);
+    layout->addWidget(content);
+
+    // The glyph is state the user reads at a glance; flip it with the fold.
+    QObject::connect(header, &QPushButton::toggled, content, [header, content, title](bool open) {
+        content->setVisible(open);
+        header->setText((open ? QStringLiteral("▾ ") : QStringLiteral("▸ ")) + title);
+    });
+    return section;
+}
+
 void clearLayoutMargins(QLayout *layout)
 {
     layout->setContentsMargins(0, 0, 0, 0);

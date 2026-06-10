@@ -150,6 +150,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @textMuted@;
             font-size: @fontSm@px;
         }
+        #sectionToggle {
+            background: transparent;
+            border: none;
+            color: @accent@;
+            font-size: @fontSm@px;
+            font-weight: 600;
+            padding: 8px 0px 0px 0px;
+            text-align: left;
+        }
+        #sectionToggle:hover {
+            color: @text@;
+        }
         #sectionLabel {
             color: @accent@;
             font-size: @fontSm@px;

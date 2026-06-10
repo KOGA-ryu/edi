@@ -254,6 +254,16 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #rightPanelGrip:hover, #bottomPanelGrip:hover {
             background: @accentSoft@;
         }
+        #floatingPalette {
+            background: @surface@;
+            border: 1px solid @borderMajor@;
+        }
+        #paletteGrip {
+            background: @base@;
+            color: @textMuted@;
+            font-size: @fontSm@px;
+            min-height: 18px;
+        }
         #titleBar {
             background: @base@;
             border-bottom: 1px solid @borderMajor@;

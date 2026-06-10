@@ -4,6 +4,8 @@
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "widgets/BeltCrossWidget.h"
+#include "widgets/DraftingFeature.h"
+#include "widgets/FloatingPalette.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -413,6 +415,93 @@ int main(int argc, char **argv)
 
         controller->setSelectedToolId(QStringLiteral("select_move"));
         assert(belt->activeItemId() == QStringLiteral("select_move"));
+    }
+
+    // F4: the belt floats in a palette over the main area — draggable by its
+    // grip, position remembered in the workspace layout, torn down and
+    // rebuilt with the workspace.
+    {
+        window.show();
+        QApplication::processEvents();
+
+        auto *palette = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
+        assert(palette != nullptr);
+        assert(palette->paletteId() == QStringLiteral("tool_belt"));
+
+        // The belt lives inside the palette frame now, not in the left panel.
+        auto *belt = window.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
+        assert(belt != nullptr && palette->isAncestorOf(belt));
+        QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
+        assert(leftPanel != nullptr && !leftPanel->isAncestorOf(belt));
+
+        // Default placement, clamped against a real-sized main area.
+        assert(palette->pos() == QPoint(12, 12));
+
+        // Drag by the grip strip: press, move (+30,+20), release.
+        const QPointF gripPoint(palette->width() / 2.0, 9.0);
+        QMouseEvent press(QEvent::MouseButtonPress, gripPoint, palette->mapToGlobal(gripPoint),
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(palette, &press);
+        const QPointF dragTo = gripPoint + QPointF(30.0, 20.0);
+        QMouseEvent drag(QEvent::MouseMove, dragTo, palette->mapToGlobal(dragTo),
+                         Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(palette, &drag);
+        QMouseEvent release(QEvent::MouseButtonRelease, dragTo, palette->mapToGlobal(dragTo),
+                            Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(palette, &release);
+        assert(palette->pos() == QPoint(42, 32));
+
+        // The drag landed in the layout: saving writes palette.0.* rows.
+        {
+            QTemporaryDir tempDir;
+            assert(tempDir.isValid());
+            const QString path = tempDir.filePath(QStringLiteral("palette_workspace.toml"));
+            assert(window.saveWorkspaceLayout(path));
+            const edi::io::ShellLayoutData saved = edi::io::loadShellLayoutFromPath(path);
+            assert(saved.ok);
+            const edi::shell::PalettePlacement stored =
+                edi::shell::palettePlacement(saved.layout, QStringLiteral("tool_belt"));
+            assert(stored.x == 42 && stored.y == 32);
+        }
+
+        // Workspace switch: a layout without the drafting feature has no
+        // palettes; switching to a drafting layout that remembers a spot
+        // rebuilds the palette there (clamped).
+        edi::shell::WorkspaceLayout settingsJob;
+        settingsJob.id = QStringLiteral("settings");
+        settingsJob.label = QStringLiteral("Settings");
+        settingsJob.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("settings")}};
+        window.switchWorkspaceLayout(settingsJob);
+        assert(window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette")) == nullptr);
+
+        edi::shell::WorkspaceLayout draftingJob;
+        draftingJob.id = QStringLiteral("drafting");
+        draftingJob.label = QStringLiteral("Drafting");
+        draftingJob.bindings = {
+            {edi::shell::ShellSlot::Left, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Main, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Right, QStringLiteral("drafting")},
+            {edi::shell::ShellSlot::Bottom, QStringLiteral("drafting")},
+        };
+        draftingJob.belt = DraftingFeature::defaultBeltLayout();
+        edi::shell::setPalettePlacement(draftingJob, {QStringLiteral("tool_belt"), 60, 44});
+        window.switchWorkspaceLayout(draftingJob);
+        QApplication::processEvents();
+        auto *rebuilt = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
+        assert(rebuilt != nullptr);
+        assert(rebuilt->pos() == QPoint(60, 44));
+
+        // A stored position far off-screen clamps back into the main area.
+        edi::shell::WorkspaceLayout farJob = draftingJob;
+        edi::shell::setPalettePlacement(farJob, {QStringLiteral("tool_belt"), 99999, 99999});
+        window.switchWorkspaceLayout(farJob);
+        QApplication::processEvents();
+        auto *clamped = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
+        assert(clamped != nullptr);
+        QWidget *mainArea = window.findChild<QWidget *>(QStringLiteral("workspaceColumn"));
+        assert(mainArea != nullptr);
+        assert(clamped->geometry().right() <= mainArea->width());
+        assert(clamped->geometry().bottom() <= mainArea->height());
     }
 
     // Calibration row: pattern button creates objects, record captures a

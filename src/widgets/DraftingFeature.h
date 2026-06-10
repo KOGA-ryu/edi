@@ -10,6 +10,7 @@
 
 #include <functional>
 #include <optional>
+#include <vector>
 
 #include "widgets/ShellHost.h"
 
@@ -60,14 +61,16 @@ public:
     DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent = nullptr);
 
     QWidget *buildPanel(edi::shell::ShellSlot slot);
+    // F4: the feature's floating palettes (currently just the tool belt).
+    // Fresh widgets per call; the shell frames, places, and owns them.
+    std::vector<edi::shell::FeaturePaletteSpec> buildPalettes();
     void refreshInspector();
     void setRecentFiles(const QStringList &paths);
     DrawingCanvasWidget *canvas() const { return m_canvas; }
 
-    // The drafting tools arranged on a 6x6 belt, one family per row (shapes /
-    // polygon / guides / construction / dimensions). Static: the window bakes
-    // it into the built-in drafting workspace layout before any instance
-    // exists.
+    // The drafting tools arranged on the belt: one row per tool, the row's
+    // cells its sub-features. Static: the window bakes it into the built-in
+    // drafting workspace layout before any instance exists.
     static edi::shell::BeltLayout defaultBeltLayout();
 
 private:

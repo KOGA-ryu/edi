@@ -130,6 +130,30 @@ BeltLayout DraftingFeature::defaultBeltLayout()
     return belt;
 }
 
+std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
+{
+    // F4: the belt floats over the canvas ("tools float"). The arrangement
+    // is workspace data (the shell supplies it via callable); this feature
+    // only dresses the ids with glyphs/tooltips from its tool table.
+    const BeltLayout belt = m_actions.beltLayout ? m_actions.beltLayout() : defaultBeltLayout();
+    m_beltWidget = new BeltCrossWidget;
+    m_beltWidget->setGridSize(belt.rows, belt.columns);
+    QVector<BeltItem> items;
+    items.reserve(static_cast<int>(belt.itemIds.size()));
+    for (const QString &toolId : belt.itemIds) {
+        items.push_back(beltItemForTool(toolId));
+    }
+    m_beltWidget->setItems(items);
+    const int activeIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());
+    if (activeIndex >= 0) {
+        m_beltWidget->setActiveIndex(activeIndex);
+    }
+    connect(m_beltWidget, &BeltCrossWidget::selected, m_controller, [this](const QString &toolId) {
+        m_controller->setSelectedToolId(toolId);
+    });
+    return {{QStringLiteral("tool_belt"), QStringLiteral("Tools"), m_beltWidget}};
+}
+
 QWidget *DraftingFeature::buildPanel(ShellSlot slot)
 {
     switch (slot) {
@@ -166,31 +190,6 @@ QWidget *DraftingFeature::buildLeftPanel()
         m_controller->selectObjectById(item->data(Qt::UserRole).toString());
     });
     layout->addWidget(m_objectList);
-
-    layout->addWidget(makeSectionLabel(QStringLiteral("Tools")));
-    // F3: the weapon-cross belt replaces the button list. The arrangement is
-    // workspace data (the shell supplies it via callable); this feature only
-    // dresses the ids with glyphs/tooltips from its tool table. Interim home:
-    // the belt becomes a floating palette in F4.
-    {
-        const BeltLayout belt = m_actions.beltLayout ? m_actions.beltLayout() : defaultBeltLayout();
-        m_beltWidget = new BeltCrossWidget;
-        m_beltWidget->setGridSize(belt.rows, belt.columns);
-        QVector<BeltItem> items;
-        items.reserve(static_cast<int>(belt.itemIds.size()));
-        for (const QString &toolId : belt.itemIds) {
-            items.push_back(beltItemForTool(toolId));
-        }
-        m_beltWidget->setItems(items);
-        const int activeIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());
-        if (activeIndex >= 0) {
-            m_beltWidget->setActiveIndex(activeIndex);
-        }
-        connect(m_beltWidget, &BeltCrossWidget::selected, m_controller, [this](const QString &toolId) {
-            m_controller->setSelectedToolId(toolId);
-        });
-        layout->addWidget(m_beltWidget, 0, Qt::AlignHCenter);
-    }
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {

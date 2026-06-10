@@ -160,8 +160,12 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
         // its items at build time, so a belt change needs the same remount.
         switchWorkspaceLayout(data.layout);
     } else {
+        // Same job: geometry only. Palette placements ride with the layout
+        // like panel sizes do — adopt and re-apply without a remount.
+        m_workspaceLayout.palettes = data.layout.palettes;
         applyPanelSizesToSplitters();
         refreshPanelVisibility();
+        applyPalettePlacements();
     }
     return true;
 }

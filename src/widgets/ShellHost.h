@@ -26,6 +26,16 @@ struct FeatureContext {
 // are callables, mirroring the controller's kind-and-callable helpers. One
 // feature may fill several slots; buildPanel receives the slot so it can
 // return a different panel per slot.
+// A floating palette a feature offers: id (stable, keys the stored
+// placement), title (drag-strip text), and the content widget. The shell
+// wraps the content in its FloatingPalette frame; the feature never sees
+// the frame.
+struct FeaturePaletteSpec {
+    QString id;
+    QString title;
+    QWidget *content = nullptr;
+};
+
 struct FeatureDescriptor {
     QString id;     // "drafting", "text_editor", ...
     QString label;
@@ -34,6 +44,10 @@ struct FeatureDescriptor {
     // would corrupt this header in any TU that also includes a Qt header.
     std::vector<ShellSlot> supportedSlots;
     std::function<QWidget *(ShellSlot, FeatureContext &)> buildPanel;
+    // Palettes the feature wants floated over the main area (F4). Called on
+    // every mount, after recreateInstance; fresh widgets each time. Optional
+    // like the lifecycle hooks — most features have none.
+    std::function<std::vector<FeaturePaletteSpec>()> buildPalettes;
     // Instance lifecycle, driven by the shell around every workspace mount:
     // recreateInstance runs BEFORE mounting (a fresh instance whose
     // widget-pointer members die with the old one — nothing can dangle), and

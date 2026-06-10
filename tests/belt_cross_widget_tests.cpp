@@ -92,16 +92,22 @@ int main(int argc, char **argv)
     });
 
     // Footprint: nub gutter + widest row (3 items) wide; carousel height of
-    // peek + active row + peek while nothing is pinned.
-    assert(belt.sizeHint() == QSize(14 + 3 * 34 + 2 * 4, 17 * 2 + 34 + 2 * 4));
+    // peek + active row + peek, plus the name line (4px gap + one font line),
+    // while nothing is pinned.
+    assert(belt.sizeHint()
+           == QSize(14 + 3 * 34 + 2 * 4,
+                    17 * 2 + 34 + 2 * 4 + 4 + belt.fontMetrics().height()));
 
-    // Initial: origin cell occupied, nothing emitted.
+    // Initial: origin cell occupied, nothing emitted; the name line reads the
+    // active cell's tooltip (the fixture's tooltip == id).
     assert(belt.activeItemId() == QStringLiteral("a"));
+    assert(belt.activeItemLabel() == QStringLiteral("a"));
     assert(emitted.isEmpty());
 
     // One full notch down: the empty row 1 is skipped, row 2's lead lands.
     sendWheel(belt, QPoint(0, -120));
     assert(belt.activeItemId() == QStringLiteral("b"));
+    assert(belt.activeItemLabel() == QStringLiteral("b")); // the name line follows
     assert(emitted == QStringList{QStringLiteral("b")});
 
     // Sub-notch deltas accumulate instead of stepping per event (the

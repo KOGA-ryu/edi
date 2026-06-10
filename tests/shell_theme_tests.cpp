@@ -32,6 +32,10 @@ int main()
     assert(t.workspaceBody == mixHex(in.surface, in.text, 0.06));
     assert(t.controlHover == mixHex(in.surface, in.text, 0.10));
     assert(t.selected == mixHex(in.surface, in.accent, 0.22));
+    // rowSelected is the one token mixed from BASE (spec §4 list rows), so a
+    // selected row reads as a darker notch inside a surface-colored list.
+    assert(t.rowSelected == mixHex(in.base, in.accent, 0.14));
+    assert(t.rowSelected == "#222a33"); // hand-computed golden for the defaults
     assert(t.textMuted == mixHex(in.surface, in.text, 0.62));
     assert(t.borderFocus == mixHex(in.surface, in.accent, 0.36));
     assert(t.accentSoft == mixHex(in.surface, in.accent, 0.26));
@@ -56,6 +60,8 @@ int main()
     const ShellTheme p = deriveShellTheme(pink);
     assert(p.selected == mixHex(in.surface, pink.accent, 0.22));
     assert(p.selected != t.selected);
+    assert(p.rowSelected == mixHex(in.base, pink.accent, 0.14)); // follows accent
+    assert(p.rowSelected != t.rowSelected);
     assert(p.textMuted == t.textMuted); // text unchanged -> token unchanged
 
     // Typography derives around the body size and clamps.
@@ -75,7 +81,7 @@ int main()
     const QString qss = buildShellStyleSheet(t);
     assert(!qss.contains(QStringLiteral("@")));
     for (const QString &value : {t.base, t.surface, t.surfaceRaised, t.control, t.controlHover,
-             t.selected, t.text, t.textMuted, t.borderMajor, t.borderMinor, t.borderFocus,
+             t.selected, t.rowSelected, t.text, t.textMuted, t.borderMajor, t.borderMinor, t.borderFocus,
              t.accent, t.accentSoft, t.danger, t.disabled, t.trafficClose, t.trafficCloseEdge,
              t.trafficMinimize, t.trafficMinimizeEdge, t.trafficZoom, t.trafficZoomEdge, t.uiFont}) {
         assert(qss.contains(value));
@@ -95,6 +101,7 @@ int main()
              "#panelTitle", "#chromeStatus", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
+             "QListWidget::item:selected", "#objectListEmpty",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {

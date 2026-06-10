@@ -69,6 +69,7 @@ ShellTheme deriveShellTheme(const ShellThemeInputs &in)
     t.control = mixHex(in.surface, in.text, 0.08);
     t.controlHover = mixHex(in.surface, in.text, 0.10);
     t.selected = mixHex(in.surface, in.accent, 0.22);
+    t.rowSelected = mixHex(in.base, in.accent, 0.14);
     t.textMuted = mixHex(in.surface, in.text, 0.62);
     t.textFaint = mixHex(in.surface, in.text, 0.38);
     t.borderMajor = mixHex(in.surface, in.text, 0.12);
@@ -237,6 +238,29 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border: 0;
             width: 22px;
         }
+        QListWidget {
+            color: @text@;
+            background: @surface@;
+            border: 1px solid @borderMinor@;
+            border-radius: 5px;
+        }
+        QListWidget::item {
+            min-height: 24px;
+            padding: 0px 6px;
+            border-left: 2px solid transparent;
+        }
+        QListWidget::item:hover {
+            background: @controlHover@;
+        }
+        QListWidget::item:selected {
+            color: @text@;
+            background: @rowSelected@;
+            border-left: 2px solid @accent@;
+        }
+        #objectListEmpty {
+            color: @textFaint@;
+            font-size: @fontSm@px;
+        }
         QCheckBox {
             color: @text@;
             spacing: 8px;
@@ -325,8 +349,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@control@", t.control},
         {"@controlHover@", t.controlHover},
         {"@selected@", t.selected},
+        {"@rowSelected@", t.rowSelected},
         {"@text@", t.text},
         {"@textMuted@", t.textMuted},
+        {"@textFaint@", t.textFaint},
         {"@borderMajor@", t.borderMajor},
         {"@borderMinor@", t.borderMinor},
         {"@borderFocus@", t.borderFocus},

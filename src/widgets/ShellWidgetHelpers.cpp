@@ -54,6 +54,11 @@ ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int
     content->setContentsMargins(12, 12, 12, 12);
     content->setSpacing(8);
     scroll->setWidget(contentWidget);
+    // setWidget() force-enables autoFillBackground on the content widget,
+    // which then paints the PLATFORM palette (light gray on macOS) edge to
+    // edge over this panel's themed QFrame. The content widget is pure
+    // layout — it must own no pixels, so the styled frame shows through.
+    contentWidget->setAutoFillBackground(false);
 
     return {panel, content};
 }

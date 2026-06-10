@@ -405,6 +405,13 @@ QWidget *DraftingFeature::buildLeftPanel()
     });
     layout->addWidget(m_objectList);
 
+    // Empty state: an empty bordered well reads as a broken widget, not as
+    // "nothing here yet". The label names the absence; refreshInspector owns
+    // its visibility, same as every other projection of the document.
+    m_objectListEmpty = new QLabel(QStringLiteral("No objects yet"));
+    m_objectListEmpty->setObjectName(QStringLiteral("objectListEmpty"));
+    layout->addWidget(m_objectListEmpty);
+
     // Everything else this panel used to host has a better home now: tools
     // float (F4), snap/grid sit in the chrome popup, undo/redo and project
     // files live in the Edit/File menus. Navigate left, work center,

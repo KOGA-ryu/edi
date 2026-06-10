@@ -8,6 +8,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFrame>
+#include <QScrollArea>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -41,6 +42,42 @@ QFrame *makeRegionFrame(const QString &objectName)
     frame->setObjectName(objectName);
     frame->setFrameShape(QFrame::NoFrame);
     return frame;
+}
+
+// A fixed-width side panel whose content scrolls vertically. Returns the outer
+// frame (for the layout) and the inner content layout (for addWidget calls).
+// Without this, a panel with more controls than vertical room squashes every
+// child toward zero height — buttons become unclickable slivers. The scroll
+// area lets the content keep its natural height and offers a scrollbar instead.
+struct ScrollablePanel {
+    QFrame *panel = nullptr;
+    QVBoxLayout *content = nullptr;
+};
+
+ScrollablePanel makeScrollablePanel(const QString &objectName, int fixedWidth)
+{
+    auto *panel = makeRegionFrame(objectName);
+    panel->setFixedWidth(fixedWidth);
+
+    // Outer layout holds only the scroll area, edge-to-edge.
+    auto *outer = new QVBoxLayout(panel);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(objectName + QStringLiteral("Scroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true); // content width tracks the viewport
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    outer->addWidget(scroll);
+
+    auto *contentWidget = new QWidget;
+    auto *content = new QVBoxLayout(contentWidget);
+    content->setContentsMargins(12, 12, 12, 12);
+    content->setSpacing(8);
+    scroll->setWidget(contentWidget);
+
+    return {panel, content};
 }
 
 void clearLayoutMargins(QLayout *layout)
@@ -802,12 +839,7 @@ QWidget *EdiShellWindow::buildActivityRail()
 
 QWidget *EdiShellWindow::buildLeftPanel()
 {
-    auto *panel = makeRegionFrame(QStringLiteral("leftPanel"));
-    panel->setFixedWidth(260);
-
-    auto *layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(8);
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), 260);
 
     auto *title = new QLabel(QStringLiteral("EDI Drafting"));
     title->setObjectName(QStringLiteral("panelTitle"));
@@ -1073,12 +1105,7 @@ QWidget *EdiShellWindow::buildWorkspaceColumn()
 
 QWidget *EdiShellWindow::buildRightPanel()
 {
-    auto *panel = makeRegionFrame(QStringLiteral("rightPanel"));
-    panel->setFixedWidth(300);
-
-    auto *layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(8);
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("rightPanel"), 300);
 
     auto *title = new QLabel(QStringLiteral("Inspector"));
     title->setObjectName(QStringLiteral("panelTitle"));

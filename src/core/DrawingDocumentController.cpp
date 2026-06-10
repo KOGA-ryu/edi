@@ -771,68 +771,60 @@ void DrawingDocumentController::updatePointerNormalized(double x, double y)
     emit modelChanged();
 }
 
+bool DrawingDocumentController::finishEdit(const QString &mode, const QString &fieldId, bool ok,
+                                           DraftingResultCode code, const QString &message)
+{
+    m_lastEditStatus = editStatus(ok, mode, fieldId, code, message);
+    emit modelChanged();
+    return ok;
+}
+
 bool DrawingDocumentController::updateSelectedObjectGeometryField(const QString &fieldId, double value)
 {
+    const QString mode = QStringLiteral("normalized");
     if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, DraftingResultCode::InvalidGeometry, QStringLiteral("geometry edit requires a selected object, field id, and finite value"));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, DraftingResultCode::InvalidGeometry, QStringLiteral("geometry edit requires a selected object, field id, and finite value"));
     }
 
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
     if (object == nullptr) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
     }
 
     const DraftingCommandResult result = applyDraftingCommand(
         m_document,
         NumericGeometryEditCommand{*m_document.activeObjectId, toStdString(fieldId), value});
     if (!result.ok) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("normalized"), fieldId, result.code, drawing_core::qStringFromStdString(result.message));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, result.code, drawing_core::qStringFromStdString(result.message));
     }
 
-    m_lastEditStatus = editStatus(true, QStringLiteral("normalized"), fieldId, DraftingResultCode::None, {});
-    emit modelChanged();
-    return true;
+    return finishEdit(mode, fieldId, true, DraftingResultCode::None, {});
 }
 
 bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value)
 {
+    const QString mode = QStringLiteral("physical");
     if (fieldId.isEmpty() || !m_document.activeObjectId || !std::isfinite(value)) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, DraftingResultCode::InvalidGeometry, QStringLiteral("physical edit requires a selected object, field id, and finite value"));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, DraftingResultCode::InvalidGeometry, QStringLiteral("physical edit requires a selected object, field id, and finite value"));
     }
 
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
     if (object == nullptr) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, DraftingResultCode::ObjectNotFound, QStringLiteral("selected object does not exist"));
     }
 
     const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
     const DraftingPhysicalGeometryEditPlan plan = planPhysicalGeometryEdit(*object, grid, toStdString(fieldId), value);
     if (!plan.ok || !plan.command) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, plan.code, drawing_core::qStringFromStdString(plan.message));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, plan.code, drawing_core::qStringFromStdString(plan.message));
     }
 
     const DraftingCommandResult result = applyDraftingCommand(m_document, *plan.command);
     if (!result.ok) {
-        m_lastEditStatus = editStatus(false, QStringLiteral("physical"), fieldId, result.code, drawing_core::qStringFromStdString(result.message));
-        emit modelChanged();
-        return false;
+        return finishEdit(mode, fieldId, false, result.code, drawing_core::qStringFromStdString(result.message));
     }
 
-    m_lastEditStatus = editStatus(true, QStringLiteral("physical"), fieldId, DraftingResultCode::None, {});
-    emit modelChanged();
-    return true;
+    return finishEdit(mode, fieldId, true, DraftingResultCode::None, {});
 }
 
 bool DrawingDocumentController::setSelectedObjectLocked(bool locked)

@@ -126,6 +126,8 @@ signals:
 
 private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
+    bool finishEdit(const QString &mode, const QString &fieldId, bool ok,
+                    edi::drafting::DraftingResultCode code, const QString &message);
     void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
     void applyCustomGridSettings(const std::function<void(edi::drafting::DraftingGridSettings &)> &mutate);
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);

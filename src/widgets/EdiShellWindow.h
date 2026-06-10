@@ -126,6 +126,11 @@ private:
     // changes (eager, not aboutToShow: deterministic for tests and cheap).
     void rebuildRecentFilesMenu();
     void refreshUndoRedoActions();
+    // F5: the settings pop-out — a modeless tool window over the canvas, so
+    // theme edits are visible live. The frame is window-owned and permanent;
+    // its content is rebuilt each workspace mount like every feature widget.
+    void rebuildSettingsWindowContent();
+    void openSettingsWindow();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
     std::unique_ptr<SettingsFeature> createSettingsFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
@@ -162,6 +167,8 @@ private:
     std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
     QWidget *m_chromePanelHost = nullptr;      // title-bar strip for feature buttons
     QMenu *m_recentFilesMenu = nullptr;
+    QWidget *m_settingsWindow = nullptr;        // the pop-out frame (persistent)
+    QWidget *m_settingsWindowContent = nullptr; // rebuilt per workspace mount
     QAction *m_undoAction = nullptr;
     QAction *m_redoAction = nullptr;
     std::vector<QWidget *> m_chromePopups;     // popup frames, window children

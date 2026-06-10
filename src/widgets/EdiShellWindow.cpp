@@ -68,17 +68,6 @@ WorkspaceLayout draftingWorkspaceLayout()
     return layout;
 }
 
-WorkspaceLayout settingsWorkspaceLayout()
-{
-    WorkspaceLayout layout;
-    layout.id = QStringLiteral("settings");
-    layout.label = QStringLiteral("Settings");
-    layout.bindings = {
-        {ShellSlot::Main, QStringLiteral("settings")},
-    };
-    return layout;
-}
-
 } // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
@@ -188,6 +177,16 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
 
     m_panelsState = defaultShellPanelsState();
+
+    // F5: the settings pop-out. Qt::Tool keeps it floating above the main
+    // window without stealing the taskbar; as a child widget it inherits the
+    // shell QSS, so theme edits restyle it live together with everything
+    // else. Hidden until the rail's S button asks for it.
+    m_settingsWindow = new QWidget(this, Qt::Tool);
+    m_settingsWindow->setObjectName(QStringLiteral("settingsWindow"));
+    m_settingsWindow->setWindowTitle(QStringLiteral("Settings"));
+    auto *settingsWindowLayout = new QVBoxLayout(m_settingsWindow);
+    clearLayoutMargins(settingsWindowLayout);
 
     // The first mount IS a workspace application — same lifecycle path as a
     // runtime switch (recreate instances -> mount -> re-feed state), so the
@@ -377,9 +376,9 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
 
     // The rail is the workspace switcher: a mode maps to a layout, and the
     // switch goes through the same trail-pushing path as everything else.
-    const WorkspaceLayout target = mode == edi::app::WorkspaceMode::Settings
-        ? settingsWorkspaceLayout()
-        : draftingWorkspaceLayout();
+    // (Settings is no longer a layout — the rail intercepts it before here
+    // and opens the pop-out instead; see buildActivityRail.)
+    const WorkspaceLayout target = draftingWorkspaceLayout();
     if (target.id != m_workspaceLayout.id) {
         switchWorkspaceLayout(target);
     } else {
@@ -503,6 +502,7 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
 
     rebuildPalettes();
     rebuildChromePanels();
+    rebuildSettingsWindowContent();
 
     applyPanelSizesToSplitters();
     refreshPanelVisibility();
@@ -562,6 +562,30 @@ void EdiShellWindow::applyPalettePlacements()
         const PalettePlacement placement = palettePlacement(m_workspaceLayout, palette->paletteId());
         palette->applyPlacement(placement.x, placement.y);
     }
+}
+
+void EdiShellWindow::rebuildSettingsWindowContent()
+{
+    if (m_settingsWindow == nullptr || m_settingsFeature == nullptr) {
+        return;
+    }
+    // The frame (and its visibility) survives the mount; only the page is
+    // fresh. Settings stays open across workspace switches by design — the
+    // whole point of the pop-out is that it floats over whatever job runs.
+    m_settingsWindowContent = m_settingsFeature->buildPanel(ShellSlot::Main);
+    if (m_settingsWindowContent != nullptr) {
+        m_settingsWindow->layout()->addWidget(m_settingsWindowContent);
+    }
+}
+
+void EdiShellWindow::openSettingsWindow()
+{
+    if (m_settingsWindow == nullptr) {
+        return;
+    }
+    m_settingsWindow->show();
+    m_settingsWindow->raise();
+    m_settingsWindow->activateWindow();
 }
 
 void EdiShellWindow::rebuildChromePanels()
@@ -637,6 +661,10 @@ void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
         delete popup;
     }
     m_chromePopups.clear();
+    // The pop-out's content must die BEFORE recreateInstance retires the
+    // settings feature: its widgets call hooks owned by that instance.
+    delete m_settingsWindowContent;
+    m_settingsWindowContent = nullptr;
     if (m_chromePanelHost != nullptr) {
         // The buttons are children of the host strip; clearing them leaves
         // the strip itself in the bar for the next mount.

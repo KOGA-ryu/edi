@@ -42,9 +42,21 @@ QWidget *EdiShellWindow::buildActivityRail()
 
     connect(m_activityGroup, &QButtonGroup::buttonClicked, this, [this](QAbstractButton *button) {
         const auto mode = edi::app::workspaceModeFromName(button->property("modeId").toString().toStdString());
-        if (mode) {
-            setWorkspaceMode(*mode);
+        if (!mode) {
+            return;
         }
+        // F5: Settings is a pop-out, not a workspace. Open it and hand the
+        // exclusive check back to the mounted mode's button — the rail shows
+        // where you ARE, and you are still in the drafting job.
+        if (*mode == edi::app::WorkspaceMode::Settings) {
+            openSettingsWindow();
+            for (QAbstractButton *railButton : m_activityGroup->buttons()) {
+                railButton->setChecked(railButton->property("modeId").toString().toStdString()
+                    == edi::app::workspaceModeName(m_appState.mode));
+            }
+            return;
+        }
+        setWorkspaceMode(*mode);
     });
 
     layout->addStretch(1);

@@ -46,4 +46,52 @@ struct BeltCrossCell {
 // row arm). Everything else on the belt is invisible by design.
 std::vector<BeltCrossCell> beltCrossCells(const BeltState &state);
 
+// ---- Occupancy-aware navigation and view (user feedback 2026-06-10) -------
+//
+// The belt's mental model: each ROW is one tool/feature, its sub-features
+// fill the row's cells. Rows have different lengths, so navigation must skip
+// empty cells and the view must never show a blank box. Occupancy is passed
+// in as data (row-major bools, the caller derives it from its item list) —
+// the state stays a dumb cursor, and the same functions serve any host.
+
+// occupied.size() must be rows*columns; anything else reads as all-empty.
+
+// True when the cell at (row, column) is occupied.
+bool beltCellOccupied(const BeltState &state, const std::vector<bool> &occupied, int row, int column);
+
+// First occupied column of `row` (its "lead" item), or -1 for an empty row.
+int beltRowLeadColumn(const BeltState &state, const std::vector<bool> &occupied, int row);
+
+// Snap an arbitrary cursor onto occupancy: keep the active cell if occupied,
+// else the first occupied cell on the belt, else unchanged (an all-empty
+// belt has nothing to point at).
+BeltState beltNormalizeToOccupied(BeltState state, const std::vector<bool> &occupied);
+
+// Vertical scroll: move to the next/previous row that has any item, wrapping;
+// the column snaps to that row's lead. Lands nowhere new on an all-empty belt.
+BeltState beltStepRowOccupied(BeltState state, int delta, const std::vector<bool> &occupied);
+
+// Horizontal scroll: next/previous occupied cell within the active row,
+// wrapping. No-op when the row has fewer than two items.
+BeltState beltStepColumnOccupied(BeltState state, int delta, const std::vector<bool> &occupied);
+
+// The compacted view the widget renders. Visual positions are list indexes,
+// NOT grid columns: the vertical strip stacks non-empty rows top-to-bottom,
+// and the horizontal strip lays the active row's items left-to-right, so the
+// screen never shows the gaps the grid may contain.
+struct BeltRowEntry {
+    int row = 0;        // grid row
+    int leadColumn = 0; // grid column of the row's lead item
+};
+struct BeltItemEntry {
+    int column = 0;     // grid column
+    bool active = false;
+};
+struct BeltCrossView {
+    std::vector<BeltRowEntry> rows;     // vertical strip, one entry per non-empty row
+    int activeRowPosition = -1;         // index into rows of the active row
+    std::vector<BeltItemEntry> items;   // horizontal strip: the active row's items
+};
+BeltCrossView beltCrossView(const BeltState &state, const std::vector<bool> &occupied);
+
 } // namespace edi::shell

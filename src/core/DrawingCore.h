@@ -9,11 +9,13 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingToolCreation.h"
 
+#include <functional>
 #include <optional>
 
 class DrawingDocumentController final : public QObject {
@@ -120,6 +122,8 @@ signals:
 
 private:
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
+    bool applyActiveGuideMetadataUpdate(
+        const std::function<edi::drafting::DraftingMetadataUpdatePlan(const edi::drafting::ObjectMetadata &)> &planMetadata);
 
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;

@@ -898,14 +898,15 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
     return true;
 }
 
-bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
+bool DrawingDocumentController::applyActiveGuideMetadataUpdate(
+    const std::function<DraftingMetadataUpdatePlan(const ObjectMetadata &)> &planMetadata)
 {
     const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
     if (object == nullptr) {
         return false;
     }
 
-    const DraftingMetadataUpdatePlan plan = planGuideVisualLabelUpdate(object->metadata, toStdString(label));
+    const DraftingMetadataUpdatePlan plan = planMetadata(object->metadata);
     if (!plan.ok) {
         return false;
     }
@@ -918,72 +919,34 @@ bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 
     emit modelChanged();
     return true;
+}
+
+bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
+{
+    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planGuideVisualLabelUpdate(metadata, toStdString(label));
+    });
 }
 
 bool DrawingDocumentController::setSelectedGuideColor(const QString &color)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-
-    const DraftingMetadataUpdatePlan plan = planGuideVisualColorUpdate(object->metadata, toStdString(color));
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planGuideVisualColorUpdate(metadata, toStdString(color));
+    });
 }
 
 bool DrawingDocumentController::setSelectedGuideDashStyle(const QString &dashStyle)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-
-    const DraftingMetadataUpdatePlan plan = planGuideVisualDashStyleUpdate(object->metadata, toStdString(dashStyle));
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planGuideVisualDashStyleUpdate(metadata, toStdString(dashStyle));
+    });
 }
 
 bool DrawingDocumentController::setSelectedGuideLabelVisible(bool visible)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-
-    const DraftingMetadataUpdatePlan plan = planGuideVisualLabelVisibleUpdate(object->metadata, visible);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveGuideMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planGuideVisualLabelVisibleUpdate(metadata, visible);
+    });
 }
 
 bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)

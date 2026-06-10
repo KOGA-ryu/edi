@@ -225,6 +225,43 @@ int main(int argc, char **argv)
         assert(polygon.value(QStringLiteral("points")).toList().size() == 5);
     }
 
+    // A multi-move object drag is a single undo step (regression: each move used
+    // to push its own snapshot).
+    {
+        DrawingDocumentController dragController;
+        DrawingCanvasWidget dragCanvas(&dragController);
+        dragCanvas.resize(600, 450);
+        dragController.setSelectedToolId(QStringLiteral("point_tool"));
+        clickCanvas(dragController, dragCanvas, 0.3, 0.3);
+        const QString id = dragController.selectedObjectId();
+        const double startX = activeObject(dragController).value(QStringLiteral("x")).toDouble();
+
+        dragController.setSelectedToolId(QStringLiteral("select_move"));
+        const QPointF press = screenPointFor(dragController, dragCanvas, 0.3, 0.3);
+        sendMouse(dragCanvas, QEvent::MouseButtonPress, press, Qt::LeftButton, Qt::LeftButton);
+        // Several intermediate moves, as a real drag produces.
+        for (double t : {0.4, 0.5, 0.6, 0.7}) {
+            const QPointF move = screenPointFor(dragController, dragCanvas, t, 0.3);
+            sendMouse(dragCanvas, QEvent::MouseMove, move, Qt::NoButton, Qt::LeftButton);
+        }
+        const QPointF release = screenPointFor(dragController, dragCanvas, 0.7, 0.3);
+        sendMouse(dragCanvas, QEvent::MouseButtonRelease, release, Qt::LeftButton, Qt::NoButton);
+
+        const double movedX = activeObject(dragController).value(QStringLiteral("x")).toDouble();
+        assert(movedX > startX + 0.2); // the drag moved the point substantially
+        // One undo returns the point all the way to the start (proving the whole
+        // drag is a single step, not one step per intermediate move).
+        assert(dragController.canUndo());
+        assert(dragController.undo());
+        const double undoneX = activeObject(dragController).value(QStringLiteral("x")).toDouble();
+        assert(near(undoneX, startX));
+        // Only the original point-creation step remains; a second undo empties it.
+        assert(dragController.canUndo());
+        dragController.undo();
+        assert(dragController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+        assert(!dragController.canUndo());
+    }
+
     // Two-click arc creation, then drag its radius handle to grow the radius.
     {
         DrawingDocumentController arcController;

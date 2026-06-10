@@ -191,6 +191,9 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
         const QString handleId = hitSelectedHandle(event->position());
         if (!handleId.isEmpty()) {
             const QPointF point = screenToCanvas(event->position());
+            // Coalesce the whole handle drag (press + moves + release) into one
+            // undo step.
+            m_controller->beginInteractiveEdit();
             m_gestureState = drawing_canvas::beginHandleDrag(
                 m_gestureState,
                 m_controller->selectedObjectId(),
@@ -216,6 +219,8 @@ void DrawingCanvasWidget::mousePressEvent(QMouseEvent *event)
             selectedIds,
             {});
         m_lastDragCanvasPoint = point;
+        // Coalesce the whole object drag into one undo step.
+        m_controller->beginInteractiveEdit();
     } else if (m_controller->selectedToolId() == QStringLiteral("select_move")) {
         m_gestureState = drawing_canvas::beginMarquee(m_gestureState, {point.x(), point.y()}, {});
     }
@@ -294,12 +299,16 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
             const QPointF point = screenToCanvas(event->position());
             const QString handleId = m_gestureState.handleId;
             m_controller->editSelectedHandleNormalized(handleId, point.x(), point.y());
+            m_controller->endInteractiveEdit();
         }
         m_gestureState = drawing_canvas::finishGesture(m_gestureState, {.incremental = true}).state;
         event->accept();
         return;
     }
     if (event->button() == Qt::LeftButton && drawing_canvas::isObjectDrag(m_gestureState)) {
+        if (m_controller != nullptr) {
+            m_controller->endInteractiveEdit();
+        }
         m_gestureState = drawing_canvas::finishGesture(m_gestureState, {.incremental = true}).state;
         event->accept();
         return;
@@ -360,6 +369,7 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
     const Qt::KeyboardModifiers mods = event->modifiers();
 
     if (event->key() == Qt::Key_Escape) {
+        m_controller->endInteractiveEdit(); // close any in-flight drag transaction
         m_controller->cancelPendingCreation();
         m_gestureState = drawing_canvas::cancelGesture().state;
         event->accept();

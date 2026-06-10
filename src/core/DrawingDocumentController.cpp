@@ -1001,6 +1001,9 @@ void DrawingDocumentController::commitEdit()
         return;
     }
     m_editCommitted = true;
+    if (m_interactiveEditActive) {
+        return; // inside a gesture: one undo step is pushed by endInteractiveEdit
+    }
     if (m_editBefore.revision == m_document.revision) {
         return; // no document mutation
     }
@@ -1008,6 +1011,35 @@ void DrawingDocumentController::commitEdit()
         return; // pure selection: not undoable, and must not clear the redo stack
     }
     m_undoStack.push_back(m_editBefore);
+    if (m_undoStack.size() > kUndoStackCap) {
+        m_undoStack.erase(m_undoStack.begin());
+    }
+    m_redoStack.clear();
+}
+
+void DrawingDocumentController::beginInteractiveEdit()
+{
+    if (m_interactiveEditActive) {
+        return;
+    }
+    m_interactiveBefore = m_document;
+    m_interactiveEditActive = true;
+}
+
+void DrawingDocumentController::endInteractiveEdit()
+{
+    if (!m_interactiveEditActive) {
+        return;
+    }
+    m_interactiveEditActive = false;
+    // Push the whole gesture as a single undo step, if it changed geometry.
+    if (m_interactiveBefore.revision == m_document.revision) {
+        return;
+    }
+    if (documentsDifferOnlyBySelection(m_interactiveBefore, m_document)) {
+        return;
+    }
+    m_undoStack.push_back(m_interactiveBefore);
     if (m_undoStack.size() > kUndoStackCap) {
         m_undoStack.erase(m_undoStack.begin());
     }

@@ -41,6 +41,11 @@ public:
     bool redo();
     bool canUndo() const;
     bool canRedo() const;
+    // Bracket a continuous gesture (object/handle drag) so its many incremental
+    // commands collapse into a single undo step. Must be balanced; safe to leave
+    // unbalanced (a later begin re-captures).
+    void beginInteractiveEdit();
+    void endInteractiveEdit();
     QString selectedToolId() const;
     QString selectedObjectId() const;
     QString activeLayerId() const;
@@ -208,4 +213,6 @@ private:
     std::vector<edi::drafting::DraftingDocument> m_redoStack;
     edi::drafting::DraftingDocument m_editBefore;
     bool m_editCommitted = true;
+    edi::drafting::DraftingDocument m_interactiveBefore;
+    bool m_interactiveEditActive = false;
 };

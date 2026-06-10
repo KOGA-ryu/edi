@@ -40,6 +40,7 @@
 #include "io/ProfileStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
+#include "widgets/FloatingPalette.h"
 #include "widgets/SettingsFeature.h"
 #include "widgets/ShellTheme.h"
 #include "widgets/ShellWidgetHelpers.h"
@@ -127,6 +128,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         return m_draftingFeature->buildPanel(slot);
     };
     drafting.recreateInstance = [this]() { m_draftingFeature = createDraftingFeature(); };
+    drafting.buildPalettes = [this]() { return m_draftingFeature->buildPalettes(); };
     drafting.instanceMounted = [this]() {
         m_draftingFeature->setRecentFiles(m_recentFiles);
         m_draftingFeature->refreshInspector();
@@ -499,9 +501,66 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
         m_mainPanelWidget->lower(); // the grid sits under every overlay
     }
 
+    rebuildPalettes();
+
     applyPanelSizesToSplitters();
     refreshPanelVisibility();
     applyShellStyle(); // a freshly mounted canvas self-derives defaults; re-push the live theme
+}
+
+void EdiShellWindow::rebuildPalettes()
+{
+    // Palettes are feature-level, not slot-level: any feature bound anywhere
+    // in the layout may float its palettes over the main area. One palette
+    // per spec id; placement comes from the layout (workspace data).
+    for (const SlotBinding &binding : m_workspaceLayout.bindings) {
+        const FeatureDescriptor *feature = findFeature(m_featureRegistry, binding.featureId);
+        if (feature == nullptr || !feature->buildPalettes) {
+            continue;
+        }
+        // A feature bound to several slots must still build its palettes
+        // only once: skip feature ids an earlier binding already served.
+        bool served = false;
+        for (const SlotBinding &earlier : m_workspaceLayout.bindings) {
+            if (&earlier == &binding) {
+                break;
+            }
+            if (earlier.featureId == binding.featureId) {
+                served = true;
+                break;
+            }
+        }
+        if (served) {
+            continue;
+        }
+        for (const FeaturePaletteSpec &spec : feature->buildPalettes()) {
+            if (spec.content == nullptr || spec.id.isEmpty()) {
+                continue;
+            }
+            auto *palette = new FloatingPalette(spec.id, spec.title, spec.content, m_mainArea);
+            connect(palette, &FloatingPalette::placementChanged, this,
+                [this](const QString &paletteId, int x, int y) {
+                    // The drag settled: remember the spot in the layout, so
+                    // saveWorkspaceLayout writes it without extra capture.
+                    setPalettePlacement(m_workspaceLayout, {paletteId, x, y});
+                });
+            palette->show();
+            palette->raise(); // above the canvas and the edge overlays
+            m_palettes.push_back(palette);
+        }
+    }
+    applyPalettePlacements();
+}
+
+void EdiShellWindow::applyPalettePlacements()
+{
+    for (FloatingPalette *palette : m_palettes) {
+        // adjustSize first: a fresh palette has no geometry until shown, and
+        // clamping against a 0x0 size would over-allow.
+        palette->adjustSize();
+        const PalettePlacement placement = palettePlacement(m_workspaceLayout, palette->paletteId());
+        palette->applyPlacement(placement.x, placement.y);
+    }
 }
 
 void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
@@ -516,6 +575,10 @@ void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
         delete widget;
         widget = nullptr;
     };
+    for (FloatingPalette *palette : m_palettes) {
+        delete palette;
+    }
+    m_palettes.clear();
     retire(m_leftPanelWidget);
     retire(m_mainPanelWidget);
     retire(m_rightPanelWidget);
@@ -744,5 +807,12 @@ void EdiShellWindow::layoutMainArea()
             m_bottomGrip->setGeometry(0, std::max(0, height - bottomHeight - 4), width, 8);
             m_bottomGrip->raise();
         }
+    }
+    // Palettes re-clamp against the new area and stay above the overlays —
+    // they float over everything in the main area by design.
+    for (FloatingPalette *palette : m_palettes) {
+        const PalettePlacement placement = palettePlacement(m_workspaceLayout, palette->paletteId());
+        palette->applyPlacement(placement.x, placement.y);
+        palette->raise();
     }
 }

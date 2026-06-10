@@ -34,6 +34,29 @@ std::vector<MountedSlot> mountWorkspaceLayout(
     return mounted;
 }
 
+PalettePlacement palettePlacement(const WorkspaceLayout &layout, const QString &paletteId)
+{
+    const auto it = std::find_if(layout.palettes.begin(), layout.palettes.end(),
+        [&paletteId](const PalettePlacement &entry) { return entry.paletteId == paletteId; });
+    if (it != layout.palettes.end()) {
+        return *it;
+    }
+    PalettePlacement fallback;
+    fallback.paletteId = paletteId;
+    return fallback;
+}
+
+void setPalettePlacement(WorkspaceLayout &layout, const PalettePlacement &placement)
+{
+    const auto it = std::find_if(layout.palettes.begin(), layout.palettes.end(),
+        [&placement](const PalettePlacement &entry) { return entry.paletteId == placement.paletteId; });
+    if (it != layout.palettes.end()) {
+        *it = placement;
+    } else {
+        layout.palettes.push_back(placement);
+    }
+}
+
 QWidget *mountedSlotWidget(const std::vector<MountedSlot> &mounted, ShellSlot slot)
 {
     const auto it = std::find_if(mounted.begin(), mounted.end(),

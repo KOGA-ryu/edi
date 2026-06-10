@@ -5,6 +5,7 @@
 #include <QStringList>
 
 #include <memory>
+#include <vector>
 
 #include "app/AppState.h"
 #include "io/SettingsStore.h"
@@ -23,6 +24,7 @@ class QWidget;
 
 class DraftingFeature;
 class DrawingDocumentController;
+class FloatingPalette;
 class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
@@ -109,6 +111,11 @@ private:
     void capturePanelSizes();
     void refreshChrome();
     void layoutMainArea();
+    // F4: destroy-and-rebuild the floating palettes from the registry and the
+    // mounted layout (same lifecycle as slot widgets), and re-apply stored
+    // placements (clamped against the live main area).
+    void rebuildPalettes();
+    void applyPalettePlacements();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
     std::unique_ptr<SettingsFeature> createSettingsFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
@@ -142,6 +149,7 @@ private:
     QWidget *m_mainArea = nullptr;
     QWidget *m_rightGrip = nullptr;
     QWidget *m_bottomGrip = nullptr;
+    std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
     QWidget *m_leftPanelWidget = nullptr;
     QWidget *m_mainPanelWidget = nullptr;
     QWidget *m_rightPanelWidget = nullptr;

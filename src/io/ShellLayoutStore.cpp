@@ -112,6 +112,13 @@ StaticConfig workspaceLayoutToConfig(const WorkspaceLayout &layout, const ShellP
         }
         setSettingsString(config, "belt.item." + std::to_string(i), layout.belt.itemIds[i].toStdString());
     }
+    // Palette positions: indexed rows like bindings, keyed by palette id.
+    for (std::size_t i = 0; i < layout.palettes.size(); ++i) {
+        const std::string prefix = "palette." + std::to_string(i);
+        setSettingsString(config, prefix + ".id", layout.palettes[i].paletteId.toStdString());
+        setSettingsInt(config, prefix + ".x", layout.palettes[i].x);
+        setSettingsInt(config, prefix + ".y", layout.palettes[i].y);
+    }
     return config;
 }
 
@@ -151,6 +158,21 @@ ShellLayoutData shellLayoutFromConfig(const StaticConfig &config)
     for (std::size_t i = 0; i < slotCount; ++i) {
         data.layout.belt.itemIds.push_back(
             QString::fromStdString(settingsString(config, "belt.item." + std::to_string(i), "")));
+    }
+
+    for (std::size_t i = 0;; ++i) {
+        const std::string prefix = "palette." + std::to_string(i);
+        const std::string paletteId = settingsString(config, prefix + ".id", "");
+        if (paletteId.empty()) {
+            break;
+        }
+        edi::shell::PalettePlacement placement;
+        placement.paletteId = QString::fromStdString(paletteId);
+        // Raw load; the widget layer clamps against the live host size on
+        // apply (the legal area depends on the window, not on the file).
+        placement.x = settingsInt(config, prefix + ".x", placement.x);
+        placement.y = settingsInt(config, prefix + ".y", placement.y);
+        edi::shell::setPalettePlacement(data.layout, placement);
     }
 
     // A layout is usable when it names itself and binds at least one slot;

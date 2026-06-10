@@ -81,5 +81,26 @@ int main()
     assert(clampPanelSize(ShellSlot::Bottom, 2000) == 2000); // unbounded above
     assert(clampPanelSize(ShellSlot::Bottom, 10) == 96);
 
+    // F4 palette clamping: fully inside when it fits, origin-pinned when not.
+    {
+        // Fits: position kept verbatim.
+        const PalettePlacement kept =
+            clampPalettePlacement({QStringLiteral("p"), 40, 60}, 800, 600, 100, 200);
+        assert(kept.x == 40 && kept.y == 60);
+        // Off the right/bottom edge: pulled back to the last fully-visible px.
+        const PalettePlacement pulled =
+            clampPalettePlacement({QStringLiteral("p"), 750, 580}, 800, 600, 100, 200);
+        assert(pulled.x == 700 && pulled.y == 400);
+        // Negative coordinates snap to the origin.
+        const PalettePlacement snapped =
+            clampPalettePlacement({QStringLiteral("p"), -5, -9}, 800, 600, 100, 200);
+        assert(snapped.x == 0 && snapped.y == 0);
+        // Palette larger than the host: origin wins so the drag strip stays
+        // reachable (the upper bound is negative here).
+        const PalettePlacement pinned =
+            clampPalettePlacement({QStringLiteral("p"), 50, 50}, 80, 60, 100, 200);
+        assert(pinned.x == 0 && pinned.y == 0);
+    }
+
     return 0;
 }

@@ -57,4 +57,12 @@ PanelVisibility panelVisibility(ShellSlot slot, const PanelState &state, int win
 // Size clamped into the slot's [min, max] band.
 int clampPanelSize(ShellSlot slot, int size);
 
+// F4: keep a floating palette inside its host. The whole palette stays
+// visible when it fits; a palette larger than the host pins to the origin
+// (so its drag strip - the top-left - is always reachable). Pure math: the
+// widget layer feeds it sizes, the same function serves drags, restores,
+// and host resizes.
+PalettePlacement clampPalettePlacement(
+    PalettePlacement placement, int hostWidth, int hostHeight, int paletteWidth, int paletteHeight);
+
 } // namespace edi::shell

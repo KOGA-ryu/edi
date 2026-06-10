@@ -362,6 +362,8 @@ add_executable(edi_shell_window_tests
     src/widgets/BeltState.cpp
     src/widgets/BeltCrossWidget.h
     src/widgets/BeltCrossWidget.cpp
+    src/widgets/FloatingPalette.h
+    src/widgets/FloatingPalette.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h
@@ -498,6 +500,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/BeltState.cpp
     src/widgets/BeltCrossWidget.h
     src/widgets/BeltCrossWidget.cpp
+    src/widgets/FloatingPalette.h
+    src/widgets/FloatingPalette.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h

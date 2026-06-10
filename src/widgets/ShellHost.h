@@ -26,6 +26,16 @@ struct FeatureContext {
 // are callables, mirroring the controller's kind-and-callable helpers. One
 // feature may fill several slots; buildPanel receives the slot so it can
 // return a different panel per slot.
+// A floating palette a feature offers: id (stable, keys the stored
+// placement), title (drag-strip text), and the content widget. The shell
+// wraps the content in its FloatingPalette frame; the feature never sees
+// the frame.
+struct FeaturePaletteSpec {
+    QString id;
+    QString title;
+    QWidget *content = nullptr;
+};
+
 struct FeatureDescriptor {
     QString id;     // "drafting", "text_editor", ...
     QString label;
@@ -34,6 +44,10 @@ struct FeatureDescriptor {
     // would corrupt this header in any TU that also includes a Qt header.
     std::vector<ShellSlot> supportedSlots;
     std::function<QWidget *(ShellSlot, FeatureContext &)> buildPanel;
+    // Palettes the feature wants floated over the main area (F4). Called on
+    // every mount, after recreateInstance; fresh widgets each time. Optional
+    // like the lifecycle hooks — most features have none.
+    std::function<std::vector<FeaturePaletteSpec>()> buildPalettes;
     // Instance lifecycle, driven by the shell around every workspace mount:
     // recreateInstance runs BEFORE mounting (a fresh instance whose
     // widget-pointer members die with the old one — nothing can dangle), and
@@ -81,12 +95,35 @@ inline bool operator==(const BeltLayout &a, const BeltLayout &b)
     return a.rows == b.rows && a.columns == b.columns && a.itemIds == b.itemIds;
 }
 
+// Where a floating palette sits over the main area (F4). Palettes are
+// workspace data like the belt: which palettes exist comes from the mounted
+// features; where they sit is the job's geometry, persisted in
+// workspace.toml. Coordinates are px from the main area's top-left, clamped
+// on apply — a stale position from a larger window degrades to visible.
+struct PalettePlacement {
+    QString paletteId;
+    int x = 12;
+    int y = 12;
+};
+
+inline bool operator==(const PalettePlacement &a, const PalettePlacement &b)
+{
+    return a.paletteId == b.paletteId && a.x == b.x && a.y == b.y;
+}
+
 struct WorkspaceLayout {
     QString id;     // "drafting", "blender_recipe", ...
     QString label;
     std::vector<SlotBinding> bindings;
     BeltLayout belt;
+    std::vector<PalettePlacement> palettes;
 };
+
+// The stored placement for `paletteId`, or the default placement when the
+// workspace has no opinion yet.
+PalettePlacement palettePlacement(const WorkspaceLayout &layout, const QString &paletteId);
+// Insert-or-update by palette id (placements are a keyed set, not a list).
+void setPalettePlacement(WorkspaceLayout &layout, const PalettePlacement &placement);
 
 struct MountedSlot {
     ShellSlot slot = ShellSlot::Main;

@@ -26,6 +26,14 @@ double viewportAspect(double gridWidth, double gridHeight)
     return gridWidth / gridHeight;
 }
 
+double clampViewportZoom(double zoom)
+{
+    if (!std::isfinite(zoom) || zoom <= 0.0) {
+        return 1.0;
+    }
+    return std::clamp(zoom, kViewportMinZoom, kViewportMaxZoom);
+}
+
 DrawingCanvasViewportInput viewportInputFromModel(const QVariantMap &model, double widgetWidth, double widgetHeight)
 {
     const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
@@ -38,7 +46,7 @@ DrawingCanvasViewportInput viewportInputFromModel(const QVariantMap &model, doub
     return input;
 }
 
-QRectF viewportBoardRect(const DrawingCanvasViewportInput &input)
+QRectF viewportFitRect(const DrawingCanvasViewportInput &input)
 {
     const double aspect = viewportAspect(input.gridWidth, input.gridHeight);
     const double padding = std::max(0.0, std::isfinite(input.paddingPx) ? input.paddingPx : 48.0);
@@ -54,6 +62,46 @@ QRectF viewportBoardRect(const DrawingCanvasViewportInput &input)
         boardWidth = boardHeight * aspect;
     }
     return QRectF((widgetWidth - boardWidth) * 0.5, (widgetHeight - boardHeight) * 0.5, boardWidth, boardHeight);
+}
+
+QRectF viewportBoardRect(const DrawingCanvasViewportInput &input)
+{
+    const QRectF fit = viewportFitRect(input);
+    const double zoom = clampViewportZoom(input.zoom);
+    const double panX = std::isfinite(input.panXPx) ? input.panXPx : 0.0;
+    const double panY = std::isfinite(input.panYPx) ? input.panYPx : 0.0;
+
+    const double boardWidth = fit.width() * zoom;
+    const double boardHeight = fit.height() * zoom;
+    // Scale about the fit-rect's centre, then translate by the pan offset.
+    const double left = fit.center().x() - boardWidth * 0.5 + panX;
+    const double top = fit.center().y() - boardHeight * 0.5 + panY;
+    return QRectF(left, top, boardWidth, boardHeight);
+}
+
+DrawingCanvasViewportInput zoomViewportAtPoint(const DrawingCanvasViewportInput &input, double factor, const QPointF &anchorPx)
+{
+    DrawingCanvasViewportInput result = input;
+    const double safeFactor = (std::isfinite(factor) && factor > 0.0) ? factor : 1.0;
+    const double newZoom = clampViewportZoom(clampViewportZoom(input.zoom) * safeFactor);
+
+    const QRectF board = viewportBoardRect(input);
+    const double boardWidth = std::max(1.0, board.width());
+    const double boardHeight = std::max(1.0, board.height());
+    const double anchorX = std::isfinite(anchorPx.x()) ? anchorPx.x() : board.center().x();
+    const double anchorY = std::isfinite(anchorPx.y()) ? anchorPx.y() : board.center().y();
+    // Canvas-space fraction under the anchor, unclamped so off-board anchors stay exact.
+    const double cx = (anchorX - board.left()) / boardWidth;
+    const double cy = (anchorY - board.top()) / boardHeight;
+
+    const QRectF fit = viewportFitRect(input);
+    const double newWidth = fit.width() * newZoom;
+    const double newHeight = fit.height() * newZoom;
+    // Solve pan so canvasToScreen(board', c) == anchor (see header).
+    result.zoom = newZoom;
+    result.panXPx = anchorX - fit.center().x() + newWidth * (0.5 - cx);
+    result.panYPx = anchorY - fit.center().y() + newHeight * (0.5 - cy);
+    return result;
 }
 
 QPointF canvasToScreen(const QRectF &board, double x, double y)

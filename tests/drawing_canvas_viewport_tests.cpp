@@ -128,5 +128,72 @@ int main()
     assert(near(inverted.width(), 100.0));
     assert(near(inverted.height(), 50.0));
 
+    // --- zoom and pan -------------------------------------------------------
+    const DrawingCanvasViewportInput baseInput{
+        .widgetWidth = 500.0,
+        .widgetHeight = 400.0,
+        .gridWidth = 1.0,
+        .gridHeight = 1.0,
+    };
+    const QRectF fit = viewportFitRect(baseInput);
+    // Default zoom/pan reproduces the bare fit-rect.
+    const QRectF identityBoard = viewportBoardRect(baseInput);
+    assert(near(identityBoard.width(), fit.width()));
+    assert(near(identityBoard.left(), fit.left()));
+
+    // Zoom scales about the fit centre.
+    DrawingCanvasViewportInput zoomed = baseInput;
+    zoomed.zoom = 2.0;
+    const QRectF zoomedBoard = viewportBoardRect(zoomed);
+    assert(near(zoomedBoard.width(), fit.width() * 2.0));
+    assert(near(zoomedBoard.height(), fit.height() * 2.0));
+    assert(near(zoomedBoard.center().x(), fit.center().x()));
+    assert(near(zoomedBoard.center().y(), fit.center().y()));
+
+    // Zoom clamps to [0.2, 16].
+    assert(near(clampViewportZoom(1000.0), kViewportMaxZoom));
+    assert(near(clampViewportZoom(0.0001), kViewportMinZoom));
+    assert(near(clampViewportZoom(std::numeric_limits<double>::quiet_NaN()), 1.0));
+    DrawingCanvasViewportInput overZoom = baseInput;
+    overZoom.zoom = 1000.0;
+    assert(near(viewportBoardRect(overZoom).width(), fit.width() * kViewportMaxZoom));
+
+    // Pan offsets the board by the pixel deltas.
+    DrawingCanvasViewportInput panned = baseInput;
+    panned.panXPx = 12.0;
+    panned.panYPx = -7.0;
+    const QRectF pannedBoard = viewportBoardRect(panned);
+    assert(near(pannedBoard.left(), fit.left() + 12.0));
+    assert(near(pannedBoard.top(), fit.top() - 7.0));
+
+    // Anchor invariance: the canvas point under the cursor is unmoved by zoom.
+    {
+        const QRectF before = viewportBoardRect(baseInput);
+        const QPointF anchor(200.0, 150.0);
+        const double cx = (anchor.x() - before.left()) / before.width();
+        const double cy = (anchor.y() - before.top()) / before.height();
+
+        const DrawingCanvasViewportInput zoomedIn = zoomViewportAtPoint(baseInput, 2.0, anchor);
+        assert(near(clampViewportZoom(zoomedIn.zoom), 2.0));
+        const QRectF after = viewportBoardRect(zoomedIn);
+        const QPointF mapped = canvasToScreen(after, cx, cy);
+        assert(near(mapped.x(), anchor.x()));
+        assert(near(mapped.y(), anchor.y()));
+
+        // Zooming out then keeps the same anchor fixed too.
+        const DrawingCanvasViewportInput zoomedOut = zoomViewportAtPoint(zoomedIn, 0.5, anchor);
+        const QRectF after2 = viewportBoardRect(zoomedOut);
+        const QPointF mapped2 = canvasToScreen(after2, cx, cy);
+        assert(near(mapped2.x(), anchor.x()));
+        assert(near(mapped2.y(), anchor.y()));
+
+        // Anchor invariance holds even at the zoom clamp.
+        const DrawingCanvasViewportInput clampedZoom = zoomViewportAtPoint(baseInput, 10000.0, anchor);
+        assert(near(clampViewportZoom(clampedZoom.zoom), kViewportMaxZoom));
+        const QPointF mappedClamped = canvasToScreen(viewportBoardRect(clampedZoom), cx, cy);
+        assert(near(mappedClamped.x(), anchor.x()));
+        assert(near(mappedClamped.y(), anchor.y()));
+    }
+
     return 0;
 }

@@ -981,13 +981,15 @@ bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
     });
 }
 
-bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
+bool DrawingDocumentController::applyLayerFlagsUpdate(
+    const LayerId &layerId,
+    const std::function<DraftingLayerFlagsPlan(const DraftingLayer &)> &planFlags)
 {
-    const DraftingLayer *layer = findLayer(m_document, "default");
+    const DraftingLayer *layer = findLayer(m_document, layerId);
     if (layer == nullptr) {
         return false;
     }
-    const DraftingLayerFlagsPlan plan = planLayerLockedUpdate(*layer, locked);
+    const DraftingLayerFlagsPlan plan = planFlags(*layer);
     if (!plan.ok) {
         return false;
     }
@@ -1001,130 +1003,76 @@ bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
 
     emit modelChanged();
     return true;
+}
+
+bool DrawingDocumentController::applyActiveLayerPlotStyleUpdate(
+    const std::function<LayerPlotStyle(const DraftingLayer &)> &planPlot)
+{
+    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
+    if (layer == nullptr) {
+        return false;
+    }
+
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateLayerPlotStyleCommand{layer->id, planPlot(*layer)});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
+{
+    return applyLayerFlagsUpdate("default", [&](const DraftingLayer &layer) {
+        return planLayerLockedUpdate(layer, locked);
+    });
 }
 
 bool DrawingDocumentController::setDefaultLayerVisible(bool visible)
 {
-    const DraftingLayer *layer = findLayer(m_document, "default");
-    if (layer == nullptr) {
-        return false;
-    }
-    const DraftingLayerFlagsPlan plan = planLayerVisibleUpdate(*layer, visible);
-    if (!plan.ok) {
-        return false;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyLayerFlagsUpdate("default", [&](const DraftingLayer &layer) {
+        return planLayerVisibleUpdate(layer, visible);
+    });
 }
 
 bool DrawingDocumentController::setActiveLayerLocked(bool locked)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr) {
-        return false;
-    }
-    const DraftingLayerFlagsPlan plan = planLayerLockedUpdate(*layer, locked);
-    if (!plan.ok) {
-        return false;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyLayerFlagsUpdate(m_document.activeLayerId, [&](const DraftingLayer &layer) {
+        return planLayerLockedUpdate(layer, locked);
+    });
 }
 
 bool DrawingDocumentController::setActiveLayerVisible(bool visible)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr) {
-        return false;
-    }
-    const DraftingLayerFlagsPlan plan = planLayerVisibleUpdate(*layer, visible);
-    if (!plan.ok) {
-        return false;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyLayerFlagsUpdate(m_document.activeLayerId, [&](const DraftingLayer &layer) {
+        return planLayerVisibleUpdate(layer, visible);
+    });
 }
 
 bool DrawingDocumentController::setActiveLayerPlotEnabled(bool enabled)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr) {
-        return false;
-    }
-
-    LayerPlotStyle plot = layer->plot;
-    plot.plotEnabled = enabled;
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerPlotStyleCommand{layer->id, plot});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveLayerPlotStyleUpdate([&](const DraftingLayer &layer) {
+        LayerPlotStyle plot = layer.plot;
+        plot.plotEnabled = enabled;
+        return plot;
+    });
 }
 
 bool DrawingDocumentController::setActiveLayerPenPreset(const QString &presetId)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr) {
-        return false;
-    }
-
-    const LayerPlotStyle plot = layerPlotStyleForPenPreset(layer->plot, toStdString(presetId));
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerPlotStyleCommand{layer->id, plot});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveLayerPlotStyleUpdate([&](const DraftingLayer &layer) {
+        return layerPlotStyleForPenPreset(layer.plot, toStdString(presetId));
+    });
 }
 
 bool DrawingDocumentController::setActiveLayerStrokeWidthPreset(const QString &presetId)
 {
-    const DraftingLayer *layer = findLayer(m_document, m_document.activeLayerId);
-    if (layer == nullptr) {
-        return false;
-    }
-
-    const LayerPlotStyle plot = layerPlotStyleForWidthPreset(layer->plot, toStdString(presetId));
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerPlotStyleCommand{layer->id, plot});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveLayerPlotStyleUpdate([&](const DraftingLayer &layer) {
+        return layerPlotStyleForWidthPreset(layer.plot, toStdString(presetId));
+    });
 }
 
 bool DrawingDocumentController::createLayer()

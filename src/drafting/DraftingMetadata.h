@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -42,5 +43,11 @@ DraftingMetadataUpdatePlan planGuideVisualDashStyleUpdate(const ObjectMetadata &
 DraftingMetadataUpdatePlan planGuideVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible);
 DraftingMetadataUpdatePlan planDimensionVisualLabelVisibleUpdate(const ObjectMetadata &metadata, bool visible);
 DraftingMetadataUpdatePlan planMeasurementNoteUpdate(const ObjectMetadata &metadata, std::string note);
+// N3: the semantic/export fields. role is an enum (always valid); the three
+// text fields validate as bounded printable text like the others.
+DraftingMetadataUpdatePlan planObjectRoleUpdate(const ObjectMetadata &metadata, ObjectRole role);
+DraftingMetadataUpdatePlan planObjectMaterialUpdate(const ObjectMetadata &metadata, std::string material);
+DraftingMetadataUpdatePlan planObjectExportGroupUpdate(const ObjectMetadata &metadata, std::string exportGroup);
+DraftingMetadataUpdatePlan planObjectTagsUpdate(const ObjectMetadata &metadata, std::vector<std::string> tags);
 
 } // namespace edi::drafting

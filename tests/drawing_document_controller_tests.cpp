@@ -3042,5 +3042,48 @@ int main(int argc, char **argv)
         assert(!fresh.paste());
     }
 
+    // N3 object metadata: role / material / export_group / tags, editable
+    // through the controller and surfaced in the projection.
+    {
+        DrawingDocumentController meta;
+        meta.setSelectedToolId("point_tool");
+        meta.clickCanvasNormalized(0.5, 0.5); // creates + selects a point
+
+        auto activeObj = [&]() {
+            const QVariantMap model = meta.modelDocument();
+            const QString id = model.value("active_object_id").toString();
+            for (const QVariant &v : model.value("drawing_objects").toList()) {
+                if (v.toMap().value("id").toString() == id) {
+                    return v.toMap();
+                }
+            }
+            return QVariantMap{};
+        };
+
+        assert(meta.setSelectedObjectRole("cutout"));
+        assert(meta.setSelectedObjectMaterial("oak"));
+        assert(meta.setSelectedObjectExportGroup("frame"));
+        assert(meta.setSelectedObjectTags({QStringLiteral("load-bearing"), QStringLiteral(" visible "),
+                                            QStringLiteral("")})); // blanks dropped, others trimmed
+        const QVariantMap projected = activeObj();
+        assert(projected.value("role").toString() == "cutout");
+        assert(projected.value("material").toString() == "oak");
+        assert(projected.value("export_group").toString() == "frame");
+        assert(projected.value("tags").toString() == "load-bearing, visible");
+
+        // Each edit is undoable; undoing the tags edit restores the prior tags.
+        meta.undo();
+        assert(activeObj().value("tags").toString().isEmpty());
+
+        // An unknown role name falls back to none rather than erroring.
+        assert(meta.setSelectedObjectRole("not_a_role"));
+        assert(activeObj().value("role").toString() == "none");
+
+        // No selection: setters refuse.
+        DrawingDocumentController noSel;
+        assert(!noSel.setSelectedObjectRole("wall"));
+        assert(!noSel.setSelectedObjectMaterial("steel"));
+    }
+
     return 0;
 }

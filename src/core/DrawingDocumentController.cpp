@@ -1139,6 +1139,58 @@ bool DrawingDocumentController::applyActiveObjectMetadataUpdate(
     return applyCommandAndEmit(UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
 }
 
+bool DrawingDocumentController::applyActiveObjectMetadataUpdate(
+    const std::function<DraftingMetadataUpdatePlan(const ObjectMetadata &)> &planMetadata)
+{
+    // Kind-agnostic twin of the above: resolves the active object regardless
+    // of shape, for the object-wide metadata fields.
+    const DraftingObject *object = activeObject(m_document);
+    if (object == nullptr) {
+        return false;
+    }
+    const DraftingMetadataUpdatePlan plan = planMetadata(object->metadata);
+    if (!plan.ok) {
+        return false;
+    }
+    return applyCommandAndEmit(UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
+}
+
+bool DrawingDocumentController::setSelectedObjectRole(const QString &roleId)
+{
+    return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planObjectRoleUpdate(metadata, objectRoleFromName(toStdString(roleId)));
+    });
+}
+
+bool DrawingDocumentController::setSelectedObjectMaterial(const QString &material)
+{
+    return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planObjectMaterialUpdate(metadata, toStdString(material));
+    });
+}
+
+bool DrawingDocumentController::setSelectedObjectExportGroup(const QString &exportGroup)
+{
+    return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planObjectExportGroupUpdate(metadata, toStdString(exportGroup));
+    });
+}
+
+bool DrawingDocumentController::setSelectedObjectTags(const QStringList &tags)
+{
+    std::vector<std::string> values;
+    values.reserve(static_cast<std::size_t>(tags.size()));
+    for (const QString &tag : tags) {
+        const QString trimmed = tag.trimmed();
+        if (!trimmed.isEmpty()) { // a stray comma must not mint an empty tag
+            values.push_back(toStdString(trimmed));
+        }
+    }
+    return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planObjectTagsUpdate(metadata, values);
+    });
+}
+
 bool DrawingDocumentController::applyActiveObjectGeometryUpdate(
     DraftingShapeKind kind,
     const std::function<std::optional<DraftingGeometry>(const DraftingObject &)> &planGeometry)

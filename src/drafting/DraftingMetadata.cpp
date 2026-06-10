@@ -221,10 +221,20 @@ DraftingMetadataValidationResult validateObjectMetadata(const ObjectMetadata &me
              std::tuple<std::string_view, std::string_view, std::size_t>{"source", metadata.source, kMetadataShortTextLimit},
              std::tuple<std::string_view, std::string_view, std::size_t>{"tool provenance", metadata.toolProvenance, kMetadataShortTextLimit},
              std::tuple<std::string_view, std::string_view, std::size_t>{"measurement note", metadata.measurementNote, kMetadataMeasurementNoteLimit},
+             std::tuple<std::string_view, std::string_view, std::size_t>{"material", metadata.material, kMetadataShortTextLimit},
+             std::tuple<std::string_view, std::string_view, std::size_t>{"export group", metadata.exportGroup, kMetadataShortTextLimit},
          }) {
         auto textValidation = validateMetadataText(fieldName, value, limit);
         if (!textValidation.ok) {
             return textValidation;
+        }
+    }
+    // Tags are free text but bounded the same way, each tag independently —
+    // an open vocabulary still can't carry a megabyte or a control byte.
+    for (const std::string &tag : metadata.tags) {
+        auto tagValidation = validateMetadataText("tag", tag, kMetadataShortTextLimit);
+        if (!tagValidation.ok) {
+            return tagValidation;
         }
     }
 
@@ -323,6 +333,34 @@ DraftingMetadataUpdatePlan planMeasurementNoteUpdate(const ObjectMetadata &metad
 {
     ObjectMetadata next = metadata;
     next.measurementNote = std::move(note);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planObjectRoleUpdate(const ObjectMetadata &metadata, ObjectRole role)
+{
+    ObjectMetadata next = metadata;
+    next.role = role; // enum: always representable, no text validation needed
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planObjectMaterialUpdate(const ObjectMetadata &metadata, std::string material)
+{
+    ObjectMetadata next = metadata;
+    next.material = std::move(material);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planObjectExportGroupUpdate(const ObjectMetadata &metadata, std::string exportGroup)
+{
+    ObjectMetadata next = metadata;
+    next.exportGroup = std::move(exportGroup);
+    return validatedMetadataUpdate(std::move(next));
+}
+
+DraftingMetadataUpdatePlan planObjectTagsUpdate(const ObjectMetadata &metadata, std::vector<std::string> tags)
+{
+    ObjectMetadata next = metadata;
+    next.tags = std::move(tags);
     return validatedMetadataUpdate(std::move(next));
 }
 

@@ -109,6 +109,13 @@ public:
     bool setSelectedGuideLabelVisible(bool visible);
     bool setSelectedDimensionKind(const QString &kindId);
     bool setSelectedDimensionLabelVisible(bool visible);
+    // N3 semantic/export metadata — these apply to the selected object of ANY
+    // kind (role/material/group/tags are object-wide, not guide/dimension
+    // specific). Tags arrive as a list; the shell splits its text field.
+    bool setSelectedObjectRole(const QString &roleId);
+    bool setSelectedObjectMaterial(const QString &material);
+    bool setSelectedObjectExportGroup(const QString &exportGroup);
+    bool setSelectedObjectTags(const QStringList &tags);
     bool setDefaultLayerLocked(bool locked);
     bool setDefaultLayerVisible(bool visible);
     bool setActiveLayerLocked(bool locked);
@@ -197,6 +204,10 @@ private:
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
     bool applyActiveObjectMetadataUpdate(
         edi::drafting::DraftingShapeKind kind,
+        const std::function<edi::drafting::DraftingMetadataUpdatePlan(const edi::drafting::ObjectMetadata &)> &planMetadata);
+    // Same resolve->plan->apply, but for the active object of ANY kind — the
+    // object-wide metadata (N3 role/material/group/tags) is not kind-keyed.
+    bool applyActiveObjectMetadataUpdate(
         const std::function<edi::drafting::DraftingMetadataUpdatePlan(const edi::drafting::ObjectMetadata &)> &planMetadata);
     bool applyActiveObjectGeometryUpdate(
         edi::drafting::DraftingShapeKind kind,

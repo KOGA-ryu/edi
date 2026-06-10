@@ -444,6 +444,16 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("locked"), object.locked},
         {QStringLiteral("tool_provenance"), qStringFromStdString(object.metadata.toolProvenance)},
         {QStringLiteral("measurement_note"), qStringFromStdString(object.metadata.measurementNote)},
+        {QStringLiteral("role"), QString::fromLatin1(objectRoleName(object.metadata.role))},
+        {QStringLiteral("material"), qStringFromStdString(object.metadata.material)},
+        {QStringLiteral("export_group"), qStringFromStdString(object.metadata.exportGroup)},
+        {QStringLiteral("tags"), [&]() {
+            QStringList tagList;
+            for (const std::string &tag : object.metadata.tags) {
+                tagList.push_back(qStringFromStdString(tag));
+            }
+            return tagList.join(QStringLiteral(", "));
+        }()},
         {QStringLiteral("measurement_lines"), measurementLines},
         {QStringLiteral("numeric_fields"), numericFieldsForObject(object, grid)},
         {QStringLiteral("edit_handles"), editHandles},

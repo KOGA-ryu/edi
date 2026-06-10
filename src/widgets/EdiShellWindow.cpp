@@ -58,13 +58,62 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     auto *bodyLayout = new QHBoxLayout(body);
     clearLayoutMargins(bodyLayout);
 
+    // The window no longer hard-wires drafting panels into regions: drafting
+    // is feature #1 in a registry, and which feature fills which slot is data
+    // (the layout). Registry and layout are constructor locals until H5 makes
+    // layouts persistent/switchable; the context is a member because features
+    // may hold onto the bus for as long as their widgets live.
+    m_featureContext.drawingController = m_controller;
+
+    FeatureDescriptor drafting;
+    drafting.id = QStringLiteral("drafting");
+    drafting.label = QStringLiteral("Drafting");
+    drafting.supportedSlots = {ShellSlot::Main, ShellSlot::Left, ShellSlot::Right, ShellSlot::Bottom};
+    // The panels read this window's members, so the factory captures `this`
+    // rather than going through the context; a standalone feature module would
+    // take everything from the context instead.
+    drafting.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
+        switch (slot) {
+        case ShellSlot::Main: return buildWorkspaceColumn();
+        case ShellSlot::Left: return buildLeftPanel();
+        case ShellSlot::Right: return buildRightPanel();
+        case ShellSlot::Bottom: return buildBottomPanel();
+        }
+        return nullptr;
+    };
+
+    FeatureRegistry registry;
+    registry.features.push_back(drafting);
+
+    WorkspaceLayout layout;
+    layout.id = QStringLiteral("drafting");
+    layout.label = QStringLiteral("Drafting");
+    layout.bindings = {
+        {ShellSlot::Left, QStringLiteral("drafting")},
+        {ShellSlot::Main, QStringLiteral("drafting")},
+        {ShellSlot::Right, QStringLiteral("drafting")},
+        {ShellSlot::Bottom, QStringLiteral("drafting")},
+    };
+
+    const std::vector<MountedSlot> mounted = mountWorkspaceLayout(layout, registry, m_featureContext);
+
+    // Geometry stays the window's job: slots have fixed places in the frame,
+    // and an unbound slot simply isn't added.
     bodyLayout->addWidget(buildActivityRail());
-    bodyLayout->addWidget(buildLeftPanel());
-    bodyLayout->addWidget(buildWorkspaceColumn(), 1);
-    bodyLayout->addWidget(buildRightPanel());
+    if (QWidget *left = mountedSlotWidget(mounted, ShellSlot::Left)) {
+        bodyLayout->addWidget(left);
+    }
+    if (QWidget *main = mountedSlotWidget(mounted, ShellSlot::Main)) {
+        bodyLayout->addWidget(main, 1);
+    }
+    if (QWidget *right = mountedSlotWidget(mounted, ShellSlot::Right)) {
+        bodyLayout->addWidget(right);
+    }
 
     root->addWidget(body, 1);
-    root->addWidget(buildBottomPanel());
+    if (QWidget *bottom = mountedSlotWidget(mounted, ShellSlot::Bottom)) {
+        root->addWidget(bottom);
+    }
 
     setCentralWidget(central);
     applyShellStyle();

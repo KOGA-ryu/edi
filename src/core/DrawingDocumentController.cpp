@@ -72,6 +72,25 @@ int highestObjectSerial(const DraftingDocument &document)
     return highest;
 }
 
+constexpr std::size_t kUndoStackCap = 100;
+
+// True when `before` and `after` are identical apart from selection state.
+// Pure-selection changes still bump revision, so undo uses this to exclude them
+// (matching most CAD). The comparison reuses the document serializer, masking
+// the selection/revision fields, so it covers every other field exhaustively.
+bool documentsDifferOnlyBySelection(const DraftingDocument &before, const DraftingDocument &after)
+{
+    DraftingDocument a = before;
+    DraftingDocument b = after;
+    a.selectedObjectIds.clear();
+    a.activeObjectId.reset();
+    a.revision = 0;
+    b.selectedObjectIds.clear();
+    b.activeObjectId.reset();
+    b.revision = 0;
+    return encodeDraftingDocument(a) == encodeDraftingDocument(b);
+}
+
 std::string toStdString(const QString &value)
 {
     return value.toStdString();
@@ -565,11 +584,14 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     // Resume id minting above the highest suffix already present so newly
     // created objects never collide with loaded ones.
     m_nextObjectSerial = highestObjectSerial(m_document) + 1;
-    // A freshly loaded document has no in-flight creation, preview, or status.
+    // A freshly loaded document has no in-flight creation, preview, or status,
+    // and starts a fresh undo history.
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
+    m_undoStack.clear();
+    m_redoStack.clear();
     emit modelChanged();
     return true;
 }
@@ -868,11 +890,13 @@ bool DrawingDocumentController::applyFieldEdit(
         return finishEdit(mode, fieldId, false, plan.code, drawing_core::qStringFromStdString(plan.message));
     }
 
+    beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, *plan.command);
     if (!result.ok) {
         return finishEdit(mode, fieldId, false, result.code, drawing_core::qStringFromStdString(result.message));
     }
 
+    commitEdit();
     return finishEdit(mode, fieldId, true, DraftingResultCode::None, {});
 }
 
@@ -924,11 +948,80 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
 
 bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &command)
 {
+    beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, command);
     if (!result.ok) {
         return false;
     }
 
+    commitEdit();
+    emit modelChanged();
+    return true;
+}
+
+void DrawingDocumentController::beginEdit()
+{
+    m_editBefore = m_document;
+    m_editCommitted = false;
+}
+
+void DrawingDocumentController::commitEdit()
+{
+    if (m_editCommitted) {
+        return;
+    }
+    m_editCommitted = true;
+    if (m_editBefore.revision == m_document.revision) {
+        return; // no document mutation
+    }
+    if (documentsDifferOnlyBySelection(m_editBefore, m_document)) {
+        return; // pure selection: not undoable, and must not clear the redo stack
+    }
+    m_undoStack.push_back(m_editBefore);
+    if (m_undoStack.size() > kUndoStackCap) {
+        m_undoStack.erase(m_undoStack.begin());
+    }
+    m_redoStack.clear();
+}
+
+bool DrawingDocumentController::canUndo() const
+{
+    return !m_undoStack.empty();
+}
+
+bool DrawingDocumentController::canRedo() const
+{
+    return !m_redoStack.empty();
+}
+
+bool DrawingDocumentController::undo()
+{
+    if (m_undoStack.empty()) {
+        return false;
+    }
+    m_redoStack.push_back(m_document);
+    m_document = std::move(m_undoStack.back());
+    m_undoStack.pop_back();
+    m_pendingCreation.reset();
+    m_previewObject.reset();
+    m_lastGuideDragSnap.clear();
+    m_lastEditStatus.clear();
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::redo()
+{
+    if (m_redoStack.empty()) {
+        return false;
+    }
+    m_undoStack.push_back(m_document);
+    m_document = std::move(m_redoStack.back());
+    m_redoStack.pop_back();
+    m_pendingCreation.reset();
+    m_previewObject.reset();
+    m_lastGuideDragSnap.clear();
+    m_lastEditStatus.clear();
     emit modelChanged();
     return true;
 }
@@ -1184,11 +1277,13 @@ bool DrawingDocumentController::createTransformedActiveObject(
         return false;
     }
 
+    beginEdit();
     const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{*object});
     if (!create.ok) {
         return false;
     }
     applyDraftingCommand(m_document, SelectObjectCommand{object->id});
+    commitEdit();
     emit modelChanged();
     return true;
 }
@@ -1242,13 +1337,16 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::createObjectsAndSelect(const std::vector<DraftingObject> &objects)
 {
+    beginEdit();
     std::vector<DraftingObjectId> selectedIds;
     selectedIds.reserve(objects.size());
     for (const DraftingObject &object : objects) {
         const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
         if (!create.ok) {
-            // Earlier objects in the batch are already committed; keep the view in sync.
+            // Earlier objects in the batch are already committed; keep the view
+            // and undo history in sync with what actually landed.
             if (!selectedIds.empty()) {
+                commitEdit();
                 emit modelChanged();
             }
             return false;
@@ -1256,6 +1354,7 @@ bool DrawingDocumentController::createObjectsAndSelect(const std::vector<Draftin
         selectedIds.push_back(object.id);
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
+    commitEdit();
     emit modelChanged();
     return true;
 }
@@ -1327,9 +1426,11 @@ bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValu
         }
     }
 
+    beginEdit();
     m_document = std::move(candidate);
     m_latestCalibrationMeasurement = measurement.measurement;
     m_pendingCalibrationCorrection = planDraftingCalibrationCorrection(measurement.measurement);
+    commitEdit();
     emit modelChanged();
     return true;
 }
@@ -1519,7 +1620,9 @@ bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
     }
 
     if (changed) {
+        beginEdit();
         m_document = std::move(candidate);
+        commitEdit();
         emit modelChanged();
     }
     return true;
@@ -1582,6 +1685,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     const Point2D point = resolveSnap(normalized, m_document, m_snapSettings).point;
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
+    beginEdit();
 
     if (m_selectedToolId == QStringLiteral("select_move")) {
         const DraftingHitTestResult hit = hitTestDocument(m_document, point);
@@ -1593,6 +1697,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         }
         m_pendingCreation.reset();
         m_previewObject.reset();
+        commitEdit();
         emit modelChanged();
         return;
     }
@@ -1611,6 +1716,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
                 const std::optional<DraftingObjectId> existing = guide == nullptr ? std::nullopt : existingGuideId(m_document, *guide);
                 if (existing) {
                     applyDraftingCommand(m_document, SelectObjectCommand{*existing});
+                    commitEdit();
                     emit modelChanged();
                     return;
                 }
@@ -1618,6 +1724,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
             applyDraftingCommand(m_document, CreateObjectCommand{object.object});
             applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
         }
+        commitEdit();
         emit modelChanged();
         return;
     }
@@ -1626,6 +1733,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
         m_previewObject.reset();
+        commitEdit();
         emit modelChanged();
         return;
     }
@@ -1638,6 +1746,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         applyDraftingCommand(m_document, CreateObjectCommand{object.object});
         applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
     }
+    commitEdit();
     emit modelChanged();
 }
 
@@ -1722,11 +1831,13 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
 
     const std::vector<DraftingObjectId> objectIds = selectableObjectsInBounds(m_document, marquee);
 
+    beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectsCommand{objectIds});
     if (!result.ok) {
         return false;
     }
     m_lastEditStatus.clear();
+    commitEdit(); // marquee selection is selection-only: never an undo step
     emit modelChanged();
     return true;
 }

@@ -35,6 +35,10 @@ public:
     QVariantMap modelDocument() const;
     bool saveDocument(const QUrl &url);
     bool openDocument(const QUrl &url);
+    bool undo();
+    bool redo();
+    bool canUndo() const;
+    bool canRedo() const;
     QString selectedToolId() const;
     QString selectedObjectId() const;
     QString activeLayerId() const;
@@ -132,6 +136,12 @@ signals:
 
 private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
+    // Undo snapshot bookkeeping. beginEdit() copies the document at the start of
+    // a mutating action; commitEdit() (called right before emit, so canUndo() is
+    // current when the view refreshes) pushes that snapshot onto the undo stack
+    // unless the change was pure selection. Idempotent within one action.
+    void beginEdit();
+    void commitEdit();
     bool finishEdit(const QString &mode, const QString &fieldId, bool ok,
                     edi::drafting::DraftingResultCode code, const QString &message);
     bool applyFieldEdit(
@@ -186,4 +196,8 @@ private:
     QVariantMap m_lastEditStatus;
     int m_nextObjectSerial = 1;
     DrawingDocumentStore m_store;
+    std::vector<edi::drafting::DraftingDocument> m_undoStack;
+    std::vector<edi::drafting::DraftingDocument> m_redoStack;
+    edi::drafting::DraftingDocument m_editBefore;
+    bool m_editCommitted = true;
 };

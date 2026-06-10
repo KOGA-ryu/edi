@@ -2675,5 +2675,96 @@ int main(int argc, char **argv)
         assert(openController.modelDocument().value("drawing_objects").toList().size() == 3);
     }
 
+    // Undo/redo.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value("drawing_objects").toList().size();
+        };
+
+        // create -> undo -> empty -> redo -> restored.
+        DrawingDocumentController undoController;
+        assert(!undoController.canUndo());
+        assert(!undoController.canRedo());
+        assert(!undoController.undo()); // nothing to undo
+        undoController.setSelectedToolId("point_tool");
+        undoController.clickCanvasNormalized(0.3, 0.4);
+        assert(objectCount(undoController) == 1);
+        assert(undoController.canUndo());
+        const QString createdId = undoController.selectedObjectId();
+        assert(undoController.undo());
+        assert(objectCount(undoController) == 0);
+        assert(!undoController.canUndo());
+        assert(undoController.canRedo());
+        assert(undoController.redo());
+        assert(objectCount(undoController) == 1);
+        assert(undoController.modelDocument().value("drawing_objects").toList().front().toMap().value("id").toString() == createdId);
+        assert(!undoController.canRedo());
+
+        // nudge twice -> undo once -> one nudge remains (each nudge is one step).
+        DrawingDocumentController nudgeUndoController;
+        nudgeUndoController.setSelectedToolId("point_tool");
+        nudgeUndoController.clickCanvasNormalized(0.5, 0.5);
+        const double startY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
+        assert(nudgeUndoController.nudgeSelection("up", "grid"));
+        assert(nudgeUndoController.nudgeSelection("up", "grid"));
+        const double twiceY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
+        assert(!nearlyEqual(twiceY, startY));
+        assert(nudgeUndoController.undo());
+        const double onceY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
+        // After one undo, exactly one nudge remains: halfway between start and twice.
+        assert(nearlyEqual(onceY, (startY + twiceY) / 2.0));
+        assert(nudgeUndoController.canUndo()); // create + one nudge still undoable
+
+        // A guide preset that creates several guides is a single undo step.
+        DrawingDocumentController guideUndoController;
+        assert(guideUndoController.applyGuidePreset("drawable_bounds"));
+        const int guideObjects = guideUndoController.modelDocument().value("drawing_objects").toList().size();
+        assert(guideObjects >= 2); // preset adds multiple guides
+        assert(guideUndoController.canUndo());
+        assert(guideUndoController.undo());
+        assert(guideUndoController.modelDocument().value("drawing_objects").toList().isEmpty());
+        assert(!guideUndoController.canUndo()); // exactly one step for the whole preset
+
+        // Pure selection changes are not undoable and do not clear redo.
+        DrawingDocumentController selectionUndoController;
+        selectionUndoController.setSelectedToolId("point_tool");
+        selectionUndoController.clickCanvasNormalized(0.2, 0.2);
+        selectionUndoController.clickCanvasNormalized(0.8, 0.8);
+        assert(objectCount(selectionUndoController) == 2);
+        selectionUndoController.undo(); // remove second point
+        assert(objectCount(selectionUndoController) == 1);
+        assert(selectionUndoController.canRedo());
+        // Select the remaining point: selection-only, must not clear redo or add a step.
+        selectionUndoController.setSelectedToolId("select_move");
+        selectionUndoController.clickCanvasNormalized(0.2, 0.2);
+        assert(selectionUndoController.canRedo());
+        assert(selectionUndoController.redo());
+        assert(objectCount(selectionUndoController) == 2);
+
+        // redo is cleared by a new edit.
+        DrawingDocumentController redoClearController;
+        redoClearController.setSelectedToolId("point_tool");
+        redoClearController.clickCanvasNormalized(0.3, 0.3);
+        redoClearController.clickCanvasNormalized(0.6, 0.6);
+        redoClearController.undo();
+        assert(redoClearController.canRedo());
+        redoClearController.clickCanvasNormalized(0.9, 0.9); // new edit
+        assert(!redoClearController.canRedo());
+
+        // 100-step cap: the oldest edits drop out of the undo history.
+        DrawingDocumentController capController;
+        capController.setSelectedToolId("point_tool");
+        for (int i = 0; i < 102; ++i) {
+            capController.clickCanvasNormalized(0.1 + 0.001 * i, 0.1);
+        }
+        assert(capController.modelDocument().value("drawing_objects").toList().size() == 102);
+        int undone = 0;
+        while (capController.undo()) {
+            ++undone;
+        }
+        assert(undone == 100); // capped at 100, the first two creations are unrecoverable
+        assert(capController.modelDocument().value("drawing_objects").toList().size() == 2);
+    }
+
     return 0;
 }

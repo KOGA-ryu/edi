@@ -7,6 +7,7 @@
 
 class QWidget;
 class DrawingDocumentController;
+class RecipeController;
 
 namespace edi::shell {
 
@@ -14,12 +15,14 @@ namespace edi::shell {
 // slots — they belong to the window itself; see docs/shell_architecture.md.)
 enum class ShellSlot { Main, Left, Right, Bottom };
 
-// The thin Qt bus features share. With one feature it is just the drawing
-// controller; it earns typed document accessors only when feature #2 needs to
-// read what feature #1 produced — building the full bus before then would be
-// abstraction without a client.
+// The thin Qt bus features share. Feature #2 (the recipe lab) forced its
+// first real growth: the recipe document rides the bus beside the drawing
+// controller, and the recipe feature reads the drafting document through
+// the drawing controller's read-only accessors — coupling through shared
+// documents, never through feature references.
 struct FeatureContext {
     DrawingDocumentController *drawingController = nullptr;
+    RecipeController *recipeController = nullptr;
 };
 
 // A floating palette a feature offers: id (stable, keys the stored

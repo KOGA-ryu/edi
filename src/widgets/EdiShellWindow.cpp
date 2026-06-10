@@ -37,6 +37,7 @@
 #include <utility>
 
 #include "core/DrawingCore.h"
+#include "core/RecipeController.h"
 #include "io/ProfileStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
@@ -84,6 +85,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     }
 
     m_controller = new DrawingDocumentController(this);
+    m_recipeController = new RecipeController(this);
     m_profilesDir = edi::io::defaultProfilesDirPath();
 
     auto *central = new QWidget;
@@ -102,6 +104,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // switching workspaces re-reads all three. The context is a member because
     // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
+    m_featureContext.recipeController = m_recipeController;
 
     // Per-feature knowledge lives ONLY in these registry rows — how to build
     // a fresh instance, and what shell-owned state to re-feed it after a

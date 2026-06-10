@@ -27,6 +27,7 @@ class QWidget;
 class DraftingFeature;
 class DrawingDocumentController;
 class FloatingPalette;
+class RecipeController;
 class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
@@ -165,6 +166,7 @@ private:
     QWidget *m_rightGrip = nullptr;
     QWidget *m_bottomGrip = nullptr;
     std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
+    RecipeController *m_recipeController = nullptr;
     QWidget *m_chromePanelHost = nullptr;      // title-bar strip for feature buttons
     QMenu *m_recentFilesMenu = nullptr;
     QWidget *m_settingsWindow = nullptr;        // the pop-out frame (persistent)

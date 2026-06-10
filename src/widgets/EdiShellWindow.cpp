@@ -841,24 +841,22 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->setSelectedGuideLabel(m_guideLabel->text());
     });
     layout->addWidget(m_guideLabel);
-    m_guideColor = new QComboBox;
-    m_guideColor->setObjectName(QStringLiteral("guideColorCombo"));
-    m_guideColor->addItem(QStringLiteral("Guide blue"), QStringLiteral("#83aeca"));
-    m_guideColor->addItem(QStringLiteral("Guide teal"), QStringLiteral("#54d2c6"));
-    m_guideColor->addItem(QStringLiteral("Guide amber"), QStringLiteral("#f6c65b"));
-    m_guideColor->addItem(QStringLiteral("Guide red"), QStringLiteral("#d98b8b"));
-    m_guideColor->addItem(QStringLiteral("Guide green"), QStringLiteral("#91c89b"));
-    connect(m_guideColor, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_controller->setSelectedGuideColor(m_guideColor->itemData(index).toString());
+    m_guideColor = makeDataCombo(QStringLiteral("guideColorCombo"), {
+        {QStringLiteral("Guide blue"), QStringLiteral("#83aeca")},
+        {QStringLiteral("Guide teal"), QStringLiteral("#54d2c6")},
+        {QStringLiteral("Guide amber"), QStringLiteral("#f6c65b")},
+        {QStringLiteral("Guide red"), QStringLiteral("#d98b8b")},
+        {QStringLiteral("Guide green"), QStringLiteral("#91c89b")},
+    }, [this](const QString &color) {
+        m_controller->setSelectedGuideColor(color);
     });
     layout->addWidget(m_guideColor);
-    m_guideDashStyle = new QComboBox;
-    m_guideDashStyle->setObjectName(QStringLiteral("guideDashStyleCombo"));
-    m_guideDashStyle->addItem(QStringLiteral("Dash line"), QStringLiteral("dash"));
-    m_guideDashStyle->addItem(QStringLiteral("Solid line"), QStringLiteral("solid"));
-    m_guideDashStyle->addItem(QStringLiteral("Dot line"), QStringLiteral("dot"));
-    connect(m_guideDashStyle, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_controller->setSelectedGuideDashStyle(m_guideDashStyle->itemData(index).toString());
+    m_guideDashStyle = makeDataCombo(QStringLiteral("guideDashStyleCombo"), {
+        {QStringLiteral("Dash line"), QStringLiteral("dash")},
+        {QStringLiteral("Solid line"), QStringLiteral("solid")},
+        {QStringLiteral("Dot line"), QStringLiteral("dot")},
+    }, [this](const QString &dashStyle) {
+        m_controller->setSelectedGuideDashStyle(dashStyle);
     });
     layout->addWidget(m_guideDashStyle);
     m_guideShowLabel = makeToggle(QStringLiteral("guideShowLabelCheckbox"), QStringLiteral("Show guide label"), [this](bool checked) {
@@ -868,15 +866,14 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
     m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
     layout->addWidget(m_dimensionReadout);
-    m_dimensionKind = new QComboBox;
-    m_dimensionKind->setObjectName(QStringLiteral("dimensionKindCombo"));
-    m_dimensionKind->addItem(QStringLiteral("Distance"), QStringLiteral("distance"));
-    m_dimensionKind->addItem(QStringLiteral("Width"), QStringLiteral("width"));
-    m_dimensionKind->addItem(QStringLiteral("Height"), QStringLiteral("height"));
-    m_dimensionKind->addItem(QStringLiteral("Radius"), QStringLiteral("radius"));
-    m_dimensionKind->addItem(QStringLiteral("Diameter"), QStringLiteral("diameter"));
-    connect(m_dimensionKind, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_controller->setSelectedDimensionKind(m_dimensionKind->itemData(index).toString());
+    m_dimensionKind = makeDataCombo(QStringLiteral("dimensionKindCombo"), {
+        {QStringLiteral("Distance"), QStringLiteral("distance")},
+        {QStringLiteral("Width"), QStringLiteral("width")},
+        {QStringLiteral("Height"), QStringLiteral("height")},
+        {QStringLiteral("Radius"), QStringLiteral("radius")},
+        {QStringLiteral("Diameter"), QStringLiteral("diameter")},
+    }, [this](const QString &kindId) {
+        m_controller->setSelectedDimensionKind(kindId);
     });
     layout->addWidget(m_dimensionKind);
     m_dimensionShowLabel = makeToggle(QStringLiteral("dimensionShowLabelCheckbox"), QStringLiteral("Show dimension label"), [this](bool checked) {
@@ -1010,13 +1007,8 @@ QWidget *EdiShellWindow::buildLayerControls()
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Layers")));
 
-    m_activeLayer = new QComboBox;
-    m_activeLayer->setObjectName(QStringLiteral("activeLayerCombo"));
-    connect(m_activeLayer, &QComboBox::currentIndexChanged, this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        m_controller->setActiveLayerId(m_activeLayer->itemData(index).toString());
+    m_activeLayer = makeDataCombo(QStringLiteral("activeLayerCombo"), {}, [this](const QString &layerId) {
+        m_controller->setActiveLayerId(layerId);
     });
     layout->addWidget(m_activeLayer);
 
@@ -1066,39 +1058,26 @@ QWidget *EdiShellWindow::buildLayerControls()
     });
     layout->addWidget(m_activeLayerPlotEnabled);
 
-    m_activeLayerPen = new QComboBox;
-    m_activeLayerPen->setObjectName(QStringLiteral("layerPenCombo"));
-    m_activeLayerPen->addItem(QStringLiteral("Black pen"), QStringLiteral("pen_black"));
-    m_activeLayerPen->addItem(QStringLiteral("Blue pen"), QStringLiteral("pen_blue"));
-    m_activeLayerPen->addItem(QStringLiteral("Red pen"), QStringLiteral("pen_red"));
-    connect(m_activeLayerPen, &QComboBox::currentIndexChanged, this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        m_controller->setActiveLayerPenPreset(m_activeLayerPen->itemData(index).toString());
+    m_activeLayerPen = makeDataCombo(QStringLiteral("layerPenCombo"), {
+        {QStringLiteral("Black pen"), QStringLiteral("pen_black")},
+        {QStringLiteral("Blue pen"), QStringLiteral("pen_blue")},
+        {QStringLiteral("Red pen"), QStringLiteral("pen_red")},
+    }, [this](const QString &presetId) {
+        m_controller->setActiveLayerPenPreset(presetId);
     });
     layout->addWidget(m_activeLayerPen);
 
-    m_activeLayerStrokeWidth = new QComboBox;
-    m_activeLayerStrokeWidth->setObjectName(QStringLiteral("layerStrokeWidthCombo"));
-    m_activeLayerStrokeWidth->addItem(QStringLiteral("Fine stroke"), QStringLiteral("fine"));
-    m_activeLayerStrokeWidth->addItem(QStringLiteral("Normal stroke"), QStringLiteral("normal"));
-    m_activeLayerStrokeWidth->addItem(QStringLiteral("Bold stroke"), QStringLiteral("bold"));
-    connect(m_activeLayerStrokeWidth, &QComboBox::currentIndexChanged, this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        m_controller->setActiveLayerStrokeWidthPreset(m_activeLayerStrokeWidth->itemData(index).toString());
+    m_activeLayerStrokeWidth = makeDataCombo(QStringLiteral("layerStrokeWidthCombo"), {
+        {QStringLiteral("Fine stroke"), QStringLiteral("fine")},
+        {QStringLiteral("Normal stroke"), QStringLiteral("normal")},
+        {QStringLiteral("Bold stroke"), QStringLiteral("bold")},
+    }, [this](const QString &presetId) {
+        m_controller->setActiveLayerStrokeWidthPreset(presetId);
     });
     layout->addWidget(m_activeLayerStrokeWidth);
 
-    m_selectedObjectLayer = new QComboBox;
-    m_selectedObjectLayer->setObjectName(QStringLiteral("selectedObjectLayerCombo"));
-    connect(m_selectedObjectLayer, &QComboBox::currentIndexChanged, this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        m_controller->moveSelectedObjectToLayer(m_selectedObjectLayer->itemData(index).toString());
+    m_selectedObjectLayer = makeDataCombo(QStringLiteral("selectedObjectLayerCombo"), {}, [this](const QString &layerId) {
+        m_controller->moveSelectedObjectToLayer(layerId);
     });
     layout->addWidget(m_selectedObjectLayer);
     return panel;
@@ -1311,6 +1290,24 @@ QCheckBox *EdiShellWindow::makeToggle(const QString &objectName, const QString &
     checkbox->setObjectName(objectName);
     connect(checkbox, &QCheckBox::toggled, this, onToggled);
     return checkbox;
+}
+
+QComboBox *EdiShellWindow::makeDataCombo(const QString &objectName,
+                                         const QVector<QPair<QString, QString>> &items,
+                                         const std::function<void(const QString &)> &onData)
+{
+    auto *combo = new QComboBox;
+    combo->setObjectName(objectName);
+    for (const auto &item : items) {
+        combo->addItem(item.first, item.second);
+    }
+    connect(combo, &QComboBox::currentIndexChanged, this, [combo, onData](int index) {
+        if (index < 0) {
+            return;
+        }
+        onData(combo->itemData(index).toString());
+    });
+    return combo;
 }
 
 QPushButton *EdiShellWindow::makeToolButton(const QString &toolId, const QString &label)

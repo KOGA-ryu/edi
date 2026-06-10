@@ -186,13 +186,14 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QPushButton {
             color: %2;
             background: %13;
-            border: 1px solid %5;
+            border: 1px solid transparent;
             border-radius: 5px;
-            padding: 7px 9px;
+            padding: 4px 8px;
             text-align: left;
         }
         QPushButton:hover {
             background: %16;
+            border-color: %5;
         }
         QPushButton:pressed, QPushButton:checked {
             background: %17;
@@ -200,7 +201,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         QPushButton:disabled {
             color: %19;
-            border-color: %7;
+            border-color: transparent;
         }
         #railButton {
             min-width: 32px;

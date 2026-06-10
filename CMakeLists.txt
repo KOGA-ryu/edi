@@ -168,6 +168,8 @@ target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeDocument.h
     src/recipe/RecipeDocument.cpp
+    src/recipe/RecipeEmit.h
+    src/recipe/RecipeEmit.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -307,6 +309,7 @@ target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
 
 add_executable(edi_plot_job_report
     src/tools/EdiPlotJobReport.cpp

@@ -66,12 +66,24 @@ int main()
     huge.uiFontSize = 999;
     assert(deriveShellTheme(huge).fontSizeBody == 28); // clamped
 
-    // The stylesheet builder is pure and threads tokens through (no leftover
-    // %N placeholders, and an input color actually appears).
+    // The stylesheet builder is pure and substitutes NAMED tokens; a leftover
+    // "@" means a marker had no table entry. Every themed value must actually
+    // appear in the sheet — Qt's numbered %N args once shifted silently when a
+    // placeholder was deleted (font sizes received hex colors, nothing was
+    // left for a contains("%") check to find), so presence is asserted
+    // per-value, not per-marker.
     const QString qss = buildShellStyleSheet(t);
-    assert(!qss.contains(QStringLiteral("%")));
-    assert(qss.contains(t.accent));
-    assert(qss.contains(t.surface));
+    assert(!qss.contains(QStringLiteral("@")));
+    for (const QString &value : {t.base, t.surface, t.surfaceRaised, t.control, t.controlHover,
+             t.selected, t.text, t.textMuted, t.borderMajor, t.borderMinor, t.borderFocus,
+             t.accent, t.accentSoft, t.danger, t.disabled, t.trafficClose, t.trafficCloseEdge,
+             t.trafficMinimize, t.trafficMinimizeEdge, t.trafficZoom, t.trafficZoomEdge, t.uiFont}) {
+        assert(qss.contains(value));
+    }
+    // Sizes land as sizes, not as colors (the exact bug the %N shift caused).
+    assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeBody)));
+    assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeTitle)));
+    assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeSm)));
 
     // The sheet covers every selector the shell relies on — these names are the
     // contract between the builder and the widgets' objectName() values, so a

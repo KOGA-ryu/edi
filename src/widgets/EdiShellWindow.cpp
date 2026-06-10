@@ -70,7 +70,8 @@ void refreshToggle(QCheckBox *checkbox, bool checked, std::optional<bool> enable
     checkbox->setChecked(checked);
 }
 
-void refreshComboData(QComboBox *combo, const QString &data, int fallbackIndex, std::optional<bool> enabled = std::nullopt)
+// fallbackIndex of nullopt keeps the current index when the data is not found.
+void refreshComboData(QComboBox *combo, const QString &data, std::optional<int> fallbackIndex, std::optional<bool> enabled = std::nullopt)
 {
     if (combo == nullptr) {
         return;
@@ -80,7 +81,11 @@ void refreshComboData(QComboBox *combo, const QString &data, int fallbackIndex, 
         combo->setEnabled(*enabled);
     }
     const int index = combo->findData(data);
-    combo->setCurrentIndex(index >= 0 ? index : fallbackIndex);
+    if (index >= 0) {
+        combo->setCurrentIndex(index);
+    } else if (fallbackIndex) {
+        combo->setCurrentIndex(*fallbackIndex);
+    }
 }
 
 void refreshSpinValue(QDoubleSpinBox *spin, double value)
@@ -324,23 +329,20 @@ void refreshLayerCombo(QComboBox *combo, const QVariantList &layers, const QStri
         return;
     }
 
-    const QSignalBlocker blocker(combo);
-    combo->clear();
-    for (const QVariant &layerValue : layers) {
-        const QVariantMap layer = layerValue.toMap();
-        const QString id = layer.value(QStringLiteral("id")).toString();
-        const QString label = QStringLiteral("%1 (%2%3)")
-            .arg(layer.value(QStringLiteral("name")).toString())
-            .arg(layer.value(QStringLiteral("visible")).toBool() ? QStringLiteral("V") : QStringLiteral("-"))
-            .arg(layer.value(QStringLiteral("locked")).toBool() ? QStringLiteral("L") : QStringLiteral("-"));
-        combo->addItem(label, id);
+    {
+        const QSignalBlocker blocker(combo);
+        combo->clear();
+        for (const QVariant &layerValue : layers) {
+            const QVariantMap layer = layerValue.toMap();
+            const QString id = layer.value(QStringLiteral("id")).toString();
+            const QString label = QStringLiteral("%1 (%2%3)")
+                .arg(layer.value(QStringLiteral("name")).toString())
+                .arg(layer.value(QStringLiteral("visible")).toBool() ? QStringLiteral("V") : QStringLiteral("-"))
+                .arg(layer.value(QStringLiteral("locked")).toBool() ? QStringLiteral("L") : QStringLiteral("-"));
+            combo->addItem(label, id);
+        }
     }
-
-    const int index = combo->findData(currentLayerId);
-    if (index >= 0) {
-        combo->setCurrentIndex(index);
-    }
-    combo->setEnabled(enabled && !layers.empty());
+    refreshComboData(combo, currentLayerId, std::nullopt, enabled && !layers.empty());
 }
 
 QString strokeWidthPresetId(double width)

@@ -176,6 +176,44 @@ format table. Its workspace layout: grid/canvas in **Main**, text editor +
 ASCII render in **Bottom** ("the terminal"), scripts + script formatting in
 **Right**. This is the feature that forces the real FeatureContext bus.
 
+## The Figma restructure (F-backlog — supersedes H6's component pass)
+
+User direction (2026-06-10): navigate left, work center, configure right,
+tools float.
+
+- **F1 — Object list (Left).** A browsable objects/layers list in the left
+  panel (new capability; selection today is canvas-only). Click selects via
+  the controller; list follows `modelChanged`.
+- **F2 — Contextual right panel.** The inspector becomes a tool-id/selection
+  keyed stack: only the active tool's options or selected object's properties
+  show (the geometry-editor rebuild pattern promoted to panel scale; the
+  `toolId → builder` map is data).
+- **F3 — Tool belt model + cross widget.** The belt is a **6×6 grid of tool
+  ids stored in the workspace layout** (user decision — `workspace.toml`,
+  alongside panel geometry). The UI is the game **weapon-cross**: only the
+  active row (horizontal) and active column (vertical) render, intersecting
+  at the live tool; vertical scroll changes row, horizontal slides the row,
+  click any visible cell to jump. Build as a REUSABLE widget — pure
+  belt-state ops module first (move/select/wrap as free functions over a
+  plain struct), then a painting widget taking items as data
+  `{id, glyph, tooltip}` and emitting `selected(id)`. Deliberately
+  game-UI-grade: the component outlives this app.
+- **F4 — Floating palette host.** Movable icon-faced panels over the main
+  area (generalizes the overlay machinery: an overlay with a position
+  instead of an edge; drag strip; positions persist in the workspace TOML).
+  Float scope: main area only — palettes never cover the side panels.
+- **F5 — Settings pop-out.** SettingsFeature unchanged; its host becomes a
+  floating modeless window instead of the Main slot (theme edits stay
+  live-visible over the canvas).
+- **F6 — Belt configuration in settings.** "What's on my tool belt": a
+  checklist/grid editor over the tool table writing the layout's belt grid.
+- Migration note: the legacy left panel dissolves with no orphans — tools →
+  belt, tool options → F2, file/recent buttons → File menu (already there),
+  grid/snap controls → floating panel or settings.
+- Defaults chosen (flag if wrong): right panel shows a quiet empty state when
+  nothing is selected and the tool has no options; belt wraps at edges
+  (game-style).
+
 ## Resolved decisions
 
 1. **Activity rail = workspace switcher**, a distinct region from Top Chrome

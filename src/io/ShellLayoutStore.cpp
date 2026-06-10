@@ -2,6 +2,9 @@
 
 #include "io/SettingsStore.h"
 
+#include <QDir>
+#include <QStandardPaths>
+
 #include <optional>
 #include <string>
 
@@ -126,6 +129,12 @@ ShellLayoutData loadShellLayoutFromPath(const QString &path)
 bool saveShellLayoutToPath(const QString &path, const WorkspaceLayout &layout, const ShellPanelsState &panels)
 {
     return saveSettingsToPath(path, workspaceLayoutToConfig(layout, panels));
+}
+
+QString defaultWorkspaceLayoutPath()
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    return QDir(dir).filePath(QStringLiteral("workspace.toml"));
 }
 
 } // namespace edi::io

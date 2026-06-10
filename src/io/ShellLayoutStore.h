@@ -33,4 +33,7 @@ ShellLayoutData loadShellLayoutFromPath(const QString &path);
 bool saveShellLayoutToPath(const QString &path,
     const edi::shell::WorkspaceLayout &layout, const edi::shell::ShellPanelsState &panels);
 
+// <AppConfigLocation>/workspace.toml — the current job, beside edi.toml.
+QString defaultWorkspaceLayoutPath();
+
 } // namespace edi::io

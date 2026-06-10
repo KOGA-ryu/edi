@@ -65,9 +65,10 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     // The window no longer hard-wires drafting panels into regions: drafting
     // is feature #1 in a registry, and which feature fills which slot is data
-    // (the layout). Registry and layout are constructor locals until H5 makes
-    // layouts persistent/switchable; the context is a member because features
-    // may hold onto the bus for as long as their widgets live.
+    // (the layout). The layout is a member — persistence saves it — while the
+    // registry stays a constructor local until workspace switching needs it
+    // again; the context is a member because features may hold onto the bus
+    // for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
 
     FeatureDescriptor drafting;
@@ -90,17 +91,16 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     FeatureRegistry registry;
     registry.features.push_back(drafting);
 
-    WorkspaceLayout layout;
-    layout.id = QStringLiteral("drafting");
-    layout.label = QStringLiteral("Drafting");
-    layout.bindings = {
+    m_workspaceLayout.id = QStringLiteral("drafting");
+    m_workspaceLayout.label = QStringLiteral("Drafting");
+    m_workspaceLayout.bindings = {
         {ShellSlot::Left, QStringLiteral("drafting")},
         {ShellSlot::Main, QStringLiteral("drafting")},
         {ShellSlot::Right, QStringLiteral("drafting")},
         {ShellSlot::Bottom, QStringLiteral("drafting")},
     };
 
-    const std::vector<MountedSlot> mounted = mountWorkspaceLayout(layout, registry, m_featureContext);
+    const std::vector<MountedSlot> mounted = mountWorkspaceLayout(m_workspaceLayout, registry, m_featureContext);
 
     // Geometry stays the window's job: slots have fixed places in the frame,
     // and an unbound slot simply isn't added. Side and bottom slots sit in
@@ -183,6 +183,9 @@ void EdiShellWindow::closeEvent(QCloseEvent *event)
 {
     if (!m_settingsPath.isEmpty()) {
         saveSettings(m_settingsPath); // flush settings immediately on close
+    }
+    if (!m_workspaceLayoutPath.isEmpty()) {
+        saveWorkspaceLayout(m_workspaceLayoutPath); // panel geometry survives restart
     }
     QMainWindow::closeEvent(event);
 }

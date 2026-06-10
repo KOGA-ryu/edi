@@ -314,6 +314,8 @@ add_test(NAME drawing_document_controller_tests COMMAND drawing_document_control
 
 add_executable(edi_shell_window_tests
     tests/edi_shell_window_tests.cpp
+    src/io/ShellLayoutStore.h
+    src/io/ShellLayoutStore.cpp
     src/core/DrawingCore.h
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h

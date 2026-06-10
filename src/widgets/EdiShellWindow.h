@@ -32,8 +32,22 @@ class EdiShellWindow final : public QMainWindow {
 public:
     explicit EdiShellWindow(QWidget *parent = nullptr);
 
+    // Path-based drawing I/O seams (the toolbar/shortcut handlers wrap these in
+    // QFileDialog; tests drive them directly to avoid modal dialogs).
+    bool saveDrawingToPath(const QString &path);
+    bool openDrawingFromPath(const QString &path);
+    QString currentDrawingPath() const { return m_currentDrawingPath; }
+    bool isDocumentDirty() const;
+
 private slots:
     void refreshInspector();
+
+private:
+    void promptSaveDrawing();
+    void promptSaveDrawingAs();
+    void promptOpenDrawing();
+    void updateWindowTitle();
+    int currentDocumentRevision() const;
 
 private:
     QWidget *buildActivityRail();
@@ -173,4 +187,6 @@ private:
     QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;
+    QString m_currentDrawingPath;
+    int m_savedRevision = 0;
 };

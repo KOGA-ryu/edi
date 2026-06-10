@@ -5,6 +5,8 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -12,6 +14,7 @@
 #include <QLineEdit>
 #include <QPair>
 #include <QPushButton>
+#include <QShortcut>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QSpinBox>
@@ -461,7 +464,98 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     applyShellStyle();
 
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::refreshInspector);
+
+    auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
+    connect(saveShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawing);
+    auto *openShortcut = new QShortcut(QKeySequence::Open, this);
+    connect(openShortcut, &QShortcut::activated, this, &EdiShellWindow::promptOpenDrawing);
+    auto *saveAsShortcut = new QShortcut(QKeySequence::SaveAs, this);
+    connect(saveAsShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawingAs);
+
+    m_savedRevision = currentDocumentRevision();
+    updateWindowTitle();
     refreshInspector();
+}
+
+int EdiShellWindow::currentDocumentRevision() const
+{
+    return m_controller->modelDocument().value(QStringLiteral("revision")).toInt();
+}
+
+bool EdiShellWindow::isDocumentDirty() const
+{
+    return currentDocumentRevision() != m_savedRevision;
+}
+
+void EdiShellWindow::updateWindowTitle()
+{
+    const QString name = m_currentDrawingPath.isEmpty()
+        ? QStringLiteral("Untitled")
+        : QFileInfo(m_currentDrawingPath).fileName();
+    const QString dirty = isDocumentDirty() ? QStringLiteral(" •") : QString();
+    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, dirty));
+}
+
+bool EdiShellWindow::saveDrawingToPath(const QString &path)
+{
+    if (path.isEmpty()) {
+        return false;
+    }
+    if (!m_controller->saveDocument(QUrl::fromLocalFile(path))) {
+        return false;
+    }
+    m_currentDrawingPath = path;
+    m_savedRevision = currentDocumentRevision();
+    updateWindowTitle();
+    return true;
+}
+
+bool EdiShellWindow::openDrawingFromPath(const QString &path)
+{
+    if (path.isEmpty()) {
+        return false;
+    }
+    if (!m_controller->openDocument(QUrl::fromLocalFile(path))) {
+        return false;
+    }
+    m_currentDrawingPath = path;
+    m_savedRevision = currentDocumentRevision();
+    updateWindowTitle();
+    return true;
+}
+
+void EdiShellWindow::promptSaveDrawing()
+{
+    if (m_currentDrawingPath.isEmpty()) {
+        promptSaveDrawingAs();
+        return;
+    }
+    saveDrawingToPath(m_currentDrawingPath);
+}
+
+void EdiShellWindow::promptSaveDrawingAs()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Save Drawing"), m_currentDrawingPath,
+        QStringLiteral("EDI Drawings (*.edidraw)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".edidraw"))) {
+        path += QStringLiteral(".edidraw");
+    }
+    saveDrawingToPath(path);
+}
+
+void EdiShellWindow::promptOpenDrawing()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, QStringLiteral("Open Drawing"), QString(),
+        QStringLiteral("EDI Drawings (*.edidraw)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    openDrawingFromPath(path);
 }
 
 QWidget *EdiShellWindow::buildActivityRail()
@@ -683,9 +777,19 @@ QWidget *EdiShellWindow::buildLeftPanel()
         m_controller->setGridMajorLineEvery(m_gridMajorEvery->value());
     });
 
+    layout->addWidget(makeSectionLabel(QStringLiteral("Project Files")));
+    layout->addWidget(makeActionButton(QStringLiteral("openDrawingButton"), QStringLiteral("Open…"), [this]() {
+        promptOpenDrawing();
+    }));
+    layout->addWidget(makeActionButton(QStringLiteral("saveDrawingButton"), QStringLiteral("Save"), [this]() {
+        promptSaveDrawing();
+    }));
+    layout->addWidget(makeActionButton(QStringLiteral("saveDrawingAsButton"), QStringLiteral("Save As…"), [this]() {
+        promptSaveDrawingAs();
+    }));
+
     layout->addWidget(makeSectionLabel(QStringLiteral("Next Surfaces")));
     layout->addWidget(makeValueLabel(QStringLiteral("Text editor")));
-    layout->addWidget(makeValueLabel(QStringLiteral("Project files")));
     layout->addWidget(makeValueLabel(QStringLiteral("Settings")));
     layout->addStretch(1);
 
@@ -1829,6 +1933,14 @@ void EdiShellWindow::refreshInspector()
             .arg(selected.size())
             .arg(objects.size()));
     }
+
+    // Keep the window title's dirty marker in sync with live edits, reusing the
+    // revision already projected here rather than re-running the projection.
+    const QString name = m_currentDrawingPath.isEmpty()
+        ? QStringLiteral("Untitled")
+        : QFileInfo(m_currentDrawingPath).fileName();
+    const bool dirty = document.value(QStringLiteral("revision")).toInt() != m_savedRevision;
+    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, dirty ? QStringLiteral(" •") : QString()));
 }
 
 void EdiShellWindow::applyShellStyle()

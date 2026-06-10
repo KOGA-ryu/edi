@@ -10,6 +10,8 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QString>
+#include <QTemporaryDir>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -328,6 +330,54 @@ int main(int argc, char **argv)
         assert(!controller->modelDocument().value(QStringLiteral("calibration_measurement")).toMap().isEmpty());
         buttonWithText(window, QStringLiteral("Apply scale"))->click();
         assert(!controller->modelDocument().value(QStringLiteral("calibration_correction")).toMap().isEmpty());
+    }
+
+    // Project Files: the buttons exist and the save/open seam round-trips the
+    // document while keeping window-title dirty state in sync.
+    {
+        assert(buttonNamed(window, QStringLiteral("openDrawingButton")) != nullptr);
+        assert(buttonNamed(window, QStringLiteral("saveDrawingButton")) != nullptr);
+        assert(buttonNamed(window, QStringLiteral("saveDrawingAsButton")) != nullptr);
+
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString path = tempDir.filePath(QStringLiteral("shell_roundtrip.edidraw"));
+
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.15, 0.25);
+        controller->clickCanvasNormalized(0.75, 0.85);
+        const QVariantMap savedModel = controller->modelDocument();
+        const QVariantList savedObjects = savedModel.value(QStringLiteral("drawing_objects")).toList();
+        assert(!savedObjects.isEmpty());
+
+        // Unsaved edits mark the title dirty; saving clears it and adopts the path.
+        assert(window.isDocumentDirty());
+        assert(window.saveDrawingToPath(path));
+        assert(window.currentDrawingPath() == path);
+        assert(!window.isDocumentDirty());
+        assert(window.windowTitle().contains(QStringLiteral("shell_roundtrip.edidraw")));
+        assert(!window.windowTitle().contains(QStringLiteral("•")));
+
+        // Mutate after save: dirty again.
+        controller->setSelectedToolId(QStringLiteral("point_tool"));
+        controller->clickCanvasNormalized(0.4, 0.4);
+        assert(window.isDocumentDirty());
+        assert(window.windowTitle().contains(QStringLiteral("•")));
+
+        // Reopen the saved file: projection matches the saved state and title is clean.
+        assert(window.openDrawingFromPath(path));
+        assert(!window.isDocumentDirty());
+        const QVariantList reopenedObjects = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(reopenedObjects.size() == savedObjects.size());
+        for (int i = 0; i < savedObjects.size(); ++i) {
+            assert(reopenedObjects[i].toMap().value(QStringLiteral("id")).toString()
+                   == savedObjects[i].toMap().value(QStringLiteral("id")).toString());
+        }
+
+        // Opening a missing path fails and leaves the document untouched.
+        assert(!window.openDrawingFromPath(tempDir.filePath(QStringLiteral("missing.edidraw"))));
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+               == reopenedObjects.size());
     }
 
     return 0;

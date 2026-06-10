@@ -1,8 +1,7 @@
-#include "widgets/EdiShellWindow.h"
+#include "widgets/DraftingFeature.h"
 
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include <QFileInfo>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -21,7 +20,7 @@
 
 using namespace edi::shell;
 
-void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
+void DraftingFeature::rebuildGeometryEditor(const QVariantMap &selectedObject)
 {
     if (m_geometryEditor == nullptr) {
         return;
@@ -89,7 +88,7 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
     setGeometryEditorVisible(row > 0);
 }
 
-void EdiShellWindow::applyGeometryEditStatus(const QVariantMap &editStatus)
+void DraftingFeature::applyGeometryEditStatus(const QVariantMap &editStatus)
 {
     const bool showFailure = !editStatus.isEmpty() && !editStatus.value(QStringLiteral("ok")).toBool();
     const QString failedFieldId = showFailure ? editStatus.value(QStringLiteral("field_id")).toString() : QString();
@@ -113,14 +112,14 @@ void EdiShellWindow::applyGeometryEditStatus(const QVariantMap &editStatus)
     }
 }
 
-void EdiShellWindow::setGeometryEditorVisible(bool visible)
+void DraftingFeature::setGeometryEditorVisible(bool visible)
 {
     if (m_geometryEditor != nullptr) {
         m_geometryEditor->setVisible(visible);
     }
 }
 
-void EdiShellWindow::refreshInspector()
+void DraftingFeature::refreshInspector()
 {
     const QVariantMap document = m_controller->modelDocument();
     const QVariantList objects = document.value(QStringLiteral("drawing_objects")).toList();
@@ -142,7 +141,7 @@ void EdiShellWindow::refreshInspector()
 
     if (m_workspaceTitle != nullptr) {
         m_workspaceTitle->setText(QStringLiteral("%1 Workspace")
-            .arg(QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode))));
+            .arg(m_actions.workspaceModeLabel()));
     }
 
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
@@ -413,7 +412,7 @@ void EdiShellWindow::refreshInspector()
     setLabelText(m_previewValue, QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
     if (m_statusValue != nullptr) {
         m_statusValue->setText(QStringLiteral("%1 | %2 selected | %3 objects")
-            .arg(QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)))
+            .arg(m_actions.workspaceModeName())
             .arg(selected.size())
             .arg(objects.size()));
     }
@@ -424,11 +423,4 @@ void EdiShellWindow::refreshInspector()
     if (m_redoButton != nullptr) {
         m_redoButton->setEnabled(m_controller->canRedo());
     }
-
-    // Keep the window title's dirty marker in sync with live edits. The
-    // controller reports content dirtiness (selection alone is not dirty).
-    const QString name = m_currentDrawingPath.isEmpty()
-        ? QStringLiteral("Untitled")
-        : QFileInfo(m_currentDrawingPath).fileName();
-    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, m_controller->isDocumentDirty() ? QStringLiteral(" •") : QString()));
 }

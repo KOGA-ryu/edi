@@ -35,6 +35,7 @@
 #include <utility>
 
 #include "core/DrawingCore.h"
+#include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/ShellTheme.h"
 #include "widgets/ShellWidgetHelpers.h"
@@ -71,21 +72,26 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
 
+    // The drafting feature talks back to the shell only through callables:
+    // the feature never sees the window type, so it stays mountable under any
+    // shell that can supply these verbs.
+    DraftingFeature::ShellActions actions;
+    actions.saveDrawing = [this]() { promptSaveDrawing(); };
+    actions.saveDrawingAs = [this]() { promptSaveDrawingAs(); };
+    actions.openDrawing = [this]() { promptOpenDrawing(); };
+    actions.exportSvg = [this]() { promptExportSvg(); };
+    actions.exportHpgl = [this]() { promptExportHpgl(); };
+    actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPath(path); };
+    actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
+    actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
+    m_draftingFeature = std::make_unique<DraftingFeature>(m_controller, std::move(actions));
+
     FeatureDescriptor drafting;
     drafting.id = QStringLiteral("drafting");
     drafting.label = QStringLiteral("Drafting");
     drafting.supportedSlots = {ShellSlot::Main, ShellSlot::Left, ShellSlot::Right, ShellSlot::Bottom};
-    // The panels read this window's members, so the factory captures `this`
-    // rather than going through the context; a standalone feature module would
-    // take everything from the context instead.
     drafting.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
-        switch (slot) {
-        case ShellSlot::Main: return buildWorkspaceColumn();
-        case ShellSlot::Left: return buildLeftPanel();
-        case ShellSlot::Right: return buildRightPanel();
-        case ShellSlot::Bottom: return buildBottomPanel();
-        }
-        return nullptr;
+        return m_draftingFeature->buildPanel(slot);
     };
 
     FeatureRegistry registry;
@@ -150,7 +156,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     setCentralWidget(central);
     applyShellStyle();
 
-    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::refreshInspector);
+    // The feature keeps its own inspector in sync; the window only owns the
+    // title bar (file name + dirty marker).
+    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::updateWindowTitle);
 
     auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
     connect(saveShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawing);
@@ -176,8 +184,10 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::scheduleSettingsSave);
 
     updateWindowTitle();
-    refreshInspector();
+    m_draftingFeature->refreshInspector();
 }
+
+EdiShellWindow::~EdiShellWindow() = default;
 
 void EdiShellWindow::closeEvent(QCloseEvent *event)
 {
@@ -294,36 +304,8 @@ void EdiShellWindow::rememberRecentFile(const QString &path)
     while (m_recentFiles.size() > static_cast<int>(edi::io::kRecentFilesCap)) {
         m_recentFiles.removeLast();
     }
-    rebuildRecentFileButtons();
+    m_draftingFeature->setRecentFiles(m_recentFiles);
     scheduleSettingsSave();
-}
-
-void EdiShellWindow::rebuildRecentFileButtons()
-{
-    if (m_recentFilesContainer == nullptr) {
-        return;
-    }
-    auto *layout = qobject_cast<QVBoxLayout *>(m_recentFilesContainer->layout());
-    if (layout == nullptr) {
-        return;
-    }
-    QLayoutItem *item = nullptr;
-    while ((item = layout->takeAt(0)) != nullptr) {
-        delete item->widget();
-        delete item;
-    }
-    // Surface the five most recent files as quick-open buttons.
-    const int shown = qMin(m_recentFiles.size(), 5);
-    for (int i = 0; i < shown; ++i) {
-        const QString path = m_recentFiles.at(i);
-        auto *button = new QPushButton(QFileInfo(path).fileName());
-        button->setObjectName(QStringLiteral("recentFileButton"));
-        button->setToolTip(path);
-        connect(button, &QPushButton::clicked, this, [this, path]() {
-            openDrawingFromPath(path);
-        });
-        layout->addWidget(button);
-    }
 }
 
 void EdiShellWindow::scheduleSettingsSave()
@@ -340,7 +322,7 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
     edi::app::setStatusMessage(m_appState, QStringLiteral("%1 workspace active")
         .arg(QString::fromLatin1(edi::app::workspaceModeLabel(mode)))
         .toStdString());
-    refreshInspector();
+    m_draftingFeature->refreshInspector();
 }
 
 void EdiShellWindow::applyShellStyle()

@@ -10,6 +10,7 @@
 
 #include "core/DrawingCore.h"
 #include "io/ShellLayoutStore.h"
+#include "widgets/DraftingFeature.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 using namespace edi::shell;
@@ -122,7 +123,7 @@ bool EdiShellWindow::loadSettings(const QString &path)
     for (const std::string &recent : edi::io::recentFilesFromConfig(config)) {
         m_recentFiles.push_back(QString::fromStdString(recent));
     }
-    rebuildRecentFileButtons();
+    m_draftingFeature->setRecentFiles(m_recentFiles);
     return true;
 }
 

@@ -116,6 +116,23 @@ DraftingGridUnit draftingGridUnitFromName(const std::string &name)
     return DraftingGridUnit::CanvasUnit;
 }
 
+double millimetersPerUnit(DraftingGridUnit unit)
+{
+    switch (unit) {
+    case DraftingGridUnit::CanvasUnit:
+        return 1.0; // device-dependent: treat one canvas unit as one millimetre
+    case DraftingGridUnit::Millimeter:
+        return 1.0;
+    case DraftingGridUnit::Centimeter:
+        return 10.0;
+    case DraftingGridUnit::Inch:
+        return 25.4;
+    case DraftingGridUnit::Foot:
+        return 304.8;
+    }
+    return 1.0;
+}
+
 DraftingGridPreset draftingGridPresetFromName(const std::string &name)
 {
     if (name == "letter") {

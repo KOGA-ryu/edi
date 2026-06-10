@@ -61,6 +61,9 @@ const char *draftingGridPresetName(DraftingGridPreset preset);
 const char *draftingGridPresetLabel(DraftingGridPreset preset);
 DraftingGridUnit draftingGridUnitFromName(const std::string &name);
 DraftingGridPreset draftingGridPresetFromName(const std::string &name);
+// Physical millimetres per grid unit. canvas_unit maps 1:1 and is therefore
+// device-dependent (treat it as "1 unit == 1 mm" for plot output).
+double millimetersPerUnit(DraftingGridUnit unit);
 DraftingGridSettings draftingGridPresetSettings(DraftingGridPreset preset);
 DraftingGridSettings defaultDraftingGridSettings();
 DraftingGridSettings sanitizeDraftingGridSettings(DraftingGridSettings settings);

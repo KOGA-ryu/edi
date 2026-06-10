@@ -94,6 +94,10 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingPlotJobReport.cpp
     src/drafting/DraftingSerialize.h
     src/drafting/DraftingSerialize.cpp
+    src/drafting/DraftingSvgOut.h
+    src/drafting/DraftingSvgOut.cpp
+    src/drafting/DraftingHpglOut.h
+    src/drafting/DraftingHpglOut.cpp
 )
 
 target_include_directories(edi_drafting_core PUBLIC
@@ -209,6 +213,8 @@ add_edi_contract_test(drafting_build_plan_tests tests/drafting_build_plan_tests.
 add_edi_contract_test(drafting_plot_plan_tests tests/drafting_plot_plan_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_bounds_tests tests/drafting_plot_bounds_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_tests tests/drafting_plot_job_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_svg_out_tests tests/drafting_svg_out_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_hpgl_out_tests tests/drafting_hpgl_out_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_plot_job_report_tests tests/drafting_plot_job_report_tests.cpp edi_drafting_core)
 add_edi_contract_test(drawing_canvas_gesture_state_tests tests/drawing_canvas_gesture_state_tests.cpp Qt6::Core)
 target_sources(drawing_canvas_gesture_state_tests PRIVATE src/widgets/DrawingCanvasGestureState.cpp src/widgets/DrawingCanvasValues.cpp)

@@ -145,6 +145,8 @@ add_library(edi_format_core STATIC
     src/formats/MessagePackWriter.cpp
     src/formats/MessagePackInspector.h
     src/formats/MessagePackInspector.cpp
+    src/formats/MessagePackValue.h
+    src/formats/MessagePackValue.cpp
 )
 
 target_include_directories(edi_format_core PUBLIC
@@ -243,6 +245,7 @@ add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
+add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 
 add_executable(edi_plot_job_report

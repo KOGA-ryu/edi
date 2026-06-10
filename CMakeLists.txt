@@ -260,6 +260,9 @@ add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_test
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
+add_edi_contract_test(shell_theme_tests tests/shell_theme_tests.cpp Qt6::Core)
+target_sources(shell_theme_tests PRIVATE src/widgets/ShellTheme.cpp)
+target_include_directories(shell_theme_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -309,6 +312,8 @@ add_executable(edi_shell_window_tests
     src/io/SettingsStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
+    src/widgets/ShellTheme.h
+    src/widgets/ShellTheme.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasViewport.h
@@ -418,6 +423,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/TextEditorStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
+    src/widgets/ShellTheme.h
+    src/widgets/ShellTheme.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasViewport.h

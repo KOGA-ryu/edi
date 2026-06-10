@@ -38,4 +38,12 @@ double storedDimensionLength(double displayedLength, DimensionKind kind);
 double area(const DraftingGeometry &geometry);
 std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry);
 
+// Arc helpers (shared by bounds, hit test, projection, painter, and plot flatten
+// so the tessellation/angle convention lives in one place). Angles are degrees
+// measured by atan2(dy, dx) in canvas (y-down) space; the sweep runs from
+// startAngleDeg to endAngleDeg in increasing order.
+Point2D arcPointAtAngle(Point2D center, double radius, double angleDeg);
+double arcMidAngleDeg(const ArcGeometry &arc);
+std::vector<Point2D> sampleArc(const ArcGeometry &arc, double maxStepDeg = 2.0);
+
 } // namespace edi::drafting

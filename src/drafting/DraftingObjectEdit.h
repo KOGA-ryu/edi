@@ -15,6 +15,10 @@ enum class DraftingObjectEditKind {
     RotateRectangle,
     MoveCircleCenter,
     SetCircleRadius,
+    MoveArcCenter,
+    SetArcRadius,
+    SetArcStartAngle,
+    SetArcEndAngle,
     MoveDimensionStart,
     MoveDimensionEnd,
     SetDimensionOffset

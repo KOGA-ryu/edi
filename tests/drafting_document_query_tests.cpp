@@ -11,6 +11,7 @@ static_assert(shapeKindOf<PointGeometry>() == DraftingShapeKind::Point);
 static_assert(shapeKindOf<LineGeometry>() == DraftingShapeKind::Line);
 static_assert(shapeKindOf<RectangleGeometry>() == DraftingShapeKind::Rectangle);
 static_assert(shapeKindOf<CircleGeometry>() == DraftingShapeKind::Circle);
+static_assert(shapeKindOf<ArcGeometry>() == DraftingShapeKind::Arc);
 static_assert(shapeKindOf<PolygonGeometry>() == DraftingShapeKind::Polygon);
 static_assert(shapeKindOf<PolylineGeometry>() == DraftingShapeKind::Polyline);
 static_assert(shapeKindOf<GuideGeometry>() == DraftingShapeKind::Guide);

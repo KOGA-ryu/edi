@@ -25,6 +25,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "circle_tool") {
         return DraftingToolKind::Circle;
     }
+    if (toolId == "arc_tool") {
+        return DraftingToolKind::Arc;
+    }
     if (toolId == "regular_polygon_tool") {
         return DraftingToolKind::RegularPolygon;
     }
@@ -74,6 +77,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "rectangle";
     case DraftingToolKind::Circle:
         return "circle";
+    case DraftingToolKind::Arc:
+        return "arc";
     case DraftingToolKind::RegularPolygon:
         return "regular_polygon";
     case DraftingToolKind::HorizontalGuide:
@@ -122,6 +127,14 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::Circle) {
         kind = DraftingShapeKind::Circle;
         geometry = CircleGeometry{request.start, std::min(1.0, distance(request.start, request.end))};
+    } else if (request.tool == DraftingToolKind::Arc) {
+        // Two clicks: centre (start) then a point giving radius and start angle.
+        // The end angle is start + sweep (legacy default 105deg -> 15..120).
+        const double radius = std::min(1.0, distance(request.start, request.end));
+        const double startAngle = std::atan2(request.end.y - request.start.y,
+                                             request.end.x - request.start.x) * 180.0 / M_PI;
+        kind = DraftingShapeKind::Arc;
+        geometry = ArcGeometry{request.start, radius, startAngle, startAngle + request.arcSweepDeg};
     } else if (request.tool == DraftingToolKind::RegularPolygon) {
         // Two clicks: centre (start) then a radius point (end). Vertices sit on
         // the circumscribed circle starting at rotationDeg, stepping by 360/sides.

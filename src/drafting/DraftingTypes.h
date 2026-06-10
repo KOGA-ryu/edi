@@ -17,6 +17,7 @@ enum class DraftingShapeKind {
     Line,
     Rectangle,
     Circle,
+    Arc,
     Polygon,
     Polyline,
     Guide,
@@ -149,6 +150,13 @@ struct CircleGeometry {
     double radius = 0.0;
 };
 
+struct ArcGeometry {
+    Point2D center;
+    double radius = 0.0;
+    double startAngleDeg = 0.0;
+    double endAngleDeg = 0.0;
+};
+
 struct PolygonGeometry {
     std::vector<Point2D> vertices;
 };
@@ -179,6 +187,7 @@ using DraftingGeometry = std::variant<
     LineGeometry,
     RectangleGeometry,
     CircleGeometry,
+    ArcGeometry,
     PolygonGeometry,
     PolylineGeometry,
     GuideGeometry,
@@ -203,6 +212,7 @@ template <> constexpr DraftingShapeKind shapeKindOf<PointGeometry>() { return Dr
 template <> constexpr DraftingShapeKind shapeKindOf<LineGeometry>() { return DraftingShapeKind::Line; }
 template <> constexpr DraftingShapeKind shapeKindOf<RectangleGeometry>() { return DraftingShapeKind::Rectangle; }
 template <> constexpr DraftingShapeKind shapeKindOf<CircleGeometry>() { return DraftingShapeKind::Circle; }
+template <> constexpr DraftingShapeKind shapeKindOf<ArcGeometry>() { return DraftingShapeKind::Arc; }
 template <> constexpr DraftingShapeKind shapeKindOf<PolygonGeometry>() { return DraftingShapeKind::Polygon; }
 template <> constexpr DraftingShapeKind shapeKindOf<PolylineGeometry>() { return DraftingShapeKind::Polyline; }
 template <> constexpr DraftingShapeKind shapeKindOf<GuideGeometry>() { return DraftingShapeKind::Guide; }

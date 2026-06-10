@@ -225,5 +225,36 @@ int main(int argc, char **argv)
         assert(polygon.value(QStringLiteral("points")).toList().size() == 5);
     }
 
+    // Two-click arc creation, then drag its radius handle to grow the radius.
+    {
+        DrawingDocumentController arcController;
+        DrawingCanvasWidget arcCanvas(&arcController);
+        arcCanvas.resize(600, 450);
+        arcController.setSelectedToolId(QStringLiteral("arc_tool"));
+        clickCanvas(arcController, arcCanvas, 0.5, 0.5); // centre
+        clickCanvas(arcController, arcCanvas, 0.7, 0.5); // radius 0.2, start angle 0
+        QVariantMap arc = activeObject(arcController);
+        assert(arc.value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
+        assert(near(arc.value(QStringLiteral("radius")).toDouble(), 0.2));
+        const double startRadius = arc.value(QStringLiteral("radius")).toDouble();
+
+        // The radius handle sits at the mid angle ((0 + 105)/2 = 52.5deg).
+        const double midRad = 52.5 * 3.14159265358979323846 / 180.0;
+        const double handleX = 0.5 + startRadius * std::cos(midRad);
+        const double handleY = 0.5 + startRadius * std::sin(midRad);
+
+        arcController.setSelectedToolId(QStringLiteral("select_move"));
+        const QPointF grabAt = screenPointFor(arcController, arcCanvas, handleX, handleY);
+        sendMouse(arcCanvas, QEvent::MouseButtonPress, grabAt, Qt::LeftButton, Qt::LeftButton);
+        // Drag the handle outward along the same mid-angle ray to a larger radius.
+        const double newRadius = 0.32;
+        const QPointF target = screenPointFor(arcController, arcCanvas,
+            0.5 + newRadius * std::cos(midRad), 0.5 + newRadius * std::sin(midRad));
+        sendMouse(arcCanvas, QEvent::MouseMove, target, Qt::NoButton, Qt::LeftButton);
+        sendMouse(arcCanvas, QEvent::MouseButtonRelease, target, Qt::LeftButton, Qt::NoButton);
+        arc = activeObject(arcController);
+        assert(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
+    }
+
     return 0;
 }

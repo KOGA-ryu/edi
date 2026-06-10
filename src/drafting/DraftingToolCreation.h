@@ -12,6 +12,7 @@ enum class DraftingToolKind {
     Line,
     Rectangle,
     Circle,
+    Arc,
     RegularPolygon,
     HorizontalGuide,
     VerticalGuide,
@@ -36,6 +37,8 @@ struct DraftingToolCreationRequest {
     // Regular-polygon tool options (legacy defaults: 6 sides, 30deg rotation).
     int polygonSides = 6;
     double polygonRotationDeg = 30.0;
+    // Arc tool option: sweep from the start angle (legacy 15->120 = 105deg).
+    double arcSweepDeg = 105.0;
 };
 
 DraftingToolKind draftingToolKindFromId(const std::string &toolId);

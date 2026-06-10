@@ -302,6 +302,14 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.centerEnabled) {
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
             }
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            if (settings.centerEnabled) {
+                addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
+            }
+            if (settings.endpointEnabled) {
+                addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, geometry.startAngleDeg), DraftingSnapSourceKind::Endpoint);
+                addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, geometry.endAngleDeg), DraftingSnapSourceKind::Endpoint);
+            }
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             return;
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {

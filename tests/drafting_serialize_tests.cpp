@@ -56,6 +56,7 @@ DraftingDocument buildSampleDocument()
     LineGeometry line; line.a = {0.0, 0.0}; line.b = {0.5, 0.6};
     RectangleGeometry rect; rect.origin = {0.1, 0.1}; rect.width = 0.3; rect.height = 0.2; rect.rotationDeg = 12.5;
     CircleGeometry circle; circle.center = {0.4, 0.4}; circle.radius = 0.15;
+    ArcGeometry arc; arc.center = {0.3, 0.3}; arc.radius = 0.12; arc.startAngleDeg = 15.0; arc.endAngleDeg = 120.0;
     PolygonGeometry polygon; polygon.vertices = {{0.0, 0.0}, {0.2, 0.0}, {0.2, 0.2}, {0.0, 0.2}};
     PolylineGeometry polyline; polyline.vertices = {{0.1, 0.1}, {0.3, 0.2}, {0.5, 0.1}};
     GuideGeometry guide; guide.orientation = GuideOrientation::Vertical; guide.position = 0.42;
@@ -67,6 +68,7 @@ DraftingDocument buildSampleDocument()
         makeObject("line-1", DraftingShapeKind::Line, line, "default"),
         makeObject("rect-1", DraftingShapeKind::Rectangle, rect, "default"),
         makeObject("circle-1", DraftingShapeKind::Circle, circle, "default"),
+        makeObject("arc-1", DraftingShapeKind::Arc, arc, "default"),
         makeObject("polygon-1", DraftingShapeKind::Polygon, polygon, "default"),
         makeObject("polyline-1", DraftingShapeKind::Polyline, polyline, "default"),
         makeObject("guide-1", DraftingShapeKind::Guide, guide, "guides"),
@@ -95,7 +97,7 @@ DraftingDocument buildSampleDocument()
     styled.metadata.measurement.canvasUnitsPerRealUnit = 10.0;
     styled.metadata.measurement.label = "10mm";
 
-    DraftingObject &guideObject = document.objects[6];
+    DraftingObject &guideObject = document.objects[7];
     guideObject.metadata.guideVisual.label = "centerline";
     guideObject.metadata.guideVisual.color = "#abcdef";
     guideObject.metadata.guideVisual.dashStyle = "dot";
@@ -182,12 +184,14 @@ int main()
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(document), "fixture");
         assert(decoded.ok);
         const auto &objects = decoded.value->objects;
-        assert(std::get<GuideGeometry>(objects[6].geometry).orientation == GuideOrientation::Vertical);
-        assert(std::get<GuideGeometry>(objects[6].geometry).position == 0.42);
-        assert(std::get<DimensionGeometry>(objects[8].geometry).kind == DimensionKind::Radius);
-        assert(std::get<DimensionGeometry>(objects[8].geometry).offset == 0.07);
+        assert(std::get<GuideGeometry>(objects[7].geometry).orientation == GuideOrientation::Vertical);
+        assert(std::get<GuideGeometry>(objects[7].geometry).position == 0.42);
+        assert(std::get<DimensionGeometry>(objects[9].geometry).kind == DimensionKind::Radius);
+        assert(std::get<DimensionGeometry>(objects[9].geometry).offset == 0.07);
         assert(pointsEqual(std::get<LineGeometry>(objects[1].geometry).b, {0.5, 0.6}));
-        assert(std::get<PolygonGeometry>(objects[4].geometry).vertices.size() == 4);
+        assert(std::get<PolygonGeometry>(objects[5].geometry).vertices.size() == 4);
+        const auto &arcGeo = std::get<ArcGeometry>(objects[4].geometry);
+        assert(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);
     }
 
     // Unknown-field tolerance: extra keys at every level are ignored on read.

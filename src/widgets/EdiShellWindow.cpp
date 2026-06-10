@@ -622,6 +622,7 @@ QWidget *EdiShellWindow::buildLeftPanel()
         {QStringLiteral("line_tool"), QStringLiteral("Line")},
         {QStringLiteral("rectangle_tool"), QStringLiteral("Rectangle")},
         {QStringLiteral("circle_tool"), QStringLiteral("Circle")},
+        {QStringLiteral("arc_tool"), QStringLiteral("Arc")},
         {QStringLiteral("regular_polygon_tool"), QStringLiteral("Polygon")},
         {QStringLiteral("horizontal_guide_tool"), QStringLiteral("H Guide")},
         {QStringLiteral("vertical_guide_tool"), QStringLiteral("V Guide")},

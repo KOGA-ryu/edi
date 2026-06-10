@@ -250,6 +250,13 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"circle_center", "center", geometry.center},
                 {"circle_radius", "radius", {geometry.center.x + geometry.radius, geometry.center.y}},
             };
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            return {
+                {"arc_center", "center", geometry.center},
+                {"arc_radius", "radius", arcPointAtAngle(geometry.center, geometry.radius, arcMidAngleDeg(geometry))},
+                {"arc_start", "endpoint", arcPointAtAngle(geometry.center, geometry.radius, geometry.startAngleDeg)},
+                {"arc_end", "endpoint", arcPointAtAngle(geometry.center, geometry.radius, geometry.endAngleDeg)},
+            };
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             DraftingHandleDescriptor offset {
                 "dimension_offset",
@@ -325,6 +332,25 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
         }
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetCircleRadius, handleId, point, distance(circle->center, point)});
     }
+    if (object.kind == DraftingShapeKind::Arc) {
+        const auto *arc = std::get_if<ArcGeometry>(&object.geometry);
+        if (arc == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        if (handleId == "arc_center") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveArcCenter, handleId, point});
+        }
+        if (handleId == "arc_radius") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetArcRadius, handleId, point, distance(arc->center, point)});
+        }
+        const double angle = std::atan2(point.y - arc->center.y, point.x - arc->center.x) * 180.0 / pi;
+        if (handleId == "arc_start") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetArcStartAngle, handleId, point, angle});
+        }
+        if (handleId == "arc_end") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetArcEndAngle, handleId, point, angle});
+        }
+    }
     if (object.kind == DraftingShapeKind::Rectangle && handleId == "rect_rotate") {
         const auto *rect = std::get_if<RectangleGeometry>(&object.geometry);
         if (rect == nullptr) {
@@ -382,6 +408,19 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
                 geometry.radius = edit.value;
             } else {
                 return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to circle geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            if (edit.kind == DraftingObjectEditKind::MoveArcCenter) {
+                geometry.center = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::SetArcRadius) {
+                geometry.radius = edit.value;
+            } else if (edit.kind == DraftingObjectEditKind::SetArcStartAngle) {
+                geometry.startAngleDeg = edit.value;
+            } else if (edit.kind == DraftingObjectEditKind::SetArcEndAngle) {
+                geometry.endAngleDeg = edit.value;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to arc geometry");
             }
             return validatedEditResult(object, geometry);
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {

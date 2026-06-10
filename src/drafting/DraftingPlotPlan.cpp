@@ -1,5 +1,7 @@
 #include "drafting/DraftingPlotPlan.h"
 
+#include "drafting/DraftingGeometry.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
@@ -156,6 +158,9 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
                 appendSegment(plan, object, layer, previous, next);
                 previous = next;
             }
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            // Flatten the arc to an open chain at ~2deg steps (shared sampler).
+            appendVertexSegments(plan, object, layer, sampleArc(geometry), false);
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, true);
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {

@@ -259,7 +259,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon")) {
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc")) {
         const DrawingCanvasProjectedPolygon projected = projectedPolygon(object);
         if (!projected.ok) {
             return;
@@ -271,6 +271,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (kind == QStringLiteral("polygon")) {
             painter.drawPolygon(polygon);
         } else {
+            // Arc and polyline are open chains.
             painter.drawPolyline(polygon);
         }
     }
@@ -346,6 +347,15 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
             const double radius = circle.radius * context.board.width();
             painter.drawEllipse(center, radius, radius);
+        }
+    } else if (kind == QStringLiteral("arc")) {
+        const DrawingCanvasProjectedPolygon projected = projectedPolygon(object);
+        if (projected.ok) {
+            QPolygonF chain;
+            for (const DrawingCanvasProjectedPoint &point : projected.points) {
+                chain.push_back(drawing_canvas::canvasToScreen(context.board, point.x, point.y));
+            }
+            painter.drawPolyline(chain);
         }
     }
     painter.restore();

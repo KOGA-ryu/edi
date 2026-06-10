@@ -24,6 +24,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
     if (name == "line") return DraftingShapeKind::Line;
     if (name == "rectangle") return DraftingShapeKind::Rectangle;
     if (name == "circle") return DraftingShapeKind::Circle;
+    if (name == "arc") return DraftingShapeKind::Arc;
     if (name == "polygon") return DraftingShapeKind::Polygon;
     if (name == "polyline") return DraftingShapeKind::Polyline;
     if (name == "guide") return DraftingShapeKind::Guide;
@@ -35,7 +36,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
 bool isKnownShapeKindName(const std::string &name)
 {
     return name == "point" || name == "line" || name == "rectangle" || name == "circle"
-        || name == "polygon" || name == "polyline" || name == "guide"
+        || name == "arc" || name == "polygon" || name == "polyline" || name == "guide"
         || name == "construction_line" || name == "dimension";
 }
 
@@ -157,6 +158,11 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
         } else if constexpr (std::is_same_v<G, CircleGeometry>) {
             fields.emplace_back("center", pointValue(g.center));
             fields.emplace_back("radius", MsgPackValue::number(g.radius));
+        } else if constexpr (std::is_same_v<G, ArcGeometry>) {
+            fields.emplace_back("center", pointValue(g.center));
+            fields.emplace_back("radius", MsgPackValue::number(g.radius));
+            fields.emplace_back("start_angle_deg", MsgPackValue::number(g.startAngleDeg));
+            fields.emplace_back("end_angle_deg", MsgPackValue::number(g.endAngleDeg));
         } else if constexpr (std::is_same_v<G, PolygonGeometry>) {
             fields.emplace_back("vertices", verticesValue(g.vertices));
         } else if constexpr (std::is_same_v<G, PolylineGeometry>) {
@@ -203,6 +209,14 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
         CircleGeometry geo;
         geo.center = readPoint(child(g, "center"));
         geo.radius = asDouble(child(g, "radius"), 0.0);
+        return geo;
+    }
+    case DraftingShapeKind::Arc: {
+        ArcGeometry geo;
+        geo.center = readPoint(child(g, "center"));
+        geo.radius = asDouble(child(g, "radius"), 0.0);
+        geo.startAngleDeg = asDouble(child(g, "start_angle_deg"), 0.0);
+        geo.endAngleDeg = asDouble(child(g, "end_angle_deg"), 0.0);
         return geo;
     }
     case DraftingShapeKind::Polygon: {

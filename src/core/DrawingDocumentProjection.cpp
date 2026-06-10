@@ -141,6 +141,13 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         pushNumericField(fields, numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0), grid);
         pushNumericField(fields, numericField(QStringLiteral("diameter"), QStringLiteral("Diameter"), 0.0), grid);
         break;
+    case DraftingShapeKind::Arc:
+        pushNumericField(fields, numericField(QStringLiteral("cx"), QStringLiteral("CX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("cy"), QStringLiteral("CY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0), grid);
+        pushNumericField(fields, numericField(QStringLiteral("start_angle_deg"), QStringLiteral("Start"), -360.0, 360.0, 1.0, 2), grid);
+        pushNumericField(fields, numericField(QStringLiteral("end_angle_deg"), QStringLiteral("End"), -360.0, 360.0, 1.0, 2), grid);
+        break;
     case DraftingShapeKind::Guide:
         pushNumericField(fields, numericField(QStringLiteral("position"), QStringLiteral("Position"), 0.0, 1.0), grid);
         break;
@@ -299,6 +306,12 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("diameter"), physicalWidth(geometry.radius * 2.0, grid));
             result.insert(QStringLiteral("radius_y"), physicalHeight(geometry.radius, grid));
             result.insert(QStringLiteral("diameter_y"), physicalHeight(geometry.radius * 2.0, grid));
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            result.insert(QStringLiteral("cx"), physicalX(geometry.center, grid));
+            result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
+            result.insert(QStringLiteral("radius"), physicalWidth(geometry.radius, grid));
+            result.insert(QStringLiteral("start_angle_deg"), geometry.startAngleDeg);
+            result.insert(QStringLiteral("end_angle_deg"), geometry.endAngleDeg);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (geometry.orientation == GuideOrientation::Horizontal) {
                 result.insert(QStringLiteral("position"), geometry.position * grid.settings.height);
@@ -464,6 +477,18 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("cy"), geometry.center.y);
             result.insert(QStringLiteral("radius"), geometry.radius);
             result.insert(QStringLiteral("diameter"), geometry.radius * 2.0);
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            result.insert(QStringLiteral("cx"), geometry.center.x);
+            result.insert(QStringLiteral("cy"), geometry.center.y);
+            result.insert(QStringLiteral("radius"), geometry.radius);
+            result.insert(QStringLiteral("start_angle_deg"), geometry.startAngleDeg);
+            result.insert(QStringLiteral("end_angle_deg"), geometry.endAngleDeg);
+            // Flattened polyline so the canvas painter can draw the arc directly.
+            QVariantList points;
+            for (Point2D point : sampleArc(geometry)) {
+                points.push_back(pointToMap(point));
+            }
+            result.insert(QStringLiteral("points"), points);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             result.insert(QStringLiteral("orientation"), QString::fromLatin1(guideOrientationName(geometry.orientation)));
             result.insert(QStringLiteral("position"), geometry.position);

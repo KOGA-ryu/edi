@@ -109,6 +109,30 @@ int main()
     assert(std::string(draftingToolKindName(DraftingToolKind::RegularPolygon)) == "regular_polygon");
     assert(draftingToolKindFromId("regular_polygon_tool") == DraftingToolKind::RegularPolygon);
 
+    // Arc: centre + a point giving radius and start angle; end = start + sweep.
+    {
+        DraftingToolCreationRequest request;
+        request.tool = DraftingToolKind::Arc;
+        request.objectId = "arc_1";
+        request.start = {0.5, 0.5};   // centre
+        request.end = {0.8, 0.5};     // radius 0.3, start angle 0deg
+        request.toolProvenance = "arc";
+        auto arc = buildDraftingObjectForTool(request);
+        assert(arc.ok);
+        assert(arc.object.kind == DraftingShapeKind::Arc);
+        const auto *arcGeometry = std::get_if<ArcGeometry>(&arc.object.geometry);
+        assert(arcGeometry != nullptr);
+        assert(nearlyEqual(arcGeometry->radius, 0.3));
+        assert(nearlyEqual(arcGeometry->startAngleDeg, 0.0));
+        assert(nearlyEqual(arcGeometry->endAngleDeg, 105.0)); // default sweep
+        // A custom sweep is honoured.
+        request.arcSweepDeg = 60.0;
+        auto narrow = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<ArcGeometry>(narrow.object.geometry).endAngleDeg, 60.0));
+    }
+    assert(std::string(draftingToolKindName(DraftingToolKind::Arc)) == "arc");
+    assert(draftingToolKindFromId("arc_tool") == DraftingToolKind::Arc);
+
     auto horizontalGuide = build("guide_h", DraftingToolKind::HorizontalGuide, {0.1, 0.2}, {0.7, 0.4});
     assert(horizontalGuide.ok);
     assert(horizontalGuide.object.kind == DraftingShapeKind::Guide);

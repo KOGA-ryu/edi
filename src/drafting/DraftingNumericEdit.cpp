@@ -137,6 +137,21 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to circle");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            if (fieldId == "cx") {
+                geometry.center.x = value;
+            } else if (fieldId == "cy") {
+                geometry.center.y = value;
+            } else if (fieldId == "radius") {
+                geometry.radius = value;
+            } else if (fieldId == "start_angle_deg") {
+                geometry.startAngleDeg = value;
+            } else if (fieldId == "end_angle_deg") {
+                geometry.endAngleDeg = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to arc");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (fieldId == "position") {
                 geometry.position = value;

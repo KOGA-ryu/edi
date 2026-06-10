@@ -61,6 +61,30 @@ std::vector<Point2D> rectangleCorners(const RectangleGeometry &rect)
     return corners;
 }
 
+// Exact axis-aligned bounds of a circular arc: the two endpoints plus any of the
+// four cardinal directions (0/90/180/270 deg) whose angle falls within the span.
+Bounds2D arcBounds(const ArcGeometry &arc)
+{
+    constexpr double pi = 3.14159265358979323846;
+    const double radius = std::max(0.0, arc.radius);
+    const double lo = std::min(arc.startAngleDeg, arc.endAngleDeg);
+    const double hi = std::max(arc.startAngleDeg, arc.endAngleDeg);
+
+    auto pointAt = [&](double deg) -> Point2D {
+        const double rad = deg * pi / 180.0;
+        return {arc.center.x + radius * std::cos(rad), arc.center.y + radius * std::sin(rad)};
+    };
+
+    std::vector<Point2D> extremes{pointAt(arc.startAngleDeg), pointAt(arc.endAngleDeg)};
+    // Walk every cardinal angle in [lo, hi] (offset by multiples of 360).
+    for (double cardinal = std::floor(lo / 90.0) * 90.0; cardinal <= hi; cardinal += 90.0) {
+        if (cardinal >= lo && cardinal <= hi) {
+            extremes.push_back(pointAt(cardinal));
+        }
+    }
+    return boundsFromPoints(extremes);
+}
+
 } // namespace
 
 const char *shapeKindName(DraftingShapeKind kind)
@@ -74,6 +98,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "rectangle";
     case DraftingShapeKind::Circle:
         return "circle";
+    case DraftingShapeKind::Arc:
+        return "arc";
     case DraftingShapeKind::Polygon:
         return "polygon";
     case DraftingShapeKind::Polyline:
@@ -155,6 +181,8 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Rectangle;
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             return DraftingShapeKind::Circle;
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            return DraftingShapeKind::Arc;
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return DraftingShapeKind::Polygon;
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
@@ -251,6 +279,16 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (typedGeometry.radius < 0.0) {
                 return GeometryValidationResult::rejected("circle radius must be non-negative");
             }
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            if (!isFinite(typedGeometry.center)
+                || !std::isfinite(typedGeometry.radius)
+                || !std::isfinite(typedGeometry.startAngleDeg)
+                || !std::isfinite(typedGeometry.endAngleDeg)) {
+                return GeometryValidationResult::rejected("arc fields must be finite");
+            }
+            if (typedGeometry.radius < 0.0) {
+                return GeometryValidationResult::rejected("arc radius must be non-negative");
+            }
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             if (typedGeometry.vertices.size() < 3) {
                 return GeometryValidationResult::rejected("polygon requires at least three vertices");
@@ -313,6 +351,8 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
                 radius * 2.0,
                 radius * 2.0,
             };
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            return arcBounds(typedGeometry);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 return {0.0, typedGeometry.position, 1.0, 0.0};
@@ -376,6 +416,8 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             typedGeometry.origin = translatePoint(typedGeometry.origin, dx, dy);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 typedGeometry.position += dy;
@@ -410,6 +452,32 @@ double distance(Point2D a, Point2D b)
     const double dx = b.x - a.x;
     const double dy = b.y - a.y;
     return std::sqrt(dx * dx + dy * dy);
+}
+
+Point2D arcPointAtAngle(Point2D center, double radius, double angleDeg)
+{
+    constexpr double pi = 3.14159265358979323846;
+    const double rad = angleDeg * pi / 180.0;
+    return {center.x + radius * std::cos(rad), center.y + radius * std::sin(rad)};
+}
+
+double arcMidAngleDeg(const ArcGeometry &arc)
+{
+    return (arc.startAngleDeg + arc.endAngleDeg) * 0.5;
+}
+
+std::vector<Point2D> sampleArc(const ArcGeometry &arc, double maxStepDeg)
+{
+    std::vector<Point2D> points;
+    const double span = arc.endAngleDeg - arc.startAngleDeg;
+    const double step = (std::isfinite(maxStepDeg) && maxStepDeg > 0.0) ? maxStepDeg : 2.0;
+    const int segments = std::max(1, static_cast<int>(std::ceil(std::abs(span) / step)));
+    points.reserve(static_cast<std::size_t>(segments) + 1);
+    for (int i = 0; i <= segments; ++i) {
+        const double angle = arc.startAngleDeg + span * (static_cast<double>(i) / segments);
+        points.push_back(arcPointAtAngle(arc.center, arc.radius, angle));
+    }
+    return points;
 }
 
 double lineAngleDegrees(const LineGeometry &line)
@@ -477,6 +545,11 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             handles.push_back({"circle_center", typedGeometry.center});
             handles.push_back({"circle_radius", {typedGeometry.center.x + typedGeometry.radius, typedGeometry.center.y}});
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            handles.push_back({"arc_center", typedGeometry.center});
+            handles.push_back({"arc_radius", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, arcMidAngleDeg(typedGeometry))});
+            handles.push_back({"arc_start", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.startAngleDeg)});
+            handles.push_back({"arc_end", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.endAngleDeg)});
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 handles.push_back({"guide", {0.5, typedGeometry.position}});

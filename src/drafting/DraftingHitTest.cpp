@@ -72,6 +72,22 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             return distance({nearestX, nearestY}, point);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             return std::abs(distance(typedGeometry.center, point) - typedGeometry.radius);
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            constexpr double pi = 3.14159265358979323846;
+            const double lo = std::min(typedGeometry.startAngleDeg, typedGeometry.endAngleDeg);
+            const double hi = std::max(typedGeometry.startAngleDeg, typedGeometry.endAngleDeg);
+            double angle = std::atan2(point.y - typedGeometry.center.y, point.x - typedGeometry.center.x) * 180.0 / pi;
+            while (angle < lo) {
+                angle += 360.0;
+            }
+            if (angle <= hi) {
+                // Inside the angular span: radial distance to the arc.
+                return std::abs(distance(typedGeometry.center, point) - typedGeometry.radius);
+            }
+            // Outside the span: distance to the nearer endpoint.
+            return std::min(
+                distance(arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.startAngleDeg), point),
+                distance(arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.endAngleDeg), point));
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return distanceToVertexList(typedGeometry.vertices, point, true);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {

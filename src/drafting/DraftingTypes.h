@@ -197,4 +197,16 @@ bool isValidLayerName(const std::string &name);
 DraftingShapeKind geometryKind(const DraftingGeometry &geometry);
 bool kindMatchesGeometry(DraftingShapeKind kind, const DraftingGeometry &geometry);
 
+template <typename Geometry>
+constexpr DraftingShapeKind shapeKindOf();
+template <> constexpr DraftingShapeKind shapeKindOf<PointGeometry>() { return DraftingShapeKind::Point; }
+template <> constexpr DraftingShapeKind shapeKindOf<LineGeometry>() { return DraftingShapeKind::Line; }
+template <> constexpr DraftingShapeKind shapeKindOf<RectangleGeometry>() { return DraftingShapeKind::Rectangle; }
+template <> constexpr DraftingShapeKind shapeKindOf<CircleGeometry>() { return DraftingShapeKind::Circle; }
+template <> constexpr DraftingShapeKind shapeKindOf<PolygonGeometry>() { return DraftingShapeKind::Polygon; }
+template <> constexpr DraftingShapeKind shapeKindOf<PolylineGeometry>() { return DraftingShapeKind::Polyline; }
+template <> constexpr DraftingShapeKind shapeKindOf<GuideGeometry>() { return DraftingShapeKind::Guide; }
+template <> constexpr DraftingShapeKind shapeKindOf<ConstructionLineGeometry>() { return DraftingShapeKind::ConstructionLine; }
+template <> constexpr DraftingShapeKind shapeKindOf<DimensionGeometry>() { return DraftingShapeKind::Dimension; }
+
 } // namespace edi::drafting

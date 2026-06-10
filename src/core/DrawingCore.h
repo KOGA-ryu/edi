@@ -138,6 +138,11 @@ private:
     bool applyActiveObjectGeometryUpdate(
         edi::drafting::DraftingShapeKind kind,
         const std::function<std::optional<edi::drafting::DraftingGeometry>(const edi::drafting::DraftingObject &)> &planGeometry);
+    // Resolves the active object by the kind matching Geometry and unwraps the
+    // variant before invoking the plan; the kind/type pairing is fixed at compile time.
+    template <typename Geometry>
+    bool applyActiveGeometryPlan(
+        const std::function<std::optional<edi::drafting::DraftingGeometry>(const Geometry &)> &planGeometry);
     bool applyGuideDrawablePlacement(edi::drafting::DraftingGuideDrawablePlacement placement);
     bool applyLayerFlagsUpdate(
         const edi::drafting::LayerId &layerId,

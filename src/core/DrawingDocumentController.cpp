@@ -891,6 +891,19 @@ bool DrawingDocumentController::applyActiveObjectGeometryUpdate(
     return applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
 }
 
+template <typename Geometry>
+bool DrawingDocumentController::applyActiveGeometryPlan(
+    const std::function<std::optional<DraftingGeometry>(const Geometry &)> &planGeometry)
+{
+    return applyActiveObjectGeometryUpdate(shapeKindOf<Geometry>(), [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
+        const auto *geometry = std::get_if<Geometry>(&object.geometry);
+        if (geometry == nullptr) {
+            return std::nullopt;
+        }
+        return planGeometry(*geometry);
+    });
+}
+
 bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 {
     return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
@@ -925,12 +938,8 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
     if (!kind) {
         return false;
     }
-    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Dimension, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
-        const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry);
-        if (dimension == nullptr) {
-            return std::nullopt;
-        }
-        const DraftingDimensionPlan plan = planDimensionKindChange(*dimension, *kind);
+    return applyActiveGeometryPlan<DimensionGeometry>([&](const DimensionGeometry &dimension) -> std::optional<DraftingGeometry> {
+        const DraftingDimensionPlan plan = planDimensionKindChange(dimension, *kind);
         if (!plan.ok) {
             return std::nullopt;
         }
@@ -1302,13 +1311,9 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
 
 bool DrawingDocumentController::applyGuideDrawablePlacement(DraftingGuideDrawablePlacement placement)
 {
-    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Guide, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
-        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
-        if (guide == nullptr) {
-            return std::nullopt;
-        }
+    return applyActiveGeometryPlan<GuideGeometry>([&](const GuideGeometry &guide) -> std::optional<DraftingGeometry> {
         const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-        const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, placement);
+        const DraftingGuidePlan plan = moveGuideToDrawable(guide, grid.drawableBounds, placement);
         if (!plan.ok) {
             return std::nullopt;
         }
@@ -1333,15 +1338,11 @@ bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
 
 bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, const QString &stepMode)
 {
-    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Guide, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
-        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
-        if (guide == nullptr) {
-            return std::nullopt;
-        }
+    return applyActiveGeometryPlan<GuideGeometry>([&](const GuideGeometry &guide) -> std::optional<DraftingGeometry> {
         const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
         const double stepX = effectiveNudgeStepX(m_snapSettings);
         const double stepY = effectiveNudgeStepY(m_snapSettings);
-        const DraftingGuidePlan plan = offsetGuide(*guide, toStdString(direction), stepX, stepY, scale);
+        const DraftingGuidePlan plan = offsetGuide(guide, toStdString(direction), stepX, stepY, scale);
         if (!plan.ok) {
             return std::nullopt;
         }
@@ -1351,13 +1352,9 @@ bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, co
 
 bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
 {
-    return applyActiveObjectGeometryUpdate(DraftingShapeKind::ConstructionLine, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
-        const auto *line = std::get_if<ConstructionLineGeometry>(&object.geometry);
-        if (line == nullptr) {
-            return std::nullopt;
-        }
+    return applyActiveGeometryPlan<ConstructionLineGeometry>([&](const ConstructionLineGeometry &line) -> std::optional<DraftingGeometry> {
         const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-        const DraftingConstructionLinePlan plan = fitConstructionLineToDrawable(*line, grid.drawableBounds);
+        const DraftingConstructionLinePlan plan = fitConstructionLineToDrawable(line, grid.drawableBounds);
         if (!plan.ok) {
             return std::nullopt;
         }

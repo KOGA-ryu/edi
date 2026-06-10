@@ -61,6 +61,9 @@ WorkspaceLayout draftingWorkspaceLayout()
         {ShellSlot::Right, QStringLiteral("drafting")},
         {ShellSlot::Bottom, QStringLiteral("drafting")},
     };
+    // The belt arrangement ships with the job, not with the feature: a saved
+    // workspace.toml overrides this wholesale.
+    layout.belt = DraftingFeature::defaultBeltLayout();
     return layout;
 }
 
@@ -446,6 +449,10 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
             m_chromeStatus->setText(text);
         }
     };
+    // Read the member at call time: the feature is recreated on every
+    // workspace switch and must see the layout being mounted, not the one
+    // that existed when the actions were wired.
+    actions.beltLayout = [this]() { return m_workspaceLayout.belt; };
     return std::make_unique<DraftingFeature>(m_controller, std::move(actions));
 }
 

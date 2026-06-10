@@ -40,6 +40,10 @@ public:
 
     int activeIndex() const;
     QString activeItemId() const;
+    // Slot index of the item with this id, or -1. The host syncs with
+    // setActiveIndex(indexOfItem(currentId)) when its notion of "current"
+    // changes through some other control.
+    int indexOfItem(const QString &id) const;
     edi::shell::BeltState beltState() const { return m_state; }
 
     QSize sizeHint() const override;

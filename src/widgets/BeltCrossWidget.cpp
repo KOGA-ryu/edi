@@ -64,6 +64,19 @@ QString BeltCrossWidget::activeItemId() const
     return index >= 0 && index < m_items.size() ? m_items.at(index).id : QString();
 }
 
+int BeltCrossWidget::indexOfItem(const QString &id) const
+{
+    if (id.isEmpty()) {
+        return -1; // empty slots are interchangeable, never "found"
+    }
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (m_items.at(i).id == id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 QRect BeltCrossWidget::cellRect(int row, int column) const
 {
     return QRect(column * (kCellSize + kCellGap), row * (kCellSize + kCellGap), kCellSize, kCellSize);

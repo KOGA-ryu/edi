@@ -521,6 +521,45 @@ QWidget *DraftingFeature::buildRightPanel()
     });
     group->addWidget(m_selectedObjectLayer);
 
+    // N3 semantic/export metadata, folded (reference data, not the first
+    // thing reached for on selecting an object).
+    {
+        FoldBox meta = makeFoldBox();
+        m_objectRole = makeDataCombo(QStringLiteral("objectRoleCombo"), {
+            {QStringLiteral("Role: none"), QStringLiteral("none")},
+            {QStringLiteral("Role: wall"), QStringLiteral("wall")},
+            {QStringLiteral("Role: floor"), QStringLiteral("floor")},
+            {QStringLiteral("Role: cutout"), QStringLiteral("cutout")},
+            {QStringLiteral("Role: collider"), QStringLiteral("collider")},
+        }, [this](const QString &roleId) {
+            m_controller->setSelectedObjectRole(roleId);
+        });
+        meta.layout->addWidget(m_objectRole);
+        m_objectMaterial = new QLineEdit;
+        m_objectMaterial->setObjectName(QStringLiteral("objectMaterialField"));
+        m_objectMaterial->setPlaceholderText(QStringLiteral("Material"));
+        connect(m_objectMaterial, &QLineEdit::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectMaterial(m_objectMaterial->text());
+        });
+        meta.layout->addWidget(m_objectMaterial);
+        m_objectExportGroup = new QLineEdit;
+        m_objectExportGroup->setObjectName(QStringLiteral("objectExportGroupField"));
+        m_objectExportGroup->setPlaceholderText(QStringLiteral("Export group"));
+        connect(m_objectExportGroup, &QLineEdit::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectExportGroup(m_objectExportGroup->text());
+        });
+        meta.layout->addWidget(m_objectExportGroup);
+        m_objectTags = new QLineEdit;
+        m_objectTags->setObjectName(QStringLiteral("objectTagsField"));
+        m_objectTags->setPlaceholderText(QStringLiteral("Tags (comma-separated)"));
+        connect(m_objectTags, &QLineEdit::editingFinished, this, [this]() {
+            // The controller owns trimming/blank-dropping; the shell only splits.
+            m_controller->setSelectedObjectTags(m_objectTags->text().split(QLatin1Char(',')));
+        });
+        meta.layout->addWidget(m_objectTags);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Metadata"), meta.box, false));
+    }
+
     group = beginInspectorGroup(layout, QStringLiteral("geometry"));
     m_geometryEditor = buildGeometryEditor();
     group->addWidget(m_geometryEditor);

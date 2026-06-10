@@ -191,6 +191,10 @@ private:
     QCheckBox *m_defaultLayerVisible = nullptr;
     QComboBox *m_activeLayer = nullptr;
     QComboBox *m_selectedObjectLayer = nullptr;
+    QComboBox *m_objectRole = nullptr;
+    QLineEdit *m_objectMaterial = nullptr;
+    QLineEdit *m_objectExportGroup = nullptr;
+    QLineEdit *m_objectTags = nullptr;
     QPushButton *m_addLayerButton = nullptr;
     QPushButton *m_layerUpButton = nullptr;
     QPushButton *m_layerDownButton = nullptr;

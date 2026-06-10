@@ -199,6 +199,34 @@ int main(int argc, char **argv)
     assert(fitToDrawable->isEnabled());
     assert(!guideToOrigin->isEnabled());
 
+    // N3: the inspector's metadata controls drive role/material/group/tags on
+    // the selected object, and surface back through the projection.
+    {
+        QComboBox *roleCombo = window.findChild<QComboBox *>(QStringLiteral("objectRoleCombo"));
+        auto *materialField = window.findChild<QLineEdit *>(QStringLiteral("objectMaterialField"));
+        auto *groupField = window.findChild<QLineEdit *>(QStringLiteral("objectExportGroupField"));
+        auto *tagsField = window.findChild<QLineEdit *>(QStringLiteral("objectTagsField"));
+        assert(roleCombo != nullptr && materialField != nullptr && groupField != nullptr && tagsField != nullptr);
+
+        roleCombo->setCurrentIndex(roleCombo->findData(QStringLiteral("wall")));
+        assert(activeObject(*controller).value(QStringLiteral("role")).toString() == QStringLiteral("wall"));
+
+        materialField->setText(QStringLiteral("concrete"));
+        QMetaObject::invokeMethod(materialField, "editingFinished");
+        assert(activeObject(*controller).value(QStringLiteral("material")).toString() == QStringLiteral("concrete"));
+
+        groupField->setText(QStringLiteral("shell"));
+        QMetaObject::invokeMethod(groupField, "editingFinished");
+        assert(activeObject(*controller).value(QStringLiteral("export_group")).toString() == QStringLiteral("shell"));
+
+        tagsField->setText(QStringLiteral("a, b,c"));
+        QMetaObject::invokeMethod(tagsField, "editingFinished");
+        assert(activeObject(*controller).value(QStringLiteral("tags")).toString() == QStringLiteral("a, b, c"));
+
+        // The combo mirrors live state after a refresh (the role we set).
+        assert(roleCombo->currentData().toString() == QStringLiteral("wall"));
+    }
+
     // Create and select a guide; guide-conditional buttons flip on.
     controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
     controller->clickCanvasNormalized(0.5, 0.25);

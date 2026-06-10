@@ -249,6 +249,24 @@ void DraftingFeature::refreshInspector()
         layers,
         selectedObject.value(QStringLiteral("layer_id")).toString(),
         !selectedObject.isEmpty());
+    // N3 metadata: mirror the selection's role/material/group/tags. Disabled
+    // and blanked when nothing is selected; signal-blocked so a programmatic
+    // refresh never re-enters the controller setters.
+    {
+        const bool hasSelection = !selectedObject.isEmpty();
+        refreshComboData(m_objectRole, selectedObject.value(QStringLiteral("role"), QStringLiteral("none")).toString(), 0, hasSelection);
+        const auto syncField = [&](QLineEdit *field, const QString &key) {
+            if (field == nullptr) {
+                return;
+            }
+            const QSignalBlocker blocker(field);
+            field->setEnabled(hasSelection);
+            field->setText(hasSelection ? selectedObject.value(key).toString() : QString());
+        };
+        syncField(m_objectMaterial, QStringLiteral("material"));
+        syncField(m_objectExportGroup, QStringLiteral("export_group"));
+        syncField(m_objectTags, QStringLiteral("tags"));
+    }
     refreshComboData(m_gridPreset, grid.value(QStringLiteral("preset")).toString(), 0);
     refreshComboData(m_gridUnit, grid.value(QStringLiteral("unit")).toString(), 0);
     refreshSpinValue(m_gridWidth, grid.value(QStringLiteral("width")).toDouble());

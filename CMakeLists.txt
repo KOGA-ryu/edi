@@ -263,6 +263,9 @@ add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_va
 add_edi_contract_test(shell_theme_tests tests/shell_theme_tests.cpp Qt6::Core)
 target_sources(shell_theme_tests PRIVATE src/widgets/ShellTheme.cpp)
 target_include_directories(shell_theme_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(drawing_canvas_palette_tests tests/drawing_canvas_palette_tests.cpp Qt6::Core Qt6::Gui)
+target_sources(drawing_canvas_palette_tests PRIVATE src/widgets/DrawingCanvasPalette.cpp src/widgets/ShellTheme.cpp)
+target_include_directories(drawing_canvas_palette_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -321,6 +324,8 @@ add_executable(edi_shell_window_tests
     src/widgets/ShellTheme.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasPalette.h
+    src/widgets/DrawingCanvasPalette.cpp
     src/widgets/DrawingCanvasViewport.h
     src/widgets/DrawingCanvasViewport.cpp
     src/widgets/DrawingCanvasHandleHitTest.h
@@ -358,6 +363,8 @@ add_test(NAME edi_shell_window_tests COMMAND edi_shell_window_tests)
 
 add_executable(drawing_canvas_widget_tests
     tests/drawing_canvas_widget_tests.cpp
+    src/widgets/ShellTheme.h
+    src/widgets/ShellTheme.cpp
     src/core/DrawingCore.h
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
@@ -366,6 +373,8 @@ add_executable(drawing_canvas_widget_tests
     src/io/DrawingDocumentStore.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasPalette.h
+    src/widgets/DrawingCanvasPalette.cpp
     src/widgets/DrawingCanvasViewport.h
     src/widgets/DrawingCanvasViewport.cpp
     src/widgets/DrawingCanvasHandleHitTest.h
@@ -437,6 +446,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/ShellTheme.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
+    src/widgets/DrawingCanvasPalette.h
+    src/widgets/DrawingCanvasPalette.cpp
     src/widgets/DrawingCanvasViewport.h
     src/widgets/DrawingCanvasViewport.cpp
     src/widgets/DrawingCanvasHandleHitTest.h

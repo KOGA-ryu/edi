@@ -33,6 +33,7 @@
 
 #include "core/DrawingCore.h"
 #include "widgets/DrawingCanvasWidget.h"
+#include "widgets/ShellTheme.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 using namespace edi::shell;
@@ -260,126 +261,8 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
 
 void EdiShellWindow::applyShellStyle()
 {
-    setStyleSheet(QStringLiteral(R"(
-        #shellRoot {
-            background: #101418;
-            color: #dce5ee;
-            font-family: "Avenir Next", "Inter", sans-serif;
-            font-size: 12px;
-        }
-        #activityRail {
-            background: #121920;
-            border-right: 1px solid #31404f;
-        }
-        #leftPanel, #rightPanel {
-            background: #171d24;
-            border-right: 1px solid #31404f;
-            border-left: 1px solid #24313e;
-        }
-        #workspaceColumn {
-            background: #111821;
-        }
-        #workspaceHeader {
-            background: #1b232d;
-            border-bottom: 1px solid #31404f;
-        }
-        #bottomPanel {
-            background: #121920;
-            border-top: 1px solid #31404f;
-        }
-        QLabel {
-            color: #dce5ee;
-        }
-        #panelTitle, #workspaceTitle {
-            color: #dce5ee;
-            font-size: 14px;
-            font-weight: 600;
-        }
-        #sectionLabel {
-            color: #8fb4d8;
-            font-size: 11px;
-            font-weight: 600;
-            padding-top: 8px;
-            text-transform: uppercase;
-        }
-        #valueLabel, #bottomStatus {
-            color: #9aa8b6;
-            background: #1b232d;
-            border: 1px solid #24313e;
-            border-radius: 5px;
-            padding: 6px 8px;
-        }
-        #editErrorLabel {
-            color: #f0c8c8;
-            background: #2a1d21;
-            border: 1px solid #6b343f;
-            border-radius: 5px;
-            padding: 6px 8px;
-        }
-        #fieldLabel {
-            color: #9aa8b6;
-        }
-        #geometryField {
-            color: #dce5ee;
-            background: #202a35;
-            border: 1px solid #31404f;
-            border-radius: 5px;
-            padding: 4px 6px;
-        }
-        #geometryField[editInvalid="true"] {
-            color: #f4dede;
-            background: #332127;
-            border: 1px solid #c65d6a;
-        }
-        QPushButton {
-            color: #dce5ee;
-            background: #202a35;
-            border: 1px solid #31404f;
-            border-radius: 5px;
-            padding: 7px 9px;
-            text-align: left;
-        }
-        QPushButton:hover {
-            background: #283542;
-        }
-        QPushButton:checked {
-            background: #304052;
-            border-color: #5e7892;
-        }
-        #railButton {
-            min-width: 32px;
-            text-align: center;
-            padding-left: 6px;
-            padding-right: 6px;
-        }
-        QCheckBox {
-            color: #dce5ee;
-            spacing: 8px;
-        }
-        QComboBox {
-            color: #dce5ee;
-            background: #202a35;
-            border: 1px solid #31404f;
-            border-radius: 5px;
-            padding: 6px 8px;
-        }
-        QComboBox::drop-down {
-            border: 0;
-            width: 22px;
-        }
-        QCheckBox::indicator {
-            width: 15px;
-            height: 15px;
-        }
-        QCheckBox::indicator:unchecked {
-            background: #202a35;
-            border: 1px solid #31404f;
-            border-radius: 3px;
-        }
-        QCheckBox::indicator:checked {
-            background: #8fb4d8;
-            border: 1px solid #8fb4d8;
-            border-radius: 3px;
-        }
-    )"));
+    // The palette lives in ShellTheme as data; this method only asks for the
+    // default inputs and applies the derived sheet. Custom themes later become
+    // "construct different inputs here" — no QSS edits.
+    setStyleSheet(buildShellStyleSheet(deriveShellTheme(ShellThemeInputs{})));
 }

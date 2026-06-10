@@ -20,6 +20,7 @@
 #include "widgets/DrawingCanvasProjectedPointer.h"
 #include "widgets/DrawingCanvasProjectedStatus.h"
 #include "widgets/DrawingCanvasViewport.h"
+#include "widgets/ShellTheme.h"
 
 namespace {
 
@@ -49,6 +50,7 @@ bool isTwoClickCreationTool(const QString &toolId)
 DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent)
     : QWidget(parent)
     , m_controller(controller)
+    , m_palette(drawing_canvas::deriveCanvasPalette(edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{})))
     , m_gestureState(drawing_canvas::initialGestureState())
 {
     setMinimumSize(480, 360);
@@ -118,19 +120,19 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.fillRect(rect(), QColor("#17191f"));
+    painter.fillRect(rect(), m_palette.backdrop);
 
     if (m_controller == nullptr) {
         const QRectF board = boardRect();
-        painter.fillRect(board, QColor("#222630"));
-        painter.setPen(QPen(QColor("#3d4452"), 1));
+        painter.fillRect(board, m_palette.boardFill);
+        painter.setPen(QPen(m_palette.boardOutline, 1));
         painter.drawRect(board);
         return;
     }
     const QVariantMap model = m_controller->modelDocument();
     const QRectF board = boardRect();
     const drawing_canvas::DrawingCanvasProjectedDocumentSurface document = drawing_canvas::projectedDocumentSurface(model);
-    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{board, m_controller->selectedObjectId()};
+    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{board, m_controller->selectedObjectId(), m_palette};
     drawPhysicalGrid(painter, model);
 
     for (const QVariant &value : document.drawingObjects) {
@@ -151,12 +153,12 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     if (drawing_canvas::isMarquee(m_gestureState) && m_gestureState.moved) {
         const QRectF marquee(canvasToScreen(m_gestureState.startPoint.x, m_gestureState.startPoint.y),
             canvasToScreen(m_gestureState.lastPoint.x, m_gestureState.lastPoint.y));
-        painter.setPen(QPen(QColor("#75c7ff"), 1, Qt::DashLine));
-        painter.setBrush(QColor(117, 199, 255, 32));
+        painter.setPen(QPen(m_palette.preview, 1, Qt::DashLine));
+        painter.setBrush(withAlpha(m_palette.preview, 32));
         painter.drawRect(marquee.normalized());
     }
 
-    painter.setPen(QColor("#aeb7c7"));
+    painter.setPen(m_palette.statusText);
     const drawing_canvas::DrawingCanvasProjectedStatus status = drawing_canvas::projectedCanvasStatus(model);
     painter.drawText(board.adjusted(10, 10, -10, -10), Qt::AlignTop | Qt::AlignLeft,
         QString("Tool: %1\nSelected: %2\nGrid: %3 %4 x %5 %4\nPlot: %6 (%7 warnings)%8")
@@ -440,10 +442,10 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
 {
     const QRectF board = boardRect();
     const drawing_canvas::DrawingCanvasProjectedGrid grid = drawing_canvas::projectedGrid(model);
-    painter.fillRect(board, QColor("#222630"));
+    painter.fillRect(board, m_palette.boardFill);
 
     for (const drawing_canvas::DrawingCanvasProjectedGridLine &line : grid.lines) {
-        painter.setPen(QPen(line.major ? QColor("#465162") : QColor("#313744"), line.major ? 1.25 : 1.0));
+        painter.setPen(QPen(line.major ? m_palette.gridMajor : m_palette.gridMinor, line.major ? 1.25 : 1.0));
         if (line.axis == QStringLiteral("vertical")) {
             painter.drawLine(canvasToScreen(line.position, 0.0), canvasToScreen(line.position, 1.0));
         } else {
@@ -452,7 +454,7 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
     }
 
     if (grid.drawableBounds.visible) {
-        painter.setPen(QPen(QColor("#8fb4d8"), 1, Qt::DashLine));
+        painter.setPen(QPen(m_palette.drawableBounds, 1, Qt::DashLine));
         painter.setBrush(Qt::NoBrush);
         painter.drawRect(boundsToScreenRect(
             grid.drawableBounds.x, grid.drawableBounds.y, grid.drawableBounds.width, grid.drawableBounds.height));
@@ -460,11 +462,11 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
 
     if (grid.origin.visible) {
         const QPointF originPoint = canvasToScreen(grid.origin.x, grid.origin.y);
-        painter.setPen(QPen(QColor("#d5bb78"), 1.5));
+        painter.setPen(QPen(m_palette.originMarker, 1.5));
         drawing_canvas::drawCrosshair(painter, originPoint, 8.0);
     }
 
-    painter.setPen(QPen(QColor("#3d4452"), 1));
+    painter.setPen(QPen(m_palette.boardOutline, 1));
     painter.drawRect(board);
 }
 
@@ -476,21 +478,21 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
     }
 
     const QPointF point = canvasToScreen(pointer.snappedX, pointer.snappedY);
-    QColor color("#9aa8b6");
+    QColor color = m_palette.snapFree;
     Qt::PenStyle markerStyle = Qt::SolidLine;
     double markerRadius = 5.0;
     if (!pointer.insideDrawable) {
-        color = QColor("#d98b8b");
+        color = m_palette.snapOutside;
         markerRadius = 8.0;
     } else if (pointer.kind == QStringLiteral("grid")) {
-        color = QColor("#8fb4d8");
+        color = m_palette.snapGrid;
         markerRadius = 7.0;
     } else if (pointer.source == QStringLiteral("guide")) {
-        color = QColor("#54d2c6");
+        color = m_palette.snapGuide;
         markerStyle = Qt::DashLine;
         markerRadius = 8.0;
     } else if (pointer.kind == QStringLiteral("object")) {
-        color = QColor("#91c89b");
+        color = m_palette.snapObject;
         markerRadius = 7.0;
     }
 
@@ -522,7 +524,7 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
     const QPointF snapped = canvasToScreen(snap.snappedX, snap.snappedY);
 
     painter.save();
-    QColor color("#54d2c6");
+    QColor color = m_palette.snapGuide;
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(color, snap.intersection ? 2.0 : 1.5, Qt::DashLine));
     painter.setBrush(Qt::NoBrush);
@@ -550,14 +552,14 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setBrush(Qt::NoBrush);
 
-    QPen travelPen(QColor(213, 187, 120, 130), 1.25, Qt::DashLine);
+    QPen travelPen(withAlpha(m_palette.plotTravel, 130), 1.25, Qt::DashLine);
     travelPen.setCapStyle(Qt::RoundCap);
     painter.setPen(travelPen);
     for (const drawing_canvas::DrawingCanvasProjectedSegment &segment : preview.travelSegments) {
         painter.drawLine(canvasToScreen(segment.x1, segment.y1), canvasToScreen(segment.x2, segment.y2));
     }
 
-    QPen strokePen(QColor(117, 199, 255, 170), 1.75);
+    QPen strokePen(withAlpha(m_palette.preview, 170), 1.75);
     strokePen.setCapStyle(Qt::RoundCap);
     strokePen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(strokePen);
@@ -575,7 +577,7 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
         return;
     }
 
-    const QColor color = overlay.calibratedBoundsWarning ? QColor("#d98b8b") : QColor("#91c89b");
+    const QColor color = overlay.calibratedBoundsWarning ? m_palette.safetyWarning : m_palette.safetyOk;
     const QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     QPen pen(color, overlay.calibratedBoundsWarning ? 2.0 : 1.5, overlay.calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
     pen.setJoinStyle(Qt::RoundJoin);
@@ -600,8 +602,8 @@ void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVari
     }
 
     const QColor color = overlay.status == QStringLiteral("inside")
-        ? QColor("#f6c65b")
-        : QColor("#d98b8b");
+        ? m_palette.selection
+        : m_palette.safetyWarning;
     QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     if (rect.width() < 10.0 || rect.height() < 10.0) {
         rect = rect.adjusted(-5.0, -5.0, 5.0, 5.0);

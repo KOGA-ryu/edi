@@ -65,7 +65,9 @@ bool isAngleField(const QString &id)
 {
     return id == QStringLiteral("line_angle_deg")
         || id == QStringLiteral("dimension_angle_deg")
-        || id == QStringLiteral("rotation_deg");
+        || id == QStringLiteral("rotation_deg")
+        || id == QStringLiteral("start_angle_deg")
+        || id == QStringLiteral("end_angle_deg");
 }
 
 bool isNonNegativePhysicalField(const QString &id)

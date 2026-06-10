@@ -101,6 +101,21 @@ int main()
     assert(rectRotationCommand->fieldId == "rotation_deg");
     assert(near(rectRotationCommand->value, 45.0));
 
+    // Arc angles are unit-independent: the physical edit passes the degrees
+    // through unchanged (regression: these used to be rejected).
+    DraftingObject arc = object("arc_1", DraftingShapeKind::Arc, ArcGeometry{{0.3, 0.3}, 0.1, 15.0, 120.0});
+    const DraftingPhysicalGeometryEditPlan arcStart = planPhysicalGeometryEdit(arc, grid(), "start_angle_deg", 30.0);
+    const NumericGeometryEditCommand *arcStartCommand = numericCommand(arcStart);
+    assert(arcStartCommand != nullptr);
+    assert(arcStartCommand->fieldId == "start_angle_deg");
+    assert(near(arcStartCommand->value, 30.0));
+    const DraftingPhysicalGeometryEditPlan arcEnd = planPhysicalGeometryEdit(arc, grid(), "end_angle_deg", 200.0);
+    const NumericGeometryEditCommand *arcEndCommand = numericCommand(arcEnd);
+    assert(arcEndCommand != nullptr);
+    assert(near(arcEndCommand->value, 200.0));
+    const DraftingPhysicalGeometryEditPlan arcRadius = planPhysicalGeometryEdit(arc, grid(), "radius", 4.0);
+    assert(numericCommand(arcRadius) != nullptr); // radius still scales by unit
+
     DraftingObject circle = object("circle_1", DraftingShapeKind::Circle, CircleGeometry{{0.25, 0.25}, 0.1});
     const DraftingPhysicalGeometryEditPlan circleRadius = planPhysicalGeometryEdit(circle, grid(), "radius", 3.0);
     const NumericGeometryEditCommand *circleRadiusCommand = numericCommand(circleRadius);

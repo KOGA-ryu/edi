@@ -224,7 +224,10 @@ DraftingPhysicalGeometryEditPlan planPhysicalGeometryEdit(
         || fieldId == "y2"
         || fieldId == "height") {
         normalizedValue = value / height;
-    } else if (fieldId == "rotation_deg") {
+    } else if (fieldId == "rotation_deg"
+        || fieldId == "start_angle_deg"
+        || fieldId == "end_angle_deg") {
+        // Angles are unit-independent: the physical value is the same degrees.
         normalizedValue = value;
     } else {
         return DraftingPhysicalGeometryEditPlan::rejected(DraftingResultCode::InvalidGeometry, "physical field does not apply to object geometry");

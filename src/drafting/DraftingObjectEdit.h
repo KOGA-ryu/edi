@@ -38,6 +38,10 @@ struct DraftingObjectEdit {
     std::string handleId;
     Point2D point;
     double value = 0.0;
+    // N4 aspect-lock: when set on a MoveRectangleCorner edit, the drag is
+    // constrained to preserve the rectangle's original width:height ratio.
+    // Default false keeps every other edit path byte-identical.
+    bool preserveAspect = false;
 };
 
 struct DraftingObjectEditResult {
@@ -63,7 +67,10 @@ struct DraftingHandleEditPlan {
 
 std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObject &object);
 DraftingHandleDescriptor draftingHandleById(const DraftingObject &object, const std::string &handleId);
-DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::string &handleId, Point2D point);
+// preserveAspect rides onto a rectangle corner edit (ignored by every other
+// handle); the controller passes its aspect-lock mode (or a Shift drag).
+DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::string &handleId, Point2D point,
+                                      bool preserveAspect = false);
 DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const DraftingObjectEdit &edit);
 
 } // namespace edi::drafting

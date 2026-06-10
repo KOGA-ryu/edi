@@ -120,7 +120,7 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (object == nullptr) {
                 return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
             }
-            const DraftingHandleEditPlan plan = handleEditPlan(*object, typedCommand.handleId, typedCommand.point);
+            const DraftingHandleEditPlan plan = handleEditPlan(*object, typedCommand.handleId, typedCommand.point, typedCommand.preserveAspect);
             if (!plan.ok) {
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }

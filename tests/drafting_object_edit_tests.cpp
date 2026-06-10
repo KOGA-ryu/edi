@@ -79,6 +79,21 @@ int main()
     assert(editedRect->width == 7.0);
     assert(editedRect->height == 7.0);
 
+    // N4 aspect-lock: the same corner drag with preserveAspect keeps the
+    // original 4:3 ratio. The anchored (nw) corner stays put; the larger
+    // demanded axis wins and the other is derived.
+    auto lockedPlan = handleEditPlan(rect, "rect_se", {8.0, 9.0}, true);
+    assert(lockedPlan.ok && lockedPlan.edit.preserveAspect);
+    auto lockedEdit = applyObjectEdit(rect, lockedPlan.edit);
+    assert(lockedEdit.ok);
+    const auto *lockedRect = std::get_if<RectangleGeometry>(&lockedEdit.geometry);
+    assert(lockedRect != nullptr);
+    assert(lockedRect->origin.x == 1.0 && lockedRect->origin.y == 2.0); // anchor unmoved
+    assert(nearlyEqual(lockedRect->width / lockedRect->height, 4.0 / 3.0));
+    assert(nearlyEqual(lockedRect->height, 7.0)); // free height kept; width derived
+    assert(nearlyEqual(lockedRect->width, 7.0 * 4.0 / 3.0));
+    assert(!cornerPlan.edit.preserveAspect); // the plain drag above was unconstrained
+
     auto rotatePlan = handleEditPlan(rect, "rect_rotate", {3.0, 8.0});
     assert(rotatePlan.ok);
     auto rotateEdit = applyObjectEdit(rect, rotatePlan.edit);

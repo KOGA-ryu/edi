@@ -37,6 +37,7 @@ struct EditObjectHandleCommand {
     DraftingObjectId objectId;
     std::string handleId;
     Point2D point;
+    bool preserveAspect = false; // N4 aspect-lock for rectangle corner drags
 };
 
 struct NumericGeometryEditCommand {

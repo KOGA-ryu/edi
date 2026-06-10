@@ -124,9 +124,29 @@ DraftingObjectEditResult applyRectangleEdit(const DraftingObject &object, const 
         return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "unknown rectangle handle");
     }
 
-    next.origin = {std::min(fixedX, localPoint.x), std::min(fixedY, localPoint.y)};
-    next.width = std::abs(fixedX - localPoint.x);
-    next.height = std::abs(fixedY - localPoint.y);
+    double newWidth = std::abs(fixedX - localPoint.x);
+    double newHeight = std::abs(fixedY - localPoint.y);
+    Point2D movingCorner = localPoint;
+    if (edit.preserveAspect && rect.width > 0.0 && rect.height > 0.0) {
+        // Lock to the original ratio. Pick whichever axis the drag pushed
+        // harder (newWidth/ratio vs newHeight) and derive the other, so the
+        // moving corner tracks the cursor's dominant direction instead of
+        // snapping to one fixed axis. The sign keeps the corner on the same
+        // side of the anchor the cursor is on.
+        const double ratio = rect.width / rect.height; // width per unit height
+        if (newWidth >= newHeight * ratio) {
+            newHeight = newWidth / ratio;
+        } else {
+            newWidth = newHeight * ratio;
+        }
+        const double signX = localPoint.x >= fixedX ? 1.0 : -1.0;
+        const double signY = localPoint.y >= fixedY ? 1.0 : -1.0;
+        movingCorner = {fixedX + signX * newWidth, fixedY + signY * newHeight};
+    }
+
+    next.origin = {std::min(fixedX, movingCorner.x), std::min(fixedY, movingCorner.y)};
+    next.width = newWidth;
+    next.height = newHeight;
     return validatedEditResult(object, next);
 }
 
@@ -300,7 +320,8 @@ DraftingHandleDescriptor draftingHandleById(const DraftingObject &object, const 
     return {};
 }
 
-DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::string &handleId, Point2D point)
+DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::string &handleId, Point2D point,
+                                      bool preserveAspect)
 {
     const DraftingHandleDescriptor handle = draftingHandleById(object, handleId);
     if (handle.id.empty()) {
@@ -361,7 +382,9 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::RotateRectangle, handleId, point, normalizeDegrees(degrees)});
     }
     if (object.kind == DraftingShapeKind::Rectangle && handle.role == "corner") {
-        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveRectangleCorner, handleId, point});
+        DraftingObjectEdit edit{DraftingObjectEditKind::MoveRectangleCorner, handleId, point};
+        edit.preserveAspect = preserveAspect;
+        return DraftingHandleEditPlan::accepted(edit);
     }
     if (object.kind == DraftingShapeKind::Dimension && handleId == "dimension_start") {
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveDimensionStart, handleId, point});

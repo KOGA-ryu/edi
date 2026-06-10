@@ -91,9 +91,17 @@ QWidget *DraftingFeature::buildLeftPanel()
         {QStringLiteral("diameter_dimension_tool"), QStringLiteral("Dim Diameter")},
     };
 
-    for (const auto &tool : tools) {
-        layout->addWidget(makeToolButton(tool.first, tool.second));
+    // Two columns instead of a 17-deep stack: position becomes findable at a
+    // glance, and the panel's vertical budget halves. (Interim — the tool
+    // belt cross (F3) replaces this list entirely.)
+    auto *toolGrid = new QGridLayout;
+    toolGrid->setContentsMargins(0, 0, 0, 0);
+    toolGrid->setHorizontalSpacing(4);
+    toolGrid->setVerticalSpacing(2);
+    for (int i = 0; i < tools.size(); ++i) {
+        toolGrid->addWidget(makeToolButton(tools[i].first, tools[i].second), i / 2, i % 2);
     }
+    layout->addLayout(toolGrid);
 
     connect(m_toolGroup, &QButtonGroup::buttonClicked, m_controller, [this](QAbstractButton *button) {
         m_controller->setSelectedToolId(button->property("toolId").toString());

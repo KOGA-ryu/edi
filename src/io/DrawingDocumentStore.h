@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QObject>
 #include <QUrl>
 #include <QVariantMap>
@@ -10,12 +11,16 @@ class DrawingDocumentStore final : public QObject {
 public:
     explicit DrawingDocumentStore(QObject *parent = nullptr);
 
-    Q_INVOKABLE QVariantMap save(const QUrl &url, const QVariantMap &model) const;
-    Q_INVOKABLE QVariantMap open(const QUrl &url) const;
-    Q_INVOKABLE QVariantMap exportSvg(const QUrl &url, const QString &svg) const;
+    // Binary drawing document I/O. save() writes the raw MessagePack bytes;
+    // open() returns {ok, bytes (QByteArray), message}.
+    QVariantMap save(const QUrl &url, const QByteArray &bytes) const;
+    QVariantMap open(const QUrl &url) const;
+    QVariantMap exportSvg(const QUrl &url, const QString &svg) const;
 
 private:
     static QString localPath(const QUrl &url);
     static QString bundleDirectoryPath(const QString &selectedPath);
     static bool writeTextFile(const QString &path, const QString &text);
+    static bool writeBinaryFile(const QString &path, const QByteArray &bytes);
+    static bool readBinaryFile(const QString &path, QByteArray &bytes);
 };

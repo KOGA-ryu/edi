@@ -2,9 +2,12 @@
 
 #include <QObject>
 #include <QString>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
+
+#include "io/DrawingDocumentStore.h"
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
@@ -30,6 +33,8 @@ public:
     explicit DrawingDocumentController(QObject *parent = nullptr);
 
     QVariantMap modelDocument() const;
+    bool saveDocument(const QUrl &url);
+    bool openDocument(const QUrl &url);
     QString selectedToolId() const;
     QString selectedObjectId() const;
     QString activeLayerId() const;
@@ -180,4 +185,5 @@ private:
     QVariantMap m_lastGuideDragSnap;
     QVariantMap m_lastEditStatus;
     int m_nextObjectSerial = 1;
+    DrawingDocumentStore m_store;
 };

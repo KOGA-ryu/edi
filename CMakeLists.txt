@@ -275,6 +275,8 @@ add_executable(drawing_document_controller_tests
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
     src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
 )
 target_include_directories(drawing_document_controller_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -291,6 +293,8 @@ add_executable(edi_shell_window_tests
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
     src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/DrawingCanvasWidget.h
@@ -336,6 +340,8 @@ add_executable(drawing_canvas_widget_tests
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
     src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasViewport.h

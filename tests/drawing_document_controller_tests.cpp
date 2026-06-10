@@ -5,6 +5,8 @@
 
 #include <QCoreApplication>
 #include <QStringList>
+#include <QTemporaryDir>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -17,6 +19,19 @@ namespace {
 bool nearlyEqual(double a, double b)
 {
     return std::abs(a - b) < 0.000001;
+}
+
+// Trailing numeric suffix of an "<prefix>_NNNN" object id.
+int trailingSerial(const QString &id)
+{
+    int begin = id.size();
+    while (begin > 0 && id.at(begin - 1).isDigit()) {
+        --begin;
+    }
+    if (begin == id.size()) {
+        return 0;
+    }
+    return id.mid(begin).toInt();
 }
 
 QStringList numericFieldIds(const QVariantMap &object)
@@ -2596,6 +2611,69 @@ int main(int argc, char **argv)
     selectionIsolationController.setSelectedToolId("select_move");
     selectionIsolationController.clickCanvasNormalized(0.8, 0.8);
     assert(selectionIsolationController.selectedObjectId().isEmpty());
+
+    // Save/open round-trip: a document written to disk and reopened projects
+    // to the same model, and the reopened controller keeps minting fresh ids.
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("roundtrip.edidraw")));
+
+        DrawingDocumentController saveController;
+        saveController.setSelectedToolId("line_tool");
+        saveController.clickCanvasNormalized(0.1, 0.2);
+        saveController.clickCanvasNormalized(0.8, 0.9);
+        saveController.setSelectedToolId("circle_tool");
+        saveController.clickCanvasNormalized(0.4, 0.4);
+        saveController.clickCanvasNormalized(0.6, 0.4);
+        const QVariantList savedObjects = saveController.modelDocument().value("drawing_objects").toList();
+        assert(savedObjects.size() == 2);
+        const QString savedSelected = saveController.selectedObjectId();
+
+        assert(saveController.saveDocument(url));
+
+        // A second controller, mutated differently, then opens the saved file.
+        DrawingDocumentController openController;
+        openController.setSelectedToolId("point_tool");
+        openController.clickCanvasNormalized(0.5, 0.5);
+        assert(openController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        assert(openController.openDocument(url));
+        const QVariantList openedObjects = openController.modelDocument().value("drawing_objects").toList();
+        assert(openedObjects.size() == 2);
+        assert(openController.selectedObjectId() == savedSelected);
+        // Preview/pending state is cleared by open.
+        assert(!openController.modelDocument().contains("preview_object"));
+
+        // Object ids match the saved document positionally.
+        for (int i = 0; i < savedObjects.size(); ++i) {
+            assert(openedObjects[i].toMap().value("id").toString()
+                   == savedObjects[i].toMap().value("id").toString());
+        }
+
+        // Newly created objects after open keep minting above the highest
+        // trailing serial already present (the loaded line/circle are _0001/
+        // _0002, so the next id must carry a serial of at least 3).
+        int highestLoadedSerial = 0;
+        for (const QVariant &existing : openedObjects) {
+            highestLoadedSerial = std::max(highestLoadedSerial, trailingSerial(existing.toMap().value("id").toString()));
+        }
+        assert(highestLoadedSerial >= 2);
+        openController.setSelectedToolId("point_tool");
+        openController.clickCanvasNormalized(0.3, 0.3);
+        const QVariantList grownObjects = openController.modelDocument().value("drawing_objects").toList();
+        assert(grownObjects.size() == 3);
+        const QString newId = grownObjects.back().toMap().value("id").toString();
+        for (const QVariant &existing : openedObjects) {
+            assert(existing.toMap().value("id").toString() != newId);
+        }
+        assert(trailingSerial(newId) > highestLoadedSerial);
+
+        // Opening a missing file fails without disturbing the document.
+        const QUrl missing = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("nope.edidraw")));
+        assert(!openController.openDocument(missing));
+        assert(openController.modelDocument().value("drawing_objects").toList().size() == 3);
+    }
 
     return 0;
 }

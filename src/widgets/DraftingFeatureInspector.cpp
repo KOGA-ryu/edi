@@ -19,6 +19,7 @@
 
 #include "core/DrawingCore.h"
 #include "drafting/DraftingInspectorPlan.h"
+#include "widgets/BeltCrossWidget.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/ShellWidgetHelpers.h"
 
@@ -188,6 +189,15 @@ void DraftingFeature::refreshInspector()
     }
 
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
+    if (m_beltWidget != nullptr) {
+        const int beltIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());
+        if (beltIndex >= 0) {
+            // The tool changed through any path (belt, test, future shortcut):
+            // the cross follows. setActiveIndex never echoes selected(), so
+            // this cannot loop back into the controller.
+            m_beltWidget->setActiveIndex(beltIndex);
+        }
+    }
     if (m_selectedValue != nullptr) {
         const QString activeObject = document.value(QStringLiteral("active_object_id")).toString();
         m_selectedValue->setText(activeObject.isEmpty()

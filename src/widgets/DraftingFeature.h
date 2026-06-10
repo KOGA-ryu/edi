@@ -13,8 +13,8 @@
 
 #include "widgets/ShellHost.h"
 
+class BeltCrossWidget;
 class QAbstractButton;
-class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
@@ -51,6 +51,10 @@ public:
         // The feature publishes its one-line status; the shell decides where
         // it shows (currently the title-bar chrome).
         std::function<void(const QString &)> setStatusText;
+        // The belt arrangement is workspace data (which tool sits in which
+        // slot is part of the job); the shell owns the layout, the feature
+        // only renders it. Absent callable -> the feature's default belt.
+        std::function<edi::shell::BeltLayout()> beltLayout;
     };
 
     DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent = nullptr);
@@ -59,6 +63,12 @@ public:
     void refreshInspector();
     void setRecentFiles(const QStringList &paths);
     DrawingCanvasWidget *canvas() const { return m_canvas; }
+
+    // The drafting tools arranged on a 6x6 belt, one family per row (shapes /
+    // polygon / guides / construction / dimensions). Static: the window bakes
+    // it into the built-in drafting workspace layout before any instance
+    // exists.
+    static edi::shell::BeltLayout defaultBeltLayout();
 
 private:
     QWidget *buildLeftPanel();
@@ -101,7 +111,6 @@ private:
     };
     QDoubleSpinBox *makeGeometryFieldSpin(const GeometryFieldSpec &spec);
     void applyGeometryFieldEdit(QDoubleSpinBox *spin);
-    QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QLabel *makeValueLabel(const QString &text = QString()) const;
     void rebuildGeometryEditor(const QVariantMap &selectedObject);
     void applyGeometryEditStatus(const QVariantMap &editStatus);
@@ -113,7 +122,7 @@ private:
     QStringList m_recentFiles;
     DrawingCanvasWidget *m_canvas = nullptr;
     QListWidget *m_objectList = nullptr;
-    QButtonGroup *m_toolGroup = nullptr;
+    BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QComboBox *m_gridPreset = nullptr;
     QComboBox *m_gridUnit = nullptr;

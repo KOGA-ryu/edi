@@ -65,10 +65,27 @@ inline bool operator==(const SlotBinding &a, const SlotBinding &b)
     return a.slot == b.slot && a.featureId == b.featureId;
 }
 
+// The tool belt as layout data (user decision 2026-06-10): which tool sits
+// in which of the rows x columns slots is part of the *job*, persisted in
+// workspace.toml beside panel geometry — not application code. Ids are
+// row-major; an empty id is an empty slot. The belt widget renders this; the
+// shell never interprets the ids.
+struct BeltLayout {
+    int rows = 6;
+    int columns = 6;
+    std::vector<QString> itemIds;
+};
+
+inline bool operator==(const BeltLayout &a, const BeltLayout &b)
+{
+    return a.rows == b.rows && a.columns == b.columns && a.itemIds == b.itemIds;
+}
+
 struct WorkspaceLayout {
     QString id;     // "drafting", "blender_recipe", ...
     QString label;
     std::vector<SlotBinding> bindings;
+    BeltLayout belt;
 };
 
 struct MountedSlot {

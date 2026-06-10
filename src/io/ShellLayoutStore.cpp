@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QStandardPaths>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 
@@ -12,11 +13,24 @@ namespace edi::io {
 namespace {
 
 using edi::formats::StaticConfig;
+using edi::shell::BeltLayout;
 using edi::shell::PanelState;
 using edi::shell::ShellPanelsState;
 using edi::shell::ShellSlot;
 using edi::shell::SlotBinding;
 using edi::shell::WorkspaceLayout;
+
+// A hand-edited belt dimension outside this band degrades to the band edge,
+// the same forgiving-decode policy as panel sizes. 16 is far above any
+// usable belt (the cross renders rows+columns-1 cells) but keeps a typo like
+// "rows = 600" from allocating a 600-row grid.
+constexpr int kBeltDimensionMin = 1;
+constexpr int kBeltDimensionMax = 16;
+
+int clampBeltDimension(int value)
+{
+    return std::clamp(value, kBeltDimensionMin, kBeltDimensionMax);
+}
 
 // Slots travel as names, not enum integers: a hand-edited TOML must stay
 // meaningful when the enum order changes, and "left" is editable by a human in
@@ -88,6 +102,16 @@ StaticConfig workspaceLayoutToConfig(const WorkspaceLayout &layout, const ShellP
     writePanel(config, "left", panels.left);
     writePanel(config, "right", panels.right);
     writePanel(config, "bottom", panels.bottom);
+    setSettingsInt(config, "belt.rows", layout.belt.rows);
+    setSettingsInt(config, "belt.columns", layout.belt.columns);
+    // Slots travel as indexed keys like bindings; empty slots are simply
+    // absent keys, so a sparse belt stays a short file.
+    for (std::size_t i = 0; i < layout.belt.itemIds.size(); ++i) {
+        if (layout.belt.itemIds[i].isEmpty()) {
+            continue;
+        }
+        setSettingsString(config, "belt.item." + std::to_string(i), layout.belt.itemIds[i].toStdString());
+    }
     return config;
 }
 
@@ -114,6 +138,20 @@ ShellLayoutData shellLayoutFromConfig(const StaticConfig &config)
     data.panels.left = readPanel(config, "left", ShellSlot::Left, defaults.left);
     data.panels.right = readPanel(config, "right", ShellSlot::Right, defaults.right);
     data.panels.bottom = readPanel(config, "bottom", ShellSlot::Bottom, defaults.bottom);
+
+    const BeltLayout beltDefaults;
+    data.layout.belt.rows = clampBeltDimension(settingsInt(config, "belt.rows", beltDefaults.rows));
+    data.layout.belt.columns = clampBeltDimension(settingsInt(config, "belt.columns", beltDefaults.columns));
+    // Read every slot the dimensions promise; absent keys are empty slots.
+    // The item list is always exactly rows*columns long so the widget's
+    // row-major contract never sees a ragged tail.
+    const std::size_t slotCount =
+        static_cast<std::size_t>(data.layout.belt.rows) * static_cast<std::size_t>(data.layout.belt.columns);
+    data.layout.belt.itemIds.reserve(slotCount);
+    for (std::size_t i = 0; i < slotCount; ++i) {
+        data.layout.belt.itemIds.push_back(
+            QString::fromStdString(settingsString(config, "belt.item." + std::to_string(i), "")));
+    }
 
     // A layout is usable when it names itself and binds at least one slot;
     // anything less and the caller should prefer its built-in default.

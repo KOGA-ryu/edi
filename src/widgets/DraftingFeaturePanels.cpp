@@ -1,7 +1,5 @@
 #include "widgets/DraftingFeature.h"
 
-#include <QAbstractButton>
-#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -24,15 +22,79 @@
 #include <QVBoxLayout>
 #include <QVector>
 
+#include <cstddef>
 #include <optional>
 #include <utility>
+#include <vector>
 
 #include "core/DrawingCore.h"
+#include "widgets/BeltCrossWidget.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/ShellPanels.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 using namespace edi::shell;
+
+namespace {
+
+// The drafting tool vocabulary in one table: id (the controller's language),
+// label (belt tooltip), glyph (belt cell face), and the default belt row
+// (one tool family per row, so vertical scroll changes category and
+// horizontal walks within it). The belt rendering AND the default
+// arrangement both read this — two hand-maintained lists would drift.
+struct DraftingToolSpec {
+    const char *id;
+    const char *label;
+    const char *glyph;
+    int beltRow;
+};
+
+constexpr DraftingToolSpec kDraftingTools[] = {
+    {"select_move", "Select / Move", "Se", 0},
+    {"point_tool", "Point", "Pt", 0},
+    {"line_tool", "Line", "Ln", 0},
+    {"rectangle_tool", "Rectangle", "Rc", 0},
+    {"circle_tool", "Circle", "Ci", 0},
+    {"arc_tool", "Arc", "Ar", 0},
+    {"regular_polygon_tool", "Polygon", "Pg", 1},
+    {"horizontal_guide_tool", "Horizontal Guide", "Gh", 2},
+    {"vertical_guide_tool", "Vertical Guide", "Gv", 2},
+    {"horizontal_construction_line_tool", "Horizontal Construction Line", "Ch", 3},
+    {"vertical_construction_line_tool", "Vertical Construction Line", "Cv", 3},
+    {"angled_construction_line_tool", "Angled Construction Line", "Ca", 3},
+    {"distance_dimension_tool", "Dimension: Distance", "Dd", 4},
+    {"width_dimension_tool", "Dimension: Width", "Dw", 4},
+    {"height_dimension_tool", "Dimension: Height", "Dh", 4},
+    {"radius_dimension_tool", "Dimension: Radius", "Dr", 4},
+    {"diameter_dimension_tool", "Dimension: Diameter", "Di", 4},
+};
+
+const DraftingToolSpec *draftingToolSpec(const QString &toolId)
+{
+    for (const DraftingToolSpec &spec : kDraftingTools) {
+        if (toolId == QLatin1String(spec.id)) {
+            return &spec;
+        }
+    }
+    return nullptr;
+}
+
+BeltItem beltItemForTool(const QString &toolId)
+{
+    if (toolId.isEmpty()) {
+        return {}; // an empty slot stays an empty cell
+    }
+    const DraftingToolSpec *spec = draftingToolSpec(toolId);
+    if (spec == nullptr) {
+        // A layout file can name a tool this build doesn't have. Render the
+        // id behind a "?" instead of a silent blank, so the user sees what
+        // the file asked for.
+        return {toolId, QStringLiteral("?"), toolId};
+    }
+    return {toolId, QLatin1String(spec->glyph), QLatin1String(spec->label)};
+}
+
+} // namespace
 
 DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent)
     : QObject(parent)
@@ -40,6 +102,24 @@ DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellAct
     , m_actions(std::move(actions))
 {
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &DraftingFeature::refreshInspector);
+}
+
+BeltLayout DraftingFeature::defaultBeltLayout()
+{
+    BeltLayout belt; // 6x6 per the F3 decision
+    belt.itemIds.assign(static_cast<std::size_t>(belt.rows) * static_cast<std::size_t>(belt.columns), QString());
+    // Fill each tool into the next free column of its family row. Derived
+    // from the spec table, not a second hand-written grid.
+    std::vector<int> nextColumn(static_cast<std::size_t>(belt.rows), 0);
+    for (const DraftingToolSpec &spec : kDraftingTools) {
+        const int row = spec.beltRow;
+        if (row < 0 || row >= belt.rows || nextColumn[row] >= belt.columns) {
+            continue; // a row overflow drops the tool rather than corrupting a neighbour row
+        }
+        belt.itemIds[static_cast<std::size_t>(row) * belt.columns + nextColumn[row]] = QLatin1String(spec.id);
+        ++nextColumn[row];
+    }
+    return belt;
 }
 
 QWidget *DraftingFeature::buildPanel(ShellSlot slot)
@@ -80,44 +160,29 @@ QWidget *DraftingFeature::buildLeftPanel()
     layout->addWidget(m_objectList);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Tools")));
-    m_toolGroup = new QButtonGroup(panel);
-    m_toolGroup->setExclusive(true);
-
-    const QVector<QPair<QString, QString>> tools {
-        {QStringLiteral("select_move"), QStringLiteral("Select")},
-        {QStringLiteral("point_tool"), QStringLiteral("Point")},
-        {QStringLiteral("line_tool"), QStringLiteral("Line")},
-        {QStringLiteral("rectangle_tool"), QStringLiteral("Rectangle")},
-        {QStringLiteral("circle_tool"), QStringLiteral("Circle")},
-        {QStringLiteral("arc_tool"), QStringLiteral("Arc")},
-        {QStringLiteral("regular_polygon_tool"), QStringLiteral("Polygon")},
-        {QStringLiteral("horizontal_guide_tool"), QStringLiteral("H Guide")},
-        {QStringLiteral("vertical_guide_tool"), QStringLiteral("V Guide")},
-        {QStringLiteral("horizontal_construction_line_tool"), QStringLiteral("H Construct")},
-        {QStringLiteral("vertical_construction_line_tool"), QStringLiteral("V Construct")},
-        {QStringLiteral("angled_construction_line_tool"), QStringLiteral("A Construct")},
-        {QStringLiteral("distance_dimension_tool"), QStringLiteral("Dim Distance")},
-        {QStringLiteral("width_dimension_tool"), QStringLiteral("Dim Width")},
-        {QStringLiteral("height_dimension_tool"), QStringLiteral("Dim Height")},
-        {QStringLiteral("radius_dimension_tool"), QStringLiteral("Dim Radius")},
-        {QStringLiteral("diameter_dimension_tool"), QStringLiteral("Dim Diameter")},
-    };
-
-    // Two columns instead of a 17-deep stack: position becomes findable at a
-    // glance, and the panel's vertical budget halves. (Interim — the tool
-    // belt cross (F3) replaces this list entirely.)
-    auto *toolGrid = new QGridLayout;
-    toolGrid->setContentsMargins(0, 0, 0, 0);
-    toolGrid->setHorizontalSpacing(4);
-    toolGrid->setVerticalSpacing(2);
-    for (int i = 0; i < tools.size(); ++i) {
-        toolGrid->addWidget(makeToolButton(tools[i].first, tools[i].second), i / 2, i % 2);
+    // F3: the weapon-cross belt replaces the button list. The arrangement is
+    // workspace data (the shell supplies it via callable); this feature only
+    // dresses the ids with glyphs/tooltips from its tool table. Interim home:
+    // the belt becomes a floating palette in F4.
+    {
+        const BeltLayout belt = m_actions.beltLayout ? m_actions.beltLayout() : defaultBeltLayout();
+        m_beltWidget = new BeltCrossWidget;
+        m_beltWidget->setGridSize(belt.rows, belt.columns);
+        QVector<BeltItem> items;
+        items.reserve(static_cast<int>(belt.itemIds.size()));
+        for (const QString &toolId : belt.itemIds) {
+            items.push_back(beltItemForTool(toolId));
+        }
+        m_beltWidget->setItems(items);
+        const int activeIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());
+        if (activeIndex >= 0) {
+            m_beltWidget->setActiveIndex(activeIndex);
+        }
+        connect(m_beltWidget, &BeltCrossWidget::selected, m_controller, [this](const QString &toolId) {
+            m_controller->setSelectedToolId(toolId);
+        });
+        layout->addWidget(m_beltWidget, 0, Qt::AlignHCenter);
     }
-    layout->addLayout(toolGrid);
-
-    connect(m_toolGroup, &QButtonGroup::buttonClicked, m_controller, [this](QAbstractButton *button) {
-        m_controller->setSelectedToolId(button->property("toolId").toString());
-    });
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
     m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {
@@ -1054,19 +1119,6 @@ void DraftingFeature::applyGeometryFieldEdit(QDoubleSpinBox *spin)
     if (!ok) {
         refreshInspector();
     }
-}
-
-QPushButton *DraftingFeature::makeToolButton(const QString &toolId, const QString &label)
-{
-    auto *button = new QPushButton(label);
-    button->setCheckable(true);
-    button->setProperty("toolId", toolId);
-    button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    if (toolId == m_controller->selectedToolId()) {
-        button->setChecked(true);
-    }
-    m_toolGroup->addButton(button);
-    return button;
 }
 
 QLabel *DraftingFeature::makeValueLabel(const QString &text) const

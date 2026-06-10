@@ -3,6 +3,7 @@
 #include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
+#include "widgets/BeltCrossWidget.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -383,6 +384,34 @@ int main(int argc, char **argv)
         assert(groupVisible(QStringLiteral("canvas_state")));
         assert(!groupVisible(QStringLiteral("empty_state")));
         assert(!groupVisible(QStringLiteral("selection_summary")));
+    }
+
+    // F3: the weapon-cross tool belt drives the controller and follows it.
+    {
+        auto *belt = window.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
+        assert(belt != nullptr);
+        // The block above left select_move active; the default belt has it
+        // at the origin, so belt and controller agree from the start.
+        assert(belt->activeItemId() == controller->selectedToolId());
+        assert(belt->beltState().rows == 6 && belt->beltState().columns == 6);
+
+        // Belt -> controller: click the second cell of the active row
+        // (point_tool in the default family arrangement).
+        const QPointF pointCell(38.0 + 17.0, 17.0); // column 1 centre (34px cells, 4px gaps)
+        QMouseEvent press(QEvent::MouseButtonPress, pointCell, belt->mapToGlobal(pointCell),
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(belt, &press);
+        assert(controller->selectedToolId() == QStringLiteral("point_tool"));
+        assert(belt->activeItemId() == QStringLiteral("point_tool"));
+
+        // Controller -> belt: a tool change from any path re-aims the cross
+        // (and lands on the dimensions family row of the default belt).
+        controller->setSelectedToolId(QStringLiteral("distance_dimension_tool"));
+        assert(belt->activeItemId() == QStringLiteral("distance_dimension_tool"));
+        assert(belt->beltState().activeRow == 4);
+
+        controller->setSelectedToolId(QStringLiteral("select_move"));
+        assert(belt->activeItemId() == QStringLiteral("select_move"));
     }
 
     // Calibration row: pattern button creates objects, record captures a

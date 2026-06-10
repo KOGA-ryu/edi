@@ -263,6 +263,18 @@ add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_test
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
+add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
+target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)
+target_include_directories(belt_state_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_executable(belt_cross_widget_tests
+    tests/belt_cross_widget_tests.cpp
+    src/widgets/BeltCrossWidget.h
+    src/widgets/BeltCrossWidget.cpp
+    src/widgets/BeltState.cpp
+)
+target_include_directories(belt_cross_widget_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(belt_cross_widget_tests PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+add_test(NAME belt_cross_widget_tests COMMAND belt_cross_widget_tests)
 add_edi_contract_test(shell_theme_tests tests/shell_theme_tests.cpp Qt6::Core)
 target_sources(shell_theme_tests PRIVATE src/widgets/ShellTheme.cpp)
 target_include_directories(shell_theme_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -346,6 +358,10 @@ add_executable(edi_shell_window_tests
     src/widgets/SettingsFeature.cpp
     src/widgets/ShellPanels.h
     src/widgets/ShellPanels.cpp
+    src/widgets/BeltState.h
+    src/widgets/BeltState.cpp
+    src/widgets/BeltCrossWidget.h
+    src/widgets/BeltCrossWidget.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h
@@ -478,6 +494,10 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/SettingsFeature.cpp
     src/widgets/ShellPanels.h
     src/widgets/ShellPanels.cpp
+    src/widgets/BeltState.h
+    src/widgets/BeltState.cpp
+    src/widgets/BeltCrossWidget.h
+    src/widgets/BeltCrossWidget.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h

@@ -5,6 +5,7 @@
 #include <QString>
 #include <QUrl>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -137,15 +138,26 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
     // Remember the path either way: a first run has no file yet, but closing
     // should still write one there.
     m_workspaceLayoutPath = path;
-    const edi::io::ShellLayoutData data = edi::io::loadShellLayoutFromPath(path);
+    edi::io::ShellLayoutData data = edi::io::loadShellLayoutFromPath(path);
     if (!data.ok) {
         return false; // keep the built-in default layout and panel state
     }
     m_panelsState = data.panels;
+    // A workspace file from before the belt existed decodes to an all-empty
+    // grid; treat that as "no opinion" and keep the mounted layout's belt
+    // rather than blanking the user's tools.
+    const bool loadedBeltHasItems = std::any_of(
+        data.layout.belt.itemIds.begin(), data.layout.belt.itemIds.end(),
+        [](const QString &id) { return !id.isEmpty(); });
+    if (!loadedBeltHasItems) {
+        data.layout.belt = m_workspaceLayout.belt;
+    }
     if (data.layout.id != m_workspaceLayout.id
-        || data.layout.bindings != m_workspaceLayout.bindings) {
-        // Different job: tear down and rebuild the slots from the loaded
-        // bindings (panel geometry rides along inside mountWorkspace).
+        || data.layout.bindings != m_workspaceLayout.bindings
+        || !(data.layout.belt == m_workspaceLayout.belt)) {
+        // Different job (or a different belt arrangement): tear down and
+        // rebuild the slots from the loaded layout — the belt widget reads
+        // its items at build time, so a belt change needs the same remount.
         switchWorkspaceLayout(data.layout);
     } else {
         applyPanelSizesToSplitters();

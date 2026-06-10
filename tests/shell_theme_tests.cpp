@@ -79,8 +79,8 @@ int main()
     // unstyling a region of the app.
     for (const char *selector : {
              "#shellRoot", "#activityRail", "#leftPanel", "#rightPanel",
-             "#workspaceColumn", "#workspaceHeader", "#bottomPanel",
-             "#panelTitle", "#workspaceTitle", "#sectionLabel", "#valueLabel",
+             "#workspaceColumn", "#bottomPanel",
+             "#panelTitle", "#chromeStatus", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
              "QCheckBox::indicator:checked", "QSplitter::handle",

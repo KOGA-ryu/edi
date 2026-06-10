@@ -16,6 +16,7 @@ class QSplitter;
 class QTimer;
 
 class QButtonGroup;
+class QLabel;
 class QPushButton;
 class QWidget;
 
@@ -89,6 +90,7 @@ private:
     void applyPanelSizesToSplitters();
     void capturePanelSizes();
     void refreshChrome();
+    void layoutMainArea();
     std::unique_ptr<DraftingFeature> createDraftingFeature();
     void mountWorkspace(const edi::shell::WorkspaceLayout &layout);
     // The switch mechanics without touching history — back/forward replay
@@ -114,7 +116,12 @@ private:
     // debugging window-manager weirdness (the title bar stays either way).
     bool m_framelessChrome = true;
     QSplitter *m_bodySplitter = nullptr;
-    QSplitter *m_rootSplitter = nullptr;
+    // The main area hosts the canvas at full size; right and bottom panels
+    // are overlays positioned on top of it (user decision 2026-06-10: panels
+    // cover the grid, they never squeeze it). Only the left panel is in-flow.
+    QWidget *m_mainArea = nullptr;
+    QWidget *m_rightGrip = nullptr;
+    QWidget *m_bottomGrip = nullptr;
     QWidget *m_leftPanelWidget = nullptr;
     QWidget *m_mainPanelWidget = nullptr;
     QWidget *m_rightPanelWidget = nullptr;
@@ -122,6 +129,7 @@ private:
     DrawingDocumentController *m_controller = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
     QWidget *m_titleBar = nullptr;
+    QLabel *m_chromeStatus = nullptr;
     QPushButton *m_backButton = nullptr;
     QPushButton *m_forwardButton = nullptr;
     QPushButton *m_toggleLeftButton = nullptr;

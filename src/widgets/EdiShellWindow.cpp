@@ -88,27 +88,43 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     };
     m_featureRegistry.features.push_back(drafting);
 
-    // Empty splitters first; mountWorkspace() fills them — the same path a
-    // runtime workspace switch takes, so the constructor cannot drift from it.
+    // The splitter carries only the in-flow left panel beside the main area.
+    // Right and bottom panels are overlays INSIDE the main area: they cover
+    // the grid, never squeeze it, and the terminal can grow to become the
+    // main view. mountWorkspace() fills everything — the same path a runtime
+    // workspace switch takes, so the constructor cannot drift from it.
     m_bodySplitter = new QSplitter(Qt::Horizontal);
     m_bodySplitter->setObjectName(QStringLiteral("bodySplitter"));
     m_bodySplitter->setChildrenCollapsible(false); // collapse is a modeled state, not a drag accident
     m_bodySplitter->setHandleWidth(8);             // spec: 8px hit zone
 
+    m_mainArea = new QWidget;
+    m_mainArea->setObjectName(QStringLiteral("workspaceColumn"));
+    m_mainArea->installEventFilter(this); // resize -> re-layout the overlays
+    m_bodySplitter->addWidget(m_mainArea);
+    m_bodySplitter->setStretchFactor(0, 1);
+
+    // Overlay resize grips: thin strips on the panels' inner edges. Owned by
+    // the window (they survive workspace switches), positioned by
+    // layoutMainArea alongside the panels they resize.
+    m_rightGrip = new QWidget(m_mainArea);
+    m_rightGrip->setObjectName(QStringLiteral("rightPanelGrip"));
+    m_rightGrip->setCursor(Qt::SplitHCursor);
+    m_rightGrip->installEventFilter(this);
+    m_rightGrip->hide();
+    m_bottomGrip = new QWidget(m_mainArea);
+    m_bottomGrip->setObjectName(QStringLiteral("bottomPanelGrip"));
+    m_bottomGrip->setCursor(Qt::SplitVCursor);
+    m_bottomGrip->installEventFilter(this);
+    m_bottomGrip->hide();
+
     bodyLayout->addWidget(buildActivityRail());
     bodyLayout->addWidget(m_bodySplitter, 1);
 
-    m_rootSplitter = new QSplitter(Qt::Vertical);
-    m_rootSplitter->setObjectName(QStringLiteral("rootSplitter"));
-    m_rootSplitter->setChildrenCollapsible(false);
-    m_rootSplitter->setHandleWidth(8);
-    m_rootSplitter->addWidget(body);
-    m_rootSplitter->setStretchFactor(0, 1);
     root->addWidget(buildTitleBar());
-    root->addWidget(m_rootSplitter, 1);
+    root->addWidget(body, 1);
 
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
-    connect(m_rootSplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
 
     m_panelsState = defaultShellPanelsState();
 
@@ -320,6 +336,11 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
     actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPath(path); };
     actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
     actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
+    actions.setStatusText = [this](const QString &text) {
+        if (m_chromeStatus != nullptr) {
+            m_chromeStatus->setText(text);
+        }
+    };
     return std::make_unique<DraftingFeature>(m_controller, std::move(actions));
 }
 
@@ -330,26 +351,28 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
         mountWorkspaceLayout(m_workspaceLayout, m_featureRegistry, m_featureContext);
 
     // Geometry stays the window's job: slots have fixed places in the frame,
-    // and an unbound slot simply isn't added. Side and bottom slots sit in
-    // splitters so the user can drag-resize them; the pure ShellPanels model
-    // is the source of truth and the splitters are a projection of it.
+    // and an unbound slot simply isn't added. The left panel goes in-flow
+    // beside the main area (it pushes everything, including the terminal);
+    // main fills the whole area, right and bottom become overlays on it.
     m_leftPanelWidget = mountedSlotWidget(mounted, ShellSlot::Left);
     m_mainPanelWidget = mountedSlotWidget(mounted, ShellSlot::Main);
     m_rightPanelWidget = mountedSlotWidget(mounted, ShellSlot::Right);
     m_bottomPanelWidget = mountedSlotWidget(mounted, ShellSlot::Bottom);
 
     if (m_leftPanelWidget != nullptr) {
-        m_bodySplitter->addWidget(m_leftPanelWidget);
+        m_bodySplitter->insertWidget(0, m_leftPanelWidget);
     }
+    const auto adopt = [this](QWidget *widget) {
+        if (widget != nullptr) {
+            widget->setParent(m_mainArea);
+            widget->show(); // manual parenting starts widgets hidden
+        }
+    };
+    adopt(m_mainPanelWidget);
+    adopt(m_rightPanelWidget);
+    adopt(m_bottomPanelWidget);
     if (m_mainPanelWidget != nullptr) {
-        m_bodySplitter->addWidget(m_mainPanelWidget);
-        m_bodySplitter->setStretchFactor(m_bodySplitter->count() - 1, 1);
-    }
-    if (m_rightPanelWidget != nullptr) {
-        m_bodySplitter->addWidget(m_rightPanelWidget);
-    }
-    if (m_bottomPanelWidget != nullptr) {
-        m_rootSplitter->addWidget(m_bottomPanelWidget);
+        m_mainPanelWidget->lower(); // the grid sits under every overlay
     }
 
     applyPanelSizesToSplitters();
@@ -429,6 +452,36 @@ void EdiShellWindow::refreshChrome()
 
 bool EdiShellWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    // The main area re-lays its overlays whenever it changes size.
+    if (watched == m_mainArea && event->type() == QEvent::Resize) {
+        layoutMainArea();
+        return false;
+    }
+
+    // Overlay grips: dragging moves the panel edge through the model, and
+    // the geometry is recomputed from the model — same one-way flow as the
+    // splitter. The press is claimed so nothing underneath starts a gesture.
+    if (watched == m_rightGrip || watched == m_bottomGrip) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            return true;
+        }
+        if (event->type() == QEvent::MouseMove) {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            if (mouse->buttons() & Qt::LeftButton) {
+                const QPoint pos = m_mainArea->mapFromGlobal(mouse->globalPosition().toPoint());
+                if (watched == m_rightGrip) {
+                    m_panelsState.right.size =
+                        clampPanelSize(ShellSlot::Right, m_mainArea->width() - pos.x());
+                } else {
+                    m_panelsState.bottom.size =
+                        clampPanelSize(ShellSlot::Bottom, m_mainArea->height() - pos.y());
+                }
+                layoutMainArea();
+                return true;
+            }
+        }
+    }
+
     // Frameless windows lose the system drag region; the title bar's own
     // surface becomes it. Child buttons consume their presses first, so only
     // bar-background presses arrive here.
@@ -482,61 +535,77 @@ void EdiShellWindow::refreshPanelVisibility()
     apply(ShellSlot::Left, m_leftPanelWidget);
     apply(ShellSlot::Right, m_rightPanelWidget);
     apply(ShellSlot::Bottom, m_bottomPanelWidget);
-    refreshChrome(); // the toggle buttons mirror whatever just happened
+    layoutMainArea(); // overlay geometry follows visibility
+    refreshChrome();  // the toggle buttons mirror whatever just happened
 }
 
 void EdiShellWindow::applyPanelSizesToSplitters()
 {
-    // QSplitter::setSizes wants every section, and a layout may leave any slot
-    // unbound — so sections are resolved by widget identity, never by index.
-    // The main slot absorbs whatever the panels leave over. Hidden sections
-    // keep their stored size in the model, so reopening restores the layout.
-    if (m_bodySplitter != nullptr && m_bodySplitter->count() > 0) {
-        QList<int> sizes;
-        int panelTotal = 0;
-        for (int i = 0; i < m_bodySplitter->count(); ++i) {
-            QWidget *widget = m_bodySplitter->widget(i);
-            int size = 0; // main: placeholder, filled with the remainder below
-            if (widget == m_leftPanelWidget) {
-                size = m_panelsState.left.size;
-            } else if (widget == m_rightPanelWidget) {
-                size = m_panelsState.right.size;
-            }
-            panelTotal += size;
-            sizes.push_back(size);
-        }
-        const int mainIndex = m_bodySplitter->indexOf(m_mainPanelWidget);
-        if (mainIndex >= 0) {
-            sizes[mainIndex] = std::max(0, m_bodySplitter->width() - panelTotal);
-        }
-        m_bodySplitter->setSizes(sizes);
+    // Only the left panel lives in the splitter; the main area takes the
+    // remainder. Right/bottom geometry is overlay work — layoutMainArea.
+    if (m_bodySplitter != nullptr && m_bodySplitter->indexOf(m_leftPanelWidget) >= 0) {
+        const int left = m_panelsState.left.size;
+        m_bodySplitter->setSizes({left, std::max(0, m_bodySplitter->width() - left)});
     }
-    if (m_rootSplitter != nullptr && m_rootSplitter->indexOf(m_bottomPanelWidget) >= 0) {
-        const int bottom = m_panelsState.bottom.size;
-        m_rootSplitter->setSizes({std::max(0, m_rootSplitter->height() - bottom), bottom});
-    }
+    layoutMainArea();
 }
 
 void EdiShellWindow::capturePanelSizes()
 {
-    // Drag feedback flows one way: splitter -> clamp -> model. Sections are
-    // found by widget identity (layouts may leave slots unbound), and hidden
-    // panels report size 0 here, which must not overwrite the stored size they
-    // will reopen to — hence the visibility guards.
-    if (m_bodySplitter != nullptr) {
-        const QList<int> sizes = m_bodySplitter->sizes();
-        if (m_leftPanelWidget != nullptr && m_leftPanelWidget->isVisible()) {
+    // Drag feedback flows one way: splitter -> clamp -> model. A hidden panel
+    // reports size 0, which must not overwrite the stored size it will reopen
+    // to — hence the visibility guard. (Right/bottom drags are captured by
+    // the overlay grips in eventFilter, not here.)
+    if (m_bodySplitter != nullptr && m_leftPanelWidget != nullptr && m_leftPanelWidget->isVisible()) {
+        const int index = m_bodySplitter->indexOf(m_leftPanelWidget);
+        if (index >= 0) {
             m_panelsState.left.size =
-                clampPanelSize(ShellSlot::Left, sizes.value(m_bodySplitter->indexOf(m_leftPanelWidget)));
-        }
-        if (m_rightPanelWidget != nullptr && m_rightPanelWidget->isVisible()) {
-            m_panelsState.right.size =
-                clampPanelSize(ShellSlot::Right, sizes.value(m_bodySplitter->indexOf(m_rightPanelWidget)));
+                clampPanelSize(ShellSlot::Left, m_bodySplitter->sizes().value(index));
         }
     }
-    if (m_rootSplitter != nullptr && m_bottomPanelWidget != nullptr && m_bottomPanelWidget->isVisible()
-        && m_rootSplitter->indexOf(m_bottomPanelWidget) >= 0) {
-        m_panelsState.bottom.size = clampPanelSize(
-            ShellSlot::Bottom, m_rootSplitter->sizes().value(m_rootSplitter->indexOf(m_bottomPanelWidget)));
+}
+
+void EdiShellWindow::layoutMainArea()
+{
+    // The grid always fills the whole main area — overlays cover it, they
+    // never resize it (so zoom/board geometry stays put while panels come and
+    // go). The bottom overlay spans the full width and may grow to the whole
+    // area ("the terminal becomes the main window"); the right overlay stops
+    // where the terminal starts. isVisibleTo() rather than isVisible() so the
+    // layout is correct even before the window is first shown.
+    if (m_mainArea == nullptr) {
+        return;
+    }
+    const int width = m_mainArea->width();
+    const int height = m_mainArea->height();
+    const bool rightShown = m_rightPanelWidget != nullptr && m_rightPanelWidget->isVisibleTo(m_mainArea);
+    const bool bottomShown = m_bottomPanelWidget != nullptr && m_bottomPanelWidget->isVisibleTo(m_mainArea);
+    const int bottomHeight = bottomShown ? std::min(m_panelsState.bottom.size, height) : 0;
+    const int rightWidth = rightShown ? std::min(m_panelsState.right.size, width) : 0;
+
+    if (m_mainPanelWidget != nullptr) {
+        m_mainPanelWidget->setGeometry(0, 0, width, height);
+    }
+    if (rightShown) {
+        m_rightPanelWidget->setGeometry(width - rightWidth, 0, rightWidth, height - bottomHeight);
+        m_rightPanelWidget->raise();
+    }
+    if (bottomShown) {
+        m_bottomPanelWidget->setGeometry(0, height - bottomHeight, width, bottomHeight);
+        m_bottomPanelWidget->raise();
+    }
+    if (m_rightGrip != nullptr) {
+        m_rightGrip->setVisible(rightShown);
+        if (rightShown) {
+            m_rightGrip->setGeometry(width - rightWidth - 4, 0, 8, height - bottomHeight);
+            m_rightGrip->raise();
+        }
+    }
+    if (m_bottomGrip != nullptr) {
+        m_bottomGrip->setVisible(bottomShown);
+        if (bottomShown) {
+            m_bottomGrip->setGeometry(0, height - bottomHeight - 4, width, 8);
+            m_bottomGrip->raise();
+        }
     }
 }

@@ -19,7 +19,7 @@ int main()
     assert(!panelSpec(ShellSlot::Right).openInitially);
     assert(panelSpec(ShellSlot::Bottom).defaultSize == 132);
     assert(panelSpec(ShellSlot::Bottom).minSize == 96);
-    assert(panelSpec(ShellSlot::Bottom).maxSize == 1000);
+    assert(panelSpec(ShellSlot::Bottom).maxSize == 0); // unbounded: the terminal may become the main window
     assert(panelSpec(ShellSlot::Bottom).autoHideBelow == 520);
     assert(!panelSpec(ShellSlot::Bottom).openInitially);
     assert(panelSpec(ShellSlot::Main).defaultSize == 0); // Main is not a panel
@@ -78,7 +78,8 @@ int main()
     assert(clampPanelSize(ShellSlot::Left, 300) == 300);
     assert(clampPanelSize(ShellSlot::Right, 9999) == 9999);
     assert(clampPanelSize(ShellSlot::Right, 10) == 160);
-    assert(clampPanelSize(ShellSlot::Bottom, 2000) == 1000);
+    assert(clampPanelSize(ShellSlot::Bottom, 2000) == 2000); // unbounded above
+    assert(clampPanelSize(ShellSlot::Bottom, 10) == 96);
 
     return 0;
 }

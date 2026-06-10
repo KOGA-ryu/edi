@@ -12,7 +12,9 @@ PanelSpec panelSpec(ShellSlot slot)
     case ShellSlot::Right:
         return PanelSpec{300, 160, 0, 0, false};
     case ShellSlot::Bottom:
-        return PanelSpec{132, 96, 1000, 520, false};
+        // Max unbounded (user decision 2026-06-10): the terminal must be able
+        // to grow over the whole main area and "become the main window".
+        return PanelSpec{132, 96, 0, 520, false};
     case ShellSlot::Main:
         break;
     }

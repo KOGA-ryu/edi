@@ -4,6 +4,7 @@
 #include <QButtonGroup>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QMenu>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -136,6 +137,12 @@ QWidget *EdiShellWindow::buildTitleBar()
     settingsMenu->addAction(QStringLiteral("Review layout"), this, [this]() { applyShellPanelPreset(PanelPreset::Review); });
 
     layout->addStretch(1); // the drag region
+    // The status line the drafting feature publishes (was the workspace
+    // header's job; the header is gone — the grid speaks for itself).
+    m_chromeStatus = new QLabel;
+    m_chromeStatus->setObjectName(QStringLiteral("chromeStatus"));
+    layout->addWidget(m_chromeStatus);
+    layout->addStretch(1);
 
     m_toggleBottomButton = addPanelToggle(QStringLiteral("toggleBottomPanel"), QStringLiteral("⬓"),
         QStringLiteral("Toggle terminal"), ShellSlot::Bottom);

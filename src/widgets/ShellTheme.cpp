@@ -156,10 +156,9 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         #valueLabel, #bottomStatus {
             color: %12;
-            background: %8;
-            border: 1px solid %7;
-            border-radius: 5px;
-            padding: 6px 8px;
+            background: transparent;
+            border: none;
+            padding: 2px 0;
         }
         #fieldLabel {
             color: %12;

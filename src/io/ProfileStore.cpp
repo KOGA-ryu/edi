@@ -60,8 +60,7 @@ ShellThemeInputs readThemeInputsFromConfig(const StaticConfig &config)
 
 QString defaultProfilesDirPath()
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    return QDir(dir).filePath(QStringLiteral("profiles"));
+    return appConfigFilePath(QStringLiteral("profiles"));
 }
 
 QStringList listProfiles(const QString &dir)

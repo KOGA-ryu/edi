@@ -108,9 +108,7 @@ QWidget *SettingsFeature::buildSettingsPage()
     title->setObjectName(QStringLiteral("panelTitle"));
     layout->addWidget(title);
 
-    auto *themeHeader = new QLabel(QStringLiteral("Theme"));
-    themeHeader->setObjectName(QStringLiteral("sectionLabel"));
-    layout->addWidget(themeHeader);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Theme")));
 
     auto *host = new QWidget;
     auto *hostLayout = new QVBoxLayout(host);
@@ -123,71 +121,50 @@ QWidget *SettingsFeature::buildSettingsPage()
     QLineEdit *accentField = addColorRow(host, QStringLiteral("Accent"), QStringLiteral("themeAccentField"), &ShellThemeInputs::accent);
     QLineEdit *textField = addColorRow(host, QStringLiteral("Text"), QStringLiteral("themeTextField"), &ShellThemeInputs::text);
 
-    auto *typographyHeader = new QLabel(QStringLiteral("Typography"));
-    typographyHeader->setObjectName(QStringLiteral("sectionLabel"));
-    layout->addWidget(typographyHeader);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Typography")));
 
-    const ShellThemeInputs current = m_hooks.themeInputs ? m_hooks.themeInputs() : ShellThemeInputs{};
-
-    auto *fontRow = new QWidget;
-    auto *fontLayout = new QHBoxLayout(fontRow);
-    fontLayout->setContentsMargins(0, 0, 0, 0);
-    fontLayout->setSpacing(8);
-    auto *fontLabel = new QLabel(QStringLiteral("UI font"));
-    fontLabel->setObjectName(QStringLiteral("fieldLabel"));
-    fontLabel->setMinimumWidth(70);
-    fontLayout->addWidget(fontLabel);
-    auto *fontCombo = new QFontComboBox;
-    fontCombo->setObjectName(QStringLiteral("uiFontCombo"));
-    fontCombo->setCurrentFont(QFont(current.uiFont));
-    fontLayout->addWidget(fontCombo);
-    auto *sizeSpin = new QSpinBox;
-    sizeSpin->setObjectName(QStringLiteral("uiFontSizeSpin"));
-    sizeSpin->setRange(9, 28); // deriveShellTheme clamps to the same band
-    sizeSpin->setValue(current.uiFontSize);
-    fontLayout->addWidget(sizeSpin);
-    fontLayout->addStretch(1);
-    layout->addWidget(fontRow);
-
-    auto *codeRow = new QWidget;
-    auto *codeLayout = new QHBoxLayout(codeRow);
-    codeLayout->setContentsMargins(0, 0, 0, 0);
-    codeLayout->setSpacing(8);
-    auto *codeLabel = new QLabel(QStringLiteral("Code font"));
-    codeLabel->setObjectName(QStringLiteral("fieldLabel"));
-    codeLabel->setMinimumWidth(70);
-    codeLayout->addWidget(codeLabel);
-    auto *codeCombo = new QFontComboBox;
-    codeCombo->setObjectName(QStringLiteral("codeFontCombo"));
-    codeCombo->setCurrentFont(QFont(current.codeFont));
-    codeLayout->addWidget(codeCombo);
-    auto *codeSizeSpin = new QSpinBox;
-    codeSizeSpin->setObjectName(QStringLiteral("codeFontSizeSpin"));
-    codeSizeSpin->setRange(9, 28);
-    codeSizeSpin->setValue(current.codeFontSize);
-    codeLayout->addWidget(codeSizeSpin);
-    codeLayout->addStretch(1);
-    layout->addWidget(codeRow);
-
-    connect(fontCombo, &QFontComboBox::currentFontChanged, this, [this](const QFont &font) {
-        pushInputs([&font](ShellThemeInputs &inputs) { inputs.uiFont = font.family(); });
-    });
-    connect(sizeSpin, &QSpinBox::valueChanged, this, [this](int value) {
-        pushInputs([value](ShellThemeInputs &inputs) { inputs.uiFontSize = value; });
-    });
-    connect(codeCombo, &QFontComboBox::currentFontChanged, this, [this](const QFont &font) {
-        pushInputs([&font](ShellThemeInputs &inputs) { inputs.codeFont = font.family(); });
-    });
-    connect(codeSizeSpin, &QSpinBox::valueChanged, this, [this](int value) {
-        pushInputs([value](ShellThemeInputs &inputs) { inputs.codeFontSize = value; });
-    });
+    // One row shape, two instances — which font/size members a row edits is
+    // data (member pointers), the same idiom as the color rows.
+    const auto addFontRow = [this, layout = layout](const QString &label, const QString &comboName,
+                                const QString &spinName, QString ShellThemeInputs::*fontMember,
+                                int ShellThemeInputs::*sizeMember) {
+        const ShellThemeInputs current = m_hooks.themeInputs ? m_hooks.themeInputs() : ShellThemeInputs{};
+        auto *row = new QWidget;
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(8);
+        auto *name = new QLabel(label);
+        name->setObjectName(QStringLiteral("fieldLabel"));
+        name->setMinimumWidth(70);
+        rowLayout->addWidget(name);
+        auto *combo = new QFontComboBox;
+        combo->setObjectName(comboName);
+        combo->setCurrentFont(QFont(current.*fontMember));
+        rowLayout->addWidget(combo);
+        auto *spin = new QSpinBox;
+        spin->setObjectName(spinName);
+        spin->setRange(9, 28); // deriveShellTheme clamps to the same band
+        spin->setValue(current.*sizeMember);
+        rowLayout->addWidget(spin);
+        rowLayout->addStretch(1);
+        layout->addWidget(row);
+        connect(combo, &QFontComboBox::currentFontChanged, this, [this, fontMember](const QFont &font) {
+            pushInputs([fontMember, &font](ShellThemeInputs &inputs) { inputs.*fontMember = font.family(); });
+        });
+        connect(spin, &QSpinBox::valueChanged, this, [this, sizeMember](int value) {
+            pushInputs([sizeMember, value](ShellThemeInputs &inputs) { inputs.*sizeMember = value; });
+        });
+        return std::pair{combo, spin};
+    };
+    auto [fontCombo, sizeSpin] = addFontRow(QStringLiteral("UI font"), QStringLiteral("uiFontCombo"),
+        QStringLiteral("uiFontSizeSpin"), &ShellThemeInputs::uiFont, &ShellThemeInputs::uiFontSize);
+    auto [codeCombo, codeSizeSpin] = addFontRow(QStringLiteral("Code font"), QStringLiteral("codeFontCombo"),
+        QStringLiteral("codeFontSizeSpin"), &ShellThemeInputs::codeFont, &ShellThemeInputs::codeFontSize);
 
     // Profiles: pick one to load it; type a name and save to snapshot the
     // current theme under it. The page refreshes its rows after a load so the
     // view never shows a stale theme.
-    auto *profilesHeader = new QLabel(QStringLiteral("Profiles"));
-    profilesHeader->setObjectName(QStringLiteral("sectionLabel"));
-    layout->addWidget(profilesHeader);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Profiles")));
 
     auto *profileRow = new QWidget;
     auto *profileLayout = new QHBoxLayout(profileRow);

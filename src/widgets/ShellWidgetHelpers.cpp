@@ -70,6 +70,13 @@ QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool a
     return button;
 }
 
+QLabel *makeSectionLabel(const QString &text)
+{
+    auto *label = new QLabel(text);
+    label->setObjectName(QStringLiteral("sectionLabel"));
+    return label;
+}
+
 void clearLayoutMargins(QLayout *layout)
 {
     layout->setContentsMargins(0, 0, 0, 0);

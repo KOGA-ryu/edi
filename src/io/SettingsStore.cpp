@@ -134,10 +134,15 @@ std::vector<std::string> pushRecentFile(std::vector<std::string> recent, const s
     return recent;
 }
 
-QString defaultSettingsPath()
+QString appConfigFilePath(const QString &name)
 {
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    return QDir(dir).filePath(QStringLiteral("edi.toml"));
+    return QDir(dir).filePath(name);
+}
+
+QString defaultSettingsPath()
+{
+    return appConfigFilePath(QStringLiteral("edi.toml"));
 }
 
 StaticConfig loadSettingsFromPath(const QString &path)

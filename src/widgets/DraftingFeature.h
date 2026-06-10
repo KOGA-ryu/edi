@@ -96,7 +96,6 @@ private:
     QDoubleSpinBox *makeGeometryFieldSpin(const GeometryFieldSpec &spec);
     void applyGeometryFieldEdit(QDoubleSpinBox *spin);
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
-    QLabel *makeSectionLabel(const QString &text) const;
     QLabel *makeValueLabel(const QString &text = QString()) const;
     void rebuildGeometryEditor(const QVariantMap &selectedObject);
     void applyGeometryEditStatus(const QVariantMap &editStatus);

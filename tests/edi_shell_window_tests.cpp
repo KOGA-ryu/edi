@@ -402,6 +402,37 @@ int main(int argc, char **argv)
         assert(!groupVisible(QStringLiteral("selection_summary")));
     }
 
+    // Inspector de-bloat: heavy sections are disclosures. Defaults are data
+    // (identity open, button armies folded), and the toggle actually folds.
+    {
+        QPushButton *canvasStateToggle = nullptr;
+        QPushButton *selectedObjectToggle = nullptr;
+        QPushButton *nudgeToggle = nullptr;
+        for (QPushButton *toggle : window.findChildren<QPushButton *>(QStringLiteral("sectionToggle"))) {
+            if (toggle->text().endsWith(QStringLiteral("Canvas State"))) {
+                canvasStateToggle = toggle;
+            } else if (toggle->text().endsWith(QStringLiteral("Selected Object"))) {
+                selectedObjectToggle = toggle;
+            } else if (toggle->text().endsWith(QStringLiteral("Nudge")) && !toggle->text().contains(QStringLiteral("Guide"))) {
+                nudgeToggle = toggle;
+            }
+        }
+        assert(canvasStateToggle != nullptr && !canvasStateToggle->isChecked());  // folded by default
+        assert(selectedObjectToggle != nullptr && selectedObjectToggle->isChecked()); // open by default
+        assert(nudgeToggle != nullptr && !nudgeToggle->isChecked());
+
+        // Toggling shows the content. The fold hides the CONTENT BOX (the
+        // grid panel the buttons live in), not each button — so the hidden
+        // flag to read is the parent's.
+        QPushButton *nudgeUp = buttonWithText(window, QStringLiteral("Grid Up"));
+        assert(nudgeUp != nullptr && nudgeUp->parentWidget() != nullptr);
+        assert(nudgeUp->parentWidget()->isHidden());
+        nudgeToggle->click();
+        assert(!nudgeUp->parentWidget()->isHidden());
+        nudgeToggle->click();
+        assert(nudgeUp->parentWidget()->isHidden());
+    }
+
     // F3: the weapon-cross tool belt drives the controller and follows it.
     {
         auto *belt = window.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));

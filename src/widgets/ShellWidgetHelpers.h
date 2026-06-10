@@ -45,6 +45,12 @@ QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool a
 // Free function: every feature builds these, and they need nothing from any.
 QLabel *makeSectionLabel(const QString &text);
 
+// A disclosure section: a clickable header that folds its content. The
+// inspector's de-bloat tool — every section stays reachable, only the ones
+// a context actually needs start open (openInitially is the caller's data).
+// Collapsed state is session furniture, not persisted.
+QWidget *makeCollapsibleSection(const QString &title, QWidget *content, bool openInitially);
+
 void clearLayoutMargins(QLayout *layout);
 
 void setWidgetEnabled(QWidget *widget, bool enabled);

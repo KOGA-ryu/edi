@@ -96,6 +96,39 @@ BeltItem beltItemForTool(const QString &toolId)
     return {toolId, QLatin1String(spec->glyph), QLatin1String(spec->label)};
 }
 
+// Content box for a foldable inspector section: add widgets to .layout,
+// then hand .box to makeCollapsibleSection. Margins stay zero so folded
+// sections cost no whitespace.
+struct FoldBox {
+    QWidget *box = nullptr;
+    QVBoxLayout *layout = nullptr;
+};
+
+FoldBox makeFoldBox()
+{
+    FoldBox fold;
+    fold.box = new QWidget;
+    fold.layout = new QVBoxLayout(fold.box);
+    fold.layout->setContentsMargins(0, 0, 0, 0);
+    fold.layout->setSpacing(4);
+    return fold;
+}
+
+// A 2-column grid of buttons replaces the old full-width stacks — half the
+// vertical cost for the same reach.
+QWidget *makeButtonGrid(const QVector<QPushButton *> &buttons)
+{
+    auto *panel = new QWidget;
+    auto *grid = new QGridLayout(panel);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(4);
+    grid->setVerticalSpacing(2);
+    for (int i = 0; i < buttons.size(); ++i) {
+        grid->addWidget(buttons[i], i / 2, i % 2);
+    }
+    return panel;
+}
+
 } // namespace
 
 DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent)
@@ -439,30 +472,39 @@ QWidget *DraftingFeature::buildRightPanel()
     m_selectedValue = makeValueLabel();
     group->addWidget(m_selectedValue);
 
-    group->addWidget(makeSectionLabel(QStringLiteral("Selected Object")));
-    m_objectKindValue = makeValueLabel();
-    m_objectBoundsValue = makeValueLabel();
-    m_objectGeometryValue = makeValueLabel();
-    m_objectLayerValue = makeValueLabel();
-    m_objectMeasurementValue = makeValueLabel();
-    m_objectPlotSafetyValue = makeValueLabel();
-    m_selectionPlotBoundsValue = makeValueLabel();
-    group->addWidget(m_objectKindValue);
-    group->addWidget(m_objectBoundsValue);
-    group->addWidget(m_objectGeometryValue);
-    group->addWidget(m_objectLayerValue);
-    group->addWidget(m_objectMeasurementValue);
-    group->addWidget(m_objectPlotSafetyValue);
-    group->addWidget(m_selectionPlotBoundsValue);
-    group->addWidget(makeConditionalButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), QStringLiteral("has_selection"), [this]() {
-        m_controller->fitSelectionToDrawableBounds();
-    }));
-    group->addWidget(makeConditionalButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), QStringLiteral("has_selection"), [this]() {
-        m_controller->centerSelectionInDrawable();
-    }));
-    group->addWidget(makeConditionalButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), QStringLiteral("has_selection"), [this]() {
-        m_controller->moveSelectionToDrawableOrigin();
-    }));
+    // De-bloat (user feedback): heavy sections fold. The identity labels
+    // stay open; the readout pile and the placement buttons start folded —
+    // reachable, not shouting. Open/collapsed defaults are the data here.
+    {
+        FoldBox details = makeFoldBox();
+        m_objectKindValue = makeValueLabel();
+        m_objectBoundsValue = makeValueLabel();
+        m_objectGeometryValue = makeValueLabel();
+        m_objectLayerValue = makeValueLabel();
+        m_objectMeasurementValue = makeValueLabel();
+        m_objectPlotSafetyValue = makeValueLabel();
+        m_selectionPlotBoundsValue = makeValueLabel();
+        details.layout->addWidget(m_objectKindValue);
+        details.layout->addWidget(m_objectBoundsValue);
+        details.layout->addWidget(m_objectGeometryValue);
+        details.layout->addWidget(m_objectLayerValue);
+        details.layout->addWidget(m_objectMeasurementValue);
+        details.layout->addWidget(m_objectPlotSafetyValue);
+        details.layout->addWidget(m_selectionPlotBoundsValue);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Selected Object"), details.box, true));
+
+        FoldBox place = makeFoldBox();
+        place.layout->addWidget(makeConditionalButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), QStringLiteral("has_selection"), [this]() {
+            m_controller->fitSelectionToDrawableBounds();
+        }));
+        place.layout->addWidget(makeConditionalButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), QStringLiteral("has_selection"), [this]() {
+            m_controller->centerSelectionInDrawable();
+        }));
+        place.layout->addWidget(makeConditionalButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), QStringLiteral("has_selection"), [this]() {
+            m_controller->moveSelectionToDrawableOrigin();
+        }));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Place In Drawable"), place.box, false));
+    }
     group->addWidget(buildObjectFlagControls());
     group->addWidget(makeSectionLabel(QStringLiteral("Object Layer")));
     m_selectedObjectLayer = makeDataCombo(QStringLiteral("selectedObjectLayerCombo"), {}, [this](const QString &layerId) {
@@ -508,21 +550,27 @@ QWidget *DraftingFeature::buildRightPanel()
     group->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableMax();
     }));
-    const QVector<QPair<QString, QString>> guideOffsetButtons {
-        {QStringLiteral("negative_fine"), QStringLiteral("Guide - Fine")},
-        {QStringLiteral("positive_fine"), QStringLiteral("Guide + Fine")},
-        {QStringLiteral("negative_grid"), QStringLiteral("Guide - Grid")},
-        {QStringLiteral("positive_grid"), QStringLiteral("Guide + Grid")},
-        {QStringLiteral("negative_coarse"), QStringLiteral("Guide - Coarse")},
-        {QStringLiteral("positive_coarse"), QStringLiteral("Guide + Coarse")},
-    };
-    for (const auto &buttonSpec : guideOffsetButtons) {
-        const QStringList parts = buttonSpec.first.split(QLatin1Char('_'));
-        auto *button = makeActionButton(QStringLiteral("guideOffset_%1").arg(buttonSpec.first), buttonSpec.second, [this, direction = parts.value(0), stepMode = parts.value(1)]() {
-            m_controller->offsetSelectedGuide(direction, stepMode);
-        });
-        m_guideOffsetButtons.insert(buttonSpec.first, button);
-        group->addWidget(button);
+    {
+        const QVector<QPair<QString, QString>> guideOffsetButtons {
+            {QStringLiteral("negative_fine"), QStringLiteral("- Fine")},
+            {QStringLiteral("positive_fine"), QStringLiteral("+ Fine")},
+            {QStringLiteral("negative_grid"), QStringLiteral("- Grid")},
+            {QStringLiteral("positive_grid"), QStringLiteral("+ Grid")},
+            {QStringLiteral("negative_coarse"), QStringLiteral("- Coarse")},
+            {QStringLiteral("positive_coarse"), QStringLiteral("+ Coarse")},
+        };
+        QVector<QPushButton *> buttons;
+        for (const auto &buttonSpec : guideOffsetButtons) {
+            const QStringList parts = buttonSpec.first.split(QLatin1Char('_'));
+            auto *button = makeActionButton(QStringLiteral("guideOffset_%1").arg(buttonSpec.first), buttonSpec.second, [this, direction = parts.value(0), stepMode = parts.value(1)]() {
+                m_controller->offsetSelectedGuide(direction, stepMode);
+            });
+            m_guideOffsetButtons.insert(buttonSpec.first, button);
+            buttons.push_back(button);
+        }
+        FoldBox offsets = makeFoldBox();
+        offsets.layout->addWidget(makeButtonGrid(buttons));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Nudge Guide"), offsets.box, false));
     }
     group->addWidget(makeConditionalButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->deleteSelectedGuide();
@@ -566,106 +614,130 @@ QWidget *DraftingFeature::buildRightPanel()
     }));
 
     group = beginInspectorGroup(layout, QStringLiteral("transform"));
-    group->addWidget(buildNudgeControls());
-    group->addWidget(buildAlignControls());
-    group->addWidget(buildOffsetControls());
-    group->addWidget(buildMirrorControls());
-    group->addWidget(buildRepeatControls());
+    group->addWidget(makeCollapsibleSection(QStringLiteral("Nudge"), buildNudgeControls(), false));
+    group->addWidget(makeCollapsibleSection(QStringLiteral("Align"), buildAlignControls(), false));
+    {
+        // Offset / mirror / repeat are one mental action (make more of it):
+        // one fold instead of three headers.
+        FoldBox duplicate = makeFoldBox();
+        duplicate.layout->addWidget(buildOffsetControls());
+        duplicate.layout->addWidget(buildMirrorControls());
+        duplicate.layout->addWidget(buildRepeatControls());
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Duplicate"), duplicate.box, false));
+    }
 
     group = beginInspectorGroup(layout, QStringLiteral("object_guides"));
-    group->addWidget(makeSectionLabel(QStringLiteral("Bounds Guides")));
-    const QVector<QPair<QString, QString>> boundsGuideButtons {
-        {QStringLiteral("left"), QStringLiteral("Guide Left")},
-        {QStringLiteral("right"), QStringLiteral("Guide Right")},
-        {QStringLiteral("top"), QStringLiteral("Guide Top")},
-        {QStringLiteral("bottom"), QStringLiteral("Guide Bottom")},
-        {QStringLiteral("vertical_center"), QStringLiteral("Guide V Center")},
-        {QStringLiteral("horizontal_center"), QStringLiteral("Guide H Center")},
-    };
-    for (const auto &buttonSpec : boundsGuideButtons) {
-        auto *button = makeActionButton(QStringLiteral("boundsGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
-            m_controller->createGuideFromSelectedBounds(placementId);
-        });
-        m_boundsGuideButtons.insert(buttonSpec.first, button);
-        group->addWidget(button);
+    {
+        const QVector<QPair<QString, QString>> boundsGuideButtons {
+            {QStringLiteral("left"), QStringLiteral("Left")},
+            {QStringLiteral("right"), QStringLiteral("Right")},
+            {QStringLiteral("top"), QStringLiteral("Top")},
+            {QStringLiteral("bottom"), QStringLiteral("Bottom")},
+            {QStringLiteral("vertical_center"), QStringLiteral("V Center")},
+            {QStringLiteral("horizontal_center"), QStringLiteral("H Center")},
+        };
+        QVector<QPushButton *> buttons;
+        for (const auto &buttonSpec : boundsGuideButtons) {
+            auto *button = makeActionButton(QStringLiteral("boundsGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
+                m_controller->createGuideFromSelectedBounds(placementId);
+            });
+            m_boundsGuideButtons.insert(buttonSpec.first, button);
+            buttons.push_back(button);
+        }
+        FoldBox fold = makeFoldBox();
+        fold.layout->addWidget(makeButtonGrid(buttons));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Bounds Guides"), fold.box, false));
     }
-    group->addWidget(makeSectionLabel(QStringLiteral("Offset Guides")));
-    const QVector<QPair<QString, QString>> offsetGuideButtons {
-        {QStringLiteral("left"), QStringLiteral("Offset V Left")},
-        {QStringLiteral("right"), QStringLiteral("Offset V Right")},
-        {QStringLiteral("top"), QStringLiteral("Offset H Top")},
-        {QStringLiteral("bottom"), QStringLiteral("Offset H Bottom")},
-    };
-    for (const auto &buttonSpec : offsetGuideButtons) {
-        auto *button = makeActionButton(QStringLiteral("offsetGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
-            m_controller->createOffsetGuideFromSelectedBounds(placementId, QStringLiteral("grid"));
-        });
-        m_offsetGuideButtons.insert(buttonSpec.first, button);
-        group->addWidget(button);
+    {
+        const QVector<QPair<QString, QString>> offsetGuideButtons {
+            {QStringLiteral("left"), QStringLiteral("V Left")},
+            {QStringLiteral("right"), QStringLiteral("V Right")},
+            {QStringLiteral("top"), QStringLiteral("H Top")},
+            {QStringLiteral("bottom"), QStringLiteral("H Bottom")},
+        };
+        QVector<QPushButton *> buttons;
+        for (const auto &buttonSpec : offsetGuideButtons) {
+            auto *button = makeActionButton(QStringLiteral("offsetGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, placementId = buttonSpec.first]() {
+                m_controller->createOffsetGuideFromSelectedBounds(placementId, QStringLiteral("grid"));
+            });
+            m_offsetGuideButtons.insert(buttonSpec.first, button);
+            buttons.push_back(button);
+        }
+        FoldBox fold = makeFoldBox();
+        fold.layout->addWidget(makeButtonGrid(buttons));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Offset Guides"), fold.box, false));
     }
-    group->addWidget(makeSectionLabel(QStringLiteral("Align To Guide")));
-    const QVector<QPair<QString, QString>> alignToGuideButtons {
-        {QStringLiteral("left"), QStringLiteral("To V Guide Left")},
-        {QStringLiteral("center_x"), QStringLiteral("To V Guide Center")},
-        {QStringLiteral("right"), QStringLiteral("To V Guide Right")},
-        {QStringLiteral("top"), QStringLiteral("To H Guide Top")},
-        {QStringLiteral("center_y"), QStringLiteral("To H Guide Center")},
-        {QStringLiteral("bottom"), QStringLiteral("To H Guide Bottom")},
-    };
-    for (const auto &buttonSpec : alignToGuideButtons) {
-        auto *button = makeActionButton(QStringLiteral("alignToGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, modeId = buttonSpec.first]() {
-            m_controller->alignSelectionToNearestGuide(modeId);
-        });
-        m_alignToGuideButtons.insert(buttonSpec.first, button);
-        group->addWidget(button);
+    {
+        const QVector<QPair<QString, QString>> alignToGuideButtons {
+            {QStringLiteral("left"), QStringLiteral("V Left")},
+            {QStringLiteral("center_x"), QStringLiteral("V Center")},
+            {QStringLiteral("right"), QStringLiteral("V Right")},
+            {QStringLiteral("top"), QStringLiteral("H Top")},
+            {QStringLiteral("center_y"), QStringLiteral("H Center")},
+            {QStringLiteral("bottom"), QStringLiteral("H Bottom")},
+        };
+        QVector<QPushButton *> buttons;
+        for (const auto &buttonSpec : alignToGuideButtons) {
+            auto *button = makeActionButton(QStringLiteral("alignToGuide_%1").arg(buttonSpec.first), buttonSpec.second, [this, modeId = buttonSpec.first]() {
+                m_controller->alignSelectionToNearestGuide(modeId);
+            });
+            m_alignToGuideButtons.insert(buttonSpec.first, button);
+            buttons.push_back(button);
+        }
+        FoldBox fold = makeFoldBox();
+        fold.layout->addWidget(makeButtonGrid(buttons));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Align To Guide"), fold.box, false));
     }
 
     group = beginInspectorGroup(layout, QStringLiteral("layers_document"));
-    group->addWidget(buildLayerControls());
+    group->addWidget(makeCollapsibleSection(QStringLiteral("Layers"), buildLayerControls(), true));
 
     group = beginInspectorGroup(layout, QStringLiteral("guides_document"));
-    group->addWidget(makeSectionLabel(QStringLiteral("Guide Presets")));
-    const QVector<QPair<QString, QString>> guidePresetButtons {
-        {QStringLiteral("drawable_bounds"), QStringLiteral("Preset Bounds")},
-        {QStringLiteral("drawable_centerlines"), QStringLiteral("Preset Centerlines")},
-        {QStringLiteral("thirds"), QStringLiteral("Preset Thirds")},
-        {QStringLiteral("quarters"), QStringLiteral("Preset Quarters")},
-        {QStringLiteral("margin_safe"), QStringLiteral("Preset Margin Safe")},
-    };
-    for (const auto &buttonSpec : guidePresetButtons) {
-        auto *button = makeActionButton(QStringLiteral("guidePreset_%1").arg(buttonSpec.first), buttonSpec.second, [this, presetId = buttonSpec.first]() {
-            m_controller->applyGuidePreset(presetId);
-        });
-        group->addWidget(button);
+    {
+        const QVector<QPair<QString, QString>> guidePresetButtons {
+            {QStringLiteral("drawable_bounds"), QStringLiteral("Bounds")},
+            {QStringLiteral("drawable_centerlines"), QStringLiteral("Centerlines")},
+            {QStringLiteral("thirds"), QStringLiteral("Thirds")},
+            {QStringLiteral("quarters"), QStringLiteral("Quarters")},
+            {QStringLiteral("margin_safe"), QStringLiteral("Margin Safe")},
+        };
+        QVector<QPushButton *> buttons;
+        for (const auto &buttonSpec : guidePresetButtons) {
+            buttons.push_back(makeActionButton(QStringLiteral("guidePreset_%1").arg(buttonSpec.first), buttonSpec.second, [this, presetId = buttonSpec.first]() {
+                m_controller->applyGuidePreset(presetId);
+            }));
+        }
+        FoldBox fold = makeFoldBox();
+        fold.layout->addWidget(makeButtonGrid(buttons));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Guide Presets"), fold.box, false));
     }
-    group->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
-    m_deleteAllGuidesButton = makeActionButton(QStringLiteral("deleteAllGuidesButton"), QStringLiteral("Delete All Guides"), [this]() {
-        m_controller->deleteAllGuides();
-    });
-    group->addWidget(m_deleteAllGuidesButton);
-    m_mergeDuplicateGuidesButton = makeActionButton(QStringLiteral("mergeDuplicateGuidesButton"), QStringLiteral("Merge Duplicate Guides"), [this]() {
-        m_controller->mergeDuplicateGuides();
-    });
-    group->addWidget(m_mergeDuplicateGuidesButton);
-    m_hideAllGuidesButton = makeActionButton(QStringLiteral("hideAllGuidesButton"), QStringLiteral("Hide All Guides"), [this]() {
-        m_controller->setAllGuidesVisible(false);
-    });
-    group->addWidget(m_hideAllGuidesButton);
-    m_showAllGuidesButton = makeActionButton(QStringLiteral("showAllGuidesButton"), QStringLiteral("Show All Guides"), [this]() {
-        m_controller->setAllGuidesVisible(true);
-    });
-    group->addWidget(m_showAllGuidesButton);
-    m_lockAllGuidesButton = makeActionButton(QStringLiteral("lockAllGuidesButton"), QStringLiteral("Lock All Guides"), [this]() {
-        m_controller->setAllGuidesLocked(true);
-    });
-    group->addWidget(m_lockAllGuidesButton);
-    m_unlockAllGuidesButton = makeActionButton(QStringLiteral("unlockAllGuidesButton"), QStringLiteral("Unlock All Guides"), [this]() {
-        m_controller->setAllGuidesLocked(false);
-    });
-    group->addWidget(m_unlockAllGuidesButton);
+    {
+        FoldBox fold = makeFoldBox();
+        m_deleteAllGuidesButton = makeActionButton(QStringLiteral("deleteAllGuidesButton"), QStringLiteral("Delete All"), [this]() {
+            m_controller->deleteAllGuides();
+        });
+        m_mergeDuplicateGuidesButton = makeActionButton(QStringLiteral("mergeDuplicateGuidesButton"), QStringLiteral("Merge Dups"), [this]() {
+            m_controller->mergeDuplicateGuides();
+        });
+        m_hideAllGuidesButton = makeActionButton(QStringLiteral("hideAllGuidesButton"), QStringLiteral("Hide All"), [this]() {
+            m_controller->setAllGuidesVisible(false);
+        });
+        m_showAllGuidesButton = makeActionButton(QStringLiteral("showAllGuidesButton"), QStringLiteral("Show All"), [this]() {
+            m_controller->setAllGuidesVisible(true);
+        });
+        m_lockAllGuidesButton = makeActionButton(QStringLiteral("lockAllGuidesButton"), QStringLiteral("Lock All"), [this]() {
+            m_controller->setAllGuidesLocked(true);
+        });
+        m_unlockAllGuidesButton = makeActionButton(QStringLiteral("unlockAllGuidesButton"), QStringLiteral("Unlock All"), [this]() {
+            m_controller->setAllGuidesLocked(false);
+        });
+        fold.layout->addWidget(makeButtonGrid({m_deleteAllGuidesButton, m_mergeDuplicateGuidesButton,
+            m_hideAllGuidesButton, m_showAllGuidesButton, m_lockAllGuidesButton, m_unlockAllGuidesButton}));
+        group->addWidget(makeCollapsibleSection(QStringLiteral("All Guides"), fold.box, false));
+    }
 
     group = beginInspectorGroup(layout, QStringLiteral("calibration_document"));
-    group->addWidget(buildCalibrationControls());
+    group->addWidget(makeCollapsibleSection(QStringLiteral("Calibration"), buildCalibrationControls(), false));
 
     group = beginInspectorGroup(layout, QStringLiteral("document_info"));
     group->addWidget(makeSectionLabel(QStringLiteral("Document")));
@@ -679,7 +751,7 @@ QWidget *DraftingFeature::buildRightPanel()
     group->addWidget(m_revisionValue);
 
     group = beginInspectorGroup(layout, QStringLiteral("canvas_state"));
-    group->addWidget(makeSectionLabel(QStringLiteral("Canvas State")));
+    FoldBox canvasState = makeFoldBox();
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
     m_plotValue = makeValueLabel();
@@ -708,20 +780,21 @@ QWidget *DraftingFeature::buildRightPanel()
     m_quickMeasureValue = makeValueLabel();
     m_guideDragValue = makeValueLabel();
     m_previewValue = makeValueLabel();
-    group->addWidget(m_snapValue);
-    group->addWidget(m_gridValue);
-    group->addWidget(m_plotValue);
-    group->addWidget(m_plotBoundsValue);
-    group->addWidget(m_plotLayerStatsValue);
-    group->addWidget(m_plotPenStatsValue);
-    group->addWidget(m_plotReadinessValue);
-    group->addWidget(m_plotOrderMode);
-    group->addWidget(m_plotDirectionMode);
-    group->addWidget(m_plotPreviewVisible);
-    group->addWidget(m_pointerValue);
-    group->addWidget(m_quickMeasureValue);
-    group->addWidget(m_guideDragValue);
-    group->addWidget(m_previewValue);
+    canvasState.layout->addWidget(m_snapValue);
+    canvasState.layout->addWidget(m_gridValue);
+    canvasState.layout->addWidget(m_plotValue);
+    canvasState.layout->addWidget(m_plotBoundsValue);
+    canvasState.layout->addWidget(m_plotLayerStatsValue);
+    canvasState.layout->addWidget(m_plotPenStatsValue);
+    canvasState.layout->addWidget(m_plotReadinessValue);
+    canvasState.layout->addWidget(m_plotOrderMode);
+    canvasState.layout->addWidget(m_plotDirectionMode);
+    canvasState.layout->addWidget(m_plotPreviewVisible);
+    canvasState.layout->addWidget(m_pointerValue);
+    canvasState.layout->addWidget(m_quickMeasureValue);
+    canvasState.layout->addWidget(m_guideDragValue);
+    canvasState.layout->addWidget(m_previewValue);
+    group->addWidget(makeCollapsibleSection(QStringLiteral("Canvas State"), canvasState.box, false));
     layout->addStretch(1);
 
     return panel;
@@ -775,8 +848,6 @@ QWidget *DraftingFeature::buildLayerControls()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(4);
-
-    layout->addWidget(makeSectionLabel(QStringLiteral("Layers")));
 
     m_activeLayer = makeDataCombo(QStringLiteral("activeLayerCombo"), {}, [this](const QString &layerId) {
         m_controller->setActiveLayerId(layerId);
@@ -868,7 +939,6 @@ QWidget *DraftingFeature::buildNudgeControls()
         layout->addWidget(button, row, column);
     };
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Nudge")), 0, 0, 1, 4);
     addButton(QStringLiteral("Grid Up"), QStringLiteral("up"), QStringLiteral("grid"), 1, 1);
     addButton(QStringLiteral("Grid Left"), QStringLiteral("left"), QStringLiteral("grid"), 2, 0);
     addButton(QStringLiteral("Grid Right"), QStringLiteral("right"), QStringLiteral("grid"), 2, 2);
@@ -902,7 +972,6 @@ QWidget *DraftingFeature::buildAlignControls()
         layout->addWidget(button, row, column);
     };
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Align")), 0, 0, 1, 3);
     addAlignButton(QStringLiteral("Left"), QStringLiteral("left"), 1, 0);
     addAlignButton(QStringLiteral("Center X"), QStringLiteral("center_x"), 1, 1);
     addAlignButton(QStringLiteral("Right"), QStringLiteral("right"), 1, 2);
@@ -919,7 +988,6 @@ QWidget *DraftingFeature::buildOffsetControls()
 {
     const auto [panel, layout] = makeControlGrid(QStringLiteral("offsetControls"));
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Offset")), 0, 0, 1, 2);
 
     auto *left = makeActionButton(QStringLiteral("offsetButton"), QStringLiteral("Left +0.05"), [this]() {
         m_controller->offsetSelectedObject(QStringLiteral("left"));
@@ -938,7 +1006,6 @@ QWidget *DraftingFeature::buildMirrorControls()
 {
     const auto [panel, layout] = makeControlGrid(QStringLiteral("mirrorControls"));
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Mirror")), 0, 0, 1, 2);
 
     auto *horizontal = makeActionButton(QStringLiteral("mirrorButton"), QStringLiteral("Mirror H"), [this]() {
         m_controller->mirrorSelectedObject(QStringLiteral("horizontal"));
@@ -957,7 +1024,6 @@ QWidget *DraftingFeature::buildRepeatControls()
 {
     const auto [panel, layout] = makeControlGrid(QStringLiteral("repeatControls"));
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Repeat")), 0, 0, 1, 2);
 
     auto *x = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat X"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("x"));
@@ -1018,7 +1084,6 @@ QWidget *DraftingFeature::buildCalibrationControls()
         layout->addWidget(button, row, column);
     };
 
-    layout->addWidget(makeSectionLabel(QStringLiteral("Calibration")), 0, 0, 1, 3);
     addButton(QStringLiteral("Test square"), QStringLiteral("test_square"), 1, 0);
     addButton(QStringLiteral("Test circle"), QStringLiteral("test_circle"), 1, 1);
     addButton(QStringLiteral("Line spacing"), QStringLiteral("line_spacing"), 1, 2);

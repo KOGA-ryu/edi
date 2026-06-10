@@ -109,4 +109,22 @@ struct BeltPeekView {
 };
 BeltPeekView beltPeekView(const BeltState &state, const std::vector<bool> &occupied);
 
+// The compacted items of one row, active flags relative to the cursor. The
+// peek view's middle band is beltRowItems(activeRow); pinned rows reuse the
+// same projection so a frozen row and the live row can never render the
+// same data differently.
+std::vector<BeltItemEntry> beltRowItems(const BeltState &state, const std::vector<bool> &occupied, int row);
+
+// ---- Pinned rows (user feedback 2026-06-10) --------------------------------
+//
+// A pin freezes a row into an always-visible quick bar above the live
+// carousel; the carousel keeps scrolling underneath. Pins are plain data
+// (grid row indexes in pin order) and these functions are total: pinning a
+// pinned row, unpinning an unknown one, or pruning after the belt changed
+// all degrade to no-ops instead of duplicates or dangling rows.
+std::vector<int> beltPinRow(std::vector<int> pins, int row);
+std::vector<int> beltUnpinRow(std::vector<int> pins, int row);
+// Drop pins whose rows no longer hold any item (grid resize, belt edit).
+std::vector<int> beltPrunePins(std::vector<int> pins, const BeltState &state, const std::vector<bool> &occupied);
+
 } // namespace edi::shell

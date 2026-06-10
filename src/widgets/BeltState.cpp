@@ -182,17 +182,65 @@ BeltCrossView beltCrossView(const BeltState &state, const std::vector<bool> &occ
     return view;
 }
 
+std::vector<BeltItemEntry> beltRowItems(const BeltState &state, const std::vector<bool> &occupied, int row)
+{
+    std::vector<BeltItemEntry> items;
+    if (!beltStateValid(state)) {
+        return items;
+    }
+    for (int column = 0; column < state.columns; ++column) {
+        if (beltCellOccupied(state, occupied, row, column)) {
+            items.push_back({column, row == state.activeRow && column == state.activeColumn});
+        }
+    }
+    return items;
+}
+
+std::vector<int> beltPinRow(std::vector<int> pins, int row)
+{
+    if (row < 0) {
+        return pins;
+    }
+    for (const int pinned : pins) {
+        if (pinned == row) {
+            return pins; // already frozen; one quick bar per row
+        }
+    }
+    pins.push_back(row);
+    return pins;
+}
+
+std::vector<int> beltUnpinRow(std::vector<int> pins, int row)
+{
+    std::vector<int> kept;
+    kept.reserve(pins.size());
+    for (const int pinned : pins) {
+        if (pinned != row) {
+            kept.push_back(pinned);
+        }
+    }
+    return kept;
+}
+
+std::vector<int> beltPrunePins(std::vector<int> pins, const BeltState &state, const std::vector<bool> &occupied)
+{
+    std::vector<int> kept;
+    kept.reserve(pins.size());
+    for (const int pinned : pins) {
+        if (beltRowLeadColumn(state, occupied, pinned) >= 0) {
+            kept.push_back(pinned);
+        }
+    }
+    return kept;
+}
+
 BeltPeekView beltPeekView(const BeltState &state, const std::vector<bool> &occupied)
 {
     BeltPeekView view;
     if (!beltStateValid(state)) {
         return view;
     }
-    for (int column = 0; column < state.columns; ++column) {
-        if (beltCellOccupied(state, occupied, state.activeRow, column)) {
-            view.items.push_back({column, column == state.activeColumn});
-        }
-    }
+    view.items = beltRowItems(state, occupied, state.activeRow);
     // The peeks ARE one vertical step: derive them from the step function so
     // what the half-cell shows and where the scroll lands cannot disagree.
     const BeltState previous = beltStepRowOccupied(state, -1, occupied);

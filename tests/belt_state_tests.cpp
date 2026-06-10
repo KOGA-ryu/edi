@@ -212,6 +212,37 @@ int main()
             assert(solo.previousRow == -1 && solo.nextRow == -1);
             assert(solo.items.size() == 2);
         }
+
+        // Row items: compacted, active flag only on the cursor's own cell.
+        {
+            const BeltState at23{4, 4, 2, 3};
+            const std::vector<BeltItemEntry> row2 = beltRowItems(at23, occupied, 2);
+            assert(row2.size() == 3);
+            assert(row2[2].column == 3 && row2[2].active);
+            const std::vector<BeltItemEntry> row3 = beltRowItems(at23, occupied, 3);
+            assert(row3.size() == 2);
+            assert(!row3[0].active && !row3[1].active); // cursor is on row 2
+            assert(beltRowItems(at23, occupied, 1).empty());
+        }
+
+        // Pins: append-once, unpin removes, prune drops rows gone empty.
+        {
+            std::vector<int> pins;
+            pins = beltPinRow(pins, 2);
+            pins = beltPinRow(pins, 0);
+            pins = beltPinRow(pins, 2);  // duplicate: no-op
+            pins = beltPinRow(pins, -1); // invalid: no-op
+            assert((pins == std::vector<int>{2, 0}));
+
+            pins = beltUnpinRow(pins, 2);
+            assert((pins == std::vector<int>{0}));
+            pins = beltUnpinRow(pins, 5); // unknown: no-op
+            assert((pins == std::vector<int>{0}));
+
+            std::vector<int> stale = {0, 1, 3}; // row 1 is empty in this fixture
+            stale = beltPrunePins(stale, state, occupied);
+            assert((stale == std::vector<int>{0, 3}));
+        }
     }
 
     return 0;

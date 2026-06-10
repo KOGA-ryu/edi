@@ -52,6 +52,14 @@ public:
     void endInteractiveEdit();
     QString selectedToolId() const;
     QString selectedObjectId() const;
+    // The bus seam feature #2 forced: the recipe lab resolves measurement
+    // bindings against the live drafting document and grid. Read-only — the
+    // recipe feature consumes drafting data, it never mutates it.
+    const edi::drafting::DraftingDocument &draftingDocument() const { return m_document; }
+    edi::drafting::DraftingGridProjection draftingGridProjection() const
+    {
+        return edi::drafting::projectDraftingGrid(m_gridSettings);
+    }
     // Select by id (the object list drives this). Selection-only: no undo step.
     bool selectObjectById(const QString &id);
     QString activeLayerId() const;

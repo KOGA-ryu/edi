@@ -170,6 +170,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeDocument.cpp
     src/recipe/RecipeEmit.h
     src/recipe/RecipeEmit.cpp
+    src/recipe/RecipeAscii.h
+    src/recipe/RecipeAscii.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -310,6 +312,10 @@ target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOUR
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_ascii_tests tests/recipe_ascii_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_controller_tests tests/recipe_controller_tests.cpp edi_recipe_core Qt6::Core)
+target_sources(recipe_controller_tests PRIVATE src/core/RecipeController.cpp)
+target_include_directories(recipe_controller_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_executable(edi_plot_job_report
     src/tools/EdiPlotJobReport.cpp
@@ -353,6 +359,8 @@ add_executable(edi_shell_window_tests
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
     src/core/DrawingDocumentProjection.cpp
+    src/core/RecipeController.h
+    src/core/RecipeController.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
     src/io/SettingsStore.h
@@ -413,6 +421,7 @@ target_include_directories(edi_shell_window_tests PRIVATE
 target_link_libraries(edi_shell_window_tests PRIVATE
     edi_app_core
     edi_drafting_core
+    edi_recipe_core
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -470,6 +479,8 @@ add_test(NAME drawing_canvas_widget_tests COMMAND drawing_canvas_widget_tests)
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
+    src/core/RecipeController.h
+    src/core/RecipeController.cpp
     src/core/DrawingCoreInternal.h
     src/core/DrawingObjectModel.h
     src/core/DrawingObjectModel.cpp
@@ -559,6 +570,7 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         drawing_runtime_core
         edi_app_core
         edi_drafting_core
+        edi_recipe_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets

@@ -152,9 +152,9 @@ QWidget *SettingsFeature::buildSettingsPage()
 {
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("settingsPanel"), 0, 0);
 
-    auto *title = new QLabel(QStringLiteral("Settings"));
-    title->setObjectName(QStringLiteral("panelTitle"));
-    layout->addWidget(title);
+    //auto *title = new QLabel(QStringLiteral("Settings"));
+    //title->setObjectName(QStringLiteral("panelTitle"));
+    //layout->addWidget(title);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Theme")));
 
@@ -183,7 +183,7 @@ QWidget *SettingsFeature::buildSettingsPage()
         rowLayout->setSpacing(8);
         auto *name = new QLabel(label);
         name->setObjectName(QStringLiteral("fieldLabel"));
-        name->setMinimumWidth(70);
+        name->setMinimumWidth(30);
         rowLayout->addWidget(name);
         auto *combo = new QFontComboBox;
         combo->setObjectName(comboName);
@@ -276,9 +276,9 @@ QWidget *SettingsFeature::buildBeltPage()
 {
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("beltPanel"), 0, 0);
 
-    auto *title = new QLabel(QStringLiteral("Tool Belt"));
-    title->setObjectName(QStringLiteral("panelTitle"));
-    layout->addWidget(title);
+    //auto *title = new QLabel(QStringLiteral("Tool Belt"));
+    //title->setObjectName(QStringLiteral("panelTitle"));
+    //layout->addWidget(title);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("On the belt")));
 

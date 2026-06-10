@@ -355,13 +355,13 @@ QWidget *DraftingFeature::buildLeftPanel()
     const PanelSpec leftSpec = panelSpec(ShellSlot::Left);
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), leftSpec.minSize, leftSpec.maxSize);
 
-    auto *title = new QLabel(QStringLiteral("EDI Drafting"));
-    title->setObjectName(QStringLiteral("panelTitle"));
-    layout->addWidget(title);
+    //auto *title = new QLabel(QStringLiteral("EDI Drafting"));
+    //title->setObjectName(QStringLiteral("panelTitle"));
+    //layout->addWidget(title);
 
     // F1: the document as a browsable list — selection by name, not only by
     // canvas click. Fixed height so it never fights the outer panel scroll.
-    layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
+    //layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
     m_objectList = new QListWidget;
     m_objectList->setObjectName(QStringLiteral("objectList"));
     m_objectList->setFixedHeight(140);
@@ -394,9 +394,9 @@ QWidget *DraftingFeature::buildRightPanel()
     const PanelSpec rightSpec = panelSpec(ShellSlot::Right);
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("rightPanel"), rightSpec.minSize, rightSpec.maxSize);
 
-    auto *title = new QLabel(QStringLiteral("Inspector"));
-    title->setObjectName(QStringLiteral("panelTitle"));
-    layout->addWidget(title);
+    //auto *title = new QLabel(QStringLiteral("Inspector"));
+    //title->setObjectName(QStringLiteral("panelTitle"));
+    //layout->addWidget(title);
 
     // F2: the inspector is a context-keyed stack (planDraftingInspector).
     // Every group is built exactly once, in a fixed order chosen so every

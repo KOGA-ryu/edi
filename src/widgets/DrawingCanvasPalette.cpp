@@ -12,7 +12,6 @@ DrawingCanvasPalette deriveCanvasPalette(const edi::shell::ShellTheme &theme)
     p.boardOutline = QColor(QStringLiteral("#3d4452"));
     p.gridMajor = QColor(QStringLiteral("#465162"));
     p.gridMinor = QColor(QStringLiteral("#313744"));
-    p.statusText = QColor(QStringLiteral("#aeb7c7"));
 
     p.drawableBounds = QColor(theme.accent);
     p.originMarker = QColor(theme.warning);

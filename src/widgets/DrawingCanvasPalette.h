@@ -20,7 +20,6 @@ struct DrawingCanvasPalette {
     QColor boardOutline;
     QColor gridMajor;
     QColor gridMinor;
-    QColor statusText;        // the in-canvas status block
 
     // Theme-token backed (derived from ShellTheme).
     QColor drawableBounds;    // accent — the dashed drawable-area rectangle

@@ -20,6 +20,7 @@ class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QPushButton;
 class QSpinBox;
 class QWidget;
@@ -106,6 +107,7 @@ private:
     ShellActions m_actions;
     QStringList m_recentFiles;
     DrawingCanvasWidget *m_canvas = nullptr;
+    QListWidget *m_objectList = nullptr;
     QButtonGroup *m_toolGroup = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QComboBox *m_gridPreset = nullptr;

@@ -156,10 +156,9 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         #valueLabel, #bottomStatus {
             color: %12;
-            background: %8;
-            border: 1px solid %7;
-            border-radius: 5px;
-            padding: 6px 8px;
+            background: transparent;
+            border: none;
+            padding: 2px 0;
         }
         #fieldLabel {
             color: %12;
@@ -244,6 +243,12 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: transparent;
         }
         QSplitter::handle:hover, QSplitter::handle:pressed {
+            background: %20;
+        }
+        #rightPanelGrip, #bottomPanelGrip {
+            background: transparent;
+        }
+        #rightPanelGrip:hover, #bottomPanelGrip:hover {
             background: %20;
         }
         #titleBar {

@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPair>
 #include <QPushButton>
 #include <QSizePolicy>
@@ -67,6 +68,17 @@ QWidget *DraftingFeature::buildLeftPanel()
     title->setObjectName(QStringLiteral("panelTitle"));
     layout->addWidget(title);
 
+    // F1: the document as a browsable list — selection by name, not only by
+    // canvas click. Fixed height so it never fights the outer panel scroll.
+    layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
+    m_objectList = new QListWidget;
+    m_objectList->setObjectName(QStringLiteral("objectList"));
+    m_objectList->setFixedHeight(140);
+    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
+    });
+    layout->addWidget(m_objectList);
+
     layout->addWidget(makeSectionLabel(QStringLiteral("Tools")));
     m_toolGroup = new QButtonGroup(panel);
     m_toolGroup->setExclusive(true);
@@ -91,9 +103,17 @@ QWidget *DraftingFeature::buildLeftPanel()
         {QStringLiteral("diameter_dimension_tool"), QStringLiteral("Dim Diameter")},
     };
 
-    for (const auto &tool : tools) {
-        layout->addWidget(makeToolButton(tool.first, tool.second));
+    // Two columns instead of a 17-deep stack: position becomes findable at a
+    // glance, and the panel's vertical budget halves. (Interim — the tool
+    // belt cross (F3) replaces this list entirely.)
+    auto *toolGrid = new QGridLayout;
+    toolGrid->setContentsMargins(0, 0, 0, 0);
+    toolGrid->setHorizontalSpacing(4);
+    toolGrid->setVerticalSpacing(2);
+    for (int i = 0; i < tools.size(); ++i) {
+        toolGrid->addWidget(makeToolButton(tools[i].first, tools[i].second), i / 2, i % 2);
     }
+    layout->addLayout(toolGrid);
 
     connect(m_toolGroup, &QButtonGroup::buttonClicked, m_controller, [this](QAbstractButton *button) {
         m_controller->setSelectedToolId(button->property("toolId").toString());

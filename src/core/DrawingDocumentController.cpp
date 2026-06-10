@@ -1096,10 +1096,7 @@ bool DrawingDocumentController::createTransformedActiveObject(
     const QString &idPrefix,
     const std::function<std::optional<DraftingObject>(const DraftingObject &source, const std::string &newId)> &transform)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *source = activeObject(m_document);
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
@@ -1147,10 +1144,7 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
     if (!settings) {
         return false;
     }
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *source = activeObject(m_document);
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
@@ -1377,10 +1371,7 @@ bool DrawingDocumentController::createGuideFromActiveBounds(
     const char *sourceTag,
     const std::function<DraftingGuidePlan(const Bounds2D &bounds)> &planGuide)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *source = activeObject(m_document);
     if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
         return false;
     }
@@ -1467,10 +1458,10 @@ bool DrawingDocumentController::applyGuidePreset(const QString &presetId)
 
 bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &modeId)
 {
-    if (!m_document.activeObjectId || m_document.selectedObjectIds.empty()) {
+    if (m_document.selectedObjectIds.empty()) {
         return false;
     }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
+    const DraftingObject *source = activeObject(m_document);
     if (source == nullptr || !draftingObjectUsableAsBoundsSource(m_document, *source)) {
         return false;
     }

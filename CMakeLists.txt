@@ -170,6 +170,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeDocument.cpp
     src/recipe/RecipeEmit.h
     src/recipe/RecipeEmit.cpp
+    src/recipe/RecipeAscii.h
+    src/recipe/RecipeAscii.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -310,6 +312,7 @@ target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOUR
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_ascii_tests tests/recipe_ascii_tests.cpp edi_recipe_core)
 
 add_executable(edi_plot_job_report
     src/tools/EdiPlotJobReport.cpp

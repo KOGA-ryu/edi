@@ -28,6 +28,7 @@ private slots:
 private:
     QRectF boardRect() const;
     QPointF canvasToScreen(double x, double y) const;
+    QRectF boundsToScreenRect(double x, double y, double width, double height) const;
     QPointF screenToCanvas(const QPointF &point) const;
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;

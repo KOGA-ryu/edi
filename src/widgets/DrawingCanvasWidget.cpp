@@ -73,6 +73,11 @@ QPointF DrawingCanvasWidget::canvasToScreen(double x, double y) const
     return drawing_canvas::canvasToScreen(boardRect(), x, y);
 }
 
+QRectF DrawingCanvasWidget::boundsToScreenRect(double x, double y, double width, double height) const
+{
+    return QRectF(canvasToScreen(x, y), canvasToScreen(x + width, y + height)).normalized();
+}
+
 QPointF DrawingCanvasWidget::screenToCanvas(const QPointF &point) const
 {
     return drawing_canvas::screenToCanvas(boardRect(), point);
@@ -296,13 +301,10 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
     }
 
     if (grid.drawableBounds.visible) {
-        const QPointF drawableTopLeft = canvasToScreen(grid.drawableBounds.x, grid.drawableBounds.y);
-        const QPointF drawableBottomRight = canvasToScreen(
-            grid.drawableBounds.x + grid.drawableBounds.width,
-            grid.drawableBounds.y + grid.drawableBounds.height);
         painter.setPen(QPen(QColor("#8fb4d8"), 1, Qt::DashLine));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRect(QRectF(drawableTopLeft, drawableBottomRight).normalized());
+        painter.drawRect(boundsToScreenRect(
+            grid.drawableBounds.x, grid.drawableBounds.y, grid.drawableBounds.width, grid.drawableBounds.height));
     }
 
     if (grid.origin.visible) {
@@ -425,23 +427,19 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
     }
 
     const QColor color = overlay.calibratedBoundsWarning ? QColor("#d98b8b") : QColor("#91c89b");
-    const QPointF topLeft = canvasToScreen(overlay.bounds.x, overlay.bounds.y);
-    const QPointF bottomRight = canvasToScreen(
-        overlay.bounds.x + overlay.bounds.width,
-        overlay.bounds.y + overlay.bounds.height);
-    const QRectF rect(topLeft, bottomRight);
+    const QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     QPen pen(color, overlay.calibratedBoundsWarning ? 2.0 : 1.5, overlay.calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
     painter.setBrush(withAlpha(color, overlay.calibratedBoundsWarning ? 34 : 18));
-    painter.drawRect(rect.normalized());
+    painter.drawRect(rect);
 
     if (!overlay.warningKind.isEmpty()) {
         const QString label = overlay.warningObjectId.isEmpty()
             ? overlay.warningKind
             : QStringLiteral("%1: %2").arg(overlay.warningKind, overlay.warningObjectId);
         painter.setPen(color);
-        painter.drawText(rect.normalized().topLeft() + QPointF(8.0, -8.0), label);
+        painter.drawText(rect.topLeft() + QPointF(8.0, -8.0), label);
     }
 }
 
@@ -455,10 +453,7 @@ void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVari
     const QColor color = overlay.status == QStringLiteral("inside")
         ? QColor("#f6c65b")
         : QColor("#d98b8b");
-    QRectF rect(
-        canvasToScreen(overlay.bounds.x, overlay.bounds.y),
-        canvasToScreen(overlay.bounds.x + overlay.bounds.width, overlay.bounds.y + overlay.bounds.height));
-    rect = rect.normalized();
+    QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     if (rect.width() < 10.0 || rect.height() < 10.0) {
         rect = rect.adjusted(-5.0, -5.0, 5.0, 5.0);
     }

@@ -48,6 +48,9 @@ public:
 
     int activeIndex() const;
     QString activeItemId() const;
+    // Frozen quick-bars (grid row indexes, pin order). Pinning is a user
+    // gesture on the widget; the host only observes.
+    std::vector<int> pinnedRows() const { return m_pinnedRows; }
     // Slot index of the item with this id, or -1. The host syncs with
     // setActiveIndex(indexOfItem(currentId)) when its notion of "current"
     // changes through some other control.
@@ -70,10 +73,14 @@ private:
     // Geometry of the carousel: the active row's full cells in the middle
     // band, half-cell peeks above and below aligned over the active cell.
     // Positions are list indexes (gaps compacted), not grid columns.
+    int carouselTop() const;       // y where the live carousel starts (below pins)
     QRect activeCellRect(int position) const;
     int activeItemPosition() const; // list position of the active cell, or 0
     QRect topPeekRect() const;
     QRect bottomPeekRect() const;
+    QRect pinnedCellRect(int pinPosition, int itemPosition) const;
+    QRect pinNubRect() const;               // freezes the live row
+    QRect killNubRect(int pinPosition) const; // removes a frozen row
     const edi::shell::BeltItem *itemAt(int row, int column) const;
     // The visible cell under `pos` as a grid target, or nullopt for dead space.
     std::optional<edi::shell::BeltState> stateForClick(const QPoint &pos) const;
@@ -83,5 +90,6 @@ private:
     edi::shell::BeltState m_state;
     QVector<edi::shell::BeltItem> m_items;
     std::vector<bool> m_occupied; // row-major mask derived from m_items
+    std::vector<int> m_pinnedRows;
     QPoint m_wheelRemainder;      // sub-notch wheel deltas, per axis
 };

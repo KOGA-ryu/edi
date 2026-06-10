@@ -414,7 +414,7 @@ int main(int argc, char **argv)
 
         // Belt -> controller: click the bottom peek — one step down the tool
         // carousel, from select_move's row to the point tool's row.
-        const QPointF bottomPeek(17.0, 67.0); // peek band centre (34px cells, 4px gaps, 17px peeks)
+        const QPointF bottomPeek(14.0 + 17.0, 67.0); // peek band centre, right of the 14px nub gutter
         QMouseEvent press(QEvent::MouseButtonPress, bottomPeek, belt->mapToGlobal(bottomPeek),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(belt, &press);

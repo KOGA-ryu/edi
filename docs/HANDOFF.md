@@ -21,13 +21,14 @@ a **teaching body** (why this design, what alternative lost) + the
 
 ## State at handoff
 
-- `master` green: **62 tests passing**, working tree clean, H1/H2/H3/H5-partial
-  merged (now incl. DraftingFeature + switching; 62 tests). Verify with `cmake -S . -B build && cmake --build build && ctest
-  --test-dir build --output-on-failure`.
-- **The user owns the look.** They said the UI is far from what they want and
-  they will iterate it themselves. Do structural/mechanical shell work; do NOT
+- `master` green: **62 tests passing**, working tree clean. H1-H5 done plus
+  the settings program (live theming, settings workspace, profiles). Verify
+  with `cmake -S . -B build && cmake --build build && ctest --test-dir build
+  --output-on-failure`.
+- **The user owns the look.** Do structural/mechanical shell work; do NOT
   spend slices polishing visuals, and do not finalize any visible change
-  without flagging it.
+  without flagging it. The user gives screenshot-driven feedback rounds —
+  apply them as small verified slices.
 
 ## The two programs (both cold-executable)
 
@@ -57,11 +58,17 @@ a **teaching body** (why this design, what alternative lost) + the
   min/max bands from `panelSpec()`. Initial state per spec: left open,
   right+bottom collapsed; window min is now 520x420. Splitter-handle *look*
   (1px line treatment) deliberately left minimal — user owns look.
-- **H4 — NOT STARTED, deliberately deferred.** Frameless chrome + traffic
-  lights + title bar + rail restyle is the most look-sensitive phase; do it
-  when the user is in the loop. The *mechanics* (toggle buttons consuming
-  `panelVisibility`, `startSystemMove`, plain-frame fallback boolean) are
-  spec'd in `docs/ui_restoration_spec.md` §3.
+- **H4 — DONE** (built with the user in the loop, to their authoritative
+  description in docs/shell_architecture.md): frameless title bar = traffic
+  lights → left-panel toggle → back/forward (workspace-history trail, the
+  "rabbit hole"; NOT undo/redo) → File/Edit/Settings menus → chrome status
+  label → terminal + right toggles. Drag/double-click via event filter.
+  POST-H4 LAYOUT REWORK (user feedback): only the LEFT panel is in-flow
+  (2-section splitter); right + bottom panels are OVERLAYS inside the main
+  area (layoutMainArea + grip strips) — they cover the grid, never resize it;
+  the terminal (bottom) has no max size and can grow into the whole main
+  area. The main slot is the canvas ONLY (workspace header deleted; status
+  goes through ShellActions.setStatusText into the chrome).
 - **H5 — DONE.** `ShellLayoutStore` is real (TOML encode/decode + round-trip
   tests; forgiving decode). Panel geometry persists across restarts
   (`workspace.toml` beside `edi.toml`). The drafting UI was extracted into
@@ -74,7 +81,17 @@ a **teaching body** (why this design, what alternative lost) + the
   positional assumptions break under partial layouts. The mutation check is
   the design proof: reusing the old feature instance across a switch
   SEGFAULTS the suite.
-- **H6 component pass / H7 review / H8 replenish** — untouched.
+- **Settings program — DONE** (user-requested, post-H5): `setThemeInputs` is
+  live theming (one derivation feeds shell QSS + canvas palette; theme.* keys
+  in edi.toml via the shared codec in `io/ProfileStore`); `SettingsFeature`
+  is the registry's second feature (rail "S" switches to it; page = 4 color
+  rows + typography + profiles, stateless view over hooks); profiles are
+  per-name TOML files under <AppConfigLocation>/profiles with sanitized
+  names; edi.toml always holds the live theme so startup never needs a
+  profile file.
+- **H6 component pass / H7 review / H8 replenish** — untouched. Next obvious
+  arcs: feature #2 (Blender recipe lab — see the section in
+  shell_architecture.md; forces the FeatureContext bus) or /goal N-backlog.
 
 ## Working method that proved out
 

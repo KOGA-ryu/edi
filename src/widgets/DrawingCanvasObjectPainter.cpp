@@ -11,6 +11,13 @@
 namespace drawing_canvas {
 namespace {
 
+QLineF screenLine(const DrawingCanvasObjectPainterContext &context, const DrawingCanvasProjectedLine &line)
+{
+    return QLineF(
+        drawing_canvas::canvasToScreen(context.board, line.x1, line.y1),
+        drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
+}
+
 void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
     const std::vector<DrawingCanvasProjectedHandle> projectedHandles = projectedObjectHandles(object);
@@ -146,7 +153,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.setBrush(Qt::NoBrush);
-        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
+        painter.drawLine(screenLine(context, line));
         return;
     }
 
@@ -215,7 +222,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!line.ok) {
             return;
         }
-        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
+        painter.drawLine(screenLine(context, line));
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (!rectangle.ok) {
@@ -296,7 +303,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
     if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
         if (line.ok) {
-            painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
+            painter.drawLine(screenLine(context, line));
         }
     } else if (kind == QStringLiteral("construction_line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
@@ -307,7 +314,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
         QPen constructionPen(QColor("#75c7ff"), 1.5, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
-        painter.drawLine(drawing_canvas::canvasToScreen(context.board, line.x1, line.y1), drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
+        painter.drawLine(screenLine(context, line));
     } else if (kind == QStringLiteral("dimension")) {
         const DrawingCanvasProjectedDimension dimension = projectedDimension(object);
         if (!dimension.ok) {

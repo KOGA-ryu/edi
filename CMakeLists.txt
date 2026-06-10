@@ -305,6 +305,8 @@ add_executable(edi_shell_window_tests
     src/core/DrawingDocumentProjection.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/SettingsStore.h
+    src/io/SettingsStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/DrawingCanvasWidget.h
@@ -406,6 +408,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/core/DrawingSvgExport.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/SettingsStore.h
+    src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h
     src/io/DrawingRecentFilesStore.cpp
     src/io/ShellLayoutStore.h

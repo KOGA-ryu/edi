@@ -435,5 +435,38 @@ int main(int argc, char **argv)
         assert(QFile::exists(hpglPath));
     }
 
+    // Settings persistence: change a snap toggle + plot mode, save, then rebuild
+    // a fresh window from the same file and assert the state survived.
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString settingsPath = tempDir.filePath(QStringLiteral("edi.toml"));
+
+        const bool flippedGridSnap = !controller->gridSnapEnabled();
+        controller->setGridSnapEnabled(flippedGridSnap);
+        controller->setPlotOrderModeId(QStringLiteral("nearest_next"));
+        controller->setObjectSnapTolerancePreset(QStringLiteral("tight"));
+        assert(window.saveSettings(settingsPath));
+        assert(QFile::exists(settingsPath));
+
+        EdiShellWindow restored;
+        auto *restoredController = restored.findChild<DrawingDocumentController *>();
+        assert(restoredController != nullptr);
+        assert(restored.loadSettings(settingsPath));
+        assert(restoredController->gridSnapEnabled() == flippedGridSnap);
+        assert(restoredController->plotOrderModeId() == QStringLiteral("nearest_next"));
+        assert(restoredController->objectSnapTolerancePresetId() == QStringLiteral("tight"));
+    }
+
+    // Recent files: saving a drawing records it and surfaces a quick-open button.
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QString drawingPath = tempDir.filePath(QStringLiteral("recent.edidraw"));
+        assert(window.saveDrawingToPath(drawingPath));
+        assert(window.recentFiles().contains(drawingPath));
+        assert(buttonNamed(window, QStringLiteral("recentFileButton")) != nullptr);
+    }
+
     return 0;
 }

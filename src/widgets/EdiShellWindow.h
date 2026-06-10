@@ -4,6 +4,7 @@
 #include <QMap>
 #include <QPair>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 #include <QVector>
 
@@ -11,6 +12,9 @@
 #include <optional>
 
 #include "app/AppState.h"
+#include "io/SettingsStore.h"
+
+class QTimer;
 
 class QAbstractButton;
 class QButtonGroup;
@@ -41,6 +45,14 @@ public:
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
 
+    // Settings persistence seams (TOML at path; tests inject a temp path).
+    bool loadSettings(const QString &path);
+    bool saveSettings(const QString &path) const;
+    QStringList recentFiles() const { return m_recentFiles; }
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
+
 private slots:
     void refreshInspector();
 
@@ -52,6 +64,11 @@ private:
     void promptExportHpgl();
     void updateWindowTitle();
     int currentDocumentRevision() const;
+    edi::formats::StaticConfig captureSettings() const;
+    void applySettings(const edi::formats::StaticConfig &config);
+    void rememberRecentFile(const QString &path);
+    void rebuildRecentFileButtons();
+    void scheduleSettingsSave();
 
 private:
     QWidget *buildActivityRail();
@@ -194,6 +211,10 @@ private:
     QLabel *m_statusValue = nullptr;
     QPushButton *m_undoButton = nullptr;
     QPushButton *m_redoButton = nullptr;
+    QWidget *m_recentFilesContainer = nullptr;
     QString m_currentDrawingPath;
     int m_savedRevision = 0;
+    QString m_settingsPath;
+    QStringList m_recentFiles;
+    QTimer *m_settingsSaveTimer = nullptr;
 };

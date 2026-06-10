@@ -105,85 +105,88 @@ ShellTheme deriveShellTheme(const ShellThemeInputs &in)
 
 QString buildShellStyleSheet(const ShellTheme &t)
 {
-    // One QSS string, every color sourced from the resolved theme. Metrics
-    // (radii, padding) stay inline as literals for now; they become data when a
-    // later phase needs to tune them.
-    return QStringLiteral(R"(
+    // Named tokens, substituted by a loop — NOT QString's numbered %N args.
+    // Lesson learned the hard way: chained multi-.arg() fills the LOWEST
+    // remaining placeholder, so deleting the last use of %8 silently shifted
+    // every later value one slot (font sizes got hex colors) while leaving no
+    // literal "%" behind for a test to catch. Named markers cannot shift, a
+    // leftover "@" is detectable, and the QSS reads as documentation.
+    QString sheet = QStringLiteral(R"(
         #shellRoot {
-            background: %1;
-            color: %2;
-            font-family: "%3", "Inter", sans-serif;
-            font-size: %4px;
+            background: @base@;
+            color: @text@;
+            font-family: "@uiFont@", "Inter", sans-serif;
+            font-size: @fontBody@px;
         }
         #activityRail {
-            background: %1;
-            border-right: 1px solid %5;
+            background: @base@;
+            border-right: 1px solid @borderMajor@;
         }
         #leftPanel, #rightPanel {
-            background: %6;
-            border-right: 1px solid %5;
-            border-left: 1px solid %7;
+            background: @surface@;
+            border-right: 1px solid @borderMajor@;
+            border-left: 1px solid @borderMinor@;
         }
         #workspaceColumn {
-            background: %1;
+            background: @base@;
         }
         #bottomPanel {
-            background: %1;
-            border-top: 1px solid %5;
+            background: @base@;
+            border-top: 1px solid @borderMajor@;
         }
         QScrollArea {
             background: transparent;
             border: none;
         }
         QLabel {
-            color: %2;
+            color: @text@;
         }
         #panelTitle {
-            color: %2;
-            font-size: %9px;
+            color: @text@;
+            font-size: @fontTitle@px;
             font-weight: 600;
         }
         #chromeStatus {
-            color: %12;
-            font-size: %11px;
+            color: @textMuted@;
+            font-size: @fontSm@px;
         }
         #sectionLabel {
-            color: %10;
-            font-size: %11px;
+            color: @accent@;
+            font-size: @fontSm@px;
             font-weight: 600;
             padding-top: 8px;
             text-transform: uppercase;
         }
         #valueLabel, #bottomStatus {
-            color: %12;
+            color: @textMuted@;
             background: transparent;
             border: none;
             padding: 2px 0;
         }
         #fieldLabel {
-            color: %12;
+            color: @textMuted@;
         }
         #geometryField {
-            color: %2;
-            background: %13;
-            border: 1px solid %5;
+            color: @text@;
+            background: @control@;
+            border: 1px solid @borderMajor@;
             border-radius: 5px;
             padding: 4px 6px;
         }
         #geometryField[editInvalid="true"] {
-            color: %14;
-            background: %15;
-            border: 1px solid %14;
+            color: @danger@;
+            background: @surfaceRaised@;
+            border: 1px solid @danger@;
         }
         #editErrorLabel {
-            color: %14;
-            background: %15;
-            border: 1px solid %14;
+            color: @danger@;
+            background: @surfaceRaised@;
+            border: 1px solid @danger@;
             border-radius: 5px;
             padding: 6px 8px;
         }
         QPushButton {
-            color: %2;
+            color: @text@;
             background: transparent;
             border: 1px solid transparent;
             border-radius: 5px;
@@ -191,15 +194,15 @@ QString buildShellStyleSheet(const ShellTheme &t)
             text-align: left;
         }
         QPushButton:hover {
-            background: %16;
-            border-color: %5;
+            background: @controlHover@;
+            border-color: @borderMajor@;
         }
         QPushButton:pressed, QPushButton:checked {
-            background: %17;
-            border-color: %18;
+            background: @selected@;
+            border-color: @borderFocus@;
         }
         QPushButton:disabled {
-            color: %19;
+            color: @disabled@;
             border-color: transparent;
         }
         #railButton {
@@ -209,9 +212,9 @@ QString buildShellStyleSheet(const ShellTheme &t)
             padding-right: 6px;
         }
         QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
-            color: %2;
-            background: %13;
-            border: 1px solid %5;
+            color: @text@;
+            background: @control@;
+            border: 1px solid @borderMajor@;
             border-radius: 5px;
             padding: 4px 6px;
         }
@@ -223,7 +226,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             width: 22px;
         }
         QCheckBox {
-            color: %2;
+            color: @text@;
             spacing: 8px;
         }
         QCheckBox::indicator {
@@ -232,28 +235,28 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-radius: 3px;
         }
         QCheckBox::indicator:unchecked {
-            background: %13;
-            border: 1px solid %5;
+            background: @control@;
+            border: 1px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
-            background: %10;
-            border: 1px solid %10;
+            background: @accent@;
+            border: 1px solid @accent@;
         }
         QSplitter::handle {
             background: transparent;
         }
         QSplitter::handle:hover, QSplitter::handle:pressed {
-            background: %20;
+            background: @accentSoft@;
         }
         #rightPanelGrip, #bottomPanelGrip {
             background: transparent;
         }
         #rightPanelGrip:hover, #bottomPanelGrip:hover {
-            background: %20;
+            background: @accentSoft@;
         }
         #titleBar {
-            background: %1;
-            border-bottom: 1px solid %5;
+            background: @base@;
+            border-bottom: 1px solid @borderMajor@;
         }
         #titleBar QPushButton {
             background: transparent;
@@ -263,13 +266,13 @@ QString buildShellStyleSheet(const ShellTheme &t)
             text-align: center;
         }
         #titleBar QPushButton:hover {
-            background: %16;
+            background: @controlHover@;
         }
         #titleBar QPushButton:checked {
-            background: %17;
+            background: @selected@;
         }
         #titleBar QPushButton:disabled {
-            color: %19;
+            color: @disabled@;
         }
         #trafficClose, #trafficMinimize, #trafficZoom {
             min-width: 14px;
@@ -280,30 +283,50 @@ QString buildShellStyleSheet(const ShellTheme &t)
             padding: 0;
         }
         #trafficClose {
-            background: %21;
-            border: 1px solid %22;
+            background: @trafficClose@;
+            border: 1px solid @trafficCloseEdge@;
         }
         #trafficMinimize {
-            background: %23;
-            border: 1px solid %24;
+            background: @trafficMinimize@;
+            border: 1px solid @trafficMinimizeEdge@;
         }
         #trafficZoom {
-            background: %25;
-            border: 1px solid %26;
+            background: @trafficZoom@;
+            border: 1px solid @trafficZoomEdge@;
         }
-    )")
-        .arg(t.base, t.text, t.uiFont)                                  // 1,2,3
-        .arg(t.fontSizeBody)                                            // 4
-        .arg(t.borderMajor, t.surface, t.borderMinor, t.surfaceRaised)  // 5,6,7,8
-        .arg(t.fontSizeTitle)                                           // 9
-        .arg(t.accent)                                                  // 10
-        .arg(t.fontSizeSm)                                              // 11
-        .arg(t.textMuted, t.control, t.danger, t.surfaceRaised)         // 12,13,14,15
-        .arg(t.controlHover, t.selected, t.borderFocus, t.disabled)     // 16,17,18,19
-        .arg(t.accentSoft)                                              // 20
-        .arg(t.trafficClose, t.trafficCloseEdge)                        // 21,22
-        .arg(t.trafficMinimize, t.trafficMinimizeEdge)                  // 23,24
-        .arg(t.trafficZoom, t.trafficZoomEdge);                         // 25,26
+    )");
+
+    const std::pair<const char *, QString> tokens[] = {
+        {"@base@", t.base},
+        {"@surface@", t.surface},
+        {"@surfaceRaised@", t.surfaceRaised},
+        {"@control@", t.control},
+        {"@controlHover@", t.controlHover},
+        {"@selected@", t.selected},
+        {"@text@", t.text},
+        {"@textMuted@", t.textMuted},
+        {"@borderMajor@", t.borderMajor},
+        {"@borderMinor@", t.borderMinor},
+        {"@borderFocus@", t.borderFocus},
+        {"@accent@", t.accent},
+        {"@accentSoft@", t.accentSoft},
+        {"@danger@", t.danger},
+        {"@disabled@", t.disabled},
+        {"@trafficClose@", t.trafficClose},
+        {"@trafficCloseEdge@", t.trafficCloseEdge},
+        {"@trafficMinimize@", t.trafficMinimize},
+        {"@trafficMinimizeEdge@", t.trafficMinimizeEdge},
+        {"@trafficZoom@", t.trafficZoom},
+        {"@trafficZoomEdge@", t.trafficZoomEdge},
+        {"@uiFont@", t.uiFont},
+        {"@fontBody@", QString::number(t.fontSizeBody)},
+        {"@fontSm@", QString::number(t.fontSizeSm)},
+        {"@fontTitle@", QString::number(t.fontSizeTitle)},
+    };
+    for (const auto &[marker, value] : tokens) {
+        sheet.replace(QLatin1String(marker), value);
+    }
+    return sheet;
 }
 
 } // namespace edi::shell

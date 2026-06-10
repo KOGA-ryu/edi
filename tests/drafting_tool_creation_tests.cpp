@@ -238,5 +238,28 @@ int main()
     assert(!emptyId.ok);
     assert(emptyId.code == DraftingResultCode::EmptyObjectId);
 
+    // Polyline: a multi-click tool — the request carries its whole click
+    // trail in `vertices`; start/end are ignored for this kind.
+    {
+        assert(draftingToolKindFromId("polyline_tool") == DraftingToolKind::Polyline);
+        assert(std::string(draftingToolKindName(DraftingToolKind::Polyline)) == "polyline");
+
+        DraftingToolCreationRequest request;
+        request.tool = DraftingToolKind::Polyline;
+        request.objectId = "poly_1";
+        request.vertices = {{0.1, 0.1}, {0.4, 0.2}, {0.5, 0.6}};
+        const DraftingObjectBuildResult built = buildDraftingObjectForTool(request);
+        assert(built.ok);
+        assert(built.object.kind == DraftingShapeKind::Polyline);
+        const auto *polyline = std::get_if<PolylineGeometry>(&built.object.geometry);
+        assert(polyline != nullptr && polyline->vertices.size() == 3);
+        assert(polyline->vertices[2].y == 0.6);
+
+        // The geometry validation gate holds: one vertex is not a polyline.
+        DraftingToolCreationRequest tooShort = request;
+        tooShort.vertices = {{0.1, 0.1}};
+        assert(!buildDraftingObjectForTool(tooShort).ok);
+    }
+
     return 0;
 }

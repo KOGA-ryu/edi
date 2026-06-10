@@ -293,5 +293,40 @@ int main(int argc, char **argv)
         assert(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
     }
 
+    // Polyline: clicks anchor vertices, a double-click finishes the trail.
+    {
+        DrawingDocumentController polyController;
+        DrawingCanvasWidget polyCanvas(&polyController);
+        polyCanvas.resize(640, 480);
+        polyCanvas.show();
+        polyController.setSelectedToolId(QStringLiteral("polyline_tool"));
+
+        const QPointF a = screenPointFor(polyController, polyCanvas, 0.2, 0.2);
+        const QPointF b = screenPointFor(polyController, polyCanvas, 0.5, 0.3);
+        const QPointF c = screenPointFor(polyController, polyCanvas, 0.7, 0.6);
+        sendMouse(polyCanvas, QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonRelease, a, Qt::LeftButton, Qt::NoButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonPress, b, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
+        assert(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+
+        // The double-click pair: its press anchors the final vertex, the
+        // dblclick event closes the trail there.
+        sendMouse(polyCanvas, QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonDblClick, c, Qt::LeftButton, Qt::LeftButton);
+        const QVariantList objects = polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(objects.size() == 1);
+        assert(objects.front().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("polyline"));
+
+        // Escape mid-trail leaves the document alone.
+        polyController.setSelectedToolId(QStringLiteral("polyline_tool"));
+        sendMouse(polyCanvas, QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(polyCanvas, QEvent::MouseButtonRelease, a, Qt::LeftButton, Qt::NoButton);
+        sendKey(polyCanvas, Qt::Key_Escape);
+        sendMouse(polyCanvas, QEvent::MouseButtonDblClick, a, Qt::LeftButton, Qt::LeftButton);
+        assert(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+    }
+
     return 0;
 }

@@ -1825,6 +1825,23 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         return;
     }
 
+    if (kind == DraftingToolKind::Polyline) {
+        // Multi-click: every click anchors a vertex; the trail rides in the
+        // pending request until finishPendingPolyline (double-click) commits
+        // it or cancelPendingCreation (Escape) drops it.
+        if (!m_pendingCreation) {
+            const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
+            m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
+            m_pendingCreation->vertices = {point};
+        } else {
+            m_pendingCreation->vertices.push_back(point);
+        }
+        m_previewObject.reset();
+        commitEdit();
+        emit modelChanged();
+        return;
+    }
+
     if (!m_pendingCreation) {
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
@@ -1847,6 +1864,26 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     }
     commitEdit();
     emit modelChanged();
+}
+
+bool DrawingDocumentController::finishPendingPolyline()
+{
+    if (!m_pendingCreation || m_pendingCreation->tool != DraftingToolKind::Polyline) {
+        return false;
+    }
+    beginEdit();
+    const auto object = buildDraftingObjectForTool(*m_pendingCreation);
+    m_pendingCreation.reset();
+    m_previewObject.reset();
+    if (object.ok) {
+        applyDraftingCommand(m_document, CreateObjectCommand{object.object});
+        applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
+    }
+    // A one-vertex trail simply dissolves (same outcome as Escape): there is
+    // no polyline to make, and committing nothing keeps undo clean.
+    commitEdit();
+    emit modelChanged();
+    return object.ok;
 }
 
 void DrawingDocumentController::cancelPendingCreation()
@@ -1889,6 +1926,11 @@ void DrawingDocumentController::updateCreationPreviewNormalized(double x, double
     const Point2D point = resolveSnap(normalizeDraftingPoint({x, y}), m_document, m_snapSettings).point;
     DraftingToolCreationRequest preview = *m_pendingCreation;
     preview.end = point;
+    if (preview.tool == DraftingToolKind::Polyline) {
+        // The pointer is a provisional last vertex: one anchored click plus
+        // the cursor already previews as a valid two-vertex polyline.
+        preview.vertices.push_back(point);
+    }
     const auto object = buildDraftingObjectForTool(preview);
     if (object.ok) {
         m_previewObject = object.object;

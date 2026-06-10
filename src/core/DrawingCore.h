@@ -150,6 +150,9 @@ public:
     bool setAllGuidesLocked(bool locked);
     void clickCanvasNormalized(double x, double y);
     void cancelPendingCreation();
+    // Commits the in-flight multi-click polyline (double-click / Enter).
+    // False when nothing valid is pending; a one-vertex trail dissolves.
+    bool finishPendingPolyline();
     bool deleteSelectedObject();
     bool duplicateSelectedObject();
     void updateCreationPreviewNormalized(double x, double y);

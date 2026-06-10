@@ -8,6 +8,7 @@
 #include <QVector>
 
 #include <functional>
+#include <optional>
 
 #include "app/AppState.h"
 
@@ -50,10 +51,12 @@ private:
     QWidget *buildRepeatControls();
     QWidget *buildCalibrationControls();
     QPushButton *makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action);
-    QCheckBox *makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled);
+    QCheckBox *makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled,
+                          std::optional<bool> initialChecked = std::nullopt);
     QComboBox *makeDataCombo(const QString &objectName,
                              const QVector<QPair<QString, QString>> &items,
-                             const std::function<void(const QString &)> &onData);
+                             const std::function<void(const QString &)> &onData,
+                             const QString &initialData = QString());
     struct GeometryFieldSpec {
         QString fieldId;
         QString fieldMode;

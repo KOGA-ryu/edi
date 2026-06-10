@@ -543,16 +543,14 @@ QWidget *EdiShellWindow::buildLeftPanel()
     });
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Snap")));
-    m_gridPreset = new QComboBox;
-    m_gridPreset->setObjectName(QStringLiteral("controlInput"));
-    m_gridPreset->addItem(QStringLiteral("Square art board"), QStringLiteral("square_art_board"));
-    m_gridPreset->addItem(QStringLiteral("Letter"), QStringLiteral("letter"));
-    m_gridPreset->addItem(QStringLiteral("A4"), QStringLiteral("a4"));
-    m_gridPreset->addItem(QStringLiteral("Custom"), QStringLiteral("custom"));
-    const int presetIndex = m_gridPreset->findData(m_controller->gridPresetId());
-    if (presetIndex >= 0) {
-        m_gridPreset->setCurrentIndex(presetIndex);
-    }
+    m_gridPreset = makeDataCombo(QStringLiteral("controlInput"), {
+        {QStringLiteral("Square art board"), QStringLiteral("square_art_board")},
+        {QStringLiteral("Letter"), QStringLiteral("letter")},
+        {QStringLiteral("A4"), QStringLiteral("a4")},
+        {QStringLiteral("Custom"), QStringLiteral("custom")},
+    }, [this](const QString &presetId) {
+        m_controller->setGridPresetId(presetId);
+    }, m_controller->gridPresetId());
     layout->addWidget(m_gridPreset);
 
     auto *gridSettingsLayout = new QGridLayout;
@@ -560,13 +558,15 @@ QWidget *EdiShellWindow::buildLeftPanel()
     gridSettingsLayout->setHorizontalSpacing(6);
     gridSettingsLayout->setVerticalSpacing(6);
 
-    m_gridUnit = new QComboBox;
-    m_gridUnit->setObjectName(QStringLiteral("controlInput"));
-    m_gridUnit->addItem(QStringLiteral("cu"), QStringLiteral("canvas_unit"));
-    m_gridUnit->addItem(QStringLiteral("mm"), QStringLiteral("millimeter"));
-    m_gridUnit->addItem(QStringLiteral("cm"), QStringLiteral("centimeter"));
-    m_gridUnit->addItem(QStringLiteral("in"), QStringLiteral("inch"));
-    m_gridUnit->addItem(QStringLiteral("ft"), QStringLiteral("foot"));
+    m_gridUnit = makeDataCombo(QStringLiteral("controlInput"), {
+        {QStringLiteral("cu"), QStringLiteral("canvas_unit")},
+        {QStringLiteral("mm"), QStringLiteral("millimeter")},
+        {QStringLiteral("cm"), QStringLiteral("centimeter")},
+        {QStringLiteral("in"), QStringLiteral("inch")},
+        {QStringLiteral("ft"), QStringLiteral("foot")},
+    }, [this](const QString &unitId) {
+        m_controller->setGridUnitId(unitId);
+    });
 
     auto makeGridSpin = []() {
         auto *spin = new QDoubleSpinBox;
@@ -587,7 +587,9 @@ QWidget *EdiShellWindow::buildLeftPanel()
     m_gridMajorEvery = new QSpinBox;
     m_gridMajorEvery->setObjectName(QStringLiteral("geometryField"));
     m_gridMajorEvery->setRange(1, 1000);
-    m_gridVisible = new QCheckBox(QStringLiteral("Visible"));
+    m_gridVisible = makeToggle(QStringLiteral("gridVisibleCheckbox"), QStringLiteral("Visible"), [this](bool visible) {
+        m_controller->setGridVisible(visible);
+    });
 
     gridSettingsLayout->addWidget(new QLabel(QStringLiteral("Unit")), 0, 0);
     gridSettingsLayout->addWidget(m_gridUnit, 0, 1);
@@ -610,32 +612,40 @@ QWidget *EdiShellWindow::buildLeftPanel()
     gridSettingsLayout->addWidget(m_gridVisible, 9, 0, 1, 2);
     layout->addLayout(gridSettingsLayout);
 
-    m_gridSnap = new QCheckBox(QStringLiteral("Grid snap"));
-    m_gridSnap->setChecked(m_controller->gridSnapEnabled());
-    m_objectSnap = new QCheckBox(QStringLiteral("Object snap"));
-    m_objectSnap->setChecked(m_controller->objectSnapEnabled());
-    m_endpointSnap = new QCheckBox(QStringLiteral("Endpoint"));
-    m_endpointSnap->setChecked(m_controller->endpointSnapEnabled());
-    m_vertexSnap = new QCheckBox(QStringLiteral("Vertex"));
-    m_vertexSnap->setChecked(m_controller->vertexSnapEnabled());
-    m_midpointSnap = new QCheckBox(QStringLiteral("Midpoint"));
-    m_midpointSnap->setChecked(m_controller->midpointSnapEnabled());
-    m_centerSnap = new QCheckBox(QStringLiteral("Center"));
-    m_centerSnap->setChecked(m_controller->centerSnapEnabled());
-    m_guideSnap = new QCheckBox(QStringLiteral("Guide"));
-    m_guideSnap->setChecked(m_controller->guideSnapEnabled());
-    m_guideMoveSnap = new QCheckBox(QStringLiteral("Guide move snap"));
-    m_guideMoveSnap->setChecked(m_controller->guideMoveSnapEnabled());
-    m_objectPrioritySnap = new QCheckBox(QStringLiteral("Object before grid"));
-    m_objectPrioritySnap->setChecked(m_controller->objectSnapPriorityBeforeGrid());
-    m_objectTolerance = new QComboBox;
-    m_objectTolerance->addItem(QStringLiteral("Tight tolerance"), QStringLiteral("tight"));
-    m_objectTolerance->addItem(QStringLiteral("Normal tolerance"), QStringLiteral("normal"));
-    m_objectTolerance->addItem(QStringLiteral("Loose tolerance"), QStringLiteral("loose"));
-    const int toleranceIndex = m_objectTolerance->findData(m_controller->objectSnapTolerancePresetId());
-    if (toleranceIndex >= 0) {
-        m_objectTolerance->setCurrentIndex(toleranceIndex);
-    }
+    m_gridSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Grid snap"), [this](bool enabled) {
+        m_controller->setGridSnapEnabled(enabled);
+    }, m_controller->gridSnapEnabled());
+    m_objectSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Object snap"), [this](bool enabled) {
+        m_controller->setObjectSnapEnabled(enabled);
+    }, m_controller->objectSnapEnabled());
+    m_endpointSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Endpoint"), [this](bool enabled) {
+        m_controller->setEndpointSnapEnabled(enabled);
+    }, m_controller->endpointSnapEnabled());
+    m_vertexSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Vertex"), [this](bool enabled) {
+        m_controller->setVertexSnapEnabled(enabled);
+    }, m_controller->vertexSnapEnabled());
+    m_midpointSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Midpoint"), [this](bool enabled) {
+        m_controller->setMidpointSnapEnabled(enabled);
+    }, m_controller->midpointSnapEnabled());
+    m_centerSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Center"), [this](bool enabled) {
+        m_controller->setCenterSnapEnabled(enabled);
+    }, m_controller->centerSnapEnabled());
+    m_guideSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Guide"), [this](bool enabled) {
+        m_controller->setGuideSnapEnabled(enabled);
+    }, m_controller->guideSnapEnabled());
+    m_guideMoveSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Guide move snap"), [this](bool enabled) {
+        m_controller->setGuideMoveSnapEnabled(enabled);
+    }, m_controller->guideMoveSnapEnabled());
+    m_objectPrioritySnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Object before grid"), [this](bool enabled) {
+        m_controller->setObjectSnapPriorityBeforeGrid(enabled);
+    }, m_controller->objectSnapPriorityBeforeGrid());
+    m_objectTolerance = makeDataCombo(QStringLiteral("controlInput"), {
+        {QStringLiteral("Tight tolerance"), QStringLiteral("tight")},
+        {QStringLiteral("Normal tolerance"), QStringLiteral("normal")},
+        {QStringLiteral("Loose tolerance"), QStringLiteral("loose")},
+    }, [this](const QString &presetId) {
+        m_controller->setObjectSnapTolerancePreset(presetId);
+    }, m_controller->objectSnapTolerancePresetId());
     layout->addWidget(m_gridSnap);
     layout->addWidget(m_objectSnap);
     layout->addWidget(m_endpointSnap);
@@ -647,12 +657,6 @@ QWidget *EdiShellWindow::buildLeftPanel()
     layout->addWidget(m_objectPrioritySnap);
     layout->addWidget(m_objectTolerance);
 
-    connect(m_gridPreset, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
-        m_controller->setGridPresetId(m_gridPreset->itemData(index).toString());
-    });
-    connect(m_gridUnit, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
-        m_controller->setGridUnitId(m_gridUnit->itemData(index).toString());
-    });
     connect(m_gridWidth, &QDoubleSpinBox::editingFinished, m_controller, [this]() {
         m_controller->setGridSize(m_gridWidth->value(), m_gridHeight->value());
     });
@@ -675,19 +679,6 @@ QWidget *EdiShellWindow::buildLeftPanel()
     });
     connect(m_gridMajorEvery, &QSpinBox::editingFinished, m_controller, [this]() {
         m_controller->setGridMajorLineEvery(m_gridMajorEvery->value());
-    });
-    connect(m_gridVisible, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridVisible);
-    connect(m_gridSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGridSnapEnabled);
-    connect(m_objectSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapEnabled);
-    connect(m_endpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setEndpointSnapEnabled);
-    connect(m_vertexSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setVertexSnapEnabled);
-    connect(m_midpointSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setMidpointSnapEnabled);
-    connect(m_centerSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setCenterSnapEnabled);
-    connect(m_guideSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGuideSnapEnabled);
-    connect(m_guideMoveSnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setGuideMoveSnapEnabled);
-    connect(m_objectPrioritySnap, &QCheckBox::toggled, m_controller, &DrawingDocumentController::setObjectSnapPriorityBeforeGrid);
-    connect(m_objectTolerance, &QComboBox::currentIndexChanged, m_controller, [this](int index) {
-        m_controller->setObjectSnapTolerancePreset(m_objectTolerance->itemData(index).toString());
     });
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Next Surfaces")));
@@ -971,34 +962,23 @@ QWidget *EdiShellWindow::buildRightPanel()
     m_plotLayerStatsValue = makeValueLabel();
     m_plotPenStatsValue = makeValueLabel();
     m_plotReadinessValue = makeValueLabel();
-    m_plotOrderMode = new QComboBox;
-    m_plotOrderMode->setObjectName(QStringLiteral("plotOrderMode"));
-    m_plotOrderMode->addItem(QStringLiteral("Plot order: layer"), QStringLiteral("layer_order"));
-    m_plotOrderMode->addItem(QStringLiteral("Plot order: nearest"), QStringLiteral("nearest_next"));
-    const int plotOrderIndex = m_plotOrderMode->findData(m_controller->plotOrderModeId());
-    if (plotOrderIndex >= 0) {
-        m_plotOrderMode->setCurrentIndex(plotOrderIndex);
-    }
-    connect(m_plotOrderMode, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_controller->setPlotOrderModeId(m_plotOrderMode->itemData(index).toString());
-    });
-    m_plotDirectionMode = new QComboBox;
-    m_plotDirectionMode->setObjectName(QStringLiteral("plotDirectionMode"));
-    m_plotDirectionMode->addItem(QStringLiteral("Direction: preserve"), QStringLiteral("preserve_direction"));
-    m_plotDirectionMode->addItem(QStringLiteral("Direction: reversible"), QStringLiteral("allow_reverse_segments"));
-    const int plotDirectionIndex = m_plotDirectionMode->findData(m_controller->plotDirectionModeId());
-    if (plotDirectionIndex >= 0) {
-        m_plotDirectionMode->setCurrentIndex(plotDirectionIndex);
-    }
-    connect(m_plotDirectionMode, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_controller->setPlotDirectionModeId(m_plotDirectionMode->itemData(index).toString());
-    });
+    m_plotOrderMode = makeDataCombo(QStringLiteral("plotOrderMode"), {
+        {QStringLiteral("Plot order: layer"), QStringLiteral("layer_order")},
+        {QStringLiteral("Plot order: nearest"), QStringLiteral("nearest_next")},
+    }, [this](const QString &modeId) {
+        m_controller->setPlotOrderModeId(modeId);
+    }, m_controller->plotOrderModeId());
+    m_plotDirectionMode = makeDataCombo(QStringLiteral("plotDirectionMode"), {
+        {QStringLiteral("Direction: preserve"), QStringLiteral("preserve_direction")},
+        {QStringLiteral("Direction: reversible"), QStringLiteral("allow_reverse_segments")},
+    }, [this](const QString &modeId) {
+        m_controller->setPlotDirectionModeId(modeId);
+    }, m_controller->plotDirectionModeId());
     m_plotPreviewVisible = makeToggle(QStringLiteral("plotPreviewCheckbox"), QStringLiteral("Show plot preview"), [this](bool checked) {
         if (m_canvas != nullptr) {
             m_canvas->setPlotPreviewVisible(checked);
         }
-    });
-    m_plotPreviewVisible->setChecked(false);
+    }, false);
     m_pointerValue = makeValueLabel();
     m_quickMeasureValue = makeValueLabel();
     m_guideDragValue = makeValueLabel();
@@ -1336,22 +1316,33 @@ QPushButton *EdiShellWindow::makeActionButton(const QString &objectName, const Q
     return button;
 }
 
-QCheckBox *EdiShellWindow::makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled)
+QCheckBox *EdiShellWindow::makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled,
+                                      std::optional<bool> initialChecked)
 {
     auto *checkbox = new QCheckBox(label);
     checkbox->setObjectName(objectName);
+    if (initialChecked) {
+        checkbox->setChecked(*initialChecked);
+    }
     connect(checkbox, &QCheckBox::toggled, this, onToggled);
     return checkbox;
 }
 
 QComboBox *EdiShellWindow::makeDataCombo(const QString &objectName,
                                          const QVector<QPair<QString, QString>> &items,
-                                         const std::function<void(const QString &)> &onData)
+                                         const std::function<void(const QString &)> &onData,
+                                         const QString &initialData)
 {
     auto *combo = new QComboBox;
     combo->setObjectName(objectName);
     for (const auto &item : items) {
         combo->addItem(item.first, item.second);
+    }
+    if (!initialData.isEmpty()) {
+        const int index = combo->findData(initialData);
+        if (index >= 0) {
+            combo->setCurrentIndex(index);
+        }
     }
     connect(combo, &QComboBox::currentIndexChanged, this, [combo, onData](int index) {
         if (index < 0) {

@@ -749,30 +749,24 @@ QWidget *EdiShellWindow::buildRightPanel()
     layout->addWidget(m_objectMeasurementValue);
     layout->addWidget(m_objectPlotSafetyValue);
     layout->addWidget(m_selectionPlotBoundsValue);
-    m_fitSelectionToDrawableButton = makeActionButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), [this]() {
+    layout->addWidget(makeConditionalButton(QStringLiteral("fitToDrawableButton"), QStringLiteral("Fit To Drawable"), QStringLiteral("has_selection"), [this]() {
         m_controller->fitSelectionToDrawableBounds();
-    });
-    layout->addWidget(m_fitSelectionToDrawableButton);
-    m_centerSelectionInDrawableButton = makeActionButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), [this]() {
+    }));
+    layout->addWidget(makeConditionalButton(QStringLiteral("centerInDrawableButton"), QStringLiteral("Center In Drawable"), QStringLiteral("has_selection"), [this]() {
         m_controller->centerSelectionInDrawable();
-    });
-    layout->addWidget(m_centerSelectionInDrawableButton);
-    m_moveSelectionToDrawableOriginButton = makeActionButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), [this]() {
+    }));
+    layout->addWidget(makeConditionalButton(QStringLiteral("moveToDrawableOriginButton"), QStringLiteral("Move To Drawable Origin"), QStringLiteral("has_selection"), [this]() {
         m_controller->moveSelectionToDrawableOrigin();
-    });
-    layout->addWidget(m_moveSelectionToDrawableOriginButton);
-    m_moveGuideToDrawableOriginButton = makeActionButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), [this]() {
+    }));
+    layout->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableOrigin();
-    });
-    layout->addWidget(m_moveGuideToDrawableOriginButton);
-    m_centerGuideInDrawableButton = makeActionButton(QStringLiteral("centerGuideButton"), QStringLiteral("Center Guide"), [this]() {
+    }));
+    layout->addWidget(makeConditionalButton(QStringLiteral("centerGuideButton"), QStringLiteral("Center Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->centerSelectedGuideInDrawable();
-    });
-    layout->addWidget(m_centerGuideInDrawableButton);
-    m_moveGuideToDrawableMaxButton = makeActionButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), [this]() {
+    }));
+    layout->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableMaxButton"), QStringLiteral("Guide To Drawable Max"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableMax();
-    });
-    layout->addWidget(m_moveGuideToDrawableMaxButton);
+    }));
     const QVector<QPair<QString, QString>> guideOffsetButtons {
         {QStringLiteral("negative_fine"), QStringLiteral("Guide - Fine")},
         {QStringLiteral("positive_fine"), QStringLiteral("Guide + Fine")},
@@ -803,10 +797,9 @@ QWidget *EdiShellWindow::buildRightPanel()
         });
         layout->addWidget(button);
     }
-    m_fitConstructionToDrawableButton = makeActionButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), [this]() {
+    layout->addWidget(makeConditionalButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), QStringLiteral("construction_drawable_controls"), [this]() {
         m_controller->fitSelectedConstructionLineToDrawable();
-    });
-    layout->addWidget(m_fitConstructionToDrawableButton);
+    }));
     layout->addWidget(makeSectionLabel(QStringLiteral("Bounds Guides")));
     const QVector<QPair<QString, QString>> boundsGuideButtons {
         {QStringLiteral("left"), QStringLiteral("Guide Left")},
@@ -854,10 +847,9 @@ QWidget *EdiShellWindow::buildRightPanel()
         layout->addWidget(button);
     }
     layout->addWidget(makeSectionLabel(QStringLiteral("Guide Lifecycle")));
-    m_deleteSelectedGuideButton = makeActionButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), [this]() {
+    layout->addWidget(makeConditionalButton(QStringLiteral("deleteSelectedGuideButton"), QStringLiteral("Delete Selected Guide"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->deleteSelectedGuide();
-    });
-    layout->addWidget(m_deleteSelectedGuideButton);
+    }));
     m_deleteAllGuidesButton = makeActionButton(QStringLiteral("deleteAllGuidesButton"), QStringLiteral("Delete All Guides"), [this]() {
         m_controller->deleteAllGuides();
     });
@@ -1316,6 +1308,14 @@ QPushButton *EdiShellWindow::makeActionButton(const QString &objectName, const Q
     return button;
 }
 
+QPushButton *EdiShellWindow::makeConditionalButton(const QString &objectName, const QString &label,
+                                                   const QString &enableKey, const std::function<void()> &action)
+{
+    auto *button = makeActionButton(objectName, label, action);
+    m_conditionalButtons.append({button, enableKey});
+    return button;
+}
+
 QCheckBox *EdiShellWindow::makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled,
                                       std::optional<bool> initialChecked)
 {
@@ -1627,13 +1627,11 @@ void EdiShellWindow::refreshInspector()
     }
     setLabelText(m_objectPlotSafetyValue, selectedPlotSafetySummary(selectedObject, plot));
     setLabelText(m_selectionPlotBoundsValue, selectionPlotBoundsSummary(document));
-    setWidgetEnabled(m_fitSelectionToDrawableButton, !selectedObject.isEmpty());
-    setWidgetEnabled(m_centerSelectionInDrawableButton, !selectedObject.isEmpty());
-    setWidgetEnabled(m_moveSelectionToDrawableOriginButton, !selectedObject.isEmpty());
-    setWidgetEnabled(m_moveGuideToDrawableOriginButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    setWidgetEnabled(m_centerGuideInDrawableButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    setWidgetEnabled(m_moveGuideToDrawableMaxButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    setWidgetEnabled(m_fitConstructionToDrawableButton, selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
+    for (const auto &conditional : std::as_const(m_conditionalButtons)) {
+        conditional.first->setEnabled(conditional.second == QStringLiteral("has_selection")
+            ? !selectedObject.isEmpty()
+            : selectedObject.value(conditional.second).toBool());
+    }
     const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
     for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
         button->setEnabled(boundsGuideControlsEnabled);
@@ -1646,7 +1644,6 @@ void EdiShellWindow::refreshInspector()
         button->setEnabled(alignToGuideControlsEnabled);
     }
     const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
-    setWidgetEnabled(m_deleteSelectedGuideButton, selectedGuideControlsEnabled);
     for (QPushButton *button : std::as_const(m_guideOffsetButtons)) {
         button->setEnabled(selectedGuideControlsEnabled);
     }

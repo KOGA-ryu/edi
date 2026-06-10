@@ -51,6 +51,11 @@ private:
     QWidget *buildRepeatControls();
     QWidget *buildCalibrationControls();
     QPushButton *makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action);
+    // Registers the button in m_conditionalButtons; refreshInspector drives its
+    // enabled state from enableKey ("has_selection" or a bool key in the selected
+    // object projection), so build and refresh cannot drift apart.
+    QPushButton *makeConditionalButton(const QString &objectName, const QString &label,
+                                       const QString &enableKey, const std::function<void()> &action);
     QCheckBox *makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled,
                           std::optional<bool> initialChecked = std::nullopt);
     QComboBox *makeDataCombo(const QString &objectName,
@@ -114,14 +119,7 @@ private:
     QLabel *m_objectMeasurementValue = nullptr;
     QLabel *m_objectPlotSafetyValue = nullptr;
     QLabel *m_selectionPlotBoundsValue = nullptr;
-    QPushButton *m_fitSelectionToDrawableButton = nullptr;
-    QPushButton *m_centerSelectionInDrawableButton = nullptr;
-    QPushButton *m_moveSelectionToDrawableOriginButton = nullptr;
-    QPushButton *m_moveGuideToDrawableOriginButton = nullptr;
-    QPushButton *m_centerGuideInDrawableButton = nullptr;
-    QPushButton *m_moveGuideToDrawableMaxButton = nullptr;
-    QPushButton *m_fitConstructionToDrawableButton = nullptr;
-    QPushButton *m_deleteSelectedGuideButton = nullptr;
+    QVector<QPair<QPushButton *, QString>> m_conditionalButtons;
     QPushButton *m_deleteAllGuidesButton = nullptr;
     QPushButton *m_mergeDuplicateGuidesButton = nullptr;
     QPushButton *m_hideAllGuidesButton = nullptr;

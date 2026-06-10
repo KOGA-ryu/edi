@@ -8,6 +8,7 @@
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
+#include "drafting/DraftingCommands.h"
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingLayerOps.h"
@@ -124,6 +125,7 @@ signals:
     void modelChanged();
 
 private:
+    bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
     void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
     void applyCustomGridSettings(const std::function<void(edi::drafting::DraftingGridSettings &)> &mutate);
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);

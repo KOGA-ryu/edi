@@ -842,15 +842,7 @@ bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateObjectFlagsCommand{*m_document.activeObjectId, locked, object->visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(UpdateObjectFlagsCommand{*m_document.activeObjectId, locked, object->visible});
 }
 
 bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
@@ -860,9 +852,12 @@ bool DrawingDocumentController::setSelectedObjectVisible(bool visible)
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateObjectFlagsCommand{*m_document.activeObjectId, object->locked, visible});
+    return applyCommandAndEmit(UpdateObjectFlagsCommand{*m_document.activeObjectId, object->locked, visible});
+}
+
+bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &command)
+{
+    const DraftingCommandResult result = applyDraftingCommand(m_document, command);
     if (!result.ok) {
         return false;
     }
@@ -884,15 +879,7 @@ bool DrawingDocumentController::applyActiveObjectMetadataUpdate(
     if (!plan.ok) {
         return false;
     }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(UpdateMetadataCommand{*m_document.activeObjectId, plan.metadata});
 }
 
 bool DrawingDocumentController::applyActiveObjectGeometryUpdate(
@@ -908,15 +895,7 @@ bool DrawingDocumentController::applyActiveObjectGeometryUpdate(
     if (!geometry) {
         return false;
     }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
 }
 
 bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
@@ -986,15 +965,7 @@ bool DrawingDocumentController::applyLayerFlagsUpdate(
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(UpdateLayerFlagsCommand{plan.layerId, plan.locked, plan.visible});
 }
 
 bool DrawingDocumentController::applyActiveLayerPlotStyleUpdate(
@@ -1005,15 +976,7 @@ bool DrawingDocumentController::applyActiveLayerPlotStyleUpdate(
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateLayerPlotStyleCommand{layer->id, planPlot(*layer)});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(UpdateLayerPlotStyleCommand{layer->id, planPlot(*layer)});
 }
 
 bool DrawingDocumentController::setDefaultLayerLocked(bool locked)
@@ -1073,41 +1036,17 @@ bool DrawingDocumentController::createLayer()
     if (!plan.ok) {
         return false;
     }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        CreateLayerCommand{plan.layer, plan.makeActive});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(CreateLayerCommand{plan.layer, plan.makeActive});
 }
 
 bool DrawingDocumentController::renameActiveLayer(const QString &name)
 {
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        RenameLayerCommand{m_document.activeLayerId, toStdString(name)});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(RenameLayerCommand{m_document.activeLayerId, toStdString(name)});
 }
 
 bool DrawingDocumentController::setActiveLayerId(const QString &layerId)
 {
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        SetActiveLayerCommand{toStdString(layerId)});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(SetActiveLayerCommand{toStdString(layerId)});
 }
 
 bool DrawingDocumentController::moveActiveLayer(const QString &direction)
@@ -1117,15 +1056,7 @@ bool DrawingDocumentController::moveActiveLayer(const QString &direction)
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        MoveLayerCommand{m_document.activeLayerId, *delta});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveLayerCommand{m_document.activeLayerId, *delta});
 }
 
 bool DrawingDocumentController::moveSelectedObjectToLayer(const QString &layerId)
@@ -1134,15 +1065,7 @@ bool DrawingDocumentController::moveSelectedObjectToLayer(const QString &layerId
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        MoveObjectToLayerCommand{*m_document.activeObjectId, toStdString(layerId)});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveObjectToLayerCommand{*m_document.activeObjectId, toStdString(layerId)});
 }
 
 bool DrawingDocumentController::nudgeSelection(const QString &direction, const QString &stepMode)
@@ -1157,13 +1080,7 @@ bool DrawingDocumentController::nudgeSelection(const QString &direction, const Q
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveSelectionCommand{plan.dx, plan.dy});
 }
 
 bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &direction, const QString &stepMode)
@@ -1180,13 +1097,7 @@ bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &dire
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveSelectionCommand{plan.dx, plan.dy});
 }
 
 bool DrawingDocumentController::createTransformedActiveObject(
@@ -1289,13 +1200,7 @@ bool DrawingDocumentController::alignSelection(const QString &modeId)
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, AlignSelectionCommand{*mode});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(AlignSelectionCommand{*mode});
 }
 
 bool DrawingDocumentController::distributeSelection(const QString &axisId)
@@ -1305,13 +1210,7 @@ bool DrawingDocumentController::distributeSelection(const QString &axisId)
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, DistributeSelectionCommand{*mode});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(DistributeSelectionCommand{*mode});
 }
 
 bool DrawingDocumentController::createCalibrationPattern(const QString &patternId)
@@ -1399,13 +1298,7 @@ bool DrawingDocumentController::applySelectionDrawablePlacement(DraftingSelectio
         return true;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveSelectionCommand{plan.dx, plan.dy});
 }
 
 bool DrawingDocumentController::fitSelectionToDrawableBounds()
@@ -1515,13 +1408,7 @@ bool DrawingDocumentController::createGuideFromActiveBounds(
     if (!built.ok) {
         return false;
     }
-    const DraftingCommandResult result = applyDraftingCommand(m_document, CreateObjectCommand{built.object});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(CreateObjectCommand{built.object});
 }
 
 bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &placementId)
@@ -1604,13 +1491,7 @@ bool DrawingDocumentController::alignSelectionToNearestGuide(const QString &mode
         return true;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{plan.dx, plan.dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveSelectionCommand{plan.dx, plan.dy});
 }
 
 bool DrawingDocumentController::deleteSelectedGuide()
@@ -1620,57 +1501,27 @@ bool DrawingDocumentController::deleteSelectedGuide()
         return false;
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, DeleteObjectCommand{*m_document.activeObjectId});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(DeleteObjectCommand{*m_document.activeObjectId});
 }
 
 bool DrawingDocumentController::deleteAllGuides()
 {
-    const DraftingCommandResult result = applyDraftingCommand(m_document, DeleteAllGuidesCommand{});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(DeleteAllGuidesCommand{});
 }
 
 bool DrawingDocumentController::mergeDuplicateGuides()
 {
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MergeDuplicateGuidesCommand{});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MergeDuplicateGuidesCommand{});
 }
 
 bool DrawingDocumentController::setAllGuidesVisible(bool visible)
 {
-    const DraftingCommandResult result = applyDraftingCommand(m_document, SetAllGuidesVisibleCommand{visible});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(SetAllGuidesVisibleCommand{visible});
 }
 
 bool DrawingDocumentController::setAllGuidesLocked(bool locked)
 {
-    const DraftingCommandResult result = applyDraftingCommand(m_document, SetAllGuidesLockedCommand{locked});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(SetAllGuidesLockedCommand{locked});
 }
 
 void DrawingDocumentController::clickCanvasNormalized(double x, double y)
@@ -1764,15 +1615,7 @@ bool DrawingDocumentController::editSelectedHandleNormalized(const QString &hand
     m_lastGuideDragSnap.clear();
 
     const Point2D point = resolveSnap({x, y}, m_document, m_snapSettings).point;
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(EditObjectHandleCommand{*m_document.activeObjectId, handleId.toStdString(), point});
 }
 
 bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
@@ -1812,13 +1655,7 @@ bool DrawingDocumentController::moveSelectionNormalized(double dx, double dy)
         }
     }
 
-    const DraftingCommandResult result = applyDraftingCommand(m_document, MoveSelectionCommand{dx, dy});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyCommandAndEmit(MoveSelectionCommand{dx, dy});
 }
 
 bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, double y1, double x2, double y2)

@@ -36,6 +36,11 @@ public:
     QWidget *buildPanel(edi::shell::ShellSlot slot);
 
 private:
+    // F6: the settings surface is a page strip + stack; which pages exist is
+    // a table in buildPanel ({id, label, builder} rows), so a new page is an
+    // appended row, never new switcher logic. Pages build once and switch by
+    // stack index — the F2 lesson: hide, don't rebuild, so live controls
+    // never lose state mid-edit.
     QWidget *buildSettingsPage();
     // One row of the theme section: label + hex field + color-dialog swatch.
     // `member` selects which of the four inputs the row edits — the variation

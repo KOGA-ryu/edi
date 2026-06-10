@@ -1,5 +1,6 @@
 #include "widgets/SettingsFeature.h"
 
+#include <QButtonGroup>
 #include <QColor>
 #include <QColorDialog>
 #include <QComboBox>
@@ -9,10 +10,13 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <functional>
 #include <utility>
+#include <vector>
 
 #include "widgets/ShellWidgetHelpers.h"
 
@@ -26,10 +30,52 @@ SettingsFeature::SettingsFeature(ShellHooks hooks, QObject *parent)
 
 QWidget *SettingsFeature::buildPanel(ShellSlot slot)
 {
-    if (slot == ShellSlot::Main) {
-        return buildSettingsPage();
+    if (slot != ShellSlot::Main) {
+        return nullptr;
     }
-    return nullptr;
+
+    // The page table: adding a settings page is appending a row here.
+    struct PageSpec {
+        QString id;
+        QString label;
+        std::function<QWidget *()> build;
+    };
+    const std::vector<PageSpec> pages = {
+        {QStringLiteral("theme"), QStringLiteral("Theme"), [this]() { return buildSettingsPage(); }},
+    };
+
+    auto *host = new QWidget;
+    host->setObjectName(QStringLiteral("settingsHost"));
+    auto *hostLayout = new QHBoxLayout(host);
+    hostLayout->setContentsMargins(0, 0, 0, 0);
+    hostLayout->setSpacing(0);
+
+    auto *strip = new QWidget;
+    strip->setObjectName(QStringLiteral("settingsPageStrip"));
+    auto *stripLayout = new QVBoxLayout(strip);
+    stripLayout->setContentsMargins(8, 8, 8, 8);
+    stripLayout->setSpacing(6);
+
+    auto *stack = new QStackedWidget;
+    stack->setObjectName(QStringLiteral("settingsPageStack"));
+
+    auto *pageGroup = new QButtonGroup(host);
+    pageGroup->setExclusive(true);
+    for (std::size_t i = 0; i < pages.size(); ++i) {
+        QWidget *page = pages[i].build();
+        const int index = stack->addWidget(page);
+        QPushButton *button = makeRailButton(pages[i].label, pages[i].label, i == 0);
+        button->setObjectName(QStringLiteral("settingsPageButton"));
+        button->setProperty("pageId", pages[i].id);
+        pageGroup->addButton(button);
+        stripLayout->addWidget(button);
+        connect(button, &QPushButton::clicked, stack, [stack, index]() { stack->setCurrentIndex(index); });
+    }
+    stripLayout->addStretch(1);
+
+    hostLayout->addWidget(strip);
+    hostLayout->addWidget(stack, 1);
+    return host;
 }
 
 void SettingsFeature::pushInputs(const std::function<void(ShellThemeInputs &)> &edit)

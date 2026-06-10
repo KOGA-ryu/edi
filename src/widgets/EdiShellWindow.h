@@ -54,9 +54,17 @@ private:
     QComboBox *makeDataCombo(const QString &objectName,
                              const QVector<QPair<QString, QString>> &items,
                              const std::function<void(const QString &)> &onData);
-    QDoubleSpinBox *makeGeometryFieldSpin(const QString &fieldId, const QString &fieldMode,
-                                          int decimals, double step, double minimum, double maximum, double value,
-                                          const std::function<bool(const QString &, double)> &applyEdit);
+    struct GeometryFieldSpec {
+        QString fieldId;
+        QString fieldMode;
+        int decimals = 4;
+        double step = 0.01;
+        double minimum = -10.0;
+        double maximum = 10.0;
+        double value = 0.0;
+    };
+    QDoubleSpinBox *makeGeometryFieldSpin(const GeometryFieldSpec &spec);
+    void applyGeometryFieldEdit(QDoubleSpinBox *spin);
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;

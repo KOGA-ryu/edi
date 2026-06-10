@@ -1362,25 +1362,33 @@ QComboBox *EdiShellWindow::makeDataCombo(const QString &objectName,
     return combo;
 }
 
-QDoubleSpinBox *EdiShellWindow::makeGeometryFieldSpin(const QString &fieldId, const QString &fieldMode,
-                                                      int decimals, double step, double minimum, double maximum, double value,
-                                                      const std::function<bool(const QString &, double)> &applyEdit)
+QDoubleSpinBox *EdiShellWindow::makeGeometryFieldSpin(const GeometryFieldSpec &spec)
 {
     auto *spin = new QDoubleSpinBox;
     spin->setObjectName(QStringLiteral("geometryField"));
-    spin->setDecimals(decimals);
-    spin->setSingleStep(step);
-    spin->setRange(minimum, maximum);
-    spin->setValue(value);
-    spin->setProperty("fieldId", fieldId);
-    spin->setProperty("fieldMode", fieldMode);
+    spin->setDecimals(spec.decimals);
+    spin->setSingleStep(spec.step);
+    spin->setRange(spec.minimum, spec.maximum);
+    spin->setValue(spec.value);
+    spin->setProperty("fieldId", spec.fieldId);
+    spin->setProperty("fieldMode", spec.fieldMode);
     spin->setProperty("editInvalid", false);
-    connect(spin, &QDoubleSpinBox::editingFinished, this, [this, spin, applyEdit]() {
-        if (!applyEdit(spin->property("fieldId").toString(), spin->value())) {
-            refreshInspector();
-        }
+    connect(spin, &QDoubleSpinBox::editingFinished, this, [this, spin]() {
+        applyGeometryFieldEdit(spin);
     });
     return spin;
+}
+
+void EdiShellWindow::applyGeometryFieldEdit(QDoubleSpinBox *spin)
+{
+    const QString fieldId = spin->property("fieldId").toString();
+    const bool physical = spin->property("fieldMode").toString() == QStringLiteral("physical");
+    const bool ok = physical
+        ? m_controller->updateSelectedObjectPhysicalGeometryField(fieldId, spin->value())
+        : m_controller->updateSelectedObjectGeometryField(fieldId, spin->value());
+    if (!ok) {
+        refreshInspector();
+    }
 }
 
 QPushButton *EdiShellWindow::makeToolButton(const QString &toolId, const QString &label)
@@ -1466,31 +1474,27 @@ void EdiShellWindow::rebuildGeometryEditor(const QVariantMap &selectedObject)
 
         auto *label = new QLabel(field.value(QStringLiteral("label")).toString());
         label->setObjectName(QStringLiteral("fieldLabel"));
-        auto *spin = makeGeometryFieldSpin(
-            fieldId,
-            QStringLiteral("normalized"),
-            field.value(QStringLiteral("decimals"), 4).toInt(),
-            field.value(QStringLiteral("step"), 0.01).toDouble(),
-            field.value(QStringLiteral("minimum"), -10.0).toDouble(),
-            field.value(QStringLiteral("maximum"), 10.0).toDouble(),
-            selectedObject.value(fieldId).toDouble(),
-            [this](const QString &editFieldId, double value) {
-                return m_controller->updateSelectedObjectGeometryField(editFieldId, value);
-            });
+        auto *spin = makeGeometryFieldSpin({
+            .fieldId = fieldId,
+            .fieldMode = QStringLiteral("normalized"),
+            .decimals = field.value(QStringLiteral("decimals"), 4).toInt(),
+            .step = field.value(QStringLiteral("step"), 0.01).toDouble(),
+            .minimum = field.value(QStringLiteral("minimum"), -10.0).toDouble(),
+            .maximum = field.value(QStringLiteral("maximum"), 10.0).toDouble(),
+            .value = selectedObject.value(fieldId).toDouble(),
+        });
         layout->addWidget(label, row, 0);
         layout->addWidget(spin, row, 1);
         if (field.value(QStringLiteral("physical_editable")).toBool() && physicalGeometry.contains(fieldId)) {
-            auto *physicalSpin = makeGeometryFieldSpin(
-                fieldId,
-                QStringLiteral("physical"),
-                field.value(QStringLiteral("physical_decimals"), field.value(QStringLiteral("decimals"), 4)).toInt(),
-                field.value(QStringLiteral("physical_step"), field.value(QStringLiteral("step"), 0.01)).toDouble(),
-                field.value(QStringLiteral("physical_minimum"), -100000.0).toDouble(),
-                field.value(QStringLiteral("physical_maximum"), 100000.0).toDouble(),
-                physicalGeometry.value(fieldId).toDouble(),
-                [this](const QString &editFieldId, double value) {
-                    return m_controller->updateSelectedObjectPhysicalGeometryField(editFieldId, value);
-                });
+            auto *physicalSpin = makeGeometryFieldSpin({
+                .fieldId = fieldId,
+                .fieldMode = QStringLiteral("physical"),
+                .decimals = field.value(QStringLiteral("physical_decimals"), field.value(QStringLiteral("decimals"), 4)).toInt(),
+                .step = field.value(QStringLiteral("physical_step"), field.value(QStringLiteral("step"), 0.01)).toDouble(),
+                .minimum = field.value(QStringLiteral("physical_minimum"), -100000.0).toDouble(),
+                .maximum = field.value(QStringLiteral("physical_maximum"), 100000.0).toDouble(),
+                .value = physicalGeometry.value(fieldId).toDouble(),
+            });
             auto *physicalLabel = new QLabel(field.value(QStringLiteral("physical_unit_label"), unitLabel).toString());
             physicalLabel->setObjectName(QStringLiteral("valueLabel"));
             layout->addWidget(physicalSpin, row, 2);

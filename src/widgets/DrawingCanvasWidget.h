@@ -5,6 +5,7 @@
 #include <QWidget>
 
 #include "widgets/DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasPalette.h"
 #include "widgets/DrawingCanvasViewport.h"
 
 class DrawingDocumentController;
@@ -48,6 +49,10 @@ private:
     void drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const;
 
     DrawingDocumentController *m_controller = nullptr;
+    // Chrome/feedback colors only — object strokes stay document data. Set in
+    // the constructor from the default shell theme; a theme-switching phase
+    // will pass a custom palette through here.
+    drawing_canvas::DrawingCanvasPalette m_palette;
     drawing_canvas::DrawingCanvasGestureState m_gestureState;
     QPointF m_lastDragCanvasPoint;
     bool m_plotPreviewVisible = false;

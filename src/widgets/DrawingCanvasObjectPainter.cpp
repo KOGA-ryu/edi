@@ -25,7 +25,7 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
         return;
     }
 
-    painter.setPen(QPen(QColor("#1d1f26"), 2));
+    painter.setPen(QPen(context.palette.handleOutline, 2));
     for (const DrawingCanvasProjectedHandle &handle : projectedHandles) {
         const QPointF point = drawing_canvas::canvasToScreen(context.board, handle.x, handle.y);
         if (handle.hasAnchor) {
@@ -33,7 +33,7 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
             painter.drawLine(anchor, point);
         }
         const QRectF rect(point.x() - handle.sizePx * 0.5, point.y() - handle.sizePx * 0.5, handle.sizePx, handle.sizePx);
-        painter.setBrush(handle.editable ? QColor("#f6c65b") : QColor("#79828f"));
+        painter.setBrush(handle.editable ? context.palette.selection : context.palette.handleFrozen);
         if (handle.shape == DrawingCanvasProjectedHandleShape::Square) {
             painter.drawRect(rect);
         } else if (handle.shape == DrawingCanvasProjectedHandleShape::Diamond) {
@@ -87,7 +87,7 @@ void drawGuideIntersections(QPainter &painter, const QVariantList &objects, cons
     }
 
     painter.save();
-    QColor marker("#b7d7e8");
+    QColor marker = context.palette.guideIntersection;
     marker.setAlpha(120);
     painter.setPen(QPen(marker, 1.0));
     painter.setBrush(withAlpha(marker, 30));
@@ -118,12 +118,12 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         }
         QColor guideColor(guide.color);
         if (!guideColor.isValid()) {
-            guideColor = QColor("#83aeca");
+            guideColor = context.palette.guideFallback;
         }
         if (selected) {
             guideColor = guideColor.lighter(120);
         } else if (guide.locked) {
-            guideColor = QColor("#6f8295");
+            guideColor = context.palette.guideLocked;
         }
         guideColor.setAlpha(selected ? 230 : 165);
         Qt::PenStyle guideStyle = Qt::DashLine;
@@ -159,7 +159,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!line.ok) {
             return;
         }
-        QPen constructionPen(selected ? QColor("#f6c65b") : QColor("#9fb2c7"), selected ? 2 : 1, Qt::DotLine);
+        QPen constructionPen(selected ? context.palette.selection : context.palette.construction, selected ? 2 : 1, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.setBrush(Qt::NoBrush);
@@ -177,7 +177,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         const QPointF dimA = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX1, dimension.dimensionY1);
         const QPointF dimB = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX2, dimension.dimensionY2);
         const QPointF label = drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY);
-        const QColor dimensionColor = selected ? QColor("#f6c65b") : QColor("#b6d28f");
+        const QColor dimensionColor = selected ? context.palette.selection : context.palette.dimension;
         QPen dimensionPen(dimensionColor, selected ? 2.0 : 1.5);
         dimensionPen.setCapStyle(Qt::RoundCap);
         dimensionPen.setJoinStyle(Qt::RoundJoin);
@@ -199,7 +199,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
                 textBounds.width() + 12.0,
                 textBounds.height() + 8.0);
             painter.setPen(Qt::NoPen);
-            painter.setBrush(QColor(23, 25, 31, selected ? 230 : 190));
+            painter.setBrush(withAlpha(context.palette.backdrop, selected ? 230 : 190));
             painter.drawRoundedRect(labelRect, 4.0, 4.0);
             painter.setPen(dimensionColor);
             painter.drawText(labelRect, Qt::AlignCenter, text);
@@ -209,10 +209,10 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
 
     const DrawingCanvasProjectedStyle style = projectedObjectStyle(object);
     QPen pen(
-        selected ? QColor("#f6c65b") : QColor(style.strokeColor),
+        selected ? context.palette.selection : QColor(style.strokeColor),
         selected ? 3.0 : style.strokeWidth);
     if (summary.plotBlocked) {
-        pen.setColor(QColor("#d98b8b"));
+        pen.setColor(context.palette.safetyWarning);
     }
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
@@ -225,7 +225,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
             return;
         }
         const QPointF point = drawing_canvas::canvasToScreen(context.board, pointObject.x, pointObject.y);
-        painter.setBrush(selected ? QColor("#f6c65b") : QColor("#d7dde8"));
+        painter.setBrush(selected ? context.palette.selection : context.palette.pointFill);
         painter.drawEllipse(point, 4.0, 4.0);
     } else if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine line = projectedLine(object);
@@ -282,11 +282,11 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
             warningRect = warningRect.adjusted(-6.0, -6.0, 6.0, 6.0);
         }
-        painter.setPen(QPen(QColor("#d98b8b"), 1.5, Qt::DashLine));
-        painter.setBrush(QColor(217, 139, 139, 24));
+        painter.setPen(QPen(context.palette.safetyWarning, 1.5, Qt::DashLine));
+        painter.setBrush(withAlpha(context.palette.safetyWarning, 24));
         painter.drawRect(warningRect);
         if (!summary.plotWarningKind.isEmpty()) {
-            painter.setPen(QColor("#d98b8b"));
+            painter.setPen(context.palette.safetyWarning);
             painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), summary.plotWarningKind);
         }
     }
@@ -299,7 +299,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
     painter.save();
-    QPen pen(QColor("#75c7ff"), 2, Qt::DashLine);
+    QPen pen(context.palette.preview, 2, Qt::DashLine);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -317,7 +317,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             painter.restore();
             return;
         }
-        QPen constructionPen(QColor("#75c7ff"), 1.5, Qt::DotLine);
+        QPen constructionPen(context.palette.preview, 1.5, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.drawLine(screenLine(context, line));

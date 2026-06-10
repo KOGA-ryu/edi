@@ -1,5 +1,7 @@
 #pragma once
 
+#include "widgets/DrawingCanvasPalette.h"
+
 #include <QColor>
 #include <QPointF>
 #include <QRectF>
@@ -14,6 +16,7 @@ namespace drawing_canvas {
 struct DrawingCanvasObjectPainterContext {
     QRectF board;
     QString selectedObjectId;
+    DrawingCanvasPalette palette;
 };
 
 // The given color with only its alpha replaced.

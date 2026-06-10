@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
@@ -55,13 +56,19 @@ QPushButton *buttonWithText(const QWidget &root, const QString &text)
 
 QDoubleSpinBox *geometryFieldSpin(const QWidget &root, const QString &fieldId, const QString &fieldMode)
 {
+    // rebuildGeometryEditor retires old spins with deleteLater(); flush those
+    // deletions so the lookup cannot bind a zombie spin from a previous
+    // selection, then require exactly one live match.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QDoubleSpinBox *match = nullptr;
     for (QDoubleSpinBox *spin : root.findChildren<QDoubleSpinBox *>()) {
         if (spin->property("fieldId").toString() == fieldId
             && spin->property("fieldMode").toString() == fieldMode) {
-            return spin;
+            assert(match == nullptr);
+            match = spin;
         }
     }
-    return nullptr;
+    return match;
 }
 
 QVariantMap activeObject(const DrawingDocumentController &controller)
@@ -248,9 +255,7 @@ int main(int argc, char **argv)
         const double gridWidth = controller->modelDocument()
             .value(QStringLiteral("grid")).toMap().value(QStringLiteral("width")).toDouble();
         assert(gridWidth > 0.0);
-        // Re-resolve after refreshInspector rebuilt the editor, then move the
-        // physical X1 to 30% of the bed width; normalized x1 should follow.
-        physicalX1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("physical"));
+        // Move the physical X1 to 30% of the bed width; normalized x1 follows.
         physicalX1->setValue(0.3 * gridWidth);
         QMetaObject::invokeMethod(physicalX1, "editingFinished");
         assert(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.3, 0.001));
@@ -314,15 +319,9 @@ int main(int argc, char **argv)
         testSquare->click();
         assert(objectCount(*controller) > before);
 
-        auto *measured = window.findChild<QDoubleSpinBox *>(QStringLiteral("geometryField"));
-        QDoubleSpinBox *calibrationValue = nullptr;
-        for (QDoubleSpinBox *spin : window.findChildren<QDoubleSpinBox *>()) {
-            if (spin->decimals() == 6) {
-                calibrationValue = spin;
-                break;
-            }
-        }
-        Q_UNUSED(measured)
+        auto *calibrationPanel = window.findChild<QWidget *>(QStringLiteral("calibrationControls"));
+        assert(calibrationPanel != nullptr);
+        auto *calibrationValue = calibrationPanel->findChild<QDoubleSpinBox *>();
         assert(calibrationValue != nullptr);
         calibrationValue->setValue(0.25);
         buttonWithText(window, QStringLiteral("Record"))->click();

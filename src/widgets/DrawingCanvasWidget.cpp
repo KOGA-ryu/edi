@@ -407,6 +407,25 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
+    // N1 clipboard. Accept Meta too so Cmd+C/X/V work on macOS — the standard
+    // clipboard chord there — without disturbing the existing Ctrl+D map.
+    if (mods & (Qt::ControlModifier | Qt::MetaModifier)) {
+        if (event->key() == Qt::Key_C) {
+            m_controller->copySelection();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_X) {
+            m_controller->cutSelection();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_V) {
+            m_controller->paste();
+            event->accept();
+            return;
+        }
+    }
 
     QString direction;
     switch (event->key()) {

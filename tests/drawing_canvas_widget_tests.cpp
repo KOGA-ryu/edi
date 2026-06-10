@@ -208,6 +208,23 @@ int main(int argc, char **argv)
         const double afterX = activeObject(keyController).value(QStringLiteral("x")).toDouble();
         assert(afterX > beforeX);
         assert(keyController.selectedObjectId() == dupId);
+
+        // N1: Ctrl+C / Ctrl+V / Ctrl+X drive the controller clipboard from the
+        // canvas. Copy+paste the duplicate (still selected) to add one more.
+        auto objectCount = [&]() {
+            return keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+        assert(objectCount() == 2);
+        sendKey(keyCanvas, Qt::Key_C, Qt::ControlModifier);
+        sendKey(keyCanvas, Qt::Key_V, Qt::ControlModifier);
+        assert(objectCount() == 3);
+
+        // Cut everything, then paste it all back.
+        keyController.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        sendKey(keyCanvas, Qt::Key_X, Qt::ControlModifier);
+        assert(objectCount() == 0);
+        sendKey(keyCanvas, Qt::Key_V, Qt::ControlModifier);
+        assert(objectCount() == 3); // all three cut objects pasted back
     }
 
     // Two-click polygon creation honours the controller's side count. A fresh

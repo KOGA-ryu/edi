@@ -861,9 +861,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->setSelectedGuideDashStyle(m_guideDashStyle->itemData(index).toString());
     });
     layout->addWidget(m_guideDashStyle);
-    m_guideShowLabel = new QCheckBox(QStringLiteral("Show guide label"));
-    m_guideShowLabel->setObjectName(QStringLiteral("guideShowLabelCheckbox"));
-    connect(m_guideShowLabel, &QCheckBox::toggled, this, [this](bool checked) {
+    m_guideShowLabel = makeToggle(QStringLiteral("guideShowLabelCheckbox"), QStringLiteral("Show guide label"), [this](bool checked) {
         m_controller->setSelectedGuideLabelVisible(checked);
     });
     layout->addWidget(m_guideShowLabel);
@@ -881,9 +879,7 @@ QWidget *EdiShellWindow::buildRightPanel()
         m_controller->setSelectedDimensionKind(m_dimensionKind->itemData(index).toString());
     });
     layout->addWidget(m_dimensionKind);
-    m_dimensionShowLabel = new QCheckBox(QStringLiteral("Show dimension label"));
-    m_dimensionShowLabel->setObjectName(QStringLiteral("dimensionShowLabelCheckbox"));
-    connect(m_dimensionShowLabel, &QCheckBox::toggled, this, [this](bool checked) {
+    m_dimensionShowLabel = makeToggle(QStringLiteral("dimensionShowLabelCheckbox"), QStringLiteral("Show dimension label"), [this](bool checked) {
         m_controller->setSelectedDimensionLabelVisible(checked);
     });
     layout->addWidget(m_dimensionShowLabel);
@@ -942,14 +938,12 @@ QWidget *EdiShellWindow::buildRightPanel()
     connect(m_plotDirectionMode, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_controller->setPlotDirectionModeId(m_plotDirectionMode->itemData(index).toString());
     });
-    m_plotPreviewVisible = new QCheckBox(QStringLiteral("Show plot preview"));
-    m_plotPreviewVisible->setObjectName(QStringLiteral("plotPreviewCheckbox"));
-    m_plotPreviewVisible->setChecked(false);
-    connect(m_plotPreviewVisible, &QCheckBox::toggled, this, [this](bool checked) {
+    m_plotPreviewVisible = makeToggle(QStringLiteral("plotPreviewCheckbox"), QStringLiteral("Show plot preview"), [this](bool checked) {
         if (m_canvas != nullptr) {
             m_canvas->setPlotPreviewVisible(checked);
         }
     });
+    m_plotPreviewVisible->setChecked(false);
     m_pointerValue = makeValueLabel();
     m_quickMeasureValue = makeValueLabel();
     m_guideDragValue = makeValueLabel();
@@ -992,15 +986,11 @@ QWidget *EdiShellWindow::buildObjectFlagControls()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(10);
 
-    m_selectedLocked = new QCheckBox(QStringLiteral("Locked"));
-    m_selectedLocked->setObjectName(QStringLiteral("objectFlagCheckbox"));
-    connect(m_selectedLocked, &QCheckBox::toggled, this, [this](bool checked) {
+    m_selectedLocked = makeToggle(QStringLiteral("objectFlagCheckbox"), QStringLiteral("Locked"), [this](bool checked) {
         m_controller->setSelectedObjectLocked(checked);
     });
 
-    m_selectedVisible = new QCheckBox(QStringLiteral("Visible"));
-    m_selectedVisible->setObjectName(QStringLiteral("objectFlagCheckbox"));
-    connect(m_selectedVisible, &QCheckBox::toggled, this, [this](bool checked) {
+    m_selectedVisible = makeToggle(QStringLiteral("objectFlagCheckbox"), QStringLiteral("Visible"), [this](bool checked) {
         m_controller->setSelectedObjectVisible(checked);
     });
 
@@ -1058,15 +1048,11 @@ QWidget *EdiShellWindow::buildLayerControls()
     rowLayout->setContentsMargins(0, 0, 0, 0);
     rowLayout->setSpacing(10);
 
-    m_defaultLayerLocked = new QCheckBox(QStringLiteral("Locked"));
-    m_defaultLayerLocked->setObjectName(QStringLiteral("layerFlagCheckbox"));
-    connect(m_defaultLayerLocked, &QCheckBox::toggled, this, [this](bool checked) {
+    m_defaultLayerLocked = makeToggle(QStringLiteral("layerFlagCheckbox"), QStringLiteral("Locked"), [this](bool checked) {
         m_controller->setActiveLayerLocked(checked);
     });
 
-    m_defaultLayerVisible = new QCheckBox(QStringLiteral("Visible"));
-    m_defaultLayerVisible->setObjectName(QStringLiteral("layerFlagCheckbox"));
-    connect(m_defaultLayerVisible, &QCheckBox::toggled, this, [this](bool checked) {
+    m_defaultLayerVisible = makeToggle(QStringLiteral("layerFlagCheckbox"), QStringLiteral("Visible"), [this](bool checked) {
         m_controller->setActiveLayerVisible(checked);
     });
 
@@ -1075,9 +1061,7 @@ QWidget *EdiShellWindow::buildLayerControls()
     rowLayout->addStretch(1);
     layout->addWidget(row);
 
-    m_activeLayerPlotEnabled = new QCheckBox(QStringLiteral("Plot"));
-    m_activeLayerPlotEnabled->setObjectName(QStringLiteral("layerPlotCheckbox"));
-    connect(m_activeLayerPlotEnabled, &QCheckBox::toggled, this, [this](bool checked) {
+    m_activeLayerPlotEnabled = makeToggle(QStringLiteral("layerPlotCheckbox"), QStringLiteral("Plot"), [this](bool checked) {
         m_controller->setActiveLayerPlotEnabled(checked);
     });
     layout->addWidget(m_activeLayerPlotEnabled);
@@ -1319,6 +1303,14 @@ QPushButton *EdiShellWindow::makeActionButton(const QString &objectName, const Q
     button->setObjectName(objectName);
     connect(button, &QPushButton::clicked, this, action);
     return button;
+}
+
+QCheckBox *EdiShellWindow::makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled)
+{
+    auto *checkbox = new QCheckBox(label);
+    checkbox->setObjectName(objectName);
+    connect(checkbox, &QCheckBox::toggled, this, onToggled);
+    return checkbox;
 }
 
 QPushButton *EdiShellWindow::makeToolButton(const QString &toolId, const QString &label)

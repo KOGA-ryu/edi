@@ -48,6 +48,7 @@ private:
     QWidget *buildRepeatControls();
     QWidget *buildCalibrationControls();
     QPushButton *makeActionButton(const QString &objectName, const QString &label, const std::function<void()> &action);
+    QCheckBox *makeToggle(const QString &objectName, const QString &label, const std::function<void(bool)> &onToggled);
     QPushButton *makeToolButton(const QString &toolId, const QString &label);
     QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool active = false, bool enabled = true);
     QLabel *makeSectionLabel(const QString &text) const;

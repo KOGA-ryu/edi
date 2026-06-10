@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 #include <functional>
 
@@ -24,6 +25,10 @@ public:
     struct ShellHooks {
         std::function<edi::shell::ShellThemeInputs()> themeInputs;
         std::function<void(const edi::shell::ShellThemeInputs &)> setThemeInputs;
+        std::function<QStringList()> profiles;
+        std::function<QString()> activeProfile;
+        std::function<bool(const QString &)> loadProfile;
+        std::function<bool(const QString &)> saveProfile;
     };
 
     explicit SettingsFeature(ShellHooks hooks, QObject *parent = nullptr);
@@ -35,7 +40,8 @@ private:
     // One row of the theme section: label + hex field + color-dialog swatch.
     // `member` selects which of the four inputs the row edits — the variation
     // point is data (a member pointer), not four near-identical functions.
-    void addColorRow(QWidget *page, const QString &label, const QString &fieldName,
+    // Returns the field so the page can refresh it after a profile load.
+    QLineEdit *addColorRow(QWidget *page, const QString &label, const QString &fieldName,
         QString edi::shell::ShellThemeInputs::*member);
     void pushInputs(const std::function<void(edi::shell::ShellThemeInputs &)> &edit);
 

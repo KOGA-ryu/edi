@@ -72,6 +72,16 @@ public:
     edi::shell::ShellThemeInputs themeInputs() const { return m_themeInputs; }
     void setThemeInputs(const edi::shell::ShellThemeInputs &inputs);
 
+    // Profiles: named theme bundles, one TOML file each under the profiles
+    // directory (injectable for tests). edi.toml remembers the active name;
+    // the live theme always persists in edi.toml regardless, so deleting a
+    // profile file never breaks startup.
+    QStringList availableProfiles() const;
+    QString activeProfile() const { return m_activeProfile; }
+    bool saveProfileAs(const QString &name);
+    bool loadProfile(const QString &name);
+    void setProfilesDirectory(const QString &dir) { m_profilesDir = dir; }
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -151,6 +161,8 @@ private:
     std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
     QString m_settingsPath;
+    QString m_profilesDir;
+    QString m_activeProfile;
     QStringList m_recentFiles;
     QTimer *m_settingsSaveTimer = nullptr;
 };

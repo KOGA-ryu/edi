@@ -37,6 +37,7 @@
 #include <utility>
 
 #include "core/DrawingCore.h"
+#include "io/ProfileStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/SettingsFeature.h"
@@ -90,6 +91,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     }
 
     m_controller = new DrawingDocumentController(this);
+    m_profilesDir = edi::io::defaultProfilesDirPath();
 
     auto *central = new QWidget;
     central->setObjectName(QStringLiteral("shellRoot"));
@@ -271,14 +273,8 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
     setSettingsInt(config, "window.width", width());
     setSettingsInt(config, "window.height", height());
 
-    setSettingsString(config, "theme.base", m_themeInputs.base.toStdString());
-    setSettingsString(config, "theme.surface", m_themeInputs.surface.toStdString());
-    setSettingsString(config, "theme.accent", m_themeInputs.accent.toStdString());
-    setSettingsString(config, "theme.text", m_themeInputs.text.toStdString());
-    setSettingsString(config, "theme.ui_font", m_themeInputs.uiFont.toStdString());
-    setSettingsString(config, "theme.code_font", m_themeInputs.codeFont.toStdString());
-    setSettingsInt(config, "theme.ui_font_size", m_themeInputs.uiFontSize);
-    setSettingsInt(config, "theme.code_font_size", m_themeInputs.codeFontSize);
+    edi::io::writeThemeInputsToConfig(config, m_themeInputs);
+    setSettingsString(config, "profile.active", m_activeProfile.toStdString());
 
     std::vector<std::string> recent;
     for (const QString &path : m_recentFiles) {
@@ -293,21 +289,9 @@ void EdiShellWindow::applySettings(const edi::formats::StaticConfig &config)
     using namespace edi::io;
 
     // Theme first, so everything below renders under the loaded palette.
-    // Fallbacks are the struct's own defaults — an absent or partial theme
-    // section degrades to the stock look, never to black-on-black.
-    {
-        const ShellThemeInputs defaults;
-        ShellThemeInputs inputs;
-        inputs.base = QString::fromStdString(settingsString(config, "theme.base", defaults.base.toStdString()));
-        inputs.surface = QString::fromStdString(settingsString(config, "theme.surface", defaults.surface.toStdString()));
-        inputs.accent = QString::fromStdString(settingsString(config, "theme.accent", defaults.accent.toStdString()));
-        inputs.text = QString::fromStdString(settingsString(config, "theme.text", defaults.text.toStdString()));
-        inputs.uiFont = QString::fromStdString(settingsString(config, "theme.ui_font", defaults.uiFont.toStdString()));
-        inputs.codeFont = QString::fromStdString(settingsString(config, "theme.code_font", defaults.codeFont.toStdString()));
-        inputs.uiFontSize = settingsInt(config, "theme.ui_font_size", defaults.uiFontSize);
-        inputs.codeFontSize = settingsInt(config, "theme.code_font_size", defaults.codeFontSize);
-        setThemeInputs(inputs);
-    }
+    // (readThemeInputsFromConfig degrades absent keys to stock defaults.)
+    setThemeInputs(edi::io::readThemeInputsFromConfig(config));
+    m_activeProfile = QString::fromStdString(settingsString(config, "profile.active", ""));
 
     // Grid: preset first (it resets dependent fields), then the explicit values.
     m_controller->setGridPresetId(QString::fromStdString(settingsString(config, "grid.preset", "square_art_board")));
@@ -403,6 +387,32 @@ void EdiShellWindow::setThemeInputs(const ShellThemeInputs &inputs)
     scheduleSettingsSave(); // theme.* keys ride in edi.toml with everything else
 }
 
+QStringList EdiShellWindow::availableProfiles() const
+{
+    return edi::io::listProfiles(m_profilesDir);
+}
+
+bool EdiShellWindow::saveProfileAs(const QString &name)
+{
+    if (!edi::io::saveProfile(m_profilesDir, name, m_themeInputs)) {
+        return false;
+    }
+    m_activeProfile = name;
+    scheduleSettingsSave(); // remember the active name in edi.toml
+    return true;
+}
+
+bool EdiShellWindow::loadProfile(const QString &name)
+{
+    const edi::io::ProfileData data = edi::io::loadProfile(m_profilesDir, name);
+    if (!data.ok) {
+        return false; // keep the current theme
+    }
+    m_activeProfile = name;
+    setThemeInputs(data.inputs);
+    return true;
+}
+
 std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
 {
     // The drafting feature talks back to the shell only through callables:
@@ -430,6 +440,10 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
     SettingsFeature::ShellHooks hooks;
     hooks.themeInputs = [this]() { return m_themeInputs; };
     hooks.setThemeInputs = [this](const ShellThemeInputs &inputs) { setThemeInputs(inputs); };
+    hooks.profiles = [this]() { return availableProfiles(); };
+    hooks.activeProfile = [this]() { return m_activeProfile; };
+    hooks.loadProfile = [this](const QString &name) { return loadProfile(name); };
+    hooks.saveProfile = [this](const QString &name) { return saveProfileAs(name); };
     return std::make_unique<SettingsFeature>(std::move(hooks));
 }
 

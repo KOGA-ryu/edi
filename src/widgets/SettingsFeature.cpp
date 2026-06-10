@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QColorDialog>
+#include <QComboBox>
 #include <QFontComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -53,7 +54,7 @@ void paintSwatch(QPushButton *swatch, const QString &hex)
 
 } // namespace
 
-void SettingsFeature::addColorRow(QWidget *page, const QString &label, const QString &fieldName,
+QLineEdit *SettingsFeature::addColorRow(QWidget *page, const QString &label, const QString &fieldName,
     QString ShellThemeInputs::*member)
 {
     auto *row = new QWidget;
@@ -96,6 +97,7 @@ void SettingsFeature::addColorRow(QWidget *page, const QString &label, const QSt
     });
 
     page->layout()->addWidget(row);
+    return field;
 }
 
 QWidget *SettingsFeature::buildSettingsPage()
@@ -116,10 +118,10 @@ QWidget *SettingsFeature::buildSettingsPage()
     hostLayout->setSpacing(6);
     layout->addWidget(host);
 
-    addColorRow(host, QStringLiteral("Base"), QStringLiteral("themeBaseField"), &ShellThemeInputs::base);
-    addColorRow(host, QStringLiteral("Surface"), QStringLiteral("themeSurfaceField"), &ShellThemeInputs::surface);
-    addColorRow(host, QStringLiteral("Accent"), QStringLiteral("themeAccentField"), &ShellThemeInputs::accent);
-    addColorRow(host, QStringLiteral("Text"), QStringLiteral("themeTextField"), &ShellThemeInputs::text);
+    QLineEdit *baseField = addColorRow(host, QStringLiteral("Base"), QStringLiteral("themeBaseField"), &ShellThemeInputs::base);
+    QLineEdit *surfaceField = addColorRow(host, QStringLiteral("Surface"), QStringLiteral("themeSurfaceField"), &ShellThemeInputs::surface);
+    QLineEdit *accentField = addColorRow(host, QStringLiteral("Accent"), QStringLiteral("themeAccentField"), &ShellThemeInputs::accent);
+    QLineEdit *textField = addColorRow(host, QStringLiteral("Text"), QStringLiteral("themeTextField"), &ShellThemeInputs::text);
 
     auto *typographyHeader = new QLabel(QStringLiteral("Typography"));
     typographyHeader->setObjectName(QStringLiteral("sectionLabel"));
@@ -178,6 +180,67 @@ QWidget *SettingsFeature::buildSettingsPage()
     });
     connect(codeSizeSpin, &QSpinBox::valueChanged, this, [this](int value) {
         pushInputs([value](ShellThemeInputs &inputs) { inputs.codeFontSize = value; });
+    });
+
+    // Profiles: pick one to load it; type a name and save to snapshot the
+    // current theme under it. The page refreshes its rows after a load so the
+    // view never shows a stale theme.
+    auto *profilesHeader = new QLabel(QStringLiteral("Profiles"));
+    profilesHeader->setObjectName(QStringLiteral("sectionLabel"));
+    layout->addWidget(profilesHeader);
+
+    auto *profileRow = new QWidget;
+    auto *profileLayout = new QHBoxLayout(profileRow);
+    profileLayout->setContentsMargins(0, 0, 0, 0);
+    profileLayout->setSpacing(8);
+    auto *profileCombo = new QComboBox;
+    profileCombo->setObjectName(QStringLiteral("profileCombo"));
+    if (m_hooks.profiles) {
+        profileCombo->addItems(m_hooks.profiles());
+    }
+    if (m_hooks.activeProfile) {
+        profileCombo->setCurrentText(m_hooks.activeProfile());
+    }
+    profileLayout->addWidget(profileCombo, 1);
+    auto *nameField = new QLineEdit;
+    nameField->setObjectName(QStringLiteral("profileNameField"));
+    nameField->setPlaceholderText(QStringLiteral("profile name"));
+    profileLayout->addWidget(nameField, 1);
+    auto *saveButton = new QPushButton(QStringLiteral("Save profile"));
+    saveButton->setObjectName(QStringLiteral("saveProfileButton"));
+    profileLayout->addWidget(saveButton);
+    layout->addWidget(profileRow);
+
+    const auto refreshThemeRows = [this, baseField, surfaceField, accentField, textField, fontCombo, sizeSpin,
+                                      codeCombo, codeSizeSpin]() {
+        if (!m_hooks.themeInputs) {
+            return;
+        }
+        const ShellThemeInputs inputs = m_hooks.themeInputs();
+        baseField->setText(inputs.base);
+        surfaceField->setText(inputs.surface);
+        accentField->setText(inputs.accent);
+        textField->setText(inputs.text);
+        fontCombo->setCurrentFont(QFont(inputs.uiFont));
+        sizeSpin->setValue(inputs.uiFontSize);
+        codeCombo->setCurrentFont(QFont(inputs.codeFont));
+        codeSizeSpin->setValue(inputs.codeFontSize);
+    };
+    connect(profileCombo, &QComboBox::activated, this, [this, profileCombo, refreshThemeRows](int index) {
+        if (m_hooks.loadProfile && m_hooks.loadProfile(profileCombo->itemText(index))) {
+            refreshThemeRows();
+        }
+    });
+    connect(saveButton, &QPushButton::clicked, this, [this, nameField, profileCombo]() {
+        const QString name = nameField->text().isEmpty() ? profileCombo->currentText() : nameField->text();
+        if (!m_hooks.saveProfile || name.isEmpty() || !m_hooks.saveProfile(name)) {
+            return;
+        }
+        if (m_hooks.profiles) { // re-list so a new name appears immediately
+            profileCombo->clear();
+            profileCombo->addItems(m_hooks.profiles());
+            profileCombo->setCurrentText(name);
+        }
     });
 
     layout->addStretch(1);

@@ -811,6 +811,50 @@ int main(int argc, char **argv)
         assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
         assert(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) == nullptr);
         assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+
+        // Profiles: snapshot the current theme under a name via the page's
+        // save button, scramble, then load the snapshot back.
+        QTemporaryDir profileDir;
+        assert(profileDir.isValid());
+        shell.setProfilesDirectory(profileDir.path());
+
+        settingsRail->click(); // fresh page built with the profile hooks
+        auto *nameField = shell.findChild<QLineEdit *>(QStringLiteral("profileNameField"));
+        auto *saveProfile = shell.findChild<QPushButton *>(QStringLiteral("saveProfileButton"));
+        auto *profileCombo = shell.findChild<QComboBox *>(QStringLiteral("profileCombo"));
+        assert(nameField != nullptr && saveProfile != nullptr && profileCombo != nullptr);
+        assert(profileCombo->count() == 0); // empty dir, no profiles yet
+
+        nameField->setText(QStringLiteral("pink lab"));
+        saveProfile->click();
+        assert(shell.availableProfiles() == QStringList{QStringLiteral("pink lab")});
+        assert(shell.activeProfile() == QStringLiteral("pink lab"));
+        assert(profileCombo->count() == 1); // the combo re-listed itself
+
+        // Scramble the theme, then load the profile back through the API.
+        ShellThemeInputs scrambled = shell.themeInputs();
+        scrambled.accent = QStringLiteral("#11aa22");
+        shell.setThemeInputs(scrambled);
+        assert(shell.themeInputs().accent == QStringLiteral("#11aa22"));
+        assert(shell.loadProfile(QStringLiteral("pink lab")));
+        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+
+        // A hostile name degrades to its cleaned form instead of escaping the
+        // profiles directory; a missing profile load keeps the current theme.
+        assert(shell.saveProfileAs(QStringLiteral("../evil/../../name")));
+        assert(shell.availableProfiles().contains(QStringLiteral("evilname")));
+        assert(!shell.loadProfile(QStringLiteral("never-saved")));
+        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+
+        // The active profile name rides along in edi.toml.
+        QTemporaryDir settingsDir;
+        assert(settingsDir.isValid());
+        const QString settingsPath = settingsDir.filePath(QStringLiteral("edi.toml"));
+        assert(shell.loadProfile(QStringLiteral("pink lab"))); // make it active again
+        assert(shell.saveSettings(settingsPath));
+        EdiShellWindow remembered;
+        assert(remembered.loadSettings(settingsPath));
+        assert(remembered.activeProfile() == QStringLiteral("pink lab"));
     }
 
     // Title-bar chrome: frameless flag, traffic lights, panel toggles, the

@@ -612,6 +612,8 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
+    // Opening replaces the whole document; abandon any in-flight drag bracket.
+    m_interactiveEditActive = false;
     m_undoStack.clear();
     m_redoStack.clear();
     m_savedDocument = m_document; // a freshly loaded document is clean
@@ -1041,9 +1043,10 @@ void DrawingDocumentController::commitEdit()
 
 void DrawingDocumentController::beginInteractiveEdit()
 {
-    if (m_interactiveEditActive) {
-        return;
-    }
+    // Always (re)capture the baseline. If a previous bracket leaked — a gesture
+    // whose mouse-release never arrived, or one interrupted by undo/redo/open —
+    // the stale m_interactiveBefore must not survive into this fresh gesture, so
+    // we overwrite it rather than early-returning on the active flag.
     m_interactiveBefore = m_document;
     m_interactiveEditActive = true;
 }
@@ -1090,6 +1093,8 @@ bool DrawingDocumentController::undo()
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
+    // Undo replaces the whole document; any in-flight drag bracket is now stale.
+    m_interactiveEditActive = false;
     emit modelChanged();
     return true;
 }
@@ -1106,6 +1111,8 @@ bool DrawingDocumentController::redo()
     m_previewObject.reset();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
+    // Redo replaces the whole document; any in-flight drag bracket is now stale.
+    m_interactiveEditActive = false;
     emit modelChanged();
     return true;
 }

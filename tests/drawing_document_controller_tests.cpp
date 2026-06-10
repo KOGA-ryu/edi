@@ -2820,6 +2820,23 @@ int main(int argc, char **argv)
         }
         assert(undone == 100); // capped at 100, the first two creations are unrecoverable
         assert(capController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        // A drag bracket interrupted by undo must not poison later undo history.
+        // Open a bracket (as a drag would), then undo mid-gesture: the bracket
+        // is abandoned, and a subsequent edit must still push its own undo step.
+        DrawingDocumentController leakController;
+        leakController.setSelectedToolId("point_tool");
+        leakController.clickCanvasNormalized(0.5, 0.5); // step 1: create
+        leakController.beginInteractiveEdit();          // a drag starts...
+        assert(leakController.undo());                  // ...but undo fires first
+        assert(objectCount(leakController) == 0);
+        // The leaked bracket is gone: a fresh edit is independently undoable.
+        leakController.setSelectedToolId("point_tool");
+        leakController.clickCanvasNormalized(0.4, 0.4);
+        assert(objectCount(leakController) == 1);
+        assert(leakController.canUndo());
+        assert(leakController.undo());                  // the new edit undoes cleanly
+        assert(objectCount(leakController) == 0);
     }
 
     // Keyboard-action controller seams: cancel, delete, duplicate, coarse nudge.

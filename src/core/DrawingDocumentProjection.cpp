@@ -372,6 +372,14 @@ QVariantList editHandlesForObject(const DraftingObject &object)
     return result;
 }
 
+void insertSegment(QVariantMap &map, const QString &keyPrefix, Point2D a, Point2D b)
+{
+    map.insert(keyPrefix + QStringLiteral("x1"), a.x);
+    map.insert(keyPrefix + QStringLiteral("y1"), a.y);
+    map.insert(keyPrefix + QStringLiteral("x2"), b.x);
+    map.insert(keyPrefix + QStringLiteral("y2"), b.y);
+}
+
 } // namespace
 
 QString qStringFromStdString(const std::string &value)
@@ -431,10 +439,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("x"), geometry.point.x);
             result.insert(QStringLiteral("y"), geometry.point.y);
         } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
-            result.insert(QStringLiteral("x1"), geometry.a.x);
-            result.insert(QStringLiteral("y1"), geometry.a.y);
-            result.insert(QStringLiteral("x2"), geometry.b.x);
-            result.insert(QStringLiteral("y2"), geometry.b.y);
+            insertSegment(result, {}, geometry.a, geometry.b);
             result.insert(QStringLiteral("line_length"), distance(geometry.a, geometry.b));
             result.insert(QStringLiteral("line_angle_deg"), lineAngleDegrees(geometry));
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
@@ -461,10 +466,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("guide_visual_controls"), true);
             result.insert(QStringLiteral("plot_ready"), false);
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
-            result.insert(QStringLiteral("x1"), geometry.a.x);
-            result.insert(QStringLiteral("y1"), geometry.a.y);
-            result.insert(QStringLiteral("x2"), geometry.b.x);
-            result.insert(QStringLiteral("y2"), geometry.b.y);
+            insertSegment(result, {}, geometry.a, geometry.b);
             result.insert(QStringLiteral("plot_ready"), false);
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             const Point2D offset = dimensionOffsetVector(geometry);
@@ -474,26 +476,14 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             const double normalizedDistance = displayedDimensionLength(distance(geometry.a, geometry.b), geometry.kind);
             MeasurementValue displayedDistance = measuredDistance;
             displayedDistance.value = displayedDimensionLength(measuredDistance.value, geometry.kind);
-            result.insert(QStringLiteral("x1"), geometry.a.x);
-            result.insert(QStringLiteral("y1"), geometry.a.y);
-            result.insert(QStringLiteral("x2"), geometry.b.x);
-            result.insert(QStringLiteral("y2"), geometry.b.y);
+            insertSegment(result, {}, geometry.a, geometry.b);
             result.insert(QStringLiteral("offset"), geometry.offset);
             result.insert(QStringLiteral("dimension_kind"), QString::fromLatin1(dimensionKindName(geometry.kind)));
             result.insert(QStringLiteral("dimension_length"), normalizedDistance);
             result.insert(QStringLiteral("dimension_angle_deg"), dimensionAngleDegrees(geometry));
-            result.insert(QStringLiteral("dimension_x1"), dimA.x);
-            result.insert(QStringLiteral("dimension_y1"), dimA.y);
-            result.insert(QStringLiteral("dimension_x2"), dimB.x);
-            result.insert(QStringLiteral("dimension_y2"), dimB.y);
-            result.insert(QStringLiteral("extension_x1"), geometry.a.x);
-            result.insert(QStringLiteral("extension_y1"), geometry.a.y);
-            result.insert(QStringLiteral("extension_x2"), dimA.x);
-            result.insert(QStringLiteral("extension_y2"), dimA.y);
-            result.insert(QStringLiteral("extension2_x1"), geometry.b.x);
-            result.insert(QStringLiteral("extension2_y1"), geometry.b.y);
-            result.insert(QStringLiteral("extension2_x2"), dimB.x);
-            result.insert(QStringLiteral("extension2_y2"), dimB.y);
+            insertSegment(result, QStringLiteral("dimension_"), dimA, dimB);
+            insertSegment(result, QStringLiteral("extension_"), geometry.a, dimA);
+            insertSegment(result, QStringLiteral("extension2_"), geometry.b, dimB);
             result.insert(QStringLiteral("label_x"), (dimA.x + dimB.x) / 2.0);
             result.insert(QStringLiteral("label_y"), (dimA.y + dimB.y) / 2.0);
             result.insert(QStringLiteral("dimension_distance"), normalizedDistance);

@@ -22,10 +22,10 @@ struct FeatureContext {
     DrawingDocumentController *drawingController = nullptr;
 };
 
-// A feature is a registered descriptor, NOT a subclass: the only variation
-// point is the buildPanel callable, mirroring the controller's
-// kind-and-callable helpers. One feature may fill several slots; buildPanel
-// receives the slot so it can return a different panel per slot.
+// A feature is a registered descriptor, NOT a subclass: the variation points
+// are callables, mirroring the controller's kind-and-callable helpers. One
+// feature may fill several slots; buildPanel receives the slot so it can
+// return a different panel per slot.
 struct FeatureDescriptor {
     QString id;     // "drafting", "text_editor", ...
     QString label;
@@ -34,6 +34,14 @@ struct FeatureDescriptor {
     // would corrupt this header in any TU that also includes a Qt header.
     std::vector<ShellSlot> supportedSlots;
     std::function<QWidget *(ShellSlot, FeatureContext &)> buildPanel;
+    // Instance lifecycle, driven by the shell around every workspace mount:
+    // recreateInstance runs BEFORE mounting (a fresh instance whose
+    // widget-pointer members die with the old one — nothing can dangle), and
+    // instanceMounted runs AFTER (re-feed shell-owned state to the fresh
+    // instance). Optional: a stateless feature registers neither. Adding a
+    // feature is appending a registry row — the shell has no per-feature code.
+    std::function<void()> recreateInstance;
+    std::function<void()> instanceMounted;
 };
 
 // A table, not a service: adding a feature is appending a row.

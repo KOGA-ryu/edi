@@ -109,9 +109,11 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // switching workspaces re-reads all three. The context is a member because
     // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
-    m_draftingFeature = createDraftingFeature();
-    m_settingsFeature = createSettingsFeature();
 
+    // Per-feature knowledge lives ONLY in these registry rows — how to build
+    // a fresh instance, and what shell-owned state to re-feed it after a
+    // mount. The switching machinery below loops the registry and never names
+    // a feature; adding feature #3 is appending a row here.
     FeatureDescriptor drafting;
     drafting.id = QStringLiteral("drafting");
     drafting.label = QStringLiteral("Drafting");
@@ -120,6 +122,11 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // instance being replaced across workspace switches.
     drafting.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
         return m_draftingFeature->buildPanel(slot);
+    };
+    drafting.recreateInstance = [this]() { m_draftingFeature = createDraftingFeature(); };
+    drafting.instanceMounted = [this]() {
+        m_draftingFeature->setRecentFiles(m_recentFiles);
+        m_draftingFeature->refreshInspector();
     };
     m_featureRegistry.features.push_back(drafting);
 
@@ -130,6 +137,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     settings.buildPanel = [this](ShellSlot slot, FeatureContext &) -> QWidget * {
         return m_settingsFeature->buildPanel(slot);
     };
+    settings.recreateInstance = [this]() { m_settingsFeature = createSettingsFeature(); };
     m_featureRegistry.features.push_back(settings);
 
     // The splitter carries only the in-flow left panel beside the main area.
@@ -172,7 +180,10 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     m_panelsState = defaultShellPanelsState();
 
-    mountWorkspace(draftingWorkspaceLayout());
+    // The first mount IS a workspace application — same lifecycle path as a
+    // runtime switch (recreate instances -> mount -> re-feed state), so the
+    // constructor cannot drift from it.
+    applyWorkspaceLayout(draftingWorkspaceLayout());
     m_workspaceHistory = {m_workspaceLayout};
     m_workspaceHistoryIndex = 0;
     refreshChrome();
@@ -207,8 +218,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     });
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::scheduleSettingsSave);
 
-    updateWindowTitle();
-    m_draftingFeature->refreshInspector();
+    updateWindowTitle(); // instanceMounted already refreshed the inspector
 }
 
 EdiShellWindow::~EdiShellWindow() = default;
@@ -499,14 +509,22 @@ void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
     retire(m_mainPanelWidget);
     retire(m_rightPanelWidget);
     retire(m_bottomPanelWidget);
-    m_draftingFeature = createDraftingFeature();
-    m_settingsFeature = createSettingsFeature();
+
+    // Lifecycle is registry data: every feature rebuilds its instance, mounts,
+    // then gets its shell-owned state re-fed — no feature is named here.
+    for (const FeatureDescriptor &feature : m_featureRegistry.features) {
+        if (feature.recreateInstance) {
+            feature.recreateInstance();
+        }
+    }
 
     mountWorkspace(layout);
 
-    // The fresh feature starts blank; re-feed it the shell-owned state.
-    m_draftingFeature->setRecentFiles(m_recentFiles);
-    m_draftingFeature->refreshInspector();
+    for (const FeatureDescriptor &feature : m_featureRegistry.features) {
+        if (feature.instanceMounted) {
+            feature.instanceMounted();
+        }
+    }
 }
 
 void EdiShellWindow::switchWorkspaceLayout(const WorkspaceLayout &layout)

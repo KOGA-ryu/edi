@@ -48,6 +48,10 @@ public:
 
     int activeIndex() const;
     QString activeItemId() const;
+    // The active cell's human name (its tooltip), as painted on the name
+    // line under the carousel. Exposed so hosts and tests read the same
+    // string the user sees.
+    QString activeItemLabel() const;
     // Frozen quick-bars (grid row indexes, pin order). Pinning is a user
     // gesture on the widget; the host only observes.
     std::vector<int> pinnedRows() const { return m_pinnedRows; }
@@ -78,6 +82,7 @@ private:
     int activeItemPosition() const; // list position of the active cell, or 0
     QRect topPeekRect() const;
     QRect bottomPeekRect() const;
+    QRect activeLabelRect() const; // the name line under the carousel
     QRect pinnedCellRect(int pinPosition, int itemPosition) const;
     QRect pinNubRect() const;               // freezes the live row
     QRect killNubRect(int pinPosition) const; // removes a frozen row

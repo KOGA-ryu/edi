@@ -28,6 +28,8 @@ constexpr int kGutter = kNubSize + 4;
 // stepping per EVENT made the cross fly (user feedback) — accumulate and
 // step per full notch instead.
 constexpr int kWheelNotch = 120;
+// Gap between the bottom peek and the name line under the carousel.
+constexpr int kLabelGap = 4;
 
 } // namespace
 
@@ -86,6 +88,12 @@ QString BeltCrossWidget::activeItemId() const
     return index >= 0 && index < m_items.size() ? m_items.at(index).id : QString();
 }
 
+QString BeltCrossWidget::activeItemLabel() const
+{
+    const int index = beltActiveIndex(m_state);
+    return index >= 0 && index < m_items.size() ? m_items.at(index).tooltip : QString();
+}
+
 int BeltCrossWidget::indexOfItem(const QString &id) const
 {
     if (id.isEmpty()) {
@@ -131,6 +139,15 @@ QRect BeltCrossWidget::bottomPeekRect() const
 {
     return QRect(kGutter + activeItemPosition() * (kCellSize + kCellGap),
                  carouselTop() + kPeekSize + kCellGap + kCellSize + kCellGap, kCellSize, kPeekSize);
+}
+
+QRect BeltCrossWidget::activeLabelRect() const
+{
+    // Directly under the bottom peek, spanning the cell strip. The height is
+    // the font's, the width the widget's — text is elided to fit, so the
+    // label never feeds back into the widget's geometry.
+    const int top = carouselTop() + kPeekSize * 2 + kCellSize + 2 * kCellGap + kLabelGap;
+    return QRect(kGutter, top, width() - kGutter, fontMetrics().height());
 }
 
 QRect BeltCrossWidget::pinnedCellRect(int pinPosition, int itemPosition) const
@@ -274,6 +291,18 @@ void BeltCrossWidget::paintEvent(QPaintEvent *event)
                   itemAt(view.nextRow, view.nextLeadColumn), false);
         painter.restore();
     }
+
+    // The active cell names itself under the carousel: two-letter glyphs are
+    // a learnable shorthand only if something teaches the mapping (critique
+    // 2026-06-10). Painted, not a child QLabel — the widget stays a single
+    // paint surface with no layout machinery.
+    const QString label = activeItemLabel();
+    if (!label.isEmpty()) {
+        const QRect labelRect = activeLabelRect();
+        painter.setPen(colors.color(QPalette::Text));
+        painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
+                         painter.fontMetrics().elidedText(label, Qt::ElideRight, labelRect.width()));
+    }
 }
 
 void BeltCrossWidget::mousePressEvent(QMouseEvent *event)
@@ -372,7 +401,7 @@ QSize BeltCrossWidget::sizeHint() const
 {
     // Width fits the longest tool's sub-feature strip — stable across row
     // changes so the carousel never jumps while scrolling. Height is fixed:
-    // half-cell peek, active row, half-cell peek.
+    // half-cell peek, active row, half-cell peek, then the name line.
     int widestRow = 1;
     for (int row = 0; row < m_state.rows; ++row) {
         int count = 0;
@@ -384,7 +413,8 @@ QSize BeltCrossWidget::sizeHint() const
         widestRow = std::max(widestRow, count);
     }
     return QSize(kGutter + widestRow * kCellSize + (widestRow - 1) * kCellGap,
-                 carouselTop() + kPeekSize * 2 + kCellSize + 2 * kCellGap);
+                 carouselTop() + kPeekSize * 2 + kCellSize + 2 * kCellGap
+                     + kLabelGap + fontMetrics().height());
 }
 
 QSize BeltCrossWidget::minimumSizeHint() const

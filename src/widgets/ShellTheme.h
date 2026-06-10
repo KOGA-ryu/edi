@@ -40,6 +40,14 @@ struct ShellTheme {
     QString danger;
     QString pending;
     QString disabled;
+    // Window controls (macOS traffic lights) — fixed platform colors with a
+    // slightly darkened edge each, per the legacy chrome.
+    QString trafficClose;
+    QString trafficCloseEdge;
+    QString trafficMinimize;
+    QString trafficMinimizeEdge;
+    QString trafficZoom;
+    QString trafficZoomEdge;
     QString uiFont;
     QString codeFont;
     int fontSizeXs = 10;

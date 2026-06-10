@@ -11,6 +11,7 @@
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QMenu>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
@@ -672,6 +673,101 @@ int main(int argc, char **argv)
         assert(restored.loadWorkspaceLayout(jobPath));
         assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
         assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+    }
+
+    // Title-bar chrome: frameless flag, traffic lights, panel toggles, the
+    // back/forward workspace trail, and the File/Edit/Settings menus.
+    {
+        using edi::shell::PanelVisibility;
+        using edi::shell::ShellSlot;
+        using edi::shell::WorkspaceLayout;
+
+        EdiShellWindow chrome;
+        chrome.show();
+        assert(chrome.windowFlags().testFlag(Qt::FramelessWindowHint));
+
+        QWidget *titleBar = chrome.findChild<QWidget *>(QStringLiteral("titleBar"));
+        assert(titleBar != nullptr && titleBar->height() == 42);
+
+        // Panel toggles drive the modeled state and mirror it back as checked.
+        QPushButton *leftToggle = buttonNamed(chrome, QStringLiteral("toggleLeftPanel"));
+        QPushButton *rightToggle = buttonNamed(chrome, QStringLiteral("toggleRightPanel"));
+        QPushButton *bottomToggle = buttonNamed(chrome, QStringLiteral("toggleBottomPanel"));
+        assert(leftToggle != nullptr && rightToggle != nullptr && bottomToggle != nullptr);
+        assert(leftToggle->isChecked());    // left starts open
+        assert(!rightToggle->isChecked());  // right starts collapsed
+        leftToggle->click();
+        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        assert(!leftToggle->isChecked());
+        leftToggle->click();
+        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        rightToggle->click();
+        assert(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+
+        // Back/forward walk the workspace trail; a fresh trail has one entry.
+        QPushButton *back = buttonNamed(chrome, QStringLiteral("workspaceBack"));
+        QPushButton *forward = buttonNamed(chrome, QStringLiteral("workspaceForward"));
+        assert(back != nullptr && forward != nullptr);
+        assert(!back->isEnabled() && !forward->isEnabled());
+
+        WorkspaceLayout canvasOnly;
+        canvasOnly.id = QStringLiteral("canvas_only");
+        canvasOnly.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}};
+        chrome.switchWorkspaceLayout(canvasOnly);
+        assert(back->isEnabled() && !forward->isEnabled());
+        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+
+        back->click(); // back to the full drafting job
+        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        assert(!back->isEnabled() && forward->isEnabled());
+        forward->click();
+        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        assert(back->isEnabled() && !forward->isEnabled());
+
+        // Going back and switching somewhere new truncates the forward trail.
+        back->click();
+        assert(forward->isEnabled());
+        WorkspaceLayout third; // any distinct job
+        third.id = QStringLiteral("third");
+        third.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}, {ShellSlot::Right, QStringLiteral("drafting")}};
+        chrome.switchWorkspaceLayout(third);
+        assert(!forward->isEnabled() && back->isEnabled());
+        // The truncation is observable in where back lands: one step behind
+        // "third" must be the full drafting job, not the stale canvas-only
+        // entry the truncation discarded.
+        back->click();
+        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        assert(!back->isEnabled()); // i.e. the trail is exactly two entries deep
+        forward->click();           // return to "third" for the sections below
+
+        // Menus: File carries the IO verbs (not triggered — they open
+        // dialogs); Edit's Undo really undoes; Settings applies presets.
+        auto *fileMenu = chrome.findChild<QMenu *>(QStringLiteral("fileMenu"));
+        auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
+        auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
+        assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
+        assert(fileMenu->actions().size() == 6); // 5 verbs + separator
+
+        auto *chromeController = chrome.findChild<DrawingDocumentController *>();
+        assert(chromeController != nullptr);
+        chromeController->setSelectedToolId(QStringLiteral("point_tool"));
+        chromeController->clickCanvasNormalized(0.4, 0.4);
+        const int before = objectCount(*chromeController);
+        editMenu->actions().at(0)->trigger(); // Undo
+        assert(objectCount(*chromeController) == before - 1);
+        editMenu->actions().at(1)->trigger(); // Redo
+        assert(objectCount(*chromeController) == before);
+
+        settingsMenu->actions().at(1)->trigger(); // Focus layout
+        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        assert(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+
+        // Traffic close really closes the window.
+        QPushButton *closeButton = buttonNamed(chrome, QStringLiteral("trafficClose"));
+        assert(closeButton != nullptr);
+        assert(chrome.isVisible());
+        closeButton->click();
+        assert(!chrome.isVisible());
     }
 
     return 0;

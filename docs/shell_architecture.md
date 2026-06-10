@@ -143,19 +143,38 @@ feature #3 is not.
 
 ## Chrome vs. activity rail (two distinct regions — do not merge)
 
-The legacy shell has TWO top/left regions, confirmed against
-`docs/ui_reference/activity_rail_drilldown_1280x820.png` and `default_shell`:
+The legacy shell has TWO top/left regions. The chrome composition below is
+the user's own description (2026-06-10) and is authoritative over what the
+screenshots were reconstructed into:
 
-- **Top Chrome** — the 42px frameless title bar. Window controls (close / min /
-  max) top-left; the `File/Edit/View/Tools/Window` menu; and the panel-collapse
-  toggles positioned **left-panel toggle near the left** (beside the menu),
-  **right-panel and bottom-panel toggles on the right**. (H4)
+- **Top Chrome** — the 42px frameless title bar, left to right: traffic
+  lights (close/min/max) → **left-panel collapse** → **back/forward** →
+  **File / Edit / Settings** → (drag region) → **terminal collapse** (the
+  user's name for the bottom panel) → **right-panel collapse**. That's the
+  whole bar. **Back/forward is "rabbit hole" navigation** — drilling into
+  asset detail levels (flower → which petal → draw it → shade it), each
+  level a workspace; it behaves as workspace history and is NOT undo/redo
+  (those get their own toggle later). (H4 — built)
 - **Activity Rail** — the thin far-left *vertical* icon strip. It is the global
   **workspace switcher** (legacy modes: Binder / Review / Settings / Proof), not
   a feature launcher and not part of the chrome. Switching it swaps the whole
   `WorkspaceLayout`. (H4 + H5)
 
-Keep these as separate widgets/regions; H4 builds both.
+Keep these as separate widgets/regions.
+
+## Feature #2 — the Blender recipe lab (user's description, 2026-06-10)
+
+Script composer and ASCII viewer are facets of ONE feature: a **grammar for
+making Blender 3D assets** via Python scripts. Shape building is described
+like a woodworking shop — objects pass through *shapers* in a specific
+order. The drafting **grid supplies exact measurements** (the canvas
+parameterizes the build scripts), and the goal is to **eliminate guesswork
+between user and AI**: the user composes Blender scripts without AI, and/or
+scripts + settings state exactly where parameters live so an AI never has to
+guess. Legacy used JSON for its settings — now TOML/MessagePack per the
+format table. Its workspace layout: grid/canvas in **Main**, text editor +
+ASCII render in **Bottom** ("the terminal"), scripts + script formatting in
+**Right**. This is the feature that forces the real FeatureContext bus.
 
 ## Resolved decisions
 

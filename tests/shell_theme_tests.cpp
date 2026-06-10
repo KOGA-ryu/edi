@@ -42,6 +42,13 @@ int main()
     assert(t.warning == "#d5bb78");
     assert(t.danger == "#d98b8b");
 
+    // Traffic lights: fixed platform fills, edges pulled 20% toward black.
+    assert(t.trafficClose == "#ff5f57");
+    assert(t.trafficMinimize == "#ffbd2e");
+    assert(t.trafficZoom == "#28c840");
+    assert(t.trafficCloseEdge == mixHex(t.trafficClose, "#000000", 0.2));
+    assert(t.trafficZoomEdge == mixHex(t.trafficZoom, "#000000", 0.2));
+
     // A custom theme re-derives: change accent, selected/accentSoft follow it,
     // text-derived tokens do not.
     ShellThemeInputs pink = in;
@@ -76,7 +83,8 @@ int main()
              "#panelTitle", "#workspaceTitle", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
-             "QCheckBox::indicator:checked", "QSplitter::handle"}) {
+             "QCheckBox::indicator:checked", "QSplitter::handle",
+             "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {
         assert(qss.contains(QLatin1String(selector)));
     }
     // Error surfaces are danger-token tinted, never bespoke hex.

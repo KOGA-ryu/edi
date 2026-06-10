@@ -19,8 +19,10 @@
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QSplitter>
+#include <QMouseEvent>
 #include <QResizeEvent>
 #include <QTimer>
+#include <QWindow>
 #include <QSizePolicy>
 #include <QSpinBox>
 #include <QStyle>
@@ -51,6 +53,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // reachable, which the old 960x620 minimum made impossible by definition.
     setMinimumSize(520, 420);
     resize(1280, 820);
+    if (m_framelessChrome) {
+        setWindowFlag(Qt::FramelessWindowHint, true);
+    }
 
     m_controller = new DrawingDocumentController(this);
 
@@ -99,6 +104,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     m_rootSplitter->setHandleWidth(8);
     m_rootSplitter->addWidget(body);
     m_rootSplitter->setStretchFactor(0, 1);
+    root->addWidget(buildTitleBar());
     root->addWidget(m_rootSplitter, 1);
 
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
@@ -116,6 +122,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         {ShellSlot::Bottom, QStringLiteral("drafting")},
     };
     mountWorkspace(drafting_layout);
+    m_workspaceHistory = {m_workspaceLayout};
+    m_workspaceHistoryIndex = 0;
+    refreshChrome();
 
     setCentralWidget(central);
     applyShellStyle();
@@ -347,7 +356,7 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
     refreshPanelVisibility();
 }
 
-void EdiShellWindow::switchWorkspaceLayout(const WorkspaceLayout &layout)
+void EdiShellWindow::applyWorkspaceLayout(const WorkspaceLayout &layout)
 {
     // Tear down the mounted slots, then retire the feature instance itself:
     // its widget-pointer members die with it, so nothing can dangle into the
@@ -370,6 +379,73 @@ void EdiShellWindow::switchWorkspaceLayout(const WorkspaceLayout &layout)
     // The fresh feature starts blank; re-feed it the shell-owned state.
     m_draftingFeature->setRecentFiles(m_recentFiles);
     m_draftingFeature->refreshInspector();
+}
+
+void EdiShellWindow::switchWorkspaceLayout(const WorkspaceLayout &layout)
+{
+    // A switch starts a new trail segment: drop any forward entries (same
+    // rule as a browser), push, and apply.
+    if (m_workspaceHistoryIndex >= 0
+        && m_workspaceHistoryIndex + 1 < static_cast<int>(m_workspaceHistory.size())) {
+        m_workspaceHistory.resize(m_workspaceHistoryIndex + 1);
+    }
+    m_workspaceHistory.push_back(layout);
+    m_workspaceHistoryIndex = static_cast<int>(m_workspaceHistory.size()) - 1;
+    applyWorkspaceLayout(layout);
+    refreshChrome();
+}
+
+void EdiShellWindow::navigateWorkspaceHistory(int delta)
+{
+    const int next = m_workspaceHistoryIndex + delta;
+    if (next < 0 || next >= static_cast<int>(m_workspaceHistory.size())) {
+        return;
+    }
+    m_workspaceHistoryIndex = next;
+    applyWorkspaceLayout(m_workspaceHistory[static_cast<std::size_t>(next)]);
+    refreshChrome();
+}
+
+void EdiShellWindow::refreshChrome()
+{
+    // The chrome is a projection of shell state, recomputed whole — the same
+    // discipline as the panels: no incremental flag-flipping to drift.
+    const auto reflect = [this](QPushButton *button, ShellSlot slot) {
+        if (button != nullptr) {
+            button->setChecked(shellPanelVisibility(slot) == PanelVisibility::Visible);
+        }
+    };
+    reflect(m_toggleLeftButton, ShellSlot::Left);
+    reflect(m_toggleBottomButton, ShellSlot::Bottom);
+    reflect(m_toggleRightButton, ShellSlot::Right);
+    if (m_backButton != nullptr) {
+        m_backButton->setEnabled(m_workspaceHistoryIndex > 0);
+    }
+    if (m_forwardButton != nullptr) {
+        m_forwardButton->setEnabled(
+            m_workspaceHistoryIndex + 1 < static_cast<int>(m_workspaceHistory.size()));
+    }
+}
+
+bool EdiShellWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    // Frameless windows lose the system drag region; the title bar's own
+    // surface becomes it. Child buttons consume their presses first, so only
+    // bar-background presses arrive here.
+    if (watched == m_titleBar) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            if (mouse->button() == Qt::LeftButton && windowHandle() != nullptr) {
+                windowHandle()->startSystemMove();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::MouseButtonDblClick) {
+            isMaximized() ? showNormal() : showMaximized();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void EdiShellWindow::setPanelCollapsed(ShellSlot slot, bool collapsed)
@@ -406,6 +482,7 @@ void EdiShellWindow::refreshPanelVisibility()
     apply(ShellSlot::Left, m_leftPanelWidget);
     apply(ShellSlot::Right, m_rightPanelWidget);
     apply(ShellSlot::Bottom, m_bottomPanelWidget);
+    refreshChrome(); // the toggle buttons mirror whatever just happened
 }
 
 void EdiShellWindow::applyPanelSizesToSplitters()

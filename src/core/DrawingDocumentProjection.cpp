@@ -321,65 +321,42 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
     return result;
 }
 
-QString cursorForHandle(const DraftingHandleDescriptor &handle)
+struct HandleVisual {
+    QString cursor;
+    QString shape;
+    double sizePx = 8.0;
+    double hitTolerancePx = 14.0;
+};
+
+HandleVisual handleVisualFor(const DraftingHandleDescriptor &handle)
 {
     if (handle.readOnly) {
-        return QStringLiteral("default");
+        return {QStringLiteral("default"), QStringLiteral("square"), 6.0, 0.0};
     }
     if (handle.role == "rotate") {
-        return QStringLiteral("rotate");
-    }
-    if (handle.role == "offset" || handle.role == "point" || handle.role == "center") {
-        return QStringLiteral("move");
-    }
-    return QStringLiteral("resize");
-}
-
-QString shapeForHandle(const DraftingHandleDescriptor &handle)
-{
-    if (handle.readOnly) {
-        return QStringLiteral("square");
+        return {QStringLiteral("rotate"), QStringLiteral("circle"), 10.0, 18.0};
     }
     if (handle.role == "offset") {
-        return QStringLiteral("diamond");
+        return {QStringLiteral("move"), QStringLiteral("diamond"), 8.0, 14.0};
     }
-    return QStringLiteral("circle");
-}
-
-double sizePxForHandle(const DraftingHandleDescriptor &handle)
-{
-    if (handle.readOnly) {
-        return 6.0;
+    if (handle.role == "point" || handle.role == "center") {
+        return {QStringLiteral("move"), QStringLiteral("circle"), 8.0, 14.0};
     }
-    if (handle.role == "rotate") {
-        return 10.0;
-    }
-    return 8.0;
-}
-
-double hitTolerancePxForHandle(const DraftingHandleDescriptor &handle)
-{
-    if (handle.readOnly) {
-        return 0.0;
-    }
-    if (handle.role == "rotate") {
-        return 18.0;
-    }
-    return 14.0;
+    return {QStringLiteral("resize"), QStringLiteral("circle"), 8.0, 14.0};
 }
 
 QVariantList editHandlesForObject(const DraftingObject &object)
 {
     QVariantList result;
     for (const DraftingHandleDescriptor &handle : draftingHandlesForObject(object)) {
-        const double sizePx = sizePxForHandle(handle);
+        const HandleVisual visual = handleVisualFor(handle);
         QVariantMap projected {
             {QStringLiteral("id"), QString::fromStdString(handle.id)},
             {QStringLiteral("role"), QString::fromStdString(handle.role)},
-            {QStringLiteral("cursor"), cursorForHandle(handle)},
-            {QStringLiteral("shape"), shapeForHandle(handle)},
-            {QStringLiteral("size_px"), sizePx},
-            {QStringLiteral("hit_tolerance_px"), hitTolerancePxForHandle(handle)},
+            {QStringLiteral("cursor"), visual.cursor},
+            {QStringLiteral("shape"), visual.shape},
+            {QStringLiteral("size_px"), visual.sizePx},
+            {QStringLiteral("hit_tolerance_px"), visual.hitTolerancePx},
             {QStringLiteral("editable"), !handle.readOnly},
             {QStringLiteral("x"), handle.point.x},
             {QStringLiteral("y"), handle.point.y},

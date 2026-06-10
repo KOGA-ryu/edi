@@ -490,7 +490,6 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     });
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::scheduleSettingsSave);
 
-    m_savedRevision = currentDocumentRevision();
     updateWindowTitle();
     refreshInspector();
 }
@@ -503,14 +502,9 @@ void EdiShellWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
-int EdiShellWindow::currentDocumentRevision() const
-{
-    return m_controller->modelDocument().value(QStringLiteral("revision")).toInt();
-}
-
 bool EdiShellWindow::isDocumentDirty() const
 {
-    return currentDocumentRevision() != m_savedRevision;
+    return m_controller->isDocumentDirty();
 }
 
 void EdiShellWindow::updateWindowTitle()
@@ -531,7 +525,6 @@ bool EdiShellWindow::saveDrawingToPath(const QString &path)
         return false;
     }
     m_currentDrawingPath = path;
-    m_savedRevision = currentDocumentRevision();
     rememberRecentFile(path);
     updateWindowTitle();
     return true;
@@ -546,7 +539,6 @@ bool EdiShellWindow::openDrawingFromPath(const QString &path)
         return false;
     }
     m_currentDrawingPath = path;
-    m_savedRevision = currentDocumentRevision();
     rememberRecentFile(path);
     updateWindowTitle();
     return true;
@@ -2197,13 +2189,12 @@ void EdiShellWindow::refreshInspector()
         m_redoButton->setEnabled(m_controller->canRedo());
     }
 
-    // Keep the window title's dirty marker in sync with live edits, reusing the
-    // revision already projected here rather than re-running the projection.
+    // Keep the window title's dirty marker in sync with live edits. The
+    // controller reports content dirtiness (selection alone is not dirty).
     const QString name = m_currentDrawingPath.isEmpty()
         ? QStringLiteral("Untitled")
         : QFileInfo(m_currentDrawingPath).fileName();
-    const bool dirty = document.value(QStringLiteral("revision")).toInt() != m_savedRevision;
-    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, dirty ? QStringLiteral(" •") : QString()));
+    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, m_controller->isDocumentDirty() ? QStringLiteral(" •") : QString()));
 }
 
 void EdiShellWindow::applyShellStyle()

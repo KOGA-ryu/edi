@@ -442,8 +442,9 @@ int main(int argc, char **argv)
         assert(tempDir.isValid());
         const QString settingsPath = tempDir.filePath(QStringLiteral("edi.toml"));
 
-        const bool flippedGridSnap = !controller->gridSnapEnabled();
-        controller->setGridSnapEnabled(flippedGridSnap);
+        // Use an explicit non-default value (grid snap defaults to false) so the
+        // assertion cannot pass vacuously against a fresh window's default.
+        controller->setGridSnapEnabled(true);
         controller->setPlotOrderModeId(QStringLiteral("nearest_next"));
         controller->setObjectSnapTolerancePreset(QStringLiteral("tight"));
         assert(window.saveSettings(settingsPath));
@@ -452,8 +453,9 @@ int main(int argc, char **argv)
         EdiShellWindow restored;
         auto *restoredController = restored.findChild<DrawingDocumentController *>();
         assert(restoredController != nullptr);
+        assert(!restoredController->gridSnapEnabled()); // fresh default before load
         assert(restored.loadSettings(settingsPath));
-        assert(restoredController->gridSnapEnabled() == flippedGridSnap);
+        assert(restoredController->gridSnapEnabled()); // loaded the saved true
         assert(restoredController->plotOrderModeId() == QStringLiteral("nearest_next"));
         assert(restoredController->objectSnapTolerancePresetId() == QStringLiteral("tight"));
     }

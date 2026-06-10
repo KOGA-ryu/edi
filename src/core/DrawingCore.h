@@ -37,6 +37,9 @@ public:
     bool openDocument(const QUrl &url);
     bool exportSvgDocument(const QUrl &url);
     bool exportHpglDocument(const QUrl &url);
+    // Dirty = content differs from the last save/open, ignoring selection (which
+    // is excluded from undo too), so merely selecting an object is not "dirty".
+    bool isDocumentDirty() const;
     bool undo();
     bool redo();
     bool canUndo() const;
@@ -215,4 +218,6 @@ private:
     bool m_editCommitted = true;
     edi::drafting::DraftingDocument m_interactiveBefore;
     bool m_interactiveEditActive = false;
+    edi::drafting::DraftingDocument m_savedDocument;
+    bool m_hasSavedSnapshot = false;
 };

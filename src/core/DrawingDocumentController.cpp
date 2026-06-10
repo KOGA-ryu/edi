@@ -508,6 +508,21 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
     , m_plotSettings(defaultDraftingPlotSettings())
 {
     applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
+    m_savedDocument = m_document; // a fresh document is clean
+    m_hasSavedSnapshot = true;
+}
+
+bool DrawingDocumentController::isDocumentDirty() const
+{
+    if (!m_hasSavedSnapshot) {
+        return m_document.revision != 0;
+    }
+    if (m_savedDocument.revision == m_document.revision) {
+        return false; // identical content (revision is monotonic)
+    }
+    // Content changed since the last save: dirty unless the only difference is
+    // selection (which, like undo, we treat as non-modifying).
+    return !documentsDifferOnlyBySelection(m_savedDocument, m_document);
 }
 
 QVariantMap DrawingDocumentController::modelDocument() const
@@ -566,7 +581,12 @@ bool DrawingDocumentController::saveDocument(const QUrl &url)
     const QByteArray payload(reinterpret_cast<const char *>(bytes.data()),
                              static_cast<int>(bytes.size()));
     const QVariantMap result = m_store.save(url, payload);
-    return result.value(QStringLiteral("ok")).toBool();
+    const bool ok = result.value(QStringLiteral("ok")).toBool();
+    if (ok) {
+        m_savedDocument = m_document; // mark the written state as clean
+        m_hasSavedSnapshot = true;
+    }
+    return ok;
 }
 
 bool DrawingDocumentController::openDocument(const QUrl &url)
@@ -594,6 +614,8 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     m_lastEditStatus.clear();
     m_undoStack.clear();
     m_redoStack.clear();
+    m_savedDocument = m_document; // a freshly loaded document is clean
+    m_hasSavedSnapshot = true;
     emit modelChanged();
     return true;
 }

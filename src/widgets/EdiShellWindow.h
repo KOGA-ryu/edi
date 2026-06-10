@@ -63,7 +63,6 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void updateWindowTitle();
-    int currentDocumentRevision() const;
     edi::formats::StaticConfig captureSettings() const;
     void applySettings(const edi::formats::StaticConfig &config);
     void rememberRecentFile(const QString &path);
@@ -213,7 +212,6 @@ private:
     QPushButton *m_redoButton = nullptr;
     QWidget *m_recentFilesContainer = nullptr;
     QString m_currentDrawingPath;
-    int m_savedRevision = 0;
     QString m_settingsPath;
     QStringList m_recentFiles;
     QTimer *m_settingsSaveTimer = nullptr;

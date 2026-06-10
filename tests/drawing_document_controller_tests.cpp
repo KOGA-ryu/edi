@@ -2702,6 +2702,35 @@ int main(int argc, char **argv)
         assert(hpgl.contains(QStringLiteral("PD")));
     }
 
+    // Dirty tracking is content-based: selecting an object after a save does NOT
+    // mark the document dirty (selection is excluded, like undo).
+    {
+        QTemporaryDir tempDir;
+        assert(tempDir.isValid());
+        const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("dirty.edidraw")));
+
+        DrawingDocumentController dirtyController;
+        assert(!dirtyController.isDocumentDirty()); // fresh document is clean
+        dirtyController.setSelectedToolId("point_tool");
+        dirtyController.clickCanvasNormalized(0.2, 0.2);
+        dirtyController.clickCanvasNormalized(0.8, 0.8);
+        assert(dirtyController.isDocumentDirty()); // created objects -> dirty
+        assert(dirtyController.saveDocument(url));
+        assert(!dirtyController.isDocumentDirty()); // saved -> clean
+
+        // Select / deselect after save: selection-only, must stay clean.
+        dirtyController.setSelectedToolId("select_move");
+        dirtyController.clickCanvasNormalized(0.2, 0.2);
+        assert(!dirtyController.isDocumentDirty());
+        dirtyController.clickCanvasNormalized(0.45, 0.05); // empty space: clears selection
+        assert(!dirtyController.isDocumentDirty());
+
+        // A real geometry change marks dirty again.
+        dirtyController.clickCanvasNormalized(0.8, 0.8); // select an object
+        assert(dirtyController.nudgeSelection("right", "grid"));
+        assert(dirtyController.isDocumentDirty());
+    }
+
     // Undo/redo.
     {
         auto objectCount = [](DrawingDocumentController &c) {

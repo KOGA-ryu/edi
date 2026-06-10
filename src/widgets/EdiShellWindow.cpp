@@ -44,6 +44,20 @@ void clearLayoutMargins(QLayout *layout)
     layout->setSpacing(0);
 }
 
+void setWidgetEnabled(QWidget *widget, bool enabled)
+{
+    if (widget != nullptr) {
+        widget->setEnabled(enabled);
+    }
+}
+
+void setLabelText(QLabel *label, const QString &text)
+{
+    if (label != nullptr) {
+        label->setText(text);
+    }
+}
+
 void refreshToggle(QCheckBox *checkbox, bool checked, std::optional<bool> enabled = std::nullopt)
 {
     if (checkbox == nullptr) {
@@ -1541,9 +1555,7 @@ void EdiShellWindow::refreshInspector()
             .arg(QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode))));
     }
 
-    if (m_toolValue != nullptr) {
-        m_toolValue->setText(QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
-    }
+    setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_selectedValue != nullptr) {
         const QString activeObject = document.value(QStringLiteral("active_object_id")).toString();
         m_selectedValue->setText(activeObject.isEmpty()
@@ -1557,12 +1569,8 @@ void EdiShellWindow::refreshInspector()
                 .arg(selectedObject.value(QStringLiteral("kind")).toString())
                 .arg(selectedObject.value(QStringLiteral("id")).toString()));
     }
-    if (m_objectBoundsValue != nullptr) {
-        m_objectBoundsValue->setText(selectedObject.isEmpty() ? QStringLiteral("Bounds: none") : boundsSummary(selectedObject));
-    }
-    if (m_objectGeometryValue != nullptr) {
-        m_objectGeometryValue->setText(selectedObject.isEmpty() ? QStringLiteral("Geometry: none") : geometrySummary(selectedObject));
-    }
+    setLabelText(m_objectBoundsValue, selectedObject.isEmpty() ? QStringLiteral("Bounds: none") : boundsSummary(selectedObject));
+    setLabelText(m_objectGeometryValue, selectedObject.isEmpty() ? QStringLiteral("Geometry: none") : geometrySummary(selectedObject));
     if (m_geometryEditStatus != nullptr) {
         const bool showFailure = !editStatus.isEmpty() && !editStatus.value(QStringLiteral("ok")).toBool();
         m_geometryEditStatus->setVisible(showFailure);
@@ -1585,12 +1593,8 @@ void EdiShellWindow::refreshInspector()
     refreshToggle(m_selectedVisible, selectedObject.isEmpty() ? false : selectedObject.value(QStringLiteral("visible")).toBool(), !selectedObject.isEmpty());
     refreshToggle(m_defaultLayerLocked, activeLayer.value(QStringLiteral("locked")).toBool(), !activeLayer.isEmpty());
     refreshToggle(m_defaultLayerVisible, activeLayer.isEmpty() ? false : activeLayer.value(QStringLiteral("visible")).toBool(), !activeLayer.isEmpty());
-    if (m_layerDownButton != nullptr) {
-        m_layerDownButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() > 0);
-    }
-    if (m_layerUpButton != nullptr) {
-        m_layerUpButton->setEnabled(!activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() + 1 < layers.size());
-    }
+    setWidgetEnabled(m_layerDownButton, !activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() > 0);
+    setWidgetEnabled(m_layerUpButton, !activeLayer.isEmpty() && activeLayer.value(QStringLiteral("order")).toInt() + 1 < layers.size());
     refreshToggle(m_activeLayerPlotEnabled, activeLayer.value(QStringLiteral("plot_enabled")).toBool(), !activeLayer.isEmpty());
     refreshComboData(m_activeLayerPen, activeLayer.value(QStringLiteral("pen_id")).toString(), 0, !activeLayer.isEmpty());
     refreshComboData(m_activeLayerStrokeWidth, strokeWidthPresetId(activeLayer.value(QStringLiteral("stroke_width")).toDouble()), 1, !activeLayer.isEmpty());
@@ -1621,33 +1625,15 @@ void EdiShellWindow::refreshInspector()
             ? QStringLiteral("Measurement: none")
             : QStringLiteral("Measurement:\n%1").arg(formatted.join(QLatin1Char('\n'))));
     }
-    if (m_objectPlotSafetyValue != nullptr) {
-        m_objectPlotSafetyValue->setText(selectedPlotSafetySummary(selectedObject, plot));
-    }
-    if (m_selectionPlotBoundsValue != nullptr) {
-        m_selectionPlotBoundsValue->setText(selectionPlotBoundsSummary(document));
-    }
-    if (m_fitSelectionToDrawableButton != nullptr) {
-        m_fitSelectionToDrawableButton->setEnabled(!selectedObject.isEmpty());
-    }
-    if (m_centerSelectionInDrawableButton != nullptr) {
-        m_centerSelectionInDrawableButton->setEnabled(!selectedObject.isEmpty());
-    }
-    if (m_moveSelectionToDrawableOriginButton != nullptr) {
-        m_moveSelectionToDrawableOriginButton->setEnabled(!selectedObject.isEmpty());
-    }
-    if (m_moveGuideToDrawableOriginButton != nullptr) {
-        m_moveGuideToDrawableOriginButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    }
-    if (m_centerGuideInDrawableButton != nullptr) {
-        m_centerGuideInDrawableButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    }
-    if (m_moveGuideToDrawableMaxButton != nullptr) {
-        m_moveGuideToDrawableMaxButton->setEnabled(selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
-    }
-    if (m_fitConstructionToDrawableButton != nullptr) {
-        m_fitConstructionToDrawableButton->setEnabled(selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
-    }
+    setLabelText(m_objectPlotSafetyValue, selectedPlotSafetySummary(selectedObject, plot));
+    setLabelText(m_selectionPlotBoundsValue, selectionPlotBoundsSummary(document));
+    setWidgetEnabled(m_fitSelectionToDrawableButton, !selectedObject.isEmpty());
+    setWidgetEnabled(m_centerSelectionInDrawableButton, !selectedObject.isEmpty());
+    setWidgetEnabled(m_moveSelectionToDrawableOriginButton, !selectedObject.isEmpty());
+    setWidgetEnabled(m_moveGuideToDrawableOriginButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    setWidgetEnabled(m_centerGuideInDrawableButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    setWidgetEnabled(m_moveGuideToDrawableMaxButton, selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool());
+    setWidgetEnabled(m_fitConstructionToDrawableButton, selectedObject.value(QStringLiteral("construction_drawable_controls")).toBool());
     const bool boundsGuideControlsEnabled = selectedObject.value(QStringLiteral("bounds_guide_controls")).toBool();
     for (QPushButton *button : std::as_const(m_boundsGuideButtons)) {
         button->setEnabled(boundsGuideControlsEnabled);
@@ -1660,9 +1646,7 @@ void EdiShellWindow::refreshInspector()
         button->setEnabled(alignToGuideControlsEnabled);
     }
     const bool selectedGuideControlsEnabled = selectedObject.value(QStringLiteral("guide_drawable_controls")).toBool();
-    if (m_deleteSelectedGuideButton != nullptr) {
-        m_deleteSelectedGuideButton->setEnabled(selectedGuideControlsEnabled);
-    }
+    setWidgetEnabled(m_deleteSelectedGuideButton, selectedGuideControlsEnabled);
     for (QPushButton *button : std::as_const(m_guideOffsetButtons)) {
         button->setEnabled(selectedGuideControlsEnabled);
     }
@@ -1689,18 +1673,14 @@ void EdiShellWindow::refreshInspector()
     refreshToggle(m_dimensionShowLabel, selectedObject.value(QStringLiteral("dimension_show_label"), true).toBool(), dimensionControlsEnabled);
     rebuildGeometryEditor(selectedObject);
     applyGeometryEditStatus(editStatus);
-    if (m_objectsValue != nullptr) {
-        m_objectsValue->setText(QStringLiteral("Objects: %1").arg(objects.size()));
-    }
+    setLabelText(m_objectsValue, QStringLiteral("Objects: %1").arg(objects.size()));
     if (m_guidesValue != nullptr) {
         m_guidesValue->setText(QStringLiteral("Guides: %1 visible / %2 total / %3 duplicate")
             .arg(document.value(QStringLiteral("visible_guide_count")).toInt())
             .arg(document.value(QStringLiteral("guide_count")).toInt())
             .arg(document.value(QStringLiteral("duplicate_guide_count")).toInt()));
     }
-    if (m_revisionValue != nullptr) {
-        m_revisionValue->setText(QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));
-    }
+    setLabelText(m_revisionValue, QStringLiteral("Revision: %1").arg(document.value(QStringLiteral("revision")).toInt()));
     if (m_snapValue != nullptr) {
         m_snapValue->setText(QStringLiteral("Snap grid: %1   Object: %2   Guide: %3   Move: %4   Priority: %5")
             .arg(yesNo(snap.value(QStringLiteral("grid_enabled")).toBool()))
@@ -1735,9 +1715,7 @@ void EdiShellWindow::refreshInspector()
                 .arg(travelSegmentCount)
                 .arg(travelDistance));
     }
-    if (m_plotBoundsValue != nullptr) {
-        m_plotBoundsValue->setText(plotBoundsSummary(grid, plot));
-    }
+    setLabelText(m_plotBoundsValue, plotBoundsSummary(grid, plot));
     if (m_plotLayerStatsValue != nullptr) {
         QVariantMap activeLayerStats;
         const QVariantList layerStats = plot.value(QStringLiteral("layer_stats")).toList();
@@ -1845,9 +1823,7 @@ void EdiShellWindow::refreshInspector()
                 .arg(formatNumber(guideDragSnap.value(QStringLiteral("distance")).toDouble())));
         }
     }
-    if (m_previewValue != nullptr) {
-        m_previewValue->setText(QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
-    }
+    setLabelText(m_previewValue, QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
     if (m_statusValue != nullptr) {
         m_statusValue->setText(QStringLiteral("%1 | %2 selected | %3 objects")
             .arg(QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)))

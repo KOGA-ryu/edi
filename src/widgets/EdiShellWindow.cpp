@@ -471,6 +471,10 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     connect(openShortcut, &QShortcut::activated, this, &EdiShellWindow::promptOpenDrawing);
     auto *saveAsShortcut = new QShortcut(QKeySequence::SaveAs, this);
     connect(saveAsShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawingAs);
+    auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
+    connect(undoShortcut, &QShortcut::activated, m_controller, [this]() { m_controller->undo(); });
+    auto *redoShortcut = new QShortcut(QKeySequence::Redo, this);
+    connect(redoShortcut, &QShortcut::activated, m_controller, [this]() { m_controller->redo(); });
 
     m_savedRevision = currentDocumentRevision();
     updateWindowTitle();
@@ -776,6 +780,16 @@ QWidget *EdiShellWindow::buildLeftPanel()
     connect(m_gridMajorEvery, &QSpinBox::editingFinished, m_controller, [this]() {
         m_controller->setGridMajorLineEvery(m_gridMajorEvery->value());
     });
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("Edit")));
+    m_undoButton = makeActionButton(QStringLiteral("undoButton"), QStringLiteral("Undo"), [this]() {
+        m_controller->undo();
+    });
+    layout->addWidget(m_undoButton);
+    m_redoButton = makeActionButton(QStringLiteral("redoButton"), QStringLiteral("Redo"), [this]() {
+        m_controller->redo();
+    });
+    layout->addWidget(m_redoButton);
 
     layout->addWidget(makeSectionLabel(QStringLiteral("Project Files")));
     layout->addWidget(makeActionButton(QStringLiteral("openDrawingButton"), QStringLiteral("Open…"), [this]() {
@@ -1932,6 +1946,13 @@ void EdiShellWindow::refreshInspector()
             .arg(QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)))
             .arg(selected.size())
             .arg(objects.size()));
+    }
+
+    if (m_undoButton != nullptr) {
+        m_undoButton->setEnabled(m_controller->canUndo());
+    }
+    if (m_redoButton != nullptr) {
+        m_redoButton->setEnabled(m_controller->canRedo());
     }
 
     // Keep the window title's dirty marker in sync with live edits, reusing the

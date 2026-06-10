@@ -380,5 +380,30 @@ int main(int argc, char **argv)
                == reopenedObjects.size());
     }
 
+    // Edit section: Undo/Redo buttons exist, enable from canUndo/canRedo, and act.
+    {
+        QPushButton *undoButton = buttonNamed(window, QStringLiteral("undoButton"));
+        QPushButton *redoButton = buttonNamed(window, QStringLiteral("redoButton"));
+        assert(undoButton != nullptr);
+        assert(redoButton != nullptr);
+
+        const int before = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        controller->setSelectedToolId(QStringLiteral("point_tool"));
+        controller->clickCanvasNormalized(0.33, 0.33);
+        const int afterCreate = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        assert(afterCreate == before + 1);
+        // The create's modelChanged already refreshed the buttons via canUndo().
+        assert(undoButton->isEnabled());
+        assert(!redoButton->isEnabled());
+
+        undoButton->click();
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == before);
+        assert(redoButton->isEnabled());
+
+        redoButton->click();
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == afterCreate);
+        assert(!redoButton->isEnabled());
+    }
+
     return 0;
 }

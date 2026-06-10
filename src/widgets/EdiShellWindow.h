@@ -187,6 +187,8 @@ private:
     QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QLabel *m_statusValue = nullptr;
+    QPushButton *m_undoButton = nullptr;
+    QPushButton *m_redoButton = nullptr;
     QString m_currentDrawingPath;
     int m_savedRevision = 0;
 };

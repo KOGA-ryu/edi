@@ -839,9 +839,14 @@ QWidget *DraftingFeature::buildBottomPanel()
 
     auto *status = makeValueLabel(QStringLiteral("C++ Widgets shell. Drafting state is owned by DrawingDocumentController."));
     status->setObjectName(QStringLiteral("bottomStatus"));
+    status->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    // Tabs pinned to the panel's top edge, content taking ALL remaining
+    // space. Without the stretch factor Qt distributes extra height between
+    // the two rows, so growing the terminal made the tabs drift and opened a
+    // gap above the content.
     layout->addWidget(tabs);
-    layout->addWidget(status);
+    layout->addWidget(status, 1);
     return panel;
 }
 

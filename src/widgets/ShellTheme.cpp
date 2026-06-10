@@ -185,7 +185,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         QPushButton {
             color: %2;
-            background: %13;
+            background: transparent;
             border: 1px solid transparent;
             border-radius: 5px;
             padding: 4px 8px;

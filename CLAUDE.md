@@ -21,8 +21,9 @@ Qt6/C++20 2D drafting (CAD) application. CMake build, widget-based UI — delibe
   orchestration goes through kind-and-callable helpers (`applyActiveObjectMetadataUpdate`,
   `applyActiveObjectGeometryUpdate`, `applyCommandAndEmit`, `applyLayerFlagsUpdate`, …) —
   extend these rather than re-inlining the resolve/plan/apply/emit sequence.
-- `src/widgets/` — Qt widgets shell (`EdiShellWindow`, `DrawingCanvasWidget`). No test
-  coverage; changes here are verified by compile + the full suite + diff review.
+- `src/widgets/` — Qt widgets shell (`EdiShellWindow`, `DrawingCanvasWidget`).
+  `edi_shell_window_tests` covers the window's wiring (offscreen platform, widgets
+  driven by objectName, controller state asserted); extend it when adding controls.
 - `tests/` — one focused test file per ops slice, registered in `CMakeLists.txt`.
 
 ## Build & verify

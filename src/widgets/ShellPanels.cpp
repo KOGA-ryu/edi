@@ -104,4 +104,17 @@ int clampPanelSize(ShellSlot slot, int size)
     return std::clamp(size, spec.minSize, std::max(spec.minSize, upper));
 }
 
+PalettePlacement clampPalettePlacement(
+    PalettePlacement placement, int hostWidth, int hostHeight, int paletteWidth, int paletteHeight)
+{
+    // max(0, ...) second: when the palette is larger than the host the upper
+    // bound goes negative, and the origin must win so the drag strip stays
+    // reachable.
+    placement.x = std::min(placement.x, hostWidth - paletteWidth);
+    placement.x = std::max(0, placement.x);
+    placement.y = std::min(placement.y, hostHeight - paletteHeight);
+    placement.y = std::max(0, placement.y);
+    return placement;
+}
+
 } // namespace edi::shell

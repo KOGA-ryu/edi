@@ -35,6 +35,9 @@ int main()
     layout.belt.itemIds[0] = QStringLiteral("select_move");
     layout.belt.itemIds[1] = QStringLiteral("line_tool");
     layout.belt.itemIds[7] = QStringLiteral("circle_tool");
+    // Two floating palettes with stored positions.
+    setPalettePlacement(layout, {QStringLiteral("tool_belt"), 40, 60});
+    setPalettePlacement(layout, {QStringLiteral("snap_box"), 300, 12});
 
     // Pure round trip: structs -> config -> structs.
     const auto config = workspaceLayoutToConfig(layout, panels);
@@ -55,6 +58,19 @@ int main()
     assert(decoded.layout.belt.itemIds.size() == 36);
     assert(decoded.layout.belt.itemIds[7] == QStringLiteral("circle_tool"));
     assert(decoded.layout.belt.itemIds[8].isEmpty());
+    // Palette placements round-trip as a keyed set.
+    assert(decoded.layout.palettes == layout.palettes);
+    assert(palettePlacement(decoded.layout, QStringLiteral("tool_belt")).x == 40);
+    assert(palettePlacement(decoded.layout, QStringLiteral("snap_box")).y == 12);
+    // An unknown id answers with the default placement, not a sentinel.
+    assert(palettePlacement(decoded.layout, QStringLiteral("missing")).x == 12);
+    // setPalettePlacement updates in place rather than appending duplicates.
+    {
+        WorkspaceLayout updated = decoded.layout;
+        setPalettePlacement(updated, {QStringLiteral("tool_belt"), 99, 98});
+        assert(updated.palettes.size() == decoded.layout.palettes.size());
+        assert(palettePlacement(updated, QStringLiteral("tool_belt")).y == 98);
+    }
 
     // Through the actual TOML format, not just the in-memory map: the keys
     // must survive write+parse, or the "TOML-serializable" claim is fiction.

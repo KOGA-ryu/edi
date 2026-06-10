@@ -81,12 +81,35 @@ inline bool operator==(const BeltLayout &a, const BeltLayout &b)
     return a.rows == b.rows && a.columns == b.columns && a.itemIds == b.itemIds;
 }
 
+// Where a floating palette sits over the main area (F4). Palettes are
+// workspace data like the belt: which palettes exist comes from the mounted
+// features; where they sit is the job's geometry, persisted in
+// workspace.toml. Coordinates are px from the main area's top-left, clamped
+// on apply — a stale position from a larger window degrades to visible.
+struct PalettePlacement {
+    QString paletteId;
+    int x = 12;
+    int y = 12;
+};
+
+inline bool operator==(const PalettePlacement &a, const PalettePlacement &b)
+{
+    return a.paletteId == b.paletteId && a.x == b.x && a.y == b.y;
+}
+
 struct WorkspaceLayout {
     QString id;     // "drafting", "blender_recipe", ...
     QString label;
     std::vector<SlotBinding> bindings;
     BeltLayout belt;
+    std::vector<PalettePlacement> palettes;
 };
+
+// The stored placement for `paletteId`, or the default placement when the
+// workspace has no opinion yet.
+PalettePlacement palettePlacement(const WorkspaceLayout &layout, const QString &paletteId);
+// Insert-or-update by palette id (placements are a keyed set, not a list).
+void setPalettePlacement(WorkspaceLayout &layout, const PalettePlacement &placement);
 
 struct MountedSlot {
     ShellSlot slot = ShellSlot::Main;

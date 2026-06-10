@@ -1,14 +1,28 @@
 ---
-description: UI restoration program — reproduce the legacy shell look in pure widgets, one verified slice at a time
+description: Shell program — build the modular feature host (and its look) in pure widgets, one verified slice at a time
 ---
 
-# Goal: UI restoration program
+# Goal: shell / feature-host program
 
-You are the dedicated UI session. Reproduce the legacy QML shell's look and
-behavior in pure C++ Qt Widgets. Spec: `docs/ui_restoration_spec.md` (READ IT
-FIRST — exact tokens, constants, behaviors). Visual targets:
-`docs/ui_reference/*.png`. Conventions: `CLAUDE.md` (no JSON, no `.js`/`.qml`,
-data-oriented design, teaching documentation in commits and non-obvious code).
+You are the dedicated shell session. Build edi's **modular feature host**: a
+shell that mounts composable features (drafting, text editor, ASCII preview,
+asset taxonomy…) into slots, where the slot→feature layout is data. The drafting
+tool is feature #1, not the app.
+
+READ FIRST, in order:
+1. `docs/shell_architecture.md` — the host model (Feature/Slot/Workspace/
+   ShellHost), the feature-context bus, the data-format policy, the migration
+   plan, and the H1–H8 backlog. This is the governing design.
+2. `docs/ui_restoration_spec.md` — exact theme tokens, layout constants, and
+   component treatments (validated against the canonical `UiStyle.qml`).
+3. `CLAUDE.md` — conventions (no JSON, no `.js`/`.qml`, data-oriented design,
+   teaching documentation in commits and non-obvious code).
+
+Visual targets: `docs/ui_reference/*.png`. Behavioral reference for the legacy
+shell: `git show ce0b751:<path>` (never check out).
+
+The backlog is **H1–H8 in `docs/shell_architecture.md`**, not the U-phases
+below (kept only as the look-and-feel detail H1/H3/H4/H6 draw on).
 
 ## Isolation — a feature session works this repo in parallel
 

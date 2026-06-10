@@ -106,7 +106,7 @@ DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellAct
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &DraftingFeature::refreshInspector);
 }
 
-BeltLayout DraftingFeature::defaultBeltLayout()
+BeltLayout DraftingFeature::beltLayoutForTools(const QStringList &enabledIds)
 {
     BeltLayout belt;
     // One row per tool (ten tools today); six columns leave room for the
@@ -116,10 +116,15 @@ BeltLayout DraftingFeature::defaultBeltLayout()
     belt.rows = 10;
     belt.columns = 6;
     belt.itemIds.assign(static_cast<std::size_t>(belt.rows) * static_cast<std::size_t>(belt.columns), QString());
-    // Fill each tool into the next free column of its family row. Derived
-    // from the spec table, not a second hand-written grid.
+    // Fill each enabled tool into the next free column of its row. Derived
+    // from the spec table, not a second hand-written grid; a tool left off
+    // the checklist simply never lands, and its row stays empty (the
+    // carousel skips empty rows by design).
     std::vector<int> nextColumn(static_cast<std::size_t>(belt.rows), 0);
     for (const DraftingToolSpec &spec : kDraftingTools) {
+        if (!enabledIds.contains(QLatin1String(spec.id))) {
+            continue;
+        }
         const int row = spec.beltRow;
         if (row < 0 || row >= belt.rows || nextColumn[row] >= belt.columns) {
             continue; // a row overflow drops the tool rather than corrupting a neighbour row
@@ -130,13 +135,29 @@ BeltLayout DraftingFeature::defaultBeltLayout()
     return belt;
 }
 
-std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
+BeltLayout DraftingFeature::defaultBeltLayout()
 {
-    // F4: the belt floats over the canvas ("tools float"). The arrangement
-    // is workspace data (the shell supplies it via callable); this feature
-    // only dresses the ids with glyphs/tooltips from its tool table.
-    const BeltLayout belt = m_actions.beltLayout ? m_actions.beltLayout() : defaultBeltLayout();
-    m_beltWidget = new BeltCrossWidget;
+    QStringList all;
+    for (const DraftingToolSpec &spec : kDraftingTools) {
+        all.push_back(QLatin1String(spec.id));
+    }
+    return beltLayoutForTools(all);
+}
+
+QVector<QPair<QString, QString>> DraftingFeature::toolInventory()
+{
+    QVector<QPair<QString, QString>> inventory;
+    for (const DraftingToolSpec &spec : kDraftingTools) {
+        inventory.push_back({QLatin1String(spec.id), QLatin1String(spec.label)});
+    }
+    return inventory;
+}
+
+void DraftingFeature::refreshBelt(const BeltLayout &belt)
+{
+    if (m_beltWidget == nullptr) {
+        return;
+    }
     m_beltWidget->setGridSize(belt.rows, belt.columns);
     QVector<BeltItem> items;
     items.reserve(static_cast<int>(belt.itemIds.size()));
@@ -148,6 +169,15 @@ std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
     if (activeIndex >= 0) {
         m_beltWidget->setActiveIndex(activeIndex);
     }
+}
+
+std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
+{
+    // F4: the belt floats over the canvas ("tools float"). The arrangement
+    // is workspace data (the shell supplies it via callable); this feature
+    // only dresses the ids with glyphs/tooltips from its tool table.
+    m_beltWidget = new BeltCrossWidget;
+    refreshBelt(m_actions.beltLayout ? m_actions.beltLayout() : defaultBeltLayout());
     connect(m_beltWidget, &BeltCrossWidget::selected, m_controller, [this](const QString &toolId) {
         m_controller->setSelectedToolId(toolId);
     });

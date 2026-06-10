@@ -466,6 +466,27 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
     hooks.activeProfile = [this]() { return m_activeProfile; };
     hooks.loadProfile = [this](const QString &name) { return loadProfile(name); };
     hooks.saveProfile = [this](const QString &name) { return saveProfileAs(name); };
+    // F6, the belt page: vocabulary from the drafting tool table, current
+    // state from the mounted layout, and writes go through the same
+    // arrangement derivation the default belt uses. The live belt re-dresses
+    // in place (no remount): the checklist and the belt stay on screen
+    // together, the same live-edit contract as theming.
+    hooks.toolInventory = []() { return DraftingFeature::toolInventory(); };
+    hooks.beltToolIds = [this]() {
+        QStringList ids;
+        for (const QString &id : m_workspaceLayout.belt.itemIds) {
+            if (!id.isEmpty()) {
+                ids.push_back(id);
+            }
+        }
+        return ids;
+    };
+    hooks.setBeltToolIds = [this](const QStringList &enabledIds) {
+        m_workspaceLayout.belt = DraftingFeature::beltLayoutForTools(enabledIds);
+        if (m_draftingFeature != nullptr) {
+            m_draftingFeature->refreshBelt(m_workspaceLayout.belt);
+        }
+    };
     return std::make_unique<SettingsFeature>(std::move(hooks));
 }
 

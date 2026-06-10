@@ -74,6 +74,15 @@ public:
     // cells its sub-features. Static: the window bakes it into the built-in
     // drafting workspace layout before any instance exists.
     static edi::shell::BeltLayout defaultBeltLayout();
+    // The tool vocabulary for editors (F6): id + label, table order.
+    static QVector<QPair<QString, QString>> toolInventory();
+    // The row-per-tool arrangement restricted to `enabledIds` — the belt the
+    // F6 checklist writes. defaultBeltLayout() is this with everything on.
+    static edi::shell::BeltLayout beltLayoutForTools(const QStringList &enabledIds);
+    // Re-dress the live belt widget from a changed arrangement, in place —
+    // no remount, so the settings checklist edits the belt while both stay
+    // on screen (same live-edit contract as theming).
+    void refreshBelt(const edi::shell::BeltLayout &belt);
 
 private:
     QWidget *buildLeftPanel();

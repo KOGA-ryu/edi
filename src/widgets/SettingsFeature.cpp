@@ -1,5 +1,7 @@
 #include "widgets/SettingsFeature.h"
 
+#include <QButtonGroup>
+#include <QCheckBox>
 #include <QColor>
 #include <QColorDialog>
 #include <QComboBox>
@@ -9,10 +11,13 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <functional>
 #include <utility>
+#include <vector>
 
 #include "widgets/ShellWidgetHelpers.h"
 
@@ -26,10 +31,53 @@ SettingsFeature::SettingsFeature(ShellHooks hooks, QObject *parent)
 
 QWidget *SettingsFeature::buildPanel(ShellSlot slot)
 {
-    if (slot == ShellSlot::Main) {
-        return buildSettingsPage();
+    if (slot != ShellSlot::Main) {
+        return nullptr;
     }
-    return nullptr;
+
+    // The page table: adding a settings page is appending a row here.
+    struct PageSpec {
+        QString id;
+        QString label;
+        std::function<QWidget *()> build;
+    };
+    const std::vector<PageSpec> pages = {
+        {QStringLiteral("theme"), QStringLiteral("Theme"), [this]() { return buildSettingsPage(); }},
+        {QStringLiteral("tool_belt"), QStringLiteral("Tool Belt"), [this]() { return buildBeltPage(); }},
+    };
+
+    auto *host = new QWidget;
+    host->setObjectName(QStringLiteral("settingsHost"));
+    auto *hostLayout = new QHBoxLayout(host);
+    hostLayout->setContentsMargins(0, 0, 0, 0);
+    hostLayout->setSpacing(0);
+
+    auto *strip = new QWidget;
+    strip->setObjectName(QStringLiteral("settingsPageStrip"));
+    auto *stripLayout = new QVBoxLayout(strip);
+    stripLayout->setContentsMargins(8, 8, 8, 8);
+    stripLayout->setSpacing(6);
+
+    auto *stack = new QStackedWidget;
+    stack->setObjectName(QStringLiteral("settingsPageStack"));
+
+    auto *pageGroup = new QButtonGroup(host);
+    pageGroup->setExclusive(true);
+    for (std::size_t i = 0; i < pages.size(); ++i) {
+        QWidget *page = pages[i].build();
+        const int index = stack->addWidget(page);
+        QPushButton *button = makeRailButton(pages[i].label, pages[i].label, i == 0);
+        button->setObjectName(QStringLiteral("settingsPageButton"));
+        button->setProperty("pageId", pages[i].id);
+        pageGroup->addButton(button);
+        stripLayout->addWidget(button);
+        connect(button, &QPushButton::clicked, stack, [stack, index]() { stack->setCurrentIndex(index); });
+    }
+    stripLayout->addStretch(1);
+
+    hostLayout->addWidget(strip);
+    hostLayout->addWidget(stack, 1);
+    return host;
 }
 
 void SettingsFeature::pushInputs(const std::function<void(ShellThemeInputs &)> &edit)
@@ -219,6 +267,57 @@ QWidget *SettingsFeature::buildSettingsPage()
             profileCombo->setCurrentText(name);
         }
     });
+
+    layout->addStretch(1);
+    return panel;
+}
+
+QWidget *SettingsFeature::buildBeltPage()
+{
+    auto [panel, layout] = makeScrollablePanel(QStringLiteral("beltPanel"), 0, 0);
+
+    auto *title = new QLabel(QStringLiteral("Tool Belt"));
+    title->setObjectName(QStringLiteral("panelTitle"));
+    layout->addWidget(title);
+
+    layout->addWidget(makeSectionLabel(QStringLiteral("On the belt")));
+
+    const QVector<QPair<QString, QString>> inventory =
+        m_hooks.toolInventory ? m_hooks.toolInventory() : QVector<QPair<QString, QString>>{};
+    const QStringList onBelt = m_hooks.beltToolIds ? m_hooks.beltToolIds() : QStringList{};
+
+    // The checkboxes ARE the model here: a toggle re-reads every box and
+    // hands the shell the full enabled list, so there is no second copy of
+    // "what's on the belt" to fall out of sync.
+    auto *checkHost = new QWidget;
+    auto *checkLayout = new QVBoxLayout(checkHost);
+    checkLayout->setContentsMargins(0, 0, 0, 0);
+    checkLayout->setSpacing(4);
+    QVector<QCheckBox *> boxes;
+    for (const auto &tool : inventory) {
+        auto *box = new QCheckBox(tool.second);
+        box->setObjectName(QStringLiteral("beltToolCheckbox"));
+        box->setProperty("toolId", tool.first);
+        box->setChecked(onBelt.contains(tool.first));
+        checkLayout->addWidget(box);
+        boxes.push_back(box);
+    }
+    layout->addWidget(checkHost);
+
+    for (QCheckBox *box : boxes) {
+        connect(box, &QCheckBox::toggled, this, [this, boxes]() {
+            if (!m_hooks.setBeltToolIds) {
+                return;
+            }
+            QStringList enabled;
+            for (QCheckBox *candidate : boxes) {
+                if (candidate->isChecked()) {
+                    enabled.push_back(candidate->property("toolId").toString());
+                }
+            }
+            m_hooks.setBeltToolIds(enabled);
+        });
+    }
 
     layout->addStretch(1);
     return panel;

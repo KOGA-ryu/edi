@@ -138,6 +138,10 @@ private:
         const std::function<edi::drafting::DraftingLayerFlagsPlan(const edi::drafting::DraftingLayer &)> &planFlags);
     bool applyActiveLayerPlotStyleUpdate(
         const std::function<edi::drafting::LayerPlotStyle(const edi::drafting::DraftingLayer &)> &planPlot);
+    bool createTransformedActiveObject(
+        const QString &idPrefix,
+        const std::function<std::optional<edi::drafting::DraftingObject>(
+            const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
 
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;

@@ -1189,7 +1189,9 @@ bool DrawingDocumentController::nudgeSelectionInsideDrawable(const QString &dire
     return true;
 }
 
-bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
+bool DrawingDocumentController::createTransformedActiveObject(
+    const QString &idPrefix,
+    const std::function<std::optional<DraftingObject>(const DraftingObject &source, const std::string &newId)> &transform)
 {
     if (!m_document.activeObjectId) {
         return false;
@@ -1199,44 +1201,41 @@ bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
         return false;
     }
 
-    const QString id = nextObjectId(QStringLiteral("offset"), m_nextObjectSerial++);
-    const DraftingOffsetResult offset = offsetDraftingObject(*source, toStdString(id), defaultDraftingOffsetDistance(), draftingOffsetSideFromId(toStdString(sideId)));
-    if (!offset.ok) {
+    const QString id = nextObjectId(idPrefix, m_nextObjectSerial++);
+    const std::optional<DraftingObject> object = transform(*source, toStdString(id));
+    if (!object) {
         return false;
     }
 
-    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{offset.object});
+    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{*object});
     if (!create.ok) {
         return false;
     }
-    applyDraftingCommand(m_document, SelectObjectCommand{offset.object.id});
+    applyDraftingCommand(m_document, SelectObjectCommand{object->id});
     emit modelChanged();
     return true;
 }
 
+bool DrawingDocumentController::offsetSelectedObject(const QString &sideId)
+{
+    return createTransformedActiveObject(QStringLiteral("offset"), [&](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
+        const DraftingOffsetResult offset = offsetDraftingObject(source, newId, defaultDraftingOffsetDistance(), draftingOffsetSideFromId(toStdString(sideId)));
+        if (!offset.ok) {
+            return std::nullopt;
+        }
+        return offset.object;
+    });
+}
+
 bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
 {
-    if (!m_document.activeObjectId) {
-        return false;
-    }
-    const DraftingObject *source = findObject(m_document, *m_document.activeObjectId);
-    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
-        return false;
-    }
-
-    const QString id = nextObjectId(QStringLiteral("mirror"), m_nextObjectSerial++);
-    const DraftingMirrorResult mirror = mirrorDraftingObject(*source, toStdString(id), draftingMirrorAxisFromId(toStdString(axisId)));
-    if (!mirror.ok) {
-        return false;
-    }
-
-    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{mirror.object});
-    if (!create.ok) {
-        return false;
-    }
-    applyDraftingCommand(m_document, SelectObjectCommand{mirror.object.id});
-    emit modelChanged();
-    return true;
+    return createTransformedActiveObject(QStringLiteral("mirror"), [&](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
+        const DraftingMirrorResult mirror = mirrorDraftingObject(source, newId, draftingMirrorAxisFromId(toStdString(axisId)));
+        if (!mirror.ok) {
+            return std::nullopt;
+        }
+        return mirror.object;
+    });
 }
 
 bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)

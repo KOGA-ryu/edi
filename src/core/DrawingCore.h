@@ -124,6 +124,7 @@ signals:
 
 private:
     void setSnapFlag(bool edi::drafting::DraftingSnapSettings::*flag, bool enabled);
+    void applyCustomGridSettings(const std::function<void(edi::drafting::DraftingGridSettings &)> &mutate);
     bool applySelectionDrawablePlacement(edi::drafting::DraftingSelectionDrawablePlacement placement);
     bool applyActiveObjectMetadataUpdate(
         edi::drafting::DraftingShapeKind kind,

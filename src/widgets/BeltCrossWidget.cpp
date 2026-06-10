@@ -20,6 +20,10 @@ constexpr int kCellGap = 4;
 // vertical choices showing") — enough to read that something is there,
 // small enough to keep the carousel one row tall.
 constexpr int kPeekSize = kCellSize / 2;
+// The nub gutter on the left: the pin nub (freeze the live row) and one
+// kill nub per frozen row live here, clear of the cells.
+constexpr int kNubSize = 10;
+constexpr int kGutter = kNubSize + 4;
 // One physical wheel notch. Trackpads deliver many small angleDelta events;
 // stepping per EVENT made the cross fly (user feedback) — accumulate and
 // step per full notch instead.
@@ -38,6 +42,7 @@ void BeltCrossWidget::setItems(const QVector<BeltItem> &items)
     m_items = items;
     rebuildOccupancy();
     m_state = beltNormalizeToOccupied(m_state, m_occupied);
+    m_pinnedRows = beltPrunePins(m_pinnedRows, m_state, m_occupied);
     updateGeometry(); // strip lengths derive from occupancy
     update();
 }
@@ -54,6 +59,7 @@ void BeltCrossWidget::setGridSize(int rows, int columns)
     }
     rebuildOccupancy();
     m_state = beltNormalizeToOccupied(m_state, m_occupied);
+    m_pinnedRows = beltPrunePins(m_pinnedRows, m_state, m_occupied);
     updateGeometry();
     update();
 }
@@ -93,9 +99,15 @@ int BeltCrossWidget::indexOfItem(const QString &id) const
     return -1;
 }
 
+int BeltCrossWidget::carouselTop() const
+{
+    return static_cast<int>(m_pinnedRows.size()) * (kCellSize + kCellGap);
+}
+
 QRect BeltCrossWidget::activeCellRect(int position) const
 {
-    return QRect(position * (kCellSize + kCellGap), kPeekSize + kCellGap, kCellSize, kCellSize);
+    return QRect(kGutter + position * (kCellSize + kCellGap),
+                 carouselTop() + kPeekSize + kCellGap, kCellSize, kCellSize);
 }
 
 int BeltCrossWidget::activeItemPosition() const
@@ -111,13 +123,30 @@ int BeltCrossWidget::activeItemPosition() const
 
 QRect BeltCrossWidget::topPeekRect() const
 {
-    return QRect(activeItemPosition() * (kCellSize + kCellGap), 0, kCellSize, kPeekSize);
+    return QRect(kGutter + activeItemPosition() * (kCellSize + kCellGap),
+                 carouselTop(), kCellSize, kPeekSize);
 }
 
 QRect BeltCrossWidget::bottomPeekRect() const
 {
-    return QRect(activeItemPosition() * (kCellSize + kCellGap),
-                 kPeekSize + kCellGap + kCellSize + kCellGap, kCellSize, kPeekSize);
+    return QRect(kGutter + activeItemPosition() * (kCellSize + kCellGap),
+                 carouselTop() + kPeekSize + kCellGap + kCellSize + kCellGap, kCellSize, kPeekSize);
+}
+
+QRect BeltCrossWidget::pinnedCellRect(int pinPosition, int itemPosition) const
+{
+    return QRect(kGutter + itemPosition * (kCellSize + kCellGap),
+                 pinPosition * (kCellSize + kCellGap), kCellSize, kCellSize);
+}
+
+QRect BeltCrossWidget::pinNubRect() const
+{
+    return QRect(0, carouselTop() + kPeekSize + kCellGap + (kCellSize - kNubSize) / 2, kNubSize, kNubSize);
+}
+
+QRect BeltCrossWidget::killNubRect(int pinPosition) const
+{
+    return QRect(0, pinPosition * (kCellSize + kCellGap) + (kCellSize - kNubSize) / 2, kNubSize, kNubSize);
 }
 
 const BeltItem *BeltCrossWidget::itemAt(int row, int column) const
@@ -128,6 +157,17 @@ const BeltItem *BeltCrossWidget::itemAt(int row, int column) const
 
 std::optional<BeltState> BeltCrossWidget::stateForClick(const QPoint &pos) const
 {
+    // Frozen rows are quick bars: clicking a cell selects it exactly as a
+    // live-row click would (the carousel teleports there, since it always
+    // displays the active row).
+    for (std::size_t pin = 0; pin < m_pinnedRows.size(); ++pin) {
+        const std::vector<BeltItemEntry> items = beltRowItems(m_state, m_occupied, m_pinnedRows[pin]);
+        for (std::size_t position = 0; position < items.size(); ++position) {
+            if (pinnedCellRect(static_cast<int>(pin), static_cast<int>(position)).contains(pos)) {
+                return beltJumpTo(m_state, m_pinnedRows[pin], items[position].column);
+            }
+        }
+    }
     const BeltPeekView view = beltPeekView(m_state, m_occupied);
     for (std::size_t position = 0; position < view.items.size(); ++position) {
         if (activeCellRect(static_cast<int>(position)).contains(pos)) {
@@ -191,7 +231,26 @@ void BeltCrossWidget::paintEvent(QPaintEvent *event)
         }
     };
 
-    // The active tool's sub-features, full-size.
+    auto paintNub = [&](const QRect &rect, const QString &glyph) {
+        painter.fillRect(rect, colors.color(QPalette::Base));
+        painter.setPen(colors.color(QPalette::Mid));
+        painter.drawRect(rect.adjusted(0, 0, -1, -1));
+        painter.setPen(colors.color(QPalette::Text));
+        painter.drawText(rect, Qt::AlignCenter, glyph);
+    };
+
+    // Frozen quick bars, oldest pin on top, each with its kill nub.
+    for (std::size_t pin = 0; pin < m_pinnedRows.size(); ++pin) {
+        const std::vector<BeltItemEntry> items = beltRowItems(m_state, m_occupied, m_pinnedRows[pin]);
+        for (std::size_t position = 0; position < items.size(); ++position) {
+            paintCell(pinnedCellRect(static_cast<int>(pin), static_cast<int>(position)),
+                      itemAt(m_pinnedRows[pin], items[position].column), items[position].active);
+        }
+        paintNub(killNubRect(static_cast<int>(pin)), QStringLiteral("×"));
+    }
+
+    // The live carousel: pin nub, then the active tool's sub-features.
+    paintNub(pinNubRect(), QStringLiteral("+"));
     for (std::size_t position = 0; position < view.items.size(); ++position) {
         const BeltItemEntry &entry = view.items[position];
         paintCell(activeCellRect(static_cast<int>(position)),
@@ -222,6 +281,24 @@ void BeltCrossWidget::mousePressEvent(QMouseEvent *event)
     if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
+    }
+    // Nubs first: they manage the furniture and never touch the selection —
+    // freezing a quick bar must not change the user's tool.
+    if (pinNubRect().contains(event->pos())) {
+        m_pinnedRows = beltPinRow(m_pinnedRows, m_state.activeRow);
+        updateGeometry(); // the pinned stack grows the widget
+        update();
+        event->accept();
+        return;
+    }
+    for (std::size_t pin = 0; pin < m_pinnedRows.size(); ++pin) {
+        if (killNubRect(static_cast<int>(pin)).contains(event->pos())) {
+            m_pinnedRows = beltUnpinRow(m_pinnedRows, m_pinnedRows[pin]);
+            updateGeometry();
+            update();
+            event->accept();
+            return;
+        }
     }
     if (const std::optional<BeltState> target = stateForClick(event->pos())) {
         applyState(*target, true);
@@ -268,6 +345,16 @@ bool BeltCrossWidget::event(QEvent *event)
 {
     if (event->type() == QEvent::ToolTip) {
         auto *helpEvent = static_cast<QHelpEvent *>(event);
+        if (pinNubRect().contains(helpEvent->pos())) {
+            QToolTip::showText(helpEvent->globalPos(), QStringLiteral("Freeze this row"), this);
+            return true;
+        }
+        for (std::size_t pin = 0; pin < m_pinnedRows.size(); ++pin) {
+            if (killNubRect(static_cast<int>(pin)).contains(helpEvent->pos())) {
+                QToolTip::showText(helpEvent->globalPos(), QStringLiteral("Remove frozen row"), this);
+                return true;
+            }
+        }
         if (const std::optional<BeltState> target = stateForClick(helpEvent->pos())) {
             const BeltItem *item = itemAt(target->activeRow, target->activeColumn);
             if (item != nullptr && !item->tooltip.isEmpty()) {
@@ -296,8 +383,8 @@ QSize BeltCrossWidget::sizeHint() const
         }
         widestRow = std::max(widestRow, count);
     }
-    return QSize(widestRow * kCellSize + (widestRow - 1) * kCellGap,
-                 kPeekSize * 2 + kCellSize + 2 * kCellGap);
+    return QSize(kGutter + widestRow * kCellSize + (widestRow - 1) * kCellGap,
+                 carouselTop() + kPeekSize * 2 + kCellSize + 2 * kCellGap);
 }
 
 QSize BeltCrossWidget::minimumSizeHint() const

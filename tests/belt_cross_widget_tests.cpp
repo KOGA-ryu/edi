@@ -29,17 +29,34 @@ void sendClick(QWidget &widget, const QPointF &pos)
     QApplication::sendEvent(&widget, &press);
 }
 
-// Mirrors the widget's carousel metrics: 34px cells, 4px gaps, 17px peeks.
-// Active row band starts at y=21; peeks sit above (y 0..16) and below
-// (y 59..75), horizontally aligned over the active cell.
-QPointF activeCellCenter(int position)
+// Mirrors the widget's carousel metrics: 34px cells, 4px gaps, 17px peeks,
+// and a 14px nub gutter on the left. With no pinned rows the active row
+// band starts at y=21; peeks sit above (y 0..16) and below (y 59..75),
+// horizontally aligned over the active cell. `pins` shifts everything down
+// by one cell row per frozen bar.
+QPointF activeCellCenter(int position, int pins = 0)
 {
-    return QPointF(position * 38.0 + 17.0, 21.0 + 17.0);
+    return QPointF(14.0 + position * 38.0 + 17.0, pins * 38.0 + 21.0 + 17.0);
 }
 
-QPointF peekCenter(int activePosition, bool top)
+QPointF peekCenter(int activePosition, bool top, int pins = 0)
 {
-    return QPointF(activePosition * 38.0 + 17.0, top ? 8.0 : 67.0);
+    return QPointF(14.0 + activePosition * 38.0 + 17.0, pins * 38.0 + (top ? 8.0 : 67.0));
+}
+
+QPointF pinnedCellCenter(int pinPosition, int itemPosition)
+{
+    return QPointF(14.0 + itemPosition * 38.0 + 17.0, pinPosition * 38.0 + 17.0);
+}
+
+QPointF pinNubCenter(int pins)
+{
+    return QPointF(5.0, pins * 38.0 + 21.0 + 17.0); // gutter, centred on the live row
+}
+
+QPointF killNubCenter(int pinPosition)
+{
+    return QPointF(5.0, pinPosition * 38.0 + 17.0);
 }
 
 BeltItem item(const char *id)
@@ -74,9 +91,9 @@ int main(int argc, char **argv)
         emitted.push_back(id);
     });
 
-    // Footprint: widest row (3 items) wide; fixed carousel height of
-    // peek + active row + peek.
-    assert(belt.sizeHint() == QSize(3 * 34 + 2 * 4, 17 * 2 + 34 + 2 * 4));
+    // Footprint: nub gutter + widest row (3 items) wide; carousel height of
+    // peek + active row + peek while nothing is pinned.
+    assert(belt.sizeHint() == QSize(14 + 3 * 34 + 2 * 4, 17 * 2 + 34 + 2 * 4));
 
     // Initial: origin cell occupied, nothing emitted.
     assert(belt.activeItemId() == QStringLiteral("a"));
@@ -141,10 +158,53 @@ int main(int argc, char **argv)
     // peek band away from the active column) changes nothing.
     {
         const int emittedBefore = emitted.size();
-        sendClick(belt, QPointF(17.0, 57.0)); // gap between row and bottom peek
-        sendClick(belt, QPointF(2 * 38.0 + 17.0, 8.0)); // top band, not over active cell
+        sendClick(belt, QPointF(14.0 + 17.0, 57.0)); // gap between row and bottom peek
+        sendClick(belt, QPointF(14.0 + 2 * 38.0 + 17.0, 8.0)); // top band, not over active cell
         assert(belt.activeItemId() == QStringLiteral("b"));
         assert(emitted.size() == emittedBefore);
+    }
+
+    // Pinning: the + nub freezes the live row into a quick bar above the
+    // carousel; selection is untouched and the widget grows by one row.
+    {
+        const int emittedBefore = emitted.size();
+        assert(belt.pinnedRows().empty());
+        belt.setActiveIndex(8); // b, row 2
+        const QSize before = belt.sizeHint();
+        sendClick(belt, pinNubCenter(0));
+        assert(belt.pinnedRows() == std::vector<int>{2});
+        assert(belt.activeItemId() == QStringLiteral("b")); // selection unchanged
+        assert(emitted.size() == emittedBefore);
+        assert(belt.sizeHint().height() == before.height() + 38);
+        belt.resize(belt.sizeHint());
+
+        // Pinning the same row again is a no-op.
+        sendClick(belt, pinNubCenter(1));
+        assert(belt.pinnedRows() == std::vector<int>{2});
+
+        // Scroll the carousel away: the frozen copy of row 2 stays put.
+        sendWheel(belt, QPoint(0, -120)); // -> row 3 (e)
+        assert(belt.activeItemId() == QStringLiteral("e"));
+        assert(belt.pinnedRows() == std::vector<int>{2});
+
+        // Freeze row 3 too — "repeating the process": two quick bars now.
+        sendClick(belt, pinNubCenter(1));
+        assert((belt.pinnedRows() == std::vector<int>{2, 3}));
+        belt.resize(belt.sizeHint());
+
+        // A frozen cell is a live control: clicking row 2's second item (c)
+        // selects it and the carousel teleports to that row.
+        sendClick(belt, pinnedCellCenter(0, 1));
+        assert(belt.activeItemId() == QStringLiteral("c"));
+        assert(emitted.last() == QStringLiteral("c"));
+
+        // The kill nub removes exactly its row; the other pin survives.
+        sendClick(belt, killNubCenter(0)); // kill the row-2 bar
+        assert(belt.pinnedRows() == std::vector<int>{3});
+        assert(belt.activeItemId() == QStringLiteral("c")); // selection untouched
+        sendClick(belt, killNubCenter(0)); // kill the remaining bar
+        assert(belt.pinnedRows().empty());
+        belt.resize(belt.sizeHint());
     }
 
     // Programmatic sync: state follows, no selected() echo.
@@ -155,12 +215,16 @@ int main(int argc, char **argv)
         assert(emitted.size() == emittedBefore);
     }
 
-    // Shrinking the item list re-normalizes the cursor onto what remains.
+    // Shrinking the item list re-normalizes the cursor onto what remains —
+    // and prunes pins whose rows went empty (no dangling quick bars).
     {
+        sendClick(belt, pinNubCenter(0)); // pin the active row (2)
+        assert(belt.pinnedRows() == std::vector<int>{2});
         QVector<BeltItem> tail(16);
         tail[12] = item("e");
-        belt.setItems(tail);
+        belt.setItems(tail); // row 2 is now empty
         assert(belt.activeItemId() == QStringLiteral("e"));
+        assert(belt.pinnedRows().empty());
     }
 
     // An all-empty belt renders nothing and emits nothing.

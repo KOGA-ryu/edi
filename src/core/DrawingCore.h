@@ -9,6 +9,7 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingPlotPlan.h"
@@ -125,6 +126,10 @@ private:
     bool applyActiveObjectMetadataUpdate(
         edi::drafting::DraftingShapeKind kind,
         const std::function<edi::drafting::DraftingMetadataUpdatePlan(const edi::drafting::ObjectMetadata &)> &planMetadata);
+    bool applyActiveObjectGeometryUpdate(
+        edi::drafting::DraftingShapeKind kind,
+        const std::function<std::optional<edi::drafting::DraftingGeometry>(const edi::drafting::DraftingObject &)> &planGeometry);
+    bool applyGuideDrawablePlacement(edi::drafting::DraftingGuideDrawablePlacement placement);
 
     QString m_selectedToolId = QStringLiteral("select_move");
     edi::drafting::DraftingDocument m_document;

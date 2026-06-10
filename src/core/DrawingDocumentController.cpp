@@ -922,6 +922,30 @@ bool DrawingDocumentController::applyActiveObjectMetadataUpdate(
     return true;
 }
 
+bool DrawingDocumentController::applyActiveObjectGeometryUpdate(
+    DraftingShapeKind kind,
+    const std::function<std::optional<DraftingGeometry>(const DraftingObject &)> &planGeometry)
+{
+    const DraftingObject *object = activeObjectOfKind(m_document, kind);
+    if (object == nullptr) {
+        return false;
+    }
+
+    const std::optional<DraftingGeometry> geometry = planGeometry(*object);
+    if (!geometry) {
+        return false;
+    }
+    const DraftingCommandResult result = applyDraftingCommand(
+        m_document,
+        UpdateGeometryCommand{*m_document.activeObjectId, *geometry});
+    if (!result.ok) {
+        return false;
+    }
+
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::setSelectedGuideLabel(const QString &label)
 {
     return applyActiveObjectMetadataUpdate(DraftingShapeKind::Guide, [&](const ObjectMetadata &metadata) {
@@ -956,29 +980,17 @@ bool DrawingDocumentController::setSelectedDimensionKind(const QString &kindId)
     if (!kind) {
         return false;
     }
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Dimension);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *dimension = std::get_if<DimensionGeometry>(&object->geometry);
-    if (dimension == nullptr) {
-        return false;
-    }
-
-    const DraftingDimensionPlan plan = planDimensionKindChange(*dimension, *kind);
-    if (!plan.ok) {
-        return false;
-    }
-
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{plan.geometry}});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Dimension, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
+        const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry);
+        if (dimension == nullptr) {
+            return std::nullopt;
+        }
+        const DraftingDimensionPlan plan = planDimensionKindChange(*dimension, *kind);
+        if (!plan.ok) {
+            return std::nullopt;
+        }
+        return DraftingGeometry{plan.geometry};
+    });
 }
 
 bool DrawingDocumentController::setSelectedDimensionLabelVisible(bool visible)
@@ -1497,141 +1509,69 @@ bool DrawingDocumentController::moveSelectionToDrawableOrigin()
     return applySelectionDrawablePlacement(DraftingSelectionDrawablePlacement::Origin);
 }
 
+bool DrawingDocumentController::applyGuideDrawablePlacement(DraftingGuideDrawablePlacement placement)
+{
+    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Guide, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
+        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
+        if (guide == nullptr) {
+            return std::nullopt;
+        }
+        const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+        const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, placement);
+        if (!plan.ok) {
+            return std::nullopt;
+        }
+        return DraftingGeometry{plan.geometry};
+    });
+}
+
 bool DrawingDocumentController::moveSelectedGuideToDrawableOrigin()
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
-    if (guide == nullptr) {
-        return false;
-    }
-
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Origin);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyGuideDrawablePlacement(DraftingGuideDrawablePlacement::Origin);
 }
 
 bool DrawingDocumentController::centerSelectedGuideInDrawable()
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
-    if (guide == nullptr) {
-        return false;
-    }
-
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Center);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyGuideDrawablePlacement(DraftingGuideDrawablePlacement::Center);
 }
 
 bool DrawingDocumentController::moveSelectedGuideToDrawableMax()
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
-    if (guide == nullptr) {
-        return false;
-    }
-
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const DraftingGuidePlan plan = moveGuideToDrawable(*guide, grid.drawableBounds, DraftingGuideDrawablePlacement::Max);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyGuideDrawablePlacement(DraftingGuideDrawablePlacement::Max);
 }
 
 bool DrawingDocumentController::offsetSelectedGuide(const QString &direction, const QString &stepMode)
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::Guide);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *guide = std::get_if<GuideGeometry>(&object->geometry);
-    if (guide == nullptr) {
-        return false;
-    }
-
-    const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
-    const double stepX = effectiveNudgeStepX(m_snapSettings);
-    const double stepY = effectiveNudgeStepY(m_snapSettings);
-    const DraftingGuidePlan plan = offsetGuide(*guide, toStdString(direction), stepX, stepY, scale);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveObjectGeometryUpdate(DraftingShapeKind::Guide, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
+        const auto *guide = std::get_if<GuideGeometry>(&object.geometry);
+        if (guide == nullptr) {
+            return std::nullopt;
+        }
+        const double scale = draftingNudgeScaleForMode(toStdString(stepMode));
+        const double stepX = effectiveNudgeStepX(m_snapSettings);
+        const double stepY = effectiveNudgeStepY(m_snapSettings);
+        const DraftingGuidePlan plan = offsetGuide(*guide, toStdString(direction), stepX, stepY, scale);
+        if (!plan.ok) {
+            return std::nullopt;
+        }
+        return DraftingGeometry{plan.geometry};
+    });
 }
 
 bool DrawingDocumentController::fitSelectedConstructionLineToDrawable()
 {
-    const DraftingObject *object = activeObjectOfKind(m_document, DraftingShapeKind::ConstructionLine);
-    if (object == nullptr) {
-        return false;
-    }
-    const auto *line = std::get_if<ConstructionLineGeometry>(&object->geometry);
-    if (line == nullptr) {
-        return false;
-    }
-
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const DraftingConstructionLinePlan plan = fitConstructionLineToDrawable(*line, grid.drawableBounds);
-    if (!plan.ok) {
-        return false;
-    }
-    const DraftingCommandResult result = applyDraftingCommand(
-        m_document,
-        UpdateGeometryCommand{*m_document.activeObjectId, plan.geometry});
-    if (!result.ok) {
-        return false;
-    }
-
-    emit modelChanged();
-    return true;
+    return applyActiveObjectGeometryUpdate(DraftingShapeKind::ConstructionLine, [&](const DraftingObject &object) -> std::optional<DraftingGeometry> {
+        const auto *line = std::get_if<ConstructionLineGeometry>(&object.geometry);
+        if (line == nullptr) {
+            return std::nullopt;
+        }
+        const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+        const DraftingConstructionLinePlan plan = fitConstructionLineToDrawable(*line, grid.drawableBounds);
+        if (!plan.ok) {
+            return std::nullopt;
+        }
+        return DraftingGeometry{plan.geometry};
+    });
 }
 
 bool DrawingDocumentController::createGuideFromSelectedBounds(const QString &placementId)

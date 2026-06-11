@@ -7,6 +7,7 @@
 
 #include <algorithm>
 
+#include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "widgets/EdiShellWindow.h"
@@ -90,15 +91,41 @@ int main(int argc, char **argv)
         QStringLiteral("paint-bench"),
         QStringLiteral("Render the settled window N times, print ms/frame, then exit."),
         QStringLiteral("N"));
+    const QCommandLineOption benchObjectsOption(
+        QStringLiteral("bench-objects"),
+        QStringLiteral("Create N synthetic lines before benching (deterministic fan)."),
+        QStringLiteral("N"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
+    parser.addOption(benchObjectsOption);
     parser.process(app);
 
     EdiShellWindow window;
     window.loadSettings(edi::io::defaultSettingsPath());
     window.loadWorkspaceLayout(edi::io::defaultWorkspaceLayoutPath());
     window.show();
+
+    // Synthetic load for the bench: a deterministic fan of lines through the
+    // real creation path (clicks -> commands -> undo bracket), so the bench
+    // measures the document the user would actually have. Also times the
+    // creation itself — bulk tools will care.
+    if (parser.isSet(benchObjectsOption)) {
+        auto *controller = window.findChild<DrawingDocumentController *>();
+        if (controller != nullptr) {
+            const int count = std::max(1, parser.value(benchObjectsOption).toInt());
+            QElapsedTimer creation;
+            creation.start();
+            controller->setSelectedToolId(QStringLiteral("line_tool"));
+            for (int i = 0; i < count; ++i) {
+                const double t = static_cast<double>(i) / count;
+                controller->clickCanvasNormalized(0.05 + 0.9 * t, 0.1);
+                controller->clickCanvasNormalized(0.95 - 0.9 * t, 0.9);
+            }
+            QTextStream(stdout) << "bench-objects: " << count << " lines created in "
+                                << creation.elapsed() << " ms\n";
+        }
+    }
 
     if (parser.isSet(snapshotOption) || parser.isSet(probeOption) || parser.isSet(paintBenchOption)) {
         // One settle delay instead of "grab immediately": palette placement,

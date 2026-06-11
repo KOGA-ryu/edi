@@ -201,7 +201,12 @@ private:
     // current when the view refreshes) pushes that snapshot onto the undo stack
     // unless the change was pure selection. Idempotent within one action.
     void beginEdit();
-    void commitEdit();
+    // selectionOnly: the caller's compile-time knowledge of whether this
+    // bracket applied only selection commands (std::holds_alternative over
+    // the command variant). Provided, it replaces the encode-and-compare
+    // fallback — which serializes the whole document TWICE per commit and
+    // made every creation click O(document).
+    void commitEdit(std::optional<bool> selectionOnly = std::nullopt);
     // Push a pre-mutation snapshot (with the epoch it held) onto the undo stack,
     // cap, clear redo, and mint a fresh epoch for the now-current state.
     void pushUndoState(const edi::drafting::DraftingDocument &before, std::uint64_t epochBefore);
@@ -266,6 +271,17 @@ private:
     std::optional<edi::drafting::Point2D> m_pointerRawPoint;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;
+    // Projection cache. The document-shaped model (objects, layers, grid,
+    // plot plan, safety annotation, selection bounds) rebuilds only when a
+    // modelChanged emission bumps the generation; every call then overlays
+    // the cheap volatile keys (pointer, preview ghost, quick measure, …).
+    // The cache shares the signal's contract exactly: any mutation path
+    // that forgot to emit modelChanged was ALREADY leaving every listener
+    // stale — the cache adds no new staleness class.
+    mutable QVariantMap m_cachedDocumentModel;
+    mutable edi::drafting::DraftingGridProjection m_cachedGrid;
+    mutable quint64 m_cachedModelGeneration = 0; // 0 = never built
+    quint64 m_modelGeneration = 1;
     QVariantMap m_lastGuideDragSnap;
     QVariantMap m_lastEditStatus;
     int m_nextObjectSerial = 1;

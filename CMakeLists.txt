@@ -178,6 +178,17 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeAscii.cpp
     src/recipe/RecipeStore.h
     src/recipe/RecipeStore.cpp
+    src/recipe/RecipeMouldings.h
+    src/recipe/RecipeMouldings.cpp
+    src/recipe/RecipeTextNumbers.h
+    src/recipe/RecipeOps.h
+    src/recipe/RecipeOps.cpp
+    src/recipe/RecipeOpsStore.h
+    src/recipe/RecipeOpsStore.cpp
+    src/recipe/RecipeOpsValidate.h
+    src/recipe/RecipeOpsValidate.cpp
+    src/recipe/RecipeOpsAscii.h
+    src/recipe/RecipeOpsAscii.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -328,6 +339,25 @@ target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOUR
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_store_tests tests/recipe_store_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
+target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
+target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+
+# The craftsmen library's Blender-free half (strict TOML reader + dry-run
+# plan) smokes under plain python when one is available; the bpy half runs
+# only inside Blender.
+# The version goes INTO find_package: FindPython3 then rejects too-old
+# interpreters and keeps searching, instead of stopping at the first hit
+# and silently dropping the test when that one is < 3.11.
+find_package(Python3 3.11 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
+    add_test(NAME edi_craft_dry_run_smoke
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_craft_smoke.py)
+else()
+    message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
+endif()
 add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
 # The column test byte-compares its construction against the committed sample
 # artifacts — the flagship files must never drift from the asserted build.

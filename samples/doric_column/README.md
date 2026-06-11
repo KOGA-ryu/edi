@@ -52,6 +52,46 @@ To change the column, point at the exact thing:
 | 6    | cube          | abacus step  | 2.64 × 2.64 × 0.24 at base 8.4 |
 | 7    | cube          | abacus       | 3.36 × 3.36 × 0.96 at base 8.64 |
 
+## The op-stream pipeline (the ported prototype tools)
+
+Alongside the shaper-grammar files above, this directory carries the same
+column in the PORTED prototype pipeline — "Recipe is truth. ASCII preview
+is proof. Blender script is execution.":
+
+- `doric_column_ops.toml` — the source op stream (the prototype's own
+  example recipe, translated key for key into strict TOML).
+- `doric_column_ops_compiled.toml` — after the compile pass: moulding term
+  sequences expanded into exact (z, radius) points.
+- `previews/doric_{front,side,top}_preview.txt` — the ASCII proof,
+  byte-identical to the prototype's own generated previews.
+- `doric_dry_run.txt` — the craftsmen library's build plan for this
+  column, one line per op, plus the computed preview rig.
+
+To build it in Blender (>= 4.1):
+
+    blender --python tools/blender/edi_craft.py -- samples/doric_column/doric_column_ops_compiled.toml
+
+To inspect the plan without Blender:
+
+    python3 tools/blender/edi_craft.py --dry-run samples/doric_column/doric_column_ops_compiled.toml
+
+The library (`tools/blender/edi_craft.py`) is the durable half — the
+craftsmen. The recipe TOML is the dimension sheet. Change the recipe,
+re-run; the library does not change.
+
+This pipeline has no edi menu verbs yet; it runs via the commands above.
+File → Open Recipe… belongs to the shaper-grammar pipeline at the top of
+this README — pointed at an ops TOML it will refuse with an unknown-key
+error (by design: two strict vocabularies, no cross-parsing).
+
+The op-stream artifacts are asserted in-repo: `doric_column_ops.toml`, the
+compiled TOML, and the previews are byte-compared against the construction
+in `tests/recipe_doric_fixture.h` by `recipe_ops_tests` and
+`recipe_ops_ascii_tests`; `doric_dry_run.txt` is asserted by
+`tests/edi_craft_smoke.py` and regenerates by redirecting the `--dry-run`
+command above into the file
+(`… --dry-run … > samples/doric_column/doric_dry_run.txt`).
+
 ## Known limitations (V1, stated so they are decisions, not surprises)
 
 - Flute cutters are straight cylinders; on a tapered shaft the bite

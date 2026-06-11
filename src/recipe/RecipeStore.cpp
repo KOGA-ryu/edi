@@ -2,10 +2,8 @@
 
 #include "formats/TomlReader.h"
 #include "formats/TomlWriter.h"
+#include "recipe/RecipeTextNumbers.h"
 
-#include <charconv>
-#include <cmath>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -13,26 +11,12 @@ namespace edi::recipe {
 
 namespace {
 
-// Shortest text that round-trips the double exactly (std::to_chars): "0.3"
-// stays "0.3", never "0.29999999999999999" — the recipe must read like the
-// numbers the user typed, while losing nothing on reload.
-std::string numberKeyText(double value)
-{
-    char buffer[32];
-    const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
-    return std::string(buffer, result.ptr);
-}
-
+// Number text lives in RecipeTextNumbers.h — ONE source of truth shared
+// with the op-stream store; two formats disagreeing on number text would
+// be a quiet fork.
 bool parseNumber(const std::string &text, double &value)
 {
-    if (text.empty()) {
-        return false;
-    }
-    char *end = nullptr;
-    value = std::strtod(text.c_str(), &end);
-    // strtod accepts "nan"/"inf"; setParamLiteral would reject them anyway,
-    // but failing here gives the sharper ".value: not a number" message.
-    return end == text.c_str() + text.size() && std::isfinite(value);
+    return parseNumberText(text, value);
 }
 
 std::string stepPrefix(std::size_t index)

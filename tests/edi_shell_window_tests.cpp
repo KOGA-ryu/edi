@@ -1491,6 +1491,35 @@ int main(int argc, char **argv)
         assert(sectionProbe->height() <= 24);
     }
 
+    // Panel-toggle tri-state (spec §3): the chrome distinguishes a panel the
+    // USER collapsed from one the WINDOW hid (auto-hide below the width
+    // threshold) — same projection, three values, carried by the panelState
+    // property the sheet colors on.
+    {
+        EdiShellWindow triState;
+        triState.resize(1100, 760);
+        triState.show();
+        QCoreApplication::processEvents();
+        QPushButton *leftToggle = buttonNamed(triState, QStringLiteral("toggleLeftPanel"));
+        assert(leftToggle != nullptr);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+
+        triState.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("collapsed"));
+        triState.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+
+        // Auto-hide reacts to the window, not to clicks: shrink under the
+        // 640px threshold and the left panel reports auto_hidden, distinct
+        // from the manual collapse above.
+        triState.resize(600, 760);
+        QCoreApplication::processEvents();
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("auto_hidden"));
+        triState.resize(1100, 760);
+        QCoreApplication::processEvents();
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+    }
+
     // Status bar (spec §2/§3): a 28px strip under the body. The left label
     // carries the feature-published mode line; the right label names the
     // document and recolors via the documentDirty property when unsaved

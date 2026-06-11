@@ -109,6 +109,8 @@ int main()
              "QListWidget::item:selected", "#objectListEmpty",
              "QScrollBar::handle:vertical", "QAbstractSpinBox::up-button",
              "QComboBox:disabled", "QCheckBox::indicator:disabled",
+             "#titleBar QPushButton[panelState=\"auto_hidden\"]",
+             "QSplitter::handle:horizontal:hover",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {
@@ -116,6 +118,11 @@ int main()
     }
     // Error surfaces are danger-token tinted, never bespoke hex.
     assert(qss.contains(t.danger));
+
+    // Splitter-line composites: #AARRGGBB strings assembled from the tokens
+    // (alpha 55% idle / 90% hot), present in the sheet.
+    assert(qss.contains(QStringLiteral("#8c") + t.borderMajor.mid(1)));
+    assert(qss.contains(QStringLiteral("#e6") + t.accentSoft.mid(1)));
 
     // The tooltip sheet is the one app-scope sheet (top-level widgets are
     // out of the window sheet's reach) — tokens substituted, no markers.

@@ -345,18 +345,21 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @control@;
             border: 1px solid @borderMinor@;
         }
+        /* Toggle-switch track (spec §4): 28x14 pill, accentSoft when on.
+           Track-only — the spec allows plain QSS if it reads; a painted
+           knob would need custom paint for one ornament. */
         QCheckBox::indicator {
-            width: 15px;
-            height: 15px;
-            border-radius: 3px;
+            width: 28px;
+            height: 14px;
+            border-radius: 7px;
         }
         QCheckBox::indicator:unchecked {
             background: @control@;
             border: 1px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
-            background: @accent@;
-            border: 1px solid @accent@;
+            background: @accentSoft@;
+            border: 1px solid @borderFocus@;
         }
         /* Scrollbars: a quiet 8px rail — transparent track, token handle,
            no stepper buttons (zero-height add/sub-line), matching the
@@ -386,17 +389,48 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QScrollBar::add-page, QScrollBar::sub-page {
             background: transparent;
         }
-        QSplitter::handle {
-            background: transparent;
+        /* Splitter/grips: an 8px hit zone showing a 1px line (spec §2 —
+           borderMajor at 55% idle, accentSoft at 90% hot; note the no-'at'
+           wording, the marker scanner reads comments too). A widget's QSS
+           background always fills its whole rect, so the line is a
+           hard-stop gradient: transparent except the center 1/8 (= 1px of
+           the 8px strip). Colors are #AARRGGBB composites built from the
+           tokens. */
+        QSplitter::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
         }
-        QSplitter::handle:hover, QSplitter::handle:pressed {
-            background: @accentSoft@;
+        QSplitter::handle:horizontal:hover, QSplitter::handle:horizontal:pressed {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
         }
-        #rightPanelGrip, #bottomPanelGrip {
-            background: transparent;
+        #rightPanelGrip {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
         }
-        #rightPanelGrip:hover, #bottomPanelGrip:hover {
-            background: @accentSoft@;
+        #bottomPanelGrip {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #rightPanelGrip:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #bottomPanelGrip:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
         }
         #floatingPalette {
             background: transparent;
@@ -442,6 +476,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton:disabled {
             color: @disabled@;
         }
+        /* Panel toggles: the glyph color carries the tri-state (spec §3) —
+           accent when the panel shows, faint when the user collapsed it,
+           warning when the WINDOW hid it (auto-hide). */
+        #titleBar QPushButton[panelState="visible"] {
+            color: @accent@;
+        }
+        #titleBar QPushButton[panelState="collapsed"] {
+            color: @textFaint@;
+        }
+        #titleBar QPushButton[panelState="auto_hidden"] {
+            color: @warning@;
+        }
         /* Specificity lesson: the selectors must repeat the '#titleBar
            QPushButton' prefix. Bare '#trafficClose' (one id) LOSES to
            '#titleBar QPushButton' (id + type) on every shared property —
@@ -477,6 +523,11 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
     )");
 
+    // Composite colors for the 1px splitter lines: #AARRGGBB with the alpha
+    // baked in (55% idle, 90% hot) — string assembly, not a new derivation.
+    const QString borderMajor55 = QStringLiteral("#8c") + t.borderMajor.mid(1);
+    const QString accentSoft90 = QStringLiteral("#e6") + t.accentSoft.mid(1);
+
     const std::pair<const char *, QString> tokens[] = {
         {"@base@", t.base},
         {"@surface@", t.surface},
@@ -496,6 +547,8 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@danger@", t.danger},
         {"@warning@", t.warning},
         {"@disabled@", t.disabled},
+        {"@borderMajor55@", borderMajor55},
+        {"@accentSoft90@", accentSoft90},
         {"@trafficClose@", t.trafficClose},
         {"@trafficCloseEdge@", t.trafficCloseEdge},
         {"@trafficMinimize@", t.trafficMinimize},

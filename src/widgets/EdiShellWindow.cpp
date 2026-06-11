@@ -785,8 +785,22 @@ void EdiShellWindow::refreshChrome()
     // The chrome is a projection of shell state, recomputed whole — the same
     // discipline as the panels: no incremental flag-flipping to drift.
     const auto reflect = [this](QPushButton *button, ShellSlot slot) {
-        if (button != nullptr) {
-            button->setChecked(shellPanelVisibility(slot) == PanelVisibility::Visible);
+        if (button == nullptr) {
+            return;
+        }
+        const PanelVisibility visibility = shellPanelVisibility(slot);
+        button->setChecked(visibility == PanelVisibility::Visible);
+        // Tri-state for the sheet (spec §3): a collapsed panel and an
+        // auto-hidden one must read differently (faint vs warning), and a
+        // checked bool cannot carry three states — the property can.
+        const QString stateName = visibility == PanelVisibility::Visible
+            ? QStringLiteral("visible")
+            : visibility == PanelVisibility::Collapsed ? QStringLiteral("collapsed")
+                                                       : QStringLiteral("auto_hidden");
+        if (button->property("panelState").toString() != stateName) {
+            button->setProperty("panelState", stateName);
+            button->style()->unpolish(button);
+            button->style()->polish(button);
         }
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);

@@ -1460,12 +1460,21 @@ int main(int argc, char **argv)
         assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
         assert(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
 
-        // Traffic close really closes the window.
+        // Traffic close really closes the window. The document is dirty from
+        // the undo/redo dance above, so the #18 guard asks on the way out —
+        // proof the traffic light routes through it. Discard via the
+        // injected prompt (the real dialog would hang the offscreen run).
+        int closeGuardAsks = 0;
+        chrome.setDirtyGuardPrompt([&closeGuardAsks]() {
+            ++closeGuardAsks;
+            return EdiShellWindow::DirtyGuardChoice::Discard;
+        });
         QPushButton *closeButton = buttonNamed(chrome, QStringLiteral("trafficClose"));
         assert(closeButton != nullptr);
         assert(chrome.isVisible());
         closeButton->click();
         assert(!chrome.isVisible());
+        assert(closeGuardAsks == 1);
     }
 
     // Render proof: panel surfaces and the object list must paint THEME
@@ -1961,6 +1970,67 @@ int main(int argc, char **argv)
             }
             assert(differing <= budget);
         }
+    }
+
+    // #18 close-without-saving guard: the dialog is an injectable callable,
+    // so the offscreen suite drives every choice without a modal. Runs last
+    // because the Save case genuinely closes (hides) the window.
+    {
+        QTemporaryDir guardDir;
+        assert(guardDir.isValid());
+        const QString guardPath = guardDir.filePath(QStringLiteral("guard.edidraw"));
+
+        // Make the document clean at a known path first.
+        assert(window.saveDrawingToPath(guardPath));
+        assert(!window.isDocumentDirty());
+
+        int promptCalls = 0;
+        window.setDirtyGuardPrompt([&promptCalls]() {
+            ++promptCalls;
+            return EdiShellWindow::DirtyGuardChoice::Cancel;
+        });
+
+        // Clean document: no question asked, the close proceeds.
+        assert(window.close());
+        assert(promptCalls == 0);
+        window.show(); // close() only hides; revive for the rest of the block
+
+        // Dirty + Cancel: the close is refused and the window survives.
+        controller->setSelectedToolId(QStringLiteral("point_tool"));
+        controller->clickCanvasNormalized(0.41, 0.41);
+        controller->clickCanvasNormalized(0.42, 0.42);
+        assert(window.isDocumentDirty());
+        assert(!window.close());
+        assert(promptCalls == 1);
+
+        // Cancel blocks a guarded open the same way — document untouched.
+        const int beforeOpen = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        assert(!window.openDrawingFromPathGuarded(guardPath));
+        assert(promptCalls == 2);
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeOpen);
+
+        // Save: the close saves to the current path on its way out.
+        window.setDirtyGuardPrompt([&promptCalls]() {
+            ++promptCalls;
+            return EdiShellWindow::DirtyGuardChoice::Save;
+        });
+        assert(window.close());
+        assert(promptCalls == 3);
+        assert(!window.isDocumentDirty()); // the save landed before closing
+        window.show();
+
+        // Discard: a guarded open over a dirty document proceeds and loses
+        // the changes, exactly as the user chose.
+        controller->clickCanvasNormalized(0.43, 0.43);
+        controller->clickCanvasNormalized(0.44, 0.44);
+        assert(window.isDocumentDirty());
+        window.setDirtyGuardPrompt([&promptCalls]() {
+            ++promptCalls;
+            return EdiShellWindow::DirtyGuardChoice::Discard;
+        });
+        assert(window.openDrawingFromPathGuarded(guardPath));
+        assert(promptCalls == 4);
+        assert(!window.isDocumentDirty()); // back to the saved state
     }
 
     return 0;

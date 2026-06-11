@@ -227,7 +227,7 @@ void EdiShellWindow::rebuildRecentFilesMenu()
     for (int i = 0; i < shown; ++i) {
         const QString path = m_recentFiles.at(i);
         QAction *action = m_recentFilesMenu->addAction(QFileInfo(path).fileName(), this, [this, path]() {
-            openDrawingFromPath(path);
+            openDrawingFromPathGuarded(path);
         });
         action->setObjectName(QStringLiteral("recentFileAction"));
         action->setToolTip(path);

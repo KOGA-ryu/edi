@@ -59,12 +59,14 @@ int main()
     }
 
     // A lathe's footprint is the circle of its widest drafted radius: the
-    // profile below peaks at physical r = 1 (0.125 on a width-8 grid), so
-    // the silhouette matches the radius-1 cylinder exactly.
+    // profile below peaks at physical r = 1 (0.125 on a width-8 grid) at
+    // its MIDDLE vertex — neither endpoint — so a footprint that read
+    // front() or back() instead of the true max would shrink to r 0.5
+    // and fail. The silhouette matches the radius-1 cylinder exactly.
     {
         DraftingDocument profileDoc = makeDraftingDocument("lathe_ascii");
         PolylineGeometry profile;
-        profile.vertices = {{0.125, 0.9}, {0.0625, 0.2}};
+        profile.vertices = {{0.0625, 0.9}, {0.125, 0.55}, {0.0625, 0.2}};
         auto built = buildDraftingObject("profile", DraftingShapeKind::Polyline, profile);
         assert(built.ok);
         assert(addObject(profileDoc, built.object).ok);

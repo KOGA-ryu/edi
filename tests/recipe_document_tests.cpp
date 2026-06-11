@@ -3,6 +3,7 @@
 #include "drafting/DraftingStore.h"
 
 #include <cassert>
+#include <limits>
 #include <cmath>
 
 using namespace edi::recipe;
@@ -199,6 +200,31 @@ int main()
         const ResolvedRecipe disced = resolveRecipe(wrongKind, profileDoc, grid);
         assert(!disced.steps[0].profileOk);
         assert(disced.steps[0].profileMessage == "profile needs a line, polyline, or arc");
+
+        // Non-finite literals are rejected at the op — the one gate every
+        // entry path (UI, TOML loader) shares.
+        RecipeDocument finiteOnly;
+        assert(addShaperStep(finiteOnly, "cube").ok);
+        assert(!setParamLiteral(finiteOnly, 0, "size_x", std::numeric_limits<double>::quiet_NaN()).ok);
+        assert(!setParamLiteral(finiteOnly, 0, "size_x", std::numeric_limits<double>::infinity()).ok);
+
+        // A one-vertex polyline cannot be built through the ops, but the
+        // .edidraw LOAD path does not re-validate geometry — hand-assemble
+        // the corrupt object the way a damaged file would deliver it.
+        DraftingObject corrupt;
+        corrupt.id = "stub";
+        corrupt.kind = DraftingShapeKind::Polyline;
+        PolylineGeometry oneVertex;
+        oneVertex.vertices = {{0.5, 0.5}};
+        corrupt.geometry = oneVertex;
+        DraftingDocument corruptDoc = makeDraftingDocument("corrupt");
+        corruptDoc.objects.push_back(corrupt);
+        RecipeDocument stubbed;
+        assert(addShaperStep(stubbed, "lathe").ok);
+        assert(setStepProfile(stubbed, 0, "stub").ok);
+        const ResolvedRecipe stubResolved = resolveRecipe(stubbed, corruptDoc, grid);
+        assert(!stubResolved.steps[0].profileOk);
+        assert(stubResolved.steps[0].profileMessage == "profile polyline needs at least two vertices");
     }
 
     return 0;

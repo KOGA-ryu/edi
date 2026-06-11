@@ -31,6 +31,10 @@ int main()
     recipe.name = "Doric Column";
     assert(addShaperStep(recipe, "cube").ok);
     assert(setParamLiteral(recipe, 0, "size_x", 0.3).ok);
+    // A value where the store's to_chars (shortest round-trip) and the
+    // emitter's %.9g legitimately DIVERGE: the file must carry the lossless
+    // form, and the exact-equality round-trip below pins it.
+    assert(setParamLiteral(recipe, 0, "size_y", 0.1 + 0.2).ok);
     assert(setParamLiteral(recipe, 0, "size_z", 0.045).ok);
     assert(addShaperStep(recipe, "lathe").ok);
     assert(setStepProfile(recipe, 1, "shaft_profile").ok);
@@ -44,8 +48,9 @@ int main()
     // The keys are the pointable surface: a person (or an AI under
     // instruction) names the exact line to change.
     assert(written.text.find("step.1.profile = \"shaft_profile\"") != std::string::npos);
-    assert(written.text.find("0.3") != std::string::npos);     // shortest round-trip text
-    assert(written.text.find("0.29999") == std::string::npos); // never binary noise
+    // Pin the FULL line, not a substring: shortest-form output is the
+    // contract ("0.3", never "0.300000000000000").
+    assert(written.text.find("step.0.param.size_x.value = \"0.3\"") != std::string::npos);
 
     const RecipeParseResult reloaded = recipeFromToml(written.text, "round_trip");
     assert(reloaded.ok);
@@ -63,11 +68,13 @@ int main()
     }
 
     // Every parameter is written, defaults included: a key must EXIST in the
-    // file to be pointable ("change step.0.param.size_y.value"), and a file
+    // file to be pointable ("change step.0.param.loc_z.value"), and a file
     // that hides defaults makes the reader consult the C++ vocabulary to
     // know what a recipe will do. Loading still tolerates absent keys, so
     // hand-trimmed files keep working.
-    assert(written.text.find("size_y") != std::string::npos);
+    assert(written.text.find("step.0.param.loc_z.value") != std::string::npos);
+    // The lossless form of 0.1 + 0.2, verbatim.
+    assert(written.text.find("size_y.value = \"0.30000000000000004\"") != std::string::npos);
 
     // STRICT loading: every failure names its offender instead of guessing.
     {
@@ -101,6 +108,47 @@ int main()
             "step.0.shaper = \"cube\"\n"
             "step.0.profile = \"shaft\"\n", "bad");
         assert(!profileOnCube.ok);
+
+        // The sweep audits EVERY key. A plural typo must NOT load as an
+        // empty recipe (which adoptDocument would then use to wipe the live
+        // one); a misspelled recipe.* or alien key rejects the same way.
+        const RecipeParseResult pluralTypo = recipeFromToml(
+            "steps.0.shaper = \"cube\"\n", "bad");
+        assert(!pluralTypo.ok);
+        assert(pluralTypo.message.find("steps.0.shaper") != std::string::npos);
+        const RecipeParseResult nameTypo = recipeFromToml(
+            "recipe.nme = \"Doric\"\n", "bad");
+        assert(!nameTypo.ok);
+        const RecipeParseResult alienKey = recipeFromToml(
+            "florp = \"1\"\n", "bad");
+        assert(!alienKey.ok);
+
+        // Both a literal AND a binding on one param: the file would show a
+        // number the build ignores — refused, not resolved by precedence.
+        const RecipeParseResult bothSources = recipeFromToml(
+            "step.0.shaper = \"cube\"\n"
+            "step.0.param.size_x.value = \"7\"\n"
+            "step.0.param.size_x.object = \"plank\"\n"
+            "step.0.param.size_x.field = \"width\"\n", "bad");
+        assert(!bothSources.ok);
+        assert(bothSources.message.find("both") != std::string::npos);
+
+        // Non-finite literals never enter the document.
+        const RecipeParseResult nanLiteral = recipeFromToml(
+            "step.0.shaper = \"cube\"\n"
+            "step.0.param.size_x.value = \"nan\"\n", "bad");
+        assert(!nanLiteral.ok);
+        const RecipeParseResult infLiteral = recipeFromToml(
+            "step.0.shaper = \"cube\"\n"
+            "step.0.param.size_x.value = \"inf\"\n", "bad");
+        assert(!infLiteral.ok);
+
+        // Gapped indices name the first MISSING step, not the orphan key.
+        const RecipeParseResult gappedSteps = recipeFromToml(
+            "step.0.shaper = \"cube\"\n"
+            "step.2.shaper = \"cube\"\n", "bad");
+        assert(!gappedSteps.ok);
+        assert(gappedSteps.message.find("step.1") != std::string::npos);
     }
 
     // An empty file is an empty (unstarted) recipe, not an error: validity

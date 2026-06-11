@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QFileDialog>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QString>
@@ -133,6 +134,8 @@ EdiShellWindow::DirtyGuardChoice EdiShellWindow::promptDirtyGuardChoice()
 
 bool EdiShellWindow::resolveDirtyGuard()
 {
+    // Drawing only — recipe dirty state is a known gap owed by the
+    // recipe-lab slice (see RecipeController::adoptDocument).
     if (!m_controller->isDocumentDirty()) {
         return true; // nothing to lose, nothing to ask
     }
@@ -212,6 +215,7 @@ bool EdiShellWindow::saveRecipeToPath(const QString &path)
 {
     using namespace edi::recipe;
     if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
         return false;
     }
     const RecipeTextResult written = recipeToToml(m_recipeController->document());
@@ -219,12 +223,18 @@ bool EdiShellWindow::saveRecipeToPath(const QString &path)
         m_lastRecipeError = QString::fromStdString(written.message);
         return false;
     }
-    QFile file(path);
+    // QSaveFile: atomic rename on success, the existing file untouched on
+    // any failure — a half-written recipe is worse than none.
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
         return false;
     }
     file.write(written.text.data(), static_cast<qint64>(written.text.size()));
+    if (!file.commit()) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
     m_lastRecipeError.clear();
     return true;
 }
@@ -233,6 +243,7 @@ bool EdiShellWindow::openRecipeFromPath(const QString &path)
 {
     using namespace edi::recipe;
     if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
         return false;
     }
     QFile file(path);
@@ -259,6 +270,7 @@ bool EdiShellWindow::exportRecipePythonToPath(const QString &path)
 {
     using namespace edi::recipe;
     if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
         return false;
     }
     // Resolve against the LIVE drafting document and grid — the bus seam the
@@ -274,12 +286,16 @@ bool EdiShellWindow::exportRecipePythonToPath(const QString &path)
         m_lastRecipeError = QString::fromStdString(emitted.message);
         return false;
     }
-    QFile file(path);
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
         return false;
     }
     file.write(emitted.script.data(), static_cast<qint64>(emitted.script.size()));
+    if (!file.commit()) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
     m_lastRecipeError.clear();
     return true;
 }
@@ -292,7 +308,11 @@ void EdiShellWindow::promptOpenRecipe()
     if (path.isEmpty()) {
         return;
     }
-    openRecipeFromPath(path);
+    if (!openRecipeFromPath(path)) {
+        // The strict loader's message names the offending key — show it
+        // verbatim, it IS the pointable diagnosis.
+        QMessageBox::warning(this, QStringLiteral("Open Recipe Failed"), m_lastRecipeError);
+    }
 }
 
 void EdiShellWindow::promptSaveRecipe()
@@ -306,7 +326,9 @@ void EdiShellWindow::promptSaveRecipe()
     if (!path.endsWith(QStringLiteral(".toml"))) {
         path += QStringLiteral(".toml");
     }
-    saveRecipeToPath(path);
+    if (!saveRecipeToPath(path)) {
+        QMessageBox::warning(this, QStringLiteral("Save Recipe Failed"), m_lastRecipeError);
+    }
 }
 
 void EdiShellWindow::promptExportRecipePython()
@@ -320,7 +342,11 @@ void EdiShellWindow::promptExportRecipePython()
     if (!path.endsWith(QStringLiteral(".py"))) {
         path += QStringLiteral(".py");
     }
-    exportRecipePythonToPath(path);
+    if (!exportRecipePythonToPath(path)) {
+        // Export REFUSAL is a designed outcome (stale binding, missing
+        // profile) — silence here would be a dead button.
+        QMessageBox::warning(this, QStringLiteral("Export Refused"), m_lastRecipeError);
+    }
 }
 
 bool EdiShellWindow::loadSettings(const QString &path)

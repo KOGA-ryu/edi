@@ -148,6 +148,12 @@ RecipeParam *findParam(RecipeDocument &document, std::size_t stepIndex, const st
 RecipeOpResult setParamLiteral(RecipeDocument &document, std::size_t stepIndex,
                                const std::string &paramId, double value)
 {
+    // strtod upstream accepts "nan" and "inf"; a non-finite literal would
+    // ride all the way into the emitted python as a NameError. Reject at
+    // the op so every entry path (UI, TOML loader) shares one gate.
+    if (!std::isfinite(value)) {
+        return RecipeOpResult::rejected("not a finite number: " + paramId);
+    }
     RecipeParam *param = findParam(document, stepIndex, paramId);
     if (param == nullptr) {
         return RecipeOpResult::rejected("no such parameter: " + paramId);
@@ -285,6 +291,9 @@ ProfileSource profileSourcePoints(const edi::drafting::DraftingObject &object)
         source.ok = true;
     } else if (const auto *polyline = std::get_if<PolylineGeometry>(&object.geometry)) {
         source.points = polyline->vertices;
+        // The drafting ops validate vertex counts, but the .edidraw LOAD
+        // path does not re-validate geometry — a corrupted file can deliver
+        // a short polyline here, so this branch is a real contract.
         source.ok = source.points.size() >= 2;
         if (!source.ok) {
             source.message = "profile polyline needs at least two vertices";

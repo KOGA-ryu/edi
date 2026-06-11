@@ -10,6 +10,8 @@
 #include "drafting/DraftingStore.h"
 
 #include <cassert>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <utility>
 
@@ -25,6 +27,13 @@ DraftingObject polylineObject(DraftingObjectId id, std::vector<Point2D> vertices
     auto built = buildDraftingObject(std::move(id), DraftingShapeKind::Polyline, geometry);
     assert(built.ok);
     return built.object;
+}
+
+std::string slurp(const std::string &path)
+{
+    std::ifstream in(path, std::ios::binary);
+    assert(in.is_open());
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
 } // namespace
@@ -150,12 +159,19 @@ int main()
     // Twenty flutes, cutter centre arithmetic shown: 1.056 + 0.16 - 0.12.
     assert(script.find("for _i in range(20):") != std::string::npos);
     assert(script.find("_d = 1.096  # at_radius 1.056 + cutter 0.16 - depth 0.12") != std::string::npos);
-    assert(script.find("primitive_cylinder_add(radius=0.16, depth=4.8)") != std::string::npos);
+    assert(script.find("primitive_cylinder_add(radius=0.16, depth=4.8, location=(0.0, 0.0, 0.0), align='WORLD')") != std::string::npos);
 
     // The whole column is eight steps; nothing was guessed anywhere: the
     // script must contain no placeholder vocabulary at all.
     assert(script.find("TODO") == std::string::npos);
     assert(script.find("approx") == std::string::npos);
+
+    // The committed sample artifacts are BYTE-IDENTICAL to this asserted
+    // construction — editing samples/doric_column without re-deriving them
+    // here (or vice versa) fails the suite. Silent drift in the flagship
+    // sample would be the project's own sin: a file nothing points back at.
+    assert(toml.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column.toml"));
+    assert(script == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column.py"));
 
     return 0;
 }

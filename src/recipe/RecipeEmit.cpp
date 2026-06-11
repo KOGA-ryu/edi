@@ -57,11 +57,20 @@ const std::map<std::string, StepEmitter> &stepEmitters()
             // A unit cube scaled per axis: scale IS the dimension when the
             // base size is 1, so the measured numbers land verbatim.
             std::string block;
-            block += "bpy.ops.mesh.primitive_cube_add(size=1.0)\n";
+            // location pinned and align='WORLD': an unset location inherits
+            // the 3D CURSOR, which would slide the part off the lathe axis
+            // in any scene where the cursor moved.
+            block += "bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.0, 0.0), align='WORLD')\n";
             block += "obj = bpy.context.active_object\n";
             block += "obj.scale = (" + numberText(paramValue(step, "size_x"))
                 + ", " + numberText(paramValue(step, "size_y"))
                 + ", " + numberText(paramValue(step, "size_z")) + ")\n";
+            // Modifiers evaluate on the LOCAL mesh and the object transform
+            // applies afterwards — an unapplied scale would silently multiply
+            // every later modifier number (bevel width, array offset) by it.
+            // Baking the scale keeps "every number is exact" true in world
+            // space; location stays a pure transform for the line below.
+            block += "bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)\n";
             // loc_z is the part's BOTTOM; Blender places by centre, so the
             // emitter does that arithmetic and shows its work in the comment.
             block += "obj.location[2] = "
@@ -73,7 +82,8 @@ const std::map<std::string, StepEmitter> &stepEmitters()
             std::string block;
             block += "bpy.ops.mesh.primitive_cylinder_add(radius="
                 + numberText(paramValue(step, "radius"))
-                + ", depth=" + numberText(paramValue(step, "depth")) + ")\n";
+                + ", depth=" + numberText(paramValue(step, "depth"))
+                + ", location=(0.0, 0.0, 0.0), align='WORLD')\n";
             block += "obj = bpy.context.active_object\n";
             block += "obj.location[2] = "
                 + numberText(paramValue(step, "loc_z") + paramValue(step, "depth") / 2.0)
@@ -106,7 +116,15 @@ const std::map<std::string, StepEmitter> &stepEmitters()
             block += "mod = obj.modifiers.new(name=\"Lathe\", type='SCREW')\n";
             block += "mod.angle = 6.283185307179586\n";
             block += "mod.steps = " + numberText(paramValue(step, "segments")) + "\n";
+            // render_steps is an INDEPENDENT property defaulting to 16: a
+            // render would silently rebuild the lathe coarser than the
+            // viewport the user inspected. One number, both places.
+            block += "mod.render_steps = " + numberText(paramValue(step, "segments")) + "\n";
             block += "mod.use_merge_vertices = True\n";
+            // Outward normals regardless of the profile's vertex order —
+            // the groove booleans classify inside/outside by them, and a
+            // bottom-up vs top-down drafted profile must not flip the cut.
+            block += "mod.use_normal_calculate = True\n";
             // The drafted heights are authoritative; loc_z is an OFFSET for
             // reusing one profile at another height, 0 means "as drafted".
             block += "obj.location[2] = " + numberText(paramValue(step, "loc_z"))
@@ -134,7 +152,8 @@ const std::map<std::string, StepEmitter> &stepEmitters()
                 + " + cutter " + numberText(cutterRadius)
                 + " - depth " + numberText(depth) + "\n";
             block += "    bpy.ops.mesh.primitive_cylinder_add(radius=" + numberText(cutterRadius)
-                + ", depth=" + numberText(zTo - zFrom) + ")\n";
+                + ", depth=" + numberText(zTo - zFrom)
+                + ", location=(0.0, 0.0, 0.0), align='WORLD')\n";
             block += "    _c = bpy.context.active_object\n";
             block += "    _c.location = (_d * math.cos(_a), _d * math.sin(_a), "
                 + numberText((zFrom + zTo) / 2.0) + ")\n";
@@ -171,11 +190,57 @@ const std::map<std::string, StepEmitter> &stepEmitters()
 
 } // namespace
 
+namespace {
+
+// Parameters that become python loop bounds or modifier step counts: a
+// fractional or non-positive value would emit a script that CRASHES inside
+// Blender (range(2.5) is a TypeError) — refusing here preserves the
+// "never write a bad script" contract for values that arrive via
+// measurement bindings, which bypass setParamLiteral's finite gate.
+struct WholeNumberParam {
+    const char *shaperId;
+    const char *paramId;
+};
+
+constexpr WholeNumberParam kWholeNumberParams[] = {
+    {"radial_groove", "count"},
+    {"array", "count"},
+    {"bevel", "segments"},
+    {"lathe", "segments"},
+};
+
+std::string validateResolvedNumbers(const ResolvedRecipe &resolved)
+{
+    for (std::size_t i = 0; i < resolved.steps.size(); ++i) {
+        const ResolvedStep &step = resolved.steps[i];
+        for (const ResolvedParam &param : step.params) {
+            if (!std::isfinite(param.value)) {
+                return "step " + std::to_string(i) + ": " + step.shaperId + "." + param.id
+                    + " is not a finite number";
+            }
+            for (const WholeNumberParam &rule : kWholeNumberParams) {
+                if (step.shaperId == rule.shaperId && param.id == rule.paramId
+                    && (param.value < 1.0 || param.value != std::floor(param.value))) {
+                    return "step " + std::to_string(i) + ": " + step.shaperId + "." + param.id
+                        + " must be a positive whole number";
+                }
+            }
+        }
+    }
+    return {};
+}
+
+} // namespace
+
 RecipeEmitResult emitBlenderPython(const RecipeDocument &document, const ResolvedRecipe &resolved)
 {
     RecipeEmitResult result;
     if (!resolved.ok || resolved.steps.size() != document.steps.size()) {
         result.message = "recipe is not fully resolved; fix the stale bindings first";
+        return result;
+    }
+    if (std::string numberProblem = validateResolvedNumbers(resolved); !numberProblem.empty()) {
+        result.message = std::move(numberProblem);
         return result;
     }
 
@@ -184,6 +249,11 @@ RecipeEmitResult emitBlenderPython(const RecipeDocument &document, const Resolve
     script += "# generated by edi - every number below is exact (typed or measured)\n";
     script += "import bpy\n";
     script += "import math\n";
+    // A user startup file can be sitting in Edit Mode; primitive_add would
+    // then merge the new part INTO the edited mesh. One guard line makes
+    // the script honest about the scene state it needs.
+    script += "if bpy.context.object and bpy.context.object.mode != 'OBJECT':\n";
+    script += "    bpy.ops.object.mode_set(mode='OBJECT')\n";
 
     for (std::size_t i = 0; i < resolved.steps.size(); ++i) {
         const ResolvedStep &step = resolved.steps[i];

@@ -4,6 +4,7 @@
 #include "formats/TomlWriter.h"
 
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -29,7 +30,9 @@ bool parseNumber(const std::string &text, double &value)
     }
     char *end = nullptr;
     value = std::strtod(text.c_str(), &end);
-    return end == text.c_str() + text.size();
+    // strtod accepts "nan"/"inf"; setParamLiteral would reject them anyway,
+    // but failing here gives the sharper ".value: not a number" message.
+    return end == text.c_str() + text.size() && std::isfinite(value);
 }
 
 std::string stepPrefix(std::size_t index)
@@ -127,6 +130,13 @@ RecipeParseResult recipeFromToml(const std::string &text, const std::string &sou
                     result.message = paramPrefix + ": a measurement binding needs both .object and .field";
                     return result;
                 }
+                if (literal != nullptr) {
+                    // A hand-edit that added a binding without deleting the
+                    // old literal: the file would SHOW a number the build
+                    // ignores. Refuse the ambiguity instead of picking.
+                    result.message = paramPrefix + ": has both a literal (.value) and a measurement binding (.object/.field)";
+                    return result;
+                }
                 const RecipeOpResult bound = bindParamToMeasurement(document, i, param.id, {*object, *field});
                 if (!bound.ok) {
                     result.message = paramPrefix + ": " + bound.message;
@@ -154,15 +164,25 @@ RecipeParseResult recipeFromToml(const std::string &text, const std::string &sou
     // a number silently — guesswork by omission.
     for (const auto &[key, unused] : config) {
         (void)unused;
-        if (key.rfind("step.", 0) != 0) {
+        // The sweep audits EVERY key: "steps.0.shaper" (plural typo) or
+        // "recipe.nme" must reject loudly, not load as an empty recipe —
+        // that would be the silent wipe this loader exists to prevent.
+        if (key == "recipe.id" || key == "recipe.name") {
             continue;
         }
-        const std::size_t indexEnd = key.find('.', 5);
+        const std::size_t indexEnd = key.rfind("step.", 0) == 0 ? key.find('.', 5) : std::string::npos;
         bool known = false;
         if (indexEnd != std::string::npos) {
             const std::string indexText = key.substr(5, indexEnd - 5);
             char *end = nullptr;
             const long index = std::strtol(indexText.c_str(), &end, 10);
+            if (end == indexText.c_str() + indexText.size()
+                && index >= 0 && static_cast<std::size_t>(index) >= document.steps.size()) {
+                // A well-formed key for a step the rebuild never reached:
+                // the real problem is a GAP, name the first missing index.
+                result.message = "step indices must be contiguous; missing " + stepPrefix(document.steps.size());
+                return result;
+            }
             if (end == indexText.c_str() + indexText.size()
                 && index >= 0 && static_cast<std::size_t>(index) < document.steps.size()) {
                 const ShaperStep &step = document.steps[static_cast<std::size_t>(index)];

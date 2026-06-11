@@ -846,13 +846,21 @@ void EdiShellWindow::refreshChrome()
             button->style()->unpolish(button);
             button->style()->polish(button);
         }
-        // The face: frame in muted text, bar in the tri-state color. Rebuilt
-        // on every projection — a 16x14 pixmap is cheaper than caching logic.
+        // The face: frame in muted text, bar in the tri-state color. Gated
+        // on its inputs (review find): refreshChrome runs per resize tick,
+        // and an ungated rebuild churned a fresh QIcon through QPixmapCache
+        // every tick. The key is the face's complete input set — state,
+        // both colors, and DPR — so a live theme edit still re-paints.
         const QColor barColor(visibility == PanelVisibility::Visible
                 ? theme.accent
                 : visibility == PanelVisibility::Collapsed ? theme.textFaint : theme.warning);
-        button->setIcon(QIcon(panelToggleFace(slot, QColor(theme.textMuted), barColor, devicePixelRatioF())));
-        button->setIconSize(QSize(16, 14));
+        const QString faceKey = stateName + theme.textMuted + barColor.name()
+            + QString::number(devicePixelRatioF());
+        if (button->property("faceKey").toString() != faceKey) {
+            button->setProperty("faceKey", faceKey);
+            button->setIcon(QIcon(panelToggleFace(slot, QColor(theme.textMuted), barColor, devicePixelRatioF())));
+            button->setIconSize(QSize(16, 14));
+        }
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);
     reflect(m_toggleBottomButton, ShellSlot::Bottom);

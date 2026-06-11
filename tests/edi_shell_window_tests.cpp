@@ -1510,10 +1510,10 @@ int main(int argc, char **argv)
         const edi::shell::ShellTheme knobTheme =
             edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
         const QImage knobShot = knobs.grab().toImage();
-        const auto stripColors = [&knobs, &knobShot](QCheckBox *box) {
+        const auto stripColors = [&knobs, &knobShot](QCheckBox *box, int fromX, int toX) {
             QSet<QString> seen;
             const QPoint origin = box->mapTo(&knobs, QPoint(0, box->height() / 2));
-            for (int x = 0; x < 30; ++x) {
+            for (int x = fromX; x <= toX; ++x) {
                 seen.insert(QColor(knobShot.pixel(origin + QPoint(x, 0))).name());
             }
             return seen;
@@ -1527,14 +1527,19 @@ int main(int argc, char **argv)
         }
         assert(checkedToggle != nullptr && checkedToggle->isChecked());
         assert(checkedToggle->isVisibleTo(&knobs));
-        const QSet<QString> onColors = stripColors(checkedToggle);
-        assert(onColors.contains(knobTheme.accent));     // the knob
-        assert(onColors.contains(knobTheme.accentSoft)); // the track
+        // Ends are asserted separately (review find: a whole-strip membership
+        // check passes with the knob on the WRONG end). On: knob right, track
+        // left. Off: knob left, track right.
+        const QSet<QString> onLeft = stripColors(checkedToggle, 2, 9);
+        const QSet<QString> onRight = stripColors(checkedToggle, 19, 26);
+        assert(onLeft.contains(knobTheme.accentSoft) && !onLeft.contains(knobTheme.accent));
+        assert(onRight.contains(knobTheme.accent));
 
         assert(uncheckedToggle != nullptr && !uncheckedToggle->isChecked());
-        const QSet<QString> offColors = stripColors(uncheckedToggle);
-        assert(offColors.contains(knobTheme.textFaint)); // the knob
-        assert(offColors.contains(knobTheme.control));   // the track
+        const QSet<QString> offLeft = stripColors(uncheckedToggle, 2, 9);
+        const QSet<QString> offRight = stripColors(uncheckedToggle, 19, 26);
+        assert(offLeft.contains(knobTheme.textFaint));
+        assert(offRight.contains(knobTheme.control) && !offRight.contains(knobTheme.textFaint));
     }
 
     // Panel-toggle faces (spec §3): the painted 16x14 frame with its 5x12
@@ -1555,6 +1560,19 @@ int main(int argc, char **argv)
         const QPoint barProbe = leftToggle->mapTo(&faces, QPoint(7 + 3, 8 + 7));
         QImage faceShot = faces.grab().toImage();
         assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.accent); // visible
+
+        // The right and bottom faces get their own probes (review find: the
+        // golden's pixel budget is far larger than one icon, so an unprobed
+        // face is an unlocked face). Right bar rect(10,1,5,12) -> center
+        // (12,7); bottom bar rect(2,8,12,5) -> center (8,10).
+        QPushButton *rightToggle = buttonNamed(faces, QStringLiteral("toggleRightPanel"));
+        QPushButton *bottomToggle = buttonNamed(faces, QStringLiteral("toggleBottomPanel"));
+        assert(rightToggle != nullptr && bottomToggle != nullptr);
+        // Right and bottom panels start collapsed (spec): their bars are faint.
+        assert(QColor(faceShot.pixel(rightToggle->mapTo(&faces, QPoint(7 + 12, 8 + 7)))).name()
+               == faceTheme.textFaint);
+        assert(QColor(faceShot.pixel(bottomToggle->mapTo(&faces, QPoint(7 + 8, 8 + 10)))).name()
+               == faceTheme.textFaint);
 
         faces.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
         faceShot = faces.grab().toImage();
@@ -1768,14 +1786,30 @@ int main(int argc, char **argv)
         const QString goldenPath = QFileInfo(QString::fromUtf8(__FILE__))
                                        .dir()
                                        .filePath(QStringLiteral("golden/default_shell_1100x760.png"));
-        if (qEnvironmentVariableIsSet("EDI_BLESS_GOLDEN")) {
+        // Non-empty check, and bless NEVER passes green (review find): a
+        // leftover exported EDI_BLESS_GOLDEN would otherwise silently turn
+        // every run into a re-bless — the lock self-disabling invisibly
+        // while the golden drifts. A red bless run is a visible bless run.
+        if (!qEnvironmentVariable("EDI_BLESS_GOLDEN").isEmpty()) {
             QDir().mkpath(QFileInfo(goldenPath).absolutePath());
-            assert(current.save(goldenPath));
-            fprintf(stderr, "golden blessed: %s\n", qPrintable(goldenPath));
+            const bool saved = current.save(goldenPath); // no side effects inside assert
+            fprintf(stderr, saved ? "golden blessed: %s — bless runs exit red by design\n"
+                                  : "golden bless FAILED to write: %s\n",
+                    qPrintable(goldenPath));
+            assert(saved);
+            return 1;
         } else {
             QImage reference(goldenPath);
-            assert(!reference.isNull()); // no golden yet: bless once (see above)
+            if (reference.isNull()) {
+                fprintf(stderr, "golden missing: %s — bless once with EDI_BLESS_GOLDEN=1\n",
+                        qPrintable(goldenPath));
+            }
+            assert(!reference.isNull());
             reference = reference.convertToFormat(QImage::Format_RGB32);
+            if (reference.size() != current.size()) {
+                fprintf(stderr, "golden size mismatch: reference %dx%d vs render %dx%d\n",
+                        reference.width(), reference.height(), current.width(), current.height());
+            }
             assert(reference.size() == current.size());
             // Channel tolerance 8 + a 0.5% pixel budget: tight enough that a
             // 1px chrome shift fails, loose enough that subpixel AA jitter

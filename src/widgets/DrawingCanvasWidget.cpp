@@ -70,6 +70,7 @@ void DrawingCanvasWidget::refresh()
 void DrawingCanvasWidget::setCanvasPalette(const drawing_canvas::DrawingCanvasPalette &palette)
 {
     m_palette = palette;
+    m_staticGeneration = 0; // palette changed: the rendered layer is stale even if the document is not
     update();
 }
 
@@ -123,6 +124,24 @@ QPointF DrawingCanvasWidget::screenToCanvas(const QPointF &point) const
     return drawing_canvas::screenToCanvas(boardRect(), point);
 }
 
+const std::vector<drawing_canvas::DrawingCanvasSceneItem> &DrawingCanvasWidget::sceneItems(const QVariantMap &model) const
+{
+    // Generation 0 means "never built"; the controller starts at 1, so the
+    // first frame always builds. After that, only mutations (modelChanged
+    // emissions) move the generation — pointer traffic never does.
+    const quint64 generation = m_controller->modelGeneration();
+    if (m_sceneGeneration != generation) {
+        const QVariantList objects = model.value(QStringLiteral("drawing_objects")).toList();
+        m_sceneCache.clear();
+        m_sceneCache.reserve(static_cast<std::size_t>(objects.size()));
+        for (const QVariant &value : objects) {
+            m_sceneCache.push_back(drawing_canvas::buildCanvasSceneItem(value.toMap()));
+        }
+        m_sceneGeneration = generation;
+    }
+    return m_sceneCache;
+}
+
 void DrawingCanvasWidget::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
@@ -142,16 +161,33 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{
         board, m_controller->selectedObjectId(), m_palette, m_plotPreviewVisible};
     // model and board are computed ONCE and threaded through every helper.
-    // The member mappers (canvasToScreen & co.) re-derive boardRect -> the
-    // full document projection PER CALL; the grid alone made ~2 calls per
-    // line, so one frame used to rebuild the whole projection ~200 times.
-    // Helpers take board and use the pure free functions instead.
-    drawPhysicalGrid(painter, board, model);
-
-    for (const QVariant &value : document.drawingObjects) {
-        drawing_canvas::drawObject(painter, value.toMap(), objectPainterContext);
+    // STATIC LAYER: backdrop + grid + objects render into a pixmap once per
+    // (document generation, viewport geometry) and BLIT per frame. Steady
+    // frames — mouse tracking, previews — were 97% software AA line
+    // rasterization; the blit replaces all of it. Mutations and zoom/pan
+    // re-render the layer (the honest cost of a changed picture). During a
+    // handle drag every move mutates the document, so drags re-render
+    // per move — fast tracking was traded for nothing elsewhere.
+    const std::vector<drawing_canvas::DrawingCanvasSceneItem> &scene = sceneItems(model);
+    const quint64 generation = m_controller->modelGeneration();
+    const QSize deviceSize = size() * devicePixelRatioF();
+    if (m_staticGeneration != generation || m_staticBoard != board || m_staticSize != deviceSize) {
+        m_staticLayer = QPixmap(deviceSize);
+        m_staticLayer.setDevicePixelRatio(devicePixelRatioF());
+        m_staticLayer.fill(m_palette.backdrop);
+        QPainter staticPainter(&m_staticLayer);
+        staticPainter.setRenderHint(QPainter::Antialiasing, true);
+        drawPhysicalGrid(staticPainter, board, model);
+        for (const drawing_canvas::DrawingCanvasSceneItem &item : scene) {
+            drawing_canvas::drawSceneItem(staticPainter, item, objectPainterContext);
+        }
+        drawing_canvas::drawGuideIntersections(staticPainter, scene, objectPainterContext);
+        m_staticGeneration = generation;
+        m_staticBoard = board;
+        m_staticSize = deviceSize;
     }
-    drawing_canvas::drawGuideIntersections(painter, document.drawingObjects, objectPainterContext);
+    painter.drawPixmap(0, 0, m_staticLayer);
+
     if (m_plotPreviewVisible) {
         drawPlotPreview(painter, board, document.plotSummary);
     }

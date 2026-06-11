@@ -162,9 +162,74 @@ void drawGuideIntersections(QPainter &painter, const QVariantList &objects, cons
     painter.restore();
 }
 
-void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
+void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSceneItem> &scene, const DrawingCanvasObjectPainterContext &context)
 {
-    const DrawingCanvasProjectedObjectSummary summary = projectedObjectSummary(object);
+    std::vector<double> vertical;
+    std::vector<double> horizontal;
+    for (const DrawingCanvasSceneItem &item : scene) {
+        if (item.summary.kind != QStringLiteral("guide") || !item.summary.visible || !item.guide.ok) {
+            continue;
+        }
+        if (item.guide.orientation == DrawingCanvasProjectedGuideOrientation::Horizontal) {
+            horizontal.push_back(item.guide.position);
+        } else {
+            vertical.push_back(item.guide.position);
+        }
+    }
+    if (vertical.empty() || horizontal.empty()) {
+        return;
+    }
+
+    painter.save();
+    QColor marker = context.palette.guideIntersection;
+    marker.setAlpha(120);
+    painter.setPen(QPen(marker, 1.0));
+    painter.setBrush(withAlpha(marker, 30));
+    for (double x : vertical) {
+        for (double y : horizontal) {
+            const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);
+            painter.drawEllipse(point, 3.0, 3.0);
+            drawCrosshair(painter, point, 5.0);
+        }
+    }
+    painter.restore();
+}
+
+DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
+{
+    // The extraction half of the old drawObject, run once per document
+    // mutation instead of once per object per frame. Reuses the same
+    // projected* readers, so the typed scene cannot drift from the map path.
+    DrawingCanvasSceneItem item;
+    item.summary = projectedObjectSummary(object);
+    if (!item.summary.visible) {
+        return item;
+    }
+    const QString &kind = item.summary.kind;
+    if (kind == QStringLiteral("guide")) {
+        item.guide = projectedGuide(object);
+    } else if (kind == QStringLiteral("construction_line") || kind == QStringLiteral("line")) {
+        item.line = projectedLine(object);
+        item.endArrow = object.value(QStringLiteral("end_arrow")).toBool();
+    } else if (kind == QStringLiteral("dimension")) {
+        item.dimension = projectedDimension(object);
+    } else if (kind == QStringLiteral("point")) {
+        item.point = projectedPointObject(object);
+    } else if (kind == QStringLiteral("rectangle")) {
+        item.rectangle = projectedRectangle(object);
+    } else if (kind == QStringLiteral("circle")) {
+        item.circle = projectedCircle(object);
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc")) {
+        item.polygon = projectedPolygon(object);
+    }
+    item.style = projectedObjectStyle(object);
+    item.source = object;
+    return item;
+}
+
+void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const DrawingCanvasObjectPainterContext &context)
+{
+    const DrawingCanvasProjectedObjectSummary &summary = item.summary;
     if (!summary.visible) {
         return;
     }
@@ -173,7 +238,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     const bool selected = !context.selectedObjectId.isEmpty() && summary.id == context.selectedObjectId;
 
     if (kind == QStringLiteral("guide")) {
-        const DrawingCanvasProjectedGuide guide = projectedGuide(object);
+        const DrawingCanvasProjectedGuide &guide = item.guide;
         if (!guide.ok) {
             return;
         }
@@ -216,7 +281,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     }
 
     if (kind == QStringLiteral("construction_line")) {
-        const DrawingCanvasProjectedLine line = projectedLine(object);
+        const DrawingCanvasProjectedLine &line = item.line;
         if (!line.ok) {
             return;
         }
@@ -229,7 +294,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     }
 
     if (kind == QStringLiteral("dimension")) {
-        const DrawingCanvasProjectedDimension dimension = projectedDimension(object);
+        const DrawingCanvasProjectedDimension &dimension = item.dimension;
         if (!dimension.ok) {
             return;
         }
@@ -268,7 +333,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         return;
     }
 
-    const DrawingCanvasProjectedStyle style = projectedObjectStyle(object);
+    const DrawingCanvasProjectedStyle &style = item.style;
     QPen pen(
         selected ? context.palette.selection : QColor(style.strokeColor),
         selected ? 3.0 : style.strokeWidth);
@@ -281,7 +346,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     painter.setBrush(Qt::NoBrush);
 
     if (kind == QStringLiteral("point")) {
-        const DrawingCanvasProjectedPointObject pointObject = projectedPointObject(object);
+        const DrawingCanvasProjectedPointObject &pointObject = item.point;
         if (!pointObject.ok) {
             return;
         }
@@ -289,23 +354,23 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         painter.setBrush(selected ? context.palette.selection : context.palette.pointFill);
         painter.drawEllipse(point, 4.0, 4.0);
     } else if (kind == QStringLiteral("line")) {
-        const DrawingCanvasProjectedLine line = projectedLine(object);
+        const DrawingCanvasProjectedLine &line = item.line;
         if (!line.ok) {
             return;
         }
         const QLineF screen = screenLine(context, line);
         painter.drawLine(screen);
-        if (object.value(QStringLiteral("end_arrow")).toBool()) {
+        if (item.endArrow) {
             drawArrowHead(painter, screen);
         }
     } else if (kind == QStringLiteral("rectangle")) {
-        const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
+        const DrawingCanvasProjectedRectangle &rectangle = item.rectangle;
         if (!rectangle.ok) {
             return;
         }
         drawRectangleShape(painter, context, rectangle);
     } else if (kind == QStringLiteral("circle")) {
-        const DrawingCanvasProjectedCircle circle = projectedCircle(object);
+        const DrawingCanvasProjectedCircle &circle = item.circle;
         if (!circle.ok) {
             return;
         }
@@ -313,7 +378,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc")) {
-        const DrawingCanvasProjectedPolygon projected = projectedPolygon(object);
+        const DrawingCanvasProjectedPolygon &projected = item.polygon;
         if (!projected.ok) {
             return;
         }
@@ -345,8 +410,13 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
     }
 
     if (selected) {
-        drawSelectedHandles(painter, object, context);
+        drawSelectedHandles(painter, item.source, context);
     }
+}
+
+void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
+{
+    drawSceneItem(painter, buildCanvasSceneItem(object), context);
 }
 
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)

@@ -187,6 +187,12 @@ public:
 
 signals:
     void modelChanged();
+    // Transient pointer/preview state changed (mouse movement) — the
+    // document did NOT. The canvas repaints on this; heavyweight listeners
+    // (inspector rebuild, object list, persistence scheduling, undo chrome)
+    // subscribe only to modelChanged. Without the split, every mouse move
+    // rebuilt the whole right panel.
+    void pointerChanged();
 
 private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);

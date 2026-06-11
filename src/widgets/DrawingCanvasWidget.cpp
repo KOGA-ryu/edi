@@ -58,6 +58,7 @@ DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, 
     setFocusPolicy(Qt::ClickFocus);
     if (m_controller != nullptr) {
         connect(m_controller, &DrawingDocumentController::modelChanged, this, &DrawingCanvasWidget::refresh);
+        connect(m_controller, &DrawingDocumentController::pointerChanged, this, &DrawingCanvasWidget::refresh);
     }
 }
 

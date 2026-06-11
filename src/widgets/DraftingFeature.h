@@ -56,6 +56,10 @@ public:
         // slot is part of the job); the shell owns the layout, the feature
         // only renders it. Absent callable -> the feature's default belt.
         std::function<edi::shell::BeltLayout()> beltLayout;
+        // Modular panels: which panel hosts a content group ("left"/"right"/
+        // "bottom"/"hidden"; empty -> feature default). The shell owns the
+        // assignments (workspace data); the feature only places groups.
+        std::function<QString(const QString &)> panelSlotForGroup;
     };
 
     DraftingFeature(DrawingDocumentController *controller, ShellActions actions, QObject *parent = nullptr);
@@ -86,6 +90,10 @@ public:
     // no remount, so the settings checklist edits the belt while both stay
     // on screen (same live-edit contract as theming).
     void refreshBelt(const edi::shell::BeltLayout &belt);
+    // Modular panels: the group vocabulary for the settings page, and the
+    // live re-place when an assignment changes (groups reparent, not rebuild).
+    static QVector<QPair<QString, QString>> panelGroupInventory();
+    void applyPanelAssignments();
 
 private:
     QWidget *buildLeftPanel();
@@ -94,7 +102,10 @@ private:
     QWidget *buildBottomPanel();
     // F2: one container per inspector plan group id; refreshInspector toggles
     // their visibility from planDraftingInspector — never rebuilds them.
-    QVBoxLayout *beginInspectorGroup(QVBoxLayout *panelLayout, const QString &groupId);
+    QVBoxLayout *beginInspectorGroup(const QString &groupId);
+    void ensureInspectorGroupsBuilt();
+    void placePanelGroups(const QString &slotName, QVBoxLayout *layout);
+    QString assignedPanelSlot(const QString &groupId) const;
     void applyInspectorPlan(const QVariantMap &selectedObject);
     QWidget *buildGeometryEditor();
     QWidget *buildObjectFlagControls();
@@ -229,4 +240,6 @@ private:
     QLabel *m_guideDragValue = nullptr;
     QLabel *m_previewValue = nullptr;
     QMap<QString, QWidget *> m_inspectorGroups;
+    QStringList m_groupBuildOrder; // canonical top-to-bottom order
+    QMap<QString, QVBoxLayout *> m_panelGroupHosts; // slot name -> content layout
 };

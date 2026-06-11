@@ -497,6 +497,14 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
     // workspace switch and must see the layout being mounted, not the one
     // that existed when the actions were wired.
     actions.beltLayout = [this]() { return m_workspaceLayout.belt; };
+    actions.panelSlotForGroup = [this](const QString &groupId) {
+        for (const PanelContentAssignment &assignment : m_workspaceLayout.panelContent) {
+            if (assignment.groupId == groupId) {
+                return assignment.slot;
+            }
+        }
+        return QString(); // empty -> the feature's default
+    };
     return std::make_unique<DraftingFeature>(m_controller, std::move(actions));
 }
 
@@ -523,6 +531,33 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
             }
         }
         return ids;
+    };
+    hooks.panelGroupInventory = []() { return DraftingFeature::panelGroupInventory(); };
+    hooks.panelSlotForGroup = [this](const QString &groupId) {
+        for (const PanelContentAssignment &assignment : m_workspaceLayout.panelContent) {
+            if (assignment.groupId == groupId) {
+                return assignment.slot;
+            }
+        }
+        return groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+    };
+    hooks.setPanelSlotForGroup = [this](const QString &groupId, const QString &slot) {
+        // Keyed insert-or-update, then live re-place. Persisted with the
+        // workspace on close, like every other layout edit.
+        bool updated = false;
+        for (PanelContentAssignment &assignment : m_workspaceLayout.panelContent) {
+            if (assignment.groupId == groupId) {
+                assignment.slot = slot;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            m_workspaceLayout.panelContent.push_back({groupId, slot});
+        }
+        if (m_draftingFeature != nullptr) {
+            m_draftingFeature->applyPanelAssignments();
+        }
     };
     hooks.setBeltToolIds = [this](const QStringList &enabledIds) {
         BeltLayout next = DraftingFeature::beltLayoutForTools(enabledIds);

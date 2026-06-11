@@ -452,35 +452,12 @@ QWidget *DraftingFeature::buildLeftPanel()
 {
     const PanelSpec leftSpec = panelSpec(ShellSlot::Left);
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("leftPanel"), leftSpec.minSize, leftSpec.maxSize);
-
-    //auto *title = new QLabel(QStringLiteral("EDI Drafting"));
-    //title->setObjectName(QStringLiteral("panelTitle"));
-    //layout->addWidget(title);
-
-    // F1: the document as a browsable list — selection by name, not only by
-    // canvas click. Fixed height so it never fights the outer panel scroll.
-    //layout->addWidget(makeSectionLabel(QStringLiteral("Objects")));
-    m_objectList = new QListWidget;
-    m_objectList->setObjectName(QStringLiteral("objectList"));
-    m_objectList->setFixedHeight(140);
-    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
-        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
-    });
-    layout->addWidget(m_objectList);
-
-    // Empty state: an empty bordered well reads as a broken widget, not as
-    // "nothing here yet". The label names the absence; refreshInspector owns
-    // its visibility, same as every other projection of the document.
-    m_objectListEmpty = new QLabel(QStringLiteral("No objects yet"));
-    m_objectListEmpty->setObjectName(QStringLiteral("objectListEmpty"));
-    layout->addWidget(m_objectListEmpty);
-
-    // Everything else this panel used to host has a better home now: tools
-    // float (F4), snap/grid sit in the chrome popup, undo/redo and project
-    // files live in the Edit/File menus. Navigate left, work center,
-    // configure right.
+    // Modular panels: this panel hosts whatever groups the user assigned
+    // "left" (default: the object list). Same placement pass as the right
+    // panel — left and right share formatting by construction.
+    ensureInspectorGroupsBuilt();
+    placePanelGroups(QStringLiteral("left"), layout);
     layout->addStretch(1);
-
     return panel;
 }
 
@@ -498,10 +475,31 @@ QWidget *DraftingFeature::buildRightPanel()
 {
     const PanelSpec rightSpec = panelSpec(ShellSlot::Right);
     auto [panel, layout] = makeScrollablePanel(QStringLiteral("rightPanel"), rightSpec.minSize, rightSpec.maxSize);
+    ensureInspectorGroupsBuilt();
+    placePanelGroups(QStringLiteral("right"), layout);
+    layout->addStretch(1);
+    return panel;
+}
 
-    //auto *title = new QLabel(QStringLiteral("Inspector"));
-    //title->setObjectName(QStringLiteral("panelTitle"));
-    //layout->addWidget(title);
+void DraftingFeature::ensureInspectorGroupsBuilt()
+{
+    if (!m_inspectorGroups.isEmpty()) {
+        return; // built once per feature instance; panels only place them
+    }
+
+    // F1: the document as a browsable list — group "object_list", default
+    // home the left panel. Built first so it tops whichever panel hosts it.
+    QVBoxLayout *objectListGroup = beginInspectorGroup(QStringLiteral("object_list"));
+    m_objectList = new QListWidget;
+    m_objectList->setObjectName(QStringLiteral("objectList"));
+    m_objectList->setFixedHeight(140);
+    connect(m_objectList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        m_controller->selectObjectById(item->data(Qt::UserRole).toString());
+    });
+    objectListGroup->addWidget(m_objectList);
+    m_objectListEmpty = new QLabel(QStringLiteral("No objects yet"));
+    m_objectListEmpty->setObjectName(QStringLiteral("objectListEmpty"));
+    objectListGroup->addWidget(m_objectListEmpty);
 
     // F2: the inspector is a context-keyed stack (planDraftingInspector).
     // Every group is built exactly once, in a fixed order chosen so every
@@ -513,7 +511,7 @@ QWidget *DraftingFeature::buildRightPanel()
 
     // Tool options ride above everything: creation auto-selects the new
     // object, so a draw loop shows them together with the object's properties.
-    QVBoxLayout *group = beginInspectorGroup(layout, QStringLiteral("tool_polygon"));
+    QVBoxLayout *group = beginInspectorGroup(QStringLiteral("tool_polygon"));
     group->addWidget(makeSectionLabel(QStringLiteral("Polygon Tool")));
     {
         auto *sidesRow = new QWidget;
@@ -535,7 +533,7 @@ QWidget *DraftingFeature::buildRightPanel()
     // N4: rectangle variant options + aspect-lock. Like the polygon group,
     // these mirror controller tool-option state (set at build, pushed back on
     // edit); they are tool modes, not per-object fields.
-    group = beginInspectorGroup(layout, QStringLiteral("tool_rectangle"));
+    group = beginInspectorGroup(QStringLiteral("tool_rectangle"));
     group->addWidget(makeSectionLabel(QStringLiteral("Rectangle Tool")));
     {
         const auto addRectSpin = [&](const QString &label, const QString &name, double value,
@@ -565,14 +563,14 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(m_aspectLockToggle);
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("empty_state"));
+    group = beginInspectorGroup(QStringLiteral("empty_state"));
     {
         auto *emptyState = makeValueLabel(QStringLiteral("Nothing selected."));
         emptyState->setObjectName(QStringLiteral("inspectorEmptyState"));
         group->addWidget(emptyState);
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("selection_summary"));
+    group = beginInspectorGroup(QStringLiteral("selection_summary"));
     group->addWidget(makeSectionLabel(QStringLiteral("Selection")));
     m_selectedValue = makeValueLabel();
     group->addWidget(m_selectedValue);
@@ -656,7 +654,7 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Metadata"), meta.box, false));
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("geometry"));
+    group = beginInspectorGroup(QStringLiteral("geometry"));
     m_geometryEditor = buildGeometryEditor();
     group->addWidget(m_geometryEditor);
     m_geometryEditStatus = makeValueLabel();
@@ -664,7 +662,7 @@ QWidget *DraftingFeature::buildRightPanel()
     m_geometryEditStatus->setVisible(false);
     group->addWidget(m_geometryEditStatus);
 
-    group = beginInspectorGroup(layout, QStringLiteral("dimension"));
+    group = beginInspectorGroup(QStringLiteral("dimension"));
     group->addWidget(makeSectionLabel(QStringLiteral("Dimension")));
     m_dimensionReadout = makeValueLabel(QStringLiteral("Dimension: none"));
     group->addWidget(m_dimensionReadout);
@@ -683,7 +681,7 @@ QWidget *DraftingFeature::buildRightPanel()
     });
     group->addWidget(m_dimensionShowLabel);
 
-    group = beginInspectorGroup(layout, QStringLiteral("guide_position"));
+    group = beginInspectorGroup(QStringLiteral("guide_position"));
     group->addWidget(makeSectionLabel(QStringLiteral("Guide")));
     group->addWidget(makeConditionalButton(QStringLiteral("guideToDrawableOriginButton"), QStringLiteral("Guide To Drawable Origin"), QStringLiteral("guide_drawable_controls"), [this]() {
         m_controller->moveSelectedGuideToDrawableOrigin();
@@ -720,7 +718,7 @@ QWidget *DraftingFeature::buildRightPanel()
         m_controller->deleteSelectedGuide();
     }));
 
-    group = beginInspectorGroup(layout, QStringLiteral("guide_visuals"));
+    group = beginInspectorGroup(QStringLiteral("guide_visuals"));
     group->addWidget(makeSectionLabel(QStringLiteral("Guide Visuals")));
     m_guideLabel = new QLineEdit;
     m_guideLabel->setObjectName(QStringLiteral("guideLabelField"));
@@ -752,12 +750,12 @@ QWidget *DraftingFeature::buildRightPanel()
     });
     group->addWidget(m_guideShowLabel);
 
-    group = beginInspectorGroup(layout, QStringLiteral("construction"));
+    group = beginInspectorGroup(QStringLiteral("construction"));
     group->addWidget(makeConditionalButton(QStringLiteral("fitConstructionToDrawableButton"), QStringLiteral("Fit Construction To Drawable"), QStringLiteral("construction_drawable_controls"), [this]() {
         m_controller->fitSelectedConstructionLineToDrawable();
     }));
 
-    group = beginInspectorGroup(layout, QStringLiteral("transform"));
+    group = beginInspectorGroup(QStringLiteral("transform"));
     group->addWidget(makeCollapsibleSection(QStringLiteral("Nudge"), buildNudgeControls(), false));
     group->addWidget(makeCollapsibleSection(QStringLiteral("Align"), buildAlignControls(), false));
     {
@@ -770,7 +768,7 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Duplicate"), duplicate.box, false));
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("object_guides"));
+    group = beginInspectorGroup(QStringLiteral("object_guides"));
     {
         const QVector<QPair<QString, QString>> boundsGuideButtons {
             {QStringLiteral("left"), QStringLiteral("Left")},
@@ -833,10 +831,10 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Align To Guide"), fold.box, false));
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("layers_document"));
+    group = beginInspectorGroup(QStringLiteral("layers_document"));
     group->addWidget(makeCollapsibleSection(QStringLiteral("Layers"), buildLayerControls(), true));
 
-    group = beginInspectorGroup(layout, QStringLiteral("guides_document"));
+    group = beginInspectorGroup(QStringLiteral("guides_document"));
     {
         const QVector<QPair<QString, QString>> guidePresetButtons {
             {QStringLiteral("drawable_bounds"), QStringLiteral("Bounds")},
@@ -880,10 +878,10 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(makeCollapsibleSection(QStringLiteral("All Guides"), fold.box, false));
     }
 
-    group = beginInspectorGroup(layout, QStringLiteral("calibration_document"));
+    group = beginInspectorGroup(QStringLiteral("calibration_document"));
     group->addWidget(makeCollapsibleSection(QStringLiteral("Calibration"), buildCalibrationControls(), false));
 
-    group = beginInspectorGroup(layout, QStringLiteral("document_info"));
+    group = beginInspectorGroup(QStringLiteral("document_info"));
     group->addWidget(makeSectionLabel(QStringLiteral("Document")));
     m_toolValue = makeValueLabel();
     m_objectsValue = makeValueLabel();
@@ -894,7 +892,7 @@ QWidget *DraftingFeature::buildRightPanel()
     group->addWidget(m_guidesValue);
     group->addWidget(m_revisionValue);
 
-    group = beginInspectorGroup(layout, QStringLiteral("canvas_state"));
+    group = beginInspectorGroup(QStringLiteral("canvas_state"));
     FoldBox canvasState = makeFoldBox();
     m_snapValue = makeValueLabel();
     m_gridValue = makeValueLabel();
@@ -939,12 +937,93 @@ QWidget *DraftingFeature::buildRightPanel()
     canvasState.layout->addWidget(m_guideDragValue);
     canvasState.layout->addWidget(m_previewValue);
     group->addWidget(makeCollapsibleSection(QStringLiteral("Canvas State"), canvasState.box, false));
-    layout->addStretch(1);
-
-    return panel;
 }
 
-QVBoxLayout *DraftingFeature::beginInspectorGroup(QVBoxLayout *panelLayout, const QString &groupId)
+QString DraftingFeature::assignedPanelSlot(const QString &groupId) const
+{
+    if (m_actions.panelSlotForGroup) {
+        const QString slot = m_actions.panelSlotForGroup(groupId);
+        if (!slot.isEmpty()) {
+            return slot;
+        }
+    }
+    return groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+}
+
+void DraftingFeature::placePanelGroups(const QString &slotName, QVBoxLayout *layout)
+{
+    m_panelGroupHosts.insert(slotName, layout);
+    for (const QString &groupId : m_groupBuildOrder) {
+        QString slot = assignedPanelSlot(groupId);
+        if (slot == QStringLiteral("hidden")) {
+            // Hidden groups PARK in their default panel: a parent keeps them
+            // owned through remounts (a parentless widget would leak), and
+            // the plan refresh keeps them invisible.
+            slot = groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+        }
+        if (slot == slotName) {
+            layout->addWidget(m_inspectorGroups.value(groupId));
+        }
+    }
+}
+
+void DraftingFeature::applyPanelAssignments()
+{
+    // Live re-place: pull every group out of its host, then re-run the
+    // placement order per host, inserting before each host's trailing
+    // widget (the stretch, or the terminal's status label). Groups are
+    // REPARENTED, never rebuilt — live editors and the settings page's own
+    // controls keep their connections, the same live-edit contract as the
+    // belt re-dress.
+    for (auto it = m_inspectorGroups.cbegin(); it != m_inspectorGroups.cend(); ++it) {
+        QWidget *group = it.value();
+        if (group->parentWidget() != nullptr && group->parentWidget()->layout() != nullptr) {
+            group->parentWidget()->layout()->removeWidget(group);
+        }
+        group->setParent(nullptr);
+        group->hide(); // no momentary top-level flicker
+    }
+    for (auto hostIt = m_panelGroupHosts.cbegin(); hostIt != m_panelGroupHosts.cend(); ++hostIt) {
+        QVBoxLayout *host = hostIt.value();
+        for (const QString &groupId : m_groupBuildOrder) {
+            QString slot = assignedPanelSlot(groupId);
+            if (slot == QStringLiteral("hidden")) {
+                slot = groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+            }
+            if (slot == hostIt.key()) {
+                host->insertWidget(host->count() - 1, m_inspectorGroups.value(groupId));
+            }
+        }
+    }
+    refreshInspector(); // re-applies plan visibility (and un-hides what belongs visible)
+}
+
+QVector<QPair<QString, QString>> DraftingFeature::panelGroupInventory()
+{
+    // The settings page's vocabulary: group id -> human label, in canonical
+    // (build) order. Ids are the same strings the inspector plan speaks.
+    return {
+        {QStringLiteral("object_list"), QStringLiteral("Object List")},
+        {QStringLiteral("tool_polygon"), QStringLiteral("Polygon Tool")},
+        {QStringLiteral("tool_rectangle"), QStringLiteral("Rectangle Tool")},
+        {QStringLiteral("empty_state"), QStringLiteral("Empty State")},
+        {QStringLiteral("selection_summary"), QStringLiteral("Selection")},
+        {QStringLiteral("geometry"), QStringLiteral("Geometry")},
+        {QStringLiteral("dimension"), QStringLiteral("Dimension")},
+        {QStringLiteral("guide_position"), QStringLiteral("Guide Position")},
+        {QStringLiteral("guide_visuals"), QStringLiteral("Guide Visuals")},
+        {QStringLiteral("construction"), QStringLiteral("Construction")},
+        {QStringLiteral("transform"), QStringLiteral("Transform")},
+        {QStringLiteral("object_guides"), QStringLiteral("Object Guides")},
+        {QStringLiteral("layers_document"), QStringLiteral("Layers")},
+        {QStringLiteral("guides_document"), QStringLiteral("Guides")},
+        {QStringLiteral("calibration_document"), QStringLiteral("Calibration")},
+        {QStringLiteral("document_info"), QStringLiteral("Document")},
+        {QStringLiteral("canvas_state"), QStringLiteral("Canvas State")},
+    };
+}
+
+QVBoxLayout *DraftingFeature::beginInspectorGroup(const QString &groupId)
 {
     auto *groupWidget = new QWidget;
     // The object name mirrors the plan's group id so tests assert per-context
@@ -953,8 +1032,12 @@ QVBoxLayout *DraftingFeature::beginInspectorGroup(QVBoxLayout *panelLayout, cons
     auto *groupLayout = new QVBoxLayout(groupWidget);
     clearLayoutMargins(groupLayout);
     groupLayout->setSpacing(8); // matches the scroll panel's content spacing
-    panelLayout->addWidget(groupWidget);
+    // No parent here: groups are built once, parentless, and PLACED by the
+    // assignment pass (modular panels — the user decides which panel hosts
+    // which group). m_groupBuildOrder is the canonical top-to-bottom order
+    // every panel preserves for its own subset.
     m_inspectorGroups.insert(groupId, groupWidget);
+    m_groupBuildOrder.push_back(groupId);
     return groupLayout;
 }
 
@@ -1213,6 +1296,10 @@ QWidget *DraftingFeature::buildBottomPanel()
     // the two rows, so growing the terminal made the tabs drift and opened a
     // gap above the content.
     layout->addWidget(tabs);
+    // Groups the user assigned "bottom" sit between the tabs and the status
+    // text — the terminal keeps its own formatting around them.
+    ensureInspectorGroupsBuilt();
+    placePanelGroups(QStringLiteral("bottom"), layout);
     layout->addWidget(status, 1);
     return panel;
 }

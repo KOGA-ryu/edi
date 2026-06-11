@@ -198,6 +198,9 @@ DraftingFeature::DraftingFeature(DrawingDocumentController *controller, ShellAct
     , m_actions(std::move(actions))
 {
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &DraftingFeature::refreshInspector);
+    // Mouse movement updates only the pointer readouts — rebuilding the
+    // whole inspector (and its object list) per move was a dominant lag.
+    connect(m_controller, &DrawingDocumentController::pointerChanged, this, &DraftingFeature::refreshPointerReadouts);
 }
 
 BeltLayout DraftingFeature::beltLayoutForTools(const QStringList &enabledIds)

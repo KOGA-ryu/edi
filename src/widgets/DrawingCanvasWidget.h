@@ -45,12 +45,12 @@ private:
     QPointF screenToCanvas(const QPointF &point) const;
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
-    void drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const;
-    void drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const;
-    void drawGuideDragSnapIntent(QPainter &painter, const QVariantMap &model) const;
-    void drawPlotPreview(QPainter &painter, const QVariantMap &plotSummary) const;
-    void drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const;
-    void drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const;
+    void drawPhysicalGrid(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    void drawPointerSnapMarker(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    void drawGuideDragSnapIntent(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    void drawPlotPreview(QPainter &painter, const QRectF &board, const QVariantMap &plotSummary) const;
+    void drawPlotSafetyOverlay(QPainter &painter, const QRectF &board, const QVariantMap &plot) const;
+    void drawSelectionPlotBounds(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
 
     DrawingDocumentController *m_controller = nullptr;
     // Chrome/feedback colors only — object strokes stay document data. Set in

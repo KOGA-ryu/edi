@@ -329,7 +329,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         }
     }
 
-    if (summary.plotBlocked && summary.bounds.ok) {
+    if (context.plotDiagnostics && summary.plotBlocked && summary.bounds.ok) {
         QRectF warningRect = drawing_canvas::boundsToScreenRect(
             context.board, summary.bounds.x, summary.bounds.y, summary.bounds.width, summary.bounds.height);
         if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {

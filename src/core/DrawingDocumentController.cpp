@@ -952,7 +952,7 @@ void DrawingDocumentController::updatePointerNormalized(double x, double y)
         return;
     }
     m_pointerRawPoint = point;
-    emit modelChanged();
+    emit pointerChanged(); // movement, not mutation
 }
 
 bool DrawingDocumentController::finishEdit(const QString &mode, const QString &fieldId, bool ok,
@@ -2106,7 +2106,7 @@ void DrawingDocumentController::updateCreationPreviewNormalized(double x, double
     } else {
         m_previewObject.reset();
     }
-    emit modelChanged();
+    emit pointerChanged(); // the preview ghost tracks the cursor — still not a mutation
 }
 
 bool DrawingDocumentController::editSelectedHandleNormalized(const QString &handleId, double x, double y)

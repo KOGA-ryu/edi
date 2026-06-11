@@ -156,9 +156,6 @@ void DraftingFeature::refreshInspector()
     const QVariantMap snap = document.value(QStringLiteral("snap")).toMap();
     const QVariantMap grid = document.value(QStringLiteral("grid")).toMap();
     const QVariantMap plot = document.value(QStringLiteral("plot_summary")).toMap();
-    const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
-    const QVariantMap quickMeasurement = document.value(QStringLiteral("quick_measurement")).toMap();
-    const QVariantMap guideDragSnap = document.value(QStringLiteral("guide_drag_snap")).toMap();
     const QVariantMap calibrationMeasurement = document.value(QStringLiteral("calibration_measurement")).toMap();
     const QVariantMap calibrationCorrection = document.value(QStringLiteral("calibration_correction")).toMap();
     const QVariantMap editStatus = document.value(QStringLiteral("edit_status")).toMap();
@@ -442,6 +439,30 @@ void DraftingFeature::refreshInspector()
     }
     refreshComboData(m_plotOrderMode, plot.value(QStringLiteral("order_mode")).toString(), 0);
     refreshComboData(m_plotDirectionMode, plot.value(QStringLiteral("direction_mode")).toString(), 0);
+    refreshPointerReadouts();
+    if (m_actions.setStatusText) {
+        // The status line is shell chrome now; the feature publishes, the
+        // shell decides where it shows.
+        m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects")
+            .arg(m_actions.workspaceModeName())
+            .arg(selected.size())
+            .arg(objects.size()));
+    }
+
+}
+
+void DraftingFeature::refreshPointerReadouts()
+{
+    // The light sibling of refreshInspector: mouse movement updates ONLY
+    // these four labels. Reads its own projection — still bounded by one
+    // modelDocument() call, where the full inspector rebuild was dozens of
+    // widget updates plus an object-list rebuild per move.
+    const QVariantMap document = m_controller->modelDocument();
+    const QVariantMap pointer = document.value(QStringLiteral("pointer")).toMap();
+    const QVariantMap quickMeasurement = document.value(QStringLiteral("quick_measurement")).toMap();
+    const QVariantMap guideDragSnap = document.value(QStringLiteral("guide_drag_snap")).toMap();
+    const bool hasPreview = document.contains(QStringLiteral("preview_object"));
+
     if (m_pointerValue != nullptr) {
         if (pointer.isEmpty()) {
             m_pointerValue->setText(QStringLiteral("Pointer: none"));
@@ -485,13 +506,4 @@ void DraftingFeature::refreshInspector()
         }
     }
     setLabelText(m_previewValue, QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
-    if (m_actions.setStatusText) {
-        // The status line is shell chrome now; the feature publishes, the
-        // shell decides where it shows.
-        m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects")
-            .arg(m_actions.workspaceModeName())
-            .arg(selected.size())
-            .arg(objects.size()));
-    }
-
 }

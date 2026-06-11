@@ -68,6 +68,9 @@ public:
     // contract as buildPalettes: fresh widgets, shell owns the frame.
     std::vector<edi::shell::FeatureChromePanelSpec> buildChromePanels();
     void refreshInspector();
+    // The light per-mouse-move sibling: only the pointer/quick-measure/
+    // guide-drag/preview readouts. Subscribed to pointerChanged.
+    void refreshPointerReadouts();
     DrawingCanvasWidget *canvas() const { return m_canvas; }
 
     // The drafting tools arranged on the belt: one row per tool, the row's

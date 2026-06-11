@@ -4,6 +4,8 @@
 #include "widgets/DrawingCanvasViewport.h"
 
 #include <QApplication>
+#include <QColor>
+#include <QImage>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPointF>
@@ -366,6 +368,52 @@ int main(int argc, char **argv)
         sendKey(polyCanvas, Qt::Key_Escape);
         sendMouse(polyCanvas, QEvent::MouseButtonDblClick, a, Qt::LeftButton, Qt::LeftButton);
         assert(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+    }
+
+    // Overlay gating: during normal drafting a fresh shape adds NO wash to
+    // the board around it — no green plot-safety rect, no amber selection
+    // plot-bounds rect (the user's 'square highlighted box' report). The
+    // plot preview brings the diagnostics back. Measured as patch diffs
+    // around a point INSIDE the shape's bbox but off its stroke and handles.
+    {
+        DrawingDocumentController overlayController;
+        DrawingCanvasWidget overlayCanvas(&overlayController);
+        overlayCanvas.resize(600, 450);
+
+        const auto patchAt = [&overlayCanvas](const QPoint &center) {
+            const QImage frame = overlayCanvas.grab().toImage();
+            return frame.copy(center.x() - 10, center.y() - 10, 20, 20);
+        };
+        const auto diffCount = [](const QImage &a, const QImage &b) {
+            int differing = 0;
+            for (int y = 0; y < a.height(); ++y) {
+                for (int x = 0; x < a.width(); ++x) {
+                    if (a.pixel(x, y) != b.pixel(x, y)) {
+                        ++differing;
+                    }
+                }
+            }
+            return differing;
+        };
+
+        const QPoint probe = screenPointFor(overlayController, overlayCanvas, 0.45, 0.45).toPoint();
+        const QImage emptyPatch = patchAt(probe);
+
+        overlayController.setSelectedToolId(QStringLiteral("circle_tool"));
+        clickCanvas(overlayController, overlayCanvas, 0.4, 0.4);
+        clickCanvas(overlayController, overlayCanvas, 0.6, 0.6); // circle, auto-selected
+        assert(!overlayController.selectedObjectId().isEmpty());
+
+        // Normal drafting: the patch sits inside the new circle's bbox, off
+        // the stroke — a box wash would tint all 400 pixels; without it the
+        // patch stays (nearly) what the empty board showed.
+        const QImage draftingPatch = patchAt(probe);
+        assert(diffCount(emptyPatch, draftingPatch) <= 40);
+
+        // Plot preview: selection bounds + machine bounds return as washes.
+        overlayCanvas.setPlotPreviewVisible(true);
+        const QImage previewPatch = patchAt(probe);
+        assert(diffCount(draftingPatch, previewPatch) > 200);
     }
 
     return 0;

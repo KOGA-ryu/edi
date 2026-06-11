@@ -58,6 +58,7 @@ DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, 
     setFocusPolicy(Qt::ClickFocus);
     if (m_controller != nullptr) {
         connect(m_controller, &DrawingDocumentController::modelChanged, this, &DrawingCanvasWidget::refresh);
+        connect(m_controller, &DrawingDocumentController::pointerChanged, this, &DrawingCanvasWidget::refresh);
     }
 }
 
@@ -138,27 +139,34 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     const QVariantMap model = m_controller->modelDocument();
     const QRectF board = boardRect();
     const drawing_canvas::DrawingCanvasProjectedDocumentSurface document = drawing_canvas::projectedDocumentSurface(model);
-    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{board, m_controller->selectedObjectId(), m_palette};
-    drawPhysicalGrid(painter, model);
+    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{
+        board, m_controller->selectedObjectId(), m_palette, m_plotPreviewVisible};
+    // model and board are computed ONCE and threaded through every helper.
+    // The member mappers (canvasToScreen & co.) re-derive boardRect -> the
+    // full document projection PER CALL; the grid alone made ~2 calls per
+    // line, so one frame used to rebuild the whole projection ~200 times.
+    // Helpers take board and use the pure free functions instead.
+    drawPhysicalGrid(painter, board, model);
 
     for (const QVariant &value : document.drawingObjects) {
         drawing_canvas::drawObject(painter, value.toMap(), objectPainterContext);
     }
     drawing_canvas::drawGuideIntersections(painter, document.drawingObjects, objectPainterContext);
     if (m_plotPreviewVisible) {
-        drawPlotPreview(painter, document.plotSummary);
+        drawPlotPreview(painter, board, document.plotSummary);
     }
-    drawPlotSafetyOverlay(painter, document.plotSummary);
-    drawSelectionPlotBounds(painter, model);
+    drawPlotSafetyOverlay(painter, board, document.plotSummary);
+    drawSelectionPlotBounds(painter, board, model);
     if (!document.previewObject.isEmpty()) {
         drawing_canvas::drawPreviewObject(painter, document.previewObject, objectPainterContext);
     }
-    drawGuideDragSnapIntent(painter, model);
-    drawPointerSnapMarker(painter, model);
+    drawGuideDragSnapIntent(painter, board, model);
+    drawPointerSnapMarker(painter, board, model);
 
     if (drawing_canvas::isMarquee(m_gestureState) && m_gestureState.moved) {
-        const QRectF marquee(canvasToScreen(m_gestureState.startPoint.x, m_gestureState.startPoint.y),
-            canvasToScreen(m_gestureState.lastPoint.x, m_gestureState.lastPoint.y));
+        const QRectF marquee(
+            drawing_canvas::canvasToScreen(board, m_gestureState.startPoint.x, m_gestureState.startPoint.y),
+            drawing_canvas::canvasToScreen(board, m_gestureState.lastPoint.x, m_gestureState.lastPoint.y));
         painter.setPen(QPen(m_palette.preview, 1, Qt::DashLine));
         painter.setBrush(withAlpha(m_palette.preview, 32));
         painter.drawRect(marquee.normalized());
@@ -477,30 +485,31 @@ QString DrawingCanvasWidget::hitSelectedHandle(const QPointF &screenPoint) const
     return drawing_canvas::hitCanvasHandleAt(object, screenPoint, boardRect()).handleId;
 }
 
-void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap &model) const
+void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QRectF &board, const QVariantMap &model) const
 {
-    const QRectF board = boardRect();
     const drawing_canvas::DrawingCanvasProjectedGrid grid = drawing_canvas::projectedGrid(model);
     painter.fillRect(board, m_palette.boardFill);
 
     for (const drawing_canvas::DrawingCanvasProjectedGridLine &line : grid.lines) {
         painter.setPen(QPen(line.major ? m_palette.gridMajor : m_palette.gridMinor, line.major ? 1.25 : 1.0));
         if (line.axis == QStringLiteral("vertical")) {
-            painter.drawLine(canvasToScreen(line.position, 0.0), canvasToScreen(line.position, 1.0));
+            painter.drawLine(drawing_canvas::canvasToScreen(board, line.position, 0.0),
+                             drawing_canvas::canvasToScreen(board, line.position, 1.0));
         } else {
-            painter.drawLine(canvasToScreen(0.0, line.position), canvasToScreen(1.0, line.position));
+            painter.drawLine(drawing_canvas::canvasToScreen(board, 0.0, line.position),
+                             drawing_canvas::canvasToScreen(board, 1.0, line.position));
         }
     }
 
     if (grid.drawableBounds.visible) {
         painter.setPen(QPen(m_palette.drawableBounds, 1, Qt::DashLine));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRect(boundsToScreenRect(
+        painter.drawRect(drawing_canvas::boundsToScreenRect(board,
             grid.drawableBounds.x, grid.drawableBounds.y, grid.drawableBounds.width, grid.drawableBounds.height));
     }
 
     if (grid.origin.visible) {
-        const QPointF originPoint = canvasToScreen(grid.origin.x, grid.origin.y);
+        const QPointF originPoint = drawing_canvas::canvasToScreen(board, grid.origin.x, grid.origin.y);
         painter.setPen(QPen(m_palette.originMarker, 1.5));
         drawing_canvas::drawCrosshair(painter, originPoint, 8.0);
     }
@@ -509,14 +518,14 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QVariantMap 
     painter.drawRect(board);
 }
 
-void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVariantMap &model) const
+void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QRectF &board, const QVariantMap &model) const
 {
     const drawing_canvas::DrawingCanvasProjectedPointer pointer = drawing_canvas::projectedPointer(model);
     if (!pointer.visible) {
         return;
     }
 
-    const QPointF point = canvasToScreen(pointer.snappedX, pointer.snappedY);
+    const QPointF point = drawing_canvas::canvasToScreen(board, pointer.snappedX, pointer.snappedY);
     QColor color = m_palette.snapFree;
     Qt::PenStyle markerStyle = Qt::SolidLine;
     double markerRadius = 5.0;
@@ -551,7 +560,7 @@ void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QVarian
     painter.restore();
 }
 
-void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVariantMap &model) const
+void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QRectF &board, const QVariantMap &model) const
 {
     const drawing_canvas::DrawingCanvasProjectedGuideDragSnapIntent snap =
         drawing_canvas::projectedGuideDragSnapIntent(model);
@@ -559,8 +568,8 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
         return;
     }
 
-    const QPointF raw = canvasToScreen(snap.rawX, snap.rawY);
-    const QPointF snapped = canvasToScreen(snap.snappedX, snap.snappedY);
+    const QPointF raw = drawing_canvas::canvasToScreen(board, snap.rawX, snap.rawY);
+    const QPointF snapped = drawing_canvas::canvasToScreen(board, snap.snappedX, snap.snappedY);
 
     painter.save();
     QColor color = m_palette.snapGuide;
@@ -580,7 +589,7 @@ void DrawingCanvasWidget::drawGuideDragSnapIntent(QPainter &painter, const QVari
     painter.restore();
 }
 
-void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &plotSummary) const
+void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QRectF &board, const QVariantMap &plotSummary) const
 {
     const drawing_canvas::DrawingCanvasProjectedPlotPreview preview = drawing_canvas::projectedPlotPreview(plotSummary);
     if (preview.travelSegments.empty() && preview.strokeSegments.empty() && !preview.hasPlotBounds) {
@@ -595,7 +604,8 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
     travelPen.setCapStyle(Qt::RoundCap);
     painter.setPen(travelPen);
     for (const drawing_canvas::DrawingCanvasProjectedSegment &segment : preview.travelSegments) {
-        painter.drawLine(canvasToScreen(segment.x1, segment.y1), canvasToScreen(segment.x2, segment.y2));
+        painter.drawLine(drawing_canvas::canvasToScreen(board, segment.x1, segment.y1),
+                         drawing_canvas::canvasToScreen(board, segment.x2, segment.y2));
     }
 
     QPen strokePen(withAlpha(m_palette.preview, 170), 1.75);
@@ -603,21 +613,28 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QVariantMap &
     strokePen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(strokePen);
     for (const drawing_canvas::DrawingCanvasProjectedSegment &segment : preview.strokeSegments) {
-        painter.drawLine(canvasToScreen(segment.x1, segment.y1), canvasToScreen(segment.x2, segment.y2));
+        painter.drawLine(drawing_canvas::canvasToScreen(board, segment.x1, segment.y1),
+                         drawing_canvas::canvasToScreen(board, segment.x2, segment.y2));
     }
 
     painter.restore();
 }
 
-void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVariantMap &plot) const
+void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QRectF &board, const QVariantMap &plot) const
 {
     const drawing_canvas::DrawingCanvasProjectedBoundsOverlay overlay = drawing_canvas::projectedPlotBoundsOverlay(plot);
-    if (!overlay.visible) {
+    // Machine-bounds chrome, shown when the user asks for plot preview — or
+    // unasked when calibration makes the plot UNSAFE (the case this overlay
+    // exists to catch). During normal drafting it used to paint a filled
+    // green rectangle over the union bounds of everything drawn — the
+    // 'highlighted box over the shapes' complaint, layer one.
+    if (!overlay.visible || (!m_plotPreviewVisible && !overlay.calibratedBoundsWarning)) {
         return;
     }
 
     const QColor color = overlay.calibratedBoundsWarning ? m_palette.safetyWarning : m_palette.safetyOk;
-    const QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
+    const QRectF rect = drawing_canvas::boundsToScreenRect(board,
+        overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     QPen pen(color, overlay.calibratedBoundsWarning ? 2.0 : 1.5, overlay.calibratedBoundsWarning ? Qt::DashLine : Qt::SolidLine);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -633,17 +650,24 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QVarian
     }
 }
 
-void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QVariantMap &model) const
+void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QRectF &board, const QVariantMap &model) const
 {
     const drawing_canvas::DrawingCanvasProjectedSelectionBoundsOverlay overlay = drawing_canvas::projectedSelectionBoundsOverlay(model);
-    if (!overlay.visible) {
+    // Selection's plot-bounds box is plot diagnostics too: every new shape
+    // auto-selects, so an always-on box rode every shape the user made —
+    // layer two of the complaint. Selection feedback during drafting is the
+    // amber restroke + handles; this rect joins the plot preview, except a
+    // WARNING status (selection would plot outside) stays visible unasked.
+    if (!overlay.visible
+        || (!m_plotPreviewVisible && overlay.status == QStringLiteral("inside"))) {
         return;
     }
 
     const QColor color = overlay.status == QStringLiteral("inside")
         ? m_palette.selection
         : m_palette.safetyWarning;
-    QRectF rect = boundsToScreenRect(overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
+    QRectF rect = drawing_canvas::boundsToScreenRect(board,
+        overlay.bounds.x, overlay.bounds.y, overlay.bounds.width, overlay.bounds.height);
     if (rect.width() < 10.0 || rect.height() < 10.0) {
         rect = rect.adjusted(-5.0, -5.0, 5.0, 5.0);
     }

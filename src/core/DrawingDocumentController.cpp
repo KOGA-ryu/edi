@@ -800,6 +800,54 @@ double DrawingDocumentController::rectInset() const
     return m_rectInset;
 }
 
+void DrawingDocumentController::setFixedRadius(double radius)
+{
+    // Same normalization as the rectangle options: invalid means "off"
+    // (gesture-sized), never a rejected build later. Clamped to the unit
+    // document space so the stored state always equals the radius the build
+    // actually stamps (resolveToolRadius clamps the same way).
+    m_fixedRadius = std::isfinite(radius) && radius > 0.0 ? std::min(radius, 1.0) : 0.0;
+}
+
+double DrawingDocumentController::fixedRadius() const
+{
+    return m_fixedRadius;
+}
+
+void DrawingDocumentController::setArrayCount(int count)
+{
+    m_arrayCount = std::clamp(count, 1, 99);
+}
+
+int DrawingDocumentController::arrayCount() const
+{
+    return m_arrayCount;
+}
+
+void DrawingDocumentController::setArraySpacingX(double spacing)
+{
+    // Negative spacing is legal (the array marches left/up); non-finite
+    // input is normalized away (std::clamp on NaN would be UB), and the
+    // magnitude clamps to the unit document space — the same range the
+    // spins can represent, so state and UI cannot disagree.
+    m_arraySpacingX = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+}
+
+double DrawingDocumentController::arraySpacingX() const
+{
+    return m_arraySpacingX;
+}
+
+void DrawingDocumentController::setArraySpacingY(double spacing)
+{
+    m_arraySpacingY = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+}
+
+double DrawingDocumentController::arraySpacingY() const
+{
+    return m_arraySpacingY;
+}
+
 void DrawingDocumentController::setAspectLockEnabled(bool enabled)
 {
     m_aspectLockEnabled = enabled;
@@ -1589,49 +1637,120 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 {
-    const std::optional<DraftingArrayRepeatSettings> settings = draftingArrayRepeatSettingsFromAxisId(toStdString(axisId));
+    const std::optional<DraftingArrayRepeatSettings> settings =
+        draftingArrayRepeatSettingsFromAxisId(toStdString(axisId), m_arrayCount, m_arraySpacingX, m_arraySpacingY);
     if (!settings) {
         return false;
+    }
+    return createArrayFromActiveObject(QStringLiteral("repeat"), settings->copyCount,
+        [&settings](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return repeatDraftingObject(source, newObjectIds, settings->spacingX, settings->spacingY);
+        });
+}
+
+bool DrawingDocumentController::gridArraySelectedObject()
+{
+    // One count spin drives both axes: a grid of count x count cells, the
+    // source occupying the first. count copies-per-axis squared minus the
+    // source is the planner's id budget.
+    const int cells = m_arrayCount * m_arrayCount;
+    return createArrayFromActiveObject(QStringLiteral("grid"), cells - 1,
+        [this](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return gridArrayDraftingObject(source, newObjectIds, m_arrayCount, m_arrayCount, m_arraySpacingX, m_arraySpacingY);
+        });
+}
+
+bool DrawingDocumentController::radialArraySelectedObject()
+{
+    // The ring centre is the drawable centre — the one predictable landmark
+    // every document has. Centring on the selection itself would be
+    // degenerate (the planner rejects a zero arm).
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const Point2D center{
+        grid.drawableBounds.x + grid.drawableBounds.width / 2.0,
+        grid.drawableBounds.y + grid.drawableBounds.height / 2.0,
+    };
+    return createArrayFromActiveObject(QStringLiteral("radial"), m_arrayCount,
+        [center](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return radialArrayDraftingObject(source, newObjectIds, center);
+        });
+}
+
+bool DrawingDocumentController::createArrayFromActiveObject(
+    const QString &idPrefix,
+    int copyCount,
+    const std::function<DraftingArrayResult(
+        const DraftingObject &source,
+        const std::vector<DraftingObjectId> &newObjectIds)> &plan)
+{
+    if (copyCount < 1) {
+        // Reachable from the UI (grid with count 1 has zero copy cells), so
+        // it must say something — a silent dead button is indistinguishable
+        // from a broken one.
+        return finishEdit(QStringLiteral("array"), idPrefix, false,
+                          DraftingResultCode::InvalidGeometry,
+                          QStringLiteral("array count must create at least one copy"));
     }
     const DraftingObject *source = activeObject(m_document);
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
 
+    const int firstSerial = m_nextObjectSerial;
     std::vector<DraftingObjectId> objectIds;
-    objectIds.reserve(settings->copyCount);
-    for (int index = 0; index < settings->copyCount; ++index) {
-        objectIds.push_back(toStdString(nextObjectId(QStringLiteral("repeat"), m_nextObjectSerial++)));
+    objectIds.reserve(static_cast<std::size_t>(copyCount));
+    for (int index = 0; index < copyCount; ++index) {
+        objectIds.push_back(toStdString(nextObjectId(idPrefix, m_nextObjectSerial++)));
     }
 
-    const DraftingArrayResult repeat = repeatDraftingObject(*source, objectIds, settings->spacingX, settings->spacingY);
-    if (!repeat.ok) {
-        return false;
+    DraftingArrayResult planned = plan(*source, objectIds);
+    if (!planned.ok) {
+        // No objects were created: reclaim the minted serials (a failed
+        // 99x99 grid would otherwise burn 9800 ids), and surface the
+        // planner's message through the existing edit-status channel —
+        // these rejections (zero spacing, guide source, zero ring arm) are
+        // user-reachable via the spins.
+        m_nextObjectSerial = firstSerial;
+        return finishEdit(QStringLiteral("array"), idPrefix, false,
+                          planned.code, QString::fromStdString(planned.message));
     }
-
-    return createObjectsAndSelect(repeat.objects);
+    // A stale rejection from an earlier failed click must not outlive a
+    // success; createObjectsAndSelect emits modelChanged, which republishes
+    // the (now empty) status.
+    m_lastEditStatus.clear();
+    return createObjectsAndSelect(std::move(planned.objects));
 }
 
-bool DrawingDocumentController::createObjectsAndSelect(const std::vector<DraftingObject> &objects)
+bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObject> objects)
 {
+    // The classified commit below relies on a non-empty batch: an empty one
+    // would degrade to a pure selection clear, which must not push undo.
+    if (objects.empty()) {
+        return false;
+    }
     beginEdit();
+    // Ids are gathered BEFORE the command consumes the vector — the batch is
+    // taken by value and moved into the variant so an N-object array is not
+    // copied a second time on its way into the command layer.
     std::vector<DraftingObjectId> selectedIds;
     selectedIds.reserve(objects.size());
     for (const DraftingObject &object : objects) {
-        const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
-        if (!create.ok) {
-            // Earlier objects in the batch are already committed; keep the view
-            // and undo history in sync with what actually landed.
-            if (!selectedIds.empty()) {
-                commitEdit();
-                emit modelChanged();
-            }
-            return false;
-        }
         selectedIds.push_back(object.id);
     }
+    // One atomic command for the whole batch: either every object lands or
+    // none does, so the partial-commit bookkeeping the per-object loop needed
+    // (commit what landed, then bail) is gone — and so is its O(N^2) id
+    // re-scan. On rejection the abandoned edit bracket is harmless: the next
+    // beginEdit re-captures.
+    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectsCommand{std::move(objects)});
+    if (!create.ok) {
+        return false;
+    }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
-    commitEdit();
+    // A successful non-empty batch create is never selection-only: classify
+    // the commit so it skips the encode-and-compare (two full document
+    // serializations — real money at 9800 objects).
+    commitEdit(false);
     emit modelChanged();
     return true;
 }
@@ -1667,12 +1786,12 @@ bool DrawingDocumentController::createCalibrationPattern(const QString &patternI
         toStdString(nextObjectId(QStringLiteral("calibration"), m_nextObjectSerial++)),
         m_document.activeLayerId);
 
-    const DraftingCalibrationPatternResult pattern = buildDraftingCalibrationPattern(request);
+    DraftingCalibrationPatternResult pattern = buildDraftingCalibrationPattern(request);
     if (!pattern.ok || pattern.objects.empty()) {
         return false;
     }
 
-    return createObjectsAndSelect(pattern.objects);
+    return createObjectsAndSelect(std::move(pattern.objects));
 }
 
 bool DrawingDocumentController::recordCalibrationMeasurement(double measuredValue)
@@ -2040,6 +2159,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         m_pendingCreation->polygonSides = m_polygonSides;
         m_pendingCreation->rectCornerRadius = m_rectCornerRadius;
         m_pendingCreation->rectInset = m_rectInset;
+        m_pendingCreation->fixedRadius = m_fixedRadius;
         m_previewObject.reset();
         commitEdit();
         if (clearedEditStatus) {

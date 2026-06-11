@@ -26,18 +26,21 @@ DraftingObject object(std::string id, DraftingShapeKind kind, DraftingGeometry g
 
 int main()
 {
-    const std::optional<DraftingArrayRepeatSettings> repeatX = draftingArrayRepeatSettingsFromAxisId("x");
+    // The axis id picks which of the caller's two spacings survives (the
+    // other is zeroed); count and spacing themselves are tool-option state
+    // passed through verbatim.
+    const std::optional<DraftingArrayRepeatSettings> repeatX = draftingArrayRepeatSettingsFromAxisId("x", 5, 0.25, 0.4);
     assert(repeatX);
-    assert(repeatX->copyCount == 3);
-    assert(nearlyEqual(repeatX->spacingX, 0.1));
+    assert(repeatX->copyCount == 5);
+    assert(nearlyEqual(repeatX->spacingX, 0.25));
     assert(nearlyEqual(repeatX->spacingY, 0.0));
 
-    const std::optional<DraftingArrayRepeatSettings> repeatY = draftingArrayRepeatSettingsFromAxisId("y");
+    const std::optional<DraftingArrayRepeatSettings> repeatY = draftingArrayRepeatSettingsFromAxisId("y", 2, 0.25, 0.05);
     assert(repeatY);
-    assert(repeatY->copyCount == 3);
+    assert(repeatY->copyCount == 2);
     assert(nearlyEqual(repeatY->spacingX, 0.0));
-    assert(nearlyEqual(repeatY->spacingY, 0.1));
-    assert(!draftingArrayRepeatSettingsFromAxisId("diagonal"));
+    assert(nearlyEqual(repeatY->spacingY, 0.05));
+    assert(!draftingArrayRepeatSettingsFromAxisId("diagonal", 3, 0.1, 0.1));
 
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.2}, {0.4, 0.2}});
     line.stroke.color = "#55ccaa";
@@ -97,6 +100,102 @@ int main()
     auto mismatch = repeatDraftingObject(mismatched, {"mismatch_repeat"}, 0.1, 0.0);
     assert(!mismatch.ok);
     assert(mismatch.code == DraftingResultCode::KindGeometryMismatch);
+
+    // Grid array: source occupies cell (0,0); copies fill the rest row-major.
+    {
+        DraftingObject dot = object("dot_1", DraftingShapeKind::Point, PointGeometry{{0.2, 0.3}});
+        dot.stroke.color = "#112233";
+        auto grid = gridArrayDraftingObject(dot, {"g_1", "g_2", "g_3", "g_4", "g_5"}, 3, 2, 0.1, 0.2);
+        assert(grid.ok);
+        assert(grid.objects.size() == 5);
+        assert(grid.objects[0].metadata.toolProvenance == "grid_array");
+        assert(grid.objects[0].metadata.source == "dot_1");
+        assert(grid.objects[0].stroke.color == "#112233");
+        // Row 0: cells (1,0) and (2,0).
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[0].geometry).point.x, 0.3));
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[0].geometry).point.y, 0.3));
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[1].geometry).point.x, 0.4));
+        // Row 1: cells (0,1), (1,1), (2,1).
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[2].geometry).point.x, 0.2));
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[2].geometry).point.y, 0.5));
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[4].geometry).point.x, 0.4));
+        assert(nearlyEqual(std::get<PointGeometry>(grid.objects[4].geometry).point.y, 0.5));
+
+        // A single column needs no X spacing — it is a vertical run.
+        auto column = gridArrayDraftingObject(dot, {"c_1", "c_2"}, 1, 3, 0.0, 0.1);
+        assert(column.ok);
+        assert(column.objects.size() == 2);
+
+        // Rejections: id count must match cells; the grid must actually
+        // create something; spacing on a multi-cell axis must move copies.
+        assert(!gridArrayDraftingObject(dot, {"bad_1"}, 3, 2, 0.1, 0.2).ok);
+        assert(!gridArrayDraftingObject(dot, {}, 1, 1, 0.1, 0.1).ok);
+        assert(!gridArrayDraftingObject(dot, {"bad_2"}, 0, 2, 0.1, 0.1).ok);
+        assert(!gridArrayDraftingObject(dot, {"bad_3", "bad_4"}, 3, 1, 0.0, 0.1).ok);
+        assert(!gridArrayDraftingObject(dot, {"bad_5"}, 2, 1,
+                                        std::numeric_limits<double>::infinity(), 0.0).ok);
+        assert(!gridArrayDraftingObject(dot, {"dot_1"}, 2, 1, 0.1, 0.0).ok);
+
+        // Guides translate on one axis only, so 2D placements would stack
+        // exact duplicates on the source — both planners refuse them.
+        DraftingObject guideSource = object("guide_src", DraftingShapeKind::Guide,
+                                            GuideGeometry{GuideOrientation::Horizontal, 0.5});
+        auto guideGrid = gridArrayDraftingObject(guideSource, {"gg_1", "gg_2", "gg_3"}, 2, 2, 0.1, 0.1);
+        assert(!guideGrid.ok);
+        assert(guideGrid.code == DraftingResultCode::InvalidGeometry);
+        auto guideRadial = radialArrayDraftingObject(guideSource, {"gr_1"}, {0.5, 0.7});
+        assert(!guideRadial.ok);
+        assert(guideRadial.code == DraftingResultCode::InvalidGeometry);
+    }
+
+    // Radial array: copies fill the remaining slots of an evenly divided
+    // ring (copies + source) around the centre; geometry is only translated.
+    {
+        DraftingObject ringCircle = object("ring_1", DraftingShapeKind::Circle, CircleGeometry{{0.3, 0.5}, 0.05});
+        auto radial = radialArrayDraftingObject(ringCircle, {"r_1", "r_2", "r_3"}, {0.5, 0.5});
+        assert(radial.ok);
+        assert(radial.objects.size() == 3);
+        assert(radial.objects[0].metadata.toolProvenance == "radial_array");
+        assert(radial.objects[0].metadata.source == "ring_1");
+        // Arm is (-0.2, 0); slots = 4, so copies sit at 90/180/270 degrees.
+        const auto *quarter = std::get_if<CircleGeometry>(&radial.objects[0].geometry);
+        assert(quarter != nullptr);
+        assert(nearlyEqual(quarter->center.x, 0.5));
+        assert(nearlyEqual(quarter->center.y, 0.3));
+        assert(nearlyEqual(quarter->radius, 0.05)); // size never changes
+        const auto *half = std::get_if<CircleGeometry>(&radial.objects[1].geometry);
+        assert(nearlyEqual(half->center.x, 0.7));
+        assert(nearlyEqual(half->center.y, 0.5));
+        const auto *threeQuarter = std::get_if<CircleGeometry>(&radial.objects[2].geometry);
+        assert(nearlyEqual(threeQuarter->center.x, 0.5));
+        assert(nearlyEqual(threeQuarter->center.y, 0.7));
+
+        // The ring anchor is the source's BOUNDS centre — pinned with an
+        // asymmetric source whose bounds centre differs from its first
+        // endpoint. Line (0.2,0.45)-(0.4,0.35): bounds centre (0.3, 0.4),
+        // arm (-0.2, 0) from centre (0.5, 0.4); one copy -> 180deg, so the
+        // whole line translates by (+0.4, 0). An endpoint- or origin-anchored
+        // planner produces different endpoints and fails here.
+        DraftingObject ringLine = object("ring_line", DraftingShapeKind::Line,
+                                         LineGeometry{{0.2, 0.45}, {0.4, 0.35}});
+        auto lineRadial = radialArrayDraftingObject(ringLine, {"rl_1"}, {0.5, 0.4});
+        assert(lineRadial.ok);
+        const auto *flipped = std::get_if<LineGeometry>(&lineRadial.objects[0].geometry);
+        assert(flipped != nullptr);
+        assert(nearlyEqual(flipped->a.x, 0.6));
+        assert(nearlyEqual(flipped->a.y, 0.45));
+        assert(nearlyEqual(flipped->b.x, 0.8));
+        assert(nearlyEqual(flipped->b.y, 0.35));
+
+        // Rejections: no copies; non-finite centre; centre on the object
+        // (every copy would land exactly on the source).
+        assert(!radialArrayDraftingObject(ringCircle, {}, {0.5, 0.5}).ok);
+        assert(!radialArrayDraftingObject(ringCircle, {"r_bad"},
+                                          {std::numeric_limits<double>::quiet_NaN(), 0.5}).ok);
+        auto degenerate = radialArrayDraftingObject(ringCircle, {"r_bad"}, {0.3, 0.5});
+        assert(!degenerate.ok);
+        assert(degenerate.code == DraftingResultCode::InvalidGeometry);
+    }
 
     return 0;
 }

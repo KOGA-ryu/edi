@@ -9,6 +9,7 @@
 
 #include "io/DrawingDocumentStore.h"
 
+#include "drafting/DraftingArray.h"
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingCommands.h"
@@ -92,6 +93,19 @@ public:
     double rectInset() const;
     void setAspectLockEnabled(bool enabled);
     bool aspectLockEnabled() const;
+    // #30 parametric creation + arrays. fixedRadius rides into the next
+    // radius-from-gesture creation (0 = gesture-sized); count/spacing feed
+    // repeat (count copies along one axis), grid (count x count cells using
+    // both spacings), and radial (count copies ringed around the drawable
+    // centre).
+    void setFixedRadius(double radius);
+    double fixedRadius() const;
+    void setArrayCount(int count);
+    int arrayCount() const;
+    void setArraySpacingX(double spacing);
+    double arraySpacingX() const;
+    void setArraySpacingY(double spacing);
+    double arraySpacingY() const;
     void setGridSnapEnabled(bool enabled);
     void setObjectSnapEnabled(bool enabled);
     void setEndpointSnapEnabled(bool enabled);
@@ -152,6 +166,8 @@ public:
     bool offsetSelectedObject(const QString &sideId);
     bool mirrorSelectedObject(const QString &axisId);
     bool repeatSelectedObject(const QString &axisId);
+    bool gridArraySelectedObject();
+    bool radialArraySelectedObject();
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -258,7 +274,19 @@ private:
         const QString &idPrefix,
         const std::function<std::optional<edi::drafting::DraftingObject>(
             const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
-    bool createObjectsAndSelect(const std::vector<edi::drafting::DraftingObject> &objects);
+    // By value: callers hand the batch over (std::move) so it rides into the
+    // command variant without a second N-object copy.
+    bool createObjectsAndSelect(std::vector<edi::drafting::DraftingObject> objects);
+    // Shared resolve->ids->plan->apply tail of every array action (repeat,
+    // grid, radial): resolve the editable active object, mint copyCount fresh
+    // ids, run the planner, create-and-select. The planner callable is the
+    // variation point — same shape as createTransformedActiveObject above.
+    bool createArrayFromActiveObject(
+        const QString &idPrefix,
+        int copyCount,
+        const std::function<edi::drafting::DraftingArrayResult(
+            const edi::drafting::DraftingObject &source,
+            const std::vector<edi::drafting::DraftingObjectId> &newObjectIds)> &plan);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
@@ -268,6 +296,12 @@ private:
     double m_rectCornerRadius = 0.0;
     double m_rectInset = 0.0;
     bool m_aspectLockEnabled = false;
+    double m_fixedRadius = 0.0;
+    // Array defaults match the retired hardcoded repeat (3 copies, 0.1
+    // spacing) so the buttons behave identically until the spins are touched.
+    int m_arrayCount = 3;
+    double m_arraySpacingX = 0.1;
+    double m_arraySpacingY = 0.1;
     // In-process copy/paste buffer (N1): plain object snapshots, never
     // serialized — copy is "remember these", not a persisted format.
     std::vector<edi::drafting::DraftingObject> m_clipboard;

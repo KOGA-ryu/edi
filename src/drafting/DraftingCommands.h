@@ -12,6 +12,14 @@ struct CreateObjectCommand {
     DraftingObject object;
 };
 
+// Atomic batch create (#30 arrays): semantically a sequence of
+// CreateObjectCommand, but validated as a whole BEFORE anything lands (no
+// half-committed batch) and with one duplicate-id set instead of a per-insert
+// document scan — a loop of single creates is O(N^2) in batch size.
+struct CreateObjectsCommand {
+    std::vector<DraftingObject> objects;
+};
+
 struct DeleteObjectCommand {
     DraftingObjectId objectId;
 };
@@ -131,6 +139,7 @@ struct SelectObjectsCommand {
 
 using DraftingCommand = std::variant<
     CreateObjectCommand,
+    CreateObjectsCommand,
     DeleteObjectCommand,
     DeleteAllGuidesCommand,
     MergeDuplicateGuidesCommand,

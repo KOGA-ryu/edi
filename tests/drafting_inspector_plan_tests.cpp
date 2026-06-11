@@ -24,10 +24,15 @@ bool sameGroups(const DraftingInspectorPlan &actual, const std::vector<std::stri
 int main()
 {
     // Tool options lookup is a table: known tool resolves, unknown is empty.
-    assert(draftingToolOptionsGroup("regular_polygon_tool") == "tool_polygon");
-    assert(draftingToolOptionsGroup("rectangle_tool") == "tool_rectangle");
-    assert(draftingToolOptionsGroup("line_tool").empty());
-    assert(draftingToolOptionsGroup("").empty());
+    // The polygon tool carries the shared radius group besides its own:
+    // option groups are per-concern, not per-tool, so tools can share them.
+    assert(draftingToolOptionsGroups("regular_polygon_tool")
+           == (std::vector<std::string>{"tool_polygon", "tool_radius"}));
+    assert(draftingToolOptionsGroups("rectangle_tool") == (std::vector<std::string>{"tool_rectangle"}));
+    assert(draftingToolOptionsGroups("circle_tool") == (std::vector<std::string>{"tool_radius"}));
+    assert(draftingToolOptionsGroups("arc_tool") == (std::vector<std::string>{"tool_radius"}));
+    assert(draftingToolOptionsGroups("line_tool").empty());
+    assert(draftingToolOptionsGroups("").empty());
 
     // Neutral tool, nothing selected: the document context keeps the
     // document-wide controls reachable until F4/F5 give them homes.
@@ -49,7 +54,12 @@ int main()
     {
         const DraftingInspectorPlan p = plan("regular_polygon_tool", false);
         assert(p.contextId == "tool_options");
-        assert(sameGroups(p, {"tool_polygon"}));
+        assert(sameGroups(p, {"tool_polygon", "tool_radius"}));
+    }
+    {
+        const DraftingInspectorPlan p = plan("circle_tool", false);
+        assert(p.contextId == "tool_options");
+        assert(sameGroups(p, {"tool_radius"}));
     }
 
     // Every plain shape kind lands in the shared shape context.
@@ -84,7 +94,12 @@ int main()
     {
         const DraftingInspectorPlan p = plan("regular_polygon_tool", true, DraftingShapeKind::Polygon);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"tool_polygon", "selection_summary", "style", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"tool_polygon", "tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides"}));
+    }
+    {
+        const DraftingInspectorPlan p = plan("circle_tool", true, DraftingShapeKind::Circle);
+        assert(p.contextId == "object_shape");
+        assert(sameGroups(p, {"tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides"}));
     }
 
     // Selection wins over the document context even with the neutral tool.

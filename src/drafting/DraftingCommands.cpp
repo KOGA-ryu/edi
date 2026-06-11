@@ -1,5 +1,6 @@
 #include "drafting/DraftingCommands.h"
 
+#include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
@@ -8,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -66,6 +69,43 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
         using Command = std::decay_t<decltype(typedCommand)>;
         if constexpr (std::is_same_v<Command, CreateObjectCommand>) {
             return fromStoreResult(addObject(document, typedCommand.object));
+        } else if constexpr (std::is_same_v<Command, CreateObjectsCommand>) {
+            if (typedCommand.objects.empty()) {
+                return DraftingCommandResult::accepted(); // no-op: nothing changed, no revision bump
+            }
+            // One id set covers the existing document AND the batch itself —
+            // the per-object path re-scans the whole document per insert,
+            // which makes an N-object batch O(N^2) (measured: 0.5s at 9800).
+            std::unordered_set<DraftingObjectId> ids = objectIdSet(document);
+            ids.reserve(document.objects.size() + typedCommand.objects.size());
+            // Validate the whole batch into a staging vector before touching
+            // the document: any rejection leaves it exactly as it was. The
+            // checks mirror addObject one for one.
+            std::vector<DraftingObject> staged;
+            staged.reserve(typedCommand.objects.size());
+            for (const DraftingObject &object : typedCommand.objects) {
+                const auto shapeValidation = validateDraftingObjectShape(object);
+                if (!shapeValidation.ok) {
+                    return DraftingCommandResult::rejected(shapeValidation.code, shapeValidation.message);
+                }
+                if (!ids.insert(object.id).second) {
+                    return DraftingCommandResult::rejected(DraftingResultCode::DuplicateObjectId, "object id already exists");
+                }
+                const DraftingLayer *layer = findLayer(document, object.layerId);
+                if (layer == nullptr) {
+                    return DraftingCommandResult::rejected(DraftingResultCode::LayerNotFound, "layer does not exist");
+                }
+                if (layer->locked) {
+                    return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
+                }
+                staged.push_back(object);
+                staged.back().bounds = computeBounds(object.geometry);
+            }
+            document.objects.insert(document.objects.end(),
+                                    std::make_move_iterator(staged.begin()),
+                                    std::make_move_iterator(staged.end()));
+            ++document.revision;
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, DeleteObjectCommand>) {
             return fromStoreResult(removeObject(document, typedCommand.objectId));
         } else if constexpr (std::is_same_v<Command, DeleteAllGuidesCommand>) {
@@ -249,12 +289,17 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             ++document.revision;
             return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, SelectObjectsCommand>) {
+            // Validate against one id set, not containsObject per id — an
+            // N-id selection over an M-object document was O(N*M), and the
+            // batch-create path selects everything it just made (measured:
+            // 1.5s at 9800 ids before this).
+            const std::unordered_set<DraftingObjectId> existing = objectIdSet(document);
             for (const DraftingObjectId &objectId : typedCommand.objectIds) {
-                if (!containsObject(document, objectId)) {
+                if (existing.find(objectId) == existing.end()) {
                     return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
                 }
             }
-            selectMany(document, typedCommand.objectIds);
+            selectMany(document, typedCommand.objectIds, existing);
             ++document.revision;
             return DraftingCommandResult::accepted();
         } else {

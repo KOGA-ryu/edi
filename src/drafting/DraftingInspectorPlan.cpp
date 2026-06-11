@@ -39,13 +39,22 @@ const std::vector<ContextGroupsRow> &contextTable()
 
 struct ToolOptionsRow {
     const char *toolId;
-    const char *groupId;
+    std::vector<std::string> groupIds;
 };
 
-constexpr ToolOptionsRow kToolOptionsTable[] = {
-    {"regular_polygon_tool", "tool_polygon"},
-    {"rectangle_tool", "tool_rectangle"},
-};
+const std::vector<ToolOptionsRow> &toolOptionsTable()
+{
+    static const std::vector<ToolOptionsRow> table = {
+        // The polygon tool draws on a circumscribed circle, so it shows the
+        // shared radius option alongside its own sides group. One tool, two
+        // groups — which is why this is a vector, not a single id.
+        {"regular_polygon_tool", {"tool_polygon", "tool_radius"}},
+        {"rectangle_tool", {"tool_rectangle"}},
+        {"circle_tool", {"tool_radius"}},
+        {"arc_tool", {"tool_radius"}},
+    };
+    return table;
+}
 
 std::string contextForKind(DraftingShapeKind kind)
 {
@@ -70,20 +79,20 @@ const std::vector<std::string> &groupsForContext(const std::string &contextId)
 
 } // namespace
 
-std::string draftingToolOptionsGroup(const std::string &toolId)
+std::vector<std::string> draftingToolOptionsGroups(const std::string &toolId)
 {
-    for (const ToolOptionsRow &row : kToolOptionsTable) {
+    for (const ToolOptionsRow &row : toolOptionsTable()) {
         if (toolId == row.toolId) {
-            return row.groupId;
+            return row.groupIds;
         }
     }
-    return std::string();
+    return {};
 }
 
 DraftingInspectorPlan planDraftingInspector(const DraftingInspectorInput &input)
 {
     DraftingInspectorPlan plan;
-    const std::string toolOptions = draftingToolOptionsGroup(input.toolId);
+    const std::vector<std::string> toolOptions = draftingToolOptionsGroups(input.toolId);
 
     if (input.hasSelection) {
         plan.contextId = contextForKind(input.selectedKind);
@@ -99,9 +108,7 @@ DraftingInspectorPlan planDraftingInspector(const DraftingInspectorInput &input)
     // draw again) always has a selection by its second iteration. The active
     // tool's options therefore ride along with any selection context —
     // otherwise the polygon-sides control vanishes after the first polygon.
-    if (!toolOptions.empty()) {
-        plan.groupIds.push_back(toolOptions);
-    }
+    plan.groupIds.insert(plan.groupIds.end(), toolOptions.begin(), toolOptions.end());
     const std::vector<std::string> &groups = groupsForContext(plan.contextId);
     plan.groupIds.insert(plan.groupIds.end(), groups.begin(), groups.end());
     return plan;

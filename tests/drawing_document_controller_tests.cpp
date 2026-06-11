@@ -3194,5 +3194,189 @@ int main(int argc, char **argv)
         assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
     }
 
+    // #30 parametric arrays: option state (count + spacings) drives repeat
+    // instead of the retired hardcoded 3 x 0.1.
+    {
+        DrawingDocumentController arrayController;
+        // Option setters normalize garbage instead of failing later actions.
+        arrayController.setArrayCount(0);
+        assert(arrayController.arrayCount() == 1);
+        arrayController.setArrayCount(500);
+        assert(arrayController.arrayCount() == 99);
+        arrayController.setArraySpacingX(std::numeric_limits<double>::infinity());
+        assert(arrayController.arraySpacingX() == 0.0);
+        arrayController.setArraySpacingY(-0.25); // negative = march up/left, legal
+        assert(arrayController.arraySpacingY() == -0.25);
+        arrayController.setFixedRadius(-2.0);
+        assert(arrayController.fixedRadius() == 0.0);
+        // Magnitudes clamp to the unit document space — stored state always
+        // matches what the spins can show and what the build stamps.
+        arrayController.setArraySpacingX(5.0);
+        assert(arrayController.arraySpacingX() == 1.0);
+        arrayController.setArraySpacingY(-5.0);
+        assert(arrayController.arraySpacingY() == -1.0);
+        arrayController.setFixedRadius(5.0);
+        assert(arrayController.fixedRadius() == 1.0);
+        arrayController.setFixedRadius(0.0);
+
+        arrayController.setSelectedToolId("line_tool");
+        arrayController.clickCanvasNormalized(0.2, 0.3);
+        arrayController.clickCanvasNormalized(0.3, 0.3);
+        assert(arrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        arrayController.setArrayCount(2);
+        arrayController.setArraySpacingX(0.2);
+        assert(arrayController.repeatSelectedObject("x"));
+        QVariantList arrayObjects = arrayController.modelDocument().value("drawing_objects").toList();
+        assert(arrayObjects.size() == 3);
+        QVariantMap secondCopy = arrayObjects[2].toMap();
+        assert(nearlyEqual(secondCopy.value("x1").toDouble(), 0.6));
+        assert(nearlyEqual(secondCopy.value("y1").toDouble(), 0.3));
+        assert(arrayController.modelDocument().value("selected_object_ids").toList().size() == 2);
+    }
+
+    // Grid array: count x count cells from one count spin, both spacings.
+    {
+        DrawingDocumentController gridArrayController;
+        gridArrayController.setSelectedToolId("line_tool");
+        gridArrayController.clickCanvasNormalized(0.1, 0.1);
+        gridArrayController.clickCanvasNormalized(0.15, 0.1);
+
+        // A 1x1 grid has nothing to create.
+        gridArrayController.setArrayCount(1);
+        assert(!gridArrayController.gridArraySelectedObject());
+
+        gridArrayController.setArrayCount(2);
+        gridArrayController.setArraySpacingX(0.2);
+        gridArrayController.setArraySpacingY(0.3);
+        assert(gridArrayController.gridArraySelectedObject());
+        QVariantList gridObjects = gridArrayController.modelDocument().value("drawing_objects").toList();
+        assert(gridObjects.size() == 4); // source + 3 copies
+        QVariantMap rightCopy = gridObjects[1].toMap();    // cell (1,0)
+        QVariantMap downCopy = gridObjects[2].toMap();     // cell (0,1)
+        QVariantMap diagonalCopy = gridObjects[3].toMap(); // cell (1,1)
+        assert(nearlyEqual(rightCopy.value("x1").toDouble(), 0.3));
+        assert(nearlyEqual(rightCopy.value("y1").toDouble(), 0.1));
+        assert(nearlyEqual(downCopy.value("x1").toDouble(), 0.1));
+        assert(nearlyEqual(downCopy.value("y1").toDouble(), 0.4));
+        assert(nearlyEqual(diagonalCopy.value("x1").toDouble(), 0.3));
+        assert(nearlyEqual(diagonalCopy.value("y1").toDouble(), 0.4));
+        assert(gridArrayController.modelDocument().value("selected_object_ids").toList().size() == 3);
+
+        // One undo step removes the whole grid.
+        assert(gridArrayController.undo());
+        assert(gridArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+    }
+
+    // Radial array: copies ring the drawable centre at the source's distance.
+    {
+        DrawingDocumentController radialController;
+        QVariantMap drawable = radialController.modelDocument().value("grid").toMap()
+                                   .value("drawable_bounds").toMap();
+        const double centerX = drawable.value("x").toDouble() + drawable.value("width").toDouble() / 2.0;
+        const double centerY = drawable.value("y").toDouble() + drawable.value("height").toDouble() / 2.0;
+
+        radialController.setSelectedToolId("circle_tool");
+        radialController.setFixedRadius(0.02);
+        radialController.clickCanvasNormalized(centerX - 0.2, centerY);
+        radialController.clickCanvasNormalized(centerX - 0.2, centerY); // fixed radius: a same-point click still sizes
+        QVariantList seeded = radialController.modelDocument().value("drawing_objects").toList();
+        assert(seeded.size() == 1);
+        assert(nearlyEqual(seeded[0].toMap().value("radius").toDouble(), 0.02));
+
+        radialController.setArrayCount(3);
+        assert(radialController.radialArraySelectedObject());
+        QVariantList ringObjects = radialController.modelDocument().value("drawing_objects").toList();
+        assert(ringObjects.size() == 4);
+        // Slots = 4 -> copies at 90/180/270 degrees, all at ring radius 0.2.
+        for (int i = 1; i < ringObjects.size(); ++i) {
+            QVariantMap copy = ringObjects[i].toMap();
+            const double dx = copy.value("cx").toDouble() - centerX;
+            const double dy = copy.value("cy").toDouble() - centerY;
+            assert(nearlyEqual(std::hypot(dx, dy), 0.2));
+            assert(nearlyEqual(copy.value("radius").toDouble(), 0.02));
+        }
+
+        // A source sitting ON the ring centre has a zero arm: the planner
+        // rejects, the controller reports false, the document is untouched.
+        DrawingDocumentController degenerateController;
+        degenerateController.setSelectedToolId("circle_tool");
+        degenerateController.setFixedRadius(0.05);
+        degenerateController.clickCanvasNormalized(centerX, centerY);
+        degenerateController.clickCanvasNormalized(centerX, centerY);
+        assert(!degenerateController.radialArraySelectedObject());
+        assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
+    }
+
+    // Array failure paths: a user-reachable rejection (zero spacing) must
+    // surface through edit_status, reclaim its minted serials, and a later
+    // success must clear the stale status. Negative spacing must march the
+    // copies backwards (not abs() or clamp-to-zero anywhere en route).
+    {
+        DrawingDocumentController failureController;
+        failureController.setSelectedToolId("line_tool");
+        failureController.clickCanvasNormalized(0.5, 0.5); // line_1: serial 1
+        failureController.clickCanvasNormalized(0.6, 0.5);
+
+        failureController.setArrayCount(2);
+        failureController.setArraySpacingX(0.0);
+        assert(!failureController.repeatSelectedObject("x"));
+        QVariantMap arrayStatus = failureController.modelDocument().value("edit_status").toMap();
+        assert(arrayStatus.value("ok").toBool() == false);
+        assert(arrayStatus.value("mode").toString() == "array");
+        assert(!arrayStatus.value("message").toString().isEmpty());
+        assert(failureController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Guides reject grid arrays at the planner; the controller surfaces
+        // it the same way and creates nothing.
+        // (Covered here at the planner seam; the guide tool path is separate.)
+
+        failureController.setArraySpacingX(-0.1);
+        assert(failureController.repeatSelectedObject("x"));
+        QVariantList marched = failureController.modelDocument().value("drawing_objects").toList();
+        assert(marched.size() == 3);
+        // The failed attempt reclaimed serials 2-3, so the first successful
+        // copy is repeat_2, not repeat_4.
+        assert(trailingSerial(marched[1].toMap().value("id").toString()) == 2);
+        // Negative spacing marches left: 0.5 + 2 * -0.1 = 0.3.
+        assert(nearlyEqual(marched[2].toMap().value("x1").toDouble(), 0.3));
+        // Success cleared the stale rejection.
+        assert(failureController.modelDocument().value("edit_status").toMap().isEmpty());
+    }
+
+    // Guides cannot grid/radial-array (single-axis translation would stack
+    // coincident copies): the controller reports failure and creates nothing.
+    {
+        DrawingDocumentController guideArrayController;
+        guideArrayController.setSelectedToolId("horizontal_guide_tool");
+        guideArrayController.clickCanvasNormalized(0.5, 0.62);
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        guideArrayController.setArrayCount(2);
+        guideArrayController.setArraySpacingX(0.1);
+        guideArrayController.setArraySpacingY(0.1);
+        assert(!guideArrayController.gridArraySelectedObject());
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        assert(!guideArrayController.radialArraySelectedObject());
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+    }
+
+    // fixedRadius rides into creation for the radius-from-gesture tools;
+    // resetting it to 0 restores gesture sizing.
+    {
+        DrawingDocumentController fixedRadiusController;
+        fixedRadiusController.setSelectedToolId("circle_tool");
+        fixedRadiusController.setFixedRadius(0.1);
+        fixedRadiusController.clickCanvasNormalized(0.5, 0.5);
+        fixedRadiusController.clickCanvasNormalized(0.9, 0.5); // gesture says 0.4
+        QVariantList fixedObjects = fixedRadiusController.modelDocument().value("drawing_objects").toList();
+        assert(nearlyEqual(fixedObjects[0].toMap().value("radius").toDouble(), 0.1));
+
+        fixedRadiusController.setFixedRadius(0.0);
+        fixedRadiusController.clickCanvasNormalized(0.5, 0.5);
+        fixedRadiusController.clickCanvasNormalized(0.8, 0.5);
+        fixedObjects = fixedRadiusController.modelDocument().value("drawing_objects").toList();
+        assert(nearlyEqual(fixedObjects[1].toMap().value("radius").toDouble(), 0.3));
+    }
+
     return 0;
 }

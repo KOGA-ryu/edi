@@ -578,6 +578,30 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         group->addWidget(m_aspectLockToggle);
     }
 
+    // #30: shared radius option for the radius-from-gesture tools (circle,
+    // arc, regular polygon). One group several tools show — option groups
+    // are per-concern, not per-tool (see draftingToolOptionsGroups).
+    group = beginInspectorGroup(QStringLiteral("tool_radius"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Radius")));
+    {
+        auto *row = new QWidget;
+        auto *rowLayout = new QHBoxLayout(row);
+        clearLayoutMargins(rowLayout);
+        rowLayout->setSpacing(6);
+        rowLayout->addWidget(new QLabel(QStringLiteral("Radius (0 = drag)")));
+        auto *spin = new QDoubleSpinBox;
+        spin->setObjectName(QStringLiteral("fixedRadiusSpin"));
+        spin->setDecimals(3);
+        spin->setSingleStep(0.01);
+        spin->setRange(0.0, 1.0);
+        spin->setValue(m_controller->fixedRadius());
+        connect(spin, &QDoubleSpinBox::valueChanged, m_controller, [this](double r) {
+            m_controller->setFixedRadius(r);
+        });
+        rowLayout->addWidget(spin, 1);
+        group->addWidget(row);
+    }
+
     group = beginInspectorGroup(QStringLiteral("empty_state"));
     {
         auto *emptyState = makeValueLabel(QStringLiteral("Nothing selected."));
@@ -1085,6 +1109,7 @@ QVector<QPair<QString, QString>> DraftingFeature::panelGroupInventory()
         {QStringLiteral("object_list"), QStringLiteral("Object List")},
         {QStringLiteral("tool_polygon"), QStringLiteral("Polygon Tool")},
         {QStringLiteral("tool_rectangle"), QStringLiteral("Rectangle Tool")},
+        {QStringLiteral("tool_radius"), QStringLiteral("Tool Radius")},
         {QStringLiteral("empty_state"), QStringLiteral("Empty State")},
         {QStringLiteral("selection_summary"), QStringLiteral("Selection")},
         {QStringLiteral("style"), QStringLiteral("Style")},
@@ -1331,16 +1356,60 @@ QWidget *DraftingFeature::buildRepeatControls()
 {
     const auto [panel, layout] = makeControlGrid(QStringLiteral("repeatControls"));
 
+    // #30: the array options (count + per-axis spacing) sit with the actions
+    // that consume them. Spins mirror controller tool-option state, exactly
+    // like the polygon/rectangle groups: set at build, pushed back on edit.
+    const auto addOptionRow = [&](int row, const QString &label, QWidget *editor) {
+        layout->addWidget(new QLabel(label), row, 0);
+        layout->addWidget(editor, row, 1);
+    };
+
+    auto *countSpin = new QSpinBox;
+    countSpin->setObjectName(QStringLiteral("arrayCountSpin"));
+    countSpin->setRange(1, 99);
+    countSpin->setValue(m_controller->arrayCount());
+    connect(countSpin, &QSpinBox::valueChanged, m_controller, [this](int count) {
+        m_controller->setArrayCount(count);
+    });
+    addOptionRow(0, QStringLiteral("Count"), countSpin);
+
+    const auto makeSpacingSpin = [this](const QString &name, double value,
+                                        const std::function<void(double)> &onChange) {
+        auto *spin = new QDoubleSpinBox;
+        spin->setObjectName(name);
+        spin->setDecimals(3);
+        spin->setSingleStep(0.01);
+        spin->setRange(-1.0, 1.0); // negative spacing marches the array left/up
+        spin->setValue(value);
+        connect(spin, &QDoubleSpinBox::valueChanged, m_controller, onChange);
+        return spin;
+    };
+    addOptionRow(1, QStringLiteral("Step X"),
+                 makeSpacingSpin(QStringLiteral("arraySpacingXSpin"), m_controller->arraySpacingX(),
+                                 [this](double s) { m_controller->setArraySpacingX(s); }));
+    addOptionRow(2, QStringLiteral("Step Y"),
+                 makeSpacingSpin(QStringLiteral("arraySpacingYSpin"), m_controller->arraySpacingY(),
+                                 [this](double s) { m_controller->setArraySpacingY(s); }));
 
     auto *x = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat X"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("x"));
     });
-    layout->addWidget(x, 1, 0);
+    layout->addWidget(x, 3, 0);
 
     auto *y = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat Y"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("y"));
     });
-    layout->addWidget(y, 1, 1);
+    layout->addWidget(y, 3, 1);
+
+    auto *grid = makeActionButton(QStringLiteral("gridArrayButton"), QStringLiteral("Grid"), [this]() {
+        m_controller->gridArraySelectedObject();
+    });
+    layout->addWidget(grid, 4, 0);
+
+    auto *radial = makeActionButton(QStringLiteral("radialArrayButton"), QStringLiteral("Radial"), [this]() {
+        m_controller->radialArraySelectedObject();
+    });
+    layout->addWidget(radial, 4, 1);
 
     return panel;
 }

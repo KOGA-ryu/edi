@@ -1774,8 +1774,9 @@ int main(int argc, char **argv)
         assert(statusBar->height() == 28 || statusBar->sizeHint().height() == 28);
         // The drafting feature publishes its mode line into the status bar
         // (it lived in the title bar before — the user's chrome inventory
-        // has no status slot there).
+        // has no status slot there). The zoom readout rides at the end.
         assert(modeLabel->text().contains(QStringLiteral("drafting")));
+        assert(modeLabel->text().contains(QStringLiteral("100%")));
         assert(statusWindow.findChild<QLabel *>(QStringLiteral("chromeStatus")) == nullptr);
 
         auto *statusController = statusWindow.findChild<DrawingDocumentController *>();

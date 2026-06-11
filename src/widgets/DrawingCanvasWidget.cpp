@@ -1,6 +1,7 @@
 #include "widgets/DrawingCanvasWidget.h"
 
 #include <QKeyEvent>
+#include <QNativeGestureEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QVariantList>
@@ -372,6 +373,44 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mouseReleaseEvent(event);
 }
 
+void DrawingCanvasWidget::zoomAtCenter(double factor)
+{
+    const drawing_canvas::DrawingCanvasViewportInput zoomed = drawing_canvas::zoomViewportAtPoint(
+        viewportInput(), factor, QPointF(width() / 2.0, height() / 2.0));
+    m_zoom = zoomed.zoom;
+    m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+    emit zoomChanged();
+    update();
+}
+
+void DrawingCanvasWidget::resetView()
+{
+    m_zoom = 1.0;
+    m_pan = QPointF();
+    emit zoomChanged();
+    update();
+}
+
+bool DrawingCanvasWidget::event(QEvent *event)
+{
+    // Trackpad pinch arrives as a native gesture, not a wheel event. The
+    // factor is 1 + value (value is the pinch delta, negative when
+    // contracting) and anchors at the fingers, like the wheel zoom.
+    if (event->type() == QEvent::NativeGesture) {
+        auto *gesture = static_cast<QNativeGestureEvent *>(event);
+        if (gesture->gestureType() == Qt::ZoomNativeGesture && m_controller != nullptr) {
+            const drawing_canvas::DrawingCanvasViewportInput zoomed = drawing_canvas::zoomViewportAtPoint(
+                viewportInput(), 1.0 + gesture->value(), gesture->position());
+            m_zoom = zoomed.zoom;
+            m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+            emit zoomChanged();
+            update();
+            return true;
+        }
+    }
+    return QWidget::event(event);
+}
+
 void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
 {
     if (m_controller == nullptr) {
@@ -387,6 +426,7 @@ void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
             drawing_canvas::zoomViewportAtPoint(viewportInput(), factor, event->position());
         m_zoom = zoomed.zoom;
         m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+        emit zoomChanged();
         update();
         event->accept();
         return;
@@ -434,6 +474,26 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
         m_gestureState = drawing_canvas::cancelGesture().state;
         event->accept();
         return;
+    }
+    // View commands: Cmd/Ctrl+0 resets (zoom 1 + centered pan IS the fitted
+    // board), +/- step exponentially around the canvas center — the same
+    // zoom math as the wheel, so the two paths cannot drift.
+    if (mods & (Qt::ControlModifier | Qt::MetaModifier)) {
+        if (event->key() == Qt::Key_0) {
+            resetView();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Equal || event->key() == Qt::Key_Plus) {
+            zoomAtCenter(1.25);
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Minus) {
+            zoomAtCenter(0.8);
+            event->accept();
+            return;
+        }
     }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
         if (m_controller->finishPendingPolyline()) {

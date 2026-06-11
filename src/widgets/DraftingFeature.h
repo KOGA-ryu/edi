@@ -75,6 +75,9 @@ public:
     // The light per-mouse-move sibling: only the pointer/quick-measure/
     // guide-drag/preview readouts. Subscribed to pointerChanged.
     void refreshPointerReadouts();
+    // The one-line status publish (mode | counts | zoom%). Zoom changes call
+    // only this — never the full inspector rebuild.
+    void publishStatus();
     DrawingCanvasWidget *canvas() const { return m_canvas; }
 
     // The drafting tools arranged on the belt: one row per tool, the row's

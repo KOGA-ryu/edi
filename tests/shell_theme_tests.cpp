@@ -100,7 +100,8 @@ int main()
     for (const char *selector : {
              "#shellRoot", "#activityRail", "#leftPanel", "#rightPanel",
              "#workspaceColumn", "#bottomPanel",
-             "#panelTitle", "#chromeStatus", "#sectionLabel", "#valueLabel",
+             "#statusBar", "#statusMode", "#statusFile[documentDirty=\"true\"]",
+             "#panelTitle", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
              "QListWidget::item:selected", "#objectListEmpty",

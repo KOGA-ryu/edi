@@ -1447,6 +1447,35 @@ int main(int argc, char **argv)
         assert(fontProbe->font().family() == theme.uiFont);
     }
 
+    // Status bar (spec §2/§3): a 28px strip under the body. The left label
+    // carries the feature-published mode line; the right label names the
+    // document and recolors via the documentDirty property when unsaved
+    // edits exist — both driven from the modelChanged funnel.
+    {
+        EdiShellWindow statusWindow;
+        QWidget *statusBar = statusWindow.findChild<QWidget *>(QStringLiteral("statusBar"));
+        auto *modeLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusMode"));
+        auto *fileLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusFile"));
+        assert(statusBar != nullptr && modeLabel != nullptr && fileLabel != nullptr);
+        assert(statusBar->height() == 28 || statusBar->sizeHint().height() == 28);
+        // The drafting feature publishes its mode line into the status bar
+        // (it lived in the title bar before — the user's chrome inventory
+        // has no status slot there).
+        assert(modeLabel->text().contains(QStringLiteral("drafting")));
+        assert(statusWindow.findChild<QLabel *>(QStringLiteral("chromeStatus")) == nullptr);
+
+        auto *statusController = statusWindow.findChild<DrawingDocumentController *>();
+        assert(statusController != nullptr);
+        assert(!fileLabel->property("documentDirty").toBool());
+        assert(fileLabel->text() == QStringLiteral("Untitled"));
+        statusController->setSelectedToolId(QStringLiteral("point_tool"));
+        statusController->clickCanvasNormalized(0.5, 0.5);
+        assert(fileLabel->property("documentDirty").toBool());
+        assert(fileLabel->text().contains(QStringLiteral("•")));
+        statusController->undo();
+        assert(!fileLabel->property("documentDirty").toBool());
+    }
+
     // F1 empty state: the object list names its own absence ("No objects
     // yet"), and the label is a projection of the document like every other
     // inspector readout — created objects hide it, an emptied document brings

@@ -26,7 +26,7 @@ bool EdiShellWindow::saveDrawingToPath(const QString &path)
     }
     m_currentDrawingPath = path;
     rememberRecentFile(path);
-    updateWindowTitle();
+    refreshDocumentStatus();
     return true;
 }
 
@@ -40,7 +40,7 @@ bool EdiShellWindow::openDrawingFromPath(const QString &path)
     }
     m_currentDrawingPath = path;
     rememberRecentFile(path);
-    updateWindowTitle();
+    refreshDocumentStatus();
     return true;
 }
 

@@ -154,10 +154,6 @@ QString buildShellStyleSheet(const ShellTheme &t)
             font-size: @fontTitle@px;
             font-weight: 600;
         }
-        #chromeStatus {
-            color: @textMuted@;
-            font-size: @fontSm@px;
-        }
         /* Section headers per spec §4: UPPERCASE, xs, textFaint, semibold —
            quiet signposts, not accented controls. The fold toggle keeps a
            hover affordance because it IS a control. */
@@ -320,6 +316,19 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @base@;
             border-bottom: 1px solid @borderMajor@;
         }
+        #statusBar {
+            background: @base@;
+            border-top: 1px solid @borderMajor@;
+        }
+        #statusMode, #statusFile {
+            color: @textMuted@;
+            background: transparent;
+            font-family: "@codeFont@", monospace;
+            font-size: @fontXs@px;
+        }
+        #statusFile[documentDirty="true"] {
+            color: @warning@;
+        }
         #titleBar QPushButton {
             background: transparent;
             border: none;
@@ -388,6 +397,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@accent@", t.accent},
         {"@accentSoft@", t.accentSoft},
         {"@danger@", t.danger},
+        {"@warning@", t.warning},
         {"@disabled@", t.disabled},
         {"@trafficClose@", t.trafficClose},
         {"@trafficCloseEdge@", t.trafficCloseEdge},

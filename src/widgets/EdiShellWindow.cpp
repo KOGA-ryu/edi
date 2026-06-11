@@ -177,6 +177,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     root->addWidget(buildTitleBar());
     root->addWidget(body, 1);
+    root->addWidget(buildStatusBar());
 
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
 
@@ -205,7 +206,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     // The feature keeps its own inspector in sync; the window only owns the
     // title bar (file name + dirty marker).
-    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::updateWindowTitle);
+    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::refreshDocumentStatus);
 
     auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
     connect(saveShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawing);
@@ -230,7 +231,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     });
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::scheduleSettingsSave);
 
-    updateWindowTitle(); // instanceMounted already refreshed the inspector
+    refreshDocumentStatus(); // instanceMounted already refreshed the inspector
 }
 
 EdiShellWindow::~EdiShellWindow() = default;
@@ -251,13 +252,24 @@ bool EdiShellWindow::isDocumentDirty() const
     return m_controller->isDocumentDirty();
 }
 
-void EdiShellWindow::updateWindowTitle()
+void EdiShellWindow::refreshDocumentStatus()
 {
     const QString name = m_currentDrawingPath.isEmpty()
         ? QStringLiteral("Untitled")
         : QFileInfo(m_currentDrawingPath).fileName();
-    const QString dirty = isDocumentDirty() ? QStringLiteral(" •") : QString();
-    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, dirty));
+    const bool dirty = isDocumentDirty();
+    const QString marker = dirty ? QStringLiteral(" •") : QString();
+    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, marker));
+    if (m_statusFileLabel != nullptr) {
+        m_statusFileLabel->setText(name + marker);
+        // Dynamic property + unpolish/polish: the warning color is a sheet
+        // rule keyed on data, not a setStyleSheet scattered into logic.
+        if (m_statusFileLabel->property("documentDirty").toBool() != dirty) {
+            m_statusFileLabel->setProperty("documentDirty", dirty);
+            m_statusFileLabel->style()->unpolish(m_statusFileLabel);
+            m_statusFileLabel->style()->polish(m_statusFileLabel);
+        }
+    }
 }
 
 edi::formats::StaticConfig EdiShellWindow::captureSettings() const
@@ -459,8 +471,8 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
     actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
     actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
     actions.setStatusText = [this](const QString &text) {
-        if (m_chromeStatus != nullptr) {
-            m_chromeStatus->setText(text);
+        if (m_statusModeLabel != nullptr) {
+            m_statusModeLabel->setText(text);
         }
     };
     // Read the member at call time: the feature is recreated on every

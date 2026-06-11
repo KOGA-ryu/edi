@@ -413,7 +413,7 @@ QString qStringFromStdString(const std::string &value)
     return QString::fromStdString(value);
 }
 
-QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const DraftingGridProjection *grid)
+QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const DraftingGridProjection *grid, bool includeEditorFields)
 {
     QVariantList measurementLines;
     const auto measurement = summarizeObjectMeasurement(object);
@@ -455,7 +455,6 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             return tagList.join(QStringLiteral(", "));
         }()},
         {QStringLiteral("measurement_lines"), measurementLines},
-        {QStringLiteral("numeric_fields"), numericFieldsForObject(object, grid)},
         {QStringLiteral("edit_handles"), editHandles},
         {QStringLiteral("handle_count"), editHandles.size()},
         {QStringLiteral("editable_handle_count"), editableHandleCount},
@@ -465,8 +464,17 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         {QStringLiteral("align_to_guide_controls"), canAlignToGuide(object)},
     };
 
-    if (grid != nullptr) {
-        result.insert(QStringLiteral("physical_geometry"), physicalGeometryForObject(object, *grid));
+    // Editor metadata (numeric spinner specs, unit conversions) is rich and
+    // expensive — and only the geometry editor reads it, only for the ACTIVE
+    // object. Building it for every object made the projection O(objects)
+    // in editor-map construction: the dominant cost in the 1000-line bench.
+    if (includeEditorFields) {
+        result.insert(QStringLiteral("numeric_fields"), numericFieldsForObject(object, grid));
+        if (grid != nullptr) {
+            result.insert(QStringLiteral("physical_geometry"), physicalGeometryForObject(object, *grid));
+        }
+    } else {
+        result.insert(QStringLiteral("numeric_fields"), QVariantList{});
     }
 
     std::visit([&](const auto &geometry) {
@@ -574,7 +582,8 @@ QVariantMap draftingDocumentToModelProjection(
     });
     for (const DraftingObject *objectPointer : sortedObjects) {
         const DraftingObject &object = *objectPointer;
-        QVariantMap projected = draftingObjectToCanvasProjection(object, grid);
+        const bool isActive = document.activeObjectId && object.id == *document.activeObjectId;
+        QVariantMap projected = draftingObjectToCanvasProjection(object, grid, isActive);
         const DraftingLayer *layer = findLayer(document, object.layerId);
         const bool layerVisible = layer == nullptr ? false : layer->visible;
         const bool layerLocked = layer == nullptr ? false : layer->locked;

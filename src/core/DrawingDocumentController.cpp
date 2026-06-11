@@ -355,23 +355,25 @@ QVariantList blockedReasonsToList(const std::vector<std::string> &blockedReasons
 
 void annotateProjectedObjectsWithPlotSafety(QVariantMap &model, const DraftingPlotPlan &plan)
 {
+    // Bucket once, look up per object: the inner scan over plan.warnings was
+    // O(objects x warnings) — quadratic exactly in the bulk regime.
+    QHash<QString, QVariantList> warningsByObject;
+    for (const DraftingPlotWarning &warning : plan.warnings) {
+        warningsByObject[drawing_core::qStringFromStdString(warning.objectId)].push_back(QVariantMap{
+            {QStringLiteral("kind"), drawing_core::qStringFromStdString(warning.kind)},
+            {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
+        });
+    }
+
     QVariantList objects = model.value(QStringLiteral("drawing_objects")).toList();
     for (QVariant &objectValue : objects) {
         QVariantMap object = objectValue.toMap();
         const QString objectId = object.value(QStringLiteral("id")).toString();
-        QVariantList objectWarnings;
+        const QVariantList objectWarnings = warningsByObject.value(objectId);
         bool rawOutsideDrawable = false;
         bool calibratedOutsideDrawable = false;
-
-        for (const DraftingPlotWarning &warning : plan.warnings) {
-            if (drawing_core::qStringFromStdString(warning.objectId) != objectId) {
-                continue;
-            }
-            const QString kind = drawing_core::qStringFromStdString(warning.kind);
-            objectWarnings.push_back(QVariantMap{
-                {QStringLiteral("kind"), kind},
-                {QStringLiteral("message"), drawing_core::qStringFromStdString(warning.message)},
-            });
+        for (const QVariant &warningValue : objectWarnings) {
+            const QString kind = warningValue.toMap().value(QStringLiteral("kind")).toString();
             rawOutsideDrawable = rawOutsideDrawable || kind == QStringLiteral("raw_out_of_drawable_bounds");
             calibratedOutsideDrawable = calibratedOutsideDrawable || kind == QStringLiteral("calibrated_plot_out_of_drawable_bounds");
         }
@@ -511,6 +513,12 @@ DrawingDocumentController::DrawingDocumentController(QObject *parent)
 {
     applyDraftingGridToSnapSettings(m_snapSettings, m_gridSettings);
     // Fresh document: current and saved epochs both 0 -> clean.
+
+    // One funnel invalidates the projection cache: every modelChanged
+    // emission, wherever it comes from. Connecting to our own signal beats
+    // sprinkling ++generation at thirty emit sites — an emit site added
+    // tomorrow invalidates correctly by construction.
+    connect(this, &DrawingDocumentController::modelChanged, this, [this]() { ++m_modelGeneration; });
 }
 
 bool DrawingDocumentController::isDocumentDirty() const
@@ -522,36 +530,57 @@ bool DrawingDocumentController::isDocumentDirty() const
 
 QVariantMap DrawingDocumentController::modelDocument() const
 {
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, &grid, m_previewObject ? &*m_previewObject : nullptr);
-    QVariantMap snapProjection = model.value(QStringLiteral("snap")).toMap();
-    snapProjection.insert(QStringLiteral("guide_move_enabled"), m_guideMoveSnapEnabled);
-    model.insert(QStringLiteral("snap"), snapProjection);
-    const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
-    model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
-    model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
-    annotateProjectedObjectsWithPlotSafety(model, plotPlan);
-    const DraftingPlotBoundsResult selectionPlotBounds = selectedRawPlotOutputBounds(
-        m_document,
-        m_document.selectedObjectIds,
-        grid,
-        m_plotSettings);
-    model.insert(QStringLiteral("has_selection_plot_bounds"), selectionPlotBounds.ok);
-    if (selectionPlotBounds.ok) {
-        model.insert(QStringLiteral("selection_plot_bounds"), boundsToMap(selectionPlotBounds.bounds));
-        model.insert(QStringLiteral("selection_plot_bounds_status"), QString::fromLatin1(draftingPlotBoundsStatusName(selectionPlotBounds.status)));
-        model.insert(QStringLiteral("selection_drawable_relation"), QString::fromLatin1(draftingDrawableBoundsRelationName(selectionPlotBounds.relation)));
-        model.insert(QStringLiteral("selection_plot_bounds_width"), selectionPlotBounds.bounds.width);
-        model.insert(QStringLiteral("selection_plot_bounds_height"), selectionPlotBounds.bounds.height);
-    } else {
-        model.insert(QStringLiteral("selection_plot_bounds_status"), QStringLiteral("unavailable"));
-        model.insert(QStringLiteral("selection_drawable_relation"), QStringLiteral("unavailable"));
-        model.insert(QStringLiteral("selection_plot_bounds_width"), 0.0);
-        model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
+    // Two-part projection: the DOCUMENT-shaped model is expensive (full
+    // object projection, plot plan, safety annotation, selection bounds)
+    // and changes only with modelChanged — so it is cached against the
+    // generation counter. The VOLATILE keys (pointer, preview ghost, quick
+    // measure, drag intent, calibration, edit status) ride per-call on a
+    // shallow copy: QVariantMap is implicitly shared, so the copy is cheap
+    // and inserting overlay keys never mutates the cache.
+    if (m_cachedModelGeneration != m_modelGeneration) {
+        const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+        QVariantMap model = drawing_core::draftingDocumentToModelProjection(m_document, m_snapSettings, &grid, nullptr);
+        QVariantMap snapProjection = model.value(QStringLiteral("snap")).toMap();
+        snapProjection.insert(QStringLiteral("guide_move_enabled"), m_guideMoveSnapEnabled);
+        model.insert(QStringLiteral("snap"), snapProjection);
+        const DraftingPlotPlan plotPlan = buildDraftingPlotPlan(m_document, grid, m_plotSettings);
+        model.insert(QStringLiteral("grid"), gridProjectionToMap(grid));
+        model.insert(QStringLiteral("plot_summary"), plotPlanToMap(plotPlan));
+        annotateProjectedObjectsWithPlotSafety(model, plotPlan);
+        const DraftingPlotBoundsResult selectionPlotBounds = selectedRawPlotOutputBounds(
+            m_document,
+            m_document.selectedObjectIds,
+            grid,
+            m_plotSettings);
+        model.insert(QStringLiteral("has_selection_plot_bounds"), selectionPlotBounds.ok);
+        if (selectionPlotBounds.ok) {
+            model.insert(QStringLiteral("selection_plot_bounds"), boundsToMap(selectionPlotBounds.bounds));
+            model.insert(QStringLiteral("selection_plot_bounds_status"), QString::fromLatin1(draftingPlotBoundsStatusName(selectionPlotBounds.status)));
+            model.insert(QStringLiteral("selection_drawable_relation"), QString::fromLatin1(draftingDrawableBoundsRelationName(selectionPlotBounds.relation)));
+            model.insert(QStringLiteral("selection_plot_bounds_width"), selectionPlotBounds.bounds.width);
+            model.insert(QStringLiteral("selection_plot_bounds_height"), selectionPlotBounds.bounds.height);
+        } else {
+            model.insert(QStringLiteral("selection_plot_bounds_status"), QStringLiteral("unavailable"));
+            model.insert(QStringLiteral("selection_drawable_relation"), QStringLiteral("unavailable"));
+            model.insert(QStringLiteral("selection_plot_bounds_width"), 0.0);
+            model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
+        }
+        model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
+        m_cachedDocumentModel = model;
+        m_cachedGrid = grid;
+        m_cachedModelGeneration = m_modelGeneration;
+    }
+
+    QVariantMap model = m_cachedDocumentModel;
+    if (m_previewObject) {
+        // The ghost tracks the cursor; it joins per-call so a creation drag
+        // never invalidates the document cache.
+        model.insert(QStringLiteral("preview_object"),
+                     drawing_core::draftingObjectToCanvasProjection(*m_previewObject, &m_cachedGrid));
     }
     if (m_pointerRawPoint) {
-        model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, grid));
-        model.insert(QStringLiteral("quick_measurement"), quickMeasurementProjectionToMap(quickMeasureAt(m_document, *m_pointerRawPoint, grid)));
+        model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, m_cachedGrid));
+        model.insert(QStringLiteral("quick_measurement"), quickMeasurementProjectionToMap(quickMeasureAt(m_document, *m_pointerRawPoint, m_cachedGrid)));
     }
     if (!m_lastGuideDragSnap.isEmpty()) {
         model.insert(QStringLiteral("guide_drag_snap"), m_lastGuideDragSnap);
@@ -565,8 +594,6 @@ QVariantMap DrawingDocumentController::modelDocument() const
     if (!m_lastEditStatus.isEmpty()) {
         model.insert(QStringLiteral("edit_status"), m_lastEditStatus);
     }
-
-    model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
     return model;
 }
 
@@ -1048,7 +1075,11 @@ bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &comma
         return false;
     }
 
-    commitEdit();
+    // The variant IS the classification: no serialize-and-diff needed to
+    // know whether this was a selection command.
+    const bool selectionOnly = std::holds_alternative<SelectObjectCommand>(command)
+        || std::holds_alternative<SelectObjectsCommand>(command);
+    commitEdit(selectionOnly);
     emit modelChanged();
     return true;
 }
@@ -1072,7 +1103,7 @@ void DrawingDocumentController::beginEdit()
     m_editCommitted = false;
 }
 
-void DrawingDocumentController::commitEdit()
+void DrawingDocumentController::commitEdit(std::optional<bool> selectionOnly)
 {
     if (m_editCommitted) {
         return;
@@ -1084,8 +1115,12 @@ void DrawingDocumentController::commitEdit()
     if (m_editBefore.revision == m_document.revision) {
         return; // no document mutation
     }
-    if (documentsDifferOnlyBySelection(m_editBefore, m_document)) {
-        return; // pure selection: not undoable, and must not clear the redo stack
+    // Pure selection is not undoable and must not clear the redo stack.
+    // When the caller classified the command, trust it; only unclassified
+    // brackets pay the encode-and-compare (two full serializations).
+    if (selectionOnly.value_or(false)
+        || (!selectionOnly.has_value() && documentsDifferOnlyBySelection(m_editBefore, m_document))) {
+        return;
     }
     pushUndoState(m_editBefore, m_editEpochBefore);
 }
@@ -1935,7 +1970,11 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         }
         m_previewObject.reset();
         commitEdit();
-        emit modelChanged();
+        // Pending state is transient: no document mutation occurred (the
+        // commit above early-outs on the unchanged revision), so this is a
+        // pointer-class change — emitting modelChanged here made the FIRST
+        // click of every two-click shape rebuild the whole inspector.
+        emit pointerChanged();
         return;
     }
 
@@ -1950,7 +1989,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         m_pendingCreation->rectInset = m_rectInset;
         m_previewObject.reset();
         commitEdit();
-        emit modelChanged();
+        emit pointerChanged(); // same: pending start, not a mutation
         return;
     }
 
@@ -1994,7 +2033,7 @@ void DrawingDocumentController::cancelPendingCreation()
     }
     m_pendingCreation.reset();
     m_previewObject.reset();
-    emit modelChanged();
+    emit pointerChanged(); // view state, not a mutation
 }
 
 bool DrawingDocumentController::deleteSelectedObject()

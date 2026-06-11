@@ -12,9 +12,14 @@
 namespace drawing_core {
 
 QString qStringFromStdString(const std::string &value);
+// includeEditorFields: numeric spinner specs + physical-unit metadata for
+// the geometry editor — built per request because only the ACTIVE object's
+// editor consumes them, and building them for every object dominated the
+// bulk-document projection cost.
 QVariantMap draftingObjectToCanvasProjection(
     const edi::drafting::DraftingObject &object,
-    const edi::drafting::DraftingGridProjection *grid = nullptr);
+    const edi::drafting::DraftingGridProjection *grid = nullptr,
+    bool includeEditorFields = true);
 QVariantMap draftingDocumentToModelProjection(
     const edi::drafting::DraftingDocument &document,
     const edi::drafting::DraftingSnapSettings &snapSettings,

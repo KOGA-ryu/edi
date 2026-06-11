@@ -117,6 +117,22 @@ const char *draftingToolKindName(DraftingToolKind kind)
     return "unknown";
 }
 
+namespace {
+
+// Radius for the gesture-radius tools (circle/arc/regular polygon): a
+// positive fixedRadius overrides the click distance so a parametric draw
+// loop stamps identical shapes from rough clicks. Non-finite or negative
+// options fall back to the gesture; both paths keep the legacy clamp to
+// the unit document space.
+double resolveToolRadius(const DraftingToolCreationRequest &request)
+{
+    const bool useFixed = std::isfinite(request.fixedRadius) && request.fixedRadius > 0.0;
+    const double radius = useFixed ? request.fixedRadius : distance(request.start, request.end);
+    return std::min(1.0, radius);
+}
+
+} // namespace
+
 DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationRequest &request)
 {
     DraftingShapeKind kind = DraftingShapeKind::Point;
@@ -141,11 +157,12 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         geometry = box;
     } else if (request.tool == DraftingToolKind::Circle) {
         kind = DraftingShapeKind::Circle;
-        geometry = CircleGeometry{request.start, std::min(1.0, distance(request.start, request.end))};
+        geometry = CircleGeometry{request.start, resolveToolRadius(request)};
     } else if (request.tool == DraftingToolKind::Arc) {
         // Two clicks: centre (start) then a point giving radius and start angle.
         // The end angle is start + sweep (legacy default 105deg -> 15..120).
-        const double radius = std::min(1.0, distance(request.start, request.end));
+        // A fixed radius replaces the distance but the click still aims the arc.
+        const double radius = resolveToolRadius(request);
         const double startAngle = std::atan2(request.end.y - request.start.y,
                                              request.end.x - request.start.x) * 180.0 / M_PI;
         kind = DraftingShapeKind::Arc;
@@ -159,7 +176,7 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         // Two clicks: centre (start) then a radius point (end). Vertices sit on
         // the circumscribed circle starting at rotationDeg, stepping by 360/sides.
         const int sides = std::clamp(request.polygonSides, 3, 24);
-        const double radius = std::min(1.0, distance(request.start, request.end));
+        const double radius = resolveToolRadius(request);
         const double rotationRad = request.polygonRotationDeg * M_PI / 180.0;
         PolygonGeometry polygon;
         polygon.vertices.reserve(static_cast<std::size_t>(sides));

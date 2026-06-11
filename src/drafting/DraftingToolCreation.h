@@ -46,6 +46,12 @@ struct DraftingToolCreationRequest {
     // polygonSides — controller tool-option state rides into the request.
     double rectCornerRadius = 0.0;
     double rectInset = 0.0;
+    // Parametric radius (#30) for every radius-from-gesture tool — circle,
+    // arc, regular polygon. 0 = gesture-sized (the click distance); positive
+    // = stamp this exact radius no matter how far the second click landed.
+    // One field, not one per tool: the tools share the same radius semantics,
+    // so they share the same option.
+    double fixedRadius = 0.0;
     // Polyline tool: the accumulated click trail. Multi-click tools carry
     // their whole path here; start/end stay meaningful for two-click tools
     // only. Validation (>= 2 finite vertices) lives with the geometry.

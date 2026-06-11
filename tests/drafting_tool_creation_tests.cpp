@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <string>
 
 using namespace edi::drafting;
@@ -71,6 +72,33 @@ int main()
     assert(circleGeometry != nullptr);
     assert(nearlyEqual(circleGeometry->radius, 0.25));
 
+    // Parametric radius (#30): a positive fixedRadius overrides the gesture
+    // for every radius-from-gesture tool; zero/negative/non-finite fall back.
+    {
+        DraftingToolCreationRequest request;
+        request.tool = DraftingToolKind::Circle;
+        request.objectId = "circle_fixed";
+        request.start = {0.5, 0.5};
+        request.end = {0.5, 0.75}; // gesture says 0.25...
+        request.fixedRadius = 0.1; // ...the option wins
+        auto fixed = buildDraftingObjectForTool(request);
+        assert(fixed.ok);
+        assert(nearlyEqual(std::get<CircleGeometry>(fixed.object.geometry).radius, 0.1));
+        assert(nearlyEqual(std::get<CircleGeometry>(fixed.object.geometry).center.x, 0.5));
+
+        request.fixedRadius = 5.0; // clamps to the unit document space, like the gesture
+        auto clamped = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<CircleGeometry>(clamped.object.geometry).radius, 1.0));
+
+        request.fixedRadius = -0.2; // invalid option -> gesture-sized
+        auto negative = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<CircleGeometry>(negative.object.geometry).radius, 0.25));
+
+        request.fixedRadius = std::numeric_limits<double>::quiet_NaN();
+        auto nan = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<CircleGeometry>(nan.object.geometry).radius, 0.25));
+    }
+
     // Regular polygon: centre + radius point, default 6 sides at 30deg.
     {
         DraftingToolCreationRequest request;
@@ -105,6 +133,14 @@ int main()
         request.polygonSides = 1;
         auto clampedLow = buildDraftingObjectForTool(request);
         assert(std::get<PolygonGeometry>(clampedLow.object.geometry).vertices.size() == 3);
+
+        // fixedRadius reaches the polygon's circumscribed circle too.
+        request.polygonSides = 6;
+        request.fixedRadius = 0.15;
+        auto fixedPolygon = buildDraftingObjectForTool(request);
+        for (const Point2D &v : std::get<PolygonGeometry>(fixedPolygon.object.geometry).vertices) {
+            assert(nearlyEqual(std::hypot(v.x - 0.5, v.y - 0.5), 0.15));
+        }
     }
     assert(std::string(draftingToolKindName(DraftingToolKind::RegularPolygon)) == "regular_polygon");
     assert(draftingToolKindFromId("regular_polygon_tool") == DraftingToolKind::RegularPolygon);
@@ -129,6 +165,14 @@ int main()
         request.arcSweepDeg = 60.0;
         auto narrow = buildDraftingObjectForTool(request);
         assert(nearlyEqual(std::get<ArcGeometry>(narrow.object.geometry).endAngleDeg, 60.0));
+
+        // fixedRadius replaces the gesture distance but the click still aims
+        // the arc: the start angle keeps coming from the second click.
+        request.fixedRadius = 0.05;
+        request.end = {0.5, 0.8}; // 90deg, gesture distance 0.3
+        auto fixedArc = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<ArcGeometry>(fixedArc.object.geometry).radius, 0.05));
+        assert(nearlyEqual(std::get<ArcGeometry>(fixedArc.object.geometry).startAngleDeg, 90.0));
     }
     assert(std::string(draftingToolKindName(DraftingToolKind::Arc)) == "arc");
     assert(draftingToolKindFromId("arc_tool") == DraftingToolKind::Arc);

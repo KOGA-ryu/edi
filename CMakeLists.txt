@@ -187,6 +187,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeOpsStore.cpp
     src/recipe/RecipeOpsValidate.h
     src/recipe/RecipeOpsValidate.cpp
+    src/recipe/RecipeOpsAscii.h
+    src/recipe/RecipeOpsAscii.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -340,6 +342,8 @@ add_edi_contract_test(recipe_store_tests tests/recipe_store_tests.cpp edi_recipe
 add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
+target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
 # The column test byte-compares its construction against the committed sample
 # artifacts — the flagship files must never drift from the asserted build.

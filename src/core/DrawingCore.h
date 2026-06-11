@@ -134,6 +134,9 @@ public:
     // is itself a styling decision, so the sentinels are legal inputs.
     bool setSelectedObjectStrokeColor(const QString &color);
     bool setSelectedObjectStrokeWidth(double width);
+    // Opacity is per-object only (0..1, clamped): layers have no alpha to
+    // inherit, so 0 means transparent, not "use the layer's".
+    bool setSelectedObjectStrokeOpacity(double opacity);
     bool setSelectedObjectLineStyle(const QString &lineStyle);
     bool setSelectedObjectVisible(bool visible);
     bool setSelectedGuideLabel(const QString &label);

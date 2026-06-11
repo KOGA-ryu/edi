@@ -734,6 +734,25 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         widthRowLayout->addWidget(m_styleWidthSpin, 1);
         style.layout->addWidget(widthRow);
 
+        auto *opacityRow = new QWidget;
+        auto *opacityRowLayout = new QHBoxLayout(opacityRow);
+        opacityRowLayout->setContentsMargins(0, 0, 0, 0);
+        opacityRowLayout->setSpacing(8);
+        auto *opacityLabel = new QLabel(QStringLiteral("Opacity"));
+        opacityLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_styleOpacitySpin = new QDoubleSpinBox;
+        m_styleOpacitySpin->setObjectName(QStringLiteral("styleOpacitySpin"));
+        m_styleOpacitySpin->setRange(0.0, 1.0);
+        m_styleOpacitySpin->setDecimals(2);
+        m_styleOpacitySpin->setSingleStep(0.05);
+        m_styleOpacitySpin->setValue(1.0);
+        connect(m_styleOpacitySpin, &QDoubleSpinBox::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectStrokeOpacity(m_styleOpacitySpin->value());
+        });
+        opacityRowLayout->addWidget(opacityLabel);
+        opacityRowLayout->addWidget(m_styleOpacitySpin, 1);
+        style.layout->addWidget(opacityRow);
+
         m_styleLineCombo = makeDataCombo(QStringLiteral("styleLineCombo"), {
             {QStringLiteral("Solid"), QStringLiteral("solid")},
             {QStringLiteral("Dash"), QStringLiteral("dash")},

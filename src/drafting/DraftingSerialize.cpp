@@ -3,6 +3,8 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingMeasurement.h"
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -260,7 +262,12 @@ StrokeStyle readStroke(const MsgPackValue *v, int documentVersion)
     StrokeStyle s;
     if (v) {
         s.width = asDouble(child(*v, "width"), s.width);
-        s.opacity = asDouble(child(*v, "opacity"), s.opacity);
+        // Clamp at the read seam: a file is external input, and every
+        // consumer downstream (projection keys, the inspector spin, SVG's
+        // emit gate) otherwise sees the raw value. NaN/inf mean "no usable
+        // opinion" -> fully opaque.
+        const double rawOpacity = asDouble(child(*v, "opacity"), s.opacity);
+        s.opacity = std::isfinite(rawOpacity) ? std::clamp(rawOpacity, 0.0, 1.0) : 1.0;
         s.color = asString(child(*v, "color"), s.color);
         s.lineStyle = asString(child(*v, "line_style"), s.lineStyle);
         // VERSION-1 shim only: before per-object styling shipped, every
@@ -289,7 +296,9 @@ FillStyle readFill(const MsgPackValue *v)
 {
     FillStyle f;
     if (v) {
-        f.opacity = asDouble(child(*v, "opacity"), f.opacity);
+        // Same read-seam clamp as readStroke: untrusted alpha never escapes.
+        const double rawOpacity = asDouble(child(*v, "opacity"), f.opacity);
+        f.opacity = std::isfinite(rawOpacity) ? std::clamp(rawOpacity, 0.0, 1.0) : 1.0;
         f.color = asString(child(*v, "color"), f.color);
     }
     return f;

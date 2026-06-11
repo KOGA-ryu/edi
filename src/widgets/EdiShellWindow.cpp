@@ -244,6 +244,13 @@ EdiShellWindow::~EdiShellWindow() = default;
 
 void EdiShellWindow::closeEvent(QCloseEvent *event)
 {
+    // #18: closing with unsaved changes asks first (user decision: modal
+    // confirm). Refusal must ignore() the event — returning without it would
+    // still let the window die.
+    if (!resolveDirtyGuard()) {
+        event->ignore();
+        return;
+    }
     if (!m_settingsPath.isEmpty()) {
         saveSettings(m_settingsPath); // flush settings immediately on close
     }
@@ -485,7 +492,7 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
     actions.openDrawing = [this]() { promptOpenDrawing(); };
     actions.exportSvg = [this]() { promptExportSvg(); };
     actions.exportHpgl = [this]() { promptExportHpgl(); };
-    actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPath(path); };
+    actions.openDrawingAtPath = [this](const QString &path) { openDrawingFromPathGuarded(path); };
     actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
     actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
     actions.setStatusText = [this](const QString &text) {

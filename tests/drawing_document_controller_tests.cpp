@@ -3040,6 +3040,42 @@ int main(int argc, char **argv)
         DrawingDocumentController fresh;
         assert(!fresh.canPaste());
         assert(!fresh.paste());
+
+        // Paste is ATOMIC (user decision 2026-06-11). The DISCRIMINATING
+        // setup is a clipboard spanning two layers with only one locked:
+        // the old per-object loop pasted the unlocked subset (returned
+        // true, count +1, selection = the partial paste) — every assertion
+        // below fails under it.
+        DrawingDocumentController atomicPaste;
+        atomicPaste.setSelectedToolId("point_tool");
+        atomicPaste.clickCanvasNormalized(0.3, 0.3); // point on the default layer (serial 1)
+        assert(atomicPaste.createLayer());           // second layer becomes active
+        atomicPaste.clickCanvasNormalized(0.6, 0.6); // point on the second layer (serial 2)
+        atomicPaste.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(atomicPaste.copySelection());            // clipboard spans both layers
+        assert(atomicPaste.setActiveLayerLocked(true)); // lock ONLY the second layer
+        const int beforeLockedPaste = objectCount(atomicPaste);
+        assert(!atomicPaste.paste());
+        assert(objectCount(atomicPaste) == beforeLockedPaste);
+        // The failure preserves the selection (the old loop cleared it via
+        // SelectObjectsCommand{empty}) and reports through edit_status.
+        assert(atomicPaste.modelDocument().value("selected_object_ids").toList().size() == 2);
+        QVariantMap pasteStatus = atomicPaste.modelDocument().value("edit_status").toMap();
+        assert(pasteStatus.value("ok").toBool() == false);
+        assert(pasteStatus.value("mode").toString() == "paste");
+        // Unlock: the same clipboard pastes whole.
+        assert(atomicPaste.setActiveLayerLocked(false));
+        assert(atomicPaste.paste());
+        assert(objectCount(atomicPaste) == beforeLockedPaste + 2);
+        // Pins the serial reclaim: points minted serials 1-2, the FAILED
+        // paste minted 3-4 then restored, so this paste re-mints 3-4 —
+        // without the restore in paste() these would be 5-6.
+        QVariantList pastedSelection = atomicPaste.modelDocument().value("selected_object_ids").toList();
+        assert(pastedSelection.size() == 2);
+        assert(trailingSerial(pastedSelection.first().toString()) == 3);
+        assert(trailingSerial(pastedSelection.last().toString()) == 4);
+        // A clean paste leaves no stale rejection behind.
+        assert(atomicPaste.modelDocument().value("edit_status").toMap().isEmpty());
     }
 
     // N3 object metadata: role / material / export_group / tags, editable
@@ -3192,6 +3228,20 @@ int main(int argc, char **argv)
         assert(styleController.undo());
         styled = activeProjection();
         assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
+
+        // Opacity: per-object only (no layer fallback), clamped to [0, 1],
+        // surfaced through BOTH projection keys, one undo step per edit.
+        assert(styleController.setSelectedObjectStrokeOpacity(0.4));
+        styled = activeProjection();
+        assert(styled.value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.4);
+        assert(styled.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.4);
+        assert(styleController.setSelectedObjectStrokeOpacity(5.0)); // clamps high
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
+        assert(styleController.setSelectedObjectStrokeOpacity(-1.0)); // clamps to transparent
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.0);
+        assert(!styleController.setSelectedObjectStrokeOpacity(std::numeric_limits<double>::quiet_NaN()));
+        assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
     }
 
     // #30 parametric arrays: option state (count + spacings) drives repeat

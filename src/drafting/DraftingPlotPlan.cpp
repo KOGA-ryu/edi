@@ -116,6 +116,7 @@ void appendSegment(
         stroke.color,
         stroke.width,
         stroke.lineStyle,
+        stroke.opacity,
     });
 }
 

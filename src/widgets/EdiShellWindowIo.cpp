@@ -2,6 +2,7 @@
 
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <QString>
 #include <QUrl>
 
@@ -22,6 +23,16 @@ bool EdiShellWindow::saveDrawingToPath(const QString &path)
         return false;
     }
     if (!m_controller->saveDocument(QUrl::fromLocalFile(path))) {
+        // An ATTEMPTED write that failed must say so — especially under the
+        // dirty guard, where the user chose "Save" and the refused action
+        // would otherwise be a silent dead end. (A cancelled dialog never
+        // reaches here, so cancel stays legitimately quiet.)
+        if (m_saveFailedNotice) {
+            m_saveFailedNotice(path);
+        } else {
+            QMessageBox::warning(this, QStringLiteral("Save Failed"),
+                                 QStringLiteral("Could not write %1. The drawing was not saved.").arg(path));
+        }
         return false;
     }
     m_currentDrawingPath = path;
@@ -55,9 +66,11 @@ void EdiShellWindow::promptSaveDrawing()
 
 void EdiShellWindow::promptSaveDrawingAs()
 {
-    QString path = QFileDialog::getSaveFileName(
-        this, QStringLiteral("Save Drawing"), m_currentDrawingPath,
-        QStringLiteral("EDI Drawings (*.edidraw)"));
+    QString path = m_saveAsPathProvider
+        ? m_saveAsPathProvider()
+        : QFileDialog::getSaveFileName(
+              this, QStringLiteral("Save Drawing"), m_currentDrawingPath,
+              QStringLiteral("EDI Drawings (*.edidraw)"));
     if (path.isEmpty()) {
         return;
     }
@@ -69,6 +82,11 @@ void EdiShellWindow::promptSaveDrawingAs()
 
 void EdiShellWindow::promptOpenDrawing()
 {
+    // Guard BEFORE the file dialog: cancelling the guard should not make the
+    // user pick a file first only to refuse it afterwards.
+    if (!resolveDirtyGuard()) {
+        return;
+    }
     const QString path = QFileDialog::getOpenFileName(
         this, QStringLiteral("Open Drawing"), QString(),
         QStringLiteral("EDI Drawings (*.edidraw)"));
@@ -76,6 +94,60 @@ void EdiShellWindow::promptOpenDrawing()
         return;
     }
     openDrawingFromPath(path);
+}
+
+void EdiShellWindow::setDirtyGuardPrompt(std::function<DirtyGuardChoice()> prompt)
+{
+    m_dirtyGuardPrompt = std::move(prompt);
+}
+
+void EdiShellWindow::setSaveAsPathProvider(std::function<QString()> provider)
+{
+    m_saveAsPathProvider = std::move(provider);
+}
+
+void EdiShellWindow::setSaveFailedNotice(std::function<void(const QString &path)> notice)
+{
+    m_saveFailedNotice = std::move(notice);
+}
+
+EdiShellWindow::DirtyGuardChoice EdiShellWindow::promptDirtyGuardChoice()
+{
+    const QMessageBox::StandardButton button = QMessageBox::warning(
+        this, QStringLiteral("Unsaved Changes"),
+        QStringLiteral("This drawing has unsaved changes. Save them before continuing?"),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+        QMessageBox::Save);
+    if (button == QMessageBox::Save) {
+        return DirtyGuardChoice::Save;
+    }
+    if (button == QMessageBox::Discard) {
+        return DirtyGuardChoice::Discard;
+    }
+    return DirtyGuardChoice::Cancel;
+}
+
+bool EdiShellWindow::resolveDirtyGuard()
+{
+    if (!m_controller->isDocumentDirty()) {
+        return true; // nothing to lose, nothing to ask
+    }
+    const DirtyGuardChoice choice = m_dirtyGuardPrompt ? m_dirtyGuardPrompt() : promptDirtyGuardChoice();
+    if (choice == DirtyGuardChoice::Cancel) {
+        return false;
+    }
+    if (choice == DirtyGuardChoice::Save) {
+        promptSaveDrawing();
+        // Save-as can itself be cancelled: only a save that actually landed
+        // (document now clean) unblocks the guarded action.
+        return !m_controller->isDocumentDirty();
+    }
+    return true; // Discard: the user chose to lose the changes
+}
+
+bool EdiShellWindow::openDrawingFromPathGuarded(const QString &path)
+{
+    return resolveDirtyGuard() && openDrawingFromPath(path);
 }
 
 bool EdiShellWindow::exportSvgToPath(const QString &path)

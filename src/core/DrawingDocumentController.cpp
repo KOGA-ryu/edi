@@ -1130,6 +1130,25 @@ bool DrawingDocumentController::setSelectedObjectStrokeWidth(double width)
     return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
 }
 
+bool DrawingDocumentController::setSelectedObjectStrokeOpacity(double opacity)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    if (!std::isfinite(opacity)) {
+        return false;
+    }
+    StrokeStyle stroke = object->stroke;
+    // Unlike width, 0 is NOT an inherit sentinel here — a fully transparent
+    // stroke is a legal style (layers have no opacity to inherit from).
+    stroke.opacity = std::clamp(opacity, 0.0, 1.0);
+    return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
+}
+
 bool DrawingDocumentController::setSelectedObjectLineStyle(const QString &lineStyle)
 {
     if (!m_document.activeObjectId) {
@@ -2278,23 +2297,29 @@ bool DrawingDocumentController::paste()
     }
     // The pure planner mints the ids and offsets the geometry; the controller
     // only applies the result and threads its serial counter through.
-    const DraftingPasteResult plan = planDraftingPaste(
+    const int serialBefore = m_nextObjectSerial;
+    DraftingPasteResult plan = planDraftingPaste(
         m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
     m_nextObjectSerial = plan.nextSerial;
 
-    beginEdit();
-    std::vector<DraftingObjectId> newIds;
-    newIds.reserve(plan.objects.size());
-    for (const DraftingObject &object : plan.objects) {
-        if (applyDraftingCommand(m_document, CreateObjectCommand{object}).ok) {
-            newIds.push_back(object.id);
-        }
+    // Atomic (user decision 2026-06-11): a paste lands whole or not at all,
+    // selected as one unit, one undo step — same contract as arrays and
+    // calibration patterns. The old per-object loop pasted the valid subset
+    // when e.g. the clipboard's layer had been locked since the copy; that
+    // best-effort path half-pasted copied groups and is deliberately gone.
+    // A stale rejection from an earlier failed action must not outlive a
+    // success (same discipline as createArrayFromActiveObject).
+    m_lastEditStatus.clear();
+    if (!createObjectsAndSelect(std::move(plan.objects))) {
+        m_nextObjectSerial = serialBefore; // nothing landed: reclaim the ids
+        // Cmd+V over a locked layer must say so: the only caller discards
+        // the bool, and canPaste() still reports true, so without a status
+        // a refused paste is indistinguishable from a broken shortcut.
+        return finishEdit(QStringLiteral("paste"), QStringLiteral("clipboard"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("paste rejected: clipboard target layer is locked or missing"));
     }
-    // Select exactly the pasted objects, so the next move/nudge acts on them.
-    applyDraftingCommand(m_document, SelectObjectsCommand{newIds});
-    commitEdit();
-    emit modelChanged();
-    return !newIds.empty();
+    return true;
 }
 
 bool DrawingDocumentController::canPaste() const

@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -49,6 +50,26 @@ public:
     bool exportGcodeToPath(const QString &path);
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
+
+    // #18 close-without-saving guard (user decision 2026-06-11: modal
+    // confirm). The dialog is a callable — variation point as data — so
+    // offscreen tests install a canned choice instead of a modal that would
+    // hang the harness; production leaves it unset and gets the QMessageBox.
+    // resolveDirtyGuard() is the policy: clean documents pass, Save proceeds
+    // only if the save actually landed (save-as can be cancelled), Cancel
+    // blocks the action.
+    enum class DirtyGuardChoice { Save, Discard, Cancel };
+    void setDirtyGuardPrompt(std::function<DirtyGuardChoice()> prompt);
+    bool resolveDirtyGuard();
+    // The same data-not-dialog treatment for the two modals the Save choice
+    // can reach: the save-as file picker (a never-saved document) and the
+    // write-failure warning. Unset = real dialog; tests inject canned values
+    // so answering "Save" through the guard can never hang an offscreen run.
+    void setSaveAsPathProvider(std::function<QString()> provider);
+    void setSaveFailedNotice(std::function<void(const QString &path)> notice);
+    // The guarded open every user-facing entry uses (menu, shortcut, recent
+    // files); openDrawingFromPath above stays the unguarded mechanism.
+    bool openDrawingFromPathGuarded(const QString &path);
 
     // Settings persistence seams (TOML at path; tests inject a temp path).
     bool loadSettings(const QString &path);
@@ -98,6 +119,7 @@ private:
     void promptSaveDrawing();
     void promptSaveDrawingAs();
     void promptOpenDrawing();
+    DirtyGuardChoice promptDirtyGuardChoice();
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
@@ -203,6 +225,10 @@ private:
     std::unique_ptr<DraftingFeature> m_draftingFeature;
     std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
+    // Unset = use the modal QMessageBox; tests inject a canned answer.
+    std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
+    std::function<QString()> m_saveAsPathProvider;
+    std::function<void(const QString &path)> m_saveFailedNotice;
     QString m_settingsPath;
     QString m_profilesDir;
     QString m_activeProfile;

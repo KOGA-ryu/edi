@@ -298,6 +298,15 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     QPen pen(
         selected ? context.palette.selection : QColor(style.strokeColor),
         selected ? 3.0 : style.strokeWidth);
+    if (!selected) {
+        // Per-object opacity rides as pen alpha. Selection stays fully
+        // opaque on purpose: a near-invisible object must still light up
+        // when picked, or it cannot be found to edit. The plot-blocked
+        // override below also stays opaque — warnings outrank styling.
+        QColor faded = pen.color();
+        faded.setAlphaF(style.strokeOpacity);
+        pen.setColor(faded);
+    }
     if (summary.plotBlocked) {
         pen.setColor(context.palette.safetyWarning);
     }
@@ -313,12 +322,19 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     painter.setBrush(Qt::NoBrush);
 
     if (kind == QStringLiteral("point")) {
+        // The point is its FILL — a faded ring around an opaque disc would
+        // make opacity a lie for the one kind whose body is brush-painted.
+        // Selection and plot-blocked stay opaque, same rules as the pen.
         const DrawingCanvasProjectedPointObject &pointObject = item.point;
         if (!pointObject.ok) {
             return;
         }
         const QPointF point = drawing_canvas::canvasToScreen(context.board, pointObject.x, pointObject.y);
-        painter.setBrush(selected ? context.palette.selection : context.palette.pointFill);
+        QColor fill = selected ? context.palette.selection : context.palette.pointFill;
+        if (!selected && !summary.plotBlocked) {
+            fill.setAlphaF(style.strokeOpacity);
+        }
+        painter.setBrush(fill);
         painter.drawEllipse(point, 4.0, 4.0);
     } else if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine &line = item.line;

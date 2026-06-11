@@ -41,14 +41,17 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
     const double widthMm = grid.settings.width * mmPerUnit;
     const double heightMm = grid.settings.height * mmPerUnit;
 
-    // Group stroke segments by pen + color + line style (first-appearance
-    // order): per-object styling means one pen can carry several looks, and
-    // each look needs its own <path>.
+    // Group stroke segments by pen + color + line style + opacity
+    // (first-appearance order): per-object styling means one pen can carry
+    // several looks, and each look needs its own <path>. Opacity joins the
+    // key for the same reason dash style did — without it the first
+    // segment's alpha would silently win for the whole group.
     std::vector<std::string> penOrder;
     std::vector<std::vector<std::size_t>> groups;
     for (std::size_t i = 0; i < job.strokeSegments.size(); ++i) {
         const DraftingPlotSegment &keyed = job.strokeSegments[i];
-        const std::string pen = keyed.penId + "|" + keyed.strokeColor + "|" + keyed.lineStyle;
+        const std::string pen = keyed.penId + "|" + keyed.strokeColor + "|" + keyed.lineStyle
+            + "|" + formatNumber(keyed.opacity);
         std::size_t index = penOrder.size();
         for (std::size_t p = 0; p < penOrder.size(); ++p) {
             if (penOrder[p] == pen) {
@@ -82,6 +85,16 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
         } else if (first.lineStyle == "dot") {
             out << " stroke-dasharray=\"" << formatNumber(first.strokeWidth)
                 << ' ' << formatNumber(first.strokeWidth * 2.0) << "\"";
+        }
+        // Fully opaque is SVG's default — emit the attribute only when it
+        // says something AT OUTPUT RESOLUTION. Gating on the formatted text
+        // (not the raw double) keeps the gate consistent with the group key,
+        // which also uses formatNumber — key and attribute can never
+        // disagree about whether two segments share a look. Exact 1.0 still
+        // formats to "1", so existing documents stay byte-identical.
+        const std::string opacityText = formatNumber(first.opacity);
+        if (opacityText != "1") {
+            out << " stroke-opacity=\"" << opacityText << "\"";
         }
         out << " d=\"";
         bool firstSegment = true;

@@ -60,6 +60,11 @@ private:
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawPhysicalGrid(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    // The measuring side bars (top + left), in document units, tracking
+    // zoom/pan through the board transform. Static-layer content; the
+    // pointer caret on them is painted dynamically.
+    void drawRulers(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    void drawRulerPointerCaret(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
     // The typed scene: objects pre-extracted into painter structs, rebuilt
     // only when the controller's generation moves. Steady-state frames
     // (mouse tracking, zoom, pan) paint typed items and never touch

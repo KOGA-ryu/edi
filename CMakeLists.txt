@@ -297,6 +297,14 @@ add_executable(belt_cross_widget_tests
 target_include_directories(belt_cross_widget_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(belt_cross_widget_tests PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
 add_test(NAME belt_cross_widget_tests COMMAND belt_cross_widget_tests)
+add_edi_contract_test(drawing_canvas_ruler_ticks_tests tests/drawing_canvas_ruler_ticks_tests.cpp Qt6::Core Qt6::Gui)
+target_sources(drawing_canvas_ruler_ticks_tests PRIVATE
+    src/widgets/DrawingCanvasRulerTicks.cpp
+    src/widgets/DrawingCanvasViewport.cpp
+    src/widgets/DrawingCanvasProjectedGrid.cpp
+    src/widgets/DrawingCanvasValues.cpp)
+target_include_directories(drawing_canvas_ruler_ticks_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_edi_contract_test(shell_theme_tests tests/shell_theme_tests.cpp Qt6::Core)
 target_sources(shell_theme_tests PRIVATE src/widgets/ShellTheme.cpp)
 target_include_directories(shell_theme_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -408,6 +416,8 @@ add_executable(edi_shell_window_tests
     src/widgets/DrawingCanvasProjectedPlot.cpp
     src/widgets/DrawingCanvasProjectedGrid.h
     src/widgets/DrawingCanvasProjectedGrid.cpp
+    src/widgets/DrawingCanvasRulerTicks.h
+    src/widgets/DrawingCanvasRulerTicks.cpp
     src/widgets/DrawingCanvasProjectedStatus.h
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
@@ -458,6 +468,8 @@ add_executable(drawing_canvas_widget_tests
     src/widgets/DrawingCanvasProjectedPlot.cpp
     src/widgets/DrawingCanvasProjectedGrid.h
     src/widgets/DrawingCanvasProjectedGrid.cpp
+    src/widgets/DrawingCanvasRulerTicks.h
+    src/widgets/DrawingCanvasRulerTicks.cpp
     src/widgets/DrawingCanvasProjectedStatus.h
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
@@ -549,6 +561,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasProjectedPlot.cpp
     src/widgets/DrawingCanvasProjectedGrid.h
     src/widgets/DrawingCanvasProjectedGrid.cpp
+    src/widgets/DrawingCanvasRulerTicks.h
+    src/widgets/DrawingCanvasRulerTicks.cpp
     src/widgets/DrawingCanvasProjectedStatus.h
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h

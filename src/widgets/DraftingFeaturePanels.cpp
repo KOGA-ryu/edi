@@ -83,6 +83,65 @@ const DraftingToolSpec *draftingToolSpec(const QString &toolId)
     return nullptr;
 }
 
+// Drawn cell faces, authored as unit-space coordinates ([0,1]^2, y down).
+// Each face is a tiny diagram of what the tool MAKES — the name line under
+// the carousel teaches the words, so faces only need to be told apart at a
+// glance, not read. Geometry-as-data keeps the belt widget drafting-blind.
+BeltFace draftingToolFace(const QString &toolId)
+{
+    using P = QPointF;
+    BeltFace face;
+    if (toolId == QLatin1String("select_move")) {
+        face.polylines = {QPolygonF({P(0.25, 0.05), P(0.25, 0.8), P(0.45, 0.6), P(0.6, 0.95),
+                                     P(0.72, 0.88), P(0.57, 0.55), P(0.82, 0.55), P(0.25, 0.05)})};
+    } else if (toolId == QLatin1String("point_tool")) {
+        face.dots = {P(0.5, 0.5)};
+    } else if (toolId == QLatin1String("line_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.9), P(0.9, 0.1)})};
+    } else if (toolId == QLatin1String("polyline_tool")) {
+        face.polylines = {QPolygonF({P(0.05, 0.85), P(0.35, 0.3), P(0.6, 0.7), P(0.95, 0.15)})};
+    } else if (toolId == QLatin1String("arrow_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.9), P(0.85, 0.15)}),
+                          QPolygonF({P(0.5, 0.15), P(0.85, 0.15), P(0.85, 0.5)})};
+    } else if (toolId == QLatin1String("rectangle_tool")) {
+        face.polylines = {QPolygonF({P(0.15, 0.25), P(0.85, 0.25), P(0.85, 0.75), P(0.15, 0.75), P(0.15, 0.25)})};
+    } else if (toolId == QLatin1String("circle_tool")) {
+        face.ellipses = {QRectF(0.15, 0.15, 0.7, 0.7)};
+    } else if (toolId == QLatin1String("arc_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.9), P(0.13, 0.55), P(0.3, 0.27), P(0.58, 0.12), P(0.9, 0.1)})};
+    } else if (toolId == QLatin1String("regular_polygon_tool")) {
+        face.polylines = {QPolygonF({P(0.5, 0.08), P(0.9, 0.4), P(0.74, 0.9), P(0.26, 0.9), P(0.1, 0.4), P(0.5, 0.08)})};
+    } else if (toolId == QLatin1String("horizontal_guide_tool")) {
+        face.polylines = {QPolygonF({P(0.05, 0.5), P(0.95, 0.5)}), QPolygonF({P(0.5, 0.3), P(0.5, 0.7)})};
+    } else if (toolId == QLatin1String("vertical_guide_tool")) {
+        face.polylines = {QPolygonF({P(0.5, 0.05), P(0.5, 0.95)}), QPolygonF({P(0.3, 0.5), P(0.7, 0.5)})};
+    } else if (toolId == QLatin1String("horizontal_construction_line_tool")) {
+        face.polylines = {QPolygonF({P(0.05, 0.35), P(0.95, 0.35)}), QPolygonF({P(0.05, 0.65), P(0.95, 0.65)})};
+    } else if (toolId == QLatin1String("vertical_construction_line_tool")) {
+        face.polylines = {QPolygonF({P(0.35, 0.05), P(0.35, 0.95)}), QPolygonF({P(0.65, 0.05), P(0.65, 0.95)})};
+    } else if (toolId == QLatin1String("angled_construction_line_tool")) {
+        face.polylines = {QPolygonF({P(0.05, 0.75), P(0.75, 0.05)}), QPolygonF({P(0.25, 0.95), P(0.95, 0.25)})};
+    } else if (toolId == QLatin1String("distance_dimension_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.5), P(0.9, 0.5)}),
+                          QPolygonF({P(0.1, 0.3), P(0.1, 0.7)}), QPolygonF({P(0.9, 0.3), P(0.9, 0.7)})};
+    } else if (toolId == QLatin1String("width_dimension_tool")) {
+        face.polylines = {QPolygonF({P(0.2, 0.1), P(0.8, 0.1), P(0.8, 0.4), P(0.2, 0.4), P(0.2, 0.1)}),
+                          QPolygonF({P(0.2, 0.75), P(0.8, 0.75)}),
+                          QPolygonF({P(0.2, 0.6), P(0.2, 0.9)}), QPolygonF({P(0.8, 0.6), P(0.8, 0.9)})};
+    } else if (toolId == QLatin1String("height_dimension_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.2), P(0.4, 0.2), P(0.4, 0.8), P(0.1, 0.8), P(0.1, 0.2)}),
+                          QPolygonF({P(0.75, 0.2), P(0.75, 0.8)}),
+                          QPolygonF({P(0.6, 0.2), P(0.9, 0.2)}), QPolygonF({P(0.6, 0.8), P(0.9, 0.8)})};
+    } else if (toolId == QLatin1String("radius_dimension_tool")) {
+        face.ellipses = {QRectF(0.15, 0.15, 0.7, 0.7)};
+        face.polylines = {QPolygonF({P(0.5, 0.5), P(0.82, 0.3)})};
+    } else if (toolId == QLatin1String("diameter_dimension_tool")) {
+        face.ellipses = {QRectF(0.15, 0.15, 0.7, 0.7)};
+        face.polylines = {QPolygonF({P(0.18, 0.7), P(0.82, 0.3)})};
+    }
+    return face; // unknown tools return an empty face -> text fallback
+}
+
 BeltItem beltItemForTool(const QString &toolId)
 {
     if (toolId.isEmpty()) {
@@ -93,9 +152,9 @@ BeltItem beltItemForTool(const QString &toolId)
         // A layout file can name a tool this build doesn't have. Render the
         // id behind a "?" instead of a silent blank, so the user sees what
         // the file asked for.
-        return {toolId, QStringLiteral("?"), toolId};
+        return {toolId, QStringLiteral("?"), toolId, {}};
     }
-    return {toolId, QLatin1String(spec->glyph), QLatin1String(spec->label)};
+    return {toolId, QLatin1String(spec->glyph), QLatin1String(spec->label), draftingToolFace(toolId)};
 }
 
 // Content box for a foldable inspector section: add widgets to .layout,

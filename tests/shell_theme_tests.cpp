@@ -110,6 +110,7 @@ int main()
              "QScrollBar::handle:vertical", "QAbstractSpinBox::up-button",
              "QComboBox:disabled", "QCheckBox::indicator:checked:disabled",
              "#titleBar QPushButton[panelState=\"auto_hidden\"]",
+             "#titleBar QPushButton#toggleLeftPanel",
              "QSplitter::handle:horizontal:hover",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",

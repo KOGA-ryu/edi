@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPair>
@@ -434,6 +435,10 @@ void EdiShellWindow::applyShellStyle()
     for (QPushButton *button : findChildren<QPushButton *>()) {
         button->setCursor(Qt::PointingHandCursor);
     }
+    // The toggle faces are painted pixmaps built from tokens — a live theme
+    // edit must rebuild them along with the sheet, and refreshChrome is
+    // their (idempotent) projection point.
+    refreshChrome();
 }
 
 void EdiShellWindow::setThemeInputs(const ShellThemeInputs &inputs)
@@ -822,7 +827,8 @@ void EdiShellWindow::refreshChrome()
 {
     // The chrome is a projection of shell state, recomputed whole — the same
     // discipline as the panels: no incremental flag-flipping to drift.
-    const auto reflect = [this](QPushButton *button, ShellSlot slot) {
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
+    const auto reflect = [this, &theme](QPushButton *button, ShellSlot slot) {
         if (button == nullptr) {
             return;
         }
@@ -839,6 +845,21 @@ void EdiShellWindow::refreshChrome()
             button->setProperty("panelState", stateName);
             button->style()->unpolish(button);
             button->style()->polish(button);
+        }
+        // The face: frame in muted text, bar in the tri-state color. Gated
+        // on its inputs (review find): refreshChrome runs per resize tick,
+        // and an ungated rebuild churned a fresh QIcon through QPixmapCache
+        // every tick. The key is the face's complete input set — state,
+        // both colors, and DPR — so a live theme edit still re-paints.
+        const QColor barColor(visibility == PanelVisibility::Visible
+                ? theme.accent
+                : visibility == PanelVisibility::Collapsed ? theme.textFaint : theme.warning);
+        const QString faceKey = stateName + theme.textMuted + barColor.name()
+            + QString::number(devicePixelRatioF());
+        if (button->property("faceKey").toString() != faceKey) {
+            button->setProperty("faceKey", faceKey);
+            button->setIcon(QIcon(panelToggleFace(slot, QColor(theme.textMuted), barColor, devicePixelRatioF())));
+            button->setIconSize(QSize(16, 14));
         }
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);

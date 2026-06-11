@@ -363,12 +363,21 @@ QString buildShellStyleSheet(const ShellTheme &t)
             height: 12px;
             border-radius: 7px;
         }
+        /* The knob is a 10px hard-stop gradient band (10/26 = 0.385 of the
+           content box), clipped round by the pill radius at the track's
+           end — left when off, right when on. Same trick as the splitter
+           lines: when QSS has no subcontrol for a shape, a gradient with
+           coincident stops IS the shape. */
         QCheckBox::indicator:unchecked {
-            background: @control@;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 @textFaint@, stop:0.385 @textFaint@,
+                stop:0.386 @control@, stop:1 @control@);
             border: 1px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
-            background: @accentSoft@;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 @accentSoft@, stop:0.614 @accentSoft@,
+                stop:0.615 @accent@, stop:1 @accent@);
             border: 1px solid @borderFocus@;
         }
         /* Disabled tracks must out-specify the state rules above (two
@@ -503,9 +512,19 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton:disabled {
             color: @disabled@;
         }
-        /* Panel toggles: the glyph color carries the tri-state (spec §3) —
-           accent when the panel shows, faint when the user collapsed it,
-           warning when the WINDOW hid it (auto-hide). */
+        /* Panel toggles: 30x30 spec squares carrying the painted
+           frame+bar face (panelToggleFace; the bar color is the tri-state).
+           The color rules keep the property selectable for tests and any
+           future text fallback. */
+        #titleBar QPushButton#toggleLeftPanel,
+        #titleBar QPushButton#toggleBottomPanel,
+        #titleBar QPushButton#toggleRightPanel {
+            min-width: 30px;
+            max-width: 30px;
+            min-height: 30px;
+            max-height: 30px;
+            padding: 0;
+        }
         #titleBar QPushButton[panelState="visible"] {
             color: @accent@;
         }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QPalette>
+#include <QPixmap>
 #include <QString>
 #include <QVariantMap>
 #include <QVariantList>
@@ -22,12 +23,20 @@ class QSpinBox;
 namespace edi::shell {
 
 struct ShellTheme;
+enum class ShellSlot;
 
 // Palette for widgets that paint themselves through QPalette roles instead
 // of QSS (the belt cross): QSS cannot reach a custom paintEvent; the palette
 // is the data channel that can. Pure adapter: same theme in, same palette
 // out. Lives here, not in ShellTheme — that module stays QtGui-free.
 QPalette derivePaintingPalette(const ShellTheme &theme);
+
+// The spec §3 panel-toggle face: a 16x14 window-frame outline with a 5x12
+// indicator bar hugging the edge the panel lives on (12x5 along the bottom
+// for the terminal). Pure: geometry from the slot, colors from the caller
+// (the bar carries the tri-state — accent/faint/warning), device pixel
+// ratio baked into the pixmap so 2x displays stay crisp.
+QPixmap panelToggleFace(ShellSlot slot, const QColor &frame, const QColor &bar, qreal devicePixelRatio);
 
 QFrame *makeRegionFrame(const QString &objectName);
 

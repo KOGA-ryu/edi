@@ -12,6 +12,7 @@
 #include <QCheckBox>
 #include <QColor>
 #include <QCoreApplication>
+#include <QDir>
 #include <QImage>
 #include <QLabel>
 #include <QComboBox>
@@ -20,11 +21,13 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QMenu>
+#include <QSet>
 #include <QMouseEvent>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QVariantList>
@@ -1491,6 +1494,97 @@ int main(int argc, char **argv)
         assert(sectionProbe->height() <= 24);
     }
 
+    // Toggle-switch knobs: the pill track shows a knob band at the off/on
+    // end (gradient hard stops). Scan the indicator strip of a checked and
+    // an unchecked toggle and assert both knob and track colors appear —
+    // membership over a strip, not pixel equality, so the radius clip and
+    // band boundaries cannot flake the test.
+    {
+        EdiShellWindow knobs;
+        knobs.resize(1100, 760);
+        knobs.show();
+        // The layer toggles live in the right panel, which starts collapsed
+        // (spec initial state) — open it so the indicators render.
+        knobs.setPanelCollapsed(edi::shell::ShellSlot::Right, false);
+        QCoreApplication::processEvents();
+        const edi::shell::ShellTheme knobTheme =
+            edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
+        const QImage knobShot = knobs.grab().toImage();
+        const auto stripColors = [&knobs, &knobShot](QCheckBox *box, int fromX, int toX) {
+            QSet<QString> seen;
+            const QPoint origin = box->mapTo(&knobs, QPoint(0, box->height() / 2));
+            for (int x = fromX; x <= toX; ++x) {
+                seen.insert(QColor(knobShot.pixel(origin + QPoint(x, 0))).name());
+            }
+            return seen;
+        };
+        // By objectName, not label: the hidden Snap popup also carries a
+        // "Visible" checkbox (the grid), and label search finds it first.
+        QCheckBox *checkedToggle = nullptr;
+        QCheckBox *uncheckedToggle = nullptr;
+        for (QCheckBox *box : knobs.findChildren<QCheckBox *>(QStringLiteral("layerFlagCheckbox"))) {
+            (box->text() == QStringLiteral("Visible") ? checkedToggle : uncheckedToggle) = box;
+        }
+        assert(checkedToggle != nullptr && checkedToggle->isChecked());
+        assert(checkedToggle->isVisibleTo(&knobs));
+        // Ends are asserted separately (review find: a whole-strip membership
+        // check passes with the knob on the WRONG end). On: knob right, track
+        // left. Off: knob left, track right.
+        const QSet<QString> onLeft = stripColors(checkedToggle, 2, 9);
+        const QSet<QString> onRight = stripColors(checkedToggle, 19, 26);
+        assert(onLeft.contains(knobTheme.accentSoft) && !onLeft.contains(knobTheme.accent));
+        assert(onRight.contains(knobTheme.accent));
+
+        assert(uncheckedToggle != nullptr && !uncheckedToggle->isChecked());
+        const QSet<QString> offLeft = stripColors(uncheckedToggle, 2, 9);
+        const QSet<QString> offRight = stripColors(uncheckedToggle, 19, 26);
+        assert(offLeft.contains(knobTheme.textFaint));
+        assert(offRight.contains(knobTheme.control) && !offRight.contains(knobTheme.textFaint));
+    }
+
+    // Panel-toggle faces (spec §3): the painted 16x14 frame with its 5x12
+    // edge bar answers "which panel" by shape and "what state" by color.
+    // Probe the bar pixel through grabbed renders across a state change.
+    {
+        EdiShellWindow faces;
+        faces.resize(1100, 760);
+        faces.show();
+        QCoreApplication::processEvents();
+        const edi::shell::ShellTheme faceTheme =
+            edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
+        QPushButton *leftToggle = buttonNamed(faces, QStringLiteral("toggleLeftPanel"));
+        assert(leftToggle != nullptr);
+        assert(leftToggle->size() == QSize(30, 30)); // spec square, sheet-enforced
+        // Icon 16x14 centered in 30x30 -> origin (7,8); the left bar's
+        // center sits at icon (3,7).
+        const QPoint barProbe = leftToggle->mapTo(&faces, QPoint(7 + 3, 8 + 7));
+        QImage faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.accent); // visible
+
+        // The right and bottom faces get their own probes (review find: the
+        // golden's pixel budget is far larger than one icon, so an unprobed
+        // face is an unlocked face). Right bar rect(10,1,5,12) -> center
+        // (12,7); bottom bar rect(2,8,12,5) -> center (8,10).
+        QPushButton *rightToggle = buttonNamed(faces, QStringLiteral("toggleRightPanel"));
+        QPushButton *bottomToggle = buttonNamed(faces, QStringLiteral("toggleBottomPanel"));
+        assert(rightToggle != nullptr && bottomToggle != nullptr);
+        // Right and bottom panels start collapsed (spec): their bars are faint.
+        assert(QColor(faceShot.pixel(rightToggle->mapTo(&faces, QPoint(7 + 12, 8 + 7)))).name()
+               == faceTheme.textFaint);
+        assert(QColor(faceShot.pixel(bottomToggle->mapTo(&faces, QPoint(7 + 8, 8 + 10)))).name()
+               == faceTheme.textFaint);
+
+        faces.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
+        faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.textFaint); // collapsed
+
+        faces.resize(600, 760); // under the auto-hide threshold
+        QCoreApplication::processEvents();
+        faces.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
+        faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.warning); // auto-hidden
+    }
+
     // Spec-minimum window (520x420): every title-bar control must stay
     // inside the bar — chrome that clips at the supported minimum is chrome
     // the user cannot click. Also pins the rail's 34x34 spec squares.
@@ -1675,6 +1769,70 @@ int main(int argc, char **argv)
         stateController->undo();
         assert(objectCount(*stateController) == 0);
         assert(emptyLabel->isVisibleTo(&emptyState));
+    }
+
+    // Golden-render lock: the whole default-theme shell against a checked-in
+    // reference. Probes prove single pixels; this catches the class they
+    // miss — layout shifts, clipped text, z-order, accidental restyles.
+    // Machine-local by design (font rasterization differs across machines);
+    // after an INTENDED look change, re-bless with:
+    //   EDI_BLESS_GOLDEN=1 ./build/edi_shell_window_tests
+    {
+        EdiShellWindow golden;
+        golden.resize(1100, 760);
+        golden.show();
+        QCoreApplication::processEvents();
+        const QImage current = golden.grab().toImage().convertToFormat(QImage::Format_RGB32);
+        const QString goldenPath = QFileInfo(QString::fromUtf8(__FILE__))
+                                       .dir()
+                                       .filePath(QStringLiteral("golden/default_shell_1100x760.png"));
+        // Non-empty check, and bless NEVER passes green (review find): a
+        // leftover exported EDI_BLESS_GOLDEN would otherwise silently turn
+        // every run into a re-bless — the lock self-disabling invisibly
+        // while the golden drifts. A red bless run is a visible bless run.
+        if (!qEnvironmentVariable("EDI_BLESS_GOLDEN").isEmpty()) {
+            QDir().mkpath(QFileInfo(goldenPath).absolutePath());
+            const bool saved = current.save(goldenPath); // no side effects inside assert
+            fprintf(stderr, saved ? "golden blessed: %s — bless runs exit red by design\n"
+                                  : "golden bless FAILED to write: %s\n",
+                    qPrintable(goldenPath));
+            assert(saved);
+            return 1;
+        } else {
+            QImage reference(goldenPath);
+            if (reference.isNull()) {
+                fprintf(stderr, "golden missing: %s — bless once with EDI_BLESS_GOLDEN=1\n",
+                        qPrintable(goldenPath));
+            }
+            assert(!reference.isNull());
+            reference = reference.convertToFormat(QImage::Format_RGB32);
+            if (reference.size() != current.size()) {
+                fprintf(stderr, "golden size mismatch: reference %dx%d vs render %dx%d\n",
+                        reference.width(), reference.height(), current.width(), current.height());
+            }
+            assert(reference.size() == current.size());
+            // Channel tolerance 8 + a 0.5% pixel budget: tight enough that a
+            // 1px chrome shift fails, loose enough that subpixel AA jitter
+            // from a Qt patch release does not cry wolf.
+            int differing = 0;
+            for (int y = 0; y < current.height(); ++y) {
+                for (int x = 0; x < current.width(); ++x) {
+                    const QRgb ours = current.pixel(x, y);
+                    const QRgb theirs = reference.pixel(x, y);
+                    if (qAbs(qRed(ours) - qRed(theirs)) > 8
+                        || qAbs(qGreen(ours) - qGreen(theirs)) > 8
+                        || qAbs(qBlue(ours) - qBlue(theirs)) > 8) {
+                        ++differing;
+                    }
+                }
+            }
+            const int budget = current.width() * current.height() / 200;
+            if (differing > budget) {
+                fprintf(stderr, "golden mismatch: %d differing pixels (budget %d) vs %s\n",
+                        differing, budget, qPrintable(goldenPath));
+            }
+            assert(differing <= budget);
+        }
     }
 
     return 0;

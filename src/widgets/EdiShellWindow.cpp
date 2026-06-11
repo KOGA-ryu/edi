@@ -567,6 +567,13 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
     applyShellStyle(); // a freshly mounted canvas self-derives defaults; re-push the live theme
 }
 
+void EdiShellWindow::connectBeltPins(BeltCrossWidget *belt)
+{
+    connect(belt, &BeltCrossWidget::pinsChanged, this, [this, belt]() {
+        m_workspaceLayout.belt.pinnedRows = belt->pinnedRows();
+    });
+}
+
 void EdiShellWindow::rebuildPalettes()
 {
     // Palettes are feature-level, not slot-level: any feature bound anywhere
@@ -603,6 +610,17 @@ void EdiShellWindow::rebuildPalettes()
                     // saveWorkspaceLayout writes it without extra capture.
                     setPalettePlacement(m_workspaceLayout, {paletteId, x, y});
                 });
+            // Pins are the same deal as placements: a user gesture on the
+            // widget, remembered by the layout. Connected here, ON the fresh
+            // palette content — a window-wide findChildren would miss the
+            // first mount, which runs before setCentralWidget attaches the
+            // body tree to this window.
+            for (BeltCrossWidget *belt : spec.content->findChildren<BeltCrossWidget *>(QString(), Qt::FindChildrenRecursively)) {
+                connectBeltPins(belt);
+            }
+            if (auto *contentBelt = qobject_cast<BeltCrossWidget *>(spec.content)) {
+                connectBeltPins(contentBelt);
+            }
             palette->show();
             palette->raise(); // above the canvas and the edge overlays
             m_palettes.push_back(palette);

@@ -246,6 +246,32 @@ int main(int argc, char **argv)
         assert(emitted.size() == emittedBefore);
     }
 
+    // Programmatic pin restore (workspace load): invalid and duplicate rows
+    // drop, empty rows prune, and NO pinsChanged echoes back (the same
+    // no-echo rule as setActiveIndex). User gestures DO emit it.
+    {
+        BeltCrossWidget pinBelt;
+        pinBelt.setGridSize(4, 4);
+        QVector<BeltItem> pinItems(16);
+        pinItems[0] = item("a");
+        pinItems[8] = item("b");
+        pinBelt.setItems(pinItems);
+        int pinSignals = 0;
+        QObject::connect(&pinBelt, &BeltCrossWidget::pinsChanged, [&pinSignals]() { ++pinSignals; });
+
+        pinBelt.setPinnedRows({2, 2, 9, 1, 0}); // dup, off-grid, empty row 1
+        assert((pinBelt.pinnedRows() == std::vector<int>{2, 0}));
+        assert(pinSignals == 0); // sync, not gesture
+
+        pinBelt.resize(pinBelt.sizeHint());
+        sendClick(pinBelt, pinNubCenter(2)); // freeze the active row (0) — gesture
+        assert(pinSignals == 1);
+        assert((pinBelt.pinnedRows() == std::vector<int>{2, 0}));
+        sendClick(pinBelt, killNubCenter(0)); // kill the oldest bar — gesture
+        assert(pinSignals == 2);
+        assert((pinBelt.pinnedRows() == std::vector<int>{0}));
+    }
+
     // Paint colors come from QPalette roles — the data channel the shell
     // pushes a theme through (QSS cannot reach a custom paintEvent). Inject
     // a palette, grab, and assert the roles land on pixels: Highlight fills

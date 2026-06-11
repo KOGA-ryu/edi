@@ -200,6 +200,7 @@ void DraftingFeature::refreshBelt(const BeltLayout &belt)
         items.push_back(beltItemForTool(toolId));
     }
     m_beltWidget->setItems(items);
+    m_beltWidget->setPinnedRows(belt.pinnedRows); // restore frozen quick-bars with the arrangement
     const int activeIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());
     if (activeIndex >= 0) {
         m_beltWidget->setActiveIndex(activeIndex);

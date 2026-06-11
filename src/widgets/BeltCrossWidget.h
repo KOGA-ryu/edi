@@ -53,8 +53,13 @@ public:
     // string the user sees.
     QString activeItemLabel() const;
     // Frozen quick-bars (grid row indexes, pin order). Pinning is a user
-    // gesture on the widget; the host only observes.
+    // gesture on the widget; the host observes via pinsChanged.
     std::vector<int> pinnedRows() const { return m_pinnedRows; }
+    // Programmatic sync (workspace restore). Invalid/duplicate rows drop,
+    // empty rows prune — a stale file degrades to fewer pins, never to a
+    // broken quick bar. Does NOT emit pinsChanged (same no-echo rule as
+    // setActiveIndex: a sync echoed back as a gesture is how loops start).
+    void setPinnedRows(const std::vector<int> &rows);
     // Slot index of the item with this id, or -1. The host syncs with
     // setActiveIndex(indexOfItem(currentId)) when its notion of "current"
     // changes through some other control.
@@ -66,6 +71,9 @@ public:
 
 signals:
     void selected(const QString &id);
+    // A user gesture changed the pinned rows (pin or kill nub). Emitted so
+    // the host can fold the new pin set into the workspace layout.
+    void pinsChanged();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

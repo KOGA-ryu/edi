@@ -20,6 +20,7 @@ class QSplitter;
 class QTimer;
 
 class QButtonGroup;
+class BeltCrossWidget;
 class QLabel;
 class QPushButton;
 class QWidget;
@@ -123,6 +124,7 @@ private:
     // F4: destroy-and-rebuild the floating palettes from the registry and the
     // mounted layout (same lifecycle as slot widgets), and re-apply stored
     // placements (clamped against the live main area).
+    void connectBeltPins(BeltCrossWidget *belt);
     void rebuildPalettes();
     void applyPalettePlacements();
     // Chrome panels: per-feature popup settings behind title-bar buttons

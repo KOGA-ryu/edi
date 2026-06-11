@@ -2,6 +2,7 @@
 
 #include "formats/TomlReader.h"
 #include "formats/TomlWriter.h"
+#include "io/SettingsStore.h"
 
 #include <QTemporaryDir>
 
@@ -35,6 +36,8 @@ int main()
     layout.belt.itemIds[0] = QStringLiteral("select_move");
     layout.belt.itemIds[1] = QStringLiteral("line_tool");
     layout.belt.itemIds[7] = QStringLiteral("circle_tool");
+    // Two frozen quick-bars, pin order preserved (1 was pinned before 0).
+    layout.belt.pinnedRows = {1, 0};
     // Two floating palettes with stored positions.
     setPalettePlacement(layout, {QStringLiteral("tool_belt"), 40, 60});
     setPalettePlacement(layout, {QStringLiteral("snap_box"), 300, 12});
@@ -58,6 +61,17 @@ int main()
     assert(decoded.layout.belt.itemIds.size() == 36);
     assert(decoded.layout.belt.itemIds[7] == QStringLiteral("circle_tool"));
     assert(decoded.layout.belt.itemIds[8].isEmpty());
+    // Pins round-trip in pin order, not row order.
+    assert((decoded.layout.belt.pinnedRows == std::vector<int>{1, 0}));
+    // Forgiving decode: a hand-edited pin outside the belt or repeated is
+    // dropped, not an error.
+    {
+        auto vandalized = config;
+        edi::io::setSettingsInt(vandalized, "belt.pin.2", 99); // off the grid
+        edi::io::setSettingsInt(vandalized, "belt.pin.3", 1);  // duplicate
+        const ShellLayoutData survived = shellLayoutFromConfig(vandalized);
+        assert((survived.layout.belt.pinnedRows == std::vector<int>{1, 0}));
+    }
     // Palette placements round-trip as a keyed set.
     assert(decoded.layout.palettes == layout.palettes);
     assert(palettePlacement(decoded.layout, QStringLiteral("tool_belt")).x == 40);

@@ -1491,6 +1491,43 @@ int main(int argc, char **argv)
         assert(sectionProbe->height() <= 24);
     }
 
+    // Workspace restore is not navigation: loading workspace.toml at startup
+    // must leave the history a single root — Back used to be born enabled,
+    // pointing at a factory default the user never visited. And pinned belt
+    // rows ride in the same file: pin -> save -> fresh window -> load
+    // restores the frozen quick-bar.
+    {
+        QTemporaryDir tempDir;
+        const QString layoutPath = tempDir.filePath(QStringLiteral("workspace.toml"));
+        {
+            EdiShellWindow saver;
+            saver.resize(1100, 760);
+            saver.show();
+            QCoreApplication::processEvents();
+            auto *saverBelt = saver.findChild<BeltCrossWidget *>();
+            assert(saverBelt != nullptr);
+            // Freeze the active row by the same gesture a user makes: click
+            // the pin nub (gutter, centered on the live row).
+            const QPointF pinNub(5.0, 21.0 + 17.0);
+            QMouseEvent pinPress(QEvent::MouseButtonPress, pinNub,
+                                 saverBelt->mapToGlobal(pinNub.toPoint()), Qt::LeftButton,
+                                 Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(saverBelt, &pinPress);
+            assert(saverBelt->pinnedRows() == std::vector<int>{0});
+            assert(saver.saveWorkspaceLayout(layoutPath));
+        }
+
+        EdiShellWindow loader;
+        assert(loader.loadWorkspaceLayout(layoutPath));
+        QPushButton *back = buttonNamed(loader, QStringLiteral("workspaceBack"));
+        QPushButton *forward = buttonNamed(loader, QStringLiteral("workspaceForward"));
+        assert(back != nullptr && forward != nullptr);
+        assert(!back->isEnabled() && !forward->isEnabled()); // a single-entry trail
+        auto *loaderBelt = loader.findChild<BeltCrossWidget *>();
+        assert(loaderBelt != nullptr);
+        assert(loaderBelt->pinnedRows() == std::vector<int>{0}); // the quick-bar survived restart
+    }
+
     // Panel-toggle tri-state (spec §3): the chrome distinguishes a panel the
     // USER collapsed from one the WINDOW hid (auto-hide below the width
     // threshold) — same projection, three values, carried by the panelState

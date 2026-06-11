@@ -1,6 +1,7 @@
 #include "widgets/EdiShellWindow.h"
 
 #include <QAbstractButton>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -189,6 +190,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // else. Hidden until the rail's S button asks for it.
     m_settingsWindow = new QWidget(this, Qt::Tool);
     m_settingsWindow->setObjectName(QStringLiteral("settingsWindow"));
+    // Plain QWidgets ignore stylesheet backgrounds without this; the pop-out
+    // otherwise renders the platform window gray behind themed content.
+    m_settingsWindow->setAttribute(Qt::WA_StyledBackground, true);
     m_settingsWindow->setWindowTitle(QStringLiteral("Settings"));
     auto *settingsWindowLayout = new QVBoxLayout(m_settingsWindow);
     clearLayoutMargins(settingsWindowLayout);
@@ -409,6 +413,7 @@ void EdiShellWindow::applyShellStyle()
     // struct — which is what makes live theme editing possible at all.
     const ShellTheme theme = deriveShellTheme(m_themeInputs);
     setStyleSheet(buildShellStyleSheet(theme));
+    qApp->setStyleSheet(buildToolTipStyleSheet(theme)); // tooltips are top-level; only the app sheet reaches them
     if (m_draftingFeature != nullptr && m_draftingFeature->canvas() != nullptr) {
         m_draftingFeature->canvas()->setCanvasPalette(drawing_canvas::deriveCanvasPalette(theme));
     }
@@ -668,6 +673,9 @@ void EdiShellWindow::rebuildChromePanels()
             // the controls inside without showing anything.
             auto *popup = new QFrame(this, Qt::Popup);
             popup->setObjectName(QStringLiteral("chromePopup_%1").arg(spec.id));
+            // objectName is per-feature (tests address popups by id); the
+            // property is the one stable hook the stylesheet can select on.
+            popup->setProperty("chromePopup", true);
             auto *popupLayout = new QVBoxLayout(popup);
             popupLayout->setContentsMargins(12, 12, 12, 12);
             spec.content->setParent(popup);

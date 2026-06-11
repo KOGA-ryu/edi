@@ -1445,6 +1445,34 @@ int main(int argc, char **argv)
         assert(fontProbe != nullptr);
         assert(fontProbe->font().pixelSize() == theme.fontSizeBody);
         assert(fontProbe->font().family() == theme.uiFont);
+
+        // Auxiliary surfaces paint tokens, not the platform popup gray.
+        // Menus: grab the widget directly (offscreen popups render fine) and
+        // probe inside the 4px padding ring, clear of border and items.
+        auto *menuProbe = proof.findChild<QMenu *>(QStringLiteral("fileMenu"));
+        assert(menuProbe != nullptr);
+        menuProbe->adjustSize();
+        const QImage menuImage = menuProbe->grab().toImage();
+        assert(QColor(menuImage.pixel(3, 3)).name() == theme.surfaceRaised);
+
+        // Chrome popups (the Snap panel): QObject children of the window, so
+        // they grab without being shown; probe inside the 12px margins.
+        QFrame *snapPopup = proof.findChild<QFrame *>(QStringLiteral("chromePopup_snap"));
+        assert(snapPopup != nullptr);
+        assert(snapPopup->property("chromePopup").toBool());
+        const QImage popupImage = snapPopup->grab().toImage();
+        assert(QColor(popupImage.pixel(6, 6)).name() == theme.surfaceRaised);
+
+        // Settings pop-out: plain QWidget — without WA_StyledBackground its
+        // background rule is silently ignored. Grab works unshown; the frame
+        // is a permanent window-owned child.
+        QWidget *settingsWindow = proof.findChild<QWidget *>(QStringLiteral("settingsWindow"));
+        assert(settingsWindow != nullptr);
+        const QImage settingsImage = settingsWindow->grab().toImage();
+        assert(QColor(settingsImage.pixel(2, settingsImage.height() - 2)).name() == theme.base);
+
+        // Tooltips are top-level: only the application sheet reaches them.
+        assert(qApp->styleSheet().contains(theme.surfaceRaised));
     }
 
     // Status bar (spec §2/§3): a 28px strip under the body. The left label

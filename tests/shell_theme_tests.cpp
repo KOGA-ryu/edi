@@ -104,6 +104,8 @@ int main()
              "#panelTitle", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
+             "QComboBox QAbstractItemView", "QMenu::item:selected",
+             "QFrame[chromePopup=\"true\"]", "#settingsWindow",
              "QListWidget::item:selected", "#objectListEmpty",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
@@ -112,6 +114,15 @@ int main()
     }
     // Error surfaces are danger-token tinted, never bespoke hex.
     assert(qss.contains(t.danger));
+
+    // The tooltip sheet is the one app-scope sheet (top-level widgets are
+    // out of the window sheet's reach) — tokens substituted, no markers.
+    const QString tipSheet = buildToolTipStyleSheet(t);
+    assert(tipSheet.contains(QStringLiteral("QToolTip")));
+    assert(tipSheet.contains(t.surfaceRaised));
+    assert(tipSheet.contains(t.text));
+    assert(tipSheet.contains(t.borderMajor));
+    assert(!tipSheet.contains(QStringLiteral("%1")));
 
     return 0;
 }

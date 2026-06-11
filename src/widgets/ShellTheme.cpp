@@ -250,6 +250,48 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border: 0;
             width: 22px;
         }
+        /* The combo's popup list is a separate top-level view — the
+           QListWidget rule below does not reach it; this descendant
+           selector is the canonical way in. */
+        QComboBox QAbstractItemView {
+            background: @surfaceRaised@;
+            color: @text@;
+            border: 1px solid @borderMajor@;
+            selection-background-color: @rowSelected@;
+            selection-color: @text@;
+        }
+        QMenu {
+            background: @surfaceRaised@;
+            color: @text@;
+            border: 1px solid @borderMajor@;
+            padding: 4px;
+        }
+        QMenu::item {
+            padding: 6px 12px;
+            border-radius: 5px;
+        }
+        QMenu::item:selected {
+            background: @rowSelected@;
+            color: @text@;
+        }
+        QMenu::item:disabled {
+            color: @disabled@;
+        }
+        QMenu::separator {
+            height: 1px;
+            background: @borderMinor@;
+            margin: 4px 6px;
+        }
+        /* Chrome popups carry per-feature objectNames (chromePopup_snap, …);
+           the shared dynamic property is the stable selector. */
+        QFrame[chromePopup="true"] {
+            background: @surfaceRaised@;
+            border: 1px solid @borderMajor@;
+            border-radius: 8px;
+        }
+        #settingsWindow {
+            background: @base@;
+        }
         QListWidget {
             color: @text@;
             background: @surface@;
@@ -416,6 +458,16 @@ QString buildShellStyleSheet(const ShellTheme &t)
         sheet.replace(QLatin1String(marker), value);
     }
     return sheet;
+}
+
+QString buildToolTipStyleSheet(const ShellTheme &t)
+{
+    // QToolTip widgets are top-level — a window-level stylesheet never
+    // reaches them, only the application stylesheet does. This tiny sheet is
+    // the ONLY thing the shell sets at app scope; everything else stays on
+    // the window so two mechanisms can't fight over the same selectors.
+    return QStringLiteral("QToolTip { background: %1; color: %2; border: 1px solid %3; padding: 4px 6px; }")
+        .arg(t.surfaceRaised, t.text, t.borderMajor);
 }
 
 } // namespace edi::shell

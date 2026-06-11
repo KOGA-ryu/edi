@@ -426,6 +426,13 @@ void EdiShellWindow::applyShellStyle()
     for (BeltCrossWidget *belt : findChildren<BeltCrossWidget *>()) {
         belt->setPalette(paintingPalette);
     }
+    // Pointing-hand on every clickable (spec §4): QSS has no cursor
+    // property, so this is the one per-widget sweep. Running here covers
+    // every mount path the same way the palette push does; buttons created
+    // outside a mount (none today) would need their own setCursor.
+    for (QPushButton *button : findChildren<QPushButton *>()) {
+        button->setCursor(Qt::PointingHandCursor);
+    }
 }
 
 void EdiShellWindow::setThemeInputs(const ShellThemeInputs &inputs)

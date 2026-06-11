@@ -164,6 +164,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             font-size: @fontXs@px;
             font-weight: 600;
             padding: 8px 0px 0px 0px;
+            min-height: 12px; /* opt out of the 30px button rule: spec section header is a 20px row */
             text-align: left;
         }
         #sectionToggle:hover {
@@ -208,12 +209,16 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-radius: 5px;
             padding: 6px 8px;
         }
+        /* Box math for the spec's 30px button: QSS min-height bounds the
+           CONTENT box — 20px content + 4px padding top/bottom + 1px border
+           each side = a 30px widget. (Same lesson as the traffic lights.) */
         QPushButton {
             color: @text@;
             background: transparent;
             border: 1px solid transparent;
             border-radius: 5px;
             padding: 4px 8px;
+            min-height: 20px;
             text-align: left;
             font-weight: 500; /* spec: controls are medium weight */
         }
@@ -315,9 +320,30 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @textFaint@;
             font-size: @fontSm@px;
         }
+        /* Steppers hidden as a sheet decision, not seven setButtonSymbols
+           calls: spins already step by wheel and arrow keys, and the
+           platform-drawn buttons were the last unthemed chrome inside an
+           otherwise token-painted field. width:0 == NoButtons, reversible
+           here without touching feature code. */
+        QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
+            width: 0;
+            border: none;
+        }
+        QComboBox:disabled, QAbstractSpinBox:disabled, QLineEdit:disabled {
+            color: @disabled@;
+            background: @surfaceRaised@;
+            border-color: @borderMinor@;
+        }
         QCheckBox {
             color: @text@;
             spacing: 8px;
+        }
+        QCheckBox:disabled {
+            color: @disabled@;
+        }
+        QCheckBox::indicator:disabled {
+            background: @control@;
+            border: 1px solid @borderMinor@;
         }
         QCheckBox::indicator {
             width: 15px;
@@ -331,6 +357,34 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QCheckBox::indicator:checked {
             background: @accent@;
             border: 1px solid @accent@;
+        }
+        /* Scrollbars: a quiet 8px rail — transparent track, token handle,
+           no stepper buttons (zero-height add/sub-line), matching the
+           1px-chrome density rule. */
+        QScrollBar:vertical {
+            background: transparent;
+            width: 8px;
+            margin: 0;
+        }
+        QScrollBar:horizontal {
+            background: transparent;
+            height: 8px;
+            margin: 0;
+        }
+        QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+            background: @borderMajor@;
+            border-radius: 3px;
+            min-height: 24px;
+        }
+        QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
+            background: @accentSoft@;
+        }
+        QScrollBar::add-line, QScrollBar::sub-line {
+            width: 0;
+            height: 0;
+        }
+        QScrollBar::add-page, QScrollBar::sub-page {
+            background: transparent;
         }
         QSplitter::handle {
             background: transparent;
@@ -376,6 +430,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border: none;
             border-radius: 5px;
             padding: 4px 8px;
+            min-height: 22px; /* borderless: 22 content + 8 padding = the same 30px box */
             text-align: center;
         }
         #titleBar QPushButton:hover {

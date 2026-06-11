@@ -1473,6 +1473,22 @@ int main(int argc, char **argv)
 
         // Tooltips are top-level: only the application sheet reaches them.
         assert(qApp->styleSheet().contains(theme.surfaceRaised));
+
+        // Control treatment (spec §4): 30px button boxes (20px QSS content +
+        // padding + border) and the pointing-hand cursor, swept on by
+        // applyShellStyle since QSS has no cursor property.
+        assert(fontProbe->cursor().shape() == Qt::PointingHandCursor);
+        // QSS min-height lands as the widget's minimumSize at polish time
+        // (not in sizeHint) — assert on the laid-out height.
+        assert(fontProbe->height() >= 30);
+        // Section headers opt out: spec keeps them a compact ~20px row.
+        QPushButton *sectionProbe = nullptr;
+        for (QPushButton *candidate : proof.findChildren<QPushButton *>(QStringLiteral("sectionToggle"))) {
+            sectionProbe = candidate;
+            break;
+        }
+        assert(sectionProbe != nullptr);
+        assert(sectionProbe->height() <= 24);
     }
 
     // Status bar (spec §2/§3): a 28px strip under the body. The left label

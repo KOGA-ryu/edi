@@ -107,6 +107,8 @@ int main()
              "QComboBox QAbstractItemView", "QMenu::item:selected",
              "QFrame[chromePopup=\"true\"]", "#settingsWindow",
              "QListWidget::item:selected", "#objectListEmpty",
+             "QScrollBar::handle:vertical", "QAbstractSpinBox::up-button",
+             "QComboBox:disabled", "QCheckBox::indicator:disabled",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {

@@ -27,6 +27,14 @@ public:
     bool moveStep(int from, int to);
     bool setParamLiteral(int stepIndex, const QString &paramId, double value);
     bool bindParam(int stepIndex, const QString &paramId, const QString &objectId, const QString &field);
+    bool setStepProfile(int stepIndex, const QString &objectId);
+    // Replaces the whole document (recipe file open). Unconditional: the
+    // loader already validated through the same ops this controller uses.
+    // KNOWN GAP: no recipe dirty flag yet — adopt discards any in-memory
+    // edits without asking. Unreachable today (no UI mutates the recipe),
+    // but the recipe-lab slice must add a dirty flag and fold it into
+    // EdiShellWindow::resolveDirtyGuard before wiring edit widgets.
+    void adoptDocument(edi::recipe::RecipeDocument document);
 
 signals:
     void recipeChanged();

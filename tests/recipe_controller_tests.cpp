@@ -52,5 +52,26 @@ int main(int argc, char **argv)
     assert(controller.removeStep(1));
     assert(changes == 5);
 
+    // Column-phase verbs share the change-counting contract: one signal per
+    // accepted edit, none per rejection, and adoptDocument is a wholesale
+    // replace that emits exactly once and clears any stale error.
+    const int beforeProfile = changes;
+    assert(!controller.setStepProfile(-1, QStringLiteral("shaft"))); // negative guard
+    assert(changes == beforeProfile);
+    assert(controller.addStep(QStringLiteral("lathe")));
+    assert(changes == beforeProfile + 1);
+    const int latheIndex = static_cast<int>(controller.document().steps.size()) - 1;
+    assert(controller.setStepProfile(latheIndex, QStringLiteral("shaft")));
+    assert(changes == beforeProfile + 2);
+    assert(!controller.setStepProfile(0, QStringLiteral("shaft"))); // cube takes no profile
+    assert(changes == beforeProfile + 2);
+    assert(!controller.lastError().isEmpty());
+
+    edi::recipe::RecipeDocument fresh;
+    controller.adoptDocument(std::move(fresh));
+    assert(changes == beforeProfile + 3); // wholesale replace emits ONCE
+    assert(controller.lastError().isEmpty()); // and clears the stale error
+    assert(controller.document().steps.empty());
+
     return 0;
 }

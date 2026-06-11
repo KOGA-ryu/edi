@@ -3,6 +3,7 @@
 #include "drafting/DraftingStore.h"
 
 #include <cassert>
+#include <limits>
 #include <cmath>
 
 using namespace edi::recipe;
@@ -55,7 +56,7 @@ int main()
     assert(addShaperStep(recipe, "bevel").ok);
     assert(validateRecipe(recipe).ok);
     assert(recipe.steps.size() == 2);
-    assert(recipe.steps[0].params.size() == 3);     // size_x/y/z defaults
+    assert(recipe.steps[0].params.size() == 4);     // size_x/y/z + loc_z defaults
     assert(near(recipe.steps[0].params[0].value, 1.0));
     const int revisionAfterAdds = recipe.revision;
     assert(revisionAfterAdds > 0);
@@ -125,6 +126,106 @@ int main()
     assert(paramOf(broken.steps[0], "size_x").ok);   // healthy bindings unaffected
     assert(!paramOf(broken.steps[1], "depth").ok);   // length on a circle: refused
     assert(paramOf(broken.steps[1], "radius").ok);
+
+    // ---- Lathe + profiles (column phase C2) --------------------------------
+    // The lathe takes a PROFILE: a drafted object whose exact coordinates
+    // become physical (radius, height) pairs. Page-left is the spin axis,
+    // page-bottom is z = 0 — drafted x scales along grid X like every radius,
+    // drafted height stands the part up (z = (1 - y) * grid height).
+    {
+        assert(findShaper("lathe") != nullptr);
+        assert(findShaper("lathe")->primitive);
+        assert(findShaper("lathe")->needsProfile);
+        assert(!findShaper("cube")->needsProfile);
+
+        DraftingDocument profileDoc = makeDraftingDocument("profiles");
+        PolylineGeometry shaft;
+        shaft.vertices = {{0.105, 0.90}, {0.085, 0.20}};
+        assert(addObject(profileDoc, object("shaft", DraftingShapeKind::Polyline, shaft)).ok);
+        assert(addObject(profileDoc, object("flare", DraftingShapeKind::Arc,
+            ArcGeometry{{0.5, 0.5}, 0.25, 0.0, 90.0})).ok);
+        assert(addObject(profileDoc, object("disc", DraftingShapeKind::Circle,
+            CircleGeometry{{0.5, 0.5}, 0.1})).ok);
+
+        RecipeDocument lathed;
+        lathed.id = "turned";
+        assert(addShaperStep(lathed, "lathe").ok);
+        // Binding rules: only profile-taking shapers accept one.
+        assert(addShaperStep(lathed, "cube").ok);
+        assert(!setStepProfile(lathed, 1, "shaft").ok);
+        assert(!setStepProfile(lathed, 0, "").ok);
+        assert(setStepProfile(lathed, 0, "shaft").ok);
+
+        const ResolvedRecipe turned = resolveRecipe(lathed, profileDoc, grid);
+        assert(turned.ok);
+        const ResolvedStep &lathe = turned.steps[0];
+        assert(lathe.profileOk);
+        assert(lathe.profilePoints.size() == 2);
+        assert(near(lathe.profilePoints[0].x, 0.105 * 12.0)); // r = 1.26
+        assert(near(lathe.profilePoints[0].y, 0.10 * 8.0));   // z = 0.8 (page bottom up)
+        assert(near(lathe.profilePoints[1].x, 0.085 * 12.0)); // r = 1.02
+        assert(near(lathe.profilePoints[1].y, 0.80 * 8.0));   // z = 6.4
+
+        // An arc samples deterministically: 64 segments per full circle, so
+        // a quarter sweep is 16 segments = 17 points with exact endpoints.
+        RecipeDocument arced;
+        assert(addShaperStep(arced, "lathe").ok);
+        assert(setStepProfile(arced, 0, "flare").ok);
+        const ResolvedRecipe flared = resolveRecipe(arced, profileDoc, grid);
+        assert(flared.ok);
+        const ResolvedStep &flareStep = flared.steps[0];
+        assert(flareStep.profilePoints.size() == 17);
+        assert(near(flareStep.profilePoints.front().x, 0.75 * 12.0)); // arc start (0.75, 0.5)
+        assert(near(flareStep.profilePoints.front().y, 0.50 * 8.0));
+        assert(near(flareStep.profilePoints.back().x, 0.50 * 12.0)); // arc end (0.5, 0.75)
+        assert(near(flareStep.profilePoints.back().y, 0.25 * 8.0));
+
+        // Failure modes fail the STEP with a message, like stale bindings:
+        // nothing bound, object gone, or a kind that is not a profile.
+        RecipeDocument unbound;
+        assert(addShaperStep(unbound, "lathe").ok);
+        const ResolvedRecipe unresolvedLathe = resolveRecipe(unbound, profileDoc, grid);
+        assert(!unresolvedLathe.ok);
+        assert(!unresolvedLathe.steps[0].profileOk);
+        assert(unresolvedLathe.steps[0].profileMessage == "no profile bound");
+
+        RecipeDocument missing;
+        assert(addShaperStep(missing, "lathe").ok);
+        assert(setStepProfile(missing, 0, "gone").ok);
+        assert(!resolveRecipe(missing, profileDoc, grid).steps[0].profileOk);
+
+        RecipeDocument wrongKind;
+        assert(addShaperStep(wrongKind, "lathe").ok);
+        assert(setStepProfile(wrongKind, 0, "disc").ok);
+        const ResolvedRecipe disced = resolveRecipe(wrongKind, profileDoc, grid);
+        assert(!disced.steps[0].profileOk);
+        assert(disced.steps[0].profileMessage == "profile needs a line, polyline, or arc");
+
+        // Non-finite literals are rejected at the op — the one gate every
+        // entry path (UI, TOML loader) shares.
+        RecipeDocument finiteOnly;
+        assert(addShaperStep(finiteOnly, "cube").ok);
+        assert(!setParamLiteral(finiteOnly, 0, "size_x", std::numeric_limits<double>::quiet_NaN()).ok);
+        assert(!setParamLiteral(finiteOnly, 0, "size_x", std::numeric_limits<double>::infinity()).ok);
+
+        // A one-vertex polyline cannot be built through the ops, but the
+        // .edidraw LOAD path does not re-validate geometry — hand-assemble
+        // the corrupt object the way a damaged file would deliver it.
+        DraftingObject corrupt;
+        corrupt.id = "stub";
+        corrupt.kind = DraftingShapeKind::Polyline;
+        PolylineGeometry oneVertex;
+        oneVertex.vertices = {{0.5, 0.5}};
+        corrupt.geometry = oneVertex;
+        DraftingDocument corruptDoc = makeDraftingDocument("corrupt");
+        corruptDoc.objects.push_back(corrupt);
+        RecipeDocument stubbed;
+        assert(addShaperStep(stubbed, "lathe").ok);
+        assert(setStepProfile(stubbed, 0, "stub").ok);
+        const ResolvedRecipe stubResolved = resolveRecipe(stubbed, corruptDoc, grid);
+        assert(!stubResolved.steps[0].profileOk);
+        assert(stubResolved.steps[0].profileMessage == "profile polyline needs at least two vertices");
+    }
 
     return 0;
 }

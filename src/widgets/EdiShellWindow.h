@@ -48,6 +48,13 @@ public:
     bool exportSvgToPath(const QString &path);
     bool exportHpglToPath(const QString &path);
     bool exportGcodeToPath(const QString &path);
+    // Blender recipe pipeline: the recipe document (TOML) and its emitted
+    // Python. Export resolves against the LIVE drafting document — exact
+    // measurements at the moment of export, or a refusal (never a guess).
+    bool saveRecipeToPath(const QString &path);
+    bool openRecipeFromPath(const QString &path);
+    bool exportRecipePythonToPath(const QString &path);
+    QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
 
@@ -123,6 +130,9 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
+    void promptOpenRecipe();
+    void promptSaveRecipe();
+    void promptExportRecipePython();
     // One funnel for "which document, how clean": window title AND the
     // status-bar file label (with its dirty recoloring) update together, so
     // they can never disagree. Connected to modelChanged.
@@ -225,6 +235,7 @@ private:
     std::unique_ptr<DraftingFeature> m_draftingFeature;
     std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
+    QString m_lastRecipeError;
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

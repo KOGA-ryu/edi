@@ -41,6 +41,11 @@ struct RecipeParam {
 struct ShaperStep {
     std::string shaperId;
     std::vector<RecipeParam> params;
+    // Some shapers (lathe) consume a PROFILE: a drafted line/polyline/arc
+    // whose exact coordinates become the shape. A reference, not a copy —
+    // the drafting document stays the single measurement authority, and
+    // re-resolving after a profile edit picks up the new numbers.
+    std::string profileObjectId; // empty = no profile bound
 };
 
 struct RecipeDocument {
@@ -64,6 +69,8 @@ struct ShaperSpec {
     // already there. The grammar's one structural rule lives on this flag.
     bool primitive;
     std::vector<ShaperParamSpec> params;
+    // True for shapers whose geometry comes from a drafted profile (lathe).
+    bool needsProfile = false;
 };
 
 const std::vector<ShaperSpec> &shaperTable();
@@ -88,6 +95,11 @@ RecipeOpResult setParamLiteral(RecipeDocument &document, std::size_t stepIndex,
                                const std::string &paramId, double value);
 RecipeOpResult bindParamToMeasurement(RecipeDocument &document, std::size_t stepIndex,
                                       const std::string &paramId, MeasurementRef measurement);
+// Binds a drafted object as the step's profile. Rejected when the step's
+// shaper takes none — pointing a profile at a cube is a category error the
+// document should refuse, not silently store.
+RecipeOpResult setStepProfile(RecipeDocument &document, std::size_t stepIndex,
+                              std::string objectId);
 
 // The grammar's structural validity: non-empty, starts with a primitive,
 // every shaper known. (Per-param resolution problems are resolve concerns.)
@@ -106,6 +118,13 @@ struct ResolvedParam {
 struct ResolvedStep {
     std::string shaperId;
     std::vector<ResolvedParam> params;
+    // Profile resolution result: ordered PHYSICAL points (x = radius from
+    // the spin axis at page-left, y = height above the page BOTTOM — the
+    // drafted page maps to the part standing upright). Empty when the
+    // shaper takes no profile.
+    std::vector<edi::drafting::Point2D> profilePoints;
+    bool profileOk = true;       // false fails the step like a stale binding
+    std::string profileMessage;
     bool ok = false;
 };
 

@@ -54,6 +54,78 @@ int main()
     assert(invalidCreate.code == DraftingResultCode::InvalidGeometry);
     assert(document.revision == revisionAfterDelete);
 
+    // CreateObjectsCommand (#30): an atomic batch. Either every object lands
+    // with ONE revision bump, or a rejection anywhere leaves the document
+    // exactly as it was — no half-committed batches.
+    {
+        DraftingDocument batchDocument = makeDraftingDocument("batch_doc");
+        auto seed = applyDraftingCommand(batchDocument,
+            CreateObjectCommand{makeDraftingObject("existing_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}})});
+        assert(seed.ok);
+        const auto revisionBeforeBatch = batchDocument.revision;
+
+        // Empty batch: accepted no-op, no revision bump.
+        auto emptyBatch = applyDraftingCommand(batchDocument, CreateObjectsCommand{});
+        assert(emptyBatch.ok);
+        assert(batchDocument.revision == revisionBeforeBatch);
+
+        std::vector<DraftingObject> batch = {
+            makeDraftingObject("batch_1", DraftingShapeKind::Point, PointGeometry{{0.2, 0.2}}),
+            makeDraftingObject("batch_2", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.3, 0.3}}),
+            makeDraftingObject("batch_3", DraftingShapeKind::Point, PointGeometry{{0.4, 0.4}}),
+        };
+        auto batchCreate = applyDraftingCommand(batchDocument, CreateObjectsCommand{batch});
+        assert(batchCreate.ok);
+        assert(batchDocument.objects.size() == 4);
+        assert(batchDocument.revision == revisionBeforeBatch + 1); // ONE bump for the batch
+        assert(containsObject(batchDocument, "batch_2"));
+        // Bounds are computed on the way in, like addObject does.
+        assert(findObject(batchDocument, "batch_3")->bounds.x == 0.4);
+
+        // Duplicate against an EXISTING object: rejected, nothing applied.
+        const auto sizeBeforeRejects = batchDocument.objects.size();
+        const auto revisionBeforeRejects = batchDocument.revision;
+        std::vector<DraftingObject> dupExisting = {
+            makeDraftingObject("fresh_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}}),
+            makeDraftingObject("existing_1", DraftingShapeKind::Point, PointGeometry{{0.6, 0.6}}),
+        };
+        auto dupExistingResult = applyDraftingCommand(batchDocument, CreateObjectsCommand{dupExisting});
+        assert(!dupExistingResult.ok);
+        assert(dupExistingResult.code == DraftingResultCode::DuplicateObjectId);
+        assert(batchDocument.objects.size() == sizeBeforeRejects);
+        assert(!containsObject(batchDocument, "fresh_1")); // atomic: the valid head did NOT land
+
+        // Duplicate WITHIN the batch: same rejection, same atomicity.
+        std::vector<DraftingObject> dupInternal = {
+            makeDraftingObject("twin_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}}),
+            makeDraftingObject("twin_1", DraftingShapeKind::Point, PointGeometry{{0.6, 0.6}}),
+        };
+        auto dupInternalResult = applyDraftingCommand(batchDocument, CreateObjectsCommand{dupInternal});
+        assert(!dupInternalResult.ok);
+        assert(dupInternalResult.code == DraftingResultCode::DuplicateObjectId);
+        assert(!containsObject(batchDocument, "twin_1"));
+
+        // An invalid shape mid-batch rejects the whole batch.
+        std::vector<DraftingObject> invalidTail = {
+            makeDraftingObject("good_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}}),
+            makeDraftingObject("bad_1", DraftingShapeKind::Polyline, PolylineGeometry{{{0.0, 0.0}}}),
+        };
+        auto invalidTailResult = applyDraftingCommand(batchDocument, CreateObjectsCommand{invalidTail});
+        assert(!invalidTailResult.ok);
+        assert(invalidTailResult.code == DraftingResultCode::InvalidGeometry);
+        assert(!containsObject(batchDocument, "good_1"));
+
+        // An unknown layer rejects the whole batch.
+        DraftingObject orphan = makeDraftingObject("orphan_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}});
+        orphan.layerId = "no_such_layer";
+        auto orphanResult = applyDraftingCommand(batchDocument, CreateObjectsCommand{{orphan}});
+        assert(!orphanResult.ok);
+        assert(orphanResult.code == DraftingResultCode::LayerNotFound);
+
+        assert(batchDocument.objects.size() == sizeBeforeRejects);
+        assert(batchDocument.revision == revisionBeforeRejects);
+    }
+
     DraftingDocument layerCommandDocument = makeDraftingDocument("layer_command_doc");
     auto createLayer = applyDraftingCommand(layerCommandDocument, CreateLayerCommand{makeDraftingLayer("ink", "Ink", 1), true});
     assert(createLayer.ok);

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <unordered_set>
 #include <vector>
 
 namespace edi::drafting {
@@ -70,5 +71,9 @@ DraftingLayer *findLayer(DraftingDocument &document, const LayerId &id);
 const DraftingLayer *findLayer(const DraftingDocument &document, const LayerId &id);
 bool containsObject(const DraftingDocument &document, const DraftingObjectId &id);
 bool containsLayer(const DraftingDocument &document, const LayerId &id);
+// All object ids as a hash set: build once (O(M)), O(1) membership after.
+// For code that checks MANY ids against the document (batch create,
+// multi-select) — containsObject per id is a fresh linear scan each time.
+std::unordered_set<DraftingObjectId> objectIdSet(const DraftingDocument &document);
 
 } // namespace edi::drafting

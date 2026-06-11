@@ -1703,19 +1703,18 @@ bool DrawingDocumentController::createArrayFromActiveObject(
 bool DrawingDocumentController::createObjectsAndSelect(const std::vector<DraftingObject> &objects)
 {
     beginEdit();
+    // One atomic command for the whole batch: either every object lands or
+    // none does, so the partial-commit bookkeeping the per-object loop needed
+    // (commit what landed, then bail) is gone — and so is its O(N^2) id
+    // re-scan. On rejection the abandoned edit bracket is harmless: the next
+    // beginEdit re-captures.
+    const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectsCommand{objects});
+    if (!create.ok) {
+        return false;
+    }
     std::vector<DraftingObjectId> selectedIds;
     selectedIds.reserve(objects.size());
     for (const DraftingObject &object : objects) {
-        const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectCommand{object});
-        if (!create.ok) {
-            // Earlier objects in the batch are already committed; keep the view
-            // and undo history in sync with what actually landed.
-            if (!selectedIds.empty()) {
-                commitEdit();
-                emit modelChanged();
-            }
-            return false;
-        }
         selectedIds.push_back(object.id);
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});

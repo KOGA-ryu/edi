@@ -172,4 +172,14 @@ bool containsLayer(const DraftingDocument &document, const LayerId &id)
     return layerIndexById(document, id).has_value();
 }
 
+std::unordered_set<DraftingObjectId> objectIdSet(const DraftingDocument &document)
+{
+    std::unordered_set<DraftingObjectId> ids;
+    ids.reserve(document.objects.size());
+    for (const DraftingObject &object : document.objects) {
+        ids.insert(object.id);
+    }
+    return ids;
+}
+
 } // namespace edi::drafting

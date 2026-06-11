@@ -24,13 +24,15 @@ struct DraftingArrayRepeatSettings {
     double spacingY = 0.0;
 };
 
-// Maps an axis id onto repeat settings: the caller supplies count and spacing
-// (tool-option state), this function only decides which axis the spacing
-// rides on. Unknown axis -> nullopt.
+// Maps an axis id onto repeat settings: the caller supplies count and both
+// axis spacings (tool-option state); this function decides which spacing the
+// chosen axis keeps and zeroes the other, so the axis logic lives in exactly
+// one place. Unknown axis -> nullopt.
 std::optional<DraftingArrayRepeatSettings> draftingArrayRepeatSettingsFromAxisId(
     const std::string &axisId,
     int copyCount,
-    double spacing);
+    double spacingX,
+    double spacingY);
 
 DraftingArrayResult repeatDraftingObject(
     const DraftingObject &source,

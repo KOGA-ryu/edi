@@ -77,13 +77,14 @@ DraftingArrayResult DraftingArrayResult::rejected(DraftingResultCode code, std::
 std::optional<DraftingArrayRepeatSettings> draftingArrayRepeatSettingsFromAxisId(
     const std::string &axisId,
     int copyCount,
-    double spacing)
+    double spacingX,
+    double spacingY)
 {
     if (axisId == "x") {
-        return DraftingArrayRepeatSettings{copyCount, spacing, 0.0};
+        return DraftingArrayRepeatSettings{copyCount, spacingX, 0.0};
     }
     if (axisId == "y") {
-        return DraftingArrayRepeatSettings{copyCount, 0.0, spacing};
+        return DraftingArrayRepeatSettings{copyCount, 0.0, spacingY};
     }
     return std::nullopt;
 }

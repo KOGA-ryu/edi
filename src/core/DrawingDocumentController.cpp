@@ -800,6 +800,50 @@ double DrawingDocumentController::rectInset() const
     return m_rectInset;
 }
 
+void DrawingDocumentController::setFixedRadius(double radius)
+{
+    // Same normalization as the rectangle options: invalid means "off"
+    // (gesture-sized), never a rejected build later.
+    m_fixedRadius = std::isfinite(radius) && radius > 0.0 ? radius : 0.0;
+}
+
+double DrawingDocumentController::fixedRadius() const
+{
+    return m_fixedRadius;
+}
+
+void DrawingDocumentController::setArrayCount(int count)
+{
+    m_arrayCount = std::clamp(count, 1, 99);
+}
+
+int DrawingDocumentController::arrayCount() const
+{
+    return m_arrayCount;
+}
+
+void DrawingDocumentController::setArraySpacingX(double spacing)
+{
+    // Negative spacing is legal (the array marches left/up); only
+    // non-finite input is normalized away.
+    m_arraySpacingX = std::isfinite(spacing) ? spacing : 0.0;
+}
+
+double DrawingDocumentController::arraySpacingX() const
+{
+    return m_arraySpacingX;
+}
+
+void DrawingDocumentController::setArraySpacingY(double spacing)
+{
+    m_arraySpacingY = std::isfinite(spacing) ? spacing : 0.0;
+}
+
+double DrawingDocumentController::arraySpacingY() const
+{
+    return m_arraySpacingY;
+}
+
 void DrawingDocumentController::setAspectLockEnabled(bool enabled)
 {
     m_aspectLockEnabled = enabled;
@@ -1589,10 +1633,53 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 {
-    // Legacy defaults (3 copies, 0.1 spacing) pinned at the call site until
-    // the tool-option state lands; the planner itself is fully parametric.
-    const std::optional<DraftingArrayRepeatSettings> settings = draftingArrayRepeatSettingsFromAxisId(toStdString(axisId), 3, 0.1);
+    const std::optional<DraftingArrayRepeatSettings> settings =
+        draftingArrayRepeatSettingsFromAxisId(toStdString(axisId), m_arrayCount, m_arraySpacingX, m_arraySpacingY);
     if (!settings) {
+        return false;
+    }
+    return createArrayFromActiveObject(QStringLiteral("repeat"), settings->copyCount,
+        [&settings](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return repeatDraftingObject(source, newObjectIds, settings->spacingX, settings->spacingY);
+        });
+}
+
+bool DrawingDocumentController::gridArraySelectedObject()
+{
+    // One count spin drives both axes: a grid of count x count cells, the
+    // source occupying the first. count copies-per-axis squared minus the
+    // source is the planner's id budget.
+    const int cells = m_arrayCount * m_arrayCount;
+    return createArrayFromActiveObject(QStringLiteral("grid"), cells - 1,
+        [this](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return gridArrayDraftingObject(source, newObjectIds, m_arrayCount, m_arrayCount, m_arraySpacingX, m_arraySpacingY);
+        });
+}
+
+bool DrawingDocumentController::radialArraySelectedObject()
+{
+    // The ring centre is the drawable centre — the one predictable landmark
+    // every document has. Centring on the selection itself would be
+    // degenerate (the planner rejects a zero arm).
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const Point2D center{
+        grid.drawableBounds.x + grid.drawableBounds.width / 2.0,
+        grid.drawableBounds.y + grid.drawableBounds.height / 2.0,
+    };
+    return createArrayFromActiveObject(QStringLiteral("radial"), m_arrayCount,
+        [center](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return radialArrayDraftingObject(source, newObjectIds, center);
+        });
+}
+
+bool DrawingDocumentController::createArrayFromActiveObject(
+    const QString &idPrefix,
+    int copyCount,
+    const std::function<DraftingArrayResult(
+        const DraftingObject &source,
+        const std::vector<DraftingObjectId> &newObjectIds)> &plan)
+{
+    if (copyCount < 1) {
         return false;
     }
     const DraftingObject *source = activeObject(m_document);
@@ -1601,17 +1688,16 @@ bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
     }
 
     std::vector<DraftingObjectId> objectIds;
-    objectIds.reserve(settings->copyCount);
-    for (int index = 0; index < settings->copyCount; ++index) {
-        objectIds.push_back(toStdString(nextObjectId(QStringLiteral("repeat"), m_nextObjectSerial++)));
+    objectIds.reserve(static_cast<std::size_t>(copyCount));
+    for (int index = 0; index < copyCount; ++index) {
+        objectIds.push_back(toStdString(nextObjectId(idPrefix, m_nextObjectSerial++)));
     }
 
-    const DraftingArrayResult repeat = repeatDraftingObject(*source, objectIds, settings->spacingX, settings->spacingY);
-    if (!repeat.ok) {
+    const DraftingArrayResult planned = plan(*source, objectIds);
+    if (!planned.ok) {
         return false;
     }
-
-    return createObjectsAndSelect(repeat.objects);
+    return createObjectsAndSelect(planned.objects);
 }
 
 bool DrawingDocumentController::createObjectsAndSelect(const std::vector<DraftingObject> &objects)
@@ -2042,6 +2128,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         m_pendingCreation->polygonSides = m_polygonSides;
         m_pendingCreation->rectCornerRadius = m_rectCornerRadius;
         m_pendingCreation->rectInset = m_rectInset;
+        m_pendingCreation->fixedRadius = m_fixedRadius;
         m_previewObject.reset();
         commitEdit();
         if (clearedEditStatus) {

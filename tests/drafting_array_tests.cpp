@@ -26,20 +26,21 @@ DraftingObject object(std::string id, DraftingShapeKind kind, DraftingGeometry g
 
 int main()
 {
-    // The axis id only picks which axis the caller's spacing rides on; count
-    // and spacing themselves are tool-option state passed through verbatim.
-    const std::optional<DraftingArrayRepeatSettings> repeatX = draftingArrayRepeatSettingsFromAxisId("x", 5, 0.25);
+    // The axis id picks which of the caller's two spacings survives (the
+    // other is zeroed); count and spacing themselves are tool-option state
+    // passed through verbatim.
+    const std::optional<DraftingArrayRepeatSettings> repeatX = draftingArrayRepeatSettingsFromAxisId("x", 5, 0.25, 0.4);
     assert(repeatX);
     assert(repeatX->copyCount == 5);
     assert(nearlyEqual(repeatX->spacingX, 0.25));
     assert(nearlyEqual(repeatX->spacingY, 0.0));
 
-    const std::optional<DraftingArrayRepeatSettings> repeatY = draftingArrayRepeatSettingsFromAxisId("y", 2, 0.05);
+    const std::optional<DraftingArrayRepeatSettings> repeatY = draftingArrayRepeatSettingsFromAxisId("y", 2, 0.25, 0.05);
     assert(repeatY);
     assert(repeatY->copyCount == 2);
     assert(nearlyEqual(repeatY->spacingX, 0.0));
     assert(nearlyEqual(repeatY->spacingY, 0.05));
-    assert(!draftingArrayRepeatSettingsFromAxisId("diagonal", 3, 0.1));
+    assert(!draftingArrayRepeatSettingsFromAxisId("diagonal", 3, 0.1, 0.1));
 
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.2}, {0.4, 0.2}});
     line.stroke.color = "#55ccaa";

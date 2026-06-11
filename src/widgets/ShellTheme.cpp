@@ -363,12 +363,21 @@ QString buildShellStyleSheet(const ShellTheme &t)
             height: 12px;
             border-radius: 7px;
         }
+        /* The knob is a 10px hard-stop gradient band (10/26 = 0.385 of the
+           content box), clipped round by the pill radius at the track's
+           end — left when off, right when on. Same trick as the splitter
+           lines: when QSS has no subcontrol for a shape, a gradient with
+           coincident stops IS the shape. */
         QCheckBox::indicator:unchecked {
-            background: @control@;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 @textFaint@, stop:0.385 @textFaint@,
+                stop:0.386 @control@, stop:1 @control@);
             border: 1px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
-            background: @accentSoft@;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 @accentSoft@, stop:0.614 @accentSoft@,
+                stop:0.615 @accent@, stop:1 @accent@);
             border: 1px solid @borderFocus@;
         }
         /* Disabled tracks must out-specify the state rules above (two

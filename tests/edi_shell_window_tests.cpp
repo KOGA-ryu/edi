@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QMenu>
+#include <QSet>
 #include <QMouseEvent>
 #include <QSpinBox>
 #include <QSplitter>
@@ -1489,6 +1490,49 @@ int main(int argc, char **argv)
         }
         assert(sectionProbe != nullptr);
         assert(sectionProbe->height() <= 24);
+    }
+
+    // Toggle-switch knobs: the pill track shows a knob band at the off/on
+    // end (gradient hard stops). Scan the indicator strip of a checked and
+    // an unchecked toggle and assert both knob and track colors appear —
+    // membership over a strip, not pixel equality, so the radius clip and
+    // band boundaries cannot flake the test.
+    {
+        EdiShellWindow knobs;
+        knobs.resize(1100, 760);
+        knobs.show();
+        // The layer toggles live in the right panel, which starts collapsed
+        // (spec initial state) — open it so the indicators render.
+        knobs.setPanelCollapsed(edi::shell::ShellSlot::Right, false);
+        QCoreApplication::processEvents();
+        const edi::shell::ShellTheme knobTheme =
+            edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
+        const QImage knobShot = knobs.grab().toImage();
+        const auto stripColors = [&knobs, &knobShot](QCheckBox *box) {
+            QSet<QString> seen;
+            const QPoint origin = box->mapTo(&knobs, QPoint(0, box->height() / 2));
+            for (int x = 0; x < 30; ++x) {
+                seen.insert(QColor(knobShot.pixel(origin + QPoint(x, 0))).name());
+            }
+            return seen;
+        };
+        // By objectName, not label: the hidden Snap popup also carries a
+        // "Visible" checkbox (the grid), and label search finds it first.
+        QCheckBox *checkedToggle = nullptr;
+        QCheckBox *uncheckedToggle = nullptr;
+        for (QCheckBox *box : knobs.findChildren<QCheckBox *>(QStringLiteral("layerFlagCheckbox"))) {
+            (box->text() == QStringLiteral("Visible") ? checkedToggle : uncheckedToggle) = box;
+        }
+        assert(checkedToggle != nullptr && checkedToggle->isChecked());
+        assert(checkedToggle->isVisibleTo(&knobs));
+        const QSet<QString> onColors = stripColors(checkedToggle);
+        assert(onColors.contains(knobTheme.accent));     // the knob
+        assert(onColors.contains(knobTheme.accentSoft)); // the track
+
+        assert(uncheckedToggle != nullptr && !uncheckedToggle->isChecked());
+        const QSet<QString> offColors = stripColors(uncheckedToggle);
+        assert(offColors.contains(knobTheme.textFaint)); // the knob
+        assert(offColors.contains(knobTheme.control));   // the track
     }
 
     // Panel-toggle faces (spec §3): the painted 16x14 frame with its 5x12

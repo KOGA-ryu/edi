@@ -54,6 +54,7 @@ int main()
 
     DraftingObject inkLine = makeObject("ink_line", DraftingShapeKind::Line, LineGeometry{{0.4, 0.4}, {0.5, 0.5}});
     inkLine.layerId = "ink";
+    inkLine.stroke.opacity = 0.6; // per-object opacity must ride its segments
     assert(addObject(document, inkLine).ok);
 
     DraftingObject disabledLine = makeObject("disabled_line", DraftingShapeKind::Line, LineGeometry{{0.6, 0.6}, {0.7, 0.7}});
@@ -87,6 +88,8 @@ int main()
     assert(plan.segments[0].objectId == "default_line");
     assert(plan.segments[1].objectId == "ink_line");
     assert(plan.segments[1].penId == "pen_blue");
+    assert(plan.segments[0].opacity == 1.0); // default stays fully opaque
+    assert(plan.segments[1].opacity == 0.6); // the object's alpha, not the layer's
     assert(nearlyEqual(plan.segments[1].a.x, 0.4));
     assert(nearlyEqual(plan.segments[1].b.y, 0.5));
     assert(plan.segments[2].objectId == "outside_line");

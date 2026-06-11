@@ -43,6 +43,9 @@ struct DraftingPlotSegment {
     std::string strokeColor;
     double strokeWidth = 0.0;
     std::string lineStyle = "solid";
+    // Per-object stroke opacity (0..1). Carried for renderers that can show
+    // it (canvas, SVG); pen plotters ignore it — a physical pen has no alpha.
+    double opacity = 1.0;
 };
 
 struct DraftingPlotTravelSegment {

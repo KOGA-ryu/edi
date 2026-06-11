@@ -102,5 +102,27 @@ int main()
         assert(paths == 2);
     }
 
+    // Stroke opacity: emitted only when it says something (1.0 is SVG's
+    // default, so fully opaque output stays byte-identical to before), and
+    // a different alpha splits its own <path> like any other look change.
+    {
+        DraftingPlotJob job;
+        DraftingPlotSegment faded = segment({0.1, 0.1}, {0.9, 0.1}, "pen_black", "#d7dde8", 2.0);
+        faded.opacity = 0.5;
+        job.strokeSegments = {
+            faded,
+            segment({0.1, 0.5}, {0.9, 0.5}, "pen_black", "#d7dde8", 2.0), // opacity 1.0
+        };
+        const std::string fadedSvg = svgFromPlotJob(job, page());
+        assert(fadedSvg.find("stroke-opacity=\"0.5\"") != std::string::npos);
+        // Exactly one occurrence: the opaque path carries no opacity attribute.
+        assert(fadedSvg.find("stroke-opacity", fadedSvg.find("stroke-opacity") + 1) == std::string::npos);
+        std::size_t paths = 0;
+        for (std::size_t at = fadedSvg.find("<path"); at != std::string::npos; at = fadedSvg.find("<path", at + 1)) {
+            ++paths;
+        }
+        assert(paths == 2); // same pen, same color — alpha alone splits the look
+    }
+
     return 0;
 }

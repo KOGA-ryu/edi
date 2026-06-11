@@ -613,9 +613,14 @@ QVariantMap draftingDocumentToModelProjection(
         projected.insert(QStringLiteral("effective_stroke_color"), qStringFromStdString(resolvedStroke.color));
         projected.insert(QStringLiteral("effective_stroke_width"), resolvedStroke.width);
         projected.insert(QStringLiteral("effective_line_style"), qStringFromStdString(resolvedStroke.lineStyle));
+        // Opacity never inherits from the layer (LayerPlotStyle has no alpha
+        // — a plotter pen has none), so effective == own by construction;
+        // both keys exist for symmetry with the other stroke fields.
+        projected.insert(QStringLiteral("effective_stroke_opacity"), resolvedStroke.opacity);
         projected.insert(QStringLiteral("own_stroke_color"), qStringFromStdString(object.stroke.color));
         projected.insert(QStringLiteral("own_stroke_width"), object.stroke.width);
         projected.insert(QStringLiteral("own_line_style"), qStringFromStdString(object.stroke.lineStyle));
+        projected.insert(QStringLiteral("own_stroke_opacity"), object.stroke.opacity);
         if (!shapeCanPlot(object.kind)) {
             projected.insert(QStringLiteral("plot_ready"), false);
         } else {

@@ -3210,6 +3210,20 @@ int main(int argc, char **argv)
         assert(styleController.undo());
         styled = activeProjection();
         assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
+
+        // Opacity: per-object only (no layer fallback), clamped to [0, 1],
+        // surfaced through BOTH projection keys, one undo step per edit.
+        assert(styleController.setSelectedObjectStrokeOpacity(0.4));
+        styled = activeProjection();
+        assert(styled.value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.4);
+        assert(styled.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.4);
+        assert(styleController.setSelectedObjectStrokeOpacity(5.0)); // clamps high
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
+        assert(styleController.setSelectedObjectStrokeOpacity(-1.0)); // clamps to transparent
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.0);
+        assert(!styleController.setSelectedObjectStrokeOpacity(std::numeric_limits<double>::quiet_NaN()));
+        assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
+        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
     }
 
     // #30 parametric arrays: option state (count + spacings) drives repeat

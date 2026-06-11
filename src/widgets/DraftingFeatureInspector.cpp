@@ -196,6 +196,7 @@ void DraftingFeature::refreshInspector()
         m_styleColorField->setText(selectedObject.value(QStringLiteral("own_stroke_color")).toString());
     }
     refreshSpinValue(m_styleWidthSpin, selectedObject.value(QStringLiteral("own_stroke_width")).toDouble());
+    refreshSpinValue(m_styleOpacitySpin, selectedObject.value(QStringLiteral("own_stroke_opacity"), 1.0).toDouble());
     refreshComboData(m_styleLineCombo,
         selectedObject.value(QStringLiteral("own_line_style"), QStringLiteral("solid")).toString(), 0);
 

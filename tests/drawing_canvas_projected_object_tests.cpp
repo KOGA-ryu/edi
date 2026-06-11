@@ -63,14 +63,27 @@ int main()
 
     const DrawingCanvasProjectedStyle style = projectedObjectStyle(QVariantMap{
         {QStringLiteral("effective_stroke_color"), QStringLiteral("#123456")},
-        {QStringLiteral("effective_stroke_width"), 4.5}
+        {QStringLiteral("effective_stroke_width"), 4.5},
+        {QStringLiteral("effective_stroke_opacity"), 0.35}
     });
     assert(style.strokeColor == QStringLiteral("#123456"));
     assert(style.strokeWidth == 4.5);
+    assert(style.strokeOpacity == 0.35);
 
     const DrawingCanvasProjectedStyle defaultStyle = projectedObjectStyle({});
     assert(defaultStyle.strokeColor == QStringLiteral("#d7dde8"));
     assert(defaultStyle.strokeWidth == 2.0);
+    assert(defaultStyle.strokeOpacity == 1.0); // absent key = fully opaque
+
+    // Garbage opacity clamps into [0, 1] instead of poisoning the pen alpha.
+    const DrawingCanvasProjectedStyle wildOpacity = projectedObjectStyle(QVariantMap{
+        {QStringLiteral("effective_stroke_opacity"), 7.0}
+    });
+    assert(wildOpacity.strokeOpacity == 1.0);
+    const DrawingCanvasProjectedStyle negativeOpacity = projectedObjectStyle(QVariantMap{
+        {QStringLiteral("effective_stroke_opacity"), -2.0}
+    });
+    assert(negativeOpacity.strokeOpacity == 0.0);
 
     const DrawingCanvasProjectedStyle nonFiniteStyle = projectedObjectStyle(QVariantMap{
         {QStringLiteral("effective_stroke_width"), std::numeric_limits<double>::quiet_NaN()}

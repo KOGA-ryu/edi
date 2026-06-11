@@ -806,6 +806,30 @@ int main(int argc, char **argv)
         controller->setSelectedToolId(QStringLiteral("select_move"));
     }
 
+    // Style group: the opacity spin writes through to the selected object and
+    // re-reads the object's own value on selection refresh.
+    {
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.72, 0.72);
+        controller->clickCanvasNormalized(0.78, 0.72);
+        auto *opacitySpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("styleOpacitySpin"));
+        assert(opacitySpin != nullptr);
+        assert(opacitySpin->value() == 1.0); // fresh object: fully opaque
+        opacitySpin->setValue(0.3);
+        QMetaObject::invokeMethod(opacitySpin, "editingFinished");
+        const QVariantList styledObjects = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        bool foundFaded = false;
+        for (const QVariant &value : styledObjects) {
+            const QVariantMap object = value.toMap();
+            if (object.value(QStringLiteral("id")).toString() == controller->selectedObjectId()) {
+                assert(object.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.3);
+                foundFaded = true;
+            }
+        }
+        assert(foundFaded);
+        controller->setSelectedToolId(QStringLiteral("select_move"));
+    }
+
     // Export buttons exist and the path seams write SVG / HPGL files.
     {
         assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);

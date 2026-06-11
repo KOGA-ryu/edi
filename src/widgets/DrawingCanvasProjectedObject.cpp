@@ -54,6 +54,9 @@ DrawingCanvasProjectedStyle projectedObjectStyle(const QVariantMap &object)
     if (!lineStyle.isEmpty()) {
         style.lineStyle = lineStyle;
     }
+    style.strokeOpacity = std::clamp(
+        finiteNumber(object.value(QStringLiteral("effective_stroke_opacity")), style.strokeOpacity),
+        0.0, 1.0);
     return style;
 }
 

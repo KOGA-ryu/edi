@@ -1130,6 +1130,25 @@ bool DrawingDocumentController::setSelectedObjectStrokeWidth(double width)
     return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
 }
 
+bool DrawingDocumentController::setSelectedObjectStrokeOpacity(double opacity)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    if (!std::isfinite(opacity)) {
+        return false;
+    }
+    StrokeStyle stroke = object->stroke;
+    // Unlike width, 0 is NOT an inherit sentinel here — a fully transparent
+    // stroke is a legal style (layers have no opacity to inherit from).
+    stroke.opacity = std::clamp(opacity, 0.0, 1.0);
+    return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
+}
+
 bool DrawingDocumentController::setSelectedObjectLineStyle(const QString &lineStyle)
 {
     if (!m_document.activeObjectId) {

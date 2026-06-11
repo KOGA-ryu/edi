@@ -298,6 +298,15 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     QPen pen(
         selected ? context.palette.selection : QColor(style.strokeColor),
         selected ? 3.0 : style.strokeWidth);
+    if (!selected) {
+        // Per-object opacity rides as pen alpha. Selection stays fully
+        // opaque on purpose: a near-invisible object must still light up
+        // when picked, or it cannot be found to edit. The plot-blocked
+        // override below also stays opaque — warnings outrank styling.
+        QColor faded = pen.color();
+        faded.setAlphaF(style.strokeOpacity);
+        pen.setColor(faded);
+    }
     if (summary.plotBlocked) {
         pen.setColor(context.palette.safetyWarning);
     }

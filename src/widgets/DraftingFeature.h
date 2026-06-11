@@ -182,6 +182,7 @@ private:
     QComboBox *m_objectTolerance = nullptr;
     QLineEdit *m_styleColorField = nullptr;
     QDoubleSpinBox *m_styleWidthSpin = nullptr;
+    QDoubleSpinBox *m_styleOpacitySpin = nullptr;
     QComboBox *m_styleLineCombo = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;

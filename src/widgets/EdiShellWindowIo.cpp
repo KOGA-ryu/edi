@@ -1,5 +1,6 @@
 #include "widgets/EdiShellWindow.h"
 
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -11,6 +12,9 @@
 #include <vector>
 
 #include "core/DrawingCore.h"
+#include "core/RecipeController.h"
+#include "recipe/RecipeEmit.h"
+#include "recipe/RecipeStore.h"
 #include "io/ShellLayoutStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/ShellWidgetHelpers.h"
@@ -202,6 +206,121 @@ void EdiShellWindow::promptExportGcode()
         path += QStringLiteral(".gcode");
     }
     exportGcodeToPath(path);
+}
+
+bool EdiShellWindow::saveRecipeToPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        return false;
+    }
+    const RecipeTextResult written = recipeToToml(m_recipeController->document());
+    if (!written.ok) {
+        m_lastRecipeError = QString::fromStdString(written.message);
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    file.write(written.text.data(), static_cast<qint64>(written.text.size()));
+    m_lastRecipeError.clear();
+    return true;
+}
+
+bool EdiShellWindow::openRecipeFromPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        m_lastRecipeError = QStringLiteral("could not read %1").arg(path);
+        return false;
+    }
+    const QByteArray bytes = file.readAll();
+    const RecipeParseResult parsed = recipeFromToml(
+        std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
+        path.toStdString());
+    if (!parsed.ok) {
+        // The strict loader names the offending key — surface it verbatim,
+        // it IS the pointable diagnosis.
+        m_lastRecipeError = QString::fromStdString(parsed.message);
+        return false;
+    }
+    m_recipeController->adoptDocument(parsed.document);
+    m_lastRecipeError.clear();
+    return true;
+}
+
+bool EdiShellWindow::exportRecipePythonToPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        return false;
+    }
+    // Resolve against the LIVE drafting document and grid — the bus seam the
+    // recipe feature was built around. Refusal (stale binding, missing
+    // profile) is a hard stop: a script with a guess in it is the failure
+    // mode this pipeline exists to kill.
+    const ResolvedRecipe resolved = resolveRecipe(
+        m_recipeController->document(),
+        m_controller->draftingDocument(),
+        m_controller->draftingGridProjection());
+    const RecipeEmitResult emitted = emitBlenderPython(m_recipeController->document(), resolved);
+    if (!emitted.ok) {
+        m_lastRecipeError = QString::fromStdString(emitted.message);
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    file.write(emitted.script.data(), static_cast<qint64>(emitted.script.size()));
+    m_lastRecipeError.clear();
+    return true;
+}
+
+void EdiShellWindow::promptOpenRecipe()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, QStringLiteral("Open Recipe"), QString(),
+        QStringLiteral("Recipes (*.toml)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    openRecipeFromPath(path);
+}
+
+void EdiShellWindow::promptSaveRecipe()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Save Recipe"), QString(),
+        QStringLiteral("Recipes (*.toml)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".toml"))) {
+        path += QStringLiteral(".toml");
+    }
+    saveRecipeToPath(path);
+}
+
+void EdiShellWindow::promptExportRecipePython()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export Blender Python"), QString(),
+        QStringLiteral("Python (*.py)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".py"))) {
+        path += QStringLiteral(".py");
+    }
+    exportRecipePythonToPath(path);
 }
 
 bool EdiShellWindow::loadSettings(const QString &path)

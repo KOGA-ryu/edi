@@ -28,6 +28,9 @@ public:
     bool setParamLiteral(int stepIndex, const QString &paramId, double value);
     bool bindParam(int stepIndex, const QString &paramId, const QString &objectId, const QString &field);
     bool setStepProfile(int stepIndex, const QString &objectId);
+    // Replaces the whole document (recipe file open). Unconditional: the
+    // loader already validated through the same ops this controller uses.
+    void adoptDocument(edi::recipe::RecipeDocument document);
 
 signals:
     void recipeChanged();

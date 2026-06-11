@@ -60,6 +60,13 @@ bool RecipeController::bindParam(int stepIndex, const QString &paramId,
         paramId.toStdString(), {objectId.toStdString(), field.toStdString()}));
 }
 
+void RecipeController::adoptDocument(edi::recipe::RecipeDocument document)
+{
+    m_document = std::move(document);
+    m_lastError.clear();
+    emit recipeChanged();
+}
+
 bool RecipeController::setStepProfile(int stepIndex, const QString &objectId)
 {
     if (stepIndex < 0) {

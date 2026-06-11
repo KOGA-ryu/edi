@@ -148,6 +148,10 @@ QWidget *EdiShellWindow::buildTitleBar()
     fileMenu->addAction(QStringLiteral("Export SVG…"), this, [this]() { promptExportSvg(); });
     fileMenu->addAction(QStringLiteral("Export HPGL…"), this, [this]() { promptExportHpgl(); });
     fileMenu->addAction(QStringLiteral("Export G-code…"), this, [this]() { promptExportGcode(); });
+    fileMenu->addSeparator();
+    fileMenu->addAction(QStringLiteral("Open Recipe…"), this, [this]() { promptOpenRecipe(); });
+    fileMenu->addAction(QStringLiteral("Save Recipe…"), this, [this]() { promptSaveRecipe(); });
+    fileMenu->addAction(QStringLiteral("Export Blender Python…"), this, [this]() { promptExportRecipePython(); });
     rebuildRecentFilesMenu();
 
     QMenu *editMenu = addMenuButton(QStringLiteral("Edit"), QStringLiteral("editMenu"));

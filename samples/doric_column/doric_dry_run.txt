@@ -1,0 +1,11 @@
+# edi_craft dry run — 9 ops
+AddBox plinth.lower_step 18x18x2 center_z=1 material=stone
+AddBox plinth.upper_step 15.5x15.5x2 center_z=3 material=stone
+AddMoulding base.torus_scotia_moulding base_z=4 points=11 max_r=6.65 material=stone
+AddCylinder shaft.tapered_fluted_core r=5 top_r=4.3 h=50.4 center_z=30.2 axis=z entasis=0.045 vertices=128 material=stone
+CutFlutes shaft.tapered_fluted_core count=20 depth=0.45 width_ratio=0.34 z=6.5..53.9
+AddMoulding capital.necking_annuli base_z=55.4 points=8 max_r=5.4 material=stone
+AddMoulding capital.echinus_cushion base_z=56.6 points=12 max_r=7.9 material=stone
+AddBox capital.abacus_square_slab 16.5x16.5x3 center_z=62.1 material=stone
+AddBox entablature.test_block 22x18x5 center_z=66.1 material=limestone
+preview rig: ortho_scale=82.32 camera=(0, -118.76, 34.3) target_z=34.3

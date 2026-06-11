@@ -344,6 +344,15 @@ add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_cor
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+
+# The craftsmen library's Blender-free half (strict TOML reader + dry-run
+# plan) smokes under plain python when one is available; the bpy half runs
+# only inside Blender.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND AND NOT Python3_VERSION VERSION_LESS "3.11")
+    add_test(NAME edi_craft_dry_run_smoke
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_craft_smoke.py)
+endif()
 add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
 # The column test byte-compares its construction against the committed sample
 # artifacts — the flagship files must never drift from the asserted build.

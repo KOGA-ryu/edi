@@ -52,6 +52,33 @@ To change the column, point at the exact thing:
 | 6    | cube          | abacus step  | 2.64 × 2.64 × 0.24 at base 8.4 |
 | 7    | cube          | abacus       | 3.36 × 3.36 × 0.96 at base 8.64 |
 
+## The op-stream pipeline (the ported prototype tools)
+
+Alongside the shaper-grammar files above, this directory carries the same
+column in the PORTED prototype pipeline — "Recipe is truth. ASCII preview
+is proof. Blender script is execution.":
+
+- `doric_column_ops.toml` — the source op stream (the prototype's own
+  example recipe, translated key for key into strict TOML).
+- `doric_column_ops_compiled.toml` — after the compile pass: moulding term
+  sequences expanded into exact (z, radius) points.
+- `previews/doric_{front,side,top}_preview.txt` — the ASCII proof,
+  byte-identical to the prototype's own generated previews.
+- `doric_dry_run.txt` — the craftsmen library's build plan for this
+  column, one line per op, plus the computed preview rig.
+
+To build it in Blender (>= 4.1):
+
+    blender --python tools/blender/edi_craft.py -- samples/doric_column/doric_column_ops_compiled.toml
+
+To inspect the plan without Blender:
+
+    python3 tools/blender/edi_craft.py --dry-run samples/doric_column/doric_column_ops_compiled.toml
+
+The library (`tools/blender/edi_craft.py`) is the durable half — the
+craftsmen. The recipe TOML is the dimension sheet. Change the recipe,
+re-run; the library does not change.
+
 ## Known limitations (V1, stated so they are decisions, not surprises)
 
 - Flute cutters are straight cylinders; on a tapered shaft the bite

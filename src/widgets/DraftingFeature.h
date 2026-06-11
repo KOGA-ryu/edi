@@ -96,6 +96,9 @@ public:
     // Modular panels: the group vocabulary for the settings page, and the
     // live re-place when an assignment changes (groups reparent, not rebuild).
     static QVector<QPair<QString, QString>> panelGroupInventory();
+    // The feature-default panel for a group — public because the shell's
+    // assignment hook answers with it when the workspace has no opinion.
+    static QString defaultPanelSlot(const QString &groupId);
     void applyPanelAssignments();
 
 private:
@@ -109,6 +112,7 @@ private:
     void ensureInspectorGroupsBuilt();
     void placePanelGroups(const QString &slotName, QVBoxLayout *layout);
     QString assignedPanelSlot(const QString &groupId) const;
+    QString placementSlot(const QString &groupId) const;
     void applyInspectorPlan(const QVariantMap &selectedObject);
     QWidget *buildGeometryEditor();
     QWidget *buildObjectFlagControls();

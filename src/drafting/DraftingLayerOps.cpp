@@ -146,34 +146,46 @@ StrokeStyle effectiveObjectStroke(const DraftingObject &object, const DraftingLa
     return stroke;
 }
 
+namespace {
+
+// THE pen table: what each physical pen looks like on screen. Both the
+// preset application and the color->pen reverse lookup read this one
+// array — the review found the colors written in two places, which is two
+// chances to disagree.
+struct PenPresetRow {
+    const char *penId;
+    const char *strokeColor;
+};
+
+constexpr PenPresetRow kPenPresets[] = {
+    {"pen_black", "#d7dde8"},
+    {"pen_blue", "#75c7ff"},
+    {"pen_red", "#d98b8b"},
+};
+
+} // namespace
+
 std::string penIdForStrokeColor(const std::string &color, const std::string &layerPenId)
 {
-    // The same color table layerPlotStyleForPenPreset writes — one source
-    // of truth for what each physical pen looks like on screen.
-    if (color == "#d7dde8") {
-        return "pen_black";
-    }
-    if (color == "#75c7ff") {
-        return "pen_blue";
-    }
-    if (color == "#d98b8b") {
-        return "pen_red";
+    for (const PenPresetRow &row : kPenPresets) {
+        if (color == row.strokeColor) {
+            return row.penId;
+        }
     }
     return layerPenId;
 }
 
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId)
 {
-    if (presetId == "pen_blue") {
-        plot.penId = "pen_blue";
-        plot.strokeColor = "#75c7ff";
-    } else if (presetId == "pen_red") {
-        plot.penId = "pen_red";
-        plot.strokeColor = "#d98b8b";
-    } else {
-        plot.penId = "pen_black";
-        plot.strokeColor = "#d7dde8";
+    for (const PenPresetRow &row : kPenPresets) {
+        if (presetId == row.penId) {
+            plot.penId = row.penId;
+            plot.strokeColor = row.strokeColor;
+            return plot;
+        }
     }
+    plot.penId = kPenPresets[0].penId; // unknown preset degrades to black
+    plot.strokeColor = kPenPresets[0].strokeColor;
     return plot;
 }
 

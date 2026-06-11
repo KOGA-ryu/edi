@@ -71,12 +71,12 @@ int main()
     {
         const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::ConstructionLine);
         assert(p.contextId == "object_construction");
-        assert(sameGroups(p, {"selection_summary", "style", "geometry", "construction", "transform"}));
+        assert(sameGroups(p, {"selection_summary", "geometry", "construction", "transform"}));
     }
     {
         const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::Dimension);
         assert(p.contextId == "object_dimension");
-        assert(sameGroups(p, {"selection_summary", "style", "geometry", "dimension"}));
+        assert(sameGroups(p, {"selection_summary", "geometry", "dimension"}));
     }
 
     // Creation auto-selects, so the active tool's options ride along with a

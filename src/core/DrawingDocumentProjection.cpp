@@ -602,9 +602,14 @@ QVariantMap draftingDocumentToModelProjection(
         const StrokeStyle resolvedStroke = layer == nullptr
             ? object.stroke
             : effectiveObjectStroke(object, *layer);
+        // Pen mapping applies only to a color the OBJECT chose (the same
+        // rule the plot stamp follows): an inherited color keeps the
+        // layer's pen verbatim.
         projected.insert(QStringLiteral("effective_pen_id"), layer == nullptr
             ? QString()
-            : qStringFromStdString(penIdForStrokeColor(resolvedStroke.color, layer->plot.penId)));
+            : qStringFromStdString(object.stroke.color.empty()
+                  ? layer->plot.penId
+                  : penIdForStrokeColor(resolvedStroke.color, layer->plot.penId)));
         projected.insert(QStringLiteral("effective_stroke_color"), qStringFromStdString(resolvedStroke.color));
         projected.insert(QStringLiteral("effective_stroke_width"), resolvedStroke.width);
         projected.insert(QStringLiteral("effective_line_style"), qStringFromStdString(resolvedStroke.lineStyle));

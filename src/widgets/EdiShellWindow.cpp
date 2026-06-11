@@ -539,7 +539,7 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
                 return assignment.slot;
             }
         }
-        return groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+        return DraftingFeature::defaultPanelSlot(groupId); // one home for the default
     };
     hooks.setPanelSlotForGroup = [this](const QString &groupId, const QString &slot) {
         // Keyed insert-or-update, then live re-place. Persisted with the

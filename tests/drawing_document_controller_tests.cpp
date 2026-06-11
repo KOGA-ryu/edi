@@ -3185,10 +3185,13 @@ int main(int argc, char **argv)
         styled = activeProjection();
         assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor);
 
-        // Undo walks the style edits back one command at a time.
+        // Undo walks the style edits back one command at a time: undoing
+        // the width-0 (inherit) command restores the explicit 4.5 — an
+        // assertion that FAILS if undo restores nothing (the first draft
+        // checked a value that held either way; the review caught it).
         assert(styleController.undo());
         styled = activeProjection();
-        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor); // width undo
+        assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
     }
 
     return 0;

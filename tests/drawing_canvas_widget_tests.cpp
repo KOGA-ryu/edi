@@ -414,6 +414,13 @@ int main(int argc, char **argv)
         overlayCanvas.setPlotPreviewVisible(true);
         const QImage previewPatch = patchAt(probe);
         assert(diffCount(draftingPatch, previewPatch) > 200);
+
+        // And toggling OFF removes them again — the review caught warning
+        // boxes burned into the static layer because the toggle changed no
+        // cache key; this round-trip fails without the invalidation.
+        overlayCanvas.setPlotPreviewVisible(false);
+        const QImage offAgainPatch = patchAt(probe);
+        assert(diffCount(draftingPatch, offAgainPatch) <= 10);
     }
 
     // View commands: Cmd/Ctrl +/-/0 step and reset the zoom through the
@@ -426,12 +433,12 @@ int main(int argc, char **argv)
         int zoomSignals = 0;
         QObject::connect(&viewCanvas, &DrawingCanvasWidget::zoomChanged, [&zoomSignals]() { ++zoomSignals; });
 
-        assert(near(viewCanvas.zoomFactor(), 1.0));
+        assert(near(viewCanvas.viewportZoom(), 1.0));
         sendKey(viewCanvas, Qt::Key_Equal, Qt::ControlModifier);
-        assert(viewCanvas.zoomFactor() > 1.2);
+        assert(viewCanvas.viewportZoom() > 1.2);
         sendKey(viewCanvas, Qt::Key_Minus, Qt::ControlModifier);
         sendKey(viewCanvas, Qt::Key_0, Qt::ControlModifier);
-        assert(near(viewCanvas.zoomFactor(), 1.0));
+        assert(near(viewCanvas.viewportZoom(), 1.0));
         assert(zoomSignals == 3);
     }
 
@@ -456,6 +463,24 @@ int main(int argc, char **argv)
             sawInk = pixel.red() > 0xc0 && pixel.green() < 0x60 && pixel.blue() < 0x60;
         }
         assert(sawInk);
+    }
+
+    // Rulers paint: the band separators sit at the 20px lines in the
+    // board-outline color, and a major tick labels unit 0 at the board's
+    // left edge — pixels, because the golden's budget cannot see a band
+    // this small (the review's recurring lesson).
+    {
+        DrawingDocumentController rulerController;
+        DrawingCanvasWidget rulerCanvas(&rulerController);
+        rulerCanvas.resize(600, 450);
+        const QImage frame = rulerCanvas.grab().toImage();
+        const QColor separator(frame.pixel(300, 20));
+        assert(separator != QColor(frame.pixel(300, 40))); // band edge differs from board
+        bool sawTick = false;
+        for (int x = 21; x < 600 && !sawTick; ++x) {
+            sawTick = QColor(frame.pixel(x, 16)) != QColor(frame.pixel(x, 2));
+        }
+        assert(sawTick); // at least one tick reaches into the band
     }
 
     return 0;

@@ -123,45 +123,6 @@ void drawCrosshair(QPainter &painter, const QPointF &point, double extent)
     painter.drawLine(QPointF(point.x(), point.y() - extent), QPointF(point.x(), point.y() + extent));
 }
 
-void drawGuideIntersections(QPainter &painter, const QVariantList &objects, const DrawingCanvasObjectPainterContext &context)
-{
-    std::vector<double> vertical;
-    std::vector<double> horizontal;
-    for (const QVariant &value : objects) {
-        const QVariantMap object = value.toMap();
-        const DrawingCanvasProjectedObjectSummary summary = projectedObjectSummary(object);
-        if (summary.kind != QStringLiteral("guide") || !summary.visible) {
-            continue;
-        }
-        const DrawingCanvasProjectedGuide guide = projectedGuide(object);
-        if (!guide.ok) {
-            continue;
-        }
-        if (guide.orientation == DrawingCanvasProjectedGuideOrientation::Horizontal) {
-            horizontal.push_back(guide.position);
-        } else {
-            vertical.push_back(guide.position);
-        }
-    }
-    if (vertical.empty() || horizontal.empty()) {
-        return;
-    }
-
-    painter.save();
-    QColor marker = context.palette.guideIntersection;
-    marker.setAlpha(120);
-    painter.setPen(QPen(marker, 1.0));
-    painter.setBrush(withAlpha(marker, 30));
-    for (double x : vertical) {
-        for (double y : horizontal) {
-            const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);
-            painter.drawEllipse(point, 3.0, 3.0);
-            drawCrosshair(painter, point, 5.0);
-        }
-    }
-    painter.restore();
-}
-
 void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSceneItem> &scene, const DrawingCanvasObjectPainterContext &context)
 {
     std::vector<double> vertical;
@@ -418,11 +379,6 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     if (selected) {
         drawSelectedHandles(painter, item.source, context);
     }
-}
-
-void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
-{
-    drawSceneItem(painter, buildCanvasSceneItem(object), context);
 }
 
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)

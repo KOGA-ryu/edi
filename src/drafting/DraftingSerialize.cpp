@@ -255,7 +255,7 @@ MsgPackValue strokeValue(const StrokeStyle &s)
     });
 }
 
-StrokeStyle readStroke(const MsgPackValue *v)
+StrokeStyle readStroke(const MsgPackValue *v, int documentVersion)
 {
     StrokeStyle s;
     if (v) {
@@ -263,11 +263,13 @@ StrokeStyle readStroke(const MsgPackValue *v)
         s.opacity = asDouble(child(*v, "opacity"), s.opacity);
         s.color = asString(child(*v, "color"), s.color);
         s.lineStyle = asString(child(*v, "line_style"), s.lineStyle);
-        // Legacy shim: before per-object styling shipped, every stored
-        // stroke carried the old never-editable defaults ("#000000", width
-        // 1). No UI could write them, so they mean "no opinion" — map them
-        // to the inherit sentinels instead of turning old drawings black.
-        if (s.color == "#000000" && s.width == 1.0) {
+        // VERSION-1 shim only: before per-object styling shipped, every
+        // stored stroke carried the never-writable defaults ("#000000",
+        // width 1) — they mean "no opinion", so they map to the inherit
+        // sentinels instead of turning old drawings black. From version 2
+        // on, a black 1px stroke is a choice a user can make, and the
+        // review caught the unversioned shim eating it on reload.
+        if (documentVersion < 2 && s.color == "#000000" && s.width == 1.0) {
             s.color.clear();
             s.width = 0.0;
         }
@@ -517,7 +519,8 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         return FormatResult<DraftingDocument>::failure({}, FormatResultCode::MissingSchema,
                                                        "drawing version is missing");
     }
-    if (asInt(versionValue, -1) != kDraftingDocumentVersion) {
+    const int version = static_cast<int>(asInt(versionValue, -1));
+    if (version < kDraftingDocumentMinReadVersion || version > kDraftingDocumentVersion) {
         return FormatResult<DraftingDocument>::failure({}, FormatResultCode::UnsupportedVersion,
                                                        "unsupported drawing version");
     }
@@ -565,7 +568,7 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
             object.visible = asBool(objectValueRef.find("visible"), object.visible);
             object.locked = asBool(objectValueRef.find("locked"), object.locked);
             object.styleId = asString(objectValueRef.find("style_id"), object.styleId);
-            object.stroke = readStroke(objectValueRef.find("stroke"));
+            object.stroke = readStroke(objectValueRef.find("stroke"), version);
             object.fill = readFill(objectValueRef.find("fill"));
             object.transform = readTransform(objectValueRef.find("transform"));
             object.metadata = readMetadata(objectValueRef.find("metadata"));

@@ -331,5 +331,21 @@ int main()
     assert(!calibratedBoundsPlan.layerStats.front().ready);
     assert(calibratedBoundsPlan.layerStats.front().blockedReason == "calibrated_plot_out_of_drawable_bounds");
 
+    // Review regression: an object whose preset color selects a DIFFERENT
+    // pen than its layer's must not block the job — objects and segments
+    // count under the same resolved pen, seeded with the resolved stroke.
+    {
+        DraftingDocument remapDocument = makeDraftingDocument("pen_remap_doc");
+        DraftingObject blueLine = makeObject("blue_line", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.8, 0.3}});
+        blueLine.stroke.color = "#75c7ff"; // the pen_blue preset color on a pen_black layer
+        assert(addObject(remapDocument, blueLine).ok);
+        const DraftingPlotPlan remapPlan = buildDraftingPlotPlan(remapDocument, orderGrid);
+        assert(remapPlan.penStats.size() == 1);
+        assert(remapPlan.penStats.front().penId == "pen_blue");
+        assert(remapPlan.penStats.front().objectCount == 1);
+        assert(remapPlan.penStats.front().segmentCount == 1);
+        assert(remapPlan.penStats.front().ready);
+    }
+
     return 0;
 }

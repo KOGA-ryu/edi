@@ -150,8 +150,12 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (object == nullptr) {
                 return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
             }
-            if (object->locked) {
+            const DraftingLayer *layer = findLayer(document, object->layerId);
+            if (object->locked || (layer != nullptr && layer->locked)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+            }
+            if (object->stroke == typedCommand.stroke) {
+                return DraftingCommandResult::accepted(); // no-op: focus-out resubmits must not dirty/undo-push
             }
             object->stroke = typedCommand.stroke;
             ++document.revision;

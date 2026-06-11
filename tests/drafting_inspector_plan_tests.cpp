@@ -59,7 +59,7 @@ int main()
                                          DraftingShapeKind::Polyline}) {
         const DraftingInspectorPlan p = plan("select_move", true, kind);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"selection_summary", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"selection_summary", "style", "geometry", "transform", "object_guides"}));
     }
 
     // Kind families with their own controls get their own contexts.
@@ -71,12 +71,12 @@ int main()
     {
         const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::ConstructionLine);
         assert(p.contextId == "object_construction");
-        assert(sameGroups(p, {"selection_summary", "geometry", "construction", "transform"}));
+        assert(sameGroups(p, {"selection_summary", "style", "geometry", "construction", "transform"}));
     }
     {
         const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::Dimension);
         assert(p.contextId == "object_dimension");
-        assert(sameGroups(p, {"selection_summary", "geometry", "dimension"}));
+        assert(sameGroups(p, {"selection_summary", "style", "geometry", "dimension"}));
     }
 
     // Creation auto-selects, so the active tool's options ride along with a
@@ -84,7 +84,7 @@ int main()
     {
         const DraftingInspectorPlan p = plan("regular_polygon_tool", true, DraftingShapeKind::Polygon);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"tool_polygon", "selection_summary", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"tool_polygon", "selection_summary", "style", "geometry", "transform", "object_guides"}));
     }
 
     // Selection wins over the document context even with the neutral tool.

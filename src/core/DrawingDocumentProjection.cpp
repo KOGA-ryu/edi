@@ -1,5 +1,6 @@
 #include "core/DrawingDocumentProjection.h"
 
+#include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingMeasurement.h"
@@ -595,9 +596,21 @@ QVariantMap draftingDocumentToModelProjection(
         projected.insert(QStringLiteral("effective_locked"), object.locked || layerLocked);
         projected.insert(QStringLiteral("effective_plot_enabled"), layerPlotEnabled);
         projected.insert(QStringLiteral("effective_plot_ready"), effectivePlotReady);
-        projected.insert(QStringLiteral("effective_pen_id"), layer == nullptr ? QString() : qStringFromStdString(layer->plot.penId));
-        projected.insert(QStringLiteral("effective_stroke_color"), layer == nullptr ? QString() : qStringFromStdString(layer->plot.strokeColor));
-        projected.insert(QStringLiteral("effective_stroke_width"), layer == nullptr ? 0.0 : layer->plot.strokeWidth);
+        // Per-object styling: the object's stroke wins where set, the layer
+        // fills the rest (effectiveObjectStroke). The OWN values ride along
+        // so the style controls can show set-vs-inherit honestly.
+        const StrokeStyle resolvedStroke = layer == nullptr
+            ? object.stroke
+            : effectiveObjectStroke(object, *layer);
+        projected.insert(QStringLiteral("effective_pen_id"), layer == nullptr
+            ? QString()
+            : qStringFromStdString(penIdForStrokeColor(resolvedStroke.color, layer->plot.penId)));
+        projected.insert(QStringLiteral("effective_stroke_color"), qStringFromStdString(resolvedStroke.color));
+        projected.insert(QStringLiteral("effective_stroke_width"), resolvedStroke.width);
+        projected.insert(QStringLiteral("effective_line_style"), qStringFromStdString(resolvedStroke.lineStyle));
+        projected.insert(QStringLiteral("own_stroke_color"), qStringFromStdString(object.stroke.color));
+        projected.insert(QStringLiteral("own_stroke_width"), object.stroke.width);
+        projected.insert(QStringLiteral("own_line_style"), qStringFromStdString(object.stroke.lineStyle));
         if (!shapeCanPlot(object.kind)) {
             projected.insert(QStringLiteral("plot_ready"), false);
         } else {

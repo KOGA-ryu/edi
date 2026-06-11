@@ -131,6 +131,37 @@ bool activeDraftingLayerAcceptsNewObjects(const DraftingDocument &document)
     return draftingLayerAcceptsNewObjects(document, document.activeLayerId);
 }
 
+StrokeStyle effectiveObjectStroke(const DraftingObject &object, const DraftingLayer &layer)
+{
+    StrokeStyle stroke = object.stroke;
+    if (stroke.color.empty()) {
+        stroke.color = layer.plot.strokeColor;
+    }
+    if (stroke.width <= 0.0) {
+        stroke.width = layer.plot.strokeWidth;
+    }
+    if (stroke.lineStyle.empty()) {
+        stroke.lineStyle = "solid";
+    }
+    return stroke;
+}
+
+std::string penIdForStrokeColor(const std::string &color, const std::string &layerPenId)
+{
+    // The same color table layerPlotStyleForPenPreset writes — one source
+    // of truth for what each physical pen looks like on screen.
+    if (color == "#d7dde8") {
+        return "pen_black";
+    }
+    if (color == "#75c7ff") {
+        return "pen_blue";
+    }
+    if (color == "#d98b8b") {
+        return "pen_red";
+    }
+    return layerPenId;
+}
+
 LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string &presetId)
 {
     if (presetId == "pen_blue") {

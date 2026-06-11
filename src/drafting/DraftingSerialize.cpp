@@ -263,6 +263,14 @@ StrokeStyle readStroke(const MsgPackValue *v)
         s.opacity = asDouble(child(*v, "opacity"), s.opacity);
         s.color = asString(child(*v, "color"), s.color);
         s.lineStyle = asString(child(*v, "line_style"), s.lineStyle);
+        // Legacy shim: before per-object styling shipped, every stored
+        // stroke carried the old never-editable defaults ("#000000", width
+        // 1). No UI could write them, so they mean "no opinion" — map them
+        // to the inherit sentinels instead of turning old drawings black.
+        if (s.color == "#000000" && s.width == 1.0) {
+            s.color.clear();
+            s.width = 0.0;
+        }
     }
     return s;
 }

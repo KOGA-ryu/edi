@@ -145,6 +145,17 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(updateObjectMetadata(document, typedCommand.objectId, typedCommand.metadata));
         } else if constexpr (std::is_same_v<Command, UpdateObjectFlagsCommand>) {
             return fromStoreResult(updateObjectFlags(document, typedCommand.objectId, typedCommand.locked, typedCommand.visible));
+        } else if constexpr (std::is_same_v<Command, UpdateStrokeStyleCommand>) {
+            DraftingObject *object = findObject(document, typedCommand.objectId);
+            if (object == nullptr) {
+                return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+            }
+            if (object->locked) {
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+            }
+            object->stroke = typedCommand.stroke;
+            ++document.revision;
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, SetAllGuidesVisibleCommand>) {
             bool changed = false;
             for (DraftingObject &object : document.objects) {

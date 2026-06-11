@@ -45,4 +45,17 @@ LayerPlotStyle layerPlotStyleForPenPreset(LayerPlotStyle plot, const std::string
 LayerPlotStyle layerPlotStyleForWidthPreset(LayerPlotStyle plot, const std::string &presetId);
 std::optional<int> layerMoveDeltaFromDirection(const std::string &direction);
 
+
+// The stroke the painter and the plotters should use for `object`: the
+// object's own values win where SET (non-empty color, positive width); the
+// layer's plot style fills the rest. lineStyle and opacity are object-only
+// axes and pass through. Pure.
+StrokeStyle effectiveObjectStroke(const DraftingObject &object, const DraftingLayer &layer);
+
+// The physical-pen mapping for plotter outputs: a resolved stroke color
+// that exactly matches a pen preset's color selects that pen; any other
+// (art) color keeps the layer's pen — a plotter cannot mix ink, so screen
+// color richer than the pen set degrades to the layer's physical choice.
+std::string penIdForStrokeColor(const std::string &color, const std::string &layerPenId);
+
 } // namespace edi::drafting

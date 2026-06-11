@@ -41,11 +41,14 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
     const double widthMm = grid.settings.width * mmPerUnit;
     const double heightMm = grid.settings.height * mmPerUnit;
 
-    // Group stroke segments by pen, preserving first-appearance order.
+    // Group stroke segments by pen + color + line style (first-appearance
+    // order): per-object styling means one pen can carry several looks, and
+    // each look needs its own <path>.
     std::vector<std::string> penOrder;
     std::vector<std::vector<std::size_t>> groups;
     for (std::size_t i = 0; i < job.strokeSegments.size(); ++i) {
-        const std::string &pen = job.strokeSegments[i].penId;
+        const DraftingPlotSegment &keyed = job.strokeSegments[i];
+        const std::string pen = keyed.penId + "|" + keyed.strokeColor + "|" + keyed.lineStyle;
         std::size_t index = penOrder.size();
         for (std::size_t p = 0; p < penOrder.size(); ++p) {
             if (penOrder[p] == pen) {
@@ -71,7 +74,16 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
         }
         const DraftingPlotSegment &first = job.strokeSegments[groups[g].front()];
         out << "  <path fill=\"none\" stroke=\"" << first.strokeColor
-            << "\" stroke-width=\"" << formatNumber(first.strokeWidth) << "\" d=\"";
+            << "\" stroke-width=\"" << formatNumber(first.strokeWidth) << "\"";
+        // Dash vocabulary scaled by stroke width, mirroring the canvas pens.
+        if (first.lineStyle == "dash") {
+            out << " stroke-dasharray=\"" << formatNumber(first.strokeWidth * 4.0)
+                << ' ' << formatNumber(first.strokeWidth * 2.0) << "\"";
+        } else if (first.lineStyle == "dot") {
+            out << " stroke-dasharray=\"" << formatNumber(first.strokeWidth)
+                << ' ' << formatNumber(first.strokeWidth * 2.0) << "\"";
+        }
+        out << " d=\"";
         bool firstSegment = true;
         for (std::size_t i : groups[g]) {
             const DraftingPlotSegment &segment = job.strokeSegments[i];

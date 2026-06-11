@@ -189,6 +189,16 @@ void DraftingFeature::refreshInspector()
             }
         }
     }
+    if (m_styleColorField != nullptr) {
+        // Show the OBJECT's own values; inherit shows as empty/0 with the
+        // "layer" placeholder text carrying the meaning.
+        const QSignalBlocker colorBlocker(*m_styleColorField);
+        m_styleColorField->setText(selectedObject.value(QStringLiteral("own_stroke_color")).toString());
+    }
+    refreshSpinValue(m_styleWidthSpin, selectedObject.value(QStringLiteral("own_stroke_width")).toDouble());
+    refreshComboData(m_styleLineCombo,
+        selectedObject.value(QStringLiteral("own_line_style"), QStringLiteral("solid")).toString(), 0);
+
     if (m_objectListEmpty != nullptr) {
         m_objectListEmpty->setVisible(objects.isEmpty());
     }

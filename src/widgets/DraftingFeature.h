@@ -176,6 +176,9 @@ private:
     QCheckBox *m_guideMoveSnap = nullptr;
     QCheckBox *m_objectPrioritySnap = nullptr;
     QComboBox *m_objectTolerance = nullptr;
+    QLineEdit *m_styleColorField = nullptr;
+    QDoubleSpinBox *m_styleWidthSpin = nullptr;
+    QComboBox *m_styleLineCombo = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;
     QLabel *m_objectKindValue = nullptr;

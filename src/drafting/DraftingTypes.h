@@ -95,9 +95,12 @@ struct Transform2D {
 };
 
 struct StrokeStyle {
-    double width = 1.0;
+    // width <= 0 and an empty color mean INHERIT from the layer's plot
+    // style; effectiveObjectStroke resolves them. lineStyle is a purely
+    // per-object axis (layers have none): "solid" | "dash" | "dot".
+    double width = 0.0;
     double opacity = 1.0;
-    std::string color = "#000000";
+    std::string color;
     std::string lineStyle = "solid";
 };
 

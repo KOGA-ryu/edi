@@ -50,6 +50,10 @@ DrawingCanvasProjectedStyle projectedObjectStyle(const QVariantMap &object)
     DrawingCanvasProjectedStyle style;
     style.strokeColor = object.value(QStringLiteral("effective_stroke_color"), style.strokeColor).toString();
     style.strokeWidth = std::max(0.25, finiteNumber(object.value(QStringLiteral("effective_stroke_width")), style.strokeWidth));
+    const QString lineStyle = object.value(QStringLiteral("effective_line_style")).toString();
+    if (!lineStyle.isEmpty()) {
+        style.lineStyle = lineStyle;
+    }
     return style;
 }
 

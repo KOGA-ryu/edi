@@ -657,6 +657,58 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Metadata"), meta.box, false));
     }
 
+    // Per-object style: color/width override the layer (empty/zero =
+    // inherit), line style is object-only. Free-string hex color — the
+    // art-tool door: anything QColor parses is a legal stroke.
+    group = beginInspectorGroup(QStringLiteral("style"));
+    {
+        FoldBox style = makeFoldBox();
+        auto *colorRow = new QWidget;
+        auto *colorRowLayout = new QHBoxLayout(colorRow);
+        colorRowLayout->setContentsMargins(0, 0, 0, 0);
+        colorRowLayout->setSpacing(8);
+        auto *colorLabel = new QLabel(QStringLiteral("Color"));
+        colorLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_styleColorField = new QLineEdit;
+        m_styleColorField->setObjectName(QStringLiteral("styleColorField"));
+        m_styleColorField->setPlaceholderText(QStringLiteral("layer"));
+        connect(m_styleColorField, &QLineEdit::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectStrokeColor(m_styleColorField->text());
+        });
+        colorRowLayout->addWidget(colorLabel);
+        colorRowLayout->addWidget(m_styleColorField, 1);
+        style.layout->addWidget(colorRow);
+
+        auto *widthRow = new QWidget;
+        auto *widthRowLayout = new QHBoxLayout(widthRow);
+        widthRowLayout->setContentsMargins(0, 0, 0, 0);
+        widthRowLayout->setSpacing(8);
+        auto *widthLabel = new QLabel(QStringLiteral("Width"));
+        widthLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_styleWidthSpin = new QDoubleSpinBox;
+        m_styleWidthSpin->setObjectName(QStringLiteral("styleWidthSpin"));
+        m_styleWidthSpin->setRange(0.0, 50.0);
+        m_styleWidthSpin->setDecimals(2);
+        m_styleWidthSpin->setSingleStep(0.25);
+        m_styleWidthSpin->setSpecialValueText(QStringLiteral("layer")); // 0 = inherit
+        connect(m_styleWidthSpin, &QDoubleSpinBox::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectStrokeWidth(m_styleWidthSpin->value());
+        });
+        widthRowLayout->addWidget(widthLabel);
+        widthRowLayout->addWidget(m_styleWidthSpin, 1);
+        style.layout->addWidget(widthRow);
+
+        m_styleLineCombo = makeDataCombo(QStringLiteral("styleLineCombo"), {
+            {QStringLiteral("Solid"), QStringLiteral("solid")},
+            {QStringLiteral("Dash"), QStringLiteral("dash")},
+            {QStringLiteral("Dot"), QStringLiteral("dot")},
+        }, [this](const QString &lineStyle) {
+            m_controller->setSelectedObjectLineStyle(lineStyle);
+        });
+        style.layout->addWidget(m_styleLineCombo);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Style"), style.box, true));
+    }
+
     group = beginInspectorGroup(QStringLiteral("geometry"));
     m_geometryEditor = buildGeometryEditor();
     group->addWidget(m_geometryEditor);
@@ -1011,6 +1063,7 @@ QVector<QPair<QString, QString>> DraftingFeature::panelGroupInventory()
         {QStringLiteral("tool_rectangle"), QStringLiteral("Rectangle Tool")},
         {QStringLiteral("empty_state"), QStringLiteral("Empty State")},
         {QStringLiteral("selection_summary"), QStringLiteral("Selection")},
+        {QStringLiteral("style"), QStringLiteral("Style")},
         {QStringLiteral("geometry"), QStringLiteral("Geometry")},
         {QStringLiteral("dimension"), QStringLiteral("Dimension")},
         {QStringLiteral("guide_position"), QStringLiteral("Guide Position")},

@@ -528,7 +528,7 @@ void DraftingFeature::publishStatus()
     }
     const QVariantMap document = m_controller->modelDocument();
     const int zoomPercent = m_canvas != nullptr
-        ? static_cast<int>(std::lround(m_canvas->zoomFactor() * 100.0))
+        ? static_cast<int>(std::lround(m_canvas->viewportZoom() * 100.0))
         : 100;
     m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects | %4%")
         .arg(m_actions.workspaceModeName())

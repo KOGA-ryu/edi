@@ -113,4 +113,10 @@ DraftingPlotPlan buildDraftingPlotPlan(
     const DraftingGridProjection &grid,
     const DraftingPlotSettings &settings);
 
+
+// The stroke-color gate the plot readiness checks use ("#rrggbb" exactly).
+// Public so the UI rejects at entry what the plot would block at exit —
+// one vocabulary for "a color this system accepts".
+bool draftingStrokeColorIsValid(const std::string &value);
+
 } // namespace edi::drafting

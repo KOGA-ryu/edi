@@ -20,8 +20,6 @@ class DrawingCanvasWidget : public QWidget {
 public:
     explicit DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent = nullptr);
     void setPlotPreviewVisible(bool visible);
-    // The live zoom factor (1.0 = fit). The status bar shows it; tests read it.
-    double zoomFactor() const { return m_zoom; }
     void zoomAtCenter(double factor);
     void resetView(); // zoom 1, pan 0 — which IS fit-to-board by layout
     bool plotPreviewVisible() const;

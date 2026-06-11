@@ -82,6 +82,11 @@ void DrawingCanvasWidget::setPlotPreviewVisible(bool visible)
         return;
     }
     m_plotPreviewVisible = visible;
+    // The per-object plot-warning boxes are baked INTO the static layer
+    // (the painter context carries plotDiagnostics), so the toggle must
+    // invalidate it — same escape hatch setCanvasPalette uses. The review
+    // caught warning boxes burned into the blit after unticking preview.
+    m_staticGeneration = 0;
     update();
 }
 
@@ -192,6 +197,14 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     painter.drawPixmap(0, 0, m_staticLayer);
     drawRulerPointerCaret(painter, board, model);
 
+    // Dynamic overlays belong to the DOCUMENT space: clip them out of the
+    // ruler bands so a preview ghost or snap marker never scribbles over
+    // the measuring bars (the caret above is the one thing that may).
+    constexpr double kRulerBandClip = 20.0;
+    painter.save();
+    painter.setClipRect(QRectF(kRulerBandClip, kRulerBandClip,
+                               width() - kRulerBandClip, height() - kRulerBandClip));
+
     if (m_plotPreviewVisible) {
         drawPlotPreview(painter, board, document.plotSummary);
     }
@@ -211,6 +224,7 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
         painter.setBrush(withAlpha(m_palette.preview, 32));
         painter.drawRect(marquee.normalized());
     }
+    painter.restore(); // end ruler-band clip
 
     // No status text painted on the document: the grid speaks for itself
     // (user direction). Tool/selection live in the chrome status; grid and

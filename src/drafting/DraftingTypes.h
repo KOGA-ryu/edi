@@ -104,6 +104,12 @@ struct StrokeStyle {
     std::string lineStyle = "solid";
 };
 
+inline bool operator==(const StrokeStyle &a, const StrokeStyle &b)
+{
+    return a.width == b.width && a.opacity == b.opacity && a.color == b.color
+        && a.lineStyle == b.lineStyle;
+}
+
 struct FillStyle {
     double opacity = 0.0;
     std::string color = "#ffffff";

@@ -13,6 +13,7 @@
 #include <QListWidget>
 #include <QPair>
 #include <QPushButton>
+#include <QShortcut>
 #include <QSizePolicy>
 #include <QSpinBox>
 #include <QStyle>
@@ -471,6 +472,17 @@ QWidget *DraftingFeature::buildWorkspaceColumn()
     // Zoom changes republish the status line (the % readout) without a
     // document mutation — same light-touch path as the pointer readouts.
     connect(m_canvas, &DrawingCanvasWidget::zoomChanged, this, &DraftingFeature::publishStatus);
+    // Window-scope view shortcuts: the canvas key handler needs click-focus,
+    // but Cmd+0 / Cmd+= / Cmd+- should work from anywhere in the window
+    // (review find). The canvas keyPress path stays for focused use.
+    const auto addViewShortcut = [this](const QKeySequence &keys, const std::function<void()> &action) {
+        auto *shortcut = new QShortcut(keys, m_canvas);
+        shortcut->setContext(Qt::WindowShortcut);
+        connect(shortcut, &QShortcut::activated, m_canvas, action);
+    };
+    addViewShortcut(QKeySequence(Qt::CTRL | Qt::Key_0), [this]() { m_canvas->resetView(); });
+    addViewShortcut(QKeySequence::ZoomIn, [this]() { m_canvas->zoomAtCenter(1.25); });
+    addViewShortcut(QKeySequence::ZoomOut, [this]() { m_canvas->zoomAtCenter(0.8); });
     return m_canvas;
 }
 
@@ -994,6 +1006,13 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
     group->addWidget(makeCollapsibleSection(QStringLiteral("Canvas State"), canvasState.box, false));
 }
 
+QString DraftingFeature::defaultPanelSlot(const QString &groupId)
+{
+    // ONE home for the default — the review found this ternary copied four
+    // times, which is four chances to disagree.
+    return groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+}
+
 QString DraftingFeature::assignedPanelSlot(const QString &groupId) const
 {
     if (m_actions.panelSlotForGroup) {
@@ -1002,21 +1021,30 @@ QString DraftingFeature::assignedPanelSlot(const QString &groupId) const
             return slot;
         }
     }
-    return groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
+    return defaultPanelSlot(groupId);
+}
+
+QString DraftingFeature::placementSlot(const QString &groupId) const
+{
+    // Where the group's widget PARENTS: hidden parks in its default panel
+    // (ownership through remounts; visibility gating hides it), and an
+    // assignment naming a slot this layout never mounted falls back to the
+    // default rather than leaving the widget parentless (a leak) and gone.
+    QString slot = assignedPanelSlot(groupId);
+    if (slot == QStringLiteral("hidden") || !m_panelGroupHosts.contains(slot)) {
+        slot = defaultPanelSlot(groupId);
+    }
+    if (!m_panelGroupHosts.contains(slot) && !m_panelGroupHosts.isEmpty()) {
+        slot = m_panelGroupHosts.firstKey(); // partial layout: any host beats a leak
+    }
+    return slot;
 }
 
 void DraftingFeature::placePanelGroups(const QString &slotName, QVBoxLayout *layout)
 {
     m_panelGroupHosts.insert(slotName, layout);
     for (const QString &groupId : m_groupBuildOrder) {
-        QString slot = assignedPanelSlot(groupId);
-        if (slot == QStringLiteral("hidden")) {
-            // Hidden groups PARK in their default panel: a parent keeps them
-            // owned through remounts (a parentless widget would leak), and
-            // the plan refresh keeps them invisible.
-            slot = groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
-        }
-        if (slot == slotName) {
+        if (placementSlot(groupId) == slotName) {
             layout->addWidget(m_inspectorGroups.value(groupId));
         }
     }
@@ -1041,11 +1069,7 @@ void DraftingFeature::applyPanelAssignments()
     for (auto hostIt = m_panelGroupHosts.cbegin(); hostIt != m_panelGroupHosts.cend(); ++hostIt) {
         QVBoxLayout *host = hostIt.value();
         for (const QString &groupId : m_groupBuildOrder) {
-            QString slot = assignedPanelSlot(groupId);
-            if (slot == QStringLiteral("hidden")) {
-                slot = groupId == QStringLiteral("object_list") ? QStringLiteral("left") : QStringLiteral("right");
-            }
-            if (slot == hostIt.key()) {
+            if (placementSlot(groupId) == hostIt.key()) {
                 host->insertWidget(host->count() - 1, m_inspectorGroups.value(groupId));
             }
         }

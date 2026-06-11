@@ -576,7 +576,7 @@ QVariantMap DrawingDocumentController::modelDocument() const
         // The ghost tracks the cursor; it joins per-call so a creation drag
         // never invalidates the document cache.
         model.insert(QStringLiteral("preview_object"),
-                     drawing_core::draftingObjectToCanvasProjection(*m_previewObject, &m_cachedGrid));
+                     drawing_core::draftingObjectToCanvasProjection(*m_previewObject, &m_cachedGrid, false));
     }
     if (m_pointerRawPoint) {
         model.insert(QStringLiteral("pointer"), pointerProjectionToMap(*m_pointerRawPoint, m_document, m_snapSettings, m_cachedGrid));
@@ -1056,8 +1056,15 @@ bool DrawingDocumentController::setSelectedObjectStrokeColor(const QString &colo
     if (object == nullptr) {
         return false;
     }
+    const QString trimmed = color.trimmed();
+    // Free-string color, validated at the gate with the SAME check the plot
+    // readiness uses (#rrggbb): empty = inherit; junk would otherwise
+    // persist, paint black, and emit invalid SVG with no diagnostic.
+    if (!trimmed.isEmpty() && !draftingStrokeColorIsValid(trimmed.toStdString())) {
+        return false;
+    }
     StrokeStyle stroke = object->stroke;
-    stroke.color = color.trimmed().toStdString();
+    stroke.color = trimmed.toStdString();
     return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
 }
 
@@ -1954,6 +1961,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     const Point2D normalized = normalizeDraftingPoint({x, y});
     const Point2D point = resolveSnap(normalized, m_document, m_snapSettings).point;
     m_lastGuideDragSnap.clear();
+    const bool clearedEditStatus = !m_lastEditStatus.isEmpty();
     m_lastEditStatus.clear();
     beginEdit();
 
@@ -2012,11 +2020,14 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         }
         m_previewObject.reset();
         commitEdit();
-        // Pending state is transient: no document mutation occurred (the
-        // commit above early-outs on the unchanged revision), so this is a
-        // pointer-class change — emitting modelChanged here made the FIRST
-        // click of every two-click shape rebuild the whole inspector.
-        emit pointerChanged();
+        // Pending state is transient — pointer-class. EXCEPT when this click
+        // also wiped a live edit-rejected status: that label lives on the
+        // modelChanged path, and the review caught it staying stale here.
+        if (clearedEditStatus) {
+            emit modelChanged();
+        } else {
+            emit pointerChanged();
+        }
         return;
     }
 
@@ -2031,7 +2042,11 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         m_pendingCreation->rectInset = m_rectInset;
         m_previewObject.reset();
         commitEdit();
-        emit pointerChanged(); // same: pending start, not a mutation
+        if (clearedEditStatus) {
+            emit modelChanged(); // the wiped edit-status label must refresh
+        } else {
+            emit pointerChanged();
+        }
         return;
     }
 

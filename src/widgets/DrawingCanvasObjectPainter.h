@@ -56,10 +56,7 @@ void drawCrosshair(QPainter &painter, const QPointF &point, double extent);
 DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object);
 // Painting half: typed item -> pixels, every frame.
 void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const DrawingCanvasObjectPainterContext &context);
-void drawGuideIntersections(QPainter &painter, const QVariantList &objects, const DrawingCanvasObjectPainterContext &context);
 void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSceneItem> &scene, const DrawingCanvasObjectPainterContext &context);
-// Convenience composition (build + draw) — the preview-object path and tests.
-void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context);
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context);
 
 } // namespace drawing_canvas

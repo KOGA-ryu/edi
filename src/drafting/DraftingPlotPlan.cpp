@@ -80,6 +80,17 @@ double pointDistance(Point2D a, Point2D b)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+// The pen an object's segments actually ride: a color the OBJECT chose
+// maps to its preset pen where one exists; an inherited color keeps the
+// layer's pen verbatim (including a deliberately empty one — the
+// readiness checks must still see it).
+std::string resolvedObjectPenId(const DraftingObject &object, const DraftingLayer &layer)
+{
+    return object.stroke.color.empty()
+        ? layer.plot.penId
+        : penIdForStrokeColor(effectiveObjectStroke(object, layer).color, layer.plot.penId);
+}
+
 void appendSegment(
     DraftingPlotPlan &plan,
     const DraftingObject &object,
@@ -88,15 +99,12 @@ void appendSegment(
     Point2D b)
 {
     // Segments carry the RESOLVED stroke (object wins, layer fills) and the
-    // physically honest pen: a preset color selects its pen, an arbitrary
-    // art color keeps the layer's pen — SVG gets the true color either way.
+    // physically honest pen — through the same helper the plot stats use,
+    // because the review found the half-shared version blocking whole plot
+    // jobs: objects counted under the layer's pen, segments under the
+    // remapped pen, and both pens flagged unready for missing the other.
     const StrokeStyle stroke = effectiveObjectStroke(object, layer);
-    // Pen mapping applies ONLY to a color the OBJECT chose: an inherited
-    // color means the layer's pen choice stands verbatim (including a
-    // deliberately empty pen, which the readiness checks must still see).
-    const std::string penId = object.stroke.color.empty()
-        ? layer.plot.penId
-        : penIdForStrokeColor(stroke.color, layer.plot.penId);
+    const std::string penId = resolvedObjectPenId(object, layer);
     plan.segments.push_back({
         object.id,
         object.layerId,
@@ -476,7 +484,15 @@ void appendPlotStats(DraftingPlotPlan &plan, const DraftingDocument &document)
         DraftingPlotLayerStats &layerStats = ensureLayerStats(plan, document, layer->id);
         ++layerStats.objectCount;
 
-        DraftingPlotPenStats &penStats = ensurePenStats(plan, layer->plot);
+        // Count the object under the pen its segments will actually ride —
+        // seeding the stats with the RESOLVED stroke, so the color/width
+        // readiness checks judge what plots, not what the layer declares.
+        LayerPlotStyle resolvedPlot = layer->plot;
+        const StrokeStyle resolved = effectiveObjectStroke(object, *layer);
+        resolvedPlot.penId = resolvedObjectPenId(object, *layer);
+        resolvedPlot.strokeColor = resolved.color;
+        resolvedPlot.strokeWidth = resolved.width;
+        DraftingPlotPenStats &penStats = ensurePenStats(plan, resolvedPlot);
         ++penStats.objectCount;
     }
 
@@ -503,6 +519,11 @@ void appendPlotStats(DraftingPlotPlan &plan, const DraftingDocument &document)
 }
 
 } // namespace
+
+bool draftingStrokeColorIsValid(const std::string &value)
+{
+    return isValidStrokeColor(value);
+}
 
 DraftingPlotSettings defaultDraftingPlotSettings()
 {

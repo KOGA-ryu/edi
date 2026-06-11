@@ -41,6 +41,7 @@ struct ToolOptionsRow {
 
 constexpr ToolOptionsRow kToolOptionsTable[] = {
     {"regular_polygon_tool", "tool_polygon"},
+    {"rectangle_tool", "tool_rectangle"},
 };
 
 std::string contextForKind(DraftingShapeKind kind)

@@ -137,6 +137,7 @@ private:
     QLabel *m_objectListEmpty = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
+    QCheckBox *m_aspectLockToggle = nullptr;
     QComboBox *m_gridPreset = nullptr;
     QComboBox *m_gridUnit = nullptr;
     QDoubleSpinBox *m_gridWidth = nullptr;

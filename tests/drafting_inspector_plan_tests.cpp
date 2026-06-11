@@ -25,6 +25,7 @@ int main()
 {
     // Tool options lookup is a table: known tool resolves, unknown is empty.
     assert(draftingToolOptionsGroup("regular_polygon_tool") == "tool_polygon");
+    assert(draftingToolOptionsGroup("rectangle_tool") == "tool_rectangle");
     assert(draftingToolOptionsGroup("line_tool").empty());
     assert(draftingToolOptionsGroup("").empty());
 

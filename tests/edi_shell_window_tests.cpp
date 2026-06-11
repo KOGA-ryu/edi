@@ -725,6 +725,22 @@ int main(int argc, char **argv)
         assert(controller->polygonSides() == 8);
     }
 
+    // N4 rectangle tool options: radius / inset spins and the aspect-lock
+    // toggle drive the controller's rectangle modes.
+    {
+        auto *radiusSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("rectCornerRadiusSpin"));
+        auto *insetSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("rectInsetSpin"));
+        auto *aspectLock = window.findChild<QCheckBox *>(QStringLiteral("aspectLockCheckbox"));
+        assert(radiusSpin != nullptr && insetSpin != nullptr && aspectLock != nullptr);
+        radiusSpin->setValue(0.06);
+        assert(near(controller->rectCornerRadius(), 0.06));
+        insetSpin->setValue(0.03);
+        assert(near(controller->rectInset(), 0.03));
+        assert(!controller->aspectLockEnabled());
+        aspectLock->setChecked(true);
+        assert(controller->aspectLockEnabled());
+    }
+
     // Export buttons exist and the path seams write SVG / HPGL files.
     {
         assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);

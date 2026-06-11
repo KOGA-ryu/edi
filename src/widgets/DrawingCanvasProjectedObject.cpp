@@ -79,6 +79,8 @@ DrawingCanvasProjectedRectangle projectedRectangle(const QVariantMap &object)
         && readFinite(object, QStringLiteral("width"), rectangle.width)
         && readFinite(object, QStringLiteral("height"), rectangle.height);
     rectangle.rotationDeg = finiteNumber(object.value(QStringLiteral("rotation_deg")), 0.0);
+    rectangle.cornerRadius = finiteNumber(object.value(QStringLiteral("corner_radius")), 0.0);
+    rectangle.inset = finiteNumber(object.value(QStringLiteral("inset")), 0.0);
     return rectangle;
 }
 

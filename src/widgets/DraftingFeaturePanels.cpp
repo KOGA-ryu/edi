@@ -469,6 +469,39 @@ QWidget *DraftingFeature::buildRightPanel()
         group->addWidget(sidesRow);
     }
 
+    // N4: rectangle variant options + aspect-lock. Like the polygon group,
+    // these mirror controller tool-option state (set at build, pushed back on
+    // edit); they are tool modes, not per-object fields.
+    group = beginInspectorGroup(layout, QStringLiteral("tool_rectangle"));
+    group->addWidget(makeSectionLabel(QStringLiteral("Rectangle Tool")));
+    {
+        const auto addRectSpin = [&](const QString &label, const QString &name, double value,
+                                     const std::function<void(double)> &onChange) {
+            auto *row = new QWidget;
+            auto *rowLayout = new QHBoxLayout(row);
+            clearLayoutMargins(rowLayout);
+            rowLayout->setSpacing(6);
+            rowLayout->addWidget(new QLabel(label));
+            auto *spin = new QDoubleSpinBox;
+            spin->setObjectName(name);
+            spin->setDecimals(3);
+            spin->setSingleStep(0.01);
+            spin->setRange(0.0, 1.0);
+            spin->setValue(value);
+            connect(spin, &QDoubleSpinBox::valueChanged, m_controller, onChange);
+            rowLayout->addWidget(spin, 1);
+            group->addWidget(row);
+            return spin;
+        };
+        addRectSpin(QStringLiteral("Radius"), QStringLiteral("rectCornerRadiusSpin"),
+                    m_controller->rectCornerRadius(), [this](double r) { m_controller->setRectCornerRadius(r); });
+        addRectSpin(QStringLiteral("Inset"), QStringLiteral("rectInsetSpin"),
+                    m_controller->rectInset(), [this](double i) { m_controller->setRectInset(i); });
+        m_aspectLockToggle = makeToggle(QStringLiteral("aspectLockCheckbox"), QStringLiteral("Lock aspect ratio"),
+            [this](bool on) { m_controller->setAspectLockEnabled(on); }, m_controller->aspectLockEnabled());
+        group->addWidget(m_aspectLockToggle);
+    }
+
     group = beginInspectorGroup(layout, QStringLiteral("empty_state"));
     {
         auto *emptyState = makeValueLabel(QStringLiteral("Nothing selected."));

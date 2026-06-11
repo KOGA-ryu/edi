@@ -55,6 +55,8 @@ struct DrawingCanvasProjectedRectangle {
     double width = 0.0;
     double height = 0.0;
     double rotationDeg = 0.0;
+    double cornerRadius = 0.0; // N4: > 0 rounds the corners
+    double inset = 0.0;        // N4: > 0 draws an inner frame outline
 };
 
 struct DrawingCanvasProjectedCircle {

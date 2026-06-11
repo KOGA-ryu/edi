@@ -18,6 +18,52 @@ QLineF screenLine(const DrawingCanvasObjectPainterContext &context, const Drawin
         drawing_canvas::canvasToScreen(context.board, line.x2, line.y2));
 }
 
+// N4: draw a rectangle honoring its variant params. cornerRadius/inset are
+// in canvas units, converted to screen pixels via the board scale so they
+// track zoom. Rotation rotates the painter about the rect center, so rounded
+// + rotated composes for free. inset > 0 adds an inner outline (the frame's
+// hole), its corner radius shrunk by the wall so concentric corners stay
+// parallel.
+void drawRectangleShape(QPainter &painter, const DrawingCanvasObjectPainterContext &context,
+                        const DrawingCanvasProjectedRectangle &rectangle)
+{
+    const QPointF origin = drawing_canvas::canvasToScreen(context.board, rectangle.x, rectangle.y);
+    const QPointF extent = drawing_canvas::canvasToScreen(
+        context.board, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
+    const QRectF rect = QRectF(origin, extent).normalized();
+    // One canvas unit -> pixels: the x-span of a unit step on the board.
+    const QPointF unitX = drawing_canvas::canvasToScreen(context.board, rectangle.x + 1.0, rectangle.y);
+    const double scale = std::abs(unitX.x() - origin.x());
+    const double radius = std::max(0.0, rectangle.cornerRadius) * scale;
+    const double inset = std::max(0.0, rectangle.inset) * scale;
+
+    const bool rotated = std::abs(rectangle.rotationDeg) > 0.000001;
+    if (rotated) {
+        painter.save();
+        painter.translate(rect.center());
+        painter.rotate(rectangle.rotationDeg);
+        painter.translate(-rect.center());
+    }
+    if (radius > 0.0) {
+        painter.drawRoundedRect(rect, radius, radius);
+    } else {
+        painter.drawRect(rect);
+    }
+    // The frame's inner edge: only when it fits inside the wall on both axes.
+    if (inset > 0.0 && rect.width() > 2.0 * inset && rect.height() > 2.0 * inset) {
+        const QRectF inner = rect.adjusted(inset, inset, -inset, -inset);
+        const double innerRadius = std::max(0.0, radius - inset);
+        if (innerRadius > 0.0) {
+            painter.drawRoundedRect(inner, innerRadius, innerRadius);
+        } else {
+            painter.drawRect(inner);
+        }
+    }
+    if (rotated) {
+        painter.restore();
+    }
+}
+
 // N2: two short strokes back from the tip (p2) form the arrowhead. Drawn in
 // SCREEN space with a fixed pixel size, so the head stays legible at any
 // zoom — a head scaled with the geometry would vanish on a short line.
@@ -257,19 +303,7 @@ void drawObject(QPainter &painter, const QVariantMap &object, const DrawingCanva
         if (!rectangle.ok) {
             return;
         }
-        const QPointF origin = drawing_canvas::canvasToScreen(context.board, rectangle.x, rectangle.y);
-        const QPointF extent = drawing_canvas::canvasToScreen(context.board, rectangle.x + rectangle.width, rectangle.y + rectangle.height);
-        QRectF rect(origin, extent);
-        if (std::abs(rectangle.rotationDeg) > 0.000001) {
-            painter.save();
-            painter.translate(rect.center());
-            painter.rotate(rectangle.rotationDeg);
-            painter.translate(-rect.center());
-            painter.drawRect(rect);
-            painter.restore();
-        } else {
-            painter.drawRect(rect.normalized());
-        }
+        drawRectangleShape(painter, context, rectangle);
     } else if (kind == QStringLiteral("circle")) {
         const DrawingCanvasProjectedCircle circle = projectedCircle(object);
         if (!circle.ok) {
@@ -361,8 +395,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (rectangle.ok) {
-            painter.drawRect(drawing_canvas::boundsToScreenRect(
-                context.board, rectangle.x, rectangle.y, rectangle.width, rectangle.height));
+            drawRectangleShape(painter, context, rectangle); // preview rounded/frame too
         }
     } else if (kind == QStringLiteral("circle")) {
         const DrawingCanvasProjectedCircle circle = projectedCircle(object);

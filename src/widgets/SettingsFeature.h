@@ -38,6 +38,12 @@ public:
         std::function<QVector<QPair<QString, QString>>()> toolInventory;
         std::function<QStringList()> beltToolIds;
         std::function<void(const QStringList &)> setBeltToolIds;
+        // Modular panels page: vocabulary (group id + label), current slot
+        // per group, and the single-assignment setter. Same ownership story
+        // as the belt page — the page never sees WorkspaceLayout.
+        std::function<QVector<QPair<QString, QString>>()> panelGroupInventory;
+        std::function<QString(const QString &)> panelSlotForGroup;
+        std::function<void(const QString &, const QString &)> setPanelSlotForGroup;
     };
 
     explicit SettingsFeature(ShellHooks hooks, QObject *parent = nullptr);
@@ -52,6 +58,7 @@ private:
     // never lose state mid-edit.
     QWidget *buildSettingsPage();
     QWidget *buildBeltPage();
+    QWidget *buildPanelsPage();
     // One row of the theme section: label + hex field + color-dialog swatch.
     // `member` selects which of the four inputs the row edits — the variation
     // point is data (a member pointer), not four near-identical functions.

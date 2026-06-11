@@ -186,12 +186,17 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
         m_workspaceHistoryIndex = 0;
         refreshChrome();
     } else {
-        // Same job: geometry only. Palette placements ride with the layout
-        // like panel sizes do — adopt and re-apply without a remount.
+        // Same job: geometry only. Palette placements and panel-content
+        // assignments ride with the layout like panel sizes do — adopt and
+        // re-apply without a remount.
         m_workspaceLayout.palettes = data.layout.palettes;
+        m_workspaceLayout.panelContent = data.layout.panelContent;
         applyPanelSizesToSplitters();
         refreshPanelVisibility();
         applyPalettePlacements();
+        if (m_draftingFeature != nullptr) {
+            m_draftingFeature->applyPanelAssignments();
+        }
     }
     return true;
 }

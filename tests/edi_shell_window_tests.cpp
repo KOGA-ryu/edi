@@ -1613,6 +1613,47 @@ int main(int argc, char **argv)
         }
     }
 
+    // Modular panels: the Panels settings page assigns a group to a panel;
+    // the group REPARENTS live (no remount — the combo that did it survives),
+    // and the assignment rides workspace.toml across a restart.
+    {
+        QTemporaryDir panelDir;
+        const QString panelLayoutPath = panelDir.filePath(QStringLiteral("workspace.toml"));
+        {
+            EdiShellWindow assigner;
+            assigner.resize(1100, 760);
+            assigner.show();
+            QCoreApplication::processEvents();
+            QWidget *layersGroup = assigner.findChild<QWidget *>(QStringLiteral("inspectorGroup_layers_document"));
+            QWidget *rightPanel = assigner.findChild<QWidget *>(QStringLiteral("rightPanel"));
+            QWidget *leftPanel = assigner.findChild<QWidget *>(QStringLiteral("leftPanel"));
+            assert(layersGroup != nullptr && rightPanel != nullptr && leftPanel != nullptr);
+            assert(rightPanel->isAncestorOf(layersGroup)); // default home
+
+            // Drive the real settings page combo.
+            QComboBox *layersCombo = nullptr;
+            for (QComboBox *combo : assigner.findChildren<QComboBox *>(QStringLiteral("panelSlotCombo"))) {
+                if (combo->property("groupId").toString() == QStringLiteral("layers_document")) {
+                    layersCombo = combo;
+                }
+            }
+            assert(layersCombo != nullptr);
+            layersCombo->setCurrentIndex(layersCombo->findData(QStringLiteral("left")));
+            assert(leftPanel->isAncestorOf(layersGroup));   // moved live
+            assert(!rightPanel->isAncestorOf(layersGroup));
+            // The combo survived its own edit (live reparent, no remount).
+            assert(layersCombo->currentData().toString() == QStringLiteral("left"));
+            assert(assigner.saveWorkspaceLayout(panelLayoutPath));
+        }
+
+        EdiShellWindow restorer;
+        assert(restorer.loadWorkspaceLayout(panelLayoutPath));
+        QWidget *restoredGroup = restorer.findChild<QWidget *>(QStringLiteral("inspectorGroup_layers_document"));
+        QWidget *restoredLeft = restorer.findChild<QWidget *>(QStringLiteral("leftPanel"));
+        assert(restoredGroup != nullptr && restoredLeft != nullptr);
+        assert(restoredLeft->isAncestorOf(restoredGroup)); // the move survived restart
+    }
+
     // Workspace restore is not navigation: loading workspace.toml at startup
     // must leave the history a single root — Back used to be born enabled,
     // pointing at a factory default the user never visited. And pinned belt

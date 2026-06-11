@@ -44,6 +44,7 @@ QWidget *SettingsFeature::buildPanel(ShellSlot slot)
     const std::vector<PageSpec> pages = {
         {QStringLiteral("theme"), QStringLiteral("Theme"), [this]() { return buildSettingsPage(); }},
         {QStringLiteral("tool_belt"), QStringLiteral("Tool Belt"), [this]() { return buildBeltPage(); }},
+        {QStringLiteral("panels"), QStringLiteral("Panels"), [this]() { return buildPanelsPage(); }},
     };
 
     auto *host = new QWidget;
@@ -321,4 +322,56 @@ QWidget *SettingsFeature::buildBeltPage()
 
     layout->addStretch(1);
     return panel;
+}
+
+QWidget *SettingsFeature::buildPanelsPage()
+{
+    // The user's modular-panels page: one row per content group, a combo
+    // choosing its panel. Writes flow through the shell hook one assignment
+    // at a time; the shell re-places groups LIVE (reparent, no remount), so
+    // this page keeps working mid-edit — the same constraint that shaped
+    // the belt checklist.
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("settingsPanelsPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(6);
+    layout->addWidget(makeSectionLabel(QStringLiteral("Panel Contents")));
+
+    if (m_hooks.panelGroupInventory && m_hooks.panelSlotForGroup && m_hooks.setPanelSlotForGroup) {
+        // Not named `slots`: Qt macros that identifier away (same trap the
+        // FeatureDescriptor comment records) and the declaration dissolves
+        // into a syntax error.
+        const QVector<QPair<QString, QString>> slotChoices = {
+            {QStringLiteral("Right panel"), QStringLiteral("right")},
+            {QStringLiteral("Left panel"), QStringLiteral("left")},
+            {QStringLiteral("Terminal"), QStringLiteral("bottom")},
+            {QStringLiteral("Hidden"), QStringLiteral("hidden")},
+        };
+        for (const auto &group : m_hooks.panelGroupInventory()) {
+            auto *row = new QWidget;
+            auto *rowLayout = new QHBoxLayout(row);
+            rowLayout->setContentsMargins(0, 0, 0, 0);
+            rowLayout->setSpacing(8);
+            auto *label = new QLabel(group.second);
+            label->setObjectName(QStringLiteral("fieldLabel"));
+            rowLayout->addWidget(label, 1);
+            auto *combo = new QComboBox;
+            combo->setObjectName(QStringLiteral("panelSlotCombo"));
+            combo->setProperty("groupId", group.first);
+            for (const auto &choice : slotChoices) {
+                combo->addItem(choice.first, choice.second);
+            }
+            const int current = combo->findData(m_hooks.panelSlotForGroup(group.first));
+            combo->setCurrentIndex(current >= 0 ? current : 0);
+            const QString groupId = group.first;
+            connect(combo, &QComboBox::currentIndexChanged, this, [this, combo, groupId](int index) {
+                m_hooks.setPanelSlotForGroup(groupId, combo->itemData(index).toString());
+            });
+            rowLayout->addWidget(combo);
+            layout->addWidget(row);
+        }
+    }
+    layout->addStretch(1);
+    return page;
 }

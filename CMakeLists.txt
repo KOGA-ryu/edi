@@ -348,10 +348,15 @@ target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMA
 # The craftsmen library's Blender-free half (strict TOML reader + dry-run
 # plan) smokes under plain python when one is available; the bpy half runs
 # only inside Blender.
-find_package(Python3 COMPONENTS Interpreter QUIET)
-if(Python3_FOUND AND NOT Python3_VERSION VERSION_LESS "3.11")
+# The version goes INTO find_package: FindPython3 then rejects too-old
+# interpreters and keeps searching, instead of stopping at the first hit
+# and silently dropping the test when that one is < 3.11.
+find_package(Python3 3.11 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
     add_test(NAME edi_craft_dry_run_smoke
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_craft_smoke.py)
+else()
+    message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
 endif()
 add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
 # The column test byte-compares its construction against the committed sample

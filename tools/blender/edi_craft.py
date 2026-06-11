@@ -23,8 +23,9 @@ Port fidelity and divergences (each deliberate):
   centre distance radius + cutter_radius - depth with the EXACT solver.
 - Materials are a strict table. v0 silently repainted unknown materials to
   stone; here an unknown material is a hard error naming the op.
-- v0 declared a cylinder `axis` and never honored it in Blender; honored
-  here (rotation), matching what the ASCII proof already draws.
+- AddLabel builds a real FONT text object at (x, y, z); v0's backend only
+  emitted a `# LABEL` comment into the generated script. Labels join the
+  rig bounds as points so annotations stay inside the framed view.
 - v0's preview rig was hardcoded (and underlit/misframed — its packaged
   perspective preview rendered near-black). The rig is now COMPUTED from
   the op-stream bounds: frame whatever the recipe builds, light it to be
@@ -72,37 +73,67 @@ ARCHITECTURAL_OPS = (
 # build deserves the same discipline (and the dry run may be the first
 # reader the file ever meets).
 
-def _number(op_key: str, fields: dict, name: str, default=None) -> float:
+def _raw(op_key: str, name: str, value) -> str:
+    # The edi TOML dialect (TomlReader.cpp): every value is a QUOTED STRING.
+    # Enforce it here too, so the two strict readers accept and reject the
+    # same files — a bare `width = 1.5` that tomllib happily parses would be
+    # rejected on re-import into edi.
+    if not isinstance(value, str):
+        raise ValueError(f"{op_key}.{name}: expected quoted string value, got {value!r}")
+    return value
+
+
+def _number(op_key: str, fields: dict, consumed: set, name: str, default=None) -> float:
     if name not in fields:
         if default is None:
             raise ValueError(f"{op_key}.{name}: missing required key")
         return float(default)
-    value = float(fields[name])
+    consumed.add(name)
+    value = float(_raw(op_key, name, fields[name]))
     if not math.isfinite(value):
         raise ValueError(f"{op_key}.{name}: not a finite number")
     return value
 
 
-def _integer(op_key: str, fields: dict, name: str, default=None) -> int:
+def _optional_number(op_key: str, fields: dict, consumed: set, name: str):
+    if name not in fields:
+        return None
+    # Same finiteness gate as required numbers — taper/start_z/end_z must
+    # not smuggle nan past the reader.
+    return _number(op_key, fields, consumed, name, None)
+
+
+def _integer(op_key: str, fields: dict, consumed: set, name: str, default=None) -> int:
     if name not in fields:
         if default is None:
             raise ValueError(f"{op_key}.{name}: missing required key")
         return int(default)
-    return int(fields[name])
+    consumed.add(name)
+    return int(_raw(op_key, name, fields[name]))
 
 
-def _text(op_key: str, fields: dict, name: str, default=None) -> str:
+def _text(op_key: str, fields: dict, consumed: set, name: str, default=None) -> str:
     if name not in fields:
         if default is None:
             raise ValueError(f"{op_key}.{name}: missing required key")
         return str(default)
-    return str(fields[name])
+    consumed.add(name)
+    return _raw(op_key, name, fields[name])
 
 
-def _flag(op_key: str, fields: dict, name: str, default: bool) -> bool:
+def _choice(op_key: str, fields: dict, consumed: set, name: str, default: str, allowed: tuple) -> str:
+    value = _text(op_key, fields, consumed, name, default)
+    if value not in allowed:
+        raise ValueError(f"{op_key}.{name}: must be one of {', '.join(allowed)}, got {value!r}")
+    return value
+
+
+def _flag(op_key: str, fields: dict, consumed: set, name: str, default: bool) -> bool:
     raw = fields.get(name)
     if raw is None:
         return default
+    consumed.add(name)
+    raw = _raw(op_key, name, raw)
     if raw == "true":
         return True
     if raw == "false":
@@ -110,25 +141,40 @@ def _flag(op_key: str, fields: dict, name: str, default: bool) -> bool:
     raise ValueError(f"{op_key}.{name}: expected true or false, got {raw!r}")
 
 
-def _material(op_key: str, fields: dict) -> str:
-    material = _text(op_key, fields, "material", "stone")
+def _material(op_key: str, fields: dict, consumed: set) -> str:
+    material = _text(op_key, fields, consumed, "material", "stone")
     if material not in MATERIALS:
         raise ValueError(f"{op_key}.material: unknown material {material!r}")
     return material
 
 
 def parse_ops(path: str) -> list[dict]:
-    """Parse a compiled op-stream TOML into typed op dicts, strictly."""
+    """Parse a compiled op-stream TOML into typed op dicts, strictly.
+
+    Mirrors the C++ store's tracking-by-consumption audit: every key the
+    reader uses is recorded, and anything left over — a typo'd field, a
+    gapped op index, a stray table — is rejected BY NAME. This is the last
+    reader before geometry exists; silence here would be guesswork.
+    """
     with open(path, "rb") as f:
         data = tomllib.load(f)
 
+    for top_key in data:
+        if top_key not in ("op", "recipe"):
+            raise ValueError(f"{top_key}: unknown recipe key")
+    for recipe_key in data.get("recipe", {}):
+        if recipe_key not in ("id", "name"):
+            raise ValueError(f"recipe.{recipe_key}: unknown recipe key")
+
     table = data.get("op", {})
     ops: list[dict] = []
+    cylinder_axes: dict[str, str] = {}
     index = 0
     while str(index) in table:
         fields = table[str(index)]
         op_key = f"op.{index}"
-        op_type = _text(op_key, fields, "type")
+        consumed: set = set()
+        op_type = _text(op_key, fields, consumed, "type")
         if op_type == "AddProfileMoulding":
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddProfileMoulding must be compiled before building: {name}")
@@ -138,97 +184,119 @@ def parse_ops(path: str) -> list[dict]:
         op: dict = {"type": op_type}
         if op_type == "AddBox":
             op.update(
-                name=_text(op_key, fields, "name"),
-                width=_number(op_key, fields, "width"),
-                depth=_number(op_key, fields, "depth"),
-                height=_number(op_key, fields, "height"),
-                z=_number(op_key, fields, "z"),
-                x=_number(op_key, fields, "x", 0.0),
-                y=_number(op_key, fields, "y", 0.0),
-                material=_material(op_key, fields),
-                z_mode=_text(op_key, fields, "z_mode", "center"),
+                name=_text(op_key, fields, consumed, "name"),
+                width=_number(op_key, fields, consumed, "width"),
+                depth=_number(op_key, fields, consumed, "depth"),
+                height=_number(op_key, fields, consumed, "height"),
+                z=_number(op_key, fields, consumed, "z"),
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                material=_material(op_key, fields, consumed),
+                z_mode=_choice(op_key, fields, consumed, "z_mode", "center", ("center", "base")),
             )
         elif op_type == "AddCylinder":
             op.update(
-                name=_text(op_key, fields, "name"),
-                radius=_number(op_key, fields, "radius"),
-                height=_number(op_key, fields, "height"),
-                z=_number(op_key, fields, "z"),
-                x=_number(op_key, fields, "x", 0.0),
-                y=_number(op_key, fields, "y", 0.0),
-                vertices=_integer(op_key, fields, "vertices", 96),
-                material=_material(op_key, fields),
-                taper_top_radius=(float(fields["taper_top_radius"]) if "taper_top_radius" in fields else None),
-                entasis=_flag(op_key, fields, "entasis", False),
-                entasis_ratio=_number(op_key, fields, "entasis_ratio", 0.045),
-                axis=_text(op_key, fields, "axis", "z"),
-                z_mode=_text(op_key, fields, "z_mode", "center"),
+                name=_text(op_key, fields, consumed, "name"),
+                radius=_number(op_key, fields, consumed, "radius"),
+                height=_number(op_key, fields, consumed, "height"),
+                z=_number(op_key, fields, consumed, "z"),
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                vertices=_integer(op_key, fields, consumed, "vertices", 96),
+                material=_material(op_key, fields, consumed),
+                taper_top_radius=_optional_number(op_key, fields, consumed, "taper_top_radius"),
+                entasis=_flag(op_key, fields, consumed, "entasis", False),
+                entasis_ratio=_number(op_key, fields, consumed, "entasis_ratio", 0.045),
+                axis=_choice(op_key, fields, consumed, "axis", "z", ("x", "y", "z")),
+                z_mode=_choice(op_key, fields, consumed, "z_mode", "center", ("center", "base")),
             )
+            cylinder_axes[op["name"]] = op["axis"]
         elif op_type == "AddSphere":
             op.update(
-                name=_text(op_key, fields, "name"),
-                radius=_number(op_key, fields, "radius"),
-                z=_number(op_key, fields, "z"),
-                x=_number(op_key, fields, "x", 0.0),
-                y=_number(op_key, fields, "y", 0.0),
-                vertices=_integer(op_key, fields, "vertices", 24),
-                material=_material(op_key, fields),
+                name=_text(op_key, fields, consumed, "name"),
+                radius=_number(op_key, fields, consumed, "radius"),
+                z=_number(op_key, fields, consumed, "z"),
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                vertices=_integer(op_key, fields, consumed, "vertices", 24),
+                material=_material(op_key, fields, consumed),
             )
         elif op_type == "AddRing":
             op.update(
-                name=_text(op_key, fields, "name"),
-                radius=_number(op_key, fields, "radius"),
-                tube_height=_number(op_key, fields, "tube_height"),
-                z=_number(op_key, fields, "z"),
-                overhang=_number(op_key, fields, "overhang", 0.0),
-                x=_number(op_key, fields, "x", 0.0),
-                y=_number(op_key, fields, "y", 0.0),
-                vertices=_integer(op_key, fields, "vertices", 96),
-                material=_material(op_key, fields),
+                name=_text(op_key, fields, consumed, "name"),
+                radius=_number(op_key, fields, consumed, "radius"),
+                tube_height=_number(op_key, fields, consumed, "tube_height"),
+                z=_number(op_key, fields, consumed, "z"),
+                overhang=_number(op_key, fields, consumed, "overhang", 0.0),
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                vertices=_integer(op_key, fields, consumed, "vertices", 96),
+                material=_material(op_key, fields, consumed),
             )
         elif op_type == "AddMoulding":
             profile = []
             points = fields.get("profile", {})
+            consumed.add("profile")
             point_index = 0
             while str(point_index) in points:
                 point = points[str(point_index)]
                 point_key = f"{op_key}.profile.{point_index}"
+                point_consumed: set = set()
                 profile.append({
-                    "term": _text(point_key, point, "term"),
-                    "z": _number(point_key, point, "z"),
-                    "radius": _number(point_key, point, "radius"),
+                    "term": _text(point_key, point, point_consumed, "term"),
+                    "z": _number(point_key, point, point_consumed, "z"),
+                    "radius": _number(point_key, point, point_consumed, "radius"),
                 })
+                extra_point = sorted(set(point) - point_consumed)
+                if extra_point:
+                    raise ValueError(f"{point_key}.{extra_point[0]}: unknown recipe key")
                 point_index += 1
+            leftover_points = sorted(set(points) - {str(i) for i in range(point_index)})
+            if leftover_points:
+                raise ValueError(f"{op_key}.profile.{leftover_points[0]}: gapped or unknown profile index")
             if len(profile) < 2:
                 raise ValueError(f"{op_key}: moulding needs at least two profile points")
             op.update(
-                name=_text(op_key, fields, "name"),
-                base_z=_number(op_key, fields, "base_z"),
+                name=_text(op_key, fields, consumed, "name"),
+                base_z=_number(op_key, fields, consumed, "base_z"),
                 profile=profile,
-                x=_number(op_key, fields, "x", 0.0),
-                y=_number(op_key, fields, "y", 0.0),
-                vertices=_integer(op_key, fields, "vertices", 96),
-                material=_material(op_key, fields),
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                vertices=_integer(op_key, fields, consumed, "vertices", 96),
+                material=_material(op_key, fields, consumed),
             )
         elif op_type == "CutFlutes":
             op.update(
-                target=_text(op_key, fields, "target"),
-                count=_integer(op_key, fields, "count"),
-                depth=_number(op_key, fields, "depth"),
-                width_ratio=_number(op_key, fields, "width_ratio", 0.28),
-                start_z=(float(fields["start_z"]) if "start_z" in fields else None),
-                end_z=(float(fields["end_z"]) if "end_z" in fields else None),
+                target=_text(op_key, fields, consumed, "target"),
+                count=_integer(op_key, fields, consumed, "count"),
+                depth=_number(op_key, fields, consumed, "depth"),
+                width_ratio=_number(op_key, fields, consumed, "width_ratio", 0.28),
+                start_z=_optional_number(op_key, fields, consumed, "start_z"),
+                end_z=_optional_number(op_key, fields, consumed, "end_z"),
             )
+            target_axis = cylinder_axes.get(op["target"], "z")
+            if target_axis != "z":
+                # Flutes are VERTICAL grooves; the cutter ring stands along Z.
+                raise ValueError(
+                    f"{op_key}: CutFlutes cuts vertical grooves; target "
+                    f"{op['target']!r} is a {target_axis}-axis cylinder")
         elif op_type == "AddLabel":
             op.update(
-                name=_text(op_key, fields, "name"),
-                text=_text(op_key, fields, "text"),
-                x=_number(op_key, fields, "x"),
-                y=_number(op_key, fields, "y"),
-                z=_number(op_key, fields, "z"),
+                name=_text(op_key, fields, consumed, "name"),
+                text=_text(op_key, fields, consumed, "text"),
+                x=_number(op_key, fields, consumed, "x"),
+                y=_number(op_key, fields, consumed, "y"),
+                z=_number(op_key, fields, consumed, "z"),
             )
+        extra = sorted(set(fields) - consumed)
+        if extra:
+            raise ValueError(f"{op_key}.{extra[0]}: unknown recipe key")
         ops.append(op)
         index += 1
+
+    leftover = sorted(set(table) - {str(i) for i in range(index)})
+    if leftover:
+        raise ValueError(f"op.{leftover[0]}: gapped or unknown op index")
     return ops
 
 
@@ -284,6 +352,10 @@ def bounds_of(ops: list[dict]) -> tuple[float, float, float, float, float, float
             z0 = op["base_z"] + min(point["z"] for point in op["profile"])
             z1 = op["base_z"] + max(point["z"] for point in op["profile"])
             include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
+        elif op["type"] == "AddLabel":
+            # A point, not a box: the op carries no text extent, but an
+            # annotation must stay inside the framed view.
+            include(op["x"], op["x"], op["y"], op["y"], op["z"], op["z"])
     if min_x == inf:
         return (-1, 1, -1, 1, 0, 1)
     return (min_x, max_x, min_y, max_y, min_z, max_z)
@@ -356,6 +428,14 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
     for key, (name, color) in MATERIALS.items():
         material = bpy.data.materials.new(name)
         material.diffuse_color = color
+        # v0's node wiring verbatim: renders shade with Roughness 0.68, not
+        # the engine default (the if-guard tolerates a renamed node, same
+        # silent-skip v0 chose).
+        material.use_nodes = True
+        bsdf = material.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = color
+            bsdf.inputs["Roughness"].default_value = 0.68
         materials[key] = material
 
     failures: list[str] = []
@@ -370,6 +450,13 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         modifier.segments = segments
         modifier.affect = "EDGES"
         obj.modifiers.new("weighted_normals", "WEIGHTED_NORMAL")
+
+    def _apply_axis(obj, axis):
+        # v0's rotate_axis: lay the part along X or Y; Z stands as built.
+        if axis == "x":
+            obj.rotation_euler = (0.0, math.pi / 2, 0.0)
+        elif axis == "y":
+            obj.rotation_euler = (math.pi / 2, 0.0, 0.0)
 
     def add_box(op):
         z = _center_z(op)
@@ -391,12 +478,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
                 location=(op["x"], op["y"], z), align="WORLD")
             obj = bpy.context.object
             obj.name = op["name"]
-            # v0 declared axis and never honored it; honored here, matching
-            # what the ASCII proof already draws.
-            if op["axis"] == "x":
-                obj.rotation_euler = (0.0, math.pi / 2, 0.0)
-            elif op["axis"] == "y":
-                obj.rotation_euler = (math.pi / 2, 0.0, 0.0)
+            _apply_axis(obj, op["axis"])  # v0's rotate_axis, both branches
             assign_material(obj, op["material"])
             polish(obj, 0.035, 1)
             return obj
@@ -431,7 +513,9 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         mesh.update(calc_edges=True)
         obj = bpy.data.objects.new(op["name"], mesh)
         bpy.context.collection.objects.link(obj)
-        obj.location = (op["x"], op["y"], _center_z(op))
+        # v0's guard exactly: base-z lifting applies only when standing on Z.
+        obj.location = (op["x"], op["y"], _center_z(op) if op["axis"] == "z" else op["z"])
+        _apply_axis(obj, op["axis"])
         bpy.context.view_layer.objects.active = obj
         assign_material(obj, op["material"])
         polish(obj, 0.035, 1)
@@ -444,14 +528,16 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         obj = bpy.context.object
         obj.name = op["name"]
         assign_material(obj, op["material"])
-        polish(obj, 0.02, 1)
+        polish(obj, 0.01, 1)
         return obj
 
     def add_ring(op):
-        # v0's add_ring is a cylinder alias; a true torus (and the overhang
-        # field) stays unwired — the validator already warns recipes off it.
+        # v0's add_ring is a cylinder alias built at radius + overhang —
+        # matching v0's emitter and this file's own bounds_of. The true
+        # remaining divergence: no torus is built, so overhang widens the
+        # alias rather than overhanging a tube.
         bpy.ops.mesh.primitive_cylinder_add(
-            vertices=op["vertices"], radius=op["radius"], depth=op["tube_height"],
+            vertices=op["vertices"], radius=op["radius"] + op["overhang"], depth=op["tube_height"],
             location=(op["x"], op["y"], op["z"]), align="WORLD")
         obj = bpy.context.object
         obj.name = op["name"]
@@ -502,6 +588,8 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         z1 = target.location.z + target.dimensions.z * 0.5 if op["end_z"] is None else op["end_z"]
         cutter_depth = max(0.001, z1 - z0)
         z_mid = (z0 + z1) * 0.5
+        # v0-verbatim: the cutter ring is centred at world (0, 0) — it
+        # ignores target.location.x/y, like the prototype it ports.
         for index in range(count):
             angle = math.tau * index / count
             location = (math.cos(angle) * cutter_offset, math.sin(angle) * cutter_offset, z_mid)
@@ -532,6 +620,8 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
             bpy.data.objects.remove(cutter, do_unlink=True)
 
     def add_label(op):
+        # Divergence from v0 (see docstring): v0 emitted only a comment;
+        # here the label is a real FONT object, sized relative to the build.
         curve = bpy.data.curves.new(op["name"], type="FONT")
         curve.body = op["text"]
         obj = bpy.data.objects.new(op["name"], curve)
@@ -570,6 +660,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
     camera.name = "preview_camera"
     camera.data.type = "ORTHO"
     camera.data.ortho_scale = span * 1.2
+    camera.data.clip_start = max(0.001, span * 0.01)  # tiny builds must not clip
     camera.data.clip_end = max(100.0, span * 10.0)
     bpy.context.scene.camera = camera
 

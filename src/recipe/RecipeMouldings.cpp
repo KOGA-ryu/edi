@@ -113,7 +113,16 @@ MouldingCompileResult compileMouldingSequence(const std::string &name,
     std::optional<double> currentRadius;
 
     for (std::size_t index = 0; index < sequence.size(); ++index) {
-        const MouldingSegment &segment = sequence[index];
+        MouldingSegment segment = sequence[index];
+        // v0 strips whitespace around the term ("torus " is torus) — the
+        // forgiving half of its strictness, kept for fidelity. Python's
+        // str.strip() removes the full ASCII whitespace set, so this must
+        // too (newlines are reachable: the TOML reader decodes \n escapes).
+        const std::size_t first = segment.term.find_first_not_of(" \t\n\r\v\f");
+        const std::size_t last = segment.term.find_last_not_of(" \t\n\r\v\f");
+        segment.term = first == std::string::npos
+            ? std::string()
+            : segment.term.substr(first, last - first + 1);
         const MouldingTermRow *row = findTerm(segment.term);
         if (row == nullptr) {
             return rejected(name + " segment " + std::to_string(index)

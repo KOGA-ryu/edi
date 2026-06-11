@@ -79,6 +79,19 @@ The library (`tools/blender/edi_craft.py`) is the durable half — the
 craftsmen. The recipe TOML is the dimension sheet. Change the recipe,
 re-run; the library does not change.
 
+This pipeline has no edi menu verbs yet; it runs via the commands above.
+File → Open Recipe… belongs to the shaper-grammar pipeline at the top of
+this README — pointed at an ops TOML it will refuse with an unknown-key
+error (by design: two strict vocabularies, no cross-parsing).
+
+The op-stream artifacts are asserted in-repo: `doric_column_ops.toml`, the
+compiled TOML, and the previews are byte-compared against the construction
+in `tests/recipe_doric_fixture.h` by `recipe_ops_tests` and
+`recipe_ops_ascii_tests`; `doric_dry_run.txt` is asserted by
+`tests/edi_craft_smoke.py` and regenerates by redirecting the `--dry-run`
+command above into the file
+(`… --dry-run … > samples/doric_column/doric_dry_run.txt`).
+
 ## Known limitations (V1, stated so they are decisions, not surprises)
 
 - Flute cutters are straight cylinders; on a tapered shaft the bite

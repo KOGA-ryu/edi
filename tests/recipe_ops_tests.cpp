@@ -6,6 +6,8 @@
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
 
+#include "recipe_doric_fixture.h"
+
 #include <cassert>
 #include <cmath>
 #include <fstream>
@@ -19,101 +21,6 @@ namespace {
 bool near(double a, double b)
 {
     return std::abs(a - b) < 1e-9;
-}
-
-// The prototype's doric column, op for op. Names, numbers, materials —
-// the user's vocabulary verbatim.
-RecipeOpStream doricColumnStream()
-{
-    RecipeOpStream stream;
-    stream.id = "doric_column_v0";
-    stream.name = "Doric Column";
-
-    AddBoxOp lowerStep;
-    lowerStep.name = "plinth.lower_step";
-    lowerStep.width = 18;
-    lowerStep.depth = 18;
-    lowerStep.height = 2.0;
-    lowerStep.z = 1.0;
-    stream.ops.push_back(lowerStep);
-
-    AddBoxOp upperStep;
-    upperStep.name = "plinth.upper_step";
-    upperStep.width = 15.5;
-    upperStep.depth = 15.5;
-    upperStep.height = 2.0;
-    upperStep.z = 3.0;
-    stream.ops.push_back(upperStep);
-
-    AddProfileMouldingOp baseMoulding;
-    baseMoulding.name = "base.torus_scotia_moulding";
-    baseMoulding.baseZ = 4.0;
-    baseMoulding.sequence = {
-        {"fillet", 0.08, 5.55, 5.55, {}, {}},
-        {"torus", 0.46, {}, 6.65, {}, {}},
-        {"scotia", 0.3, {}, 6.05, {}, {}},
-        {"fillet", 0.16, {}, 5.12, {}, {}},
-    };
-    stream.ops.push_back(baseMoulding);
-
-    AddCylinderOp shaft;
-    shaft.name = "shaft.tapered_fluted_core";
-    shaft.radius = 5.0;
-    shaft.height = 50.4;
-    shaft.z = 30.2;
-    shaft.vertices = 128;
-    shaft.taperTopRadius = 4.3;
-    shaft.entasis = true;
-    stream.ops.push_back(shaft);
-
-    CutFlutesOp flutes;
-    flutes.target = "shaft.tapered_fluted_core";
-    flutes.count = 20;
-    flutes.depth = 0.45;
-    flutes.widthRatio = 0.34;
-    flutes.startZ = 6.5;
-    flutes.endZ = 53.9;
-    stream.ops.push_back(flutes);
-
-    AddProfileMouldingOp necking;
-    necking.name = "capital.necking_annuli";
-    necking.baseZ = 55.4;
-    necking.sequence = {
-        {"fillet", 0.25, 4.4, 5.2, {}, {}},
-        {"scotia", 0.27, {}, 4.9, {}, {}},
-        {"annulet", 0.38, {}, 5.4, {}, {}},
-        {"fillet", 0.3, {}, 5.0, {}, {}},
-    };
-    stream.ops.push_back(necking);
-
-    AddProfileMouldingOp echinusCushion;
-    echinusCushion.name = "capital.echinus_cushion";
-    echinusCushion.baseZ = 56.6;
-    echinusCushion.sequence = {
-        {"cavetto", 0.7, 5.0, 6.0, {}, {}},
-        {"echinus", 2.35, {}, 7.9, {}, {}},
-        {"fillet", 0.95, {}, 6.9, {}, {}},
-    };
-    stream.ops.push_back(echinusCushion);
-
-    AddBoxOp abacus;
-    abacus.name = "capital.abacus_square_slab";
-    abacus.width = 16.5;
-    abacus.depth = 16.5;
-    abacus.height = 3.0;
-    abacus.z = 62.1;
-    stream.ops.push_back(abacus);
-
-    AddBoxOp entablature;
-    entablature.name = "entablature.test_block";
-    entablature.width = 22;
-    entablature.depth = 18;
-    entablature.height = 5;
-    entablature.z = 66.1;
-    entablature.material = "limestone";
-    stream.ops.push_back(entablature);
-
-    return stream;
 }
 
 bool sameSegment(const MouldingSegment &a, const MouldingSegment &b)
@@ -134,7 +41,7 @@ std::string slurp(const std::string &path)
 
 int main()
 {
-    const RecipeOpStream doric = doricColumnStream();
+    const RecipeOpStream doric = doricColumnOpStream();
 
     // ---- The doric recipe is VALID by the ported checks, and clean under
     // the column-convention lint (it is the convention's own source).
@@ -210,6 +117,19 @@ int main()
         // The compiled stream still validates (lowered mouldings are sane).
         assert(validateRecipeOps(compiled.ops).ok);
 
+        // The committed compiled sample — the artifact the Blender driver
+        // reads — IS this compile, serialized. Drift at the C++/python
+        // seam (or in AddMouldingOp serialization, which appears in no
+        // other byte-golden) fails here. This is also the executable
+        // recipe for regenerating the file.
+        RecipeOpStream compiledStream;
+        compiledStream.id = doric.id;
+        compiledStream.name = doric.name;
+        compiledStream.ops = compiled.ops;
+        const OpStreamTextResult compiledWritten = recipeOpsToToml(compiledStream);
+        assert(compiledWritten.ok);
+        assert(compiledWritten.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_ops_compiled.toml"));
+
         // A failing sequence surfaces the term compiler's own message.
         RecipeOpStream broken = doric;
         auto *badMoulding = std::get_if<AddProfileMouldingOp>(&broken.ops[2]);
@@ -252,7 +172,7 @@ int main()
         ring.name = "odd.ring";
         ring.radius = 1.0;
         ring.tubeHeight = 0.2;
-        ring.overhang = 0.05;           // declared in v0, unwired
+        ring.overhang = 0.05;           // alias semantics: widens, no torus
         ops.push_back(ring);
 
         const OpValidationReport report = validateRecipeOps(ops);
@@ -272,7 +192,7 @@ int main()
         assert(has("unknown_material"));
         assert(has("flute_missing_target"));
         assert(has("bad_flute_z_range"));
-        assert(has("ring_overhang_unwired"));
+        assert(has("ring_overhang_alias"));
     }
 
     // Order matters for flute targets: cutting BEFORE the shaft exists is
@@ -373,6 +293,267 @@ int main()
         const OpStreamParseResult empty = recipeOpsFromToml("", "empty");
         assert(empty.ok);
         assert(empty.stream.ops.empty());
+    }
+
+    // ---- Every remaining validator code fires at least once: a deleted
+    // check must fail a test, not survive silently. ----
+    {
+        std::vector<RecipeOp> ops;
+        AddCylinderOp shaft;
+        shaft.name = "probe.shaft";
+        shaft.radius = 1.0;
+        shaft.height = 4.0;
+        ops.push_back(shaft);
+        AddSphereOp pebble;
+        pebble.name = "probe.pebble";
+        pebble.radius = 0.0;  // bad_sphere_radius
+        pebble.vertices = 4;  // low_sphere_vertices
+        ops.push_back(pebble);
+        AddMouldingOp kinked;
+        kinked.name = "probe.kinked";
+        kinked.baseZ = -1.0;  // negative_moulding_base_z
+        kinked.vertices = 8;  // low_moulding_vertices
+        // Two descents (1.0 -> 0.5 -> 0.2): per-point reporting must name
+        // both kinks; a first-only dedup would collapse them to one.
+        kinked.profile = {{"a", 1.0, -0.5}, {"b", 0.5, 2.0}, {"c", 0.2, 2.0}};
+        ops.push_back(kinked);
+        AddMouldingOp stub;
+        stub.name = "probe.stub";
+        stub.profile = {{"only", -1.0, 1.0}}; // short profile + negative local z
+        ops.push_back(stub);
+        AddProfileMouldingOp hollow;
+        hollow.name = "probe.hollow";
+        hollow.baseZ = -2.0; // negative_profile_moulding_base_z
+        hollow.vertices = 8; // low_profile_moulding_vertices
+        ops.push_back(hollow); // empty sequence
+        AddProfileMouldingOp mangled;
+        mangled.name = "probe.mangled";
+        MouldingSegment badSegment;
+        badSegment.term = "ovolo";   // unknown_profile_term
+        badSegment.height = 0.0;     // bad_profile_segment_height
+        badSegment.endRadius = -1.0; // bad_profile_segment_radius (end half)
+        badSegment.steps = 0;        // bad_profile_segment_steps
+        mangled.sequence = {badSegment}; // and: missing_profile_start_radius
+        MouldingSegment badStart;
+        badStart.term = "torus";
+        badStart.height = 1.0;
+        badStart.startRadius = -2.0; // bad_profile_segment_radius (start half)
+        mangled.sequence.push_back(badStart);
+        ops.push_back(mangled);
+        CutFlutesOp shallow;
+        shallow.target = "probe.shaft";
+        shallow.count = 8;        // low_flute_count
+        shallow.depth = 0.0;      // bad_flute_depth
+        shallow.widthRatio = 0.95; // odd_flute_width_ratio
+        ops.push_back(shallow);
+        AddCylinderOp beam;
+        beam.name = "probe.beam";
+        beam.radius = 1.0;
+        beam.height = 6.0;
+        beam.axis = Axis::X;
+        ops.push_back(beam);
+        CutFlutesOp sideways;
+        sideways.target = "probe.beam"; // flute_target_not_vertical
+        sideways.count = 20;
+        sideways.depth = 0.1;
+        ops.push_back(sideways);
+
+        const OpValidationReport report = validateRecipeOps(ops);
+        assert(!report.ok);
+        const auto count = [&report](const char *code) {
+            int hits = 0;
+            for (const OpFinding &finding : report.findings) {
+                if (finding.code == code) {
+                    ++hits;
+                }
+            }
+            return hits;
+        };
+        assert(count("bad_sphere_radius") == 1);
+        assert(count("low_sphere_vertices") == 1);
+        assert(count("negative_moulding_base_z") == 1);
+        assert(count("low_moulding_vertices") == 1);
+        assert(count("bad_moulding_radius") == 1);
+        assert(count("moulding_profile_not_monotonic") == 2); // one PER kink (v0 behavior)
+        assert(count("short_moulding_profile") == 1);
+        assert(count("bad_moulding_z") == 1);
+        assert(count("negative_profile_moulding_base_z") == 1);
+        assert(count("low_profile_moulding_vertices") == 1);
+        assert(count("empty_profile_moulding_sequence") == 1);
+        assert(count("unknown_profile_term") == 1);
+        assert(count("bad_profile_segment_height") == 1);
+        assert(count("missing_profile_start_radius") == 1);
+        assert(count("bad_profile_segment_radius") == 2); // start AND end halves
+        assert(count("bad_profile_segment_steps") == 1);
+        assert(count("low_flute_count") == 1);
+        assert(count("bad_flute_depth") == 1);
+        assert(count("odd_flute_width_ratio") == 1);
+        // numberKeyText formatting, not std::to_string's "0.950000".
+        bool sawRatioMessage = false;
+        for (const OpFinding &finding : report.findings) {
+            if (finding.code == "odd_flute_width_ratio") {
+                assert(finding.message.find("0.95") != std::string::npos);
+                assert(finding.message.find("0.950000") == std::string::npos);
+                sawRatioMessage = true;
+            }
+        }
+        assert(sawRatioMessage);
+        assert(count("flute_target_not_vertical") == 1);
+    }
+
+    // ---- The column lint's warnings, both directions, and max-vs-min. ----
+    {
+        AddCylinderOp shaft;
+        shaft.name = "shaft.tapered_fluted_core";
+        shaft.radius = 5.0;
+        shaft.height = 40.0;
+
+        AddBoxOp narrowPlinth;
+        narrowPlinth.name = "plinth.lower_step";
+        narrowPlinth.width = 9.0; // max(9,4) = 9 <= 10: too narrow
+        narrowPlinth.depth = 4.0;
+        narrowPlinth.height = 1.0;
+        const std::vector<OpFinding> narrow = lintColumnConventions({RecipeOp(narrowPlinth), RecipeOp(shaft)});
+        assert(narrow.size() == 2);
+        assert(narrow[0].code == "base_not_wider_than_shaft");
+        assert(narrow[1].code == "missing_capital");
+
+        AddBoxOp wideRect = narrowPlinth;
+        wideRect.width = 12.0; // max(12,4) = 12 > 10 — but min would be 4: kills max->min
+        const std::vector<OpFinding> wide = lintColumnConventions({RecipeOp(wideRect), RecipeOp(shaft)});
+        assert(wide.size() == 1);
+        assert(wide[0].code == "missing_capital");
+
+        AddBoxOp boundary = narrowPlinth;
+        boundary.width = 10.0;
+        boundary.depth = 10.0; // exactly shaft diameter: <= fires
+        const std::vector<OpFinding> atBoundary = lintColumnConventions({RecipeOp(boundary), RecipeOp(shaft)});
+        assert(atBoundary.size() == 2);
+        assert(atBoundary[0].code == "base_not_wider_than_shaft");
+
+        const std::vector<OpFinding> bare = lintColumnConventions({RecipeOp(shaft)});
+        assert(bare.size() == 1); // no plinth box: only the capital warning
+        assert(bare[0].code == "missing_capital");
+    }
+
+    // ---- Round trip for every writer the doric never exercises, with
+    // every reloaded field asserted (zMode/axis/entasis/overhang included).
+    {
+        RecipeOpStream zoo;
+        zoo.id = "writer_zoo";
+        zoo.name = "Writer Zoo";
+        AddSphereOp finial;
+        finial.name = "probe.finial";
+        finial.radius = 1.5;
+        finial.z = 10.0;
+        finial.x = 0.5;
+        finial.y = -0.25;
+        finial.vertices = 16;
+        finial.material = "marble";
+        zoo.ops.push_back(finial);
+        AddRingOp collar;
+        collar.name = "probe.collar";
+        collar.radius = 2.0;
+        collar.tubeHeight = 0.5;
+        collar.z = 8.0;
+        collar.overhang = 0.25;
+        zoo.ops.push_back(collar);
+        AddLabelOp tag;
+        tag.name = "probe.tag";
+        tag.text = "north face";
+        tag.x = 1.0;
+        tag.y = 2.0;
+        tag.z = 3.0;
+        zoo.ops.push_back(tag);
+        AddMouldingOp band;
+        band.name = "probe.band";
+        band.baseZ = 4.0;
+        band.profile = {{"fillet_start", 0.0, 2.0}, {"fillet_01", 0.5, 2.5}};
+        zoo.ops.push_back(band);
+        AddCylinderOp beam;
+        beam.name = "probe.beam";
+        beam.radius = 0.5;
+        beam.height = 6.0;
+        beam.z = 1.0;
+        beam.x = 0.75;
+        beam.y = -0.5;
+        beam.axis = Axis::X;
+        beam.zMode = ZMode::Base;
+        beam.entasis = false;
+        zoo.ops.push_back(beam);
+
+        const OpStreamTextResult written = recipeOpsToToml(zoo);
+        assert(written.ok);
+        const OpStreamParseResult reloaded = recipeOpsFromToml(written.text, "zoo");
+        assert(reloaded.ok);
+        assert(reloaded.stream.ops.size() == 5);
+        const auto *sphere = std::get_if<AddSphereOp>(&reloaded.stream.ops[0]);
+        assert(sphere != nullptr && sphere->name == "probe.finial" && near(sphere->radius, 1.5)
+               && near(sphere->x, 0.5) && near(sphere->y, -0.25)
+               && sphere->vertices == 16 && sphere->material == "marble");
+        const auto *ring = std::get_if<AddRingOp>(&reloaded.stream.ops[1]);
+        assert(ring != nullptr && near(ring->tubeHeight, 0.5) && near(ring->overhang, 0.25));
+        const auto *label = std::get_if<AddLabelOp>(&reloaded.stream.ops[2]);
+        assert(label != nullptr && label->text == "north face"
+               && near(label->x, 1.0) && near(label->y, 2.0) && near(label->z, 3.0));
+        const auto *mouldingZoo = std::get_if<AddMouldingOp>(&reloaded.stream.ops[3]);
+        assert(mouldingZoo != nullptr && mouldingZoo->profile.size() == 2
+               && mouldingZoo->profile[1].term == "fillet_01"
+               && near(mouldingZoo->profile[1].z, 0.5) && near(mouldingZoo->profile[1].radius, 2.5));
+        const auto *beamBack = std::get_if<AddCylinderOp>(&reloaded.stream.ops[4]);
+        assert(beamBack != nullptr && beamBack->axis == Axis::X && beamBack->zMode == ZMode::Base
+               && !beamBack->entasis && near(beamBack->x, 0.75) && near(beamBack->y, -0.5));
+
+        // TOML basic-string escaping survives the round trip: a quote, a
+        // backslash, a newline, and DEL (0x7F — forbidden unescaped by
+        // TOML just like the C0 controls) must come back verbatim.
+        RecipeOpStream tricky;
+        AddLabelOp gnarly;
+        gnarly.name = "probe.gnarly";
+        gnarly.text = "say \"hi\" to C:\\paths\nline two\x7F";
+        gnarly.x = 0.0;
+        gnarly.y = 0.0;
+        gnarly.z = 0.0;
+        tricky.ops.push_back(gnarly);
+        const OpStreamTextResult trickyWritten = recipeOpsToToml(tricky);
+        assert(trickyWritten.ok);
+        // DEL must appear ESCAPED in the written text: our own reader would
+        // happily round-trip a raw 0x7F, but tomllib (the python half of
+        // the pipeline) refuses it — the escape is for the OTHER reader.
+        assert(trickyWritten.text.find("\\u007F") != std::string::npos);
+        const OpStreamParseResult trickyBack = recipeOpsFromToml(trickyWritten.text, "tricky");
+        assert(trickyBack.ok);
+        const auto *gnarlyBack = std::get_if<AddLabelOp>(&trickyBack.stream.ops[0]);
+        assert(gnarlyBack != nullptr && gnarlyBack->text == gnarly.text);
+    }
+
+    // ---- A minimal handwritten op exercises every reader DEFAULT (the
+    // writer always emits x/y/vertices/material, so only a hand file can
+    // reach this path). And an oversized integer is refused by name.
+    {
+        const OpStreamParseResult minimal = recipeOpsFromToml(
+            "op.0.type = \"AddCylinder\"\n"
+            "op.0.name = \"bare.drum\"\n"
+            "op.0.radius = \"1\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.z = \"0\"\n", "minimal");
+        assert(minimal.ok);
+        const auto *drum = std::get_if<AddCylinderOp>(&minimal.stream.ops[0]);
+        assert(drum != nullptr);
+        assert(drum->x == 0.0 && drum->y == 0.0 && drum->vertices == 96
+               && drum->material == "stone" && drum->axis == Axis::Z
+               && drum->zMode == ZMode::Center && !drum->entasis
+               && !drum->taperTopRadius.has_value());
+
+        const OpStreamParseResult oversized = recipeOpsFromToml(
+            "op.0.type = \"AddCylinder\"\n"
+            "op.0.name = \"bare.drum\"\n"
+            "op.0.radius = \"1\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.z = \"0\"\n"
+            "op.0.vertices = \"99999999999\"\n", "oversized");
+        assert(!oversized.ok);
+        assert(oversized.message.find("op.0.vertices: not an integer") != std::string::npos);
     }
 
     return 0;

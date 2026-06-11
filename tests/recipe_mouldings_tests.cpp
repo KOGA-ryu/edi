@@ -131,6 +131,66 @@ int main()
         assert(near(absolute.points.back().radius, 3.0));
     }
 
+    // ---- Vocabulary rows the doric never exercises: one single-segment
+    // compile per term pins its default step count and table spelling.
+    // cyma {height 1.0, 2.0→3.0}: 5 default steps → 6 points; at step 2
+    // t = 0.4 and smoothstep(0.4) = 0.352, so radius = 2.352. ----
+    {
+        const MouldingCompileResult cyma = compileMouldingSequence("term.cyma", {
+            {"cyma", 1.0, 2.0, 3.0, {}, {}},
+        });
+        assert(cyma.ok);
+        assert(cyma.points.size() == 6);
+        assertPoint(cyma.points[2], "cyma_02", 0.4, 2.352);
+
+        const MouldingCompileResult cymaRecta = compileMouldingSequence("term.cyma_recta", {
+            {"cyma_recta", 1.0, 2.0, 3.0, {}, {}},
+        });
+        assert(cymaRecta.ok);
+        assert(cymaRecta.points.size() == 6);
+        assertPoint(cymaRecta.points[2], "cyma_recta_02", 0.4, 2.352);
+
+        // cyma_reversa's MirroredSmoothstep is algebraically the SAME curve:
+        // 1 - smoothstep(1-t) = 3t² - 2t³ = smoothstep(t). The enum row
+        // matches v0's branch verbatim, but only its step count and spelling
+        // are observably distinct — an ease-swap mutant here is equivalent.
+        const MouldingCompileResult cymaReversa = compileMouldingSequence("term.cyma_reversa", {
+            {"cyma_reversa", 1.0, 2.0, 3.0, {}, {}},
+        });
+        assert(cymaReversa.ok);
+        assert(cymaReversa.points.size() == 6);
+        assertPoint(cymaReversa.points[2], "cyma_reversa_02", 0.4, 2.352);
+
+        // bead has 4 default steps → 5 points. Assert points[1], NOT the
+        // midpoint: at t = 0.5 smoothstep equals linear (both 2.5), so the
+        // midpoint cannot kill a Smoothstep→Linear ease mutant. At t = 0.25
+        // smoothstep(0.25) = 0.15625 → an exact tie that rounds half-to-even
+        // to 2.1562, same as v0's python round() (linear would be 2.25).
+        const MouldingCompileResult bead = compileMouldingSequence("term.bead", {
+            {"bead", 1.0, 2.0, 3.0, {}, {}},
+        });
+        assert(bead.ok);
+        assert(bead.points.size() == 5);
+        assertPoint(bead.points[1], "bead_01", 0.25, 2.1562);
+    }
+
+    // ---- v0 strips whitespace around terms (python str.strip(), the full
+    // ASCII whitespace set — not just space); the point names use the
+    // stripped spelling. ----
+    {
+        const MouldingCompileResult padded = compileMouldingSequence("pad.profile", {
+            {" torus ", 0.5, 1.0, 2.0, {}, {}},
+        });
+        assert(padded.ok);
+        assert(padded.points[1].term == "torus_01");
+
+        const MouldingCompileResult wrapped = compileMouldingSequence("pad.profile", {
+            {"\ttorus\n", 0.5, 1.0, 2.0, {}, {}},
+        });
+        assert(wrapped.ok);
+        assert(wrapped.points[1].term == "torus_01");
+    }
+
     // ---- Failure wording matches v0 (the messages are the diagnosis) ----
     {
         assert(compileMouldingSequence("empty.profile", {}).message
@@ -160,6 +220,15 @@ int main()
         });
         assert(!negativeRadius.ok);
         assert(negativeRadius.message.find("radii must be positive") != std::string::npos);
+
+        // Negative START with a positive end: only the startRadius half of
+        // the radii check can reject this (the case above re-trips via the
+        // end radius, masking a deleted startRadius check).
+        const MouldingCompileResult negativeStart = compileMouldingSequence("bad.profile", {
+            {"fillet", 0.1, -1.0, 2.0, {}, {}},
+        });
+        assert(!negativeStart.ok);
+        assert(negativeStart.message.find("radii must be positive") != std::string::npos);
 
         MouldingSegment zeroSteps;
         zeroSteps.term = "torus";

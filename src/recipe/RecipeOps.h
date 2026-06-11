@@ -27,9 +27,10 @@ namespace edi::recipe {
 //   to 'stone' on a typo — guesswork by fallback).
 // - entasis carries its ratio as a field (v0 hardcoded 0.045 in the
 //   backend); the default preserves v0's numbers exactly.
-// - AddRing.overhang is carried but v0's Blender backend IGNORES it (the
-//   field was declared, never wired). The craftsmen library decides its
-//   meaning; until then validators warn when it is set.
+// - AddRing.overhang widens the ring's radius in BOTH backends, exactly
+//   as v0 wired it (radius + overhang). What stays unwired is true torus
+//   geometry: the ring is a cylinder alias, so overhang widens the alias
+//   rather than overhanging a tube — validators note that when it is set.
 
 // Coordinate convention (v0 ops.py): X left/right, Y depth, Z up.
 // Front elevation projects X/Z, side Y/Z, top X/Y.
@@ -82,7 +83,7 @@ struct AddRingOp {
     double radius = 0.0;
     double tubeHeight = 0.0;
     double z = 0.0;
-    double overhang = 0.0; // declared in v0, unwired there — see header note
+    double overhang = 0.0; // widens the cylinder-alias radius — see header note
     double x = 0.0;
     double y = 0.0;
     int vertices = 96;

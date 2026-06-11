@@ -2,15 +2,21 @@
 """ctest smoke for the craftsmen library's Blender-free half.
 
 Asserts the dry-run plan for the compiled doric column matches the
-committed golden byte for byte, and that the strict reader refuses the
-classic offenders. The bpy half is exercised in Blender (and reviewed
-against bpy semantics); everything testable without Blender is tested
-here so a refactor cannot silently bend the plan.
+committed golden byte for byte, that the strict reader refuses the
+classic offenders, that every plan/default path the doric never walks
+is pinned by an inline fixture, and that the python material table
+mirrors the C++ validator's. The bpy half is exercised in Blender (and
+reviewed against bpy semantics); everything testable without Blender is
+tested here so a refactor cannot silently bend the plan.
 """
 
 import os
+import re
 import sys
 import tempfile
+
+# Keep ctest from littering tools/blender/__pycache__ into the source tree.
+sys.dont_write_bytecode = True
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -20,19 +26,137 @@ import edi_craft  # noqa: E402
 
 SAMPLES = os.path.join(ROOT, "samples", "doric_column")
 
+# A complete, valid cylinder to graft one bad field onto per refusal case.
+MINIMAL_CYLINDER = (
+    'op.0.type = "AddCylinder"\nop.0.name = "c"\nop.0.radius = "1"\n'
+    'op.0.height = "2"\nop.0.z = "0"\n'
+)
+
+# Exercises every plan/default path the doric sample never reaches:
+# sphere/ring/label plan lines, omitted-key defaults (ring overhang 0,
+# material stone, axis z, z_mode center; sphere/ring vertices asserted on
+# the parsed dicts — no plan line prints them), the x-axis cylinder at
+# x=2 (bounds_of's x branch moves the rig's camera x to 1.5 — at x=0 the
+# branch's bounds are symmetric and the rig can't see it), z_mode="base"
+# (_center_z's base branch), entasis="false" (_flag's false branch), and
+# CutFlutes without width_ratio/z-range (the 0.28 default, no z suffix).
+PLAN_FIXTURE = """\
+recipe.id = "smoke.plan"
+recipe.name = "Plan Fixture"
+
+op.0.type = "AddSphere"
+op.0.name = "finial"
+op.0.radius = "1.5"
+op.0.z = "10"
+
+op.1.type = "AddRing"
+op.1.name = "collar"
+op.1.radius = "2"
+op.1.tube_height = "0.5"
+op.1.z = "8"
+
+op.2.type = "AddLabel"
+op.2.name = "tag"
+op.2.text = "north face"
+op.2.x = "1"
+op.2.y = "2"
+op.2.z = "3"
+
+op.3.type = "AddCylinder"
+op.3.name = "beam"
+op.3.radius = "0.5"
+op.3.height = "6"
+op.3.z = "4"
+op.3.x = "2"
+op.3.axis = "x"
+
+op.4.type = "AddBox"
+op.4.name = "pedestal"
+op.4.width = "4"
+op.4.depth = "4"
+op.4.height = "2"
+op.4.z = "0"
+op.4.z_mode = "base"
+
+op.5.type = "AddCylinder"
+op.5.name = "drum"
+op.5.radius = "1"
+op.5.height = "4"
+op.5.z = "2"
+op.5.entasis = "false"
+
+op.6.type = "CutFlutes"
+op.6.target = "drum"
+op.6.count = "6"
+op.6.depth = "0.1"
+"""
+
+# Derived by hand from the module's own arithmetic: bounds x [-2, 5]
+# (beam at x=2 lying along x: [2-3, 2+3]; pedestal/ring give the -2),
+# y [-2, 2], z [0, 11.5] (finial top) -> span 11.5, ortho 11.5 * 1.2 =
+# 13.8, camera x = (-2+5)/2 = 1.5, y = -2 - 11.5 * 1.6 = -20.4,
+# center 5.75. Camera x is the killable trace of bounds_of's x branch.
+PLAN_EXPECTED = [
+    "# edi_craft dry run — 7 ops",
+    "AddSphere finial r=1.5 z=10 material=stone",
+    "AddRing collar r=2 tube_h=0.5 z=8 material=stone",
+    'AddLabel tag "north face" at (1, 2, 3)',
+    "AddCylinder beam r=0.5 h=6 center_z=4 axis=x vertices=96 material=stone",
+    "AddBox pedestal 4x4x2 center_z=1 material=stone",
+    "AddCylinder drum r=1 h=4 center_z=2 axis=z vertices=96 material=stone",
+    "CutFlutes drum count=6 depth=0.1 width_ratio=0.28",
+    "preview rig: ortho_scale=13.8 camera=(1.5, -20.4, 5.75) target_z=5.75",
+]
+
+
+def write_temp(toml_text: str) -> str:
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".toml", encoding="utf-8", delete=False
+    ) as f:
+        f.write(toml_text)
+        return f.name
+
 
 def main() -> int:
+    # The two material vocabularies must stay one vocabulary: a key only in
+    # C++ validates and previews but hard-errors in the Blender driver; one
+    # only here is unreachable. Brittle-to-reformatting on purpose — a
+    # failure forces a human to look at both tables.
+    with open(os.path.join(ROOT, "src", "recipe", "RecipeOps.cpp"), encoding="utf-8") as f:
+        cpp_src = f.read()
+    block = re.search(r"static const std::vector<std::string> table = \{(.*?)\};", cpp_src, re.S)
+    assert block, "material table block not found in RecipeOps.cpp (reformat? update this regex)"
+    cpp_materials = set(re.findall(r'"([^"]+)"', block.group(1)))
+    assert cpp_materials == set(edi_craft.MATERIALS), (
+        f"material tables drifted: C++ only {sorted(cpp_materials - set(edi_craft.MATERIALS))}, "
+        f"python only {sorted(set(edi_craft.MATERIALS) - cpp_materials)}"
+    )
+
     ops = edi_craft.parse_ops(os.path.join(SAMPLES, "doric_column_ops_compiled.toml"))
     plan = "\n".join(edi_craft.plan_lines(ops)) + "\n"
     with open(os.path.join(SAMPLES, "doric_dry_run.txt"), encoding="utf-8") as f:
         golden = f.read()
     assert plan == golden, "dry-run plan drifted from samples/doric_column/doric_dry_run.txt"
 
+    # The doric writes every field explicitly and uses no sphere/ring/label,
+    # so the defaults and the remaining plan lines need their own fixture.
+    path = write_temp(PLAN_FIXTURE)
+    try:
+        fixture_ops = edi_craft.parse_ops(path)
+    finally:
+        os.unlink(path)
+    fixture_plan = edi_craft.plan_lines(fixture_ops)
+    assert fixture_plan == PLAN_EXPECTED, (
+        "plan fixture drifted:\n got      %r\n expected %r" % (fixture_plan, PLAN_EXPECTED)
+    )
+    # Vertex defaults are bpy-side inputs no plan line prints — pin them on
+    # the parsed dicts so the 24/96 constants stay asserted somewhere.
+    assert fixture_ops[0]["vertices"] == 24, "AddSphere vertices default drifted"
+    assert fixture_ops[1]["vertices"] == 96, "AddRing vertices default drifted"
+
     def refuses(toml_text: str, needle: str) -> None:
-        path = tempfile.mktemp(suffix=".toml")
+        path = write_temp(toml_text)
         try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(toml_text)
             try:
                 edi_craft.parse_ops(path)
             except ValueError as exc:
@@ -54,6 +178,37 @@ def main() -> int:
         "must be compiled",
     )
     refuses('op.0.type = "AddDodecahedron"\n', "unknown op type")
+
+    # The consumption audit, by name: a typo'd field, a gapped op index,
+    # and a stray table must each be rejected exactly like the C++ store.
+    refuses(
+        MINIMAL_CYLINDER + 'op.0.entasis_ration = "0.05"\n',
+        "op.0.entasis_ration: unknown recipe key",
+    )
+    refuses(
+        MINIMAL_CYLINDER + 'op.2.type = "AddBox"\n',
+        "op.2: gapped or unknown op index",
+    )
+    refuses('ops.0.type = "AddBox"\n', "ops: unknown recipe key")
+
+    # The edi TOML dialect: every value is a quoted string. Native numbers
+    # and booleans parse in tomllib but must be refused here, or a file the
+    # dry run accepts would bounce off the C++ store on re-import.
+    refuses(
+        'op.0.type = "AddBox"\nop.0.name = "b"\nop.0.width = 1.5\n',
+        "expected quoted string value",
+    )
+    refuses(MINIMAL_CYLINDER + "op.0.entasis = true\n", "expected quoted string value")
+    refuses(MINIMAL_CYLINDER + 'op.0.entasis = "yes"\n', "expected true or false")
+    refuses(MINIMAL_CYLINDER + 'op.0.axis = "w"\n', "must be one of")
+
+    # Flutes are vertical grooves: a non-z-axis target is geometric nonsense
+    # the reader refuses (mirrors the C++ flute_target_not_vertical error).
+    refuses(
+        MINIMAL_CYLINDER + 'op.0.axis = "x"\n'
+        'op.1.type = "CutFlutes"\nop.1.target = "c"\nop.1.count = "6"\nop.1.depth = "0.1"\n',
+        "cuts vertical grooves",
+    )
 
     print("edi_craft smoke: ok")
     return 0

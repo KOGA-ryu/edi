@@ -389,6 +389,9 @@ struct ProjectionDrawer {
     void operator()(const AddMouldingOp &op) const
     {
         if (projection == AsciiProjection::Top) {
+            // Port divergence: v0's bare max() raises on an empty profile;
+            // the 0.0-seeded fold draws nothing instead. Unreachable past
+            // validation (short_moulding_profile), kept calm regardless.
             double radius = 0.0;
             for (const MouldingPoint &point : op.profile) {
                 radius = std::max(radius, point.radius);

@@ -27,6 +27,10 @@ struct OpWriter {
     void put(const char *key, double value) const { put(key, numberKeyText(value)); }
     void put(const char *key, int value) const { put(key, std::to_string(value)); }
     void put(const char *key, bool value) const { put(key, value ? std::string("true") : std::string("false")); }
+    // String literals would otherwise bind to the BOOL overload (pointer->
+    // bool is a standard conversion, which beats the user-defined one to
+    // std::string) and serialize as "true". Exact match intercepts them.
+    void put(const char *key, const char *value) const { put(key, std::string(value)); }
 
     void operator()(const AddBoxOp &op) const
     {

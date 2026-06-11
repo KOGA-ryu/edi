@@ -2,8 +2,8 @@
 
 #include <charconv>
 #include <cmath>
-#include <cstdlib>
 #include <string>
+#include <system_error>
 
 namespace edi::recipe {
 
@@ -19,14 +19,27 @@ inline std::string numberKeyText(double value)
     return std::string(buffer, result.ptr);
 }
 
+// from_chars, not strtod: strtod honors LC_NUMERIC, and QApplication sets
+// the C locale from the environment on Unix — under a comma-decimal locale
+// the loader would reject the very "1.5" the to_chars writer emits.
+// from_chars is locale-independent by definition, the reader the writer
+// deserves. One divergence handled: from_chars rejects the leading '+'
+// strtod accepted (and TOML permits), so it is skipped explicitly.
 inline bool parseNumberText(const std::string &text, double &value)
 {
     if (text.empty()) {
         return false;
     }
-    char *end = nullptr;
-    value = std::strtod(text.c_str(), &end);
-    return end == text.c_str() + text.size() && std::isfinite(value);
+    const char *first = text.data();
+    const char *last = first + text.size();
+    if (*first == '+') {
+        ++first;
+        if (first == last || *first == '-') {
+            return false;
+        }
+    }
+    const auto result = std::from_chars(first, last, value);
+    return result.ec == std::errc{} && result.ptr == last && std::isfinite(value);
 }
 
 inline bool parseIntText(const std::string &text, int &value)
@@ -34,13 +47,19 @@ inline bool parseIntText(const std::string &text, int &value)
     if (text.empty()) {
         return false;
     }
-    char *end = nullptr;
-    const long parsed = std::strtol(text.c_str(), &end, 10);
-    if (end != text.c_str() + text.size()) {
-        return false;
+    // from_chars reports out-of-range natively — strtol clamped on
+    // overflow and the long->int cast then truncated, so a 12-digit
+    // vertex count parsed "successfully" to garbage.
+    const char *first = text.data();
+    const char *last = first + text.size();
+    if (*first == '+') {
+        ++first;
+        if (first == last || *first == '-') {
+            return false;
+        }
     }
-    value = static_cast<int>(parsed);
-    return true;
+    const auto result = std::from_chars(first, last, value, 10);
+    return result.ec == std::errc{} && result.ptr == last;
 }
 
 } // namespace edi::recipe

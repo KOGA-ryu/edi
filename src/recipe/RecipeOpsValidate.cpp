@@ -1,5 +1,7 @@
 #include "recipe/RecipeOpsValidate.h"
 
+#include "recipe/RecipeTextNumbers.h"
+
 #include <algorithm>
 #include <unordered_set>
 
@@ -29,6 +31,7 @@ void checkMaterial(std::vector<OpFinding> &findings, const std::string &name, co
 struct OpChecker {
     std::vector<OpFinding> &findings;
     const std::unordered_set<std::string> &namesSoFar;
+    const std::unordered_set<std::string> &nonVerticalCylinders;
 
     void operator()(const AddBoxOp &op) const
     {
@@ -50,6 +53,8 @@ struct OpChecker {
         if (op.taperTopRadius.has_value() && *op.taperTopRadius <= 0) {
             add(findings, Severity::Error, "bad_taper_radius", op.name + " has invalid top radius.");
         }
+        // Port addition: entasis_ratio is a new field (v0 hardcoded the
+        // 0.045 bulge), so v0 had no code for it.
         if (op.entasisRatio < 0) {
             add(findings, Severity::Error, "bad_entasis_ratio", op.name + " entasis_ratio must be non-negative.");
         }
@@ -74,11 +79,11 @@ struct OpChecker {
             add(findings, Severity::Error, "bad_ring_dimensions", op.name + " has non-positive dimensions.");
         }
         if (op.overhang != 0.0) {
-            // Declared in v0's schema, never read by its backend. Carried,
-            // but a recipe relying on it deserves to know it does nothing
-            // until the craftsmen library wires it.
-            add(findings, Severity::Warning, "ring_overhang_unwired",
-                op.name + " sets overhang, which no backend honors yet.");
+            // Port addition: both backends honor overhang as v0 did
+            // (radius + overhang), but the ring is a cylinder ALIAS — the
+            // overhang widens it; no torus tube exists to overhang.
+            add(findings, Severity::Warning, "ring_overhang_alias",
+                op.name + " overhang widens the cylinder-alias radius; no torus is built.");
         }
         checkMaterial(findings, op.name, op.material);
     }
@@ -95,7 +100,6 @@ struct OpChecker {
         if (op.profile.size() < 2) {
             add(findings, Severity::Error, "short_moulding_profile", op.name + " needs at least two profile points.");
         }
-        bool monotonicReported = false;
         for (std::size_t index = 0; index < op.profile.size(); ++index) {
             const MouldingPoint &point = op.profile[index];
             if (point.radius <= 0) {
@@ -106,10 +110,11 @@ struct OpChecker {
                 add(findings, Severity::Error, "bad_moulding_z",
                     op.name + " point " + std::to_string(index) + " has negative local z.");
             }
-            if (index > 0 && point.z < op.profile[index - 1].z && !monotonicReported) {
+            // One finding PER violating point, as v0 reports it — the
+            // report should name every kink, not just the first.
+            if (index > 0 && point.z < op.profile[index - 1].z) {
                 add(findings, Severity::Error, "moulding_profile_not_monotonic",
                     op.name + " profile z values must rise in order.");
-                monotonicReported = true;
             }
         }
         checkMaterial(findings, op.name, op.material);
@@ -163,6 +168,13 @@ struct OpChecker {
             add(findings, Severity::Error, "flute_missing_target",
                 "CutFlutes target does not exist before cut: " + op.target);
         }
+        // Port addition: flutes are VERTICAL grooves (the cutter ring
+        // stands along Z); now that the backends honor cylinder axis, a
+        // sideways target would be cut nonsense.
+        if (nonVerticalCylinders.find(op.target) != nonVerticalCylinders.end()) {
+            add(findings, Severity::Error, "flute_target_not_vertical",
+                "CutFlutes cuts vertical grooves; target is not a z-axis cylinder: " + op.target);
+        }
         if (op.count < 12) {
             add(findings, Severity::Warning, "low_flute_count",
                 "Flute count looks low: " + std::to_string(op.count));
@@ -171,8 +183,9 @@ struct OpChecker {
             add(findings, Severity::Error, "bad_flute_depth", "Flute depth must be positive.");
         }
         if (!(op.widthRatio >= 0.05 && op.widthRatio <= 0.9)) {
+            // numberKeyText, not std::to_string: "0.34", never "0.340000".
             add(findings, Severity::Warning, "odd_flute_width_ratio",
-                "Flute width ratio looks odd: " + std::to_string(op.widthRatio));
+                "Flute width ratio looks odd: " + numberKeyText(op.widthRatio));
         }
         // Port addition: v0 never cross-checked the z range; a reversed
         // range produced a negative cutter depth downstream.
@@ -206,6 +219,7 @@ OpValidationReport validateRecipeOps(const std::vector<RecipeOp> &ops)
 {
     OpValidationReport report;
     std::unordered_set<std::string> names;
+    std::unordered_set<std::string> nonVerticalCylinders;
 
     for (const RecipeOp &op : ops) {
         // Names register BEFORE the per-op checks of LATER ops: a CutFlutes
@@ -216,7 +230,11 @@ OpValidationReport validateRecipeOps(const std::vector<RecipeOp> &ops)
             }
             names.insert(*name);
         }
-        std::visit(OpChecker{report.findings, names}, op);
+        if (const auto *cylinder = std::get_if<AddCylinderOp>(&op);
+            cylinder != nullptr && cylinder->axis != Axis::Z) {
+            nonVerticalCylinders.insert(cylinder->name);
+        }
+        std::visit(OpChecker{report.findings, names, nonVerticalCylinders}, op);
     }
 
     for (const OpFinding &finding : report.findings) {

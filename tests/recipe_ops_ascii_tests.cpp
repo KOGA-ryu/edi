@@ -84,5 +84,107 @@ int main()
         assert(empty.text.find("TOP PROJECTION") != std::string::npos);
     }
 
+    // ---- Top-projection subset golden. The doric top golden above is 100%
+    // overdrawn by the entablature slab (it is a single box rect — zero ▒/▓
+    // cells survive), so every circular top-view path is invisible to it.
+    // This no-box subset — base moulding, shaft, flutes, in stream order so
+    // the smaller shaft disc stays visible over the wider moulding annulus —
+    // is the real guard for the cylinder/moulding top circles, the
+    // max-radius profile scan, the flute spokes, and circle()'s border band. ----
+    {
+        const std::vector<RecipeOp> subset{compiled.ops[2], compiled.ops[3], compiled.ops[4]};
+        const AsciiRenderResult top = renderOpsProjection(subset, AsciiProjection::Top, 48, 36);
+        assert(top.ok);
+        const std::string golden = R"GOLD(                        █
+ TOP PROJECTION    █████▓█████
+                ███▓▓▓▓▓▓▓▓▓▓▓███
+               █▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█
+             ██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██
+            ██▓▓▓▓▓▓▓▓▓▓█▓▓▓▓▓▓▓▓▓▓██
+           █▓▓▓▓▓▓▓█████▒█████▓▓▓▓▓▓▓█
+          ██▓▓▓▓▓▓██▒▒▒▒▒▒▒▒▒██▓▓▓▓▓▓██
+          █▓▓▓▓▓██▒▒▒░▒▒░▒▒░▒▒▒██▓▓▓▓▓█
+         █▓▓▓▓▓██▒▒▒▒░▒▒░▒▒░▒▒▒▒██▓▓▓▓▓█
+        █▓▓▓▓▓██▒▒░▒▒▒░▒░▒░▒▒▒░▒▒██▓▓▓▓▓█
+        █▓▓▓▓▓█▒▒▒▒░▒▒░▒░▒░▒▒░▒▒▒▒█▓▓▓▓▓█
+        █▓▓▓▓█▒▒░▒▒▒░▒░▒░▒░▒░▒▒▒░▒▒█▓▓▓▓█
+       █▓▓▓▓██▒▒▒░▒▒░▒▒░░░▒▒░▒▒░▒▒▒██▓▓▓▓█
+       █▓▓▓▓█▒▒▒▒▒░░▒░▒░░░▒░▒░░▒▒▒▒▒█▓▓▓▓█
+       █▓▓▓▓█▒░░▒▒▒▒░▒░▒▒▒░▒░▒▒▒▒░░▒█▓▓▓▓█
+       █▓▓▓▓█▒▒▒░░░▒▒░▒▒▒▒▒░▒▒░░░▒▒▒█▓▓▓▓█
+       █▓▓▓▓█▒▒▒▒▒▒░░▒▒▒▒▒▒▒░░▒▒▒▒▒▒█▓▓▓▓█
+      █▓▓▓▓█▒▒░░░░░░░▒▒▒▒▒▒▒░░░░░░░▒▒█▓▓▓▓█
+       █▓▓▓▓█▒▒▒▒▒▒░░▒▒▒▒▒▒▒░░▒▒▒▒▒▒█▓▓▓▓█
+       █▓▓▓▓█▒▒▒░░░▒▒░▒▒▒▒▒░▒▒░░░▒▒▒█▓▓▓▓█
+       █▓▓▓▓█▒░░▒▒▒▒░▒░▒▒▒░▒░▒▒▒▒░░▒█▓▓▓▓█
+       █▓▓▓▓█▒▒▒▒▒░░▒░▒░░░▒░▒░░▒▒▒▒▒█▓▓▓▓█
+       █▓▓▓▓██▒▒▒░▒▒░▒▒░░░▒▒░▒▒░▒▒▒██▓▓▓▓█
+        █▓▓▓▓█▒▒░▒▒▒░▒░▒░▒░▒░▒▒▒░▒▒█▓▓▓▓█
+        █▓▓▓▓▓█▒▒▒▒░▒▒░▒░▒░▒▒░▒▒▒▒█▓▓▓▓▓█
+        █▓▓▓▓▓██▒▒░▒▒▒░▒░▒░▒▒▒░▒▒██▓▓▓▓▓█
+         █▓▓▓▓▓██▒▒▒▒░▒▒░▒▒░▒▒▒▒██▓▓▓▓▓█
+          █▓▓▓▓▓██▒▒▒░▒▒░▒▒░▒▒▒██▓▓▓▓▓█
+          ██▓▓▓▓▓▓██▒▒▒▒▒▒▒▒▒██▓▓▓▓▓▓██
+           █▓▓▓▓▓▓▓█████▒█████▓▓▓▓▓▓▓█
+            ██▓▓▓▓▓▓▓▓▓▓█▓▓▓▓▓▓▓▓▓▓██
+             ██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██
+               █▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█
+                ███▓▓▓▓▓▓▓▓▓▓▓███
+                   █████▓█████)GOLD";
+        assert(top.text == golden);
+    }
+
+    // ---- A lone plain drum: both caps must be visible. The doric goldens
+    // never show capTop — the necking moulding starts wider than the shaft's
+    // top radius and overdraws its entire cap row — so this standalone
+    // render is the only pin on the capTop draw (and on the cap-swap mutant
+    // in both directions, since it asserts capBottom too). ----
+    {
+        AddCylinderOp plain;
+        plain.name = "probe.plain_drum";
+        plain.radius = 4.0;
+        plain.height = 10.0;
+        plain.z = 5.0;
+        const AsciiRenderResult render =
+            renderOpsProjection({RecipeOp{plain}}, AsciiProjection::Front, 24, 16);
+        assert(render.ok);
+        assert(render.text.find("▀") != std::string::npos); // capTop row visible
+        assert(render.text.find("▄") != std::string::npos); // capBottom row visible
+    }
+
+    // ---- CutFlutes front-marker edge guards. count=1 pins the
+    // max(1, count-1) divide guard BY POSITION: with the guard the lone
+    // marker stands at column round(24 * 0.30) = 7; without it the 0/0
+    // division goes NaN and the marker leaves its column (presence alone
+    // cannot tell — a stray marker still contains the glyph). The doric's
+    // count=20 reaches neither guard. ----
+    {
+        CutFlutesOp lone;
+        lone.target = "probe.plain_drum";
+        lone.count = 1;
+        lone.depth = 0.1;
+        const AsciiRenderResult single =
+            renderOpsProjection({RecipeOp{lone}}, AsciiProjection::Front, 24, 16);
+        assert(single.ok);
+        // A marker-only row: exactly seven leading spaces, then the glyph.
+        assert(single.text.find("\n       ░") != std::string::npos);
+
+        // The 32 clamp makes count=40 and count=32 byte-identical — but
+        // only at a width where their column sets differ unclamped. At the
+        // default 96 the unclamped sweeps disagree (count=32 lands gapped
+        // columns, count=40 a contiguous band); at 24 every count >= 20
+        // paints the same 11 columns and the assert would be tautological.
+        CutFlutesOp forty = lone;
+        forty.count = 40;
+        CutFlutesOp clamped = lone;
+        clamped.count = 32;
+        const AsciiRenderResult fortyRender =
+            renderOpsProjection({RecipeOp{forty}}, AsciiProjection::Front);
+        const AsciiRenderResult clampedRender =
+            renderOpsProjection({RecipeOp{clamped}}, AsciiProjection::Front);
+        assert(fortyRender.ok && clampedRender.ok);
+        assert(fortyRender.text == clampedRender.text);
+    }
+
     return 0;
 }

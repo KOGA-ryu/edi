@@ -63,9 +63,8 @@ ShellPanelsState applyPanelPreset(const ShellPanelsState &state, PanelPreset pre
         next.bottom = PanelState{panelSpec(ShellSlot::Bottom).defaultSize, false};
         break;
     case PanelPreset::Focus:
-    case PanelPreset::Tiny:
-        // Both mean "give the main slot everything"; sizes are kept so
-        // reopening restores what the user had.
+        // "Give the main slot everything"; sizes are kept so reopening
+        // restores what the user had.
         next.left.collapsed = true;
         next.right.collapsed = true;
         next.bottom.collapsed = true;

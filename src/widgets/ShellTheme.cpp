@@ -113,11 +113,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
     // literal "%" behind for a test to catch. Named markers cannot shift, a
     // leftover "@" is detectable, and the QSS reads as documentation.
     QString sheet = QStringLiteral(R"(
+        /* Stylesheet fonts do NOT propagate to children the way setFont
+           does — a font on #shellRoot styles only the root widget itself.
+           The universal selector is the QSS-native way to reach every
+           widget; per-widget rules below still override size/weight. */
+        QWidget {
+            font-family: "@uiFont@", "Inter", sans-serif;
+            font-size: @fontBody@px;
+            font-weight: 400;
+        }
         #shellRoot {
             background: @base@;
             color: @text@;
-            font-family: "@uiFont@", "Inter", sans-serif;
-            font-size: @fontBody@px;
         }
         #activityRail {
             background: @base@;
@@ -147,25 +154,25 @@ QString buildShellStyleSheet(const ShellTheme &t)
             font-size: @fontTitle@px;
             font-weight: 600;
         }
-        #chromeStatus {
-            color: @textMuted@;
-            font-size: @fontSm@px;
-        }
+        /* Section headers per spec §4: UPPERCASE, xs, textFaint, semibold —
+           quiet signposts, not accented controls. The fold toggle keeps a
+           hover affordance because it IS a control. */
         #sectionToggle {
             background: transparent;
             border: none;
-            color: @accent@;
-            font-size: @fontSm@px;
+            color: @textFaint@;
+            font-size: @fontXs@px;
             font-weight: 600;
             padding: 8px 0px 0px 0px;
+            min-height: 12px; /* opt out of the 30px button rule: spec section header is a 20px row */
             text-align: left;
         }
         #sectionToggle:hover {
             color: @text@;
         }
         #sectionLabel {
-            color: @accent@;
-            font-size: @fontSm@px;
+            color: @textFaint@;
+            font-size: @fontXs@px;
             font-weight: 600;
             padding-top: 8px;
             text-transform: uppercase;
@@ -175,6 +182,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: transparent;
             border: none;
             padding: 2px 0;
+        }
+        #bottomStatus {
+            font-family: "@codeFont@", monospace;
+            font-size: @fontSm@px;
         }
         #fieldLabel {
             color: @textMuted@;
@@ -198,13 +209,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-radius: 5px;
             padding: 6px 8px;
         }
+        /* Box math for the spec's 30px button: QSS min-height bounds the
+           CONTENT box — 20px content + 4px padding top/bottom + 1px border
+           each side = a 30px widget. (Same lesson as the traffic lights.) */
         QPushButton {
             color: @text@;
             background: transparent;
             border: 1px solid transparent;
             border-radius: 5px;
             padding: 4px 8px;
+            min-height: 20px;
             text-align: left;
+            font-weight: 500; /* spec: controls are medium weight */
         }
         QPushButton:hover {
             background: @controlHover@;
@@ -213,6 +229,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QPushButton:pressed, QPushButton:checked {
             background: @selected@;
             border-color: @borderFocus@;
+            font-weight: 600; /* spec: selected/active is semibold */
         }
         QPushButton:disabled {
             color: @disabled@;
@@ -223,6 +240,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
             text-align: center;
             padding-left: 6px;
             padding-right: 6px;
+        }
+        /* Activity-rail buttons are the spec's 34x34 squares (32px content
+           + 1px borders). The descendant selector scopes this to the rail —
+           the bottom-shelf tabs share #railButton and keep the 30px row.
+           Geometry lives here, not in setFixedSize: polish overwrites code
+           geometry with sheet geometry (the traffic-light lesson). */
+        #activityRail QPushButton {
+            min-width: 32px;
+            max-width: 32px;
+            min-height: 32px;
+            max-height: 32px;
+            padding: 0;
         }
         QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
             color: @text@;
@@ -237,6 +266,48 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QComboBox::drop-down {
             border: 0;
             width: 22px;
+        }
+        /* The combo's popup list is a separate top-level view — the
+           QListWidget rule below does not reach it; this descendant
+           selector is the canonical way in. */
+        QComboBox QAbstractItemView {
+            background: @surfaceRaised@;
+            color: @text@;
+            border: 1px solid @borderMajor@;
+            selection-background-color: @rowSelected@;
+            selection-color: @text@;
+        }
+        QMenu {
+            background: @surfaceRaised@;
+            color: @text@;
+            border: 1px solid @borderMajor@;
+            padding: 4px;
+        }
+        QMenu::item {
+            padding: 6px 12px;
+            border-radius: 5px;
+        }
+        QMenu::item:selected {
+            background: @rowSelected@;
+            color: @text@;
+        }
+        QMenu::item:disabled {
+            color: @disabled@;
+        }
+        QMenu::separator {
+            height: 1px;
+            background: @borderMinor@;
+            margin: 4px 6px;
+        }
+        /* Chrome popups carry per-feature objectNames (chromePopup_snap, …);
+           the shared dynamic property is the stable selector. */
+        QFrame[chromePopup="true"] {
+            background: @surfaceRaised@;
+            border: 1px solid @borderMajor@;
+            border-radius: 8px;
+        }
+        #settingsWindow {
+            background: @base@;
         }
         QListWidget {
             color: @text@;
@@ -261,34 +332,132 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @textFaint@;
             font-size: @fontSm@px;
         }
+        /* Steppers hidden as a sheet decision, not seven setButtonSymbols
+           calls: spins already step by wheel and arrow keys, and the
+           platform-drawn buttons were the last unthemed chrome inside an
+           otherwise token-painted field. width:0 == NoButtons, reversible
+           here without touching feature code. */
+        QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
+            width: 0;
+            border: none;
+        }
+        QComboBox:disabled, QAbstractSpinBox:disabled, QLineEdit:disabled {
+            color: @disabled@;
+            background: @surfaceRaised@;
+            border-color: @borderMinor@;
+        }
         QCheckBox {
             color: @text@;
             spacing: 8px;
         }
+        QCheckBox:disabled {
+            color: @disabled@;
+        }
+        /* Toggle-switch track (spec §4): a 28x14 pill — 26x12 QSS content
+           + 1px borders (the same box math as the traffic lights; width/
+           height bound the CONTENT box). accentSoft when on. Track-only —
+           the spec allows plain QSS if it reads; a painted knob would need
+           custom paint for one ornament. */
         QCheckBox::indicator {
-            width: 15px;
-            height: 15px;
-            border-radius: 3px;
+            width: 26px;
+            height: 12px;
+            border-radius: 7px;
         }
         QCheckBox::indicator:unchecked {
             background: @control@;
             border: 1px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
-            background: @accent@;
-            border: 1px solid @accent@;
+            background: @accentSoft@;
+            border: 1px solid @borderFocus@;
         }
-        QSplitter::handle {
+        /* Disabled tracks must out-specify the state rules above (two
+           pseudo-states beat one, regardless of order) — a bare
+           ':disabled' rule here is DEAD: every indicator is also :checked
+           or :unchecked, and equal specificity lets document order win. */
+        QCheckBox::indicator:unchecked:disabled,
+        QCheckBox::indicator:checked:disabled {
+            background: @control@;
+            border: 1px solid @borderMinor@;
+        }
+        /* Scrollbars: a quiet 8px rail — transparent track, token handle,
+           no stepper buttons (zero-height add/sub-line), matching the
+           1px-chrome density rule. */
+        QScrollBar:vertical {
             background: transparent;
+            width: 8px;
+            margin: 0;
         }
-        QSplitter::handle:hover, QSplitter::handle:pressed {
+        QScrollBar:horizontal {
+            background: transparent;
+            height: 8px;
+            margin: 0;
+        }
+        /* QSS reads the slider's minimum LENGTH from min-height vertically
+           but min-WIDTH horizontally — one shared min-height would leave a
+           horizontal handle free to shrink into an ungrabbable sliver. */
+        QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+            background: @borderMajor@;
+            border-radius: 3px;
+        }
+        QScrollBar::handle:vertical {
+            min-height: 24px;
+        }
+        QScrollBar::handle:horizontal {
+            min-width: 24px;
+        }
+        QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
             background: @accentSoft@;
         }
-        #rightPanelGrip, #bottomPanelGrip {
+        QScrollBar::add-line, QScrollBar::sub-line {
+            width: 0;
+            height: 0;
+        }
+        QScrollBar::add-page, QScrollBar::sub-page {
             background: transparent;
         }
-        #rightPanelGrip:hover, #bottomPanelGrip:hover {
-            background: @accentSoft@;
+        /* Splitter/grips: an 8px hit zone showing a 1px line (spec §2 —
+           borderMajor at 55% idle, accentSoft at 90% hot; note the no-'at'
+           wording, the marker scanner reads comments too). A widget's QSS
+           background always fills its whole rect, so the line is a
+           hard-stop gradient: transparent except the center 1/8 (= 1px of
+           the 8px strip). Colors are #AARRGGBB composites built from the
+           tokens. */
+        QSplitter::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        QSplitter::handle:horizontal:hover, QSplitter::handle:horizontal:pressed {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #rightPanelGrip {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #bottomPanelGrip {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @borderMajor55@, stop:0.56 @borderMajor55@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #rightPanelGrip:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
+        }
+        #bottomPanelGrip:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 transparent, stop:0.43 transparent,
+                stop:0.44 @accentSoft90@, stop:0.56 @accentSoft90@,
+                stop:0.57 transparent, stop:1 transparent);
         }
         #floatingPalette {
             background: transparent;
@@ -304,11 +473,25 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @base@;
             border-bottom: 1px solid @borderMajor@;
         }
+        #statusBar {
+            background: @base@;
+            border-top: 1px solid @borderMajor@;
+        }
+        #statusMode, #statusFile {
+            color: @textMuted@;
+            background: transparent;
+            font-family: "@codeFont@", monospace;
+            font-size: @fontXs@px;
+        }
+        #statusFile[documentDirty="true"] {
+            color: @warning@;
+        }
         #titleBar QPushButton {
             background: transparent;
             border: none;
             border-radius: 5px;
             padding: 4px 8px;
+            min-height: 22px; /* borderless: 22 content + 8 padding = the same 30px box */
             text-align: center;
         }
         #titleBar QPushButton:hover {
@@ -320,27 +503,57 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton:disabled {
             color: @disabled@;
         }
-        #trafficClose, #trafficMinimize, #trafficZoom {
-            min-width: 14px;
-            max-width: 14px;
-            min-height: 14px;
-            max-height: 14px;
+        /* Panel toggles: the glyph color carries the tri-state (spec §3) —
+           accent when the panel shows, faint when the user collapsed it,
+           warning when the WINDOW hid it (auto-hide). */
+        #titleBar QPushButton[panelState="visible"] {
+            color: @accent@;
+        }
+        #titleBar QPushButton[panelState="collapsed"] {
+            color: @textFaint@;
+        }
+        #titleBar QPushButton[panelState="auto_hidden"] {
+            color: @warning@;
+        }
+        /* Specificity lesson: the selectors must repeat the '#titleBar
+           QPushButton' prefix. Bare '#trafficClose' (one id) LOSES to
+           '#titleBar QPushButton' (id + type) on every shared property —
+           QSS uses CSS2 specificity, where the generic chrome-button rule
+           above silently erased these fills and the traffic lights rendered
+           invisible. Two ids + a type also outranks the ':hover' generic
+           (id count dominates pseudo-classes), so no hover variant needed. */
+        /* 12px content + 1px border each side = a 14px border-box, so
+           radius 7 closes a true circle and the hit area IS the dot.
+           (QStyleSheetStyle::polish enforces these as the widget's min/max
+           size — a setFixedSize in code would just be overwritten.) */
+        #titleBar QPushButton#trafficClose,
+        #titleBar QPushButton#trafficMinimize,
+        #titleBar QPushButton#trafficZoom {
+            min-width: 12px;
+            max-width: 12px;
+            min-height: 12px;
+            max-height: 12px;
             border-radius: 7px;
             padding: 0;
         }
-        #trafficClose {
+        #titleBar QPushButton#trafficClose {
             background: @trafficClose@;
             border: 1px solid @trafficCloseEdge@;
         }
-        #trafficMinimize {
+        #titleBar QPushButton#trafficMinimize {
             background: @trafficMinimize@;
             border: 1px solid @trafficMinimizeEdge@;
         }
-        #trafficZoom {
+        #titleBar QPushButton#trafficZoom {
             background: @trafficZoom@;
             border: 1px solid @trafficZoomEdge@;
         }
     )");
+
+    // Composite colors for the 1px splitter lines: #AARRGGBB with the alpha
+    // baked in (55% idle, 90% hot) — string assembly, not a new derivation.
+    const QString borderMajor55 = QStringLiteral("#8c") + t.borderMajor.mid(1);
+    const QString accentSoft90 = QStringLiteral("#e6") + t.accentSoft.mid(1);
 
     const std::pair<const char *, QString> tokens[] = {
         {"@base@", t.base},
@@ -359,7 +572,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@accent@", t.accent},
         {"@accentSoft@", t.accentSoft},
         {"@danger@", t.danger},
+        {"@warning@", t.warning},
         {"@disabled@", t.disabled},
+        {"@borderMajor55@", borderMajor55},
+        {"@accentSoft90@", accentSoft90},
         {"@trafficClose@", t.trafficClose},
         {"@trafficCloseEdge@", t.trafficCloseEdge},
         {"@trafficMinimize@", t.trafficMinimize},
@@ -367,13 +583,33 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@trafficZoom@", t.trafficZoom},
         {"@trafficZoomEdge@", t.trafficZoomEdge},
         {"@uiFont@", t.uiFont},
+        {"@codeFont@", t.codeFont},
         {"@fontBody@", QString::number(t.fontSizeBody)},
         {"@fontSm@", QString::number(t.fontSizeSm)},
+        {"@fontXs@", QString::number(t.fontSizeXs)},
         {"@fontTitle@", QString::number(t.fontSizeTitle)},
     };
     for (const auto &[marker, value] : tokens) {
         sheet.replace(QLatin1String(marker), value);
     }
+    return sheet;
+}
+
+QString buildToolTipStyleSheet(const ShellTheme &t)
+{
+    // QToolTip widgets are top-level — a window-level stylesheet never
+    // reaches them, only the application stylesheet does. This tiny sheet is
+    // the ONLY thing the shell sets at app scope; everything else stays on
+    // the window so two mechanisms can't fight over the same selectors.
+    // Named markers, not .arg() — same policy as the main builder above:
+    // positional substitution is exactly the mechanism that once shifted
+    // silently there, and one file should not argue with itself.
+    QString sheet = QStringLiteral(
+        "QToolTip { background: @surfaceRaised@; color: @text@; "
+        "border: 1px solid @borderMajor@; padding: 4px 6px; }");
+    sheet.replace(QLatin1String("@surfaceRaised@"), t.surfaceRaised);
+    sheet.replace(QLatin1String("@text@"), t.text);
+    sheet.replace(QLatin1String("@borderMajor@"), t.borderMajor);
     return sheet;
 }
 

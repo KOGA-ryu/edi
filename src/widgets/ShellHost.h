@@ -104,11 +104,16 @@ struct BeltLayout {
     int rows = 6;
     int columns = 6;
     std::vector<QString> itemIds;
+    // Frozen quick-bar rows (grid row indexes, pin order). Workspace data
+    // like the arrangement itself: the widget owns the pin gesture, the
+    // layout owns the memory of it across restarts.
+    std::vector<int> pinnedRows;
 };
 
 inline bool operator==(const BeltLayout &a, const BeltLayout &b)
 {
-    return a.rows == b.rows && a.columns == b.columns && a.itemIds == b.itemIds;
+    return a.rows == b.rows && a.columns == b.columns && a.itemIds == b.itemIds
+        && a.pinnedRows == b.pinnedRows;
 }
 
 // Where a floating palette sits over the main area (F4). Palettes are

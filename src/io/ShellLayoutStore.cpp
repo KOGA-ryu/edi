@@ -112,6 +112,10 @@ StaticConfig workspaceLayoutToConfig(const WorkspaceLayout &layout, const ShellP
         }
         setSettingsString(config, "belt.item." + std::to_string(i), layout.belt.itemIds[i].toStdString());
     }
+    // Pinned quick-bars: indexed keys in pin order, same shape as bindings.
+    for (std::size_t i = 0; i < layout.belt.pinnedRows.size(); ++i) {
+        setSettingsInt(config, "belt.pin." + std::to_string(i), layout.belt.pinnedRows[i]);
+    }
     // Palette positions: indexed rows like bindings, keyed by palette id.
     for (std::size_t i = 0; i < layout.palettes.size(); ++i) {
         const std::string prefix = "palette." + std::to_string(i);
@@ -158,6 +162,22 @@ ShellLayoutData shellLayoutFromConfig(const StaticConfig &config)
     for (std::size_t i = 0; i < slotCount; ++i) {
         data.layout.belt.itemIds.push_back(
             QString::fromStdString(settingsString(config, "belt.item." + std::to_string(i), "")));
+    }
+    // Pins: forgiving decode like everything else here — a hand-edited row
+    // outside the belt or repeated is dropped, not an error. (Rows that hold
+    // no items get pruned by the widget on apply; occupancy is the widget's
+    // knowledge, not the file's.)
+    for (std::size_t i = 0;; ++i) {
+        const int row = settingsInt(config, "belt.pin." + std::to_string(i), -1);
+        if (row < 0) {
+            break;
+        }
+        const bool duplicate = std::find(data.layout.belt.pinnedRows.begin(),
+                                         data.layout.belt.pinnedRows.end(), row)
+            != data.layout.belt.pinnedRows.end();
+        if (row < data.layout.belt.rows && !duplicate) {
+            data.layout.belt.pinnedRows.push_back(row);
+        }
     }
 
     for (std::size_t i = 0;; ++i) {

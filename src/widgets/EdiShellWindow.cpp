@@ -1,6 +1,7 @@
 #include "widgets/EdiShellWindow.h"
 
 #include <QAbstractButton>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -39,6 +40,7 @@
 #include "core/DrawingCore.h"
 #include "core/RecipeController.h"
 #include "io/ProfileStore.h"
+#include "widgets/BeltCrossWidget.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/FloatingPalette.h"
@@ -50,8 +52,9 @@ using namespace edi::shell;
 
 namespace {
 
-// The built-in jobs. Layouts are data; these are merely the two the shell
-// ships with — loaded/saved ones replace them freely.
+// The built-in job. Layouts are data; this is merely the one the shell
+// ships with — loaded/saved ones replace it freely. (Settings is a pop-out
+// window, not a workspace, so it has no layout here.)
 WorkspaceLayout draftingWorkspaceLayout()
 {
     WorkspaceLayout layout;
@@ -79,7 +82,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // Spec §2 minimum (520x420) — auto-hide thresholds (640/520) must be
     // reachable, which the old 960x620 minimum made impossible by definition.
     setMinimumSize(520, 420);
-    resize(1280, 820);
+    resize(900, 760); // spec §2 first-run default; the settings restore overrides it
     if (m_framelessChrome) {
         setWindowFlag(Qt::FramelessWindowHint, true);
     }
@@ -176,6 +179,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     root->addWidget(buildTitleBar());
     root->addWidget(body, 1);
+    root->addWidget(buildStatusBar());
 
     connect(m_bodySplitter, &QSplitter::splitterMoved, this, [this]() { capturePanelSizes(); });
 
@@ -187,6 +191,9 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // else. Hidden until the rail's S button asks for it.
     m_settingsWindow = new QWidget(this, Qt::Tool);
     m_settingsWindow->setObjectName(QStringLiteral("settingsWindow"));
+    // Plain QWidgets ignore stylesheet backgrounds without this; the pop-out
+    // otherwise renders the platform window gray behind themed content.
+    m_settingsWindow->setAttribute(Qt::WA_StyledBackground, true);
     m_settingsWindow->setWindowTitle(QStringLiteral("Settings"));
     auto *settingsWindowLayout = new QVBoxLayout(m_settingsWindow);
     clearLayoutMargins(settingsWindowLayout);
@@ -204,7 +211,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
     // The feature keeps its own inspector in sync; the window only owns the
     // title bar (file name + dirty marker).
-    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::updateWindowTitle);
+    connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::refreshDocumentStatus);
 
     auto *saveShortcut = new QShortcut(QKeySequence::Save, this);
     connect(saveShortcut, &QShortcut::activated, this, &EdiShellWindow::promptSaveDrawing);
@@ -229,7 +236,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     });
     connect(m_controller, &DrawingDocumentController::modelChanged, this, &EdiShellWindow::scheduleSettingsSave);
 
-    updateWindowTitle(); // instanceMounted already refreshed the inspector
+    refreshDocumentStatus(); // instanceMounted already refreshed the inspector
 }
 
 EdiShellWindow::~EdiShellWindow() = default;
@@ -250,13 +257,24 @@ bool EdiShellWindow::isDocumentDirty() const
     return m_controller->isDocumentDirty();
 }
 
-void EdiShellWindow::updateWindowTitle()
+void EdiShellWindow::refreshDocumentStatus()
 {
     const QString name = m_currentDrawingPath.isEmpty()
         ? QStringLiteral("Untitled")
         : QFileInfo(m_currentDrawingPath).fileName();
-    const QString dirty = isDocumentDirty() ? QStringLiteral(" •") : QString();
-    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, dirty));
+    const bool dirty = isDocumentDirty();
+    const QString marker = dirty ? QStringLiteral(" •") : QString();
+    setWindowTitle(QStringLiteral("EDI — %1%2").arg(name, marker));
+    if (m_statusFileLabel != nullptr) {
+        m_statusFileLabel->setText(name + marker);
+        // Dynamic property + unpolish/polish: the warning color is a sheet
+        // rule keyed on data, not a setStyleSheet scattered into logic.
+        if (m_statusFileLabel->property("documentDirty").toBool() != dirty) {
+            m_statusFileLabel->setProperty("documentDirty", dirty);
+            m_statusFileLabel->style()->unpolish(m_statusFileLabel);
+            m_statusFileLabel->style()->polish(m_statusFileLabel);
+        }
+    }
 }
 
 edi::formats::StaticConfig EdiShellWindow::captureSettings() const
@@ -396,8 +414,25 @@ void EdiShellWindow::applyShellStyle()
     // struct — which is what makes live theme editing possible at all.
     const ShellTheme theme = deriveShellTheme(m_themeInputs);
     setStyleSheet(buildShellStyleSheet(theme));
+    qApp->setStyleSheet(buildToolTipStyleSheet(theme)); // tooltips are top-level; only the app sheet reaches them
     if (m_draftingFeature != nullptr && m_draftingFeature->canvas() != nullptr) {
         m_draftingFeature->canvas()->setCanvasPalette(drawing_canvas::deriveCanvasPalette(theme));
+    }
+    // Self-painting widgets read QPalette roles, which QSS cannot set from a
+    // rule — push the derived palette the same way the canvas gets its
+    // struct. findChildren keeps this mount-agnostic: belts live inside
+    // floating palettes that are rebuilt on workspace switches, and this
+    // runs again after every mount.
+    const QPalette paintingPalette = derivePaintingPalette(theme);
+    for (BeltCrossWidget *belt : findChildren<BeltCrossWidget *>()) {
+        belt->setPalette(paintingPalette);
+    }
+    // Pointing-hand on every clickable (spec §4): QSS has no cursor
+    // property, so this is the one per-widget sweep. Running here covers
+    // every mount path the same way the palette push does; buttons created
+    // outside a mount (none today) would need their own setCursor.
+    for (QPushButton *button : findChildren<QPushButton *>()) {
+        button->setCursor(Qt::PointingHandCursor);
     }
 }
 
@@ -449,8 +484,8 @@ std::unique_ptr<DraftingFeature> EdiShellWindow::createDraftingFeature()
     actions.workspaceModeLabel = [this]() { return QString::fromLatin1(edi::app::workspaceModeLabel(m_appState.mode)); };
     actions.workspaceModeName = [this]() { return QString::fromLatin1(edi::app::workspaceModeName(m_appState.mode)); };
     actions.setStatusText = [this](const QString &text) {
-        if (m_chromeStatus != nullptr) {
-            m_chromeStatus->setText(text);
+        if (m_statusModeLabel != nullptr) {
+            m_statusModeLabel->setText(text);
         }
     };
     // Read the member at call time: the feature is recreated on every
@@ -485,7 +520,26 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
         return ids;
     };
     hooks.setBeltToolIds = [this](const QStringList &enabledIds) {
-        m_workspaceLayout.belt = DraftingFeature::beltLayoutForTools(enabledIds);
+        BeltLayout next = DraftingFeature::beltLayoutForTools(enabledIds);
+        // Pins survive a checklist edit: rows are tool-stable (each tool owns
+        // its beltRow in the spec table), so carry the pin set over and drop
+        // only pins whose row lost its last tool. Pruned HERE, in the layout
+        // data, with the same rule the widget applies — if only the widget
+        // pruned, the layout would keep stale pins that resurrect on the
+        // next restore. (Review find: the wholesale replacement used to wipe
+        // every pin, live and persisted, on any checkbox toggle.)
+        for (const int row : m_workspaceLayout.belt.pinnedRows) {
+            if (row < 0 || row >= next.rows) {
+                continue;
+            }
+            for (int column = 0; column < next.columns; ++column) {
+                if (!next.itemIds[static_cast<std::size_t>(row) * next.columns + column].isEmpty()) {
+                    next.pinnedRows.push_back(row);
+                    break;
+                }
+            }
+        }
+        m_workspaceLayout.belt = next;
         if (m_draftingFeature != nullptr) {
             m_draftingFeature->refreshBelt(m_workspaceLayout.belt);
         }
@@ -533,6 +587,13 @@ void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
     applyShellStyle(); // a freshly mounted canvas self-derives defaults; re-push the live theme
 }
 
+void EdiShellWindow::connectBeltPins(BeltCrossWidget *belt)
+{
+    connect(belt, &BeltCrossWidget::pinsChanged, this, [this, belt]() {
+        m_workspaceLayout.belt.pinnedRows = belt->pinnedRows();
+    });
+}
+
 void EdiShellWindow::rebuildPalettes()
 {
     // Palettes are feature-level, not slot-level: any feature bound anywhere
@@ -569,6 +630,17 @@ void EdiShellWindow::rebuildPalettes()
                     // saveWorkspaceLayout writes it without extra capture.
                     setPalettePlacement(m_workspaceLayout, {paletteId, x, y});
                 });
+            // Pins are the same deal as placements: a user gesture on the
+            // widget, remembered by the layout. Connected here, ON the fresh
+            // palette content — a window-wide findChildren would miss the
+            // first mount, which runs before setCentralWidget attaches the
+            // body tree to this window.
+            for (BeltCrossWidget *belt : spec.content->findChildren<BeltCrossWidget *>(QString(), Qt::FindChildrenRecursively)) {
+                connectBeltPins(belt);
+            }
+            if (auto *contentBelt = qobject_cast<BeltCrossWidget *>(spec.content)) {
+                connectBeltPins(contentBelt);
+            }
             palette->show();
             palette->raise(); // above the canvas and the edge overlays
             m_palettes.push_back(palette);
@@ -646,6 +718,9 @@ void EdiShellWindow::rebuildChromePanels()
             // the controls inside without showing anything.
             auto *popup = new QFrame(this, Qt::Popup);
             popup->setObjectName(QStringLiteral("chromePopup_%1").arg(spec.id));
+            // objectName is per-feature (tests address popups by id); the
+            // property is the one stable hook the stylesheet can select on.
+            popup->setProperty("chromePopup", true);
             auto *popupLayout = new QVBoxLayout(popup);
             popupLayout->setContentsMargins(12, 12, 12, 12);
             spec.content->setParent(popup);
@@ -748,8 +823,22 @@ void EdiShellWindow::refreshChrome()
     // The chrome is a projection of shell state, recomputed whole — the same
     // discipline as the panels: no incremental flag-flipping to drift.
     const auto reflect = [this](QPushButton *button, ShellSlot slot) {
-        if (button != nullptr) {
-            button->setChecked(shellPanelVisibility(slot) == PanelVisibility::Visible);
+        if (button == nullptr) {
+            return;
+        }
+        const PanelVisibility visibility = shellPanelVisibility(slot);
+        button->setChecked(visibility == PanelVisibility::Visible);
+        // Tri-state for the sheet (spec §3): a collapsed panel and an
+        // auto-hidden one must read differently (faint vs warning), and a
+        // checked bool cannot carry three states — the property can.
+        const QString stateName = visibility == PanelVisibility::Visible
+            ? QStringLiteral("visible")
+            : visibility == PanelVisibility::Collapsed ? QStringLiteral("collapsed")
+                                                       : QStringLiteral("auto_hidden");
+        if (button->property("panelState").toString() != stateName) {
+            button->setProperty("panelState", stateName);
+            button->style()->unpolish(button);
+            button->style()->polish(button);
         }
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);

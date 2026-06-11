@@ -20,6 +20,7 @@ class QSplitter;
 class QTimer;
 
 class QButtonGroup;
+class BeltCrossWidget;
 class QLabel;
 class QPushButton;
 class QWidget;
@@ -100,7 +101,10 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
-    void updateWindowTitle();
+    // One funnel for "which document, how clean": window title AND the
+    // status-bar file label (with its dirty recoloring) update together, so
+    // they can never disagree. Connected to modelChanged.
+    void refreshDocumentStatus();
     edi::formats::StaticConfig captureSettings() const;
     void applySettings(const edi::formats::StaticConfig &config);
     void rememberRecentFile(const QString &path);
@@ -109,6 +113,7 @@ private:
 private:
     QWidget *buildActivityRail();
     QWidget *buildTitleBar();
+    QWidget *buildStatusBar();
     void setWorkspaceMode(edi::app::WorkspaceMode mode);
     void applyShellStyle();
     void refreshPanelVisibility();
@@ -119,6 +124,7 @@ private:
     // F4: destroy-and-rebuild the floating palettes from the registry and the
     // mounted layout (same lifecycle as slot widgets), and re-apply stored
     // placements (clamped against the live main area).
+    void connectBeltPins(BeltCrossWidget *belt);
     void rebuildPalettes();
     void applyPalettePlacements();
     // Chrome panels: per-feature popup settings behind title-bar buttons
@@ -183,7 +189,10 @@ private:
     DrawingDocumentController *m_controller = nullptr;
     QButtonGroup *m_activityGroup = nullptr;
     QWidget *m_titleBar = nullptr;
-    QLabel *m_chromeStatus = nullptr;
+    // Status bar (spec §2/§3: 28px strip under the body): the feature's
+    // published mode line on the left, file + dirty marker on the right.
+    QLabel *m_statusModeLabel = nullptr;
+    QLabel *m_statusFileLabel = nullptr;
     QPushButton *m_backButton = nullptr;
     QPushButton *m_forwardButton = nullptr;
     QPushButton *m_toggleLeftButton = nullptr;

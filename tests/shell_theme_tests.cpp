@@ -90,6 +90,8 @@ int main()
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeBody)));
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeTitle)));
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeSm)));
+    assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeXs)));
+    assert(qss.contains(t.codeFont)); // the mono consumer (bottom-shelf readout)
 
     // The sheet covers every selector the shell relies on — these names are the
     // contract between the builder and the widgets' objectName() values, so a
@@ -98,10 +100,17 @@ int main()
     for (const char *selector : {
              "#shellRoot", "#activityRail", "#leftPanel", "#rightPanel",
              "#workspaceColumn", "#bottomPanel",
-             "#panelTitle", "#chromeStatus", "#sectionLabel", "#valueLabel",
+             "#statusBar", "#statusMode", "#statusFile[documentDirty=\"true\"]",
+             "#panelTitle", "#sectionLabel", "#valueLabel",
              "#bottomStatus", "#editErrorLabel", "#fieldLabel", "#geometryField",
              "#railButton", "QPushButton", "QComboBox::drop-down",
+             "QComboBox QAbstractItemView", "QMenu::item:selected",
+             "QFrame[chromePopup=\"true\"]", "#settingsWindow",
              "QListWidget::item:selected", "#objectListEmpty",
+             "QScrollBar::handle:vertical", "QAbstractSpinBox::up-button",
+             "QComboBox:disabled", "QCheckBox::indicator:checked:disabled",
+             "#titleBar QPushButton[panelState=\"auto_hidden\"]",
+             "QSplitter::handle:horizontal:hover",
              "QCheckBox::indicator:checked", "QSplitter::handle",
              "#rightPanelGrip", "#bottomPanelGrip",
              "#titleBar", "#trafficClose", "#trafficMinimize", "#trafficZoom"}) {
@@ -109,6 +118,20 @@ int main()
     }
     // Error surfaces are danger-token tinted, never bespoke hex.
     assert(qss.contains(t.danger));
+
+    // Splitter-line composites: #AARRGGBB strings assembled from the tokens
+    // (alpha 55% idle / 90% hot), present in the sheet.
+    assert(qss.contains(QStringLiteral("#8c") + t.borderMajor.mid(1)));
+    assert(qss.contains(QStringLiteral("#e6") + t.accentSoft.mid(1)));
+
+    // The tooltip sheet is the one app-scope sheet (top-level widgets are
+    // out of the window sheet's reach) — tokens substituted, no markers.
+    const QString tipSheet = buildToolTipStyleSheet(t);
+    assert(tipSheet.contains(QStringLiteral("QToolTip")));
+    assert(tipSheet.contains(t.surfaceRaised));
+    assert(tipSheet.contains(t.text));
+    assert(tipSheet.contains(t.borderMajor));
+    assert(!tipSheet.contains(QStringLiteral("%1")));
 
     return 0;
 }

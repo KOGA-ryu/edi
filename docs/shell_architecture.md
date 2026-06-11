@@ -264,5 +264,6 @@ tools float.
   left panel blank and loaded the right panel first. Final per-job layouts wait
   until real constraints emerge — and because layout is data, this is a
   `WorkspaceLayout` choice, never a code change, so it never blocks shell work.
-- **Tool-tree content**: rebuilt left panel shows the full taxonomy with unbuilt
-  tools disabled, or only wired tools? Decide when the tool tree is built (H6+).
+- ~~**Tool-tree content**~~ — retired 2026-06-10: the belt carousel (tools) and
+  the F1 object list (navigation) took the roles a tool tree would have had;
+  no left-panel taxonomy is planned.

@@ -107,6 +107,19 @@ int BeltCrossWidget::indexOfItem(const QString &id) const
     return -1;
 }
 
+void BeltCrossWidget::setPinnedRows(const std::vector<int> &rows)
+{
+    std::vector<int> pins;
+    for (const int row : rows) {
+        if (row >= 0 && row < m_state.rows) {
+            pins = beltPinRow(pins, row); // dedupes, keeps pin order
+        }
+    }
+    m_pinnedRows = beltPrunePins(pins, m_state, m_occupied);
+    updateGeometry(); // the pinned stack changes the widget's height
+    update();
+}
+
 int BeltCrossWidget::carouselTop() const
 {
     return static_cast<int>(m_pinnedRows.size()) * (kCellSize + kCellGap);
@@ -317,6 +330,7 @@ void BeltCrossWidget::mousePressEvent(QMouseEvent *event)
         m_pinnedRows = beltPinRow(m_pinnedRows, m_state.activeRow);
         updateGeometry(); // the pinned stack grows the widget
         update();
+        emit pinsChanged();
         event->accept();
         return;
     }
@@ -325,6 +339,7 @@ void BeltCrossWidget::mousePressEvent(QMouseEvent *event)
             m_pinnedRows = beltUnpinRow(m_pinnedRows, m_pinnedRows[pin]);
             updateGeometry();
             update();
+            emit pinsChanged();
             event->accept();
             return;
         }

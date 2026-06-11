@@ -1410,6 +1410,249 @@ int main(int argc, char **argv)
             &proof, QPoint(objectList->viewport()->width() / 2,
                            objectList->viewport()->height() / 2));
         assert(QColor(rendered.pixel(listProbe)).name() == theme.surface);
+
+        // Traffic lights: spec-constant fills, hit area exactly the 14px dot.
+        // Guards the QSS-specificity regression — a generic '#titleBar
+        // QPushButton' rule once out-ranked the id-only traffic selectors and
+        // the lights rendered invisible (transparent, stretched to ~30px)
+        // while staying clickable.
+        const std::pair<const char *, QString> trafficExpected[] = {
+            {"trafficClose", theme.trafficClose},
+            {"trafficMinimize", theme.trafficMinimize},
+            {"trafficZoom", theme.trafficZoom},
+        };
+        for (const auto &[name, fill] : trafficExpected) {
+            QPushButton *light = buttonNamed(proof, QLatin1String(name));
+            assert(light != nullptr);
+            assert(light->size() == QSize(14, 14));
+            const QPoint center = light->mapTo(&proof, QPoint(7, 7));
+            assert(QColor(rendered.pixel(center)).name() == fill);
+        }
+
+        // The belt paints through QPalette roles; applyShellStyle must push
+        // the theme-derived painting palette onto every mounted belt (the
+        // pixel-level proof lives in belt_cross_widget_tests).
+        auto *beltWidget = proof.findChild<BeltCrossWidget *>();
+        assert(beltWidget != nullptr);
+        assert(beltWidget->palette().color(QPalette::Base).name() == theme.control);
+        assert(beltWidget->palette().color(QPalette::Highlight).name() == theme.selected);
+        assert(beltWidget->palette().color(QPalette::Text).name() == theme.text);
+
+        // Typography: stylesheet fonts do not propagate like setFont — the
+        // universal QWidget rule is what carries the theme face/size to every
+        // control. A deep child (a panel button) proves the rule reaches it.
+        QPushButton *fontProbe = buttonNamed(proof, QStringLiteral("toggleLeftPanel"));
+        assert(fontProbe != nullptr);
+        assert(fontProbe->font().pixelSize() == theme.fontSizeBody);
+        assert(fontProbe->font().family() == theme.uiFont);
+
+        // Auxiliary surfaces paint tokens, not the platform popup gray.
+        // Menus: grab the widget directly (offscreen popups render fine) and
+        // probe inside the 4px padding ring, clear of border and items.
+        auto *menuProbe = proof.findChild<QMenu *>(QStringLiteral("fileMenu"));
+        assert(menuProbe != nullptr);
+        menuProbe->adjustSize();
+        const QImage menuImage = menuProbe->grab().toImage();
+        assert(QColor(menuImage.pixel(3, 3)).name() == theme.surfaceRaised);
+
+        // Chrome popups (the Snap panel): QObject children of the window, so
+        // they grab without being shown; probe inside the 12px margins.
+        QFrame *snapPopup = proof.findChild<QFrame *>(QStringLiteral("chromePopup_snap"));
+        assert(snapPopup != nullptr);
+        assert(snapPopup->property("chromePopup").toBool());
+        const QImage popupImage = snapPopup->grab().toImage();
+        assert(QColor(popupImage.pixel(6, 6)).name() == theme.surfaceRaised);
+
+        // Settings pop-out: plain QWidget — without WA_StyledBackground its
+        // background rule is silently ignored. Grab works unshown; the frame
+        // is a permanent window-owned child.
+        QWidget *settingsWindow = proof.findChild<QWidget *>(QStringLiteral("settingsWindow"));
+        assert(settingsWindow != nullptr);
+        const QImage settingsImage = settingsWindow->grab().toImage();
+        assert(QColor(settingsImage.pixel(2, settingsImage.height() - 2)).name() == theme.base);
+
+        // Tooltips are top-level: only the application sheet reaches them.
+        assert(qApp->styleSheet().contains(theme.surfaceRaised));
+
+        // Control treatment (spec §4): 30px button boxes (20px QSS content +
+        // padding + border) and the pointing-hand cursor, swept on by
+        // applyShellStyle since QSS has no cursor property.
+        assert(fontProbe->cursor().shape() == Qt::PointingHandCursor);
+        // QSS min-height lands as the widget's minimumSize at polish time
+        // (not in sizeHint) — assert on the laid-out height.
+        assert(fontProbe->height() >= 30);
+        // Section headers opt out: spec keeps them a compact ~20px row.
+        QPushButton *sectionProbe = nullptr;
+        for (QPushButton *candidate : proof.findChildren<QPushButton *>(QStringLiteral("sectionToggle"))) {
+            sectionProbe = candidate;
+            break;
+        }
+        assert(sectionProbe != nullptr);
+        assert(sectionProbe->height() <= 24);
+    }
+
+    // Spec-minimum window (520x420): every title-bar control must stay
+    // inside the bar — chrome that clips at the supported minimum is chrome
+    // the user cannot click. Also pins the rail's 34x34 spec squares.
+    {
+        EdiShellWindow tiny;
+        tiny.resize(520, 420);
+        tiny.show();
+        QCoreApplication::processEvents();
+        // The window must actually sit at the claimed minimum — if a layout
+        // minimum forced it larger, every containment assert below would
+        // pass vacuously at the wrong size.
+        assert(tiny.size() == QSize(520, 420));
+        QWidget *bar = tiny.findChild<QWidget *>(QStringLiteral("titleBar"));
+        assert(bar != nullptr);
+        for (QPushButton *control : bar->findChildren<QPushButton *>()) {
+            if (!control->isVisibleTo(bar)) {
+                continue;
+            }
+            const QRect inBar(control->mapTo(bar, QPoint(0, 0)), control->size());
+            assert(bar->rect().contains(inBar));
+        }
+        QWidget *rail = tiny.findChild<QWidget *>(QStringLiteral("activityRail"));
+        assert(rail != nullptr && rail->width() == 52);
+        for (QPushButton *railButton : rail->findChildren<QPushButton *>()) {
+            assert(railButton->size() == QSize(34, 34));
+        }
+    }
+
+    // Workspace restore is not navigation: loading workspace.toml at startup
+    // must leave the history a single root — Back used to be born enabled,
+    // pointing at a factory default the user never visited. And pinned belt
+    // rows ride in the same file: pin -> save -> fresh window -> load
+    // restores the frozen quick-bar.
+    {
+        QTemporaryDir tempDir;
+        const QString layoutPath = tempDir.filePath(QStringLiteral("workspace.toml"));
+        {
+            EdiShellWindow saver;
+            saver.resize(1100, 760);
+            saver.show();
+            QCoreApplication::processEvents();
+            auto *saverBelt = saver.findChild<BeltCrossWidget *>();
+            assert(saverBelt != nullptr);
+            // Freeze the active row by the same gesture a user makes: click
+            // the pin nub (gutter, centered on the live row).
+            const QPointF pinNub(5.0, 21.0 + 17.0);
+            QMouseEvent pinPress(QEvent::MouseButtonPress, pinNub,
+                                 saverBelt->mapToGlobal(pinNub.toPoint()), Qt::LeftButton,
+                                 Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(saverBelt, &pinPress);
+            assert(saverBelt->pinnedRows() == std::vector<int>{0});
+            assert(saver.saveWorkspaceLayout(layoutPath));
+        }
+
+        EdiShellWindow loader;
+        assert(loader.loadWorkspaceLayout(layoutPath));
+        QPushButton *back = buttonNamed(loader, QStringLiteral("workspaceBack"));
+        QPushButton *forward = buttonNamed(loader, QStringLiteral("workspaceForward"));
+        assert(back != nullptr && forward != nullptr);
+        assert(!back->isEnabled() && !forward->isEnabled()); // a single-entry trail
+        auto *loaderBelt = loader.findChild<BeltCrossWidget *>();
+        assert(loaderBelt != nullptr);
+        assert(loaderBelt->pinnedRows() == std::vector<int>{0}); // the quick-bar survived restart
+    }
+
+    // Review find: a Tool Belt checklist edit must not wipe pinned
+    // quick-bars. Rows are tool-stable, so pins survive any toggle whose row
+    // still holds a tool; only a row that lost its LAST tool drops its pin.
+    {
+        EdiShellWindow checklist;
+        checklist.resize(1100, 760);
+        checklist.show();
+        QCoreApplication::processEvents();
+        auto *checklistBelt = checklist.findChild<BeltCrossWidget *>();
+        assert(checklistBelt != nullptr);
+        const QPointF nub(5.0, 21.0 + 17.0);
+        QMouseEvent nubPress(QEvent::MouseButtonPress, nub,
+                             checklistBelt->mapToGlobal(nub.toPoint()), Qt::LeftButton,
+                             Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(checklistBelt, &nubPress);
+        assert(checklistBelt->pinnedRows() == std::vector<int>{0}); // select row frozen
+
+        // Drive the same hook the settings checklist uses: open the settings
+        // window and uncheck one tool that is NOT on the pinned row.
+        QPushButton *settingsRail = nullptr;
+        for (QPushButton *button : checklist.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("settings")) {
+                settingsRail = button;
+            }
+        }
+        assert(settingsRail != nullptr);
+        settingsRail->click();
+        QCheckBox *circleToggle = nullptr;
+        for (QCheckBox *box : checklist.findChildren<QCheckBox *>(QStringLiteral("beltToolCheckbox"))) {
+            if (box->property("toolId").toString() == QStringLiteral("circle_tool")) {
+                circleToggle = box;
+            }
+        }
+        assert(circleToggle != nullptr && circleToggle->isChecked());
+        circleToggle->click();
+        // The belt was re-dressed in place; the frozen quick-bar survived.
+        auto *redressedBelt = checklist.findChild<BeltCrossWidget *>();
+        assert(redressedBelt != nullptr);
+        assert(redressedBelt->pinnedRows() == std::vector<int>{0});
+    }
+
+    // Panel-toggle tri-state (spec §3): the chrome distinguishes a panel the
+    // USER collapsed from one the WINDOW hid (auto-hide below the width
+    // threshold) — same projection, three values, carried by the panelState
+    // property the sheet colors on.
+    {
+        EdiShellWindow triState;
+        triState.resize(1100, 760);
+        triState.show();
+        QCoreApplication::processEvents();
+        QPushButton *leftToggle = buttonNamed(triState, QStringLiteral("toggleLeftPanel"));
+        assert(leftToggle != nullptr);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+
+        triState.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("collapsed"));
+        triState.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+
+        // Auto-hide reacts to the window, not to clicks: shrink under the
+        // 640px threshold and the left panel reports auto_hidden, distinct
+        // from the manual collapse above.
+        triState.resize(600, 760);
+        QCoreApplication::processEvents();
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("auto_hidden"));
+        triState.resize(1100, 760);
+        QCoreApplication::processEvents();
+        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+    }
+
+    // Status bar (spec §2/§3): a 28px strip under the body. The left label
+    // carries the feature-published mode line; the right label names the
+    // document and recolors via the documentDirty property when unsaved
+    // edits exist — both driven from the modelChanged funnel.
+    {
+        EdiShellWindow statusWindow;
+        QWidget *statusBar = statusWindow.findChild<QWidget *>(QStringLiteral("statusBar"));
+        auto *modeLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusMode"));
+        auto *fileLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusFile"));
+        assert(statusBar != nullptr && modeLabel != nullptr && fileLabel != nullptr);
+        assert(statusBar->height() == 28 || statusBar->sizeHint().height() == 28);
+        // The drafting feature publishes its mode line into the status bar
+        // (it lived in the title bar before — the user's chrome inventory
+        // has no status slot there).
+        assert(modeLabel->text().contains(QStringLiteral("drafting")));
+        assert(statusWindow.findChild<QLabel *>(QStringLiteral("chromeStatus")) == nullptr);
+
+        auto *statusController = statusWindow.findChild<DrawingDocumentController *>();
+        assert(statusController != nullptr);
+        assert(!fileLabel->property("documentDirty").toBool());
+        assert(fileLabel->text() == QStringLiteral("Untitled"));
+        statusController->setSelectedToolId(QStringLiteral("point_tool"));
+        statusController->clickCanvasNormalized(0.5, 0.5);
+        assert(fileLabel->property("documentDirty").toBool());
+        assert(fileLabel->text().contains(QStringLiteral("•")));
+        statusController->undo();
+        assert(!fileLabel->property("documentDirty").toBool());
     }
 
     // F1 empty state: the object list names its own absence ("No objects

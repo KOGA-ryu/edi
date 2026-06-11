@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPalette>
 #include <QString>
 #include <QVariantMap>
 #include <QVariantList>
@@ -19,6 +20,14 @@ class QDoubleSpinBox;
 class QSpinBox;
 
 namespace edi::shell {
+
+struct ShellTheme;
+
+// Palette for widgets that paint themselves through QPalette roles instead
+// of QSS (the belt cross): QSS cannot reach a custom paintEvent; the palette
+// is the data channel that can. Pure adapter: same theme in, same palette
+// out. Lives here, not in ShellTheme — that module stays QtGui-free.
+QPalette derivePaintingPalette(const ShellTheme &theme);
 
 QFrame *makeRegionFrame(const QString &objectName);
 

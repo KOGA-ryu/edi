@@ -83,6 +83,10 @@ QWidget *EdiShellWindow::buildTitleBar()
         auto *button = new QPushButton;
         button->setObjectName(name);
         button->setToolTip(tooltip);
+        // Size comes from the QSS traffic rule (12px content + 1px border =
+        // the 14px dot): QStyleSheetStyle::polish enforces stylesheet
+        // geometry as the widget's min/max, so a setFixedSize here would be
+        // silently overwritten — one source of truth, and it is the sheet.
         connect(button, &QPushButton::clicked, this, onClick);
         layout->addWidget(button);
     };
@@ -170,12 +174,10 @@ QWidget *EdiShellWindow::buildTitleBar()
     chromePanelLayout->setSpacing(6);
     layout->addWidget(m_chromePanelHost);
 
-    layout->addStretch(1); // the drag region
-    // The status line the drafting feature publishes (was the workspace
-    // header's job; the header is gone — the grid speaks for itself).
-    m_chromeStatus = new QLabel;
-    m_chromeStatus->setObjectName(QStringLiteral("chromeStatus"));
-    layout->addWidget(m_chromeStatus);
+    // The drag region. Nothing else lives here: the user's bar inventory is
+    // traffic lights, collapse toggles, history, menus, Snap — "that's it".
+    // (The status line that used to squat here moved to the spec'd 28px
+    // status bar; see buildStatusBar.)
     layout->addStretch(1);
 
     m_toggleBottomButton = addPanelToggle(QStringLiteral("toggleBottomPanel"), QStringLiteral("⬓"),
@@ -187,6 +189,29 @@ QWidget *EdiShellWindow::buildTitleBar()
     // on child buttons never reach this filter.
     bar->installEventFilter(this);
     m_titleBar = bar;
+    return bar;
+}
+
+QWidget *EdiShellWindow::buildStatusBar()
+{
+    // Spec §2/§3: a 28px strip under the body. Left: the mode line the
+    // active feature publishes (selection counts, tool). Right: which
+    // document and how clean — the dirty marker recolors to the warning
+    // token via a dynamic property, so state lives in data and the color
+    // lives in the sheet.
+    auto *bar = makeRegionFrame(QStringLiteral("statusBar"));
+    bar->setFixedHeight(28);
+    auto *layout = new QHBoxLayout(bar);
+    layout->setContentsMargins(10, 0, 10, 0);
+    layout->setSpacing(12);
+
+    m_statusModeLabel = new QLabel;
+    m_statusModeLabel->setObjectName(QStringLiteral("statusMode"));
+    layout->addWidget(m_statusModeLabel);
+    layout->addStretch(1);
+    m_statusFileLabel = new QLabel;
+    m_statusFileLabel->setObjectName(QStringLiteral("statusFile"));
+    layout->addWidget(m_statusFileLabel);
     return bar;
 }
 

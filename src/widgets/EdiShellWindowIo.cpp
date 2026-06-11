@@ -26,7 +26,7 @@ bool EdiShellWindow::saveDrawingToPath(const QString &path)
     }
     m_currentDrawingPath = path;
     rememberRecentFile(path);
-    updateWindowTitle();
+    refreshDocumentStatus();
     return true;
 }
 
@@ -40,7 +40,7 @@ bool EdiShellWindow::openDrawingFromPath(const QString &path)
     }
     m_currentDrawingPath = path;
     rememberRecentFile(path);
-    updateWindowTitle();
+    refreshDocumentStatus();
     return true;
 }
 
@@ -176,7 +176,15 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
         // Different job (or a different belt arrangement): tear down and
         // rebuild the slots from the loaded layout — the belt widget reads
         // its items at build time, so a belt change needs the same remount.
-        switchWorkspaceLayout(data.layout);
+        // Startup restore is NOT a navigation event: apply directly and
+        // reset the trail to a single root. Routing through
+        // switchWorkspaceLayout would push a second entry, leaving Back
+        // born-enabled and pointing at a factory default the user never
+        // visited.
+        applyWorkspaceLayout(data.layout);
+        m_workspaceHistory = {m_workspaceLayout};
+        m_workspaceHistoryIndex = 0;
+        refreshChrome();
     } else {
         // Same job: geometry only. Palette placements ride with the layout
         // like panel sizes do — adopt and re-apply without a remount.

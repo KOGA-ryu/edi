@@ -1,5 +1,7 @@
 #include "widgets/ShellWidgetHelpers.h"
 
+#include "widgets/ShellTheme.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -20,6 +22,23 @@
 #include <optional>
 
 namespace edi::shell {
+
+QPalette derivePaintingPalette(const ShellTheme &t)
+{
+    // Role mapping for self-painting widgets (the belt cross): Base is the
+    // idle cell well, Highlight the active cell, Mid the cell border, Text
+    // the glyphs and the name line. Without this push the widget falls back
+    // to the PLATFORM palette — white cells and an OS-blue active cell in
+    // the middle of a themed canvas. Lives here (not ShellTheme) so the pure
+    // token module stays QtGui-free.
+    QPalette palette;
+    palette.setColor(QPalette::Base, QColor(t.control));
+    palette.setColor(QPalette::Highlight, QColor(t.selected));
+    palette.setColor(QPalette::Mid, QColor(t.borderMajor));
+    palette.setColor(QPalette::Text, QColor(t.text));
+    palette.setColor(QPalette::HighlightedText, QColor(t.text));
+    return palette;
+}
 
 QFrame *makeRegionFrame(const QString &objectName)
 {

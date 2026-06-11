@@ -45,7 +45,10 @@ const PanelState &panelStateFor(const ShellPanelsState &state, ShellSlot slot);
 // The four presets from the spec. A preset is a transform over the state, not
 // a mode the state lives in afterwards — applying it and then dragging a
 // splitter leaves no "preset" to be out of sync with.
-enum class PanelPreset { Full, Focus, Tiny, Review };
+// Focus subsumed the legacy "tiny" preset: spec section 2 itself buckets
+// focus/tiny as one behavior ("all collapsed"), so a second name was a
+// dead enum case no UI could reach.
+enum class PanelPreset { Full, Focus, Review };
 
 ShellPanelsState applyPanelPreset(const ShellPanelsState &state, PanelPreset preset);
 

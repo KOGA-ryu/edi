@@ -83,6 +83,10 @@ QWidget *EdiShellWindow::buildTitleBar()
         auto *button = new QPushButton;
         button->setObjectName(name);
         button->setToolTip(tooltip);
+        // Size comes from the QSS traffic rule (12px content + 1px border =
+        // the 14px dot): QStyleSheetStyle::polish enforces stylesheet
+        // geometry as the widget's min/max, so a setFixedSize here would be
+        // silently overwritten — one source of truth, and it is the sheet.
         connect(button, &QPushButton::clicked, this, onClick);
         layout->addWidget(button);
     };

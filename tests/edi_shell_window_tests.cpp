@@ -1410,6 +1410,24 @@ int main(int argc, char **argv)
             &proof, QPoint(objectList->viewport()->width() / 2,
                            objectList->viewport()->height() / 2));
         assert(QColor(rendered.pixel(listProbe)).name() == theme.surface);
+
+        // Traffic lights: spec-constant fills, hit area exactly the 14px dot.
+        // Guards the QSS-specificity regression — a generic '#titleBar
+        // QPushButton' rule once out-ranked the id-only traffic selectors and
+        // the lights rendered invisible (transparent, stretched to ~30px)
+        // while staying clickable.
+        const std::pair<const char *, QString> trafficExpected[] = {
+            {"trafficClose", theme.trafficClose},
+            {"trafficMinimize", theme.trafficMinimize},
+            {"trafficZoom", theme.trafficZoom},
+        };
+        for (const auto &[name, fill] : trafficExpected) {
+            QPushButton *light = buttonNamed(proof, QLatin1String(name));
+            assert(light != nullptr);
+            assert(light->size() == QSize(14, 14));
+            const QPoint center = light->mapTo(&proof, QPoint(7, 7));
+            assert(QColor(rendered.pixel(center)).name() == fill);
+        }
     }
 
     // F1 empty state: the object list names its own absence ("No objects

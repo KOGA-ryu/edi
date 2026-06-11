@@ -320,23 +320,36 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton:disabled {
             color: @disabled@;
         }
-        #trafficClose, #trafficMinimize, #trafficZoom {
-            min-width: 14px;
-            max-width: 14px;
-            min-height: 14px;
-            max-height: 14px;
+        /* Specificity lesson: the selectors must repeat the '#titleBar
+           QPushButton' prefix. Bare '#trafficClose' (one id) LOSES to
+           '#titleBar QPushButton' (id + type) on every shared property —
+           QSS uses CSS2 specificity, where the generic chrome-button rule
+           above silently erased these fills and the traffic lights rendered
+           invisible. Two ids + a type also outranks the ':hover' generic
+           (id count dominates pseudo-classes), so no hover variant needed. */
+        /* 12px content + 1px border each side = a 14px border-box, so
+           radius 7 closes a true circle and the hit area IS the dot.
+           (QStyleSheetStyle::polish enforces these as the widget's min/max
+           size — a setFixedSize in code would just be overwritten.) */
+        #titleBar QPushButton#trafficClose,
+        #titleBar QPushButton#trafficMinimize,
+        #titleBar QPushButton#trafficZoom {
+            min-width: 12px;
+            max-width: 12px;
+            min-height: 12px;
+            max-height: 12px;
             border-radius: 7px;
             padding: 0;
         }
-        #trafficClose {
+        #titleBar QPushButton#trafficClose {
             background: @trafficClose@;
             border: 1px solid @trafficCloseEdge@;
         }
-        #trafficMinimize {
+        #titleBar QPushButton#trafficMinimize {
             background: @trafficMinimize@;
             border: 1px solid @trafficMinimizeEdge@;
         }
-        #trafficZoom {
+        #titleBar QPushButton#trafficZoom {
             background: @trafficZoom@;
             border: 1px solid @trafficZoomEdge@;
         }

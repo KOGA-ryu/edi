@@ -135,6 +135,17 @@ int main()
         assert(!gridArrayDraftingObject(dot, {"bad_5"}, 2, 1,
                                         std::numeric_limits<double>::infinity(), 0.0).ok);
         assert(!gridArrayDraftingObject(dot, {"dot_1"}, 2, 1, 0.1, 0.0).ok);
+
+        // Guides translate on one axis only, so 2D placements would stack
+        // exact duplicates on the source — both planners refuse them.
+        DraftingObject guideSource = object("guide_src", DraftingShapeKind::Guide,
+                                            GuideGeometry{GuideOrientation::Horizontal, 0.5});
+        auto guideGrid = gridArrayDraftingObject(guideSource, {"gg_1", "gg_2", "gg_3"}, 2, 2, 0.1, 0.1);
+        assert(!guideGrid.ok);
+        assert(guideGrid.code == DraftingResultCode::InvalidGeometry);
+        auto guideRadial = radialArrayDraftingObject(guideSource, {"gr_1"}, {0.5, 0.7});
+        assert(!guideRadial.ok);
+        assert(guideRadial.code == DraftingResultCode::InvalidGeometry);
     }
 
     // Radial array: copies fill the remaining slots of an evenly divided
@@ -158,6 +169,23 @@ int main()
         const auto *threeQuarter = std::get_if<CircleGeometry>(&radial.objects[2].geometry);
         assert(nearlyEqual(threeQuarter->center.x, 0.5));
         assert(nearlyEqual(threeQuarter->center.y, 0.7));
+
+        // The ring anchor is the source's BOUNDS centre — pinned with an
+        // asymmetric source whose bounds centre differs from its first
+        // endpoint. Line (0.2,0.45)-(0.4,0.35): bounds centre (0.3, 0.4),
+        // arm (-0.2, 0) from centre (0.5, 0.4); one copy -> 180deg, so the
+        // whole line translates by (+0.4, 0). An endpoint- or origin-anchored
+        // planner produces different endpoints and fails here.
+        DraftingObject ringLine = object("ring_line", DraftingShapeKind::Line,
+                                         LineGeometry{{0.2, 0.45}, {0.4, 0.35}});
+        auto lineRadial = radialArrayDraftingObject(ringLine, {"rl_1"}, {0.5, 0.4});
+        assert(lineRadial.ok);
+        const auto *flipped = std::get_if<LineGeometry>(&lineRadial.objects[0].geometry);
+        assert(flipped != nullptr);
+        assert(nearlyEqual(flipped->a.x, 0.6));
+        assert(nearlyEqual(flipped->a.y, 0.45));
+        assert(nearlyEqual(flipped->b.x, 0.8));
+        assert(nearlyEqual(flipped->b.y, 0.35));
 
         // Rejections: no copies; non-finite centre; centre on the object
         // (every copy would land exactly on the source).

@@ -39,18 +39,18 @@ void selectOnly(DraftingDocument &document, DraftingObjectId id)
     }
 }
 
-void selectMany(DraftingDocument &document, std::vector<DraftingObjectId> ids)
+void selectMany(DraftingDocument &document, std::vector<DraftingObjectId> ids,
+                const std::unordered_set<DraftingObjectId> &existingIds)
 {
     document.selectedObjectIds.clear();
     document.activeObjectId.reset();
     // Hash sets for both membership tests: containsObject per id re-scans
     // the document and isSelected re-scans the growing selection — together
     // O(N^2) for select-everything-sized inputs (measured ~1s at 9800 ids).
-    const std::unordered_set<DraftingObjectId> existing = objectIdSet(document);
     std::unordered_set<DraftingObjectId> seen;
     seen.reserve(ids.size());
     for (DraftingObjectId &id : ids) {
-        if (existing.find(id) == existing.end() || !seen.insert(id).second) {
+        if (existingIds.find(id) == existingIds.end() || !seen.insert(id).second) {
             continue;
         }
         document.activeObjectId = id;

@@ -48,7 +48,8 @@ struct DraftingToolCreationRequest {
     double rectInset = 0.0;
     // Parametric radius (#30) for every radius-from-gesture tool — circle,
     // arc, regular polygon. 0 = gesture-sized (the click distance); positive
-    // = stamp this exact radius no matter how far the second click landed.
+    // = stamp this radius regardless of where the second click landed,
+    // clamped to the unit document space like the gesture itself.
     // One field, not one per tool: the tools share the same radius semantics,
     // so they share the same option.
     double fixedRadius = 0.0;

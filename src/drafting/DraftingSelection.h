@@ -6,7 +6,11 @@ namespace edi::drafting {
 
 void clearSelection(DraftingDocument &document);
 void selectOnly(DraftingDocument &document, DraftingObjectId id);
-void selectMany(DraftingDocument &document, std::vector<DraftingObjectId> ids);
+// existingIds is the document's id set (objectIdSet), passed in because the
+// single caller (SelectObjectsCommand) already built it for validation —
+// building it twice per select would re-pay the O(M) the set exists to save.
+void selectMany(DraftingDocument &document, std::vector<DraftingObjectId> ids,
+                const std::unordered_set<DraftingObjectId> &existingIds);
 void toggleSelection(DraftingDocument &document, DraftingObjectId id);
 bool isSelected(const DraftingDocument &document, const DraftingObjectId &id);
 std::vector<DraftingObjectId> selectableObjectsInBounds(const DraftingDocument &document, Bounds2D bounds);

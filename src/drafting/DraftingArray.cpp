@@ -5,6 +5,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 
 namespace edi::drafting {
 
@@ -125,7 +126,16 @@ DraftingArrayResult gridArrayDraftingObject(
     if (columns < 1 || rows < 1) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "grid array needs at least one column and one row");
     }
-    if (columns * rows < 2) {
+    if (std::holds_alternative<GuideGeometry>(source.geometry)) {
+        // A guide translates on one axis only (translateGeometry discards the
+        // perpendicular component), so 2D placements would stack exact
+        // duplicates on the source — reject instead of silently coinciding.
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "grid array does not support guides");
+    }
+    // Multiply in size_t: two large-but-valid ints could overflow a signed
+    // int product (UB) before the guard even runs; size_t cannot.
+    const std::size_t cells = static_cast<std::size_t>(columns) * static_cast<std::size_t>(rows);
+    if (cells < 2) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "grid array must create at least one copy");
     }
     if (!std::isfinite(spacingX) || !std::isfinite(spacingY)) {
@@ -137,7 +147,7 @@ DraftingArrayResult gridArrayDraftingObject(
     if (rows > 1 && std::abs(spacingY) <= kSpacingEpsilon) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "grid array row spacing must move copied objects");
     }
-    const std::size_t copyCells = static_cast<std::size_t>(columns) * static_cast<std::size_t>(rows) - 1;
+    const std::size_t copyCells = cells - 1;
     if (newObjectIds.size() != copyCells) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "grid array id count must match its cells");
     }
@@ -168,6 +178,11 @@ DraftingArrayResult radialArrayDraftingObject(
     }
     if (!std::isfinite(center.x) || !std::isfinite(center.y)) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "radial array centre must be finite");
+    }
+    if (std::holds_alternative<GuideGeometry>(source.geometry)) {
+        // Same single-axis-translation problem as the grid planner: ring
+        // offsets with equal axis components would stack coincident guides.
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "radial array does not support guides");
     }
 
     // The ring's reference point is the source's bounds centre — recomputed

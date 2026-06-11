@@ -274,7 +274,9 @@ private:
         const QString &idPrefix,
         const std::function<std::optional<edi::drafting::DraftingObject>(
             const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
-    bool createObjectsAndSelect(const std::vector<edi::drafting::DraftingObject> &objects);
+    // By value: callers hand the batch over (std::move) so it rides into the
+    // command variant without a second N-object copy.
+    bool createObjectsAndSelect(std::vector<edi::drafting::DraftingObject> objects);
     // Shared resolve->ids->plan->apply tail of every array action (repeat,
     // grid, radial): resolve the editable active object, mint copyCount fresh
     // ids, run the planner, create-and-select. The planner callable is the

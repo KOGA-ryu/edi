@@ -299,7 +299,7 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
                     return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
                 }
             }
-            selectMany(document, typedCommand.objectIds);
+            selectMany(document, typedCommand.objectIds, existing);
             ++document.revision;
             return DraftingCommandResult::accepted();
         } else {

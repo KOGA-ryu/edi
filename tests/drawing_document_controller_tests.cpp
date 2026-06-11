@@ -3209,6 +3209,15 @@ int main(int argc, char **argv)
         assert(arrayController.arraySpacingY() == -0.25);
         arrayController.setFixedRadius(-2.0);
         assert(arrayController.fixedRadius() == 0.0);
+        // Magnitudes clamp to the unit document space — stored state always
+        // matches what the spins can show and what the build stamps.
+        arrayController.setArraySpacingX(5.0);
+        assert(arrayController.arraySpacingX() == 1.0);
+        arrayController.setArraySpacingY(-5.0);
+        assert(arrayController.arraySpacingY() == -1.0);
+        arrayController.setFixedRadius(5.0);
+        assert(arrayController.fixedRadius() == 1.0);
+        arrayController.setFixedRadius(0.0);
 
         arrayController.setSelectedToolId("line_tool");
         arrayController.clickCanvasNormalized(0.2, 0.3);
@@ -3297,6 +3306,58 @@ int main(int argc, char **argv)
         degenerateController.clickCanvasNormalized(centerX, centerY);
         assert(!degenerateController.radialArraySelectedObject());
         assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
+    }
+
+    // Array failure paths: a user-reachable rejection (zero spacing) must
+    // surface through edit_status, reclaim its minted serials, and a later
+    // success must clear the stale status. Negative spacing must march the
+    // copies backwards (not abs() or clamp-to-zero anywhere en route).
+    {
+        DrawingDocumentController failureController;
+        failureController.setSelectedToolId("line_tool");
+        failureController.clickCanvasNormalized(0.5, 0.5); // line_1: serial 1
+        failureController.clickCanvasNormalized(0.6, 0.5);
+
+        failureController.setArrayCount(2);
+        failureController.setArraySpacingX(0.0);
+        assert(!failureController.repeatSelectedObject("x"));
+        QVariantMap arrayStatus = failureController.modelDocument().value("edit_status").toMap();
+        assert(arrayStatus.value("ok").toBool() == false);
+        assert(arrayStatus.value("mode").toString() == "array");
+        assert(!arrayStatus.value("message").toString().isEmpty());
+        assert(failureController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Guides reject grid arrays at the planner; the controller surfaces
+        // it the same way and creates nothing.
+        // (Covered here at the planner seam; the guide tool path is separate.)
+
+        failureController.setArraySpacingX(-0.1);
+        assert(failureController.repeatSelectedObject("x"));
+        QVariantList marched = failureController.modelDocument().value("drawing_objects").toList();
+        assert(marched.size() == 3);
+        // The failed attempt reclaimed serials 2-3, so the first successful
+        // copy is repeat_2, not repeat_4.
+        assert(trailingSerial(marched[1].toMap().value("id").toString()) == 2);
+        // Negative spacing marches left: 0.5 + 2 * -0.1 = 0.3.
+        assert(nearlyEqual(marched[2].toMap().value("x1").toDouble(), 0.3));
+        // Success cleared the stale rejection.
+        assert(failureController.modelDocument().value("edit_status").toMap().isEmpty());
+    }
+
+    // Guides cannot grid/radial-array (single-axis translation would stack
+    // coincident copies): the controller reports failure and creates nothing.
+    {
+        DrawingDocumentController guideArrayController;
+        guideArrayController.setSelectedToolId("horizontal_guide_tool");
+        guideArrayController.clickCanvasNormalized(0.5, 0.62);
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        guideArrayController.setArrayCount(2);
+        guideArrayController.setArraySpacingX(0.1);
+        guideArrayController.setArraySpacingY(0.1);
+        assert(!guideArrayController.gridArraySelectedObject());
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        assert(!guideArrayController.radialArraySelectedObject());
+        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
     // fixedRadius rides into creation for the radius-from-gesture tools;

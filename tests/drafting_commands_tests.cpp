@@ -124,6 +124,21 @@ int main()
 
         assert(batchDocument.objects.size() == sizeBeforeRejects);
         assert(batchDocument.revision == revisionBeforeRejects);
+
+        // A locked layer rejects the whole batch. (The batch handler
+        // duplicates addObject's checks inline — without this case a
+        // regression deleting its locked-layer branch passes the suite.)
+        assert(applyDraftingCommand(batchDocument, CreateLayerCommand{makeDraftingLayer("frozen", "Frozen", 1), false}).ok);
+        assert(applyDraftingCommand(batchDocument, UpdateLayerFlagsCommand{"frozen", true, true}).ok);
+        const auto sizeBeforeLocked = batchDocument.objects.size();
+        const auto revisionBeforeLocked = batchDocument.revision;
+        DraftingObject onLocked = makeDraftingObject("locked_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}});
+        onLocked.layerId = "frozen";
+        auto lockedResult = applyDraftingCommand(batchDocument, CreateObjectsCommand{{onLocked}});
+        assert(!lockedResult.ok);
+        assert(lockedResult.code == DraftingResultCode::InvalidSelectionTarget);
+        assert(batchDocument.objects.size() == sizeBeforeLocked);
+        assert(batchDocument.revision == revisionBeforeLocked);
     }
 
     DraftingDocument layerCommandDocument = makeDraftingDocument("layer_command_doc");
@@ -295,6 +310,20 @@ int main()
     auto builtMiddlePoint = buildDraftingObject("middle_point", DraftingShapeKind::Point, PointGeometry{{10.0, 1.0}});
     assert(builtMiddlePoint.ok);
     assert(applyDraftingCommand(editDocument, CreateObjectCommand{builtMiddlePoint.object}).ok);
+
+    // Multi-select edge cases: an unknown id rejects the whole command and
+    // leaves the previous selection intact; duplicate input ids dedupe (no
+    // double insert), with the active id being the last UNIQUE id.
+    const auto revisionBeforeBadSelect = editDocument.revision;
+    auto badSelect = applyDraftingCommand(editDocument, SelectObjectsCommand{{"line_1", "no_such_object"}});
+    assert(!badSelect.ok);
+    assert(badSelect.code == DraftingResultCode::InvalidSelectionTarget);
+    assert(editDocument.revision == revisionBeforeBadSelect);
+    auto dupSelect = applyDraftingCommand(editDocument, SelectObjectsCommand{{"line_1", "line_1", "rect_1"}});
+    assert(dupSelect.ok);
+    assert(editDocument.selectedObjectIds.size() == 2);
+    assert(editDocument.activeObjectId == "rect_1");
+
     assert(applyDraftingCommand(editDocument, SelectObjectsCommand{{"line_1", "middle_point", "rect_1"}}).ok);
     const auto revisionBeforeDistribute = editDocument.revision;
     auto distributeY = applyDraftingCommand(editDocument, DistributeSelectionCommand{DraftingAlignmentMode::DistributeY});

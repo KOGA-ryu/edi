@@ -12,6 +12,7 @@
 #include <QCheckBox>
 #include <QColor>
 #include <QCoreApplication>
+#include <QDir>
 #include <QImage>
 #include <QLabel>
 #include <QComboBox>
@@ -26,6 +27,7 @@
 #include <QSplitter>
 #include <QString>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QVariantList>
@@ -1749,6 +1751,54 @@ int main(int argc, char **argv)
         stateController->undo();
         assert(objectCount(*stateController) == 0);
         assert(emptyLabel->isVisibleTo(&emptyState));
+    }
+
+    // Golden-render lock: the whole default-theme shell against a checked-in
+    // reference. Probes prove single pixels; this catches the class they
+    // miss — layout shifts, clipped text, z-order, accidental restyles.
+    // Machine-local by design (font rasterization differs across machines);
+    // after an INTENDED look change, re-bless with:
+    //   EDI_BLESS_GOLDEN=1 ./build/edi_shell_window_tests
+    {
+        EdiShellWindow golden;
+        golden.resize(1100, 760);
+        golden.show();
+        QCoreApplication::processEvents();
+        const QImage current = golden.grab().toImage().convertToFormat(QImage::Format_RGB32);
+        const QString goldenPath = QFileInfo(QString::fromUtf8(__FILE__))
+                                       .dir()
+                                       .filePath(QStringLiteral("golden/default_shell_1100x760.png"));
+        if (qEnvironmentVariableIsSet("EDI_BLESS_GOLDEN")) {
+            QDir().mkpath(QFileInfo(goldenPath).absolutePath());
+            assert(current.save(goldenPath));
+            fprintf(stderr, "golden blessed: %s\n", qPrintable(goldenPath));
+        } else {
+            QImage reference(goldenPath);
+            assert(!reference.isNull()); // no golden yet: bless once (see above)
+            reference = reference.convertToFormat(QImage::Format_RGB32);
+            assert(reference.size() == current.size());
+            // Channel tolerance 8 + a 0.5% pixel budget: tight enough that a
+            // 1px chrome shift fails, loose enough that subpixel AA jitter
+            // from a Qt patch release does not cry wolf.
+            int differing = 0;
+            for (int y = 0; y < current.height(); ++y) {
+                for (int x = 0; x < current.width(); ++x) {
+                    const QRgb ours = current.pixel(x, y);
+                    const QRgb theirs = reference.pixel(x, y);
+                    if (qAbs(qRed(ours) - qRed(theirs)) > 8
+                        || qAbs(qGreen(ours) - qGreen(theirs)) > 8
+                        || qAbs(qBlue(ours) - qBlue(theirs)) > 8) {
+                        ++differing;
+                    }
+                }
+            }
+            const int budget = current.width() * current.height() / 200;
+            if (differing > budget) {
+                fprintf(stderr, "golden mismatch: %d differing pixels (budget %d) vs %s\n",
+                        differing, budget, qPrintable(goldenPath));
+            }
+            assert(differing <= budget);
+        }
     }
 
     return 0;

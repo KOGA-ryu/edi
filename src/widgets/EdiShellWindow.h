@@ -45,6 +45,7 @@ public:
     bool openDrawingFromPath(const QString &path);
     bool exportSvgToPath(const QString &path);
     bool exportHpglToPath(const QString &path);
+    bool exportGcodeToPath(const QString &path);
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
 
@@ -98,6 +99,7 @@ private:
     void promptOpenDrawing();
     void promptExportSvg();
     void promptExportHpgl();
+    void promptExportGcode();
     void updateWindowTitle();
     edi::formats::StaticConfig captureSettings() const;
     void applySettings(const edi::formats::StaticConfig &config);

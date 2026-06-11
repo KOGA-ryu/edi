@@ -38,6 +38,7 @@ public:
     bool openDocument(const QUrl &url);
     bool exportSvgDocument(const QUrl &url);
     bool exportHpglDocument(const QUrl &url);
+    bool exportGcodeDocument(const QUrl &url); // N5 plotter G-code
     // Dirty = content differs from the last save/open, ignoring selection (which
     // is excluded from undo too), so merely selecting an object is not "dirty".
     bool isDocumentDirty() const;

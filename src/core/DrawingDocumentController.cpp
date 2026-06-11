@@ -22,6 +22,7 @@
 #include "drafting/DraftingPlotJob.h"
 #include "drafting/DraftingPlotPlan.h"
 #include "drafting/DraftingQuickMeasure.h"
+#include "drafting/DraftingGcodeOut.h"
 #include "drafting/DraftingHpglOut.h"
 #include "drafting/DraftingSelection.h"
 #include "drafting/DraftingSerialize.h"
@@ -633,6 +634,17 @@ bool DrawingDocumentController::exportHpglDocument(const QUrl &url)
     const DraftingPlotJob job = buildDraftingPlotJob(m_document, grid, m_plotSettings);
     const std::string hpgl = hpglFromPlotJob(job, grid);
     const QVariantMap result = m_store.exportText(url, drawing_core::qStringFromStdString(hpgl));
+    return result.value(QStringLiteral("ok")).toBool();
+}
+
+bool DrawingDocumentController::exportGcodeDocument(const QUrl &url)
+{
+    // Same plot-job pipeline as HPGL/SVG, different emitter — the plot job is
+    // the one source of truth for what the machine draws.
+    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
+    const DraftingPlotJob job = buildDraftingPlotJob(m_document, grid, m_plotSettings);
+    const std::string gcode = gcodeFromPlotJob(job, grid);
+    const QVariantMap result = m_store.exportText(url, drawing_core::qStringFromStdString(gcode));
     return result.value(QStringLiteral("ok")).toBool();
 }
 

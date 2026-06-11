@@ -141,6 +141,7 @@ QWidget *EdiShellWindow::buildTitleBar()
     fileMenu->addSeparator();
     fileMenu->addAction(QStringLiteral("Export SVG…"), this, [this]() { promptExportSvg(); });
     fileMenu->addAction(QStringLiteral("Export HPGL…"), this, [this]() { promptExportHpgl(); });
+    fileMenu->addAction(QStringLiteral("Export G-code…"), this, [this]() { promptExportGcode(); });
     rebuildRecentFilesMenu();
 
     QMenu *editMenu = addMenuButton(QStringLiteral("Edit"), QStringLiteral("editMenu"));

@@ -88,6 +88,11 @@ bool EdiShellWindow::exportHpglToPath(const QString &path)
     return !path.isEmpty() && m_controller->exportHpglDocument(QUrl::fromLocalFile(path));
 }
 
+bool EdiShellWindow::exportGcodeToPath(const QString &path)
+{
+    return !path.isEmpty() && m_controller->exportGcodeDocument(QUrl::fromLocalFile(path));
+}
+
 void EdiShellWindow::promptExportSvg()
 {
     QString path = QFileDialog::getSaveFileName(
@@ -112,6 +117,19 @@ void EdiShellWindow::promptExportHpgl()
         path += QStringLiteral(".hpgl");
     }
     exportHpglToPath(path);
+}
+
+void EdiShellWindow::promptExportGcode()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export G-code"), QString(), QStringLiteral("G-code (*.gcode *.nc)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".gcode")) && !path.endsWith(QStringLiteral(".nc"))) {
+        path += QStringLiteral(".gcode");
+    }
+    exportGcodeToPath(path);
 }
 
 bool EdiShellWindow::loadSettings(const QString &path)

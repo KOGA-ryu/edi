@@ -754,10 +754,20 @@ int main(int argc, char **argv)
         assert(tempDir.isValid());
         const QString svgPath = tempDir.filePath(QStringLiteral("shell.svg"));
         const QString hpglPath = tempDir.filePath(QStringLiteral("shell.hpgl"));
+        const QString gcodePath = tempDir.filePath(QStringLiteral("shell.gcode"));
         assert(window.exportSvgToPath(svgPath));
         assert(window.exportHpglToPath(hpglPath));
+        assert(window.exportGcodeToPath(gcodePath)); // N5 export seam
         assert(QFile::exists(svgPath));
         assert(QFile::exists(hpglPath));
+        assert(QFile::exists(gcodePath));
+        {
+            QFile f(gcodePath);
+            assert(f.open(QIODevice::ReadOnly));
+            const QString body = QString::fromUtf8(f.readAll());
+            assert(body.startsWith(QStringLiteral("G21\n"))); // real G-code, not empty
+            assert(body.contains(QStringLiteral("G1 ")));     // a stroke was emitted
+        }
     }
 
     // Settings persistence: change a snap toggle + plot mode, save, then rebuild
@@ -1345,7 +1355,7 @@ int main(int argc, char **argv)
         auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
         auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
         assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
-        assert(fileMenu->actions().size() == 7); // 5 verbs + Open Recent + separator
+        assert(fileMenu->actions().size() == 8); // 6 verbs + Open Recent + separator
 
         auto *chromeController = chrome.findChild<DrawingDocumentController *>();
         assert(chromeController != nullptr);

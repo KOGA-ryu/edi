@@ -64,6 +64,7 @@ int main()
         "bpy.ops.mesh.primitive_cube_add(size=1.0)\n"
         "obj = bpy.context.active_object\n"
         "obj.scale = (6, 2, 0.75)\n"
+        "obj.location[2] = 0.375  # base z = 0\n"
         "\n"
         "# step 2: bevel\n"
         "mod = obj.modifiers.new(name=\"Bevel\", type='BEVEL')\n"
@@ -89,6 +90,37 @@ int main()
     assert(roundEmitted.ok);
     assert(roundEmitted.script.find("primitive_cylinder_add(radius=1.5, depth=1)") != std::string::npos);
     assert(roundEmitted.script.find("# edi recipe: dowel\n") != std::string::npos); // id fallback when unnamed
+
+    // Multi-part recipes: a second primitive starts a NEW part (obj rebinds
+    // in the script), each placed by its own loc_z; a modifier after it
+    // shapes the most recent part. This is how an assembly like a column
+    // stacks: every part's base is a pointable number.
+    {
+        RecipeDocument stacked;
+        stacked.id = "stack";
+        assert(addShaperStep(stacked, "cube").ok);
+        assert(setParamLiteral(stacked, 0, "size_z", 0.5).ok);
+        assert(addShaperStep(stacked, "cylinder").ok);
+        assert(setParamLiteral(stacked, 1, "loc_z", 0.5).ok); // sits ON the cube
+        assert(setParamLiteral(stacked, 1, "depth", 2.0).ok);
+        assert(addShaperStep(stacked, "bevel").ok); // shapes the cylinder, not the cube
+        const ResolvedRecipe stackedResolved = resolveRecipe(stacked, drafting, grid);
+        assert(stackedResolved.ok);
+        const RecipeEmitResult stackedEmitted = emitBlenderPython(stacked, stackedResolved);
+        assert(stackedEmitted.ok);
+        // Two parts, two rebinds; the cylinder centre = 0.5 + 2/2 = 1.5.
+        std::size_t rebinds = 0;
+        for (std::size_t at = stackedEmitted.script.find("obj = bpy.context.active_object");
+             at != std::string::npos;
+             at = stackedEmitted.script.find("obj = bpy.context.active_object", at + 1)) {
+            ++rebinds;
+        }
+        assert(rebinds == 2);
+        assert(stackedEmitted.script.find("obj.location[2] = 1.5  # base z = 0.5") != std::string::npos);
+        // The bevel block comes AFTER the cylinder's rebind — linear emission
+        // means "most recent part" needs no bookkeeping at all.
+        assert(stackedEmitted.script.find("type='BEVEL'") > stackedEmitted.script.rfind("obj = bpy.context.active_object"));
+    }
 
     // Emission refuses an unresolved recipe — no script with a guess in it.
     RecipeDocument stale = recipe;

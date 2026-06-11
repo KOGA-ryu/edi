@@ -55,7 +55,7 @@ int main()
     assert(addShaperStep(recipe, "bevel").ok);
     assert(validateRecipe(recipe).ok);
     assert(recipe.steps.size() == 2);
-    assert(recipe.steps[0].params.size() == 3);     // size_x/y/z defaults
+    assert(recipe.steps[0].params.size() == 4);     // size_x/y/z + loc_z defaults
     assert(near(recipe.steps[0].params[0].value, 1.0));
     const int revisionAfterAdds = recipe.revision;
     assert(revisionAfterAdds > 0);

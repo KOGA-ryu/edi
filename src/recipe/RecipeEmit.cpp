@@ -62,6 +62,11 @@ const std::map<std::string, StepEmitter> &stepEmitters()
             block += "obj.scale = (" + numberText(paramValue(step, "size_x"))
                 + ", " + numberText(paramValue(step, "size_y"))
                 + ", " + numberText(paramValue(step, "size_z")) + ")\n";
+            // loc_z is the part's BOTTOM; Blender places by centre, so the
+            // emitter does that arithmetic and shows its work in the comment.
+            block += "obj.location[2] = "
+                + numberText(paramValue(step, "loc_z") + paramValue(step, "size_z") / 2.0)
+                + "  # base z = " + numberText(paramValue(step, "loc_z")) + "\n";
             return block;
         }},
         {"cylinder", [](const ResolvedStep &step) {
@@ -70,6 +75,9 @@ const std::map<std::string, StepEmitter> &stepEmitters()
                 + numberText(paramValue(step, "radius"))
                 + ", depth=" + numberText(paramValue(step, "depth")) + ")\n";
             block += "obj = bpy.context.active_object\n";
+            block += "obj.location[2] = "
+                + numberText(paramValue(step, "loc_z") + paramValue(step, "depth") / 2.0)
+                + "  # base z = " + numberText(paramValue(step, "loc_z")) + "\n";
             return block;
         }},
         {"bevel", [](const ResolvedStep &step) {

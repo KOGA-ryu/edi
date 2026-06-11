@@ -35,8 +35,11 @@ const std::vector<ShaperSpec> &shaperTable()
     // ids deliberately match Blender's operator arguments where one exists —
     // the emitter then never needs a translation table.
     static const std::vector<ShaperSpec> table = {
-        {"cube", "Cube", true, {{"size_x", 1.0}, {"size_y", 1.0}, {"size_z", 1.0}}},
-        {"cylinder", "Cylinder", true, {{"radius", 0.5}, {"depth", 1.0}}},
+        // loc_z places a part by its BOTTOM, not its centre: parts of an
+        // assembly stack, and "the shaft starts at 0.10" is the number a
+        // drafter can point at — the emitter does the centre arithmetic.
+        {"cube", "Cube", true, {{"size_x", 1.0}, {"size_y", 1.0}, {"size_z", 1.0}, {"loc_z", 0.0}}},
+        {"cylinder", "Cylinder", true, {{"radius", 0.5}, {"depth", 1.0}, {"loc_z", 0.0}}},
         {"bevel", "Bevel", false, {{"width", 0.05}, {"segments", 2.0}}},
         {"array", "Array", false, {{"count", 2.0}, {"offset_x", 1.0}}},
     };

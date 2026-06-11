@@ -328,6 +328,7 @@ target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOUR
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_store_tests tests/recipe_store_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ascii_tests tests/recipe_ascii_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_controller_tests tests/recipe_controller_tests.cpp edi_recipe_core Qt6::Core)

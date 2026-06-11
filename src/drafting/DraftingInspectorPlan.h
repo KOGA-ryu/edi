@@ -26,10 +26,12 @@ struct DraftingInspectorPlan {
     std::vector<std::string> groupIds;
 };
 
-// toolId -> the options group for that tool; empty when the tool has none.
-// A lookup, not a switch in the widget code, so F6 (belt configuration) and
-// new tools extend a table instead of editing panel logic.
-std::string draftingToolOptionsGroup(const std::string &toolId);
+// toolId -> the options groups for that tool (display order); empty when the
+// tool has none. A lookup, not a switch in the widget code, so F6 (belt
+// configuration) and new tools extend a table instead of editing panel logic.
+// A vector because tools share option groups: the polygon tool shows its
+// sides group AND the radius group the circle/arc tools use.
+std::vector<std::string> draftingToolOptionsGroups(const std::string &toolId);
 
 DraftingInspectorPlan planDraftingInspector(const DraftingInspectorInput &input);
 

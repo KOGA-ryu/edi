@@ -744,6 +744,68 @@ int main(int argc, char **argv)
         assert(controller->aspectLockEnabled());
     }
 
+    // #30 parametric creation + arrays: the radius option group shows for
+    // the radius-from-gesture tools, and the array spins/buttons drive the
+    // controller's option state and bulk actions.
+    {
+        auto groupVisible = [&window](const QString &groupId) {
+            QWidget *group = window.findChild<QWidget *>(QStringLiteral("inspectorGroup_") + groupId);
+            assert(group != nullptr);
+            return !group->isHidden();
+        };
+
+        // No selection + circle tool -> the radius group shows; a line tool
+        // (no options) hides it again.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->selectObjectsInBoundsNormalized(0.0001, 0.0001, 0.0002, 0.0002);
+        assert(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        assert(!groupVisible(QStringLiteral("tool_radius")));
+        controller->setSelectedToolId(QStringLiteral("circle_tool"));
+        assert(groupVisible(QStringLiteral("tool_radius")));
+
+        auto *fixedRadiusSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("fixedRadiusSpin"));
+        assert(fixedRadiusSpin != nullptr);
+        fixedRadiusSpin->setValue(0.07);
+        assert(near(controller->fixedRadius(), 0.07));
+
+        // Array option spins mirror controller state.
+        auto *countSpin = window.findChild<QSpinBox *>(QStringLiteral("arrayCountSpin"));
+        auto *stepXSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("arraySpacingXSpin"));
+        auto *stepYSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("arraySpacingYSpin"));
+        assert(countSpin != nullptr && stepXSpin != nullptr && stepYSpin != nullptr);
+        assert(countSpin->value() == controller->arrayCount());
+        countSpin->setValue(2);
+        assert(controller->arrayCount() == 2);
+        stepXSpin->setValue(0.05);
+        assert(near(controller->arraySpacingX(), 0.05));
+        stepYSpin->setValue(-0.04); // negative spacing is a legal direction
+        assert(near(controller->arraySpacingY(), -0.04));
+
+        // The grid button stamps count x count cells from the selection.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.62, 0.62);
+        controller->clickCanvasNormalized(0.66, 0.62);
+        const int beforeGrid = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        QPushButton *gridButton = window.findChild<QPushButton *>(QStringLiteral("gridArrayButton"));
+        QPushButton *radialButton = window.findChild<QPushButton *>(QStringLiteral("radialArrayButton"));
+        assert(gridButton != nullptr && radialButton != nullptr);
+        gridButton->click();
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+               == beforeGrid + 3); // 2x2 grid: source + 3 copies
+
+        // Radial: the fresh copies ring the drawable centre.
+        radialButton->click();
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+               == beforeGrid + 3 + 2); // arrayCount 2 -> 2 ring copies
+
+        // Reset shared tool-option state so later blocks see defaults.
+        fixedRadiusSpin->setValue(0.0);
+        countSpin->setValue(3);
+        stepXSpin->setValue(0.1);
+        stepYSpin->setValue(0.1);
+        controller->setSelectedToolId(QStringLiteral("select_move"));
+    }
+
     // Export buttons exist and the path seams write SVG / HPGL files.
     {
         assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);

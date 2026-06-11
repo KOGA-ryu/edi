@@ -38,6 +38,9 @@ int main()
     layout.belt.itemIds[7] = QStringLiteral("circle_tool");
     // Two frozen quick-bars, pin order preserved (1 was pinned before 0).
     layout.belt.pinnedRows = {1, 0};
+    // Modular panels: the user moved layers left and hid calibration.
+    layout.panelContent = {{QStringLiteral("layers_document"), QStringLiteral("left")},
+                           {QStringLiteral("calibration_document"), QStringLiteral("hidden")}};
     // Two floating palettes with stored positions.
     setPalettePlacement(layout, {QStringLiteral("tool_belt"), 40, 60});
     setPalettePlacement(layout, {QStringLiteral("snap_box"), 300, 12});
@@ -63,6 +66,15 @@ int main()
     assert(decoded.layout.belt.itemIds[8].isEmpty());
     // Pins round-trip in pin order, not row order.
     assert((decoded.layout.belt.pinnedRows == std::vector<int>{1, 0}));
+    // Panel assignments round-trip; a vandalized slot word drops its row.
+    assert(decoded.layout.panelContent == layout.panelContent);
+    {
+        auto vandalized = config;
+        edi::io::setSettingsString(vandalized, "panel_content.2.group", "guides_document");
+        edi::io::setSettingsString(vandalized, "panel_content.2.slot", "ceiling");
+        const ShellLayoutData survived = shellLayoutFromConfig(vandalized);
+        assert(survived.layout.panelContent == layout.panelContent);
+    }
     // Forgiving decode: a hand-edited pin outside the belt or repeated is
     // dropped, not an error.
     {

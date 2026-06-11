@@ -116,6 +116,21 @@ inline bool operator==(const BeltLayout &a, const BeltLayout &b)
         && a.pinnedRows == b.pinnedRows;
 }
 
+// Which panel hosts one feature content group — the user's modular-panels
+// decision (2026-06-11): instead of asking for layout changes, the user
+// assigns groups to panels from settings. slot is "left" | "right" |
+// "bottom" | "hidden". An absent group means the feature's default.
+// Workspace data, exactly like the belt arrangement.
+struct PanelContentAssignment {
+    QString groupId;
+    QString slot;
+};
+
+inline bool operator==(const PanelContentAssignment &a, const PanelContentAssignment &b)
+{
+    return a.groupId == b.groupId && a.slot == b.slot;
+}
+
 // Where a floating palette sits over the main area (F4). Palettes are
 // workspace data like the belt: which palettes exist comes from the mounted
 // features; where they sit is the job's geometry, persisted in
@@ -138,6 +153,7 @@ struct WorkspaceLayout {
     std::vector<SlotBinding> bindings;
     BeltLayout belt;
     std::vector<PalettePlacement> palettes;
+    std::vector<PanelContentAssignment> panelContent;
 };
 
 // The stored placement for `paletteId`, or the default placement when the

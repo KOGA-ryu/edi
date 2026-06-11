@@ -116,6 +116,12 @@ StaticConfig workspaceLayoutToConfig(const WorkspaceLayout &layout, const ShellP
     for (std::size_t i = 0; i < layout.belt.pinnedRows.size(); ++i) {
         setSettingsInt(config, "belt.pin." + std::to_string(i), layout.belt.pinnedRows[i]);
     }
+    // Panel-content assignments: indexed rows like bindings.
+    for (std::size_t i = 0; i < layout.panelContent.size(); ++i) {
+        const std::string prefix = "panel_content." + std::to_string(i);
+        setSettingsString(config, prefix + ".group", layout.panelContent[i].groupId.toStdString());
+        setSettingsString(config, prefix + ".slot", layout.panelContent[i].slot.toStdString());
+    }
     // Palette positions: indexed rows like bindings, keyed by palette id.
     for (std::size_t i = 0; i < layout.palettes.size(); ++i) {
         const std::string prefix = "palette." + std::to_string(i);
@@ -177,6 +183,21 @@ ShellLayoutData shellLayoutFromConfig(const StaticConfig &config)
             != data.layout.belt.pinnedRows.end();
         if (row < data.layout.belt.rows && !duplicate) {
             data.layout.belt.pinnedRows.push_back(row);
+        }
+    }
+
+    // Panel content: forgiving decode — an unknown slot word drops the row
+    // (the feature's default wins), matching the pins/belt policy.
+    for (std::size_t i = 0;; ++i) {
+        const std::string prefix = "panel_content." + std::to_string(i);
+        const std::string group = settingsString(config, prefix + ".group", "");
+        if (group.empty()) {
+            break;
+        }
+        const QString slot = QString::fromStdString(settingsString(config, prefix + ".slot", ""));
+        if (slot == QStringLiteral("left") || slot == QStringLiteral("right")
+            || slot == QStringLiteral("bottom") || slot == QStringLiteral("hidden")) {
+            data.layout.panelContent.push_back({QString::fromStdString(group), slot});
         }
     }
 

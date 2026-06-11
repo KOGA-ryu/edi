@@ -97,8 +97,10 @@ QWidget *EdiShellWindow::buildTitleBar()
     });
     layout->addSpacing(8);
 
-    const auto addPanelToggle = [&](const QString &name, const QString &glyph, const QString &tooltip, ShellSlot slot) {
-        auto *button = new QPushButton(glyph);
+    const auto addPanelToggle = [&](const QString &name, const QString &tooltip, ShellSlot slot) {
+        // Face-only button: refreshChrome paints the spec's frame+bar icon
+        // (panelToggleFace) on every state projection; no text glyph.
+        auto *button = new QPushButton;
         button->setObjectName(name);
         button->setToolTip(tooltip);
         button->setCheckable(true);
@@ -110,7 +112,7 @@ QWidget *EdiShellWindow::buildTitleBar()
         layout->addWidget(button);
         return button;
     };
-    m_toggleLeftButton = addPanelToggle(QStringLiteral("toggleLeftPanel"), QStringLiteral("◧"),
+    m_toggleLeftButton = addPanelToggle(QStringLiteral("toggleLeftPanel"),
         QStringLiteral("Toggle left panel"), ShellSlot::Left);
 
     m_backButton = new QPushButton(QStringLiteral("‹"));
@@ -180,9 +182,9 @@ QWidget *EdiShellWindow::buildTitleBar()
     // status bar; see buildStatusBar.)
     layout->addStretch(1);
 
-    m_toggleBottomButton = addPanelToggle(QStringLiteral("toggleBottomPanel"), QStringLiteral("⬓"),
+    m_toggleBottomButton = addPanelToggle(QStringLiteral("toggleBottomPanel"),
         QStringLiteral("Toggle terminal"), ShellSlot::Bottom);
-    m_toggleRightButton = addPanelToggle(QStringLiteral("toggleRightPanel"), QStringLiteral("◨"),
+    m_toggleRightButton = addPanelToggle(QStringLiteral("toggleRightPanel"),
         QStringLiteral("Toggle right panel"), ShellSlot::Right);
 
     // Drag-to-move and double-click-to-zoom land on the bar itself; presses

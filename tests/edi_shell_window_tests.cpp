@@ -1491,6 +1491,36 @@ int main(int argc, char **argv)
         assert(sectionProbe->height() <= 24);
     }
 
+    // Panel-toggle faces (spec §3): the painted 16x14 frame with its 5x12
+    // edge bar answers "which panel" by shape and "what state" by color.
+    // Probe the bar pixel through grabbed renders across a state change.
+    {
+        EdiShellWindow faces;
+        faces.resize(1100, 760);
+        faces.show();
+        QCoreApplication::processEvents();
+        const edi::shell::ShellTheme faceTheme =
+            edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
+        QPushButton *leftToggle = buttonNamed(faces, QStringLiteral("toggleLeftPanel"));
+        assert(leftToggle != nullptr);
+        assert(leftToggle->size() == QSize(30, 30)); // spec square, sheet-enforced
+        // Icon 16x14 centered in 30x30 -> origin (7,8); the left bar's
+        // center sits at icon (3,7).
+        const QPoint barProbe = leftToggle->mapTo(&faces, QPoint(7 + 3, 8 + 7));
+        QImage faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.accent); // visible
+
+        faces.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
+        faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.textFaint); // collapsed
+
+        faces.resize(600, 760); // under the auto-hide threshold
+        QCoreApplication::processEvents();
+        faces.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
+        faceShot = faces.grab().toImage();
+        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.warning); // auto-hidden
+    }
+
     // Spec-minimum window (520x420): every title-bar control must stay
     // inside the bar — chrome that clips at the supported minimum is chrome
     // the user cannot click. Also pins the rail's 34x34 spec squares.

@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPair>
@@ -434,6 +435,10 @@ void EdiShellWindow::applyShellStyle()
     for (QPushButton *button : findChildren<QPushButton *>()) {
         button->setCursor(Qt::PointingHandCursor);
     }
+    // The toggle faces are painted pixmaps built from tokens — a live theme
+    // edit must rebuild them along with the sheet, and refreshChrome is
+    // their (idempotent) projection point.
+    refreshChrome();
 }
 
 void EdiShellWindow::setThemeInputs(const ShellThemeInputs &inputs)
@@ -822,7 +827,8 @@ void EdiShellWindow::refreshChrome()
 {
     // The chrome is a projection of shell state, recomputed whole — the same
     // discipline as the panels: no incremental flag-flipping to drift.
-    const auto reflect = [this](QPushButton *button, ShellSlot slot) {
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
+    const auto reflect = [this, &theme](QPushButton *button, ShellSlot slot) {
         if (button == nullptr) {
             return;
         }
@@ -840,6 +846,13 @@ void EdiShellWindow::refreshChrome()
             button->style()->unpolish(button);
             button->style()->polish(button);
         }
+        // The face: frame in muted text, bar in the tri-state color. Rebuilt
+        // on every projection — a 16x14 pixmap is cheaper than caching logic.
+        const QColor barColor(visibility == PanelVisibility::Visible
+                ? theme.accent
+                : visibility == PanelVisibility::Collapsed ? theme.textFaint : theme.warning);
+        button->setIcon(QIcon(panelToggleFace(slot, QColor(theme.textMuted), barColor, devicePixelRatioF())));
+        button->setIconSize(QSize(16, 14));
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);
     reflect(m_toggleBottomButton, ShellSlot::Bottom);

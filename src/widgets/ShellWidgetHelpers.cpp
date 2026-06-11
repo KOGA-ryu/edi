@@ -1,5 +1,6 @@
 #include "widgets/ShellWidgetHelpers.h"
 
+#include "widgets/ShellHost.h"
 #include "widgets/ShellTheme.h"
 
 #include <QCheckBox>
@@ -8,6 +9,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
+#include <QPainter>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
@@ -38,6 +40,34 @@ QPalette derivePaintingPalette(const ShellTheme &t)
     palette.setColor(QPalette::Text, QColor(t.text));
     palette.setColor(QPalette::HighlightedText, QColor(t.text));
     return palette;
+}
+
+QPixmap panelToggleFace(ShellSlot slot, const QColor &frame, const QColor &bar, qreal devicePixelRatio)
+{
+    // 16x14 logical face; the 30x30 button centers it. The pixmap is
+    // allocated at device resolution and tagged with the ratio — painting a
+    // 1x pixmap on a 2x display would blur the 1px frame into mush.
+    QPixmap pixmap(qRound(16 * devicePixelRatio), qRound(14 * devicePixelRatio));
+    pixmap.setDevicePixelRatio(devicePixelRatio);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setPen(frame);
+    painter.drawRect(0, 0, 15, 13); // drawRect strokes w+1/h+1: a 16x14 outline
+
+    // The bar sits flush inside the frame on the panel's own edge, so the
+    // icon answers "which panel" by shape and "what state" by color.
+    QRect barRect;
+    switch (slot) {
+    case ShellSlot::Left: barRect = QRect(1, 1, 5, 12); break;
+    case ShellSlot::Right: barRect = QRect(10, 1, 5, 12); break;
+    case ShellSlot::Bottom: barRect = QRect(2, 8, 12, 5); break;
+    case ShellSlot::Main: break; // the main slot has no toggle; empty frame
+    }
+    if (!barRect.isNull()) {
+        painter.fillRect(barRect, bar);
+    }
+    return pixmap;
 }
 
 QFrame *makeRegionFrame(const QString &objectName)

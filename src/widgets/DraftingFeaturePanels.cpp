@@ -468,6 +468,9 @@ QWidget *DraftingFeature::buildWorkspaceColumn()
     // it". The status line lives in the shell chrome, fed via ShellActions.
     m_canvas = new DrawingCanvasWidget(m_controller);
     m_canvas->setObjectName(QStringLiteral("drawingCanvas"));
+    // Zoom changes republish the status line (the % readout) without a
+    // document mutation — same light-touch path as the pointer readouts.
+    connect(m_canvas, &DrawingCanvasWidget::zoomChanged, this, &DraftingFeature::publishStatus);
     return m_canvas;
 }
 

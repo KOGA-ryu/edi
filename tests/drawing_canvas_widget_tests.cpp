@@ -416,5 +416,24 @@ int main(int argc, char **argv)
         assert(diffCount(draftingPatch, previewPatch) > 200);
     }
 
+    // View commands: Cmd/Ctrl +/-/0 step and reset the zoom through the
+    // same viewport math as the wheel; the widget reports the factor and
+    // emits zoomChanged for the status readout.
+    {
+        DrawingDocumentController viewController;
+        DrawingCanvasWidget viewCanvas(&viewController);
+        viewCanvas.resize(600, 450);
+        int zoomSignals = 0;
+        QObject::connect(&viewCanvas, &DrawingCanvasWidget::zoomChanged, [&zoomSignals]() { ++zoomSignals; });
+
+        assert(near(viewCanvas.zoomFactor(), 1.0));
+        sendKey(viewCanvas, Qt::Key_Equal, Qt::ControlModifier);
+        assert(viewCanvas.zoomFactor() > 1.2);
+        sendKey(viewCanvas, Qt::Key_Minus, Qt::ControlModifier);
+        sendKey(viewCanvas, Qt::Key_0, Qt::ControlModifier);
+        assert(near(viewCanvas.zoomFactor(), 1.0));
+        assert(zoomSignals == 3);
+    }
+
     return 0;
 }

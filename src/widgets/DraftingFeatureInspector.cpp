@@ -14,6 +14,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -444,14 +445,7 @@ void DraftingFeature::refreshInspector()
     refreshComboData(m_plotOrderMode, plot.value(QStringLiteral("order_mode")).toString(), 0);
     refreshComboData(m_plotDirectionMode, plot.value(QStringLiteral("direction_mode")).toString(), 0);
     refreshPointerReadouts();
-    if (m_actions.setStatusText) {
-        // The status line is shell chrome now; the feature publishes, the
-        // shell decides where it shows.
-        m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects")
-            .arg(m_actions.workspaceModeName())
-            .arg(selected.size())
-            .arg(objects.size()));
-    }
+    publishStatus();
 
 }
 
@@ -510,4 +504,25 @@ void DraftingFeature::refreshPointerReadouts()
         }
     }
     setLabelText(m_previewValue, QStringLiteral("Preview: %1").arg(hasPreview ? QStringLiteral("active") : QStringLiteral("none")));
+}
+
+void DraftingFeature::publishStatus()
+{
+    // The status line is shell chrome; the feature publishes, the shell
+    // decides where it shows. Light by design: zoom changes call ONLY this
+    // (a full refreshInspector per pinch tick would rebuild the panel the
+    // perf work just stopped rebuilding). The counts read the cached
+    // projection — no mutation means no rebuild.
+    if (!m_actions.setStatusText) {
+        return;
+    }
+    const QVariantMap document = m_controller->modelDocument();
+    const int zoomPercent = m_canvas != nullptr
+        ? static_cast<int>(std::lround(m_canvas->zoomFactor() * 100.0))
+        : 100;
+    m_actions.setStatusText(QStringLiteral("%1 | %2 selected | %3 objects | %4%")
+        .arg(m_actions.workspaceModeName())
+        .arg(document.value(QStringLiteral("selected_object_ids")).toList().size())
+        .arg(document.value(QStringLiteral("drawing_objects")).toList().size())
+        .arg(zoomPercent));
 }

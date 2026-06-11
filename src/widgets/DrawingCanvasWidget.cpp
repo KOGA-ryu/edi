@@ -1,6 +1,7 @@
 #include "widgets/DrawingCanvasWidget.h"
 
 #include <QKeyEvent>
+#include <QNativeGestureEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QVariantList>
@@ -19,6 +20,7 @@
 #include "widgets/DrawingCanvasProjectedPlot.h"
 #include "widgets/DrawingCanvasProjectedPointer.h"
 #include "widgets/DrawingCanvasProjectedStatus.h"
+#include "widgets/DrawingCanvasRulerTicks.h"
 #include "widgets/DrawingCanvasViewport.h"
 #include "widgets/ShellTheme.h"
 
@@ -182,11 +184,13 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
             drawing_canvas::drawSceneItem(staticPainter, item, objectPainterContext);
         }
         drawing_canvas::drawGuideIntersections(staticPainter, scene, objectPainterContext);
+        drawRulers(staticPainter, board, model);
         m_staticGeneration = generation;
         m_staticBoard = board;
         m_staticSize = deviceSize;
     }
     painter.drawPixmap(0, 0, m_staticLayer);
+    drawRulerPointerCaret(painter, board, model);
 
     if (m_plotPreviewVisible) {
         drawPlotPreview(painter, board, document.plotSummary);
@@ -372,6 +376,44 @@ void DrawingCanvasWidget::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mouseReleaseEvent(event);
 }
 
+void DrawingCanvasWidget::zoomAtCenter(double factor)
+{
+    const drawing_canvas::DrawingCanvasViewportInput zoomed = drawing_canvas::zoomViewportAtPoint(
+        viewportInput(), factor, QPointF(width() / 2.0, height() / 2.0));
+    m_zoom = zoomed.zoom;
+    m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+    emit zoomChanged();
+    update();
+}
+
+void DrawingCanvasWidget::resetView()
+{
+    m_zoom = 1.0;
+    m_pan = QPointF();
+    emit zoomChanged();
+    update();
+}
+
+bool DrawingCanvasWidget::event(QEvent *event)
+{
+    // Trackpad pinch arrives as a native gesture, not a wheel event. The
+    // factor is 1 + value (value is the pinch delta, negative when
+    // contracting) and anchors at the fingers, like the wheel zoom.
+    if (event->type() == QEvent::NativeGesture) {
+        auto *gesture = static_cast<QNativeGestureEvent *>(event);
+        if (gesture->gestureType() == Qt::ZoomNativeGesture && m_controller != nullptr) {
+            const drawing_canvas::DrawingCanvasViewportInput zoomed = drawing_canvas::zoomViewportAtPoint(
+                viewportInput(), 1.0 + gesture->value(), gesture->position());
+            m_zoom = zoomed.zoom;
+            m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+            emit zoomChanged();
+            update();
+            return true;
+        }
+    }
+    return QWidget::event(event);
+}
+
 void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
 {
     if (m_controller == nullptr) {
@@ -387,6 +429,7 @@ void DrawingCanvasWidget::wheelEvent(QWheelEvent *event)
             drawing_canvas::zoomViewportAtPoint(viewportInput(), factor, event->position());
         m_zoom = zoomed.zoom;
         m_pan = QPointF(zoomed.panXPx, zoomed.panYPx);
+        emit zoomChanged();
         update();
         event->accept();
         return;
@@ -434,6 +477,26 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
         m_gestureState = drawing_canvas::cancelGesture().state;
         event->accept();
         return;
+    }
+    // View commands: Cmd/Ctrl+0 resets (zoom 1 + centered pan IS the fitted
+    // board), +/- step exponentially around the canvas center — the same
+    // zoom math as the wheel, so the two paths cannot drift.
+    if (mods & (Qt::ControlModifier | Qt::MetaModifier)) {
+        if (event->key() == Qt::Key_0) {
+            resetView();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Equal || event->key() == Qt::Key_Plus) {
+            zoomAtCenter(1.25);
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Minus) {
+            zoomAtCenter(0.8);
+            event->accept();
+            return;
+        }
     }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
         if (m_controller->finishPendingPolyline()) {
@@ -552,6 +615,74 @@ void DrawingCanvasWidget::drawPhysicalGrid(QPainter &painter, const QRectF &boar
 
     painter.setPen(QPen(m_palette.boardOutline, 1));
     painter.drawRect(board);
+}
+
+void DrawingCanvasWidget::drawRulers(QPainter &painter, const QRectF &board, const QVariantMap &model) const
+{
+    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+    if (!grid.value(QStringLiteral("visible")).toBool()) {
+        return; // rulers measure the grid; no grid, no side bars
+    }
+    const drawing_canvas::DrawingCanvasRulerTicks ticks = drawing_canvas::rulerTicksForGrid(
+        drawing_canvas::projectedGrid(model), board, width(), height(),
+        grid.value(QStringLiteral("width")).toDouble(),
+        grid.value(QStringLiteral("height")).toDouble());
+
+    constexpr double kRulerBand = 20.0;
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    // Quiet bands on the backdrop with a hairline separator; ticks reuse
+    // the grid's own colors so the ruler reads as the grid's margin notes.
+    painter.fillRect(QRectF(0, 0, width(), kRulerBand), m_palette.backdrop);
+    painter.fillRect(QRectF(0, 0, kRulerBand, height()), m_palette.backdrop);
+    painter.setPen(QPen(m_palette.boardOutline, 1.0));
+    painter.drawLine(QPointF(0, kRulerBand), QPointF(width(), kRulerBand));
+    painter.drawLine(QPointF(kRulerBand, 0), QPointF(kRulerBand, height()));
+
+    QFont rulerFont = painter.font();
+    rulerFont.setPixelSize(9);
+    painter.setFont(rulerFont);
+    for (const drawing_canvas::DrawingCanvasRulerTick &tick : ticks.horizontal) {
+        painter.setPen(QPen(tick.major ? m_palette.gridMajor : m_palette.gridMinor, 1.0));
+        painter.drawLine(QPointF(tick.screenPos, tick.major ? 6.0 : 12.0), QPointF(tick.screenPos, kRulerBand));
+        if (tick.major) {
+            painter.setPen(m_palette.gridMajor);
+            painter.drawText(QPointF(tick.screenPos + 3.0, 10.0), drawing_canvas::rulerTickLabel(tick.unitValue));
+        }
+    }
+    for (const drawing_canvas::DrawingCanvasRulerTick &tick : ticks.vertical) {
+        painter.setPen(QPen(tick.major ? m_palette.gridMajor : m_palette.gridMinor, 1.0));
+        painter.drawLine(QPointF(tick.major ? 6.0 : 12.0, tick.screenPos), QPointF(kRulerBand, tick.screenPos));
+        if (tick.major) {
+            painter.setPen(m_palette.gridMajor);
+            painter.save();
+            painter.translate(10.0, tick.screenPos + 3.0);
+            painter.rotate(-90.0);
+            painter.drawText(QPointF(-30.0, 0.0), drawing_canvas::rulerTickLabel(tick.unitValue));
+            painter.restore();
+        }
+    }
+    painter.restore();
+}
+
+void DrawingCanvasWidget::drawRulerPointerCaret(QPainter &painter, const QRectF &board, const QVariantMap &model) const
+{
+    const QVariantMap grid = model.value(QStringLiteral("grid")).toMap();
+    if (!grid.value(QStringLiteral("visible")).toBool()) {
+        return;
+    }
+    const drawing_canvas::DrawingCanvasProjectedPointer pointer = drawing_canvas::projectedPointer(model);
+    if (!pointer.visible) {
+        return;
+    }
+    constexpr double kRulerBand = 20.0;
+    const QPointF screen = drawing_canvas::canvasToScreen(board, pointer.snappedX, pointer.snappedY);
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setPen(QPen(m_palette.snapGrid, 1.0));
+    painter.drawLine(QPointF(screen.x(), 0.0), QPointF(screen.x(), kRulerBand));
+    painter.drawLine(QPointF(0.0, screen.y()), QPointF(kRulerBand, screen.y()));
+    painter.restore();
 }
 
 void DrawingCanvasWidget::drawPointerSnapMarker(QPainter &painter, const QRectF &board, const QVariantMap &model) const

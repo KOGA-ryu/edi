@@ -20,6 +20,10 @@ class DrawingCanvasWidget : public QWidget {
 public:
     explicit DrawingCanvasWidget(DrawingDocumentController *controller, QWidget *parent = nullptr);
     void setPlotPreviewVisible(bool visible);
+    // The live zoom factor (1.0 = fit). The status bar shows it; tests read it.
+    double zoomFactor() const { return m_zoom; }
+    void zoomAtCenter(double factor);
+    void resetView(); // zoom 1, pan 0 — which IS fit-to-board by layout
     bool plotPreviewVisible() const;
     // Re-theme the canvas chrome (board, grid, snap markers...). Object
     // stroke colors are document data and are untouched by this.
@@ -29,6 +33,11 @@ public:
     QPointF mapCanvasToScreen(double x, double y) const;
     double viewportZoom() const { return m_zoom; }
 
+signals:
+    // Zoom changed (wheel, keys, pinch, reset). Pan deliberately excluded:
+    // consumers today show only the percentage.
+    void zoomChanged();
+
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
@@ -37,6 +46,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    bool event(QEvent *event) override; // macOS pinch (QNativeGestureEvent)
 
 private slots:
     void refresh();
@@ -50,6 +60,11 @@ private:
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawPhysicalGrid(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    // The measuring side bars (top + left), in document units, tracking
+    // zoom/pan through the board transform. Static-layer content; the
+    // pointer caret on them is painted dynamically.
+    void drawRulers(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    void drawRulerPointerCaret(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
     // The typed scene: objects pre-extracted into painter structs, rebuilt
     // only when the controller's generation moves. Steady-state frames
     // (mouse tracking, zoom, pan) paint typed items and never touch

@@ -2278,23 +2278,21 @@ bool DrawingDocumentController::paste()
     }
     // The pure planner mints the ids and offsets the geometry; the controller
     // only applies the result and threads its serial counter through.
-    const DraftingPasteResult plan = planDraftingPaste(
+    const int serialBefore = m_nextObjectSerial;
+    DraftingPasteResult plan = planDraftingPaste(
         m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
     m_nextObjectSerial = plan.nextSerial;
 
-    beginEdit();
-    std::vector<DraftingObjectId> newIds;
-    newIds.reserve(plan.objects.size());
-    for (const DraftingObject &object : plan.objects) {
-        if (applyDraftingCommand(m_document, CreateObjectCommand{object}).ok) {
-            newIds.push_back(object.id);
-        }
+    // Atomic (user decision 2026-06-11): a paste lands whole or not at all,
+    // selected as one unit, one undo step — same contract as arrays and
+    // calibration patterns. The old per-object loop pasted the valid subset
+    // when e.g. the clipboard's layer had been locked since the copy; that
+    // best-effort path half-pasted copied groups and is deliberately gone.
+    if (!createObjectsAndSelect(std::move(plan.objects))) {
+        m_nextObjectSerial = serialBefore; // nothing landed: reclaim the ids
+        return false;
     }
-    // Select exactly the pasted objects, so the next move/nudge acts on them.
-    applyDraftingCommand(m_document, SelectObjectsCommand{newIds});
-    commitEdit();
-    emit modelChanged();
-    return !newIds.empty();
+    return true;
 }
 
 bool DrawingDocumentController::canPaste() const

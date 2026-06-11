@@ -3040,6 +3040,24 @@ int main(int argc, char **argv)
         DrawingDocumentController fresh;
         assert(!fresh.canPaste());
         assert(!fresh.paste());
+
+        // Paste is ATOMIC (user decision 2026-06-11): if the clipboard's
+        // target layer has been locked since the copy, NOTHING lands — the
+        // old per-object loop would have half-pasted whatever it could.
+        DrawingDocumentController atomicPaste;
+        atomicPaste.setSelectedToolId("point_tool");
+        atomicPaste.clickCanvasNormalized(0.3, 0.3);
+        atomicPaste.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(atomicPaste.copySelection());
+        assert(atomicPaste.setActiveLayerLocked(true));
+        const int beforeLockedPaste = objectCount(atomicPaste);
+        assert(!atomicPaste.paste());
+        assert(objectCount(atomicPaste) == beforeLockedPaste);
+        // Unlock: the same clipboard pastes again — and the failed attempt
+        // reclaimed its serials, so ids continue without a gap.
+        assert(atomicPaste.setActiveLayerLocked(false));
+        assert(atomicPaste.paste());
+        assert(objectCount(atomicPaste) == beforeLockedPaste + 1);
     }
 
     // N3 object metadata: role / material / export_group / tags, editable

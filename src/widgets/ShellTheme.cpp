@@ -241,6 +241,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
             padding-left: 6px;
             padding-right: 6px;
         }
+        /* Activity-rail buttons are the spec's 34x34 squares (32px content
+           + 1px borders). The descendant selector scopes this to the rail —
+           the bottom-shelf tabs share #railButton and keep the 30px row.
+           Geometry lives here, not in setFixedSize: polish overwrites code
+           geometry with sheet geometry (the traffic-light lesson). */
+        #activityRail QPushButton {
+            min-width: 32px;
+            max-width: 32px;
+            min-height: 32px;
+            max-height: 32px;
+            padding: 0;
+        }
         QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
             color: @text@;
             background: @control@;

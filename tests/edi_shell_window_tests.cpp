@@ -1491,6 +1491,30 @@ int main(int argc, char **argv)
         assert(sectionProbe->height() <= 24);
     }
 
+    // Spec-minimum window (520x420): every title-bar control must stay
+    // inside the bar — chrome that clips at the supported minimum is chrome
+    // the user cannot click. Also pins the rail's 34x34 spec squares.
+    {
+        EdiShellWindow tiny;
+        tiny.resize(520, 420);
+        tiny.show();
+        QCoreApplication::processEvents();
+        QWidget *bar = tiny.findChild<QWidget *>(QStringLiteral("titleBar"));
+        assert(bar != nullptr);
+        for (QPushButton *control : bar->findChildren<QPushButton *>()) {
+            if (!control->isVisibleTo(bar)) {
+                continue;
+            }
+            const QRect inBar(control->mapTo(bar, QPoint(0, 0)), control->size());
+            assert(bar->rect().contains(inBar));
+        }
+        QWidget *rail = tiny.findChild<QWidget *>(QStringLiteral("activityRail"));
+        assert(rail != nullptr && rail->width() == 52);
+        for (QPushButton *railButton : rail->findChildren<QPushButton *>()) {
+            assert(railButton->size() == QSize(34, 34));
+        }
+    }
+
     // Workspace restore is not navigation: loading workspace.toml at startup
     // must leave the history a single root — Back used to be born enabled,
     // pointing at a factory default the user never visited. And pinned belt

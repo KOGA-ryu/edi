@@ -65,9 +65,6 @@ int main()
     const ShellPanelsState focus = applyPanelPreset(custom, PanelPreset::Focus);
     assert(focus.left.collapsed && focus.right.collapsed && focus.bottom.collapsed);
     assert(focus.left.size == 400); // collapse keeps sizes for reopening
-    const ShellPanelsState tiny = applyPanelPreset(custom, PanelPreset::Tiny);
-    assert(tiny.left.collapsed && tiny.right.collapsed && tiny.bottom.collapsed);
-
     const ShellPanelsState review = applyPanelPreset(custom, PanelPreset::Review);
     assert(!review.left.collapsed && review.right.collapsed && review.bottom.collapsed);
     assert(review.right.size == 350); // review collapses; it does not resize

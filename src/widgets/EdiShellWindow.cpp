@@ -52,8 +52,9 @@ using namespace edi::shell;
 
 namespace {
 
-// The built-in jobs. Layouts are data; these are merely the two the shell
-// ships with — loaded/saved ones replace them freely.
+// The built-in job. Layouts are data; this is merely the one the shell
+// ships with — loaded/saved ones replace it freely. (Settings is a pop-out
+// window, not a workspace, so it has no layout here.)
 WorkspaceLayout draftingWorkspaceLayout()
 {
     WorkspaceLayout layout;
@@ -81,7 +82,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // Spec §2 minimum (520x420) — auto-hide thresholds (640/520) must be
     // reachable, which the old 960x620 minimum made impossible by definition.
     setMinimumSize(520, 420);
-    resize(1280, 820);
+    resize(900, 760); // spec §2 first-run default; the settings restore overrides it
     if (m_framelessChrome) {
         setWindowFlag(Qt::FramelessWindowHint, true);
     }

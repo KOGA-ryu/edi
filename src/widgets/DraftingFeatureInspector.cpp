@@ -144,7 +144,11 @@ void DraftingFeature::applyInspectorPlan(const QVariantMap &selectedObject)
         visibleGroups.insert(QString::fromStdString(groupId));
     }
     for (auto it = m_inspectorGroups.cbegin(); it != m_inspectorGroups.cend(); ++it) {
-        it.value()->setVisible(visibleGroups.contains(it.key()));
+        // object_list is not a plan group (it shows in every context); a
+        // "hidden" panel assignment out-ranks any plan visibility.
+        const bool planVisible = visibleGroups.contains(it.key())
+            || it.key() == QStringLiteral("object_list");
+        it.value()->setVisible(planVisible && assignedPanelSlot(it.key()) != QStringLiteral("hidden"));
     }
 }
 

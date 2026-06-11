@@ -2307,9 +2307,17 @@ bool DrawingDocumentController::paste()
     // calibration patterns. The old per-object loop pasted the valid subset
     // when e.g. the clipboard's layer had been locked since the copy; that
     // best-effort path half-pasted copied groups and is deliberately gone.
+    // A stale rejection from an earlier failed action must not outlive a
+    // success (same discipline as createArrayFromActiveObject).
+    m_lastEditStatus.clear();
     if (!createObjectsAndSelect(std::move(plan.objects))) {
         m_nextObjectSerial = serialBefore; // nothing landed: reclaim the ids
-        return false;
+        // Cmd+V over a locked layer must say so: the only caller discards
+        // the bool, and canPaste() still reports true, so without a status
+        // a refused paste is indistinguishable from a broken shortcut.
+        return finishEdit(QStringLiteral("paste"), QStringLiteral("clipboard"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("paste rejected: clipboard target layer is locked or missing"));
     }
     return true;
 }

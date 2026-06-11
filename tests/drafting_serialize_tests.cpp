@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -179,6 +180,21 @@ int main()
         assert(restored.ok);
         assert(restored.value);
         assertDocumentsEqual(document, *restored.value);
+    }
+
+    // The read seam clamps untrusted alpha: a file carrying out-of-range or
+    // non-finite opacity decodes to a sane [0,1] value — every downstream
+    // consumer (projection, inspector spin, SVG emit gate) sees only that.
+    {
+        DraftingDocument hostile = buildSampleDocument();
+        hostile.objects[2].stroke.opacity = 7.0;   // encoder writes raw...
+        hostile.objects[2].fill.opacity = -3.0;
+        hostile.objects[3].stroke.opacity = std::numeric_limits<double>::quiet_NaN();
+        auto decoded = decodeDraftingDocument(encodeDraftingDocument(hostile), "fixture");
+        assert(decoded.ok);
+        assert(decoded.value->objects[2].stroke.opacity == 1.0); // ...the decoder clamps
+        assert(decoded.value->objects[2].fill.opacity == 0.0);
+        assert(decoded.value->objects[3].stroke.opacity == 1.0); // NaN -> fully opaque
     }
 
     // Byte-level round-trip is byte-stable across save/open/save.

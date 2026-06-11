@@ -124,5 +124,25 @@ int main()
         assert(paths == 2); // same pen, same color — alpha alone splits the look
     }
 
+    // Quantization consistency: an opacity that FORMATS to "1" (0.9996 at
+    // 3 decimals) must neither emit an attribute nor split its own path —
+    // the emit gate and the group key must share the same resolution.
+    {
+        DraftingPlotJob job;
+        DraftingPlotSegment nearOpaque = segment({0.1, 0.1}, {0.9, 0.1}, "pen_black", "#d7dde8", 2.0);
+        nearOpaque.opacity = 0.9996;
+        job.strokeSegments = {
+            nearOpaque,
+            segment({0.1, 0.5}, {0.9, 0.5}, "pen_black", "#d7dde8", 2.0), // exactly 1.0
+        };
+        const std::string nearSvg = svgFromPlotJob(job, page());
+        assert(nearSvg.find("stroke-opacity") == std::string::npos);
+        std::size_t paths = 0;
+        for (std::size_t at = nearSvg.find("<path"); at != std::string::npos; at = nearSvg.find("<path", at + 1)) {
+            ++paths;
+        }
+        assert(paths == 1); // same look at output resolution -> one path
+    }
+
     return 0;
 }

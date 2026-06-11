@@ -61,6 +61,12 @@ public:
     enum class DirtyGuardChoice { Save, Discard, Cancel };
     void setDirtyGuardPrompt(std::function<DirtyGuardChoice()> prompt);
     bool resolveDirtyGuard();
+    // The same data-not-dialog treatment for the two modals the Save choice
+    // can reach: the save-as file picker (a never-saved document) and the
+    // write-failure warning. Unset = real dialog; tests inject canned values
+    // so answering "Save" through the guard can never hang an offscreen run.
+    void setSaveAsPathProvider(std::function<QString()> provider);
+    void setSaveFailedNotice(std::function<void(const QString &path)> notice);
     // The guarded open every user-facing entry uses (menu, shortcut, recent
     // files); openDrawingFromPath above stays the unguarded mechanism.
     bool openDrawingFromPathGuarded(const QString &path);
@@ -221,6 +227,8 @@ private:
     QString m_currentDrawingPath;
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
+    std::function<QString()> m_saveAsPathProvider;
+    std::function<void(const QString &path)> m_saveFailedNotice;
     QString m_settingsPath;
     QString m_profilesDir;
     QString m_activeProfile;

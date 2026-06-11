@@ -87,9 +87,14 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
                 << ' ' << formatNumber(first.strokeWidth * 2.0) << "\"";
         }
         // Fully opaque is SVG's default — emit the attribute only when it
-        // says something, keeping existing documents byte-identical.
-        if (first.opacity < 1.0) {
-            out << " stroke-opacity=\"" << formatNumber(first.opacity) << "\"";
+        // says something AT OUTPUT RESOLUTION. Gating on the formatted text
+        // (not the raw double) keeps the gate consistent with the group key,
+        // which also uses formatNumber — key and attribute can never
+        // disagree about whether two segments share a look. Exact 1.0 still
+        // formats to "1", so existing documents stay byte-identical.
+        const std::string opacityText = formatNumber(first.opacity);
+        if (opacityText != "1") {
+            out << " stroke-opacity=\"" << opacityText << "\"";
         }
         out << " d=\"";
         bool firstSegment = true;

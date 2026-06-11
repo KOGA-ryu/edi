@@ -322,12 +322,19 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     painter.setBrush(Qt::NoBrush);
 
     if (kind == QStringLiteral("point")) {
+        // The point is its FILL — a faded ring around an opaque disc would
+        // make opacity a lie for the one kind whose body is brush-painted.
+        // Selection and plot-blocked stay opaque, same rules as the pen.
         const DrawingCanvasProjectedPointObject &pointObject = item.point;
         if (!pointObject.ok) {
             return;
         }
         const QPointF point = drawing_canvas::canvasToScreen(context.board, pointObject.x, pointObject.y);
-        painter.setBrush(selected ? context.palette.selection : context.palette.pointFill);
+        QColor fill = selected ? context.palette.selection : context.palette.pointFill;
+        if (!selected && !summary.plotBlocked) {
+            fill.setAlphaF(style.strokeOpacity);
+        }
+        painter.setBrush(fill);
         painter.drawEllipse(point, 4.0, 4.0);
     } else if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine &line = item.line;

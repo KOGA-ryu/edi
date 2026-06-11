@@ -457,12 +457,40 @@ int main(int argc, char **argv)
 
         const QImage frame = styleCanvas.grab().toImage();
         const QPoint mid = screenPointFor(styleController, styleCanvas, 0.5, 0.5).toPoint();
-        bool sawInk = false;
-        for (int dy = -4; dy <= 4 && !sawInk; ++dy) {
-            const QColor pixel(frame.pixel(mid + QPoint(0, dy)));
-            sawInk = pixel.red() > 0xc0 && pixel.green() < 0x60 && pixel.blue() < 0x60;
+        const auto scanForInk = [&](const QImage &image) {
+            for (int dy = -4; dy <= 4; ++dy) {
+                const QColor pixel(image.pixel(mid + QPoint(0, dy)));
+                if (pixel.red() > 0xc0 && pixel.green() < 0x60 && pixel.blue() < 0x60) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        assert(scanForInk(frame));
+
+        // Opacity is PEN ALPHA at the pixel level — the one hop the
+        // projection tests cannot see. Fade the line to 0 and the red ink
+        // must vanish from the same scan column (the edit bumps
+        // modelGeneration, so the static layer re-renders on grab).
+        clickCanvas(styleController, styleCanvas, 0.5, 0.5); // re-select the line
+        assert(styleController.setSelectedObjectStrokeOpacity(0.0));
+        clickCanvas(styleController, styleCanvas, 0.05, 0.05); // deselect again
+        assert(!scanForInk(styleCanvas.grab().toImage()));
+
+        // Selected objects stay fully visible regardless of opacity — a
+        // transparent object must still light up when picked, or it can
+        // never be found to edit.
+        clickCanvas(styleController, styleCanvas, 0.5, 0.5);
+        assert(styleController.selectedObjectId() != QString());
+        const QImage selectedFrame = styleCanvas.grab().toImage();
+        bool sawSelection = false;
+        for (int dy = -4; dy <= 4 && !sawSelection; ++dy) {
+            const QColor pixel(selectedFrame.pixel(mid + QPoint(0, dy)));
+            // Any clearly non-background ink counts: the selection restroke
+            // paints at full alpha in the selection color.
+            sawSelection = pixel.value() > 0x80 && pixel != QColor(selectedFrame.pixel(QPoint(2, 2)));
         }
-        assert(sawInk);
+        assert(sawSelection);
     }
 
     // Rulers paint: the band separators sit at the 20px lines in the

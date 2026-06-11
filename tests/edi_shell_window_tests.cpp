@@ -827,6 +827,19 @@ int main(int argc, char **argv)
             }
         }
         assert(foundFaded);
+
+        // The spin RE-READS the selected object: a freshly drawn (opaque)
+        // line resets it to 1.0, re-selecting the faded one restores 0.3.
+        // This is the assertion that dies if the refreshSpinValue line for
+        // the opacity spin is removed — the write-through check above
+        // passes either way because the test set the spin itself.
+        const QString fadedId = controller->selectedObjectId();
+        controller->clickCanvasNormalized(0.62, 0.78);
+        controller->clickCanvasNormalized(0.68, 0.78);
+        assert(controller->selectedObjectId() != fadedId);
+        assert(opacitySpin->value() == 1.0);
+        assert(controller->selectObjectById(fadedId));
+        assert(opacitySpin->value() == 0.3);
         controller->setSelectedToolId(QStringLiteral("select_move"));
     }
 
@@ -2031,6 +2044,56 @@ int main(int argc, char **argv)
         assert(window.openDrawingFromPathGuarded(guardPath));
         assert(promptCalls == 4);
         assert(!window.isDocumentDirty()); // back to the saved state
+
+        // The recent-files menu routes through the guard too — this is the
+        // WIRING test (reverting the menu lambda to the unguarded open
+        // passes the direct-method checks above but fails here).
+        controller->setSelectedToolId(QStringLiteral("point_tool"));
+        controller->clickCanvasNormalized(0.45, 0.45);
+        assert(window.isDocumentDirty());
+        window.setDirtyGuardPrompt([&promptCalls]() {
+            ++promptCalls;
+            return EdiShellWindow::DirtyGuardChoice::Cancel;
+        });
+        auto *recentMenu = window.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        assert(recentMenu != nullptr);
+        QAction *recentGuardAction = nullptr;
+        for (QAction *action : recentMenu->actions()) {
+            if (action->data().toString() == guardPath) {
+                recentGuardAction = action;
+            }
+        }
+        assert(recentGuardAction != nullptr);
+        const int beforeRecent = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        recentGuardAction->trigger();
+        assert(promptCalls == 5);          // the guard asked...
+        assert(window.isDocumentDirty());  // ...and Cancel kept the document
+        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeRecent);
+
+        // The Save choice REFUSES the action when the save cannot land.
+        // Removing the directory is NOT enough — the store mkpath()es
+        // parents back into existence — so a directory squats on the file
+        // path itself, which QSaveFile cannot open. The failure notice is
+        // injected (the real one is a modal).
+        int saveFailures = 0;
+        window.setSaveFailedNotice([&saveFailures](const QString &) { ++saveFailures; });
+        window.setDirtyGuardPrompt([&promptCalls]() {
+            ++promptCalls;
+            return EdiShellWindow::DirtyGuardChoice::Save;
+        });
+        assert(QFile::remove(guardPath));
+        assert(QDir(guardDir.path()).mkdir(QStringLiteral("guard.edidraw")));
+        assert(!window.close());
+        assert(promptCalls == 6);
+        assert(saveFailures == 1);
+        assert(window.isDocumentDirty()); // nothing was lost, nothing closed
+
+        // The block-local captures die with this scope: leave capture-free
+        // seams installed so the shared window never holds dangling
+        // references. Don't CLEAR them instead — an unset prompt falls back
+        // to the real modal QMessageBox and would hang the offscreen run.
+        window.setDirtyGuardPrompt([]() { return EdiShellWindow::DirtyGuardChoice::Cancel; });
+        window.setSaveFailedNotice([](const QString &) {});
     }
 
     return 0;

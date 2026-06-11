@@ -53,6 +53,16 @@ std::vector<FootprintShape> footprintOf(const ResolvedRecipe &resolved)
         } else if (step.shaperId == "cylinder") {
             const double radius = paramValue(step, "radius", 0.5);
             shapes.push_back({true, 0.0, 0.0, radius, radius});
+        } else if (step.shaperId == "lathe") {
+            // A turned part's footprint is the circle of its widest radius;
+            // radial grooves are surface detail like bevel, no footprint.
+            double maxRadius = 0.0;
+            for (const auto &point : step.profilePoints) {
+                maxRadius = std::max(maxRadius, point.x);
+            }
+            if (maxRadius > 0.0) {
+                shapes.push_back({true, 0.0, 0.0, maxRadius, maxRadius});
+            }
         } else if (step.shaperId == "array") {
             const int count = std::max(1, static_cast<int>(std::lround(paramValue(step, "count", 1.0))));
             const double offset = paramValue(step, "offset_x", 0.0);

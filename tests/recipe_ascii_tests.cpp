@@ -58,6 +58,36 @@ int main()
             "footprint: 2 x 2\n");
     }
 
+    // A lathe's footprint is the circle of its widest drafted radius: the
+    // profile below peaks at physical r = 1 (0.125 on a width-8 grid), so
+    // the silhouette matches the radius-1 cylinder exactly.
+    {
+        DraftingDocument profileDoc = makeDraftingDocument("lathe_ascii");
+        PolylineGeometry profile;
+        profile.vertices = {{0.125, 0.9}, {0.0625, 0.2}};
+        auto built = buildDraftingObject("profile", DraftingShapeKind::Polyline, profile);
+        assert(built.ok);
+        assert(addObject(profileDoc, built.object).ok);
+        DraftingGridSettings settings;
+        settings.width = 8.0;
+        settings.height = 4.0;
+
+        RecipeDocument recipe;
+        recipe.id = "turned";
+        assert(addShaperStep(recipe, "lathe").ok);
+        assert(setStepProfile(recipe, 0, "profile").ok);
+        const ResolvedRecipe resolved = resolveRecipe(recipe, profileDoc, projectDraftingGrid(settings));
+        assert(resolved.ok);
+        const RecipeAsciiResult ascii = renderRecipeAscii(resolved, 4, 4);
+        assert(ascii.ok);
+        assert(ascii.text ==
+            ".##.\n"
+            "####\n"
+            "####\n"
+            ".##.\n"
+            "footprint: 2 x 2\n");
+    }
+
     // Array: a 1x1 block repeated 3 times at spacing 2 — three islands with
     // exact gaps, footprint 5 wide. The silhouette shows the measured
     // spacing, which is the whole point of the preview.

@@ -49,6 +49,13 @@ const std::vector<ShaperSpec> &shaperTable()
         {"lathe", "Lathe", true, {{"segments", 64.0}, {"loc_z", 0.0}}, true},
         {"bevel", "Bevel", false, {{"width", 0.05}, {"segments", 2.0}}},
         {"array", "Array", false, {{"count", 2.0}, {"offset_x", 1.0}}},
+        // The indexing-head cut: count grooves spaced evenly around the
+        // current part (a turned column's flutes). The cutter bites `depth`
+        // into the surface at `at_radius`, spanning z_from..z_to — five
+        // numbers a drafter can point at, no angles to compute by hand.
+        {"radial_groove", "Radial Groove", false,
+         {{"count", 8.0}, {"cutter_radius", 0.05}, {"depth", 0.02},
+          {"at_radius", 0.5}, {"z_from", 0.0}, {"z_to", 1.0}}},
     };
     return table;
 }

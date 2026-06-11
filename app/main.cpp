@@ -1,8 +1,11 @@
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QTextStream>
 #include <QTimer>
+
+#include <algorithm>
 
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
@@ -83,8 +86,13 @@ int main(int argc, char **argv)
         QStringLiteral("probe"),
         QStringLiteral("Print the rendered color at x,y (repeatable), then exit."),
         QStringLiteral("x,y"));
+    const QCommandLineOption paintBenchOption(
+        QStringLiteral("paint-bench"),
+        QStringLiteral("Render the settled window N times, print ms/frame, then exit."),
+        QStringLiteral("N"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
+    parser.addOption(paintBenchOption);
     parser.process(app);
 
     EdiShellWindow window;
@@ -92,12 +100,28 @@ int main(int argc, char **argv)
     window.loadWorkspaceLayout(edi::io::defaultWorkspaceLayoutPath());
     window.show();
 
-    if (parser.isSet(snapshotOption) || parser.isSet(probeOption)) {
+    if (parser.isSet(snapshotOption) || parser.isSet(probeOption) || parser.isSet(paintBenchOption)) {
         // One settle delay instead of "grab immediately": palette placement,
         // deferred deletes and splitter sizing all finish within the first
         // event-loop turns; a fixed delay keeps the capture path dumb and the
         // image deterministic without wiring a "layout done" signal.
-        QTimer::singleShot(800, &window, [&app, &window, &parser, snapshotOption, probeOption] {
+        QTimer::singleShot(800, &window, [&app, &window, &parser, snapshotOption, probeOption, paintBenchOption] {
+            // The paint bench: render the whole window N times and report the
+            // average. grab() runs the real paintEvent pipeline, so this is
+            // the honest cost of one frame — the instrument for every canvas
+            // performance claim (numbers, not adjectives).
+            if (parser.isSet(paintBenchOption)) {
+                const int frames = std::max(1, parser.value(paintBenchOption).toInt());
+                QElapsedTimer timer;
+                timer.start();
+                for (int i = 0; i < frames; ++i) {
+                    window.grab();
+                }
+                const qint64 elapsed = timer.elapsed();
+                QTextStream(stdout) << "paint-bench: " << frames << " frames, "
+                                    << elapsed << " ms total, "
+                                    << (static_cast<double>(elapsed) / frames) << " ms/frame\n";
+            }
             runRenderProof(app, window,
                            parser.value(snapshotOption), parser.values(probeOption));
         });

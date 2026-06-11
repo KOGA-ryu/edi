@@ -1,6 +1,9 @@
 #pragma once
 
 #include <QPoint>
+#include <QPointF>
+#include <QPolygonF>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -12,12 +15,25 @@
 
 namespace edi::shell {
 
-// What a belt slot displays. Pure data: the widget renders glyphs and emits
-// ids; it has no idea what an id means (tools here, weapons elsewhere).
+// A drawn cell face in unit space ([0,1]^2, y down), scaled into the cell
+// at paint time. Pure data — polylines, ellipse bounding boxes, filled
+// dots — so faces are AUTHORED as coordinates, not painted as code, and
+// the widget needs no knowledge of what any face depicts. An empty face
+// falls back to the text glyph.
+struct BeltFace {
+    QVector<QPolygonF> polylines;
+    QVector<QRectF> ellipses;
+    QVector<QPointF> dots;
+    bool isEmpty() const { return polylines.isEmpty() && ellipses.isEmpty() && dots.isEmpty(); }
+};
+
+// What a belt slot displays. Pure data: the widget renders faces/glyphs and
+// emits ids; it has no idea what an id means (tools here, weapons elsewhere).
 struct BeltItem {
     QString id;
-    QString glyph;
+    QString glyph; // fallback when face is empty (and the unknown-id "?")
     QString tooltip;
+    BeltFace face;
 };
 
 } // namespace edi::shell

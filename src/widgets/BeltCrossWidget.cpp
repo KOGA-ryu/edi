@@ -255,8 +255,46 @@ void BeltCrossWidget::paintEvent(QPaintEvent *event)
         painter.fillRect(rect, colors.color(active ? QPalette::Highlight : QPalette::Base));
         painter.setPen(colors.color(QPalette::Mid));
         painter.drawRect(rect.adjusted(0, 0, -1, -1));
-        if (item != nullptr && !item->glyph.isEmpty()) {
-            painter.setPen(colors.color(active ? QPalette::HighlightedText : QPalette::Text));
+        if (item == nullptr) {
+            return;
+        }
+        const QColor ink = colors.color(active ? QPalette::HighlightedText : QPalette::Text);
+        if (!item->face.isEmpty()) {
+            // The face is unit-space data; scale it into the cell behind a
+            // 20% margin. Painted with AA and round caps — faces are tiny
+            // line art, and square 1px joins read as noise at 34px.
+            painter.save();
+            painter.setRenderHint(QPainter::Antialiasing, true);
+            const qreal margin = rect.width() * 0.2;
+            const QRectF canvas = QRectF(rect).adjusted(margin, margin, -margin, -margin);
+            const auto mapPoint = [&canvas](const QPointF &p) {
+                return QPointF(canvas.left() + p.x() * canvas.width(),
+                               canvas.top() + p.y() * canvas.height());
+            };
+            QPen pen(ink, 1.5);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter.setPen(pen);
+            painter.setBrush(Qt::NoBrush);
+            for (const QPolygonF &line : item->face.polylines) {
+                QPolygonF mapped;
+                mapped.reserve(line.size());
+                for (const QPointF &point : line) {
+                    mapped << mapPoint(point);
+                }
+                painter.drawPolyline(mapped);
+            }
+            for (const QRectF &ellipse : item->face.ellipses) {
+                painter.drawEllipse(QRectF(mapPoint(ellipse.topLeft()), mapPoint(ellipse.bottomRight())));
+            }
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(ink);
+            for (const QPointF &dot : item->face.dots) {
+                painter.drawEllipse(mapPoint(dot), 2.0, 2.0);
+            }
+            painter.restore();
+        } else if (!item->glyph.isEmpty()) {
+            painter.setPen(ink);
             painter.drawText(rect, Qt::AlignCenter, item->glyph);
         }
     };

@@ -6,6 +6,8 @@
 #include <QMouseEvent>
 #include <QPalette>
 #include <QPoint>
+#include <QPointF>
+#include <QPolygonF>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -297,6 +299,43 @@ int main(int argc, char **argv)
         const QPoint idleProbe = (activeCellCenter(1) + QPointF(10.0, 10.0)).toPoint();
         assert(QColor(frame.pixel(activeProbe)).name() == QStringLiteral("#445566"));
         assert(QColor(frame.pixel(idleProbe)).name() == QStringLiteral("#112233"));
+    }
+
+    // Drawn faces: unit-space geometry paints in ink (Text role) over the
+    // cell; an item without a face keeps the text glyph. The diagonal from
+    // (0,0) to (1,1) crosses the cell center — scan a 3x3 neighbourhood for
+    // an inked pixel so antialiasing cannot flake the assert.
+    {
+        BeltCrossWidget faceBelt;
+        faceBelt.setGridSize(1, 2);
+        QVector<BeltItem> faceItems(2);
+        faceItems[0] = item("t");
+        faceItems[0].face.polylines = {QPolygonF({QPointF(0.0, 0.0), QPointF(1.0, 1.0)})};
+        faceItems[1] = item("u"); // empty face -> glyph fallback
+        faceBelt.setItems(faceItems);
+        QPalette facePalette;
+        facePalette.setColor(QPalette::Base, QColor(QStringLiteral("#101010")));
+        facePalette.setColor(QPalette::Highlight, QColor(QStringLiteral("#202020")));
+        facePalette.setColor(QPalette::Mid, QColor(QStringLiteral("#303030")));
+        facePalette.setColor(QPalette::Text, QColor(QStringLiteral("#ffffff")));
+        facePalette.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#ffffff")));
+        faceBelt.setPalette(facePalette);
+        faceBelt.resize(faceBelt.sizeHint());
+        const QImage frame = faceBelt.grab().toImage();
+        const auto inkedNear = [&frame](const QPoint &center, int radius) {
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    if (QColor(frame.pixel(center + QPoint(dx, dy))).red() > 0x80) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        assert(inkedNear(activeCellCenter(0).toPoint(), 1)); // the diagonal crosses center
+        // The "U" glyph is hollow at its center — its strokes sit a few px
+        // out, so the fallback check scans the glyph's whole extent.
+        assert(inkedNear(activeCellCenter(1).toPoint(), 8));
     }
 
     return 0;

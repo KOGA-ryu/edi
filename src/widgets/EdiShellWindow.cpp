@@ -39,6 +39,7 @@
 #include "core/DrawingCore.h"
 #include "core/RecipeController.h"
 #include "io/ProfileStore.h"
+#include "widgets/BeltCrossWidget.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/FloatingPalette.h"
@@ -398,6 +399,15 @@ void EdiShellWindow::applyShellStyle()
     setStyleSheet(buildShellStyleSheet(theme));
     if (m_draftingFeature != nullptr && m_draftingFeature->canvas() != nullptr) {
         m_draftingFeature->canvas()->setCanvasPalette(drawing_canvas::deriveCanvasPalette(theme));
+    }
+    // Self-painting widgets read QPalette roles, which QSS cannot set from a
+    // rule — push the derived palette the same way the canvas gets its
+    // struct. findChildren keeps this mount-agnostic: belts live inside
+    // floating palettes that are rebuilt on workspace switches, and this
+    // runs again after every mount.
+    const QPalette paintingPalette = paintingPaletteFromTheme(theme);
+    for (BeltCrossWidget *belt : findChildren<BeltCrossWidget *>()) {
+        belt->setPalette(paintingPalette);
     }
 }
 

@@ -70,6 +70,8 @@ ShellTheme deriveShellTheme(const ShellThemeInputs &inputs);
 
 // Build the application stylesheet (QSS) from a resolved theme. Pure: same theme
 // in, same string out — no widget state touched.
+// (The QPalette adapter for self-painting widgets lives in ShellWidgetHelpers —
+// this module stays QtGui-free so shell_theme_tests links Core only.)
 QString buildShellStyleSheet(const ShellTheme &theme);
 
 } // namespace edi::shell

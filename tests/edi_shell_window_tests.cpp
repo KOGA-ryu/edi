@@ -1428,6 +1428,15 @@ int main(int argc, char **argv)
             const QPoint center = light->mapTo(&proof, QPoint(7, 7));
             assert(QColor(rendered.pixel(center)).name() == fill);
         }
+
+        // The belt paints through QPalette roles; applyShellStyle must push
+        // the theme-derived painting palette onto every mounted belt (the
+        // pixel-level proof lives in belt_cross_widget_tests).
+        auto *beltWidget = proof.findChild<BeltCrossWidget *>();
+        assert(beltWidget != nullptr);
+        assert(beltWidget->palette().color(QPalette::Base).name() == theme.control);
+        assert(beltWidget->palette().color(QPalette::Highlight).name() == theme.selected);
+        assert(beltWidget->palette().color(QPalette::Text).name() == theme.text);
     }
 
     // F1 empty state: the object list names its own absence ("No objects

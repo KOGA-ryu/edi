@@ -1,7 +1,10 @@
 #include "widgets/BeltCrossWidget.h"
 
 #include <QApplication>
+#include <QColor>
+#include <QImage>
 #include <QMouseEvent>
+#include <QPalette>
 #include <QPoint>
 #include <QString>
 #include <QStringList>
@@ -241,6 +244,33 @@ int main(int argc, char **argv)
         sendClick(belt, activeCellCenter(0));
         assert(belt.activeItemId().isEmpty());
         assert(emitted.size() == emittedBefore);
+    }
+
+    // Paint colors come from QPalette roles — the data channel the shell
+    // pushes a theme through (QSS cannot reach a custom paintEvent). Inject
+    // a palette, grab, and assert the roles land on pixels: Highlight fills
+    // the active cell, Base the idle cell. Probe points sit center+10,+10 —
+    // inside the 34px cell but clear of the centered glyph strokes.
+    {
+        BeltCrossWidget paintBelt;
+        paintBelt.setGridSize(2, 2);
+        QVector<BeltItem> paintItems(4);
+        paintItems[0] = item("p");
+        paintItems[1] = item("q");
+        paintBelt.setItems(paintItems);
+        QPalette paintPalette;
+        paintPalette.setColor(QPalette::Base, QColor(QStringLiteral("#112233")));
+        paintPalette.setColor(QPalette::Highlight, QColor(QStringLiteral("#445566")));
+        paintPalette.setColor(QPalette::Mid, QColor(QStringLiteral("#778899")));
+        paintPalette.setColor(QPalette::Text, QColor(QStringLiteral("#aabbcc")));
+        paintPalette.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#ddeeff")));
+        paintBelt.setPalette(paintPalette);
+        paintBelt.resize(paintBelt.sizeHint());
+        const QImage frame = paintBelt.grab().toImage();
+        const QPoint activeProbe = (activeCellCenter(0) + QPointF(10.0, 10.0)).toPoint();
+        const QPoint idleProbe = (activeCellCenter(1) + QPointF(10.0, 10.0)).toPoint();
+        assert(QColor(frame.pixel(activeProbe)).name() == QStringLiteral("#445566"));
+        assert(QColor(frame.pixel(idleProbe)).name() == QStringLiteral("#112233"));
     }
 
     return 0;

@@ -79,5 +79,28 @@ int main()
         assert(emptySvg.find("<svg") == 0);
     }
 
+    // Per-object styling reaches the SVG: dash becomes a dasharray, and a
+    // same-pen segment with a different color/style splits into its own
+    // <path> (the group key is pen + color + line style, not pen alone).
+    {
+        DraftingPlotJob job;
+        DraftingPlotSegment dashed = segment({0.1, 0.1}, {0.9, 0.1}, "pen_black", "#ff6600", 3.0);
+        dashed.lineStyle = "dash";
+        job.strokeSegments = {
+            dashed,
+            segment({0.1, 0.5}, {0.9, 0.5}, "pen_black", "#d7dde8", 2.0),
+        };
+        const std::string styledSvg = svgFromPlotJob(job, page());
+        assert(styledSvg.find("stroke=\"#ff6600\"") != std::string::npos);
+        assert(styledSvg.find("stroke-dasharray=") != std::string::npos);
+        assert(styledSvg.find("stroke=\"#d7dde8\"") != std::string::npos);
+        // Two looks, two paths — even on one physical pen.
+        std::size_t paths = 0;
+        for (std::size_t at = styledSvg.find("<path"); at != std::string::npos; at = styledSvg.find("<path", at + 1)) {
+            ++paths;
+        }
+        assert(paths == 2);
+    }
+
     return 0;
 }

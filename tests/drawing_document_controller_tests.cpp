@@ -3142,5 +3142,54 @@ int main(int argc, char **argv)
                             freed.value("bounds").toMap().value("height").toDouble()));
     }
 
+    // Per-object styling: the object's own stroke wins over the layer's,
+    // inherit sentinels (empty color / zero width) hand control back, and
+    // the whole edit is one undo step.
+    {
+        DrawingDocumentController styleController;
+        styleController.setSelectedToolId(QStringLiteral("line_tool"));
+        styleController.clickCanvasNormalized(0.2, 0.2);
+        styleController.clickCanvasNormalized(0.8, 0.8); // line, auto-selected
+
+        const auto activeProjection = [&styleController]() {
+            const QVariantMap model = styleController.modelDocument();
+            const QString activeId = model.value(QStringLiteral("active_object_id")).toString();
+            for (const QVariant &value : model.value(QStringLiteral("drawing_objects")).toList()) {
+                const QVariantMap object = value.toMap();
+                if (object.value(QStringLiteral("id")).toString() == activeId) {
+                    return object;
+                }
+            }
+            return QVariantMap{};
+        };
+
+        const QString layerColor = activeProjection().value(QStringLiteral("effective_stroke_color")).toString();
+        assert(!layerColor.isEmpty());
+
+        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff6600")));
+        assert(styleController.setSelectedObjectStrokeWidth(4.5));
+        assert(styleController.setSelectedObjectLineStyle(QStringLiteral("dash")));
+        QVariantMap styled = activeProjection();
+        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == QStringLiteral("#ff6600"));
+        assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
+        assert(styled.value(QStringLiteral("effective_line_style")).toString() == QStringLiteral("dash"));
+        // An art color keeps the layer's physical pen (no preset match).
+        assert(styled.value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_black"));
+        // A preset color SELECTS its pen.
+        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#75c7ff")));
+        assert(activeProjection().value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_blue"));
+
+        // Inherit sentinels hand control back to the layer.
+        assert(styleController.setSelectedObjectStrokeColor(QString()));
+        assert(styleController.setSelectedObjectStrokeWidth(0.0));
+        styled = activeProjection();
+        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor);
+
+        // Undo walks the style edits back one command at a time.
+        assert(styleController.undo());
+        styled = activeProjection();
+        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor); // width undo
+    }
+
     return 0;
 }

@@ -435,5 +435,28 @@ int main(int argc, char **argv)
         assert(zoomSignals == 3);
     }
 
+    // Per-object styling paints: a line given its own color renders that
+    // color on canvas (scan across the stroke's midpoint for the ink).
+    {
+        DrawingDocumentController styleController;
+        DrawingCanvasWidget styleCanvas(&styleController);
+        styleCanvas.resize(600, 450);
+        styleController.setSelectedToolId(QStringLiteral("line_tool"));
+        clickCanvas(styleController, styleCanvas, 0.2, 0.5);
+        clickCanvas(styleController, styleCanvas, 0.8, 0.5);
+        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff2200")));
+        styleController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(styleController, styleCanvas, 0.05, 0.05); // deselect: selection restroke would mask the color
+
+        const QImage frame = styleCanvas.grab().toImage();
+        const QPoint mid = screenPointFor(styleController, styleCanvas, 0.5, 0.5).toPoint();
+        bool sawInk = false;
+        for (int dy = -4; dy <= 4 && !sawInk; ++dy) {
+            const QColor pixel(frame.pixel(mid + QPoint(0, dy)));
+            sawInk = pixel.red() > 0xc0 && pixel.green() < 0x60 && pixel.blue() < 0x60;
+        }
+        assert(sawInk);
+    }
+
     return 0;
 }

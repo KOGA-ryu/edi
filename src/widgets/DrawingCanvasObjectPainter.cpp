@@ -340,6 +340,12 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     if (summary.plotBlocked) {
         pen.setColor(context.palette.safetyWarning);
     }
+    // Per-object line style, the guide vocabulary applied to shapes.
+    if (style.lineStyle == QStringLiteral("dash")) {
+        pen.setStyle(Qt::DashLine);
+    } else if (style.lineStyle == QStringLiteral("dot")) {
+        pen.setStyle(Qt::DotLine);
+    }
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);

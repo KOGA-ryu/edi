@@ -42,6 +42,7 @@ struct DraftingPlotSegment {
     std::string penId;
     std::string strokeColor;
     double strokeWidth = 0.0;
+    std::string lineStyle = "solid";
 };
 
 struct DraftingPlotTravelSegment {

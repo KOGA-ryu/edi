@@ -115,6 +115,12 @@ public:
     bool updateSelectedObjectGeometryField(const QString &fieldId, double value);
     bool updateSelectedObjectPhysicalGeometryField(const QString &fieldId, double value);
     bool setSelectedObjectLocked(bool locked);
+    // Per-object styling (the Style inspector group). Empty color or width
+    // <= 0 mean "inherit the layer's plot style" — going back to the layer
+    // is itself a styling decision, so the sentinels are legal inputs.
+    bool setSelectedObjectStrokeColor(const QString &color);
+    bool setSelectedObjectStrokeWidth(double width);
+    bool setSelectedObjectLineStyle(const QString &lineStyle);
     bool setSelectedObjectVisible(bool visible);
     bool setSelectedGuideLabel(const QString &label);
     bool setSelectedGuideColor(const QString &color);

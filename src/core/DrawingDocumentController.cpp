@@ -1047,6 +1047,48 @@ bool DrawingDocumentController::updateSelectedObjectPhysicalGeometryField(const 
         });
 }
 
+bool DrawingDocumentController::setSelectedObjectStrokeColor(const QString &color)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    StrokeStyle stroke = object->stroke;
+    stroke.color = color.trimmed().toStdString();
+    return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
+}
+
+bool DrawingDocumentController::setSelectedObjectStrokeWidth(double width)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    StrokeStyle stroke = object->stroke;
+    stroke.width = width;
+    return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
+}
+
+bool DrawingDocumentController::setSelectedObjectLineStyle(const QString &lineStyle)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    StrokeStyle stroke = object->stroke;
+    stroke.lineStyle = lineStyle.toStdString();
+    return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
+}
+
 bool DrawingDocumentController::setSelectedObjectLocked(bool locked)
 {
     const DraftingObject *object = activeObject(m_document);

@@ -62,6 +62,14 @@ struct UpdateObjectFlagsCommand {
     bool visible = true;
 };
 
+// Per-object stroke styling (color/width/lineStyle/opacity). Inherit
+// sentinels (empty color, width 0) are legal values: "go back to the
+// layer's style" is itself a styling decision.
+struct UpdateStrokeStyleCommand {
+    DraftingObjectId objectId;
+    StrokeStyle stroke;
+};
+
 struct SetAllGuidesVisibleCommand {
     bool visible = true;
 };
@@ -133,6 +141,7 @@ using DraftingCommand = std::variant<
     UpdateGeometryCommand,
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,
+    UpdateStrokeStyleCommand,
     SetAllGuidesVisibleCommand,
     SetAllGuidesLockedCommand,
     MoveObjectToLayerCommand,

@@ -32,6 +32,7 @@ struct DrawingCanvasProjectedObjectSummary {
 struct DrawingCanvasProjectedStyle {
     QString strokeColor = QStringLiteral("#d7dde8");
     double strokeWidth = 2.0;
+    QString lineStyle = QStringLiteral("solid"); // solid | dash | dot
 };
 
 struct DrawingCanvasProjectedPointObject {

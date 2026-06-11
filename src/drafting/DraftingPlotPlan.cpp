@@ -1,5 +1,7 @@
 #include "drafting/DraftingPlotPlan.h"
 
+#include "drafting/DraftingLayerOps.h"
+
 #include "drafting/DraftingGeometry.h"
 
 #include <algorithm>
@@ -85,6 +87,16 @@ void appendSegment(
     Point2D a,
     Point2D b)
 {
+    // Segments carry the RESOLVED stroke (object wins, layer fills) and the
+    // physically honest pen: a preset color selects its pen, an arbitrary
+    // art color keeps the layer's pen — SVG gets the true color either way.
+    const StrokeStyle stroke = effectiveObjectStroke(object, layer);
+    // Pen mapping applies ONLY to a color the OBJECT chose: an inherited
+    // color means the layer's pen choice stands verbatim (including a
+    // deliberately empty pen, which the readiness checks must still see).
+    const std::string penId = object.stroke.color.empty()
+        ? layer.plot.penId
+        : penIdForStrokeColor(stroke.color, layer.plot.penId);
     plan.segments.push_back({
         object.id,
         object.layerId,
@@ -92,9 +104,10 @@ void appendSegment(
         b,
         a,
         b,
-        layer.plot.penId,
-        layer.plot.strokeColor,
-        layer.plot.strokeWidth,
+        penId,
+        stroke.color,
+        stroke.width,
+        stroke.lineStyle,
     });
 }
 

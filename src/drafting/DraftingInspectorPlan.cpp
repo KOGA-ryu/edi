@@ -17,12 +17,12 @@ const std::vector<ContextGroupsRow> &contextTable()
     static const std::vector<ContextGroupsRow> table = {
         // A drawable shape: identity, numeric geometry, transforms, and the
         // guide-creation helpers that act on the selection's bounds.
-        {"object_shape", {"selection_summary", "geometry", "transform", "object_guides"}},
+        {"object_shape", {"selection_summary", "style", "geometry", "transform", "object_guides"}},
         // A guide edits through its own positioning controls; transforms and
         // bounds-guides do not apply to it.
         {"object_guide", {"selection_summary", "geometry", "guide_position", "guide_visuals"}},
-        {"object_construction", {"selection_summary", "geometry", "construction", "transform"}},
-        {"object_dimension", {"selection_summary", "geometry", "dimension"}},
+        {"object_construction", {"selection_summary", "style", "geometry", "construction", "transform"}},
+        {"object_dimension", {"selection_summary", "style", "geometry", "dimension"}},
         // Interim home for document-wide controls (layers, guide presets,
         // calibration, plot/canvas state): the neutral select tool with
         // nothing selected means "configure the document". These groups move

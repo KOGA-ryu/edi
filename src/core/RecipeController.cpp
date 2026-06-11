@@ -59,3 +59,12 @@ bool RecipeController::bindParam(int stepIndex, const QString &paramId,
     return apply(bindParamToMeasurement(m_document, static_cast<std::size_t>(stepIndex),
         paramId.toStdString(), {objectId.toStdString(), field.toStdString()}));
 }
+
+bool RecipeController::setStepProfile(int stepIndex, const QString &objectId)
+{
+    if (stepIndex < 0) {
+        return false;
+    }
+    return apply(edi::recipe::setStepProfile(m_document, static_cast<std::size_t>(stepIndex),
+        objectId.toStdString()));
+}

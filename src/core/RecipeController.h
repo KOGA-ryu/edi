@@ -27,6 +27,7 @@ public:
     bool moveStep(int from, int to);
     bool setParamLiteral(int stepIndex, const QString &paramId, double value);
     bool bindParam(int stepIndex, const QString &paramId, const QString &objectId, const QString &field);
+    bool setStepProfile(int stepIndex, const QString &objectId);
 
 signals:
     void recipeChanged();

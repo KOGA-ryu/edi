@@ -1,12 +1,16 @@
 #pragma once
 
+#include <QPixmap>
 #include <QString>
 #include <QVariantMap>
 #include <QWidget>
 
 #include "widgets/DrawingCanvasGestureState.h"
+#include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasPalette.h"
 #include "widgets/DrawingCanvasViewport.h"
+
+#include <vector>
 
 class DrawingDocumentController;
 
@@ -46,6 +50,11 @@ private:
     QVariantMap selectedObjectProjection() const;
     QString hitSelectedHandle(const QPointF &screenPoint) const;
     void drawPhysicalGrid(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
+    // The typed scene: objects pre-extracted into painter structs, rebuilt
+    // only when the controller's generation moves. Steady-state frames
+    // (mouse tracking, zoom, pan) paint typed items and never touch
+    // QVariantMap — the map-unpack-per-object-per-frame cost is gone.
+    const std::vector<drawing_canvas::DrawingCanvasSceneItem> &sceneItems(const QVariantMap &model) const;
     void drawPointerSnapMarker(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
     void drawGuideDragSnapIntent(QPainter &painter, const QRectF &board, const QVariantMap &model) const;
     void drawPlotPreview(QPainter &painter, const QRectF &board, const QVariantMap &plotSummary) const;
@@ -58,6 +67,16 @@ private:
     // will pass a custom palette through here.
     drawing_canvas::DrawingCanvasPalette m_palette;
     drawing_canvas::DrawingCanvasGestureState m_gestureState;
+    mutable std::vector<drawing_canvas::DrawingCanvasSceneItem> m_sceneCache;
+    mutable quint64 m_sceneGeneration = 0; // 0 = never built
+    // The static layer: backdrop + grid + every document object, rendered
+    // once per (mutation, viewport) and blitted per frame. Sampling showed
+    // steady frames were 97% software AA line rasterization — the only way
+    // to not pay it per mouse move is to not rasterize per mouse move.
+    mutable QPixmap m_staticLayer;
+    mutable quint64 m_staticGeneration = 0;
+    mutable QRectF m_staticBoard;
+    mutable QSize m_staticSize;
     QPointF m_lastDragCanvasPoint;
     bool m_plotPreviewVisible = false;
     double m_zoom = 1.0;

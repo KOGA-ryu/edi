@@ -42,6 +42,10 @@ public:
     // Dirty = content differs from the last save/open, ignoring selection (which
     // is excluded from undo too), so merely selecting an object is not "dirty".
     bool isDocumentDirty() const;
+    // Monotonic counter bumped by every modelChanged emission — the cache
+    // key for anything derived from the document projection (the canvas
+    // scene cache keys on it; modelDocument's own cache uses it too).
+    quint64 modelGeneration() const { return m_modelGeneration; }
     bool undo();
     bool redo();
     bool canUndo() const;

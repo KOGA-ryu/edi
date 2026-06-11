@@ -1589,7 +1589,9 @@ bool DrawingDocumentController::mirrorSelectedObject(const QString &axisId)
 
 bool DrawingDocumentController::repeatSelectedObject(const QString &axisId)
 {
-    const std::optional<DraftingArrayRepeatSettings> settings = draftingArrayRepeatSettingsFromAxisId(toStdString(axisId));
+    // Legacy defaults (3 copies, 0.1 spacing) pinned at the call site until
+    // the tool-option state lands; the planner itself is fully parametric.
+    const std::optional<DraftingArrayRepeatSettings> settings = draftingArrayRepeatSettingsFromAxisId(toStdString(axisId), 3, 0.1);
     if (!settings) {
         return false;
     }

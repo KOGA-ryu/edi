@@ -113,11 +113,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
     // literal "%" behind for a test to catch. Named markers cannot shift, a
     // leftover "@" is detectable, and the QSS reads as documentation.
     QString sheet = QStringLiteral(R"(
+        /* Stylesheet fonts do NOT propagate to children the way setFont
+           does — a font on #shellRoot styles only the root widget itself.
+           The universal selector is the QSS-native way to reach every
+           widget; per-widget rules below still override size/weight. */
+        QWidget {
+            font-family: "@uiFont@", "Inter", sans-serif;
+            font-size: @fontBody@px;
+            font-weight: 400;
+        }
         #shellRoot {
             background: @base@;
             color: @text@;
-            font-family: "@uiFont@", "Inter", sans-serif;
-            font-size: @fontBody@px;
         }
         #activityRail {
             background: @base@;
@@ -151,11 +158,14 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @textMuted@;
             font-size: @fontSm@px;
         }
+        /* Section headers per spec §4: UPPERCASE, xs, textFaint, semibold —
+           quiet signposts, not accented controls. The fold toggle keeps a
+           hover affordance because it IS a control. */
         #sectionToggle {
             background: transparent;
             border: none;
-            color: @accent@;
-            font-size: @fontSm@px;
+            color: @textFaint@;
+            font-size: @fontXs@px;
             font-weight: 600;
             padding: 8px 0px 0px 0px;
             text-align: left;
@@ -164,8 +174,8 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @text@;
         }
         #sectionLabel {
-            color: @accent@;
-            font-size: @fontSm@px;
+            color: @textFaint@;
+            font-size: @fontXs@px;
             font-weight: 600;
             padding-top: 8px;
             text-transform: uppercase;
@@ -175,6 +185,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: transparent;
             border: none;
             padding: 2px 0;
+        }
+        #bottomStatus {
+            font-family: "@codeFont@", monospace;
+            font-size: @fontSm@px;
         }
         #fieldLabel {
             color: @textMuted@;
@@ -205,6 +219,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-radius: 5px;
             padding: 4px 8px;
             text-align: left;
+            font-weight: 500; /* spec: controls are medium weight */
         }
         QPushButton:hover {
             background: @controlHover@;
@@ -213,6 +228,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QPushButton:pressed, QPushButton:checked {
             background: @selected@;
             border-color: @borderFocus@;
+            font-weight: 600; /* spec: selected/active is semibold */
         }
         QPushButton:disabled {
             color: @disabled@;
@@ -380,8 +396,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@trafficZoom@", t.trafficZoom},
         {"@trafficZoomEdge@", t.trafficZoomEdge},
         {"@uiFont@", t.uiFont},
+        {"@codeFont@", t.codeFont},
         {"@fontBody@", QString::number(t.fontSizeBody)},
         {"@fontSm@", QString::number(t.fontSizeSm)},
+        {"@fontXs@", QString::number(t.fontSizeXs)},
         {"@fontTitle@", QString::number(t.fontSizeTitle)},
     };
     for (const auto &[marker, value] : tokens) {

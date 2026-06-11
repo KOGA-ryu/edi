@@ -90,6 +90,8 @@ int main()
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeBody)));
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeTitle)));
     assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeSm)));
+    assert(qss.contains(QStringLiteral("font-size: %1px").arg(t.fontSizeXs)));
+    assert(qss.contains(t.codeFont)); // the mono consumer (bottom-shelf readout)
 
     // The sheet covers every selector the shell relies on — these names are the
     // contract between the builder and the widgets' objectName() values, so a

@@ -1437,6 +1437,14 @@ int main(int argc, char **argv)
         assert(beltWidget->palette().color(QPalette::Base).name() == theme.control);
         assert(beltWidget->palette().color(QPalette::Highlight).name() == theme.selected);
         assert(beltWidget->palette().color(QPalette::Text).name() == theme.text);
+
+        // Typography: stylesheet fonts do not propagate like setFont — the
+        // universal QWidget rule is what carries the theme face/size to every
+        // control. A deep child (a panel button) proves the rule reaches it.
+        QPushButton *fontProbe = buttonNamed(proof, QStringLiteral("toggleLeftPanel"));
+        assert(fontProbe != nullptr);
+        assert(fontProbe->font().pixelSize() == theme.fontSizeBody);
+        assert(fontProbe->font().family() == theme.uiFont);
     }
 
     // F1 empty state: the object list names its own absence ("No objects

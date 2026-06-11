@@ -108,7 +108,7 @@ int main()
              "QFrame[chromePopup=\"true\"]", "#settingsWindow",
              "QListWidget::item:selected", "#objectListEmpty",
              "QScrollBar::handle:vertical", "QAbstractSpinBox::up-button",
-             "QComboBox:disabled", "QCheckBox::indicator:disabled",
+             "QComboBox:disabled", "QCheckBox::indicator:checked:disabled",
              "#titleBar QPushButton[panelState=\"auto_hidden\"]",
              "QSplitter::handle:horizontal:hover",
              "QCheckBox::indicator:checked", "QSplitter::handle",

@@ -23,7 +23,7 @@
 
 namespace edi::shell {
 
-QPalette paintingPaletteFromTheme(const ShellTheme &t)
+QPalette derivePaintingPalette(const ShellTheme &t)
 {
     // Role mapping for self-painting widgets (the belt cross): Base is the
     // idle cell well, Highlight the active cell, Mid the cell border, Text

@@ -423,7 +423,7 @@ void EdiShellWindow::applyShellStyle()
     // struct. findChildren keeps this mount-agnostic: belts live inside
     // floating palettes that are rebuilt on workspace switches, and this
     // runs again after every mount.
-    const QPalette paintingPalette = paintingPaletteFromTheme(theme);
+    const QPalette paintingPalette = derivePaintingPalette(theme);
     for (BeltCrossWidget *belt : findChildren<BeltCrossWidget *>()) {
         belt->setPalette(paintingPalette);
     }
@@ -520,7 +520,26 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
         return ids;
     };
     hooks.setBeltToolIds = [this](const QStringList &enabledIds) {
-        m_workspaceLayout.belt = DraftingFeature::beltLayoutForTools(enabledIds);
+        BeltLayout next = DraftingFeature::beltLayoutForTools(enabledIds);
+        // Pins survive a checklist edit: rows are tool-stable (each tool owns
+        // its beltRow in the spec table), so carry the pin set over and drop
+        // only pins whose row lost its last tool. Pruned HERE, in the layout
+        // data, with the same rule the widget applies — if only the widget
+        // pruned, the layout would keep stale pins that resurrect on the
+        // next restore. (Review find: the wholesale replacement used to wipe
+        // every pin, live and persisted, on any checkbox toggle.)
+        for (const int row : m_workspaceLayout.belt.pinnedRows) {
+            if (row < 0 || row >= next.rows) {
+                continue;
+            }
+            for (int column = 0; column < next.columns; ++column) {
+                if (!next.itemIds[static_cast<std::size_t>(row) * next.columns + column].isEmpty()) {
+                    next.pinnedRows.push_back(row);
+                    break;
+                }
+            }
+        }
+        m_workspaceLayout.belt = next;
         if (m_draftingFeature != nullptr) {
             m_draftingFeature->refreshBelt(m_workspaceLayout.belt);
         }

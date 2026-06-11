@@ -1499,6 +1499,10 @@ int main(int argc, char **argv)
         tiny.resize(520, 420);
         tiny.show();
         QCoreApplication::processEvents();
+        // The window must actually sit at the claimed minimum — if a layout
+        // minimum forced it larger, every containment assert below would
+        // pass vacuously at the wrong size.
+        assert(tiny.size() == QSize(520, 420));
         QWidget *bar = tiny.findChild<QWidget *>(QStringLiteral("titleBar"));
         assert(bar != nullptr);
         for (QPushButton *control : bar->findChildren<QPushButton *>()) {
@@ -1550,6 +1554,47 @@ int main(int argc, char **argv)
         auto *loaderBelt = loader.findChild<BeltCrossWidget *>();
         assert(loaderBelt != nullptr);
         assert(loaderBelt->pinnedRows() == std::vector<int>{0}); // the quick-bar survived restart
+    }
+
+    // Review find: a Tool Belt checklist edit must not wipe pinned
+    // quick-bars. Rows are tool-stable, so pins survive any toggle whose row
+    // still holds a tool; only a row that lost its LAST tool drops its pin.
+    {
+        EdiShellWindow checklist;
+        checklist.resize(1100, 760);
+        checklist.show();
+        QCoreApplication::processEvents();
+        auto *checklistBelt = checklist.findChild<BeltCrossWidget *>();
+        assert(checklistBelt != nullptr);
+        const QPointF nub(5.0, 21.0 + 17.0);
+        QMouseEvent nubPress(QEvent::MouseButtonPress, nub,
+                             checklistBelt->mapToGlobal(nub.toPoint()), Qt::LeftButton,
+                             Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(checklistBelt, &nubPress);
+        assert(checklistBelt->pinnedRows() == std::vector<int>{0}); // select row frozen
+
+        // Drive the same hook the settings checklist uses: open the settings
+        // window and uncheck one tool that is NOT on the pinned row.
+        QPushButton *settingsRail = nullptr;
+        for (QPushButton *button : checklist.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("settings")) {
+                settingsRail = button;
+            }
+        }
+        assert(settingsRail != nullptr);
+        settingsRail->click();
+        QCheckBox *circleToggle = nullptr;
+        for (QCheckBox *box : checklist.findChildren<QCheckBox *>(QStringLiteral("beltToolCheckbox"))) {
+            if (box->property("toolId").toString() == QStringLiteral("circle_tool")) {
+                circleToggle = box;
+            }
+        }
+        assert(circleToggle != nullptr && circleToggle->isChecked());
+        circleToggle->click();
+        // The belt was re-dressed in place; the frozen quick-bar survived.
+        auto *redressedBelt = checklist.findChild<BeltCrossWidget *>();
+        assert(redressedBelt != nullptr);
+        assert(redressedBelt->pinnedRows() == std::vector<int>{0});
     }
 
     // Panel-toggle tri-state (spec §3): the chrome distinguishes a panel the

@@ -353,16 +353,14 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QCheckBox:disabled {
             color: @disabled@;
         }
-        QCheckBox::indicator:disabled {
-            background: @control@;
-            border: 1px solid @borderMinor@;
-        }
-        /* Toggle-switch track (spec §4): 28x14 pill, accentSoft when on.
-           Track-only — the spec allows plain QSS if it reads; a painted
-           knob would need custom paint for one ornament. */
+        /* Toggle-switch track (spec §4): a 28x14 pill — 26x12 QSS content
+           + 1px borders (the same box math as the traffic lights; width/
+           height bound the CONTENT box). accentSoft when on. Track-only —
+           the spec allows plain QSS if it reads; a painted knob would need
+           custom paint for one ornament. */
         QCheckBox::indicator {
-            width: 28px;
-            height: 14px;
+            width: 26px;
+            height: 12px;
             border-radius: 7px;
         }
         QCheckBox::indicator:unchecked {
@@ -372,6 +370,15 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QCheckBox::indicator:checked {
             background: @accentSoft@;
             border: 1px solid @borderFocus@;
+        }
+        /* Disabled tracks must out-specify the state rules above (two
+           pseudo-states beat one, regardless of order) — a bare
+           ':disabled' rule here is DEAD: every indicator is also :checked
+           or :unchecked, and equal specificity lets document order win. */
+        QCheckBox::indicator:unchecked:disabled,
+        QCheckBox::indicator:checked:disabled {
+            background: @control@;
+            border: 1px solid @borderMinor@;
         }
         /* Scrollbars: a quiet 8px rail — transparent track, token handle,
            no stepper buttons (zero-height add/sub-line), matching the
@@ -386,10 +393,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
             height: 8px;
             margin: 0;
         }
+        /* QSS reads the slider's minimum LENGTH from min-height vertically
+           but min-WIDTH horizontally — one shared min-height would leave a
+           horizontal handle free to shrink into an ungrabbable sliver. */
         QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
             background: @borderMajor@;
             border-radius: 3px;
+        }
+        QScrollBar::handle:vertical {
             min-height: 24px;
+        }
+        QScrollBar::handle:horizontal {
+            min-width: 24px;
         }
         QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
             background: @accentSoft@;
@@ -586,8 +601,16 @@ QString buildToolTipStyleSheet(const ShellTheme &t)
     // reaches them, only the application stylesheet does. This tiny sheet is
     // the ONLY thing the shell sets at app scope; everything else stays on
     // the window so two mechanisms can't fight over the same selectors.
-    return QStringLiteral("QToolTip { background: %1; color: %2; border: 1px solid %3; padding: 4px 6px; }")
-        .arg(t.surfaceRaised, t.text, t.borderMajor);
+    // Named markers, not .arg() — same policy as the main builder above:
+    // positional substitution is exactly the mechanism that once shifted
+    // silently there, and one file should not argue with itself.
+    QString sheet = QStringLiteral(
+        "QToolTip { background: @surfaceRaised@; color: @text@; "
+        "border: 1px solid @borderMajor@; padding: 4px 6px; }");
+    sheet.replace(QLatin1String("@surfaceRaised@"), t.surfaceRaised);
+    sheet.replace(QLatin1String("@text@"), t.text);
+    sheet.replace(QLatin1String("@borderMajor@"), t.borderMajor);
+    return sheet;
 }
 
 } // namespace edi::shell

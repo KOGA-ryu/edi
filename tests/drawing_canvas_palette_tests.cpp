@@ -26,14 +26,21 @@ int main()
     assert(p.safetyWarning == QColor(theme.danger));
     assert(p.snapFree == QColor(theme.textMuted));
 
-    // Behavior preservation: under the default theme, every member is exactly
-    // the literal the painters used before the palette existed. This is the
-    // contract that made extracting the palette a pure refactor.
-    assert(p.backdrop == QColor("#17191f"));
-    assert(p.boardFill == QColor("#222630"));
-    assert(p.boardOutline == QColor("#3d4452"));
-    assert(p.gridMajor == QColor("#465162"));
-    assert(p.gridMinor == QColor("#313744"));
+    // Structural surfaces derive from the theme (spec §1 unification). The
+    // ratios were chosen so the default inputs land within a few units per
+    // channel of the legacy fixed family (#17191f/#222630/#3d4452/#465162/
+    // #313744) — goldens below are the hand-computed derived values, which
+    // supersede the old behavior-preservation literals deliberately.
+    assert(p.backdrop == QColor(edi::shell::mixHex(theme.surface, theme.base, 0.35)));
+    assert(p.boardFill == QColor(theme.workspaceBody));
+    assert(p.boardOutline == QColor(theme.accentSoft));
+    assert(p.gridMajor == QColor(edi::shell::mixHex(theme.surface, theme.accent, 0.35)));
+    assert(p.gridMinor == QColor(edi::shell::mixHex(theme.surface, theme.accent, 0.17)));
+    assert(p.backdrop == QColor("#151a20"));     // legacy #17191f, off (2,1,1)
+    assert(p.boardFill == QColor("#232930"));    // legacy #222630, off (1,3,0)
+    assert(p.boardOutline == QColor("#364453")); // legacy #3d4452, off (7,0,1)
+    assert(p.gridMajor == QColor("#415263"));    // legacy #465162, off (5,1,1)
+    assert(p.gridMinor == QColor("#2b3743"));    // legacy #313744, off (6,0,1)
     assert(p.drawableBounds == QColor("#8fb4d8"));
     assert(p.originMarker == QColor("#d5bb78"));
     // Not the painter's old "#9aa8b6": that literal copied the legacy QML's
@@ -59,15 +66,20 @@ int main()
     assert(p.dimension == QColor("#b6d28f"));
     assert(p.pointFill == QColor("#d7dde8"));
 
-    // Re-deriving from a re-tuned theme moves the token-backed members and
-    // leaves the canvas-specific ones alone.
+    // Re-deriving from a re-tuned theme moves the token-backed members AND
+    // the accent-ray structural lines; text/base-derived surfaces and the
+    // canvas-specific hues hold still.
     ShellThemeInputs pink;
     pink.accent = QStringLiteral("#d46ca1");
     const DrawingCanvasPalette q = deriveCanvasPalette(deriveShellTheme(pink));
     assert(q.snapGrid == QColor("#d46ca1"));
     assert(q.snapGrid != p.snapGrid);
     assert(q.selection == p.selection);
-    assert(q.boardFill == p.boardFill);
+    assert(q.boardFill == p.boardFill);   // workspaceBody is text-derived
+    assert(q.backdrop == p.backdrop);     // base/surface unchanged
+    assert(q.gridMajor != p.gridMajor);   // accent ray follows the accent
+    assert(q.gridMinor != p.gridMinor);
+    assert(q.boardOutline != p.boardOutline);
 
     return 0;
 }

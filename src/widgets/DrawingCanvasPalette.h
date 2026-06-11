@@ -14,7 +14,8 @@ namespace drawing_canvas {
 // and flow through the projected object style instead. Theming must never
 // rewrite a document, only the glass it is viewed through.
 struct DrawingCanvasPalette {
-    // Surfaces.
+    // Surfaces — theme-derived (backdrop/board from the surface/base rays,
+    // lines from the accent ray) so a custom theme reaches the canvas.
     QColor backdrop;          // widget area outside the board; also dimension label plates
     QColor boardFill;
     QColor boardOutline;
@@ -46,8 +47,9 @@ struct DrawingCanvasPalette {
     QColor pointFill;         // unselected point objects
 };
 
-// Resolve the palette from a shell theme. Pure: token-backed members copy the
-// theme's resolved tokens; canvas-specific members are fixed values, the same
+// Resolve the palette from a shell theme. Pure: structural surfaces and
+// token-backed members derive from the theme; only the canvas-specific HUES
+// (selection amber, preview blue, guide teal, …) are fixed values, the same
 // way ShellTheme fixes its semantic colors.
 DrawingCanvasPalette deriveCanvasPalette(const edi::shell::ShellTheme &theme);
 

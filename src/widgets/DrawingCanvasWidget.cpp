@@ -138,7 +138,8 @@ void DrawingCanvasWidget::paintEvent(QPaintEvent *)
     const QVariantMap model = m_controller->modelDocument();
     const QRectF board = boardRect();
     const drawing_canvas::DrawingCanvasProjectedDocumentSurface document = drawing_canvas::projectedDocumentSurface(model);
-    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{board, m_controller->selectedObjectId(), m_palette};
+    const drawing_canvas::DrawingCanvasObjectPainterContext objectPainterContext{
+        board, m_controller->selectedObjectId(), m_palette, m_plotPreviewVisible};
     // model and board are computed ONCE and threaded through every helper.
     // The member mappers (canvasToScreen & co.) re-derive boardRect -> the
     // full document projection PER CALL; the grid alone made ~2 calls per
@@ -621,7 +622,12 @@ void DrawingCanvasWidget::drawPlotPreview(QPainter &painter, const QRectF &board
 void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QRectF &board, const QVariantMap &plot) const
 {
     const drawing_canvas::DrawingCanvasProjectedBoundsOverlay overlay = drawing_canvas::projectedPlotBoundsOverlay(plot);
-    if (!overlay.visible) {
+    // Machine-bounds chrome, shown when the user asks for plot preview — or
+    // unasked when calibration makes the plot UNSAFE (the case this overlay
+    // exists to catch). During normal drafting it used to paint a filled
+    // green rectangle over the union bounds of everything drawn — the
+    // 'highlighted box over the shapes' complaint, layer one.
+    if (!overlay.visible || (!m_plotPreviewVisible && !overlay.calibratedBoundsWarning)) {
         return;
     }
 
@@ -646,7 +652,13 @@ void DrawingCanvasWidget::drawPlotSafetyOverlay(QPainter &painter, const QRectF 
 void DrawingCanvasWidget::drawSelectionPlotBounds(QPainter &painter, const QRectF &board, const QVariantMap &model) const
 {
     const drawing_canvas::DrawingCanvasProjectedSelectionBoundsOverlay overlay = drawing_canvas::projectedSelectionBoundsOverlay(model);
-    if (!overlay.visible) {
+    // Selection's plot-bounds box is plot diagnostics too: every new shape
+    // auto-selects, so an always-on box rode every shape the user made —
+    // layer two of the complaint. Selection feedback during drafting is the
+    // amber restroke + handles; this rect joins the plot preview, except a
+    // WARNING status (selection would plot outside) stays visible unasked.
+    if (!overlay.visible
+        || (!m_plotPreviewVisible && overlay.status == QStringLiteral("inside"))) {
         return;
     }
 

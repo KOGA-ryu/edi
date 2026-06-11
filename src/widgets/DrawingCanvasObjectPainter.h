@@ -17,6 +17,10 @@ struct DrawingCanvasObjectPainterContext {
     QRectF board;
     QString selectedObjectId;
     DrawingCanvasPalette palette;
+    // Plot diagnostics (the red warning BOX + label per blocked object) are
+    // plotter chrome, not drafting chrome: drawn only when the plot preview
+    // is on. The red stroke recolor stays unconditional as the quiet hint.
+    bool plotDiagnostics = false;
 };
 
 // The given color with only its alpha replaced.

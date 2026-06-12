@@ -1,5 +1,6 @@
 #include "recipe/RecipeDocument.h"
 
+#include "recipe/RecipeMeasure.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingPhysicalGeometry.h"
 
@@ -217,55 +218,25 @@ RecipeOpResult validateRecipe(const RecipeDocument &document)
 
 namespace {
 
-// One bound parameter -> one physical number. Field validity depends on the
-// object's kind; an unanswerable field fails THIS parameter with a message
-// the UI can show next to the binding.
+// Pipeline A's per-parameter resolve, now a thin ADAPTER over the shared
+// measurement seam (resolveMeasurementField, R1-B03). The seam owns the
+// closed vocabulary and its exact wordings; A keeps only its ResolvedParam
+// out-shape — the param id and the fromMeasurement flag the UI reads. The
+// B01 contract pins in recipe_document_tests.cpp prove the swap preserved
+// behavior (same numbers, same refusal strings).
 ResolvedParam resolveMeasurement(const RecipeParam &param,
                                  const edi::drafting::DraftingDocument &drafting,
                                  const edi::drafting::DraftingGridProjection &grid)
 {
-    using namespace edi::drafting;
-
     ResolvedParam resolved;
     resolved.id = param.id;
     resolved.fromMeasurement = true;
 
-    const DraftingObject *object = findObject(drafting, param.measurement.objectId);
-    if (object == nullptr) {
-        resolved.message = "object not found: " + param.measurement.objectId;
-        return resolved;
-    }
-    const std::string &field = param.measurement.field;
-    const Bounds2D bounds = computeBounds(object->geometry);
-
-    if (field == "width") {
-        resolved.value = physicalWidth(bounds.width, grid);
-        resolved.ok = true;
-    } else if (field == "height") {
-        resolved.value = physicalHeight(bounds.height, grid);
-        resolved.ok = true;
-    } else if (field == "length") {
-        if (const auto *line = std::get_if<LineGeometry>(&object->geometry)) {
-            resolved.value = physicalDistance(line->a, line->b, grid);
-            resolved.ok = true;
-        } else {
-            resolved.message = "length needs a line";
-        }
-    } else if (field == "radius") {
-        // Radius scales along the grid's X axis — the same convention the
-        // canvas projection uses for physical circle readouts.
-        if (const auto *circle = std::get_if<CircleGeometry>(&object->geometry)) {
-            resolved.value = physicalWidth(circle->radius, grid);
-            resolved.ok = true;
-        } else if (const auto *arc = std::get_if<ArcGeometry>(&object->geometry)) {
-            resolved.value = physicalWidth(arc->radius, grid);
-            resolved.ok = true;
-        } else {
-            resolved.message = "radius needs a circle or arc";
-        }
-    } else {
-        resolved.message = "unknown measurement field: " + field;
-    }
+    const MeasureFieldResult field = resolveMeasurementField(
+        drafting, grid, param.measurement.objectId, param.measurement.field);
+    resolved.ok = field.ok;
+    resolved.value = field.value;
+    resolved.message = field.message;
     return resolved;
 }
 

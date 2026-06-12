@@ -172,6 +172,8 @@ target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeDocument.h
     src/recipe/RecipeDocument.cpp
+    src/recipe/RecipeMeasure.h
+    src/recipe/RecipeMeasure.cpp
     src/recipe/RecipeEmit.h
     src/recipe/RecipeEmit.cpp
     src/recipe/RecipeAscii.h
@@ -185,6 +187,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeOps.cpp
     src/recipe/RecipeOpsBind.h
     src/recipe/RecipeOpsBind.cpp
+    src/recipe/RecipeOpsResolve.h
+    src/recipe/RecipeOpsResolve.cpp
     src/recipe/RecipeOpsStore.h
     src/recipe/RecipeOpsStore.cpp
     src/recipe/RecipeOpsValidate.h
@@ -346,6 +350,7 @@ add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_cor
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+add_edi_contract_test(recipe_ops_resolve_tests tests/recipe_ops_resolve_tests.cpp edi_recipe_core)
 
 # The craftsmen library's Blender-free half (strict TOML reader + dry-run
 # plan) smokes under plain python when one is available; the bpy half runs

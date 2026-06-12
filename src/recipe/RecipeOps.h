@@ -112,11 +112,42 @@ struct AddProfileMouldingOp {
     std::string material = "stone";
 };
 
+// The lathe, op-vocabulary native (R1-B04): a REFERENCE to a drafted
+// profile (line/polyline/arc), not a copy of its points — the drafting
+// document stays the single measurement authority, and re-resolving after
+// a profile edit picks up the new numbers. The resolve pass lowers this
+// into an AddMouldingOp with exact physical (radius, z) points via the
+// page-left-axis / page-bottom-z convention; downstream passes never see
+// it and refuse it by name if they do. Divergence from pipeline A's
+// lathe: vertices defaults to the op family's 96, not A's segments=64 —
+// one family default, and the sample writes its values explicitly.
+struct AddRevolvedProfileOp {
+    std::string name;
+    std::string profile; // a drafted object's id — the reference
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    int vertices = 96;
+    std::string material = "stone";
+};
+
 struct CutFlutesOp {
     std::string target; // names an earlier op — validated in order
     int count = 0;
     double depth = 0.0;
     double widthRatio = 0.28;
+    // Explicit cutter geometry (R1-B04b) — pipeline A's radial_groove
+    // semantics: the cutter ring's OWN radius and the radius it rides at.
+    // OPTIONAL and present-together (the reader refuses a half pair), and
+    // XOR'd with widthRatio (a file carrying both is refused — a ratio the
+    // build would ignore is a lie in waiting). When set, the backends place
+    // the cutter from these verbatim instead of deriving it from the
+    // target's bounds × widthRatio; the benchmark doric flutes can ONLY be
+    // specified this way. NOT bindable (optionals stay literal-only, B02
+    // decision 3). widthRatio keeps its default/meaning when the pair is
+    // absent.
+    std::optional<double> cutterRadius;
+    std::optional<double> atRadius;
     std::optional<double> startZ;
     std::optional<double> endZ;
 };
@@ -136,13 +167,31 @@ using RecipeOp = std::variant<
     AddRingOp,
     AddMouldingOp,
     AddProfileMouldingOp,
+    AddRevolvedProfileOp,
     CutFlutesOp,
     AddLabelOp>;
+
+// A measurement binding: "this op's field comes from that drafted
+// object's measurement" — pipeline A's crown jewel, carried over
+// (docs/recipe_binding_contract.md). Bindings live BESIDE the ops as a
+// parallel table, not inside them: the ops' doubles stay the RESOLVED
+// values every consumer already reads, and until resolution runs the
+// gates refuse a stream whose binding table is non-empty. The losing
+// alternative — a literal|binding sum type on every field — would have
+// rewritten every consumer (compile, validators, both ASCII backends,
+// python) to protect against a state the gates refuse anyway.
+struct RecipeFieldBinding {
+    std::size_t opIndex = 0;
+    std::string fieldKey; // the TOML spelling: "width", "entasis_ratio", …
+    std::string objectId; // the drafted object's immutable id
+    std::string field;    // "width" / "height" / "length" / "radius"
+};
 
 struct RecipeOpStream {
     std::string id;
     std::string name;
     std::vector<RecipeOp> ops;
+    std::vector<RecipeFieldBinding> bindings;
 };
 
 // The material vocabulary (v0's two + its README's planned set). A table,

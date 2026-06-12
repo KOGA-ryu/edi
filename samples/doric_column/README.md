@@ -1,34 +1,61 @@
 # Doric column — the no-guesswork pipeline, end to end
 
-A 9.6-inch column maquette on edi's default 12×12 inch board. Three files,
-one loop:
+A 9.6-inch column maquette on edi's default 12×12 inch board, built
+through ONE pipeline: **"Recipe is truth. ASCII preview is proof.
+Blender script is execution."** The drafting canvas is the measurement
+authority; the op stream is the pointable document; the craftsmen
+library executes.
 
-- `doric_column_profiles.edidraw` — the drafted measurement authority.
-  Three polyline profiles (`base_cove`, `shaft`, `echinus`) with exact
-  coordinates. Open it in edi; every vertex is on the grid and numerically
-  editable through the geometry inspector.
-- `doric_column.toml` — the recipe: shapers in order, every parameter an
-  explicit key. This is the pointable document.
-- `doric_column.py` — the emitted Blender script. Generated, never edited:
-  every number in it is either typed in the recipe or measured from the
-  drafted profiles.
+Two column documents live here, deliberately:
+
+- **The drafted column** (the R1 acceptance benchmark — pipeline A's
+  column, rebuilt on the surviving vocabulary):
+  - `doric_column_profiles.edidraw` — the drafted measurement authority.
+    Three polyline profiles (`base_cove`, `shaft`, `echinus`) with exact
+    coordinates; every vertex grid-true and numerically editable.
+  - `doric_column_drafted_ops.toml` — the SOURCE op stream: boxes by
+    explicit size, three `AddRevolvedProfile` REFERENCES into the
+    drafted document, and `CutFlutes` with the explicit cutter
+    (r 0.16 riding at 1.056, depth 0.12 — the drafter's own numbers,
+    inexpressible by ratio derivation).
+  - `doric_column_drafted_resolved.toml` — the same stream after
+    `resolveRecipeOps` against the live drawing: the lathe references
+    lowered to mouldings carrying the DRAFTED radii and heights
+    (base cove r 1.32→1.056, shaft r 1.056→0.792 with the entasis
+    drafted in, echinus r 0.792→1.32).
+- **The ported prototype column** (the port-fidelity artifact —
+  ascii_blender_dryrun_v0's own example, translated key for key):
+  `doric_column_ops.toml`, `doric_column_ops_compiled.toml`,
+  `previews/doric_{front,side,top}_preview.txt` (byte-identical to the
+  prototype's own output), `doric_dry_run.txt`.
 
 ## The loop
 
 1. Open `doric_column_profiles.edidraw` in edi.
-2. File → Open Recipe… → `doric_column.toml`.
-3. File → Export Blender Python… → `doric_column.py`.
-4. Blender: run the script (Scripting workspace → Open → Run, or
-   `blender --python doric_column.py`).
+2. File → Open Ops Recipe… → `doric_column_drafted_ops.toml`.
+3. File → Export Resolved… — resolves every profile reference and
+   measurement binding against the LIVE drawing and grid; a stale
+   reference refuses with every `op.<i>.<field>` address listed.
+4. File → Export Ops Previews… — front/side/top ASCII proof.
+5. Blender (≥ 4.1):
+   `blender --python tools/blender/edi_craft.py -- <resolved-or-compiled>.toml`
 
-To change the column, point at the exact thing:
+Headless, the same loop is `edi_recipe_ops` (the directory must exist —
+the CLI refuses rather than invents paths; and it resolves against the
+DEFAULT 12x12 grid, which is exactly the board this column was drafted
+on — a drawing on a custom grid needs the shell verbs until the grid
+rides in the `.edidraw`):
 
-- "The flutes should be 24, not 20" → `step.4.param.count.value = "24"`,
-  re-export.
-- "The shaft neck is too thin" → select the `shaft` polyline in edi, edit
-  its last vertex's x from 0.066 to 0.070 (r 0.792 → 0.84 inches),
-  re-export. The recipe file does not change at all — the profile is a
-  *reference*, and the drafting document stays the single source of truth.
+    mkdir -p out
+    edi_recipe_ops samples/doric_column/doric_column_drafted_ops.toml \
+        --resolve samples/doric_column/doric_column_profiles.edidraw \
+        --previews out --compiled-out out/compiled.toml
+
+To change the column, point at the exact thing: "the flutes should be
+24" → `op.4.count = "24"`. "The shaft neck is too thin" → edit the
+`shaft` polyline's last vertex in edi and re-resolve — the recipe file
+does not change at all; the profile is a REFERENCE, and the drafting
+document stays the single source of truth.
 
 ## Conventions (stated, never inferred)
 
@@ -36,71 +63,51 @@ To change the column, point at the exact thing:
   scaled by the grid's width like every radius measurement in edi.
 - The page **bottom is z = 0**: drafted height stands the part up
   (z = (1 − y) × grid height).
-- Units are the grid's units (inches on the default board). The script
-  emits those numbers verbatim; 1 Blender unit = 1 grid unit.
+- Units are the grid's units (inches on the default board); 1 Blender
+  unit = 1 grid unit.
+- A drafted profile drawn top-down lofts identically to one drawn
+  bottom-up (direction-normalized when strictly falling); a FOLDED
+  profile fails validation by name — a stacked-ring loft cannot
+  represent an overhang.
 
-## Anatomy (step → part)
+## Anatomy (op → part, the drafted column)
 
-| step | shaper        | part         | the numbers |
-|------|---------------|--------------|-------------|
-| 0    | cube          | plinth       | 3 × 3 × 0.48 at base 0 |
-| 1    | cube          | plinth step  | 2.64 × 2.64 × 0.36 at base 0.48 |
-| 2    | lathe         | base cove    | profile `base_cove` (r 1.32 → 1.056, z 0.84 → 1.008) |
-| 3    | lathe         | shaft        | profile `shaft` (r 1.056 → 0.792, z 1.008 → 8.04, entasis) |
-| 4    | radial_groove | 20 flutes    | cutter r 0.16, depth 0.12 at r 1.056, z 1.2 → 6 |
-| 5    | lathe         | echinus      | profile `echinus` (r 0.792 → 1.32, z 8.04 → 8.4) |
-| 6    | cube          | abacus step  | 2.64 × 2.64 × 0.24 at base 8.4 |
-| 7    | cube          | abacus       | 3.36 × 3.36 × 0.96 at base 8.64 |
+| op | type | part | the numbers |
+|----|------|------|-------------|
+| 0  | AddBox | plinth | 3 × 3 × 0.48 at base 0 |
+| 1  | AddBox | plinth step | 2.64 × 2.64 × 0.36 at base 0.48 |
+| 2  | AddRevolvedProfile | base cove | profile `base_cove` (r 1.32 → 1.056, z 0.84 → 1.008) |
+| 3  | AddRevolvedProfile | shaft | profile `shaft` (r 1.056 → 0.792, z 1.008 → 8.04, entasis drafted) |
+| 4  | CutFlutes | 20 flutes | cutter r 0.16 at radius 1.056, depth 0.12, z 1.2 → 6 |
+| 5  | AddRevolvedProfile | echinus | profile `echinus` (r 0.792 → 1.32, z 8.04 → 8.4) |
+| 6  | AddBox | abacus step | 2.64 × 2.64 × 0.24 at base 8.4 |
+| 7  | AddBox | abacus | 3.36 × 3.36 × 0.96 at base 8.64 |
 
-## The op-stream pipeline (the ported prototype tools)
-
-Alongside the shaper-grammar files above, this directory carries the same
-column in the PORTED prototype pipeline — "Recipe is truth. ASCII preview
-is proof. Blender script is execution.":
-
-- `doric_column_ops.toml` — the source op stream (the prototype's own
-  example recipe, translated key for key into strict TOML).
-- `doric_column_ops_compiled.toml` — after the compile pass: moulding term
-  sequences expanded into exact (z, radius) points.
-- `previews/doric_{front,side,top}_preview.txt` — the ASCII proof,
-  byte-identical to the prototype's own generated previews.
-- `doric_dry_run.txt` — the craftsmen library's build plan for this
-  column, one line per op, plus the computed preview rig.
-
-To build it in Blender (>= 4.1):
-
-    blender --python tools/blender/edi_craft.py -- samples/doric_column/doric_column_ops_compiled.toml
-
-To inspect the plan without Blender:
-
-    python3 tools/blender/edi_craft.py --dry-run samples/doric_column/doric_column_ops_compiled.toml
-
-The library (`tools/blender/edi_craft.py`) is the durable half — the
-craftsmen. The recipe TOML is the dimension sheet. Change the recipe,
-re-run; the library does not change.
-
-This pipeline has no edi menu verbs yet; it runs via the commands above.
-File → Open Recipe… belongs to the shaper-grammar pipeline at the top of
-this README — pointed at an ops TOML it will refuse with an unknown-key
-error (by design: two strict vocabularies, no cross-parsing).
-
-The op-stream artifacts are asserted in-repo: `doric_column_ops.toml`, the
-compiled TOML, and the previews are byte-compared against the construction
-in `tests/recipe_doric_fixture.h` by `recipe_ops_tests` and
-`recipe_ops_ascii_tests`; `doric_dry_run.txt` is asserted by
-`tests/edi_craft_smoke.py` and regenerates by redirecting the `--dry-run`
-command above into the file
-(`… --dry-run … > samples/doric_column/doric_dry_run.txt`).
-
-## Known limitations (V1, stated so they are decisions, not surprises)
+## Known limitations (decisions, not surprises)
 
 - Flute cutters are straight cylinders; on a tapered shaft the bite
-  shallows toward the narrow end (here: 0.12 at the foot easing to ~0.024
-  at z 6). Real Doric flutes follow the taper — a tapered cutter is a
-  future shaper parameter, not a different architecture.
-- Lathe meshes are open surfaces (profiles are not auto-closed to the
-  axis); the SCREW modifier merges the seam but caps are the renderer's
-  problem for now.
-- Regenerating the sample: the construction lives in
-  `tests/recipe_column_tests.cpp` (asserted) — the committed files were
-  generated from the identical step list.
+  shallows toward the narrow end. A tapered cutter is a future op
+  parameter, not a different architecture.
+- **Documented losses from pipeline A's retirement (R1-B06, standing
+  decision 6):** the `bevel` shaper (polish is hardcoded per craftsman
+  in `edi_craft.py` — a recipe-controlled finish op is a later design)
+  and the `array` shaper (3D placement repetition belongs to the
+  R6 jobs/composition model). Neither was used by this column; both are
+  losses by decision, recorded here so they cannot be losses by
+  amnesia.
+
+## Regenerating the samples
+
+Every artifact is byte-guarded by a test that IS its generator recipe:
+
+- Drafted set: `tests/recipe_drafted_column_tests.cpp` builds the source
+  stream from `tests/recipe_drafted_fixture.h`, resolves it against the
+  REAL `.edidraw` (default grid), and byte-compares both committed
+  TOMLs. The resolved numbers are pinned against a probe of pipeline
+  A's resolver taken immediately before its retirement.
+- Ported set: `tests/recipe_ops_tests.cpp` (ops + compiled TOML) and
+  `tests/recipe_ops_ascii_tests.cpp` (previews) byte-compare against
+  `tests/recipe_doric_fixture.h`; `doric_dry_run.txt` is asserted by
+  `tests/edi_craft_smoke.py` and regenerates via
+  `python3 tools/blender/edi_craft.py --dry-run
+  samples/doric_column/doric_column_ops_compiled.toml`.

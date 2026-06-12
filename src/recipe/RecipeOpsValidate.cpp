@@ -120,6 +120,26 @@ struct OpChecker {
         checkMaterial(findings, op.name, op.material);
     }
 
+    void operator()(const AddRevolvedProfileOp &op) const
+    {
+        // Port addition (no v0 analog — the drafted-profile reference is
+        // pipeline A's contribution): the reference itself must exist; its
+        // resolvability against a drawing is the resolve pass's concern.
+        if (op.profile.empty()) {
+            add(findings, Severity::Error, "missing_profile_reference",
+                op.name + " needs a drafted profile reference.");
+        }
+        if (op.baseZ < 0) {
+            add(findings, Severity::Warning, "negative_revolved_profile_base_z",
+                op.name + " starts below z=0.");
+        }
+        if (op.vertices < 12) {
+            add(findings, Severity::Warning, "low_revolved_profile_vertices",
+                op.name + " has low vertex count: " + std::to_string(op.vertices));
+        }
+        checkMaterial(findings, op.name, op.material);
+    }
+
     void operator()(const AddProfileMouldingOp &op) const
     {
         if (op.baseZ < 0) {
@@ -182,10 +202,25 @@ struct OpChecker {
         if (op.depth <= 0) {
             add(findings, Severity::Error, "bad_flute_depth", "Flute depth must be positive.");
         }
-        if (!(op.widthRatio >= 0.05 && op.widthRatio <= 0.9)) {
+        // R1-B04b: width_ratio is the cutter source ONLY when no explicit pair
+        // is given; an explicit cutter makes the ratio irrelevant, so it must
+        // not be judged (decision 5).
+        const bool explicitCutter = op.cutterRadius.has_value() && op.atRadius.has_value();
+        if (!explicitCutter && !(op.widthRatio >= 0.05 && op.widthRatio <= 0.9)) {
             // numberKeyText, not std::to_string: "0.34", never "0.340000".
             add(findings, Severity::Warning, "odd_flute_width_ratio",
                 "Flute width ratio looks odd: " + numberKeyText(op.widthRatio));
+        }
+        // Port additions (R1-B04b): explicit cutter geometry must be positive,
+        // same grade as bad_flute_depth — a zero/negative cutter ring or seat
+        // radius is a degenerate cut.
+        if (op.cutterRadius.has_value() && *op.cutterRadius <= 0.0) {
+            add(findings, Severity::Error, "bad_cutter_radius",
+                "Flute cutter_radius must be positive.");
+        }
+        if (op.atRadius.has_value() && *op.atRadius <= 0.0) {
+            add(findings, Severity::Error, "bad_at_radius",
+                "Flute at_radius must be positive.");
         }
         // Port addition: v0 never cross-checked the z range; a reversed
         // range produced a negative cutter depth downstream.
@@ -207,6 +242,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddRingOp &o) const { return &o.name; }
         const std::string *operator()(const AddMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddProfileMouldingOp &o) const { return &o.name; }
+        const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
     };

@@ -149,9 +149,11 @@ QWidget *EdiShellWindow::buildTitleBar()
     fileMenu->addAction(QStringLiteral("Export HPGL…"), this, [this]() { promptExportHpgl(); });
     fileMenu->addAction(QStringLiteral("Export G-code…"), this, [this]() { promptExportGcode(); });
     fileMenu->addSeparator();
-    fileMenu->addAction(QStringLiteral("Open Recipe…"), this, [this]() { promptOpenRecipe(); });
-    fileMenu->addAction(QStringLiteral("Save Recipe…"), this, [this]() { promptSaveRecipe(); });
-    fileMenu->addAction(QStringLiteral("Export Blender Python…"), this, [this]() { promptExportRecipePython(); });
+    // The op pipeline's verbs (R1-B05; pipeline A's three retired in R1-B06).
+    fileMenu->addAction(QStringLiteral("Open Ops Recipe…"), this, [this]() { promptOpenOpsRecipe(); });
+    fileMenu->addAction(QStringLiteral("Save Ops Recipe…"), this, [this]() { promptSaveOpsRecipe(); });
+    fileMenu->addAction(QStringLiteral("Export Resolved…"), this, [this]() { promptExportResolvedOps(); });
+    fileMenu->addAction(QStringLiteral("Export Ops Previews…"), this, [this]() { promptExportOpsPreviews(); });
     rebuildRecentFilesMenu();
 
     QMenu *editMenu = addMenuButton(QStringLiteral("Edit"), QStringLiteral("editMenu"));

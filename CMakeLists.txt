@@ -170,19 +170,17 @@ target_include_directories(edi_format_core PUBLIC
 target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 
 add_library(edi_recipe_core STATIC
-    src/recipe/RecipeDocument.h
-    src/recipe/RecipeDocument.cpp
-    src/recipe/RecipeEmit.h
-    src/recipe/RecipeEmit.cpp
-    src/recipe/RecipeAscii.h
-    src/recipe/RecipeAscii.cpp
-    src/recipe/RecipeStore.h
-    src/recipe/RecipeStore.cpp
+    src/recipe/RecipeMeasure.h
+    src/recipe/RecipeMeasure.cpp
     src/recipe/RecipeMouldings.h
     src/recipe/RecipeMouldings.cpp
     src/recipe/RecipeTextNumbers.h
     src/recipe/RecipeOps.h
     src/recipe/RecipeOps.cpp
+    src/recipe/RecipeOpsBind.h
+    src/recipe/RecipeOpsBind.cpp
+    src/recipe/RecipeOpsResolve.h
+    src/recipe/RecipeOpsResolve.cpp
     src/recipe/RecipeOpsStore.h
     src/recipe/RecipeOpsStore.cpp
     src/recipe/RecipeOpsValidate.h
@@ -337,13 +335,14 @@ add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cp
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
-add_edi_contract_test(recipe_document_tests tests/recipe_document_tests.cpp edi_recipe_core)
-add_edi_contract_test(recipe_store_tests tests/recipe_store_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
+add_edi_contract_test(recipe_ops_resolve_tests tests/recipe_ops_resolve_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_drafted_column_tests tests/recipe_drafted_column_tests.cpp edi_recipe_core)
+target_compile_definitions(recipe_drafted_column_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 
 # The craftsmen library's Blender-free half (strict TOML reader + dry-run
 # plan) smokes under plain python when one is available; the bpy half runs
@@ -358,15 +357,6 @@ if(Python3_FOUND)
 else()
     message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
 endif()
-add_edi_contract_test(recipe_column_tests tests/recipe_column_tests.cpp edi_recipe_core)
-# The column test byte-compares its construction against the committed sample
-# artifacts — the flagship files must never drift from the asserted build.
-target_compile_definitions(recipe_column_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
-add_edi_contract_test(recipe_emit_tests tests/recipe_emit_tests.cpp edi_recipe_core)
-add_edi_contract_test(recipe_ascii_tests tests/recipe_ascii_tests.cpp edi_recipe_core)
-add_edi_contract_test(recipe_controller_tests tests/recipe_controller_tests.cpp edi_recipe_core Qt6::Core)
-target_sources(recipe_controller_tests PRIVATE src/core/RecipeController.cpp)
-target_include_directories(recipe_controller_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_executable(edi_plot_job_report
     src/tools/EdiPlotJobReport.cpp
@@ -380,6 +370,21 @@ target_link_libraries(edi_plot_job_report PRIVATE
 add_test(
     NAME edi_plot_job_report_cli_smoke
     COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/plot_job_report_cli_smoke.sh $<TARGET_FILE:edi_plot_job_report>
+)
+
+# The op pipeline's CLI (R1-B05): widget-free, links the recipe core only.
+add_executable(edi_recipe_ops
+    src/tools/EdiRecipeOps.cpp
+)
+target_include_directories(edi_recipe_ops PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(edi_recipe_ops PRIVATE
+    edi_recipe_core
+)
+add_test(
+    NAME edi_recipe_ops_cli_smoke
+    COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/recipe_ops_cli_smoke.sh $<TARGET_FILE:edi_recipe_ops> ${CMAKE_CURRENT_SOURCE_DIR}/samples
 )
 
 add_executable(drawing_document_controller_tests
@@ -410,8 +415,6 @@ add_executable(edi_shell_window_tests
     src/core/DrawingDocumentController.cpp
     src/core/DrawingDocumentProjection.h
     src/core/DrawingDocumentProjection.cpp
-    src/core/RecipeController.h
-    src/core/RecipeController.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
     src/io/SettingsStore.h
@@ -534,8 +537,6 @@ add_test(NAME drawing_canvas_widget_tests COMMAND drawing_canvas_widget_tests)
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
     src/core/DrawingCore.h
-    src/core/RecipeController.h
-    src/core/RecipeController.cpp
     src/core/DrawingCoreInternal.h
     src/core/DrawingObjectModel.h
     src/core/DrawingObjectModel.cpp

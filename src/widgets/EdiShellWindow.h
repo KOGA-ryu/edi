@@ -14,6 +14,8 @@
 #include "widgets/ShellPanels.h"
 #include "widgets/ShellTheme.h"
 
+#include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
+
 class QAction;
 class QMenu;
 class QSplitter;
@@ -29,7 +31,6 @@ class QWidget;
 class DraftingFeature;
 class DrawingDocumentController;
 class FloatingPalette;
-class RecipeController;
 class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
@@ -48,12 +49,18 @@ public:
     bool exportSvgToPath(const QString &path);
     bool exportHpglToPath(const QString &path);
     bool exportGcodeToPath(const QString &path);
-    // Blender recipe pipeline: the recipe document (TOML) and its emitted
-    // Python. Export resolves against the LIVE drafting document — exact
-    // measurements at the moment of export, or a refusal (never a guess).
-    bool saveRecipeToPath(const QString &path);
-    bool openRecipeFromPath(const QString &path);
-    bool exportRecipePythonToPath(const QString &path);
+    // The op pipeline's verbs (R1-B05; the ONLY recipe pipeline since A's
+    // retirement in R1-B06). Open/Save are strict load/store with the
+    // reader's named refusals; Export Resolved bakes against the LIVE
+    // drafting document — exact measurements at the moment of export,
+    // listing EVERY stale binding at once on refusal (never a guess);
+    // Export Ops Previews resolves -> compiles -> validates -> renders the
+    // three projections. All share m_lastRecipeError, so the chrome
+    // surfaces one line.
+    bool openOpsRecipeFromPath(const QString &path);
+    bool saveOpsRecipeToPath(const QString &path);
+    bool exportResolvedOpsToPath(const QString &path);
+    bool exportOpsPreviewsToDir(const QString &dir);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -130,9 +137,10 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
-    void promptOpenRecipe();
-    void promptSaveRecipe();
-    void promptExportRecipePython();
+    void promptOpenOpsRecipe();
+    void promptSaveOpsRecipe();
+    void promptExportResolvedOps();
+    void promptExportOpsPreviews();
     // One funnel for "which document, how clean": window title AND the
     // status-bar file label (with its dirty recoloring) update together, so
     // they can never disagree. Connected to modelChanged.
@@ -206,7 +214,6 @@ private:
     QWidget *m_rightGrip = nullptr;
     QWidget *m_bottomGrip = nullptr;
     std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
-    RecipeController *m_recipeController = nullptr;
     QWidget *m_chromePanelHost = nullptr;      // title-bar strip for feature buttons
     QMenu *m_recentFilesMenu = nullptr;
     QWidget *m_settingsWindow = nullptr;        // the pop-out frame (persistent)
@@ -236,6 +243,7 @@ private:
     std::unique_ptr<SettingsFeature> m_settingsFeature;
     QString m_currentDrawingPath;
     QString m_lastRecipeError;
+    edi::recipe::RecipeOpStream m_opsStream; // the op pipeline's loaded stream (R1-B05)
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

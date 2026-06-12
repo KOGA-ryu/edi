@@ -1,7 +1,6 @@
 #include "widgets/EdiShellWindow.h"
 
 #include "core/DrawingCore.h"
-#include "core/RecipeController.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "widgets/BeltCrossWidget.h"
@@ -1458,7 +1457,7 @@ int main(int argc, char **argv)
         auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
         auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
         assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
-        assert(fileMenu->actions().size() == 12); // 9 verbs + Open Recent + 2 separators
+        assert(fileMenu->actions().size() == 13); // 10 verbs + Open Recent + 2 separators (pipeline A's three verbs AND their fence separator retired, R1-B06)
 
         auto *chromeController = chrome.findChild<DrawingDocumentController *>();
         assert(chromeController != nullptr);
@@ -1986,89 +1985,75 @@ int main(int argc, char **argv)
         }
     }
 
-    // Blender recipe pipeline (column phase): the recipe document saves and
-    // loads as strict TOML, and Export Blender Python resolves against the
-    // LIVE drafting document — exact measurements or a refusal.
+    // The OP pipeline's verbs (R1-B05): Open/Save Ops Recipe (strict TOML), and
+    // Export Resolved bakes against the LIVE drawing — every stale binding
+    // listed at once on refusal, nothing written. Flush DeferredDelete before
+    // widget lookups (house gotcha).
     {
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open Recipe…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save Recipe…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Blender Python…")) != nullptr);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open Ops Recipe…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save Ops Recipe…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Resolved…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Ops Previews…")) != nullptr);
 
-        auto *recipeController = window.findChild<RecipeController *>();
-        assert(recipeController != nullptr);
+        QTemporaryDir opsDir;
+        assert(opsDir.isValid());
 
-        // A drafted profile with exact coordinates is the measurement source.
-        controller->setSelectedToolId(QStringLiteral("line_tool"));
-        controller->clickCanvasNormalized(0.105, 0.9);
-        controller->clickCanvasNormalized(0.085, 0.2);
-        const QString profileId = controller->selectedObjectId();
-        assert(!profileId.isEmpty());
-
-        assert(recipeController->addStep(QStringLiteral("lathe")));
-        const int latheStep = static_cast<int>(recipeController->document().steps.size()) - 1;
-        assert(recipeController->setStepProfile(latheStep, profileId));
-
-        QTemporaryDir recipeDir;
-        assert(recipeDir.isValid());
-        const QString recipePath = recipeDir.filePath(QStringLiteral("column.toml"));
-        const QString pythonPath = recipeDir.filePath(QStringLiteral("column.py"));
-
-        assert(window.saveRecipeToPath(recipePath));
-        assert(QFile::exists(recipePath));
-
-        // The emitted python carries the drafted geometry made PHYSICAL:
-        // page-left axis (x scales by grid width), page-bottom z (1 - y,
-        // scaled by grid height) — computed here from the live grid, the
-        // same authority the resolver uses.
-        const QVariantMap gridModel = controller->modelDocument().value(QStringLiteral("grid")).toMap();
-        const double gridWidth = gridModel.value(QStringLiteral("width")).toDouble();
-        const double gridHeight = gridModel.value(QStringLiteral("height")).toDouble();
-        // Read the line's STORED coordinates back — the drafted geometry is
-        // the measurement authority, and the expectation must come from the
-        // same numbers the resolver reads (a snap could have moved the click).
-        double drawnX1 = 0.0, drawnY1 = 0.0;
-        for (const QVariant &value : controller->modelDocument().value(QStringLiteral("drawing_objects")).toList()) {
-            const QVariantMap object = value.toMap();
-            if (object.value(QStringLiteral("id")).toString() == profileId) {
-                drawnX1 = object.value(QStringLiteral("x1")).toDouble();
-                drawnY1 = object.value(QStringLiteral("y1")).toDouble();
-            }
-        }
-        assert(window.exportRecipePythonToPath(pythonPath));
-        QFile pythonFile(pythonPath);
-        assert(pythonFile.open(QIODevice::ReadOnly));
-        const QString script = QString::fromUtf8(pythonFile.readAll());
-        assert(script.contains(QStringLiteral("type='SCREW'")));
-        const QString expectedRadius = QString::asprintf("%.9g", drawnX1 * gridWidth);
-        const QString expectedHeight = QString::asprintf("%.9g", (1.0 - drawnY1) * gridHeight);
-        assert(script.contains(QStringLiteral("(%1, 0.0, %2)").arg(expectedRadius, expectedHeight)));
-
-        // Round trip: load replaces the live recipe document wholesale.
-        assert(recipeController->addStep(QStringLiteral("cube")));
-        const std::size_t before = recipeController->document().steps.size();
-        assert(window.openRecipeFromPath(recipePath));
-        assert(recipeController->document().steps.size() == before - 1);
-        assert(recipeController->document().steps[static_cast<std::size_t>(latheStep)].profileObjectId
-               == profileId.toStdString());
-
-        // A stale profile refuses to emit — the error names the problem and
-        // NO file is written. Deleting the drafted object goes through the
-        // canvas selection (it is still selected from creation).
-        assert(controller->deleteSelectedObject());
-        const QString stalePath = recipeDir.filePath(QStringLiteral("stale.py"));
-        assert(!window.exportRecipePythonToPath(stalePath));
-        assert(!QFile::exists(stalePath));
-        assert(!window.lastRecipeError().isEmpty());
-
-        // Strict load: a file with a misspelled key refuses with the key name.
-        const QString badPath = recipeDir.filePath(QStringLiteral("bad.toml"));
+        // Open Ops surfaces the strict reader's offender verbatim.
+        const QString badOpsPath = opsDir.filePath(QStringLiteral("bad_ops.toml"));
         {
-            QFile bad(badPath);
+            QFile bad(badOpsPath);
             assert(bad.open(QIODevice::WriteOnly));
-            bad.write("step.0.shaper = \"cube\"\nstep.0.param.size_zz.value = \"2\"\n");
+            bad.write("op.0.type = \"AddDodecahedron\"\n");
         }
-        assert(!window.openRecipeFromPath(badPath));
-        assert(window.lastRecipeError().contains(QStringLiteral("size_zz")));
+        assert(!window.openOpsRecipeFromPath(badOpsPath));
+        assert(window.lastRecipeError().contains(QStringLiteral("AddDodecahedron")));
+
+        // A fresh drafted line is the measurement source; its physical length
+        // feeds a cylinder's bound height.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.2, 0.2);
+        controller->clickCanvasNormalized(0.5, 0.6);
+        const QString lineId = controller->selectedObjectId();
+        assert(!lineId.isEmpty());
+
+        const QString opsPath = opsDir.filePath(QStringLiteral("ops.toml"));
+        {
+            QFile ops(opsPath);
+            assert(ops.open(QIODevice::WriteOnly));
+            const QString text = QStringLiteral(
+                "op.0.type = \"AddCylinder\"\n"
+                "op.0.name = \"shaft\"\n"
+                "op.0.radius = \"1\"\n"
+                "op.0.height.object = \"%1\"\n"
+                "op.0.height.field = \"length\"\n"
+                "op.0.z = \"0\"\n").arg(lineId);
+            ops.write(text.toUtf8());
+        }
+        assert(window.openOpsRecipeFromPath(opsPath));
+        assert(window.lastRecipeError().isEmpty());
+
+        // Export Resolved SUCCEEDS while the line exists: the written file is
+        // literals-only — the binding keys are gone.
+        const QString resolvedPath = opsDir.filePath(QStringLiteral("resolved.toml"));
+        assert(window.exportResolvedOpsToPath(resolvedPath));
+        assert(window.lastRecipeError().isEmpty());
+        assert(QFile::exists(resolvedPath));
+        {
+            QFile resolved(resolvedPath);
+            assert(resolved.open(QIODevice::ReadOnly));
+            const QString text = QString::fromUtf8(resolved.readAll());
+            assert(!text.contains(QStringLiteral("height.object"))); // resolved to a literal
+        }
+
+        // Delete the line; Export Resolved now REFUSES, naming the binding AND
+        // the missing object, and writes NOTHING (the resolve gate, in the UI).
+        assert(controller->deleteSelectedObject());
+        const QString stalePath = opsDir.filePath(QStringLiteral("stale.toml"));
+        assert(!window.exportResolvedOpsToPath(stalePath));
+        assert(!QFile::exists(stalePath));
+        assert(window.lastRecipeError().contains(QStringLiteral("op.0.height")));
+        assert(window.lastRecipeError().contains(QStringLiteral("object not found: ") + lineId));
     }
 
     // #18 close-without-saving guard: the dialog is an injectable callable,

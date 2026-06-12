@@ -2,6 +2,7 @@
 
 #include "formats/TomlReader.h"
 #include "formats/TomlWriter.h"
+#include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeTextNumbers.h"
 
 #include <string>
@@ -22,9 +23,20 @@ std::string opPrefix(std::size_t index)
 struct OpWriter {
     edi::formats::StaticConfig &config;
     const std::string &prefix;
+    // Field keys of THIS op that carry a measurement binding: the binding
+    // keys are emitted centrally, and the bare literal must not appear
+    // beside them (a file showing a number the build ignores is the
+    // ambiguity the reader refuses).
+    const std::unordered_set<std::string> *boundKeys = nullptr;
 
     void put(const char *key, const std::string &value) const { config[prefix + "." + key] = value; }
-    void put(const char *key, double value) const { put(key, numberKeyText(value)); }
+    void put(const char *key, double value) const
+    {
+        if (boundKeys != nullptr && boundKeys->count(key) > 0) {
+            return; // bound: .object/.field stand in for the literal
+        }
+        put(key, numberKeyText(value));
+    }
     void put(const char *key, int value) const { put(key, std::to_string(value)); }
     void put(const char *key, bool value) const { put(key, value ? std::string("true") : std::string("false")); }
     // String literals would otherwise bind to the BOOL overload (pointer->
@@ -138,13 +150,35 @@ struct OpWriter {
         }
     }
 
+    void operator()(const AddRevolvedProfileOp &op) const
+    {
+        put("type", std::string("AddRevolvedProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("vertices", op.vertices);
+        put("material", op.material);
+    }
+
     void operator()(const CutFlutesOp &op) const
     {
         put("type", std::string("CutFlutes"));
         put("target", op.target);
         put("count", op.count);
         put("depth", op.depth);
-        put("width_ratio", op.widthRatio);
+        // Explicit cutter geometry XOR the width_ratio derivation (R1-B04b):
+        // emit exactly ONE cutter source so the file never shows a number the
+        // build ignores. The pair is present-together by struct invariant (the
+        // reader enforces it on load); width_ratio keeps its slot — and its
+        // bindability through put() — when the pair is absent.
+        if (op.cutterRadius.has_value() && op.atRadius.has_value()) {
+            put("cutter_radius", *op.cutterRadius);
+            put("at_radius", *op.atRadius);
+        } else {
+            put("width_ratio", op.widthRatio);
+        }
         if (op.startZ.has_value()) {
             put("start_z", *op.startZ);
         }
@@ -173,6 +207,8 @@ struct OpReader {
     const edi::formats::StaticConfig &config;
     std::unordered_set<std::string> &consumed;
     std::string error;
+    std::vector<RecipeFieldBinding> *bindings = nullptr;
+    std::size_t opIndex = 0;
 
     const std::string *take(const std::string &key)
     {
@@ -183,6 +219,11 @@ struct OpReader {
         consumed.insert(key);
         return &found->second;
     }
+
+    // True when a key exists in the file, WITHOUT consuming it: the cutter
+    // XOR (R1-B04b) must spot a width_ratio beside an explicit pair before
+    // the reader would otherwise read it.
+    bool present(const std::string &key) const { return config.find(key) != config.end(); }
 
     bool requireText(const std::string &key, std::string &out)
     {
@@ -281,6 +322,41 @@ struct OpReader {
             out = *value;
         }
         return true;
+    }
+
+    // Binding-aware read of a bindable double field: pipeline A's
+    // .object/.field shape REPLACES the literal (docs/
+    // recipe_binding_contract.md). Divergence from A, documented: the op
+    // dialect's literal is the BARE key (A's carried a .value suffix), so
+    // the has-both wording names no ".value". Check order mirrors A's
+    // loader: half a binding refuses before the literal clash does.
+    bool bindableNumber(const std::string &prefix, const std::string &fieldKey,
+                        double &out, bool required)
+    {
+        const std::string key = prefix + "." + fieldKey;
+        const bool literalPresent = config.find(key) != config.end();
+        const std::string *object = take(key + ".object");
+        const std::string *field = take(key + ".field");
+        if (object != nullptr || field != nullptr) {
+            if (object == nullptr || field == nullptr) {
+                error = key + ": a measurement binding needs both .object and .field";
+                return false;
+            }
+            if (literalPresent) {
+                error = key + ": has both a literal and a measurement binding (.object/.field)";
+                return false;
+            }
+            if (object->empty() || field->empty()) {
+                error = key + ": a binding names an object and a field";
+                return false;
+            }
+            bindings->push_back({opIndex, fieldKey, *object, *field});
+            return true; // the struct default stands until resolve (B03)
+        }
+        if (required) {
+            return requireNumber(key, out);
+        }
+        return optionalNumberDefault(key, out);
     }
 
     bool readZMode(const std::string &key, ZMode &out)
@@ -410,16 +486,61 @@ bool readMouldingPoints(OpReader &reader, const std::string &prefix,
 
 OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
 {
+    OpStreamTextResult result;
     edi::formats::StaticConfig config;
     config["recipe.id"] = stream.id;
     config["recipe.name"] = stream.name;
+
+    // Bindings are validated at WRITE as well as read: a stream carrying a
+    // bogus binding (no such op, unbindable field, empty names, the same
+    // field bound twice) must refuse to serialize, not produce a file the
+    // reader will bounce later.
+    std::vector<std::unordered_set<std::string>> boundByOp(stream.ops.size());
+    for (const RecipeFieldBinding &binding : stream.bindings) {
+        if (binding.opIndex >= stream.ops.size()) {
+            result.message = "binding for op." + std::to_string(binding.opIndex) + "."
+                + binding.fieldKey + ": no such op";
+            return result;
+        }
+        const std::string key = opPrefix(binding.opIndex) + "." + binding.fieldKey;
+        if (!opFieldBindable(stream.ops[binding.opIndex], binding.fieldKey)) {
+            result.message = key + ": not a bindable field";
+            return result;
+        }
+        if (binding.objectId.empty() || binding.field.empty()) {
+            result.message = key + ": a binding names an object and a field";
+            return result;
+        }
+        if (!boundByOp[binding.opIndex].insert(binding.fieldKey).second) {
+            result.message = key + ": bound more than once";
+            return result;
+        }
+        config[key + ".object"] = binding.objectId;
+        config[key + ".field"] = binding.field;
+    }
+
+    // Struct invariants the reader enforces on load get enforced at WRITE
+    // too (the B02 rule: never serialize a file the reader bounces). Today
+    // that is one invariant: a CutFlutes explicit cutter is both-or-neither
+    // — a half pair in memory would otherwise silently emit width_ratio and
+    // DROP the lone cutter value (planner ruling on the B04b builder's
+    // flagged decision #4).
+    for (std::size_t i = 0; i < stream.ops.size(); ++i) {
+        if (const auto *flutes = std::get_if<CutFlutesOp>(&stream.ops[i])) {
+            if (flutes->cutterRadius.has_value() != flutes->atRadius.has_value()) {
+                result.message =
+                    opPrefix(i) + ": a cutter needs both .cutter_radius and .at_radius";
+                return result;
+            }
+        }
+    }
+
     for (std::size_t i = 0; i < stream.ops.size(); ++i) {
         const std::string prefix = opPrefix(i);
-        std::visit(OpWriter{config, prefix}, stream.ops[i]);
+        std::visit(OpWriter{config, prefix, &boundByOp[i]}, stream.ops[i]);
     }
 
     const auto written = edi::formats::writeTomlStaticConfig(config, "recipe_ops");
-    OpStreamTextResult result;
     if (!written.ok) {
         result.message = written.message;
         return result;
@@ -441,6 +562,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
 
     std::unordered_set<std::string> consumed;
     OpReader reader{config, consumed, {}};
+    reader.bindings = &result.stream.bindings;
 
     if (const std::string *id = reader.take("recipe.id")) {
         result.stream.id = *id;
@@ -451,6 +573,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
 
     for (std::size_t i = 0;; ++i) {
         const std::string prefix = opPrefix(i);
+        reader.opIndex = i;
         const std::string *type = reader.take(prefix + ".type");
         if (type == nullptr) {
             break;
@@ -459,12 +582,12 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
         if (*type == "AddBox") {
             AddBoxOp op;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".width", op.width)
-                || !reader.requireNumber(prefix + ".depth", op.depth)
-                || !reader.requireNumber(prefix + ".height", op.height)
-                || !reader.requireNumber(prefix + ".z", op.z)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "width", op.width, true)
+                || !reader.bindableNumber(prefix, "depth", op.depth, true)
+                || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "z", op.z, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !reader.readZMode(prefix + ".z_mode", op.zMode)) {
                 result.message = reader.error;
@@ -476,16 +599,16 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             bool present = false;
             double taper = 0.0;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".radius", op.radius)
-                || !reader.requireNumber(prefix + ".height", op.height)
-                || !reader.requireNumber(prefix + ".z", op.z)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "radius", op.radius, true)
+                || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "z", op.z, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !reader.optionalNumber(prefix + ".taper_top_radius", taper, present)
                 || !reader.readBool(prefix + ".entasis", op.entasis)
-                || !reader.optionalNumberDefault(prefix + ".entasis_ratio", op.entasisRatio)
+                || !reader.bindableNumber(prefix, "entasis_ratio", op.entasisRatio, false)
                 || !reader.readAxis(prefix + ".axis", op.axis)
                 || !reader.readZMode(prefix + ".z_mode", op.zMode)) {
                 result.message = reader.error;
@@ -498,10 +621,10 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
         } else if (*type == "AddSphere") {
             AddSphereOp op;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".radius", op.radius)
-                || !reader.requireNumber(prefix + ".z", op.z)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "radius", op.radius, true)
+                || !reader.bindableNumber(prefix, "z", op.z, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
@@ -511,12 +634,12 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
         } else if (*type == "AddRing") {
             AddRingOp op;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".radius", op.radius)
-                || !reader.requireNumber(prefix + ".tube_height", op.tubeHeight)
-                || !reader.requireNumber(prefix + ".z", op.z)
-                || !reader.optionalNumberDefault(prefix + ".overhang", op.overhang)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "radius", op.radius, true)
+                || !reader.bindableNumber(prefix, "tube_height", op.tubeHeight, true)
+                || !reader.bindableNumber(prefix, "z", op.z, true)
+                || !reader.bindableNumber(prefix, "overhang", op.overhang, false)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
@@ -526,9 +649,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
         } else if (*type == "AddMoulding") {
             AddMouldingOp op;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".base_z", op.baseZ)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !readMouldingPoints(reader, prefix, op.profile)) {
@@ -539,12 +662,25 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
         } else if (*type == "AddProfileMoulding") {
             AddProfileMouldingOp op;
             if (!reader.requireText(prefix + ".name", op.name)
-                || !reader.requireNumber(prefix + ".base_z", op.baseZ)
-                || !reader.optionalNumberDefault(prefix + ".x", op.x)
-                || !reader.optionalNumberDefault(prefix + ".y", op.y)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !readMouldingSegments(reader, prefix, op.sequence)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddRevolvedProfile") {
+            AddRevolvedProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
                 return result;
             }
@@ -555,8 +691,37 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             double value = 0.0;
             if (!reader.requireText(prefix + ".target", op.target)
                 || !reader.requireInt(prefix + ".count", op.count)
-                || !reader.requireNumber(prefix + ".depth", op.depth)
-                || !reader.optionalNumberDefault(prefix + ".width_ratio", op.widthRatio)) {
+                || !reader.bindableNumber(prefix, "depth", op.depth, true)) {
+                result.message = reader.error;
+                return result;
+            }
+            // Explicit cutter geometry (R1-B04b): optional, present-together,
+            // XOR width_ratio. Literal-only (not bindable), like start_z/end_z.
+            bool hasCutter = false;
+            bool hasAt = false;
+            double cutterRadius = 0.0;
+            double atRadius = 0.0;
+            if (!reader.optionalNumber(prefix + ".cutter_radius", cutterRadius, hasCutter)
+                || !reader.optionalNumber(prefix + ".at_radius", atRadius, hasAt)) {
+                result.message = reader.error;
+                return result;
+            }
+            if (hasCutter != hasAt) {
+                result.message = prefix + ": a cutter needs both .cutter_radius and .at_radius";
+                return result;
+            }
+            if (hasCutter) {
+                // A width_ratio beside an explicit cutter is the both-sources
+                // lie — refuse before width_ratio would be read and consumed.
+                if (reader.present(prefix + ".width_ratio")) {
+                    result.message = prefix
+                        + ": has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio";
+                    return result;
+                }
+                op.cutterRadius = cutterRadius;
+                op.atRadius = atRadius;
+                // width_ratio keeps its struct default (0.28), inert and unwritten.
+            } else if (!reader.bindableNumber(prefix, "width_ratio", op.widthRatio, false)) {
                 result.message = reader.error;
                 return result;
             }
@@ -579,9 +744,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             AddLabelOp op;
             if (!reader.requireText(prefix + ".name", op.name)
                 || !reader.requireText(prefix + ".text", op.text)
-                || !reader.requireNumber(prefix + ".x", op.x)
-                || !reader.requireNumber(prefix + ".y", op.y)
-                || !reader.requireNumber(prefix + ".z", op.z)) {
+                || !reader.bindableNumber(prefix, "x", op.x, true)
+                || !reader.bindableNumber(prefix, "y", op.y, true)
+                || !reader.bindableNumber(prefix, "z", op.z, true)) {
                 result.message = reader.error;
                 return result;
             }

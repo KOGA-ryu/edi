@@ -407,6 +407,7 @@ struct ProjectionDrawer {
     }
 
     void operator()(const AddProfileMouldingOp &) const {} // refused before dispatch
+    void operator()(const AddRevolvedProfileOp &) const {} // refused before dispatch
 
     void operator()(const CutFlutesOp &op) const
     {
@@ -450,6 +451,12 @@ AsciiRenderResult renderOpsProjection(const std::vector<RecipeOp> &ops,
             // Port divergence: v0 silently skipped these, so the proof could
             // show a column missing its mouldings without saying so.
             result.message = "AddProfileMoulding must be compiled before preview: " + uncompiled->name;
+            return result;
+        }
+        // Same contract for the lathe reference (R1-B04): a proof tool must
+        // refuse what it cannot show, and an unresolved profile has no points.
+        if (const auto *unresolved = std::get_if<AddRevolvedProfileOp>(&op)) {
+            result.message = "AddRevolvedProfile must be resolved before preview: " + unresolved->name;
             return result;
         }
     }

@@ -76,6 +76,19 @@ int main()
         assert(refused.text.empty());
     }
 
+    // ---- Same contract for the lathe reference (R1-B04): an UNRESOLVED
+    // AddRevolvedProfile has no points to show, so the proof refuses it. ----
+    {
+        AddRevolvedProfileOp unresolved;
+        unresolved.name = "shaft.turned";
+        unresolved.profile = "shaft";
+        const AsciiRenderResult refused =
+            renderOpsProjection({RecipeOp{unresolved}}, AsciiProjection::Front);
+        assert(!refused.ok);
+        assert(refused.message == "AddRevolvedProfile must be resolved before preview: shaft.turned");
+        assert(refused.text.empty());
+    }
+
     // ---- An empty stream still renders the titled frame (v0's default
     // bounds), so a blank recipe previews as blank, not as an error. ----
     {

@@ -32,6 +32,7 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddRingOp &) const { return "AddRing"; }
         const char *operator()(const AddMouldingOp &) const { return "AddMoulding"; }
         const char *operator()(const AddProfileMouldingOp &) const { return "AddProfileMoulding"; }
+        const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
     };
@@ -43,6 +44,15 @@ RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)
     RecipeCompileResult result;
     result.ops.reserve(ops.size());
     for (const RecipeOp &op : ops) {
+        // A revolved profile reaching compile means the resolve pass never
+        // ran: refuse by name. Compile cannot read the drafting document,
+        // and inventing the points would be guesswork wearing a default.
+        if (const auto *revolved = std::get_if<AddRevolvedProfileOp>(&op)) {
+            result.message =
+                "AddRevolvedProfile must be resolved before compiling: " + revolved->name;
+            result.ops.clear();
+            return result;
+        }
         const auto *profileMoulding = std::get_if<AddProfileMouldingOp>(&op);
         if (profileMoulding == nullptr) {
             result.ops.push_back(op);

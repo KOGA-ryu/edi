@@ -3,6 +3,7 @@
 // round-trip body below is the prototype's own example
 // (examples/doric_column_recipe_v0.json), translated key-for-key.
 #include "recipe/RecipeOps.h"
+#include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
 
@@ -554,6 +555,202 @@ int main()
             "op.0.vertices = \"99999999999\"\n", "oversized");
         assert(!oversized.ok);
         assert(oversized.message.find("op.0.vertices: not an integer") != std::string::npos);
+    }
+
+    // ---- Measurement bindings (R1-B02): pipeline A's .object/.field shape
+    // grafted onto the op dialect's bare keys, bindings as a side table
+    // (docs/recipe_binding_contract.md). The op dialect's literal is the
+    // bare key — A's carried .value — so the has-both wording differs by
+    // exactly that suffix.
+    {
+        // Round trip across kinds: one binding on EVERY op kind, so the
+        // reader's acceptance call sites stay provably in step with the
+        // registry (a reader gap here breaks the round trip by name).
+        RecipeOpStream bound;
+        bound.id = "bind.zoo";
+        bound.name = "Binding Zoo";
+        AddBoxOp plinth;
+        plinth.name = "probe.plinth";
+        plinth.width = 3.0;
+        plinth.depth = 3.0;
+        plinth.height = 0.5;
+        plinth.z = 0.25;
+        bound.ops.push_back(plinth);
+        AddCylinderOp shaft;
+        shaft.name = "probe.shaft";
+        shaft.radius = 1.0;
+        shaft.height = 6.0;
+        shaft.z = 3.5;
+        bound.ops.push_back(shaft);
+        CutFlutesOp flutes;
+        flutes.target = "probe.shaft";
+        flutes.count = 20;
+        flutes.depth = 0.1;
+        bound.ops.push_back(flutes);
+        AddSphereOp finial;
+        finial.name = "probe.finial";
+        finial.radius = 0.5;
+        finial.z = 8.0;
+        bound.ops.push_back(finial);
+        AddRingOp collar;
+        collar.name = "probe.collar";
+        collar.radius = 1.2;
+        collar.tubeHeight = 0.3;
+        collar.z = 7.0;
+        bound.ops.push_back(collar);
+        AddMouldingOp band;
+        band.name = "probe.band";
+        band.profile = {{"fillet_start", 0.0, 1.0}, {"fillet_01", 0.2, 1.0}};
+        bound.ops.push_back(band);
+        AddProfileMouldingOp cove;
+        cove.name = "probe.cove";
+        MouldingSegment coveSegment;
+        coveSegment.term = "cavetto";
+        coveSegment.height = 0.3;
+        coveSegment.startRadius = 1.0;
+        cove.sequence = {coveSegment};
+        bound.ops.push_back(cove);
+        AddLabelOp tag;
+        tag.name = "probe.tag";
+        tag.text = "north";
+        tag.x = 1.0;
+        tag.y = 2.0;
+        bound.ops.push_back(tag);
+        bound.bindings = {
+            {0, "width", "plinth_face", "width"},
+            {1, "radius", "shaft_top", "radius"},
+            {2, "width_ratio", "flute_gauge", "length"},
+            {3, "z", "finial_seat", "height"},
+            {4, "overhang", "collar_lip", "width"},
+            {5, "base_z", "band_seat", "height"},
+            {6, "base_z", "cove_seat", "height"},
+            {7, "z", "tag_line", "height"},
+        };
+
+        const OpStreamTextResult boundWritten = recipeOpsToToml(bound);
+        assert(boundWritten.ok);
+        // The binding keys stand in for the literal; the bare key must NOT
+        // appear beside them (the reader refuses that file as ambiguous).
+        assert(boundWritten.text.find("op.0.width.object = \"plinth_face\"") != std::string::npos);
+        assert(boundWritten.text.find("op.0.width.field = \"width\"") != std::string::npos);
+        assert(boundWritten.text.find("op.0.width = ") == std::string::npos);
+        assert(boundWritten.text.find("op.1.radius.object = \"shaft_top\"") != std::string::npos);
+        assert(boundWritten.text.find("op.1.radius = ") == std::string::npos);
+        assert(boundWritten.text.find("op.2.width_ratio.object = \"flute_gauge\"") != std::string::npos);
+        assert(boundWritten.text.find("op.2.width_ratio = ") == std::string::npos);
+
+        const OpStreamParseResult boundBack = recipeOpsFromToml(boundWritten.text, "bind.zoo");
+        assert(boundBack.ok);
+        assert(boundBack.stream.bindings.size() == bound.bindings.size());
+        for (const RecipeFieldBinding &binding : bound.bindings) {
+            bool found = false;
+            for (const RecipeFieldBinding &loaded : boundBack.stream.bindings) {
+                if (loaded.opIndex == binding.opIndex && loaded.fieldKey == binding.fieldKey
+                    && loaded.objectId == binding.objectId && loaded.field == binding.field) {
+                    found = true;
+                    break;
+                }
+            }
+            assert(found);
+        }
+        // A bound field carries the STRUCT DEFAULT until resolve (B03): the
+        // unresolved number must be the inert default, never file garbage.
+        const auto *plinthBack = std::get_if<AddBoxOp>(&boundBack.stream.ops[0]);
+        assert(plinthBack != nullptr && plinthBack->width == 0.0);
+        assert(plinthBack->depth == 3.0); // unbound literals load normally
+        const auto *flutesBack = std::get_if<CutFlutesOp>(&boundBack.stream.ops[2]);
+        assert(flutesBack != nullptr && flutesBack->widthRatio == 0.28); // spec default
+
+        // Refusals, A's loader order: half a binding, then literal clash,
+        // then empty names.
+        const OpStreamParseResult half = recipeOpsFromToml(
+            "op.0.type = \"AddBox\"\n"
+            "op.0.name = \"b\"\n"
+            "op.0.width.object = \"plank\"\n", "bad");
+        assert(!half.ok);
+        assert(half.message == "op.0.width: a measurement binding needs both .object and .field");
+
+        const OpStreamParseResult clash = recipeOpsFromToml(
+            "op.0.type = \"AddBox\"\n"
+            "op.0.name = \"b\"\n"
+            "op.0.width = \"1\"\n"
+            "op.0.width.object = \"plank\"\n"
+            "op.0.width.field = \"width\"\n", "bad");
+        assert(!clash.ok);
+        assert(clash.message
+               == "op.0.width: has both a literal and a measurement binding (.object/.field)");
+
+        const OpStreamParseResult unnamed = recipeOpsFromToml(
+            "op.0.type = \"AddBox\"\n"
+            "op.0.name = \"b\"\n"
+            "op.0.width.object = \"\"\n"
+            "op.0.width.field = \"width\"\n", "bad");
+        assert(!unnamed.ok);
+        assert(unnamed.message == "op.0.width: a binding names an object and a field");
+
+        // A binding on a non-bindable key falls to the consumption audit —
+        // ints stay literal-only (divergence from A, see RecipeOpsBind.h).
+        const OpStreamParseResult intBinding = recipeOpsFromToml(
+            "op.0.type = \"AddCylinder\"\n"
+            "op.0.name = \"c\"\n"
+            "op.0.radius = \"1\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.z = \"0\"\n"
+            "op.0.vertices.object = \"gauge\"\n"
+            "op.0.vertices.field = \"width\"\n", "bad");
+        assert(!intBinding.ok);
+        assert(intBinding.message == "unknown recipe key: op.0.vertices.field");
+
+        // The WRITER refuses bogus bindings too — a stream must not
+        // serialize a file the reader would bounce. (A refusal message can
+        // only be non-empty on the !ok path, so asserting the message IS
+        // asserting the refusal.)
+        RecipeOpStream bogus = bound;
+        bogus.bindings = {{9, "width", "plank", "width"}};
+        assert(recipeOpsToToml(bogus).message == "binding for op.9.width: no such op");
+        bogus.bindings = {{1, "vertices", "gauge", "width"}};
+        assert(recipeOpsToToml(bogus).message == "op.1.vertices: not a bindable field");
+        bogus.bindings = {{0, "width", "", "width"}};
+        assert(recipeOpsToToml(bogus).message == "op.0.width: a binding names an object and a field");
+        bogus.bindings = {{0, "width", "a", "width"}, {0, "width", "b", "width"}};
+        assert(recipeOpsToToml(bogus).message == "op.0.width: bound more than once");
+
+        // The registry pinned EXHAUSTIVELY, row by row: deleting any of the
+        // 33 rows (or typo'ing a key) fails here by name. The negative keys
+        // prove ints, optionals, and strings stayed literal-only.
+        struct RegistryPin {
+            RecipeOp op;
+            std::vector<const char *> bindable;
+            std::vector<const char *> notBindable;
+        };
+        const RegistryPin registryPins[] = {
+            {AddBoxOp{}, {"width", "depth", "height", "z", "x", "y"}, {"material", "z_mode"}},
+            {AddCylinderOp{}, {"radius", "height", "z", "x", "y", "entasis_ratio"},
+             {"vertices", "taper_top_radius", "entasis", "axis"}},
+            {AddSphereOp{}, {"radius", "z", "x", "y"}, {"vertices", "height"}},
+            {AddRingOp{}, {"radius", "tube_height", "z", "overhang", "x", "y"}, {"vertices"}},
+            {AddMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "profile"}},
+            {AddProfileMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "seq"}},
+            {CutFlutesOp{}, {"depth", "width_ratio"}, {"count", "start_z", "end_z", "target"}},
+            {AddLabelOp{}, {"x", "y", "z"}, {"text", "name", "width"}},
+        };
+        for (const RegistryPin &pin : registryPins) {
+            for (const char *key : pin.bindable) {
+                assert(opFieldBindable(pin.op, key));
+                RecipeOp writable = pin.op;
+                assert(setOpFieldValue(writable, key, 2.5));
+            }
+            for (const char *key : pin.notBindable) {
+                assert(!opFieldBindable(pin.op, key));
+                RecipeOp writable = pin.op;
+                assert(!setOpFieldValue(writable, key, 2.5));
+            }
+        }
+        // And the pointers land in the right members, not just somewhere.
+        RecipeOp probe = AddRingOp{};
+        assert(setOpFieldValue(probe, "tube_height", 2.5));
+        assert(std::get_if<AddRingOp>(&probe)->tubeHeight == 2.5);
+        assert(std::get_if<AddRingOp>(&probe)->radius == 0.0);
     }
 
     return 0;

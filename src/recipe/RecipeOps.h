@@ -139,10 +139,27 @@ using RecipeOp = std::variant<
     CutFlutesOp,
     AddLabelOp>;
 
+// A measurement binding: "this op's field comes from that drafted
+// object's measurement" — pipeline A's crown jewel, carried over
+// (docs/recipe_binding_contract.md). Bindings live BESIDE the ops as a
+// parallel table, not inside them: the ops' doubles stay the RESOLVED
+// values every consumer already reads, and until resolution runs the
+// gates refuse a stream whose binding table is non-empty. The losing
+// alternative — a literal|binding sum type on every field — would have
+// rewritten every consumer (compile, validators, both ASCII backends,
+// python) to protect against a state the gates refuse anyway.
+struct RecipeFieldBinding {
+    std::size_t opIndex = 0;
+    std::string fieldKey; // the TOML spelling: "width", "entasis_ratio", …
+    std::string objectId; // the drafted object's immutable id
+    std::string field;    // "width" / "height" / "length" / "radius"
+};
+
 struct RecipeOpStream {
     std::string id;
     std::string name;
     std::vector<RecipeOp> ops;
+    std::vector<RecipeFieldBinding> bindings;
 };
 
 // The material vocabulary (v0's two + its README's planned set). A table,

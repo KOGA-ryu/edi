@@ -183,6 +183,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeTextNumbers.h
     src/recipe/RecipeOps.h
     src/recipe/RecipeOps.cpp
+    src/recipe/RecipeOpsBind.h
+    src/recipe/RecipeOpsBind.cpp
     src/recipe/RecipeOpsStore.h
     src/recipe/RecipeOpsStore.cpp
     src/recipe/RecipeOpsValidate.h

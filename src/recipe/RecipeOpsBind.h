@@ -1,0 +1,36 @@
+#pragma once
+
+#include "recipe/RecipeOps.h"
+
+#include <string>
+
+namespace edi::recipe {
+
+// The bindable-field registry: which TOML field keys of which op kinds
+// may carry a measurement binding, as DATA (per-kind tables of
+// fieldKey -> member pointer). The table serves the store's WRITER
+// (validate bindings, emit binding keys instead of the literal) and the
+// RESOLVE pass (write resolved numbers through the same pointers,
+// R1-B03). The store's READER accepts the binding shape through its
+// per-type bindableNumber call sites — the same listing style as every
+// other field it reads — kept in step with this table by the tests'
+// exhaustive registry pin and the all-kinds binding round trip; a reader
+// call without a registry row would load a file the writer then refuses
+// to save.
+//
+// Only double-typed fields are bindable. Ints (vertices, count) and
+// optionals (taper_top_radius, start_z, end_z) stay literal-only — a
+// deliberate narrowing of pipeline A, which let ANY param bind and gated
+// whole-numberness after resolve; no use case binds a vertex count to a
+// canvas measurement yet, and optionals add presence semantics a binding
+// does not model. Widening later is adding rows.
+
+// True when this op kind has a bindable field with this TOML key.
+bool opFieldBindable(const RecipeOp &op, const std::string &fieldKey);
+
+// Writes a value through the registry's member pointer. False (and no
+// write) when the field is not bindable on this op — the resolve pass
+// turns that into a named refusal.
+bool setOpFieldValue(RecipeOp &op, const std::string &fieldKey, double value);
+
+} // namespace edi::recipe

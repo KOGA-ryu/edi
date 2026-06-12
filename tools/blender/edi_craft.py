@@ -610,7 +610,11 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         count = max(1, op["count"])
         if op["cutter_radius"] is not None and op["at_radius"] is not None:
             # Explicit cutter geometry (R1-B04b): pipeline A's radial_groove
-            # placement, mirrored verbatim from RecipeEmit.cpp's emitter — the
+            # placement, mirrored verbatim from pipeline A's radial_groove
+            # emitter (RecipeEmit.cpp, retired R1-B06). This branch runs only
+            # under bpy: the smoke pins the INPUTS (the plan line and the
+            # sample's explicit cutter values); the formula itself is pinned
+            # by this comment and the R2 headless-guard candidate — the
             # cutter ring's radius is used as given, and its centre rides at
             # at_radius + cutter_radius - depth so it overlaps the surface by
             # exactly `depth`. No bbox/width_ratio derivation and no 0.001

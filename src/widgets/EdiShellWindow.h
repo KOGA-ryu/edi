@@ -31,7 +31,6 @@ class QWidget;
 class DraftingFeature;
 class DrawingDocumentController;
 class FloatingPalette;
-class RecipeController;
 class SettingsFeature;
 
 class EdiShellWindow final : public QMainWindow {
@@ -50,18 +49,14 @@ public:
     bool exportSvgToPath(const QString &path);
     bool exportHpglToPath(const QString &path);
     bool exportGcodeToPath(const QString &path);
-    // Blender recipe pipeline: the recipe document (TOML) and its emitted
-    // Python. Export resolves against the LIVE drafting document — exact
-    // measurements at the moment of export, or a refusal (never a guess).
-    bool saveRecipeToPath(const QString &path);
-    bool openRecipeFromPath(const QString &path);
-    bool exportRecipePythonToPath(const QString &path);
-    // The OP pipeline's verbs (R1-B05): a SEPARATE stream from pipeline A's
-    // recipe, held here until A retires (B06). Open/Save are strict load/store
-    // with the reader's named refusals; Export Resolved bakes against the live
-    // drawing, listing EVERY stale binding at once on refusal; Export Ops
-    // Previews resolves -> compiles -> validates -> renders the three
-    // projections. All share m_lastRecipeError, so the chrome surfaces one line.
+    // The op pipeline's verbs (R1-B05; the ONLY recipe pipeline since A's
+    // retirement in R1-B06). Open/Save are strict load/store with the
+    // reader's named refusals; Export Resolved bakes against the LIVE
+    // drafting document — exact measurements at the moment of export,
+    // listing EVERY stale binding at once on refusal (never a guess);
+    // Export Ops Previews resolves -> compiles -> validates -> renders the
+    // three projections. All share m_lastRecipeError, so the chrome
+    // surfaces one line.
     bool openOpsRecipeFromPath(const QString &path);
     bool saveOpsRecipeToPath(const QString &path);
     bool exportResolvedOpsToPath(const QString &path);
@@ -142,9 +137,6 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
-    void promptOpenRecipe();
-    void promptSaveRecipe();
-    void promptExportRecipePython();
     void promptOpenOpsRecipe();
     void promptSaveOpsRecipe();
     void promptExportResolvedOps();
@@ -222,7 +214,6 @@ private:
     QWidget *m_rightGrip = nullptr;
     QWidget *m_bottomGrip = nullptr;
     std::vector<FloatingPalette *> m_palettes; // children of m_mainArea
-    RecipeController *m_recipeController = nullptr;
     QWidget *m_chromePanelHost = nullptr;      // title-bar strip for feature buttons
     QMenu *m_recentFilesMenu = nullptr;
     QWidget *m_settingsWindow = nullptr;        // the pop-out frame (persistent)

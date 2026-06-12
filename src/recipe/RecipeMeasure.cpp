@@ -7,12 +7,10 @@
 
 namespace edi::recipe {
 
-// Moved verbatim from RecipeDocument.cpp's anonymous-namespace
-// resolveMeasurement (R1-B03): the dispatch, the bounds computation, and the
-// X-axis radius convention are byte-for-byte the same logic — only the
-// out-shape changed (a bare MeasureFieldResult instead of A's ResolvedParam
-// wrapper). The B01 contract pins in recipe_document_tests.cpp prove the move
-// preserved behavior.
+// Moved verbatim from pipeline A's resolveMeasurement (R1-B03; A retired
+// in R1-B06): the dispatch, the bounds computation, and the X-axis radius
+// convention are byte-for-byte A's logic, and the wordings are its
+// contract — pinned by recipe_ops_resolve_tests.
 MeasureFieldResult resolveMeasurementField(
     const edi::drafting::DraftingDocument &drafting,
     const edi::drafting::DraftingGridProjection &grid,
@@ -64,7 +62,7 @@ MeasureFieldResult resolveMeasurementField(
 namespace {
 
 // Document-space profile points for the supported source kinds — moved
-// verbatim from RecipeDocument.cpp (R1-B04). An arc is sampled
+// verbatim from pipeline A (R1-B04; A retired in R1-B06). An arc is sampled
 // deterministically — 64 segments per full circle, endpoints exact — so
 // the same drafted arc always yields the same mesh, byte for byte.
 struct ProfileSource {

@@ -1,15 +1,13 @@
 # Pipeline A binding contract (extracted record)
 
-*R1-B01, 2026-06-11. Pipeline A — the shaper-grammar recipe
-(`RecipeDocument`/`RecipeStore`/`resolveRecipe`) — is scheduled for
-retirement in R1: the op pipeline absorbs its two crown jewels,
-measurement bindings and drafted-profile references. This document is the
-contract those features must carry over, extracted from the code while it
-still exists, with every refusal wording recorded. The companion test pins
-live in `tests/recipe_document_tests.cpp` (marked "contract pin") and
-`tests/recipe_store_tests.cpp`; they must keep passing unchanged when the
-resolve seam moves (R1-B03). Line numbers cite the tree at branch
-`ui-restoration`, post-`a73a2c6`.*
+*R1-B01, 2026-06-11 — **now a HISTORICAL RECORD**: pipeline A was deleted
+in R1-B06 after the migration this document specified completed (see the
+Retirement note at the bottom). The body below is preserved as written —
+its file/line citations and test references describe the pre-deletion
+tree (`ui-restoration` post-`a73a2c6`) and its pins served their purpose:
+they proved the seam extraction (B03/B04) preserved A's behavior, then
+retired with A. The wordings live on in `RecipeMeasure`, pinned by
+`recipe_ops_resolve_tests`.*
 
 ## 1. The TOML key shapes
 
@@ -198,3 +196,22 @@ disposition before A's code is deleted.
    tiers refuse unresolved input (A enforced this at export; the op
    pipeline enforces it at compile/preview/export per R1 standing
    decision #3).
+
+---
+
+## Retirement note (R1-B06)
+
+Pipeline A was deleted at the close of R1 — the benchmark passed: the
+same column, from the same drafted profiles, builds through the op
+pipeline (`tests/recipe_drafted_column_tests.cpp` resolves the REAL
+`.edidraw` and byte-compares the committed resolved artifact, whose
+numbers were probed from A's `resolveRecipe` immediately before
+deletion). What survives of A: the shared measurement/profile seam
+(`RecipeMeasure`, wordings verbatim, pinned by
+`recipe_ops_resolve_tests`), the moulding term compiler, the drafted
+profiles document, and this contract. The `step.N` grammar, its store,
+its emitter, and its controller are gone; §1's shapes live on as the
+op dialect's binding form, and §4's mapping is now history — except
+its two flagged gaps, **bevel** and **array**, which were retired as
+DOCUMENTED LOSSES (STATE.md standing decision 6): a finish op and
+placement arrays belong to later phases (R6 jobs), not to silence.

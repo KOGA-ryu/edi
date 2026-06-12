@@ -8,12 +8,12 @@
 
 namespace edi::recipe {
 
-// The closed measurement vocabulary (width / height / length / radius),
-// extracted here as the ONE home both pipelines share. Pipeline A
-// (RecipeDocument's resolveMeasurement) is now a thin adapter over this; the
-// op pipeline (resolveRecipeOps, R1-B03) calls it directly. Two copies of a
-// closed vocabulary drift apart silently — the exact disease R1 exists to
-// cure — so the field logic lives once.
+// The closed measurement vocabulary (width / height / length / radius) —
+// extracted from pipeline A as the shared seam (R1-B03) and now the ONE
+// home, full stop: A retired in R1-B06 and the op pipeline
+// (resolveRecipeOps) is the sole caller. The wordings below are pipeline
+// A's contract, preserved verbatim through its retirement
+// (docs/recipe_binding_contract.md) and pinned by recipe_ops_resolve_tests.
 //
 // Physical scaling follows the binding contract
 // (docs/recipe_binding_contract.md §3): width/radius scale along the grid's X

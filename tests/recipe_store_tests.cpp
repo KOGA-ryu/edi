@@ -76,6 +76,24 @@ int main()
     // The lossless form of 0.1 + 0.2, verbatim.
     assert(written.text.find("size_y.value = \"0.30000000000000004\"") != std::string::npos);
 
+    // Omitted keys mean the shaper spec's DEFAULT stands: a hand-trimmed
+    // file keeps working, and the default's survival through load is part
+    // of the binding contract the R1 migration must preserve
+    // (docs/recipe_binding_contract.md). Contract pin: nothing else in the
+    // suite loads a file with absent params.
+    {
+        const RecipeParseResult trimmed = recipeFromToml(
+            "step.0.shaper = \"cube\"\n"
+            "step.0.param.size_x.value = \"2\"\n", "trimmed");
+        assert(trimmed.ok);
+        const ShaperStep &cube = trimmed.document.steps[0];
+        assert(cube.params.size() == 4);
+        assert(sameParam(cube.params[0], {"size_x", 2.0, ParamSource::Literal, {}}));
+        assert(sameParam(cube.params[1], {"size_y", 1.0, ParamSource::Literal, {}})); // spec default
+        assert(sameParam(cube.params[2], {"size_z", 1.0, ParamSource::Literal, {}})); // spec default
+        assert(sameParam(cube.params[3], {"loc_z", 0.0, ParamSource::Literal, {}}));  // spec default
+    }
+
     // STRICT loading: every failure names its offender instead of guessing.
     {
         const RecipeParseResult unknownShaper = recipeFromToml(

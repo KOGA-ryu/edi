@@ -116,15 +116,28 @@ int main()
 
     // A stale binding fails ITS parameter with a message, not the recipe's
     // other parameters — the UI can point at exactly what broke.
+    //
+    // CONTRACT PINS (R1 migration): the exact refusal wordings below are
+    // pipeline A's binding contract, recorded in
+    // docs/recipe_binding_contract.md. When resolution moves to the shared
+    // seam (resolveRecipeOps, R1-B03) these asserts must keep passing
+    // unchanged — they are the proof the move preserved behavior.
     RecipeDocument stale = recipe;
     assert(bindParamToMeasurement(stale, 0, "size_z", {"gone", "width"}).ok);
+    assert(bindParamToMeasurement(stale, 0, "loc_z", {"plank", "girth"}).ok); // unknown field
     assert(bindParamToMeasurement(stale, 1, "depth", {"hole", "length"}).ok); // wrong kind
+    assert(bindParamToMeasurement(stale, 1, "loc_z", {"cut", "radius"}).ok);  // radius on a line
     const ResolvedRecipe broken = resolveRecipe(stale, drafting, grid);
     assert(!broken.ok);
     assert(!paramOf(broken.steps[0], "size_z").ok);
-    assert(!paramOf(broken.steps[0], "size_z").message.empty());
+    assert(paramOf(broken.steps[0], "size_z").message == "object not found: gone");
+    assert(!paramOf(broken.steps[0], "loc_z").ok);
+    assert(paramOf(broken.steps[0], "loc_z").message == "unknown measurement field: girth");
     assert(paramOf(broken.steps[0], "size_x").ok);   // healthy bindings unaffected
     assert(!paramOf(broken.steps[1], "depth").ok);   // length on a circle: refused
+    assert(paramOf(broken.steps[1], "depth").message == "length needs a line");
+    assert(!paramOf(broken.steps[1], "loc_z").ok);
+    assert(paramOf(broken.steps[1], "loc_z").message == "radius needs a circle or arc");
     assert(paramOf(broken.steps[1], "radius").ok);
 
     // ---- Lathe + profiles (column phase C2) --------------------------------
@@ -192,7 +205,10 @@ int main()
         RecipeDocument missing;
         assert(addShaperStep(missing, "lathe").ok);
         assert(setStepProfile(missing, 0, "gone").ok);
-        assert(!resolveRecipe(missing, profileDoc, grid).steps[0].profileOk);
+        const ResolvedRecipe missingResolved = resolveRecipe(missing, profileDoc, grid);
+        assert(!missingResolved.steps[0].profileOk);
+        // Contract pin (R1 migration) — see docs/recipe_binding_contract.md.
+        assert(missingResolved.steps[0].profileMessage == "profile object not found: gone");
 
         RecipeDocument wrongKind;
         assert(addShaperStep(wrongKind, "lathe").ok);

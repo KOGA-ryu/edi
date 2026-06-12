@@ -39,6 +39,7 @@
 #include <utility>
 
 #include "core/DrawingCore.h"
+#include "widgets/TextEditorFeature.h"
 #include "io/ProfileStore.h"
 #include "widgets/BeltCrossWidget.h"
 #include "widgets/DraftingFeature.h"
@@ -64,7 +65,11 @@ WorkspaceLayout draftingWorkspaceLayout()
         {ShellSlot::Left, QStringLiteral("drafting")},
         {ShellSlot::Main, QStringLiteral("drafting")},
         {ShellSlot::Right, QStringLiteral("drafting")},
-        {ShellSlot::Bottom, QStringLiteral("drafting")},
+        // E1: the bottom terminal is the editor's mount (the recorded chrome
+        // semantics always destined it so; drafting's placeholder panel keeps
+        // Bottom in supportedSlots, and a saved workspace.toml overrides this
+        // shipped default wholesale — rebinding back is data, not code).
+        {ShellSlot::Bottom, QStringLiteral("text_editor")},
     };
     // The belt arrangement ships with the job, not with the feature: a saved
     // workspace.toml overrides this wholesale.
@@ -106,6 +111,14 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // switching workspaces re-reads all three. The context is a member because
     // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
+    // E1: seed the editor's store so the terminal is never empty — one
+    // Scratch document, named for what the bottom panel IS to the user.
+    {
+        edi::text::TextDocument scratch = edi::text::makeTextDocument("scratch", "Scratch");
+        edi::text::addDocument(m_textStore, std::move(scratch));
+        edi::text::setActiveDocument(m_textStore, "scratch");
+    }
+    m_featureContext.textStore = &m_textStore;
 
     // Per-feature knowledge lives ONLY in these registry rows — how to build
     // a fresh instance, and what shell-owned state to re-feed it after a
@@ -137,6 +150,17 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     };
     settings.recreateInstance = [this]() { m_settingsFeature = createSettingsFeature(); };
     m_featureRegistry.features.push_back(settings);
+
+    // Feature #3 (E1): the text editor host. Stateless descriptor — the
+    // store rides the bus, the panel is rebuilt per mount, nothing dangles.
+    FeatureDescriptor textEditor;
+    textEditor.id = QStringLiteral("text_editor");
+    textEditor.label = QStringLiteral("Text Editor");
+    textEditor.supportedSlots = {ShellSlot::Bottom};
+    textEditor.buildPanel = [](ShellSlot, FeatureContext &context) -> QWidget * {
+        return buildTextEditorPanel(context);
+    };
+    m_featureRegistry.features.push_back(textEditor);
 
     // The splitter carries only the in-flow left panel beside the main area.
     // Right and bottom panels are overlays INSIDE the main area: they cover

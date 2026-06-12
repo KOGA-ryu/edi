@@ -15,6 +15,7 @@
 #include "widgets/ShellTheme.h"
 
 #include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
+#include "text/TextDocumentStore.h" // the editor's documents, window-owned (E1)
 
 class QAction;
 class QMenu;
@@ -61,6 +62,8 @@ public:
     bool saveOpsRecipeToPath(const QString &path);
     bool exportResolvedOpsToPath(const QString &path);
     bool exportOpsPreviewsToDir(const QString &dir);
+    // E1 test seam: shell tests assert the document model, not widget text.
+    edi::text::TextDocumentStore &textDocumentStore() { return m_textStore; }
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -244,6 +247,10 @@ private:
     QString m_currentDrawingPath;
     QString m_lastRecipeError;
     edi::recipe::RecipeOpStream m_opsStream; // the op pipeline's loaded stream (R1-B05)
+    // The text editor's documents (E1): window-owned like m_opsStream, so
+    // workspace remounts (which recreate feature instances) cannot lose
+    // edits; the panel reaches it through the FeatureContext bus.
+    edi::text::TextDocumentStore m_textStore;
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

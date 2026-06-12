@@ -8,6 +8,10 @@
 class QWidget;
 class DrawingDocumentController;
 
+namespace edi::text {
+struct TextDocumentStore;
+}
+
 namespace edi::shell {
 
 // A region the shell offers. (Activity rail / status bar are chrome, not
@@ -23,6 +27,11 @@ enum class ShellSlot { Main, Left, Right, Bottom };
 // member; see EdiShellWindow::m_opsStream).
 struct FeatureContext {
     DrawingDocumentController *drawingController = nullptr;
+    // The text editor's document store (E1) — window-owned so it survives
+    // workspace remounts (feature instances are recreated per mount and
+    // may not own documents). A shared DOCUMENT on the bus, per the
+    // coupling rule above.
+    edi::text::TextDocumentStore *textStore = nullptr;
 };
 
 // A floating palette a feature offers: id (stable, keys the stored

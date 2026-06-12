@@ -423,6 +423,8 @@ add_executable(edi_shell_window_tests
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
     src/widgets/EdiShellWindowIo.cpp
+    src/widgets/TextEditorFeature.h
+    src/widgets/TextEditorFeature.cpp
     src/widgets/DraftingFeature.h
     src/widgets/DraftingFeaturePanels.cpp
     src/widgets/DraftingFeatureInspector.cpp
@@ -566,6 +568,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
     src/widgets/EdiShellWindowIo.cpp
+    src/widgets/TextEditorFeature.h
+    src/widgets/TextEditorFeature.cpp
     src/widgets/DraftingFeature.h
     src/widgets/DraftingFeaturePanels.cpp
     src/widgets/DraftingFeatureInspector.cpp

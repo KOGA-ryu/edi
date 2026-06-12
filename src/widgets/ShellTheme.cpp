@@ -142,6 +142,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @base@;
             border-top: 1px solid @borderMajor@;
         }
+        #textEditorPanel {
+            background: @base@;
+            border-top: 1px solid @borderMajor@;
+        }
         QScrollArea {
             background: transparent;
             border: none;

@@ -1,4 +1,5 @@
 #include "widgets/EdiShellWindow.h"
+#include "text/TextDocumentStore.h"
 
 #include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
@@ -9,6 +10,7 @@
 #include "widgets/ShellTheme.h"
 
 #include <QApplication>
+#include <cstdio>
 #include <QCheckBox>
 #include <QColor>
 #include <QCoreApplication>
@@ -23,6 +25,7 @@
 #include <QMenu>
 #include <QSet>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
@@ -2165,6 +2168,72 @@ int main(int argc, char **argv)
         // to the real modal QMessageBox and would hang the offscreen run.
         window.setDirtyGuardPrompt([]() { return EdiShellWindow::DirtyGuardChoice::Cancel; });
         window.setSaveFailedNotice([](const QString &) {});
+    }
+
+    // The text editor host (E1): the bottom terminal hosts the user's text
+    // core. Every keystroke routes through TextEditorCommands into the
+    // window-owned store — the widget is a PROJECTION; the document is the
+    // truth — and a refused command surfaces in the status line.
+    {
+        // A FRESH window pins the SHIPPED default: the constructor mounts the
+        // factory layout, whose Bottom binding is the editor (earlier blocks
+        // switched `window` to hand-built jobs, which is exactly the point —
+        // bindings are data; this asserts what edi ships, not what tests left).
+        EdiShellWindow editorShell;
+        QWidget *panel = editorShell.findChild<QWidget *>(QStringLiteral("textEditorPanel"));
+        assert(panel != nullptr); // mounted in the bottom terminal slot
+        auto *view = editorShell.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+        assert(view != nullptr);
+        assert(view->isReadOnly()); // Qt's own mutation paths are dead
+        auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr);
+        assert(list->count() == 1); // the seeded scratch document
+        auto *editorStatus = editorShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        assert(editorStatus != nullptr);
+
+        edi::text::TextDocumentStore &textStore = editorShell.textDocumentStore();
+        assert(textStore.activeDocumentId.has_value());
+        assert(*textStore.activeDocumentId == "scratch");
+        const std::uint64_t revisionBefore =
+            edi::text::findDocument(textStore, "scratch")->revision;
+
+        const auto type = [view](Qt::Key key, const QString &text) {
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, text);
+            QCoreApplication::sendEvent(view, &press);
+        };
+        // Three keystrokes land as "abc" ONLY if the caret is restored after
+        // every re-projection — a caret reset to 0 types "cba". The order IS
+        // the caret-restore pin.
+        type(Qt::Key_A, QStringLiteral("a"));
+        type(Qt::Key_B, QStringLiteral("b"));
+        type(Qt::Key_C, QStringLiteral("c"));
+        const edi::text::TextDocument *scratch =
+            edi::text::findDocument(textStore, "scratch");
+        assert(scratch != nullptr);
+        assert(scratch->text == "abc");      // the STORE changed, not just pixels
+        assert(scratch->dirty);              // the core's own dirty discipline
+        assert(scratch->revision > revisionBefore);
+        assert(view->toPlainText() == QStringLiteral("abc")); // projection agrees
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(list->item(0)->text().contains(QStringLiteral("•"))); // dirty marker
+
+        type(Qt::Key_Backspace, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+
+        // Delete at the end asks the core for range [2,3) of a 2-char text:
+        // the USER'S validation refuses (invalid_range) and the panel says
+        // so — a refused command is a status line, never a dead keystroke.
+        type(Qt::Key_Delete, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        assert(editorStatus->text().contains(QStringLiteral("invalid_range")));
+
+        // Non-ASCII input is a host-side REFUSAL, not a corruption: the
+        // caret is UTF-16, the core is bytes, and they only agree in ASCII
+        // (the review proved a stray 'é' writes invalid UTF-8 while status
+        // says ok). E3 owns the real mapping; until then the gate holds.
+        type(Qt::Key_E, QString::fromUtf8("\xc3\xa9")); // é
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab"); // unchanged
+        assert(editorStatus->text().contains(QStringLiteral("non-ASCII")));
     }
 
     return 0;

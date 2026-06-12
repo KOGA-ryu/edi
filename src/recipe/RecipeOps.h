@@ -136,6 +136,18 @@ struct CutFlutesOp {
     int count = 0;
     double depth = 0.0;
     double widthRatio = 0.28;
+    // Explicit cutter geometry (R1-B04b) — pipeline A's radial_groove
+    // semantics: the cutter ring's OWN radius and the radius it rides at.
+    // OPTIONAL and present-together (the reader refuses a half pair), and
+    // XOR'd with widthRatio (a file carrying both is refused — a ratio the
+    // build would ignore is a lie in waiting). When set, the backends place
+    // the cutter from these verbatim instead of deriving it from the
+    // target's bounds × widthRatio; the benchmark doric flutes can ONLY be
+    // specified this way. NOT bindable (optionals stay literal-only, B02
+    // decision 3). widthRatio keeps its default/meaning when the pair is
+    // absent.
+    std::optional<double> cutterRadius;
+    std::optional<double> atRadius;
     std::optional<double> startZ;
     std::optional<double> endZ;
 };

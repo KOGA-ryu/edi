@@ -273,11 +273,24 @@ def parse_ops(path: str) -> list[dict]:
                 material=_material(op_key, fields, consumed),
             )
         elif op_type == "CutFlutes":
+            # Explicit cutter geometry (R1-B04b): optional, present-together,
+            # XOR width_ratio. Parity with the C++ store reader — same wordings,
+            # same op.N: prefix (RecipeOpsStore.cpp).
+            cutter_radius = _optional_number(op_key, fields, consumed, "cutter_radius")
+            at_radius = _optional_number(op_key, fields, consumed, "at_radius")
+            if (cutter_radius is None) != (at_radius is None):
+                raise ValueError(
+                    f"{op_key}: a cutter needs both .cutter_radius and .at_radius")
+            if cutter_radius is not None and "width_ratio" in fields:
+                raise ValueError(
+                    f"{op_key}: has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio")
             op.update(
                 target=_text(op_key, fields, consumed, "target"),
                 count=_integer(op_key, fields, consumed, "count"),
                 depth=_number(op_key, fields, consumed, "depth"),
                 width_ratio=_number(op_key, fields, consumed, "width_ratio", 0.28),
+                cutter_radius=cutter_radius,
+                at_radius=at_radius,
                 start_z=_optional_number(op_key, fields, consumed, "start_z"),
                 end_z=_optional_number(op_key, fields, consumed, "end_z"),
             )
@@ -404,9 +417,16 @@ def plan_lines(ops: list[dict]) -> list[str]:
             z_range = ""
             if op["start_z"] is not None and op["end_z"] is not None:
                 z_range = f" z={_fmt(op['start_z'])}..{_fmt(op['end_z'])}"
+            # Explicit cutter shows its own geometry; otherwise the width_ratio
+            # derivation (R1-B04b). Absent the pair this line is byte-identical
+            # to before — the committed doric golden uses width_ratio.
+            if op["cutter_radius"] is not None and op["at_radius"] is not None:
+                cutter = f"cutter_r={_fmt(op['cutter_radius'])} at_r={_fmt(op['at_radius'])}"
+            else:
+                cutter = f"width_ratio={_fmt(op['width_ratio'])}"
             lines.append(
                 f"CutFlutes {op['target']} count={op['count']} depth={_fmt(op['depth'])}"
-                f" width_ratio={_fmt(op['width_ratio'])}{z_range}")
+                f" {cutter}{z_range}")
         elif op["type"] == "AddLabel":
             lines.append(f"AddLabel {op['name']} \"{op['text']}\" at ({_fmt(op['x'])}, {_fmt(op['y'])}, {_fmt(op['z'])})")
 
@@ -588,9 +608,20 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
             failures.append(f"CutFlutes: target not found: {op['target']}")
             return
         count = max(1, op["count"])
-        radius = max(target.dimensions.x, target.dimensions.y) * 0.5
-        cutter_radius = max(0.02, radius * op["width_ratio"] * 0.5)
-        cutter_offset = max(0.001, radius + cutter_radius - op["depth"])
+        if op["cutter_radius"] is not None and op["at_radius"] is not None:
+            # Explicit cutter geometry (R1-B04b): pipeline A's radial_groove
+            # placement, mirrored verbatim from RecipeEmit.cpp's emitter — the
+            # cutter ring's radius is used as given, and its centre rides at
+            # at_radius + cutter_radius - depth so it overlaps the surface by
+            # exactly `depth`. No bbox/width_ratio derivation and no 0.001
+            # floor: A's emitter trusts the drafted numbers (the floor in the
+            # derived branch guards the DERIVED radius, which can collapse).
+            cutter_radius = op["cutter_radius"]
+            cutter_offset = op["at_radius"] + cutter_radius - op["depth"]
+        else:
+            radius = max(target.dimensions.x, target.dimensions.y) * 0.5
+            cutter_radius = max(0.02, radius * op["width_ratio"] * 0.5)
+            cutter_offset = max(0.001, radius + cutter_radius - op["depth"])
         z0 = target.location.z - target.dimensions.z * 0.5 if op["start_z"] is None else op["start_z"]
         z1 = target.location.z + target.dimensions.z * 0.5 if op["end_z"] is None else op["end_z"]
         cutter_depth = max(0.001, z1 - z0)

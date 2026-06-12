@@ -202,10 +202,25 @@ struct OpChecker {
         if (op.depth <= 0) {
             add(findings, Severity::Error, "bad_flute_depth", "Flute depth must be positive.");
         }
-        if (!(op.widthRatio >= 0.05 && op.widthRatio <= 0.9)) {
+        // R1-B04b: width_ratio is the cutter source ONLY when no explicit pair
+        // is given; an explicit cutter makes the ratio irrelevant, so it must
+        // not be judged (decision 5).
+        const bool explicitCutter = op.cutterRadius.has_value() && op.atRadius.has_value();
+        if (!explicitCutter && !(op.widthRatio >= 0.05 && op.widthRatio <= 0.9)) {
             // numberKeyText, not std::to_string: "0.34", never "0.340000".
             add(findings, Severity::Warning, "odd_flute_width_ratio",
                 "Flute width ratio looks odd: " + numberKeyText(op.widthRatio));
+        }
+        // Port additions (R1-B04b): explicit cutter geometry must be positive,
+        // same grade as bad_flute_depth — a zero/negative cutter ring or seat
+        // radius is a degenerate cut.
+        if (op.cutterRadius.has_value() && *op.cutterRadius <= 0.0) {
+            add(findings, Severity::Error, "bad_cutter_radius",
+                "Flute cutter_radius must be positive.");
+        }
+        if (op.atRadius.has_value() && *op.atRadius <= 0.0) {
+            add(findings, Severity::Error, "bad_at_radius",
+                "Flute at_radius must be positive.");
         }
         // Port addition: v0 never cross-checked the z range; a reversed
         // range produced a negative cutter depth downstream.

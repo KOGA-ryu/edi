@@ -368,6 +368,21 @@ int main()
         sideways.count = 20;
         sideways.depth = 0.1;
         ops.push_back(sideways);
+        CutFlutesOp badCutter;        // R1-B04b explicit-cutter positives
+        badCutter.target = "probe.shaft";
+        badCutter.count = 20;
+        badCutter.depth = 0.1;
+        badCutter.cutterRadius = -0.5; // bad_cutter_radius
+        badCutter.atRadius = -1.0;     // bad_at_radius
+        ops.push_back(badCutter);
+        CutFlutesOp explicitOk;       // valid explicit pair, odd ratio SUPPRESSED
+        explicitOk.target = "probe.shaft";
+        explicitOk.count = 20;
+        explicitOk.depth = 0.1;
+        explicitOk.cutterRadius = 0.16;
+        explicitOk.atRadius = 1.0;
+        explicitOk.widthRatio = 0.95; // would be odd, but the explicit pair makes it irrelevant
+        ops.push_back(explicitOk);
         AddRevolvedProfileOp hollowLathe;
         hollowLathe.name = "probe.lathe";
         hollowLathe.baseZ = -0.5;       // negative_revolved_profile_base_z
@@ -403,7 +418,11 @@ int main()
         assert(count("bad_profile_segment_steps") == 1);
         assert(count("low_flute_count") == 1);
         assert(count("bad_flute_depth") == 1);
+        // == 1, not 2: explicitOk's 0.95 ratio must NOT fire — the explicit
+        // cutter pair makes the ratio lint irrelevant (R1-B04b decision 5).
         assert(count("odd_flute_width_ratio") == 1);
+        assert(count("bad_cutter_radius") == 1);
+        assert(count("bad_at_radius") == 1);
         assert(count("missing_profile_reference") == 1);
         assert(count("negative_revolved_profile_base_z") == 1);
         assert(count("low_revolved_profile_vertices") == 1);
@@ -775,7 +794,8 @@ int main()
             {AddMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "profile"}},
             {AddProfileMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "seq"}},
             {AddRevolvedProfileOp{}, {"base_z", "x", "y"}, {"vertices", "profile", "material"}},
-            {CutFlutesOp{}, {"depth", "width_ratio"}, {"count", "start_z", "end_z", "target"}},
+            {CutFlutesOp{}, {"depth", "width_ratio"},
+             {"count", "start_z", "end_z", "target", "cutter_radius", "at_radius"}},
             {AddLabelOp{}, {"x", "y", "z"}, {"text", "name", "width"}},
         };
         for (const RegistryPin &pin : registryPins) {
@@ -795,6 +815,82 @@ int main()
         assert(setOpFieldValue(probe, "tube_height", 2.5));
         assert(std::get_if<AddRingOp>(&probe)->tubeHeight == 2.5);
         assert(std::get_if<AddRingOp>(&probe)->radius == 0.0);
+    }
+
+    // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +
+    // at_radius pair, XOR'd with the width_ratio derivation. Round trip emits
+    // the pair and suppresses width_ratio; the reader refuses a half pair and
+    // a pair beside a width_ratio, with the SAME wordings edi_craft.py pins
+    // (the op.N: prefix matches python's op_key). ----
+    {
+        RecipeOpStream stream;
+        stream.id = "cutter.zoo";
+        AddCylinderOp shaft;
+        shaft.name = "shaft";
+        shaft.radius = 1.0;
+        shaft.height = 6.0;
+        stream.ops.push_back(shaft);
+        CutFlutesOp flutes;
+        flutes.target = "shaft";
+        flutes.count = 20;
+        flutes.depth = 0.12;
+        flutes.cutterRadius = 0.16;   // the benchmark doric flutes' cutter
+        flutes.atRadius = 1.056;
+        stream.ops.push_back(flutes);
+
+        const OpStreamTextResult written = recipeOpsToToml(stream);
+        assert(written.ok);
+        // The pair is emitted; width_ratio is NOT (a file showing both is the
+        // lie the reader refuses).
+        assert(written.text.find("op.1.cutter_radius = \"0.16\"") != std::string::npos);
+        assert(written.text.find("op.1.at_radius = \"1.056\"") != std::string::npos);
+        assert(written.text.find("op.1.width_ratio") == std::string::npos);
+
+        const OpStreamParseResult back = recipeOpsFromToml(written.text, "cutter.zoo");
+        assert(back.ok);
+        const auto *flutesBack = std::get_if<CutFlutesOp>(&back.stream.ops[1]);
+        assert(flutesBack != nullptr);
+        assert(flutesBack->cutterRadius.has_value() && near(*flutesBack->cutterRadius, 0.16));
+        assert(flutesBack->atRadius.has_value() && near(*flutesBack->atRadius, 1.056));
+        assert(flutesBack->widthRatio == 0.28); // the inert default; the file carried none
+
+        // Half a pair refuses, by name.
+        const OpStreamParseResult halfPair = recipeOpsFromToml(
+            "op.0.type = \"CutFlutes\"\n"
+            "op.0.target = \"shaft\"\n"
+            "op.0.count = \"20\"\n"
+            "op.0.depth = \"0.12\"\n"
+            "op.0.cutter_radius = \"0.16\"\n", "bad");
+        assert(!halfPair.ok);
+        assert(halfPair.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
+
+        // The pair beside a width_ratio refuses, by name (both sources).
+        const OpStreamParseResult pairAndRatio = recipeOpsFromToml(
+            "op.0.type = \"CutFlutes\"\n"
+            "op.0.target = \"shaft\"\n"
+            "op.0.count = \"20\"\n"
+            "op.0.depth = \"0.12\"\n"
+            "op.0.cutter_radius = \"0.16\"\n"
+            "op.0.at_radius = \"1.056\"\n"
+            "op.0.width_ratio = \"0.34\"\n", "bad");
+        assert(!pairAndRatio.ok);
+        assert(pairAndRatio.message
+               == "op.0: has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio");
+
+        // The WRITER refuses the half pair too (planner ruling on the B04b
+        // builder's flag #4 — the B02 rule: never serialize a file the
+        // reader bounces; without this, a half pair in memory would emit
+        // width_ratio and silently DROP the lone cutter value).
+        RecipeOpStream halfPairStream;
+        CutFlutesOp halfCutter;
+        halfCutter.target = "shaft";
+        halfCutter.count = 20;
+        halfCutter.depth = 0.12;
+        halfCutter.cutterRadius = 0.16; // atRadius deliberately unset
+        halfPairStream.ops.push_back(halfCutter);
+        const OpStreamTextResult halfWritten = recipeOpsToToml(halfPairStream);
+        assert(!halfWritten.ok);
+        assert(halfWritten.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
     }
 
     return 0;

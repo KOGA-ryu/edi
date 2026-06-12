@@ -39,7 +39,9 @@ MINIMAL_CYLINDER = (
 # x=2 (bounds_of's x branch moves the rig's camera x to 1.5 — at x=0 the
 # branch's bounds are symmetric and the rig can't see it), z_mode="base"
 # (_center_z's base branch), entasis="false" (_flag's false branch), and
-# CutFlutes without width_ratio/z-range (the 0.28 default, no z suffix).
+# CutFlutes without width_ratio/z-range (the 0.28 default, no z suffix),
+# and a CutFlutes WITH explicit cutter geometry (the cutter_r/at_r plan
+# path, R1-B04b).
 PLAN_FIXTURE = """\
 recipe.id = "smoke.plan"
 recipe.name = "Plan Fixture"
@@ -89,6 +91,13 @@ op.6.type = "CutFlutes"
 op.6.target = "drum"
 op.6.count = "6"
 op.6.depth = "0.1"
+
+op.7.type = "CutFlutes"
+op.7.target = "drum"
+op.7.count = "20"
+op.7.depth = "0.12"
+op.7.cutter_radius = "0.16"
+op.7.at_radius = "1.056"
 """
 
 # Derived by hand from the module's own arithmetic: bounds x [-2, 5]
@@ -97,7 +106,7 @@ op.6.depth = "0.1"
 # 13.8, camera x = (-2+5)/2 = 1.5, y = -2 - 11.5 * 1.6 = -20.4,
 # center 5.75. Camera x is the killable trace of bounds_of's x branch.
 PLAN_EXPECTED = [
-    "# edi_craft dry run — 7 ops",
+    "# edi_craft dry run — 8 ops",
     "AddSphere finial r=1.5 z=10 material=stone",
     "AddRing collar r=2 tube_h=0.5 z=8 material=stone",
     'AddLabel tag "north face" at (1, 2, 3)',
@@ -105,6 +114,7 @@ PLAN_EXPECTED = [
     "AddBox pedestal 4x4x2 center_z=1 material=stone",
     "AddCylinder drum r=1 h=4 center_z=2 axis=z vertices=96 material=stone",
     "CutFlutes drum count=6 depth=0.1 width_ratio=0.28",
+    "CutFlutes drum count=20 depth=0.12 cutter_r=0.16 at_r=1.056",
     "preview rig: ortho_scale=13.8 camera=(1.5, -20.4, 5.75) target_z=5.75",
 ]
 
@@ -214,6 +224,20 @@ def main() -> int:
         MINIMAL_CYLINDER + 'op.0.axis = "x"\n'
         'op.1.type = "CutFlutes"\nop.1.target = "c"\nop.1.count = "6"\nop.1.depth = "0.1"\n',
         "cuts vertical grooves",
+    )
+
+    # Explicit cutter geometry (R1-B04b): both or neither, and never beside a
+    # width_ratio — the C++ store reader's refusals and wordings, mirrored.
+    refuses(
+        'op.0.type = "CutFlutes"\nop.0.target = "drum"\nop.0.count = "20"\n'
+        'op.0.depth = "0.12"\nop.0.cutter_radius = "0.16"\n',
+        "a cutter needs both .cutter_radius and .at_radius",
+    )
+    refuses(
+        'op.0.type = "CutFlutes"\nop.0.target = "drum"\nop.0.count = "20"\n'
+        'op.0.depth = "0.12"\nop.0.cutter_radius = "0.16"\nop.0.at_radius = "1.056"\n'
+        'op.0.width_ratio = "0.34"\n',
+        "has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio",
     )
 
     print("edi_craft smoke: ok")

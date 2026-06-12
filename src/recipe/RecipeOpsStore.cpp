@@ -168,7 +168,17 @@ struct OpWriter {
         put("target", op.target);
         put("count", op.count);
         put("depth", op.depth);
-        put("width_ratio", op.widthRatio);
+        // Explicit cutter geometry XOR the width_ratio derivation (R1-B04b):
+        // emit exactly ONE cutter source so the file never shows a number the
+        // build ignores. The pair is present-together by struct invariant (the
+        // reader enforces it on load); width_ratio keeps its slot — and its
+        // bindability through put() — when the pair is absent.
+        if (op.cutterRadius.has_value() && op.atRadius.has_value()) {
+            put("cutter_radius", *op.cutterRadius);
+            put("at_radius", *op.atRadius);
+        } else {
+            put("width_ratio", op.widthRatio);
+        }
         if (op.startZ.has_value()) {
             put("start_z", *op.startZ);
         }
@@ -209,6 +219,11 @@ struct OpReader {
         consumed.insert(key);
         return &found->second;
     }
+
+    // True when a key exists in the file, WITHOUT consuming it: the cutter
+    // XOR (R1-B04b) must spot a width_ratio beside an explicit pair before
+    // the reader would otherwise read it.
+    bool present(const std::string &key) const { return config.find(key) != config.end(); }
 
     bool requireText(const std::string &key, std::string &out)
     {
@@ -504,6 +519,22 @@ OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
         config[key + ".field"] = binding.field;
     }
 
+    // Struct invariants the reader enforces on load get enforced at WRITE
+    // too (the B02 rule: never serialize a file the reader bounces). Today
+    // that is one invariant: a CutFlutes explicit cutter is both-or-neither
+    // — a half pair in memory would otherwise silently emit width_ratio and
+    // DROP the lone cutter value (planner ruling on the B04b builder's
+    // flagged decision #4).
+    for (std::size_t i = 0; i < stream.ops.size(); ++i) {
+        if (const auto *flutes = std::get_if<CutFlutesOp>(&stream.ops[i])) {
+            if (flutes->cutterRadius.has_value() != flutes->atRadius.has_value()) {
+                result.message =
+                    opPrefix(i) + ": a cutter needs both .cutter_radius and .at_radius";
+                return result;
+            }
+        }
+    }
+
     for (std::size_t i = 0; i < stream.ops.size(); ++i) {
         const std::string prefix = opPrefix(i);
         std::visit(OpWriter{config, prefix, &boundByOp[i]}, stream.ops[i]);
@@ -660,8 +691,37 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             double value = 0.0;
             if (!reader.requireText(prefix + ".target", op.target)
                 || !reader.requireInt(prefix + ".count", op.count)
-                || !reader.bindableNumber(prefix, "depth", op.depth, true)
-                || !reader.bindableNumber(prefix, "width_ratio", op.widthRatio, false)) {
+                || !reader.bindableNumber(prefix, "depth", op.depth, true)) {
+                result.message = reader.error;
+                return result;
+            }
+            // Explicit cutter geometry (R1-B04b): optional, present-together,
+            // XOR width_ratio. Literal-only (not bindable), like start_z/end_z.
+            bool hasCutter = false;
+            bool hasAt = false;
+            double cutterRadius = 0.0;
+            double atRadius = 0.0;
+            if (!reader.optionalNumber(prefix + ".cutter_radius", cutterRadius, hasCutter)
+                || !reader.optionalNumber(prefix + ".at_radius", atRadius, hasAt)) {
+                result.message = reader.error;
+                return result;
+            }
+            if (hasCutter != hasAt) {
+                result.message = prefix + ": a cutter needs both .cutter_radius and .at_radius";
+                return result;
+            }
+            if (hasCutter) {
+                // A width_ratio beside an explicit cutter is the both-sources
+                // lie — refuse before width_ratio would be read and consumed.
+                if (reader.present(prefix + ".width_ratio")) {
+                    result.message = prefix
+                        + ": has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio";
+                    return result;
+                }
+                op.cutterRadius = cutterRadius;
+                op.atRadius = atRadius;
+                // width_ratio keeps its struct default (0.28), inert and unwritten.
+            } else if (!reader.bindableNumber(prefix, "width_ratio", op.widthRatio, false)) {
                 result.message = reader.error;
                 return result;
             }

@@ -119,6 +119,10 @@ add_library(edi_text_core STATIC
     src/text/TextEditorCommands.cpp
     src/text/TextSelection.h
     src/text/TextSelection.cpp
+    src/text/TextEncoding.h
+    src/text/TextEncoding.cpp
+    src/text/TextSearch.h
+    src/text/TextSearch.cpp
 )
 
 target_include_directories(edi_text_core PUBLIC
@@ -292,6 +296,8 @@ target_sources(drawing_canvas_projected_object_tests PRIVATE src/widgets/Drawing
 target_include_directories(drawing_canvas_projected_object_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)
 add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
+add_edi_contract_test(text_encoding_tests tests/text_encoding_tests.cpp edi_text_core)
+add_edi_contract_test(text_search_tests tests/text_search_tests.cpp edi_text_core)
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
@@ -334,6 +340,9 @@ target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(text_session_store_tests tests/text_session_store_tests.cpp edi_text_core edi_format_core Qt6::Core)
+target_sources(text_session_store_tests PRIVATE src/io/TextSessionStore.cpp src/io/SettingsStore.cpp)
+target_include_directories(text_session_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
@@ -419,10 +428,14 @@ add_executable(edi_shell_window_tests
     src/io/DrawingDocumentStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
+    src/io/TextSessionStore.h
+    src/io/TextSessionStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
     src/widgets/EdiShellWindowIo.cpp
+    src/widgets/TextEditorFeature.h
+    src/widgets/TextEditorFeature.cpp
     src/widgets/DraftingFeature.h
     src/widgets/DraftingFeaturePanels.cpp
     src/widgets/DraftingFeatureInspector.cpp
@@ -482,6 +495,7 @@ target_link_libraries(edi_shell_window_tests PRIVATE
     Qt6::Gui
     Qt6::Widgets
 )
+target_compile_definitions(edi_shell_window_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_test(NAME edi_shell_window_tests COMMAND edi_shell_window_tests)
 
 add_executable(drawing_canvas_widget_tests
@@ -560,12 +574,14 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/ShellLayoutStore.cpp
     src/io/ProfileStore.h
     src/io/ProfileStore.cpp
-    src/io/TextEditorStore.h
-    src/io/TextEditorStore.cpp
+    src/io/TextSessionStore.h
+    src/io/TextSessionStore.cpp
     src/widgets/EdiShellWindow.h
     src/widgets/EdiShellWindow.cpp
     src/widgets/EdiShellWindowPanels.cpp
     src/widgets/EdiShellWindowIo.cpp
+    src/widgets/TextEditorFeature.h
+    src/widgets/TextEditorFeature.cpp
     src/widgets/DraftingFeature.h
     src/widgets/DraftingFeaturePanels.cpp
     src/widgets/DraftingFeatureInspector.cpp

@@ -15,6 +15,7 @@
 #include "widgets/ShellTheme.h"
 
 #include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
+#include "text/TextDocumentStore.h" // the editor's documents, window-owned (E1)
 
 class QAction;
 class QMenu;
@@ -61,6 +62,13 @@ public:
     bool saveOpsRecipeToPath(const QString &path);
     bool exportResolvedOpsToPath(const QString &path);
     bool exportOpsPreviewsToDir(const QString &dir);
+    // E1 test seam: shell tests assert the document model, not widget text.
+    edi::text::TextDocumentStore &textDocumentStore() { return m_textStore; }
+    // E4 test seam: assert what the pipeline holds after Apply.
+    const edi::recipe::RecipeOpStream &opsStream() const { return m_opsStream; }
+    // E4: the strict-reader hook behind the editor's Apply button — parses
+    // the script text, replaces the op stream, echoes canonical TOML back.
+    QString applyOpsScript(const std::string &text);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -103,6 +111,17 @@ public:
     bool loadWorkspaceLayout(const QString &path);
     bool saveWorkspaceLayout(const QString &path) const;
 
+    // The text editor SESSION (E2): which documents are open and which is
+    // active, restored across restarts. loadTextSession remembers the path (the
+    // session writes itself there on close, beside the layout) and re-projects
+    // the panel; saveTextSession writes the manifest. main() passes
+    // defaultTextSessionPath().
+    bool loadTextSession(const QString &path);
+    bool saveTextSession(const QString &path) const;
+    // The text editor's path chooser, injectable for offscreen tests (the
+    // drawing Save As precedent). forSave picks save vs open; empty = cancel.
+    void setTextEditorPathProvider(std::function<QString(bool forSave)> provider);
+
     // Tear down the mounted slots and rebuild them from a different layout.
     // The document is untouched — only the glass around it changes. Pushes
     // onto the workspace history (the chrome's back/forward buttons).
@@ -126,6 +145,10 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    // E2: seed one Scratch document only when the store is empty — the
+    // constructor calls it (fresh window), and so does loadTextSession after an
+    // empty manifest, so the terminal is never blank.
+    void seedScratchIfEmpty();
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -137,6 +160,7 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
+    void syncOpsScriptDocument(); // E4: stream -> editor script doc
     void promptOpenOpsRecipe();
     void promptSaveOpsRecipe();
     void promptExportResolvedOps();
@@ -244,6 +268,12 @@ private:
     QString m_currentDrawingPath;
     QString m_lastRecipeError;
     edi::recipe::RecipeOpStream m_opsStream; // the op pipeline's loaded stream (R1-B05)
+    // The text editor's documents (E1): window-owned like m_opsStream, so
+    // workspace remounts (which recreate feature instances) cannot lose
+    // edits; the panel reaches it through the FeatureContext bus.
+    edi::text::TextDocumentStore m_textStore;
+    QString m_textSessionPath;
+    std::function<QString(bool forSave)> m_textEditorPathProvider;
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

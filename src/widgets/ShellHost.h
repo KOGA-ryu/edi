@@ -8,6 +8,10 @@
 class QWidget;
 class DrawingDocumentController;
 
+namespace edi::text {
+struct TextDocumentStore;
+}
+
 namespace edi::shell {
 
 // A region the shell offers. (Activity rail / status bar are chrome, not
@@ -23,6 +27,24 @@ enum class ShellSlot { Main, Left, Right, Bottom };
 // member; see EdiShellWindow::m_opsStream).
 struct FeatureContext {
     DrawingDocumentController *drawingController = nullptr;
+    // The text editor's document store (E1) — window-owned so it survives
+    // workspace remounts (feature instances are recreated per mount and
+    // may not own documents). A shared DOCUMENT on the bus, per the
+    // coupling rule above.
+    edi::text::TextDocumentStore *textStore = nullptr;
+    // The SCRIPT document seam (E4, the R7 lab's loop delivered early):
+    // one designated document is the pipeline's working text. The panel
+    // knows only this id and the hook — never what a recipe is; the
+    // window (owner of both stores) wires applyScript to the strict
+    // reader. Returns the refusal message, or empty on success.
+    QString scriptDocumentId;
+    std::function<QString(const std::string &)> applyScript;
+    // E2: the live text panel's refresh hook (set when the panel builds) and a
+    // session note for its status line. loadTextSession replaces the store out
+    // from under the panel, then re-projects and surfaces any degrade through
+    // these — no remount, no dangling (the panel re-sets the hook each build).
+    std::function<void()> refreshTextPanel;
+    QString textSessionNote;
 };
 
 // A floating palette a feature offers: id (stable, keys the stored

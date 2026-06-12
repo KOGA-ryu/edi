@@ -1,4 +1,6 @@
 #include "widgets/EdiShellWindow.h"
+#include "text/TextDocumentStore.h"
+#include "widgets/TextEditorFeature.h"
 
 #include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
@@ -9,6 +11,7 @@
 #include "widgets/ShellTheme.h"
 
 #include <QApplication>
+#include <cstdio>
 #include <QCheckBox>
 #include <QColor>
 #include <QCoreApplication>
@@ -23,6 +26,8 @@
 #include <QMenu>
 #include <QSet>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
+#include <QTextCursor>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
@@ -2165,6 +2170,280 @@ int main(int argc, char **argv)
         // to the real modal QMessageBox and would hang the offscreen run.
         window.setDirtyGuardPrompt([]() { return EdiShellWindow::DirtyGuardChoice::Cancel; });
         window.setSaveFailedNotice([](const QString &) {});
+    }
+
+    // The text editor host (E1): the bottom terminal hosts the user's text
+    // core. Every keystroke routes through TextEditorCommands into the
+    // window-owned store — the widget is a PROJECTION; the document is the
+    // truth — and a refused command surfaces in the status line.
+    {
+        // A FRESH window pins the SHIPPED default: the constructor mounts the
+        // factory layout, whose Bottom binding is the editor (earlier blocks
+        // switched `window` to hand-built jobs, which is exactly the point —
+        // bindings are data; this asserts what edi ships, not what tests left).
+        EdiShellWindow editorShell;
+        QWidget *panel = editorShell.findChild<QWidget *>(QStringLiteral("textEditorPanel"));
+        assert(panel != nullptr); // mounted in the bottom terminal slot
+        auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
+        assert(view != nullptr);
+        assert(view->isReadOnly()); // Qt's own mutation paths are dead
+        auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr);
+        assert(list->count() == 1); // the seeded scratch document
+        auto *editorStatus = editorShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        assert(editorStatus != nullptr);
+
+        edi::text::TextDocumentStore &textStore = editorShell.textDocumentStore();
+        assert(textStore.activeDocumentId.has_value());
+        assert(*textStore.activeDocumentId == "scratch");
+        const std::uint64_t revisionBefore =
+            edi::text::findDocument(textStore, "scratch")->revision;
+
+        const auto type = [view](Qt::Key key, const QString &text) {
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, text);
+            QCoreApplication::sendEvent(view, &press);
+        };
+        // Three keystrokes land as "abc" ONLY if the caret is restored after
+        // every re-projection — a caret reset to 0 types "cba". The order IS
+        // the caret-restore pin.
+        type(Qt::Key_A, QStringLiteral("a"));
+        type(Qt::Key_B, QStringLiteral("b"));
+        type(Qt::Key_C, QStringLiteral("c"));
+        const edi::text::TextDocument *scratch =
+            edi::text::findDocument(textStore, "scratch");
+        assert(scratch != nullptr);
+        assert(scratch->text == "abc");      // the STORE changed, not just pixels
+        assert(scratch->dirty);              // the core's own dirty discipline
+        assert(scratch->revision > revisionBefore);
+        assert(view->toPlainText() == QStringLiteral("abc")); // projection agrees
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(list->item(0)->text().contains(QStringLiteral("•"))); // dirty marker
+
+        type(Qt::Key_Backspace, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+
+        // E3: Delete at the end is a quiet no-op — symmetric with Backspace
+        // at the start, like every editor. (E1 let it reach the core for an
+        // invalid_range refusal; boundary math made the honest translation
+        // "nothing to delete".)
+        type(Qt::Key_Delete, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        assert(editorStatus->text() == QStringLiteral("ok"));
+
+        // E3 retired E1's ASCII gate: é now LANDS, as two UTF-8 bytes the
+        // core stores and one UTF-16 unit the view counts. The caret math
+        // is the proof — typing 'x' immediately after must append, not
+        // split the é (which is exactly what E1's review showed happening
+        // without the mapping).
+        type(Qt::Key_E, QString::fromUtf8("\xc3\xa9")); // é
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9");
+        type(Qt::Key_X, QStringLiteral("x"));
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9x");
+        assert(view->toPlainText() == QString::fromUtf8("ab\xc3\xa9x"));
+        // Backspace removes the WHOLE character, however many bytes.
+        type(Qt::Key_Backspace, QString());
+        type(Qt::Key_Backspace, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+
+        // The core-refusal surface stays pinned DIRECTLY: the host now only
+        // translates legal edits, so the defensive branch is exercised by
+        // invoking the choke point with a hand-built out-of-range command.
+        view->applyCommand(edi::text::DeleteTextRangeCommand{{}, {999, 1000}});
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        assert(editorStatus->text().contains(QStringLiteral("invalid_range")));
+
+        // Selection editing (E3): select all of "ab" and type over it —
+        // the host translates the gesture into the user's OWN
+        // ReplaceTextRangeCommand, which existed unused since the core was
+        // built. One keystroke, one command, selection replaced.
+        QTextCursor selectAll = view->textCursor();
+        selectAll.setPosition(0);
+        selectAll.setPosition(2, QTextCursor::KeepAnchor);
+        view->setTextCursor(selectAll);
+        type(Qt::Key_Z, QStringLiteral("z"));
+        assert(edi::text::findDocument(textStore, "scratch")->text == "z");
+        assert(editorStatus->text() == QStringLiteral("ok"));
+
+        // Find (E3): the needle is searched in the CORE's bytes, the match
+        // selected in the view; a miss names the needle — never silent.
+        type(Qt::Key_E, QStringLiteral("e"));
+        type(Qt::Key_D, QStringLiteral("d"));
+        type(Qt::Key_I, QStringLiteral("i")); // document: "zedi"
+        auto *findInput = editorShell.findChild<QLineEdit *>(QStringLiteral("textEditorFindInput"));
+        auto *findButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorFindNext"));
+        assert(findInput != nullptr && findButton != nullptr);
+        findInput->setText(QStringLiteral("ed"));
+        findButton->click();
+        assert(view->textCursor().hasSelection());
+        assert(view->textCursor().selectedText() == QStringLiteral("ed"));
+        assert(view->textCursor().selectionStart() == 1);
+        findInput->setText(QStringLiteral("zebra"));
+        findButton->click();
+        assert(editorStatus->text().contains(QStringLiteral("zebra"))); // miss, by name
+    }
+
+    // The text editor SESSION (E2): the open documents and the active one
+    // survive a restart through a TOML manifest; New/Save move text; the list-
+    // selection nit routes through itemClicked. Temp paths only — never the
+    // user's real config dir.
+    {
+        EdiShellWindow editorShell;
+        auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr && list->count() == 1); // conditional seed intact: one scratch
+        auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
+        assert(view != nullptr);
+
+        QTemporaryDir sessionDir;
+        assert(sessionDir.isValid());
+        const QString sessionPath = sessionDir.filePath(QStringLiteral("session.toml"));
+
+        // Type a scratch note WITH A NEWLINE (Return -> "\n"), then save the session.
+        const auto type = [view](Qt::Key key, const QString &text) {
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, text);
+            QCoreApplication::sendEvent(view, &press);
+        };
+        type(Qt::Key_H, QStringLiteral("h"));
+        type(Qt::Key_I, QStringLiteral("i"));
+        type(Qt::Key_Return, QString());
+        type(Qt::Key_Y, QStringLiteral("y"));
+        edi::text::TextDocumentStore &store = editorShell.textDocumentStore();
+        assert(edi::text::findDocument(store, "scratch")->text == "hi\ny");
+        assert(editorShell.saveTextSession(sessionPath));
+        assert(QFile::exists(sessionPath));
+
+        // A FRESH window restores the open set + active from the manifest, not
+        // the bare seed — and the panel re-projects the restored text.
+        {
+            EdiShellWindow restored;
+            assert(restored.loadTextSession(sessionPath));
+            const edi::text::TextDocumentStore &rStore = restored.textDocumentStore();
+            assert(rStore.activeDocumentId.has_value() && *rStore.activeDocumentId == "scratch");
+            const edi::text::TextDocument *scratch = edi::text::findDocument(rStore, "scratch");
+            assert(scratch != nullptr && scratch->text == "hi\ny"); // newline survived restart
+            auto *rView = restored.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+            assert(rView != nullptr && rView->toPlainText() == QStringLiteral("hi\ny"));
+        }
+
+        // New creates + ACTIVATES a second document (makes the switch testable).
+        auto *newButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorNew"));
+        assert(newButton != nullptr);
+        newButton->click();
+        assert(store.documents.size() == 2);
+        assert(store.activeDocumentId.has_value() && *store.activeDocumentId != "scratch");
+        const std::string created = *store.activeDocumentId;
+        assert(list->count() == 2);
+
+        // itemClicked on the FIRST item (scratch) switches the STORE's active
+        // document — the E1 nit fixed (itemActivated was double-click only).
+        QListWidgetItem *firstItem = list->item(0);
+        assert(firstItem != nullptr);
+        assert(firstItem->data(Qt::UserRole).toString() == QStringLiteral("scratch"));
+        emit list->itemClicked(firstItem);
+        assert(store.activeDocumentId.has_value() && *store.activeDocumentId == "scratch");
+        assert(*store.activeDocumentId != created); // switched away from the new doc
+
+        // Save writes the active document's text to a FILE (injected path) and
+        // clears dirty — the list's dirty dot disappears.
+        edi::text::TextDocument *activeDoc = edi::text::findDocument(store, "scratch");
+        assert(activeDoc != nullptr && activeDoc->dirty); // typing left it dirty
+        QTemporaryDir saveDir;
+        assert(saveDir.isValid());
+        const QString savePath = saveDir.filePath(QStringLiteral("note.txt"));
+        editorShell.setTextEditorPathProvider(
+            [savePath](bool forSave) { return forSave ? savePath : QString(); });
+        auto *saveButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorSave"));
+        assert(saveButton != nullptr);
+        saveButton->click();
+        assert(QFile::exists(savePath));
+        assert(!activeDoc->dirty); // markClean cleared it
+        assert(!list->item(0)->text().contains(QStringLiteral("•"))); // dirty dot gone
+    }
+
+    // The script view (E4, the R7 loop early): opening an ops recipe puts
+    // its CANONICAL TOML in the editor; Apply runs the text back through
+    // the strict reader — refusals name the key, success replaces the
+    // stream and echoes the canonical form. Text is the cheap preview;
+    // the pipeline never re-parses mid-edit.
+    {
+        EdiShellWindow scriptShell;
+        assert(scriptShell.openOpsRecipeFromPath(QStringLiteral(
+            EDI_SAMPLES_DIR "/doric_column/doric_column_drafted_ops.toml")));
+        auto *view = scriptShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
+        auto *editorStatus = scriptShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        auto *applyButton = scriptShell.findChild<QPushButton *>(QStringLiteral("textEditorApply"));
+        assert(view != nullptr && editorStatus != nullptr && applyButton != nullptr);
+
+        // The script document holds the stream's canonical serialization
+        // and is active; Apply is therefore enabled.
+        edi::text::TextDocumentStore &textStore = scriptShell.textDocumentStore();
+        assert(textStore.activeDocumentId.has_value()
+               && *textStore.activeDocumentId == "ops_recipe");
+        const edi::text::TextDocument *script =
+            edi::text::findDocument(textStore, "ops_recipe");
+        assert(script != nullptr);
+        assert(script->text.find("op.0.type = \"AddBox\"") != std::string::npos);
+        assert(applyButton->isEnabled());
+
+        // Corrupt one key by typing where the caret lands (position 0):
+        // "x" prepended makes the first key unknown — the STRICT reader
+        // refuses BY NAME and the stream is untouched.
+        const std::size_t opsBefore = scriptShell.opsStream().ops.size();
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(0);
+            view->setTextCursor(cursor);
+        }
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_X, Qt::NoModifier, QStringLiteral("x"));
+        QCoreApplication::sendEvent(view, &press);
+        applyButton->click();
+        // (The reader refuses at the first MISSING required key — mangling
+        // op.0.depth into xop.0.depth makes depth absent — which is even
+        // more pointable than the audit catching the stray key later.)
+        assert(editorStatus->text().contains(QStringLiteral("op.0.depth")));
+        assert(scriptShell.opsStream().ops.size() == opsBefore); // unchanged
+
+        // Repair: delete the stray byte, Apply again — ok, canonical echo.
+        QKeyEvent del(QEvent::KeyPress, Qt::Key_Delete, Qt::NoModifier, QString());
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(0);
+            view->setTextCursor(cursor);
+        }
+        QCoreApplication::sendEvent(view, &del);
+        applyButton->click();
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(scriptShell.opsStream().ops.size() == opsBefore);
+        const edi::text::TextDocument *after =
+            edi::text::findDocument(textStore, "ops_recipe");
+        assert(after->text.find("xop.0") == std::string::npos); // canonical again
+
+        // The canonical ECHO is observable, not assumed: add a trailing
+        // blank line (legal TOML, parses identically), Apply, and the echo
+        // must NORMALIZE it away — an Apply that "succeeds" without
+        // re-projecting the canonical form leaves the extra newline behind.
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(static_cast<int>(view->toPlainText().size()));
+            view->setTextCursor(cursor);
+        }
+        QKeyEvent ret(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, QString());
+        QCoreApplication::sendEvent(view, &ret);
+        assert(edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+        applyButton->click();
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(!edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+
+        // Apply is a SCRIPT-document gesture: on a scratch note it is
+        // disabled, not silently wrong.
+        auto *list = scriptShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr);
+        for (int i = 0; i < list->count(); ++i) {
+            if (list->item(i)->data(Qt::UserRole).toString() == QStringLiteral("scratch")) {
+                list->setCurrentItem(list->item(i));
+                emit list->itemClicked(list->item(i));
+            }
+        }
+        assert(!applyButton->isEnabled());
     }
 
     return 0;

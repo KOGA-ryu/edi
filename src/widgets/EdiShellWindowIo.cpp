@@ -19,6 +19,7 @@
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
 #include "io/ShellLayoutStore.h"
+#include "io/TextSessionStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/ShellWidgetHelpers.h"
 
@@ -515,4 +516,46 @@ bool EdiShellWindow::loadWorkspaceLayout(const QString &path)
 bool EdiShellWindow::saveWorkspaceLayout(const QString &path) const
 {
     return edi::io::saveShellLayoutToPath(path, m_workspaceLayout, m_panelsState);
+}
+
+void EdiShellWindow::setTextEditorPathProvider(std::function<QString(bool forSave)> provider)
+{
+    m_textEditorPathProvider = std::move(provider);
+}
+
+bool EdiShellWindow::saveTextSession(const QString &path) const
+{
+    return edi::io::saveTextSessionToPath(m_textStore, path).ok;
+}
+
+bool EdiShellWindow::loadTextSession(const QString &path)
+{
+    // Remember the path either way: a first run has no manifest yet, but closing
+    // should still write one there (the loadWorkspaceLayout precedent).
+    m_textSessionPath = path;
+    if (!QFile::exists(path)) {
+        return true; // first run: keep the seeded scratch — nothing to restore
+    }
+    edi::io::TextSessionLoad loaded = edi::io::loadTextSessionFromPath(path);
+    if (!loaded.ok) {
+        // A manifest that EXISTS but will not parse is a full refusal, named:
+        // surface it and keep the current store (corrupt state is not adopted).
+        m_featureContext.textSessionNote = QString::fromStdString(loaded.message);
+        if (m_featureContext.refreshTextPanel) {
+            m_featureContext.refreshTextPanel();
+        }
+        return false;
+    }
+    m_textStore = std::move(loaded.store);
+    seedScratchIfEmpty(); // an empty manifest never leaves the editor blank
+    // Degrade notes (a skipped backing file) ride the bus to the status line.
+    QStringList notes;
+    for (const std::string &note : loaded.skipped) {
+        notes << QString::fromStdString(note);
+    }
+    m_featureContext.textSessionNote = notes.join(QLatin1Char('\n'));
+    if (m_featureContext.refreshTextPanel) {
+        m_featureContext.refreshTextPanel(); // re-project the swapped store
+    }
+    return true;
 }

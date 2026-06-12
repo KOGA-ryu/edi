@@ -10,6 +10,7 @@
 #include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
+#include "io/TextSessionStore.h"
 #include "widgets/EdiShellWindow.h"
 
 namespace {
@@ -104,6 +105,7 @@ int main(int argc, char **argv)
     EdiShellWindow window;
     window.loadSettings(edi::io::defaultSettingsPath());
     window.loadWorkspaceLayout(edi::io::defaultWorkspaceLayoutPath());
+    window.loadTextSession(edi::io::defaultTextSessionPath());
     window.show();
 
     // Synthetic load for the bench: a deterministic fan of lines through the

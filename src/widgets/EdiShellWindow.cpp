@@ -111,14 +111,13 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // switching workspaces re-reads all three. The context is a member because
     // features may hold onto the bus for as long as their widgets live.
     m_featureContext.drawingController = m_controller;
-    // E1: seed the editor's store so the terminal is never empty — one
-    // Scratch document, named for what the bottom panel IS to the user.
-    {
-        edi::text::TextDocument scratch = edi::text::makeTextDocument("scratch", "Scratch");
-        edi::text::addDocument(m_textStore, std::move(scratch));
-        edi::text::setActiveDocument(m_textStore, "scratch");
-    }
+    // E1/E2: seed the editor's store so the terminal is never empty — one
+    // Scratch document. CONDITIONAL (decision 5): the constructor seeds because
+    // the store starts empty, but loadTextSession may replace it, and a load of
+    // an empty manifest re-seeds through the same helper. The fresh-window test
+    // (E1) still sees the seeded scratch.
     m_featureContext.textStore = &m_textStore;
+    seedScratchIfEmpty();
 
     // Per-feature knowledge lives ONLY in these registry rows — how to build
     // a fresh instance, and what shell-owned state to re-feed it after a
@@ -157,8 +156,17 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     textEditor.id = QStringLiteral("text_editor");
     textEditor.label = QStringLiteral("Text Editor");
     textEditor.supportedSlots = {ShellSlot::Bottom};
-    textEditor.buildPanel = [](ShellSlot, FeatureContext &context) -> QWidget * {
-        return buildTextEditorPanel(context);
+    textEditor.buildPanel = [this](ShellSlot, FeatureContext &context) -> QWidget * {
+        // The provider is read at CLICK time: tests set m_textEditorPathProvider
+        // after construction; absent one, the buttons open a real QFileDialog.
+        return buildTextEditorPanel(context, [this](bool forSave) -> QString {
+            if (m_textEditorPathProvider) {
+                return m_textEditorPathProvider(forSave);
+            }
+            return forSave
+                ? QFileDialog::getSaveFileName(this, QStringLiteral("Save Text"))
+                : QFileDialog::getOpenFileName(this, QStringLiteral("Open Text"));
+        });
     };
     m_featureRegistry.features.push_back(textEditor);
 
@@ -263,6 +271,15 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
 
 EdiShellWindow::~EdiShellWindow() = default;
 
+void EdiShellWindow::seedScratchIfEmpty()
+{
+    if (!m_textStore.documents.empty()) {
+        return; // a load (or an earlier seed) already populated the store
+    }
+    edi::text::addDocument(m_textStore, edi::text::makeTextDocument("scratch", "Scratch"));
+    edi::text::setActiveDocument(m_textStore, "scratch");
+}
+
 void EdiShellWindow::closeEvent(QCloseEvent *event)
 {
     // #18: closing with unsaved changes asks first (user decision: modal
@@ -277,6 +294,9 @@ void EdiShellWindow::closeEvent(QCloseEvent *event)
     }
     if (!m_workspaceLayoutPath.isEmpty()) {
         saveWorkspaceLayout(m_workspaceLayoutPath); // panel geometry survives restart
+    }
+    if (!m_textSessionPath.isEmpty()) {
+        saveTextSession(m_textSessionPath); // E2: the open documents survive restart
     }
     QMainWindow::closeEvent(event);
 }

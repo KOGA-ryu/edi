@@ -32,6 +32,12 @@ struct FeatureContext {
     // may not own documents). A shared DOCUMENT on the bus, per the
     // coupling rule above.
     edi::text::TextDocumentStore *textStore = nullptr;
+    // E2: the live text panel's refresh hook (set when the panel builds) and a
+    // session note for its status line. loadTextSession replaces the store out
+    // from under the panel, then re-projects and surfaces any degrade through
+    // these — no remount, no dangling (the panel re-sets the hook each build).
+    std::function<void()> refreshTextPanel;
+    QString textSessionNote;
 };
 
 // A floating palette a feature offers: id (stable, keys the stored

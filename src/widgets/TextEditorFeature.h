@@ -48,8 +48,15 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 };
 
-// Builds the bottom-terminal panel: document list (left), view + status
-// (right). Free-function style on purpose — the feature owns no state;
-// the store rides the FeatureContext bus (window-owned, so it survives
-// workspace remounts that recreate feature instances).
-QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context);
+// An injectable path chooser (E2) — the drawing Save As precedent, made
+// feature-local: New/Open/Save call it at CLICK time, so offscreen tests drive
+// the buttons with real temp paths and no QFileDialog ever opens. `forSave`
+// picks the dialog; an empty return means the user cancelled.
+using TextEditorPathProvider = std::function<QString(bool forSave)>;
+
+// Builds the bottom-terminal panel: a small New/Open/Save toolbar, the document
+// list (left), view + status (right). Free-function style on purpose — the
+// feature owns no state; the store rides the FeatureContext bus (window-owned,
+// so it survives workspace remounts that recreate feature instances).
+QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
+                              TextEditorPathProvider pathProvider);

@@ -3,11 +3,16 @@
 #include "widgets/ShellHost.h"
 #include "widgets/ShellWidgetHelpers.h"
 
+#include <QFile>
+#include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
+#include <QPointer>
+#include <QPushButton>
+#include <QSaveFile>
 #include <QSplitter>
 #include <QTextCursor>
 #include <QVBoxLayout>
@@ -134,12 +139,14 @@ void refreshList(QListWidget *list, const TextDocumentStore &store)
 
 } // namespace
 
-QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context)
+QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
+                              TextEditorPathProvider pathProvider)
 {
     TextDocumentStore *store = context.textStore;
     if (store == nullptr) {
         return nullptr; // no bus document, no panel — the mount degrades
     }
+    edi::shell::FeatureContext *ctx = &context;
 
     // A FRAME, not a bare QWidget: the bottom slot is an OVERLAY on the
     // canvas, and a plain QWidget ignores QSS backgrounds — the grid would
@@ -148,6 +155,22 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context)
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(12, 8, 12, 8);
     layout->setSpacing(6);
+
+    // The toolbar (E2): New makes a document; Open/Save move text to and from
+    // FILES through the injectable provider (never a hard-coded QFileDialog the
+    // offscreen suite would hang on).
+    auto *toolbar = new QHBoxLayout;
+    auto *newButton = new QPushButton(QStringLiteral("New"));
+    newButton->setObjectName(QStringLiteral("textEditorNew"));
+    auto *openButton = new QPushButton(QStringLiteral("Open…"));
+    openButton->setObjectName(QStringLiteral("textEditorOpen"));
+    auto *saveButton = new QPushButton(QStringLiteral("Save"));
+    saveButton->setObjectName(QStringLiteral("textEditorSave"));
+    toolbar->addWidget(newButton);
+    toolbar->addWidget(openButton);
+    toolbar->addWidget(saveButton);
+    toolbar->addStretch(1);
+    layout->addLayout(toolbar);
 
     auto *splitter = new QSplitter(Qt::Horizontal);
     auto *list = new QListWidget;
@@ -200,16 +223,18 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context)
     // status line commands use — one surface for every "no".
     view->reportRefusal = [status](const QString &reason) { status->setText(reason); };
 
-    // Selecting a document activates it in the STORE (the projection
-    // follows), caret parked at the end like a fresh focus. (itemActivated
-    // is double-click/Enter; fine while the seeded scratch is the only
-    // document — E2's creation UI must switch to itemClicked and re-assert
-    // selection from the store, noted in its bucket.)
-    QObject::connect(list, &QListWidget::itemActivated, view, [store, view, list, status](QListWidgetItem *item) {
+    // Selecting a document activates it in the STORE, the projection follows,
+    // caret parked at the end like a fresh focus. E2 nit (decision 7): the
+    // trigger is itemClicked (single click) — itemActivated was double-click
+    // only, fine while scratch was the sole document; New makes a second. On a
+    // refusal the list selection is RE-ASSERTED from the store, so the
+    // highlight never drifts from the truth.
+    QObject::connect(list, &QListWidget::itemClicked, view, [store, view, list, status](QListWidgetItem *item) {
         const std::string id = item->data(Qt::UserRole).toString().toStdString();
         const TextStoreResult result = setActiveDocument(*store, id);
         if (!result.ok) {
             status->setText(QString::fromLatin1(textResultCodeName(result.code)));
+            refreshList(list, *store); // re-assert the selection from the store
             return;
         }
         const TextDocument *active = findDocument(*store, id);
@@ -217,10 +242,125 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context)
         refreshList(list, *store);
     });
 
+    // New: a fresh Scratch document, activated. The serial id keeps addDocument
+    // happy; the title is what the list shows.
+    QObject::connect(newButton, &QPushButton::clicked, view, [store, view, list, status]() {
+        std::size_t serial = store->documents.size() + 1;
+        std::string id = "note_" + std::to_string(serial);
+        while (containsDocument(*store, id)) {
+            ++serial;
+            id = "note_" + std::to_string(serial);
+        }
+        const TextStoreResult added =
+            addDocument(*store, makeTextDocument(id, "Note " + std::to_string(serial)));
+        if (!added.ok) {
+            status->setText(QString::fromLatin1(textResultCodeName(added.code)));
+            return;
+        }
+        setActiveDocument(*store, id);
+        status->setText(QStringLiteral("ok"));
+        refreshView(view, *store, 0);
+        refreshList(list, *store);
+    });
+
+    // Open: read a FILE into a new document (content from disk; the id is the
+    // file name, made unique).
+    QObject::connect(openButton, &QPushButton::clicked, view, [store, view, list, status, pathProvider]() {
+        if (!pathProvider) {
+            return;
+        }
+        const QString path = pathProvider(false);
+        if (path.isEmpty()) {
+            return; // cancelled
+        }
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            status->setText(QStringLiteral("could not read %1").arg(path));
+            return;
+        }
+        const std::string content = QString::fromUtf8(file.readAll()).toStdString();
+        const std::string baseName = QFileInfo(path).fileName().toStdString();
+        std::string id = baseName;
+        std::size_t serial = 2;
+        while (id.empty() || containsDocument(*store, id)) {
+            id = baseName + "_" + std::to_string(serial++);
+        }
+        TextDocument document = makeTextDocument(id, baseName);
+        document.text = content;
+        const TextStoreResult added = addDocument(*store, std::move(document));
+        if (!added.ok) {
+            status->setText(QString::fromLatin1(textResultCodeName(added.code)));
+            return;
+        }
+        setActiveDocument(*store, id);
+        status->setText(QStringLiteral("ok"));
+        const TextDocument *active = findDocument(*store, id);
+        refreshView(view, *store, active ? active->text.size() : 0);
+        refreshList(list, *store);
+    });
+
+    // Save: write the active document's text to a FILE and mark it clean — the
+    // list's dirty dot clears. (FILE saving stays explicit; the SESSION saves
+    // itself on close. E2 does no close-dirty prompt — that is the R7 obligation.)
+    QObject::connect(saveButton, &QPushButton::clicked, view, [store, list, status, pathProvider]() {
+        if (!store->activeDocumentId.has_value()) {
+            status->setText(QStringLiteral("no active document"));
+            return;
+        }
+        if (!pathProvider) {
+            return;
+        }
+        const QString path = pathProvider(true);
+        if (path.isEmpty()) {
+            return; // cancelled
+        }
+        TextDocument *active = findDocument(*store, *store->activeDocumentId);
+        if (active == nullptr) {
+            return;
+        }
+        QSaveFile file(path);
+        bool ok = file.open(QIODevice::WriteOnly | QIODevice::Truncate);
+        if (ok) {
+            file.write(active->text.data(), static_cast<qint64>(active->text.size()));
+            ok = file.commit();
+        }
+        if (!ok) {
+            status->setText(QStringLiteral("could not write %1").arg(path));
+            return;
+        }
+        markClean(*active);
+        status->setText(QStringLiteral("ok"));
+        refreshList(list, *store); // the dirty dot clears
+    });
+
+    // The session refresh hook (E2): loadTextSession swaps the store, then calls
+    // this to re-project the panel and surface any degrade note. QPointers guard
+    // the (rare) case where the panel was torn down before the call.
+    {
+        const QPointer<QListWidget> listPtr = list;
+        const QPointer<TextEditorView> viewPtr = view;
+        const QPointer<QLabel> statusPtr = status;
+        ctx->refreshTextPanel = [store, listPtr, viewPtr, statusPtr, ctx]() {
+            if (!listPtr || !viewPtr || !statusPtr) {
+                return;
+            }
+            refreshList(listPtr, *store);
+            const TextDocument *active = store->activeDocumentId.has_value()
+                ? findDocument(*store, *store->activeDocumentId)
+                : nullptr;
+            refreshView(viewPtr, *store, active ? active->text.size() : 0);
+            statusPtr->setText(ctx->textSessionNote.isEmpty() ? QStringLiteral("ok")
+                                                              : ctx->textSessionNote);
+        };
+    }
+
     refreshList(list, *store);
     const TextDocument *active = store->activeDocumentId.has_value()
         ? findDocument(*store, *store->activeDocumentId)
         : nullptr;
     refreshView(view, *store, active ? active->text.size() : 0);
+    if (!ctx->textSessionNote.isEmpty()) {
+        status->setText(ctx->textSessionNote); // a note set before this build survives
+    }
     return panel;
 }

@@ -2236,5 +2236,82 @@ int main(int argc, char **argv)
         assert(editorStatus->text().contains(QStringLiteral("non-ASCII")));
     }
 
+    // The text editor SESSION (E2): the open documents and the active one
+    // survive a restart through a TOML manifest; New/Save move text; the list-
+    // selection nit routes through itemClicked. Temp paths only — never the
+    // user's real config dir.
+    {
+        EdiShellWindow editorShell;
+        auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr && list->count() == 1); // conditional seed intact: one scratch
+        auto *view = editorShell.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+        assert(view != nullptr);
+
+        QTemporaryDir sessionDir;
+        assert(sessionDir.isValid());
+        const QString sessionPath = sessionDir.filePath(QStringLiteral("session.toml"));
+
+        // Type a scratch note WITH A NEWLINE (Return -> "\n"), then save the session.
+        const auto type = [view](Qt::Key key, const QString &text) {
+            QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, text);
+            QCoreApplication::sendEvent(view, &press);
+        };
+        type(Qt::Key_H, QStringLiteral("h"));
+        type(Qt::Key_I, QStringLiteral("i"));
+        type(Qt::Key_Return, QString());
+        type(Qt::Key_Y, QStringLiteral("y"));
+        edi::text::TextDocumentStore &store = editorShell.textDocumentStore();
+        assert(edi::text::findDocument(store, "scratch")->text == "hi\ny");
+        assert(editorShell.saveTextSession(sessionPath));
+        assert(QFile::exists(sessionPath));
+
+        // A FRESH window restores the open set + active from the manifest, not
+        // the bare seed — and the panel re-projects the restored text.
+        {
+            EdiShellWindow restored;
+            assert(restored.loadTextSession(sessionPath));
+            const edi::text::TextDocumentStore &rStore = restored.textDocumentStore();
+            assert(rStore.activeDocumentId.has_value() && *rStore.activeDocumentId == "scratch");
+            const edi::text::TextDocument *scratch = edi::text::findDocument(rStore, "scratch");
+            assert(scratch != nullptr && scratch->text == "hi\ny"); // newline survived restart
+            auto *rView = restored.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+            assert(rView != nullptr && rView->toPlainText() == QStringLiteral("hi\ny"));
+        }
+
+        // New creates + ACTIVATES a second document (makes the switch testable).
+        auto *newButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorNew"));
+        assert(newButton != nullptr);
+        newButton->click();
+        assert(store.documents.size() == 2);
+        assert(store.activeDocumentId.has_value() && *store.activeDocumentId != "scratch");
+        const std::string created = *store.activeDocumentId;
+        assert(list->count() == 2);
+
+        // itemClicked on the FIRST item (scratch) switches the STORE's active
+        // document — the E1 nit fixed (itemActivated was double-click only).
+        QListWidgetItem *firstItem = list->item(0);
+        assert(firstItem != nullptr);
+        assert(firstItem->data(Qt::UserRole).toString() == QStringLiteral("scratch"));
+        emit list->itemClicked(firstItem);
+        assert(store.activeDocumentId.has_value() && *store.activeDocumentId == "scratch");
+        assert(*store.activeDocumentId != created); // switched away from the new doc
+
+        // Save writes the active document's text to a FILE (injected path) and
+        // clears dirty — the list's dirty dot disappears.
+        edi::text::TextDocument *activeDoc = edi::text::findDocument(store, "scratch");
+        assert(activeDoc != nullptr && activeDoc->dirty); // typing left it dirty
+        QTemporaryDir saveDir;
+        assert(saveDir.isValid());
+        const QString savePath = saveDir.filePath(QStringLiteral("note.txt"));
+        editorShell.setTextEditorPathProvider(
+            [savePath](bool forSave) { return forSave ? savePath : QString(); });
+        auto *saveButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorSave"));
+        assert(saveButton != nullptr);
+        saveButton->click();
+        assert(QFile::exists(savePath));
+        assert(!activeDoc->dirty); // markClean cleared it
+        assert(!list->item(0)->text().contains(QStringLiteral("•"))); // dirty dot gone
+    }
+
     return 0;
 }

@@ -1458,7 +1458,7 @@ int main(int argc, char **argv)
         auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
         auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
         assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
-        assert(fileMenu->actions().size() == 12); // 9 verbs + Open Recent + 2 separators
+        assert(fileMenu->actions().size() == 17); // 13 verbs + Open Recent + 3 separators (R1-B05 ops verbs)
 
         auto *chromeController = chrome.findChild<DrawingDocumentController *>();
         assert(chromeController != nullptr);
@@ -2069,6 +2069,77 @@ int main(int argc, char **argv)
         }
         assert(!window.openRecipeFromPath(badPath));
         assert(window.lastRecipeError().contains(QStringLiteral("size_zz")));
+    }
+
+    // The OP pipeline's verbs (R1-B05): Open/Save Ops Recipe (strict TOML), and
+    // Export Resolved bakes against the LIVE drawing — every stale binding
+    // listed at once on refusal, nothing written. Flush DeferredDelete before
+    // widget lookups (house gotcha).
+    {
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open Ops Recipe…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save Ops Recipe…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Resolved…")) != nullptr);
+        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Ops Previews…")) != nullptr);
+
+        QTemporaryDir opsDir;
+        assert(opsDir.isValid());
+
+        // Open Ops surfaces the strict reader's offender verbatim.
+        const QString badOpsPath = opsDir.filePath(QStringLiteral("bad_ops.toml"));
+        {
+            QFile bad(badOpsPath);
+            assert(bad.open(QIODevice::WriteOnly));
+            bad.write("op.0.type = \"AddDodecahedron\"\n");
+        }
+        assert(!window.openOpsRecipeFromPath(badOpsPath));
+        assert(window.lastRecipeError().contains(QStringLiteral("AddDodecahedron")));
+
+        // A fresh drafted line is the measurement source; its physical length
+        // feeds a cylinder's bound height.
+        controller->setSelectedToolId(QStringLiteral("line_tool"));
+        controller->clickCanvasNormalized(0.2, 0.2);
+        controller->clickCanvasNormalized(0.5, 0.6);
+        const QString lineId = controller->selectedObjectId();
+        assert(!lineId.isEmpty());
+
+        const QString opsPath = opsDir.filePath(QStringLiteral("ops.toml"));
+        {
+            QFile ops(opsPath);
+            assert(ops.open(QIODevice::WriteOnly));
+            const QString text = QStringLiteral(
+                "op.0.type = \"AddCylinder\"\n"
+                "op.0.name = \"shaft\"\n"
+                "op.0.radius = \"1\"\n"
+                "op.0.height.object = \"%1\"\n"
+                "op.0.height.field = \"length\"\n"
+                "op.0.z = \"0\"\n").arg(lineId);
+            ops.write(text.toUtf8());
+        }
+        assert(window.openOpsRecipeFromPath(opsPath));
+        assert(window.lastRecipeError().isEmpty());
+
+        // Export Resolved SUCCEEDS while the line exists: the written file is
+        // literals-only — the binding keys are gone.
+        const QString resolvedPath = opsDir.filePath(QStringLiteral("resolved.toml"));
+        assert(window.exportResolvedOpsToPath(resolvedPath));
+        assert(window.lastRecipeError().isEmpty());
+        assert(QFile::exists(resolvedPath));
+        {
+            QFile resolved(resolvedPath);
+            assert(resolved.open(QIODevice::ReadOnly));
+            const QString text = QString::fromUtf8(resolved.readAll());
+            assert(!text.contains(QStringLiteral("height.object"))); // resolved to a literal
+        }
+
+        // Delete the line; Export Resolved now REFUSES, naming the binding AND
+        // the missing object, and writes NOTHING (the resolve gate, in the UI).
+        assert(controller->deleteSelectedObject());
+        const QString stalePath = opsDir.filePath(QStringLiteral("stale.toml"));
+        assert(!window.exportResolvedOpsToPath(stalePath));
+        assert(!QFile::exists(stalePath));
+        assert(window.lastRecipeError().contains(QStringLiteral("op.0.height")));
+        assert(window.lastRecipeError().contains(QStringLiteral("object not found: ") + lineId));
     }
 
     // #18 close-without-saving guard: the dialog is an injectable callable,

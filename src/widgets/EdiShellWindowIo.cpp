@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 #include <algorithm>
@@ -16,6 +17,10 @@
 #include "core/RecipeController.h"
 #include "recipe/RecipeEmit.h"
 #include "recipe/RecipeStore.h"
+#include "recipe/RecipeOpsAscii.h"
+#include "recipe/RecipeOpsResolve.h"
+#include "recipe/RecipeOpsStore.h"
+#include "recipe/RecipeOpsValidate.h"
 #include "io/ShellLayoutStore.h"
 #include "widgets/DraftingFeature.h"
 #include "widgets/ShellWidgetHelpers.h"
@@ -300,6 +305,176 @@ bool EdiShellWindow::exportRecipePythonToPath(const QString &path)
     return true;
 }
 
+bool EdiShellWindow::openOpsRecipeFromPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        m_lastRecipeError = QStringLiteral("could not read %1").arg(path);
+        return false;
+    }
+    const QByteArray bytes = file.readAll();
+    const OpStreamParseResult parsed = recipeOpsFromToml(
+        std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
+        path.toStdString());
+    if (!parsed.ok) {
+        // The strict reader names the offending key — surface it verbatim.
+        m_lastRecipeError = QString::fromStdString(parsed.message);
+        return false;
+    }
+    m_opsStream = parsed.stream;
+    m_lastRecipeError.clear();
+    return true;
+}
+
+bool EdiShellWindow::saveOpsRecipeToPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
+        return false;
+    }
+    const OpStreamTextResult written = recipeOpsToToml(m_opsStream);
+    if (!written.ok) {
+        m_lastRecipeError = QString::fromStdString(written.message);
+        return false;
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    file.write(written.text.data(), static_cast<qint64>(written.text.size()));
+    if (!file.commit()) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    m_lastRecipeError.clear();
+    return true;
+}
+
+namespace {
+
+// Findings one per line ("op.3.radius: object not found: gone"), so the chrome
+// shows EVERY stale binding at once — the op pipeline's per-binding isolation
+// made visible (the same promise pipeline A made per parameter).
+QString joinOpResolveFindings(const std::vector<edi::recipe::OpResolveFinding> &findings)
+{
+    QStringList lines;
+    for (const edi::recipe::OpResolveFinding &finding : findings) {
+        lines << QStringLiteral("%1: %2")
+                     .arg(QString::fromStdString(finding.key),
+                          QString::fromStdString(finding.message));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+} // namespace
+
+bool EdiShellWindow::exportResolvedOpsToPath(const QString &path)
+{
+    using namespace edi::recipe;
+    if (path.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
+        return false;
+    }
+    // Resolve against the LIVE drawing + grid (the seam pipeline A's Export
+    // Blender Python uses). A refusal lists every stale binding at once.
+    const OpResolveResult resolved = resolveRecipeOps(
+        m_opsStream,
+        m_controller->draftingDocument(),
+        m_controller->draftingGridProjection());
+    if (!resolved.ok) {
+        m_lastRecipeError = joinOpResolveFindings(resolved.findings);
+        return false;
+    }
+    const OpStreamTextResult written = recipeOpsToToml(resolved.stream);
+    if (!written.ok) {
+        m_lastRecipeError = QString::fromStdString(written.message);
+        return false;
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    file.write(written.text.data(), static_cast<qint64>(written.text.size()));
+    if (!file.commit()) {
+        m_lastRecipeError = QStringLiteral("could not write %1").arg(path);
+        return false;
+    }
+    m_lastRecipeError.clear();
+    return true;
+}
+
+bool EdiShellWindow::exportOpsPreviewsToDir(const QString &dir)
+{
+    using namespace edi::recipe;
+    if (dir.isEmpty()) {
+        m_lastRecipeError = QStringLiteral("no path given");
+        return false;
+    }
+    // resolve -> compile -> validate -> render: resolve is the gate, so nothing
+    // downstream ever sees an unresolved stream.
+    const OpResolveResult resolved = resolveRecipeOps(
+        m_opsStream,
+        m_controller->draftingDocument(),
+        m_controller->draftingGridProjection());
+    if (!resolved.ok) {
+        m_lastRecipeError = joinOpResolveFindings(resolved.findings);
+        return false;
+    }
+    const RecipeCompileResult compiled = compileRecipeOps(resolved.stream.ops);
+    if (!compiled.ok) {
+        m_lastRecipeError = QString::fromStdString(compiled.message);
+        return false;
+    }
+    const OpValidationReport report = validateRecipeOps(compiled.ops);
+    if (!report.ok) {
+        QStringList lines;
+        for (const OpFinding &finding : report.findings) {
+            if (finding.severity == OpFinding::Severity::Error) {
+                lines << QStringLiteral("%1: %2")
+                             .arg(QString::fromStdString(finding.code),
+                                  QString::fromStdString(finding.message));
+            }
+        }
+        m_lastRecipeError = lines.join(QLatin1Char('\n'));
+        return false;
+    }
+    const struct {
+        AsciiProjection projection;
+        const char *file;
+    } views[] = {
+        {AsciiProjection::Front, "front.txt"},
+        {AsciiProjection::Side, "side.txt"},
+        {AsciiProjection::Top, "top.txt"},
+    };
+    for (const auto &view : views) {
+        const AsciiRenderResult render = renderOpsProjection(compiled.ops, view.projection);
+        if (!render.ok) {
+            m_lastRecipeError = QString::fromStdString(render.message);
+            return false;
+        }
+        QSaveFile file(dir + QLatin1Char('/') + QLatin1String(view.file));
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            m_lastRecipeError = QStringLiteral("could not write %1").arg(file.fileName());
+            return false;
+        }
+        file.write(render.text.data(), static_cast<qint64>(render.text.size()));
+        if (!file.commit()) {
+            m_lastRecipeError = QStringLiteral("could not write %1").arg(file.fileName());
+            return false;
+        }
+    }
+    m_lastRecipeError.clear();
+    return true;
+}
+
 void EdiShellWindow::promptOpenRecipe()
 {
     const QString path = QFileDialog::getOpenFileName(
@@ -345,6 +520,64 @@ void EdiShellWindow::promptExportRecipePython()
     if (!exportRecipePythonToPath(path)) {
         // Export REFUSAL is a designed outcome (stale binding, missing
         // profile) — silence here would be a dead button.
+        QMessageBox::warning(this, QStringLiteral("Export Refused"), m_lastRecipeError);
+    }
+}
+
+void EdiShellWindow::promptOpenOpsRecipe()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, QStringLiteral("Open Ops Recipe"), QString(),
+        QStringLiteral("Op recipes (*.toml)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!openOpsRecipeFromPath(path)) {
+        QMessageBox::warning(this, QStringLiteral("Open Ops Recipe Failed"), m_lastRecipeError);
+    }
+}
+
+void EdiShellWindow::promptSaveOpsRecipe()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Save Ops Recipe"), QString(),
+        QStringLiteral("Op recipes (*.toml)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".toml"))) {
+        path += QStringLiteral(".toml");
+    }
+    if (!saveOpsRecipeToPath(path)) {
+        QMessageBox::warning(this, QStringLiteral("Save Ops Recipe Failed"), m_lastRecipeError);
+    }
+}
+
+void EdiShellWindow::promptExportResolvedOps()
+{
+    QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export Resolved"), QString(),
+        QStringLiteral("Op recipes (*.toml)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QStringLiteral(".toml"))) {
+        path += QStringLiteral(".toml");
+    }
+    if (!exportResolvedOpsToPath(path)) {
+        // Refusal lists every stale binding — never a silent dead button.
+        QMessageBox::warning(this, QStringLiteral("Export Refused"), m_lastRecipeError);
+    }
+}
+
+void EdiShellWindow::promptExportOpsPreviews()
+{
+    const QString dir = QFileDialog::getExistingDirectory(
+        this, QStringLiteral("Export Ops Previews"));
+    if (dir.isEmpty()) {
+        return;
+    }
+    if (!exportOpsPreviewsToDir(dir)) {
         QMessageBox::warning(this, QStringLiteral("Export Refused"), m_lastRecipeError);
     }
 }

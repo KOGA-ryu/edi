@@ -40,4 +40,14 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
                                  const edi::drafting::DraftingDocument &drafting,
                                  const edi::drafting::DraftingGridProjection &grid);
 
+// The gate predicate (R1-B05): true when a stream is fully resolved and safe
+// for the downstream tiers (compile / preview / export). Resolved means BOTH
+// no measurement bindings remain AND no AddRevolvedProfileOp survives — the
+// lathe is itself an unresolved REFERENCE that resolveRecipeOps lowers, so a
+// stream still carrying one is not resolved even with an empty binding table.
+// Checking only bindings would let a lathe slip past the gate and die later in
+// compile/render with a worse message. Every verb and the CLI refuse a stream
+// that fails this before anything downstream sees it.
+bool recipeOpsResolved(const RecipeOpStream &stream);
+
 } // namespace edi::recipe

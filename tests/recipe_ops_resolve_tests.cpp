@@ -6,6 +6,7 @@
 // (RecipeMeasure) serves both with one vocabulary, not two that can drift.
 #include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOps.h"
+#include "recipe/RecipeOpsValidate.h"
 
 #include "drafting/DraftingStore.h"
 
@@ -49,6 +50,12 @@ DraftingDocument labDocument()
     PolylineGeometry shaft;
     shaft.vertices = {{0.105, 0.90}, {0.085, 0.20}}; // A's lathe test profile
     assert(addObject(drafting, object("shaft", DraftingShapeKind::Polyline, shaft)).ok);
+    PolylineGeometry shaftRev;
+    shaftRev.vertices = {{0.085, 0.20}, {0.105, 0.90}}; // the SAME shaft drawn top-down
+    assert(addObject(drafting, object("shaft_rev", DraftingShapeKind::Polyline, shaftRev)).ok);
+    PolylineGeometry folded;
+    folded.vertices = {{0.1, 0.5}, {0.2, 0.2}, {0.15, 0.7}}; // physical z 4.0,6.4,2.4 — non-monotonic
+    assert(addObject(drafting, object("folded", DraftingShapeKind::Polyline, folded)).ok);
     return drafting;
 }
 
@@ -331,10 +338,15 @@ int main()
         const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
         assert(lowered != nullptr);
         assert(lowered->profile.size() == 17);
-        assert(near(lowered->profile.front().radius, 0.75 * 12.0)); // arc start (0.75, 0.5)
-        assert(near(lowered->profile.front().z, 0.50 * 8.0));
-        assert(near(lowered->profile.back().radius, 0.50 * 12.0)); // arc end (0.5, 0.75)
-        assert(near(lowered->profile.back().z, 0.25 * 8.0));
+        // The arc (drawn 0->90 deg) has strictly-FALLING physical z, so
+        // decision-7 normalization (R1-B05) reverses it to canonical rising
+        // order — the arc END is now first. Before B05 this lowered to a
+        // DESCENDING moulding that would fail validation; normalized, it lofts
+        // bottom-up like every other profile.
+        assert(near(lowered->profile.front().radius, 0.50 * 12.0)); // arc end (0.5, 0.75), now first
+        assert(near(lowered->profile.front().z, 0.25 * 8.0));        // z 2.0 (lowest ring)
+        assert(near(lowered->profile.back().radius, 0.75 * 12.0));   // arc start (0.75, 0.5), now last
+        assert(near(lowered->profile.back().z, 0.50 * 8.0));         // z 4.0
     }
 
     // ---- Profile refusals through resolve, key op.<i>.profile, the seam's
@@ -392,6 +404,135 @@ int main()
         assert(both.findings.size() == 2);
         assert(findingFor(both, "op.0.x") != nullptr);
         assert(findingFor(both, "op.0.profile") != nullptr);
+    }
+
+    // ---- The gate predicate (R1-B05 decision 1): resolved means no bindings
+    // AND no surviving lathe reference. All four corners pinned, plus the proof
+    // that a successful resolve produces a gate-passing stream. ----
+    {
+        RecipeOpStream clean;
+        AddBoxOp b;
+        b.name = "b";
+        clean.ops.push_back(b);
+        assert(recipeOpsResolved(clean)); // neither: resolved
+
+        RecipeOpStream bound = clean;
+        bound.bindings = {{0, "width", "plank", "width"}};
+        assert(!recipeOpsResolved(bound)); // bindings only
+
+        RecipeOpStream lathe;
+        AddRevolvedProfileOp r;
+        r.name = "r";
+        r.profile = "shaft";
+        lathe.ops.push_back(r);
+        assert(!recipeOpsResolved(lathe)); // revolved only — an empty binding table is not enough
+
+        RecipeOpStream both = lathe;
+        both.bindings = {{0, "base_z", "plank", "height"}};
+        assert(!recipeOpsResolved(both)); // both
+
+        // The contract the gate exists to enforce: resolveRecipeOps's output
+        // always passes — bindings cleared AND the lathe lowered to a moulding.
+        const OpResolveResult resolved = resolveRecipeOps(lathe, drafting, grid);
+        assert(resolved.ok);
+        assert(recipeOpsResolved(resolved.stream));
+    }
+
+    // ---- Direction-normalization (R1-B05 decision 7): the shaft drawn
+    // top-down (strictly-falling physical z) lowers to the IDENTICAL moulding
+    // as the bottom-up drawing, point for point — only the order flips, no
+    // coordinate invented. A FOLDED profile is NOT rescued: it lowers and still
+    // FAILS validation by name. ----
+    {
+        RecipeOpStream forward;
+        AddRevolvedProfileOp f;
+        f.name = "turned";
+        f.profile = "shaft";
+        forward.ops.push_back(f);
+        const OpResolveResult fr = resolveRecipeOps(forward, drafting, grid);
+        assert(fr.ok);
+        const auto *forwardM = std::get_if<AddMouldingOp>(&fr.stream.ops[0]);
+        assert(forwardM != nullptr);
+
+        RecipeOpStream reversed;
+        AddRevolvedProfileOp v;
+        v.name = "turned";
+        v.profile = "shaft_rev";
+        reversed.ops.push_back(v);
+        const OpResolveResult rr = resolveRecipeOps(reversed, drafting, grid);
+        assert(rr.ok);
+        const auto *reversedM = std::get_if<AddMouldingOp>(&rr.stream.ops[0]);
+        assert(reversedM != nullptr);
+
+        // Point-for-point identical: normalization restored A's orientation-
+        // agnostic promise (profile_00 is the page-bottom ring in both).
+        assert(reversedM->profile.size() == forwardM->profile.size());
+        assert(forwardM->profile.size() == 2);
+        for (std::size_t i = 0; i < forwardM->profile.size(); ++i) {
+            assert(reversedM->profile[i].term == forwardM->profile[i].term);
+            assert(near(reversedM->profile[i].z, forwardM->profile[i].z));
+            assert(near(reversedM->profile[i].radius, forwardM->profile[i].radius));
+        }
+        // And it really did flip: profile_00 is the LOW ring (z 0.8), not the
+        // drafted-first point (z 6.4). Without the reversal this would be 6.4.
+        assert(near(reversedM->profile[0].z, 0.10 * 8.0));
+
+        // A folded profile lowers (lowering is not validation) but the moulding
+        // it becomes fails validation by name.
+        RecipeOpStream foldedStream;
+        AddRevolvedProfileOp folds;
+        folds.name = "folded.turned";
+        folds.profile = "folded";
+        foldedStream.ops.push_back(folds);
+        const OpResolveResult foldedResolved = resolveRecipeOps(foldedStream, drafting, grid);
+        assert(foldedResolved.ok); // lowered, not yet judged
+        // Planner ruling on the builder's flag #2 (all-pairs, not endpoints):
+        // this fold's ENDPOINTS happen to descend net (4.0 → 2.4), but it is
+        // not strictly falling, so it lowers VERBATIM — drafted-first stays
+        // first. The endpoint-test variant would have reversed it; only a
+        // profile the loft can fully understand gets normalized.
+        const auto *foldedM = std::get_if<AddMouldingOp>(&foldedResolved.stream.ops[0]);
+        assert(foldedM != nullptr);
+        assert(near(foldedM->profile[0].z, 4.0));
+        assert(near(foldedM->profile[1].z, 6.4));
+        assert(near(foldedM->profile[2].z, 2.4));
+        const OpValidationReport report = validateRecipeOps(foldedResolved.stream.ops);
+        assert(!report.ok);
+        bool sawNonMonotonic = false;
+        for (const OpFinding &finding : report.findings) {
+            if (finding.code == "moulding_profile_not_monotonic") {
+                sawNonMonotonic = true;
+            }
+        }
+        assert(sawNonMonotonic);
+    }
+
+    // ---- Finiteness gate (R1-B05 decision 3): a resolved number that comes
+    // back non-finite is refused by name, per offender, before the stream is
+    // declared resolved. The number cannot arise from grid settings —
+    // projectDraftingGrid sanitizes width/height through finiteOr, so they are
+    // always finite (flagged mismatch with the bucket's "via grid settings").
+    // The reachable source is degenerate GEOMETRY a corrupt .edidraw could
+    // deliver; hand-assemble it like A's corrupt-polyline pin. radius 1e308
+    // scaled along the grid's X (x12) overflows to +inf. ----
+    {
+        DraftingObject huge;
+        huge.id = "huge";
+        huge.kind = DraftingShapeKind::Circle;
+        huge.geometry = CircleGeometry{{0.5, 0.5}, 1e308};
+        DraftingDocument hugeDoc = makeDraftingDocument("huge_doc");
+        hugeDoc.objects.push_back(huge);
+
+        RecipeOpStream s;
+        AddCylinderOp c;
+        c.name = "c";
+        s.ops.push_back(c);
+        s.bindings = {{0, "radius", "huge", "radius"}}; // 1e308 * 12 = inf
+        const OpResolveResult r = resolveRecipeOps(s, hugeDoc, grid);
+        assert(!r.ok && r.stream.ops.empty());
+        assert(r.findings.size() == 1);
+        assert(r.findings[0].key == "op.0.radius");
+        assert(r.findings[0].message == "not a finite number");
     }
 
     return 0;

@@ -152,6 +152,12 @@ QWidget *EdiShellWindow::buildTitleBar()
     fileMenu->addAction(QStringLiteral("Open Recipe…"), this, [this]() { promptOpenRecipe(); });
     fileMenu->addAction(QStringLiteral("Save Recipe…"), this, [this]() { promptSaveRecipe(); });
     fileMenu->addAction(QStringLiteral("Export Blender Python…"), this, [this]() { promptExportRecipePython(); });
+    // The OP pipeline's verbs (R1-B05), beside pipeline A's until B06 retires A.
+    fileMenu->addSeparator();
+    fileMenu->addAction(QStringLiteral("Open Ops Recipe…"), this, [this]() { promptOpenOpsRecipe(); });
+    fileMenu->addAction(QStringLiteral("Save Ops Recipe…"), this, [this]() { promptSaveOpsRecipe(); });
+    fileMenu->addAction(QStringLiteral("Export Resolved…"), this, [this]() { promptExportResolvedOps(); });
+    fileMenu->addAction(QStringLiteral("Export Ops Previews…"), this, [this]() { promptExportOpsPreviews(); });
     rebuildRecentFilesMenu();
 
     QMenu *editMenu = addMenuButton(QStringLiteral("Edit"), QStringLiteral("editMenu"));

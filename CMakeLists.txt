@@ -389,6 +389,21 @@ add_test(
     COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/plot_job_report_cli_smoke.sh $<TARGET_FILE:edi_plot_job_report>
 )
 
+# The op pipeline's CLI (R1-B05): widget-free, links the recipe core only.
+add_executable(edi_recipe_ops
+    src/tools/EdiRecipeOps.cpp
+)
+target_include_directories(edi_recipe_ops PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(edi_recipe_ops PRIVATE
+    edi_recipe_core
+)
+add_test(
+    NAME edi_recipe_ops_cli_smoke
+    COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/recipe_ops_cli_smoke.sh $<TARGET_FILE:edi_recipe_ops> ${CMAKE_CURRENT_SOURCE_DIR}/samples
+)
+
 add_executable(drawing_document_controller_tests
     tests/drawing_document_controller_tests.cpp
     src/core/DrawingCore.h

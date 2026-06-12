@@ -3,9 +3,12 @@
 #include "recipe/RecipeMeasure.h"
 #include "recipe/RecipeOpsBind.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace edi::recipe {
 
@@ -48,6 +51,16 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
             continue;
         }
 
+        // Finiteness gate (R1-B05, decision 3): a degenerate grid or geometry
+        // can drive a measured number to inf/nan. Pipeline A gated at emit; the
+        // op pipeline gates at the SAME meeting point — here, with the value in
+        // hand, BEFORE it is written and the stream is declared resolved. Per
+        // offender, so the downstream doubles never carry a non-finite value.
+        if (!std::isfinite(measured.value)) {
+            result.findings.push_back({key, "not a finite number"});
+            continue;
+        }
+
         // Write through the B02 registry's member pointer. A false return means
         // the fieldKey is not bindable on this op kind — only reachable on a
         // hand-built stream (the store refuses such files at read and write),
@@ -65,16 +78,17 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
     // get generated names ("profile_00"…): moulding points are pointable BY
     // NAME, and a drafted profile's points deserve addresses too.
     //
-    // Divergence note (vs pipeline A's lathe, recorded for the B05 gate
-    // decision): the moulding container lofts STACKED RINGS and its
-    // validator requires rising z, while A's SCREW-modifier lathe accepted
-    // any drafted orientation (its emitter recalculated normals). A
-    // falling-z or folded drafted profile therefore lowers verbatim here
-    // and then FAILS validation by name (moulding_profile_not_monotonic /
-    // bad_moulding_radius) instead of silently winding inside-out in
-    // Blender. Refusal over reorder: silently rewriting drafted truth
-    // would be guesswork. B05 decides whether resolved-lathe profiles get
-    // direction-normalization or a true screw-loft op.
+    // Direction note (decision 7 RESOLVED in R1-B05): the moulding container
+    // lofts STACKED RINGS bottom-up and its validator requires rising z, while
+    // A's SCREW-modifier lathe recalculated normals and accepted either drafted
+    // orientation. A profile whose physical z STRICTLY falls end-to-end is the
+    // same rings drawn top-down — it is direction-NORMALIZED below (point order
+    // reversed, no coordinate touched) so it lofts identically to the bottom-up
+    // drawing, restoring A's orientation-agnostic promise without inventing
+    // data. A FOLDED (non-monotonic) profile is NOT rescued: it lowers and
+    // still FAILS validation by name (moulding_profile_not_monotonic) — a
+    // stacked-ring loft cannot represent an overhang; a future screw-loft op
+    // owns folds.
     for (std::size_t index = 0; index < resolved.ops.size(); ++index) {
         const auto *revolved = std::get_if<AddRevolvedProfileOp>(&resolved.ops[index]);
         if (revolved == nullptr) {
@@ -87,6 +101,24 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
             result.findings.push_back({key, profile.message});
             continue;
         }
+        // Normalize a strictly-falling profile to canonical rising order —
+        // ALL adjacent pairs descending, not just the endpoints (planner
+        // ruling on the B05 builder's flag #2): only a profile the loft can
+        // FULLY understand gets normalized; a folded profile — even one whose
+        // endpoints happen to descend net — lowers VERBATIM and fails
+        // validation honestly, exactly as decision 7 promises. Only the
+        // ORDER ever changes — every (radius, z) pair is preserved.
+        std::vector<edi::drafting::Point2D> points = profile.points;
+        const bool strictlyFalling = points.size() >= 2
+            && std::adjacent_find(points.begin(), points.end(),
+                                  [](const edi::drafting::Point2D &a,
+                                     const edi::drafting::Point2D &b) {
+                                      return b.y >= a.y; // a non-descending pair breaks it
+                                  })
+                == points.end();
+        if (strictlyFalling) {
+            std::reverse(points.begin(), points.end());
+        }
         AddMouldingOp lowered;
         lowered.name = revolved->name;
         lowered.baseZ = revolved->baseZ;
@@ -94,14 +126,14 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
         lowered.y = revolved->y;
         lowered.vertices = revolved->vertices;
         lowered.material = revolved->material;
-        lowered.profile.reserve(profile.points.size());
-        for (std::size_t point = 0; point < profile.points.size(); ++point) {
+        lowered.profile.reserve(points.size());
+        for (std::size_t point = 0; point < points.size(); ++point) {
             char term[16];
             std::snprintf(term, sizeof(term), "profile_%02zu", point);
             // Seam points are physical (x = radius, y = z from page bottom);
             // moulding points are (z, radius) local to baseZ. The column's
             // lathes used loc_z = 0, so baseZ + absolute-z reproduces A.
-            lowered.profile.push_back({term, profile.points[point].y, profile.points[point].x});
+            lowered.profile.push_back({term, points[point].y, points[point].x});
         }
         resolved.ops[index] = std::move(lowered);
     }
@@ -119,6 +151,23 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
     result.stream = std::move(resolved);
     result.ok = true;
     return result;
+}
+
+bool recipeOpsResolved(const RecipeOpStream &stream)
+{
+    // Two unresolved states, both fatal downstream: a measurement binding that
+    // never got written, and an AddRevolvedProfileOp that never got lowered. A
+    // successful resolveRecipeOps clears both; anything that fails this is not
+    // safe to compile, preview, or export.
+    if (!stream.bindings.empty()) {
+        return false;
+    }
+    for (const RecipeOp &op : stream.ops) {
+        if (std::holds_alternative<AddRevolvedProfileOp>(op)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace edi::recipe

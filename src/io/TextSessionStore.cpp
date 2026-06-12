@@ -38,11 +38,18 @@ TextSessionResult saveTextSessionToPath(const TextDocumentStore &store, const QS
         config[prefix + ".id"] = document.id;
         config[prefix + ".title"] = document.title;
         config[prefix + ".role"] = edi::text::textDocumentRoleName(document.role);
-        // Text-form for EVERY document: the store holds no per-document path, so
-        // the session carries each document's current text (the seeded scratch
-        // notes survive restart this way). The path-form is a reader feature —
-        // hand-authored manifests / file references.
-        config[prefix + ".text"] = document.text;
+        // E3: a FILE-BACKED document (metadata.fields["path"], the core's own
+        // extension point) stores its PATH — the file is the truth, re-read on
+        // restore, so externally edited content appears and the manifest never
+        // carries a stale snapshot. A scratch document stores its TEXT (the
+        // terminal notes survive restart). Exactly one of the two — the same
+        // both-sources rule the loader enforces.
+        const auto pathField = document.metadata.fields.find("path");
+        if (pathField != document.metadata.fields.end() && !pathField->second.empty()) {
+            config[prefix + ".path"] = pathField->second;
+        } else {
+            config[prefix + ".text"] = document.text;
+        }
     }
 
     const auto written = edi::formats::writeTomlStaticConfig(config, path.toStdString());
@@ -174,6 +181,9 @@ TextSessionLoad loadTextSessionFromPath(const QString &path)
                 continue;
             }
             document.text = std::move(content);
+            // The path survives the round trip — without this, the NEXT save
+            // would silently demote the document to a text snapshot.
+            document.metadata.fields["path"] = *backingPath;
         }
         // (neither key: an empty document — valid, the writer always emits .text
         // but a hand-authored manifest may omit it.)

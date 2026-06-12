@@ -1,6 +1,8 @@
 #include "widgets/TextEditorFeature.h"
 
 #include "widgets/ShellHost.h"
+#include "text/TextEncoding.h"
+#include "text/TextSearch.h"
 #include "widgets/ShellWidgetHelpers.h"
 
 #include <QFile>
@@ -9,6 +11,7 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QPointer>
 #include <QPushButton>
@@ -36,60 +39,64 @@ TextEditorView::TextEditorView(QWidget *parent)
 
 void TextEditorView::keyPressEvent(QKeyEvent *event)
 {
-    // Translate EDITING intents into core commands; let navigation fall
-    // through to the base class (arrows, Home/End, PageUp — all read-only
-    // safe). The caret offset is the document offset: QPlainTextEdit
-    // counts positions in UTF-16 code units, but E1's corpus is the
-    // ASCII-leaning script/recipe text, where they coincide with the
-    // core's byte offsets. (E3 owns real Unicode mapping — documented
-    // here so the simplification is a decision, not an accident.)
+    // Translate EDITING intents into core commands; navigation falls through
+    // to the read-only base. E3 retired E1's ASCII gate: offsets now cross
+    // the Qt/core boundary through TextEncoding — the caret arrives in
+    // UTF-16 code units, the commands leave in UTF-8 bytes, and deletions
+    // respect CHARACTER boundaries, so half-deleting a multi-byte sequence
+    // is impossible by construction (the corruption the gate guarded).
     if (applyCommand) {
-        const std::size_t offset = static_cast<std::size_t>(textCursor().position());
+        const std::string utf8 = toPlainText().toStdString();
+        QTextCursor cursor = textCursor();
+        const bool hasSelection = cursor.hasSelection();
+        // Qt's selectionStart/End are UTF-16 positions; map both ends to
+        // bytes ONCE and reuse — every command below speaks bytes.
+        const std::size_t selStart = byteOffsetForUtf16(
+            utf8, static_cast<std::size_t>(cursor.selectionStart()));
+        const std::size_t selEnd = byteOffsetForUtf16(
+            utf8, static_cast<std::size_t>(cursor.selectionEnd()));
+        const std::size_t caret = byteOffsetForUtf16(
+            utf8, static_cast<std::size_t>(cursor.position()));
         const QString typed = event->text();
 
-        if (event->key() == Qt::Key_Backspace) {
-            // The offset > 0 guard is unsigned arithmetic, not UX policy:
-            // offset - 1 would wrap size_t at the document's start. Its
-            // mirror (Delete at the end) is NOT guarded — the range goes to
-            // the core, which refuses invalid_range and the status shows it.
-            // Asymmetric on purpose: one boundary the host can prove cheaply,
-            // one the document model owns. (Tab, likewise, is swallowed by
-            // the read-only base until E3 assigns it a meaning.)
-            if (offset > 0) {
-                applyCommand(DeleteTextRangeCommand{{}, {offset - 1, offset}});
+        if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete) {
+            // With a selection both keys mean the same thing: delete it.
+            if (hasSelection) {
+                applyCommand(DeleteTextRangeCommand{{}, {selStart, selEnd}});
+            } else if (event->key() == Qt::Key_Backspace && caret > 0) {
+                // One CHARACTER back, however many bytes that is.
+                applyCommand(DeleteTextRangeCommand{{}, {previousCharBoundary(utf8, caret), caret}});
+            } else if (event->key() == Qt::Key_Delete && caret < utf8.size()) {
+                applyCommand(DeleteTextRangeCommand{{}, {caret, nextCharBoundary(utf8, caret)}});
             }
-            event->accept();
-            return;
-        }
-        if (event->key() == Qt::Key_Delete) {
-            applyCommand(DeleteTextRangeCommand{{}, {offset, offset + 1}});
+            // At the edges both are quiet no-ops now — symmetric, like every
+            // editor. (E1 let Delete-at-end reach the core for an
+            // invalid_range refusal; with boundary math in hand the honest
+            // translation is "nothing to delete", and the refusal SURFACE is
+            // pinned directly by the tests instead.)
             event->accept();
             return;
         }
         if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-            applyCommand(InsertTextCommand{{}, offset, "\n"});
+            if (hasSelection) {
+                applyCommand(ReplaceTextRangeCommand{{}, {selStart, selEnd}, "\n"});
+            } else {
+                applyCommand(InsertTextCommand{{}, caret, "\n"});
+            }
             event->accept();
             return;
         }
-        // Printable ASCII only — and this is ENFORCED, not assumed: the
-        // caret offset is UTF-16 units while the core's offsets are bytes,
-        // and the two coincide only in ASCII. A non-ASCII keystroke (é via
-        // Option+e, a layout dead key) would silently write garbage bytes
-        // into the document while the status said ok — the review proved it
-        // empirically. Until E3 builds the real offset mapping, non-ASCII
-        // input is a REFUSAL the status line shows, never a corruption.
         if (!typed.isEmpty() && typed.at(0).isPrint()) {
-            const bool ascii = std::all_of(typed.begin(), typed.end(),
-                [](QChar c) { return c.unicode() >= 0x20 && c.unicode() < 0x7F; });
-            if (!ascii) {
-                if (reportRefusal) {
-                    reportRefusal(QStringLiteral(
-                        "non-ASCII input refused until E3's offset mapping"));
-                }
-                event->accept();
-                return;
+            // toStdString IS the UTF-8 encoding — é arrives as its two bytes,
+            // an emoji as four; the mapping above keeps the caret honest.
+            // Typing over a selection REPLACES it: the user's
+            // ReplaceTextRangeCommand existed since the core was built —
+            // E3 just supplies the gesture that asks for it.
+            if (hasSelection) {
+                applyCommand(ReplaceTextRangeCommand{{}, {selStart, selEnd}, typed.toStdString()});
+            } else {
+                applyCommand(InsertTextCommand{{}, caret, typed.toStdString()});
             }
-            applyCommand(InsertTextCommand{{}, offset, typed.toStdString()});
             event->accept();
             return;
         }
@@ -170,6 +177,18 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
     toolbar->addWidget(openButton);
     toolbar->addWidget(saveButton);
     toolbar->addStretch(1);
+    // Find (E3, v1: literal, case-sensitive, wraps): the SEARCH runs in the
+    // core over bytes; only the resulting selection touches the widget —
+    // and a selection is projection state, not a document mutation, so the
+    // read-only firewall stays intact.
+    auto *findInput = new QLineEdit;
+    findInput->setObjectName(QStringLiteral("textEditorFindInput"));
+    findInput->setPlaceholderText(QStringLiteral("Find"));
+    findInput->setMaximumWidth(180);
+    auto *findButton = new QPushButton(QStringLiteral("Find"));
+    findButton->setObjectName(QStringLiteral("textEditorFindNext"));
+    toolbar->addWidget(findInput);
+    toolbar->addWidget(findButton);
     layout->addLayout(toolbar);
 
     auto *splitter = new QSplitter(Qt::Horizontal);
@@ -199,13 +218,20 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
         }
         const std::string activeId = *store->activeDocumentId;
         TextEditorCommand stamped = command;
-        std::size_t caretAfter = 0;
+        // Caret-after in BYTES, from the command itself: an insert lands
+        // after its text, a delete at its start, a replace after what
+        // replaced. Converted to UTF-16 against the POST-EDIT document
+        // below — the widget's cursor scale, computed exactly once, here.
+        std::size_t caretAfterByte = 0;
         if (auto *insert = std::get_if<InsertTextCommand>(&stamped)) {
             insert->documentId = activeId;
-            caretAfter = insert->offset + insert->text.size();
+            caretAfterByte = insert->offset + insert->text.size();
         } else if (auto *erase = std::get_if<DeleteTextRangeCommand>(&stamped)) {
             erase->documentId = activeId;
-            caretAfter = erase->range.start;
+            caretAfterByte = erase->range.start;
+        } else if (auto *replace = std::get_if<ReplaceTextRangeCommand>(&stamped)) {
+            replace->documentId = activeId;
+            caretAfterByte = replace->range.start + replace->text.size();
         }
         const TextCommandResult result = applyTextEditorCommand(*store, stamped);
         if (!result.ok) {
@@ -215,13 +241,12 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
             return;
         }
         status->setText(QStringLiteral("ok"));
-        refreshView(view, *store, caretAfter);
+        const TextDocument *edited = findDocument(*store, activeId);
+        const std::size_t caretUtf16 =
+            edited ? utf16OffsetForByte(edited->text, caretAfterByte) : 0;
+        refreshView(view, *store, caretUtf16);
         refreshList(list, *store); // dirty markers move with the edit
     };
-
-    // The view reports its own refusals (the ASCII gate) through the same
-    // status line commands use — one surface for every "no".
-    view->reportRefusal = [status](const QString &reason) { status->setText(reason); };
 
     // Selecting a document activates it in the STORE, the projection follows,
     // caret parked at the end like a fresh focus. E2 nit (decision 7): the
@@ -287,6 +312,10 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
         }
         TextDocument document = makeTextDocument(id, baseName);
         document.text = content;
+        // The path rides the core's metadata.fields — the extension map the
+        // user designed in — so the session can re-read the FILE on restore
+        // instead of snapshotting stale text (the E2 review's design note).
+        document.metadata.fields["path"] = path.toStdString();
         const TextStoreResult added = addDocument(*store, std::move(document));
         if (!added.ok) {
             status->setText(QString::fromLatin1(textResultCodeName(added.code)));
@@ -307,16 +336,24 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
             status->setText(QStringLiteral("no active document"));
             return;
         }
-        if (!pathProvider) {
-            return;
-        }
-        const QString path = pathProvider(true);
-        if (path.isEmpty()) {
-            return; // cancelled
-        }
         TextDocument *active = findDocument(*store, *store->activeDocumentId);
         if (active == nullptr) {
             return;
+        }
+        // A file-backed document saves to ITS path, no dialog; a scratch
+        // document save-as's through the provider and BECOMES file-backed.
+        const auto pathField = active->metadata.fields.find("path");
+        QString path = (pathField != active->metadata.fields.end())
+            ? QString::fromStdString(pathField->second)
+            : QString();
+        if (path.isEmpty()) {
+            if (!pathProvider) {
+                return;
+            }
+            path = pathProvider(true);
+            if (path.isEmpty()) {
+                return; // cancelled
+            }
         }
         QSaveFile file(path);
         bool ok = file.open(QIODevice::WriteOnly | QIODevice::Truncate);
@@ -328,10 +365,40 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
             status->setText(QStringLiteral("could not write %1").arg(path));
             return;
         }
+        active->metadata.fields["path"] = path.toStdString(); // save-as adopts the file
         markClean(*active);
         status->setText(QStringLiteral("ok"));
         refreshList(list, *store); // the dirty dot clears
     });
+
+    // Find-next from the caret (or the current match's end, so repeated
+    // Find walks every occurrence), wrapping once. A miss names the needle
+    // on the status line — the find bar never goes silently dead.
+    const auto findNextFromCaret = [store, view, status, findInput]() {
+        if (!store->activeDocumentId.has_value()) {
+            return;
+        }
+        const TextDocument *active = findDocument(*store, *store->activeDocumentId);
+        if (active == nullptr) {
+            return;
+        }
+        const std::string needle = findInput->text().toStdString();
+        const std::size_t fromByte = byteOffsetForUtf16(
+            active->text, static_cast<std::size_t>(view->textCursor().selectionEnd()));
+        const auto match = edi::text::findNext(active->text, needle, fromByte);
+        if (!match.has_value()) {
+            status->setText(QStringLiteral("no match for '%1'").arg(findInput->text()));
+            return;
+        }
+        QTextCursor cursor = view->textCursor();
+        cursor.setPosition(static_cast<int>(utf16OffsetForByte(active->text, match->start)));
+        cursor.setPosition(static_cast<int>(utf16OffsetForByte(active->text, match->end)),
+                           QTextCursor::KeepAnchor);
+        view->setTextCursor(cursor);
+        status->setText(QStringLiteral("ok"));
+    };
+    QObject::connect(findButton, &QPushButton::clicked, view, findNextFromCaret);
+    QObject::connect(findInput, &QLineEdit::returnPressed, view, findNextFromCaret);
 
     // The session refresh hook (E2): loadTextSession swaps the store, then calls
     // this to re-project the panel and surface any degrade note. QPointers guard

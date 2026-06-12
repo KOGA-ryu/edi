@@ -157,5 +157,53 @@ int main(int argc, char **argv)
         assert(!loaded.store.activeDocumentId.has_value());
     }
 
+    // ---- E3: a FILE-BACKED document (metadata.fields["path"] — the core's
+    // own extension map) stores its PATH, not a text snapshot: the file is
+    // the truth, re-read on restore, so content edited OUTSIDE edi appears.
+    // Scratch documents still ride the manifest. ----
+    {
+        QTemporaryDir dir;
+        assert(dir.isValid());
+        const QString backing = dir.filePath(QStringLiteral("notes.txt"));
+        {
+            QFile file(backing);
+            assert(file.open(QIODevice::WriteOnly));
+            file.write("first version");
+        }
+        edi::text::TextDocumentStore store;
+        edi::text::TextDocument fileDoc = edi::text::makeTextDocument("notes.txt", "notes");
+        fileDoc.text = "first version";
+        fileDoc.metadata.fields["path"] = backing.toStdString();
+        assert(edi::text::addDocument(store, std::move(fileDoc)).ok);
+        assert(edi::text::addDocument(store, edi::text::makeTextDocument("scratch", "Scratch")).ok);
+        edi::text::setActiveDocument(store, "notes.txt");
+
+        const QString manifest = dir.filePath(QStringLiteral("session.toml"));
+        assert(edi::io::saveTextSessionToPath(store, manifest).ok);
+        {
+            QFile file(manifest);
+            assert(file.open(QIODevice::ReadOnly));
+            const QString written = QString::fromUtf8(file.readAll());
+            assert(written.contains(QStringLiteral(".path")));      // the path rode along
+            assert(!written.contains(QStringLiteral("first version"))); // the TEXT did not
+        }
+
+        // The world changes behind edi's back; the session must SEE it.
+        {
+            QFile file(backing);
+            assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            file.write("second version");
+        }
+        const edi::io::TextSessionLoad loaded = edi::io::loadTextSessionFromPath(manifest);
+        assert(loaded.ok);
+        const edi::text::TextDocument *restored =
+            edi::text::findDocument(loaded.store, "notes.txt");
+        assert(restored != nullptr);
+        assert(restored->text == "second version"); // the FILE is the truth
+        // The path survived the round trip — the NEXT save stays file-backed
+        // instead of silently demoting to a snapshot.
+        assert(restored->metadata.fields.at("path") == backing.toStdString());
+    }
+
     return 0;
 }

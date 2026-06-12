@@ -40,9 +40,6 @@ public:
     // for the ACTIVE document at the caret offset. The view never touches
     // the store — it only describes what the keystroke meant.
     std::function<void(const edi::text::TextEditorCommand &)> applyCommand;
-    // Host-side refusals (the ASCII input gate) — same status surface the
-    // core's refusals use; a blocked keystroke is never silent.
-    std::function<void(const QString &)> reportRefusal;
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

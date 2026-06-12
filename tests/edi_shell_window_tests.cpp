@@ -1,5 +1,6 @@
 #include "widgets/EdiShellWindow.h"
 #include "text/TextDocumentStore.h"
+#include "widgets/TextEditorFeature.h"
 
 #include "core/DrawingCore.h"
 #include "io/SettingsStore.h"
@@ -26,6 +27,7 @@
 #include <QSet>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QTextCursor>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QString>
@@ -2182,7 +2184,7 @@ int main(int argc, char **argv)
         EdiShellWindow editorShell;
         QWidget *panel = editorShell.findChild<QWidget *>(QStringLiteral("textEditorPanel"));
         assert(panel != nullptr); // mounted in the bottom terminal slot
-        auto *view = editorShell.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+        auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
         assert(view != nullptr);
         assert(view->isReadOnly()); // Qt's own mutation paths are dead
         auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
@@ -2220,20 +2222,64 @@ int main(int argc, char **argv)
         type(Qt::Key_Backspace, QString());
         assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
 
-        // Delete at the end asks the core for range [2,3) of a 2-char text:
-        // the USER'S validation refuses (invalid_range) and the panel says
-        // so — a refused command is a status line, never a dead keystroke.
+        // E3: Delete at the end is a quiet no-op — symmetric with Backspace
+        // at the start, like every editor. (E1 let it reach the core for an
+        // invalid_range refusal; boundary math made the honest translation
+        // "nothing to delete".)
         type(Qt::Key_Delete, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        assert(editorStatus->text() == QStringLiteral("ok"));
+
+        // E3 retired E1's ASCII gate: é now LANDS, as two UTF-8 bytes the
+        // core stores and one UTF-16 unit the view counts. The caret math
+        // is the proof — typing 'x' immediately after must append, not
+        // split the é (which is exactly what E1's review showed happening
+        // without the mapping).
+        type(Qt::Key_E, QString::fromUtf8("\xc3\xa9")); // é
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9");
+        type(Qt::Key_X, QStringLiteral("x"));
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9x");
+        assert(view->toPlainText() == QString::fromUtf8("ab\xc3\xa9x"));
+        // Backspace removes the WHOLE character, however many bytes.
+        type(Qt::Key_Backspace, QString());
+        type(Qt::Key_Backspace, QString());
+        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+
+        // The core-refusal surface stays pinned DIRECTLY: the host now only
+        // translates legal edits, so the defensive branch is exercised by
+        // invoking the choke point with a hand-built out-of-range command.
+        view->applyCommand(edi::text::DeleteTextRangeCommand{{}, {999, 1000}});
         assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
         assert(editorStatus->text().contains(QStringLiteral("invalid_range")));
 
-        // Non-ASCII input is a host-side REFUSAL, not a corruption: the
-        // caret is UTF-16, the core is bytes, and they only agree in ASCII
-        // (the review proved a stray 'é' writes invalid UTF-8 while status
-        // says ok). E3 owns the real mapping; until then the gate holds.
-        type(Qt::Key_E, QString::fromUtf8("\xc3\xa9")); // é
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab"); // unchanged
-        assert(editorStatus->text().contains(QStringLiteral("non-ASCII")));
+        // Selection editing (E3): select all of "ab" and type over it —
+        // the host translates the gesture into the user's OWN
+        // ReplaceTextRangeCommand, which existed unused since the core was
+        // built. One keystroke, one command, selection replaced.
+        QTextCursor selectAll = view->textCursor();
+        selectAll.setPosition(0);
+        selectAll.setPosition(2, QTextCursor::KeepAnchor);
+        view->setTextCursor(selectAll);
+        type(Qt::Key_Z, QStringLiteral("z"));
+        assert(edi::text::findDocument(textStore, "scratch")->text == "z");
+        assert(editorStatus->text() == QStringLiteral("ok"));
+
+        // Find (E3): the needle is searched in the CORE's bytes, the match
+        // selected in the view; a miss names the needle — never silent.
+        type(Qt::Key_E, QStringLiteral("e"));
+        type(Qt::Key_D, QStringLiteral("d"));
+        type(Qt::Key_I, QStringLiteral("i")); // document: "zedi"
+        auto *findInput = editorShell.findChild<QLineEdit *>(QStringLiteral("textEditorFindInput"));
+        auto *findButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorFindNext"));
+        assert(findInput != nullptr && findButton != nullptr);
+        findInput->setText(QStringLiteral("ed"));
+        findButton->click();
+        assert(view->textCursor().hasSelection());
+        assert(view->textCursor().selectedText() == QStringLiteral("ed"));
+        assert(view->textCursor().selectionStart() == 1);
+        findInput->setText(QStringLiteral("zebra"));
+        findButton->click();
+        assert(editorStatus->text().contains(QStringLiteral("zebra"))); // miss, by name
     }
 
     // The text editor SESSION (E2): the open documents and the active one
@@ -2244,7 +2290,7 @@ int main(int argc, char **argv)
         EdiShellWindow editorShell;
         auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
         assert(list != nullptr && list->count() == 1); // conditional seed intact: one scratch
-        auto *view = editorShell.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
+        auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
         assert(view != nullptr);
 
         QTemporaryDir sessionDir;

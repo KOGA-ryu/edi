@@ -119,6 +119,10 @@ add_library(edi_text_core STATIC
     src/text/TextEditorCommands.cpp
     src/text/TextSelection.h
     src/text/TextSelection.cpp
+    src/text/TextEncoding.h
+    src/text/TextEncoding.cpp
+    src/text/TextSearch.h
+    src/text/TextSearch.cpp
 )
 
 target_include_directories(edi_text_core PUBLIC
@@ -292,6 +296,8 @@ target_sources(drawing_canvas_projected_object_tests PRIVATE src/widgets/Drawing
 target_include_directories(drawing_canvas_projected_object_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(app_workspace_tests tests/app_workspace_tests.cpp edi_app_core)
 add_edi_contract_test(text_document_tests tests/text_document_tests.cpp edi_text_core)
+add_edi_contract_test(text_encoding_tests tests/text_encoding_tests.cpp edi_text_core)
+add_edi_contract_test(text_search_tests tests/text_search_tests.cpp edi_text_core)
 add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_tests.cpp edi_text_core)
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)

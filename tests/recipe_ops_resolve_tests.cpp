@@ -46,6 +46,9 @@ DraftingDocument labDocument()
         LineGeometry{{0.2, 0.2}, {0.5, 0.6}})).ok);
     assert(addObject(drafting, object("arch", DraftingShapeKind::Arc,
         ArcGeometry{{0.5, 0.5}, 0.25, 0.0, 90.0})).ok);
+    PolylineGeometry shaft;
+    shaft.vertices = {{0.105, 0.90}, {0.085, 0.20}}; // A's lathe test profile
+    assert(addObject(drafting, object("shaft", DraftingShapeKind::Polyline, shaft)).ok);
     return drafting;
 }
 
@@ -273,6 +276,122 @@ int main()
         assert(r.findings.size() == 1);
         assert(r.findings[0].key == "op.9.width");
         assert(r.findings[0].message == "no such op");
+    }
+
+    // ---- Profile lowering (R1-B04): the lathe, op-vocabulary native. The
+    // numbers mirror A's lathe test EXACTLY (recipe_document_tests.cpp:
+    // shaft polyline (0.105, 0.90)/(0.085, 0.20) on the 12x8 grid →
+    // physical (radius 1.26, z 0.8) and (1.02, 6.4)); a bound base_z lands
+    // on the lowered moulding; points get pointable generated names. ----
+    {
+        RecipeOpStream s;
+        s.id = "resolve.lathe";
+        AddRevolvedProfileOp lathe;
+        lathe.name = "shaft.turned";
+        lathe.profile = "shaft";
+        lathe.vertices = 64;
+        lathe.material = "limestone";
+        s.ops.push_back(lathe);
+        // A binding and a lowering on the SAME op: both effects must land.
+        // (The internal order — bind, then lower — is a code guarantee; with
+        // identical bindable keys on both kinds it is not observable here.)
+        s.bindings = {{0, "base_z", "plank", "height"}}; // 2.0
+
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        assert(r.stream.bindings.empty());
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr); // the revolved op is GONE, a moulding stands
+        assert(lowered->name == "shaft.turned");
+        assert(near(lowered->baseZ, 0.25 * 8.0)); // the bound base_z landed
+        assert(lowered->vertices == 64);
+        assert(lowered->material == "limestone");
+        assert(lowered->profile.size() == 2);
+        assert(lowered->profile[0].term == "profile_00");
+        assert(near(lowered->profile[0].radius, 0.105 * 12.0)); // 1.26 — matches A
+        assert(near(lowered->profile[0].z, 0.10 * 8.0));        // 0.8  — page-bottom up
+        assert(lowered->profile[1].term == "profile_01");
+        assert(near(lowered->profile[1].radius, 0.085 * 12.0)); // 1.02
+        assert(near(lowered->profile[1].z, 0.80 * 8.0));        // 6.4
+
+        // The input stream still holds the un-lowered reference (purity).
+        assert(std::get_if<AddRevolvedProfileOp>(&s.ops[0]) != nullptr);
+    }
+
+    // ---- Arc profile through the seam: 64 segments per full circle, so a
+    // quarter sweep is 17 points with exact endpoints (A's flare numbers). ----
+    {
+        RecipeOpStream s;
+        AddRevolvedProfileOp flare;
+        flare.name = "flare.turned";
+        flare.profile = "arch";
+        s.ops.push_back(flare);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(lowered->profile.size() == 17);
+        assert(near(lowered->profile.front().radius, 0.75 * 12.0)); // arc start (0.75, 0.5)
+        assert(near(lowered->profile.front().z, 0.50 * 8.0));
+        assert(near(lowered->profile.back().radius, 0.50 * 12.0)); // arc end (0.5, 0.75)
+        assert(near(lowered->profile.back().z, 0.25 * 8.0));
+    }
+
+    // ---- Profile refusals through resolve, key op.<i>.profile, the seam's
+    // wordings verbatim (the same four A pins): empty reference, missing
+    // object, wrong kind, short polyline is covered by A's corrupt-file pin
+    // (the seam is shared — B01's pins prove these exact strings). ----
+    {
+        const auto oneLathe = [](std::string profileId) {
+            RecipeOpStream s;
+            AddRevolvedProfileOp lathe;
+            lathe.name = "l";
+            lathe.profile = std::move(profileId);
+            s.ops.push_back(lathe);
+            return s;
+        };
+        const OpResolveResult unbound = resolveRecipeOps(oneLathe(""), drafting, grid);
+        assert(!unbound.ok && unbound.stream.ops.empty());
+        assert(unbound.findings.size() == 1);
+        assert(unbound.findings[0].key == "op.0.profile");
+        assert(unbound.findings[0].message == "no profile bound");
+
+        const OpResolveResult gone = resolveRecipeOps(oneLathe("gone"), drafting, grid);
+        assert(!gone.ok);
+        assert(gone.findings[0].key == "op.0.profile");
+        assert(gone.findings[0].message == "profile object not found: gone");
+
+        const OpResolveResult wrongKind = resolveRecipeOps(oneLathe("hole"), drafting, grid);
+        assert(!wrongKind.ok);
+        assert(wrongKind.findings[0].message == "profile needs a line, polyline, or arc");
+
+        // The fourth wording, through THIS pass (A's corrupt-file pin dies
+        // with pipeline A in B06; the op pipeline needs its own witness).
+        // A one-vertex polyline cannot be built through the ops — hand-
+        // assemble it the way a damaged .edidraw would deliver it.
+        DraftingObject corrupt;
+        corrupt.id = "stub";
+        corrupt.kind = DraftingShapeKind::Polyline;
+        PolylineGeometry oneVertex;
+        oneVertex.vertices = {{0.5, 0.5}};
+        corrupt.geometry = oneVertex;
+        DraftingDocument corruptDoc = makeDraftingDocument("corrupt");
+        corruptDoc.objects.push_back(corrupt);
+        const OpResolveResult shortPolyline =
+            resolveRecipeOps(oneLathe("stub"), corruptDoc, grid);
+        assert(!shortPolyline.ok);
+        assert(shortPolyline.findings[0].key == "op.0.profile");
+        assert(shortPolyline.findings[0].message == "profile polyline needs at least two vertices");
+
+        // A failed lowering joins binding failures under one all-or-nothing
+        // roof: both findings, no stream.
+        RecipeOpStream mixed = oneLathe("gone");
+        mixed.bindings = {{0, "x", "missing", "width"}};
+        const OpResolveResult both = resolveRecipeOps(mixed, drafting, grid);
+        assert(!both.ok && both.stream.ops.empty());
+        assert(both.findings.size() == 2);
+        assert(findingFor(both, "op.0.x") != nullptr);
+        assert(findingFor(both, "op.0.profile") != nullptr);
     }
 
     return 0;

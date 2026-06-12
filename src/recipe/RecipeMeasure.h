@@ -4,6 +4,7 @@
 #include "drafting/DraftingGrid.h"
 
 #include <string>
+#include <vector>
 
 namespace edi::recipe {
 
@@ -32,5 +33,23 @@ MeasureFieldResult resolveMeasurementField(
     const edi::drafting::DraftingGridProjection &grid,
     const std::string &objectId,
     const std::string &field);
+
+// The profile half of the seam (R1-B04, the same move as B03's
+// measurements): a drafted line/polyline/arc becomes ordered PHYSICAL
+// points — x = radius from the page-left spin axis, y = height above the
+// page BOTTOM (z = (1 - drafted y) * grid height). The page-to-part
+// convention, the deterministic arc sampling (64 segments per full circle,
+// exact endpoints), and the four profile refusal wordings live HERE, once,
+// for both pipelines.
+struct ProfilePointsResult {
+    bool ok = false;
+    std::vector<edi::drafting::Point2D> points; // physical (radius, z)
+    std::string message; // B01 wordings, verbatim; empty on ok
+};
+
+ProfilePointsResult resolveProfilePoints(
+    const edi::drafting::DraftingDocument &drafting,
+    const edi::drafting::DraftingGridProjection &grid,
+    const std::string &objectId);
 
 } // namespace edi::recipe

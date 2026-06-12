@@ -244,85 +244,22 @@ ResolvedParam resolveMeasurement(const RecipeParam &param,
 
 namespace {
 
-// Document-space profile points for the supported source kinds. An arc is
-// sampled deterministically — 64 segments per full circle, endpoints exact —
-// so the same drafted arc always yields the same mesh, byte for byte.
-struct ProfileSource {
-    bool ok = false;
-    std::string message;
-    std::vector<edi::drafting::Point2D> points;
-};
-
-ProfileSource profileSourcePoints(const edi::drafting::DraftingObject &object)
-{
-    using namespace edi::drafting;
-    ProfileSource source;
-    if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
-        source.points = {line->a, line->b};
-        source.ok = true;
-    } else if (const auto *polyline = std::get_if<PolylineGeometry>(&object.geometry)) {
-        source.points = polyline->vertices;
-        // The drafting ops validate vertex counts, but the .edidraw LOAD
-        // path does not re-validate geometry — a corrupted file can deliver
-        // a short polyline here, so this branch is a real contract.
-        source.ok = source.points.size() >= 2;
-        if (!source.ok) {
-            source.message = "profile polyline needs at least two vertices";
-        }
-    } else if (const auto *arc = std::get_if<ArcGeometry>(&object.geometry)) {
-        const double sweepDeg = arc->endAngleDeg - arc->startAngleDeg;
-        const int steps = std::max(1, static_cast<int>(std::lround(std::abs(sweepDeg) / 360.0 * 64.0)));
-        source.points.reserve(static_cast<std::size_t>(steps) + 1);
-        for (int i = 0; i <= steps; ++i) {
-            const double angleDeg = arc->startAngleDeg + sweepDeg * (static_cast<double>(i) / steps);
-            const double angleRad = angleDeg * M_PI / 180.0;
-            source.points.push_back({
-                arc->center.x + arc->radius * std::cos(angleRad),
-                arc->center.y + arc->radius * std::sin(angleRad),
-            });
-        }
-        source.ok = true;
-    } else {
-        source.message = "profile needs a line, polyline, or arc";
-    }
-    return source;
-}
-
-// The page-to-part mapping, the convention the whole lathe rests on: the
-// page's LEFT EDGE is the spin axis (drafted x = radius, scaled along the
-// grid's X like every radius measurement), and the page BOTTOM is z = 0
-// (drafted y points down, parts stand up — hence 1 - y). Explicit, never
-// inferred: an auto-detected axis would be guesswork wearing a convenience
-// costume.
+// Pipeline A's profile resolve, now a thin ADAPTER over the shared seam
+// (resolveProfilePoints, R1-B04 — the same move B03 made for
+// measurements). The seam owns the source-kind dispatch, the page-to-part
+// convention, the deterministic arc sampling, and the refusal wordings;
+// A keeps only its ResolvedStep out-shape. The B01 profile pins in
+// recipe_document_tests.cpp prove the swap preserved behavior.
 void resolveStepProfile(const ShaperStep &step,
                         const edi::drafting::DraftingDocument &drafting,
                         const edi::drafting::DraftingGridProjection &grid,
                         ResolvedStep &resolvedStep)
 {
-    using namespace edi::drafting;
-    resolvedStep.profileOk = false;
-    if (step.profileObjectId.empty()) {
-        resolvedStep.profileMessage = "no profile bound";
-        return;
-    }
-    const DraftingObject *object = findObject(drafting, step.profileObjectId);
-    if (object == nullptr) {
-        resolvedStep.profileMessage = "profile object not found: " + step.profileObjectId;
-        return;
-    }
-    ProfileSource source = profileSourcePoints(*object);
-    if (!source.ok) {
-        resolvedStep.profileMessage = source.message;
-        return;
-    }
-    resolvedStep.profilePoints.reserve(source.points.size());
-    for (const Point2D &point : source.points) {
-        resolvedStep.profilePoints.push_back({
-            physicalWidth(point.x, grid),
-            physicalHeight(1.0 - point.y, grid),
-        });
-    }
-    resolvedStep.profileOk = true;
+    const ProfilePointsResult profile =
+        resolveProfilePoints(drafting, grid, step.profileObjectId);
+    resolvedStep.profileOk = profile.ok;
+    resolvedStep.profileMessage = profile.message;
+    resolvedStep.profilePoints = profile.points;
 }
 
 } // namespace

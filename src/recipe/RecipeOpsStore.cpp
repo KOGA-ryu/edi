@@ -150,6 +150,18 @@ struct OpWriter {
         }
     }
 
+    void operator()(const AddRevolvedProfileOp &op) const
+    {
+        put("type", std::string("AddRevolvedProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("vertices", op.vertices);
+        put("material", op.material);
+    }
+
     void operator()(const CutFlutesOp &op) const
     {
         put("type", std::string("CutFlutes"));
@@ -625,6 +637,19 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !readMouldingSegments(reader, prefix, op.sequence)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddRevolvedProfile") {
+            AddRevolvedProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
                 return result;
             }

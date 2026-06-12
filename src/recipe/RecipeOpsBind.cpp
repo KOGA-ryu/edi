@@ -51,6 +51,12 @@ constexpr FieldRow<AddProfileMouldingOp> kProfileMouldingFields[] = {
     {"y", &AddProfileMouldingOp::y},
 };
 
+constexpr FieldRow<AddRevolvedProfileOp> kRevolvedProfileFields[] = {
+    {"base_z", &AddRevolvedProfileOp::baseZ},
+    {"x", &AddRevolvedProfileOp::x},
+    {"y", &AddRevolvedProfileOp::y},
+};
+
 constexpr FieldRow<CutFlutesOp> kFluteFields[] = {
     {"depth", &CutFlutesOp::depth},
     {"width_ratio", &CutFlutesOp::widthRatio},
@@ -86,6 +92,7 @@ struct FieldVisit {
     bool operator()(AddRingOp &op) const { return handle(op, findMember(kRingFields, fieldKey)); }
     bool operator()(AddMouldingOp &op) const { return handle(op, findMember(kMouldingFields, fieldKey)); }
     bool operator()(AddProfileMouldingOp &op) const { return handle(op, findMember(kProfileMouldingFields, fieldKey)); }
+    bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
 };

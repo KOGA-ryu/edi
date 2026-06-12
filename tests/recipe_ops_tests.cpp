@@ -139,6 +139,16 @@ int main()
         assert(!refused.ok);
         assert(refused.message == "base.torus_scotia_moulding first segment needs start_radius.");
         assert(refused.ops.empty());
+
+        // An unresolved lathe reference cannot compile: compile has no
+        // drawing to read, and guessing points is the forbidden move.
+        AddRevolvedProfileOp unresolved;
+        unresolved.name = "shaft.turned";
+        unresolved.profile = "shaft";
+        const RecipeCompileResult lathe = compileRecipeOps({RecipeOp{unresolved}});
+        assert(!lathe.ok);
+        assert(lathe.message == "AddRevolvedProfile must be resolved before compiling: shaft.turned");
+        assert(lathe.ops.empty());
     }
 
     // ---- Validators: ported findings fire with v0 codes; port divergences
@@ -358,6 +368,11 @@ int main()
         sideways.count = 20;
         sideways.depth = 0.1;
         ops.push_back(sideways);
+        AddRevolvedProfileOp hollowLathe;
+        hollowLathe.name = "probe.lathe";
+        hollowLathe.baseZ = -0.5;       // negative_revolved_profile_base_z
+        hollowLathe.vertices = 8;       // low_revolved_profile_vertices
+        ops.push_back(hollowLathe);     // empty profile: missing_profile_reference
 
         const OpValidationReport report = validateRecipeOps(ops);
         assert(!report.ok);
@@ -389,6 +404,9 @@ int main()
         assert(count("low_flute_count") == 1);
         assert(count("bad_flute_depth") == 1);
         assert(count("odd_flute_width_ratio") == 1);
+        assert(count("missing_profile_reference") == 1);
+        assert(count("negative_revolved_profile_base_z") == 1);
+        assert(count("low_revolved_profile_vertices") == 1);
         // numberKeyText formatting, not std::to_string's "0.950000".
         bool sawRatioMessage = false;
         for (const OpFinding &finding : report.findings) {
@@ -532,6 +550,20 @@ int main()
     // writer always emits x/y/vertices/material, so only a hand file can
     // reach this path). And an oversized integer is refused by name.
     {
+        // The revolved profile's reader defaults (vertices 96 — the
+        // documented divergence from A's segments=64 — and material stone)
+        // need a hand file too: every constructed test sets them.
+        const OpStreamParseResult bareLathe = recipeOpsFromToml(
+            "op.0.type = \"AddRevolvedProfile\"\n"
+            "op.0.name = \"bare.lathe\"\n"
+            "op.0.profile = \"shaft\"\n"
+            "op.0.base_z = \"0\"\n", "minimal");
+        assert(bareLathe.ok);
+        const auto *bareTurned = std::get_if<AddRevolvedProfileOp>(&bareLathe.stream.ops[0]);
+        assert(bareTurned != nullptr);
+        assert(bareTurned->vertices == 96 && bareTurned->material == "stone"
+               && bareTurned->x == 0.0 && bareTurned->y == 0.0);
+
         const OpStreamParseResult minimal = recipeOpsFromToml(
             "op.0.type = \"AddCylinder\"\n"
             "op.0.name = \"bare.drum\"\n"
@@ -616,6 +648,11 @@ int main()
         tag.x = 1.0;
         tag.y = 2.0;
         bound.ops.push_back(tag);
+        AddRevolvedProfileOp turned;
+        turned.name = "probe.turned";
+        turned.profile = "shaft_profile";
+        turned.vertices = 64;
+        bound.ops.push_back(turned);
         bound.bindings = {
             {0, "width", "plinth_face", "width"},
             {1, "radius", "shaft_top", "radius"},
@@ -625,6 +662,7 @@ int main()
             {5, "base_z", "band_seat", "height"},
             {6, "base_z", "cove_seat", "height"},
             {7, "z", "tag_line", "height"},
+            {8, "base_z", "lathe_seat", "height"},
         };
 
         const OpStreamTextResult boundWritten = recipeOpsToToml(bound);
@@ -660,6 +698,11 @@ int main()
         assert(plinthBack->depth == 3.0); // unbound literals load normally
         const auto *flutesBack = std::get_if<CutFlutesOp>(&boundBack.stream.ops[2]);
         assert(flutesBack != nullptr && flutesBack->widthRatio == 0.28); // spec default
+        // The lathe reference round-trips: the profile id is a plain string
+        // field (the OTHER crown jewel — never a binding).
+        const auto *turnedBack = std::get_if<AddRevolvedProfileOp>(&boundBack.stream.ops[8]);
+        assert(turnedBack != nullptr && turnedBack->profile == "shaft_profile"
+               && turnedBack->vertices == 64 && turnedBack->baseZ == 0.0);
 
         // Refusals, A's loader order: half a binding, then literal clash,
         // then empty names.
@@ -715,9 +758,9 @@ int main()
         bogus.bindings = {{0, "width", "a", "width"}, {0, "width", "b", "width"}};
         assert(recipeOpsToToml(bogus).message == "op.0.width: bound more than once");
 
-        // The registry pinned EXHAUSTIVELY, row by row: deleting any of the
-        // 33 rows (or typo'ing a key) fails here by name. The negative keys
-        // prove ints, optionals, and strings stayed literal-only.
+        // The registry pinned EXHAUSTIVELY, row by row: deleting any row
+        // (or typo'ing a key) fails here by name. The negative keys prove
+        // ints, optionals, and strings stayed literal-only.
         struct RegistryPin {
             RecipeOp op;
             std::vector<const char *> bindable;
@@ -731,6 +774,7 @@ int main()
             {AddRingOp{}, {"radius", "tube_height", "z", "overhang", "x", "y"}, {"vertices"}},
             {AddMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "profile"}},
             {AddProfileMouldingOp{}, {"base_z", "x", "y"}, {"vertices", "seq"}},
+            {AddRevolvedProfileOp{}, {"base_z", "x", "y"}, {"vertices", "profile", "material"}},
             {CutFlutesOp{}, {"depth", "width_ratio"}, {"count", "start_z", "end_z", "target"}},
             {AddLabelOp{}, {"x", "y", "z"}, {"text", "name", "width"}},
         };

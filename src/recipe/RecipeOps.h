@@ -112,6 +112,25 @@ struct AddProfileMouldingOp {
     std::string material = "stone";
 };
 
+// The lathe, op-vocabulary native (R1-B04): a REFERENCE to a drafted
+// profile (line/polyline/arc), not a copy of its points — the drafting
+// document stays the single measurement authority, and re-resolving after
+// a profile edit picks up the new numbers. The resolve pass lowers this
+// into an AddMouldingOp with exact physical (radius, z) points via the
+// page-left-axis / page-bottom-z convention; downstream passes never see
+// it and refuse it by name if they do. Divergence from pipeline A's
+// lathe: vertices defaults to the op family's 96, not A's segments=64 —
+// one family default, and the sample writes its values explicitly.
+struct AddRevolvedProfileOp {
+    std::string name;
+    std::string profile; // a drafted object's id — the reference
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    int vertices = 96;
+    std::string material = "stone";
+};
+
 struct CutFlutesOp {
     std::string target; // names an earlier op — validated in order
     int count = 0;
@@ -136,6 +155,7 @@ using RecipeOp = std::variant<
     AddRingOp,
     AddMouldingOp,
     AddProfileMouldingOp,
+    AddRevolvedProfileOp,
     CutFlutesOp,
     AddLabelOp>;
 

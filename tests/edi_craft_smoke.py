@@ -177,6 +177,12 @@ def main() -> int:
         'op.0.type = "AddProfileMoulding"\nop.0.name = "m"\nop.0.base_z = "0"\n',
         "must be compiled",
     )
+    # The lathe reference (R1-B04): only resolved streams reach the
+    # craftsmen — parity with the C++ compile/preview refusals.
+    refuses(
+        'op.0.type = "AddRevolvedProfile"\nop.0.name = "m"\n',
+        "AddRevolvedProfile must be resolved before building",
+    )
     refuses('op.0.type = "AddDodecahedron"\n', "unknown op type")
 
     # The consumption audit, by name: a typo'd field, a gapped op index,

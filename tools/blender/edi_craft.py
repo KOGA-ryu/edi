@@ -178,6 +178,13 @@ def parse_ops(path: str) -> list[dict]:
         if op_type == "AddProfileMoulding":
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddProfileMoulding must be compiled before building: {name}")
+        if op_type == "AddRevolvedProfile":
+            # The lathe reference (R1-B04): only RESOLVED streams reach the
+            # craftsmen — a profile reference here means the resolve pass
+            # never ran against the drawing. Same named-refusal shape as the
+            # uncompiled moulding above; the C++ passes refuse it too.
+            name = fields.get("name", "?")
+            raise ValueError(f"{op_key}: AddRevolvedProfile must be resolved before building: {name}")
         if op_type not in ARCHITECTURAL_OPS:
             raise ValueError(f"{op_key}.type: unknown op type {op_type!r}")
 

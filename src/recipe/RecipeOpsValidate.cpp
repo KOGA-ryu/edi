@@ -120,6 +120,26 @@ struct OpChecker {
         checkMaterial(findings, op.name, op.material);
     }
 
+    void operator()(const AddRevolvedProfileOp &op) const
+    {
+        // Port addition (no v0 analog — the drafted-profile reference is
+        // pipeline A's contribution): the reference itself must exist; its
+        // resolvability against a drawing is the resolve pass's concern.
+        if (op.profile.empty()) {
+            add(findings, Severity::Error, "missing_profile_reference",
+                op.name + " needs a drafted profile reference.");
+        }
+        if (op.baseZ < 0) {
+            add(findings, Severity::Warning, "negative_revolved_profile_base_z",
+                op.name + " starts below z=0.");
+        }
+        if (op.vertices < 12) {
+            add(findings, Severity::Warning, "low_revolved_profile_vertices",
+                op.name + " has low vertex count: " + std::to_string(op.vertices));
+        }
+        checkMaterial(findings, op.name, op.material);
+    }
+
     void operator()(const AddProfileMouldingOp &op) const
     {
         if (op.baseZ < 0) {
@@ -207,6 +227,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddRingOp &o) const { return &o.name; }
         const std::string *operator()(const AddMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddProfileMouldingOp &o) const { return &o.name; }
+        const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
     };

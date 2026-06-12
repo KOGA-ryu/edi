@@ -43,7 +43,10 @@ struct AsciiRenderResult {
 // convention: X/Z front, Y/Z side, X/Y top; auto-fit bounds + 2.0 pad).
 // Port divergence: an AddProfileMoulding here is an error — v0's renderer
 // silently SKIPPED uncompiled mouldings, which made the proof lie about
-// missing parts; a proof tool must refuse what it cannot show.
+// missing parts; a proof tool must refuse what it cannot show. An
+// unresolved AddRevolvedProfile (R1-B04) is refused on the same contract:
+// a profile reference has no points until the resolve pass reads the
+// drawing.
 AsciiRenderResult renderOpsProjection(const std::vector<RecipeOp> &ops,
                                       AsciiProjection projection,
                                       int width = 96,

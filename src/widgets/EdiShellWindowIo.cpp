@@ -18,6 +18,7 @@
 #include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
+#include "text/TextEditorCommands.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextSessionStore.h"
 #include "widgets/DraftingFeature.h"
@@ -238,7 +239,54 @@ bool EdiShellWindow::openOpsRecipeFromPath(const QString &path)
     }
     m_opsStream = parsed.stream;
     m_lastRecipeError.clear();
+    syncOpsScriptDocument(); // E4: the editor's script view follows the stream
     return true;
+}
+
+// E4: project the op stream into the editor's SCRIPT document — canonical
+// serialization, fixed id, role Context (the lab's working text). Upsert
+// through the core's own paths: create once, then ReplaceTextRange — even
+// the window mutates documents only via the choke point. No path field on
+// purpose: this document is a projection of the STREAM, not a file; the
+// ops File verbs own the recipe file and its gates.
+void EdiShellWindow::syncOpsScriptDocument()
+{
+    using namespace edi::recipe;
+    using namespace edi::text;
+    const OpStreamTextResult canonical = recipeOpsToToml(m_opsStream);
+    if (!canonical.ok) {
+        return; // a stream the writer refuses stays out of the editor
+    }
+    const std::string id = "ops_recipe";
+    if (!containsDocument(m_textStore, id)) {
+        TextDocument document = makeTextDocument(id, "Ops Recipe");
+        document.role = TextDocumentRole::Context;
+        addDocument(m_textStore, std::move(document));
+    }
+    const TextDocument *existing = findDocument(m_textStore, id);
+    applyTextEditorCommand(
+        m_textStore,
+        ReplaceTextRangeCommand{id, {0, existing->text.size()}, canonical.text});
+    setActiveDocument(m_textStore, id);
+    if (m_featureContext.refreshTextPanel) {
+        m_featureContext.refreshTextPanel();
+    }
+}
+
+// E4: the Apply hook — the editor's text, back through the STRICT reader.
+// Success replaces the stream and echoes the canonical form into the
+// document (the user sees exactly what the pipeline now holds); a refusal
+// returns the reader's message verbatim, the named key intact.
+QString EdiShellWindow::applyOpsScript(const std::string &text)
+{
+    using namespace edi::recipe;
+    const OpStreamParseResult parsed = recipeOpsFromToml(text, "editor");
+    if (!parsed.ok) {
+        return QString::fromStdString(parsed.message);
+    }
+    m_opsStream = parsed.stream;
+    syncOpsScriptDocument();
+    return {};
 }
 
 bool EdiShellWindow::saveOpsRecipeToPath(const QString &path)

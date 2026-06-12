@@ -189,6 +189,13 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
     findButton->setObjectName(QStringLiteral("textEditorFindNext"));
     toolbar->addWidget(findInput);
     toolbar->addWidget(findButton);
+    // Apply (E4): hands the SCRIPT document's text back to the pipeline
+    // through the bus hook — explicitly, never per keystroke. Enabled only
+    // while the script document is active; on every other document the
+    // gesture would be a category error, so the UI never offers it.
+    auto *applyButton = new QPushButton(QStringLiteral("Apply"));
+    applyButton->setObjectName(QStringLiteral("textEditorApply"));
+    toolbar->addWidget(applyButton);
     layout->addLayout(toolbar);
 
     auto *splitter = new QSplitter(Qt::Horizontal);
@@ -400,6 +407,42 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
     QObject::connect(findButton, &QPushButton::clicked, view, findNextFromCaret);
     QObject::connect(findInput, &QLineEdit::returnPressed, view, findNextFromCaret);
 
+    // Apply enablement follows the ACTIVE document; every path that can
+    // change it re-runs this (list clicks, New/Open, session loads).
+    const auto refreshApplyEnabled = [store, ctx, applyButton]() {
+        applyButton->setEnabled(
+            ctx->applyScript && !ctx->scriptDocumentId.isEmpty()
+            && store->activeDocumentId.has_value()
+            && QString::fromStdString(*store->activeDocumentId) == ctx->scriptDocumentId);
+    };
+    refreshApplyEnabled();
+    QObject::connect(list, &QListWidget::itemClicked, view,
+                     [refreshApplyEnabled](QListWidgetItem *) { refreshApplyEnabled(); });
+    QObject::connect(newButton, &QPushButton::clicked, view, refreshApplyEnabled);
+    QObject::connect(openButton, &QPushButton::clicked, view, refreshApplyEnabled);
+
+    QObject::connect(applyButton, &QPushButton::clicked, view, [store, view, list, status, ctx]() {
+        if (!ctx->applyScript || !store->activeDocumentId.has_value()) {
+            return;
+        }
+        const TextDocument *active = findDocument(*store, *store->activeDocumentId);
+        if (active == nullptr) {
+            return;
+        }
+        const QString refusal = ctx->applyScript(active->text);
+        if (!refusal.isEmpty()) {
+            // The strict reader's message verbatim — it names the offending
+            // key, which IS the pointable diagnosis.
+            status->setText(refusal);
+            return;
+        }
+        status->setText(QStringLiteral("ok"));
+        // applyScript echoed the canonical form back into the document
+        // (through the core's own ReplaceTextRange) — re-project it.
+        refreshView(view, *store, 0);
+        refreshList(list, *store);
+    });
+
     // The session refresh hook (E2): loadTextSession swaps the store, then calls
     // this to re-project the panel and surface any degrade note. QPointers guard
     // the (rare) case where the panel was torn down before the call.
@@ -407,7 +450,7 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
         const QPointer<QListWidget> listPtr = list;
         const QPointer<TextEditorView> viewPtr = view;
         const QPointer<QLabel> statusPtr = status;
-        ctx->refreshTextPanel = [store, listPtr, viewPtr, statusPtr, ctx]() {
+        ctx->refreshTextPanel = [store, listPtr, viewPtr, statusPtr, ctx, refreshApplyEnabled]() {
             if (!listPtr || !viewPtr || !statusPtr) {
                 return;
             }
@@ -418,6 +461,7 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
             refreshView(viewPtr, *store, active ? active->text.size() : 0);
             statusPtr->setText(ctx->textSessionNote.isEmpty() ? QStringLiteral("ok")
                                                               : ctx->textSessionNote);
+            refreshApplyEnabled();
         };
     }
 

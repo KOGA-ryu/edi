@@ -2359,5 +2359,92 @@ int main(int argc, char **argv)
         assert(!list->item(0)->text().contains(QStringLiteral("•"))); // dirty dot gone
     }
 
+    // The script view (E4, the R7 loop early): opening an ops recipe puts
+    // its CANONICAL TOML in the editor; Apply runs the text back through
+    // the strict reader — refusals name the key, success replaces the
+    // stream and echoes the canonical form. Text is the cheap preview;
+    // the pipeline never re-parses mid-edit.
+    {
+        EdiShellWindow scriptShell;
+        assert(scriptShell.openOpsRecipeFromPath(QStringLiteral(
+            EDI_SAMPLES_DIR "/doric_column/doric_column_drafted_ops.toml")));
+        auto *view = scriptShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
+        auto *editorStatus = scriptShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        auto *applyButton = scriptShell.findChild<QPushButton *>(QStringLiteral("textEditorApply"));
+        assert(view != nullptr && editorStatus != nullptr && applyButton != nullptr);
+
+        // The script document holds the stream's canonical serialization
+        // and is active; Apply is therefore enabled.
+        edi::text::TextDocumentStore &textStore = scriptShell.textDocumentStore();
+        assert(textStore.activeDocumentId.has_value()
+               && *textStore.activeDocumentId == "ops_recipe");
+        const edi::text::TextDocument *script =
+            edi::text::findDocument(textStore, "ops_recipe");
+        assert(script != nullptr);
+        assert(script->text.find("op.0.type = \"AddBox\"") != std::string::npos);
+        assert(applyButton->isEnabled());
+
+        // Corrupt one key by typing where the caret lands (position 0):
+        // "x" prepended makes the first key unknown — the STRICT reader
+        // refuses BY NAME and the stream is untouched.
+        const std::size_t opsBefore = scriptShell.opsStream().ops.size();
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(0);
+            view->setTextCursor(cursor);
+        }
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_X, Qt::NoModifier, QStringLiteral("x"));
+        QCoreApplication::sendEvent(view, &press);
+        applyButton->click();
+        // (The reader refuses at the first MISSING required key — mangling
+        // op.0.depth into xop.0.depth makes depth absent — which is even
+        // more pointable than the audit catching the stray key later.)
+        assert(editorStatus->text().contains(QStringLiteral("op.0.depth")));
+        assert(scriptShell.opsStream().ops.size() == opsBefore); // unchanged
+
+        // Repair: delete the stray byte, Apply again — ok, canonical echo.
+        QKeyEvent del(QEvent::KeyPress, Qt::Key_Delete, Qt::NoModifier, QString());
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(0);
+            view->setTextCursor(cursor);
+        }
+        QCoreApplication::sendEvent(view, &del);
+        applyButton->click();
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(scriptShell.opsStream().ops.size() == opsBefore);
+        const edi::text::TextDocument *after =
+            edi::text::findDocument(textStore, "ops_recipe");
+        assert(after->text.find("xop.0") == std::string::npos); // canonical again
+
+        // The canonical ECHO is observable, not assumed: add a trailing
+        // blank line (legal TOML, parses identically), Apply, and the echo
+        // must NORMALIZE it away — an Apply that "succeeds" without
+        // re-projecting the canonical form leaves the extra newline behind.
+        {
+            QTextCursor cursor = view->textCursor();
+            cursor.setPosition(static_cast<int>(view->toPlainText().size()));
+            view->setTextCursor(cursor);
+        }
+        QKeyEvent ret(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, QString());
+        QCoreApplication::sendEvent(view, &ret);
+        assert(edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+        applyButton->click();
+        assert(editorStatus->text() == QStringLiteral("ok"));
+        assert(!edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+
+        // Apply is a SCRIPT-document gesture: on a scratch note it is
+        // disabled, not silently wrong.
+        auto *list = scriptShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
+        assert(list != nullptr);
+        for (int i = 0; i < list->count(); ++i) {
+            if (list->item(i)->data(Qt::UserRole).toString() == QStringLiteral("scratch")) {
+                list->setCurrentItem(list->item(i));
+                emit list->itemClicked(list->item(i));
+            }
+        }
+        assert(!applyButton->isEnabled());
+    }
+
     return 0;
 }

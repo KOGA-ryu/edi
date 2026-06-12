@@ -64,6 +64,11 @@ public:
     bool exportOpsPreviewsToDir(const QString &dir);
     // E1 test seam: shell tests assert the document model, not widget text.
     edi::text::TextDocumentStore &textDocumentStore() { return m_textStore; }
+    // E4 test seam: assert what the pipeline holds after Apply.
+    const edi::recipe::RecipeOpStream &opsStream() const { return m_opsStream; }
+    // E4: the strict-reader hook behind the editor's Apply button — parses
+    // the script text, replaces the op stream, echoes canonical TOML back.
+    QString applyOpsScript(const std::string &text);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -155,6 +160,7 @@ private:
     void promptExportSvg();
     void promptExportHpgl();
     void promptExportGcode();
+    void syncOpsScriptDocument(); // E4: stream -> editor script doc
     void promptOpenOpsRecipe();
     void promptSaveOpsRecipe();
     void promptExportResolvedOps();

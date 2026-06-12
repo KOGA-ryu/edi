@@ -32,6 +32,13 @@ struct FeatureContext {
     // may not own documents). A shared DOCUMENT on the bus, per the
     // coupling rule above.
     edi::text::TextDocumentStore *textStore = nullptr;
+    // The SCRIPT document seam (E4, the R7 lab's loop delivered early):
+    // one designated document is the pipeline's working text. The panel
+    // knows only this id and the hook — never what a recipe is; the
+    // window (owner of both stores) wires applyScript to the strict
+    // reader. Returns the refusal message, or empty on success.
+    QString scriptDocumentId;
+    std::function<QString(const std::string &)> applyScript;
     // E2: the live text panel's refresh hook (set when the panel builds) and a
     // session note for its status line. loadTextSession replaces the store out
     // from under the panel, then re-projects and surfaces any degrade through

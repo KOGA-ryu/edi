@@ -495,6 +495,7 @@ target_link_libraries(edi_shell_window_tests PRIVATE
     Qt6::Gui
     Qt6::Widgets
 )
+target_compile_definitions(edi_shell_window_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_test(NAME edi_shell_window_tests COMMAND edi_shell_window_tests)
 
 add_executable(drawing_canvas_widget_tests

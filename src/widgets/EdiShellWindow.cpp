@@ -117,6 +117,12 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     // an empty manifest re-seeds through the same helper. The fresh-window test
     // (E1) still sees the seeded scratch.
     m_featureContext.textStore = &m_textStore;
+    // E4: the script-document seam — the editor's Apply button feeds THIS
+    // window's strict reader; the panel never learns what a recipe is.
+    m_featureContext.scriptDocumentId = QStringLiteral("ops_recipe");
+    m_featureContext.applyScript = [this](const std::string &text) {
+        return applyOpsScript(text);
+    };
     seedScratchIfEmpty();
 
     // Per-feature knowledge lives ONLY in these registry rows — how to build

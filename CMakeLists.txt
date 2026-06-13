@@ -360,6 +360,9 @@ target_sources(text_session_store_tests PRIVATE src/io/TextSessionStore.cpp src/
 target_include_directories(text_session_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
 add_edi_contract_test(blender_run_plan_tests tests/blender_run_plan_tests.cpp edi_scripting_core)
+add_edi_contract_test(process_run_store_tests tests/process_run_store_tests.cpp Qt6::Core)
+target_include_directories(process_run_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_sources(process_run_store_tests PRIVATE src/io/ProcessRunStore.h src/io/ProcessRunStore.cpp)
 add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
@@ -582,6 +585,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/core/DrawingSvgExport.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/ProcessRunStore.h
+    src/io/ProcessRunStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h

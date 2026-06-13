@@ -37,6 +37,7 @@
 // "not armed" state, so the enum needs no None member.
 enum class PointCaptureIntent {
     RadialArrayCenter,
+    TrimPoint, // the click chooses which part of the selected line to trim away
 };
 
 struct PendingPointCapture {
@@ -201,6 +202,11 @@ public:
     // a crosshair cursor); pointCapturePrompt() is the text to display.
     bool isAwaitingPointCapture() const { return m_pointCapture.has_value(); }
     QString pointCapturePrompt() const;
+    // Trim verb: arms a pick-a-point capture when a line is selected. The
+    // captured click chooses the part of the line to remove, trimming it back
+    // to where another line crosses it. False (arms nothing) when no editable
+    // line is selected.
+    bool beginTrimSelectedLine();
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -328,6 +334,10 @@ private:
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);
+    // Trims the active line back to the nearest crossing boundary line, removing
+    // the side the captured point fell on. Surfaces a status on rejection (no
+    // crossing / would-collapse) so a dead trim click is never silent.
+    void applyTrimAtPoint(edi::drafting::Point2D point);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);

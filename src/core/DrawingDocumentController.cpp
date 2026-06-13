@@ -15,6 +15,7 @@
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingMirror.h"
+#include "drafting/DraftingModify.h"
 #include "drafting/DraftingNudgeOps.h"
 #include "drafting/DraftingOffset.h"
 #include "drafting/DraftingPhysicalEdit.h"
@@ -1778,6 +1779,52 @@ QString DrawingDocumentController::pointCapturePrompt() const
     return m_pointCapture ? m_pointCapture->prompt : QString();
 }
 
+bool DrawingDocumentController::beginTrimSelectedLine()
+{
+    // Trim needs a LINE to act on. Arm only when one is selected and editable;
+    // the captured click then chooses the part to remove (applyTrimAtPoint).
+    const DraftingObject *source = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::TrimPoint,
+                                         QStringLiteral("Click the part of the line to trim away")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::applyTrimAtPoint(Point2D point)
+{
+    const DraftingObject *target = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (target == nullptr) {
+        return; // the selection changed out from under the armed capture
+    }
+    const auto *targetLine = std::get_if<LineGeometry>(&target->geometry);
+    if (targetLine == nullptr) {
+        return;
+    }
+    // Every OTHER line is a candidate cutting boundary. The pure op picks the
+    // crossing nearest the click and trims the line back to it.
+    std::vector<LineGeometry> boundaries;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.id == target->id) {
+            continue;
+        }
+        if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+            boundaries.push_back(*line);
+        }
+    }
+    const DraftingTrimResult result = trimLineAtPoint(*targetLine, boundaries, point);
+    if (!result.ok) {
+        // A dead trim click (no crossing line, or a collapse) must say why,
+        // not silently no-op — the same discipline as the array rejections.
+        finishEdit(QStringLiteral("trim"), drawing_core::qStringFromStdString(target->id), false,
+                   result.code, drawing_core::qStringFromStdString(result.message));
+        return;
+    }
+    applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{result.geometry}});
+}
+
 void DrawingDocumentController::resolvePointCapture(Point2D point)
 {
     const PointCaptureIntent intent = m_pointCapture->intent;
@@ -1786,9 +1833,12 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
     case PointCaptureIntent::RadialArrayCenter:
         runRadialArrayAtCenter(point);
         break;
+    case PointCaptureIntent::TrimPoint:
+        applyTrimAtPoint(point);
+        break;
     }
-    // runRadialArrayAtCenter emits modelChanged on both success and a surfaced
-    // failure, but a null/locked source returns silently — so refresh here to
+    // The consumers emit modelChanged on success and on a surfaced failure, but
+    // a silent early-out (null/locked source) would not — so refresh here to
     // guarantee the now-cleared prompt leaves the view.
     emit pointerChanged();
 }

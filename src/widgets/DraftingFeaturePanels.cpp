@@ -946,6 +946,18 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         duplicate.layout->addWidget(buildRepeatControls());
         group->addWidget(makeCollapsibleSection(QStringLiteral("Duplicate"), duplicate.box, false));
     }
+    {
+        // Modify verbs reshape the selected object in place (trim today;
+        // extend/fillet later) — distinct from Duplicate, which makes copies.
+        FoldBox modify = makeFoldBox();
+        auto *trim = makeActionButton(QStringLiteral("trimButton"), QStringLiteral("Trim"), [this]() {
+            // Arms a pick-a-point capture: the next canvas click chooses the
+            // part of the selected line to trim away (back to a crossing line).
+            m_controller->beginTrimSelectedLine();
+        });
+        modify.layout->addWidget(trim);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Modify"), modify.box, false));
+    }
 
     group = beginInspectorGroup(QStringLiteral("object_guides"));
     {

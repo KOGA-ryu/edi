@@ -3445,6 +3445,78 @@ int main(int argc, char **argv)
         assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
+    // Trim verb: a line trimmed back to where another line crosses it, the
+    // doomed side chosen by the captured click — pick-a-point's SECOND consumer
+    // end-to-end (a different intent down the same capture path).
+    {
+        DrawingDocumentController trimController;
+        // Target: a horizontal line. Boundary: a vertical line crossing at 0.5.
+        trimController.setSelectedToolId("line_tool");
+        trimController.clickCanvasNormalized(0.2, 0.5);
+        trimController.clickCanvasNormalized(0.8, 0.5);
+        trimController.clickCanvasNormalized(0.5, 0.2);
+        trimController.clickCanvasNormalized(0.5, 0.8);
+        assert(trimController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        // Select the horizontal target (click on it, away from the crossing).
+        trimController.setSelectedToolId("select_move");
+        trimController.clickCanvasNormalized(0.3, 0.5);
+        const QString targetId = trimController.selectedObjectId();
+        assert(!targetId.isEmpty());
+
+        // Arm trim, then click the RIGHT stub: the b end trims to the crossing.
+        assert(trimController.beginTrimSelectedLine());
+        assert(trimController.isAwaitingPointCapture());
+        trimController.clickCanvasNormalized(0.72, 0.5);
+        assert(!trimController.isAwaitingPointCapture());
+
+        // The target now runs (0.2,0.5)..(0.5,0.5); trim mutates, never adds.
+        QVariantList objects = trimController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 2);
+        auto findById = [](const QVariantList &list, const QString &id) {
+            QVariantMap found;
+            for (const QVariant &v : list) {
+                if (v.toMap().value("id").toString() == id) { found = v.toMap(); }
+            }
+            return found;
+        };
+        const QVariantMap trimmed = findById(objects, targetId);
+        assert(!trimmed.isEmpty());
+        assert(nearlyEqual(trimmed.value("x1").toDouble(), 0.2));
+        assert(nearlyEqual(trimmed.value("x2").toDouble(), 0.5)); // b pulled to the cut
+        assert(nearlyEqual(trimmed.value("y2").toDouble(), 0.5));
+
+        // One undo step restores the full line.
+        assert(trimController.canUndo());
+        trimController.undo();
+        const QVariantMap restored = findById(
+            trimController.modelDocument().value("drawing_objects").toList(), targetId);
+        assert(nearlyEqual(restored.value("x2").toDouble(), 0.8));
+
+        // Trim with no crossing boundary surfaces a status and changes nothing.
+        DrawingDocumentController lonelyController;
+        lonelyController.setSelectedToolId("line_tool");
+        lonelyController.clickCanvasNormalized(0.2, 0.3);
+        lonelyController.clickCanvasNormalized(0.8, 0.3);
+        lonelyController.setSelectedToolId("select_move");
+        lonelyController.clickCanvasNormalized(0.5, 0.3);
+        assert(lonelyController.beginTrimSelectedLine());
+        lonelyController.clickCanvasNormalized(0.7, 0.3);
+        assert(!lonelyController.isAwaitingPointCapture());
+        assert(lonelyController.modelDocument().contains("edit_status"));
+        const QVariantList lonelyObjects = lonelyController.modelDocument().value("drawing_objects").toList();
+        assert(lonelyObjects.size() == 1);
+        assert(nearlyEqual(lonelyObjects.front().toMap().value("x2").toDouble(), 0.8)); // unchanged
+
+        // Trim refuses to arm when the selection is not a line.
+        DrawingDocumentController nonLineController;
+        nonLineController.setSelectedToolId("circle_tool");
+        nonLineController.clickCanvasNormalized(0.5, 0.5);
+        nonLineController.clickCanvasNormalized(0.6, 0.5);
+        assert(!nonLineController.beginTrimSelectedLine());
+        assert(!nonLineController.isAwaitingPointCapture());
+    }
+
     // Array failure paths: a user-reachable rejection (zero spacing) must
     // surface through edit_status, reclaim its minted serials, and a later
     // success must clear the stale status. Negative spacing must march the

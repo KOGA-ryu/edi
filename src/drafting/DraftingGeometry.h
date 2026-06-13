@@ -46,4 +46,9 @@ Point2D arcPointAtAngle(Point2D center, double radius, double angleDeg);
 double arcMidAngleDeg(const ArcGeometry &arc);
 std::vector<Point2D> sampleArc(const ArcGeometry &arc, double maxStepDeg = 2.0);
 
+// Closed polyline approximating an axis-aligned ellipse (shared by hit test, plot
+// flatten, and canvas projection) so the tessellation lives in one place.
+// Returns `segments` distinct points around the perimeter.
+std::vector<Point2D> sampleEllipse(const EllipseGeometry &ellipse, int segments = 64);
+
 } // namespace edi::drafting

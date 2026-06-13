@@ -114,6 +114,8 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
                     point));
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             return distanceToVertexList(typedGeometry.vertices, point, false);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            return distanceToVertexList(sampleEllipse(typedGeometry), point, true);
         } else {
             static_assert(always_false_v<Geometry>, "hitDistance: unhandled geometry kind — add an arm");
         }

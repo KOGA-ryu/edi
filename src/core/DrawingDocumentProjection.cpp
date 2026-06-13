@@ -144,6 +144,12 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         pushNumericField(fields, numericField(QStringLiteral("radius"), QStringLiteral("Radius"), 0.0), grid);
         pushNumericField(fields, numericField(QStringLiteral("diameter"), QStringLiteral("Diameter"), 0.0), grid);
         break;
+    case DraftingShapeKind::Ellipse:
+        pushNumericField(fields, numericField(QStringLiteral("cx"), QStringLiteral("CX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("cy"), QStringLiteral("CY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("rx"), QStringLiteral("RX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("ry"), QStringLiteral("RY")), grid);
+        break;
     case DraftingShapeKind::Arc:
         pushNumericField(fields, numericField(QStringLiteral("cx"), QStringLiteral("CX")), grid);
         pushNumericField(fields, numericField(QStringLiteral("cy"), QStringLiteral("CY")), grid);
@@ -309,6 +315,11 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("diameter"), physicalWidth(geometry.radius * 2.0, grid));
             result.insert(QStringLiteral("radius_y"), physicalHeight(geometry.radius, grid));
             result.insert(QStringLiteral("diameter_y"), physicalHeight(geometry.radius * 2.0, grid));
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            result.insert(QStringLiteral("cx"), physicalX(geometry.center, grid));
+            result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
+            result.insert(QStringLiteral("rx"), physicalWidth(geometry.rx, grid));
+            result.insert(QStringLiteral("ry"), physicalHeight(geometry.ry, grid));
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             result.insert(QStringLiteral("cx"), physicalX(geometry.center, grid));
             result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
@@ -510,6 +521,18 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("cy"), geometry.center.y);
             result.insert(QStringLiteral("radius"), geometry.radius);
             result.insert(QStringLiteral("diameter"), geometry.radius * 2.0);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            result.insert(QStringLiteral("cx"), geometry.center.x);
+            result.insert(QStringLiteral("cy"), geometry.center.y);
+            result.insert(QStringLiteral("rx"), geometry.rx);
+            result.insert(QStringLiteral("ry"), geometry.ry);
+            // Flattened closed loop so the canvas painter can draw the ellipse
+            // directly — same approach as the arc arm uses sampleArc.
+            QVariantList points;
+            for (Point2D point : edi::drafting::sampleEllipse(geometry)) {
+                points.push_back(pointToMap(point));
+            }
+            result.insert(QStringLiteral("points"), points);
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             result.insert(QStringLiteral("cx"), geometry.center.x);
             result.insert(QStringLiteral("cy"), geometry.center.y);

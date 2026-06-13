@@ -180,7 +180,7 @@ DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
         item.rectangle = projectedRectangle(object);
     } else if (kind == QStringLiteral("circle")) {
         item.circle = projectedCircle(object);
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc")) {
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse")) {
         item.polygon = projectedPolygon(object);
     }
     item.style = projectedObjectStyle(object);
@@ -360,7 +360,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc")) {
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse")) {
         const DrawingCanvasProjectedPolygon &projected = item.polygon;
         if (!projected.ok) {
             return;
@@ -369,7 +369,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         for (const DrawingCanvasProjectedPoint &point : projected.points) {
             polygon.push_back(drawing_canvas::canvasToScreen(context.board, point.x, point.y));
         }
-        if (kind == QStringLiteral("polygon")) {
+        if (kind == QStringLiteral("polygon") || kind == QStringLiteral("ellipse")) {
             painter.drawPolygon(polygon);
         } else {
             // Arc and polyline are open chains.
@@ -460,6 +460,15 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
                 chain.push_back(drawing_canvas::canvasToScreen(context.board, point.x, point.y));
             }
             painter.drawPolyline(chain);
+        }
+    } else if (kind == QStringLiteral("ellipse")) {
+        const DrawingCanvasProjectedPolygon projected = projectedPolygon(object);
+        if (projected.ok) {
+            QPolygonF chain;
+            for (const DrawingCanvasProjectedPoint &point : projected.points) {
+                chain.push_back(drawing_canvas::canvasToScreen(context.board, point.x, point.y));
+            }
+            painter.drawPolygon(chain); // ellipse is a closed loop, unlike the arc
         }
     }
     painter.restore();

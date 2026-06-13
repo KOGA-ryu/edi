@@ -215,6 +215,19 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to dimension");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            if (fieldId == "cx") {
+                geometry.center.x = value;
+            } else if (fieldId == "cy") {
+                geometry.center.y = value;
+            } else if (fieldId == "rx") {
+                geometry.rx = value;
+            } else if (fieldId == "ry") {
+                geometry.ry = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to ellipse");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
                           || std::is_same_v<Geometry, PolylineGeometry>) {
             return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to this geometry");

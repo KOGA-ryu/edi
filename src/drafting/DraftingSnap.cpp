@@ -367,6 +367,10 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                     addCandidate(candidates, object, {(a.x + b.x) / 2.0, (a.y + b.y) / 2.0}, DraftingSnapSourceKind::Midpoint);
                 }
             }
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            if (settings.centerEnabled) {
+                addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
+            }
         } else {
             static_assert(always_false_v<Geometry>, "snapCandidatesForObject: unhandled geometry kind — add an arm");
         }

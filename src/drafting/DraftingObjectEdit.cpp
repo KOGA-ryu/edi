@@ -270,6 +270,12 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"circle_center", "center", geometry.center},
                 {"circle_radius", "radius", {geometry.center.x + geometry.radius, geometry.center.y}},
             };
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            return {
+                {"ellipse_center", "center", geometry.center},
+                {"ellipse_rx", "radius", {geometry.center.x + geometry.rx, geometry.center.y}},
+                {"ellipse_ry", "radius", {geometry.center.x, geometry.center.y + geometry.ry}},
+            };
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             return {
                 {"arc_center", "center", geometry.center},
@@ -355,6 +361,21 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
         }
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetCircleRadius, handleId, point, distance(circle->center, point)});
     }
+    if (object.kind == DraftingShapeKind::Ellipse) {
+        const auto *ellipse = std::get_if<EllipseGeometry>(&object.geometry);
+        if (ellipse == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        if (handleId == "ellipse_center") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveEllipseCenter, handleId, point});
+        }
+        if (handleId == "ellipse_rx") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetEllipseRx, handleId, point, std::abs(point.x - ellipse->center.x)});
+        }
+        if (handleId == "ellipse_ry") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetEllipseRy, handleId, point, std::abs(point.y - ellipse->center.y)});
+        }
+    }
     if (object.kind == DraftingShapeKind::Arc) {
         const auto *arc = std::get_if<ArcGeometry>(&object.geometry);
         if (arc == nullptr) {
@@ -433,6 +454,17 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
                 geometry.radius = edit.value;
             } else {
                 return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to circle geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            if (edit.kind == DraftingObjectEditKind::MoveEllipseCenter) {
+                geometry.center = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::SetEllipseRx) {
+                geometry.rx = edit.value;
+            } else if (edit.kind == DraftingObjectEditKind::SetEllipseRy) {
+                geometry.ry = edit.value;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to ellipse geometry");
             }
             return validatedEditResult(object, geometry);
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {

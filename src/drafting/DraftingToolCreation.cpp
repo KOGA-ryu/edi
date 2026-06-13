@@ -31,6 +31,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "arc_tool") {
         return DraftingToolKind::Arc;
     }
+    if (toolId == "ellipse_tool") {
+        return DraftingToolKind::Ellipse;
+    }
     if (toolId == "regular_polygon_tool") {
         return DraftingToolKind::RegularPolygon;
     }
@@ -87,6 +90,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "circle";
     case DraftingToolKind::Arc:
         return "arc";
+    case DraftingToolKind::Ellipse:
+        return "ellipse";
     case DraftingToolKind::RegularPolygon:
         return "regular_polygon";
     case DraftingToolKind::Polyline:
@@ -167,6 +172,14 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
                                              request.end.x - request.start.x) * 180.0 / M_PI;
         kind = DraftingShapeKind::Arc;
         geometry = ArcGeometry{request.start, radius, startAngle, startAngle + request.arcSweepDeg};
+    } else if (request.tool == DraftingToolKind::Ellipse) {
+        // Two clicks: centre (start) then a point whose offsets from the centre
+        // give the two radii. Mirrors the Circle arm but keeps the axes
+        // independent, so x/y span separately instead of a single radius.
+        kind = DraftingShapeKind::Ellipse;
+        geometry = EllipseGeometry{request.start,
+                                   std::min(1.0, std::abs(request.end.x - request.start.x)),
+                                   std::min(1.0, std::abs(request.end.y - request.start.y))};
     } else if (request.tool == DraftingToolKind::Polyline) {
         kind = DraftingShapeKind::Polyline;
         PolylineGeometry polyline;

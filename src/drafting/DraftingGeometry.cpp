@@ -100,6 +100,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "circle";
     case DraftingShapeKind::Arc:
         return "arc";
+    case DraftingShapeKind::Ellipse:
+        return "ellipse";
     case DraftingShapeKind::Polygon:
         return "polygon";
     case DraftingShapeKind::Polyline:
@@ -121,6 +123,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
     if (name == "rectangle") return DraftingShapeKind::Rectangle;
     if (name == "circle") return DraftingShapeKind::Circle;
     if (name == "arc") return DraftingShapeKind::Arc;
+    if (name == "ellipse") return DraftingShapeKind::Ellipse;
     if (name == "polygon") return DraftingShapeKind::Polygon;
     if (name == "polyline") return DraftingShapeKind::Polyline;
     if (name == "guide") return DraftingShapeKind::Guide;
@@ -224,6 +227,8 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Circle;
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             return DraftingShapeKind::Arc;
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            return DraftingShapeKind::Ellipse;
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return DraftingShapeKind::Polygon;
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
@@ -335,6 +340,15 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (typedGeometry.radius < 0.0) {
                 return GeometryValidationResult::rejected("arc radius must be non-negative");
             }
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            if (!isFinite(typedGeometry.center)
+                || !std::isfinite(typedGeometry.rx)
+                || !std::isfinite(typedGeometry.ry)) {
+                return GeometryValidationResult::rejected("ellipse fields must be finite");
+            }
+            if (typedGeometry.rx < 0.0 || typedGeometry.ry < 0.0) {
+                return GeometryValidationResult::rejected("ellipse radii must be non-negative");
+            }
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             if (typedGeometry.vertices.size() < 3) {
                 return GeometryValidationResult::rejected("polygon requires at least three vertices");
@@ -401,6 +415,10 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
             };
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             return arcBounds(typedGeometry);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            const double rx = std::max(0.0, typedGeometry.rx);
+            const double ry = std::max(0.0, typedGeometry.ry);
+            return {typedGeometry.center.x - rx, typedGeometry.center.y - ry, rx * 2.0, ry * 2.0};
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 return {0.0, typedGeometry.position, 1.0, 0.0};
@@ -469,6 +487,8 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            typedGeometry.center = translatePoint(typedGeometry.center, dx, dy);
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 typedGeometry.position += dy;
@@ -534,6 +554,20 @@ std::vector<Point2D> sampleArc(const ArcGeometry &arc, double maxStepDeg)
     return points;
 }
 
+std::vector<Point2D> sampleEllipse(const EllipseGeometry &ellipse, int segments)
+{
+    constexpr double pi = 3.14159265358979323846;
+    const int count = std::max(8, segments);
+    std::vector<Point2D> points;
+    points.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        const double angle = 2.0 * pi * (static_cast<double>(i) / count);
+        points.push_back({ellipse.center.x + ellipse.rx * std::cos(angle),
+                          ellipse.center.y + ellipse.ry * std::sin(angle)});
+    }
+    return points;
+}
+
 double lineAngleDegrees(const LineGeometry &line)
 {
     constexpr double pi = 3.14159265358979323846;
@@ -564,6 +598,10 @@ double area(const DraftingGeometry &geometry)
     if (const auto *circle = std::get_if<CircleGeometry>(&geometry)) {
         constexpr double pi = 3.14159265358979323846;
         return pi * circle->radius * circle->radius;
+    }
+    if (const auto *ellipse = std::get_if<EllipseGeometry>(&geometry)) {
+        constexpr double pi = 3.14159265358979323846;
+        return pi * ellipse->rx * ellipse->ry;
     }
     if (const auto *polygon = std::get_if<PolygonGeometry>(&geometry)) {
         if (polygon->vertices.size() < 3) {
@@ -604,6 +642,10 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             handles.push_back({"arc_radius", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, arcMidAngleDeg(typedGeometry))});
             handles.push_back({"arc_start", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.startAngleDeg)});
             handles.push_back({"arc_end", arcPointAtAngle(typedGeometry.center, typedGeometry.radius, typedGeometry.endAngleDeg)});
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            handles.push_back({"ellipse_center", typedGeometry.center});
+            handles.push_back({"ellipse_rx", {typedGeometry.center.x + typedGeometry.rx, typedGeometry.center.y}});
+            handles.push_back({"ellipse_ry", {typedGeometry.center.x, typedGeometry.center.y + typedGeometry.ry}});
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             if (typedGeometry.orientation == GuideOrientation::Horizontal) {
                 handles.push_back({"guide", {0.5, typedGeometry.position}});

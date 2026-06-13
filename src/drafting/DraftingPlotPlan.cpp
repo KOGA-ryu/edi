@@ -183,6 +183,8 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             // Flatten the arc to an open chain at ~2deg steps (shared sampler).
             appendVertexSegments(plan, object, layer, sampleArc(geometry), false);
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            appendVertexSegments(plan, object, layer, sampleEllipse(geometry), true);
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, true);
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {

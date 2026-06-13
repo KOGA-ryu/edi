@@ -15,6 +15,7 @@ enum class DraftingToolKind {
     Rectangle,
     Circle,
     Arc,
+    Ellipse,
     RegularPolygon,
     Polyline,
     HorizontalGuide,

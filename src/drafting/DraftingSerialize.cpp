@@ -24,7 +24,7 @@ namespace {
 bool isKnownShapeKindName(const std::string &name)
 {
     return name == "point" || name == "line" || name == "rectangle" || name == "circle"
-        || name == "arc" || name == "polygon" || name == "polyline" || name == "guide"
+        || name == "arc" || name == "ellipse" || name == "polygon" || name == "polyline" || name == "guide"
         || name == "construction_line" || name == "dimension";
 }
 
@@ -153,6 +153,10 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("radius", MsgPackValue::number(g.radius));
             fields.emplace_back("start_angle_deg", MsgPackValue::number(g.startAngleDeg));
             fields.emplace_back("end_angle_deg", MsgPackValue::number(g.endAngleDeg));
+        } else if constexpr (std::is_same_v<G, EllipseGeometry>) {
+            fields.emplace_back("center", pointValue(g.center));
+            fields.emplace_back("rx", MsgPackValue::number(g.rx));
+            fields.emplace_back("ry", MsgPackValue::number(g.ry));
         } else if constexpr (std::is_same_v<G, PolygonGeometry>) {
             fields.emplace_back("vertices", verticesValue(g.vertices));
         } else if constexpr (std::is_same_v<G, PolylineGeometry>) {
@@ -211,6 +215,13 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
         geo.radius = asDouble(child(g, "radius"), 0.0);
         geo.startAngleDeg = asDouble(child(g, "start_angle_deg"), 0.0);
         geo.endAngleDeg = asDouble(child(g, "end_angle_deg"), 0.0);
+        return geo;
+    }
+    case DraftingShapeKind::Ellipse: {
+        EllipseGeometry geo;
+        geo.center = readPoint(child(g, "center"));
+        geo.rx = asDouble(child(g, "rx"), 0.0);
+        geo.ry = asDouble(child(g, "ry"), 0.0);
         return geo;
     }
     case DraftingShapeKind::Polygon: {

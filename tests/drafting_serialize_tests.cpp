@@ -59,6 +59,7 @@ DraftingDocument buildSampleDocument()
     rect.cornerRadius = 0.04; rect.inset = 0.015; // N4 rounded+frame variant params
     CircleGeometry circle; circle.center = {0.4, 0.4}; circle.radius = 0.15;
     ArcGeometry arc; arc.center = {0.3, 0.3}; arc.radius = 0.12; arc.startAngleDeg = 15.0; arc.endAngleDeg = 120.0;
+    EllipseGeometry ellipse; ellipse.center = {0.5, 0.5}; ellipse.rx = 0.18; ellipse.ry = 0.1; // rx != ry so bounds pin both
     PolygonGeometry polygon; polygon.vertices = {{0.0, 0.0}, {0.2, 0.0}, {0.2, 0.2}, {0.0, 0.2}};
     PolylineGeometry polyline; polyline.vertices = {{0.1, 0.1}, {0.3, 0.2}, {0.5, 0.1}};
     GuideGeometry guide; guide.orientation = GuideOrientation::Vertical; guide.position = 0.42;
@@ -76,6 +77,7 @@ DraftingDocument buildSampleDocument()
         makeObject("guide-1", DraftingShapeKind::Guide, guide, "guides"),
         makeObject("cline-1", DraftingShapeKind::ConstructionLine, cline, "default"),
         makeObject("dim-1", DraftingShapeKind::Dimension, dim, "default"),
+        makeObject("ellipse-1", DraftingShapeKind::Ellipse, ellipse, "default"), // index 10 — appended to keep prior indices stable
     };
 
     // Non-default styling and metadata on one object to exercise those fields.
@@ -223,6 +225,8 @@ int main()
         assert(std::get<PolygonGeometry>(objects[5].geometry).vertices.size() == 4);
         const auto &arcGeo = std::get<ArcGeometry>(objects[4].geometry);
         assert(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);
+        const auto &ellipseGeo = std::get<EllipseGeometry>(objects[10].geometry);
+        assert(ellipseGeo.rx == 0.18 && ellipseGeo.ry == 0.1);
     }
 
     // Unknown-field tolerance: extra keys at every level are ignored on read.

@@ -18,6 +18,7 @@ enum class DraftingShapeKind {
     Rectangle,
     Circle,
     Arc,
+    Ellipse,
     Polygon,
     Polyline,
     Guide,
@@ -201,6 +202,12 @@ struct ArcGeometry {
     double endAngleDeg = 0.0;
 };
 
+struct EllipseGeometry {
+    Point2D center;
+    double rx = 0.0;
+    double ry = 0.0;
+};
+
 struct PolygonGeometry {
     std::vector<Point2D> vertices;
 };
@@ -240,13 +247,14 @@ using DraftingGeometry = std::variant<
     RectangleGeometry,
     CircleGeometry,
     ArcGeometry,
+    EllipseGeometry,
     PolygonGeometry,
     PolylineGeometry,
     GuideGeometry,
     ConstructionLineGeometry,
     DimensionGeometry>;
 
-static_assert(std::variant_size_v<DraftingGeometry> == 10,
+static_assert(std::variant_size_v<DraftingGeometry> == 11,
     "DraftingGeometry gained or lost an alternative — that is an exhaustive change. "
     "Every std::visit over it carries an always_false_v guard that names any site you "
     "missed; every switch over DraftingShapeKind is a site too. See "
@@ -277,6 +285,7 @@ template <> constexpr DraftingShapeKind shapeKindOf<LineGeometry>() { return Dra
 template <> constexpr DraftingShapeKind shapeKindOf<RectangleGeometry>() { return DraftingShapeKind::Rectangle; }
 template <> constexpr DraftingShapeKind shapeKindOf<CircleGeometry>() { return DraftingShapeKind::Circle; }
 template <> constexpr DraftingShapeKind shapeKindOf<ArcGeometry>() { return DraftingShapeKind::Arc; }
+template <> constexpr DraftingShapeKind shapeKindOf<EllipseGeometry>() { return DraftingShapeKind::Ellipse; }
 template <> constexpr DraftingShapeKind shapeKindOf<PolygonGeometry>() { return DraftingShapeKind::Polygon; }
 template <> constexpr DraftingShapeKind shapeKindOf<PolylineGeometry>() { return DraftingShapeKind::Polyline; }
 template <> constexpr DraftingShapeKind shapeKindOf<GuideGeometry>() { return DraftingShapeKind::Guide; }

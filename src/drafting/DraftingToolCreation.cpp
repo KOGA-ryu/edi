@@ -43,6 +43,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "polyline_tool") {
         return DraftingToolKind::Polyline;
     }
+    if (toolId == "spline_tool") {
+        return DraftingToolKind::Spline;
+    }
     if (toolId == "text_tool") {
         return DraftingToolKind::TextAnnotation;
     }
@@ -104,6 +107,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "regular_polygon";
     case DraftingToolKind::Polyline:
         return "polyline";
+    case DraftingToolKind::Spline:
+        return "spline";
     case DraftingToolKind::TextAnnotation:
         return "text";
     case DraftingToolKind::HorizontalGuide:
@@ -196,6 +201,14 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         PolylineGeometry polyline;
         polyline.vertices = request.vertices;
         geometry = polyline;
+    } else if (request.tool == DraftingToolKind::Spline) {
+        // Same multi-click trail as the polyline (request.vertices), but the
+        // points become CONTROL points of a curve rather than straight-segment
+        // vertices. The gesture is shared; only the geometry kind differs.
+        kind = DraftingShapeKind::Spline;
+        SplineGeometry spline;
+        spline.controlPoints = request.vertices;
+        geometry = spline;
     } else if (request.tool == DraftingToolKind::RegularPolygon) {
         // Two clicks: centre (start) then a radius point (end). Vertices sit on
         // the circumscribed circle starting at rotationDeg, stepping by 360/sides.

@@ -201,9 +201,10 @@ public:
     bool setAllGuidesLocked(bool locked);
     void clickCanvasNormalized(double x, double y);
     void cancelPendingCreation();
-    // Commits the in-flight multi-click polyline (double-click / Enter).
-    // False when nothing valid is pending; a one-vertex trail dissolves.
-    bool finishPendingPolyline();
+    // Commits the in-flight multi-click creation — polyline OR spline
+    // (double-click / Enter). False when nothing valid is pending; a one-point
+    // trail dissolves. Shared by both multi-click tools, hence the general name.
+    bool finishPendingMultiClick();
     bool deleteSelectedObject();
     bool duplicateSelectedObject();
     // N1 copy/cut/paste. Copy snapshots the current selection into an

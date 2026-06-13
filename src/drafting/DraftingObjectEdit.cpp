@@ -312,6 +312,22 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 handles.push_back(handle);
             }
             return handles;
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Read-only knot markers, one per control point. Like the
+            // polygon/polyline arm but over controlPoints — dragging a knot is a
+            // later slice (mirrors polyline, whose vertices aren't draggable yet).
+            std::vector<DraftingHandleDescriptor> handles;
+            handles.reserve(geometry.controlPoints.size());
+            for (std::size_t index = 0; index < geometry.controlPoints.size(); ++index) {
+                DraftingHandleDescriptor handle {
+                    "control_" + std::to_string(index),
+                    "control",
+                    geometry.controlPoints[index],
+                };
+                handle.readOnly = true;
+                handles.push_back(handle);
+            }
+            return handles;
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry> || std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return {};
         } else {
@@ -501,6 +517,7 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             return applyDimensionEdit(object, geometry, edit);
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>
+                             || std::is_same_v<Geometry, SplineGeometry>
                              || std::is_same_v<Geometry, GuideGeometry>
                              || std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidSelectionTarget, "shape has no editable handles yet");

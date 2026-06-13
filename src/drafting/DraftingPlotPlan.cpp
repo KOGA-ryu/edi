@@ -189,6 +189,11 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
             appendVertexSegments(plan, object, layer, geometry.vertices, true);
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, false);
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Plot the SAMPLED curve as an open chain. This visit has no
+            // terminal static_assert, so a missing arm here is SILENT (the
+            // spline would simply never plot) — it must be added by hand.
+            appendVertexSegments(plan, object, layer, sampleSpline(geometry), false);
         } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
             // text annotations carry no plot segments
         }

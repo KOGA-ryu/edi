@@ -375,6 +375,19 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.endpointEnabled) {
                 addCandidate(candidates, object, geometry.position, DraftingSnapSourceKind::Endpoint);
             }
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Snap to the control points (which lie on the curve): first/last as
+            // endpoints, the interior knots as vertices. Mirrors the polyline
+            // arm but reads controlPoints, not vertices.
+            if (settings.endpointEnabled && !geometry.controlPoints.empty()) {
+                addCandidate(candidates, object, geometry.controlPoints.front(), DraftingSnapSourceKind::Endpoint);
+                addCandidate(candidates, object, geometry.controlPoints.back(), DraftingSnapSourceKind::Endpoint);
+            }
+            if (settings.vertexEnabled && geometry.controlPoints.size() > 2) {
+                for (std::size_t i = 1; i + 1 < geometry.controlPoints.size(); ++i) {
+                    addCandidate(candidates, object, geometry.controlPoints[i], DraftingSnapSourceKind::Vertex);
+                }
+            }
         } else {
             static_assert(always_false_v<Geometry>, "snapCandidatesForObject: unhandled geometry kind — add an arm");
         }

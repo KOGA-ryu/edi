@@ -2205,10 +2205,11 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         return;
     }
 
-    if (kind == DraftingToolKind::Polyline) {
-        // Multi-click: every click anchors a vertex; the trail rides in the
-        // pending request until finishPendingPolyline (double-click) commits
-        // it or cancelPendingCreation (Escape) drops it.
+    if (kind == DraftingToolKind::Polyline || kind == DraftingToolKind::Spline) {
+        // Multi-click: every click anchors a point; the trail rides in the
+        // pending request until finishPendingMultiClick (double-click/Enter)
+        // commits it or cancelPendingCreation (Escape) drops it. Polyline and
+        // spline share this exact gesture — they differ only in geometry kind.
         if (!m_pendingCreation) {
             const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
             m_pendingCreation = creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point);
@@ -2261,9 +2262,14 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
     emit modelChanged();
 }
 
-bool DrawingDocumentController::finishPendingPolyline()
+bool DrawingDocumentController::finishPendingMultiClick()
 {
-    if (!m_pendingCreation || m_pendingCreation->tool != DraftingToolKind::Polyline) {
+    // Both multi-click tools (polyline, spline) end the same way — a shared
+    // finish path, not one method per tool. A scaffolder adding a third
+    // multi-click tool extends this guard, it does not clone the method.
+    if (!m_pendingCreation
+        || (m_pendingCreation->tool != DraftingToolKind::Polyline
+            && m_pendingCreation->tool != DraftingToolKind::Spline)) {
         return false;
     }
     beginEdit();
@@ -2274,8 +2280,8 @@ bool DrawingDocumentController::finishPendingPolyline()
         applyDraftingCommand(m_document, CreateObjectCommand{object.object});
         applyDraftingCommand(m_document, SelectObjectCommand{object.object.id});
     }
-    // A one-vertex trail simply dissolves (same outcome as Escape): there is
-    // no polyline to make, and committing nothing keeps undo clean.
+    // A one-point trail simply dissolves (same outcome as Escape): there is
+    // no curve/polyline to make, and committing nothing keeps undo clean.
     commitEdit();
     emit modelChanged();
     return object.ok;
@@ -2396,9 +2402,9 @@ void DrawingDocumentController::updateCreationPreviewNormalized(double x, double
     const Point2D point = resolveSnap(normalizeDraftingPoint({x, y}), m_document, m_snapSettings).point;
     DraftingToolCreationRequest preview = *m_pendingCreation;
     preview.end = point;
-    if (preview.tool == DraftingToolKind::Polyline) {
-        // The pointer is a provisional last vertex: one anchored click plus
-        // the cursor already previews as a valid two-vertex polyline.
+    if (preview.tool == DraftingToolKind::Polyline || preview.tool == DraftingToolKind::Spline) {
+        // The pointer is a provisional last point: one anchored click plus the
+        // cursor already previews as a valid two-point polyline/spline.
         preview.vertices.push_back(point);
     }
     const auto object = buildDraftingObjectForTool(preview);

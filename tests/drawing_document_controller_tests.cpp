@@ -2936,7 +2936,7 @@ int main(int argc, char **argv)
         assert(polyController.modelDocument().contains("preview_object"));
 
         polyController.clickCanvasNormalized(0.6, 0.6);
-        assert(polyController.finishPendingPolyline());
+        assert(polyController.finishPendingMultiClick());
         const QVariantList objects = polyController.modelDocument().value("drawing_objects").toList();
         assert(objects.size() == 1);
         const QVariantMap polyline = objects.front().toMap();
@@ -2952,22 +2952,55 @@ int main(int argc, char **argv)
 
         // Finishing with nothing pending refuses; a one-vertex trail
         // dissolves silently (same as Escape).
-        assert(!polyController.finishPendingPolyline());
+        assert(!polyController.finishPendingMultiClick());
         polyController.clickCanvasNormalized(0.8, 0.8);
-        assert(!polyController.finishPendingPolyline());
+        assert(!polyController.finishPendingMultiClick());
         assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Escape drops an in-flight trail without touching the document.
         polyController.clickCanvasNormalized(0.1, 0.8);
         polyController.clickCanvasNormalized(0.3, 0.9);
         polyController.cancelPendingCreation();
-        assert(!polyController.finishPendingPolyline());
+        assert(!polyController.finishPendingMultiClick());
         assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // A finished polyline is selectable by clicking near a segment.
         polyController.setSelectedToolId("select_move");
         polyController.clickCanvasNormalized(0.35, 0.25);
         assert(polyController.selectedObjectId() == polyline.value("id").toString());
+    }
+
+    // Spline: the SECOND multi-click tool. It rides the exact same gesture as
+    // the polyline (clicks accumulate, finish commits, one undo step) — proof
+    // the multi-click branch and finishPendingMultiClick are shared, not cloned.
+    {
+        DrawingDocumentController splineController;
+        splineController.setSelectedToolId("spline_tool");
+        splineController.clickCanvasNormalized(0.2, 0.2);
+        splineController.clickCanvasNormalized(0.4, 0.5);
+        splineController.clickCanvasNormalized(0.7, 0.3);
+        // Nothing reaches the document until the finish verb.
+        assert(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
+
+        assert(splineController.finishPendingMultiClick());
+        const QVariantList objects = splineController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 1);
+        const QVariantMap spline = objects.front().toMap();
+        assert(spline.value("kind").toString() == QStringLiteral("spline"));
+        // The projection flattened the sampled curve into drawable points.
+        assert(!spline.value("points").toList().isEmpty());
+
+        // The whole gesture is ONE undo step; redo restores it whole.
+        assert(splineController.canUndo());
+        splineController.undo();
+        assert(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
+        splineController.redo();
+        assert(splineController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // A finished spline is selectable by clicking near the curve.
+        splineController.setSelectedToolId("select_move");
+        splineController.clickCanvasNormalized(0.4, 0.5); // a control point lies on the curve
+        assert(splineController.selectedObjectId() == spline.value("id").toString());
     }
 
     // N1 copy/cut/paste.

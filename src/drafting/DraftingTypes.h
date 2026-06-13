@@ -24,7 +24,8 @@ enum class DraftingShapeKind {
     Guide,
     ConstructionLine,
     Dimension,
-    TextAnnotation
+    TextAnnotation,
+    Spline
 };
 
 enum class GuideOrientation {
@@ -246,6 +247,17 @@ struct TextAnnotationGeometry {
     double height = 0.04; // cap height in canvas units
 };
 
+// A smooth curve through a variable-length list of CONTROL points (the user's
+// multi-click trail). Named controlPoints, not vertices, on purpose: a spline's
+// drawn form is a Catmull-Rom interpolation of these knots, not straight
+// segments between them. That difference is why spline does NOT share the
+// polygon/polyline `||` arms at the sampling sites (bounds, hit, plot, paint)
+// — those operate on sampleSpline(), while translate/handles/serialize keep
+// working on the raw controlPoints. See sampleSpline in DraftingGeometry.h.
+struct SplineGeometry {
+    std::vector<Point2D> controlPoints;
+};
+
 // Compile-time exhaustiveness guard. A std::visit branch that should be
 // unreachable ends in `else { static_assert(always_false_v<Geometry>, "…"); }`,
 // so adding a DraftingGeometry alternative without handling it at that site is a
@@ -266,9 +278,10 @@ using DraftingGeometry = std::variant<
     GuideGeometry,
     ConstructionLineGeometry,
     DimensionGeometry,
-    TextAnnotationGeometry>;
+    TextAnnotationGeometry,
+    SplineGeometry>;
 
-static_assert(std::variant_size_v<DraftingGeometry> == 12,
+static_assert(std::variant_size_v<DraftingGeometry> == 13,
     "DraftingGeometry gained or lost an alternative — that is an exhaustive change. "
     "Every std::visit over it carries an always_false_v guard that names any site you "
     "missed; every switch over DraftingShapeKind is a site too. See "
@@ -306,5 +319,6 @@ template <> constexpr DraftingShapeKind shapeKindOf<GuideGeometry>() { return Dr
 template <> constexpr DraftingShapeKind shapeKindOf<ConstructionLineGeometry>() { return DraftingShapeKind::ConstructionLine; }
 template <> constexpr DraftingShapeKind shapeKindOf<DimensionGeometry>() { return DraftingShapeKind::Dimension; }
 template <> constexpr DraftingShapeKind shapeKindOf<TextAnnotationGeometry>() { return DraftingShapeKind::TextAnnotation; }
+template <> constexpr DraftingShapeKind shapeKindOf<SplineGeometry>() { return DraftingShapeKind::Spline; }
 
 } // namespace edi::drafting

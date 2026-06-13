@@ -85,6 +85,24 @@ Bounds2D arcBounds(const ArcGeometry &arc)
     return boundsFromPoints(extremes);
 }
 
+// One Catmull-Rom segment: interpolate between p1 and p2, with p0 and p3 the
+// neighbours that set the tangents. t in [0,1] returns p1 at 0 and p2 at 1, so
+// the assembled curve passes through every control point. The 0.5 factor is the
+// standard uniform (centripetal-free) tension — a learner reading this can map
+// each coefficient to a term of the cubic basis.
+Point2D catmullRomPoint(Point2D p0, Point2D p1, Point2D p2, Point2D p3, double t)
+{
+    const double t2 = t * t;
+    const double t3 = t2 * t;
+    const auto axis = [&](double a0, double a1, double a2, double a3) {
+        return 0.5 * ((2.0 * a1)
+                      + (-a0 + a2) * t
+                      + (2.0 * a0 - 5.0 * a1 + 4.0 * a2 - a3) * t2
+                      + (-a0 + 3.0 * a1 - 3.0 * a2 + a3) * t3);
+    };
+    return {axis(p0.x, p1.x, p2.x, p3.x), axis(p0.y, p1.y, p2.y, p3.y)};
+}
+
 } // namespace
 
 const char *shapeKindName(DraftingShapeKind kind)
@@ -114,6 +132,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "dimension";
     case DraftingShapeKind::TextAnnotation:
         return "text";
+    case DraftingShapeKind::Spline:
+        return "spline";
     }
     return "unknown";
 }
@@ -132,6 +152,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
     if (name == "construction_line") return DraftingShapeKind::ConstructionLine;
     if (name == "dimension") return DraftingShapeKind::Dimension;
     if (name == "text") return DraftingShapeKind::TextAnnotation;
+    if (name == "spline") return DraftingShapeKind::Spline;
     return DraftingShapeKind::Point;
 }
 
@@ -244,6 +265,8 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Dimension;
         } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
             return DraftingShapeKind::TextAnnotation;
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            return DraftingShapeKind::Spline;
         } else {
             static_assert(always_false_v<Geometry>, "geometryKind: unhandled geometry kind — add an arm");
         }
@@ -400,6 +423,15 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (typedGeometry.height < 0.0) {
                 return GeometryValidationResult::rejected("text height must be non-negative");
             }
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            if (typedGeometry.controlPoints.size() < 2) {
+                return GeometryValidationResult::rejected("spline requires at least two control points");
+            }
+            for (const Point2D &point : typedGeometry.controlPoints) {
+                if (!isFinite(point)) {
+                    return GeometryValidationResult::rejected("spline control points must be finite");
+                }
+            }
         } else {
             static_assert(always_false_v<Geometry>, "validateGeometry: unhandled geometry kind — add an arm");
         }
@@ -460,6 +492,11 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
             const double h = std::max(0.0, typedGeometry.height);
             const double w = std::max(h * 0.3, static_cast<double>(typedGeometry.content.size()) * h * 0.55);
             return {typedGeometry.position.x, typedGeometry.position.y, w, h};
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Bounds of the DRAWN curve, not the control polygon: a Catmull-Rom
+            // can bow outside its knots, so selection/bounds must measure the
+            // sampled points the user actually sees.
+            return boundsFromPoints(sampleSpline(typedGeometry));
         } else {
             static_assert(always_false_v<Geometry>, "computeBounds: unhandled geometry kind — add an arm");
         }
@@ -526,6 +563,12 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             }
         } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
             typedGeometry.position = translatePoint(typedGeometry.position, dx, dy);
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Moving the whole curve = moving every control point; the sampled
+            // form follows because it is recomputed from these.
+            for (Point2D &point : typedGeometry.controlPoints) {
+                point = translatePoint(point, dx, dy);
+            }
         } else {
             static_assert(always_false_v<Geometry>, "translateGeometry: unhandled geometry kind — add an arm");
         }
@@ -586,6 +629,33 @@ std::vector<Point2D> sampleEllipse(const EllipseGeometry &ellipse, int segments)
                           ellipse.center.y + ellipse.ry * std::sin(angle)});
     }
     return points;
+}
+
+std::vector<Point2D> sampleSpline(const SplineGeometry &spline, int stepsPerSegment)
+{
+    const std::vector<Point2D> &cp = spline.controlPoints;
+    // 0/1 points cannot make a curve; 2 points are a single straight segment.
+    // Both cases return the raw points so callers (bounds, hit, plot) still get
+    // an honest chain without special-casing.
+    if (cp.size() < 3) {
+        return cp;
+    }
+    const int steps = std::max(1, stepsPerSegment);
+    std::vector<Point2D> out;
+    out.reserve(cp.size() * static_cast<std::size_t>(steps));
+    out.push_back(cp.front());
+    for (std::size_t i = 0; i + 1 < cp.size(); ++i) {
+        // Endpoints have no outside neighbour, so duplicate them to clamp the
+        // tangent — the curve starts and ends exactly at the first/last knot.
+        const Point2D p0 = (i == 0) ? cp[i] : cp[i - 1];
+        const Point2D p1 = cp[i];
+        const Point2D p2 = cp[i + 1];
+        const Point2D p3 = (i + 2 < cp.size()) ? cp[i + 2] : cp[i + 1];
+        for (int s = 1; s <= steps; ++s) {
+            out.push_back(catmullRomPoint(p0, p1, p2, p3, static_cast<double>(s) / steps));
+        }
+    }
+    return out;
 }
 
 double lineAngleDegrees(const LineGeometry &line)
@@ -687,6 +757,12 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             }
         } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
             handles.push_back({"text_position", typedGeometry.position});
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // One anchor per control point — the curve is edited by its knots,
+            // which (Catmull-Rom) lie on the curve itself.
+            for (std::size_t i = 0; i < typedGeometry.controlPoints.size(); ++i) {
+                handles.push_back({"control_" + std::to_string(i), typedGeometry.controlPoints[i]});
+            }
         } else {
             static_assert(always_false_v<Geometry>, "handleAnchors: unhandled geometry kind — add an arm");
         }

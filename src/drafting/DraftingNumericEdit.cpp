@@ -240,7 +240,8 @@ DraftingNumericEditResult applyNumericGeometryEdit(
             }
             return acceptedIfValid(DraftingGeometry{geometry});
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
-                          || std::is_same_v<Geometry, PolylineGeometry>) {
+                          || std::is_same_v<Geometry, PolylineGeometry>
+                          || std::is_same_v<Geometry, SplineGeometry>) {
             return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to this geometry");
         } else {
             static_assert(always_false_v<Geometry>, "applyNumericGeometryEdit: unhandled geometry kind — add an arm");

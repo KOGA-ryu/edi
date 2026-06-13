@@ -196,6 +196,7 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         break;
     case DraftingShapeKind::Polygon:
     case DraftingShapeKind::Polyline:
+    case DraftingShapeKind::Spline:
         break;
     }
     return fields;
@@ -350,9 +351,10 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("dimension_length"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("dimension_label"), physicalDimensionLabel(physicalDistance(geometry.a, geometry.b, grid), geometry.kind, grid));
-        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>) {
-            // No physical-geometry fields are projected for vertex lists today;
-            // the empty arm preserves the prior implicit fall-through behavior.
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>
+                             || std::is_same_v<Geometry, SplineGeometry>) {
+            // No physical-geometry fields are projected for point-list shapes
+            // today; the empty arm preserves the prior fall-through behavior.
         } else {
             static_assert(edi::drafting::always_false_v<Geometry>,
                 "physicalGeometryForObject: unhandled geometry kind — add an arm");
@@ -603,6 +605,15 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>) {
             QVariantList points;
             for (Point2D point : geometry.vertices) {
+                points.push_back(pointToMap(point));
+            }
+            result.insert(QStringLiteral("points"), points);
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Flatten the SAMPLED curve so the canvas painter draws the smooth
+            // form, not the control polygon. Same `points` key as polyline; the
+            // painter treats "spline" as an open chain.
+            QVariantList points;
+            for (Point2D point : sampleSpline(geometry)) {
                 points.push_back(pointToMap(point));
             }
             result.insert(QStringLiteral("points"), points);

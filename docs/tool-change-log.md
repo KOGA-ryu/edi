@@ -102,6 +102,43 @@ below was all silent.
 
 ---
 
+## Spline — sampled-curve primitive + multi-click reuse (Shape A) · commit `16fc71a`
+
+A new primitive `SplineGeometry{controlPoints}`, BUT the first whose **drawn form
+is a computed sampling** of its stored data (Catmull-Rom through the knots), and
+the first to **reuse an existing gesture** (the polyline's multi-click). Two new
+axes of evidence the four prior tools couldn't give.
+
+- **DraftingTypes.h** — `SplineGeometry{std::vector<Point2D> controlPoints}`; enum; variant; `shapeKindOf`; bump 12→13.
+- **DraftingGeometry.{h,cpp}** — `sampleSpline` (shared Catmull-Rom, declared like `sampleEllipse`); name maps; `geometryKind` / `validate` (≥2 points) / `computeBounds` **(of the SAMPLED curve)** / `translate` (all knots) / `handleAnchors` (`control_N`).
+- **HitTest** — `distanceToVertexList(sampleSpline(...), point, false)` — hit the curve, not the control polygon.
+- **Snap** — control points (front/back endpoints, interior as vertices); own arm over `controlPoints`.
+- **ObjectEdit** — read-only `control_N` knot descriptors (own arm); joins the polygon/polyline "no editable handles yet" reject arm.
+- **NumericEdit** — joins the polygon/polyline reject arm (no scalar fields).
+- **DraftingPlotPlan.cpp** — `appendVertexSegments(..., sampleSpline(geometry), false)`. **SILENT** (this visit has no terminal static_assert).
+- **DraftingSerialize.cpp** — `control_points` via `verticesValue`/`readVertices`; `readGeometry` case⚠; `isKnownShapeKindName` += "spline".
+- **DraftingToolCreation.{h,cpp}** — kind + id-map + name⚠ + build (`request.vertices` → controlPoints).
+- **multi-click gesture (REUSED)** — controller's multi-click branch and `updateCreationPreview` broadened with `|| Spline`; `finishPendingPolyline` → **`finishPendingMultiClick`** (guard accepts Polyline OR Spline). The gesture machinery already existed — spline added ZERO new gesture code, only widened three predicates.
+- **DrawingDocumentProjection.cpp** — `numericFieldsForObject` switch case⚠; physical empty arm (joined); canvas `points` from **`sampleSpline`** (own arm).
+- **DrawingCanvasObjectPainter.cpp** — `"spline"` added to the extract group, the draw group (open chain), and the preview (with arc). Three SILENT strings; no new scene struct (reuses `item.polygon`).
+- **DraftingFeaturePanels.cpp** — `kDraftingTools` row + a curved `draftingToolFace`.
+- **DraftingMirror.cpp** — **no edit**: the visit's terminal else returns the geometry unchanged and `supportsMirror` excludes it (matches polyline).
+- **tests** — drafting_spline_tests (sampler-through-knots / bounds-of-curve / hit / handles / tool / serialize) + a controller multi-click block.
+
+**New scaffolder lessons from spline:** (a) a **sampled** geometry has two data
+shapes — stored knots vs the computed curve — and the generator must route
+bounds/hit/plot/projection/paint to the SAMPLER while translate/handles/serialize
+stay on the raw points; (b) a vector-of-points geometry whose member isn't named
+`vertices` (here `controlPoints`, the honest term) **cannot** merge into the
+polygon/polyline `||` arms — but at the sampling sites it shouldn't anyway, since
+the operation differs; (c) **gestures are reusable** — the multi-click path is
+shared infrastructure, so a generator adding a multi-click tool *widens the
+existing branch/finish guard*, it does not emit a new gesture; (d) generalizing a
+tool-specific verb (`finishPendingPolyline` → `finishPendingMultiClick`) is the
+cost of the second tool of a kind — a rename + its test call-site updates.
+
+---
+
 ## Friction that recurred (a scaffolder should pre-empt)
 
 1. **The belt-inventory count assertion** (`edi_shell_window_tests`, hardcoded

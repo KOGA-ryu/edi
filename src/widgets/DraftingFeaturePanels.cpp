@@ -58,6 +58,7 @@ constexpr DraftingToolSpec kDraftingTools[] = {
     {"text_tool", "Text", "Tx", 1},
     {"line_tool", "Line", "Ln", 2},
     {"polyline_tool", "Polyline", "Py", 2},
+    {"spline_tool", "Spline", "Sp", 2},
     {"arrow_tool", "Arrow", "→", 2},
     {"double_arrow_tool", "Double Arrow", "↔", 2},
     {"rectangle_tool", "Rectangle", "Rc", 3},
@@ -106,6 +107,11 @@ BeltFace draftingToolFace(const QString &toolId)
         face.polylines = {QPolygonF({P(0.1, 0.9), P(0.9, 0.1)})};
     } else if (toolId == QLatin1String("polyline_tool")) {
         face.polylines = {QPolygonF({P(0.05, 0.85), P(0.35, 0.3), P(0.6, 0.7), P(0.95, 0.15)})};
+    } else if (toolId == QLatin1String("spline_tool")) {
+        // A smooth S — same span as the polyline face but curved, so the two
+        // multi-click tools read as kin yet tell apart at a glance.
+        face.polylines = {QPolygonF({P(0.05, 0.8), P(0.2, 0.4), P(0.4, 0.3), P(0.5, 0.5),
+                                     P(0.6, 0.7), P(0.8, 0.6), P(0.95, 0.2)})};
     } else if (toolId == QLatin1String("arrow_tool")) {
         face.polylines = {QPolygonF({P(0.1, 0.9), P(0.85, 0.15)}),
                           QPolygonF({P(0.5, 0.15), P(0.85, 0.15), P(0.85, 0.5)})};

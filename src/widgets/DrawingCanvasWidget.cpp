@@ -469,9 +469,9 @@ void DrawingCanvasWidget::mouseDoubleClickEvent(QMouseEvent *event)
         return;
     }
     // Qt delivers press->release->dblclick: the first click of the pair has
-    // already anchored a vertex, so finishing here closes the trail at the
-    // point the user double-clicked — the standard polyline ending gesture.
-    if (m_controller->finishPendingPolyline()) {
+    // already anchored a point, so finishing here closes the trail at the
+    // point the user double-clicked — the standard polyline/spline end gesture.
+    if (m_controller->finishPendingMultiClick()) {
         event->accept();
         return;
     }
@@ -515,7 +515,7 @@ void DrawingCanvasWidget::keyPressEvent(QKeyEvent *event)
         }
     }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        if (m_controller->finishPendingPolyline()) {
+        if (m_controller->finishPendingMultiClick()) {
             event->accept();
             return;
         }

@@ -124,6 +124,10 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             const double dx = std::max({left - point.x, 0.0, point.x - (left + w)});
             const double dy = std::max({top - point.y, 0.0, point.y - (top + h)});
             return std::sqrt(dx * dx + dy * dy);
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Distance to the SAMPLED curve (open chain), not the control polygon
+            // — the user clicks the line they see, which bows off the knots.
+            return distanceToVertexList(sampleSpline(typedGeometry), point, false);
         } else {
             static_assert(always_false_v<Geometry>, "hitDistance: unhandled geometry kind — add an arm");
         }

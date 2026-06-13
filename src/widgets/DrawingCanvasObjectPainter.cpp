@@ -184,7 +184,7 @@ DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
         item.rectangle = projectedRectangle(object);
     } else if (kind == QStringLiteral("circle")) {
         item.circle = projectedCircle(object);
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse")) {
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         item.polygon = projectedPolygon(object);
     } else if (kind == QStringLiteral("text")) {
         // The projection emits px/py (top-left, canvas units), height (cap
@@ -394,7 +394,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
-    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse")) {
+    } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         const DrawingCanvasProjectedPolygon &projected = item.polygon;
         if (!projected.ok) {
             return;
@@ -406,7 +406,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         if (kind == QStringLiteral("polygon") || kind == QStringLiteral("ellipse")) {
             painter.drawPolygon(polygon);
         } else {
-            // Arc and polyline are open chains.
+            // Arc, polyline, and spline are open chains.
             painter.drawPolyline(polygon);
         }
     } else if (kind == QStringLiteral("text")) {
@@ -508,7 +508,8 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             const double radius = circle.radius * context.board.width();
             painter.drawEllipse(center, radius, radius);
         }
-    } else if (kind == QStringLiteral("arc")) {
+    } else if (kind == QStringLiteral("arc") || kind == QStringLiteral("spline")) {
+        // Both preview as open chains of the projected (sampled) points.
         const DrawingCanvasProjectedPolygon projected = projectedPolygon(object);
         if (projected.ok) {
             QPolygonF chain;

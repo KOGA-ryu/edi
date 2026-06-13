@@ -51,4 +51,11 @@ std::vector<Point2D> sampleArc(const ArcGeometry &arc, double maxStepDeg = 2.0);
 // Returns `segments` distinct points around the perimeter.
 std::vector<Point2D> sampleEllipse(const EllipseGeometry &ellipse, int segments = 64);
 
+// Catmull-Rom interpolation of a spline's control points into an open chain of
+// sampled points (shared by bounds, hit test, plot flatten, and canvas
+// projection — the curve is computed in ONE place, never stored). The curve
+// passes through every control point; 0/1 points return as-is and 2 points are
+// a straight segment (nothing to curve). stepsPerSegment sets the smoothness.
+std::vector<Point2D> sampleSpline(const SplineGeometry &spline, int stepsPerSegment = 16);
+
 } // namespace edi::drafting

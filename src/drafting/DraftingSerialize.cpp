@@ -25,7 +25,7 @@ bool isKnownShapeKindName(const std::string &name)
 {
     return name == "point" || name == "line" || name == "rectangle" || name == "circle"
         || name == "arc" || name == "ellipse" || name == "polygon" || name == "polyline" || name == "guide"
-        || name == "construction_line" || name == "dimension" || name == "text";
+        || name == "construction_line" || name == "dimension" || name == "text" || name == "spline";
 }
 
 GuideOrientation guideOrientationFromName(const std::string &name)
@@ -176,6 +176,8 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("position", pointValue(g.position));
             fields.emplace_back("content", MsgPackValue::text(g.content));
             fields.emplace_back("height", MsgPackValue::number(g.height));
+        } else if constexpr (std::is_same_v<G, SplineGeometry>) {
+            fields.emplace_back("control_points", verticesValue(g.controlPoints));
         } else {
             static_assert(always_false_v<G>, "geometryValue: unhandled geometry kind — add an arm");
         }
@@ -236,6 +238,11 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
     case DraftingShapeKind::Polyline: {
         PolylineGeometry geo;
         geo.vertices = readVertices(child(g, "vertices"));
+        return geo;
+    }
+    case DraftingShapeKind::Spline: {
+        SplineGeometry geo;
+        geo.controlPoints = readVertices(child(g, "control_points"));
         return geo;
     }
     case DraftingShapeKind::Guide: {

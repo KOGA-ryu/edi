@@ -137,6 +137,10 @@ public:
     // Opacity is per-object only (0..1, clamped): layers have no alpha to
     // inherit, so 0 means transparent, not "use the layer's".
     bool setSelectedObjectStrokeOpacity(double opacity);
+    // Per-object fill (closed shapes only at paint time): colour + opacity,
+    // opacity 0 = no fill (the default that keeps existing drawings unfilled).
+    bool setSelectedObjectFillColor(const QString &color);
+    bool setSelectedObjectFillOpacity(double opacity);
     bool setSelectedObjectLineStyle(const QString &lineStyle);
     bool setSelectedObjectVisible(bool visible);
     bool setSelectedGuideLabel(const QString &label);

@@ -116,6 +116,11 @@ struct FillStyle {
     std::string color = "#ffffff";
 };
 
+inline bool operator==(const FillStyle &a, const FillStyle &b)
+{
+    return a.opacity == b.opacity && a.color == b.color;
+}
+
 struct LayerPlotStyle {
     bool plotEnabled = true;
     std::string penId = "pen_black";

@@ -653,6 +653,8 @@ QVariantMap draftingDocumentToModelProjection(
         projected.insert(QStringLiteral("own_stroke_width"), object.stroke.width);
         projected.insert(QStringLiteral("own_line_style"), qStringFromStdString(object.stroke.lineStyle));
         projected.insert(QStringLiteral("own_stroke_opacity"), object.stroke.opacity);
+        projected.insert(QStringLiteral("own_fill_color"), qStringFromStdString(object.fill.color));
+        projected.insert(QStringLiteral("own_fill_opacity"), object.fill.opacity);
         if (!shapeCanPlot(object.kind)) {
             projected.insert(QStringLiteral("plot_ready"), false);
         } else {

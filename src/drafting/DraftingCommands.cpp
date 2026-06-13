@@ -200,6 +200,21 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             object->stroke = typedCommand.stroke;
             ++document.revision;
             return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, UpdateFillStyleCommand>) {
+            DraftingObject *object = findObject(document, typedCommand.objectId);
+            if (object == nullptr) {
+                return DraftingCommandResult::rejected(DraftingResultCode::ObjectNotFound, "object does not exist");
+            }
+            const DraftingLayer *layer = findLayer(document, object->layerId);
+            if (object->locked || (layer != nullptr && layer->locked)) {
+                return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object is locked");
+            }
+            if (object->fill == typedCommand.fill) {
+                return DraftingCommandResult::accepted(); // no-op: focus-out resubmits must not dirty/undo-push
+            }
+            object->fill = typedCommand.fill;
+            ++document.revision;
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, SetAllGuidesVisibleCommand>) {
             bool changed = false;
             for (DraftingObject &object : document.objects) {

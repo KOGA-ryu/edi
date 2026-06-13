@@ -319,7 +319,23 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
-    painter.setBrush(Qt::NoBrush);
+    // Fill applies to CLOSED shapes only (rectangle, circle, ellipse-as-polygon,
+    // polygon). The brush sits behind the outline because setBrush precedes the
+    // drawRect/drawEllipse/drawPolygon calls below. Gated on fillOpacity > 0 and a
+    // valid colour, so every existing object (opacity 0) keeps Qt::NoBrush and is
+    // unchanged. Selection/plot-blocked tint the pen, never the fill. The point
+    // kind sets its own brush below — its body IS the fill.
+    const bool closedShape = kind == QStringLiteral("rectangle")
+        || kind == QStringLiteral("circle")
+        || kind == QStringLiteral("ellipse")
+        || kind == QStringLiteral("polygon");
+    QColor fillColor(style.fillColor);
+    if (closedShape && style.fillOpacity > 0.0 && fillColor.isValid()) {
+        fillColor.setAlphaF(style.fillOpacity);
+        painter.setBrush(fillColor);
+    } else {
+        painter.setBrush(Qt::NoBrush);
+    }
 
     if (kind == QStringLiteral("point")) {
         // The point is its FILL — a faded ring around an opaque disc would

@@ -78,6 +78,11 @@ struct UpdateStrokeStyleCommand {
     StrokeStyle stroke;
 };
 
+struct UpdateFillStyleCommand {
+    DraftingObjectId objectId;
+    FillStyle fill;
+};
+
 struct SetAllGuidesVisibleCommand {
     bool visible = true;
 };
@@ -151,6 +156,7 @@ using DraftingCommand = std::variant<
     UpdateMetadataCommand,
     UpdateObjectFlagsCommand,
     UpdateStrokeStyleCommand,
+    UpdateFillStyleCommand,
     SetAllGuidesVisibleCommand,
     SetAllGuidesLockedCommand,
     MoveObjectToLayerCommand,

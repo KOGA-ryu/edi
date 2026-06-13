@@ -756,6 +756,40 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         opacityRowLayout->addWidget(m_styleOpacitySpin, 1);
         style.layout->addWidget(opacityRow);
 
+        auto *fillColorRow = new QWidget;
+        auto *fillColorRowLayout = new QHBoxLayout(fillColorRow);
+        fillColorRowLayout->setContentsMargins(0, 0, 0, 0);
+        fillColorRowLayout->setSpacing(8);
+        auto *fillColorLabel = new QLabel(QStringLiteral("Fill"));
+        fillColorLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_styleFillColorField = new QLineEdit;
+        m_styleFillColorField->setObjectName(QStringLiteral("styleFillColorField"));
+        m_styleFillColorField->setPlaceholderText(QStringLiteral("none"));
+        connect(m_styleFillColorField, &QLineEdit::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectFillColor(m_styleFillColorField->text());
+        });
+        fillColorRowLayout->addWidget(fillColorLabel);
+        fillColorRowLayout->addWidget(m_styleFillColorField, 1);
+        style.layout->addWidget(fillColorRow);
+
+        auto *fillOpacityRow = new QWidget;
+        auto *fillOpacityRowLayout = new QHBoxLayout(fillOpacityRow);
+        fillOpacityRowLayout->setContentsMargins(0, 0, 0, 0);
+        fillOpacityRowLayout->setSpacing(8);
+        auto *fillOpacityLabel = new QLabel(QStringLiteral("Fill opacity"));
+        fillOpacityLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_styleFillOpacitySpin = new QDoubleSpinBox;
+        m_styleFillOpacitySpin->setObjectName(QStringLiteral("styleFillOpacitySpin"));
+        m_styleFillOpacitySpin->setRange(0.0, 1.0);
+        m_styleFillOpacitySpin->setDecimals(2);
+        m_styleFillOpacitySpin->setSingleStep(0.05);
+        connect(m_styleFillOpacitySpin, &QDoubleSpinBox::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectFillOpacity(m_styleFillOpacitySpin->value());
+        });
+        fillOpacityRowLayout->addWidget(fillOpacityLabel);
+        fillOpacityRowLayout->addWidget(m_styleFillOpacitySpin, 1);
+        style.layout->addWidget(fillOpacityRow);
+
         m_styleLineCombo = makeDataCombo(QStringLiteral("styleLineCombo"), {
             {QStringLiteral("Solid"), QStringLiteral("solid")},
             {QStringLiteral("Dash"), QStringLiteral("dash")},

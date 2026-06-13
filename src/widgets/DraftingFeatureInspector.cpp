@@ -197,6 +197,13 @@ void DraftingFeature::refreshInspector()
     }
     refreshSpinValue(m_styleWidthSpin, selectedObject.value(QStringLiteral("own_stroke_width")).toDouble());
     refreshSpinValue(m_styleOpacitySpin, selectedObject.value(QStringLiteral("own_stroke_opacity"), 1.0).toDouble());
+    if (m_styleFillColorField != nullptr) {
+        // Show the OBJECT's own fill; "none"/inherit shows as empty with the
+        // "none" placeholder text carrying the meaning.
+        const QSignalBlocker fillColorBlocker(*m_styleFillColorField);
+        m_styleFillColorField->setText(selectedObject.value(QStringLiteral("own_fill_color")).toString());
+    }
+    refreshSpinValue(m_styleFillOpacitySpin, selectedObject.value(QStringLiteral("own_fill_opacity"), 0.0).toDouble());
     refreshComboData(m_styleLineCombo,
         selectedObject.value(QStringLiteral("own_line_style"), QStringLiteral("solid")).toString(), 0);
 

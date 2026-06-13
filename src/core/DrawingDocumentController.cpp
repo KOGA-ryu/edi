@@ -1149,6 +1149,45 @@ bool DrawingDocumentController::setSelectedObjectStrokeOpacity(double opacity)
     return applyCommandAndEmit(UpdateStrokeStyleCommand{*m_document.activeObjectId, stroke});
 }
 
+bool DrawingDocumentController::setSelectedObjectFillColor(const QString &color)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    const QString trimmed = color.trimmed();
+    // Same #rrggbb gate as stroke: empty is allowed (no fill colour chosen);
+    // junk would persist and paint an undefined brush.
+    if (!trimmed.isEmpty() && !draftingStrokeColorIsValid(trimmed.toStdString())) {
+        return false;
+    }
+    FillStyle fill = object->fill;
+    fill.color = trimmed.toStdString();
+    return applyCommandAndEmit(UpdateFillStyleCommand{*m_document.activeObjectId, fill});
+}
+
+bool DrawingDocumentController::setSelectedObjectFillOpacity(double opacity)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    if (!std::isfinite(opacity)) {
+        return false;
+    }
+    FillStyle fill = object->fill;
+    // 0 = transparent (no fill) is the legal default; this is the only fill axis
+    // exposed today, the colour rides setSelectedObjectFillColor.
+    fill.opacity = std::clamp(opacity, 0.0, 1.0);
+    return applyCommandAndEmit(UpdateFillStyleCommand{*m_document.activeObjectId, fill});
+}
+
 bool DrawingDocumentController::setSelectedObjectLineStyle(const QString &lineStyle)
 {
     if (!m_document.activeObjectId) {

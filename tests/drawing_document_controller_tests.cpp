@@ -3242,6 +3242,24 @@ int main(int argc, char **argv)
         assert(!styleController.setSelectedObjectStrokeOpacity(std::numeric_limits<double>::quiet_NaN()));
         assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
         assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
+
+        // Fill: per-object colour + opacity (no layer inheritance), clamped to
+        // [0,1], surfaced via own_fill_*. Default 0 keeps every shape unfilled.
+        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.0);
+        assert(styleController.setSelectedObjectFillColor(QStringLiteral("#2244aa")));
+        assert(styleController.setSelectedObjectFillOpacity(0.6));
+        styled = activeProjection();
+        assert(styled.value(QStringLiteral("own_fill_color")).toString() == QStringLiteral("#2244aa"));
+        assert(styled.value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
+        assert(styleController.setSelectedObjectFillOpacity(5.0)); // clamps high
+        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 1.0);
+        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected by the gate
+        assert(!styleController.setSelectedObjectFillOpacity(std::numeric_limits<double>::quiet_NaN())); // non-finite rejected
+        // No-op guard: re-setting the value already in place is accepted but must
+        // NOT push an undo step — so the undo below restores 0.6, not 1.0.
+        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp: a no-op
+        assert(styleController.undo());
+        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
     }
 
     // #30 parametric arrays: option state (count + spacings) drives repeat

@@ -3517,6 +3517,58 @@ int main(int argc, char **argv)
         assert(!nonLineController.isAwaitingPointCapture());
     }
 
+    // Fillet verb: select a line, pick the other line + corner; BOTH lines trim
+    // to the tangent points and a rounding arc is created — three objects from
+    // two, all in ONE undo step. Pick-a-point's THIRD consumer (FilletSecondLine).
+    {
+        DrawingDocumentController filletController;
+        // Two lines forming an L at (0.3,0.3).
+        filletController.setSelectedToolId("line_tool");
+        filletController.clickCanvasNormalized(0.3, 0.3);
+        filletController.clickCanvasNormalized(0.8, 0.3); // horizontal arm
+        filletController.clickCanvasNormalized(0.3, 0.3);
+        filletController.clickCanvasNormalized(0.3, 0.8); // vertical arm
+        assert(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        // Select the horizontal line as the fillet target.
+        filletController.setSelectedToolId("select_move");
+        filletController.clickCanvasNormalized(0.55, 0.3);
+        const QString targetId = filletController.selectedObjectId();
+        assert(!targetId.isEmpty());
+
+        filletController.setFilletRadius(0.1);
+        assert(nearlyEqual(filletController.filletRadius(), 0.1));
+        assert(filletController.beginFilletSelectedLine());
+        assert(filletController.isAwaitingPointCapture());
+        // Pick near the vertical line, inside the corner.
+        filletController.clickCanvasNormalized(0.33, 0.5);
+        assert(!filletController.isAwaitingPointCapture());
+
+        // Two trimmed lines + one new arc = 3 objects.
+        const QVariantList objects = filletController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 3);
+        int arcCount = 0;
+        for (const QVariant &v : objects) {
+            if (v.toMap().value("kind").toString() == QStringLiteral("arc")) {
+                ++arcCount;
+            }
+        }
+        assert(arcCount == 1);
+
+        // The whole fillet (two trims + the arc) is ONE undo step.
+        assert(filletController.canUndo());
+        filletController.undo();
+        assert(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        // Fillet refuses to arm when the selection is not a line.
+        DrawingDocumentController nonLine;
+        nonLine.setSelectedToolId("circle_tool");
+        nonLine.clickCanvasNormalized(0.5, 0.5);
+        nonLine.clickCanvasNormalized(0.6, 0.5);
+        assert(!nonLine.beginFilletSelectedLine());
+        assert(!nonLine.isAwaitingPointCapture());
+    }
+
     // Array failure paths: a user-reachable rejection (zero spacing) must
     // surface through edit_status, reclaim its minted serials, and a later
     // success must clear the stale status. Negative spacing must march the

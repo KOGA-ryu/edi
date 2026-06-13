@@ -823,6 +823,20 @@ double DrawingDocumentController::fixedRadius() const
     return m_fixedRadius;
 }
 
+void DrawingDocumentController::setFilletRadius(double radius)
+{
+    // Unlike fixedRadius, 0 is not a meaningful fillet (a zero arc), so an
+    // invalid value leaves the current radius untouched rather than disabling.
+    if (std::isfinite(radius) && radius > 0.0) {
+        m_filletRadius = std::min(radius, 1.0);
+    }
+}
+
+double DrawingDocumentController::filletRadius() const
+{
+    return m_filletRadius;
+}
+
 void DrawingDocumentController::setArrayCount(int count)
 {
     m_arrayCount = std::clamp(count, 1, 99);
@@ -1825,6 +1839,80 @@ void DrawingDocumentController::applyTrimAtPoint(Point2D point)
     applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{result.geometry}});
 }
 
+bool DrawingDocumentController::beginFilletSelectedLine()
+{
+    const DraftingObject *source = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::FilletSecondLine,
+                                         QStringLiteral("Click the other line near the corner to round")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::applyFilletAtPoint(Point2D point)
+{
+    const DraftingObject *target = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (target == nullptr) {
+        return;
+    }
+    const auto *targetLine = std::get_if<LineGeometry>(&target->geometry);
+    if (targetLine == nullptr) {
+        return;
+    }
+    // The click picks the OTHER line: the nearest line to it. (The pick also
+    // disambiguates which corner — filletLines reads the corner off the point.)
+    const DraftingObject *other = nullptr;
+    const LineGeometry *otherLine = nullptr;
+    double bestDistance = 0.0;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.id == target->id) {
+            continue;
+        }
+        const auto *line = std::get_if<LineGeometry>(&object.geometry);
+        if (line == nullptr) {
+            continue;
+        }
+        const double distanceToLine = hitDistance(object.geometry, point);
+        if (other == nullptr || distanceToLine < bestDistance) {
+            other = &object;
+            otherLine = line;
+            bestDistance = distanceToLine;
+        }
+    }
+    if (otherLine == nullptr) {
+        finishEdit(QStringLiteral("fillet"), drawing_core::qStringFromStdString(target->id), false,
+                   DraftingResultCode::InvalidSelectionTarget, QStringLiteral("fillet needs a second line"));
+        return;
+    }
+    const DraftingFilletResult result = filletLines(*targetLine, *otherLine, m_filletRadius, point);
+    if (!result.ok) {
+        finishEdit(QStringLiteral("fillet"), drawing_core::qStringFromStdString(target->id), false,
+                   result.code, drawing_core::qStringFromStdString(result.message));
+        return;
+    }
+    // Atomic: trim BOTH lines and create the rounding arc as ONE undo step (the
+    // same begin/commit bracket cutSelection uses for its multi-delete). Capture
+    // the ids and layer up front — the pointers into m_document.objects must not
+    // be read after the first command mutates the vector.
+    const DraftingObjectId targetId = target->id;
+    const DraftingObjectId otherId = other->id;
+    const QString arcId = nextObjectId(QStringLiteral("fillet"), m_nextObjectSerial++);
+    DraftingObject arc = makeDraftingObject(toStdString(arcId), DraftingShapeKind::Arc, DraftingGeometry{result.arc});
+    arc.layerId = target->layerId;
+    arc.bounds = computeBounds(arc.geometry);
+    arc.metadata.toolProvenance = "fillet";
+
+    beginEdit();
+    applyDraftingCommand(m_document, UpdateGeometryCommand{targetId, DraftingGeometry{result.line1}});
+    applyDraftingCommand(m_document, UpdateGeometryCommand{otherId, DraftingGeometry{result.line2}});
+    applyDraftingCommand(m_document, CreateObjectCommand{arc});
+    applyDraftingCommand(m_document, SelectObjectCommand{arc.id});
+    commitEdit();
+    emit modelChanged();
+}
+
 void DrawingDocumentController::resolvePointCapture(Point2D point)
 {
     const PointCaptureIntent intent = m_pointCapture->intent;
@@ -1835,6 +1923,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::TrimPoint:
         applyTrimAtPoint(point);
+        break;
+    case PointCaptureIntent::FilletSecondLine:
+        applyFilletAtPoint(point);
         break;
     }
     // The consumers emit modelChanged on success and on a surfaced failure, but

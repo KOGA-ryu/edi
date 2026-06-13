@@ -947,8 +947,8 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Duplicate"), duplicate.box, false));
     }
     {
-        // Modify verbs reshape the selected object in place (trim today;
-        // extend/fillet later) — distinct from Duplicate, which makes copies.
+        // Modify verbs reshape the selected object in place (trim, fillet) —
+        // distinct from Duplicate, which makes copies.
         FoldBox modify = makeFoldBox();
         auto *trim = makeActionButton(QStringLiteral("trimButton"), QStringLiteral("Trim"), [this]() {
             // Arms a pick-a-point capture: the next canvas click chooses the
@@ -956,6 +956,30 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
             m_controller->beginTrimSelectedLine();
         });
         modify.layout->addWidget(trim);
+        auto *fillet = makeActionButton(QStringLiteral("filletButton"), QStringLiteral("Fillet"), [this]() {
+            // Arms a pick-a-point capture: the next canvas click picks the other
+            // line + the corner; both lines round into an arc of the radius below.
+            m_controller->beginFilletSelectedLine();
+        });
+        modify.layout->addWidget(fillet);
+        {
+            auto *row = new QWidget;
+            auto *rowLayout = new QHBoxLayout(row);
+            clearLayoutMargins(rowLayout);
+            rowLayout->setSpacing(6);
+            rowLayout->addWidget(new QLabel(QStringLiteral("Fillet radius")));
+            auto *spin = new QDoubleSpinBox;
+            spin->setObjectName(QStringLiteral("filletRadiusSpin"));
+            spin->setDecimals(3);
+            spin->setSingleStep(0.01);
+            spin->setRange(0.001, 1.0);
+            spin->setValue(m_controller->filletRadius());
+            connect(spin, &QDoubleSpinBox::valueChanged, m_controller, [this](double r) {
+                m_controller->setFilletRadius(r);
+            });
+            rowLayout->addWidget(spin, 1);
+            modify.layout->addWidget(row);
+        }
         group->addWidget(makeCollapsibleSection(QStringLiteral("Modify"), modify.box, false));
     }
 

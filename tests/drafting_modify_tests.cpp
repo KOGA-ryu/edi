@@ -1,4 +1,5 @@
 #include "drafting/DraftingModify.h"
+#include "drafting/DraftingGeometry.h"
 
 #include <cassert>
 #include <cmath>
@@ -117,6 +118,91 @@ int main()
         const DraftingTrimResult r = trimLineAtPoint(target, {cutAtB}, {0.1, 0.5});
         // click near a -> remove a side -> keep (X=(1.0,0.5))..b=(1.0,0.5): zero length.
         assert(!r.ok && r.code == DraftingResultCode::InvalidGeometry);
+    }
+
+    // --- lineIntersection (infinite) ------------------------------------
+    {
+        // Two SHORT segments that never reach each other, but whose infinite
+        // lines cross at (0.5, 0.0): segment intersection fails, line does not.
+        const LineGeometry h{{0.0, 0.0}, {0.3, 0.0}};
+        const LineGeometry v{{0.5, -0.2}, {0.5, -0.1}};
+        assert(!segmentIntersection(h, v));
+        const auto x = lineIntersection(h, v);
+        assert(x && pointNear(*x, 0.5, 0.0));
+        // Parallel still has no crossing.
+        assert(!lineIntersection(h, LineGeometry{{0.0, 0.4}, {0.3, 0.4}}));
+    }
+
+    // --- filletLines -----------------------------------------------------
+    {
+        // L-corner sharing the origin, right angle, radius 0.2. Each line's
+        // corner end pulls back to its tangent point; the far end stays.
+        const LineGeometry h{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry v{{0.0, 0.0}, {0.0, 1.0}};
+        const DraftingFilletResult r = filletLines(h, v, 0.2, {0.5, 0.5});
+        assert(r.ok);
+        assert(pointNear(r.line1.a, 0.2, 0.0) && pointNear(r.line1.b, 1.0, 0.0));
+        assert(pointNear(r.line2.a, 0.0, 0.2) && pointNear(r.line2.b, 0.0, 1.0));
+        assert(pointNear(r.arc.center, 0.2, 0.2) && nearlyEqual(r.arc.radius, 0.2));
+        // Central angle = 180 - 90 = 90 (the minor, corner-rounding arc).
+        assert(nearlyEqual(std::abs(r.arc.endAngleDeg - r.arc.startAngleDeg), 90.0));
+        // The arc's endpoints ARE the two tangent points (it joins the lines).
+        const Point2D arcStart = arcPointAtAngle(r.arc.center, r.arc.radius, r.arc.startAngleDeg);
+        const Point2D arcEnd = arcPointAtAngle(r.arc.center, r.arc.radius, r.arc.endAngleDeg);
+        const bool joins =
+            (pointNear(arcStart, 0.2, 0.0, 1e-9) && pointNear(arcEnd, 0.0, 0.2, 1e-9))
+            || (pointNear(arcStart, 0.0, 0.2, 1e-9) && pointNear(arcEnd, 0.2, 0.0, 1e-9));
+        assert(joins);
+    }
+    {
+        // X-crossing: filleting the +x+y corner keeps each line's + arm.
+        const LineGeometry h{{-1.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry v{{0.0, -1.0}, {0.0, 1.0}};
+        const DraftingFilletResult r = filletLines(h, v, 0.3, {0.5, 0.5});
+        assert(r.ok);
+        assert(pointNear(r.line1.a, 0.3, 0.0) && pointNear(r.line1.b, 1.0, 0.0));
+        assert(pointNear(r.line2.a, 0.0, 0.3) && pointNear(r.line2.b, 0.0, 1.0));
+        assert(pointNear(r.arc.center, 0.3, 0.3) && nearlyEqual(r.arc.radius, 0.3));
+        // A DIFFERENT corner of the same X: pick -x-y keeps each line's - arm.
+        const DraftingFilletResult r2 = filletLines(h, v, 0.3, {-0.5, -0.5});
+        assert(r2.ok);
+        assert(pointNear(r2.arc.center, -0.3, -0.3));
+        assert(pointNear(r2.line1.a, -1.0, 0.0) && pointNear(r2.line1.b, -0.3, 0.0));
+        assert(pointNear(r2.line2.a, 0.0, -1.0) && pointNear(r2.line2.b, 0.0, -0.3));
+    }
+    {
+        // Acute 60deg corner: the tangency invariant holds for a non-right angle
+        // (each tangent point sits at exactly the radius from the centre), and
+        // the central angle is 180 - 60 = 120.
+        const double cos60 = 0.5;
+        const double sin60 = 0.8660254037844386;
+        const LineGeometry l1{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry l2{{0.0, 0.0}, {cos60, sin60}};
+        const DraftingFilletResult r = filletLines(l1, l2, 0.1, {0.4, 0.2});
+        assert(r.ok);
+        const Point2D arcStart = arcPointAtAngle(r.arc.center, r.arc.radius, r.arc.startAngleDeg);
+        const Point2D arcEnd = arcPointAtAngle(r.arc.center, r.arc.radius, r.arc.endAngleDeg);
+        assert(nearlyEqual(distance(r.arc.center, arcStart), 0.1));
+        assert(nearlyEqual(distance(r.arc.center, arcEnd), 0.1));
+        assert(nearlyEqual(std::abs(r.arc.endAngleDeg - r.arc.startAngleDeg), 120.0));
+    }
+    {
+        // Parallel lines have no corner; a non-positive radius is refused.
+        const LineGeometry l1{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry l2{{0.0, 0.3}, {1.0, 0.3}};
+        assert(!filletLines(l1, l2, 0.1, {0.5, 0.15}).ok);
+        const LineGeometry vv{{0.0, 0.0}, {0.0, 1.0}};
+        assert(!filletLines(l1, vv, 0.0, {0.5, 0.5}).ok);
+        // A radius whose tangent point reaches the line's far end collapses it.
+        const LineGeometry shortH{{0.0, 0.0}, {0.2, 0.0}};
+        assert(!filletLines(shortH, vv, 0.2, {0.5, 0.5}).ok);
+        // A radius whose tangent OVERSHOOTS the kept far end must reject — not
+        // emit a reversed phantom segment that the length-only guard misses.
+        assert(!filletLines(shortH, vv, 0.5, {0.5, 0.5}).ok);
+        // The pick-side arm shorter than the radius (both ends below the tangent)
+        // rejects rather than producing a backwards line.
+        const LineGeometry stubH{{-1.0, 0.0}, {0.05, 0.0}};
+        assert(!filletLines(stubH, vv, 0.2, {0.5, 0.5}).ok);
     }
 
     return 0;

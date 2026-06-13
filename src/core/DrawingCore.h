@@ -37,7 +37,8 @@
 // "not armed" state, so the enum needs no None member.
 enum class PointCaptureIntent {
     RadialArrayCenter,
-    TrimPoint, // the click chooses which part of the selected line to trim away
+    TrimPoint,        // the click chooses which part of the selected line to trim away
+    FilletSecondLine, // the click picks the other line + the corner to round
 };
 
 struct PendingPointCapture {
@@ -207,6 +208,13 @@ public:
     // to where another line crosses it. False (arms nothing) when no editable
     // line is selected.
     bool beginTrimSelectedLine();
+    // Fillet verb: arms a pick-a-point capture when a line is selected. The
+    // captured click picks the OTHER line and the corner; both lines are trimmed
+    // to the tangent points and a rounding arc (radius = filletRadius()) joins
+    // them, all in one undo step. False when no editable line is selected.
+    bool beginFilletSelectedLine();
+    void setFilletRadius(double radius);
+    double filletRadius() const;
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -338,6 +346,10 @@ private:
     // the side the captured point fell on. Surfaces a status on rejection (no
     // crossing / would-collapse) so a dead trim click is never silent.
     void applyTrimAtPoint(edi::drafting::Point2D point);
+    // Fillets the active line against the nearest OTHER line to the captured
+    // point: trims both to the tangent points and creates the rounding arc as
+    // one atomic edit. Surfaces a status on rejection.
+    void applyFilletAtPoint(edi::drafting::Point2D point);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
@@ -348,6 +360,7 @@ private:
     double m_rectInset = 0.0;
     bool m_aspectLockEnabled = false;
     double m_fixedRadius = 0.0;
+    double m_filletRadius = 0.05; // default rounding radius for the fillet verb
     // Array defaults match the retired hardcoded repeat (3 copies, 0.1
     // spacing) so the buttons behave identically until the spins are touched.
     int m_arrayCount = 3;

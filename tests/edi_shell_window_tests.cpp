@@ -1881,6 +1881,48 @@ int main(int argc, char **argv)
         assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
     }
 
+    // Blender workspace: the SECOND real layout. Its rail button mounts a
+    // distinct named job (canvas in Main + editor in Bottom, like drafting) and
+    // records the switch on the back/forward trail — proof the previously-dead
+    // multi-workspace path now lives.
+    {
+        EdiShellWindow blenderShell;
+        blenderShell.show();
+        auto railButton = [&](const QString &modeId) -> QPushButton * {
+            for (QPushButton *button : blenderShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+                if (button->property("modeId").toString() == modeId) {
+                    return button;
+                }
+            }
+            return nullptr;
+        };
+
+        QPushButton *blenderRail = railButton(QStringLiteral("blender"));
+        assert(blenderRail != nullptr && blenderRail->isEnabled());
+        assert(railButton(QStringLiteral("drafting"))->isChecked());
+        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
+        auto *back = blenderShell.findChild<QPushButton *>(QStringLiteral("workspaceBack"));
+        assert(back != nullptr && !back->isEnabled()); // no history yet
+
+        blenderRail->click();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); // retire old slot widgets first
+
+        // The Blender job mounts the same canvas + editor (its bindings mirror
+        // drafting), and the switch pushed a back-history entry.
+        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
+        assert(railButton(QStringLiteral("blender"))->isChecked());
+        assert(!railButton(QStringLiteral("drafting"))->isChecked());
+        assert(blenderShell.findChild<QPushButton *>(QStringLiteral("workspaceBack"))->isEnabled());
+
+        // And back to drafting.
+        railButton(QStringLiteral("drafting"))->click();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        assert(railButton(QStringLiteral("drafting"))->isChecked());
+        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+    }
+
     // Status bar (spec §2/§3): a 28px strip under the body. The left label
     // carries the feature-published mode line; the right label names the
     // document and recolors via the documentDirty property when unsaved

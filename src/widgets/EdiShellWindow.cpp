@@ -77,6 +77,20 @@ WorkspaceLayout draftingWorkspaceLayout()
     return layout;
 }
 
+// The Blender job: the SECOND built-in layout, and the first exercise of the
+// host's (previously dead) multi-workspace path. Same chrome shape the user
+// asked for — canvas in Main, the editor in the bottom terminal — so its
+// bindings mirror drafting's; what makes it the "Blender profile" is the bpy
+// Build action the editor carries and (later) a render-preview surface. A
+// distinct id/label is enough to make the rail switch mount it as its own job.
+WorkspaceLayout blenderWorkspaceLayout()
+{
+    WorkspaceLayout layout = draftingWorkspaceLayout();
+    layout.id = QStringLiteral("blender");
+    layout.label = QStringLiteral("Blender");
+    return layout;
+}
+
 } // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
@@ -455,8 +469,12 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
     // The rail is the workspace switcher: a mode maps to a layout, and the
     // switch goes through the same trail-pushing path as everything else.
     // (Settings is no longer a layout — the rail intercepts it before here
-    // and opens the pop-out instead; see buildActivityRail.)
-    const WorkspaceLayout target = draftingWorkspaceLayout();
+    // and opens the pop-out instead; see buildActivityRail.) Blender is the
+    // second real layout; the other modes still resolve to drafting until they
+    // grow their own jobs.
+    const WorkspaceLayout target = (mode == edi::app::WorkspaceMode::Blender)
+        ? blenderWorkspaceLayout()
+        : draftingWorkspaceLayout();
     if (target.id != m_workspaceLayout.id) {
         switchWorkspaceLayout(target);
     } else {

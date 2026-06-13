@@ -35,6 +35,8 @@ const char *workspaceModeName(WorkspaceMode mode)
         return "project";
     case WorkspaceMode::Planning:
         return "planning";
+    case WorkspaceMode::Blender:
+        return "blender";
     case WorkspaceMode::Settings:
         return "settings";
     }
@@ -52,6 +54,8 @@ const char *workspaceModeLabel(WorkspaceMode mode)
         return "Project";
     case WorkspaceMode::Planning:
         return "Planning";
+    case WorkspaceMode::Blender:
+        return "Blender";
     case WorkspaceMode::Settings:
         return "Settings";
     }
@@ -69,6 +73,8 @@ const char *workspaceModeIcon(WorkspaceMode mode)
         return "P";
     case WorkspaceMode::Planning:
         return "R";
+    case WorkspaceMode::Blender:
+        return "B";
     case WorkspaceMode::Settings:
         return "S";
     }
@@ -86,6 +92,8 @@ const char *workspaceModeTooltip(WorkspaceMode mode)
         return "Project workspace surface";
     case WorkspaceMode::Planning:
         return "Review and planning surface";
+    case WorkspaceMode::Blender:
+        return "Blender recipe lab — author and build bpy scripts";
     case WorkspaceMode::Settings:
         return "Application and project settings";
     }
@@ -106,6 +114,9 @@ std::optional<WorkspaceMode> workspaceModeFromName(const std::string &name)
     if (name == "planning") {
         return WorkspaceMode::Planning;
     }
+    if (name == "blender") {
+        return WorkspaceMode::Blender;
+    }
     if (name == "settings") {
         return WorkspaceMode::Settings;
     }
@@ -119,6 +130,7 @@ std::vector<WorkspaceActivity> defaultWorkspaceActivities()
         {WorkspaceMode::Text, "text", "T", "Text", "Text editor surface", false},
         {WorkspaceMode::Project, "project", "P", "Project", "Project workspace surface", false},
         {WorkspaceMode::Planning, "planning", "R", "Planning", "Review and planning surface", false},
+        {WorkspaceMode::Blender, "blender", "B", "Blender", "Blender recipe lab — author and build bpy scripts", true},
         {WorkspaceMode::Settings, "settings", "S", "Settings", "Application and project settings", true},
     };
 }

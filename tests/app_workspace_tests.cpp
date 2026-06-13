@@ -19,12 +19,17 @@ int main()
     assert(workspaceModeIcon(WorkspaceMode::Planning) == std::string("R"));
     assert(workspaceModeTooltip(WorkspaceMode::Settings) == std::string("Application and project settings"));
     assert(workspaceModeFromName("project") == WorkspaceMode::Project);
+    assert(workspaceModeFromName("blender") == WorkspaceMode::Blender);
     assert(!workspaceModeFromName("missing"));
+    // Blender is the second real workspace (the rest are still placeholders).
+    assert(workspaceModeName(WorkspaceMode::Blender) == std::string("blender"));
+    assert(workspaceModeLabel(WorkspaceMode::Blender) == std::string("Blender"));
     const auto activities = defaultWorkspaceActivities();
-    assert(activities.size() == 5);
+    assert(activities.size() == 6);
     assert(activities.front().mode == WorkspaceMode::Drafting);
     assert(activities.front().enabled);
     assert(!activities[1].enabled);
+    assert(activities[4].mode == WorkspaceMode::Blender && activities[4].enabled);
     setStatusMessage(state, "ready");
     assert(state.statusMessage == "ready");
 

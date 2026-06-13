@@ -41,6 +41,22 @@ int main()
     assert(draftingToolKindFromId("diameter_dimension_tool") == DraftingToolKind::DiameterDimension);
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
+    // Double-arrow: a Line-geometry variant carrying BOTH arrowheads as metadata
+    // flags. The single arrow carries only the end head; a plain line carries
+    // neither — so a start/end mix-up fails one of these assertions.
+    {
+        assert(draftingToolKindFromId("double_arrow_tool") == DraftingToolKind::DoubleArrow);
+        assert(std::string(draftingToolKindName(DraftingToolKind::DoubleArrow)) == "double_arrow");
+        const auto da = build("da_1", DraftingToolKind::DoubleArrow, {0.1, 0.1}, {0.5, 0.5});
+        assert(da.ok);
+        assert(da.object.kind == DraftingShapeKind::Line);
+        assert(da.object.metadata.lineVisual.startArrow && da.object.metadata.lineVisual.endArrow);
+        const auto arrow = build("ar_1", DraftingToolKind::Arrow, {0.1, 0.1}, {0.5, 0.5});
+        assert(!arrow.object.metadata.lineVisual.startArrow && arrow.object.metadata.lineVisual.endArrow);
+        const auto line = build("ln_1", DraftingToolKind::Line, {0.1, 0.1}, {0.5, 0.5});
+        assert(!line.object.metadata.lineVisual.startArrow && !line.object.metadata.lineVisual.endArrow);
+    }
+
     auto point = build("point_1", DraftingToolKind::Point, {0.1, 0.2}, {0.3, 0.4});
     assert(point.ok);
     assert(point.object.kind == DraftingShapeKind::Point);

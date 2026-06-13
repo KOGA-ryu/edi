@@ -359,6 +359,7 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     });
     MsgPackValue lineVisual = MsgPackValue::map({
         {"end_arrow", MsgPackValue::boolean(m.lineVisual.endArrow)},
+        {"start_arrow", MsgPackValue::boolean(m.lineVisual.startArrow)},
     });
     std::vector<MsgPackValue> tagItems;
     tagItems.reserve(m.tags.size());
@@ -411,6 +412,7 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
     }
     if (const MsgPackValue *lv = child(*v, "line_visual")) {
         m.lineVisual.endArrow = asBool(child(*lv, "end_arrow"), m.lineVisual.endArrow);
+        m.lineVisual.startArrow = asBool(child(*lv, "start_arrow"), m.lineVisual.startArrow);
     }
     m.role = objectRoleFromName(asString(child(*v, "role"), "none"));
     m.material = asString(child(*v, "material"), m.material);

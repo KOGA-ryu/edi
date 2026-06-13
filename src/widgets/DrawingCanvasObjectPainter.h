@@ -36,6 +36,7 @@ struct DrawingCanvasSceneItem {
     DrawingCanvasProjectedObjectSummary summary;
     DrawingCanvasProjectedStyle style;
     bool endArrow = false;
+    bool startArrow = false;
     DrawingCanvasProjectedGuide guide;
     DrawingCanvasProjectedLine line;
     DrawingCanvasProjectedDimension dimension;

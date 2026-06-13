@@ -507,6 +507,7 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             // N2: the arrow variant's distinguishing projected flag. The
             // painter reads it to draw a head; the inspector could expose it.
             result.insert(QStringLiteral("end_arrow"), object.metadata.lineVisual.endArrow);
+            result.insert(QStringLiteral("start_arrow"), object.metadata.lineVisual.startArrow);
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), geometry.origin.x);
             result.insert(QStringLiteral("y"), geometry.origin.y);

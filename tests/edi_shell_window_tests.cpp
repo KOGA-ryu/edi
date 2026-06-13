@@ -1300,7 +1300,7 @@ int main(int argc, char **argv)
                 }
             }
             assert(pointBox != nullptr && pointBox->isChecked());
-            assert(checkedCount == 20); // the full drafting inventory (incl. ellipse)
+            assert(checkedCount == 21); // the full drafting inventory (incl. ellipse, double-arrow)
 
             auto *belt = shell.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
             assert(belt != nullptr);

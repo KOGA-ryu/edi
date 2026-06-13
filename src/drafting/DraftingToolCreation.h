@@ -12,6 +12,7 @@ enum class DraftingToolKind {
     Point,
     Line,
     Arrow,
+    DoubleArrow,
     Rectangle,
     Circle,
     Arc,

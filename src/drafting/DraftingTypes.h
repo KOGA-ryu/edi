@@ -152,6 +152,7 @@ struct DimensionVisualMetadata {
 // endpoint (the second click).
 struct LineVisualMetadata {
     bool endArrow = false;
+    bool startArrow = false;
 };
 
 struct ObjectMetadata {

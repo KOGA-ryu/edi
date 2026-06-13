@@ -37,6 +37,7 @@ bool isTwoClickCreationTool(const QString &toolId)
         QStringLiteral("circle_tool"),
         QStringLiteral("arc_tool"),
         QStringLiteral("ellipse_tool"),
+        QStringLiteral("double_arrow_tool"),
         QStringLiteral("regular_polygon_tool"),
         QStringLiteral("angled_construction_line_tool"),
         QStringLiteral("distance_dimension_tool"),

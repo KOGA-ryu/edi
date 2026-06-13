@@ -172,6 +172,7 @@ DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
     } else if (kind == QStringLiteral("construction_line") || kind == QStringLiteral("line")) {
         item.line = projectedLine(object);
         item.endArrow = object.value(QStringLiteral("end_arrow")).toBool();
+        item.startArrow = object.value(QStringLiteral("start_arrow")).toBool();
     } else if (kind == QStringLiteral("dimension")) {
         item.dimension = projectedDimension(object);
     } else if (kind == QStringLiteral("point")) {
@@ -361,6 +362,11 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         painter.drawLine(screen);
         if (item.endArrow) {
             drawArrowHead(painter, screen);
+        }
+        if (item.startArrow) {
+            // A head at the line's start: the same routine over the reversed
+            // line, so its "end" lands on point a, pointing outward.
+            drawArrowHead(painter, QLineF(screen.p2(), screen.p1()));
         }
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle &rectangle = item.rectangle;

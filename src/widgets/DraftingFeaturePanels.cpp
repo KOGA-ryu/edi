@@ -58,6 +58,7 @@ constexpr DraftingToolSpec kDraftingTools[] = {
     {"line_tool", "Line", "Ln", 2},
     {"polyline_tool", "Polyline", "Py", 2},
     {"arrow_tool", "Arrow", "→", 2},
+    {"double_arrow_tool", "Double Arrow", "↔", 2},
     {"rectangle_tool", "Rectangle", "Rc", 3},
     {"circle_tool", "Circle", "Ci", 4},
     {"ellipse_tool", "Ellipse", "El", 4},
@@ -105,6 +106,10 @@ BeltFace draftingToolFace(const QString &toolId)
     } else if (toolId == QLatin1String("arrow_tool")) {
         face.polylines = {QPolygonF({P(0.1, 0.9), P(0.85, 0.15)}),
                           QPolygonF({P(0.5, 0.15), P(0.85, 0.15), P(0.85, 0.5)})};
+    } else if (toolId == QLatin1String("double_arrow_tool")) {
+        face.polylines = {QPolygonF({P(0.1, 0.5), P(0.9, 0.5)}),
+                          QPolygonF({P(0.25, 0.35), P(0.1, 0.5), P(0.25, 0.65)}),
+                          QPolygonF({P(0.75, 0.35), P(0.9, 0.5), P(0.75, 0.65)})};
     } else if (toolId == QLatin1String("rectangle_tool")) {
         face.polylines = {QPolygonF({P(0.15, 0.25), P(0.85, 0.25), P(0.85, 0.75), P(0.15, 0.75), P(0.15, 0.25)})};
     } else if (toolId == QLatin1String("circle_tool")) {

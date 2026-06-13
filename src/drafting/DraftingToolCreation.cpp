@@ -22,6 +22,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "arrow_tool") {
         return DraftingToolKind::Arrow;
     }
+    if (toolId == "double_arrow_tool") {
+        return DraftingToolKind::DoubleArrow;
+    }
     if (toolId == "rectangle_tool") {
         return DraftingToolKind::Rectangle;
     }
@@ -84,6 +87,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "line";
     case DraftingToolKind::Arrow:
         return "arrow";
+    case DraftingToolKind::DoubleArrow:
+        return "double_arrow";
     case DraftingToolKind::Rectangle:
         return "rectangle";
     case DraftingToolKind::Circle:
@@ -145,7 +150,8 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     if (request.tool == DraftingToolKind::Point) {
         kind = DraftingShapeKind::Point;
         geometry = PointGeometry{request.end};
-    } else if (request.tool == DraftingToolKind::Line || request.tool == DraftingToolKind::Arrow) {
+    } else if (request.tool == DraftingToolKind::Line || request.tool == DraftingToolKind::Arrow
+               || request.tool == DraftingToolKind::DoubleArrow) {
         // Arrow is the line tool's variant: same LineGeometry (kind stays
         // Line), the arrowhead is a metadata flag applied after the build.
         kind = DraftingShapeKind::Line;
@@ -245,6 +251,10 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         ? draftingToolKindName(request.tool)
         : request.toolProvenance;
     if (request.tool == DraftingToolKind::Arrow) {
+        built.object.metadata.lineVisual.endArrow = true;
+    }
+    if (request.tool == DraftingToolKind::DoubleArrow) {
+        built.object.metadata.lineVisual.startArrow = true;
         built.object.metadata.lineVisual.endArrow = true;
     }
     return built;

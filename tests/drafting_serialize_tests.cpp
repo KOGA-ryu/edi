@@ -107,6 +107,7 @@ DraftingDocument buildSampleDocument()
 
     // The line object carries the N2 arrow flag, to round-trip lineVisual.
     document.objects[1].metadata.lineVisual.endArrow = true;
+    document.objects[1].metadata.lineVisual.startArrow = true; // double-arrow round-trip
 
     DraftingObject &guideObject = document.objects[7];
     guideObject.metadata.guideVisual.label = "centerline";
@@ -161,6 +162,7 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         assert(oa.metadata.guideVisual.showLabel == ob.metadata.guideVisual.showLabel);
         assert(oa.metadata.dimensionVisual.showLabel == ob.metadata.dimensionVisual.showLabel);
         assert(oa.metadata.lineVisual.endArrow == ob.metadata.lineVisual.endArrow);
+        assert(oa.metadata.lineVisual.startArrow == ob.metadata.lineVisual.startArrow);
         assert(oa.metadata.role == ob.metadata.role);
         assert(oa.metadata.material == ob.metadata.material);
         assert(oa.metadata.exportGroup == ob.metadata.exportGroup);

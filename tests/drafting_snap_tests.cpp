@@ -255,5 +255,54 @@ int main()
     assert(nearlyEqual(lockedGuideHit.point.x, 0.4));
     assert(nearlyEqual(lockedGuideHit.point.y, 0.2));
 
+    // Intersection snap: where two line SEGMENTS actually cross is a pairwise
+    // candidate (it belongs to no single object), reusing the same
+    // segmentIntersection the trim/fillet verbs are built on.
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Intersection)) == "intersection");
+    {
+        DraftingDocument crossDoc = makeDraftingDocument("cross_doc");
+        // Cross at (0.6, 0.5) — deliberately NOT a midpoint of either line, so
+        // the snap below is the intersection specifically, not a coincidence.
+        assert(addObject(crossDoc, object("h", DraftingShapeKind::Line, LineGeometry{{0.2, 0.5}, {0.8, 0.5}})).ok);
+        assert(addObject(crossDoc, object("v", DraftingShapeKind::Line, LineGeometry{{0.6, 0.2}, {0.6, 0.9}})).ok);
+
+        DraftingSnapSettings snapSettings;
+        snapSettings.objectSnapEnabled = true;
+        snapSettings.objectTolerance = 0.05;
+
+        int intersectionCount = 0;
+        DraftingSnapCandidate crossing;
+        for (const DraftingSnapCandidate &candidate : snapCandidatesForDocument(crossDoc, snapSettings)) {
+            if (candidate.sourceKind == DraftingSnapSourceKind::Intersection) {
+                ++intersectionCount;
+                crossing = candidate;
+            }
+        }
+        assert(intersectionCount == 1);
+        assert(nearlyEqual(crossing.point.x, 0.6) && nearlyEqual(crossing.point.y, 0.5));
+
+        // A cursor near the crossing snaps onto it specifically.
+        DraftingSnapResult snapped = resolveSnap({0.61, 0.49}, crossDoc, snapSettings);
+        assert(snapped.kind == DraftingSnapKind::Object);
+        assert(snapped.sourceKind == DraftingSnapSourceKind::Intersection);
+        assert(nearlyEqual(snapped.point.x, 0.6) && nearlyEqual(snapped.point.y, 0.5));
+
+        // The per-kind flag gates it: disabling intersection snap drops the candidate.
+        DraftingSnapSettings noIntersection = snapSettings;
+        noIntersection.intersectionEnabled = false;
+        for (const DraftingSnapCandidate &candidate : snapCandidatesForDocument(crossDoc, noIntersection)) {
+            assert(candidate.sourceKind != DraftingSnapSourceKind::Intersection);
+        }
+
+        // Lines whose segments do NOT cross (they'd only meet when extended)
+        // produce no intersection candidate — it is segment, not line, crossing.
+        DraftingDocument apartDoc = makeDraftingDocument("apart_doc");
+        assert(addObject(apartDoc, object("a", DraftingShapeKind::Line, LineGeometry{{0.1, 0.3}, {0.4, 0.3}})).ok);
+        assert(addObject(apartDoc, object("b", DraftingShapeKind::Line, LineGeometry{{0.7, 0.1}, {0.7, 0.25}})).ok);
+        for (const DraftingSnapCandidate &candidate : snapCandidatesForDocument(apartDoc, snapSettings)) {
+            assert(candidate.sourceKind != DraftingSnapSourceKind::Intersection);
+        }
+    }
+
     return 0;
 }

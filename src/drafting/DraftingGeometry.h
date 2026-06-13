@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingTypes.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,5 +58,16 @@ std::vector<Point2D> sampleEllipse(const EllipseGeometry &ellipse, int segments 
 // passes through every control point; 0/1 points return as-is and 2 points are
 // a straight segment (nothing to curve). stepsPerSegment sets the smoothness.
 std::vector<Point2D> sampleSpline(const SplineGeometry &spline, int stepsPerSegment = 16);
+
+// Crossing of two line SEGMENTS: the point only when it lies within BOTH (the
+// parametric t and u each in [0,1]); a parallel/collinear or degenerate pair, or
+// a crossing off either segment, returns nullopt. General geometry primitives —
+// born in DraftingModify for trim/fillet, promoted here once the snap engine
+// (a second, unrelated consumer) needed them too.
+std::optional<Point2D> segmentIntersection(const LineGeometry &a, const LineGeometry &b);
+
+// Crossing of the two INFINITE lines through these segments — even past an
+// endpoint. Only a parallel/collinear (or zero-length) pair returns nullopt.
+std::optional<Point2D> lineIntersection(const LineGeometry &a, const LineGeometry &b);
 
 } // namespace edi::drafting

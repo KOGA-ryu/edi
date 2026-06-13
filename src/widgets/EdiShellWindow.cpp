@@ -356,6 +356,7 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
     setSettingsBool(config, "snap.vertex_enabled", m_controller->vertexSnapEnabled());
     setSettingsBool(config, "snap.midpoint_enabled", m_controller->midpointSnapEnabled());
     setSettingsBool(config, "snap.center_enabled", m_controller->centerSnapEnabled());
+    setSettingsBool(config, "snap.intersection_enabled", m_controller->intersectionSnapEnabled());
     setSettingsBool(config, "snap.guide_enabled", m_controller->guideSnapEnabled());
     setSettingsBool(config, "snap.guide_move_enabled", m_controller->guideMoveSnapEnabled());
     setSettingsBool(config, "snap.object_priority_before_grid", m_controller->objectSnapPriorityBeforeGrid());
@@ -406,6 +407,7 @@ void EdiShellWindow::applySettings(const edi::formats::StaticConfig &config)
     m_controller->setVertexSnapEnabled(settingsBool(config, "snap.vertex_enabled", true));
     m_controller->setMidpointSnapEnabled(settingsBool(config, "snap.midpoint_enabled", true));
     m_controller->setCenterSnapEnabled(settingsBool(config, "snap.center_enabled", true));
+    m_controller->setIntersectionSnapEnabled(settingsBool(config, "snap.intersection_enabled", true));
     m_controller->setGuideSnapEnabled(settingsBool(config, "snap.guide_enabled", true));
     m_controller->setGuideMoveSnapEnabled(settingsBool(config, "snap.guide_move_enabled", true));
     m_controller->setObjectSnapPriorityBeforeGrid(settingsBool(config, "snap.object_priority_before_grid", true));

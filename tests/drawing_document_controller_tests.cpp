@@ -103,6 +103,7 @@ int main(int argc, char **argv)
     assert(initialSnap.value("vertex_enabled").toBool());
     assert(initialSnap.value("midpoint_enabled").toBool());
     assert(initialSnap.value("center_enabled").toBool());
+    assert(initialSnap.value("intersection_enabled").toBool());
     assert(initialSnap.value("guide_enabled").toBool());
     assert(initialSnap.value("guide_move_enabled").toBool());
     assert(initialSnap.value("object_priority_before_grid").toBool());
@@ -112,6 +113,7 @@ int main(int argc, char **argv)
     controller.setVertexSnapEnabled(false);
     controller.setMidpointSnapEnabled(false);
     controller.setCenterSnapEnabled(false);
+    controller.setIntersectionSnapEnabled(false);
     controller.setGuideSnapEnabled(false);
     controller.setGuideMoveSnapEnabled(false);
     controller.setObjectSnapPriorityBeforeGrid(false);
@@ -121,6 +123,7 @@ int main(int argc, char **argv)
     assert(!controller.vertexSnapEnabled());
     assert(!controller.midpointSnapEnabled());
     assert(!controller.centerSnapEnabled());
+    assert(!controller.intersectionSnapEnabled());
     assert(!controller.guideSnapEnabled());
     assert(!controller.guideMoveSnapEnabled());
     assert(!controller.objectSnapPriorityBeforeGrid());
@@ -129,6 +132,7 @@ int main(int argc, char **argv)
     assert(!changedSnap.value("vertex_enabled").toBool());
     assert(!changedSnap.value("midpoint_enabled").toBool());
     assert(!changedSnap.value("center_enabled").toBool());
+    assert(!changedSnap.value("intersection_enabled").toBool());
     assert(!changedSnap.value("guide_enabled").toBool());
     assert(!changedSnap.value("guide_move_enabled").toBool());
     assert(!changedSnap.value("object_priority_before_grid").toBool());
@@ -137,6 +141,7 @@ int main(int argc, char **argv)
     controller.setVertexSnapEnabled(true);
     controller.setMidpointSnapEnabled(true);
     controller.setCenterSnapEnabled(true);
+    controller.setIntersectionSnapEnabled(true);
     controller.setGuideSnapEnabled(true);
     controller.setGuideMoveSnapEnabled(true);
     controller.setObjectSnapPriorityBeforeGrid(true);

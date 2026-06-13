@@ -4,46 +4,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <utility>
 
 namespace edi::drafting {
 
 namespace {
 
-struct LineParams {
-    double t; // position along the first line (p.a + t*(p.b-p.a))
-    double u; // position along the second line
-};
-
-// Solve p.a + t*r = q.a + u*s for the two parameters. nullopt when the lines are
-// ~parallel/collinear or a segment is degenerate. The determinant is
-// |r||s|*sin(theta), so it shrinks with the segment LENGTHS as well as the
-// angle; testing it against an ABSOLUTE threshold would mistake short segments
-// for parallel ones. Normalising by the lengths makes the test on sin(theta) —
-// a genuine small angle — independent of how long the segments are.
-std::optional<LineParams> solveLineParams(const LineGeometry &p, const LineGeometry &q)
-{
-    const double rX = p.b.x - p.a.x;
-    const double rY = p.b.y - p.a.y;
-    const double sX = q.b.x - q.a.x;
-    const double sY = q.b.y - q.a.y;
-    const double denominator = rX * sY - rY * sX;
-    const double rLength = std::sqrt(rX * rX + rY * rY);
-    const double sLength = std::sqrt(sX * sX + sY * sY);
-    if (rLength == 0.0 || sLength == 0.0
-        || std::abs(denominator) <= 1e-9 * rLength * sLength) {
-        return std::nullopt;
-    }
-    const double dX = q.a.x - p.a.x;
-    const double dY = q.a.y - p.a.y;
-    return LineParams{(dX * sY - dY * sX) / denominator, (dX * rY - dY * rX) / denominator};
-}
-
-Point2D pointAlong(const LineGeometry &line, double t)
-{
-    return {line.a.x + t * (line.b.x - line.a.x), line.a.y + t * (line.b.y - line.a.y)};
-}
-
+// Unit vector (zero stays zero). Local to the fillet's bisector/ray math; the
+// intersection primitives it once shared this namespace with now live in
+// DraftingGeometry (a second, unrelated consumer — the snap engine — appeared,
+// so they were promoted from "modify" to the shared geometry home).
 Point2D normalized(double x, double y)
 {
     const double length = std::sqrt(x * x + y * y);
@@ -68,29 +39,6 @@ DraftingTrimResult DraftingTrimResult::rejected(DraftingResultCode code, std::st
     result.code = code;
     result.message = std::move(message);
     return result;
-}
-
-std::optional<Point2D> segmentIntersection(const LineGeometry &a, const LineGeometry &b)
-{
-    const std::optional<LineParams> params = solveLineParams(a, b);
-    if (!params) {
-        return std::nullopt; // a zero-length segment or an ~parallel/collinear pair
-    }
-    // The crossing of the two infinite lines must fall within BOTH finite
-    // segments; otherwise the lines would only meet beyond an endpoint.
-    if (params->t < 0.0 || params->t > 1.0 || params->u < 0.0 || params->u > 1.0) {
-        return std::nullopt;
-    }
-    return pointAlong(a, params->t);
-}
-
-std::optional<Point2D> lineIntersection(const LineGeometry &a, const LineGeometry &b)
-{
-    const std::optional<LineParams> params = solveLineParams(a, b);
-    if (!params) {
-        return std::nullopt; // parallel/collinear or degenerate: no single vertex
-    }
-    return pointAlong(a, params->t); // no [0,1] clamp: the infinite lines' crossing
 }
 
 DraftingTrimResult trimLineAtPoint(const LineGeometry &target,

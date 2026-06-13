@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <type_traits>
 
 namespace edi::drafting {
@@ -220,6 +221,8 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
         return "center";
     case DraftingSnapSourceKind::Guide:
         return "guide";
+    case DraftingSnapSourceKind::Intersection:
+        return "intersection";
     }
     return "unknown";
 }
@@ -399,6 +402,14 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
 std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocument &document, const DraftingSnapSettings &settings)
 {
     std::vector<DraftingSnapCandidate> candidates;
+    // Per-object candidates (endpoints, midpoints, centres, …), one object at a
+    // time. Collect the visible line objects on the way so the pairwise
+    // intersection pass below does not re-scan the document.
+    struct VisibleLine {
+        const LineGeometry *geometry;
+        DraftingObjectId id;
+    };
+    std::vector<VisibleLine> lines;
     for (const DraftingObject &object : document.objects) {
         const DraftingLayer *layer = findLayer(document, object.layerId);
         if (layer == nullptr || !layer->visible) {
@@ -406,6 +417,29 @@ std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocum
         }
         const std::vector<DraftingSnapCandidate> objectCandidates = snapCandidatesForObject(object, settings);
         candidates.insert(candidates.end(), objectCandidates.begin(), objectCandidates.end());
+        if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+            lines.push_back({line, object.id});
+        }
+    }
+
+    // Intersection candidates are PAIRWISE — they belong to no single object, so
+    // they cannot come from snapCandidatesForObject. For every pair of visible
+    // line segments that actually cross within both segments, the crossing is a
+    // snap target (the most-used CAD snap, and it reuses the same
+    // segmentIntersection the trim/fillet verbs are built on). Lines only for
+    // now; circle/arc/construction-line crossings are a later slice. O(n^2) over
+    // line objects — fine for drawing-sized documents.
+    if (settings.intersectionEnabled) {
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            for (std::size_t j = i + 1; j < lines.size(); ++j) {
+                const std::optional<Point2D> crossing = segmentIntersection(*lines[i].geometry, *lines[j].geometry);
+                if (crossing) {
+                    candidates.push_back({*crossing, DraftingSnapSourceKind::Intersection,
+                                          draftingSnapSourceKindName(DraftingSnapSourceKind::Intersection),
+                                          lines[i].id});
+                }
+            }
+        }
     }
     return candidates;
 }

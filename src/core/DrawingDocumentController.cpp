@@ -728,6 +728,11 @@ bool DrawingDocumentController::centerSnapEnabled() const
     return m_snapSettings.centerEnabled;
 }
 
+bool DrawingDocumentController::intersectionSnapEnabled() const
+{
+    return m_snapSettings.intersectionEnabled;
+}
+
 bool DrawingDocumentController::guideSnapEnabled() const
 {
     return m_snapSettings.guideEnabled;
@@ -918,6 +923,11 @@ void DrawingDocumentController::setMidpointSnapEnabled(bool enabled)
 void DrawingDocumentController::setCenterSnapEnabled(bool enabled)
 {
     setSnapFlag(&DraftingSnapSettings::centerEnabled, enabled);
+}
+
+void DrawingDocumentController::setIntersectionSnapEnabled(bool enabled)
+{
+    setSnapFlag(&DraftingSnapSettings::intersectionEnabled, enabled);
 }
 
 void DrawingDocumentController::setGuideSnapEnabled(bool enabled)

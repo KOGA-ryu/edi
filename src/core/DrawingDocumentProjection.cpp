@@ -744,6 +744,7 @@ QVariantMap draftingDocumentToModelProjection(
             {QStringLiteral("midpoint_enabled"), snapSettings.midpointEnabled},
             {QStringLiteral("center_enabled"), snapSettings.centerEnabled},
             {QStringLiteral("guide_enabled"), snapSettings.guideEnabled},
+            {QStringLiteral("intersection_enabled"), snapSettings.intersectionEnabled},
             {QStringLiteral("object_priority_before_grid"), snapSettings.objectPriorityBeforeGrid},
             {QStringLiteral("grid_step"), snapSettings.gridStep},
             {QStringLiteral("grid_step_x"), snapSettings.gridStepX},

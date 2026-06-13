@@ -176,6 +176,7 @@ private:
     QCheckBox *m_vertexSnap = nullptr;
     QCheckBox *m_midpointSnap = nullptr;
     QCheckBox *m_centerSnap = nullptr;
+    QCheckBox *m_intersectionSnap = nullptr;
     QCheckBox *m_guideSnap = nullptr;
     QCheckBox *m_guideMoveSnap = nullptr;
     QCheckBox *m_objectPrioritySnap = nullptr;

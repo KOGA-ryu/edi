@@ -412,6 +412,9 @@ std::vector<edi::shell::FeatureChromePanelSpec> DraftingFeature::buildChromePane
     m_centerSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Center"), [this](bool enabled) {
         m_controller->setCenterSnapEnabled(enabled);
     }, m_controller->centerSnapEnabled());
+    m_intersectionSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Intersection"), [this](bool enabled) {
+        m_controller->setIntersectionSnapEnabled(enabled);
+    }, m_controller->intersectionSnapEnabled());
     m_guideSnap = makeToggle(QStringLiteral("snapToggle"), QStringLiteral("Guide"), [this](bool enabled) {
         m_controller->setGuideSnapEnabled(enabled);
     }, m_controller->guideSnapEnabled());
@@ -434,6 +437,7 @@ std::vector<edi::shell::FeatureChromePanelSpec> DraftingFeature::buildChromePane
     layout->addWidget(m_vertexSnap);
     layout->addWidget(m_midpointSnap);
     layout->addWidget(m_centerSnap);
+    layout->addWidget(m_intersectionSnap);
     layout->addWidget(m_guideSnap);
     layout->addWidget(m_guideMoveSnap);
     layout->addWidget(m_objectPrioritySnap);

@@ -2,24 +2,10 @@
 
 #include "drafting/DraftingDocument.h"
 
-#include <optional>
 #include <string>
 #include <vector>
 
 namespace edi::drafting {
-
-// Intersection of two line SEGMENTS in canvas space. Returns the crossing point
-// only when it lies within BOTH segments (the parametric t and u each in
-// [0,1]); a parallel/collinear pair or a crossing that falls off either segment
-// returns nullopt. This is the first real intersection math in the core — the
-// trim verb is its first caller.
-std::optional<Point2D> segmentIntersection(const LineGeometry &a, const LineGeometry &b);
-
-// Intersection of the two INFINITE lines through these segments — the crossing
-// even when it lies beyond an endpoint. Only a parallel/collinear pair (or a
-// zero-length segment) returns nullopt. Fillet needs this: the corner vertex of
-// two segments can sit past where either one actually reaches.
-std::optional<Point2D> lineIntersection(const LineGeometry &a, const LineGeometry &b);
 
 struct DraftingTrimResult {
     bool ok = false;

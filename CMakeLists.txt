@@ -213,6 +213,8 @@ add_library(edi_scripting_core STATIC
     src/scripting/LuaRecipe.cpp
     src/scripting/ScriptCommandBridge.h
     src/scripting/ScriptCommandBridge.cpp
+    src/scripting/BlenderRunPlan.h
+    src/scripting/BlenderRunPlan.cpp
 )
 
 target_include_directories(edi_scripting_core PUBLIC
@@ -357,6 +359,7 @@ add_edi_contract_test(text_session_store_tests tests/text_session_store_tests.cp
 target_sources(text_session_store_tests PRIVATE src/io/TextSessionStore.cpp src/io/SettingsStore.cpp)
 target_include_directories(text_session_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(scripting_bridge_tests tests/scripting_bridge_tests.cpp edi_scripting_core)
+add_edi_contract_test(blender_run_plan_tests tests/blender_run_plan_tests.cpp edi_scripting_core)
 add_edi_contract_test(recipe_mouldings_tests tests/recipe_mouldings_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_ops_tests tests/recipe_ops_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")

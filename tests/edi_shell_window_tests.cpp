@@ -1923,6 +1923,77 @@ int main(int argc, char **argv)
         assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
+    // Build (the Blender lab): the editor's Build button hands the active .py to
+    // the window, which plans a Blender render and calls the runner. Injected
+    // runner = the suite NEVER spawns; the plan + subprocess are proven in their
+    // own unit tests.
+    {
+        auto makePythonShell = [](EdiShellWindow &shell, const QString &id) {
+            edi::text::TextDocumentStore &store = shell.textDocumentStore();
+            edi::text::TextDocument py;
+            py.id = id.toStdString();
+            py.text = "import bpy\n";
+            py.metadata.fields["path"] = ("/tmp/" + id + ".py").toStdString();
+            edi::text::addDocument(store, py);
+            edi::text::setActiveDocument(store, id.toStdString());
+            // Switch to the Blender workspace so the panel rebuilds from the
+            // store with the .py document active (which enables Build).
+            for (QPushButton *button : shell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+                if (button->property("modeId").toString() == QStringLiteral("blender")) {
+                    button->click();
+                }
+            }
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        };
+
+        // Configured Blender + a .py document: Build reaches the runner with the
+        // render argv, and the status shows the "building…" ack.
+        EdiShellWindow buildShell;
+        buildShell.setBlenderExecutablePath(QStringLiteral("/fake/blender"));
+        bool runnerCalled = false;
+        edi::scripting::BlenderRunPlan capturedPlan;
+        buildShell.setBlenderRunner([&](const edi::scripting::BlenderRunPlan &plan) {
+            runnerCalled = true;
+            capturedPlan = plan;
+        });
+        makePythonShell(buildShell, QStringLiteral("scene_py"));
+
+        auto *buildButton = buildShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
+        auto *buildStatus = buildShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        assert(buildButton != nullptr && buildStatus != nullptr);
+        assert(buildButton->isEnabled()); // the active document is a .py
+        buildButton->click();
+        assert(runnerCalled && capturedPlan.ok);
+        assert(capturedPlan.args.size() >= 5);
+        assert(capturedPlan.args[0] == "--background" && capturedPlan.args[1] == "--python");
+        assert(buildStatus->text().contains(QStringLiteral("building")));
+
+        // No Blender configured: Build shows the named refusal and never spawns
+        // — the executable-empty case routes through the pure plan's message.
+        EdiShellWindow noBlenderShell;
+        bool stubCalled = false;
+        noBlenderShell.setBlenderRunner([&](const edi::scripting::BlenderRunPlan &) { stubCalled = true; });
+        makePythonShell(noBlenderShell, QStringLiteral("scene2_py"));
+        auto *refuseButton = noBlenderShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
+        auto *refuseStatus = noBlenderShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
+        assert(refuseButton->isEnabled());
+        refuseButton->click();
+        assert(!stubCalled);
+        assert(refuseStatus->text().contains(QStringLiteral("blender.executable_path")));
+
+        // Build is gated to python: on the seeded plain "scratch" document
+        // (no .py path), the button is disabled — never a category error.
+        EdiShellWindow scratchShell;
+        for (QPushButton *button : scratchShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("blender")) {
+                button->click();
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *gatedButton = scratchShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
+        assert(gatedButton != nullptr && !gatedButton->isEnabled());
+    }
+
     // Status bar (spec §2/§3): a 28px strip under the body. The left label
     // carries the feature-published mode line; the right label names the
     // document and recolors via the documentDirty property when unsaved

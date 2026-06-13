@@ -137,6 +137,23 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     m_featureContext.applyScript = [this](const std::string &text) {
         return applyOpsScript(text);
     };
+    // The Blender lab's Build hook + its subprocess. The store lives as long as
+    // the window; its single finished() drives onBlenderRunFinished. The default
+    // runner spawns Blender; a test replaces m_blenderRunner with a recorder so
+    // the offscreen suite never launches anything.
+    m_featureContext.buildScript = [this](const QString &scriptText, const QString &scriptPath) {
+        return buildBlenderScript(scriptText, scriptPath);
+    };
+    m_processRunStore = new ProcessRunStore(this);
+    connect(m_processRunStore, &ProcessRunStore::finished, this, &EdiShellWindow::onBlenderRunFinished);
+    m_blenderRunner = [this](const edi::scripting::BlenderRunPlan &plan) {
+        m_currentBuildOutput = QString::fromStdString(plan.outputImagePath);
+        QStringList args;
+        for (const std::string &arg : plan.args) {
+            args << QString::fromStdString(arg);
+        }
+        m_processRunStore->run(QString::fromStdString(plan.executablePath), args);
+    };
     seedScratchIfEmpty();
 
     // Per-feature knowledge lives ONLY in these registry rows — how to build
@@ -384,6 +401,7 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
 
     edi::io::writeThemeInputsToConfig(config, m_themeInputs);
     setSettingsString(config, "profile.active", m_activeProfile.toStdString());
+    setSettingsString(config, "blender.executable_path", m_blenderExecutablePath.toStdString());
 
     std::vector<std::string> recent;
     for (const QString &path : m_recentFiles) {
@@ -401,6 +419,7 @@ void EdiShellWindow::applySettings(const edi::formats::StaticConfig &config)
     // (readThemeInputsFromConfig degrades absent keys to stock defaults.)
     setThemeInputs(edi::io::readThemeInputsFromConfig(config));
     m_activeProfile = QString::fromStdString(settingsString(config, "profile.active", ""));
+    m_blenderExecutablePath = QString::fromStdString(settingsString(config, "blender.executable_path", ""));
 
     // Grid: preset first (it resets dependent fields), then the explicit values.
     m_controller->setGridPresetId(QString::fromStdString(settingsString(config, "grid.preset", "square_art_board")));

@@ -39,6 +39,13 @@ struct FeatureContext {
     // reader. Returns the refusal message, or empty on success.
     QString scriptDocumentId;
     std::function<QString(const std::string &)> applyScript;
+    // The Build seam (the Blender lab's loop): hands a .py script's text + path
+    // to the window, which writes it, plans a Blender run (BlenderRunPlan), and
+    // spawns it async. Returns an IMMEDIATE message — a refusal (no Blender
+    // configured / nothing to build) or a "building…" ack; the async outcome is
+    // surfaced later on the editor status. Empty hook = no Build (Apply's
+    // sibling, but for an external render rather than the in-RAM recipe reader).
+    std::function<QString(const QString &scriptText, const QString &scriptPath)> buildScript;
     // E2: the live text panel's refresh hook (set when the panel builds) and a
     // session note for its status line. loadTextSession replaces the store out
     // from under the panel, then re-projects and surfaces any degrade through

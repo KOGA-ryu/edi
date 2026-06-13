@@ -445,6 +445,8 @@ add_executable(edi_shell_window_tests
     src/core/DrawingDocumentProjection.cpp
     src/io/DrawingDocumentStore.h
     src/io/DrawingDocumentStore.cpp
+    src/io/ProcessRunStore.h
+    src/io/ProcessRunStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/TextSessionStore.h
@@ -510,6 +512,7 @@ target_link_libraries(edi_shell_window_tests PRIVATE
     edi_app_core
     edi_drafting_core
     edi_recipe_core
+    edi_scripting_core
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -666,6 +669,7 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         edi_app_core
         edi_drafting_core
         edi_recipe_core
+        edi_scripting_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets

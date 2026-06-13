@@ -16,6 +16,8 @@
 
 #include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
 #include "text/TextDocumentStore.h" // the editor's documents, window-owned (E1)
+#include "io/ProcessRunStore.h" // the Blender lab's subprocess seam
+#include "scripting/BlenderRunPlan.h" // the pure plan the runner executes
 
 class QAction;
 class QMenu;
@@ -121,6 +123,12 @@ public:
     // The text editor's path chooser, injectable for offscreen tests (the
     // drawing Save As precedent). forSave picks save vs open; empty = cancel.
     void setTextEditorPathProvider(std::function<QString(bool forSave)> provider);
+    // The Blender executable edi spawns for Build (settings: blender.executable_path).
+    void setBlenderExecutablePath(const QString &path);
+    QString blenderExecutablePath() const { return m_blenderExecutablePath; }
+    // The Build runner, injectable for offscreen tests: the default spawns
+    // Blender via ProcessRunStore; a test stub records the plan and never spawns.
+    void setBlenderRunner(std::function<void(const edi::scripting::BlenderRunPlan &)> runner);
 
     // Tear down the mounted slots and rebuild them from a different layout.
     // The document is untouched — only the glass around it changes. Pushes
@@ -149,6 +157,11 @@ protected:
     // constructor calls it (fresh window), and so does loadTextSession after an
     // empty manifest, so the terminal is never blank.
     void seedScratchIfEmpty();
+    // The editor's Build hook: write the script to a temp .py, plan a Blender
+    // render, hand it to the runner. Returns the immediate message (refusal or
+    // a "building…" ack). onBlenderRunFinished surfaces the async outcome.
+    QString buildBlenderScript(const QString &scriptText, const QString &scriptPath);
+    void onBlenderRunFinished(const ProcessRunResult &result);
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -274,6 +287,14 @@ private:
     edi::text::TextDocumentStore m_textStore;
     QString m_textSessionPath;
     std::function<QString(bool forSave)> m_textEditorPathProvider;
+    // The Blender lab's Build path. The runner is the effect seam (default =
+    // spawn via ProcessRunStore; tests inject a recorder); the executable path
+    // and the in-flight output image ride as members so the async finished
+    // handler can surface the result without threading state through the bus.
+    ProcessRunStore *m_processRunStore = nullptr;
+    std::function<void(const edi::scripting::BlenderRunPlan &)> m_blenderRunner;
+    QString m_blenderExecutablePath;
+    QString m_currentBuildOutput;
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

@@ -1,9 +1,11 @@
 #include "widgets/EdiShellWindow.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QSaveFile>
 #include <QFileInfo>
+#include <QLabel>
 #include <QMessageBox>
 #include <QString>
 #include <QStringList>
@@ -569,6 +571,67 @@ bool EdiShellWindow::saveWorkspaceLayout(const QString &path) const
 void EdiShellWindow::setTextEditorPathProvider(std::function<QString(bool forSave)> provider)
 {
     m_textEditorPathProvider = std::move(provider);
+}
+
+void EdiShellWindow::setBlenderExecutablePath(const QString &path)
+{
+    m_blenderExecutablePath = path;
+}
+
+void EdiShellWindow::setBlenderRunner(std::function<void(const edi::scripting::BlenderRunPlan &)> runner)
+{
+    m_blenderRunner = std::move(runner);
+}
+
+QString EdiShellWindow::buildBlenderScript(const QString &scriptText, const QString &scriptPath)
+{
+    // Write the CURRENT buffer to a temp .py — unsaved edits build too, and the
+    // user's file on disk is never touched. A sibling .png is where the script
+    // is told to render; that path rides past '--' to the script.
+    const QString stem = QFileInfo(scriptPath).completeBaseName();
+    const QString base = stem.isEmpty() ? QStringLiteral("edi_build") : stem;
+    const QDir tempDir(QDir::tempPath());
+    const QString tempPy = tempDir.filePath(base + QStringLiteral("_edi.py"));
+    m_currentBuildOutput = tempDir.filePath(base + QStringLiteral("_edi.png"));
+
+    QFile scriptFile(tempPy);
+    if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return QStringLiteral("could not write the build script to %1").arg(tempPy);
+    }
+    scriptFile.write(scriptText.toUtf8());
+    scriptFile.close();
+
+    // Pure decision: argv or a named refusal (no Blender configured / nothing to
+    // build). The effect (spawn) is the runner — injectable, so tests never launch.
+    const edi::scripting::BlenderRunPlan plan = edi::scripting::planBlenderRender(
+        m_blenderExecutablePath.toStdString(), tempPy.toStdString(), m_currentBuildOutput.toStdString());
+    if (!plan.ok) {
+        return QString::fromStdString(plan.message);
+    }
+    if (m_blenderRunner) {
+        m_blenderRunner(plan);
+    }
+    return QStringLiteral("building %1 in Blender…")
+        .arg(QFileInfo(scriptPath).fileName().isEmpty() ? base : QFileInfo(scriptPath).fileName());
+}
+
+void EdiShellWindow::onBlenderRunFinished(const ProcessRunResult &result)
+{
+    // Surface the outcome on the editor's status line. (The rendered PNG itself
+    // is shown by the render-preview slice; here the text result is the
+    // feedback — the editor panel may have been remounted, so look it up live.)
+    QString message;
+    if (result.ok) {
+        message = QStringLiteral("built ok → %1").arg(m_currentBuildOutput);
+    } else {
+        const QString lastError = result.standardError.trimmed().section(QLatin1Char('\n'), -1);
+        message = lastError.isEmpty()
+            ? QStringLiteral("build failed: %1").arg(result.message)
+            : QStringLiteral("build failed: %1 — %2").arg(result.message, lastError);
+    }
+    if (auto *status = findChild<QLabel *>(QStringLiteral("textEditorStatus"))) {
+        status->setText(message);
+    }
 }
 
 bool EdiShellWindow::saveTextSession(const QString &path) const

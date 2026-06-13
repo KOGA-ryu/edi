@@ -196,6 +196,13 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
     auto *applyButton = new QPushButton(QStringLiteral("Apply"));
     applyButton->setObjectName(QStringLiteral("textEditorApply"));
     toolbar->addWidget(applyButton);
+    // Build (the Blender lab): render the active .py through Blender. Like
+    // Apply, it is a deliberate, gated gesture — enabled only on a python
+    // document, so it is never offered where it would be a category error.
+    auto *buildButton = new QPushButton(QStringLiteral("Build"));
+    buildButton->setObjectName(QStringLiteral("textEditorBuild"));
+    buildButton->setToolTip(QStringLiteral("Render this .py script through Blender"));
+    toolbar->addWidget(buildButton);
     layout->addLayout(toolbar);
 
     auto *splitter = new QSplitter(Qt::Horizontal);
@@ -415,11 +422,48 @@ QWidget *buildTextEditorPanel(edi::shell::FeatureContext &context,
             && store->activeDocumentId.has_value()
             && QString::fromStdString(*store->activeDocumentId) == ctx->scriptDocumentId);
     };
-    refreshApplyEnabled();
+    // Build follows the active document's PATH: it is enabled only on a .py
+    // file (a python script Blender can run). A New, unsaved buffer is not yet
+    // buildable — Save As .py first, the standard save-before-run gate.
+    const auto refreshBuildEnabled = [store, ctx, buildButton]() {
+        bool isPython = false;
+        if (ctx->buildScript && store->activeDocumentId.has_value()) {
+            const TextDocument *active = findDocument(*store, *store->activeDocumentId);
+            if (active != nullptr) {
+                const auto pathField = active->metadata.fields.find("path");
+                const QString path = pathField != active->metadata.fields.end()
+                    ? QString::fromStdString(pathField->second) : QString();
+                isPython = path.endsWith(QStringLiteral(".py"), Qt::CaseInsensitive);
+            }
+        }
+        buildButton->setEnabled(isPython);
+    };
+    const auto refreshActions = [refreshApplyEnabled, refreshBuildEnabled]() {
+        refreshApplyEnabled();
+        refreshBuildEnabled();
+    };
+    refreshActions();
     QObject::connect(list, &QListWidget::itemClicked, view,
-                     [refreshApplyEnabled](QListWidgetItem *) { refreshApplyEnabled(); });
-    QObject::connect(newButton, &QPushButton::clicked, view, refreshApplyEnabled);
-    QObject::connect(openButton, &QPushButton::clicked, view, refreshApplyEnabled);
+                     [refreshActions](QListWidgetItem *) { refreshActions(); });
+    QObject::connect(newButton, &QPushButton::clicked, view, refreshActions);
+    QObject::connect(openButton, &QPushButton::clicked, view, refreshActions);
+    QObject::connect(saveButton, &QPushButton::clicked, view, refreshActions); // Save As may adopt a .py path
+
+    QObject::connect(buildButton, &QPushButton::clicked, view, [store, status, ctx]() {
+        if (!ctx->buildScript || !store->activeDocumentId.has_value()) {
+            return;
+        }
+        const TextDocument *active = findDocument(*store, *store->activeDocumentId);
+        if (active == nullptr) {
+            return;
+        }
+        const auto pathField = active->metadata.fields.find("path");
+        const QString path = pathField != active->metadata.fields.end()
+            ? QString::fromStdString(pathField->second) : QString();
+        // The window writes the text, plans the run, and spawns Blender async;
+        // it returns the immediate message (a refusal, or a "building…" ack).
+        status->setText(ctx->buildScript(QString::fromStdString(active->text), path));
+    });
 
     QObject::connect(applyButton, &QPushButton::clicked, view, [store, view, list, status, ctx]() {
         if (!ctx->applyScript || !store->activeDocumentId.has_value()) {

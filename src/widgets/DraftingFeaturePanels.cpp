@@ -1495,7 +1495,9 @@ QWidget *DraftingFeature::buildRepeatControls()
     layout->addWidget(grid, 4, 0);
 
     auto *radial = makeActionButton(QStringLiteral("radialArrayButton"), QStringLiteral("Radial"), [this]() {
-        m_controller->radialArraySelectedObject();
+        // Arms a pick-a-point capture; the next canvas click sets the ring
+        // centre (replacing the old hardcoded drawable centre).
+        m_controller->beginRadialArrayCenterPick();
     });
     layout->addWidget(radial, 4, 1);
 

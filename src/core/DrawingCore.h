@@ -28,6 +28,22 @@
 #include <optional>
 #include <vector>
 
+// A "pick a point" capture. When armed, the next canvas click supplies a bare
+// point to a waiting consumer (the radial-array centre today; trim's boundary
+// next) instead of selecting or creating. The intent is DATA — the controller
+// switches on it — not a stored std::function, keeping this variation point in
+// the same data-oriented style as the drafting core (CLAUDE.md: "variation
+// points are data — enums, kinds, plan structs"). std::optional absence is the
+// "not armed" state, so the enum needs no None member.
+enum class PointCaptureIntent {
+    RadialArrayCenter,
+};
+
+struct PendingPointCapture {
+    PointCaptureIntent intent = PointCaptureIntent::RadialArrayCenter;
+    QString prompt; // shown to the user while the click is awaited
+};
+
 class DrawingDocumentController final : public QObject {
     Q_OBJECT
 
@@ -176,7 +192,15 @@ public:
     bool mirrorSelectedObject(const QString &axisId);
     bool repeatSelectedObject(const QString &axisId);
     bool gridArraySelectedObject();
-    bool radialArraySelectedObject();
+    // Radial array now PICKS its centre: this arms a pick-a-point capture (the
+    // next canvas click sets the ring centre), replacing the old hardcoded
+    // drawable centre. Returns false (and arms nothing) when no editable source
+    // is selected. The captured click runs the array via runRadialArrayAtCenter.
+    bool beginRadialArrayCenterPick();
+    // True while a pick-a-point capture is armed (the UI can show the prompt /
+    // a crosshair cursor); pointCapturePrompt() is the text to display.
+    bool isAwaitingPointCapture() const { return m_pointCapture.has_value(); }
+    QString pointCapturePrompt() const;
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -297,6 +321,13 @@ private:
         const std::function<edi::drafting::DraftingArrayResult(
             const edi::drafting::DraftingObject &source,
             const std::vector<edi::drafting::DraftingObjectId> &newObjectIds)> &plan);
+    // Runs the radial array around an explicit centre — shared by the picked
+    // centre (the only path today). Separated from the arming so the centre is
+    // a plain argument, not controller state.
+    bool runRadialArrayAtCenter(edi::drafting::Point2D center);
+    // Dispatches a resolved capture click to its waiting consumer (a switch on
+    // the intent), then clears the capture. The point is already snapped.
+    void resolvePointCapture(edi::drafting::Point2D point);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
@@ -325,6 +356,7 @@ private:
     std::optional<edi::drafting::Point2D> m_pointerRawPoint;
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;
+    std::optional<PendingPointCapture> m_pointCapture;
     // Projection cache. The document-shaped model (objects, layers, grid,
     // plot plan, safety annotation, selection bounds) rebuilds only when a
     // modelChanged emission bumps the generation; every call then overlays

@@ -3369,13 +3369,14 @@ int main(int argc, char **argv)
         assert(gridArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
-    // Radial array: copies ring the drawable centre at the source's distance.
+    // Radial array now PICKS its centre: arm the capture, then a canvas click
+    // sets the ring centre. Copies ring that picked point at the source's
+    // distance — proof the pick-a-point capture feeds the array end-to-end.
     {
         DrawingDocumentController radialController;
-        QVariantMap drawable = radialController.modelDocument().value("grid").toMap()
-                                   .value("drawable_bounds").toMap();
-        const double centerX = drawable.value("x").toDouble() + drawable.value("width").toDouble() / 2.0;
-        const double centerY = drawable.value("y").toDouble() + drawable.value("height").toDouble() / 2.0;
+        // The picked centre is arbitrary now, not the drawable centre.
+        const double centerX = 0.5;
+        const double centerY = 0.45;
 
         radialController.setSelectedToolId("circle_tool");
         radialController.setFixedRadius(0.02);
@@ -3386,7 +3387,16 @@ int main(int argc, char **argv)
         assert(nearlyEqual(seeded[0].toMap().value("radius").toDouble(), 0.02));
 
         radialController.setArrayCount(3);
-        assert(radialController.radialArraySelectedObject());
+        // Arming requires a usable source and exposes the prompt; the click
+        // that follows is consumed as the centre, NOT as a new selection.
+        assert(radialController.beginRadialArrayCenterPick());
+        assert(radialController.isAwaitingPointCapture());
+        assert(radialController.modelDocument().value("awaiting_point_capture").toBool());
+        assert(!radialController.modelDocument().value("point_capture_prompt").toString().isEmpty());
+
+        radialController.clickCanvasNormalized(centerX, centerY); // sets the ring centre
+        assert(!radialController.isAwaitingPointCapture());       // capture consumed
+        assert(!radialController.modelDocument().contains("awaiting_point_capture"));
         QVariantList ringObjects = radialController.modelDocument().value("drawing_objects").toList();
         assert(ringObjects.size() == 4);
         // Slots = 4 -> copies at 90/180/270 degrees, all at ring radius 0.2.
@@ -3398,14 +3408,40 @@ int main(int argc, char **argv)
             assert(nearlyEqual(copy.value("radius").toDouble(), 0.02));
         }
 
-        // A source sitting ON the ring centre has a zero arm: the planner
-        // rejects, the controller reports false, the document is untouched.
+        // The capture click did not change selection — the source is still
+        // active (so a second array would work), and the array is ONE undo step.
+        assert(radialController.canUndo());
+        radialController.undo();
+        assert(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Arming with NOTHING selected refuses and arms nothing.
+        DrawingDocumentController emptyController;
+        assert(!emptyController.beginRadialArrayCenterPick());
+        assert(!emptyController.isAwaitingPointCapture());
+
+        // Escape (cancelPendingCreation) drops an armed capture without arraying.
+        radialController.setSelectedToolId("select_move");
+        radialController.clickCanvasNormalized(centerX - 0.2, centerY); // reselect the source circle
+        assert(radialController.beginRadialArrayCenterPick());
+        radialController.cancelPendingCreation();
+        assert(!radialController.isAwaitingPointCapture());
+        assert(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Switching tools also cancels an armed capture.
+        assert(radialController.beginRadialArrayCenterPick());
+        radialController.setSelectedToolId("line_tool");
+        assert(!radialController.isAwaitingPointCapture());
+
+        // A source sitting ON the picked centre has a zero arm: the planner
+        // rejects, the document is untouched, and the capture still clears.
         DrawingDocumentController degenerateController;
         degenerateController.setSelectedToolId("circle_tool");
         degenerateController.setFixedRadius(0.05);
-        degenerateController.clickCanvasNormalized(centerX, centerY);
-        degenerateController.clickCanvasNormalized(centerX, centerY);
-        assert(!degenerateController.radialArraySelectedObject());
+        degenerateController.clickCanvasNormalized(0.5, 0.5);
+        degenerateController.clickCanvasNormalized(0.5, 0.5);
+        assert(degenerateController.beginRadialArrayCenterPick());
+        degenerateController.clickCanvasNormalized(0.5, 0.5); // centre == source centre -> zero arm
+        assert(!degenerateController.isAwaitingPointCapture());
         assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
@@ -3457,7 +3493,12 @@ int main(int argc, char **argv)
         guideArrayController.setArraySpacingY(0.1);
         assert(!guideArrayController.gridArraySelectedObject());
         assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
-        assert(!guideArrayController.radialArraySelectedObject());
+        // Radial arming succeeds (a guide IS an editable object), but the array
+        // planner rejects a guide source when the centre click runs it — so the
+        // rejection now lands at the pick click, and the document is untouched.
+        assert(guideArrayController.beginRadialArrayCenterPick());
+        guideArrayController.clickCanvasNormalized(0.3, 0.3);
+        assert(!guideArrayController.isAwaitingPointCapture());
         assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 

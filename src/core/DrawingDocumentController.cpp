@@ -594,6 +594,13 @@ QVariantMap DrawingDocumentController::modelDocument() const
     if (!m_lastEditStatus.isEmpty()) {
         model.insert(QStringLiteral("edit_status"), m_lastEditStatus);
     }
+    if (m_pointCapture) {
+        // Volatile view state, like the pointer/preview: a prompt the canvas
+        // shows while it waits for the capture click. Rides per-call so arming
+        // a pick never invalidates the document cache.
+        model.insert(QStringLiteral("awaiting_point_capture"), true);
+        model.insert(QStringLiteral("point_capture_prompt"), m_pointCapture->prompt);
+    }
     return model;
 }
 
@@ -763,6 +770,7 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     m_selectedToolId = toolId;
     m_pendingCreation.reset();
     m_previewObject.reset();
+    m_pointCapture.reset(); // switching tools cancels an armed point pick
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
     emit modelChanged();
@@ -1738,20 +1746,51 @@ bool DrawingDocumentController::gridArraySelectedObject()
         });
 }
 
-bool DrawingDocumentController::radialArraySelectedObject()
+bool DrawingDocumentController::beginRadialArrayCenterPick()
 {
-    // The ring centre is the drawable centre — the one predictable landmark
-    // every document has. Centring on the selection itself would be
-    // degenerate (the planner rejects a zero arm).
-    const DraftingGridProjection grid = projectDraftingGrid(m_gridSettings);
-    const Point2D center{
-        grid.drawableBounds.x + grid.drawableBounds.width / 2.0,
-        grid.drawableBounds.y + grid.drawableBounds.height / 2.0,
-    };
+    // Arm a pick-a-point capture for the ring centre. Require a usable source
+    // up front: a "click a centre" prompt with nothing to array would be a
+    // dead end, worse than an immediate, honest refusal. The captured click
+    // (resolvePointCapture) supplies the centre and runs the array.
+    const DraftingObject *source = activeObject(m_document);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::RadialArrayCenter,
+                                         QStringLiteral("Click to set the radial array centre")};
+    emit pointerChanged(); // view state: the prompt appears, the document is untouched
+    return true;
+}
+
+bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
+{
+    // The centre is now PICKED, not the drawable centre — the user can ring
+    // copies around any point (and even around the source itself, which the
+    // planner still rejects as a zero arm). One operation, one undo step.
     return createArrayFromActiveObject(QStringLiteral("radial"), m_arrayCount,
         [center](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
             return radialArrayDraftingObject(source, newObjectIds, center);
         });
+}
+
+QString DrawingDocumentController::pointCapturePrompt() const
+{
+    return m_pointCapture ? m_pointCapture->prompt : QString();
+}
+
+void DrawingDocumentController::resolvePointCapture(Point2D point)
+{
+    const PointCaptureIntent intent = m_pointCapture->intent;
+    m_pointCapture.reset();
+    switch (intent) {
+    case PointCaptureIntent::RadialArrayCenter:
+        runRadialArrayAtCenter(point);
+        break;
+    }
+    // runRadialArrayAtCenter emits modelChanged on both success and a surfaced
+    // failure, but a null/locked source returns silently — so refresh here to
+    // guarantee the now-cleared prompt leaves the view.
+    emit pointerChanged();
 }
 
 bool DrawingDocumentController::createArrayFromActiveObject(
@@ -2157,6 +2196,16 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
 {
     const Point2D normalized = normalizeDraftingPoint({x, y});
     const Point2D point = resolveSnap(normalized, m_document, m_snapSettings).point;
+
+    // A pick-a-point capture intercepts the click BEFORE any tool dispatch: the
+    // click feeds a point to a waiting consumer (the radial-array centre), not
+    // a select/create. It never touches selection, so the source object stays
+    // active for the consumer, and it runs its own edit transaction.
+    if (m_pointCapture) {
+        resolvePointCapture(point);
+        return;
+    }
+
     m_lastGuideDragSnap.clear();
     const bool clearedEditStatus = !m_lastEditStatus.isEmpty();
     m_lastEditStatus.clear();
@@ -2289,12 +2338,14 @@ bool DrawingDocumentController::finishPendingMultiClick()
 
 void DrawingDocumentController::cancelPendingCreation()
 {
-    // View state only: cancel an in-flight two-click creation and its preview.
-    if (!m_pendingCreation && !m_previewObject) {
+    // View state only: cancel an in-flight two-click creation, its preview, or
+    // an armed pick-a-point capture (Escape routes here).
+    if (!m_pendingCreation && !m_previewObject && !m_pointCapture) {
         return;
     }
     m_pendingCreation.reset();
     m_previewObject.reset();
+    m_pointCapture.reset();
     emit pointerChanged(); // view state, not a mutation
 }
 

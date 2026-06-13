@@ -68,6 +68,14 @@ DrawingCanvasWidget::DrawingCanvasWidget(DrawingDocumentController *controller, 
 
 void DrawingCanvasWidget::refresh()
 {
+    // A crosshair signals an armed pick-a-point capture (the radial-array
+    // centre): the next click places a point, not a selection. Arming and
+    // resolving both emit pointerChanged, so this toggles with no extra wiring.
+    if (m_controller != nullptr && m_controller->isAwaitingPointCapture()) {
+        setCursor(Qt::CrossCursor);
+    } else {
+        unsetCursor();
+    }
     update();
 }
 

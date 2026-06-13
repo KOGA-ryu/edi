@@ -798,10 +798,15 @@ int main(int argc, char **argv)
         assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
                == beforeGrid + 3); // 2x2 grid: source + 3 copies
 
-        // Radial: the fresh copies ring the drawable centre.
+        // Radial now PICKS its centre: the button arms a pick-a-point capture,
+        // and the next canvas click sets the ring centre. The fresh copies ring
+        // that picked point (away from the source so the arm is non-zero).
         radialButton->click();
+        assert(controller->isAwaitingPointCapture());
+        controller->clickCanvasNormalized(0.3, 0.3);
+        assert(!controller->isAwaitingPointCapture());
         assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
-               == beforeGrid + 3 + 2); // arrayCount 2 -> 2 ring copies
+               == beforeGrid + 3 + 2); // arrayCount 2 -> 2 ring copies around the picked centre
 
         // Reset shared tool-option state so later blocks see defaults.
         fixedRadiusSpin->setValue(0.0);

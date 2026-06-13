@@ -88,6 +88,14 @@ WorkspaceLayout blenderWorkspaceLayout()
     WorkspaceLayout layout = draftingWorkspaceLayout();
     layout.id = QStringLiteral("blender");
     layout.label = QStringLiteral("Blender");
+    // What distinguishes the Blender job from drafting: the Right slot shows the
+    // render preview instead of the drafting inspector. Canvas stays in Main, the
+    // bpy editor (with Build) in the bottom terminal.
+    for (SlotBinding &binding : layout.bindings) {
+        if (binding.slot == ShellSlot::Right) {
+            binding.featureId = QStringLiteral("blender_preview");
+        }
+    }
     return layout;
 }
 
@@ -206,6 +214,18 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         });
     };
     m_featureRegistry.features.push_back(textEditor);
+
+    // Feature #4: the Blender profile's render preview (Right slot). Stateless —
+    // the panel is rebuilt per mount and reads the last render path off the
+    // window, so nothing dangles and the image survives a workspace switch.
+    FeatureDescriptor blenderPreview;
+    blenderPreview.id = QStringLiteral("blender_preview");
+    blenderPreview.label = QStringLiteral("Render");
+    blenderPreview.supportedSlots = {ShellSlot::Right};
+    blenderPreview.buildPanel = [this](ShellSlot, FeatureContext &) -> QWidget * {
+        return buildBlenderPreviewPanel();
+    };
+    m_featureRegistry.features.push_back(blenderPreview);
 
     // The splitter carries only the in-flow left panel beside the main area.
     // Right and bottom panels are overlays INSIDE the main area: they cover

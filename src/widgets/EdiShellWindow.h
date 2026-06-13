@@ -129,6 +129,10 @@ public:
     // The Build runner, injectable for offscreen tests: the default spawns
     // Blender via ProcessRunStore; a test stub records the plan and never spawns.
     void setBlenderRunner(std::function<void(const edi::scripting::BlenderRunPlan &)> runner);
+    // Load a rendered image into the Blender profile's preview pane (the app's
+    // first raster surface). Remembered so a workspace remount re-shows it. The
+    // build's async-finished handler calls this; a test calls it directly.
+    void showRenderImage(const QString &imagePath);
 
     // Tear down the mounted slots and rebuild them from a different layout.
     // The document is untouched — only the glass around it changes. Pushes
@@ -162,6 +166,9 @@ protected:
     // a "building…" ack). onBlenderRunFinished surfaces the async outcome.
     QString buildBlenderScript(const QString &scriptText, const QString &scriptPath);
     void onBlenderRunFinished(const ProcessRunResult &result);
+    // The Blender profile's render-preview pane (registry feature #4, Right slot):
+    // a QLabel that shows m_lastRenderImagePath, rebuilt fresh per mount.
+    QWidget *buildBlenderPreviewPanel();
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -295,6 +302,7 @@ private:
     std::function<void(const edi::scripting::BlenderRunPlan &)> m_blenderRunner;
     QString m_blenderExecutablePath;
     QString m_currentBuildOutput;
+    QString m_lastRenderImagePath; // last successful render, re-shown across remounts
     // Unset = use the modal QMessageBox; tests inject a canned answer.
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;

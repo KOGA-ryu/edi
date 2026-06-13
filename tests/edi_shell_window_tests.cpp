@@ -1994,6 +1994,51 @@ int main(int argc, char **argv)
         assert(gatedButton != nullptr && !gatedButton->isEnabled());
     }
 
+    // Render preview — the app's FIRST raster surface. The Blender profile's
+    // Right slot hosts a preview pane (drafting has none); showRenderImage loads
+    // a real PNG into it.
+    {
+        EdiShellWindow previewShell;
+        // Drafting profile: no preview pane.
+        assert(previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview")) == nullptr);
+
+        for (QPushButton *button : previewShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("blender")) {
+                button->click();
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *preview = previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview"));
+        assert(preview != nullptr);          // the pane mounts in the Blender profile
+        assert(preview->pixmap().isNull());  // nothing rendered yet
+
+        // A real PNG on disk, loaded into the pane.
+        const QString pngPath = QDir::tempPath() + QStringLiteral("/edi_preview_test.png");
+        QImage rendered(40, 30, QImage::Format_RGBA8888);
+        rendered.fill(Qt::blue);
+        assert(rendered.save(pngPath));
+        previewShell.showRenderImage(pngPath);
+        assert(!preview->pixmap().isNull());
+        assert(preview->pixmap().width() > 0);
+
+        // The render survives a workspace switch (drafting and back): the pane is
+        // rebuilt, but it re-shows the remembered image.
+        for (QPushButton *button : previewShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("drafting")) {
+                button->click();
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        for (QPushButton *button : previewShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
+            if (button->property("modeId").toString() == QStringLiteral("blender")) {
+                button->click();
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *rebuilt = previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview"));
+        assert(rebuilt != nullptr && !rebuilt->pixmap().isNull());
+    }
+
     // Status bar (spec §2/§3): a 28px strip under the body. The left label
     // carries the feature-published mode line; the right label names the
     // document and recolors via the documentDirty property when unsaved

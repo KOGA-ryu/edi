@@ -7,9 +7,11 @@
 #include <QFileInfo>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPixmap>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
+#include <QVBoxLayout>
 
 #include <algorithm>
 #include <string>
@@ -623,6 +625,7 @@ void EdiShellWindow::onBlenderRunFinished(const ProcessRunResult &result)
     QString message;
     if (result.ok) {
         message = QStringLiteral("built ok → %1").arg(m_currentBuildOutput);
+        showRenderImage(m_currentBuildOutput); // the rendered PNG into the preview
     } else {
         const QString lastError = result.standardError.trimmed().section(QLatin1Char('\n'), -1);
         message = lastError.isEmpty()
@@ -632,6 +635,49 @@ void EdiShellWindow::onBlenderRunFinished(const ProcessRunResult &result)
     if (auto *status = findChild<QLabel *>(QStringLiteral("textEditorStatus"))) {
         status->setText(message);
     }
+}
+
+QWidget *EdiShellWindow::buildBlenderPreviewPanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("blenderPreviewPanel"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(6);
+    auto *title = new QLabel(QStringLiteral("Render"));
+    title->setObjectName(QStringLiteral("blenderPreviewTitle"));
+    auto *image = new QLabel(QStringLiteral("No render yet.\nBuild a .py that renders to the\npath passed after “--”."));
+    image->setObjectName(QStringLiteral("blenderPreview"));
+    image->setAlignment(Qt::AlignCenter);
+    image->setWordWrap(true);
+    image->setMinimumSize(160, 120);
+    layout->addWidget(title);
+    layout->addWidget(image, 1);
+    // Re-show the last render after a workspace remount (the pane is rebuilt
+    // fresh, so load straight into THIS label — findChild would not reach it
+    // until it is mounted).
+    if (!m_lastRenderImagePath.isEmpty()) {
+        const QPixmap pixmap(m_lastRenderImagePath);
+        if (!pixmap.isNull()) {
+            image->setPixmap(pixmap.scaledToWidth(320, Qt::SmoothTransformation));
+        }
+    }
+    return panel;
+}
+
+void EdiShellWindow::showRenderImage(const QString &imagePath)
+{
+    m_lastRenderImagePath = imagePath;
+    auto *label = findChild<QLabel *>(QStringLiteral("blenderPreview"));
+    if (label == nullptr) {
+        return; // the preview pane is not mounted (not in the Blender profile)
+    }
+    const QPixmap pixmap(imagePath);
+    if (pixmap.isNull()) {
+        label->setText(QStringLiteral("could not load the render: %1").arg(imagePath));
+        return;
+    }
+    const int targetWidth = label->width() > 16 ? label->width() : 320;
+    label->setPixmap(pixmap.scaledToWidth(targetWidth, Qt::SmoothTransformation));
 }
 
 bool EdiShellWindow::saveTextSession(const QString &path) const

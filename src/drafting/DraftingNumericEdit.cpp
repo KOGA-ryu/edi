@@ -215,8 +215,11 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to dimension");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
+                          || std::is_same_v<Geometry, PolylineGeometry>) {
             return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to this geometry");
+        } else {
+            static_assert(always_false_v<Geometry>, "applyNumericGeometryEdit: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 }

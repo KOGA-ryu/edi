@@ -168,6 +168,8 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("a", pointValue(g.a));
             fields.emplace_back("b", pointValue(g.b));
             fields.emplace_back("offset", MsgPackValue::number(g.offset));
+        } else {
+            static_assert(always_false_v<G>, "geometryValue: unhandled geometry kind — add an arm");
         }
     }, geometry);
     return MsgPackValue::map(std::move(fields));

@@ -38,19 +38,27 @@ build it as its own infrastructure slice before the verbs.
 
 Work top-down through the layers. The dispatch sites come in THREE shapes — `if constexpr`
 visitors, `switch`-on-`DraftingShapeKind` (marked ⚠sw), and a couple of flat
-`object.kind == Xxx` blocks (marked ⚠kf, e.g. `handleEditPlan`). **None of them fails to
-compile if you miss an arm:** the visitor falls through to a default, the switch only warns
-under `-Wswitch`. The checklist below is the guard — not the compiler. ("The compiler will
-find them" is exactly the trap.)
+`object.kind == Xxx` blocks (marked ⚠kf, e.g. `handleEditPlan`). **The compiler now guards
+the first two.** Every `std::visit` over `DraftingGeometry` ends in
+`else { static_assert(always_false_v<Geometry>, "<func>: unhandled geometry kind"); }`, and
+the drafting core builds under `-Werror=switch` — so a forgotten visitor arm or a missing
+switch case is a BUILD ERROR that NAMES the function (e.g. `computeBounds: unhandled geometry
+kind — add an arm`). Add the variant arm, then let the red builds walk you through every
+site. The exceptions the compiler can't see: the `⚠kf` flat blocks and the string name-maps
+(`shapeKindFromName`) — but `drafting_shape_kind_exhaustive_tests` covers the name-maps by
+construction, so a forgotten entry fails a test. The checklist below is your map of what the
+compiler (and that test) will make you fill in.
 
 ### Layer 1 — the data · `src/drafting/DraftingTypes.h`
 1. The geometry struct: `struct XxxGeometry { … };` (plain fields, sane defaults).
 2. `enum class DraftingShapeKind` — add `Xxx`.
 3. `using DraftingGeometry = std::variant<…>` — add `XxxGeometry` as an arm.
 4. `template <> constexpr DraftingShapeKind shapeKindOf<XxxGeometry>()` specialization.
-5. **Add** `static_assert(std::variant_size_v<DraftingGeometry> == N);` beside the
-   variant so the next arm can't be added without updating the count. (The arc commit
-   intended this guard; confirm/restore it — it is not currently in the tree.)
+5. **Bump** `static_assert(std::variant_size_v<DraftingGeometry> == N)` beside the variant
+   (it exists now, currently `== 10`). This is the TRIPWIRE: you can't add an arm without
+   the build failing here, which kicks off the guided process — each `std::visit` site then
+   fails its own named `static_assert(always_false_v<Geometry>, …)`, and `-Werror=switch`
+   flags the enum switches.
 
 ### Layer 2 — the pure ops (the exhaustive sites)
 - `DraftingGeometry.h` — declare any **shared sampler/helpers** (e.g. the arc's

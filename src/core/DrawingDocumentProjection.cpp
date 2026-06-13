@@ -330,6 +330,12 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("dimension_length"), displayedDimensionLength(physicalDistance(geometry.a, geometry.b, grid), geometry.kind));
             result.insert(QStringLiteral("dimension_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("dimension_label"), physicalDimensionLabel(physicalDistance(geometry.a, geometry.b, grid), geometry.kind, grid));
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>) {
+            // No physical-geometry fields are projected for vertex lists today;
+            // the empty arm preserves the prior implicit fall-through behavior.
+        } else {
+            static_assert(edi::drafting::always_false_v<Geometry>,
+                "physicalGeometryForObject: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 
@@ -554,12 +560,15 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("dimension_visual_controls"), true);
             result.insert(QStringLiteral("label"), qStringFromStdString(formatMeasurementValue(displayedDistance)));
             result.insert(QStringLiteral("plot_ready"), false);
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>) {
             QVariantList points;
             for (Point2D point : geometry.vertices) {
                 points.push_back(pointToMap(point));
             }
             result.insert(QStringLiteral("points"), points);
+        } else {
+            static_assert(edi::drafting::always_false_v<Geometry>,
+                "draftingObjectToCanvasProjection: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 

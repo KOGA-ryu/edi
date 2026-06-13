@@ -232,8 +232,10 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::Guide;
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return DraftingShapeKind::ConstructionLine;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             return DraftingShapeKind::Dimension;
+        } else {
+            static_assert(always_false_v<Geometry>, "geometryKind: unhandled geometry kind — add an arm");
         }
     }, geometry);
 }
@@ -372,6 +374,8 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (distance(typedGeometry.a, typedGeometry.b) <= 0.000001) {
                 return GeometryValidationResult::rejected("dimension requires two distinct points");
             }
+        } else {
+            static_assert(always_false_v<Geometry>, "validateGeometry: unhandled geometry kind — add an arm");
         }
         return GeometryValidationResult::accepted();
     }, geometry);
@@ -417,8 +421,11 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
                 {typedGeometry.a.x + nx, typedGeometry.a.y + ny},
                 {typedGeometry.b.x + nx, typedGeometry.b.y + ny},
             });
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
+                             || std::is_same_v<Geometry, PolylineGeometry>) {
             return boundsFromPoints(typedGeometry.vertices);
+        } else {
+            static_assert(always_false_v<Geometry>, "computeBounds: unhandled geometry kind — add an arm");
         }
     }, geometry);
 }
@@ -474,10 +481,13 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             typedGeometry.a = translatePoint(typedGeometry.a, dx, dy);
             typedGeometry.b = translatePoint(typedGeometry.b, dx, dy);
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
+                             || std::is_same_v<Geometry, PolylineGeometry>) {
             for (Point2D &point : typedGeometry.vertices) {
                 point = translatePoint(point, dx, dy);
             }
+        } else {
+            static_assert(always_false_v<Geometry>, "translateGeometry: unhandled geometry kind — add an arm");
         }
         return typedGeometry;
     }, geometry);
@@ -608,10 +618,13 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             handles.push_back({"dimension_start", typedGeometry.a});
             handles.push_back({"dimension_midpoint", {(typedGeometry.a.x + typedGeometry.b.x) / 2.0, (typedGeometry.a.y + typedGeometry.b.y) / 2.0}});
             handles.push_back({"dimension_end", typedGeometry.b});
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
+                             || std::is_same_v<Geometry, PolylineGeometry>) {
             for (std::size_t i = 0; i < typedGeometry.vertices.size(); ++i) {
                 handles.push_back({"vertex_" + std::to_string(i), typedGeometry.vertices[i]});
             }
+        } else {
+            static_assert(always_false_v<Geometry>, "handleAnchors: unhandled geometry kind — add an arm");
         }
         return handles;
     }, geometry);

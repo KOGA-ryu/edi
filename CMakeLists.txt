@@ -173,6 +173,12 @@ target_include_directories(edi_format_core PUBLIC
 # MessagePack value codec, so it links the format core.
 target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 
+# Exhaustiveness guard: a switch over DraftingShapeKind (or any enum) that omits a
+# case is a build error here, not a silent fall-through. Pairs with the
+# always_false_v static_asserts on the std::visit sites. See
+# docs/adding-a-drafting-tool.md.
+target_compile_options(edi_drafting_core PRIVATE -Werror=switch)
+
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h
     src/recipe/RecipeMeasure.cpp
@@ -224,6 +230,7 @@ add_edi_contract_test(drafting_commands_tests tests/drafting_commands_tests.cpp 
 add_edi_contract_test(drafting_construction_ops_tests tests/drafting_construction_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_dimension_ops_tests tests/drafting_dimension_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_geometry_tests tests/drafting_geometry_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_shape_kind_exhaustive_tests tests/drafting_shape_kind_exhaustive_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_arc_tests tests/drafting_arc_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_hit_test_tests tests/drafting_hit_test_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_snap_tests tests/drafting_snap_tests.cpp edi_drafting_core)

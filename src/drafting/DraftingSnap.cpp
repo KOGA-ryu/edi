@@ -350,7 +350,7 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                 }
                 addCandidate(candidates, object, {sumX / static_cast<double>(geometry.vertices.size()), sumY / static_cast<double>(geometry.vertices.size())}, DraftingSnapSourceKind::Center);
             }
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             if (settings.endpointEnabled && !geometry.vertices.empty()) {
                 addCandidate(candidates, object, geometry.vertices.front(), DraftingSnapSourceKind::Endpoint);
                 addCandidate(candidates, object, geometry.vertices.back(), DraftingSnapSourceKind::Endpoint);
@@ -367,6 +367,8 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                     addCandidate(candidates, object, {(a.x + b.x) / 2.0, (a.y + b.y) / 2.0}, DraftingSnapSourceKind::Midpoint);
                 }
             }
+        } else {
+            static_assert(always_false_v<Geometry>, "snapCandidatesForObject: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 

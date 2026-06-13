@@ -304,8 +304,10 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 handles.push_back(handle);
             }
             return handles;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry> || std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return {};
+        } else {
+            static_assert(always_false_v<Geometry>, "draftingHandlesForObject: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 }
@@ -448,8 +450,12 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
             return validatedEditResult(object, geometry);
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             return applyDimensionEdit(object, geometry, edit);
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry> || std::is_same_v<Geometry, PolylineGeometry>
+                             || std::is_same_v<Geometry, GuideGeometry>
+                             || std::is_same_v<Geometry, ConstructionLineGeometry>) {
             return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidSelectionTarget, "shape has no editable handles yet");
+        } else {
+            static_assert(always_false_v<Geometry>, "applyObjectEdit: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 }

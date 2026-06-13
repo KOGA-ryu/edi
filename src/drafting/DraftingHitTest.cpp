@@ -112,8 +112,10 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
                     {typedGeometry.a.x + offset.x, typedGeometry.a.y + offset.y},
                     {typedGeometry.b.x + offset.x, typedGeometry.b.y + offset.y},
                     point));
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             return distanceToVertexList(typedGeometry.vertices, point, false);
+        } else {
+            static_assert(always_false_v<Geometry>, "hitDistance: unhandled geometry kind — add an arm");
         }
     }, geometry);
 }

@@ -226,6 +226,14 @@ struct DimensionGeometry {
     double offset = 0.04;
 };
 
+// Compile-time exhaustiveness guard. A std::visit branch that should be
+// unreachable ends in `else { static_assert(always_false_v<Geometry>, "…"); }`,
+// so adding a DraftingGeometry alternative without handling it at that site is a
+// BUILD error naming the function — not a silent runtime default.
+// See docs/adding-a-drafting-tool.md.
+template <class>
+inline constexpr bool always_false_v = false;
+
 using DraftingGeometry = std::variant<
     PointGeometry,
     LineGeometry,
@@ -237,6 +245,12 @@ using DraftingGeometry = std::variant<
     GuideGeometry,
     ConstructionLineGeometry,
     DimensionGeometry>;
+
+static_assert(std::variant_size_v<DraftingGeometry> == 10,
+    "DraftingGeometry gained or lost an alternative — that is an exhaustive change. "
+    "Every std::visit over it carries an always_false_v guard that names any site you "
+    "missed; every switch over DraftingShapeKind is a site too. See "
+    "docs/adding-a-drafting-tool.md, then update this count.");
 
 const char *shapeKindName(DraftingShapeKind kind);
 // Inverse of shapeKindName; unknown names fall back to Point (the serializer

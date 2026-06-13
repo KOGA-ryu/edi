@@ -185,6 +185,8 @@ private:
     QDoubleSpinBox *m_styleOpacitySpin = nullptr;
     QLineEdit *m_styleFillColorField = nullptr;
     QDoubleSpinBox *m_styleFillOpacitySpin = nullptr;
+    QLineEdit *m_textContentField = nullptr;
+    QWidget *m_textContentRow = nullptr;
     QComboBox *m_styleLineCombo = nullptr;
     QLabel *m_toolValue = nullptr;
     QLabel *m_selectedValue = nullptr;

@@ -43,6 +43,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "polyline_tool") {
         return DraftingToolKind::Polyline;
     }
+    if (toolId == "text_tool") {
+        return DraftingToolKind::TextAnnotation;
+    }
     if (toolId == "horizontal_guide_tool") {
         return DraftingToolKind::HorizontalGuide;
     }
@@ -101,6 +104,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "regular_polygon";
     case DraftingToolKind::Polyline:
         return "polyline";
+    case DraftingToolKind::TextAnnotation:
+        return "text";
     case DraftingToolKind::HorizontalGuide:
         return "horizontal_guide";
     case DraftingToolKind::VerticalGuide:
@@ -208,6 +213,12 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         }
         kind = DraftingShapeKind::Polygon;
         geometry = std::move(polygon);
+    } else if (request.tool == DraftingToolKind::TextAnnotation) {
+        // Single click: the controller passes start == end, so the placement
+        // point is request.start. Content/height start at defaults; the user
+        // edits them after the object exists (mirrors Point's one-point arm).
+        kind = DraftingShapeKind::TextAnnotation;
+        geometry = TextAnnotationGeometry{request.start, "Text", 0.04};
     } else if (request.tool == DraftingToolKind::HorizontalGuide) {
         kind = DraftingShapeKind::Guide;
         geometry = GuideGeometry{GuideOrientation::Horizontal, request.end.y};

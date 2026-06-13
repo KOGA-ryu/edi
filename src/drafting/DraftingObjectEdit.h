@@ -18,6 +18,7 @@ enum class DraftingObjectEditKind {
     MoveEllipseCenter,
     SetEllipseRx,
     SetEllipseRy,
+    MoveTextAnnotation,
     MoveArcCenter,
     SetArcRadius,
     SetArcStartAngle,

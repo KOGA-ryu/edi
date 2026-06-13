@@ -189,6 +189,8 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
             appendVertexSegments(plan, object, layer, geometry.vertices, true);
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, false);
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            // text annotations carry no plot segments
         }
     }, object.geometry);
 }

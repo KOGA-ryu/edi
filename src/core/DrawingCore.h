@@ -141,6 +141,8 @@ public:
     // opacity 0 = no fill (the default that keeps existing drawings unfilled).
     bool setSelectedObjectFillColor(const QString &color);
     bool setSelectedObjectFillOpacity(double opacity);
+    // Text-annotation content (the geometry's string) — rides UpdateGeometryCommand.
+    bool setSelectedObjectTextContent(const QString &content);
     bool setSelectedObjectLineStyle(const QString &lineStyle);
     bool setSelectedObjectVisible(bool visible);
     bool setSelectedGuideLabel(const QString &label);

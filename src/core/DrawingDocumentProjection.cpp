@@ -150,6 +150,11 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         pushNumericField(fields, numericField(QStringLiteral("rx"), QStringLiteral("RX")), grid);
         pushNumericField(fields, numericField(QStringLiteral("ry"), QStringLiteral("RY")), grid);
         break;
+    case DraftingShapeKind::TextAnnotation:
+        pushNumericField(fields, numericField(QStringLiteral("px"), QStringLiteral("PX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("py"), QStringLiteral("PY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("height"), QStringLiteral("Height")), grid);
+        break;
     case DraftingShapeKind::Arc:
         pushNumericField(fields, numericField(QStringLiteral("cx"), QStringLiteral("CX")), grid);
         pushNumericField(fields, numericField(QStringLiteral("cy"), QStringLiteral("CY")), grid);
@@ -320,6 +325,10 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
             result.insert(QStringLiteral("rx"), physicalWidth(geometry.rx, grid));
             result.insert(QStringLiteral("ry"), physicalHeight(geometry.ry, grid));
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            result.insert(QStringLiteral("px"), physicalX(geometry.position, grid));
+            result.insert(QStringLiteral("py"), physicalY(geometry.position, grid));
+            result.insert(QStringLiteral("height"), physicalHeight(geometry.height, grid));
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             result.insert(QStringLiteral("cx"), physicalX(geometry.center, grid));
             result.insert(QStringLiteral("cy"), physicalY(geometry.center, grid));
@@ -534,6 +543,13 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
                 points.push_back(pointToMap(point));
             }
             result.insert(QStringLiteral("points"), points);
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            result.insert(QStringLiteral("px"), geometry.position.x);
+            result.insert(QStringLiteral("py"), geometry.position.y);
+            result.insert(QStringLiteral("height"), geometry.height);
+            // content is a string the painter reads to drawText; the inspector
+            // edits it, so it rides alongside the numeric keys here.
+            result.insert(QStringLiteral("content"), qStringFromStdString(geometry.content));
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             result.insert(QStringLiteral("cx"), geometry.center.x);
             result.insert(QStringLiteral("cy"), geometry.center.y);

@@ -276,6 +276,8 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"ellipse_rx", "radius", {geometry.center.x + geometry.rx, geometry.center.y}},
                 {"ellipse_ry", "radius", {geometry.center.x, geometry.center.y + geometry.ry}},
             };
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            return { {"text_position", "center", geometry.position} };
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             return {
                 {"arc_center", "center", geometry.center},
@@ -376,6 +378,15 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
             return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetEllipseRy, handleId, point, std::abs(point.y - ellipse->center.y)});
         }
     }
+    if (object.kind == DraftingShapeKind::TextAnnotation) {
+        const auto *text = std::get_if<TextAnnotationGeometry>(&object.geometry);
+        if (text == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        if (handleId == "text_position") {
+            return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveTextAnnotation, handleId, point});
+        }
+    }
     if (object.kind == DraftingShapeKind::Arc) {
         const auto *arc = std::get_if<ArcGeometry>(&object.geometry);
         if (arc == nullptr) {
@@ -465,6 +476,13 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
                 geometry.ry = edit.value;
             } else {
                 return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to ellipse geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            if (edit.kind == DraftingObjectEditKind::MoveTextAnnotation) {
+                geometry.position = edit.point;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to text geometry");
             }
             return validatedEditResult(object, geometry);
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {

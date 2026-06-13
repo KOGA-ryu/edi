@@ -19,6 +19,7 @@ enum class DraftingToolKind {
     Ellipse,
     RegularPolygon,
     Polyline,
+    TextAnnotation,
     HorizontalGuide,
     VerticalGuide,
     HorizontalConstructionLine,

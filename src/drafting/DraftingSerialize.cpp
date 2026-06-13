@@ -25,7 +25,7 @@ bool isKnownShapeKindName(const std::string &name)
 {
     return name == "point" || name == "line" || name == "rectangle" || name == "circle"
         || name == "arc" || name == "ellipse" || name == "polygon" || name == "polyline" || name == "guide"
-        || name == "construction_line" || name == "dimension";
+        || name == "construction_line" || name == "dimension" || name == "text";
 }
 
 GuideOrientation guideOrientationFromName(const std::string &name)
@@ -172,6 +172,10 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("a", pointValue(g.a));
             fields.emplace_back("b", pointValue(g.b));
             fields.emplace_back("offset", MsgPackValue::number(g.offset));
+        } else if constexpr (std::is_same_v<G, TextAnnotationGeometry>) {
+            fields.emplace_back("position", pointValue(g.position));
+            fields.emplace_back("content", MsgPackValue::text(g.content));
+            fields.emplace_back("height", MsgPackValue::number(g.height));
         } else {
             static_assert(always_false_v<G>, "geometryValue: unhandled geometry kind — add an arm");
         }
@@ -252,6 +256,13 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
         geo.a = readPoint(child(g, "a"));
         geo.b = readPoint(child(g, "b"));
         geo.offset = asDouble(child(g, "offset"), 0.04);
+        return geo;
+    }
+    case DraftingShapeKind::TextAnnotation: {
+        TextAnnotationGeometry geo;
+        geo.position = readPoint(child(g, "position"));
+        geo.content = asString(child(g, "content"), "");
+        geo.height = asDouble(child(g, "height"), 0.04);
         return geo;
     }
     }

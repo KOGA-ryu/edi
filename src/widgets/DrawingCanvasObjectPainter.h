@@ -26,6 +26,18 @@ struct DrawingCanvasObjectPainterContext {
     bool plotDiagnostics = false;
 };
 
+// A text annotation's projected payload. The position is the TOP-LEFT of the
+// glyph box in canvas units; height is cap height in canvas units (default
+// 0.04). content empty draws nothing. Plain data, mirroring the other per-kind
+// projected structs.
+struct DrawingCanvasProjectedTextObject {
+    bool ok = false;
+    double x = 0.0;
+    double y = 0.0;
+    double height = 0.04;
+    QString content;
+};
+
 // One object, fully extracted into the typed projection structs the painter
 // reads. The QVariantMap path converted maps to these structs PER OBJECT PER
 // FRAME; a scene of pre-built items converts once per document mutation and
@@ -44,6 +56,7 @@ struct DrawingCanvasSceneItem {
     DrawingCanvasProjectedRectangle rectangle;
     DrawingCanvasProjectedCircle circle;
     DrawingCanvasProjectedPolygon polygon;
+    DrawingCanvasProjectedTextObject text;
     // Kept only for the selected object's handle painting (implicitly
     // shared, so retaining it costs a refcount, not a copy).
     QVariantMap source;

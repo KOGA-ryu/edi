@@ -228,6 +228,17 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to ellipse");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            if (fieldId == "px") {
+                geometry.position.x = value;
+            } else if (fieldId == "py") {
+                geometry.position.y = value;
+            } else if (fieldId == "height") {
+                geometry.height = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to text");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
                           || std::is_same_v<Geometry, PolylineGeometry>) {
             return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to this geometry");

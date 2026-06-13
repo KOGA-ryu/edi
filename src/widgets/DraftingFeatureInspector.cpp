@@ -204,6 +204,14 @@ void DraftingFeature::refreshInspector()
         m_styleFillColorField->setText(selectedObject.value(QStringLiteral("own_fill_color")).toString());
     }
     refreshSpinValue(m_styleFillOpacitySpin, selectedObject.value(QStringLiteral("own_fill_opacity"), 0.0).toDouble());
+    if (m_textContentField != nullptr) {
+        const QSignalBlocker textContentBlocker(*m_textContentField);
+        m_textContentField->setText(selectedObject.value(QStringLiteral("content")).toString());
+    }
+    if (m_textContentRow != nullptr) {
+        // The string content row is meaningful only for text annotations.
+        m_textContentRow->setVisible(selectedObject.value(QStringLiteral("kind")).toString() == QStringLiteral("text"));
+    }
     refreshComboData(m_styleLineCombo,
         selectedObject.value(QStringLiteral("own_line_style"), QStringLiteral("solid")).toString(), 0);
 

@@ -1169,6 +1169,26 @@ bool DrawingDocumentController::setSelectedObjectFillColor(const QString &color)
     return applyCommandAndEmit(UpdateFillStyleCommand{*m_document.activeObjectId, fill});
 }
 
+bool DrawingDocumentController::setSelectedObjectTextContent(const QString &content)
+{
+    if (!m_document.activeObjectId) {
+        return false;
+    }
+    const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
+    if (object == nullptr) {
+        return false;
+    }
+    const auto *text = std::get_if<TextAnnotationGeometry>(&object->geometry);
+    if (text == nullptr) {
+        return false; // content edits only apply to a text annotation
+    }
+    // Content is geometry, so it rides UpdateGeometryCommand (the whole-geometry
+    // replace) rather than a style command — one undo step, one choke point.
+    TextAnnotationGeometry updated = *text;
+    updated.content = content.toStdString();
+    return applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{updated}});
+}
+
 bool DrawingDocumentController::setSelectedObjectFillOpacity(double opacity)
 {
     if (!m_document.activeObjectId) {
@@ -2162,7 +2182,8 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         || kind == DraftingToolKind::HorizontalGuide
         || kind == DraftingToolKind::VerticalGuide
         || kind == DraftingToolKind::HorizontalConstructionLine
-        || kind == DraftingToolKind::VerticalConstructionLine) {
+        || kind == DraftingToolKind::VerticalConstructionLine
+        || kind == DraftingToolKind::TextAnnotation) {
         const QString id = nextObjectId(objectIdPrefix(kind), m_nextObjectSerial++);
         const auto object = buildDraftingObjectForTool(creationRequest(m_selectedToolId, id, m_document.activeLayerId, point, point));
         if (object.ok) {

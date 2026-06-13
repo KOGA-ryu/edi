@@ -371,6 +371,10 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.centerEnabled) {
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
             }
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            if (settings.endpointEnabled) {
+                addCandidate(candidates, object, geometry.position, DraftingSnapSourceKind::Endpoint);
+            }
         } else {
             static_assert(always_false_v<Geometry>, "snapCandidatesForObject: unhandled geometry kind — add an arm");
         }

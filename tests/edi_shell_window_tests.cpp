@@ -1300,7 +1300,9 @@ int main(int argc, char **argv)
                 }
             }
             assert(pointBox != nullptr && pointBox->isChecked());
-            assert(checkedCount == 21); // the full drafting inventory (incl. ellipse, double-arrow)
+            // Derived from the inventory so adding a tool never breaks this count
+            // (this assertion used to hardcode N and broke on every new tool).
+            assert(checkedCount == static_cast<int>(DraftingFeature::toolInventory().size()));
 
             auto *belt = shell.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
             assert(belt != nullptr);

@@ -23,7 +23,8 @@ enum class DraftingShapeKind {
     Polyline,
     Guide,
     ConstructionLine,
-    Dimension
+    Dimension,
+    TextAnnotation
 };
 
 enum class GuideOrientation {
@@ -239,6 +240,12 @@ struct DimensionGeometry {
     double offset = 0.04;
 };
 
+struct TextAnnotationGeometry {
+    Point2D position; // top-left anchor of the text box
+    std::string content;
+    double height = 0.04; // cap height in canvas units
+};
+
 // Compile-time exhaustiveness guard. A std::visit branch that should be
 // unreachable ends in `else { static_assert(always_false_v<Geometry>, "…"); }`,
 // so adding a DraftingGeometry alternative without handling it at that site is a
@@ -258,9 +265,10 @@ using DraftingGeometry = std::variant<
     PolylineGeometry,
     GuideGeometry,
     ConstructionLineGeometry,
-    DimensionGeometry>;
+    DimensionGeometry,
+    TextAnnotationGeometry>;
 
-static_assert(std::variant_size_v<DraftingGeometry> == 11,
+static_assert(std::variant_size_v<DraftingGeometry> == 12,
     "DraftingGeometry gained or lost an alternative — that is an exhaustive change. "
     "Every std::visit over it carries an always_false_v guard that names any site you "
     "missed; every switch over DraftingShapeKind is a site too. See "
@@ -297,5 +305,6 @@ template <> constexpr DraftingShapeKind shapeKindOf<PolylineGeometry>() { return
 template <> constexpr DraftingShapeKind shapeKindOf<GuideGeometry>() { return DraftingShapeKind::Guide; }
 template <> constexpr DraftingShapeKind shapeKindOf<ConstructionLineGeometry>() { return DraftingShapeKind::ConstructionLine; }
 template <> constexpr DraftingShapeKind shapeKindOf<DimensionGeometry>() { return DraftingShapeKind::Dimension; }
+template <> constexpr DraftingShapeKind shapeKindOf<TextAnnotationGeometry>() { return DraftingShapeKind::TextAnnotation; }
 
 } // namespace edi::drafting

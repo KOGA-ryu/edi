@@ -116,6 +116,14 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             return distanceToVertexList(typedGeometry.vertices, point, false);
         } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
             return distanceToVertexList(sampleEllipse(typedGeometry), point, true);
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            // Distance to the text's axis-aligned bounding box (0 inside).
+            const double h = std::max(0.0, typedGeometry.height);
+            const double w = std::max(h * 0.3, static_cast<double>(typedGeometry.content.size()) * h * 0.55);
+            const double left = typedGeometry.position.x, top = typedGeometry.position.y;
+            const double dx = std::max({left - point.x, 0.0, point.x - (left + w)});
+            const double dy = std::max({top - point.y, 0.0, point.y - (top + h)});
+            return std::sqrt(dx * dx + dy * dy);
         } else {
             static_assert(always_false_v<Geometry>, "hitDistance: unhandled geometry kind — add an arm");
         }

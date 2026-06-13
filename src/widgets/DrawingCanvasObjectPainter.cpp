@@ -1,8 +1,11 @@
 #include "widgets/DrawingCanvasObjectPainter.h"
 
 #include "widgets/DrawingCanvasProjectedObject.h"
+#include "widgets/DrawingCanvasValues.h"
 #include "widgets/DrawingCanvasViewport.h"
 
+#include <QFont>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <QPolygonF>
 
@@ -183,6 +186,15 @@ DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
         item.circle = projectedCircle(object);
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse")) {
         item.polygon = projectedPolygon(object);
+    } else if (kind == QStringLiteral("text")) {
+        // The projection emits px/py (top-left, canvas units), height (cap
+        // height, canvas units, default 0.04) and content (the QString).
+        // Extracted inline like the other small per-kind readers.
+        item.text.ok = true;
+        item.text.x = finiteNumber(object.value(QStringLiteral("px")), 0.0);
+        item.text.y = finiteNumber(object.value(QStringLiteral("py")), 0.0);
+        item.text.height = finiteNumber(object.value(QStringLiteral("height")), 0.04);
+        item.text.content = object.value(QStringLiteral("content")).toString();
     }
     item.style = projectedObjectStyle(object);
     item.source = object;
@@ -397,6 +409,28 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
             // Arc and polyline are open chains.
             painter.drawPolyline(polygon);
         }
+    } else if (kind == QStringLiteral("text")) {
+        const DrawingCanvasProjectedTextObject &text = item.text;
+        if (!text.ok) {
+            return;
+        }
+        // Cap height in canvas units -> pixel size via the board's pixel
+        // height, clamped so a tiny/zoomed-out label still renders one pixel
+        // tall instead of vanishing into a zero-size font.
+        const double pixelSize = std::max(1.0, text.height * context.board.height());
+        QFont font = painter.font();
+        font.setPixelSize(static_cast<int>(std::lround(pixelSize)));
+        const QPointF p = drawing_canvas::canvasToScreen(context.board, text.x, text.y);
+        // Save/restore the font so the next scene item paints with the default
+        // again; the painter's pen is already the styled stroke colour above,
+        // which is exactly the colour we want the glyphs in.
+        painter.save();
+        painter.setFont(font);
+        const QFontMetricsF fm(font);
+        // The projected position is the glyph box TOP-LEFT; drawText's anchor
+        // is the baseline, so drop by the ascent to put the box top at p.
+        painter.drawText(QPointF(p.x(), p.y() + fm.ascent()), text.content);
+        painter.restore();
     }
 
     if (context.plotDiagnostics && summary.plotBlocked && summary.bounds.ok) {

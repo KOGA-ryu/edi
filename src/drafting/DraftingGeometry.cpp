@@ -112,6 +112,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "construction_line";
     case DraftingShapeKind::Dimension:
         return "dimension";
+    case DraftingShapeKind::TextAnnotation:
+        return "text";
     }
     return "unknown";
 }
@@ -129,6 +131,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
     if (name == "guide") return DraftingShapeKind::Guide;
     if (name == "construction_line") return DraftingShapeKind::ConstructionLine;
     if (name == "dimension") return DraftingShapeKind::Dimension;
+    if (name == "text") return DraftingShapeKind::TextAnnotation;
     return DraftingShapeKind::Point;
 }
 
@@ -239,6 +242,8 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::ConstructionLine;
         } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
             return DraftingShapeKind::Dimension;
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            return DraftingShapeKind::TextAnnotation;
         } else {
             static_assert(always_false_v<Geometry>, "geometryKind: unhandled geometry kind — add an arm");
         }
@@ -388,6 +393,13 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
             if (distance(typedGeometry.a, typedGeometry.b) <= 0.000001) {
                 return GeometryValidationResult::rejected("dimension requires two distinct points");
             }
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            if (!isFinite(typedGeometry.position) || !std::isfinite(typedGeometry.height)) {
+                return GeometryValidationResult::rejected("text fields must be finite");
+            }
+            if (typedGeometry.height < 0.0) {
+                return GeometryValidationResult::rejected("text height must be non-negative");
+            }
         } else {
             static_assert(always_false_v<Geometry>, "validateGeometry: unhandled geometry kind — add an arm");
         }
@@ -442,6 +454,12 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
                              || std::is_same_v<Geometry, PolylineGeometry>) {
             return boundsFromPoints(typedGeometry.vertices);
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            // Approximate box from the content; the painter draws real glyphs, but
+            // selection/bounds only need an honest rectangle around them.
+            const double h = std::max(0.0, typedGeometry.height);
+            const double w = std::max(h * 0.3, static_cast<double>(typedGeometry.content.size()) * h * 0.55);
+            return {typedGeometry.position.x, typedGeometry.position.y, w, h};
         } else {
             static_assert(always_false_v<Geometry>, "computeBounds: unhandled geometry kind — add an arm");
         }
@@ -506,6 +524,8 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             for (Point2D &point : typedGeometry.vertices) {
                 point = translatePoint(point, dx, dy);
             }
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            typedGeometry.position = translatePoint(typedGeometry.position, dx, dy);
         } else {
             static_assert(always_false_v<Geometry>, "translateGeometry: unhandled geometry kind — add an arm");
         }
@@ -665,6 +685,8 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             for (std::size_t i = 0; i < typedGeometry.vertices.size(); ++i) {
                 handles.push_back({"vertex_" + std::to_string(i), typedGeometry.vertices[i]});
             }
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            handles.push_back({"text_position", typedGeometry.position});
         } else {
             static_assert(always_false_v<Geometry>, "handleAnchors: unhandled geometry kind — add an arm");
         }

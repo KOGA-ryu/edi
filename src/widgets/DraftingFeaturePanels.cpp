@@ -55,6 +55,7 @@ struct DraftingToolSpec {
 constexpr DraftingToolSpec kDraftingTools[] = {
     {"select_move", "Select / Move", "Se", 0},
     {"point_tool", "Point", "Pt", 1},
+    {"text_tool", "Text", "Tx", 1},
     {"line_tool", "Line", "Ln", 2},
     {"polyline_tool", "Polyline", "Py", 2},
     {"arrow_tool", "Arrow", "→", 2},
@@ -99,6 +100,8 @@ BeltFace draftingToolFace(const QString &toolId)
                                      P(0.72, 0.88), P(0.57, 0.55), P(0.82, 0.55), P(0.25, 0.05)})};
     } else if (toolId == QLatin1String("point_tool")) {
         face.dots = {P(0.5, 0.5)};
+    } else if (toolId == QLatin1String("text_tool")) {
+        face.polylines = {QPolygonF({P(0.2, 0.25), P(0.8, 0.25)}), QPolygonF({P(0.5, 0.25), P(0.5, 0.8)})};
     } else if (toolId == QLatin1String("line_tool")) {
         face.polylines = {QPolygonF({P(0.1, 0.9), P(0.9, 0.1)})};
     } else if (toolId == QLatin1String("polyline_tool")) {
@@ -707,6 +710,24 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
     group = beginInspectorGroup(QStringLiteral("style"));
     {
         FoldBox style = makeFoldBox();
+        // Text-annotation content: a STRING field (the geometry editor is numeric
+        // only). Built here, shown only for text objects — gated in the refresh.
+        m_textContentRow = new QWidget;
+        auto *textContentLayout = new QHBoxLayout(m_textContentRow);
+        textContentLayout->setContentsMargins(0, 0, 0, 0);
+        textContentLayout->setSpacing(8);
+        auto *textContentLabel = new QLabel(QStringLiteral("Text"));
+        textContentLabel->setObjectName(QStringLiteral("fieldLabel"));
+        m_textContentField = new QLineEdit;
+        m_textContentField->setObjectName(QStringLiteral("textContentField"));
+        m_textContentField->setPlaceholderText(QStringLiteral("text"));
+        connect(m_textContentField, &QLineEdit::editingFinished, this, [this]() {
+            m_controller->setSelectedObjectTextContent(m_textContentField->text());
+        });
+        textContentLayout->addWidget(textContentLabel);
+        textContentLayout->addWidget(m_textContentField, 1);
+        style.layout->addWidget(m_textContentRow);
+
         auto *colorRow = new QWidget;
         auto *colorRowLayout = new QHBoxLayout(colorRow);
         colorRowLayout->setContentsMargins(0, 0, 0, 0);

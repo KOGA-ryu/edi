@@ -9,6 +9,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPointF>
+#include <QRect>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QWheelEvent>
@@ -68,6 +69,56 @@ QVariantMap activeObject(const DrawingDocumentController &controller)
 bool near(double a, double b, double tolerance = 0.01)
 {
     return std::abs(a - b) <= tolerance;
+}
+
+// --- Painter render-contract helpers ---
+// The render-contract block at the end strokes each shape #ff0000 and reads
+// the grabbed QImage back. `reddish` is "this pixel is the shape's ink": a red
+// channel that clearly dominates green and blue. The board is a dark blue-grey
+// and the grid a faint blend — neither is reddish — so this separates ink from
+// background without pinning the exact sub-pixel the rasteriser chose, and the
+// generous margins survive the anti-aliasing on curved/glyph edges.
+bool reddish(const QColor &c)
+{
+    return c.red() > 0x90 && c.red() > c.green() + 0x40 && c.red() > c.blue() + 0x40;
+}
+
+// "Did the stroke land near here?" — any reddish pixel within `radius` of
+// `center`. Used for rim/curve points where the stroke width and sampling
+// leave the exact pixel a little fuzzy, but the neighbourhood is unambiguous.
+bool anyReddishNear(const QImage &image, const QPoint &center, int radius)
+{
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            const QPoint p = center + QPoint(dx, dy);
+            if (p.x() < 0 || p.y() < 0 || p.x() >= image.width() || p.y() >= image.height()) {
+                continue;
+            }
+            if (reddish(QColor(image.pixel(p)))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// How many reddish pixels fall inside `box` — the text test needs a CLUSTER
+// of glyph ink, not a single stray pixel, and needs the count to be zero
+// outside the glyph box.
+int reddishCount(const QImage &image, const QRect &box)
+{
+    int count = 0;
+    for (int y = box.top(); y <= box.bottom(); ++y) {
+        for (int x = box.left(); x <= box.right(); ++x) {
+            if (x < 0 || y < 0 || x >= image.width() || y >= image.height()) {
+                continue;
+            }
+            if (reddish(QColor(image.pixel(x, y)))) {
+                ++count;
+            }
+        }
+    }
+    return count;
 }
 
 } // namespace
@@ -509,6 +560,198 @@ int main(int argc, char **argv)
             sawTick = QColor(frame.pixel(x, 16)) != QColor(frame.pixel(x, 2));
         }
         assert(sawTick); // at least one tick reaches into the band
+    }
+
+    // ===== Painter render contracts =====
+    // The recently-shipped shapes (fill, ellipse, spline, text, arc, trim) all
+    // had logic/projection/serialize coverage, but nothing pinned that their
+    // PAINTER paths put ink on the canvas. The painter splits extraction
+    // (buildCanvasSceneItem) from drawing (drawSceneItem): a shape dropped from
+    // EITHER half draws nothing, with no compile error (tool-change-log
+    // friction #3). Each block builds a known document offscreen, strokes the
+    // shape #ff0000, deselects (so the full-alpha gold selection restroke
+    // cannot stand in for the object's own ink), grabs the QImage, and asserts
+    // on pixels. screenPointFor maps canvas coords to the same board pixels the
+    // painter drew through, so the probes track the real geometry.
+
+    // Fill brush: a closed shape with fillOpacity > 0 paints its INTERIOR, not
+    // just its outline. Fill was added as a dormant data model (default opacity
+    // 0); this is the only proof the opacity actually reaches a QBrush.
+    {
+        DrawingDocumentController fillController;
+        DrawingCanvasWidget fillCanvas(&fillController);
+        fillCanvas.resize(600, 450);
+
+        const QPoint interior = screenPointFor(fillController, fillCanvas, 0.5, 0.5).toPoint();
+        const QColor emptyInterior(fillCanvas.grab().toImage().pixel(interior));
+
+        fillController.setSelectedToolId(QStringLiteral("rectangle_tool"));
+        clickCanvas(fillController, fillCanvas, 0.3, 0.3);
+        clickCanvas(fillController, fillCanvas, 0.7, 0.7);
+        assert(activeObject(fillController).value(QStringLiteral("kind")).toString() == QStringLiteral("rectangle"));
+        assert(fillController.setSelectedObjectFillColor(QStringLiteral("#2277ee")));
+        assert(fillController.setSelectedObjectFillOpacity(1.0));
+        fillController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(fillController, fillCanvas, 0.02, 0.02); // deselect
+
+        const QColor filled(fillCanvas.grab().toImage().pixel(interior));
+        // An opaque fill covers the board it sits on: the interior pixel is now
+        // the fill colour (within rounding) and it changed from the bare board.
+        assert(filled != emptyInterior);
+        assert(std::abs(filled.red() - 0x22) < 0x18
+            && std::abs(filled.green() - 0x77) < 0x18
+            && std::abs(filled.blue() - 0xee) < 0x18);
+    }
+
+    // Ellipse: the projection flattens it to a closed polygon (sampleEllipse,
+    // 64 segments) that the painter draws with drawPolygon. Pin that the
+    // outline is an ELLIPSE, not its bounding box — the rim crosses each
+    // bbox-edge midpoint (an exact sample vertex at 64 segments) but the
+    // corners stay bare. That bare corner is what tells an ellipse from a rect.
+    {
+        DrawingDocumentController ellipseController;
+        DrawingCanvasWidget ellipseCanvas(&ellipseController);
+        ellipseCanvas.resize(600, 450);
+        ellipseController.setSelectedToolId(QStringLiteral("ellipse_tool"));
+        clickCanvas(ellipseController, ellipseCanvas, 0.5, 0.5);  // centre
+        clickCanvas(ellipseController, ellipseCanvas, 0.8, 0.75); // rx=0.3, ry=0.25
+        assert(activeObject(ellipseController).value(QStringLiteral("kind")).toString() == QStringLiteral("ellipse"));
+        assert(ellipseController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        ellipseController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(ellipseController, ellipseCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = ellipseCanvas.grab().toImage();
+        // Rightmost (0.8,0.5) and topmost (0.5,0.25) rim points are inked...
+        assert(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.5).toPoint(), 4));
+        assert(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.5, 0.25).toPoint(), 4));
+        // ...but the bbox CORNER (0.8,0.25) is bare — ~30px from the nearest rim.
+        assert(!anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.25).toPoint(), 6));
+    }
+
+    // Spline: the projection samples the Catmull-Rom curve through the control
+    // points (sampleSpline) and the painter draws that as an OPEN polyline. The
+    // regression this guards: drawing a straight chord between the endpoints
+    // (or nothing). Control points (0.2,0.5)-(0.5,0.2)-(0.8,0.5) make an arch;
+    // the curve interpolates the middle knot but never touches the chord.
+    {
+        DrawingDocumentController splineController;
+        DrawingCanvasWidget splineCanvas(&splineController);
+        splineCanvas.resize(600, 450);
+        splineController.setSelectedToolId(QStringLiteral("spline_tool"));
+        const QPointF a = screenPointFor(splineController, splineCanvas, 0.2, 0.5);
+        const QPointF b = screenPointFor(splineController, splineCanvas, 0.5, 0.2);
+        const QPointF c = screenPointFor(splineController, splineCanvas, 0.8, 0.5);
+        sendMouse(splineCanvas, QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonRelease, a, Qt::LeftButton, Qt::NoButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonPress, b, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
+        sendMouse(splineCanvas, QEvent::MouseButtonDblClick, c, Qt::LeftButton, Qt::LeftButton);
+        assert(activeObject(splineController).value(QStringLiteral("kind")).toString() == QStringLiteral("spline"));
+        assert(splineController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        splineController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(splineController, splineCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = splineCanvas.grab().toImage();
+        // The curve passes through the middle control point (it interpolates)...
+        assert(anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.2).toPoint(), 4));
+        // ...but the midpoint of the straight chord between the first and last
+        // control points (0.5,0.5) is bare — the curve arched ~120px away from
+        // it. A straight-line bug would ink exactly this pixel; a draws-nothing
+        // bug would fail the assert above. Together they pin "smooth curve".
+        assert(!anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.5).toPoint(), 6));
+    }
+
+    // Text: the painter sizes a QFont to height x board and drawText()s the
+    // content, dropping the pen by the font ascent so the glyph box TOP sits at
+    // the projected position. Pin that glyphs land inside that box, none spill
+    // left of the anchor, and none rise above it (the ascent offset is right).
+    {
+        DrawingDocumentController textController;
+        DrawingCanvasWidget textCanvas(&textController);
+        textCanvas.resize(600, 450);
+        textController.setSelectedToolId(QStringLiteral("text_tool"));
+        clickCanvas(textController, textCanvas, 0.5, 0.5); // single click places "Text"
+        assert(activeObject(textController).value(QStringLiteral("kind")).toString() == QStringLiteral("text"));
+        assert(activeObject(textController).value(QStringLiteral("content")).toString() == QStringLiteral("Text"));
+        assert(textController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        textController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(textController, textCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = textCanvas.grab().toImage();
+        const QPoint anchor = screenPointFor(textController, textCanvas, 0.5, 0.5).toPoint(); // glyph-box top-left
+        // Glyph ink clusters in the box that opens down-and-right of the anchor.
+        assert(reddishCount(frame, QRect(anchor.x(), anchor.y(), 44, 24)) >= 4);
+        // Nothing left of the anchor: the text is left-anchored at its position.
+        assert(reddishCount(frame, QRect(anchor.x() - 40, anchor.y(), 36, 24)) == 0);
+        // Nothing above the anchor: the box top is the position, glyphs sit
+        // below it — the ascent baseline-offset, the one subtle bit of drawText.
+        assert(reddishCount(frame, QRect(anchor.x(), anchor.y() - 28, 44, 24)) == 0);
+    }
+
+    // Arc: flattened to an OPEN polyline (sampleArc) and drawn as a chain (not
+    // closed). Pin that the rim is inked only across the swept angles — the
+    // centre is bare (no fill, no spokes) and the unswept side of the circle is
+    // bare (it is an arc, not a circle).
+    {
+        DrawingDocumentController arcController;
+        DrawingCanvasWidget arcCanvas(&arcController);
+        arcCanvas.resize(600, 450);
+        arcController.setSelectedToolId(QStringLiteral("arc_tool"));
+        clickCanvas(arcController, arcCanvas, 0.5, 0.5); // centre
+        clickCanvas(arcController, arcCanvas, 0.7, 0.5); // radius 0.2, start angle 0 -> sweep 105deg
+        assert(activeObject(arcController).value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
+        assert(arcController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        arcController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(arcController, arcCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = arcCanvas.grab().toImage();
+        const double deg = 3.14159265358979323846 / 180.0;
+        const double mid = 52.5 * deg; // inside the 0..105 sweep
+        assert(anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
+            0.5 + 0.2 * std::cos(mid), 0.5 + 0.2 * std::sin(mid)).toPoint(), 4));
+        assert(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas, 0.5, 0.5).toPoint(), 4));
+        const double outside = 230.0 * deg; // well outside the sweep
+        assert(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
+            0.5 + 0.2 * std::cos(outside), 0.5 + 0.2 * std::sin(outside)).toPoint(), 4));
+    }
+
+    // Trim: the verb shortens a line back to a crossing boundary. The painter
+    // path is the ordinary line stroke, but this pins that it draws the MUTATED
+    // (shorter) geometry — ink on the kept half, bare where the removed stub
+    // used to be.
+    {
+        DrawingDocumentController trimController;
+        DrawingCanvasWidget trimCanvas(&trimController);
+        trimCanvas.resize(600, 450);
+
+        // Target: horizontal line 0.2..0.8 at y=0.5, stroked red to find it
+        // specifically. Boundary: a vertical line crossing at x=0.5 (default
+        // colour, so it never trips the red probes).
+        trimController.setSelectedToolId(QStringLiteral("line_tool"));
+        clickCanvas(trimController, trimCanvas, 0.2, 0.5);
+        clickCanvas(trimController, trimCanvas, 0.8, 0.5);
+        assert(trimController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        const QString targetId = trimController.selectedObjectId();
+        clickCanvas(trimController, trimCanvas, 0.5, 0.2);
+        clickCanvas(trimController, trimCanvas, 0.5, 0.8);
+
+        // Re-select the target off the crossing, arm trim, click the right stub:
+        // the b end pulls back to the cut at x=0.5.
+        trimController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(trimController, trimCanvas, 0.3, 0.5);
+        assert(trimController.selectedObjectId() == targetId);
+        assert(trimController.beginTrimSelectedLine());
+        clickCanvas(trimController, trimCanvas, 0.72, 0.5);
+        assert(near(activeObject(trimController).value(QStringLiteral("x2")).toDouble(), 0.5));
+
+        clickCanvas(trimController, trimCanvas, 0.02, 0.02); // deselect
+        const QImage frame = trimCanvas.grab().toImage();
+        // Kept half (x=0.35) still carries the red target...
+        assert(anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.35, 0.5).toPoint(), 3));
+        // ...the removed stub (x=0.65) is bare of the target's red.
+        assert(!anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.65, 0.5).toPoint(), 3));
     }
 
     return 0;

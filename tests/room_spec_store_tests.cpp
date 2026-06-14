@@ -91,5 +91,31 @@ int main()
         assert(!badWidth.ok);
     }
 
+    // Plugs parse as a second indexed list — same edge/at grammar, name required.
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"north_door\"\nroom.plug.0.type = \"door\"\nroom.plug.0.at = \"3\"\n"
+            "room.plug.1.edge = \"E\"\nroom.plug.1.name = \"east_portal\"\n", // type + at default
+            1.0);
+        assert(parsed.ok);
+        assert(parsed.spec.plugs.size() == 2);
+        assert(parsed.spec.plugs[0].name == "north_door");
+        assert(parsed.spec.plugs[0].type == "door");
+        assert(parsed.spec.plugs[0].edge == RoomEdge::North);
+        assert(nearlyEqual(parsed.spec.plugs[0].at, 3.0)); // canvasPerUnit 1.0
+        assert(parsed.spec.plugs[1].name == "east_portal");
+        assert(parsed.spec.plugs[1].type == "door");          // default
+        assert(nearlyEqual(parsed.spec.plugs[1].at, 4.0));    // default center of E (height/2)
+    }
+
+    // A plug without a name is rejected — it would be unreferenceable.
+    {
+        const RoomSpecParseResult noName = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\nroom.plug.0.edge = \"N\"\n", 1.0);
+        assert(!noName.ok);
+        assert(noName.message.find("name") != std::string::npos);
+    }
+
     return 0;
 }

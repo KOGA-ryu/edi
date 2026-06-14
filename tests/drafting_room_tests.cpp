@@ -164,5 +164,49 @@ int main()
         assert(!planDraftingRoom(overlapping, counter()).ok);
     }
 
+    // A plug authored on an edge emits a Point marker at its offset (tagged
+    // plug:<name>, provenance "plug") plus a placement anchored to that marker.
+    {
+        RoomSpec spec;
+        spec.origin = {0.0, 0.0};
+        spec.width = 0.4;
+        spec.height = 0.2;
+        spec.wallThickness = 0.02;
+        spec.plugs = {{RoomEdge::North, 0.1, "north_door", "door"}};
+
+        const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
+        assert(plan.ok);
+        assert(plan.plugs.size() == 1);
+
+        int markerCount = 0;
+        const DraftingObject *marker = nullptr;
+        for (const DraftingObject &o : plan.objects) {
+            if (o.kind == DraftingShapeKind::Point) {
+                ++markerCount;
+                marker = &o;
+            }
+        }
+        assert(markerCount == 1 && marker != nullptr);
+        assert(marker->metadata.toolProvenance == "plug");
+        assert(marker->metadata.tags.size() == 1 && marker->metadata.tags[0] == "plug:north_door");
+        const PointGeometry pg = std::get<PointGeometry>(marker->geometry);
+        assert(nearlyEqual(pg.point.x, 0.1) && nearlyEqual(pg.point.y, 0.0)); // N edge, origin + 0.1
+
+        const RoomPlugPlacement &placement = plan.plugs[0];
+        assert(placement.anchorObjectId == marker->id);
+        assert(placement.name == "north_door" && placement.type == "door");
+        assert(nearlyEqual(placement.anchor.x, 0.1) && nearlyEqual(placement.anchor.y, 0.0));
+    }
+
+    // A plug off its wall is rejected.
+    {
+        RoomSpec spec;
+        spec.origin = {0.0, 0.0};
+        spec.width = 0.4;
+        spec.height = 0.2;
+        spec.plugs = {{RoomEdge::North, 0.9, "too_far", "door"}}; // 0.9 > width 0.4
+        assert(!planDraftingRoom(spec, counter()).ok);
+    }
+
     return 0;
 }

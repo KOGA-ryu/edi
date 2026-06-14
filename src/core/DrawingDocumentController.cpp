@@ -1979,8 +1979,24 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
         return finishEdit(QStringLiteral("room"), QStringLiteral("room"), false,
                           planned.code, QString::fromStdString(planned.message));
     }
+    // Turn each plug placement into a neutral DraftingPlug: the planner minted the
+    // marker's OBJECT id (the anchor); the controller mints the PLUG id from the
+    // same serial (a distinct "plug_" namespace, so no collision) and copies the
+    // authored name/type/anchor through. createObjectsAndSelect then creates the
+    // markers and declares these plugs in one undo step.
+    std::vector<DraftingPlug> plugs;
+    plugs.reserve(planned.plugs.size());
+    for (const RoomPlugPlacement &placement : planned.plugs) {
+        DraftingPlug plug;
+        plug.id = toStdString(nextObjectId(QStringLiteral("plug"), m_nextObjectSerial++));
+        plug.anchorObjectId = placement.anchorObjectId;
+        plug.name = placement.name;
+        plug.type = placement.type;
+        plug.anchor = placement.anchor;
+        plugs.push_back(std::move(plug));
+    }
     m_lastEditStatus.clear();
-    return createObjectsAndSelect(std::move(planned.objects));
+    return createObjectsAndSelect(std::move(planned.objects), std::move(plugs));
 }
 
 bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
@@ -2054,7 +2070,8 @@ bool DrawingDocumentController::createArrayFromActiveObject(
     return createObjectsAndSelect(std::move(planned.objects));
 }
 
-bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObject> objects)
+bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObject> objects,
+                                                       std::vector<DraftingPlug> plugs)
 {
     // The classified commit below relies on a non-empty batch: an empty one
     // would degrade to a pure selection clear, which must not push undo.
@@ -2078,6 +2095,14 @@ bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObjec
     const DraftingCommandResult create = applyDraftingCommand(m_document, CreateObjectsCommand{std::move(objects)});
     if (!create.ok) {
         return false;
+    }
+    // Plugs ride on the objects just created (a plug's anchorObjectId points at
+    // one), so they are declared AFTER the batch lands and INSIDE this bracket —
+    // one undo step restores walls, markers, and plugs together. Each plug arrives
+    // pre-minted; CreatePlugCommand only validates (a controlled anchor, so this
+    // does not fail in practice — its result is ignored like SelectObjects' is).
+    for (DraftingPlug &plug : plugs) {
+        applyDraftingCommand(m_document, CreatePlugCommand{std::move(plug)});
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
     // A successful non-empty batch create is never selection-only: classify

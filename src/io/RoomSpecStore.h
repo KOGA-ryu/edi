@@ -28,6 +28,10 @@ struct RoomSpecParseResult {
 //   room.opening.<i>.type   = door|secret|… (neutral tag; default "door")
 //   room.opening.<i>.width                  (> 0)
 //   room.opening.<i>.at     = center | <offset-from-edge-start>
+//   room.plug.<i>.edge      = N|E|S|W       (i = 0,1,2,...; stop at first gap)
+//   room.plug.<i>.name      = <label>       (required; a connection refers to it)
+//   room.plug.<i>.type      = door|portal|… (neutral tag; default "door")
+//   room.plug.<i>.at        = center | <offset-from-edge-start>
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit = 1.0);
 
 } // namespace edi::io

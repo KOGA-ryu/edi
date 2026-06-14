@@ -3683,6 +3683,39 @@ int main(int argc, char **argv)
         assert(roomController.modelDocument().value("drawing_objects").toList().empty());
     }
 
+    // S5: authored plugs land end to end — each plug's Point marker becomes an
+    // object AND a DraftingPlug anchored to it is declared, all in ONE undo step.
+    {
+        DrawingDocumentController plugController;
+        edi::drafting::RoomSpec spec;
+        spec.origin = {0.2, 0.3};
+        spec.width = 0.4;
+        spec.height = 0.2;
+        spec.wallThickness = 0.02;
+        spec.plugs = {
+            {edi::drafting::RoomEdge::North, 0.2, "north_door", "door"},
+            {edi::drafting::RoomEdge::East, 0.1, "east_portal", "portal"},
+        };
+        assert(plugController.createRoomFromSpec(spec));
+
+        const edi::drafting::DraftingDocument &doc = plugController.draftingDocument();
+        assert(doc.plugs.size() == 2);
+        assert(doc.objects.size() == 6); // 4 solid walls + 2 plug markers
+
+        const edi::drafting::DraftingPlug &north = doc.plugs.front();
+        assert(north.name == "north_door" && north.type == "door");
+        // Each plug anchors to a real Point marker in the SAME document.
+        const edi::drafting::DraftingObject *marker = edi::drafting::findObject(doc, north.anchorObjectId);
+        assert(marker != nullptr);
+        assert(marker->kind == edi::drafting::DraftingShapeKind::Point);
+        assert(marker->metadata.toolProvenance == "plug");
+
+        // The whole room — walls, markers, AND plugs — collapses in one undo.
+        assert(plugController.undo());
+        assert(plugController.draftingDocument().plugs.empty());
+        assert(plugController.draftingDocument().objects.empty());
+    }
+
     // The wall tool's thickness option rides into the freshly drawn wall; an
     // invalid value falls back to the 0.1 default (a wall is never invisible).
     {

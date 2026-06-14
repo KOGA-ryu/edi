@@ -142,7 +142,43 @@ DraftingRoomPlan planDraftingRoom(const RoomSpec &spec,
     if (walls.empty()) {
         return DraftingRoomPlan::rejected(DraftingResultCode::InvalidGeometry, "room has no solid walls");
     }
-    return DraftingRoomPlan::accepted(std::move(walls));
+
+    // Plug markers: one Point per authored plug, at its edge offset. The marker is
+    // a real document object (so it renders and selects); the plug record in the
+    // map graph anchors to it by id. Emitted AFTER the wall check so a wall-less
+    // room is still rejected, and INTO `walls` so the caller creates everything in
+    // one atomic batch. The same emitMarker shape DraftingAsciiMap uses: a Point
+    // with toolProvenance "plug" and a neutral "plug:<name>" tag.
+    std::vector<RoomPlugPlacement> plugs;
+    plugs.reserve(spec.plugs.size());
+    for (const RoomPlugSpec &plug : spec.plugs) {
+        const EdgeGeometry g = edgeGeometry(spec, plug.edge);
+        if (!std::isfinite(plug.at) || plug.at < -kEps || plug.at > g.length + kEps) {
+            return DraftingRoomPlan::rejected(DraftingResultCode::InvalidGeometry, "plug is off its wall");
+        }
+        const Point2D at{g.start.x + g.dirX * plug.at, g.start.y + g.dirY * plug.at};
+        DraftingObjectBuildResult built = buildDraftingObject(mintId(), DraftingShapeKind::Point, PointGeometry{at});
+        if (!built.ok) {
+            return DraftingRoomPlan::rejected(DraftingResultCode::DuplicateObjectId, "could not build a plug marker");
+        }
+        built.object.bounds = computeBounds(built.object.geometry);
+        built.object.metadata.toolProvenance = "plug";
+        if (!plug.name.empty()) {
+            built.object.metadata.tags = {"plug:" + plug.name}; // neutral, engine-resolved
+        }
+
+        RoomPlugPlacement placement;
+        placement.anchorObjectId = built.object.id;
+        placement.name = plug.name;
+        placement.type = plug.type;
+        placement.anchor = at;
+        plugs.push_back(std::move(placement));
+        walls.push_back(std::move(built.object));
+    }
+
+    DraftingRoomPlan plan = DraftingRoomPlan::accepted(std::move(walls));
+    plan.plugs = std::move(plugs);
+    return plan;
 }
 
 } // namespace edi::drafting

@@ -32,6 +32,18 @@ struct RoomOpening {
     std::string type;
 };
 
+// A plug authored on an edge: a NEUTRAL named attachment point at a single offset
+// along the edge (like an opening, but a point — no width). `at` is the distance
+// from the edge's start corner. The drafting layer realises it as a Point marker;
+// the map graph's plug record (DraftingPlug) then anchors to that marker. `type`
+// is a neutral tag (door/portal/threshold/…) edi does not interpret.
+struct RoomPlugSpec {
+    RoomEdge edge = RoomEdge::North;
+    double at = 0.0;
+    std::string name;
+    std::string type;
+};
+
 // A rectangular room in CANVAS units (the grid projection maps these to physical
 // feet/squares). origin is the NW corner. The room is pure spatial data plus a
 // neutral material tag — no game semantics, by design.
@@ -42,13 +54,27 @@ struct RoomSpec {
     double wallThickness = 0.1;
     std::string wallMaterial = "stone"; // neutral tag carried on every wall
     std::vector<RoomOpening> openings;
+    std::vector<RoomPlugSpec> plugs;
+};
+
+// A plug the room emitted, paired with the marker object it rides on. The marker
+// is in DraftingRoomPlan::objects; this records WHICH plug it is (neutral name +
+// type) and the marker's id as the anchor, so the caller mints a plug id and
+// issues a CreatePlugCommand. planDraftingRoom mints the marker's OBJECT id; the
+// caller mints the PLUG id (work-order decision #4: caller mints, op validates).
+struct RoomPlugPlacement {
+    DraftingObjectId anchorObjectId;
+    std::string name;
+    std::string type;
+    Point2D anchor;
 };
 
 struct DraftingRoomPlan {
     bool ok = false;
     DraftingResultCode code = DraftingResultCode::None;
     std::string message;
-    std::vector<DraftingObject> objects; // the perimeter wall segments
+    std::vector<DraftingObject> objects; // the perimeter wall segments + plug markers
+    std::vector<RoomPlugPlacement> plugs; // one per authored plug, anchored to a marker
 
     static DraftingRoomPlan accepted(std::vector<DraftingObject> objects);
     static DraftingRoomPlan rejected(DraftingResultCode code, std::string message);

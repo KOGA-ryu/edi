@@ -73,6 +73,28 @@ Each edge is named by its two corners, **clockwise**: `N` (NW→NE) · `E` (NE�
 A wall with no `openings` line is solid. Openings on the same wall must not
 overlap, and must fit inside it (validation refuses otherwise).
 
+#### `plugs` — one named connection point on a wall
+
+A **plug** is a neutral, named attachment point on an edge — a door / portal /
+threshold *socket*. Unlike an opening it is a single point (no width): edi drops a
+marker there. The map graph then records which plugs **connect** (the
+`map.connection.*` slice). A plug is how a room declares "something can join here";
+what the join *means* is the engine's rule.
+
+```
+<edge>  <name>  <type>  @ <where>
+```
+
+| part     | values                              | status | notes |
+|----------|-------------------------------------|--------|-------|
+| `edge`   | `N` \| `E` \| `S` \| `W`           | [live] | which wall |
+| `name`   | a label, e.g. `north_door`          | [live] | **required** — a connection refers to the plug by this name |
+| `type`   | `door` \| `portal` \| `threshold` … | [tag]  | neutral; engine resolves meaning |
+| `where`  | `center`, or an offset from the edge start | [live] | the marker's point |
+
+The plug rides on the marker as a neutral `plug:<name>` tag; nothing about
+passability or locking lives here — that is the engine's, across Seam B.
+
 ### `features` — placed objects (blocks)
 
 ```
@@ -98,6 +120,7 @@ stores any value; rendering and engine-meaning attach to known ones over time.
 - **wall material** — `stone` · `brick` · `wood` · `earth` · `rubble` · `metal`
 - **opening type** — `door` · `corridor` · `archway` · `window` · `secret` ·
   `portcullis` · `gate`
+- **plug type** — `door` · `portal` · `threshold` · `corridor`
 - **floor** — `flagstone` · `dirt` · `cobble` · `water` · `chasm` · `grass`
 - **feature kind** — `brazier` · `statue` · `pillar` · `altar` · `chest` ·
   `table` · `door-leaf` · `stairs` · `rubble-pile`
@@ -135,11 +158,20 @@ room.opening.0.edge = "N"
 room.opening.0.type = "corridor"
 room.opening.0.width = "___"
 room.opening.0.at = "center"
+
+room.plug.0.edge = "N"
+room.plug.0.name = "north_door"
+room.plug.0.type = "door"
+room.plug.0.at = "center"
 ```
 
 Add or remove `room.opening.<i>.*` blocks (keep `i` contiguous from 0). A wall
 with no opening block is solid. `at` is `center` or a number (offset in feet from
 the edge's start corner).
+
+Plugs work the same way: `room.plug.<i>.*` blocks, `i` contiguous from 0, read
+until the first gap. Each needs a `name` (so a connection can refer to it); `type`
+defaults to `door` and `at` to `center`.
 
 ---
 

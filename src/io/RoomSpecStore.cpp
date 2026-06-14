@@ -10,6 +10,7 @@ namespace edi::io {
 
 using edi::drafting::RoomEdge;
 using edi::drafting::RoomOpening;
+using edi::drafting::RoomPlugSpec;
 using edi::drafting::RoomSpec;
 using edi::formats::StaticConfig;
 
@@ -125,6 +126,49 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
             opening.center = offset * canvasPerUnit;
         }
         spec.openings.push_back(opening);
+    }
+
+    // Plugs are a second indexed list, parsed exactly like openings (same edge +
+    // at grammar) but a point, not a span — so no width. room.plug.<i>.*, stop at
+    // the first index with no `.edge`.
+    for (int i = 0;; ++i) {
+        const std::string prefix = "room.plug." + std::to_string(i);
+        if (!hasKey(config, prefix + ".edge")) {
+            break;
+        }
+        const std::optional<RoomEdge> edge = edgeFromName(configString(config, prefix + ".edge", ""));
+        if (!edge) {
+            out.message = prefix + ".edge must be one of N, E, S, W";
+            return out;
+        }
+        RoomPlugSpec plug;
+        plug.edge = *edge;
+        plug.name = configString(config, prefix + ".name", "");
+        if (plug.name.empty()) {
+            // A plug must be named so a connection (room.connection.*) can refer to
+            // it; a nameless plug is unreferenceable and almost certainly a typo.
+            out.message = prefix + ".name is required";
+            return out;
+        }
+        plug.type = configString(config, prefix + ".type", "door");
+        const std::string at = configString(config, prefix + ".at", "center");
+        if (at == "center" || at.empty()) {
+            plug.at = edgeLengthCanvas(spec, *edge) / 2.0;
+        } else {
+            std::size_t consumed = 0;
+            double offset = 0.0;
+            try {
+                offset = std::stod(at, &consumed);
+            } catch (...) {
+                consumed = 0;
+            }
+            if (consumed == 0) {
+                out.message = prefix + ".at must be 'center' or a number (offset from the edge's start corner)";
+                return out;
+            }
+            plug.at = offset * canvasPerUnit;
+        }
+        spec.plugs.push_back(plug);
     }
 
     out.ok = true;

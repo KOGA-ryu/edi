@@ -3791,8 +3791,18 @@ int main(int argc, char **argv)
         assert(edge.plugA != edge.plugB);
         assert(edge.type == "corridor");
 
+        // The connection also drew a corridor: wall objects tagged provenance
+        // "corridor" exist (the two aligned E/W doors give a straight corridor).
+        int corridorWalls = 0;
+        for (const edi::drafting::DraftingObject &o : doc.objects) {
+            if (o.metadata.toolProvenance == "corridor") {
+                ++corridorWalls;
+            }
+        }
+        assert(corridorWalls >= 2);
+
         // One undo collapses the entire map — every room's walls, every plug,
-        // every connection — together.
+        // every connection, AND the corridors — together.
         assert(mapController.undo());
         assert(mapController.draftingDocument().objects.empty());
         assert(mapController.draftingDocument().plugs.empty());

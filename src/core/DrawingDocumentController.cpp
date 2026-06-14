@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
+#include "drafting/DraftingCorridor.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingClipboard.h"
@@ -2041,6 +2042,9 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     std::vector<DraftingObject> allObjects;
     std::vector<DraftingPlug> allPlugs;
     std::unordered_map<std::string, DraftingPlugId> plugIdByKey;
+    // (room, plug) -> the door's position + which wall it sits on, so a connection
+    // can route a corridor between the two doors (each leaving perpendicular).
+    std::unordered_map<std::string, std::pair<Point2D, RoomEdge>> doorByKey;
 
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
         DraftingRoomPlan planned = planDraftingRoom(room.spec, mintObjectId);
@@ -2061,6 +2065,8 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             plug.type = placement.type;
             plug.anchor = placement.anchor;
             plugIdByKey.emplace(plugKey(room.name, placement.name), plug.id);
+            doorByKey.emplace(plugKey(room.name, placement.name),
+                              std::make_pair(placement.anchor, placement.edge));
             allPlugs.push_back(std::move(plug));
         }
         for (DraftingObject &object : planned.objects) {
@@ -2084,6 +2090,28 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         connection.plugB = to->second;
         connection.type = request.type;
         connections.push_back(std::move(connection));
+
+        // v1: draw the corridor between the two doors (orthogonal L/Z, leaving each
+        // door perpendicular). The connection is neutral graph DATA; the corridor is
+        // editable wall geometry DERIVED from it — so it lands as ordinary walls in
+        // the same atomic batch and undoes with the rest of the map.
+        const auto doorA = doorByKey.find(plugKey(request.from.roomName, request.from.plugName));
+        const auto doorB = doorByKey.find(plugKey(request.to.roomName, request.to.plugName));
+        if (doorA != doorByKey.end() && doorB != doorByKey.end()) {
+            CorridorSpec corridor;
+            corridor.doorA = doorA->second.first;
+            corridor.edgeA = doorA->second.second;
+            corridor.doorB = doorB->second.first;
+            corridor.edgeB = doorB->second.second;
+            corridor.width = 0.045;
+            corridor.wallThickness = 0.015;
+            std::vector<DraftingObject> corridorWalls = planCorridor(corridor, [this]() {
+                return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
+            });
+            for (DraftingObject &wall : corridorWalls) {
+                allObjects.push_back(std::move(wall));
+            }
+        }
     }
 
     m_lastEditStatus.clear();

@@ -151,11 +151,17 @@ private:
     void applyGeometryEditStatus(const QVariantMap &editStatus);
     void setGeometryEditorVisible(bool visible);
 
+    // C3 block palette: repopulate the block list from the document's blocks
+    // (name + id), called on build and on every model change (like m_objectList).
+    void refreshBlockPalette();
+
     DrawingDocumentController *m_controller = nullptr;
     ShellActions m_actions;
     DrawingCanvasWidget *m_canvas = nullptr;
     QListWidget *m_objectList = nullptr;
     QLabel *m_objectListEmpty = nullptr;
+    QListWidget *m_blockList = nullptr;
+    QLineEdit *m_blockNameField = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QCheckBox *m_aspectLockToggle = nullptr;

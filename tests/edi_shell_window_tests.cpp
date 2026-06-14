@@ -2639,5 +2639,49 @@ int main(int argc, char **argv)
         assert(!applyButton->isEnabled());
     }
 
+    // C3 block palette: save a selection as a named block, see it listed, click
+    // the row to arm a placement pick, and stamp it with a canvas click. Fresh
+    // window keeps this isolated from the accumulated document above.
+    {
+        EdiShellWindow blockWindow;
+        auto *blockController = blockWindow.findChild<DrawingDocumentController *>();
+        assert(blockController != nullptr);
+
+        // Draw two points and marquee-select both.
+        blockController->setSelectedToolId(QStringLiteral("point_tool"));
+        blockController->clickCanvasNormalized(0.3, 0.3);
+        blockController->clickCanvasNormalized(0.6, 0.6);
+        assert(objectCount(*blockController) == 2);
+        blockController->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+
+        auto *nameField = blockWindow.findChild<QLineEdit *>(QStringLiteral("blockNameField"));
+        auto *saveButton = buttonNamed(blockWindow, QStringLiteral("saveBlockButton"));
+        auto *blockList = blockWindow.findChild<QListWidget *>(QStringLiteral("blockList"));
+        assert(nameField != nullptr && saveButton != nullptr && blockList != nullptr);
+        assert(blockList->count() == 0); // empty library at first
+
+        // Save the selection as a named block via the palette button.
+        nameField->setText(QStringLiteral("table"));
+        saveButton->click();
+
+        // The palette now lists the block by name, the row carrying its id.
+        assert(blockList->count() == 1);
+        assert(blockList->item(0)->text() == QStringLiteral("table"));
+        const QString blockId = blockList->item(0)->data(Qt::UserRole).toString();
+        assert(blockId.startsWith(QStringLiteral("block_")));
+
+        // Clicking the row (through the real signal wiring) arms a placement pick.
+        emit blockList->itemClicked(blockList->item(0));
+        assert(blockController->isAwaitingPointCapture());
+        assert(blockController->pointCapturePrompt() == QStringLiteral("Click to place the block"));
+
+        // The next canvas click stamps the instance (the definition's two
+        // objects) and clears the pick — no point object is created by the tool.
+        const int beforeStamp = objectCount(*blockController);
+        blockController->clickCanvasNormalized(0.5, 0.5);
+        assert(objectCount(*blockController) == beforeStamp + 2);
+        assert(!blockController->isAwaitingPointCapture());
+    }
+
     return 0;
 }

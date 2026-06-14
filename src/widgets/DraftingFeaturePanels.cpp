@@ -304,7 +304,69 @@ std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
     connect(m_beltWidget, &BeltCrossWidget::selected, m_controller, [this](const QString &toolId) {
         m_controller->setSelectedToolId(toolId);
     });
-    return {{QStringLiteral("tool_belt"), QStringLiteral("Tools"), m_beltWidget}};
+
+    // C3 block palette (the "flash sheet"). Minimal, unstyled wiring — the shell
+    // frames it in a FloatingPalette like the belt; the look is the user's to
+    // polish later. A name field + a save action turn the current selection into
+    // a block; the list stamps a block by id when a row is clicked (arming a
+    // pick-a-point capture, the radial-array/fillet idiom).
+    auto *blockPanel = new QWidget;
+    blockPanel->setObjectName(QStringLiteral("blockPalette"));
+    auto *blockLayout = new QVBoxLayout(blockPanel);
+    clearLayoutMargins(blockLayout);
+    blockLayout->setSpacing(6);
+
+    m_blockNameField = new QLineEdit;
+    m_blockNameField->setObjectName(QStringLiteral("blockNameField"));
+    m_blockNameField->setPlaceholderText(QStringLiteral("Block name"));
+    blockLayout->addWidget(m_blockNameField);
+
+    auto *saveBlockButton = new QPushButton(QStringLiteral("Save selection as block"));
+    saveBlockButton->setObjectName(QStringLiteral("saveBlockButton"));
+    connect(saveBlockButton, &QPushButton::clicked, m_controller, [this]() {
+        QString name = m_blockNameField->text().trimmed();
+        if (name.isEmpty()) {
+            name = QStringLiteral("block"); // a blank name still saves something usable
+        }
+        m_controller->defineBlockFromSelection(name);
+    });
+    blockLayout->addWidget(saveBlockButton);
+
+    m_blockList = new QListWidget;
+    m_blockList->setObjectName(QStringLiteral("blockList"));
+    // A sane default height so an empty library is a small box, not a giant black
+    // rectangle over the canvas (mirrors the object list's fixed height). Visual
+    // polish/placement beyond this is the user's to restyle.
+    m_blockList->setMaximumHeight(160);
+    connect(m_blockList, &QListWidget::itemClicked, m_controller, [this](QListWidgetItem *item) {
+        m_controller->beginBlockInstancePick(item->data(Qt::UserRole).toString());
+    });
+    blockLayout->addWidget(m_blockList);
+    refreshBlockPalette();
+
+    return {
+        {QStringLiteral("tool_belt"), QStringLiteral("Tools"), m_beltWidget},
+        {QStringLiteral("block_palette"), QStringLiteral("Blocks"), blockPanel},
+    };
+}
+
+void DraftingFeature::refreshBlockPalette()
+{
+    if (m_blockList == nullptr) {
+        return; // palette not built yet (refreshInspector can run first)
+    }
+    // Rebuild the block list as a projection of the document's blocks — the same
+    // recompute-whole discipline as the object list. The blocker keeps a
+    // programmatic rebuild from re-emitting itemClicked.
+    const QSignalBlocker blocker(*m_blockList);
+    m_blockList->clear();
+    for (const edi::drafting::DraftingBlock &block : m_controller->draftingDocument().blocks) {
+        const QString id = QString::fromStdString(block.id);
+        const QString name = QString::fromStdString(block.name);
+        auto *item = new QListWidgetItem(name.isEmpty() ? id : name);
+        item->setData(Qt::UserRole, id); // the row carries the block id to stamp
+        m_blockList->addItem(item);
+    }
 }
 
 QWidget *DraftingFeature::buildPanel(ShellSlot slot)

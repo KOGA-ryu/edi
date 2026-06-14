@@ -40,6 +40,7 @@ enum class PointCaptureIntent {
     RadialArrayCenter,
     TrimPoint,        // the click chooses which part of the selected line to trim away
     FilletSecondLine, // the click picks the other line + the corner to round
+    BlockInstance,    // the click is where to stamp the armed block (C3 palette)
 };
 
 struct PendingPointCapture {
@@ -284,6 +285,10 @@ public:
     // shape with no link back to the definition.
     bool defineBlockFromSelection(const QString &name);
     bool placeBlockInstance(const QString &blockId, double x, double y);
+    // C3 palette: arm a pick-a-point capture for placing `blockId` — the next
+    // canvas click resolves to placeBlockInstance (same idiom as the radial-array
+    // centre pick). Refused if the block does not exist.
+    bool beginBlockInstancePick(const QString &blockId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -416,6 +421,9 @@ private:
     std::optional<edi::drafting::DraftingToolCreationRequest> m_pendingCreation;
     std::optional<edi::drafting::DraftingObject> m_previewObject;
     std::optional<PendingPointCapture> m_pointCapture;
+    // The block awaiting placement while a BlockInstance capture is armed; read
+    // by resolvePointCapture once the placement click arrives.
+    QString m_pendingBlockId;
     // Projection cache. The document-shaped model (objects, layers, grid,
     // plot plan, safety annotation, selection bounds) rebuilds only when a
     // modelChanged emission bumps the generation; every call then overlays

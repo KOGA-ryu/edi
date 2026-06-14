@@ -1784,6 +1784,22 @@ bool DrawingDocumentController::beginRadialArrayCenterPick()
     return true;
 }
 
+bool DrawingDocumentController::beginBlockInstancePick(const QString &blockId)
+{
+    // Arm a pick-a-point capture for a block placement, the same shape as the
+    // radial-array centre pick. Require the block to exist up front — a "click to
+    // place" prompt for a vanished block would be a dead end. The captured click
+    // (resolvePointCapture) stamps the instance at that point.
+    if (!blockIndexById(m_document, toStdString(blockId))) {
+        return false;
+    }
+    m_pendingBlockId = blockId;
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::BlockInstance,
+                                         QStringLiteral("Click to place the block")};
+    emit pointerChanged(); // view state: the prompt appears, the document is untouched
+    return true;
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring
@@ -1933,6 +1949,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::FilletSecondLine:
         applyFilletAtPoint(point);
+        break;
+    case PointCaptureIntent::BlockInstance:
+        placeBlockInstance(m_pendingBlockId, point.x, point.y);
         break;
     }
     // The consumers emit modelChanged on success and on a surfaced failure, but

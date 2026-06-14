@@ -219,6 +219,10 @@ void DraftingFeature::refreshInspector()
         m_objectListEmpty->setVisible(objects.isEmpty());
     }
 
+    // C3: keep the block palette in step with the document on every model change
+    // (a newly defined block appears; a deleted one drops), like the object list.
+    refreshBlockPalette();
+
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_beltWidget != nullptr) {
         const int beltIndex = m_beltWidget->indexOfItem(m_controller->selectedToolId());

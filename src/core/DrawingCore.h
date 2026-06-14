@@ -120,6 +120,10 @@ public:
     // centre).
     void setFixedRadius(double radius);
     double fixedRadius() const;
+    // Wall tool option: the band thickness a freshly drawn wall is born with
+    // (today fixed at the 0.1 default, then edited after). Invalid -> 0.1.
+    void setWallThickness(double thickness);
+    double wallThickness() const;
     void setArrayCount(int count);
     int arrayCount() const;
     void setArraySpacingX(double spacing);
@@ -373,6 +377,7 @@ private:
     double m_rectInset = 0.0;
     bool m_aspectLockEnabled = false;
     double m_fixedRadius = 0.0;
+    double m_wallThickness = 0.1; // wall tool option: band width at draw time
     double m_filletRadius = 0.05; // default rounding radius for the fillet verb
     // Array defaults match the retired hardcoded repeat (3 copies, 0.1
     // spacing) so the buttons behave identically until the spins are touched.

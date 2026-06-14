@@ -3683,5 +3683,24 @@ int main(int argc, char **argv)
         assert(roomController.modelDocument().value("drawing_objects").toList().empty());
     }
 
+    // The wall tool's thickness option rides into the freshly drawn wall; an
+    // invalid value falls back to the 0.1 default (a wall is never invisible).
+    {
+        DrawingDocumentController wallThicknessController;
+        wallThicknessController.setSelectedToolId("wall_tool");
+        wallThicknessController.setWallThickness(0.25);
+        wallThicknessController.clickCanvasNormalized(0.2, 0.5);
+        wallThicknessController.clickCanvasNormalized(0.8, 0.5);
+        QVariantList walls = wallThicknessController.modelDocument().value("drawing_objects").toList();
+        assert(nearlyEqual(walls[0].toMap().value("thickness").toDouble(), 0.25));
+
+        wallThicknessController.setWallThickness(0.0); // invalid -> 0.1 default
+        assert(nearlyEqual(wallThicknessController.wallThickness(), 0.1));
+        wallThicknessController.clickCanvasNormalized(0.2, 0.6);
+        wallThicknessController.clickCanvasNormalized(0.8, 0.6);
+        walls = wallThicknessController.modelDocument().value("drawing_objects").toList();
+        assert(nearlyEqual(walls[1].toMap().value("thickness").toDouble(), 0.1));
+    }
+
     return 0;
 }

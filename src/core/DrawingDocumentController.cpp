@@ -830,6 +830,18 @@ double DrawingDocumentController::fixedRadius() const
     return m_fixedRadius;
 }
 
+void DrawingDocumentController::setWallThickness(double thickness)
+{
+    // A zero/invalid thickness would be an invisible band, so fall back to the
+    // 0.1 default (not "off") — a wall always has a visible width.
+    m_wallThickness = std::isfinite(thickness) && thickness > 0.0 ? std::min(thickness, 1.0) : 0.1;
+}
+
+double DrawingDocumentController::wallThickness() const
+{
+    return m_wallThickness;
+}
+
 void DrawingDocumentController::setFilletRadius(double radius)
 {
     // Unlike fixedRadius, 0 is not a meaningful fillet (a zero arc), so an
@@ -2493,6 +2505,7 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         m_pendingCreation->rectCornerRadius = m_rectCornerRadius;
         m_pendingCreation->rectInset = m_rectInset;
         m_pendingCreation->fixedRadius = m_fixedRadius;
+        m_pendingCreation->wallThickness = m_wallThickness;
         m_previewObject.reset();
         commitEdit();
         if (clearedEditStatus) {

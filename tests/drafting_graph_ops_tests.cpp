@@ -1,13 +1,14 @@
-// Map graph — S0 (data layout only).
+// Map graph — S0 (data layout) + S1 (DraftingGraphOps).
 //
-// This slice adds the plug and declared-connection structs plus the two sibling
-// vectors on DraftingDocument; it has NO ops, commands, or serialization yet
-// (those are S1+). So these assertions are deliberately about LAYOUT: the structs
-// exist, a fresh document carries an empty graph, and the fields hold their
-// values. This file grows to hold the DraftingGraphOps tests in the next slice.
+// S0 cases assert the LAYOUT: the plug/connection structs exist, a fresh document
+// carries an empty graph, and the fields hold their values. S1 cases assert the
+// MUTATION OPS: add/remove plug, declare/undeclare connection, their validation,
+// the revision bump, and the removePlug → orphan-connection cascade.
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingGraphOps.h"
 
 #include <cassert>
+#include <cstdint>
 #include <string>
 
 using namespace edi::drafting;
@@ -73,6 +74,113 @@ int main()
         assert(document.connections.size() == 1);
         assert(document.plugs.front().anchorObjectId == "room.0");
         assert(document.connections.front().plugA == "plug_0001");
+    }
+
+    // --- S1: DraftingGraphOps ------------------------------------------------
+
+    // addPlug requires a real anchor object and a unique, non-empty id; on
+    // success it appends and bumps the revision (the addObject contract).
+    {
+        DraftingDocument document = makeDraftingDocument("doc-ops");
+        document.objects.push_back(makeDraftingObject("room.0", DraftingShapeKind::Point, PointGeometry{}));
+        const std::uint64_t before = document.revision;
+
+        DraftingPlug plug;
+        plug.id = "plug_0001";
+        plug.anchorObjectId = "room.0";
+        plug.name = "north_doorway";
+        plug.type = "door";
+
+        // anchor missing → rejected, no mutation.
+        DraftingPlug orphan = plug;
+        orphan.anchorObjectId = "nope";
+        assert(!addPlug(document, orphan).ok);
+        assert(document.plugs.empty());
+
+        // empty id → rejected.
+        DraftingPlug unnamed = plug;
+        unnamed.id.clear();
+        assert(!addPlug(document, unnamed).ok);
+
+        // valid → accepted, appended, revision bumped.
+        assert(addPlug(document, plug).ok);
+        assert(document.plugs.size() == 1);
+        assert(document.revision == before + 1);
+
+        // duplicate id → rejected, still one plug.
+        assert(!addPlug(document, plug).ok);
+        assert(document.plugs.size() == 1);
+    }
+
+    // declareConnection requires both endpoints to name plugs that exist, and a
+    // unique connection id.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-conn");
+        document.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        document.objects.push_back(makeDraftingObject("m.1", DraftingShapeKind::Point, PointGeometry{}));
+
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1";
+        assert(addPlug(document, a).ok);
+        assert(addPlug(document, b).ok);
+
+        DraftingDeclaredConnection conn;
+        conn.id = "conn_0001";
+        conn.plugA = "plug_a";
+        conn.plugB = "plug_missing";
+        assert(!declareConnection(document, conn).ok); // unknown plug → rejected
+        assert(document.connections.empty());
+
+        conn.plugB = "plug_b";
+        assert(declareConnection(document, conn).ok);
+        assert(document.connections.size() == 1);
+
+        // duplicate connection id → rejected.
+        assert(!declareConnection(document, conn).ok);
+        assert(document.connections.size() == 1);
+    }
+
+    // removePlug cascades: every connection touching the removed plug goes too,
+    // so the graph never holds a dangling edge.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-cascade");
+        for (const char *id : {"m.0", "m.1", "m.2"}) {
+            document.objects.push_back(makeDraftingObject(id, DraftingShapeKind::Point, PointGeometry{}));
+        }
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1";
+        DraftingPlug c; c.id = "plug_c"; c.anchorObjectId = "m.2";
+        assert(addPlug(document, a).ok && addPlug(document, b).ok && addPlug(document, c).ok);
+
+        DraftingDeclaredConnection ab; ab.id = "conn_ab"; ab.plugA = "plug_a"; ab.plugB = "plug_b";
+        DraftingDeclaredConnection bc; bc.id = "conn_bc"; bc.plugA = "plug_b"; bc.plugB = "plug_c";
+        assert(declareConnection(document, ab).ok && declareConnection(document, bc).ok);
+        assert(document.connections.size() == 2);
+
+        // remove plug_b → both edges (ab, bc) reference it → both dropped.
+        assert(removePlug(document, "plug_b").ok);
+        assert(document.plugs.size() == 2);
+        assert(document.connections.empty());
+
+        // removing a missing plug → rejected.
+        assert(!removePlug(document, "plug_b").ok);
+    }
+
+    // undeclareConnection removes one specific edge; an unknown id → rejected.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-undeclare");
+        document.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        document.objects.push_back(makeDraftingObject("m.1", DraftingShapeKind::Point, PointGeometry{}));
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1";
+        assert(addPlug(document, a).ok && addPlug(document, b).ok);
+        DraftingDeclaredConnection ab; ab.id = "conn_ab"; ab.plugA = "plug_a"; ab.plugB = "plug_b";
+        assert(declareConnection(document, ab).ok);
+
+        assert(!undeclareConnection(document, "conn_nope").ok);
+        assert(document.connections.size() == 1);
+        assert(undeclareConnection(document, "conn_ab").ok);
+        assert(document.connections.empty());
     }
 
     return 0;

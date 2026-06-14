@@ -84,6 +84,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingRoom.cpp
     src/drafting/DraftingAsciiMap.h
     src/drafting/DraftingAsciiMap.cpp
+    src/drafting/DraftingGraphOps.h
+    src/drafting/DraftingGraphOps.cpp
     src/drafting/DraftingAlign.h
     src/drafting/DraftingAlign.cpp
     src/drafting/DraftingSelection.h

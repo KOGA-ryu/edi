@@ -100,7 +100,7 @@ commit, teaching commit body — the edi discipline.
 | **S0** | Structs + id aliases + the two vectors — pure data, no behavior. **The keystone.** | small | — |
 | **S1** | `DraftingGraphOps` free fns: add/remove plug, declare/undeclare connection; `removePlug` cascades to drop orphan edges; validate ids + anchor exist; bump `revision`. | medium | S0 |
 | **S2** | `DraftingCommand` variants + `applyDraftingCommand` arms (`CreatePlug` / `DeletePlug` / `DeclareConnection` / `DeleteConnection`). Caller supplies pre-minted ids, like objects. | medium | S1 |
-| **S3** | MessagePack round-trip — two tolerant arrays; bump doc version 2→3, hold `MinReadVersion` at 1 (old `.edidraw` load with an empty graph). No JSON. | medium | S0 |
+| **S3** | MessagePack round-trip — two tolerant arrays read additively (missing → empty graph); **no version bump** (see decision 3). No JSON. | medium | S0 |
 | **S4** | **Object-delete → plug/connection cascade** — close the dangling-reference hole in the existing `DeleteObjectCommand` / `removeObject` path (mirror `normalizeSelection`'s prune). | small | S2 |
 | **S5** | Room-spec authoring: parse `room.plug.<i>.{name,edge,at,type}`, emit a `Point` marker per plug (`emitMarker`, provenance `"plug"`, tag `plug:<name>`), **and the controller wiring that mints the plug** (not deferred). Doc the new keys. | medium | S2 |
 | **S6** | TOML `map.connection.<i>.{from,to,type}` → `DeclareConnectionCommand`; reject duplicate/unknown plug names rather than silently resolving. | small | S5 |
@@ -130,9 +130,14 @@ S0, so serialize and authoring can proceed in parallel with the ops work.
    gives the plug a real coordinate and makes it selectable. Reuses `emitMarker`.
 2. **Two sibling vectors**, not a wrapping `DraftingMapGraph` struct — buys nothing
    until there is graph-level data to hold; mirrors `layers` / `objects`.
-3. **Bump the document version 2→3, hold `MinReadVersion` at 1** — the reader is
-   tolerant either way, but the bump is the honest record (the M1.3 `wall_visual`
-   precedent). Done in S3.
+3. ~~Bump the document version 2→3~~ → **No version bump (corrected during S3).**
+   The original plan cited the M1.3 `wall_visual` precedent as a reason to bump —
+   but on building S3, `wall_visual` turned out to have been added *without* a bump:
+   it is an additive field read tolerantly (missing → default). The codec's only
+   bump (v1→v2) was for a *semantic reinterpretation* of an existing field
+   (`readStroke` still gates on `version`). Plugs/connections reinterpret nothing,
+   so by the codebase's own demonstrated rule a bump is unwarranted; version stays
+   2, `MinReadVersion` stays 1, and pre-graph files load with an empty graph.
 4. **Caller mints ids, ops only validate** — keeps `DraftingGraphOps` Qt-free and
    deterministic to test, matching how `DraftingObject`s arrive pre-minted at
    `addObject`.

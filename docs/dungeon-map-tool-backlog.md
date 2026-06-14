@@ -72,11 +72,19 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
   applies `CreateBlockCommand` through `applyCommandAndEmit` (undoable), refuses empty selection.
   *Accept (met):* controller test — define one-undo-step, stamp two `instance_` objects centred on
   the point, definition byte-unchanged (independence), one undo step. 94 green.
-- **◻ C3 — palette UI + tag/set taxonomy** (widget layer). `PointCaptureIntent::BlockInstance`
-  + a `block_palette` FeaturePaletteSpec (reuse FloatingPalette + the radial-array/fillet
-  pick-a-point idiom). Click a block row → arm point capture → next canvas click stamps.
-  A "Save selection as block" action calls `defineBlockFromSelection`. **First visible slice —
-  flag the look to the user.** *Accept:* `edi_shell_window_tests` (offscreen, objectName-driven).
+- **✅ C3 — palette UI** (widget layer) (dd12fad). `PointCaptureIntent::BlockInstance` +
+  `beginBlockInstancePick` + a `block_palette` FeaturePaletteSpec (shell frames it in a
+  FloatingPalette like the tool belt). Name field + "Save selection as block" button →
+  `defineBlockFromSelection`; block list rows carry the id, click → arm point capture → next
+  canvas click stamps; `refreshBlockPalette` keeps the list live. *Accept (met):*
+  `edi_shell_window_tests` drives it end-to-end through the real widgets; default-shell golden
+  re-blessed for the new palette. 94 green. **Minimal/unstyled by design — the user owns the
+  look (placement + visual polish to restyle); tag/set taxonomy deferred (open `tags` is additive).**
+
+**Phase C COMPLETE** (C0–C3). Block library ships: define a selection as a named block →
+stamp independent editable instances → browse/stamp from the palette → round-trips through
+`.edidraw`. Translate-only (rotation/scale await the deferred `transformGeometry` slice).
+**Next: Phase D (Seam B export), then STOP.**
 
 ### Phase D — Seam B export (M4) · compute: exporter pattern + design-light
 - **◻ D1 — TOON map-graph projection.** Project rooms/plugs/connections/neutral tags

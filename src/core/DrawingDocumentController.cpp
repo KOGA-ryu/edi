@@ -4,6 +4,7 @@
 #include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
+#include "drafting/DraftingAsciiMap.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingClipboard.h"
@@ -1961,6 +1962,32 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
     }
     m_lastEditStatus.clear();
     return createObjectsAndSelect(std::move(planned.objects));
+}
+
+bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
+{
+    const AsciiMapParseResult parsed = parseAsciiMap(asciiText);
+    if (!parsed.ok) {
+        return finishEdit(QStringLiteral("ascii_map"), QStringLiteral("ascii_map"), false,
+                          DraftingResultCode::InvalidGeometry, QString::fromStdString(parsed.message));
+    }
+    // Auto-fit: the grid fills ~80% of the board, centred — so any map renders
+    // sensibly with no placement parameters (the cheap-authoring goal).
+    const AsciiMap &map = parsed.map;
+    const double cell = 0.62 / std::max(map.rows, map.cols);
+    const Point2D origin{(1.0 - map.cols * cell) / 2.0, (1.0 - map.rows * cell) / 2.0};
+
+    const int firstSerial = m_nextObjectSerial;
+    AsciiMapBuildResult plan = planAsciiMapGeometry(map, origin, cell, [this]() {
+        return toStdString(nextObjectId(QStringLiteral("ascii"), m_nextObjectSerial++));
+    });
+    if (!plan.ok) {
+        m_nextObjectSerial = firstSerial;
+        return finishEdit(QStringLiteral("ascii_map"), QStringLiteral("ascii_map"), false,
+                          plan.code, QString::fromStdString(plan.message));
+    }
+    m_lastEditStatus.clear();
+    return createObjectsAndSelect(std::move(plan.objects));
 }
 
 bool DrawingDocumentController::createArrayFromActiveObject(

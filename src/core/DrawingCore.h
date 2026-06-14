@@ -225,6 +225,10 @@ public:
     // ids on demand, plan the perimeter walls, create-and-select them atomically.
     // The spec carries geometry + neutral tags only — no game rules.
     bool createRoomFromSpec(const edi::drafting::RoomSpec &spec);
+    // Generate a map from an ASCII glyph grid (the control-gate authoring path):
+    // parse, derive walls/doors/features, auto-fit + centre on the board, and
+    // create-and-select atomically. Glyphs are data; tags stay neutral.
+    bool createMapFromAscii(const std::string &asciiText);
     bool recordCalibrationMeasurement(double measuredValue);
     bool applyCalibrationCorrection();
     bool fitSelectionToDrawableBounds();

@@ -106,12 +106,17 @@ int main(int argc, char **argv)
         QStringLiteral("room-file"),
         QStringLiteral("Generate a room from a .room.toml authoring file (Seam-A: file -> map)."),
         QStringLiteral("path"));
+    const QCommandLineOption asciiMapOption(
+        QStringLiteral("ascii-map"),
+        QStringLiteral("Generate a map from an ASCII glyph grid file (the control-gate path)."),
+        QStringLiteral("path"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
     parser.addOption(benchObjectsOption);
     parser.addOption(demoRoomOption);
     parser.addOption(roomFileOption);
+    parser.addOption(asciiMapOption);
     parser.process(app);
 
     EdiShellWindow window;
@@ -184,6 +189,22 @@ int main(int argc, char **argv)
                 const bool ok = controller->createRoomFromSpec(parsed.spec);
                 QTextStream(stdout) << "room-file: " << (ok ? "generated" : "rejected by builder") << '\n';
             }
+        }
+    }
+
+    // The control-gate path: an ASCII glyph grid -> walls/doors/features. The
+    // grid IS the proof; the same glyphs the user sees become the geometry.
+    if (parser.isSet(asciiMapOption)) {
+        auto *controller = window.findChild<DrawingDocumentController *>();
+        QFile file(parser.value(asciiMapOption));
+        QTextStream err(stderr);
+        if (controller == nullptr) {
+            err << "ascii-map: no controller\n";
+        } else if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            err << "ascii-map: could not open " << parser.value(asciiMapOption) << '\n';
+        } else {
+            const bool ok = controller->createMapFromAscii(file.readAll().toStdString());
+            QTextStream(stdout) << "ascii-map: " << (ok ? "generated" : "rejected") << '\n';
         }
     }
 

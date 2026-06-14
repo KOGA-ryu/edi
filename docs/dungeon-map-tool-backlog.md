@@ -65,13 +65,13 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
   additive `blocks` MessagePack (tolerant, no version bump) + the serial-recovery fix.
   *Accept (met):* `drafting_block_ops_tests` — normalize, validation, additive round-trip +
   forward-compat, serial regression. 94 green.
-- **◻ C2 — block instances** (FLATTEN placement). `placeBlockInstance(blockId, point)`:
-  offset = point − definition-bounds-centre, `planDraftingPaste(def.objects, "instance", …)`,
-  `createObjectsAndSelect` (one undo step, auto-select). **Translate-only** (rotation/scale
-  deferred). Guard empty-definition placement with a status message (`createObjectsAndSelect`
-  no-ops on an empty batch). Pair with the controller `defineBlockFromSelection(name)` verb
-  (must go through `applyCommandAndEmit` so define is undoable). *Accept:* controller test —
-  instance objects appear in one undo step, source definition byte-unchanged (independence).
+- **✅ C2 — block instances** (FLATTEN placement) (9ac319d). `placeBlockInstance(blockId, x, y)`
+  centres the definition on the point and stamps independent copies via `planDraftingPaste` +
+  `createObjectsAndSelect` (one undo step, auto-select, translate-only, NO provenance breadcrumb);
+  `defineBlockFromSelection(name)` gathers the selection, mints `block_NNNN` off the one serial,
+  applies `CreateBlockCommand` through `applyCommandAndEmit` (undoable), refuses empty selection.
+  *Accept (met):* controller test — define one-undo-step, stamp two `instance_` objects centred on
+  the point, definition byte-unchanged (independence), one undo step. 94 green.
 - **◻ C3 — palette UI + tag/set taxonomy** (widget layer). `PointCaptureIntent::BlockInstance`
   + a `block_palette` FeaturePaletteSpec (reuse FloatingPalette + the radial-array/fillet
   pick-a-point idiom). Click a block row → arm point capture → next canvas click stamps.

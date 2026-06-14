@@ -62,6 +62,119 @@ double edgeLengthCanvas(const RoomSpec &spec, RoomEdge edge)
     return (edge == RoomEdge::North || edge == RoomEdge::South) ? spec.width : spec.height;
 }
 
+// --- per-room field parsers, keyed by a prefix ------------------------------
+// The single-room dialect uses prefix "room" (room.width, room.opening.0.*, …);
+// the multi-room dialect uses "map.room.<i>" (map.room.0.width, …). The grammar
+// is identical under the prefix, so both dialects call these same helpers — the
+// behaviour-preserving refactor that lets multi-room reuse rather than fork the
+// single-room parser. Each returns false and sets `message` on the first error.
+
+bool parseRoomFields(const StaticConfig &config, const std::string &prefix, double canvasPerUnit,
+                     RoomSpec &spec, std::string &message)
+{
+    spec.width = configDouble(config, prefix + ".width", -1.0) * canvasPerUnit;
+    spec.height = configDouble(config, prefix + ".height", -1.0) * canvasPerUnit;
+    if (!(spec.width > 0.0) || !(spec.height > 0.0)) {
+        message = prefix + ".width and " + prefix + ".height are required and must be positive";
+        return false;
+    }
+    spec.origin.x = configDouble(config, prefix + ".origin_x", 0.0) * canvasPerUnit;
+    spec.origin.y = configDouble(config, prefix + ".origin_y", 0.0) * canvasPerUnit;
+    spec.wallThickness = configDouble(config, prefix + ".wall_thickness", 1.0) * canvasPerUnit;
+    spec.wallMaterial = configString(config, prefix + ".wall_material", "stone");
+    return true;
+}
+
+bool parseRoomOpenings(const StaticConfig &config, const std::string &prefix, double canvasPerUnit,
+                       RoomSpec &spec, std::string &message)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = prefix + ".opening." + std::to_string(i);
+        if (!hasKey(config, key + ".edge")) {
+            break;
+        }
+        const std::optional<RoomEdge> edge = edgeFromName(configString(config, key + ".edge", ""));
+        if (!edge) {
+            message = key + ".edge must be one of N, E, S, W";
+            return false;
+        }
+        RoomOpening opening;
+        opening.edge = *edge;
+        opening.type = configString(config, key + ".type", "door");
+        opening.width = configDouble(config, key + ".width", -1.0) * canvasPerUnit;
+        if (!(opening.width > 0.0)) {
+            message = key + ".width must be positive";
+            return false;
+        }
+        const std::string at = configString(config, key + ".at", "center");
+        if (at == "center" || at.empty()) {
+            opening.center = edgeLengthCanvas(spec, *edge) / 2.0;
+        } else {
+            std::size_t consumed = 0;
+            double offset = 0.0;
+            try {
+                offset = std::stod(at, &consumed);
+            } catch (...) {
+                consumed = 0;
+            }
+            if (consumed == 0) {
+                message = key + ".at must be 'center' or a number (offset from the edge's start corner)";
+                return false;
+            }
+            opening.center = offset * canvasPerUnit;
+        }
+        spec.openings.push_back(opening);
+    }
+    return true;
+}
+
+bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, double canvasPerUnit,
+                    RoomSpec &spec, std::set<std::string> &plugNames, std::string &message)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = prefix + ".plug." + std::to_string(i);
+        if (!hasKey(config, key + ".edge")) {
+            break;
+        }
+        const std::optional<RoomEdge> edge = edgeFromName(configString(config, key + ".edge", ""));
+        if (!edge) {
+            message = key + ".edge must be one of N, E, S, W";
+            return false;
+        }
+        RoomPlugSpec plug;
+        plug.edge = *edge;
+        plug.name = configString(config, key + ".name", "");
+        if (plug.name.empty()) {
+            message = key + ".name is required";
+            return false;
+        }
+        if (!plugNames.insert(plug.name).second) {
+            message = key + ".name '" + plug.name + "' is duplicated (plug names must be unique)";
+            return false;
+        }
+        plug.type = configString(config, key + ".type", "door");
+        const std::string at = configString(config, key + ".at", "center");
+        if (at == "center" || at.empty()) {
+            plug.at = edgeLengthCanvas(spec, *edge) / 2.0;
+        } else {
+            std::size_t consumed = 0;
+            double offset = 0.0;
+            try {
+                offset = std::stod(at, &consumed);
+            } catch (...) {
+                consumed = 0;
+            }
+            if (consumed == 0) {
+                message = key + ".at must be 'center' or a number (offset from the edge's start corner)";
+                return false;
+            }
+            plug.at = offset * canvasPerUnit;
+        }
+        spec.plugs.push_back(plug);
+    }
+    return true;
+}
+
 } // namespace
 
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit)
@@ -79,110 +192,22 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
     const StaticConfig &config = *parsed.value;
 
     RoomSpec spec;
-    spec.width = configDouble(config, "room.width", -1.0) * canvasPerUnit;
-    spec.height = configDouble(config, "room.height", -1.0) * canvasPerUnit;
-    if (!(spec.width > 0.0) || !(spec.height > 0.0)) {
-        out.message = "room.width and room.height are required and must be positive";
+    if (!parseRoomFields(config, "room", canvasPerUnit, spec, out.message)) {
         return out;
     }
-    spec.origin.x = configDouble(config, "room.origin_x", 0.0) * canvasPerUnit;
-    spec.origin.y = configDouble(config, "room.origin_y", 0.0) * canvasPerUnit;
-    spec.wallThickness = configDouble(config, "room.wall_thickness", 1.0) * canvasPerUnit;
-    spec.wallMaterial = configString(config, "room.wall_material", "stone");
-
-    // Openings are a list under indexed keys (the recipe op-stream convention):
-    // read room.opening.0.*, .1.*, ... until the first index with no `.edge`.
-    for (int i = 0;; ++i) {
-        const std::string prefix = "room.opening." + std::to_string(i);
-        if (!hasKey(config, prefix + ".edge")) {
-            break;
-        }
-        const std::optional<RoomEdge> edge = edgeFromName(configString(config, prefix + ".edge", ""));
-        if (!edge) {
-            out.message = prefix + ".edge must be one of N, E, S, W";
-            return out;
-        }
-        RoomOpening opening;
-        opening.edge = *edge;
-        opening.type = configString(config, prefix + ".type", "door");
-        opening.width = configDouble(config, prefix + ".width", -1.0) * canvasPerUnit;
-        if (!(opening.width > 0.0)) {
-            out.message = prefix + ".width must be positive";
-            return out;
-        }
-        const std::string at = configString(config, prefix + ".at", "center");
-        if (at == "center" || at.empty()) {
-            opening.center = edgeLengthCanvas(spec, *edge) / 2.0;
-        } else {
-            std::size_t consumed = 0;
-            double offset = 0.0;
-            try {
-                offset = std::stod(at, &consumed);
-            } catch (...) {
-                consumed = 0;
-            }
-            if (consumed == 0) {
-                out.message = prefix + ".at must be 'center' or a number (offset from the edge's start corner)";
-                return out;
-            }
-            opening.center = offset * canvasPerUnit;
-        }
-        spec.openings.push_back(opening);
+    if (!parseRoomOpenings(config, "room", canvasPerUnit, spec, out.message)) {
+        return out;
     }
-
-    // Plugs are a second indexed list, parsed exactly like openings (same edge +
-    // at grammar) but a point, not a span — so no width. room.plug.<i>.*, stop at
-    // the first index with no `.edge`. Names must be UNIQUE so a connection can
-    // resolve a name to exactly one plug.
+    // The plug-name set is filled by the helper AND reused below to resolve this
+    // room's connections — one shared set, so a single-room connection still binds.
     std::set<std::string> plugNames;
-    for (int i = 0;; ++i) {
-        const std::string prefix = "room.plug." + std::to_string(i);
-        if (!hasKey(config, prefix + ".edge")) {
-            break;
-        }
-        const std::optional<RoomEdge> edge = edgeFromName(configString(config, prefix + ".edge", ""));
-        if (!edge) {
-            out.message = prefix + ".edge must be one of N, E, S, W";
-            return out;
-        }
-        RoomPlugSpec plug;
-        plug.edge = *edge;
-        plug.name = configString(config, prefix + ".name", "");
-        if (plug.name.empty()) {
-            // A plug must be named so a connection (map.connection.*) can refer to
-            // it; a nameless plug is unreferenceable and almost certainly a typo.
-            out.message = prefix + ".name is required";
-            return out;
-        }
-        if (!plugNames.insert(plug.name).second) {
-            out.message = prefix + ".name '" + plug.name + "' is duplicated (plug names must be unique)";
-            return out;
-        }
-        plug.type = configString(config, prefix + ".type", "door");
-        const std::string at = configString(config, prefix + ".at", "center");
-        if (at == "center" || at.empty()) {
-            plug.at = edgeLengthCanvas(spec, *edge) / 2.0;
-        } else {
-            std::size_t consumed = 0;
-            double offset = 0.0;
-            try {
-                offset = std::stod(at, &consumed);
-            } catch (...) {
-                consumed = 0;
-            }
-            if (consumed == 0) {
-                out.message = prefix + ".at must be 'center' or a number (offset from the edge's start corner)";
-                return out;
-            }
-            plug.at = offset * canvasPerUnit;
-        }
-        spec.plugs.push_back(plug);
+    if (!parseRoomPlugs(config, "room", canvasPerUnit, spec, plugNames, out.message)) {
+        return out;
     }
 
     // Connections are edges between plugs, authored at MAP level (a connection can
     // span rooms). map.connection.<i>.{from,to,type}; stop at the first index with
-    // no `.from`. Both ends must name plugs that exist — resolved here so the
-    // controller never has to guess (and an unknown name is caught with its key).
+    // no `.from`. In a single-room file both ends resolve within this room's plugs.
     for (int i = 0;; ++i) {
         const std::string prefix = "map.connection." + std::to_string(i);
         if (!hasKey(config, prefix + ".from")) {

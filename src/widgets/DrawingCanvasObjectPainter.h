@@ -69,6 +69,18 @@ QColor withAlpha(const QColor &color, int alpha);
 void drawCrosshair(QPainter &painter, const QPointF &point, double extent);
 // Extraction half of the old drawObject: map -> typed item, once per mutation.
 DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object);
+// M1.2 corner join (whole-scene pass): where exactly two walls share an
+// endpoint, flag one of them to paint the outer-corner miter fill. Mutates the
+// wall items' joinA/joinB in place; non-wall items and lone endpoints are
+// untouched. Run once after the scene is built, before drawing.
+void annotateWallJoins(std::vector<DrawingCanvasSceneItem> &scene);
+// Pure geometry for the wall corner miter: given the shared SCREEN point `p`,
+// the unit directions `tThis`/`tNbr` pointing from p INTO each wall, and each
+// band's SCREEN half-thickness, return the convex polygon (4-pt miter quad, or
+// 3-pt bevel when the miter would spike past `miterLimit`*halfThickness) that
+// fills the outer notch. Empty when the walls are ~collinear (no real corner).
+std::vector<QPointF> wallCornerMiterFill(const QPointF &p, const QPointF &tThis, const QPointF &tNbr,
+                                         double hThis, double hNbr, double miterLimit);
 // Painting half: typed item -> pixels, every frame.
 void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const DrawingCanvasObjectPainterContext &context);
 void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSceneItem> &scene, const DrawingCanvasObjectPainterContext &context);

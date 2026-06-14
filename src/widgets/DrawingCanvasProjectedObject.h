@@ -70,10 +70,25 @@ struct DrawingCanvasProjectedCircle {
     double radius = 0.0;
 };
 
+// M1.2 corner join: per-endpoint annotation filled in by annotateWallJoins (a
+// whole-scene pass), NOT by projectedWall — a single object cannot see its
+// neighbours. When exactly two walls share an endpoint, ONE of them (the lower
+// scene index) is flagged to paint the outer-corner miter fill, carrying the
+// neighbour's far endpoint + thickness so the painter can reconstruct the join.
+// drawCorner defaults false, so an un-joined wall (or the live preview, which is
+// not in the committed scene) keeps its square cap unchanged.
+struct DrawingCanvasWallJoin {
+    bool drawCorner = false;
+    double neighborFarX = 0.0; // canvas coords of the neighbour's OTHER endpoint
+    double neighborFarY = 0.0;
+    double neighborThickness = 0.0;
+};
+
 // A wall's projected payload: the centerline endpoints a->b (keys ax/ay/bx/by,
 // mirroring projectedLine's x1/y1/x2/y2) plus a scalar band thickness (key
 // thickness, mirroring projectedCircle's radius). The band painter widens the
-// centerline by half this thickness on each side.
+// centerline by half this thickness on each side. joinA/joinB annotate the a/b
+// endpoints once the whole scene is known (see DrawingCanvasWallJoin).
 struct DrawingCanvasProjectedWall {
     bool ok = false;
     double ax = 0.0;
@@ -81,6 +96,8 @@ struct DrawingCanvasProjectedWall {
     double bx = 0.0;
     double by = 0.0;
     double thickness = 0.1;
+    DrawingCanvasWallJoin joinA;
+    DrawingCanvasWallJoin joinB;
 };
 
 struct DrawingCanvasProjectedPolygon {

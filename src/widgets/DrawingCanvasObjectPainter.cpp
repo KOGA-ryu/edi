@@ -10,6 +10,9 @@
 #include <QPolygonF>
 
 #include <cmath>
+#include <map>
+#include <utility>
+#include <vector>
 
 namespace drawing_canvas {
 namespace {
@@ -157,6 +160,126 @@ void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSc
         }
     }
     painter.restore();
+}
+
+std::vector<QPointF> wallCornerMiterFill(const QPointF &p, const QPointF &tThis, const QPointF &tNbr,
+                                         double hThis, double hNbr, double miterLimit)
+{
+    // Perpendicular (rotate +90deg) of each into-wall direction. tThis/tNbr are
+    // assumed unit; the band's two long edges are offset by +/- half-thickness
+    // along these normals.
+    const QPointF nThis(-tThis.y(), tThis.x());
+    const QPointF nNbr(-tNbr.y(), tNbr.x());
+    const auto dot = [](const QPointF &a, const QPointF &b) { return a.x() * b.x() + a.y() * b.y(); };
+    const auto cross = [](const QPointF &a, const QPointF &b) { return a.x() * b.y() - a.y() * b.x(); };
+
+    // The OUTER corner of each band is the cap corner on the side AWAY from the
+    // other wall (the convex side of the turn, where the square caps leave a
+    // notch). nThis points "outward" from this wall when it faces away from the
+    // neighbour's direction, i.e. dot(nThis, tNbr) < 0.
+    const QPointF outerThis = (dot(nThis, tNbr) < 0.0) ? p + nThis * hThis : p - nThis * hThis;
+    const QPointF outerNbr = (dot(nNbr, tThis) < 0.0) ? p + nNbr * hNbr : p - nNbr * hNbr;
+
+    // The miter apex is where the two outer edges (rays from the outer corners
+    // along each into-wall direction) cross. Near-parallel edges mean the walls
+    // are ~collinear (no real corner) — nothing to fill.
+    const double denom = cross(tThis, tNbr);
+    if (std::abs(denom) < 1e-6) {
+        return {};
+    }
+    const QPointF delta = outerNbr - outerThis;
+    const double along = cross(delta, tNbr) / denom;
+    const QPointF apex = outerThis + tThis * along;
+
+    // The 4-pt miter quad [outerThis, apex, outerNbr, p] is the correct fill only
+    // while it stays CONVEX. Two failure modes collapse it to a bevel instead:
+    //   - a very acute corner pushes the apex far from p (a long spike) past the
+    //     miter limit;
+    //   - UNEQUAL band half-thicknesses at an obtuse corner fold the quad into a
+    //     self-intersecting bow-tie, which QPainter's default OddEven fill would
+    //     leave HOLED — the opposite of closing the notch.
+    // The bevel chord [outerThis, outerNbr, p] always covers the notch (a clean
+    // chamfer) without overhanging, so it is the safe fallback for both.
+    const double miterLen = std::hypot(apex.x() - p.x(), apex.y() - p.y());
+    const QPointF e0 = apex - outerThis;
+    const QPointF e1 = outerNbr - apex;
+    const QPointF e2 = p - outerNbr;
+    const QPointF e3 = outerThis - p;
+    bool turnedLeft = false;
+    bool turnedRight = false;
+    for (const double turn : {cross(e0, e1), cross(e1, e2), cross(e2, e3), cross(e3, e0)}) {
+        if (turn > 1e-9) {
+            turnedLeft = true;
+        } else if (turn < -1e-9) {
+            turnedRight = true;
+        }
+    }
+    const bool convex = !(turnedLeft && turnedRight);
+    if (!convex || miterLen > miterLimit * std::max(hThis, hNbr)) {
+        return {outerThis, outerNbr, p};
+    }
+    return {outerThis, apex, outerNbr, p};
+}
+
+// Quantise an endpoint to a grid coarse enough to absorb float noise but fine
+// enough never to merge genuinely distinct corners (canvas units are ~[0,1]).
+static long long wallJoinKeyComponent(double v)
+{
+    return static_cast<long long>(std::llround(v * 1.0e5));
+}
+
+void annotateWallJoins(std::vector<DrawingCanvasSceneItem> &scene)
+{
+    // One record per wall endpoint: where it is, which wall/end it belongs to,
+    // and the wall's OTHER endpoint + thickness (so a neighbour can reconstruct
+    // the join without re-reading the scene).
+    struct Endpoint {
+        long long kx;
+        long long ky;
+        std::size_t index; // scene index of the owning wall
+        bool isA;          // true = endpoint a, false = endpoint b
+        double farX;
+        double farY;
+        double thickness;
+    };
+    std::vector<Endpoint> endpoints;
+    std::map<std::pair<long long, long long>, std::vector<std::size_t>> byPosition;
+    for (std::size_t i = 0; i < scene.size(); ++i) {
+        const DrawingCanvasProjectedWall &w = scene[i].wall;
+        if (!w.ok) {
+            continue;
+        }
+        const long long ax = wallJoinKeyComponent(w.ax), ay = wallJoinKeyComponent(w.ay);
+        const long long bx = wallJoinKeyComponent(w.bx), by = wallJoinKeyComponent(w.by);
+        byPosition[{ax, ay}].push_back(endpoints.size());
+        endpoints.push_back({ax, ay, i, true, w.bx, w.by, w.thickness});
+        byPosition[{bx, by}].push_back(endpoints.size());
+        endpoints.push_back({bx, by, i, false, w.ax, w.ay, w.thickness});
+    }
+
+    // A clean corner is a position shared by EXACTLY TWO endpoints of DIFFERENT
+    // walls. v1 only miters that simple case; T-junctions / crossings (3+ at a
+    // point) and a wall's own coincident ends keep square caps — a pairwise pass
+    // would draw conflicting partial miters there. Grouping by position first
+    // makes the count explicit (and keeps this O(n log n), not O(n^2)). The lower
+    // scene index paints the corner so the fill is drawn exactly once.
+    for (const auto &[position, group] : byPosition) {
+        if (group.size() != 2) {
+            continue;
+        }
+        const Endpoint &e0 = endpoints[group[0]];
+        const Endpoint &e1 = endpoints[group[1]];
+        if (e0.index == e1.index) {
+            continue; // one wall's own two ends (a zero-length wall) — not a join
+        }
+        const Endpoint &lo = e0.index < e1.index ? e0 : e1;
+        const Endpoint &hi = e0.index < e1.index ? e1 : e0;
+        DrawingCanvasWallJoin &join = lo.isA ? scene[lo.index].wall.joinA : scene[lo.index].wall.joinB;
+        join.drawCorner = true;
+        join.neighborFarX = hi.farX;
+        join.neighborFarY = hi.farY;
+        join.neighborThickness = hi.thickness;
+    }
 }
 
 DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
@@ -423,9 +546,11 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         const double ux = length > 0.0 ? dx / length : 1.0;
         const double uy = length > 0.0 ? dy / length : 0.0;
         const QPointF offset(-uy * halfPx, ux * halfPx);
-        // Square caps at both free ends fall out of the explicit 4-point
-        // rectangle: corners sit at a/b +/- the perpendicular offset, so the
-        // ends are flat. No miter (single segment) — joins are M1.2.
+        // Free ends keep a SQUARE cap: the corners sit at a/b +/- the
+        // perpendicular offset, so the band ends flat. Where this wall JOINS
+        // another at a shared endpoint (M1.2), the annotateWallJoins pass flagged
+        // that end, and below we add a mitered corner-fill so the two bands read
+        // as one band instead of two square caps leaving an outer notch.
         QPolygonF band;
         band << (a + offset) << (b + offset) << (b - offset) << (a - offset);
         painter.save();
@@ -438,6 +563,34 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         // opacity), the way a wide pen lays down ink across its whole width.
         painter.setBrush(QBrush(bandPen.color()));
         painter.drawPolygon(band); // solid fill + stroked outline in one call
+        // Corner miters (M1.2): fill the outer notch at each joined end with the
+        // same pen/brush, so the union of the two bands + this wedge is one
+        // clean mitered corner. `into` points from the shared endpoint into THIS
+        // wall; the neighbour's far point reconstructs its direction + thickness.
+        const auto drawJoinCorner = [&](const QPointF &p, const QPointF &into, const DrawingCanvasWallJoin &join) {
+            if (!join.drawCorner) {
+                return;
+            }
+            const QPointF nf = drawing_canvas::canvasToScreen(context.board, join.neighborFarX, join.neighborFarY);
+            const double ndx = nf.x() - p.x();
+            const double ndy = nf.y() - p.y();
+            const double nlen = std::hypot(ndx, ndy);
+            if (nlen <= 0.0) {
+                return;
+            }
+            const QPointF tNbr(ndx / nlen, ndy / nlen);
+            const double hNbr = 0.5 * join.neighborThickness * context.board.width();
+            const std::vector<QPointF> fill = wallCornerMiterFill(p, into, tNbr, halfPx, hNbr, 4.0);
+            if (fill.size() >= 3) {
+                QPolygonF wedge;
+                for (const QPointF &pt : fill) {
+                    wedge << pt;
+                }
+                painter.drawPolygon(wedge);
+            }
+        };
+        drawJoinCorner(a, QPointF(ux, uy), wall.joinA);
+        drawJoinCorner(b, QPointF(-ux, -uy), wall.joinB);
         painter.restore();
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         const DrawingCanvasProjectedPolygon &projected = item.polygon;

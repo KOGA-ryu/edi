@@ -1,6 +1,7 @@
 #include "widgets/DrawingCanvasWidget.h"
 
 #include "core/DrawingCore.h"
+#include "widgets/DrawingCanvasObjectPainter.h"
 #include "widgets/DrawingCanvasViewport.h"
 
 #include <QApplication>
@@ -127,6 +128,111 @@ int main(int argc, char **argv)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);
+
+    // M1.2 wall corner miter — pure geometry (no widget). Two bands meeting at
+    // the screen origin: this wall runs left (into-dir (-1,0)), the neighbour
+    // runs down (into-dir (0,1)), both half-thickness 10px. The outer notch is
+    // the unit square scaled to 10 in the +x/-y quadrant; the miter quad fills
+    // it exactly, apex at (10,-10).
+    {
+        const std::vector<QPointF> quad = drawing_canvas::wallCornerMiterFill(
+            QPointF(0.0, 0.0), QPointF(-1.0, 0.0), QPointF(0.0, 1.0), 10.0, 10.0, 4.0);
+        assert(quad.size() == 4);
+        assert(near(quad[0].x(), 0.0) && near(quad[0].y(), -10.0)); // this band's outer corner
+        assert(near(quad[1].x(), 10.0) && near(quad[1].y(), -10.0)); // miter apex
+        assert(near(quad[2].x(), 10.0) && near(quad[2].y(), 0.0));   // neighbour's outer corner
+        assert(near(quad[3].x(), 0.0) && near(quad[3].y(), 0.0));    // the shared point
+
+        // Collinear walls (straight through) have no corner -> no fill.
+        const std::vector<QPointF> straight = drawing_canvas::wallCornerMiterFill(
+            QPointF(0.0, 0.0), QPointF(-1.0, 0.0), QPointF(1.0, 0.0), 10.0, 10.0, 4.0);
+        assert(straight.empty());
+
+        // A sharp ~10deg V sends the apex past the miter limit -> 3-pt bevel.
+        const double s = std::sin(10.0 * 3.14159265358979323846 / 180.0);
+        const double c = std::cos(10.0 * 3.14159265358979323846 / 180.0);
+        const std::vector<QPointF> bevel = drawing_canvas::wallCornerMiterFill(
+            QPointF(0.0, 0.0), QPointF(0.0, 1.0), QPointF(s, c), 10.0, 10.0, 4.0);
+        assert(bevel.size() == 3);
+
+        // The returned wedge must ALWAYS be a simple convex polygon (or empty) —
+        // never a self-intersecting bow-tie. Unequal band thicknesses at an
+        // obtuse corner used to fold the quad, which OddEven fill would leave
+        // holed; sweep angles x thickness ratios to pin that it never folds.
+        const auto convexOrEmpty = [](const std::vector<QPointF> &poly) {
+            if (poly.empty()) {
+                return true;
+            }
+            if (poly.size() < 3) {
+                return false;
+            }
+            bool pos = false, neg = false;
+            for (std::size_t i = 0; i < poly.size(); ++i) {
+                const QPointF a = poly[i];
+                const QPointF b = poly[(i + 1) % poly.size()];
+                const QPointF d = poly[(i + 2) % poly.size()];
+                const double turn = (b.x() - a.x()) * (d.y() - b.y()) - (b.y() - a.y()) * (d.x() - b.x());
+                if (turn > 1e-9) {
+                    pos = true;
+                } else if (turn < -1e-9) {
+                    neg = true;
+                }
+            }
+            return !(pos && neg);
+        };
+        const double pi = 3.14159265358979323846;
+        for (int deg = 10; deg <= 350; deg += 10) {
+            const QPointF tNbr(std::cos(deg * pi / 180.0), std::sin(deg * pi / 180.0));
+            for (double hNbr : {4.0, 10.0, 18.0}) {
+                assert(convexOrEmpty(drawing_canvas::wallCornerMiterFill(
+                    QPointF(0.0, 0.0), QPointF(-1.0, 0.0), tNbr, 10.0, hNbr, 4.0)));
+            }
+        }
+        // The specific unequal-thickness obtuse corner that previously folded
+        // (this=10, neighbour=4 at 45deg) now degrades to the 3-pt bevel.
+        const QPointF foldDir(std::cos(45.0 * pi / 180.0), std::sin(45.0 * pi / 180.0));
+        assert(drawing_canvas::wallCornerMiterFill(
+                   QPointF(0.0, 0.0), QPointF(-1.0, 0.0), foldDir, 10.0, 4.0, 4.0).size() == 3);
+    }
+
+    // M1.2 join detection: annotateWallJoins flags a corner only where EXACTLY
+    // two walls share an endpoint; the lower scene index draws it, and a
+    // T-junction (3 walls) keeps square caps (no conflicting partial miters).
+    {
+        using drawing_canvas::DrawingCanvasSceneItem;
+        const auto wallItem = [](double ax, double ay, double bx, double by) {
+            DrawingCanvasSceneItem item;
+            item.wall.ok = true;
+            item.wall.ax = ax;
+            item.wall.ay = ay;
+            item.wall.bx = bx;
+            item.wall.by = by;
+            item.wall.thickness = 0.1;
+            return item;
+        };
+        // Two walls sharing (0.6,0.5): wall0's end b joins, drawn by the lower index.
+        {
+            std::vector<DrawingCanvasSceneItem> scene{
+                wallItem(0.3, 0.5, 0.6, 0.5),
+                wallItem(0.6, 0.5, 0.6, 0.8)};
+            drawing_canvas::annotateWallJoins(scene);
+            assert(scene[0].wall.joinB.drawCorner);   // lower index paints the corner
+            assert(!scene[1].wall.joinA.drawCorner);   // neighbour does not double-draw
+            assert(near(scene[0].wall.joinB.neighborFarX, 0.6));
+            assert(near(scene[0].wall.joinB.neighborFarY, 0.8)); // neighbour's far endpoint
+        }
+        // Three walls at one point (T-junction): no miter anywhere.
+        {
+            std::vector<DrawingCanvasSceneItem> scene{
+                wallItem(0.3, 0.5, 0.6, 0.5),
+                wallItem(0.6, 0.5, 0.6, 0.8),
+                wallItem(0.6, 0.5, 0.9, 0.5)};
+            drawing_canvas::annotateWallJoins(scene);
+            assert(!scene[0].wall.joinB.drawCorner);
+            assert(!scene[1].wall.joinA.drawCorner);
+            assert(!scene[2].wall.joinA.drawCorner);
+        }
+    }
 
     DrawingDocumentController controller;
     DrawingCanvasWidget canvas(&controller);
@@ -774,6 +880,36 @@ int main(int argc, char **argv)
         assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.8).toPoint(), 5));
         // ...and bare past the square-capped end (the band does not overshoot b).
         assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.92, 0.6).toPoint(), 5));
+    }
+
+    // Wall corner MITER (M1.2): two walls sharing an endpoint join into one band.
+    // An L from (0.3,0.5)->(0.6,0.5)->(0.6,0.8) turns at the shared corner; with
+    // bare square caps the OUTER notch (top-right of the corner, past wall1's end
+    // and before wall2's start) would be empty. The miter corner-fill covers it.
+    {
+        DrawingDocumentController joinController;
+        DrawingCanvasWidget joinCanvas(&joinController);
+        joinCanvas.resize(600, 450);
+        joinController.setSelectedToolId(QStringLiteral("wall_tool"));
+        clickCanvas(joinController, joinCanvas, 0.3, 0.5); // wall1 a
+        clickCanvas(joinController, joinCanvas, 0.6, 0.5); // wall1 b == shared corner
+        assert(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        joinController.setSelectedToolId(QStringLiteral("wall_tool"));
+        clickCanvas(joinController, joinCanvas, 0.6, 0.5); // wall2 a (snaps to the corner)
+        clickCanvas(joinController, joinCanvas, 0.6, 0.8); // wall2 b
+        assert(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        joinController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(joinController, joinCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = joinCanvas.grab().toImage();
+        // The outer-notch pixel: past wall1's end (x>0.6) and above wall2's start
+        // (y<0.5) — NOT covered by either square-capped band, only by the miter.
+        assert(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.62, 0.47).toPoint(), 3));
+        // The inner overlap is solid (both bands present).
+        assert(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.58, 0.52).toPoint(), 3));
+        // Beyond the miter apex (apex ~ (0.65,0.45)) the corner is bare — the
+        // fill is a bounded wedge, not an unbounded overhang.
+        assert(!anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.72, 0.40).toPoint(), 4));
     }
 
     // Trim: the verb shortens a line back to a crossing boundary. The painter

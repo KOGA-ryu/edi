@@ -155,6 +155,10 @@ const std::vector<drawing_canvas::DrawingCanvasSceneItem> &DrawingCanvasWidget::
         for (const QVariant &value : objects) {
             m_sceneCache.push_back(drawing_canvas::buildCanvasSceneItem(value.toMap()));
         }
+        // M1.2: now that the whole scene exists, flag wall corners that join —
+        // a per-object build can't see neighbours, so this runs once over all of
+        // them and annotates the shared endpoints for the band painter.
+        drawing_canvas::annotateWallJoins(m_sceneCache);
         m_sceneGeneration = generation;
     }
     return m_sceneCache;

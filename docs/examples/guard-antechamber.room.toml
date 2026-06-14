@@ -1,0 +1,26 @@
+# Guard antechamber — a room authoring file (Seam A).
+# edi's flat-TOML dialect: dotted keys, every value quoted (numbers included),
+# openings as an indexed list. Distances in feet. See docs/map-authoring-format.md.
+# Build it:  edi --room-file docs/examples/guard-antechamber.room.toml
+
+room.width = "30"
+room.height = "20"
+room.origin_x = "5"
+room.origin_y = "5"
+room.wall_material = "stone"
+room.wall_thickness = "1"
+
+room.opening.0.edge = "N"
+room.opening.0.type = "corridor"
+room.opening.0.width = "10"
+room.opening.0.at = "center"
+
+room.opening.1.edge = "E"
+room.opening.1.type = "secret"
+room.opening.1.width = "3"
+room.opening.1.at = "12.5"
+
+room.opening.2.edge = "S"
+room.opening.2.type = "door"
+room.opening.2.width = "5"
+room.opening.2.at = "center"

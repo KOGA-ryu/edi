@@ -356,6 +356,9 @@ target_include_directories(shell_panels_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(room_spec_store_tests tests/room_spec_store_tests.cpp edi_drafting_core edi_format_core)
+target_sources(room_spec_store_tests PRIVATE src/io/RoomSpecStore.cpp)
+target_include_directories(room_spec_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -594,6 +597,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/DrawingDocumentStore.cpp
     src/io/ProcessRunStore.h
     src/io/ProcessRunStore.cpp
+    src/io/RoomSpecStore.h
+    src/io/RoomSpecStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h

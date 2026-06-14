@@ -105,64 +105,78 @@ stores any value; rendering and engine-meaning attach to known ones over time.
 
 ---
 
-## Blank template — copy, fill the blanks
+## The fillable file — TOML
 
+The tables above describe the fields; the file you actually fill out and hand to
+edi is **TOML**, per `docs/format_strategy.md` (human-authored static config) and
+the same flat dialect the recipe files use. Three dialect rules:
+
+- **Dotted keys, no `[section]` headers** — `room.width = "30"`, not `[room]`.
+- **Every value is quoted** — numbers included: `room.width = "30"`. The typed
+  reads parse them.
+- **Lists are indexed keys** — openings are `room.opening.0.*`, `room.opening.1.*`,
+  … read until the first gap (the recipe op-stream convention).
+
+Build it: `edi --room-file <path>.room.toml` (distances are in feet; the loader
+scales feet → canvas). A ready example lives at
+`docs/examples/guard-antechamber.room.toml`.
+
+### Blank template — copy, fill the quotes
+
+```toml
+room.width = "___"
+room.height = "___"
+room.origin_x = "0"
+room.origin_y = "0"
+room.wall_material = "stone"
+room.wall_thickness = "1"
+
+room.opening.0.edge = "N"
+room.opening.0.type = "corridor"
+room.opening.0.width = "___"
+room.opening.0.at = "center"
 ```
-map
-  grid       5 ft / square
-  units      ft
-  name       __________
 
-room  __________
-  footprint  ___ × ___ ft
-  origin     ___, ___ ft
-  walls      material: ________  thickness: ___ ft
-  floor      __________
-  openings
-    N  ________  ___ ft  @ ________
-    E  ________  ___ ft  @ ________
-    S  ________  ___ ft  @ ________
-    W  solid
-
-features
-  ________  ×__  ___ × ___ ft  @ ___, ___ ft  facing: __  tags: ________
-```
-
-Leave a wall `solid` to skip its opening line. Delete the `features` block if the
-room is empty.
+Add or remove `room.opening.<i>.*` blocks (keep `i` contiguous from 0). A wall
+with no opening block is solid. `at` is `center` or a number (offset in feet from
+the edge's start corner).
 
 ---
 
 ## Worked example — the guard antechamber
 
 The prompt *"a 30×20 stone guard antechamber, oak door south, secret door east,
-corridor north"* as a filled sheet:
+corridor north"* as the filled file
+(`docs/examples/guard-antechamber.room.toml`):
 
+```toml
+room.width = "30"
+room.height = "20"
+room.origin_x = "5"
+room.origin_y = "5"
+room.wall_material = "stone"
+room.wall_thickness = "1"
+
+room.opening.0.edge = "N"
+room.opening.0.type = "corridor"
+room.opening.0.width = "10"
+room.opening.0.at = "center"
+
+room.opening.1.edge = "E"
+room.opening.1.type = "secret"
+room.opening.1.width = "3"
+room.opening.1.at = "12.5"
+
+room.opening.2.edge = "S"
+room.opening.2.type = "door"
+room.opening.2.width = "5"
+room.opening.2.at = "center"
 ```
-map
-  grid       5 ft / square
-  units      ft
-  name       guard antechamber
 
-room  antechamber
-  footprint  30 × 20 ft
-  origin     0, 0 ft
-  walls      material: stone  thickness: 1 ft
-  floor      flagstone
-  openings
-    N  corridor  10 ft  @ center
-    E  secret     3 ft  @ 5 ft from SE
-    S  door       5 ft  @ center
-    W  solid
-
-features
-  brazier  ×2  2 × 2 ft  @ 5, 5 ft   facing: N  tags: iron, cold
-  statue   ×1  3 × 3 ft  @ 15, 15 ft facing: S  tags: weathered
-```
-
-What builds today: the four `stone` walls at 30×20, mitred at the corners, with
-the three doorway **gaps** cut where the openings are (the `W` wall solid). The
-door leaf, the secret-door marker, and the braziers/statue land with M2.2 and M3.
+`edi --room-file docs/examples/guard-antechamber.room.toml` builds it: the four
+`stone` walls at 30×20, mitred at the corners, with the three doorway **gaps**
+cut where the openings are (the `W` wall solid). The door leaf, the secret-door
+marker, and the braziers/statue land with M2.2 and M3.
 
 ---
 

@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QImage>
 #include <QTextStream>
 #include <QTimer>
@@ -9,6 +10,7 @@
 
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
+#include "io/RoomSpecStore.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextSessionStore.h"
@@ -100,11 +102,16 @@ int main(int argc, char **argv)
     const QCommandLineOption demoRoomOption(
         QStringLiteral("demo-room"),
         QStringLiteral("Generate the guard-antechamber room from a spec (Seam-A authoring demo)."));
+    const QCommandLineOption roomFileOption(
+        QStringLiteral("room-file"),
+        QStringLiteral("Generate a room from a .room.toml authoring file (Seam-A: file -> map)."),
+        QStringLiteral("path"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
     parser.addOption(benchObjectsOption);
     parser.addOption(demoRoomOption);
+    parser.addOption(roomFileOption);
     parser.process(app);
 
     EdiShellWindow window;
@@ -154,6 +161,29 @@ int main(int argc, char **argv)
             const bool ok = controller->createRoomFromSpec(spec);
             QTextStream(stdout) << "demo-room: guard antechamber "
                                 << (ok ? "generated" : "rejected") << '\n';
+        }
+    }
+
+    // Seam-A, end to end with NO AI in the loop: read a .room.toml authoring
+    // file, parse it to a neutral spec, and build the map. Distances are in feet;
+    // 0.02 canvas/ft puts a 50 ft (10-square) board across the canvas.
+    if (parser.isSet(roomFileOption)) {
+        auto *controller = window.findChild<DrawingDocumentController *>();
+        QFile file(parser.value(roomFileOption));
+        QTextStream err(stderr);
+        if (controller == nullptr) {
+            err << "room-file: no controller\n";
+        } else if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            err << "room-file: could not open " << parser.value(roomFileOption) << '\n';
+        } else {
+            const std::string text = file.readAll().toStdString();
+            const edi::io::RoomSpecParseResult parsed = edi::io::parseRoomSpecToml(text, 0.02);
+            if (!parsed.ok) {
+                err << "room-file: " << QString::fromStdString(parsed.message) << '\n';
+            } else {
+                const bool ok = controller->createRoomFromSpec(parsed.spec);
+                QTextStream(stdout) << "room-file: " << (ok ? "generated" : "rejected by builder") << '\n';
+            }
         }
     }
 

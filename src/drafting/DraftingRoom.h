@@ -69,6 +69,38 @@ struct RoomSpec {
     std::vector<RoomConnectionSpec> connections; // edges between plugs (by name)
 };
 
+// --- multi-room map authoring (a whole dungeon from one file) ----------------
+// A reference to a plug in a multi-room map, by (room name, plug name). Plug names
+// are unique only WITHIN a room, so a cross-room connection needs both halves.
+struct MapPlugRef {
+    std::string roomName;
+    std::string plugName;
+};
+
+// A connection authored at MAP level: it can span rooms, so each endpoint is a
+// (room, plug) pair, not a bare plug name. Neutral like RoomConnectionSpec. A hub
+// of degree N (e.g. a 3-way junction) is an N-plug room with N of these edges —
+// a single connection joins exactly two plugs, never fans to three.
+struct MapConnectionSpec {
+    MapPlugRef from;
+    MapPlugRef to;
+    std::string type;
+};
+
+// One room in a multi-room map, named so connections can find its plugs. The
+// geometry is just a RoomSpec — the multi-room file reuses the single-room shape.
+struct NamedRoomSpec {
+    std::string name;
+    RoomSpec spec;
+};
+
+// A whole map: many named rooms in one coordinate space + the cross-room
+// connections between their plugs. The neutral authoring product of a .map.toml.
+struct MapSpec {
+    std::vector<NamedRoomSpec> rooms;
+    std::vector<MapConnectionSpec> connections;
+};
+
 // A plug the room emitted, paired with the marker object it rides on. The marker
 // is in DraftingRoomPlan::objects; this records WHICH plug it is (neutral name +
 // type) and the marker's id as the anchor, so the caller mints a plug id and

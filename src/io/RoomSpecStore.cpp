@@ -6,9 +6,15 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 namespace edi::io {
 
+using edi::drafting::MapConnectionSpec;
+using edi::drafting::MapPlugRef;
+using edi::drafting::MapSpec;
+using edi::drafting::NamedRoomSpec;
 using edi::drafting::RoomConnectionSpec;
 using edi::drafting::RoomEdge;
 using edi::drafting::RoomOpening;
@@ -175,6 +181,35 @@ bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, doubl
     return true;
 }
 
+// Split a cross-room ref "room.plug" on the FIRST dot. nullopt if there is no dot
+// or either half is empty. (Names are dotless by convention; a stray dot would
+// mis-split, but the room/plug existence check below then rejects it loudly.)
+std::optional<std::pair<std::string, std::string>> splitRoomPlug(const std::string &ref)
+{
+    const auto dot = ref.find('.');
+    if (dot == std::string::npos) {
+        return std::nullopt;
+    }
+    std::string room = ref.substr(0, dot);
+    std::string plug = ref.substr(dot + 1);
+    if (room.empty() || plug.empty()) {
+        return std::nullopt;
+    }
+    return std::make_pair(std::move(room), std::move(plug));
+}
+
+// Two room footprints overlap if their axis-aligned rectangles intersect in their
+// interiors (touching edges is fine — corridor-separated rooms never touch). Pure
+// spec-level AABB test: it catches a layout collision (a hand- or AI-authored
+// origin mistake) before any geometry is built.
+bool roomsOverlap(const RoomSpec &a, const RoomSpec &b)
+{
+    constexpr double eps = 1e-9;
+    const bool xOverlap = a.origin.x < b.origin.x + b.width - eps && b.origin.x < a.origin.x + a.width - eps;
+    const bool yOverlap = a.origin.y < b.origin.y + b.height - eps && b.origin.y < a.origin.y + a.height - eps;
+    return xOverlap && yOverlap;
+}
+
 } // namespace
 
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit)
@@ -234,6 +269,125 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
 
     out.ok = true;
     out.spec = std::move(spec);
+    return out;
+}
+
+MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUnit)
+{
+    MapSpecParseResult out;
+    if (!(canvasPerUnit > 0.0)) {
+        out.message = "canvasPerUnit must be positive";
+        return out;
+    }
+    const auto parsed = edi::formats::readTomlStaticConfig(text);
+    if (!parsed.ok || !parsed.value) {
+        out.message = parsed.message.empty() ? "could not parse map TOML" : parsed.message;
+        return out;
+    }
+    const StaticConfig &config = *parsed.value;
+
+    MapSpec map;
+    std::set<std::string> roomNames;
+    std::unordered_map<std::string, std::set<std::string>> plugsByRoom; // room name -> its plug names
+
+    // Rooms: map.room.<i>.*, same per-room grammar as a single room (shared
+    // helpers), each carrying a unique name. Stop at the first index with no name.
+    for (int i = 0;; ++i) {
+        const std::string prefix = "map.room." + std::to_string(i);
+        if (!hasKey(config, prefix + ".name")) {
+            break;
+        }
+        const std::string name = configString(config, prefix + ".name", "");
+        if (name.empty()) {
+            out.message = prefix + ".name is required";
+            return out;
+        }
+        if (!roomNames.insert(name).second) {
+            out.message = prefix + ".name '" + name + "' is duplicated (room names must be unique)";
+            return out;
+        }
+
+        RoomSpec spec;
+        if (!parseRoomFields(config, prefix, canvasPerUnit, spec, out.message)) {
+            return out;
+        }
+        if (!parseRoomOpenings(config, prefix, canvasPerUnit, spec, out.message)) {
+            return out;
+        }
+        std::set<std::string> plugNames; // fresh per room — plug names are room-scoped
+        if (!parseRoomPlugs(config, prefix, canvasPerUnit, spec, plugNames, out.message)) {
+            return out;
+        }
+        plugsByRoom.emplace(name, std::move(plugNames));
+        map.rooms.push_back({name, std::move(spec)});
+    }
+    if (map.rooms.empty()) {
+        out.message = "a map needs at least one room (map.room.0.name)";
+        return out;
+    }
+
+    // Footprints must not overlap — pure spec-level AABB, before any geometry.
+    for (std::size_t a = 0; a < map.rooms.size(); ++a) {
+        for (std::size_t b = a + 1; b < map.rooms.size(); ++b) {
+            if (roomsOverlap(map.rooms[a].spec, map.rooms[b].spec)) {
+                out.message = "rooms '" + map.rooms[a].name + "' and '" + map.rooms[b].name + "' overlap";
+                return out;
+            }
+        }
+    }
+
+    // Cross-room connections: from/to are "room.plug"; both halves must resolve to
+    // a live (room, plug), and a connection may not join a plug to itself.
+    for (int k = 0;; ++k) {
+        const std::string prefix = "map.connection." + std::to_string(k);
+        if (!hasKey(config, prefix + ".from")) {
+            break;
+        }
+        const std::string fromStr = configString(config, prefix + ".from", "");
+        const std::string toStr = configString(config, prefix + ".to", "");
+        if (fromStr.empty() || toStr.empty()) {
+            out.message = prefix + " needs both .from and .to (\"room.plug\")";
+            return out;
+        }
+        if (fromStr == toStr) {
+            out.message = prefix + " joins a plug to itself ('" + fromStr + "')";
+            return out;
+        }
+        const auto from = splitRoomPlug(fromStr);
+        const auto to = splitRoomPlug(toStr);
+        if (!from) {
+            out.message = prefix + ".from must be 'room.plug' (got '" + fromStr + "')";
+            return out;
+        }
+        if (!to) {
+            out.message = prefix + ".to must be 'room.plug' (got '" + toStr + "')";
+            return out;
+        }
+        const auto resolve = [&](const std::pair<std::string, std::string> &ref, const std::string &side) -> bool {
+            const auto room = plugsByRoom.find(ref.first);
+            if (room == plugsByRoom.end()) {
+                out.message = prefix + "." + side + " references unknown room '" + ref.first + "'";
+                return false;
+            }
+            if (room->second.find(ref.second) == room->second.end()) {
+                out.message = prefix + "." + side + " references unknown plug '" + ref.second + "' in room '" + ref.first + "'";
+                return false;
+            }
+            return true;
+        };
+        if (!resolve(*from, "from") || !resolve(*to, "to")) {
+            return out;
+        }
+
+        MapConnectionSpec connection;
+        connection.from = MapPlugRef{from->first, from->second};
+        connection.to = MapPlugRef{to->first, to->second};
+        connection.type = configString(config, prefix + ".type", "");
+        map.connections.push_back(connection);
+    }
+
+    out.ok = true;
+    out.spec = std::move(map);
     return out;
 }
 

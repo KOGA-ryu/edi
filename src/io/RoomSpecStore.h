@@ -37,4 +37,29 @@ struct RoomSpecParseResult {
 //   map.connection.<i>.type = corridor|…    (neutral tag; default "")
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit = 1.0);
 
+struct MapSpecParseResult {
+    bool ok = false;
+    std::string message;
+    edi::drafting::MapSpec spec;
+};
+
+// Parse a MULTI-ROOM map: the SAME per-room grammar as parseRoomSpecToml, each
+// room under a map.room.<i> prefix and carrying a name, plus cross-room
+// connections that reference a plug as "room.plug". The neutral whole-map product
+// of a .map.toml — the Seam-A path for authoring a connected dungeon in one file.
+//
+// Schema (distances in file units; i,j,k = 0,1,2,... stop at first gap):
+//   map.room.<i>.name                          (required, unique across the map)
+//   map.room.<i>.{width,height}                (required, > 0)
+//   map.room.<i>.{origin_x,origin_y,wall_thickness,wall_material}
+//   map.room.<i>.opening.<j>.{edge,type,width,at}
+//   map.room.<i>.plug.<j>.{edge,name,type,at}  (name unique WITHIN the room)
+//   map.connection.<k>.from = "<room>.<plug>"  (both halves must resolve)
+//   map.connection.<k>.to   = "<room>.<plug>"
+//   map.connection.<k>.type = corridor|…       (neutral; default "")
+// Validation (all pure, in the parser): room names unique; per-room plug names
+// unique; room footprints do not overlap; every connection endpoint resolves to a
+// live (room, plug); a connection may not join a plug to itself.
+MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUnit = 1.0);
+
 } // namespace edi::io

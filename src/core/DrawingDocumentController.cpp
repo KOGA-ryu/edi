@@ -1451,6 +1451,13 @@ bool DrawingDocumentController::setSelectedObjectRole(const QString &roleId)
     });
 }
 
+bool DrawingDocumentController::setSelectedWallType(const QString &typeId)
+{
+    return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {
+        return planWallTypeUpdate(metadata, wallTypeFromName(toStdString(typeId)));
+    });
+}
+
 bool DrawingDocumentController::setSelectedObjectMaterial(const QString &material)
 {
     return applyActiveObjectMetadataUpdate([&](const ObjectMetadata &metadata) {

@@ -248,6 +248,29 @@ ObjectRole objectRoleFromName(const std::string &name)
     return ObjectRole::None;
 }
 
+const char *wallTypeName(WallType type)
+{
+    switch (type) {
+    case WallType::Solid:
+        return "solid";
+    case WallType::Door:
+        return "door";
+    case WallType::Window:
+        return "window";
+    case WallType::Secret:
+        return "secret";
+    }
+    return "solid";
+}
+
+WallType wallTypeFromName(const std::string &name)
+{
+    if (name == "door") return WallType::Door;
+    if (name == "window") return WallType::Window;
+    if (name == "secret") return WallType::Secret;
+    return WallType::Solid;
+}
+
 const char *draftingResultCodeName(DraftingResultCode code)
 {
     switch (code) {

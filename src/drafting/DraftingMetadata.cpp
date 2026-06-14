@@ -343,6 +343,13 @@ DraftingMetadataUpdatePlan planObjectRoleUpdate(const ObjectMetadata &metadata, 
     return validatedMetadataUpdate(std::move(next));
 }
 
+DraftingMetadataUpdatePlan planWallTypeUpdate(const ObjectMetadata &metadata, WallType type)
+{
+    ObjectMetadata next = metadata;
+    next.wallVisual.type = type; // enum: always representable
+    return validatedMetadataUpdate(std::move(next));
+}
+
 DraftingMetadataUpdatePlan planObjectMaterialUpdate(const ObjectMetadata &metadata, std::string material)
 {
     ObjectMetadata next = metadata;

@@ -114,6 +114,10 @@ DrawingCanvasProjectedWall projectedWall(const QVariantMap &object)
         && readFinite(object, QStringLiteral("bx"), wall.bx)
         && readFinite(object, QStringLiteral("by"), wall.by);
     wall.thickness = finiteNumber(object.value(QStringLiteral("thickness")), 0.1);
+    const QString type = object.value(QStringLiteral("wall_type")).toString();
+    if (!type.isEmpty()) {
+        wall.type = type;
+    }
     return wall;
 }
 

@@ -882,6 +882,29 @@ int main(int argc, char **argv)
         assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.92, 0.6).toPoint(), 5));
     }
 
+    // Wall TYPE (M1.3): a window draws the band HOLLOW — outline stroked, interior
+    // NOT filled — vs the solid band above. Same geometry, different render: the
+    // type is a drawing concern only. (mutation-pin: drop the type branch and the
+    // interior fills, failing the bare-interior assert.)
+    {
+        DrawingDocumentController winController;
+        DrawingCanvasWidget winCanvas(&winController);
+        winCanvas.resize(600, 450);
+        winController.setSelectedToolId(QStringLiteral("wall_tool"));
+        clickCanvas(winController, winCanvas, 0.2, 0.6); // a
+        clickCanvas(winController, winCanvas, 0.8, 0.6); // b
+        assert(winController.setSelectedWallType(QStringLiteral("window")));
+        assert(winController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        winController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(winController, winCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = winCanvas.grab().toImage();
+        // The window IS drawn — its outline cap at the a end is inked...
+        assert(anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.2, 0.6).toPoint(), 3));
+        // ...but the interior is BARE, where the solid band above was filled.
+        assert(!anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.5, 0.6).toPoint(), 3));
+    }
+
     // Wall corner MITER (M1.2): two walls sharing an endpoint join into one band.
     // An L from (0.3,0.5)->(0.6,0.5)->(0.6,0.8) turns at the shared corner; with
     // bare square caps the OUTER notch (top-right of the corner, past wall1's end

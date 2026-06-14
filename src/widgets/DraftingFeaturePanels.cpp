@@ -696,6 +696,18 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
             m_controller->setSelectedObjectRole(roleId);
         });
         meta.layout->addWidget(m_objectRole);
+        // M1.3: a wall's neutral render type. Enabled only when a wall is
+        // selected (refreshed in DraftingFeatureInspector); changes how the band
+        // draws, never what it means.
+        m_wallType = makeDataCombo(QStringLiteral("wallTypeCombo"), {
+            {QStringLiteral("Wall: solid"), QStringLiteral("solid")},
+            {QStringLiteral("Wall: door"), QStringLiteral("door")},
+            {QStringLiteral("Wall: window"), QStringLiteral("window")},
+            {QStringLiteral("Wall: secret"), QStringLiteral("secret")},
+        }, [this](const QString &typeId) {
+            m_controller->setSelectedWallType(typeId);
+        });
+        meta.layout->addWidget(m_wallType);
         m_objectMaterial = new QLineEdit;
         m_objectMaterial->setObjectName(QStringLiteral("objectMaterialField"));
         m_objectMaterial->setPlaceholderText(QStringLiteral("Material"));

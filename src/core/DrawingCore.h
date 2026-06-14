@@ -176,6 +176,8 @@ public:
     // kind (role/material/group/tags are object-wide, not guide/dimension
     // specific). Tags arrive as a list; the shell splits its text field.
     bool setSelectedObjectRole(const QString &roleId);
+    // M1.3: set the selected wall's neutral render type (solid/door/window/secret).
+    bool setSelectedWallType(const QString &typeId);
     bool setSelectedObjectMaterial(const QString &material);
     bool setSelectedObjectExportGroup(const QString &exportGroup);
     bool setSelectedObjectTags(const QStringList &tags);

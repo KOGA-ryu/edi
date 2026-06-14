@@ -553,16 +553,23 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         // as one band instead of two square caps leaving an outer notch.
         QPolygonF band;
         band << (a + offset) << (b + offset) << (b - offset) << (a - offset);
+        // M1.3 neutral render type: solid/door fill the band; window draws it
+        // HOLLOW (outline only — a see-through opening); secret draws it DASHED
+        // and hollow (hidden to a player, visible to the GM). The type is a
+        // drawing concern only; the engine assigns any rule across Seam B.
+        const bool filledBand = wall.type != QStringLiteral("window") && wall.type != QStringLiteral("secret");
         painter.save();
         QPen bandPen = painter.pen();
         bandPen.setJoinStyle(Qt::MiterJoin); // square corners on the band outline
         bandPen.setCapStyle(Qt::SquareCap);
+        if (wall.type == QStringLiteral("secret")) {
+            bandPen.setStyle(Qt::DashLine);
+        }
         painter.setPen(bandPen);
-        // A wall is a thick LINE, so it reads as a SOLID band, not a hollow
-        // rectangle: fill the polygon with the stroke colour (carrying its
-        // opacity), the way a wide pen lays down ink across its whole width.
-        painter.setBrush(QBrush(bandPen.color()));
-        painter.drawPolygon(band); // solid fill + stroked outline in one call
+        // A solid wall reads as a SOLID band (the stroke colour laid across its
+        // whole width); a hollow type strokes the outline only.
+        painter.setBrush(filledBand ? QBrush(bandPen.color()) : Qt::NoBrush);
+        painter.drawPolygon(band);
         // Corner miters (M1.2): fill the outer notch at each joined end with the
         // same pen/brush, so the union of the two bands + this wedge is one
         // clean mitered corner. `into` points from the shared endpoint into THIS
@@ -589,8 +596,12 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
                 painter.drawPolygon(wedge);
             }
         };
-        drawJoinCorner(a, QPointF(ux, uy), wall.joinA);
-        drawJoinCorner(b, QPointF(-ux, -uy), wall.joinB);
+        // Only filled types miter: a solid corner wedge over a hollow/dashed
+        // band would read wrong, so window/secret keep their square caps.
+        if (filledBand) {
+            drawJoinCorner(a, QPointF(ux, uy), wall.joinA);
+            drawJoinCorner(b, QPointF(-ux, -uy), wall.joinB);
+        }
         painter.restore();
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         const DrawingCanvasProjectedPolygon &projected = item.polygon;

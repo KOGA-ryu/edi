@@ -396,6 +396,9 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"end_arrow", MsgPackValue::boolean(m.lineVisual.endArrow)},
         {"start_arrow", MsgPackValue::boolean(m.lineVisual.startArrow)},
     });
+    MsgPackValue wallVisual = MsgPackValue::map({
+        {"type", MsgPackValue::text(wallTypeName(m.wallVisual.type))},
+    });
     std::vector<MsgPackValue> tagItems;
     tagItems.reserve(m.tags.size());
     for (const std::string &tag : m.tags) {
@@ -412,6 +415,7 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"guide_visual", std::move(guideVisual)},
         {"dimension_visual", std::move(dimensionVisual)},
         {"line_visual", std::move(lineVisual)},
+        {"wall_visual", std::move(wallVisual)},
         {"role", MsgPackValue::text(objectRoleName(m.role))},
         {"material", MsgPackValue::text(m.material)},
         {"export_group", MsgPackValue::text(m.exportGroup)},
@@ -448,6 +452,11 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
     if (const MsgPackValue *lv = child(*v, "line_visual")) {
         m.lineVisual.endArrow = asBool(child(*lv, "end_arrow"), m.lineVisual.endArrow);
         m.lineVisual.startArrow = asBool(child(*lv, "start_arrow"), m.lineVisual.startArrow);
+    }
+    // Tolerant: a record without wall_visual (every file before M1.3) decodes to
+    // Solid, so existing .edidraw files load unchanged.
+    if (const MsgPackValue *wv = child(*v, "wall_visual")) {
+        m.wallVisual.type = wallTypeFromName(asString(child(*wv, "type"), "solid"));
     }
     m.role = objectRoleFromName(asString(child(*v, "role"), "none"));
     m.material = asString(child(*v, "material"), m.material);

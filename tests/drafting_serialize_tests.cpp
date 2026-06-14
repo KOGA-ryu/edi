@@ -332,5 +332,40 @@ int main()
         assert(!decoded.ok);
     }
 
+    // M1.3: a wall's neutral type round-trips; a record with NO wall_visual (every
+    // file before M1.3) loads as Solid — so existing .edidraw stays valid.
+    {
+        DraftingDocument doc = makeDraftingDocument("wt");
+        WallGeometry wg; wg.a = {0.2, 0.5}; wg.b = {0.8, 0.5}; wg.thickness = 0.05;
+        DraftingObject wall = makeObject("wall-secret", DraftingShapeKind::Wall, wg, "default");
+        wall.metadata.wallVisual.type = WallType::Secret;
+        doc.objects = {wall};
+
+        MsgPackValue value = draftingDocumentToValue(doc);
+        auto restored = draftingDocumentFromValue(value);
+        assert(restored.ok && restored.value);
+        assert(restored.value->objects[0].metadata.wallVisual.type == WallType::Secret);
+
+        // Strip wall_visual from the serialized metadata -> tolerant decode to Solid.
+        for (auto &entry : value.mapValue) {
+            if (entry.first != "document") continue;
+            for (auto &docEntry : entry.second.mapValue) {
+                if (docEntry.first != "objects") continue;
+                for (auto &obj : docEntry.second.arrayValue) {
+                    for (auto &field : obj.mapValue) {
+                        if (field.first != "metadata") continue;
+                        auto &mm = field.second.mapValue;
+                        for (auto it = mm.begin(); it != mm.end();) {
+                            it = (it->first == "wall_visual") ? mm.erase(it) : it + 1;
+                        }
+                    }
+                }
+            }
+        }
+        auto tolerant = draftingDocumentFromValue(value);
+        assert(tolerant.ok && tolerant.value);
+        assert(tolerant.value->objects[0].metadata.wallVisual.type == WallType::Solid);
+    }
+
     return 0;
 }

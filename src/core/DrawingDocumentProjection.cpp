@@ -553,6 +553,10 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             result.insert(QStringLiteral("bx"), geometry.b.x);
             result.insert(QStringLiteral("by"), geometry.b.y);
             result.insert(QStringLiteral("thickness"), geometry.thickness);
+            // M1.3: the neutral render type the band painter varies on (and the
+            // inspector edits). A metadata key, like the line arm's end_arrow.
+            result.insert(QStringLiteral("wall_type"),
+                          QString::fromStdString(wallTypeName(object.metadata.wallVisual.type)));
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), geometry.origin.x);
             result.insert(QStringLiteral("y"), geometry.origin.y);

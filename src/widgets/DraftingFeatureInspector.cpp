@@ -283,6 +283,10 @@ void DraftingFeature::refreshInspector()
     {
         const bool hasSelection = !selectedObject.isEmpty();
         refreshComboData(m_objectRole, selectedObject.value(QStringLiteral("role"), QStringLiteral("none")).toString(), 0, hasSelection);
+        // M1.3: the wall-type combo is meaningful only for walls — enable it just
+        // for a selected wall, mirroring its current type.
+        const bool isWall = selectedObject.value(QStringLiteral("kind")).toString() == QStringLiteral("wall");
+        refreshComboData(m_wallType, selectedObject.value(QStringLiteral("wall_type"), QStringLiteral("solid")).toString(), 0, isWall);
         const auto syncField = [&](QLineEdit *field, const QString &key) {
             if (field == nullptr) {
                 return;

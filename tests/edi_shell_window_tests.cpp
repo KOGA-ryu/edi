@@ -235,6 +235,24 @@ int main(int argc, char **argv)
         assert(roleCombo->currentData().toString() == QStringLiteral("wall"));
     }
 
+    // M1.3: the wall-type combo drives the selected wall's neutral render type,
+    // and is gated to walls (disabled for the non-wall selected above).
+    {
+        QComboBox *wallTypeCombo = window.findChild<QComboBox *>(QStringLiteral("wallTypeCombo"));
+        assert(wallTypeCombo != nullptr);
+        assert(!wallTypeCombo->isEnabled()); // a point is selected — not a wall
+
+        controller->setSelectedToolId(QStringLiteral("wall_tool"));
+        controller->clickCanvasNormalized(0.3, 0.4);
+        controller->clickCanvasNormalized(0.7, 0.4);
+        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        assert(wallTypeCombo->isEnabled()); // a wall is selected — gate opens
+        assert(wallTypeCombo->currentData().toString() == QStringLiteral("solid"));
+
+        wallTypeCombo->setCurrentIndex(wallTypeCombo->findData(QStringLiteral("secret")));
+        assert(activeObject(*controller).value(QStringLiteral("wall_type")).toString() == QStringLiteral("secret"));
+    }
+
     // Create and select a guide; guide-conditional buttons flip on.
     controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
     controller->clickCanvasNormalized(0.5, 0.25);

@@ -96,6 +96,10 @@ struct DrawingCanvasProjectedWall {
     double bx = 0.0;
     double by = 0.0;
     double thickness = 0.1;
+    // M1.3 neutral render type: "solid" (filled band, default) / "door" / "window"
+    // (hollow) / "secret" (dashed). The painter varies the band by this; drafting
+    // never reads meaning into it.
+    QString type = QStringLiteral("solid");
     DrawingCanvasWallJoin joinA;
     DrawingCanvasWallJoin joinB;
 };

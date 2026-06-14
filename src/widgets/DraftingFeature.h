@@ -223,6 +223,7 @@ private:
     QComboBox *m_activeLayer = nullptr;
     QComboBox *m_selectedObjectLayer = nullptr;
     QComboBox *m_objectRole = nullptr;
+    QComboBox *m_wallType = nullptr;
     QLineEdit *m_objectMaterial = nullptr;
     QLineEdit *m_objectExportGroup = nullptr;
     QLineEdit *m_objectTags = nullptr;

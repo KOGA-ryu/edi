@@ -46,6 +46,8 @@ DraftingMetadataUpdatePlan planMeasurementNoteUpdate(const ObjectMetadata &metad
 // N3: the semantic/export fields. role is an enum (always valid); the three
 // text fields validate as bounded printable text like the others.
 DraftingMetadataUpdatePlan planObjectRoleUpdate(const ObjectMetadata &metadata, ObjectRole role);
+// M1.3: the wall's neutral render classification (enum, always valid).
+DraftingMetadataUpdatePlan planWallTypeUpdate(const ObjectMetadata &metadata, WallType type);
 DraftingMetadataUpdatePlan planObjectMaterialUpdate(const ObjectMetadata &metadata, std::string material);
 DraftingMetadataUpdatePlan planObjectExportGroupUpdate(const ObjectMetadata &metadata, std::string exportGroup);
 DraftingMetadataUpdatePlan planObjectTagsUpdate(const ObjectMetadata &metadata, std::vector<std::string> tags);

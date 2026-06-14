@@ -78,6 +78,18 @@ enum class ObjectRole {
     Collider
 };
 
+// M1.3 dungeon-map: a wall's NEUTRAL classification — it changes only how the
+// wall DRAWS (a secret door reads flush, a window thin), never what it means.
+// Whether a secret door blocks sight is the game engine's rule across Seam B;
+// this enum carries no behaviour. Closed enum (the painter switches on it),
+// exactly like ObjectRole above; the open vocabulary rides ObjectMetadata.tags.
+enum class WallType {
+    Solid,
+    Door,
+    Window,
+    Secret
+};
+
 struct Point2D {
     double x = 0.0;
     double y = 0.0;
@@ -158,6 +170,13 @@ struct LineVisualMetadata {
     bool startArrow = false;
 };
 
+// M1.3: per-wall render classification. Default Solid keeps every existing wall
+// byte-identical. The painter reads `type` to vary the band (Secret dashed,
+// Window thin/double, Door distinct); the open vocabulary stays in tags.
+struct WallVisualMetadata {
+    WallType type = WallType::Solid;
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -169,6 +188,7 @@ struct ObjectMetadata {
     GuideVisualMetadata guideVisual;
     DimensionVisualMetadata dimensionVisual;
     LineVisualMetadata lineVisual;
+    WallVisualMetadata wallVisual;
     // N3 semantic/export metadata (restored from legacy). role is closed
     // (enum); material/exportGroup/tags are open vocabularies (free text).
     ObjectRole role = ObjectRole::None;
@@ -310,6 +330,9 @@ const char *dimensionKindName(DimensionKind kind);
 const char *objectRoleName(ObjectRole role);
 // Inverse of objectRoleName; unknown names fall back to None.
 ObjectRole objectRoleFromName(const std::string &name);
+const char *wallTypeName(WallType type);
+// Inverse of wallTypeName; unknown names fall back to Solid.
+WallType wallTypeFromName(const std::string &name);
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);

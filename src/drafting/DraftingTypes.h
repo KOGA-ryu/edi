@@ -11,6 +11,12 @@ using DraftingDocumentId = std::string;
 using DraftingObjectId = std::string;
 using LayerId = std::string;
 using StyleId = std::string;
+// Map-graph handles. Opaque strings like the object/layer ids above — a plug and
+// a declared connection are identified, referenced, and validated exactly the way
+// objects are, so they reuse the same alias shape rather than inventing a new id
+// type. (Phase 2 / docs/dungeon-map-graph-work-order.md.)
+using DraftingPlugId = std::string;
+using DraftingConnectionId = std::string;
 
 enum class DraftingShapeKind {
     Point,

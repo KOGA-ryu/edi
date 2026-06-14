@@ -33,12 +33,47 @@ struct DraftingLayer {
     LayerPlotStyle plot;
 };
 
+// --- Map graph (Phase 2: plugs + declared connections) -----------------------
+// A plug is a NAMED, NEUTRAL attachment point — a door / portal / threshold
+// socket. It is not geometry of its own: it rides on an existing document object
+// (a Point marker at an opening's gap-center) BY ID, the way a label rides on the
+// thing it names. So a plug lives here as plain document-level data, not as a
+// DraftingGeometry variant — it is a relation, not a shape, and modelling it as a
+// shape would drag it through the whole geometry-visitor recipe for nothing.
+//
+// edi only RECORDS the plug (where it sits, what it is called, what KIND of thing
+// it is as a free-form tag). It assigns NO meaning: whether a "secret" door blocks
+// sight is a rule the game engine owns past Seam B.
+struct DraftingPlug {
+    DraftingPlugId id;               // opaque, minted like object ids ("plug_0001")
+    DraftingObjectId anchorObjectId; // the doc object (a Point marker) this plug rides on
+    std::string name;                // authored label, e.g. "north_doorway"
+    std::string type;                // neutral open vocabulary: "door"/"portal"/...
+    Point2D anchor;                  // cached gap-center, so draw/export need not re-derive
+};
+
+// A declared connection is a NEUTRAL edge: "plug A links to plug B". It references
+// plugs BY ID only (never raw coordinates), so moving or renaming a plug never
+// orphans the edge. It is a DECLARATION, nothing more — there is deliberately no
+// `passable`, no `weight`, no `direction`, no `locked`: reachability and access
+// rules are the engine's job, and that absence is the design, not an omission.
+struct DraftingDeclaredConnection {
+    DraftingConnectionId id;         // opaque, minted ("conn_0001")
+    DraftingPlugId plugA;
+    DraftingPlugId plugB;
+    std::string type;                // neutral role tag, default empty ("corridor"/...)
+};
+
 struct DraftingDocument {
     DraftingDocumentId id;
     std::string title;
     std::vector<DraftingLayer> layers;
     LayerId activeLayerId = "default";
     std::vector<DraftingObject> objects;
+    // The map graph rides INSIDE the document (beside objects), so it inherits the
+    // existing DocumentSnapshot undo/redo for free — no separate undo plumbing.
+    std::vector<DraftingPlug> plugs;
+    std::vector<DraftingDeclaredConnection> connections;
     std::vector<DraftingObjectId> selectedObjectIds;
     std::optional<DraftingObjectId> activeObjectId;
     std::uint64_t revision = 0;

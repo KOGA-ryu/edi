@@ -40,6 +40,7 @@
 #include <cctype>
 #include <cmath>
 #include <optional>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -2038,6 +2039,17 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     const auto plugKey = [](const std::string &room, const std::string &plug) {
         return room + std::string(1, '\x1f') + plug;
     };
+    constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
+
+    // A plug with a CONNECTION gets a real opening (doorway) carved in its wall so
+    // the corridor flows through, not into a solid wall. An UNCONNECTED plug — a
+    // dead-end secret door — stays a solid wall with just a marker, which is exactly
+    // right (a secret door reads flush until the engine reveals it).
+    std::unordered_set<std::string> connectedPlugs;
+    for (const edi::drafting::MapConnectionSpec &c : spec.connections) {
+        connectedPlugs.insert(plugKey(c.from.roomName, c.from.plugName));
+        connectedPlugs.insert(plugKey(c.to.roomName, c.to.plugName));
+    }
 
     std::vector<DraftingObject> allObjects;
     std::vector<DraftingPlug> allPlugs;
@@ -2047,7 +2059,21 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     std::unordered_map<std::string, std::pair<Point2D, RoomEdge>> doorByKey;
 
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
-        DraftingRoomPlan planned = planDraftingRoom(room.spec, mintObjectId);
+        // Inject an opening at each connected plug so its wall has a doorway. The
+        // plug carries the edge + offset already; the opening reuses them.
+        RoomSpec roomSpec = room.spec;
+        for (const RoomPlugSpec &plug : room.spec.plugs) {
+            if (connectedPlugs.count(plugKey(room.name, plug.name)) == 0) {
+                continue;
+            }
+            RoomOpening opening;
+            opening.edge = plug.edge;
+            opening.center = plug.at;
+            opening.width = kCorridorWidth;
+            opening.type = plug.type;
+            roomSpec.openings.push_back(opening);
+        }
+        DraftingRoomPlan planned = planDraftingRoom(roomSpec, mintObjectId);
         if (!planned.ok) {
             m_nextObjectSerial = firstSerial;
             return finishEdit(QStringLiteral("map"), QStringLiteral("map"), false, planned.code,
@@ -2103,7 +2129,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             corridor.edgeA = doorA->second.second;
             corridor.doorB = doorB->second.first;
             corridor.edgeB = doorB->second.second;
-            corridor.width = 0.045;
+            corridor.width = kCorridorWidth; // mouth matches the carved doorway
             corridor.wallThickness = 0.015;
             std::vector<DraftingObject> corridorWalls = planCorridor(corridor, [this]() {
                 return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));

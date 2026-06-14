@@ -30,17 +30,14 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
 
 ## The queue
 
-### Phase A — Corridors v2 (obstacle-aware routing) · compute: direct build (research done, [[edi-corridor-routing-research]])
-- **◻ A1 — A\* grid pathfinder (pure).** `DraftingPathGrid` + A* over a coarse grid:
-  Manhattan heuristic, turn penalty, weighted cost (empty +5, room-cell high/+10).
-  *Accept:* tests — straight path when clear; routes AROUND an obstacle rect; turn
-  penalty cuts corner count. Pure, Qt-free, in `src/drafting/`.
-- **◻ A2 — route corridors with A\*.** Per connection: build the obstacle grid from
-  room rects (inflated by half-width + clearance), A* door→door, simplify the cell
-  path to an orthogonal polyline, feed through the EXISTING planCorridor offset +
-  doorway machinery. Use A* when the straight L/Z would cross a room; else keep L/Z
-  (cheaper, identical when clear). *Accept:* re-snapshot dungeon — no corridor crosses
-  an unrelated room; full ctest green. Independent corridors (no merge).
+### Phase A — Corridors v2 (obstacle-aware routing) ✅ DONE (0c64fd9 + 021b4c1)
+- **✅ A1 — A\* grid pathfinder (pure).** `DraftingPathfind` — weighted grid, Manhattan
+  heuristic, turn penalty, (cell, incoming-direction) state. Tested.
+- **✅ A2 — route corridors with A\*.** Refactored DraftingCorridor into
+  corridorCenterline + corridorWalls; `routeCorridorCenterline` returns the direct L/Z
+  when clear, else A* around the room obstacles (door endpoints snapped with an
+  orthogonal elbow). Controller passes all-rooms-except-the-two-joined as obstacles.
+  No-op on the reference dungeon (rooms well separated); detour proven by unit test.
 
 ### Phase B — Doors (M2.2) · compute: direct build
 - **◻ B1 — door render at openings.** A connected opening reads as a DOOR (a leaf /

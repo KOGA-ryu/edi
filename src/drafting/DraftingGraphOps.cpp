@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -101,6 +102,39 @@ DraftingStoreResult undeclareConnection(DraftingDocument &document, const Drafti
     document.connections.erase(document.connections.begin() + static_cast<std::ptrdiff_t>(*index));
     ++document.revision;
     return DraftingStoreResult::accepted();
+}
+
+bool pruneGraphForRemovedObject(DraftingDocument &document, const DraftingObjectId &removedObjectId)
+{
+    // Collect the ids of plugs anchored to the now-removed object.
+    std::vector<DraftingPlugId> doomed;
+    for (const DraftingPlug &plug : document.plugs) {
+        if (plug.anchorObjectId == removedObjectId) {
+            doomed.push_back(plug.id);
+        }
+    }
+    if (doomed.empty()) {
+        return false; // common case (and every pre-graph document): nothing to do.
+    }
+
+    const auto isDoomed = [&doomed](const DraftingPlugId &id) {
+        return std::find(doomed.begin(), doomed.end(), id) != doomed.end();
+    };
+    // Drop every edge that named a doomed plug first, then the doomed plugs —
+    // same two-step cascade removePlug uses, but for a whole anchor at once.
+    document.connections.erase(
+        std::remove_if(document.connections.begin(), document.connections.end(),
+                       [&isDoomed](const DraftingDeclaredConnection &connection) {
+                           return isDoomed(connection.plugA) || isDoomed(connection.plugB);
+                       }),
+        document.connections.end());
+    document.plugs.erase(
+        std::remove_if(document.plugs.begin(), document.plugs.end(),
+                       [&removedObjectId](const DraftingPlug &plug) {
+                           return plug.anchorObjectId == removedObjectId;
+                       }),
+        document.plugs.end());
+    return true;
 }
 
 } // namespace edi::drafting

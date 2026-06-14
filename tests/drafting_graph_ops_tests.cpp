@@ -6,6 +6,7 @@
 // the revision bump, and the removePlug → orphan-connection cascade.
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGraphOps.h"
+#include "drafting/DraftingStore.h" // removeObject — S4 cascade
 
 #include <cassert>
 #include <cstdint>
@@ -180,6 +181,32 @@ int main()
         assert(!undeclareConnection(document, "conn_nope").ok);
         assert(document.connections.size() == 1);
         assert(undeclareConnection(document, "conn_ab").ok);
+        assert(document.connections.empty());
+    }
+
+    // --- S4: removing an anchor object cascades into the graph ----------------
+    // A plug anchored to an object that is deleted is now dangling — removeObject
+    // (and so DeleteObjectCommand) drops the plug and its edges, leaving the rest.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-objdelete");
+        for (const char *id : {"m.0", "m.1", "m.2"}) {
+            document.objects.push_back(makeDraftingObject(id, DraftingShapeKind::Point, PointGeometry{}));
+        }
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1";
+        assert(addPlug(document, a).ok && addPlug(document, b).ok);
+        DraftingDeclaredConnection ab; ab.id = "conn_ab"; ab.plugA = "plug_a"; ab.plugB = "plug_b";
+        assert(declareConnection(document, ab).ok);
+
+        // delete m.2 — nothing anchored to it → graph untouched.
+        assert(removeObject(document, "m.2").ok);
+        assert(document.plugs.size() == 2);
+        assert(document.connections.size() == 1);
+
+        // delete m.0 — plug_a dangles → plug_a AND conn_ab pruned; plug_b survives.
+        assert(removeObject(document, "m.0").ok);
+        assert(document.plugs.size() == 1);
+        assert(document.plugs.front().id == "plug_b");
         assert(document.connections.empty());
     }
 

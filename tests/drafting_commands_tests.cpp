@@ -475,5 +475,19 @@ int main()
         assert(graphDoc.connections.empty());
     }
 
+    // S4: deleting the object a plug anchors to, through the command path, prunes
+    // the plug with it (so undo via DocumentSnapshot restores both atomically).
+    {
+        DraftingDocument doc = makeDraftingDocument("graph-objdelete");
+        doc.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        assert(applyDraftingCommand(doc, CreatePlugCommand{a}).ok);
+        assert(doc.plugs.size() == 1);
+
+        assert(applyDraftingCommand(doc, DeleteObjectCommand{"m.0"}).ok);
+        assert(!containsObject(doc, "m.0"));
+        assert(doc.plugs.empty()); // the plug went with its anchor
+    }
+
     return 0;
 }

@@ -28,4 +28,12 @@ DraftingStoreResult removePlug(DraftingDocument &document, const DraftingPlugId 
 DraftingStoreResult declareConnection(DraftingDocument &document, DraftingDeclaredConnection connection);
 DraftingStoreResult undeclareConnection(DraftingDocument &document, const DraftingConnectionId &id);
 
+// Referential-integrity sweep. When an object is removed from the document, any
+// plug anchored to it is now dangling — drop those plugs and (cascading) every
+// connection that named them. This is the graph analogue of normalizeSelection:
+// a prune the document owes AFTER a delete, called from removeObject. It does NOT
+// bump revision (the delete that calls it owns the single bump). Returns true if
+// anything was pruned. A document with no graph is a no-op (returns false).
+bool pruneGraphForRemovedObject(DraftingDocument &document, const DraftingObjectId &removedObjectId);
+
 } // namespace edi::drafting

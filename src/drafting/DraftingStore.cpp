@@ -1,6 +1,7 @@
 #include "drafting/DraftingStore.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGraphOps.h"
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingSelection.h"
 
@@ -114,7 +115,11 @@ DraftingStoreResult removeObject(DraftingDocument &document, const DraftingObjec
         return DraftingStoreResult::rejected(DraftingResultCode::InvalidSelectionTarget, "object layer is locked");
     }
 
+    // Snapshot the id before erasing: we use it AFTER the object is gone to sweep
+    // the graph, and the caller's reference could alias the object being erased.
+    const DraftingObjectId removedId = id;
     document.objects.erase(document.objects.begin() + static_cast<std::ptrdiff_t>(*index));
+    pruneGraphForRemovedObject(document, removedId); // drop plugs anchored to it + their edges
     normalizeSelection(document);
     ++document.revision;
     return DraftingStoreResult::accepted();

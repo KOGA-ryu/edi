@@ -78,7 +78,8 @@ bool isNonNegativePhysicalField(const QString &id)
         || id == QStringLiteral("radius")
         || id == QStringLiteral("diameter")
         || id == QStringLiteral("line_length")
-        || id == QStringLiteral("dimension_length");
+        || id == QStringLiteral("dimension_length")
+        || id == QStringLiteral("thickness");
 }
 
 void addPhysicalEditorMetadata(QVariantMap &field, const DraftingGridProjection *grid)
@@ -194,6 +195,16 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         }
         pushNumericField(fields, numericField(QStringLiteral("offset"), QStringLiteral("Offset")), grid);
         break;
+    case DraftingShapeKind::Wall:
+        // A wall is a thick line: a/b endpoints mirror the Line arm (named
+        // ax/ay/bx/by so the field ids stay distinct from Line's x1/y1/x2/y2),
+        // plus a non-negative thickness scalar mirroring the circle radius field.
+        pushNumericField(fields, numericField(QStringLiteral("ax"), QStringLiteral("AX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("ay"), QStringLiteral("AY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("bx"), QStringLiteral("BX")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("by"), QStringLiteral("BY")), grid);
+        pushNumericField(fields, numericField(QStringLiteral("thickness"), QStringLiteral("Thickness"), 0.0), grid);
+        break;
     case DraftingShapeKind::Polygon:
     case DraftingShapeKind::Polyline:
     case DraftingShapeKind::Spline:
@@ -308,6 +319,16 @@ QVariantMap physicalGeometryForObject(const DraftingObject &object, const Drafti
             insertPhysicalSegment(result, geometry.a, geometry.b, grid);
             result.insert(QStringLiteral("line_length"), physicalDistance(geometry.a, geometry.b, grid));
             result.insert(QStringLiteral("line_angle_deg"), physicalAngleDegrees(geometry.a, geometry.b, grid));
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall is a thick line. Emit the endpoints under the wall field
+            // ids (ax/ay/bx/by) so the inspector's physical editor matches the
+            // numeric field ids, and project thickness as a physical width like
+            // the circle radius.
+            result.insert(QStringLiteral("ax"), physicalX(geometry.a, grid));
+            result.insert(QStringLiteral("ay"), physicalY(geometry.a, grid));
+            result.insert(QStringLiteral("bx"), physicalX(geometry.b, grid));
+            result.insert(QStringLiteral("by"), physicalY(geometry.b, grid));
+            result.insert(QStringLiteral("thickness"), physicalWidth(geometry.thickness, grid));
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), physicalX(geometry.origin, grid));
             result.insert(QStringLiteral("y"), physicalY(geometry.origin, grid));
@@ -519,6 +540,19 @@ QVariantMap draftingObjectToCanvasProjection(const DraftingObject &object, const
             // painter reads it to draw a head; the inspector could expose it.
             result.insert(QStringLiteral("end_arrow"), object.metadata.lineVisual.endArrow);
             result.insert(QStringLiteral("start_arrow"), object.metadata.lineVisual.startArrow);
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall is a thick line. Emit the centerline endpoints under the
+            // standard segment keys (x1/y1/x2/y2) AND under the wall-specific
+            // ax/ay/bx/by ids the inspector edits, plus the thickness scalar the
+            // band painter reads to offset the rectangle half-thickness per side.
+            // No `points` key — a wall is a straight band, not a sampled curve;
+            // a points list would route the painter into the open-chain path.
+            insertSegment(result, kSegmentKeys, geometry.a, geometry.b);
+            result.insert(QStringLiteral("ax"), geometry.a.x);
+            result.insert(QStringLiteral("ay"), geometry.a.y);
+            result.insert(QStringLiteral("bx"), geometry.b.x);
+            result.insert(QStringLiteral("by"), geometry.b.y);
+            result.insert(QStringLiteral("thickness"), geometry.thickness);
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             result.insert(QStringLiteral("x"), geometry.origin.x);
             result.insert(QStringLiteral("y"), geometry.origin.y);

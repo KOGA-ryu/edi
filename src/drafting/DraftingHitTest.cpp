@@ -128,6 +128,12 @@ double hitDistance(const DraftingGeometry &geometry, Point2D point)
             // Distance to the SAMPLED curve (open chain), not the control polygon
             // — the user clicks the line they see, which bows off the knots.
             return distanceToVertexList(sampleSpline(typedGeometry), point, false);
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall is a thick line: distance to its CENTERLINE segment, then
+            // pull the band's half-thickness off so a click anywhere on the
+            // band registers (mirrors LineGeometry's segment distance, with the
+            // scalar thickness standing in as the band half-width).
+            return std::max(0.0, distanceToSegment(typedGeometry.a, typedGeometry.b, point) - typedGeometry.thickness / 2.0);
         } else {
             static_assert(always_false_v<Geometry>, "hitDistance: unhandled geometry kind — add an arm");
         }

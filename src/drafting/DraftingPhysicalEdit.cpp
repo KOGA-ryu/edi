@@ -214,14 +214,22 @@ DraftingPhysicalGeometryEditPlan planPhysicalGeometryEdit(
         || fieldId == "cx"
         || fieldId == "x1"
         || fieldId == "x2"
+        || fieldId == "ax"
+        || fieldId == "bx"
         || fieldId == "width"
         || fieldId == "radius"
-        || fieldId == "diameter") {
+        || fieldId == "diameter"
+        // A wall's band thickness is a width-kind length: physicalGeometryForObject
+        // projects it via physicalWidth, so its inverse normalizes by width too —
+        // the same path radius/diameter take.
+        || fieldId == "thickness") {
         normalizedValue = value / width;
     } else if (fieldId == "y"
         || fieldId == "cy"
         || fieldId == "y1"
         || fieldId == "y2"
+        || fieldId == "ay"
+        || fieldId == "by"
         || fieldId == "height") {
         normalizedValue = value / height;
     } else if (fieldId == "rotation_deg"

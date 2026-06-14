@@ -46,6 +46,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "spline_tool") {
         return DraftingToolKind::Spline;
     }
+    if (toolId == "wall_tool") {
+        return DraftingToolKind::Wall;
+    }
     if (toolId == "text_tool") {
         return DraftingToolKind::TextAnnotation;
     }
@@ -109,6 +112,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "polyline";
     case DraftingToolKind::Spline:
         return "spline";
+    case DraftingToolKind::Wall:
+        return "wall";
     case DraftingToolKind::TextAnnotation:
         return "text";
     case DraftingToolKind::HorizontalGuide:
@@ -166,6 +171,14 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
         // Line), the arrowhead is a metadata flag applied after the build.
         kind = DraftingShapeKind::Line;
         geometry = LineGeometry{request.start, request.end};
+    } else if (request.tool == DraftingToolKind::Wall) {
+        // Two clicks define the centerline a->b exactly like the Line tool; the
+        // band thickness is a carried tool option (mirrors the Circle arm's
+        // scalar radius). thickness defaults to 0.1 so a fresh wall is a visible
+        // band, and is clamped non-negative like rectCornerRadius.
+        kind = DraftingShapeKind::Wall;
+        geometry = WallGeometry{request.start, request.end,
+                                std::max(0.0, request.wallThickness)};
     } else if (request.tool == DraftingToolKind::Rectangle) {
         const double left = std::min(request.start.x, request.end.x);
         const double top = std::min(request.start.y, request.end.y);

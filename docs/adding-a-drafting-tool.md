@@ -126,6 +126,15 @@ verify-the-gate if you don't. Implementing mirror for the new shape = editing
   DIFFERENT function, `draftingDocumentToModelProjection` — don't conflate them. Also
   check any field-id allow-list that gates physical-unit conversion (circle's `radius`
   sits in one such list) and add the new shape's field ids.
+- `src/drafting/DraftingPhysicalEdit.cpp` — **the INVERSE of `physicalGeometryForObject`, and a
+  SILENT trap.** The forward arm above advertises each field as physically editable; this file's
+  `planPhysicalGeometryEdit` must un-normalize it back. It dispatches on field-id STRINGS with a
+  runtime `else` (NOT an exhaustive switch — the compiler can't catch a gap), so a new field falls
+  through to "physical field does not apply" and its inspector spin is **dead, erroring on commit**.
+  Add the new ids to the x/width branch (`value / width`: x-like coords + width-kind lengths such as
+  `radius`/`diameter`/a wall's `thickness`) or the y branch (`value / height`: y-like coords); angles
+  pass through unchanged. The wall slice (M1.1) missed this and shipped dead spins until review caught
+  it — pin it with a `drafting_physical_edit_tests.cpp` round-trip per new editable field.
 - `src/widgets/DrawingCanvasObjectPainter.cpp` — `drawObject` (committed) and
   `drawPreviewObject` (live preview). Reuse the open-chain/`points` path where you can
   (the arc did). **Decorations and handles are sized in SCREEN space, geometry in data

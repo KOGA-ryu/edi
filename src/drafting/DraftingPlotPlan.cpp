@@ -194,6 +194,13 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
             // terminal static_assert, so a missing arm here is SILENT (the
             // spline would simply never plot) — it must be added by hand.
             appendVertexSegments(plan, object, layer, sampleSpline(geometry), false);
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // v1: plot the CENTERLINE as a single segment, exactly like
+            // LineGeometry. Honest minimal — emitting the band OUTLINE (a closed
+            // rectangle following the a->b band) is a later plot option. Like the
+            // spline arm above, this visit has NO terminal static_assert, so a
+            // missing wall arm is SILENT — it must be added by hand.
+            appendSegment(plan, object, layer, geometry.a, geometry.b);
         } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
             // text annotations carry no plot segments
         }

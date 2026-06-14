@@ -25,7 +25,8 @@ enum class DraftingShapeKind {
     ConstructionLine,
     Dimension,
     TextAnnotation,
-    Spline
+    Spline,
+    Wall
 };
 
 enum class GuideOrientation {
@@ -258,6 +259,18 @@ struct SplineGeometry {
     std::vector<Point2D> controlPoints;
 };
 
+// M1.1 dungeon-map keystone: a wall is a THICK LINE. a/b are the centerline
+// endpoints (mirrors LineGeometry exactly); thickness is the band width in
+// CANVAS units (mirrors circle's scalar radius). Default 0.1 is non-zero so a
+// freshly created wall renders as a visible band rather than a zero-width line.
+// Miter joins between abutting walls are a later slice (M1.2); v1 caps free
+// ends square.
+struct WallGeometry {
+    Point2D a;
+    Point2D b;
+    double thickness = 0.1;
+};
+
 // Compile-time exhaustiveness guard. A std::visit branch that should be
 // unreachable ends in `else { static_assert(always_false_v<Geometry>, "…"); }`,
 // so adding a DraftingGeometry alternative without handling it at that site is a
@@ -279,9 +292,10 @@ using DraftingGeometry = std::variant<
     ConstructionLineGeometry,
     DimensionGeometry,
     TextAnnotationGeometry,
-    SplineGeometry>;
+    SplineGeometry,
+    WallGeometry>;
 
-static_assert(std::variant_size_v<DraftingGeometry> == 13,
+static_assert(std::variant_size_v<DraftingGeometry> == 14,
     "DraftingGeometry gained or lost an alternative — that is an exhaustive change. "
     "Every std::visit over it carries an always_false_v guard that names any site you "
     "missed; every switch over DraftingShapeKind is a site too. See "
@@ -320,5 +334,6 @@ template <> constexpr DraftingShapeKind shapeKindOf<ConstructionLineGeometry>() 
 template <> constexpr DraftingShapeKind shapeKindOf<DimensionGeometry>() { return DraftingShapeKind::Dimension; }
 template <> constexpr DraftingShapeKind shapeKindOf<TextAnnotationGeometry>() { return DraftingShapeKind::TextAnnotation; }
 template <> constexpr DraftingShapeKind shapeKindOf<SplineGeometry>() { return DraftingShapeKind::Spline; }
+template <> constexpr DraftingShapeKind shapeKindOf<WallGeometry>() { return DraftingShapeKind::Wall; }
 
 } // namespace edi::drafting

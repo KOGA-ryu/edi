@@ -363,6 +363,35 @@ int main(int argc, char **argv)
         assert(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
     }
 
+    // Two-click wall creation (a thick line), then drag its start endpoint
+    // handle. The default band thickness 0.1 makes it render; the projection
+    // emits ax/ay/bx/by + thickness for the inspector and the band painter.
+    {
+        DrawingDocumentController wallController;
+        DrawingCanvasWidget wallCanvas(&wallController);
+        wallCanvas.resize(600, 450);
+        wallController.setSelectedToolId(QStringLiteral("wall_tool"));
+        clickCanvas(wallController, wallCanvas, 0.3, 0.5); // a
+        clickCanvas(wallController, wallCanvas, 0.7, 0.5); // b
+        QVariantMap wall = activeObject(wallController);
+        assert(wall.value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        assert(near(wall.value(QStringLiteral("ax")).toDouble(), 0.3));
+        assert(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7));
+        assert(near(wall.value(QStringLiteral("thickness")).toDouble(), 0.1));
+
+        // Grab the start endpoint handle at (0.3,0.5) and drag it to (0.2,0.4).
+        wallController.setSelectedToolId(QStringLiteral("select_move"));
+        const QPointF grabAt = screenPointFor(wallController, wallCanvas, 0.3, 0.5);
+        sendMouse(wallCanvas, QEvent::MouseButtonPress, grabAt, Qt::LeftButton, Qt::LeftButton);
+        const QPointF target = screenPointFor(wallController, wallCanvas, 0.2, 0.4);
+        sendMouse(wallCanvas, QEvent::MouseMove, target, Qt::NoButton, Qt::LeftButton);
+        sendMouse(wallCanvas, QEvent::MouseButtonRelease, target, Qt::LeftButton, Qt::NoButton);
+        wall = activeObject(wallController);
+        assert(near(wall.value(QStringLiteral("ax")).toDouble(), 0.2));
+        assert(near(wall.value(QStringLiteral("ay")).toDouble(), 0.4));
+        assert(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7)); // b end untouched
+    }
+
     // N2 arrow: a two-click line whose projection carries end_arrow; a plain
     // line does not. The DoD's "distinct projected flag".
     {
@@ -715,6 +744,36 @@ int main(int argc, char **argv)
         const double outside = 230.0 * deg; // well outside the sweep
         assert(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
             0.5 + 0.2 * std::cos(outside), 0.5 + 0.2 * std::sin(outside)).toPoint(), 4));
+    }
+
+    // Wall: a thick line drawn as a SOLID oriented band, NOT a hairline. The
+    // centreline (0.2,0.6)->(0.8,0.6) with the default 0.1 thickness fills the
+    // strip y in [0.55,0.65]. Pin that ink covers the centreline AND a point
+    // offset within the half-thickness (a hairline would miss it), and that the
+    // strip stops: bare well beyond the band and bare past the square-capped end.
+    {
+        DrawingDocumentController wallController;
+        DrawingCanvasWidget wallCanvas(&wallController);
+        wallCanvas.resize(600, 450);
+        wallController.setSelectedToolId(QStringLiteral("wall_tool"));
+        clickCanvas(wallController, wallCanvas, 0.2, 0.6); // a
+        clickCanvas(wallController, wallCanvas, 0.8, 0.6); // b
+        assert(activeObject(wallController).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        assert(wallController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        wallController.setSelectedToolId(QStringLiteral("select_move"));
+        clickCanvas(wallController, wallCanvas, 0.02, 0.02); // deselect
+
+        const QImage frame = wallCanvas.grab().toImage();
+        // Inked on the centreline (the solid fill)...
+        assert(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.6).toPoint(), 3));
+        // ...and inked a third of the way to the band edge (0.035 off the
+        // centreline, inside the 0.05 half-thickness) — THIS is what a hairline
+        // would miss, so it pins "band, not line".
+        assert(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.635).toPoint(), 3));
+        // Bare well beyond the band (0.2 off >> half-thickness)...
+        assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.8).toPoint(), 5));
+        // ...and bare past the square-capped end (the band does not overshoot b).
+        assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.92, 0.6).toPoint(), 5));
     }
 
     // Trim: the verb shortens a line back to a crossing boundary. The painter

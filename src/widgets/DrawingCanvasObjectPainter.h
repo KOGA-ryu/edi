@@ -57,6 +57,7 @@ struct DrawingCanvasSceneItem {
     DrawingCanvasProjectedCircle circle;
     DrawingCanvasProjectedPolygon polygon;
     DrawingCanvasProjectedTextObject text;
+    DrawingCanvasProjectedWall wall;
     // Kept only for the selected object's handle painting (implicitly
     // shared, so retaining it costs a refcount, not a copy).
     QVariantMap source;

@@ -25,7 +25,8 @@ bool isKnownShapeKindName(const std::string &name)
 {
     return name == "point" || name == "line" || name == "rectangle" || name == "circle"
         || name == "arc" || name == "ellipse" || name == "polygon" || name == "polyline" || name == "guide"
-        || name == "construction_line" || name == "dimension" || name == "text" || name == "spline";
+        || name == "construction_line" || name == "dimension" || name == "text" || name == "spline"
+        || name == "wall";
 }
 
 GuideOrientation guideOrientationFromName(const std::string &name)
@@ -178,6 +179,12 @@ MsgPackValue geometryValue(const DraftingGeometry &geometry)
             fields.emplace_back("height", MsgPackValue::number(g.height));
         } else if constexpr (std::is_same_v<G, SplineGeometry>) {
             fields.emplace_back("control_points", verticesValue(g.controlPoints));
+        } else if constexpr (std::is_same_v<G, WallGeometry>) {
+            // Thick line: a->b centerline like LineGeometry, plus a scalar band
+            // thickness mirroring CircleGeometry's `radius`.
+            fields.emplace_back("a", pointValue(g.a));
+            fields.emplace_back("b", pointValue(g.b));
+            fields.emplace_back("thickness", MsgPackValue::number(g.thickness));
         } else {
             static_assert(always_false_v<G>, "geometryValue: unhandled geometry kind — add an arm");
         }
@@ -243,6 +250,16 @@ DraftingGeometry readGeometry(DraftingShapeKind kind, const MsgPackValue &g)
     case DraftingShapeKind::Spline: {
         SplineGeometry geo;
         geo.controlPoints = readVertices(child(g, "control_points"));
+        return geo;
+    }
+    case DraftingShapeKind::Wall: {
+        WallGeometry geo;
+        // Tolerant defaults: a/b fall back to the origin (readPoint yields {0,0}
+        // on a missing/short array), and thickness defaults to the struct's own
+        // 0.1 so a short/old record still loads as a visible band.
+        geo.a = readPoint(child(g, "a"));
+        geo.b = readPoint(child(g, "b"));
+        geo.thickness = asDouble(child(g, "thickness"), 0.1);
         return geo;
     }
     case DraftingShapeKind::Guide: {

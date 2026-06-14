@@ -20,6 +20,7 @@ enum class DraftingToolKind {
     RegularPolygon,
     Polyline,
     Spline,
+    Wall,
     TextAnnotation,
     HorizontalGuide,
     VerticalGuide,
@@ -57,6 +58,11 @@ struct DraftingToolCreationRequest {
     // One field, not one per tool: the tools share the same radius semantics,
     // so they share the same option.
     double fixedRadius = 0.0;
+    // Wall tool: band thickness (in canvas units) for the two-click wall.
+    // Carried like rectCornerRadius/fixedRadius — controller tool-option state
+    // rides into the request. Default 0.1 so a fresh wall renders as a visible
+    // band rather than a zero-width line.
+    double wallThickness = 0.1;
     // Polyline tool: the accumulated click trail. Multi-click tools carry
     // their whole path here; start/end stay meaningful for two-click tools
     // only. Validation (>= 2 finite vertices) lives with the geometry.

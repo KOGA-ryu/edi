@@ -25,7 +25,13 @@ enum class DraftingObjectEditKind {
     SetArcEndAngle,
     MoveDimensionStart,
     MoveDimensionEnd,
-    SetDimensionOffset
+    SetDimensionOffset,
+    // Wall is a thick line: two endpoint moves mirror the line's
+    // MoveLineStart/End, and SetWallThickness mirrors the circle's scalar
+    // SetCircleRadius (a magnitude, not a point).
+    MoveWallStart,
+    MoveWallEnd,
+    SetWallThickness
 };
 
 struct DraftingHandleDescriptor {

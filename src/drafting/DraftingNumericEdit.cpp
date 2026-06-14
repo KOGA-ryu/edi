@@ -239,6 +239,25 @@ DraftingNumericEditResult applyNumericGeometryEdit(
                 return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to text");
             }
             return acceptedIfValid(DraftingGeometry{geometry});
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Thick line: ax/ay/bx/by mirror the line's x1/y1/x2/y2 endpoint
+            // fields; thickness is the scalar band width (cf. circle radius).
+            // Validation (finite a/b, thickness >= 0) is enforced by
+            // acceptedIfValid -> validateGeometry, so we only reject by name here.
+            if (fieldId == "ax") {
+                geometry.a.x = value;
+            } else if (fieldId == "ay") {
+                geometry.a.y = value;
+            } else if (fieldId == "bx") {
+                geometry.b.x = value;
+            } else if (fieldId == "by") {
+                geometry.b.y = value;
+            } else if (fieldId == "thickness") {
+                geometry.thickness = value;
+            } else {
+                return DraftingNumericEditResult::rejected(DraftingResultCode::InvalidGeometry, "numeric field does not apply to wall");
+            }
+            return acceptedIfValid(DraftingGeometry{geometry});
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
                           || std::is_same_v<Geometry, PolylineGeometry>
                           || std::is_same_v<Geometry, SplineGeometry>) {

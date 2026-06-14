@@ -65,6 +65,7 @@ DraftingDocument buildSampleDocument()
     GuideGeometry guide; guide.orientation = GuideOrientation::Vertical; guide.position = 0.42;
     ConstructionLineGeometry cline; cline.a = {0.1, 0.9}; cline.b = {0.9, 0.1};
     DimensionGeometry dim; dim.kind = DimensionKind::Radius; dim.a = {0.2, 0.2}; dim.b = {0.6, 0.2}; dim.offset = 0.07;
+    WallGeometry wall; wall.a = {0.12, 0.88}; wall.b = {0.88, 0.12}; wall.thickness = 0.07; // a, b, thickness all distinct so the round-trip pins each
 
     document.objects = {
         makeObject("point-1", DraftingShapeKind::Point, pt, "default"),
@@ -78,6 +79,7 @@ DraftingDocument buildSampleDocument()
         makeObject("cline-1", DraftingShapeKind::ConstructionLine, cline, "default"),
         makeObject("dim-1", DraftingShapeKind::Dimension, dim, "default"),
         makeObject("ellipse-1", DraftingShapeKind::Ellipse, ellipse, "default"), // index 10 — appended to keep prior indices stable
+        makeObject("wall-1", DraftingShapeKind::Wall, wall, "default"), // index 11 — appended; prior indices unchanged
     };
 
     // Non-default styling and metadata on one object to exercise those fields.
@@ -229,6 +231,8 @@ int main()
         assert(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);
         const auto &ellipseGeo = std::get<EllipseGeometry>(objects[10].geometry);
         assert(ellipseGeo.rx == 0.18 && ellipseGeo.ry == 0.1);
+        const auto &wallGeo = std::get<WallGeometry>(objects[11].geometry);
+        assert(wallGeo.a.x == 0.12 && wallGeo.b.y == 0.12 && wallGeo.thickness == 0.07);
     }
 
     // Unknown-field tolerance: extra keys at every level are ignored on read.

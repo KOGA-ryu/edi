@@ -1313,6 +1313,16 @@ int main(int argc, char **argv)
             assert(belt != nullptr);
             assert(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
 
+            // Belt pin (M1.1): wall_tool surfaces on the inventory checklist
+            // AND resolves to a real cell on the mounted belt — so "in the
+            // kDraftingTools table => on every surface" can't silently break.
+            bool wallInInventory = false;
+            for (const QPair<QString, QString> &entry : DraftingFeature::toolInventory()) {
+                wallInInventory = wallInInventory || entry.first == QStringLiteral("wall_tool");
+            }
+            assert(wallInInventory);
+            assert(belt->indexOfItem(QStringLiteral("wall_tool")) >= 0);
+
             // Uncheck: the live belt loses the tool, and the workspace TOML
             // would save without it.
             pointBox->setChecked(false);

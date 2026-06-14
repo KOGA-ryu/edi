@@ -104,6 +104,19 @@ DrawingCanvasProjectedCircle projectedCircle(const QVariantMap &object)
     return circle;
 }
 
+DrawingCanvasProjectedWall projectedWall(const QVariantMap &object)
+{
+    DrawingCanvasProjectedWall wall;
+    // ok requires the four endpoint coordinates (like projectedLine); thickness
+    // falls back to the struct default 0.1 so a short record still bands.
+    wall.ok = readFinite(object, QStringLiteral("ax"), wall.ax)
+        && readFinite(object, QStringLiteral("ay"), wall.ay)
+        && readFinite(object, QStringLiteral("bx"), wall.bx)
+        && readFinite(object, QStringLiteral("by"), wall.by);
+    wall.thickness = finiteNumber(object.value(QStringLiteral("thickness")), 0.1);
+    return wall;
+}
+
 DrawingCanvasProjectedPolygon projectedPolygon(const QVariantMap &object)
 {
     DrawingCanvasProjectedPolygon polygon;

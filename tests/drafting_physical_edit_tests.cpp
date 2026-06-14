@@ -151,6 +151,39 @@ int main()
     assert(dimensionOffsetCommand->fieldId == "offset");
     assert(near(dimensionOffsetCommand->value, 0.1));
 
+    // Wall: the band's endpoints + thickness are physically editable. ax/bx
+    // normalize by width, ay/by by height, and thickness by width (a width-kind
+    // length, like radius). Forward projection advertises these fields editable;
+    // this pins the INVERSE actually applies them (regression: ax/ay/bx/by/
+    // thickness were originally missing from planPhysicalGeometryEdit, so every
+    // physical spinbox was dead and errored on commit).
+    DraftingObject wall = object("wall_1", DraftingShapeKind::Wall, WallGeometry{{0.2, 0.5}, {0.8, 0.5}, 0.1});
+    const DraftingPhysicalGeometryEditPlan wallAx = planPhysicalGeometryEdit(wall, grid(), "ax", 6.0);
+    const NumericGeometryEditCommand *wallAxCommand = numericCommand(wallAx);
+    assert(wallAxCommand != nullptr);
+    assert(wallAxCommand->fieldId == "ax");
+    assert(near(wallAxCommand->value, 0.5)); // 6.0 / width 12.0
+
+    const DraftingPhysicalGeometryEditPlan wallBy = planPhysicalGeometryEdit(wall, grid(), "by", 3.0);
+    const NumericGeometryEditCommand *wallByCommand = numericCommand(wallBy);
+    assert(wallByCommand != nullptr);
+    assert(wallByCommand->fieldId == "by");
+    assert(near(wallByCommand->value, 0.25)); // 3.0 / height 12.0
+
+    const DraftingPhysicalGeometryEditPlan wallThickness = planPhysicalGeometryEdit(wall, grid(), "thickness", 1.2);
+    const NumericGeometryEditCommand *wallThicknessCommand = numericCommand(wallThickness);
+    assert(wallThicknessCommand != nullptr);
+    assert(wallThicknessCommand->fieldId == "thickness");
+    assert(near(wallThicknessCommand->value, 0.1)); // 1.2 / width 12.0 (width-kind)
+
+    // The plan applies cleanly to a real document, mutating the wall geometry.
+    DraftingDocument wallDoc = makeDraftingDocument("wall_physical_doc");
+    assert(addObject(wallDoc, wall).ok);
+    assert(applyDraftingCommand(wallDoc, *wallThickness.command).ok);
+    const auto *editedWall = findObject(wallDoc, "wall_1");
+    assert(editedWall != nullptr);
+    assert(near(std::get<WallGeometry>(editedWall->geometry).thickness, 0.1));
+
     const DraftingPhysicalGeometryEditPlan badField = planPhysicalGeometryEdit(circle, grid(), "missing", 1.0);
     assert(!badField.ok);
     assert(badField.code == DraftingResultCode::InvalidGeometry);

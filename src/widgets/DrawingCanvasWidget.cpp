@@ -33,6 +33,7 @@ bool isTwoClickCreationTool(const QString &toolId)
 {
     static const QStringList tools{
         QStringLiteral("line_tool"),
+        QStringLiteral("wall_tool"),
         QStringLiteral("rectangle_tool"),
         QStringLiteral("circle_tool"),
         QStringLiteral("arc_tool"),

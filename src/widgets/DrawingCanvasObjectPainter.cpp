@@ -184,6 +184,12 @@ DrawingCanvasSceneItem buildCanvasSceneItem(const QVariantMap &object)
         item.rectangle = projectedRectangle(object);
     } else if (kind == QStringLiteral("circle")) {
         item.circle = projectedCircle(object);
+    } else if (kind == QStringLiteral("wall")) {
+        // Two-click thick line: centerline a->b (canvas units, keys ax/ay/bx/by)
+        // plus a scalar band thickness (key thickness), mirroring projectedLine's
+        // a/b and projectedCircle's radius. A wall is NOT a points-list shape, so
+        // it must not join the polygon arm below.
+        item.wall = projectedWall(object);
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         item.polygon = projectedPolygon(object);
     } else if (kind == QStringLiteral("text")) {
@@ -394,6 +400,45 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
         const double radius = circle.radius * context.board.width();
         painter.drawEllipse(center, radius, radius);
+    } else if (kind == QStringLiteral("wall")) {
+        // A wall is a THICK LINE drawn as an oriented BAND: the centerline a->b
+        // (like the line arm) widened by half its thickness on each side. The
+        // half-thickness offset is scaled by board.width() to track zoom,
+        // mirroring the circle arm's `radius * context.board.width()`.
+        const DrawingCanvasProjectedWall &wall = item.wall;
+        if (!wall.ok) {
+            return;
+        }
+        const QPointF a = drawing_canvas::canvasToScreen(context.board, wall.ax, wall.ay);
+        const QPointF b = drawing_canvas::canvasToScreen(context.board, wall.bx, wall.by);
+        const double dx = b.x() - a.x();
+        const double dy = b.y() - a.y();
+        const double length = std::hypot(dx, dy);
+        const double halfPx = 0.5 * wall.thickness * context.board.width();
+        // Perpendicular to the a->b unit vector (rotate +90deg), scaled to the
+        // half-thickness in pixels. A degenerate (zero-length) wall has no
+        // direction, so the unit vector falls back to +x and the band collapses
+        // to a thin perpendicular sliver of length thickness — it does not
+        // vanish, but a double-click-in-place is not a meaningful band.
+        const double ux = length > 0.0 ? dx / length : 1.0;
+        const double uy = length > 0.0 ? dy / length : 0.0;
+        const QPointF offset(-uy * halfPx, ux * halfPx);
+        // Square caps at both free ends fall out of the explicit 4-point
+        // rectangle: corners sit at a/b +/- the perpendicular offset, so the
+        // ends are flat. No miter (single segment) — joins are M1.2.
+        QPolygonF band;
+        band << (a + offset) << (b + offset) << (b - offset) << (a - offset);
+        painter.save();
+        QPen bandPen = painter.pen();
+        bandPen.setJoinStyle(Qt::MiterJoin); // square corners on the band outline
+        bandPen.setCapStyle(Qt::SquareCap);
+        painter.setPen(bandPen);
+        // A wall is a thick LINE, so it reads as a SOLID band, not a hollow
+        // rectangle: fill the polygon with the stroke colour (carrying its
+        // opacity), the way a wide pen lays down ink across its whole width.
+        painter.setBrush(QBrush(bandPen.color()));
+        painter.drawPolygon(band); // solid fill + stroked outline in one call
+        painter.restore();
     } else if (kind == QStringLiteral("polyline") || kind == QStringLiteral("polygon") || kind == QStringLiteral("arc") || kind == QStringLiteral("ellipse") || kind == QStringLiteral("spline")) {
         const DrawingCanvasProjectedPolygon &projected = item.polygon;
         if (!projected.ok) {
@@ -507,6 +552,25 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             const QPointF center = drawing_canvas::canvasToScreen(context.board, circle.cx, circle.cy);
             const double radius = circle.radius * context.board.width();
             painter.drawEllipse(center, radius, radius);
+        }
+    } else if (kind == QStringLiteral("wall")) {
+        // Live two-click preview: the same oriented band as the committed path,
+        // under the dashed preview pen. thickness comes from the pending tool
+        // option (default 0.1) carried into the preview object.
+        const DrawingCanvasProjectedWall wall = projectedWall(object);
+        if (wall.ok) {
+            const QPointF a = drawing_canvas::canvasToScreen(context.board, wall.ax, wall.ay);
+            const QPointF b = drawing_canvas::canvasToScreen(context.board, wall.bx, wall.by);
+            const double dx = b.x() - a.x();
+            const double dy = b.y() - a.y();
+            const double length = std::hypot(dx, dy);
+            const double halfPx = 0.5 * wall.thickness * context.board.width();
+            const double ux = length > 0.0 ? dx / length : 1.0;
+            const double uy = length > 0.0 ? dy / length : 0.0;
+            const QPointF offset(-uy * halfPx, ux * halfPx);
+            QPolygonF band;
+            band << (a + offset) << (b + offset) << (b - offset) << (a - offset);
+            painter.drawPolygon(band); // dashed preview pen, Qt::NoBrush set at top
         }
     } else if (kind == QStringLiteral("arc") || kind == QStringLiteral("spline")) {
         // Both preview as open chains of the projected (sampled) points.

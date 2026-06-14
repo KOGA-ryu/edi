@@ -263,6 +263,24 @@ std::vector<DraftingHandleDescriptor> draftingHandlesForObject(const DraftingObj
                 {"line_start", "endpoint", geometry.a},
                 {"line_end", "endpoint", geometry.b},
             };
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Thick line: two endpoint handles mirror LineGeometry's a/b, plus
+            // one scalar thickness handle (cf. circle_radius). The thickness
+            // handle sits at the centerline midpoint pushed out perpendicular
+            // by thickness/2 — the same unit-normal (-dy/len, dx/len) the
+            // dimension offset handle uses.
+            const Point2D mid{(geometry.a.x + geometry.b.x) / 2.0, (geometry.a.y + geometry.b.y) / 2.0};
+            const double dx = geometry.b.x - geometry.a.x;
+            const double dy = geometry.b.y - geometry.a.y;
+            const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+            const double nx = -dy / length;
+            const double ny = dx / length;
+            const double half = geometry.thickness / 2.0;
+            return {
+                {"wall_start", "endpoint", geometry.a},
+                {"wall_end", "endpoint", geometry.b},
+                {"wall_thickness", "radius", {mid.x + nx * half, mid.y + ny * half}},
+            };
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
             return rectangleHandles(geometry);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
@@ -379,6 +397,29 @@ DraftingHandleEditPlan handleEditPlan(const DraftingObject &object, const std::s
         }
         return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetCircleRadius, handleId, point, distance(circle->center, point)});
     }
+    if (object.kind == DraftingShapeKind::Wall && handleId == "wall_start") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveWallStart, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Wall && handleId == "wall_end") {
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::MoveWallEnd, handleId, point});
+    }
+    if (object.kind == DraftingShapeKind::Wall && handleId == "wall_thickness") {
+        const auto *wall = std::get_if<WallGeometry>(&object.geometry);
+        if (wall == nullptr) {
+            return DraftingHandleEditPlan::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+        }
+        // Thickness = twice the perpendicular distance from the centerline
+        // midpoint to the dragged point (the handle sits at half-thickness off
+        // the midpoint, mirroring circle_radius = distance(center, point)).
+        const Point2D mid{(wall->a.x + wall->b.x) / 2.0, (wall->a.y + wall->b.y) / 2.0};
+        const double dx = wall->b.x - wall->a.x;
+        const double dy = wall->b.y - wall->a.y;
+        const double length = std::max(0.000001, std::sqrt(dx * dx + dy * dy));
+        const double nx = -dy / length;
+        const double ny = dx / length;
+        const double perpendicular = (point.x - mid.x) * nx + (point.y - mid.y) * ny;
+        return DraftingHandleEditPlan::accepted({DraftingObjectEditKind::SetWallThickness, handleId, point, std::abs(perpendicular) * 2.0});
+    }
     if (object.kind == DraftingShapeKind::Ellipse) {
         const auto *ellipse = std::get_if<EllipseGeometry>(&object.geometry);
         if (ellipse == nullptr) {
@@ -470,6 +511,19 @@ DraftingObjectEditResult applyObjectEdit(const DraftingObject &object, const Dra
                 geometry.b = edit.point;
             } else {
                 return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to line geometry");
+            }
+            return validatedEditResult(object, geometry);
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Thick line: a/b mirror LineGeometry's endpoint edits; thickness
+            // mirrors circle's scalar radius edit (value carries the magnitude).
+            if (edit.kind == DraftingObjectEditKind::MoveWallStart) {
+                geometry.a = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::MoveWallEnd) {
+                geometry.b = edit.point;
+            } else if (edit.kind == DraftingObjectEditKind::SetWallThickness) {
+                geometry.thickness = edit.value;
+            } else {
+                return DraftingObjectEditResult::rejected(DraftingResultCode::InvalidGeometry, "edit does not apply to wall geometry");
             }
             return validatedEditResult(object, geometry);
         } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {

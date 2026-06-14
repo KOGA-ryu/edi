@@ -70,6 +70,19 @@ struct DrawingCanvasProjectedCircle {
     double radius = 0.0;
 };
 
+// A wall's projected payload: the centerline endpoints a->b (keys ax/ay/bx/by,
+// mirroring projectedLine's x1/y1/x2/y2) plus a scalar band thickness (key
+// thickness, mirroring projectedCircle's radius). The band painter widens the
+// centerline by half this thickness on each side.
+struct DrawingCanvasProjectedWall {
+    bool ok = false;
+    double ax = 0.0;
+    double ay = 0.0;
+    double bx = 0.0;
+    double by = 0.0;
+    double thickness = 0.1;
+};
+
 struct DrawingCanvasProjectedPolygon {
     bool ok = false;
     std::vector<DrawingCanvasProjectedPoint> points;
@@ -132,6 +145,7 @@ DrawingCanvasProjectedPointObject projectedPointObject(const QVariantMap &object
 DrawingCanvasProjectedLine projectedLine(const QVariantMap &object);
 DrawingCanvasProjectedRectangle projectedRectangle(const QVariantMap &object);
 DrawingCanvasProjectedCircle projectedCircle(const QVariantMap &object);
+DrawingCanvasProjectedWall projectedWall(const QVariantMap &object);
 DrawingCanvasProjectedPolygon projectedPolygon(const QVariantMap &object);
 DrawingCanvasProjectedGuide projectedGuide(const QVariantMap &object);
 DrawingCanvasProjectedDimension projectedDimension(const QVariantMap &object);

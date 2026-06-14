@@ -345,5 +345,34 @@ int main()
         assert(line.ok && !line.object.metadata.lineVisual.endArrow);
     }
 
+    // Wall: a two-click tool (click a, click b) building a thick line. Like
+    // circle's fixedRadius, the band thickness is a tool option (wallThickness)
+    // defaulting to 0.1; request.start -> a, request.end -> b.
+    {
+        assert(draftingToolKindFromId("wall_tool") == DraftingToolKind::Wall);
+        assert(std::string(draftingToolKindName(DraftingToolKind::Wall)) == "wall");
+
+        DraftingToolCreationRequest request;
+        request.tool = DraftingToolKind::Wall;
+        request.objectId = "wall_1";
+        request.start = {0.2, 0.5};
+        request.end = {0.8, 0.5};
+        const DraftingObjectBuildResult built = buildDraftingObjectForTool(request);
+        assert(built.ok);
+        assert(built.object.kind == DraftingShapeKind::Wall);
+        const auto *wall = std::get_if<WallGeometry>(&built.object.geometry);
+        assert(wall != nullptr);
+        assert(nearlyEqual(wall->a.x, 0.2) && nearlyEqual(wall->a.y, 0.5)); // start -> a
+        assert(nearlyEqual(wall->b.x, 0.8) && nearlyEqual(wall->b.y, 0.5)); // end -> b
+        assert(nearlyEqual(wall->thickness, 0.1)); // default option, a visible band
+
+        // A custom thickness option overrides the default; the endpoints are
+        // untouched (thickness is not a gesture distance).
+        request.wallThickness = 0.25;
+        const DraftingObjectBuildResult thick = buildDraftingObjectForTool(request);
+        assert(nearlyEqual(std::get<WallGeometry>(thick.object.geometry).thickness, 0.25));
+        assert(nearlyEqual(std::get<WallGeometry>(thick.object.geometry).a.x, 0.2)); // a/b unchanged
+    }
+
     return 0;
 }

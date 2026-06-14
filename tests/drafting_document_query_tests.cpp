@@ -17,6 +17,7 @@ static_assert(shapeKindOf<PolylineGeometry>() == DraftingShapeKind::Polyline);
 static_assert(shapeKindOf<GuideGeometry>() == DraftingShapeKind::Guide);
 static_assert(shapeKindOf<ConstructionLineGeometry>() == DraftingShapeKind::ConstructionLine);
 static_assert(shapeKindOf<DimensionGeometry>() == DraftingShapeKind::Dimension);
+static_assert(shapeKindOf<WallGeometry>() == DraftingShapeKind::Wall);
 
 namespace {
 

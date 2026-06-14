@@ -169,6 +169,8 @@ const char *shapeKindName(DraftingShapeKind kind)
         return "text";
     case DraftingShapeKind::Spline:
         return "spline";
+    case DraftingShapeKind::Wall:
+        return "wall";
     }
     return "unknown";
 }
@@ -188,6 +190,7 @@ DraftingShapeKind shapeKindFromName(const std::string &name)
     if (name == "dimension") return DraftingShapeKind::Dimension;
     if (name == "text") return DraftingShapeKind::TextAnnotation;
     if (name == "spline") return DraftingShapeKind::Spline;
+    if (name == "wall") return DraftingShapeKind::Wall;
     return DraftingShapeKind::Point;
 }
 
@@ -302,6 +305,8 @@ DraftingShapeKind geometryKind(const DraftingGeometry &geometry)
             return DraftingShapeKind::TextAnnotation;
         } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
             return DraftingShapeKind::Spline;
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            return DraftingShapeKind::Wall;
         } else {
             static_assert(always_false_v<Geometry>, "geometryKind: unhandled geometry kind — add an arm");
         }
@@ -467,6 +472,18 @@ GeometryValidationResult validateGeometry(const DraftingGeometry &geometry)
                     return GeometryValidationResult::rejected("spline control points must be finite");
                 }
             }
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall is a thick line: finite endpoints (like LineGeometry) plus a
+            // non-negative thickness (like circle's radius). A zero-length
+            // centerline is allowed here — the tool/hit paths handle the
+            // degenerate band — but thickness must not be negative.
+            if (!isFinite(typedGeometry.a) || !isFinite(typedGeometry.b)
+                || !std::isfinite(typedGeometry.thickness)) {
+                return GeometryValidationResult::rejected("wall fields must be finite");
+            }
+            if (typedGeometry.thickness < 0.0) {
+                return GeometryValidationResult::rejected("wall thickness must be non-negative");
+            }
         } else {
             static_assert(always_false_v<Geometry>, "validateGeometry: unhandled geometry kind — add an arm");
         }
@@ -532,6 +549,15 @@ Bounds2D computeBounds(const DraftingGeometry &geometry)
             // can bow outside its knots, so selection/bounds must measure the
             // sampled points the user actually sees.
             return boundsFromPoints(sampleSpline(typedGeometry));
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Centerline bbox (like LineGeometry) EXPANDED by half the band
+            // thickness on every side, so the band's painted footprint is fully
+            // enclosed regardless of the segment's orientation. This over-covers
+            // the rotated band's corners slightly (an axis-aligned pad of a
+            // diagonal band), which is the safe direction for selection/bounds.
+            const Bounds2D core = boundsFromPoints({typedGeometry.a, typedGeometry.b});
+            const double pad = std::max(0.0, typedGeometry.thickness) / 2.0;
+            return {core.x - pad, core.y - pad, core.width + pad * 2.0, core.height + pad * 2.0};
         } else {
             static_assert(always_false_v<Geometry>, "computeBounds: unhandled geometry kind — add an arm");
         }
@@ -604,6 +630,11 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
             for (Point2D &point : typedGeometry.controlPoints) {
                 point = translatePoint(point, dx, dy);
             }
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Move both centerline endpoints (like LineGeometry); thickness is a
+            // band width, unaffected by translation.
+            typedGeometry.a = translatePoint(typedGeometry.a, dx, dy);
+            typedGeometry.b = translatePoint(typedGeometry.b, dx, dy);
         } else {
             static_assert(always_false_v<Geometry>, "translateGeometry: unhandled geometry kind — add an arm");
         }
@@ -821,6 +852,27 @@ std::vector<HandleAnchor> handleAnchors(const DraftingGeometry &geometry)
             for (std::size_t i = 0; i < typedGeometry.controlPoints.size(); ++i) {
                 handles.push_back({"control_" + std::to_string(i), typedGeometry.controlPoints[i]});
             }
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Two endpoint handles (like a line's a/b) plus one thickness handle.
+            // The thickness handle sits at the centerline MIDPOINT, pushed
+            // perpendicular to the a->b direction by half the thickness — so it
+            // rides the edge of the band the way circle's radius handle rides the
+            // rim. The perpendicular of (dx,dy) is (-dy,dx) normalized; a
+            // zero-length wall degenerates the direction, so fall back to the
+            // midpoint itself (no offset) when the segment has no length.
+            const Point2D mid{(typedGeometry.a.x + typedGeometry.b.x) / 2.0,
+                              (typedGeometry.a.y + typedGeometry.b.y) / 2.0};
+            const double dx = typedGeometry.b.x - typedGeometry.a.x;
+            const double dy = typedGeometry.b.y - typedGeometry.a.y;
+            const double len = std::sqrt(dx * dx + dy * dy);
+            const double half = std::max(0.0, typedGeometry.thickness) / 2.0;
+            Point2D thicknessHandle = mid;
+            if (len > 0.0) {
+                thicknessHandle = {mid.x - dy / len * half, mid.y + dx / len * half};
+            }
+            handles.push_back({"wall_start", typedGeometry.a});
+            handles.push_back({"wall_end", typedGeometry.b});
+            handles.push_back({"wall_thickness", thicknessHandle});
         } else {
             static_assert(always_false_v<Geometry>, "handleAnchors: unhandled geometry kind — add an arm");
         }

@@ -391,6 +391,17 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
                     addCandidate(candidates, object, geometry.controlPoints[i], DraftingSnapSourceKind::Vertex);
                 }
             }
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall snaps exactly like a line: its two centerline endpoints and
+            // the centerline midpoint, each gated by its setting flag. The
+            // thickness does not add snap targets in v1.
+            if (settings.endpointEnabled) {
+                addCandidate(candidates, object, geometry.a, DraftingSnapSourceKind::Endpoint);
+                addCandidate(candidates, object, geometry.b, DraftingSnapSourceKind::Endpoint);
+            }
+            if (settings.midpointEnabled) {
+                addCandidate(candidates, object, {(geometry.a.x + geometry.b.x) / 2.0, (geometry.a.y + geometry.b.y) / 2.0}, DraftingSnapSourceKind::Midpoint);
+            }
         } else {
             static_assert(always_false_v<Geometry>, "snapCandidatesForObject: unhandled geometry kind — add an arm");
         }

@@ -5,10 +5,13 @@
 #include "drafting/DraftingCorridor.h"
 #include "drafting/DraftingGeometry.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <string>
+#include <vector>
 
 using namespace edi::drafting;
 
@@ -101,6 +104,49 @@ int main()
         spec.doorB = {0.5, 0.5};
         spec.edgeB = RoomEdge::North;
         assert(planCorridor(spec, counter()).empty());
+    }
+
+    // v2 routing: with no obstacles, the routed centerline equals the direct one.
+    {
+        CorridorSpec spec;
+        spec.doorA = {0.1, 0.5};
+        spec.edgeA = RoomEdge::East;
+        spec.doorB = {0.9, 0.5};
+        spec.edgeB = RoomEdge::West;
+        const std::vector<Point2D> direct = corridorCenterline(spec);
+        const std::vector<Point2D> routed = routeCorridorCenterline(spec, {});
+        assert(routed.size() == direct.size());
+    }
+
+    // v2 routing: an obstacle straddling the direct line forces a detour AROUND it.
+    {
+        CorridorSpec spec;
+        spec.doorA = {0.1, 0.5};
+        spec.edgeA = RoomEdge::East;
+        spec.doorB = {0.9, 0.5};
+        spec.edgeB = RoomEdge::West;
+        std::vector<CorridorObstacle> obstacles;
+        obstacles.push_back({{0.4, 0.4}, 0.2, 0.2}); // blocks the straight y=0.5 path
+
+        const std::vector<Point2D> routed = routeCorridorCenterline(spec, obstacles);
+        assert(routed.size() > 2); // it detoured, not a straight line
+        assert(nearlyEqual(routed.front().x, 0.1) && nearlyEqual(routed.front().y, 0.5));
+        assert(nearlyEqual(routed.back().x, 0.9) && nearlyEqual(routed.back().y, 0.5));
+        // No segment passes through the obstacle interior [0.4,0.6] x [0.4,0.6].
+        for (std::size_t i = 1; i < routed.size(); ++i) {
+            const Point2D &p = routed[i - 1];
+            const Point2D &q = routed[i];
+            const double lo = 0.4, hi = 0.6, e = 1e-6;
+            if (std::abs(p.y - q.y) < e) { // horizontal
+                const bool inY = p.y > lo + e && p.y < hi - e;
+                const bool overX = std::max(std::min(p.x, q.x), lo) < std::min(std::max(p.x, q.x), hi) - e;
+                assert(!(inY && overX));
+            } else if (std::abs(p.x - q.x) < e) { // vertical
+                const bool inX = p.x > lo + e && p.x < hi - e;
+                const bool overY = std::max(std::min(p.y, q.y), lo) < std::min(std::max(p.y, q.y), hi) - e;
+                assert(!(inX && overY));
+            }
+        }
     }
 
     return 0;

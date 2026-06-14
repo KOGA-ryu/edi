@@ -2057,8 +2057,13 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     // (room, plug) -> the door's position + which wall it sits on, so a connection
     // can route a corridor between the two doors (each leaving perpendicular).
     std::unordered_map<std::string, std::pair<Point2D, RoomEdge>> doorByKey;
+    // room name -> its footprint, so a corridor can route AROUND the rooms it does
+    // not connect (v2 obstacle avoidance).
+    std::unordered_map<std::string, CorridorObstacle> roomRectByName;
 
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
+        roomRectByName.emplace(room.name,
+                               CorridorObstacle{room.spec.origin, room.spec.width, room.spec.height});
         // Inject an opening at each connected plug so its wall has a doorway. The
         // plug carries the edge + offset already; the opening reuses them.
         RoomSpec roomSpec = room.spec;
@@ -2131,10 +2136,20 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             corridor.edgeB = doorB->second.second;
             corridor.width = kCorridorWidth; // mouth matches the carved doorway
             corridor.wallThickness = 0.015;
-            std::vector<DraftingObject> corridorWalls = planCorridor(corridor, [this]() {
-                return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
-            });
-            for (DraftingObject &wall : corridorWalls) {
+            // Route AROUND every room except the two this connection joins (the
+            // corridor is allowed to touch its own rooms at the doors).
+            std::vector<CorridorObstacle> obstacles;
+            for (const auto &entry : roomRectByName) {
+                if (entry.first == request.from.roomName || entry.first == request.to.roomName) {
+                    continue;
+                }
+                obstacles.push_back(entry.second);
+            }
+            std::vector<DraftingObject> corridorObjs = corridorWalls(
+                routeCorridorCenterline(corridor, obstacles),
+                corridor.width, corridor.wallThickness,
+                [this]() { return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++)); });
+            for (DraftingObject &wall : corridorObjs) {
                 allObjects.push_back(std::move(wall));
             }
         }

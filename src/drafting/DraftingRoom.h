@@ -111,6 +111,7 @@ struct RoomPlugPlacement {
     std::string name;
     std::string type;
     Point2D anchor;
+    RoomEdge edge = RoomEdge::North; // which wall the plug sits on (its outward normal)
 };
 
 struct DraftingRoomPlan {

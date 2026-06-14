@@ -86,6 +86,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingAsciiMap.cpp
     src/drafting/DraftingGraphOps.h
     src/drafting/DraftingGraphOps.cpp
+    src/drafting/DraftingCorridor.h
+    src/drafting/DraftingCorridor.cpp
     src/drafting/DraftingAlign.h
     src/drafting/DraftingAlign.cpp
     src/drafting/DraftingSelection.h
@@ -249,6 +251,7 @@ add_edi_contract_test(drafting_wall_tests tests/drafting_wall_tests.cpp edi_draf
 add_edi_contract_test(drafting_room_tests tests/drafting_room_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_ascii_map_tests tests/drafting_ascii_map_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_graph_ops_tests tests/drafting_graph_ops_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_corridor_tests tests/drafting_corridor_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_modify_tests tests/drafting_modify_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_hit_test_tests tests/drafting_hit_test_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_snap_tests tests/drafting_snap_tests.cpp edi_drafting_core)

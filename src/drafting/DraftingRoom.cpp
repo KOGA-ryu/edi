@@ -172,6 +172,7 @@ DraftingRoomPlan planDraftingRoom(const RoomSpec &spec,
         placement.name = plug.name;
         placement.type = plug.type;
         placement.anchor = at;
+        placement.edge = plug.edge;
         plugs.push_back(std::move(placement));
         walls.push_back(std::move(built.object));
     }

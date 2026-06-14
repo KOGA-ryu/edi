@@ -429,5 +429,51 @@ int main()
     assert(!containsObject(guideCommandDocument, "guide_h"));
     assert(containsObject(guideCommandDocument, "guide_line"));
 
+    // S2: map-graph commands reach DraftingGraphOps through the dispatcher and
+    // carry the store result back out, so they undo via DocumentSnapshot like any
+    // other command. Validation lives in the ops (S1); here we prove the wiring.
+    {
+        DraftingDocument graphDoc = makeDraftingDocument("graph-cmd");
+        graphDoc.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        graphDoc.objects.push_back(makeDraftingObject("m.1", DraftingShapeKind::Point, PointGeometry{}));
+
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0"; a.name = "north"; a.type = "door";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1"; b.name = "south"; b.type = "door";
+        assert(applyDraftingCommand(graphDoc, CreatePlugCommand{a}).ok);
+        assert(applyDraftingCommand(graphDoc, CreatePlugCommand{b}).ok);
+        assert(graphDoc.plugs.size() == 2);
+
+        // A plug whose anchor is missing is rejected by the op, surfaced here.
+        DraftingPlug orphan; orphan.id = "plug_x"; orphan.anchorObjectId = "ghost";
+        auto badPlug = applyDraftingCommand(graphDoc, CreatePlugCommand{orphan});
+        assert(!badPlug.ok);
+        assert(badPlug.code == DraftingResultCode::ObjectNotFound);
+        assert(graphDoc.plugs.size() == 2);
+
+        DraftingDeclaredConnection ab; ab.id = "conn_ab"; ab.plugA = "plug_a"; ab.plugB = "plug_b"; ab.type = "corridor";
+        assert(applyDraftingCommand(graphDoc, DeclareConnectionCommand{ab}).ok);
+        assert(graphDoc.connections.size() == 1);
+
+        // An edge to a missing plug is rejected.
+        DraftingDeclaredConnection bad; bad.id = "conn_bad"; bad.plugA = "plug_a"; bad.plugB = "plug_ghost";
+        assert(!applyDraftingCommand(graphDoc, DeclareConnectionCommand{bad}).ok);
+        assert(graphDoc.connections.size() == 1);
+
+        // Deleting a plug cascades its edge away through the command path too.
+        assert(applyDraftingCommand(graphDoc, DeletePlugCommand{"plug_a"}).ok);
+        assert(graphDoc.plugs.size() == 1);
+        assert(graphDoc.connections.empty());
+
+        // Deleting a now-missing connection is rejected; the explicit delete of a
+        // live connection works (declare a fresh one to prove it).
+        DraftingPlug c; c.id = "plug_c"; c.anchorObjectId = "m.0";
+        assert(applyDraftingCommand(graphDoc, CreatePlugCommand{c}).ok);
+        DraftingDeclaredConnection bc; bc.id = "conn_bc"; bc.plugA = "plug_b"; bc.plugB = "plug_c";
+        assert(applyDraftingCommand(graphDoc, DeclareConnectionCommand{bc}).ok);
+        assert(applyDraftingCommand(graphDoc, DeleteConnectionCommand{"conn_missing"}).ok == false);
+        assert(applyDraftingCommand(graphDoc, DeleteConnectionCommand{"conn_bc"}).ok);
+        assert(graphDoc.connections.empty());
+    }
+
     return 0;
 }

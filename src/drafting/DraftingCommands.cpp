@@ -1,6 +1,7 @@
 #include "drafting/DraftingCommands.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGraphOps.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingNumericEdit.h"
 #include "drafting/DraftingObjectEdit.h"
@@ -317,6 +318,14 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             selectMany(document, typedCommand.objectIds, existing);
             ++document.revision;
             return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, CreatePlugCommand>) {
+            return fromStoreResult(addPlug(document, typedCommand.plug));
+        } else if constexpr (std::is_same_v<Command, DeletePlugCommand>) {
+            return fromStoreResult(removePlug(document, typedCommand.plugId));
+        } else if constexpr (std::is_same_v<Command, DeclareConnectionCommand>) {
+            return fromStoreResult(declareConnection(document, typedCommand.connection));
+        } else if constexpr (std::is_same_v<Command, DeleteConnectionCommand>) {
+            return fromStoreResult(undeclareConnection(document, typedCommand.connectionId));
         } else {
             return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
         }

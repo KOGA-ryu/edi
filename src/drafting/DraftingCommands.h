@@ -142,6 +142,28 @@ struct SelectObjectsCommand {
     std::vector<DraftingObjectId> objectIds;
 };
 
+// Map-graph commands (S2). Each carries the WHOLE pre-minted record — the same
+// shape as CreateObjectCommand{DraftingObject} — so the arm is a one-line
+// delegate to the matching DraftingGraphOps free function. The id is already on
+// the record (decision #4 of the work order: the caller mints, the op validates),
+// exactly as a DraftingObject arrives at CreateObjectCommand already carrying its
+// id; the deletes name a record by id like DeleteObjectCommand.
+struct CreatePlugCommand {
+    DraftingPlug plug;
+};
+
+struct DeletePlugCommand {
+    DraftingPlugId plugId;
+};
+
+struct DeclareConnectionCommand {
+    DraftingDeclaredConnection connection;
+};
+
+struct DeleteConnectionCommand {
+    DraftingConnectionId connectionId;
+};
+
 using DraftingCommand = std::variant<
     CreateObjectCommand,
     CreateObjectsCommand,
@@ -169,7 +191,11 @@ using DraftingCommand = std::variant<
     AlignSelectionCommand,
     DistributeSelectionCommand,
     SelectObjectCommand,
-    SelectObjectsCommand>;
+    SelectObjectsCommand,
+    CreatePlugCommand,
+    DeletePlugCommand,
+    DeclareConnectionCommand,
+    DeleteConnectionCommand>;
 
 struct DraftingCommandResult {
     bool ok = false;

@@ -33,6 +33,11 @@ DraftingGeometry mirrorGeometry(const DraftingGeometry &geometry, Bounds2D bound
             }
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             typedGeometry.center = mirrorPoint(typedGeometry.center, bounds, axis);
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // A wall is a thick line: mirror both centerline endpoints; the band
+            // thickness is a scalar width, unaffected by the reflection.
+            typedGeometry.a = mirrorPoint(typedGeometry.a, bounds, axis);
+            typedGeometry.b = mirrorPoint(typedGeometry.b, bounds, axis);
         } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
             typedGeometry.a = mirrorPoint(typedGeometry.a, bounds, axis);
             typedGeometry.b = mirrorPoint(typedGeometry.b, bounds, axis);
@@ -53,6 +58,7 @@ bool supportsMirror(DraftingShapeKind kind)
 {
     return kind == DraftingShapeKind::Point
         || kind == DraftingShapeKind::Line
+        || kind == DraftingShapeKind::Wall
         || kind == DraftingShapeKind::Rectangle
         || kind == DraftingShapeKind::Circle
         || kind == DraftingShapeKind::ConstructionLine

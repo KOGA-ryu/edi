@@ -52,6 +52,19 @@ int main()
     assert(nearlyEqual(horizontalLineGeometry->b.x, 1.0));
     assert(nearlyEqual(horizontalLineGeometry->b.y, 0.0));
 
+    // A wall mirrors like a line: both centerline endpoints flip across the
+    // object's bounds (which include the half-thickness pad); thickness is a
+    // scalar width and is preserved.
+    DraftingObject wall = object("wall_1", DraftingShapeKind::Wall, WallGeometry{{0.2, 0.5}, {0.8, 0.5}, 0.1});
+    auto mirroredWall = mirrorDraftingObject(wall, "wall_mirror", DraftingMirrorAxis::Vertical);
+    assert(mirroredWall.ok);
+    assert(mirroredWall.object.kind == DraftingShapeKind::Wall);
+    const auto *wallGeometry = std::get_if<WallGeometry>(&mirroredWall.object.geometry);
+    assert(wallGeometry != nullptr);
+    assert(nearlyEqual(wallGeometry->a.x, 0.8) && nearlyEqual(wallGeometry->a.y, 0.5));
+    assert(nearlyEqual(wallGeometry->b.x, 0.2) && nearlyEqual(wallGeometry->b.y, 0.5));
+    assert(nearlyEqual(wallGeometry->thickness, 0.1));
+
     DraftingObject construction = object(
         "construction_1",
         DraftingShapeKind::ConstructionLine,

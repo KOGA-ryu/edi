@@ -46,9 +46,11 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
   flush. Dungeon 146 → 170 objects; controller test asserts two Door-type leaves.
 
 ### Phase C — Block / symbol library (M3, the "flash sheet") · compute: design + adversarial-critique workflow, then builds
-- **◻ C0 — design pass.** Workflow: block definition + instance model in edi DOD,
-  grounded in the §M seam (copy/paste + array + createObjectsAndSelect). Output: slice
-  plan C1–C3 with acceptance tests.
+- **◻ C0 — design pass.** Cold-start handoff + the ready-to-run design workflow:
+  **`docs/phase-c-block-library-handoff.md`** (grounds the §M seam in parallel, panels 3
+  block-model approaches with a judge vote, adversarially critiques the winner → C1–C3
+  slice plan). A new session runs the workflow there, drives the FLATTEN-vs-reference
+  fork, then builds the slices.
 - **◻ C1 — block definition** (save a named group). *Accept:* round-trip a named block.
 - **◻ C2 — block instances** (transformed placement referencing one definition).
 - **◻ C3 — palette UI + tag/set taxonomy** (widget layer).

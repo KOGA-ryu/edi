@@ -2021,6 +2021,75 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
     return createObjectsAndSelect(std::move(planned.objects), std::move(plugs), std::move(connections));
 }
 
+bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &spec)
+{
+    // One serial threads through every room's walls, plug markers, plugs, and
+    // connections, so all ids are globally unique by construction — the per-room
+    // namespace lives only in the resolution map below, never baked into ids.
+    // firstSerial lets a rejected room reclaim the serials it consumed (the same
+    // discipline as createRoomFromSpec and the array path).
+    const int firstSerial = m_nextObjectSerial;
+    const auto mintObjectId = [this]() {
+        return toStdString(nextObjectId(QStringLiteral("room"), m_nextObjectSerial++));
+    };
+    // (room, plug) -> minted plug id. The separator is the ASCII unit separator,
+    // which cannot appear in a TOML name, so the key is unambiguous.
+    const auto plugKey = [](const std::string &room, const std::string &plug) {
+        return room + std::string(1, '\x1f') + plug;
+    };
+
+    std::vector<DraftingObject> allObjects;
+    std::vector<DraftingPlug> allPlugs;
+    std::unordered_map<std::string, DraftingPlugId> plugIdByKey;
+
+    for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
+        DraftingRoomPlan planned = planDraftingRoom(room.spec, mintObjectId);
+        if (!planned.ok) {
+            m_nextObjectSerial = firstSerial;
+            return finishEdit(QStringLiteral("map"), QStringLiteral("map"), false, planned.code,
+                              QStringLiteral("room '%1': %2")
+                                  .arg(QString::fromStdString(room.name),
+                                       QString::fromStdString(planned.message)));
+        }
+        for (const RoomPlugPlacement &placement : planned.plugs) {
+            DraftingPlug plug;
+            plug.id = toStdString(nextObjectId(QStringLiteral("plug"), m_nextObjectSerial++));
+            plug.anchorObjectId = placement.anchorObjectId;
+            // Namespace the plug name by room so the exported graph stays globally
+            // unambiguous even when two rooms share a bare plug name.
+            plug.name = room.name + "." + placement.name;
+            plug.type = placement.type;
+            plug.anchor = placement.anchor;
+            plugIdByKey.emplace(plugKey(room.name, placement.name), plug.id);
+            allPlugs.push_back(std::move(plug));
+        }
+        for (DraftingObject &object : planned.objects) {
+            allObjects.push_back(std::move(object));
+        }
+    }
+
+    // Resolve cross-room connections to the minted plug ids (the parser already
+    // guaranteed both endpoints exist; a miss here is defensive).
+    std::vector<DraftingDeclaredConnection> connections;
+    connections.reserve(spec.connections.size());
+    for (const edi::drafting::MapConnectionSpec &request : spec.connections) {
+        const auto from = plugIdByKey.find(plugKey(request.from.roomName, request.from.plugName));
+        const auto to = plugIdByKey.find(plugKey(request.to.roomName, request.to.plugName));
+        if (from == plugIdByKey.end() || to == plugIdByKey.end()) {
+            continue;
+        }
+        DraftingDeclaredConnection connection;
+        connection.id = toStdString(nextObjectId(QStringLiteral("conn"), m_nextObjectSerial++));
+        connection.plugA = from->second;
+        connection.plugB = to->second;
+        connection.type = request.type;
+        connections.push_back(std::move(connection));
+    }
+
+    m_lastEditStatus.clear();
+    return createObjectsAndSelect(std::move(allObjects), std::move(allPlugs), std::move(connections));
+}
+
 bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
 {
     const AsciiMapParseResult parsed = parseAsciiMap(asciiText);

@@ -106,6 +106,10 @@ int main(int argc, char **argv)
         QStringLiteral("room-file"),
         QStringLiteral("Generate a room from a .room.toml authoring file (Seam-A: file -> map)."),
         QStringLiteral("path"));
+    const QCommandLineOption mapFileOption(
+        QStringLiteral("map-file"),
+        QStringLiteral("Generate a multi-room map from a .map.toml authoring file (Seam-A: file -> map)."),
+        QStringLiteral("path"));
     const QCommandLineOption asciiMapOption(
         QStringLiteral("ascii-map"),
         QStringLiteral("Generate a map from an ASCII glyph grid file (the control-gate path)."),
@@ -116,6 +120,7 @@ int main(int argc, char **argv)
     parser.addOption(benchObjectsOption);
     parser.addOption(demoRoomOption);
     parser.addOption(roomFileOption);
+    parser.addOption(mapFileOption);
     parser.addOption(asciiMapOption);
     parser.process(app);
 
@@ -188,6 +193,28 @@ int main(int argc, char **argv)
             } else {
                 const bool ok = controller->createRoomFromSpec(parsed.spec);
                 QTextStream(stdout) << "room-file: " << (ok ? "generated" : "rejected by builder") << '\n';
+            }
+        }
+    }
+
+    // The multi-room authoring path: one .map.toml -> many rooms + cross-room
+    // connections, the whole graph in one undo step.
+    if (parser.isSet(mapFileOption)) {
+        auto *controller = window.findChild<DrawingDocumentController *>();
+        QFile file(parser.value(mapFileOption));
+        QTextStream err(stderr);
+        if (controller == nullptr) {
+            err << "map-file: no controller\n";
+        } else if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            err << "map-file: could not open " << parser.value(mapFileOption) << '\n';
+        } else {
+            const std::string text = file.readAll().toStdString();
+            const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(text, 0.02);
+            if (!parsed.ok) {
+                err << "map-file: " << QString::fromStdString(parsed.message) << '\n';
+            } else {
+                const bool ok = controller->createMapFromSpec(parsed.spec);
+                QTextStream(stdout) << "map-file: " << (ok ? "generated" : "rejected by builder") << '\n';
             }
         }
     }

@@ -1,0 +1,191 @@
+# A dungeon authored from a reference map — the multi-room Seam-A test fixture.
+# 10 numbered rooms + a 3-way junction + the entrance, laid out non-overlapping
+# (the parser rejects collisions), wired by cross-room corridors. Distances in
+# feet; the loader scales to canvas. The 3-way top junction is a junction ROOM
+# with three plugs and three separate edges (a connection joins exactly two plugs).
+# Two dead-end secret doors are plugs with no connection (room 4 S, room 10 N).
+
+# --- Entrance (bottom centre) ------------------------------------------------
+map.room.0.name = "entrance"
+map.room.0.width = "6"
+map.room.0.height = "2"
+map.room.0.origin_x = "21"
+map.room.0.origin_y = "47.5"
+map.room.0.plug.0.edge = "N"
+map.room.0.plug.0.name = "up"
+
+# --- Room 1 (centre-bottom) --------------------------------------------------
+map.room.1.name = "room1"
+map.room.1.width = "12"
+map.room.1.height = "11"
+map.room.1.origin_x = "18"
+map.room.1.origin_y = "35"
+map.room.1.plug.0.edge = "S"
+map.room.1.plug.0.name = "entrance"
+map.room.1.plug.1.edge = "N"
+map.room.1.plug.1.name = "to_2"
+
+# --- Room 2 (centre; the crossroads) -----------------------------------------
+map.room.2.name = "room2"
+map.room.2.width = "12"
+map.room.2.height = "14"
+map.room.2.origin_x = "18"
+map.room.2.origin_y = "17"
+map.room.2.plug.0.edge = "S"
+map.room.2.plug.0.name = "to_1"
+map.room.2.plug.1.edge = "N"
+map.room.2.plug.1.name = "to_j"
+map.room.2.plug.2.edge = "W"
+map.room.2.plug.2.name = "to_3"
+map.room.2.plug.3.edge = "E"
+map.room.2.plug.3.name = "to_5"
+
+# --- Room 3 (left) -----------------------------------------------------------
+map.room.3.name = "room3"
+map.room.3.width = "11"
+map.room.3.height = "11"
+map.room.3.origin_x = "2"
+map.room.3.origin_y = "19"
+map.room.3.plug.0.edge = "E"
+map.room.3.plug.0.name = "to_2"
+map.room.3.plug.1.edge = "S"
+map.room.3.plug.1.name = "to_4"
+
+# --- Room 4 (bottom-left; secret door on the south wall) ---------------------
+map.room.4.name = "room4"
+map.room.4.width = "12"
+map.room.4.height = "12"
+map.room.4.origin_x = "2"
+map.room.4.origin_y = "34"
+map.room.4.plug.0.edge = "N"
+map.room.4.plug.0.name = "to_3"
+map.room.4.plug.1.edge = "S"
+map.room.4.plug.1.name = "secret_s"
+map.room.4.plug.1.type = "secret"
+
+# --- Room 5 (right of centre) ------------------------------------------------
+map.room.5.name = "room5"
+map.room.5.width = "13"
+map.room.5.height = "13"
+map.room.5.origin_x = "34"
+map.room.5.origin_y = "18"
+map.room.5.plug.0.edge = "W"
+map.room.5.plug.0.name = "to_2"
+map.room.5.plug.1.edge = "N"
+map.room.5.plug.1.name = "to_9"
+map.room.5.plug.2.edge = "S"
+map.room.5.plug.2.name = "to_6"
+
+# --- Room 6, 7, 8 (the right-hand stack) -------------------------------------
+map.room.6.name = "room6"
+map.room.6.width = "13"
+map.room.6.height = "4"
+map.room.6.origin_x = "34"
+map.room.6.origin_y = "34"
+map.room.6.plug.0.edge = "N"
+map.room.6.plug.0.name = "to_5"
+map.room.6.plug.1.edge = "S"
+map.room.6.plug.1.name = "to_7"
+
+map.room.7.name = "room7"
+map.room.7.width = "13"
+map.room.7.height = "4"
+map.room.7.origin_x = "34"
+map.room.7.origin_y = "40"
+map.room.7.plug.0.edge = "N"
+map.room.7.plug.0.name = "to_6"
+map.room.7.plug.1.edge = "S"
+map.room.7.plug.1.name = "to_8"
+
+map.room.8.name = "room8"
+map.room.8.width = "13"
+map.room.8.height = "3"
+map.room.8.origin_x = "34"
+map.room.8.origin_y = "46"
+map.room.8.plug.0.edge = "N"
+map.room.8.plug.0.name = "to_7"
+
+# --- Room 9 (top-right) ------------------------------------------------------
+map.room.9.name = "room9"
+map.room.9.width = "16"
+map.room.9.height = "13"
+map.room.9.origin_x = "31"
+map.room.9.origin_y = "2"
+map.room.9.plug.0.edge = "W"
+map.room.9.plug.0.name = "to_j"
+map.room.9.plug.1.edge = "S"
+map.room.9.plug.1.name = "to_5"
+
+# --- Room 10 (top-left; secret door on the north alcove) ---------------------
+map.room.10.name = "room10"
+map.room.10.width = "12"
+map.room.10.height = "12"
+map.room.10.origin_x = "2"
+map.room.10.origin_y = "2"
+map.room.10.plug.0.edge = "E"
+map.room.10.plug.0.name = "to_j"
+map.room.10.plug.1.edge = "N"
+map.room.10.plug.1.name = "secret_ne"
+map.room.10.plug.1.type = "secret"
+
+# --- Junction (top-centre; the 3-way hub: three plugs, three edges) ----------
+map.room.11.name = "junction"
+map.room.11.width = "5"
+map.room.11.height = "4"
+map.room.11.origin_x = "20"
+map.room.11.origin_y = "6"
+map.room.11.plug.0.edge = "S"
+map.room.11.plug.0.name = "to_2"
+map.room.11.plug.1.edge = "W"
+map.room.11.plug.1.name = "to_10"
+map.room.11.plug.2.edge = "E"
+map.room.11.plug.2.name = "to_9"
+
+# --- Corridors (cross-room connections; from/to = "room.plug") ---------------
+map.connection.0.from = "entrance.up"
+map.connection.0.to = "room1.entrance"
+map.connection.0.type = "corridor"
+
+map.connection.1.from = "room1.to_2"
+map.connection.1.to = "room2.to_1"
+map.connection.1.type = "corridor"
+
+map.connection.2.from = "room2.to_3"
+map.connection.2.to = "room3.to_2"
+map.connection.2.type = "corridor"
+
+map.connection.3.from = "room2.to_5"
+map.connection.3.to = "room5.to_2"
+map.connection.3.type = "corridor"
+
+map.connection.4.from = "room2.to_j"
+map.connection.4.to = "junction.to_2"
+map.connection.4.type = "corridor"
+
+map.connection.5.from = "junction.to_10"
+map.connection.5.to = "room10.to_j"
+map.connection.5.type = "corridor"
+
+map.connection.6.from = "junction.to_9"
+map.connection.6.to = "room9.to_j"
+map.connection.6.type = "corridor"
+
+map.connection.7.from = "room3.to_4"
+map.connection.7.to = "room4.to_3"
+map.connection.7.type = "corridor"
+
+map.connection.8.from = "room5.to_9"
+map.connection.8.to = "room9.to_5"
+map.connection.8.type = "corridor"
+
+map.connection.9.from = "room5.to_6"
+map.connection.9.to = "room6.to_5"
+map.connection.9.type = "corridor"
+
+map.connection.10.from = "room6.to_7"
+map.connection.10.to = "room7.to_6"
+map.connection.10.type = "corridor"
+
+map.connection.11.from = "room7.to_8"
+map.connection.11.to = "room8.to_7"
+map.connection.11.type = "corridor"

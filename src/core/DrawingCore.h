@@ -231,6 +231,10 @@ public:
     // ids on demand, plan the perimeter walls, create-and-select them atomically.
     // The spec carries geometry + neutral tags only — no game rules.
     bool createRoomFromSpec(const edi::drafting::RoomSpec &spec);
+    // Generate a whole MULTI-ROOM map from one neutral spec: plan every room,
+    // mint globally-unique ids on a single serial, resolve cross-room connections
+    // (by room.plug), and create all rooms + plugs + connections in ONE undo step.
+    bool createMapFromSpec(const edi::drafting::MapSpec &spec);
     // Generate a map from an ASCII glyph grid (the control-gate authoring path):
     // parse, derive walls/doors/features, auto-fit + centre on the board, and
     // create-and-select atomically. Glyphs are data; tags stay neutral.

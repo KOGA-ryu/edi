@@ -3746,6 +3746,59 @@ int main(int argc, char **argv)
         assert(connController.draftingDocument().plugs.empty());
     }
 
+    // Multi-room: createMapFromSpec builds many rooms + cross-room connections,
+    // with plug names namespaced by room, the whole map in ONE undo step.
+    {
+        edi::drafting::MapSpec map;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.0, 0.0};
+        a.spec.width = 0.4;
+        a.spec.height = 0.4;
+        a.spec.wallThickness = 0.02;
+        a.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2, "door", "door"}};
+        edi::drafting::NamedRoomSpec b;
+        b.name = "b";
+        b.spec.origin = {0.6, 0.0};
+        b.spec.width = 0.4;
+        b.spec.height = 0.4;
+        b.spec.wallThickness = 0.02;
+        // Same bare plug name "door" as room a — legal, names are room-scoped.
+        b.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2, "door", "door"}};
+        map.rooms = {a, b};
+        edi::drafting::MapConnectionSpec corridor;
+        corridor.from = {"a", "door"};
+        corridor.to = {"b", "door"};
+        corridor.type = "corridor";
+        map.connections = {corridor};
+
+        DrawingDocumentController mapController;
+        assert(mapController.createMapFromSpec(map));
+        const edi::drafting::DraftingDocument &doc = mapController.draftingDocument();
+        assert(doc.plugs.size() == 2);
+        assert(doc.connections.size() == 1);
+        // Each plug's exported name is namespaced room.plug, so the two "door"
+        // plugs are distinguishable in the graph.
+        bool foundA = false;
+        bool foundB = false;
+        for (const edi::drafting::DraftingPlug &p : doc.plugs) {
+            foundA = foundA || p.name == "a.door";
+            foundB = foundB || p.name == "b.door";
+        }
+        assert(foundA && foundB);
+        // The connection joins the two distinct plug ids.
+        const edi::drafting::DraftingDeclaredConnection &edge = doc.connections.front();
+        assert(edge.plugA != edge.plugB);
+        assert(edge.type == "corridor");
+
+        // One undo collapses the entire map — every room's walls, every plug,
+        // every connection — together.
+        assert(mapController.undo());
+        assert(mapController.draftingDocument().objects.empty());
+        assert(mapController.draftingDocument().plugs.empty());
+        assert(mapController.draftingDocument().connections.empty());
+    }
+
     // The wall tool's thickness option rides into the freshly drawn wall; an
     // invalid value falls back to the 0.1 default (a wall is never invisible).
     {

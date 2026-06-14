@@ -527,6 +527,52 @@ MsgPackValue objectValue(const DraftingObject &object)
     });
 }
 
+// --- map graph (plugs + declared connections) -------------------------------
+// Flat maps, mirroring layerValue/objectValue. The plug's anchor Point2D rides
+// as the same 2-element array every point uses (pointValue/readPoint).
+
+MsgPackValue plugValue(const DraftingPlug &plug)
+{
+    return MsgPackValue::map({
+        {"id", MsgPackValue::text(plug.id)},
+        {"anchor_object_id", MsgPackValue::text(plug.anchorObjectId)},
+        {"name", MsgPackValue::text(plug.name)},
+        {"type", MsgPackValue::text(plug.type)},
+        {"anchor", pointValue(plug.anchor)},
+    });
+}
+
+DraftingPlug readPlug(const MsgPackValue &v)
+{
+    DraftingPlug plug;
+    plug.id = asString(child(v, "id"), plug.id);
+    plug.anchorObjectId = asString(child(v, "anchor_object_id"), plug.anchorObjectId);
+    plug.name = asString(child(v, "name"), plug.name);
+    plug.type = asString(child(v, "type"), plug.type);
+    plug.anchor = readPoint(child(v, "anchor"));
+    return plug;
+}
+
+MsgPackValue connectionValue(const DraftingDeclaredConnection &connection)
+{
+    return MsgPackValue::map({
+        {"id", MsgPackValue::text(connection.id)},
+        {"plug_a", MsgPackValue::text(connection.plugA)},
+        {"plug_b", MsgPackValue::text(connection.plugB)},
+        {"type", MsgPackValue::text(connection.type)},
+    });
+}
+
+DraftingDeclaredConnection readConnection(const MsgPackValue &v)
+{
+    DraftingDeclaredConnection connection;
+    connection.id = asString(child(v, "id"), connection.id);
+    connection.plugA = asString(child(v, "plug_a"), connection.plugA);
+    connection.plugB = asString(child(v, "plug_b"), connection.plugB);
+    connection.type = asString(child(v, "type"), connection.type);
+    return connection;
+}
+
 } // namespace
 
 MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
@@ -543,6 +589,18 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         objects.push_back(objectValue(object));
     }
 
+    std::vector<MsgPackValue> plugs;
+    plugs.reserve(document.plugs.size());
+    for (const auto &plug : document.plugs) {
+        plugs.push_back(plugValue(plug));
+    }
+
+    std::vector<MsgPackValue> connections;
+    connections.reserve(document.connections.size());
+    for (const auto &connection : document.connections) {
+        connections.push_back(connectionValue(connection));
+    }
+
     std::vector<MsgPackValue> selected;
     selected.reserve(document.selectedObjectIds.size());
     for (const auto &id : document.selectedObjectIds) {
@@ -553,6 +611,11 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         ? MsgPackValue::text(*document.activeObjectId)
         : MsgPackValue::nil();
 
+    // The map graph is two additive arrays beside `objects`. Like wall_visual
+    // (M1.3), they are read tolerantly — missing => empty — so this needs NO
+    // document-version bump: nothing reinterprets an existing field, the only
+    // case the v1->v2 stroke bump existed for. Old edi opening a graph file just
+    // drops these keys (the documented forward-compat behaviour).
     MsgPackValue documentMap = MsgPackValue::map({
         {"id", MsgPackValue::text(document.id)},
         {"title", MsgPackValue::text(document.title)},
@@ -560,6 +623,8 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"revision", MsgPackValue::integer(static_cast<std::int64_t>(document.revision))},
         {"layers", MsgPackValue::array(std::move(layers))},
         {"objects", MsgPackValue::array(std::move(objects))},
+        {"plugs", MsgPackValue::array(std::move(plugs))},
+        {"connections", MsgPackValue::array(std::move(connections))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
         {"active_object_id", std::move(activeObject)},
     });
@@ -642,6 +707,27 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
             object.metadata = readMetadata(objectValueRef.find("metadata"));
             object.bounds = computeBounds(object.geometry); // recomputed, never stored
             document.objects.push_back(std::move(object));
+        }
+    }
+
+    // Map graph: tolerant additive reads — a file written before the graph (or
+    // by older edi) simply has no "plugs"/"connections" keys and decodes to an
+    // empty graph, exactly the wall_visual pattern.
+    if (const MsgPackValue *plugs = child(*documentValue, "plugs");
+        plugs && plugs->type == MsgPackValue::Type::Array) {
+        for (const auto &plug : plugs->arrayValue) {
+            if (plug.type == MsgPackValue::Type::Map) {
+                document.plugs.push_back(readPlug(plug));
+            }
+        }
+    }
+
+    if (const MsgPackValue *connections = child(*documentValue, "connections");
+        connections && connections->type == MsgPackValue::Type::Array) {
+        for (const auto &connection : connections->arrayValue) {
+            if (connection.type == MsgPackValue::Type::Map) {
+                document.connections.push_back(readConnection(connection));
+            }
         }
     }
 

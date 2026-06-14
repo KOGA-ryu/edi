@@ -171,6 +171,23 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         assert(oa.metadata.tags == ob.metadata.tags);
         assert(boundsEqual(oa.bounds, ob.bounds));
     }
+
+    assert(a.plugs.size() == b.plugs.size());
+    for (std::size_t i = 0; i < a.plugs.size(); ++i) {
+        const auto &pa = a.plugs[i];
+        const auto &pb = b.plugs[i];
+        assert(pa.id == pb.id && pa.anchorObjectId == pb.anchorObjectId);
+        assert(pa.name == pb.name && pa.type == pb.type);
+        assert(pa.anchor.x == pb.anchor.x && pa.anchor.y == pb.anchor.y);
+    }
+
+    assert(a.connections.size() == b.connections.size());
+    for (std::size_t i = 0; i < a.connections.size(); ++i) {
+        const auto &ca = a.connections[i];
+        const auto &cb = b.connections[i];
+        assert(ca.id == cb.id && ca.plugA == cb.plugA);
+        assert(ca.plugB == cb.plugB && ca.type == cb.type);
+    }
 }
 
 } // namespace
@@ -365,6 +382,61 @@ int main()
         auto tolerant = draftingDocumentFromValue(value);
         assert(tolerant.ok && tolerant.value);
         assert(tolerant.value->objects[0].metadata.wallVisual.type == WallType::Solid);
+    }
+
+    // S3: the map graph round-trips through both the value layer and the byte
+    // envelope, field-equal; and a document with NO plugs/connections keys (every
+    // file before the graph) loads with an empty graph — additive-tolerant, like
+    // wall_visual above, which is why this needed no document-version bump.
+    {
+        DraftingDocument graphDoc = makeDraftingDocument("graph");
+
+        DraftingPlug north;
+        north.id = "plug_0001";
+        north.anchorObjectId = "room.0";
+        north.name = "north_doorway";
+        north.type = "door";
+        north.anchor = {0.5, 0.25};
+        graphDoc.plugs.push_back(north);
+
+        DraftingPlug east;
+        east.id = "plug_0002";
+        east.anchorObjectId = "room.1";
+        east.name = "east_portal";
+        east.type = "portal";
+        east.anchor = {0.75, 0.5};
+        graphDoc.plugs.push_back(east);
+
+        DraftingDeclaredConnection edge;
+        edge.id = "conn_0001";
+        edge.plugA = "plug_0001";
+        edge.plugB = "plug_0002";
+        edge.type = "corridor";
+        graphDoc.connections.push_back(edge);
+
+        auto restored = draftingDocumentFromValue(draftingDocumentToValue(graphDoc));
+        assert(restored.ok && restored.value);
+        assertDocumentsEqual(graphDoc, *restored.value);
+
+        auto decoded = decodeDraftingDocument(encodeDraftingDocument(graphDoc), "fixture");
+        assert(decoded.ok && decoded.value);
+        assertDocumentsEqual(graphDoc, *decoded.value);
+        assert(decoded.value->plugs.size() == 2);
+        assert(decoded.value->connections.size() == 1);
+
+        // Strip the graph keys to simulate a pre-graph file -> empty graph load.
+        MsgPackValue value = draftingDocumentToValue(graphDoc);
+        for (auto &entry : value.mapValue) {
+            if (entry.first != "document") continue;
+            auto &dm = entry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "plugs" || it->first == "connections") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto stripped = draftingDocumentFromValue(value);
+        assert(stripped.ok && stripped.value);
+        assert(stripped.value->plugs.empty());
+        assert(stripped.value->connections.empty());
     }
 
     return 0;

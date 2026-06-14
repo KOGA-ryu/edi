@@ -39,11 +39,11 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
   orthogonal elbow). Controller passes all-rooms-except-the-two-joined as obstacles.
   No-op on the reference dungeon (rooms well separated); detour proven by unit test.
 
-### Phase B — Doors (M2.2) · compute: direct build
-- **◻ B1 — door render at openings.** A connected opening reads as a DOOR (a leaf /
-  marker driven by the plug's neutral type; secret stays flush). Reuses the opening +
-  marker; no new geometry kind. *Accept:* door markers appear at connected openings,
-  secret doors stay solid; test + snapshot.
+### Phase B — Doors (M2.2) ✅ DONE (e49b9ef)
+- **✅ B1 — door render at openings.** A connected opening gets a door LEAF — a thin
+  WallGeometry band spanning the doorway (provenance "door"), render type from the
+  plug's neutral type via the M1.3 WallType painter. Unconnected secret plugs stay
+  flush. Dungeon 146 → 170 objects; controller test asserts two Door-type leaves.
 
 ### Phase C — Block / symbol library (M3, the "flash sheet") · compute: design + adversarial-critique workflow, then builds
 - **◻ C0 — design pass.** Workflow: block definition + instance model in edi DOD,

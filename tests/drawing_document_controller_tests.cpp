@@ -3716,6 +3716,36 @@ int main(int argc, char **argv)
         assert(plugController.draftingDocument().objects.empty());
     }
 
+    // S6: an authored connection between two plugs lands as a DraftingDeclaredConnection
+    // referencing the minted plug ids — the whole graph from one file, one undo.
+    {
+        DrawingDocumentController connController;
+        edi::drafting::RoomSpec spec;
+        spec.origin = {0.2, 0.3};
+        spec.width = 0.4;
+        spec.height = 0.2;
+        spec.wallThickness = 0.02;
+        spec.plugs = {
+            {edi::drafting::RoomEdge::North, 0.2, "north_door", "door"},
+            {edi::drafting::RoomEdge::South, 0.2, "south_door", "door"},
+        };
+        spec.connections = {{"north_door", "south_door", "corridor"}};
+        assert(connController.createRoomFromSpec(spec));
+
+        const edi::drafting::DraftingDocument &doc = connController.draftingDocument();
+        assert(doc.plugs.size() == 2);
+        assert(doc.connections.size() == 1);
+        const edi::drafting::DraftingDeclaredConnection &edge = doc.connections.front();
+        assert(edge.type == "corridor");
+        // The edge references the two plugs by the ids the controller minted.
+        assert(edge.plugA == doc.plugs[0].id && edge.plugB == doc.plugs[1].id);
+
+        // One undo removes walls, markers, plugs, AND the connection together.
+        assert(connController.undo());
+        assert(connController.draftingDocument().connections.empty());
+        assert(connController.draftingDocument().plugs.empty());
+    }
+
     // The wall tool's thickness option rides into the freshly drawn wall; an
     // invalid value falls back to the 0.1 default (a wall is never invisible).
     {

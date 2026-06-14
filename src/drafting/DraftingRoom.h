@@ -44,6 +44,17 @@ struct RoomPlugSpec {
     std::string type;
 };
 
+// A declared connection authored between two plugs, named by their plug `name`s
+// (the controller resolves names to the plug ids it minted). NEUTRAL — it records
+// that two plugs are joined, nothing about whether the join is passable. `type` is
+// a free tag (corridor/portal/…). Authored at map level because a connection can
+// span rooms; in a single-room file both ends are that room's plugs.
+struct RoomConnectionSpec {
+    std::string from;
+    std::string to;
+    std::string type;
+};
+
 // A rectangular room in CANVAS units (the grid projection maps these to physical
 // feet/squares). origin is the NW corner. The room is pure spatial data plus a
 // neutral material tag — no game semantics, by design.
@@ -55,6 +66,7 @@ struct RoomSpec {
     std::string wallMaterial = "stone"; // neutral tag carried on every wall
     std::vector<RoomOpening> openings;
     std::vector<RoomPlugSpec> plugs;
+    std::vector<RoomConnectionSpec> connections; // edges between plugs (by name)
 };
 
 // A plug the room emitted, paired with the marker object it rides on. The marker

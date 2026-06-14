@@ -95,6 +95,27 @@ what the join *means* is the engine's rule.
 The plug rides on the marker as a neutral `plug:<name>` tag; nothing about
 passability or locking lives here — that is the engine's, across Seam B.
 
+### `connections` — join two plugs
+
+A **connection** declares that two plugs are linked — the map graph's edge. It is
+authored at **map** level (a connection can span rooms), referencing each plug by
+its `name`:
+
+```
+map.connection.<i>.from = <plug name>
+map.connection.<i>.to   = <plug name>
+map.connection.<i>.type = <neutral tag>
+```
+
+| part   | values                          | status | notes |
+|--------|---------------------------------|--------|-------|
+| `from` | a plug `name`                   | [live] | one end; must name an existing plug |
+| `to`   | a plug `name`                   | [live] | the other end; must name an existing plug |
+| `type` | `corridor` \| `portal` \| …     | [tag]  | neutral; default empty |
+
+edi only **records** the link. Whether it is passable, locked, or one-way is a rule
+the engine assigns past Seam B — there is no such field here, by design.
+
 ### `features` — placed objects (blocks)
 
 ```
@@ -121,6 +142,7 @@ stores any value; rendering and engine-meaning attach to known ones over time.
 - **opening type** — `door` · `corridor` · `archway` · `window` · `secret` ·
   `portcullis` · `gate`
 - **plug type** — `door` · `portal` · `threshold` · `corridor`
+- **connection type** — `corridor` · `portal` · `passage` · `stairs`
 - **floor** — `flagstone` · `dirt` · `cobble` · `water` · `chasm` · `grass`
 - **feature kind** — `brazier` · `statue` · `pillar` · `altar` · `chest` ·
   `table` · `door-leaf` · `stairs` · `rubble-pile`
@@ -163,6 +185,15 @@ room.plug.0.edge = "N"
 room.plug.0.name = "north_door"
 room.plug.0.type = "door"
 room.plug.0.at = "center"
+
+room.plug.1.edge = "S"
+room.plug.1.name = "south_door"
+room.plug.1.type = "door"
+room.plug.1.at = "center"
+
+map.connection.0.from = "north_door"
+map.connection.0.to = "south_door"
+map.connection.0.type = "corridor"
 ```
 
 Add or remove `room.opening.<i>.*` blocks (keep `i` contiguous from 0). A wall
@@ -171,7 +202,11 @@ the edge's start corner).
 
 Plugs work the same way: `room.plug.<i>.*` blocks, `i` contiguous from 0, read
 until the first gap. Each needs a `name` (so a connection can refer to it); `type`
-defaults to `door` and `at` to `center`.
+defaults to `door` and `at` to `center`. Plug names must be unique.
+
+Connections are `map.connection.<i>.*` blocks, same contiguous-index rule. `from`
+and `to` each name a plug; both must exist or the file is rejected (with the
+offending name).
 
 ---
 

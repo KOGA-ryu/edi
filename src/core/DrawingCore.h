@@ -340,11 +340,13 @@ private:
         const std::function<std::optional<edi::drafting::DraftingObject>(
             const edi::drafting::DraftingObject &source, const std::string &newId)> &transform);
     // By value: callers hand the batch over (std::move) so it rides into the
-    // command variant without a second N-object copy. Optional `plugs` are map-
-    // graph plugs declared INSIDE the same edit bracket, right after the objects
-    // land (each plug anchors to one of them), so one undo restores both.
+    // command variant without a second N-object copy. Optional `plugs` and
+    // `connections` are map-graph edits declared INSIDE the same edit bracket, in
+    // dependency order (objects → plugs anchor to objects → connections reference
+    // plugs), so one undo restores the whole authored graph.
     bool createObjectsAndSelect(std::vector<edi::drafting::DraftingObject> objects,
-                                std::vector<edi::drafting::DraftingPlug> plugs = {});
+                                std::vector<edi::drafting::DraftingPlug> plugs = {},
+                                std::vector<edi::drafting::DraftingDeclaredConnection> connections = {});
     // Shared resolve->ids->plan->apply tail of every array action (repeat,
     // grid, radial): resolve the editable active object, mint copyCount fresh
     // ids, run the planner, create-and-select. The planner callable is the

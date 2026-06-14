@@ -29,9 +29,12 @@ struct RoomSpecParseResult {
 //   room.opening.<i>.width                  (> 0)
 //   room.opening.<i>.at     = center | <offset-from-edge-start>
 //   room.plug.<i>.edge      = N|E|S|W       (i = 0,1,2,...; stop at first gap)
-//   room.plug.<i>.name      = <label>       (required; a connection refers to it)
+//   room.plug.<i>.name      = <label>       (required, unique; a connection refers to it)
 //   room.plug.<i>.type      = door|portal|… (neutral tag; default "door")
 //   room.plug.<i>.at        = center | <offset-from-edge-start>
+//   map.connection.<i>.from = <plug name>   (i = 0,1,2,...; stop at first gap)
+//   map.connection.<i>.to   = <plug name>   (both ends must name existing plugs)
+//   map.connection.<i>.type = corridor|…    (neutral tag; default "")
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit = 1.0);
 
 } // namespace edi::io

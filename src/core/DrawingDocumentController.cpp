@@ -1986,6 +1986,7 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
     // markers and declares these plugs in one undo step.
     std::vector<DraftingPlug> plugs;
     plugs.reserve(planned.plugs.size());
+    std::unordered_map<std::string, DraftingPlugId> plugIdByName;
     for (const RoomPlugPlacement &placement : planned.plugs) {
         DraftingPlug plug;
         plug.id = toStdString(nextObjectId(QStringLiteral("plug"), m_nextObjectSerial++));
@@ -1993,10 +1994,31 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
         plug.name = placement.name;
         plug.type = placement.type;
         plug.anchor = placement.anchor;
+        plugIdByName.emplace(plug.name, plug.id); // names are unique (parser-checked)
         plugs.push_back(std::move(plug));
     }
+
+    // Resolve each authored connection's plug NAMES to the ids just minted (the
+    // parser already guaranteed both names exist), and mint a connection id. The
+    // graph op validates again, so a stray miss is rejected rather than dangling.
+    std::vector<DraftingDeclaredConnection> connections;
+    connections.reserve(spec.connections.size());
+    for (const RoomConnectionSpec &request : spec.connections) {
+        const auto from = plugIdByName.find(request.from);
+        const auto to = plugIdByName.find(request.to);
+        if (from == plugIdByName.end() || to == plugIdByName.end()) {
+            continue; // defensive: parser-validated, so unreachable in practice
+        }
+        DraftingDeclaredConnection connection;
+        connection.id = toStdString(nextObjectId(QStringLiteral("conn"), m_nextObjectSerial++));
+        connection.plugA = from->second;
+        connection.plugB = to->second;
+        connection.type = request.type;
+        connections.push_back(std::move(connection));
+    }
+
     m_lastEditStatus.clear();
-    return createObjectsAndSelect(std::move(planned.objects), std::move(plugs));
+    return createObjectsAndSelect(std::move(planned.objects), std::move(plugs), std::move(connections));
 }
 
 bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
@@ -2071,7 +2093,8 @@ bool DrawingDocumentController::createArrayFromActiveObject(
 }
 
 bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObject> objects,
-                                                       std::vector<DraftingPlug> plugs)
+                                                       std::vector<DraftingPlug> plugs,
+                                                       std::vector<DraftingDeclaredConnection> connections)
 {
     // The classified commit below relies on a non-empty batch: an empty one
     // would degrade to a pure selection clear, which must not push undo.
@@ -2103,6 +2126,11 @@ bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObjec
     // does not fail in practice — its result is ignored like SelectObjects' is).
     for (DraftingPlug &plug : plugs) {
         applyDraftingCommand(m_document, CreatePlugCommand{std::move(plug)});
+    }
+    // Connections come AFTER the plugs they reference, still inside the bracket —
+    // each is pre-resolved (plug ids), so DeclareConnectionCommand only validates.
+    for (DraftingDeclaredConnection &connection : connections) {
+        applyDraftingCommand(m_document, DeclareConnectionCommand{std::move(connection)});
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
     // A successful non-empty batch create is never selection-only: classify

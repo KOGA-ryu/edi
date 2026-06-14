@@ -117,5 +117,42 @@ int main()
         assert(noName.message.find("name") != std::string::npos);
     }
 
+    // Connections parse at map level, referencing plugs by name.
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"a\"\n"
+            "room.plug.1.edge = \"S\"\nroom.plug.1.name = \"b\"\n"
+            "map.connection.0.from = \"a\"\nmap.connection.0.to = \"b\"\nmap.connection.0.type = \"corridor\"\n",
+            1.0);
+        assert(parsed.ok);
+        assert(parsed.spec.connections.size() == 1);
+        assert(parsed.spec.connections[0].from == "a" && parsed.spec.connections[0].to == "b");
+        assert(parsed.spec.connections[0].type == "corridor");
+    }
+
+    // A connection to an unknown plug name is rejected (not silently dropped), and
+    // the offending name is named.
+    {
+        const RoomSpecParseResult bad = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"a\"\n"
+            "map.connection.0.from = \"a\"\nmap.connection.0.to = \"ghost\"\n",
+            1.0);
+        assert(!bad.ok);
+        assert(bad.message.find("ghost") != std::string::npos);
+    }
+
+    // Duplicate plug names are rejected (a connection could not resolve them).
+    {
+        const RoomSpecParseResult dup = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"a\"\n"
+            "room.plug.1.edge = \"S\"\nroom.plug.1.name = \"a\"\n",
+            1.0);
+        assert(!dup.ok);
+        assert(dup.message.find("duplicat") != std::string::npos);
+    }
+
     return 0;
 }

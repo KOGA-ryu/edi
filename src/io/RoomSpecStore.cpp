@@ -4,10 +4,12 @@
 
 #include <cstddef>
 #include <optional>
+#include <set>
 #include <string>
 
 namespace edi::io {
 
+using edi::drafting::RoomConnectionSpec;
 using edi::drafting::RoomEdge;
 using edi::drafting::RoomOpening;
 using edi::drafting::RoomPlugSpec;
@@ -130,7 +132,9 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
 
     // Plugs are a second indexed list, parsed exactly like openings (same edge +
     // at grammar) but a point, not a span — so no width. room.plug.<i>.*, stop at
-    // the first index with no `.edge`.
+    // the first index with no `.edge`. Names must be UNIQUE so a connection can
+    // resolve a name to exactly one plug.
+    std::set<std::string> plugNames;
     for (int i = 0;; ++i) {
         const std::string prefix = "room.plug." + std::to_string(i);
         if (!hasKey(config, prefix + ".edge")) {
@@ -145,9 +149,13 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
         plug.edge = *edge;
         plug.name = configString(config, prefix + ".name", "");
         if (plug.name.empty()) {
-            // A plug must be named so a connection (room.connection.*) can refer to
+            // A plug must be named so a connection (map.connection.*) can refer to
             // it; a nameless plug is unreferenceable and almost certainly a typo.
             out.message = prefix + ".name is required";
+            return out;
+        }
+        if (!plugNames.insert(plug.name).second) {
+            out.message = prefix + ".name '" + plug.name + "' is duplicated (plug names must be unique)";
             return out;
         }
         plug.type = configString(config, prefix + ".type", "door");
@@ -169,6 +177,34 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
             plug.at = offset * canvasPerUnit;
         }
         spec.plugs.push_back(plug);
+    }
+
+    // Connections are edges between plugs, authored at MAP level (a connection can
+    // span rooms). map.connection.<i>.{from,to,type}; stop at the first index with
+    // no `.from`. Both ends must name plugs that exist — resolved here so the
+    // controller never has to guess (and an unknown name is caught with its key).
+    for (int i = 0;; ++i) {
+        const std::string prefix = "map.connection." + std::to_string(i);
+        if (!hasKey(config, prefix + ".from")) {
+            break;
+        }
+        RoomConnectionSpec connection;
+        connection.from = configString(config, prefix + ".from", "");
+        connection.to = configString(config, prefix + ".to", "");
+        connection.type = configString(config, prefix + ".type", "");
+        if (connection.from.empty() || connection.to.empty()) {
+            out.message = prefix + " needs both .from and .to (plug names)";
+            return out;
+        }
+        if (plugNames.find(connection.from) == plugNames.end()) {
+            out.message = prefix + ".from references unknown plug '" + connection.from + "'";
+            return out;
+        }
+        if (plugNames.find(connection.to) == plugNames.end()) {
+            out.message = prefix + ".to references unknown plug '" + connection.to + "'";
+            return out;
+        }
+        spec.connections.push_back(connection);
     }
 
     out.ok = true;

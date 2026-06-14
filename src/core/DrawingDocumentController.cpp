@@ -2040,6 +2040,17 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         return room + std::string(1, '\x1f') + plug;
     };
     constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
+    // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
+    // door/portal/threshold read as a door, window as a window, secret as secret.
+    const auto wallTypeForPlugType = [](const std::string &type) {
+        if (type == "window") {
+            return WallType::Window;
+        }
+        if (type == "secret") {
+            return WallType::Secret;
+        }
+        return WallType::Door;
+    };
 
     // A plug with a CONNECTION gets a real opening (doorway) carved in its wall so
     // the corridor flows through, not into a solid wall. An UNCONNECTED plug — a
@@ -2099,6 +2110,28 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             doorByKey.emplace(plugKey(room.name, placement.name),
                               std::make_pair(placement.anchor, placement.edge));
             allPlugs.push_back(std::move(plug));
+
+            // A CONNECTED plug also gets a door LEAF across its opening — a thin wall
+            // band spanning the doorway, along the wall line, with a render type from
+            // the plug's neutral type. Unconnected plugs (secret dead-ends) have no
+            // opening and no leaf, so they stay flush solid wall — correct.
+            if (connectedPlugs.count(plugKey(room.name, placement.name)) > 0) {
+                const Point2D tangent =
+                    (placement.edge == RoomEdge::North || placement.edge == RoomEdge::South)
+                        ? Point2D{1.0, 0.0}
+                        : Point2D{0.0, 1.0};
+                const double hw = kCorridorWidth / 2.0;
+                const Point2D a{placement.anchor.x - tangent.x * hw, placement.anchor.y - tangent.y * hw};
+                const Point2D b{placement.anchor.x + tangent.x * hw, placement.anchor.y + tangent.y * hw};
+                DraftingObjectBuildResult leaf = buildDraftingObject(
+                    toStdString(nextObjectId(QStringLiteral("door"), m_nextObjectSerial++)),
+                    DraftingShapeKind::Wall, WallGeometry{a, b, 0.02});
+                if (leaf.ok) {
+                    leaf.object.metadata.toolProvenance = "door";
+                    leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
+                    allObjects.push_back(std::move(leaf.object));
+                }
+            }
         }
         for (DraftingObject &object : planned.objects) {
             allObjects.push_back(std::move(object));

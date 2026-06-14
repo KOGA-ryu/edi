@@ -3794,12 +3794,24 @@ int main(int argc, char **argv)
         // The connection also drew a corridor: wall objects tagged provenance
         // "corridor" exist (the two aligned E/W doors give a straight corridor).
         int corridorWalls = 0;
+        int doorLeaves = 0;
         for (const edi::drafting::DraftingObject &o : doc.objects) {
             if (o.metadata.toolProvenance == "corridor") {
                 ++corridorWalls;
             }
+            if (o.metadata.toolProvenance == "door") {
+                ++doorLeaves;
+            }
         }
         assert(corridorWalls >= 2);
+        // A door leaf per connected plug (both ends of the one connection), rendered
+        // as a Door-type wall band.
+        assert(doorLeaves == 2);
+        for (const edi::drafting::DraftingObject &o : doc.objects) {
+            if (o.metadata.toolProvenance == "door") {
+                assert(o.metadata.wallVisual.type == edi::drafting::WallType::Door);
+            }
+        }
 
         // One undo collapses the entire map — every room's walls, every plug,
         // every connection, AND the corridors — together.

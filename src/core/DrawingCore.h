@@ -275,6 +275,15 @@ public:
     bool cutSelection();
     bool paste();
     bool canPaste() const;
+    // Phase C block library. defineBlockFromSelection saves the current selection
+    // as a named block DEFINITION (normalized to the origin) in one undo step.
+    // placeBlockInstance stamps a FLATTEN instance — independent transformed COPIES
+    // of the definition centred on a normalized point, via the paste machinery,
+    // one undo step, auto-selected. Translate-only (rotation/scale deferred to the
+    // transformGeometry slice); a placed object is an ordinary, directly-editable
+    // shape with no link back to the definition.
+    bool defineBlockFromSelection(const QString &name);
+    bool placeBlockInstance(const QString &blockId, double x, double y);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);

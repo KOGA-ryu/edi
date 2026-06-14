@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
+#include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingCorridor.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
@@ -2856,6 +2857,73 @@ bool DrawingDocumentController::paste()
 bool DrawingDocumentController::canPaste() const
 {
     return !m_clipboard.empty();
+}
+
+bool DrawingDocumentController::defineBlockFromSelection(const QString &name)
+{
+    // Gather the selection in DOCUMENT order (same discipline as copySelection),
+    // so the saved block keeps its members' stacking.
+    std::vector<DraftingObject> sources;
+    for (const DraftingObject &object : m_document.objects) {
+        if (std::find(m_document.selectedObjectIds.begin(), m_document.selectedObjectIds.end(), object.id)
+            != m_document.selectedObjectIds.end()) {
+            sources.push_back(object);
+        }
+    }
+    if (sources.empty()) {
+        // A definition must define something. Surface it the way paste reports a
+        // refusal — a "Save selection as block" button is otherwise a dead click.
+        return finishEdit(QStringLiteral("block"), QStringLiteral("definition"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("define block: select objects first"));
+    }
+    // Mint the block id off the ONE monotonic serial via a distinct "block"
+    // prefix — the plug_/conn_/room_ discipline; highestDocumentIdSerial recovers
+    // it on load. buildBlockFromObjects normalizes the group to the origin.
+    const int serialBefore = m_nextObjectSerial;
+    const std::string blockId = toStdString(nextObjectId(QStringLiteral("block"), m_nextObjectSerial++));
+    DraftingBlock block = buildBlockFromObjects(blockId, toStdString(name), sources);
+    // CreateBlockCommand rides DocumentSnapshot undo via applyCommandAndEmit, so
+    // define is ONE undo step — never a raw m_document mutation.
+    if (!applyCommandAndEmit(CreateBlockCommand{std::move(block)})) {
+        m_nextObjectSerial = serialBefore; // reclaim the unused serial on rejection
+        return false;
+    }
+    return true;
+}
+
+bool DrawingDocumentController::placeBlockInstance(const QString &blockId, double x, double y)
+{
+    const auto index = blockIndexById(m_document, toStdString(blockId));
+    if (!index) {
+        return false; // unknown block: nothing to stamp
+    }
+    // Centre the block on the picked point. Its objects are normalized so the
+    // definition frame's lower-left sits at the origin, hence the centre is half
+    // the cached extent (bounds.x/y are 0 by construction, kept here for clarity).
+    const DraftingBlock &block = m_document.blocks[*index];
+    const double dx = x - (block.bounds.x + block.bounds.width / 2.0);
+    const double dy = y - (block.bounds.y + block.bounds.height / 2.0);
+
+    // FLATTEN: independent transformed COPIES via the SAME paste planner copy/paste
+    // uses — no link back to the definition, deliberately no provenance breadcrumb
+    // (a placed object is just an ordinary shape). Thread the serial counter
+    // through, reclaim on failure. Instance ids are "instance_NNNN".
+    const int serialBefore = m_nextObjectSerial;
+    DraftingPasteResult plan = planDraftingPaste(block.objects, "instance", m_nextObjectSerial, dx, dy);
+    m_nextObjectSerial = plan.nextSerial;
+
+    m_lastEditStatus.clear();
+    // createObjectsAndSelect refuses an empty batch; a stored block always holds
+    // >=1 object (addBlock rejects empties), so this only trips on a locked/missing
+    // target layer — reclaim the ids and say so, exactly like paste.
+    if (!createObjectsAndSelect(std::move(plan.objects))) {
+        m_nextObjectSerial = serialBefore;
+        return finishEdit(QStringLiteral("block"), QStringLiteral("instance"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("stamp rejected: target layer is locked or missing"));
+    }
+    return true;
 }
 
 void DrawingDocumentController::updateCreationPreviewNormalized(double x, double y)

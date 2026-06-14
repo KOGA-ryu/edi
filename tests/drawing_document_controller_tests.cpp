@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <variant>
 
 namespace {
 
@@ -3838,6 +3839,94 @@ int main(int argc, char **argv)
         wallThicknessController.clickCanvasNormalized(0.8, 0.6);
         walls = wallThicknessController.modelDocument().value("drawing_objects").toList();
         assert(nearlyEqual(walls[1].toMap().value("thickness").toDouble(), 0.1));
+    }
+
+    // Phase C block library — define a block from a selection, then stamp a
+    // FLATTEN instance: independent transformed copies, one undo step, the source
+    // definition byte-unchanged (the independence the FLATTEN fork buys).
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value("drawing_objects").toList().size();
+        };
+
+        DrawingDocumentController blockCtl;
+        blockCtl.setSelectedToolId("point_tool");
+        blockCtl.clickCanvasNormalized(0.3, 0.3);
+        blockCtl.clickCanvasNormalized(0.6, 0.6);
+        assert(objectCount(blockCtl) == 2);
+
+        // Define with nothing selected is refused (a dead button must say so).
+        blockCtl.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
+        assert(!blockCtl.defineBlockFromSelection("table"));
+        assert(blockCtl.draftingDocument().blocks.empty());
+
+        // Marquee-select both points and save them as a named block. The
+        // definition lands in one undo step; its members are normalized to the
+        // origin (lower-left at 0,0), extent = the selection's union span.
+        blockCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(blockCtl.defineBlockFromSelection("table"));
+        assert(blockCtl.draftingDocument().blocks.size() == 1);
+        const edi::drafting::DraftingBlock &def = blockCtl.draftingDocument().blocks.front();
+        const QString blockId = QString::fromStdString(def.id);
+        assert(blockId.startsWith("block_"));
+        assert(def.name == "table");
+        assert(def.objects.size() == 2);
+        assert(nearlyEqual(def.bounds.x, 0.0) && nearlyEqual(def.bounds.y, 0.0));
+        assert(nearlyEqual(def.bounds.width, 0.3) && nearlyEqual(def.bounds.height, 0.3));
+        // Capture the normalized definition to prove independence after placement.
+        const auto defPointA = std::get<edi::drafting::PointGeometry>(def.objects[0].geometry).point;
+        assert(nearlyEqual(defPointA.x, 0.0) && nearlyEqual(defPointA.y, 0.0));
+
+        // Defining is one undo step (the document objects are untouched by it).
+        blockCtl.undo();
+        assert(blockCtl.draftingDocument().blocks.empty());
+        assert(objectCount(blockCtl) == 2);
+        blockCtl.redo();
+        assert(blockCtl.draftingDocument().blocks.size() == 1);
+
+        // Stamping an unknown block is a no-op.
+        assert(!blockCtl.placeBlockInstance("block_9999", 0.5, 0.5));
+        assert(objectCount(blockCtl) == 2);
+
+        // Stamp the block centred on (0.5,0.5): two fresh "instance_" objects
+        // appear (centre 0.15,0.15 -> offset 0.35,0.35), selected as one unit.
+        const int beforeStamp = objectCount(blockCtl);
+        assert(blockCtl.placeBlockInstance(blockId, 0.5, 0.5));
+        assert(objectCount(blockCtl) == beforeStamp + 2);
+        assert(blockCtl.modelDocument().value("selected_object_ids").toList().size() == 2);
+
+        // The placed objects are independent shapes carrying the centred geometry,
+        // and every id in the document stays unique.
+        {
+            const QVariantList objects = blockCtl.modelDocument().value("drawing_objects").toList();
+            QSet<QString> ids;
+            int instanceCount = 0;
+            for (const QVariant &value : objects) {
+                const QVariantMap obj = value.toMap();
+                ids.insert(obj.value("id").toString());
+                if (obj.value("id").toString().startsWith("instance_")) {
+                    ++instanceCount;
+                    const double px = obj.value("x").toDouble();
+                    const double py = obj.value("y").toDouble();
+                    // A maps to (0.35,0.35), B to (0.65,0.65).
+                    assert((nearlyEqual(px, 0.35) && nearlyEqual(py, 0.35))
+                           || (nearlyEqual(px, 0.65) && nearlyEqual(py, 0.65)));
+                }
+            }
+            assert(instanceCount == 2);
+            assert(ids.size() == objects.size());
+        }
+
+        // Independence (FLATTEN): the definition is byte-unchanged by placement,
+        // and stamping is exactly one undo step.
+        const auto defPointAfter = std::get<edi::drafting::PointGeometry>(
+            blockCtl.draftingDocument().blocks.front().objects[0].geometry).point;
+        assert(nearlyEqual(defPointAfter.x, 0.0) && nearlyEqual(defPointAfter.y, 0.0));
+        blockCtl.undo();
+        assert(objectCount(blockCtl) == beforeStamp);
+        assert(blockCtl.draftingDocument().blocks.size() == 1); // definition survives
+        blockCtl.redo();
+        assert(objectCount(blockCtl) == beforeStamp + 2);
     }
 
     return 0;

@@ -2,6 +2,7 @@
 #include "core/DrawingDocumentProjection.h"
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingRoom.h"
 
 #include <QCoreApplication>
 #include <QSet>
@@ -3647,6 +3648,39 @@ int main(int argc, char **argv)
         fixedRadiusController.clickCanvasNormalized(0.8, 0.5);
         fixedObjects = fixedRadiusController.modelDocument().value("drawing_objects").toList();
         assert(nearlyEqual(fixedObjects[1].toMap().value("radius").toDouble(), 0.3));
+    }
+
+    // The Seam-A authoring path: a whole room from one neutral spec. The
+    // guard-antechamber layout (corridor + secret + door openings, one solid
+    // wall) lands its perimeter as wall objects in a single undoable step.
+    {
+        DrawingDocumentController roomController;
+        edi::drafting::RoomSpec spec;
+        spec.origin = {0.1, 0.1};
+        spec.width = 0.6;
+        spec.height = 0.4;
+        spec.wallThickness = 0.02;
+        spec.openings = {
+            {edi::drafting::RoomEdge::North, 0.30, 0.10, "corridor"},
+            {edi::drafting::RoomEdge::East, 0.30, 0.04, "secret"},
+            {edi::drafting::RoomEdge::South, 0.30, 0.05, "door"},
+        };
+        assert(roomController.createRoomFromSpec(spec));
+        const QVariantList objects = roomController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 7); // 2 + 2 + 2 (opened edges) + 1 (solid W)
+        for (const QVariant &value : objects) {
+            assert(value.toMap().value("kind").toString() == "wall");
+        }
+        // One undo removes the whole room (atomic batch, not 7 separate creates).
+        assert(roomController.undo());
+        assert(roomController.modelDocument().value("drawing_objects").toList().empty());
+
+        // A degenerate spec is refused without touching the document.
+        edi::drafting::RoomSpec bad;
+        bad.width = 0.0;
+        bad.height = 0.3;
+        assert(!roomController.createRoomFromSpec(bad));
+        assert(roomController.modelDocument().value("drawing_objects").toList().empty());
     }
 
     return 0;

@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "core/DrawingCore.h"
+#include "drafting/DraftingRoom.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextSessionStore.h"
@@ -96,10 +97,14 @@ int main(int argc, char **argv)
         QStringLiteral("bench-objects"),
         QStringLiteral("Create N synthetic lines before benching (deterministic fan)."),
         QStringLiteral("N"));
+    const QCommandLineOption demoRoomOption(
+        QStringLiteral("demo-room"),
+        QStringLiteral("Generate the guard-antechamber room from a spec (Seam-A authoring demo)."));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
     parser.addOption(benchObjectsOption);
+    parser.addOption(demoRoomOption);
     parser.process(app);
 
     EdiShellWindow window;
@@ -126,6 +131,29 @@ int main(int argc, char **argv)
             }
             QTextStream(stdout) << "bench-objects: " << count << " lines created in "
                                 << creation.elapsed() << " ms\n";
+        }
+    }
+
+    // Seam-A demo: the "a 30x20 stone guard antechamber, oak door south, secret
+    // door east, corridor north" prompt, as a neutral RoomSpec, generates the
+    // room's mitered walls + doorway gaps in one atomic step. Proves NL -> spec
+    // -> geometry: the AI fills the spec, edi builds the layout deterministically.
+    if (parser.isSet(demoRoomOption)) {
+        auto *controller = window.findChild<DrawingDocumentController *>();
+        if (controller != nullptr) {
+            edi::drafting::RoomSpec spec;
+            spec.origin = {0.30, 0.12};
+            spec.width = 0.42;
+            spec.height = 0.26;
+            spec.wallThickness = 0.016;
+            spec.openings = {
+                {edi::drafting::RoomEdge::North, 0.21, 0.10, "corridor"},
+                {edi::drafting::RoomEdge::East, 0.13, 0.05, "secret"},
+                {edi::drafting::RoomEdge::South, 0.21, 0.07, "door"},
+            };
+            const bool ok = controller->createRoomFromSpec(spec);
+            QTextStream(stdout) << "demo-room: guard antechamber "
+                                << (ok ? "generated" : "rejected") << '\n';
         }
     }
 

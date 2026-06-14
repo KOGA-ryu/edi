@@ -11,6 +11,7 @@
 
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingGrid.h"
@@ -220,6 +221,10 @@ public:
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
+    // Generate a whole room from a neutral spec (the Seam-A authoring path): mint
+    // ids on demand, plan the perimeter walls, create-and-select them atomically.
+    // The spec carries geometry + neutral tags only — no game rules.
+    bool createRoomFromSpec(const edi::drafting::RoomSpec &spec);
     bool recordCalibrationMeasurement(double measuredValue);
     bool applyCalibrationCorrection();
     bool fitSelectionToDrawableBounds();

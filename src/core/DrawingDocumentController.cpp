@@ -4,6 +4,7 @@
 #include "core/DrawingDocumentProjection.h"
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
+#include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingClipboard.h"
 #include "drafting/DraftingConstructionOps.h"
@@ -1942,6 +1943,24 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
     // a silent early-out (null/locked source) would not — so refresh here to
     // guarantee the now-cleared prompt leaves the view.
     emit pointerChanged();
+}
+
+bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
+{
+    // The room's segment count is opening-dependent, so ids are minted ON DEMAND
+    // by the planner (one per emitted wall) rather than pre-counted like an array.
+    // firstSerial lets a rejected plan reclaim whatever serials it consumed.
+    const int firstSerial = m_nextObjectSerial;
+    DraftingRoomPlan planned = planDraftingRoom(spec, [this]() {
+        return toStdString(nextObjectId(QStringLiteral("room"), m_nextObjectSerial++));
+    });
+    if (!planned.ok) {
+        m_nextObjectSerial = firstSerial;
+        return finishEdit(QStringLiteral("room"), QStringLiteral("room"), false,
+                          planned.code, QString::fromStdString(planned.message));
+    }
+    m_lastEditStatus.clear();
+    return createObjectsAndSelect(std::move(planned.objects));
 }
 
 bool DrawingDocumentController::createArrayFromActiveObject(

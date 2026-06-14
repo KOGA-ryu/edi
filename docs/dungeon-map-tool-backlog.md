@@ -46,14 +46,37 @@ Ship a usable dungeon-authoring tool: a complete **author → export** loop. Fin
   flush. Dungeon 146 → 170 objects; controller test asserts two Door-type leaves.
 
 ### Phase C — Block / symbol library (M3, the "flash sheet") · compute: design + adversarial-critique workflow, then builds
-- **◻ C0 — design pass.** Cold-start handoff + the ready-to-run design workflow:
-  **`docs/phase-c-block-library-handoff.md`** (grounds the §M seam in parallel, panels 3
-  block-model approaches with a judge vote, adversarially critiques the winner → C1–C3
-  slice plan). A new session runs the workflow there, drives the FLATTEN-vs-reference
-  fork, then builds the slices.
-- **◻ C1 — block definition** (save a named group). *Accept:* round-trip a named block.
-- **◻ C2 — block instances** (transformed placement referencing one definition).
-- **◻ C3 — palette UI + tag/set taxonomy** (widget layer).
+- **✅ C0 — design pass.** Ran `block-library-design` workflow (3 grounding explorers →
+  3 approaches + 3-judge panel → adversarial critique). **Fork resolved → FLATTEN-on-place**
+  (unanimous 8.6/9/9): a placed instance is independent first-class objects, NOT a live
+  reference (which scored 6.2/5/5 — it would create a second derived-at-render object space
+  breaking the ~16 sites walking `document.objects`, and needs a `transformGeometry` over all
+  14 kinds that mirror/array deliberately refuse). Critique verdict **sound**; grafts folded in:
+  (1) **no parallel serial counter** — mint `block_NNNN` off the one `m_nextObjectSerial`,
+  and `highestDocumentIdSerial` scans objects+plugs+connections+blocks (closed a pre-existing
+  plug/conn recovery hole too); (2) **readBlock recomputes bounds** (derived, never trusted);
+  (3) **provenance honesty** — block-origin tag goes in `metadata.source` (NOT `toolProvenance`,
+  which drives a calibration branch), commented as pure provenance, or omitted (C2 call).
+  Deferred (named, separable): `transformGeometry` rotate/scale over all 14 kinds, backing a
+  rotate/scale TOOL first — that is what unlocks per-instance rotation/scale; the FLATTEN MVP
+  is translate-only because `translateGeometry` is the only geometry transform that exists.
+- **✅ C1 — block definition** (ccd14c6). `DraftingBlock` + `DraftingBlockOps`
+  (`buildBlockFromObjects` normalize-to-origin, add/removeBlock) + Create/DeleteBlockCommand +
+  additive `blocks` MessagePack (tolerant, no version bump) + the serial-recovery fix.
+  *Accept (met):* `drafting_block_ops_tests` — normalize, validation, additive round-trip +
+  forward-compat, serial regression. 94 green.
+- **◻ C2 — block instances** (FLATTEN placement). `placeBlockInstance(blockId, point)`:
+  offset = point − definition-bounds-centre, `planDraftingPaste(def.objects, "instance", …)`,
+  `createObjectsAndSelect` (one undo step, auto-select). **Translate-only** (rotation/scale
+  deferred). Guard empty-definition placement with a status message (`createObjectsAndSelect`
+  no-ops on an empty batch). Pair with the controller `defineBlockFromSelection(name)` verb
+  (must go through `applyCommandAndEmit` so define is undoable). *Accept:* controller test —
+  instance objects appear in one undo step, source definition byte-unchanged (independence).
+- **◻ C3 — palette UI + tag/set taxonomy** (widget layer). `PointCaptureIntent::BlockInstance`
+  + a `block_palette` FeaturePaletteSpec (reuse FloatingPalette + the radial-array/fillet
+  pick-a-point idiom). Click a block row → arm point capture → next canvas click stamps.
+  A "Save selection as block" action calls `defineBlockFromSelection`. **First visible slice —
+  flag the look to the user.** *Accept:* `edi_shell_window_tests` (offscreen, objectName-driven).
 
 ### Phase D — Seam B export (M4) · compute: exporter pattern + design-light
 - **◻ D1 — TOON map-graph projection.** Project rooms/plugs/connections/neutral tags

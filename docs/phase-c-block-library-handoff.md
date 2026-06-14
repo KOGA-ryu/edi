@@ -1,5 +1,12 @@
 # Phase C handoff — block / symbol library (cold-start)
 
+> **STATUS (2026-06-14): the design workflow §5 has been RUN; the fork is
+> resolved.** Outcome → **FLATTEN-on-place** (unanimous judge panel; critique
+> verdict *sound*, grafts folded in). **C1 shipped** (commit ccd14c6). The living
+> plan with the full resolution + the refined C2/C3 specs is
+> `docs/dungeon-map-tool-backlog.md` §Phase C — read that first now; this doc is
+> the historical design brief. Do NOT re-run the workflow.
+
 A self-contained handoff so a fresh session can run Phase C of the tool-first
 dungeon-map program and continue. Phase C is the **block / symbol library** (the
 "flash sheet"): save a selection as a named block, stamp transformed instances, a

@@ -2,6 +2,9 @@
 
 #include "drafting/DraftingGeometry.h"
 
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <iomanip>
 #include <sstream>
 #include <utility>
@@ -66,6 +69,46 @@ DraftingObjectId draftingObjectIdForSerial(const std::string &prefix, int serial
     std::ostringstream stream;
     stream << prefix << '_' << std::setfill('0') << std::setw(4) << serial;
     return stream.str();
+}
+
+namespace {
+
+// Recover the trailing numeric suffix of an "<prefix>_NNNN" id (0 if none).
+int idTrailingSerial(const std::string &id)
+{
+    std::size_t end = id.size();
+    std::size_t begin = end;
+    while (begin > 0 && std::isdigit(static_cast<unsigned char>(id[begin - 1]))) {
+        --begin;
+    }
+    if (begin == end) {
+        return 0;
+    }
+    try {
+        return std::stoi(id.substr(begin, end - begin));
+    } catch (...) {
+        return 0;
+    }
+}
+
+} // namespace
+
+int highestDocumentIdSerial(const DraftingDocument &document)
+{
+    int highest = 0;
+    for (const auto &object : document.objects) {
+        highest = std::max(highest, idTrailingSerial(object.id));
+    }
+    for (const auto &plug : document.plugs) {
+        highest = std::max(highest, idTrailingSerial(plug.id));
+    }
+    for (const auto &connection : document.connections) {
+        highest = std::max(highest, idTrailingSerial(connection.id));
+    }
+    for (const auto &block : document.blocks) {
+        highest = std::max(highest, idTrailingSerial(block.id));
+    }
+    return highest;
 }
 
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order)

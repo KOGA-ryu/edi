@@ -64,6 +64,27 @@ struct DraftingDeclaredConnection {
     std::string type;                // neutral role tag, default empty ("corridor"/...)
 };
 
+// --- Block library (Phase C: the "flash sheet") ------------------------------
+// A BLOCK is a named, saved group of objects — a reusable symbol (a table, a
+// door, a girih tile). It lives here as plain document-level data, beside the
+// objects/plugs/connections vectors, NOT as a DraftingGeometry variant: a block
+// is a stored TEMPLATE, not a shape on the canvas, so modelling it as a geometry
+// kind would drag it through the whole geometry-visitor recipe for nothing.
+//
+// FLATTEN fork (resolved Phase-C design): an INSTANCE is not modelled here at
+// all. Placing a block mints independent transformed COPIES of `objects` as
+// ordinary DraftingObjects (paste-with-a-transform), so there is no instance
+// struct, no back-reference, and no propagate-on-edit engine — every placed
+// object stays a first-class, directly-editable shape. The block's `objects` are
+// stored NORMALIZED to the origin (lower-left of their union at 0,0); `bounds` is
+// the cached union extent (origin-based), recomputed on load like object bounds.
+struct DraftingBlock {
+    DraftingBlockId id;                  // opaque, minted like object ids ("block_0001")
+    std::string name;                    // authored label, e.g. "tavern_table"
+    std::vector<DraftingObject> objects; // the saved group, normalized to the origin
+    Bounds2D bounds;                     // cached union extent; derived, recomputed on load
+};
+
 struct DraftingDocument {
     DraftingDocumentId id;
     std::string title;
@@ -74,6 +95,8 @@ struct DraftingDocument {
     // existing DocumentSnapshot undo/redo for free — no separate undo plumbing.
     std::vector<DraftingPlug> plugs;
     std::vector<DraftingDeclaredConnection> connections;
+    // Block library rides inside the document too (same free undo as the graph).
+    std::vector<DraftingBlock> blocks;
     std::vector<DraftingObjectId> selectedObjectIds;
     std::optional<DraftingObjectId> activeObjectId;
     std::uint64_t revision = 0;
@@ -94,6 +117,12 @@ DraftingObject makeDraftingObject(DraftingObjectId id, DraftingShapeKind kind, D
 DraftingObjectBuildResult validateDraftingObjectShape(const DraftingObject &object);
 DraftingObjectBuildResult buildDraftingObject(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry);
 DraftingObjectId draftingObjectIdForSerial(const std::string &prefix, int serial);
+// The inverse of draftingObjectIdForSerial: the highest trailing serial across
+// EVERY id-bearing document vector (objects, plugs, connections, blocks). All
+// document ids share one monotonic serial via distinct prefixes, so a freshly
+// opened document must resume minting above every id it already holds — scanning
+// objects alone let a plug_/conn_/block_ id collide with a freshly minted one.
+int highestDocumentIdSerial(const DraftingDocument &document);
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order = 0);
 DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);

@@ -1,5 +1,6 @@
 #include "drafting/DraftingCommands.h"
 
+#include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGraphOps.h"
 #include "drafting/DraftingGuideOps.h"
@@ -326,6 +327,10 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(declareConnection(document, typedCommand.connection));
         } else if constexpr (std::is_same_v<Command, DeleteConnectionCommand>) {
             return fromStoreResult(undeclareConnection(document, typedCommand.connectionId));
+        } else if constexpr (std::is_same_v<Command, CreateBlockCommand>) {
+            return fromStoreResult(addBlock(document, typedCommand.block));
+        } else if constexpr (std::is_same_v<Command, DeleteBlockCommand>) {
+            return fromStoreResult(removeBlock(document, typedCommand.blockId));
         } else {
             return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
         }

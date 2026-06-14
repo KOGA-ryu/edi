@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -527,6 +529,40 @@ MsgPackValue objectValue(const DraftingObject &object)
     });
 }
 
+// Decode one object map into a DraftingObject. Returns nullopt when the map is
+// not a well-formed object (not a map / unknown kind / missing geometry); the
+// CALLER decides what that means — the top-level `objects` array treats it as a
+// hard error, a block's nested `objects` skips it (tolerant, like readPlug).
+// Bounds are recomputed from geometry, never read — the standing decode rule.
+std::optional<DraftingObject> readObject(const MsgPackValue &v, int documentVersion)
+{
+    if (v.type != MsgPackValue::Type::Map) {
+        return std::nullopt;
+    }
+    const std::string kindName = asString(v.find("kind"), {});
+    if (!isKnownShapeKindName(kindName)) {
+        return std::nullopt;
+    }
+    const MsgPackValue *geometry = v.find("geometry");
+    if (!geometry || geometry->type != MsgPackValue::Type::Map) {
+        return std::nullopt;
+    }
+    DraftingObject object;
+    object.id = asString(v.find("id"), {});
+    object.kind = shapeKindFromName(kindName);
+    object.geometry = readGeometry(object.kind, *geometry);
+    object.layerId = asString(v.find("layer_id"), object.layerId);
+    object.visible = asBool(v.find("visible"), object.visible);
+    object.locked = asBool(v.find("locked"), object.locked);
+    object.styleId = asString(v.find("style_id"), object.styleId);
+    object.stroke = readStroke(v.find("stroke"), documentVersion);
+    object.fill = readFill(v.find("fill"));
+    object.transform = readTransform(v.find("transform"));
+    object.metadata = readMetadata(v.find("metadata"));
+    object.bounds = computeBounds(object.geometry); // recomputed, never stored
+    return object;
+}
+
 // --- map graph (plugs + declared connections) -------------------------------
 // Flat maps, mirroring layerValue/objectValue. The plug's anchor Point2D rides
 // as the same 2-element array every point uses (pointValue/readPoint).
@@ -573,6 +609,54 @@ DraftingDeclaredConnection readConnection(const MsgPackValue &v)
     return connection;
 }
 
+// --- block library (Phase C) -------------------------------------------------
+// A block is an id + name + an array of full object maps (reusing objectValue /
+// readObject verbatim). The cached `bounds` is pure DERIVED data — like an
+// object's bounds it is NOT written and is RECOMPUTED on load from the member
+// geometry, so a stale or forged box can never desync a future placement.
+
+MsgPackValue blockValue(const DraftingBlock &block)
+{
+    std::vector<MsgPackValue> objects;
+    objects.reserve(block.objects.size());
+    for (const DraftingObject &object : block.objects) {
+        objects.push_back(objectValue(object));
+    }
+    return MsgPackValue::map({
+        {"id", MsgPackValue::text(block.id)},
+        {"name", MsgPackValue::text(block.name)},
+        {"objects", MsgPackValue::array(std::move(objects))},
+    });
+}
+
+DraftingBlock readBlock(const MsgPackValue &v)
+{
+    DraftingBlock block;
+    block.id = asString(child(v, "id"), block.id);
+    block.name = asString(child(v, "name"), block.name);
+    if (const MsgPackValue *objects = child(v, "objects");
+        objects && objects->type == MsgPackValue::Type::Array) {
+        for (const auto &objectRef : objects->arrayValue) {
+            // A malformed nested object is skipped (tolerant, like a malformed
+            // plug), not a hard file error — one bad member must not sink the load.
+            if (auto object = readObject(objectRef, kDraftingDocumentVersion)) {
+                block.objects.push_back(std::move(*object));
+            }
+        }
+    }
+    // Recompute the cached union extent from the decoded objects rather than
+    // trusting any stored box (none is written) — the object-bounds rule applied
+    // to the block as a whole.
+    if (!block.objects.empty()) {
+        Bounds2D bounds = block.objects.front().bounds;
+        for (std::size_t i = 1; i < block.objects.size(); ++i) {
+            bounds = includeBounds(bounds, block.objects[i].bounds);
+        }
+        block.bounds = bounds;
+    }
+    return block;
+}
+
 } // namespace
 
 MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
@@ -601,6 +685,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         connections.push_back(connectionValue(connection));
     }
 
+    std::vector<MsgPackValue> blocks;
+    blocks.reserve(document.blocks.size());
+    for (const auto &block : document.blocks) {
+        blocks.push_back(blockValue(block));
+    }
+
     std::vector<MsgPackValue> selected;
     selected.reserve(document.selectedObjectIds.size());
     for (const auto &id : document.selectedObjectIds) {
@@ -611,11 +701,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         ? MsgPackValue::text(*document.activeObjectId)
         : MsgPackValue::nil();
 
-    // The map graph is two additive arrays beside `objects`. Like wall_visual
-    // (M1.3), they are read tolerantly — missing => empty — so this needs NO
-    // document-version bump: nothing reinterprets an existing field, the only
-    // case the v1->v2 stroke bump existed for. Old edi opening a graph file just
-    // drops these keys (the documented forward-compat behaviour).
+    // The map graph (plugs/connections) and the block library are additive arrays
+    // beside `objects`. Like wall_visual (M1.3), they are read tolerantly —
+    // missing => empty — so this needs NO document-version bump: nothing
+    // reinterprets an existing field, the only case the v1->v2 stroke bump existed
+    // for. Old edi opening one of these files just drops the unknown keys (the
+    // documented forward-compat behaviour).
     MsgPackValue documentMap = MsgPackValue::map({
         {"id", MsgPackValue::text(document.id)},
         {"title", MsgPackValue::text(document.title)},
@@ -625,6 +716,7 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
         {"connections", MsgPackValue::array(std::move(connections))},
+        {"blocks", MsgPackValue::array(std::move(blocks))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
         {"active_object_id", std::move(activeObject)},
     });
@@ -679,34 +771,16 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
     if (const MsgPackValue *objects = child(*documentValue, "objects");
         objects && objects->type == MsgPackValue::Type::Array) {
         for (const auto &objectValueRef : objects->arrayValue) {
-            if (objectValueRef.type != MsgPackValue::Type::Map) {
+            // A malformed object in the top-level array is a HARD file error
+            // (unlike a block's tolerant nested objects, which skip) — readObject
+            // collapses not-a-map / unknown-kind / missing-geometry, all of which
+            // were already the same SyntaxError before this was extracted.
+            std::optional<DraftingObject> object = readObject(objectValueRef, version);
+            if (!object) {
                 return FormatResult<DraftingDocument>::failure({}, FormatResultCode::SyntaxError,
-                                                               "drawing object is not a map");
+                                                               "drawing object is malformed");
             }
-            const std::string kindName = asString(objectValueRef.find("kind"), {});
-            if (!isKnownShapeKindName(kindName)) {
-                return FormatResult<DraftingDocument>::failure({}, FormatResultCode::SyntaxError,
-                                                               "drawing object has unknown kind");
-            }
-            const MsgPackValue *geometry = objectValueRef.find("geometry");
-            if (!geometry || geometry->type != MsgPackValue::Type::Map) {
-                return FormatResult<DraftingDocument>::failure({}, FormatResultCode::SyntaxError,
-                                                               "drawing object geometry is missing");
-            }
-            DraftingObject object;
-            object.id = asString(objectValueRef.find("id"), {});
-            object.kind = shapeKindFromName(kindName);
-            object.geometry = readGeometry(object.kind, *geometry);
-            object.layerId = asString(objectValueRef.find("layer_id"), object.layerId);
-            object.visible = asBool(objectValueRef.find("visible"), object.visible);
-            object.locked = asBool(objectValueRef.find("locked"), object.locked);
-            object.styleId = asString(objectValueRef.find("style_id"), object.styleId);
-            object.stroke = readStroke(objectValueRef.find("stroke"), version);
-            object.fill = readFill(objectValueRef.find("fill"));
-            object.transform = readTransform(objectValueRef.find("transform"));
-            object.metadata = readMetadata(objectValueRef.find("metadata"));
-            object.bounds = computeBounds(object.geometry); // recomputed, never stored
-            document.objects.push_back(std::move(object));
+            document.objects.push_back(std::move(*object));
         }
     }
 
@@ -727,6 +801,17 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         for (const auto &connection : connections->arrayValue) {
             if (connection.type == MsgPackValue::Type::Map) {
                 document.connections.push_back(readConnection(connection));
+            }
+        }
+    }
+
+    // Block library: same tolerant additive read — a file written before Phase C
+    // has no "blocks" key and decodes to an empty library.
+    if (const MsgPackValue *blocks = child(*documentValue, "blocks");
+        blocks && blocks->type == MsgPackValue::Type::Array) {
+        for (const auto &block : blocks->arrayValue) {
+            if (block.type == MsgPackValue::Type::Map) {
+                document.blocks.push_back(readBlock(block));
             }
         }
     }

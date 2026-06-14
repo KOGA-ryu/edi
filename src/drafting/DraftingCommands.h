@@ -164,6 +164,19 @@ struct DeleteConnectionCommand {
     DraftingConnectionId connectionId;
 };
 
+// Block-library commands (Phase C). Same shape as the map-graph commands above:
+// CreateBlockCommand carries the WHOLE pre-built definition (the caller mints the
+// id and normalizes the objects; the op only validates), DeleteBlockCommand names
+// one by id — so each arm is a one-line delegate to a DraftingBlockOps free
+// function, riding DocumentSnapshot undo for free.
+struct CreateBlockCommand {
+    DraftingBlock block;
+};
+
+struct DeleteBlockCommand {
+    DraftingBlockId blockId;
+};
+
 using DraftingCommand = std::variant<
     CreateObjectCommand,
     CreateObjectsCommand,
@@ -195,7 +208,9 @@ using DraftingCommand = std::variant<
     CreatePlugCommand,
     DeletePlugCommand,
     DeclareConnectionCommand,
-    DeleteConnectionCommand>;
+    DeleteConnectionCommand,
+    CreateBlockCommand,
+    DeleteBlockCommand>;
 
 struct DraftingCommandResult {
     bool ok = false;

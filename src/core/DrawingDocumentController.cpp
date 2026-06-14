@@ -53,33 +53,6 @@ QString nextObjectId(const QString &kind, int serial)
     return drawing_core::qStringFromStdString(draftingObjectIdForSerial(kind.toStdString(), serial));
 }
 
-// Object ids are "<prefix>_NNNN"; recover the trailing numeric suffix so a
-// freshly opened document keeps minting unique ids above what it already holds.
-int objectIdTrailingSerial(const std::string &id)
-{
-    std::size_t end = id.size();
-    std::size_t begin = end;
-    while (begin > 0 && std::isdigit(static_cast<unsigned char>(id[begin - 1]))) {
-        --begin;
-    }
-    if (begin == end) {
-        return 0;
-    }
-    try {
-        return std::stoi(id.substr(begin, end - begin));
-    } catch (...) {
-        return 0;
-    }
-}
-
-int highestObjectSerial(const DraftingDocument &document)
-{
-    int highest = 0;
-    for (const auto &object : document.objects) {
-        highest = std::max(highest, objectIdTrailingSerial(object.id));
-    }
-    return highest;
-}
 
 constexpr std::size_t kUndoStackCap = 100;
 
@@ -638,7 +611,7 @@ bool DrawingDocumentController::openDocument(const QUrl &url)
     m_document = std::move(*decoded.value);
     // Resume id minting above the highest suffix already present so newly
     // created objects never collide with loaded ones.
-    m_nextObjectSerial = highestObjectSerial(m_document) + 1;
+    m_nextObjectSerial = highestDocumentIdSerial(m_document) + 1;
     // A freshly loaded document has no in-flight creation, preview, or status,
     // and starts a fresh undo history.
     m_pendingCreation.reset();

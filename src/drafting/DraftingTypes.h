@@ -17,6 +17,10 @@ using StyleId = std::string;
 // type. (Phase 2 / docs/dungeon-map-graph-work-order.md.)
 using DraftingPlugId = std::string;
 using DraftingConnectionId = std::string;
+// Block-library handle (Phase C / "flash sheet"). A block DEFINITION is a named,
+// saved group of objects; its id is minted and validated like an object id (one
+// monotonic serial, distinct "block_" prefix), so it reuses the same alias shape.
+using DraftingBlockId = std::string;
 
 enum class DraftingShapeKind {
     Point,

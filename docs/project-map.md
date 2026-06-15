@@ -168,7 +168,7 @@ what fills it (real asset ids) waits on P2's Blender lab.
 - **The Blender recipe engine (Seam A core).** TOML recipe ops parse/bind/resolve/compile
   to deterministic bpy; headless Blender spawns; render PNG returns to the preview.
 
-94 tests green; no JSON in our data, no `.js`/`.qml`.
+95 tests green; no JSON in our data, no `.js`/`.qml`.
 
 ---
 

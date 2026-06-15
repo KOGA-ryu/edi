@@ -1236,10 +1236,15 @@ int main(int argc, char **argv)
         roomB.spec.plugs.push_back({edi::drafting::RoomEdge::West, 3.0, "to_a", ""});
         spec.rooms = {roomA, roomB};
         spec.connections.push_back({{"a", "to_b"}, {"b", "to_a"}, "corridor"});
-        assert(mapController->createMapFromSpec(spec, 1.0));
+        // Author at 0.25 canvas-per-authored-unit so the browser must DIVIDE to
+        // recover authored units: the 8 x 6 (canvas) rooms read as 32 x 24, not
+        // the raw stored 8 x 6 — proving the footprint is shown in authored units.
+        assert(mapController->createMapFromSpec(spec, 0.25));
         assert(summary->text().contains(QStringLiteral("2 rooms")));
         assert(summary->text().contains(QStringLiteral("1 connection"))); // pluralized: singular
         assert(mapList->count() == 3); // two room rows + one connection row
+        assert(mapList->item(0)->text().contains(QStringLiteral("32"))); // 8 / 0.25 authored
+        assert(mapList->item(0)->text().contains(QStringLiteral("24"))); // 6 / 0.25 authored
 
         // The switch is reversible; the id tracks the rail and the browser is
         // torn down (its modelChanged connection dies with it).

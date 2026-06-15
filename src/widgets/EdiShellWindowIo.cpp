@@ -701,11 +701,17 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
                                   countLabel(doc.connections.size(), QStringLiteral("connection")),
                                   countLabel(doc.plugs.size(), QStringLiteral("plug"))));
         list->clear();
+        // Footprints are stored in CANVAS units; show them in the AUTHORED units
+        // the map was drawn in (feet), which is what the engine export speaks and
+        // what an author recognizes — "12 × 11", not "0.24 × 0.22". canvasPerAuthoredUnit
+        // is canvas-per-authored, so authored = canvas / scale; 1.0 (a hand-drawn doc
+        // with no map scale) shows coordinates as-is. Guard a degenerate 0 scale.
+        const double scale = doc.canvasPerAuthoredUnit > 0.0 ? doc.canvasPerAuthoredUnit : 1.0;
         for (const edi::drafting::DraftingMapRoom &room : doc.rooms) {
             list->addItem(QStringLiteral("▸ %1   %2 × %3")
                               .arg(QString::fromStdString(room.name))
-                              .arg(room.width)
-                              .arg(room.height));
+                              .arg(room.width / scale, 0, 'g', 3)
+                              .arg(room.height / scale, 0, 'g', 3));
         }
         // Connections reference plugs BY ID; show the authored plug names when
         // resolvable (a cleared name falls back to the opaque id).

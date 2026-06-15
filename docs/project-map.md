@@ -28,7 +28,7 @@ Sub-backlogs this board sits over: `docs/dungeon-map-tool-backlog.md`,
 |------|-----------|:-----:|-----------------------------|
 | **A — Blender → asset** | recipe TOML → bind/resolve → deterministic bpy → headless render | **engine solid · no UI home** | The recipe engine parses/binds/resolves (refuses to compile an unresolved stream — proof never guesses)/compiles to bpy, and `ProcessRunStore` spawns headless Blender → PNG. Missing: a **lab workspace** fusing the drafting grid (it supplies the parameters) + editor + ASCII proof + render, and the **ASCII preview** stage. Fires only via CLI/Build today. R2 mesh/OBJ proof designed (`edi-ui/.claude/plans/R2a-obj-proof.md`), unbuilt. |
 | **B — asset → dungeon** | a Blender asset placed in a map as a block/symbol | **◐ REPAIRED (data path)** | ✅ `DraftingBlock.assetRef` (S0 `d0c8821`) · ✅ set at define time (S1 `f4ebb30`) · ✅ `BlockPlacementMetadata` snapshots the asset + an `instanceId` onto every FLATTEN-stamped object (S2 `4364719`). A placement is now traceable to its asset, and the N flattened objects of one stamp share an instance id. Remaining: the asset VALUES stay empty until the Blender lab produces real asset ids to link (Seam A's UI). |
-| **C — dungeon → engine** | the neutral map crosses to the engine | **partial · unblocked by B** | `exportMapToToon` ships rooms/plugs/connections (CLI `--export-map`) but **not block instances** — the engine gets topology, zero asset placements. Now that S2 stamps placements, the export can re-form them. Fix: a 4th TOON section `blocks[]{room, asset_id, origin, scale, rotation}` grouped by `instanceId`. **Needs the export to read the DOCUMENT** (placed blocks live there, not in the `.map.toml`), which in turn wants **rooms stored in the document** (today only the `MapSpec` has footprints) so the document is the single export source. |
+| **C — dungeon → engine** | the neutral map crosses to the engine | **✅ FLOWS (with blocks)** | Rooms now live in the document (`e09f6e9`+`c1512bf`), the authoring scale is stored so the export speaks authored feet (`6189d15`), a document-based `exportMapToToon` emits rooms/plugs/connections **+ a `blocks[]{room,asset,origin,scale,rotation}`** section re-formed from S2 placement provenance (`4d6fadc`), and `--export-map` reads a saved `.edidraw` to carry the placed blocks (`db7f55f`). The full spine has a data path end to end. Remaining: real asset VALUES still wait on the Blender lab (P2); placement is translate-only (scale/rotation 1/0 until `transformGeometry`). |
 
 **Recommended first move:** **Seam B → Seam C** (small, data-first, mostly mirrors
 the plug/connection precedent). Done together, "Blender asset → dungeon → engine"
@@ -71,14 +71,14 @@ pattern F6 already uses).
 - **✅ Seam B repair — block ↔ asset link.** S0 `DraftingBlock.assetRef` (`d0c8821`) ·
   S1 set at define (`f4ebb30`) · S2 `BlockPlacementMetadata` snapshot + `instanceId` on
   each placed object (`4364719`). S3 (opt, deferred) named anchor points vs center-only.
-- **◻ Seam C completion — blocks in the TOON export.** The remaining pipeline-flow
-  piece. Two slices: **(a) rooms in the document** — add a `DraftingMapRoom` vector
-  (name/origin/size/material), populated by `createMapFromSpec`, additive MessagePack,
-  so the document is the single self-describing export source (also fixes blocks-lost-on-
-  reload). **(b) document-based export** — `exportMapToToon` reads the document (rooms
-  from the vector, plugs/connections from theirs, `blocks[]{room, asset_id, origin,
-  scale, rotation}` grouped by `instanceId`); a fixture exporting the reference dungeon
-  *with* placed blocks. Wire `--export-map` to take an `.edidraw` document.
+- **✅ Seam C completion — blocks in the TOON export.** rooms-in-document
+  (`e09f6e9` data + `c1512bf` populate) · authoring scale stored (`6189d15`) ·
+  document-based `exportMapToToon` with the `blocks[]` section (`4d6fadc`) ·
+  `--export-map` reads a `.edidraw` (`db7f55f`). The pipeline now flows end to end.
+
+**P1 PIPELINE CONTINUITY: COMPLETE.** Blender asset → block (Seam B) → stamped in a
+dungeon → exported to the engine with the placement (Seam C). The data spine is whole;
+what fills it (real asset ids) waits on P2's Blender lab.
 
 **P2 · The big UI homes (what "it all needs a spot" means)**
 

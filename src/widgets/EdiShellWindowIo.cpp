@@ -12,6 +12,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QTabWidget>
 #include <QPixmap>
 #include <QString>
 #include <QStringList>
@@ -745,16 +746,16 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
     return panel;
 }
 
-QString EdiShellWindow::renderOpsAsciiProjection(int projectionIndex)
+QString EdiShellWindow::compileCurrentRecipe(std::vector<edi::recipe::RecipeOp> &compiledOps)
 {
     using namespace edi::recipe;
     if (m_opsStream.ops.empty()) {
-        return QStringLiteral("No recipe loaded.\nOpen or edit an ops recipe to see its ASCII proof.");
+        return QStringLiteral("No recipe loaded.\nOpen or edit an ops recipe.");
     }
-    // The same gate the CLI/export path uses (exportOpsPreviewsToDir): resolve
-    // against the LIVE drawing, then compile, validate, render. A proof must
-    // refuse what it cannot show, so every failure surfaces verbatim instead of
-    // a misleading picture — "proof never guesses."
+    // The gate every recipe VIEW shares (the same one exportOpsPreviewsToDir
+    // uses): resolve against the LIVE drawing, then compile, then validate. A
+    // view must refuse what it cannot show, so every failure surfaces verbatim
+    // instead of a misleading picture — "proof never guesses."
     const OpResolveResult resolved = resolveRecipeOps(
         m_opsStream,
         m_controller->draftingDocument(),
@@ -778,14 +779,44 @@ QString EdiShellWindow::renderOpsAsciiProjection(int projectionIndex)
         }
         return QStringLiteral("Invalid recipe:\n%1").arg(lines.join(QLatin1Char('\n')));
     }
+    compiledOps = compiled.ops;
+    return {}; // success — compiledOps is filled
+}
+
+QString EdiShellWindow::renderOpsAsciiProjection(int projectionIndex)
+{
+    using namespace edi::recipe;
+    std::vector<RecipeOp> ops;
+    const QString refusal = compileCurrentRecipe(ops);
+    if (!refusal.isEmpty()) {
+        return refusal;
+    }
     const AsciiProjection projection = projectionIndex == 1 ? AsciiProjection::Side
                                      : projectionIndex == 2 ? AsciiProjection::Top
                                                             : AsciiProjection::Front;
-    const AsciiRenderResult render = renderOpsProjection(compiled.ops, projection);
-    if (!render.ok) {
-        return QString::fromStdString(render.message);
+    const AsciiRenderResult render = renderOpsProjection(ops, projection);
+    return render.ok ? QString::fromStdString(render.text)
+                     : QString::fromStdString(render.message);
+}
+
+QString EdiShellWindow::renderCompiledRecipeText()
+{
+    using namespace edi::recipe;
+    std::vector<RecipeOp> ops;
+    const QString refusal = compileCurrentRecipe(ops);
+    if (!refusal.isEmpty()) {
+        return refusal;
     }
-    return QString::fromStdString(render.text);
+    // The compiled stream is the artifact the Blender driver reads — bindings
+    // resolved to numbers, mouldings compiled to explicit terms. Serialize it
+    // through the byte-stable writer, the same form `--compiled-out` emits.
+    RecipeOpStream compiledStream;
+    compiledStream.id = m_opsStream.id;
+    compiledStream.name = m_opsStream.name;
+    compiledStream.ops = ops;
+    const OpStreamTextResult written = recipeOpsToToml(compiledStream);
+    return written.ok ? QString::fromStdString(written.text)
+                      : QString::fromStdString(written.message);
 }
 
 QWidget *EdiShellWindow::buildAsciiPreviewPanel()
@@ -830,6 +861,48 @@ QWidget *EdiShellWindow::buildAsciiPreviewPanel()
     connect(this, &EdiShellWindow::opsStreamChanged, panel, [refresh]() { refresh(); });
 
     return panel;
+}
+
+QWidget *EdiShellWindow::buildCompiledRecipePanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("compiledRecipePanel"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(6);
+    auto *title = new QLabel(QStringLiteral("Compiled"));
+    title->setObjectName(QStringLiteral("compiledRecipeTitle"));
+    auto *view = new QPlainTextEdit;
+    view->setObjectName(QStringLiteral("compiledRecipeText"));
+    view->setReadOnly(true);
+    view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    view->setLineWrapMode(QPlainTextEdit::NoWrap);
+    layout->addWidget(title);
+    layout->addWidget(view, 1);
+
+    // Read-only projection of the compiled stream; re-serialized on every recipe
+    // change, bound to `panel` so it dies with the pane on a workspace switch.
+    auto refresh = [this, view]() { view->setPlainText(renderCompiledRecipeText()); };
+    refresh();
+    connect(this, &EdiShellWindow::opsStreamChanged, panel, [refresh]() { refresh(); });
+
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildLabRightPanel()
+{
+    // The lab's Right: tabbed recipe OUTPUTS — the Blender Render ("script is
+    // execution") and the Compiled recipe (resolve+compile, what the proof and
+    // Build actually consume). Tabs compress both into one slot; Render is the
+    // default. Each pane is the same per-mount, re-render-on-change panel as the
+    // rest, so a workspace switch tears the whole tab widget down cleanly. The
+    // render pane keeps its "blenderPreview" label, so showRenderImage still
+    // finds it whichever tab is forward.
+    auto *tabs = new QTabWidget;
+    tabs->setObjectName(QStringLiteral("recipeOutput"));
+    tabs->setDocumentMode(true);
+    tabs->addTab(buildBlenderPreviewPanel(), QStringLiteral("Render"));
+    tabs->addTab(buildCompiledRecipePanel(), QStringLiteral("Compiled"));
+    return tabs;
 }
 
 void EdiShellWindow::showRenderImage(const QString &imagePath)

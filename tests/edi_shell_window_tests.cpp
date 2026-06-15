@@ -1273,6 +1273,16 @@ int main(int argc, char **argv)
         assert(terminalTabs != nullptr);
         assert(terminalTabs->count() == 2); // Editor + ASCII Proof
         assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
+
+        // The Right slot tabs the recipe OUTPUTS: the Blender render (its label
+        // still findable, whichever tab is forward) and the Compiled recipe.
+        auto *outputTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeOutput"));
+        assert(outputTabs != nullptr);
+        assert(outputTabs->count() == 2); // Render + Compiled
+        assert(shell.findChild<QLabel *>(QStringLiteral("blenderPreview")) != nullptr);
+        auto *compiledView = shell.findChild<QPlainTextEdit *>(QStringLiteral("compiledRecipeText"));
+        assert(compiledView != nullptr);
+        assert(compiledView->toPlainText().contains(QStringLiteral("No recipe"))); // empty stream
         assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Bottom)
                != edi::shell::PanelVisibility::Collapsed);
         assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
@@ -1292,6 +1302,9 @@ int main(int argc, char **argv)
             "op.0.z = \"0\"\n");
         assert(applyError.isEmpty()); // the strict reader accepted it
         assert(asciiView->toPlainText().contains(QStringLiteral("FRONT PROJECTION")));
+        // The compiled view re-serialized off the same opsStreamChanged: the
+        // literal cylinder compiles straight through, so it names its op type.
+        assert(compiledView->toPlainText().contains(QStringLiteral("AddCylinder")));
 
         // The projection selector re-renders the chosen view.
         auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));

@@ -91,13 +91,13 @@ WorkspaceLayout blenderWorkspaceLayout()
     layout.label = QStringLiteral("Blender");
     // This is the recipe lab: canvas in Main (supplies the measurements recipes
     // bind to), the object list in Left (the objects bindings reference), the
-    // Blender RENDER preview in Right ("script is execution"), and the bottom
-    // terminal a split of the recipe EDITOR + its ASCII PROOF ("recipe is truth,
-    // ASCII is proof"). So the two distinguishing slots swap off drafting:
-    // Right -> blender_preview, Bottom -> recipe_terminal (editor + proof).
+    // recipe OUTPUTS tabbed in Right (Blender render + compiled recipe), and the
+    // bottom terminal tabbing the recipe EDITOR + its ASCII PROOF ("recipe is
+    // truth, ASCII is proof"). So the two distinguishing slots swap off drafting:
+    // Right -> recipe_output, Bottom -> recipe_terminal.
     for (SlotBinding &binding : layout.bindings) {
         if (binding.slot == ShellSlot::Right) {
-            binding.featureId = QStringLiteral("blender_preview");
+            binding.featureId = QStringLiteral("recipe_output");
         } else if (binding.slot == ShellSlot::Bottom) {
             binding.featureId = QStringLiteral("recipe_terminal");
         }
@@ -255,17 +255,18 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     };
     m_featureRegistry.features.push_back(textEditor);
 
-    // Feature #4: the Blender profile's render preview (Right slot). Stateless —
-    // the panel is rebuilt per mount and reads the last render path off the
-    // window, so nothing dangles and the image survives a workspace switch.
-    FeatureDescriptor blenderPreview;
-    blenderPreview.id = QStringLiteral("blender_preview");
-    blenderPreview.label = QStringLiteral("Render");
-    blenderPreview.supportedSlots = {ShellSlot::Right};
-    blenderPreview.buildPanel = [this](ShellSlot, FeatureContext &) -> QWidget * {
-        return buildBlenderPreviewPanel();
+    // Feature #4: the lab's Right slot — tabbed recipe OUTPUTS (the Blender
+    // render + the Compiled recipe). Stateless and rebuilt per mount; the render
+    // half reads the last render path off the window and the compiled half
+    // re-serializes on opsStreamChanged, so nothing dangles across a switch.
+    FeatureDescriptor recipeOutput;
+    recipeOutput.id = QStringLiteral("recipe_output");
+    recipeOutput.label = QStringLiteral("Output");
+    recipeOutput.supportedSlots = {ShellSlot::Right};
+    recipeOutput.buildPanel = [this](ShellSlot, FeatureContext &) -> QWidget * {
+        return buildLabRightPanel();
     };
-    m_featureRegistry.features.push_back(blenderPreview);
+    m_featureRegistry.features.push_back(recipeOutput);
 
     // Feature #5: the Map profile's graph browser (Right slot). Same shape as
     // the Blender preview — stateless, rebuilt per mount — but instead of a

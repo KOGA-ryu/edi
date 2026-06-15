@@ -191,6 +191,14 @@ protected:
     // Editor and its ASCII Proof (and, later, the script format) — one
     // full-width view at a time. Editor is the default tab.
     QWidget *buildRecipeTerminalPanel(edi::shell::FeatureContext &context);
+    // The lab's Right slot: tabbed recipe OUTPUTS — the Blender render and the
+    // Compiled recipe (resolve+compile, what the proof and Build consume). Tabs
+    // compress both into one slot; Render is the default.
+    QWidget *buildLabRightPanel();
+    // The Compiled-recipe pane: a read-only monospace view of the resolved +
+    // compiled op stream (the artifact `--compiled-out` emits), re-serialized on
+    // opsStreamChanged. A refusal (no recipe / unresolved / invalid) shows verbatim.
+    QWidget *buildCompiledRecipePanel();
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -209,10 +217,17 @@ private:
     void promptExportHpgl();
     void promptExportGcode();
     void syncOpsScriptDocument(); // E4: stream -> editor script doc
+    // The gate every recipe view shares: resolve (against the live drawing) ->
+    // compile -> validate. On success fills compiledOps and returns empty; on
+    // failure returns a named human refusal (no recipe / unresolved / invalid).
+    QString compileCurrentRecipe(std::vector<edi::recipe::RecipeOp> &compiledOps);
     // resolve -> compile -> validate -> render the current op stream into the
     // ASCII text for one projection (0=Front, 1=Side, 2=Top), or a human
     // message (no recipe / named refusal) when it cannot be shown.
     QString renderOpsAsciiProjection(int projectionIndex);
+    // resolve -> compile -> validate -> serialize the current op stream to the
+    // compiled-recipe TOML, or a human refusal message.
+    QString renderCompiledRecipeText();
     // The text editor's path chooser, shared by the editor feature and the lab's
     // recipe terminal: a test-injected provider, else a real QFileDialog.
     std::function<QString(bool forSave)> textEditorPathProvider();

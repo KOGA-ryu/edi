@@ -1199,6 +1199,11 @@ int main(int argc, char **argv)
         // The shared canvas mounts under the Map job (no parallel surface).
         assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
         assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        // First-class feel: the Right slot is a distinguishing feature (the map
+        // browser), so the switch auto-opened it — the collapse flag is cleared
+        // (Visible or, on a tiny window, AutoHidden — never Collapsed).
+        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
+               != edi::shell::PanelVisibility::Collapsed);
         // The Right slot is the map browser (not the drafting inspector): the
         // panel mounts and its summary projects the live (empty) document.
         assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) != nullptr);

@@ -122,6 +122,22 @@ WorkspaceLayout mapWorkspaceLayout()
     return layout;
 }
 
+// A job's Right slot is "distinguishing" when it holds a feature OTHER than the
+// drafting inspector — the map browser, the render preview. Such a job earns an
+// auto-opened Right panel on a rail switch, so the click reveals the workspace's
+// point instead of an identical-looking canvas. A pure predicate over the layout
+// data: no per-feature branching, so a future Right-slot feature inherits this
+// for free just by being bound there.
+bool rightSlotIsDistinguishing(const WorkspaceLayout &layout)
+{
+    for (const SlotBinding &binding : layout.bindings) {
+        if (binding.slot == ShellSlot::Right) {
+            return !binding.featureId.isEmpty() && binding.featureId != QStringLiteral("drafting");
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
@@ -556,6 +572,17 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
             : draftingWorkspaceLayout();
     if (target.id != m_workspaceLayout.id) {
         switchWorkspaceLayout(target);
+        // First-class feel: switching INTO a job whose Right slot is a
+        // distinguishing feature (map browser, render preview) reveals that
+        // panel, so the rail click shows the workspace's point rather than a
+        // canvas indistinguishable from drafting. Additive only — it opens a
+        // collapsed Right, never force-collapses one, so it stays consistent
+        // with the persist-across-switches panel model and the user can still
+        // collapse it. Scoped to this rail/CLI verb; restore and history paths
+        // keep the saved panel state untouched.
+        if (rightSlotIsDistinguishing(target)) {
+            setPanelCollapsed(ShellSlot::Right, false);
+        }
     } else {
         m_draftingFeature->refreshInspector();
     }

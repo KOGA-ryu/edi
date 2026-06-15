@@ -17,11 +17,13 @@ std::optional<std::size_t> blockIndexById(const DraftingDocument &document, cons
 }
 
 DraftingBlock buildBlockFromObjects(DraftingBlockId id, std::string name,
-                                    const std::vector<DraftingObject> &sources)
+                                    const std::vector<DraftingObject> &sources,
+                                    std::string assetRef)
 {
     DraftingBlock block;
     block.id = std::move(id);
     block.name = std::move(name);
+    block.assetRef = std::move(assetRef);
     if (sources.empty()) {
         return block; // empty block; addBlock rejects it. bounds stays {0,0,0,0}.
     }

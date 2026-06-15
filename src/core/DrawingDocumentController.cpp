@@ -2878,7 +2878,7 @@ bool DrawingDocumentController::canPaste() const
     return !m_clipboard.empty();
 }
 
-bool DrawingDocumentController::defineBlockFromSelection(const QString &name)
+bool DrawingDocumentController::defineBlockFromSelection(const QString &name, const QString &assetRef)
 {
     // Gather the selection in DOCUMENT order (same discipline as copySelection),
     // so the saved block keeps its members' stacking.
@@ -2901,7 +2901,7 @@ bool DrawingDocumentController::defineBlockFromSelection(const QString &name)
     // it on load. buildBlockFromObjects normalizes the group to the origin.
     const int serialBefore = m_nextObjectSerial;
     const std::string blockId = toStdString(nextObjectId(QStringLiteral("block"), m_nextObjectSerial++));
-    DraftingBlock block = buildBlockFromObjects(blockId, toStdString(name), sources);
+    DraftingBlock block = buildBlockFromObjects(blockId, toStdString(name), sources, toStdString(assetRef));
     // CreateBlockCommand rides DocumentSnapshot undo via applyCommandAndEmit, so
     // define is ONE undo step — never a raw m_document mutation.
     if (!applyCommandAndEmit(CreateBlockCommand{std::move(block)})) {

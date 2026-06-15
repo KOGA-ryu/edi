@@ -31,8 +31,11 @@ std::optional<std::size_t> blockIndexById(const DraftingDocument &document, cons
 // each member's bounds, and cache the origin-based union extent. The sources are
 // COPIED (the block owns its geometry); the originals are untouched. An empty
 // source list yields an empty block — addBlock is what rejects that.
+// `assetRef` (Seam B) is the neutral asset/recipe the block depicts; empty for a
+// purely hand-drawn block.
 DraftingBlock buildBlockFromObjects(DraftingBlockId id, std::string name,
-                                    const std::vector<DraftingObject> &sources);
+                                    const std::vector<DraftingObject> &sources,
+                                    std::string assetRef = {});
 
 // Mutations.
 DraftingStoreResult addBlock(DraftingDocument &document, DraftingBlock block);

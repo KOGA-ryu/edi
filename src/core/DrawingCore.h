@@ -283,7 +283,9 @@ public:
     // one undo step, auto-selected. Translate-only (rotation/scale deferred to the
     // transformGeometry slice); a placed object is an ordinary, directly-editable
     // shape with no link back to the definition.
-    bool defineBlockFromSelection(const QString &name);
+    // `assetRef` (Seam B, optional) links the new block to the Blender asset it
+    // depicts — the thread that lets a placement reach the engine.
+    bool defineBlockFromSelection(const QString &name, const QString &assetRef = {});
     bool placeBlockInstance(const QString &blockId, double x, double y);
     // C3 palette: arm a pick-a-point capture for placing `blockId` — the next
     // canvas click resolves to placeBlockInstance (same idiom as the radial-array

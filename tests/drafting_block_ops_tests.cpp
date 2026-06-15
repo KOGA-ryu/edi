@@ -55,7 +55,12 @@ int main()
 
         assert(block.id == "block_0001");
         assert(block.name == "table");
+        assert(block.assetRef.empty()); // S1: no asset ref unless one is passed
         assert(block.objects.size() == 2);
+
+        // S1: a block can be born linked to its Blender asset.
+        DraftingBlock linked = buildBlockFromObjects("block_0002", "chair", sources, "recipe.oak_chair");
+        assert(linked.assetRef == "recipe.oak_chair");
 
         // Cached bounds: lower-left at the origin, extent = the source union span.
         assert(nearly(block.bounds.x, 0.0) && nearly(block.bounds.y, 0.0));

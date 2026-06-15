@@ -118,6 +118,11 @@ int main(int argc, char **argv)
         QStringLiteral("ascii-map"),
         QStringLiteral("Generate a map from an ASCII glyph grid file (the control-gate path)."),
         QStringLiteral("path"));
+    const QCommandLineOption opsFileOption(
+        QStringLiteral("ops-file"),
+        QStringLiteral("Load a recipe ops TOML into the op stream (Seam A) — pair with "
+                       "--workspace blender to see its ASCII proof."),
+        QStringLiteral("path"));
     const QCommandLineOption exportMapOption(
         QStringLiteral("export-map"),
         QStringLiteral("Project the --map-file to a TOON map document for the game engine (Seam B), then exit."),
@@ -136,6 +141,7 @@ int main(int argc, char **argv)
     parser.addOption(roomFileOption);
     parser.addOption(mapFileOption);
     parser.addOption(asciiMapOption);
+    parser.addOption(opsFileOption);
     parser.addOption(exportMapOption);
     parser.addOption(workspaceOption);
     parser.process(app);
@@ -319,6 +325,18 @@ int main(int argc, char **argv)
         } else {
             const bool ok = controller->createMapFromAscii(file.readAll().toStdString());
             QTextStream(stdout) << "ascii-map: " << (ok ? "generated" : "rejected") << '\n';
+        }
+    }
+
+    // Load a recipe into the op stream (Seam A), so --workspace blender renders
+    // its ASCII proof. Same non-fatal handler style as the map loaders above: a
+    // refusal names the offending key and we still settle the window.
+    if (parser.isSet(opsFileOption)) {
+        QTextStream err(stderr);
+        if (!window.openOpsRecipeFromPath(parser.value(opsFileOption))) {
+            err << "ops-file: " << window.lastRecipeError() << '\n';
+        } else {
+            QTextStream(stdout) << "ops-file: loaded " << parser.value(opsFileOption) << '\n';
         }
     }
 

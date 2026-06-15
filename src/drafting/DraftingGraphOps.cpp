@@ -26,6 +26,31 @@ std::optional<std::size_t> connectionIndexById(const DraftingDocument &document,
     return std::nullopt;
 }
 
+std::optional<std::size_t> mapRoomIndexByName(const DraftingDocument &document, const std::string &name)
+{
+    for (std::size_t index = 0; index < document.rooms.size(); ++index) {
+        if (document.rooms[index].name == name) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
+DraftingStoreResult addMapRoom(DraftingDocument &document, DraftingMapRoom room)
+{
+    // A room is identified by its name (what plugs reference as "room.plug"), so the
+    // name must be present and unique — the addPlug shape, keyed by name not id.
+    if (room.name.empty()) {
+        return DraftingStoreResult::rejected(DraftingResultCode::EmptyObjectId, "map room name is required");
+    }
+    if (mapRoomIndexByName(document, room.name)) {
+        return DraftingStoreResult::rejected(DraftingResultCode::DuplicateObjectId, "map room name already exists");
+    }
+    document.rooms.push_back(std::move(room));
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
 DraftingStoreResult addPlug(DraftingDocument &document, DraftingPlug plug)
 {
     // A plug id is an object-style id, so reuse the same non-empty validity check.

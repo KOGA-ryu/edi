@@ -331,6 +331,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(addBlock(document, typedCommand.block));
         } else if constexpr (std::is_same_v<Command, DeleteBlockCommand>) {
             return fromStoreResult(removeBlock(document, typedCommand.blockId));
+        } else if constexpr (std::is_same_v<Command, CreateMapRoomCommand>) {
+            return fromStoreResult(addMapRoom(document, typedCommand.room));
         } else {
             return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
         }

@@ -2057,6 +2057,9 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
 
     std::vector<DraftingObject> allObjects;
     std::vector<DraftingPlug> allPlugs;
+    // Seam C: the neutral room records to store on the document (name + footprint +
+    // material), so the document is the self-describing source the engine export reads.
+    std::vector<DraftingMapRoom> allRooms;
     std::unordered_map<std::string, DraftingPlugId> plugIdByKey;
     // (room, plug) -> the door's position + which wall it sits on, so a connection
     // can route a corridor between the two doors (each leaving perpendicular).
@@ -2068,6 +2071,10 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
         roomRectByName.emplace(room.name,
                                CorridorObstacle{room.spec.origin, room.spec.width, room.spec.height});
+        // Record the neutral room (footprint in the document's canvas units, like
+        // every other coordinate here; the export decides presentation units).
+        allRooms.push_back(DraftingMapRoom{room.name, room.spec.origin, room.spec.width,
+                                           room.spec.height, room.spec.wallMaterial});
         // Inject an opening at each connected plug so its wall has a doorway. The
         // plug carries the edge + offset already; the opening reuses them.
         RoomSpec roomSpec = room.spec;
@@ -2182,7 +2189,8 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     }
 
     m_lastEditStatus.clear();
-    return createObjectsAndSelect(std::move(allObjects), std::move(allPlugs), std::move(connections));
+    return createObjectsAndSelect(std::move(allObjects), std::move(allPlugs), std::move(connections),
+                                  std::move(allRooms));
 }
 
 bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
@@ -2258,7 +2266,8 @@ bool DrawingDocumentController::createArrayFromActiveObject(
 
 bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObject> objects,
                                                        std::vector<DraftingPlug> plugs,
-                                                       std::vector<DraftingDeclaredConnection> connections)
+                                                       std::vector<DraftingDeclaredConnection> connections,
+                                                       std::vector<DraftingMapRoom> rooms)
 {
     // The classified commit below relies on a non-empty batch: an empty one
     // would degrade to a pure selection clear, which must not push undo.
@@ -2295,6 +2304,12 @@ bool DrawingDocumentController::createObjectsAndSelect(std::vector<DraftingObjec
     // each is pre-resolved (plug ids), so DeclareConnectionCommand only validates.
     for (DraftingDeclaredConnection &connection : connections) {
         applyDraftingCommand(m_document, DeclareConnectionCommand{std::move(connection)});
+    }
+    // Rooms are independent neutral records (no anchor, no cascade), declared in the
+    // same bracket so one undo restores the whole authored map. Each arrives valid
+    // (the spec parser enforced unique names); CreateMapRoomCommand only validates.
+    for (DraftingMapRoom &room : rooms) {
+        applyDraftingCommand(m_document, CreateMapRoomCommand{std::move(room)});
     }
     applyDraftingCommand(m_document, SelectObjectsCommand{selectedIds});
     // A successful non-empty batch create is never selection-only: classify

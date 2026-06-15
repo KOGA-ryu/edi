@@ -177,6 +177,12 @@ struct DeleteBlockCommand {
     DraftingBlockId blockId;
 };
 
+// Seam C: record a named map room. Same shape as CreatePlugCommand — the caller
+// builds the whole record, the arm delegates to addMapRoom (validate + append).
+struct CreateMapRoomCommand {
+    DraftingMapRoom room;
+};
+
 using DraftingCommand = std::variant<
     CreateObjectCommand,
     CreateObjectsCommand,
@@ -210,7 +216,8 @@ using DraftingCommand = std::variant<
     DeclareConnectionCommand,
     DeleteConnectionCommand,
     CreateBlockCommand,
-    DeleteBlockCommand>;
+    DeleteBlockCommand,
+    CreateMapRoomCommand>;
 
 struct DraftingCommandResult {
     bool ok = false;

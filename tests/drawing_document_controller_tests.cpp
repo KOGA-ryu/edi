@@ -3953,5 +3953,40 @@ int main(int argc, char **argv)
         assert(objectCount(blockCtl) == beforeStamp + 2);
     }
 
+    // Seam C: createMapFromSpec records its rooms on the document (name + authored
+    // footprint + material), atomically with the walls — one undo clears them all.
+    {
+        edi::drafting::MapSpec spec;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.1, 0.1};
+        a.spec.width = 0.2;
+        a.spec.height = 0.15;
+        a.spec.wallMaterial = "stone";
+        spec.rooms.push_back(a);
+        edi::drafting::NamedRoomSpec b;
+        b.name = "b";
+        b.spec.origin = {0.5, 0.1};
+        b.spec.width = 0.2;
+        b.spec.height = 0.15;
+        b.spec.wallMaterial = "wood";
+        spec.rooms.push_back(b);
+
+        DrawingDocumentController mapCtl;
+        assert(mapCtl.createMapFromSpec(spec));
+        assert(mapCtl.draftingDocument().rooms.size() == 2);
+        const edi::drafting::DraftingMapRoom &ra = mapCtl.draftingDocument().rooms[0];
+        assert(ra.name == "a" && ra.material == "stone");
+        assert(nearlyEqual(ra.origin.x, 0.1) && nearlyEqual(ra.origin.y, 0.1));
+        assert(nearlyEqual(ra.width, 0.2) && nearlyEqual(ra.height, 0.15));
+        assert(mapCtl.draftingDocument().rooms[1].name == "b");
+
+        // Atomic with the map create: one undo clears the rooms (and the walls).
+        mapCtl.undo();
+        assert(mapCtl.draftingDocument().rooms.empty());
+        mapCtl.redo();
+        assert(mapCtl.draftingDocument().rooms.size() == 2);
+    }
+
     return 0;
 }

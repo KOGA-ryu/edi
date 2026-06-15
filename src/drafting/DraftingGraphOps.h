@@ -21,12 +21,18 @@ namespace edi::drafting {
 // Read helpers — the plug/connection analogues of objectIndexById.
 std::optional<std::size_t> plugIndexById(const DraftingDocument &document, const DraftingPlugId &id);
 std::optional<std::size_t> connectionIndexById(const DraftingDocument &document, const DraftingConnectionId &id);
+// Map rooms are keyed by NAME (unique within a map — what plugs reference).
+std::optional<std::size_t> mapRoomIndexByName(const DraftingDocument &document, const std::string &name);
 
 // Mutations.
 DraftingStoreResult addPlug(DraftingDocument &document, DraftingPlug plug);
 DraftingStoreResult removePlug(DraftingDocument &document, const DraftingPlugId &id);
 DraftingStoreResult declareConnection(DraftingDocument &document, DraftingDeclaredConnection connection);
 DraftingStoreResult undeclareConnection(DraftingDocument &document, const DraftingConnectionId &id);
+// Record a named map room (Seam C). Validates a non-empty, unique name; the
+// footprint is authored data taken as-is. No cascade on object delete — a room is
+// authored neutral metadata independent of the walls (like a block).
+DraftingStoreResult addMapRoom(DraftingDocument &document, DraftingMapRoom room);
 
 // Referential-integrity sweep. When an object is removed from the document, any
 // plug anchored to it is now dangling — drop those plugs and (cascading) every

@@ -177,6 +177,11 @@ protected:
     // The Blender profile's render-preview pane (registry feature #4, Right slot):
     // a QLabel that shows m_lastRenderImagePath, rebuilt fresh per mount.
     QWidget *buildBlenderPreviewPanel();
+    // The Map profile's graph browser (registry feature #5, Right slot): a
+    // read-only list of the document's rooms/connections/plugs, rebuilt fresh
+    // per mount and re-projected on modelChanged (the connection dies with the
+    // panel on the next workspace switch).
+    QWidget *buildMapBrowserPanel();
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 

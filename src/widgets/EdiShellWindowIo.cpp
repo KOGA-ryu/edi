@@ -6,6 +6,7 @@
 #include <QSaveFile>
 #include <QFileInfo>
 #include <QLabel>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPixmap>
 #include <QString>
@@ -661,6 +662,74 @@ QWidget *EdiShellWindow::buildBlenderPreviewPanel()
             image->setPixmap(pixmap.scaledToWidth(320, Qt::SmoothTransformation));
         }
     }
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildMapBrowserPanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("mapBrowserPanel"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(6);
+
+    auto *title = new QLabel(QStringLiteral("Map"));
+    title->setObjectName(QStringLiteral("mapBrowserTitle"));
+    auto *summary = new QLabel;
+    summary->setObjectName(QStringLiteral("mapBrowserSummary"));
+    summary->setWordWrap(true);
+    auto *list = new QListWidget;
+    list->setObjectName(QStringLiteral("mapBrowserList"));
+    layout->addWidget(title);
+    layout->addWidget(summary);
+    layout->addWidget(list, 1);
+
+    // The browser is a READ-ONLY projection of the map graph, which lives in the
+    // document (rooms/plugs/connections beside objects). So the single source is
+    // the stable controller's document and a refresh just re-reads it; authoring
+    // stays on the canvas and in .map.toml — this pane only shows what is there.
+    auto refresh = [this, summary, list]() {
+        const edi::drafting::DraftingDocument &doc = m_controller->draftingDocument();
+        // Pluralize each count ("1 connection", "2 connections") — the browser
+        // reads as prose, so a fixed "%1 connections" would print "1 connections".
+        const auto countLabel = [](std::size_t n, const QString &noun) {
+            return QStringLiteral("%1 %2%3")
+                .arg(static_cast<int>(n))
+                .arg(noun, n == 1 ? QString() : QStringLiteral("s"));
+        };
+        summary->setText(QStringLiteral("%1 · %2 · %3")
+                             .arg(countLabel(doc.rooms.size(), QStringLiteral("room")),
+                                  countLabel(doc.connections.size(), QStringLiteral("connection")),
+                                  countLabel(doc.plugs.size(), QStringLiteral("plug"))));
+        list->clear();
+        for (const edi::drafting::DraftingMapRoom &room : doc.rooms) {
+            list->addItem(QStringLiteral("▸ %1   %2 × %3")
+                              .arg(QString::fromStdString(room.name))
+                              .arg(room.width)
+                              .arg(room.height));
+        }
+        // Connections reference plugs BY ID; show the authored plug names when
+        // resolvable (a cleared name falls back to the opaque id).
+        const auto plugLabel = [&doc](const edi::drafting::DraftingPlugId &id) -> QString {
+            for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
+                if (plug.id == id) {
+                    return plug.name.empty() ? QString::fromStdString(id)
+                                             : QString::fromStdString(plug.name);
+                }
+            }
+            return QString::fromStdString(id);
+        };
+        for (const edi::drafting::DraftingDeclaredConnection &conn : doc.connections) {
+            list->addItem(QStringLiteral("⟷ %1 ↔ %2").arg(plugLabel(conn.plugA), plugLabel(conn.plugB)));
+        }
+    };
+    refresh();
+
+    // Track the live document: re-project on every model change. Bind the
+    // connection to `panel` (not `this`) so it is torn down with the pane on the
+    // next workspace switch — the controller outlives both, and a lambda writing
+    // into deleted labels is exactly the per-mount dangling hazard to avoid.
+    connect(m_controller, &DrawingDocumentController::modelChanged, panel, refresh);
+
     return panel;
 }
 

@@ -105,14 +105,20 @@ WorkspaceLayout blenderWorkspaceLayout()
 // undo). So, exactly like the Blender job, it reuses the drafting canvas in
 // Main/Left and the bottom editor rather than standing up a parallel canvas
 // (which would duplicate the document's ~16 object-walkers for no gain). A
-// distinct id/label is all the rail needs to mount it as its own job; a later
-// slice swaps the Right slot to a map-specific browser, the way Blender swaps
-// in its render preview.
+// distinct id/label is all the rail needs to mount it as its own job. What
+// makes it the Map profile (the way Blender's is the render preview): the Right
+// slot shows the map graph browser instead of the drafting inspector. Canvas
+// stays in Main, the object list in Left, the editor in the bottom terminal.
 WorkspaceLayout mapWorkspaceLayout()
 {
     WorkspaceLayout layout = draftingWorkspaceLayout();
     layout.id = QStringLiteral("map");
     layout.label = QStringLiteral("Map");
+    for (SlotBinding &binding : layout.bindings) {
+        if (binding.slot == ShellSlot::Right) {
+            binding.featureId = QStringLiteral("map_browser");
+        }
+    }
     return layout;
 }
 
@@ -243,6 +249,20 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         return buildBlenderPreviewPanel();
     };
     m_featureRegistry.features.push_back(blenderPreview);
+
+    // Feature #5: the Map profile's graph browser (Right slot). Same shape as
+    // the Blender preview — stateless, rebuilt per mount — but instead of a
+    // window member it reads the LIVE document off the stable controller and
+    // re-projects on modelChanged. The map IS document content, so this is a
+    // read-only view of rooms/connections/plugs, not an authoring surface.
+    FeatureDescriptor mapBrowser;
+    mapBrowser.id = QStringLiteral("map_browser");
+    mapBrowser.label = QStringLiteral("Map");
+    mapBrowser.supportedSlots = {ShellSlot::Right};
+    mapBrowser.buildPanel = [this](ShellSlot, FeatureContext &) -> QWidget * {
+        return buildMapBrowserPanel();
+    };
+    m_featureRegistry.features.push_back(mapBrowser);
 
     // The splitter carries only the in-flow left panel beside the main area.
     // Right and bottom panels are overlays INSIDE the main area: they cover

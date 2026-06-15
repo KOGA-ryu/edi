@@ -1199,10 +1199,48 @@ int main(int argc, char **argv)
         // The shared canvas mounts under the Map job (no parallel surface).
         assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
         assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        // The Right slot is the map browser (not the drafting inspector): the
+        // panel mounts and its summary projects the live (empty) document.
+        assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) != nullptr);
+        auto *summary = shell.findChild<QLabel *>(QStringLiteral("mapBrowserSummary"));
+        assert(summary != nullptr);
+        assert(summary->text().contains(QStringLiteral("0 rooms")));
+        auto *mapList = shell.findChild<QListWidget *>(QStringLiteral("mapBrowserList"));
+        assert(mapList != nullptr);
+        assert(mapList->count() == 0);
 
-        // The switch is reversible; the mounted id tracks the rail.
+        // The browser is LIVE: author a tiny two-room graph and the summary +
+        // list re-project on modelChanged (the connection bound to the panel).
+        // The map is document content, so createMapFromSpec is all it takes; the
+        // spec is built inline from the drafting-core types (plugs centered on
+        // their edge, exactly as the .map.toml "center" default lands them).
+        auto *mapController = shell.findChild<DrawingDocumentController *>();
+        assert(mapController != nullptr);
+        edi::drafting::MapSpec spec;
+        edi::drafting::NamedRoomSpec roomA;
+        roomA.name = "a";
+        roomA.spec.origin = {0.0, 0.0};
+        roomA.spec.width = 8.0;
+        roomA.spec.height = 6.0;
+        roomA.spec.plugs.push_back({edi::drafting::RoomEdge::East, 3.0, "to_b", ""});
+        edi::drafting::NamedRoomSpec roomB;
+        roomB.name = "b";
+        roomB.spec.origin = {12.0, 0.0};
+        roomB.spec.width = 8.0;
+        roomB.spec.height = 6.0;
+        roomB.spec.plugs.push_back({edi::drafting::RoomEdge::West, 3.0, "to_a", ""});
+        spec.rooms = {roomA, roomB};
+        spec.connections.push_back({{"a", "to_b"}, {"b", "to_a"}, "corridor"});
+        assert(mapController->createMapFromSpec(spec, 1.0));
+        assert(summary->text().contains(QStringLiteral("2 rooms")));
+        assert(summary->text().contains(QStringLiteral("1 connection"))); // pluralized: singular
+        assert(mapList->count() == 3); // two room rows + one connection row
+
+        // The switch is reversible; the id tracks the rail and the browser is
+        // torn down (its modelChanged connection dies with it).
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Drafting);
         assert(shell.currentWorkspaceId() == QStringLiteral("drafting"));
+        assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) == nullptr);
     }
 
     // F1 — the object list: a browsable projection of the document. It

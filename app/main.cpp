@@ -11,6 +11,7 @@
 
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
+#include "drafting/DraftingSerialize.h"
 #include "io/MapToonExport.h"
 #include "io/RoomSpecStore.h"
 #include "io/SettingsStore.h"
@@ -139,21 +140,52 @@ int main(int argc, char **argv)
     if (parser.isSet(exportMapOption)) {
         QTextStream err(stderr);
         if (!parser.isSet(mapFileOption)) {
-            err << "export-map: requires --map-file <path> as the source\n";
+            err << "export-map: requires --map-file <path> (.map.toml or .edidraw) as the source\n";
             return 2;
         }
-        QFile in(parser.value(mapFileOption));
-        if (!in.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            err << "export-map: could not open " << parser.value(mapFileOption) << '\n';
-            return 2;
+        const QString sourcePath = parser.value(mapFileOption);
+        const QString title = QFileInfo(sourcePath).baseName(); // "dungeon.map.toml" -> "dungeon"
+        std::string toon;
+        std::size_t roomCount = 0;
+        std::size_t blockNote = 0; // placed instances, when sourced from a document
+
+        QFile in(sourcePath);
+        if (sourcePath.endsWith(QStringLiteral(".edidraw"), Qt::CaseInsensitive)) {
+            // A SAVED document carries the placed BLOCK INSTANCES the .map.toml never
+            // had (Seam C). Decode it and project the live document, including blocks.
+            if (!in.open(QIODevice::ReadOnly)) {
+                err << "export-map: could not open " << sourcePath << '\n';
+                return 2;
+            }
+            const QByteArray payload = in.readAll();
+            const edi::formats::ByteBuffer bytes(payload.begin(), payload.end());
+            const auto decoded = edi::drafting::decodeDraftingDocument(bytes, sourcePath.toStdString());
+            if (!decoded.ok || !decoded.value) {
+                err << "export-map: could not decode " << sourcePath << '\n';
+                return 2;
+            }
+            toon = edi::io::exportMapToToon(*decoded.value, title.toStdString());
+            roomCount = decoded.value->rooms.size();
+            for (const auto &object : decoded.value->objects) {
+                if (!object.metadata.blockPlacement.instanceId.empty()) {
+                    ++blockNote; // counts member objects, not instances — just a hint
+                }
+            }
+        } else {
+            // A .map.toml authoring file — parse to a MapSpec (feet) and project.
+            if (!in.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                err << "export-map: could not open " << sourcePath << '\n';
+                return 2;
+            }
+            const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(in.readAll().toStdString(), 1.0);
+            if (!parsed.ok) {
+                err << "export-map: " << QString::fromStdString(parsed.message) << '\n';
+                return 2;
+            }
+            toon = edi::io::exportMapToToon(parsed.spec, title.toStdString());
+            roomCount = parsed.spec.rooms.size();
         }
-        const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(in.readAll().toStdString(), 1.0);
-        if (!parsed.ok) {
-            err << "export-map: " << QString::fromStdString(parsed.message) << '\n';
-            return 2;
-        }
-        const QString title = QFileInfo(parser.value(mapFileOption)).baseName(); // "dungeon.map.toml" -> "dungeon"
-        const std::string toon = edi::io::exportMapToToon(parsed.spec, title.toStdString());
+
         QFile out(parser.value(exportMapOption));
         if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
             err << "export-map: could not write " << parser.value(exportMapOption) << '\n';
@@ -161,8 +193,11 @@ int main(int argc, char **argv)
         }
         out.write(toon.data(), static_cast<qint64>(toon.size()));
         QTextStream(stdout) << "export-map: wrote " << parser.value(exportMapOption)
-                            << " (" << parsed.spec.rooms.size() << " rooms, "
-                            << parsed.spec.connections.size() << " connections)\n";
+                            << " (" << roomCount << " rooms";
+        if (blockNote > 0) {
+            QTextStream(stdout) << ", with placed blocks";
+        }
+        QTextStream(stdout) << ")\n";
         return 0;
     }
 

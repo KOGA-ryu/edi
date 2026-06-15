@@ -81,6 +81,12 @@ struct DraftingDeclaredConnection {
 struct DraftingBlock {
     DraftingBlockId id;                  // opaque, minted like object ids ("block_0001")
     std::string name;                    // authored label, e.g. "tavern_table"
+    // Seam B (the pipeline link): the Blender asset/recipe this block DEPICTS, as a
+    // NEUTRAL opaque reference — edi records which asset a symbol stands for without
+    // interpreting it, the way a plug records a neutral `type`. Empty for a purely
+    // hand-drawn block. This is what carries an authored placement across to the
+    // game engine (Seam C): a placed instance can be traced back to its asset.
+    std::string assetRef;
     std::vector<DraftingObject> objects; // the saved group, normalized to the origin
     Bounds2D bounds;                     // cached union extent; derived, recomputed on load
 };

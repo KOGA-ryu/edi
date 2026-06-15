@@ -121,13 +121,16 @@ int main()
     // an empty library — additive-tolerant, so no document-version bump.
     {
         DraftingDocument document = makeDraftingDocument("doc-4");
-        addBlock(document, buildBlockFromObjects("block_0001", "table", sampleSources()));
+        DraftingBlock def = buildBlockFromObjects("block_0001", "table", sampleSources());
+        def.assetRef = "recipe.tavern_table"; // Seam B: the asset this block depicts
+        addBlock(document, def);
 
         auto restored = draftingDocumentFromValue(draftingDocumentToValue(document));
         assert(restored.ok && restored.value);
         assert(restored.value->blocks.size() == 1);
         const DraftingBlock &rb = restored.value->blocks.front();
         assert(rb.id == "block_0001" && rb.name == "table");
+        assert(rb.assetRef == "recipe.tavern_table"); // Seam-B link survives the round-trip
         assert(rb.objects.size() == 2);
         // Bounds are recomputed on load (never stored), so they survive the trip.
         assert(nearly(rb.bounds.x, 0.0) && nearly(rb.bounds.y, 0.0));
@@ -137,6 +140,27 @@ int main()
         assert(nearly(line.b.x, 0.3) && nearly(line.b.y, 0.0));
         const auto &circle = std::get<CircleGeometry>(rb.objects[1].geometry);
         assert(nearly(circle.radius, 0.05));
+
+        // Tolerant additive read: a block written before Seam B has no "asset_ref"
+        // key and must decode to an empty ref (no version bump needed).
+        {
+            edi::formats::MsgPackValue v = draftingDocumentToValue(document);
+            for (auto &entry : v.mapValue) {
+                if (entry.first != "document") continue;
+                for (auto &docEntry : entry.second.mapValue) {
+                    if (docEntry.first != "blocks") continue;
+                    for (auto &blk : docEntry.second.arrayValue) {
+                        auto &bm = blk.mapValue;
+                        for (auto it = bm.begin(); it != bm.end();) {
+                            it = (it->first == "asset_ref") ? bm.erase(it) : it + 1;
+                        }
+                    }
+                }
+            }
+            auto tolerant = draftingDocumentFromValue(v);
+            assert(tolerant.ok && tolerant.value);
+            assert(tolerant.value->blocks.front().assetRef.empty());
+        }
 
         // Strip the "blocks" key to simulate a pre-Phase-C file -> empty library.
         edi::formats::MsgPackValue value = draftingDocumentToValue(document);

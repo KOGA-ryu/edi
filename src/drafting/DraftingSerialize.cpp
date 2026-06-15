@@ -625,6 +625,7 @@ MsgPackValue blockValue(const DraftingBlock &block)
     return MsgPackValue::map({
         {"id", MsgPackValue::text(block.id)},
         {"name", MsgPackValue::text(block.name)},
+        {"asset_ref", MsgPackValue::text(block.assetRef)},
         {"objects", MsgPackValue::array(std::move(objects))},
     });
 }
@@ -634,6 +635,9 @@ DraftingBlock readBlock(const MsgPackValue &v)
     DraftingBlock block;
     block.id = asString(child(v, "id"), block.id);
     block.name = asString(child(v, "name"), block.name);
+    // Additive + tolerant (missing => empty), like wall_visual: a pre-Seam-B block
+    // simply has no "asset_ref" key, so this needs no document-version bump.
+    block.assetRef = asString(child(v, "asset_ref"), block.assetRef);
     if (const MsgPackValue *objects = child(v, "objects");
         objects && objects->type == MsgPackValue::Type::Array) {
         for (const auto &objectRef : objects->arrayValue) {

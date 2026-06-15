@@ -36,6 +36,9 @@ std::string exportMapToToon(const edi::drafting::MapSpec &spec,
 // instances are re-formed by grouping placed objects on their BlockPlacementMetadata
 // instanceId; `origin` is the placement centre, `scale`/`rotation` are 1/0 today
 // (placement is translate-only).
+// Engine-reader contract: a block placed outside every room footprint emits an
+// EMPTY `room` cell, and a block with no linked asset emits an EMPTY `asset` cell —
+// the reader should tolerate empty cells in the blocks[] rows.
 std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
                             const std::string &title = {},
                             const std::string &units = "feet");

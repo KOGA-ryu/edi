@@ -97,6 +97,30 @@ struct FieldVisit {
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
 };
 
+// Lists every {key, value} of an op by walking its registry table — the read
+// twin of setOpFieldValue's write, over the same rows.
+struct FieldList {
+    template <typename Op, std::size_t N>
+    static std::vector<RecipeOpField> of(const Op &op, const FieldRow<Op> (&rows)[N])
+    {
+        std::vector<RecipeOpField> fields;
+        fields.reserve(N);
+        for (const FieldRow<Op> &row : rows) {
+            fields.push_back({row.key, op.*(row.member)});
+        }
+        return fields;
+    }
+    std::vector<RecipeOpField> operator()(const AddBoxOp &op) const { return of(op, kBoxFields); }
+    std::vector<RecipeOpField> operator()(const AddCylinderOp &op) const { return of(op, kCylinderFields); }
+    std::vector<RecipeOpField> operator()(const AddSphereOp &op) const { return of(op, kSphereFields); }
+    std::vector<RecipeOpField> operator()(const AddRingOp &op) const { return of(op, kRingFields); }
+    std::vector<RecipeOpField> operator()(const AddMouldingOp &op) const { return of(op, kMouldingFields); }
+    std::vector<RecipeOpField> operator()(const AddProfileMouldingOp &op) const { return of(op, kProfileMouldingFields); }
+    std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
+    std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
+    std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
+};
+
 } // namespace
 
 bool opFieldBindable(const RecipeOp &op, const std::string &fieldKey)
@@ -118,6 +142,11 @@ bool setOpFieldValue(RecipeOp &op, const std::string &fieldKey, double value)
         return true;
     };
     return std::visit(FieldVisit<decltype(write)>{fieldKey, write}, op);
+}
+
+std::vector<RecipeOpField> opFields(const RecipeOp &op)
+{
+    return std::visit(FieldList{}, op);
 }
 
 } // namespace edi::recipe

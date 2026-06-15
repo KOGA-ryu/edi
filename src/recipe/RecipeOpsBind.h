@@ -3,8 +3,17 @@
 #include "recipe/RecipeOps.h"
 
 #include <string>
+#include <vector>
 
 namespace edi::recipe {
+
+// One editable scalar of an op: its TOML field key and current value. The same
+// per-kind member-pointer registry that decides bindability lists these, so the
+// human inspector and the resolve/store paths never drift on "which fields."
+struct RecipeOpField {
+    std::string key;
+    double value = 0.0;
+};
 
 // The bindable-field registry: which TOML field keys of which op kinds
 // may carry a measurement binding, as DATA (per-kind tables of
@@ -27,6 +36,11 @@ namespace edi::recipe {
 
 // True when this op kind has a bindable field with this TOML key.
 bool opFieldBindable(const RecipeOp &op, const std::string &fieldKey);
+
+// Every editable scalar of this op (key + current value), in registry order —
+// what the inspector renders as spinboxes. Reads through the same member-pointer
+// table opFieldBindable/setOpFieldValue use, so the three never disagree.
+std::vector<RecipeOpField> opFields(const RecipeOp &op);
 
 // Writes a value through the registry's member pointer. False (and no
 // write) when the field is not bindable on this op — the resolve pass

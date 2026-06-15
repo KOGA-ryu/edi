@@ -815,6 +815,24 @@ int main()
         assert(setOpFieldValue(probe, "tube_height", 2.5));
         assert(std::get_if<AddRingOp>(&probe)->tubeHeight == 2.5);
         assert(std::get_if<AddRingOp>(&probe)->radius == 0.0);
+
+        // opFields lists the same fields the registry binds, with their live
+        // values — what the human inspector reads to build its spinboxes. The
+        // listed keys round-trip through opFieldBindable/setOpFieldValue, so the
+        // read, the write, and the predicate can never drift apart.
+        RecipeOp box = AddBoxOp{};
+        std::get_if<AddBoxOp>(&box)->width = 3.0;
+        std::get_if<AddBoxOp>(&box)->height = 5.0;
+        const std::vector<RecipeOpField> boxFields = opFields(box);
+        assert(boxFields.size() == 6); // width, depth, height, z, x, y
+        assert(boxFields[0].key == "width" && boxFields[0].value == 3.0);
+        assert(boxFields[2].key == "height" && boxFields[2].value == 5.0);
+        for (const RecipeOpField &field : boxFields) {
+            assert(opFieldBindable(box, field.key));
+            assert(setOpFieldValue(box, field.key, 1.5));
+        }
+        assert(opFields(RecipeOp{AddSphereOp{}}).size() == 4); // radius, z, x, y
+        assert(opFields(RecipeOp{AddCylinderOp{}})[5].key == "entasis_ratio");
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +

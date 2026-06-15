@@ -26,7 +26,7 @@ Sub-backlogs this board sits over: `docs/dungeon-map-tool-backlog.md`,
 
 | Seam | What it is | State | The connective work missing |
 |------|-----------|:-----:|-----------------------------|
-| **A — Blender → asset** | recipe TOML → bind/resolve → deterministic bpy → headless render | **engine solid · lab UI now real (◐)** | The recipe engine parses/binds/resolves (refuses to compile an unresolved stream — proof never guesses)/compiles to bpy, and `ProcessRunStore` spawns headless Blender → PNG. ✅ The Blender workspace IS the lab now: canvas (Main) + object list (Left) + render preview (Right) + a **bottom terminal that splits the recipe editor and a live ASCII proof** (`720b94d`); editing + Apply re-renders the proof via the new `opsStreamChanged` seam. Remaining: a **script-format** pane (the compiled bpy), a canvas→binding picker UI, and the **R2 mesh/OBJ proof** (designed `edi-ui/.claude/plans/R2a-obj-proof.md`, unbuilt). |
+| **A — Blender → asset** | recipe TOML → bind/resolve → deterministic bpy → headless render | **engine solid · lab UI real & interactive (◐)** | The recipe engine parses/binds/resolves (refuses to compile an unresolved stream — proof never guesses)/compiles to bpy, and `ProcessRunStore` spawns headless Blender → PNG. ✅ The Blender workspace IS the lab: canvas (Main) + object list (Left) + a **Right tabbed Render \| Compiled** + a **bottom terminal tabbing Steps \| Editor \| ASCII Proof**, all live off the `opsStreamChanged` seam. ✅ **Steps op inspector** (`80bd665`): the HUMAN clicks a recipe step and tunes its numeric fields; the TOML re-syncs for the AI ("toml is for ai to edit"). Remaining: enum/material/string field editors + an **add-a-step palette** (the "string scripts by clicking" half); a canvas→binding picker; the **R2 mesh/OBJ proof** (designed, unbuilt). |
 | **B — asset → dungeon** | a Blender asset placed in a map as a block/symbol | **◐ REPAIRED (data path)** | ✅ `DraftingBlock.assetRef` (S0 `d0c8821`) · ✅ set at define time (S1 `f4ebb30`) · ✅ `BlockPlacementMetadata` snapshots the asset + an `instanceId` onto every FLATTEN-stamped object (S2 `4364719`). A placement is now traceable to its asset, and the N flattened objects of one stamp share an instance id. Remaining: the asset VALUES stay empty until the Blender lab produces real asset ids to link (Seam A's UI). |
 | **C — dungeon → engine** | the neutral map crosses to the engine | **✅ FLOWS (with blocks)** | Rooms now live in the document (`e09f6e9`+`c1512bf`), the authoring scale is stored so the export speaks authored feet (`6189d15`), a document-based `exportMapToToon` emits rooms/plugs/connections **+ a `blocks[]{room,asset,origin,scale,rotation}`** section re-formed from S2 placement provenance (`4d6fadc`), and `--export-map` reads a saved `.edidraw` to carry the placed blocks (`db7f55f`). The full spine has a data path end to end. Remaining: real asset VALUES still wait on the Blender lab (P2); placement is translate-only (scale/rotation 1/0 until `transformGeometry`). |
 
@@ -50,7 +50,7 @@ Legend — state: ✅ done · ◐ partial · ○ planned/missing.  Profile: sett
 | **Settings (F6)** | pop-out `Qt::Tool` window | Theme / Tool Belt / Panels pages | ✅ |
 | **Theme** | F6 Theme page | **real profiles** (`profiles/*.toml`) | ✅ |
 | **Blender render preview** | Blender workspace, Right slot | `blender.executable_path`, hand-edited → **missing** | ◐ |
-| **Blender recipe lab / script composer** | **Blender workspace** (canvas + object list + render preview + bottom terminal); script-format pane still missing | **missing** | ◐ (lab real, engine deep) |
+| **Blender recipe lab / script composer** | **Blender workspace** (canvas + object list + Right Render\|Compiled tabs + bottom Steps\|Editor\|ASCII tabs); Steps inspector tunes op fields by click | **missing** | ◐ (interactive; palette + field-type coverage next) |
 | **ASCII preview** (recipe proof) | **Bottom terminal**, beside the recipe editor (live, Front/Side/Top) | **missing** | ✅ |
 | **Asset taxonomy / zoo** | **NO HOME YET** (`assetLibraryIds` is an unused placeholder) | **missing** | ○ |
 | **Game-engine preview** (Seam-C consumer) | **NO HOME YET** | **missing** | ○ |
@@ -93,13 +93,16 @@ what fills it (real asset ids) waits on P2's Blender lab.
   filter, dimensions, export options — overlaps P3's `buildSettingsPage` hook);
   view auto-fit; interior point-features.
 - **Blender recipe lab — Feature #3 + ASCII proof.** ✅ *Shipped:* the Blender
-  workspace is the lab — a `recipe_terminal` feature splits the editor + a live
-  `RecipeOpsAscii` proof in the Bottom slot (`720b94d`), wired to the new
-  `opsStreamChanged` seam so Apply re-renders the proof; `--ops-file` loads a recipe
-  headlessly (`dba9951`). ○ *Remaining:* a **script-format** pane in Right (the compiled
-  bpy/TOML the stream produces); a canvas→binding picker; a recipe settings page; the
-  **R2 mesh/OBJ proof** (deterministic OBJ from extracted mesh math, no Blender install
-  needed) — the engine's #1 proof-depth gap.
+  workspace is the lab — bottom terminal tabbed **Steps \| Editor \| ASCII Proof**
+  (`720b94d`,`e19e84d`), Right tabbed **Render \| Compiled** (`6a96573`), all live off the
+  `opsStreamChanged` seam; `--ops-file` loads a recipe headlessly (`dba9951`). ✅ **Steps op
+  inspector** (`466cf9d` core + `80bd665` UI): `opFields()` lists a step's editable scalars
+  from the binding registry, `applyOpFieldEdit` commits a tuned value through `setOpFieldValue`
+  + re-syncs the TOML for the AI. Division of labor locked: **human clicks/tunes, AI edits the
+  TOML**, both on the one op stream. ○ *Remaining (the click-compose vision):* an **add-a-step
+  palette** (chain steps by clicking); enum/material/string field editors + moulding-sequence
+  editing; a canvas→binding picker; custom-script (craftsmen) registration. Plus the
+  **R2 mesh/OBJ proof** (deterministic OBJ, no Blender install) — the engine's proof-depth gap.
 
 **P3 · Settings depth (what "custom profile settings" means)**
 

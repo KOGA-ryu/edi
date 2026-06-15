@@ -30,6 +30,7 @@
 #include <QTextCursor>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QString>
 #include <QFile>
 #include <QFileInfo>
@@ -1263,11 +1264,14 @@ int main(int argc, char **argv)
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Blender);
         assert(shell.currentWorkspaceId() == QStringLiteral("blender"));
 
-        // The lab's bottom terminal is the editor + ASCII proof split; the proof
-        // lives inside it. Switching auto-opens both the Bottom terminal (a
-        // distinguishing slot here) and the Right render preview, so the proof is
-        // revealed without a manual expand.
-        assert(shell.findChild<QSplitter *>(QStringLiteral("recipeTerminal")) != nullptr);
+        // The lab's bottom terminal tabs the editor and the ASCII proof; the
+        // proof lives in a tab page (found even while the Editor tab is active,
+        // and rendered regardless of tab visibility). Switching auto-opens both
+        // the Bottom terminal (a distinguishing slot here) and the Right render
+        // preview, so the proof is one tab-click away without a manual expand.
+        auto *terminalTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeTerminal"));
+        assert(terminalTabs != nullptr);
+        assert(terminalTabs->count() == 2); // Editor + ASCII Proof
         assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
         assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Bottom)
                != edi::shell::PanelVisibility::Collapsed);

@@ -187,9 +187,9 @@ protected:
     // and re-rendered on opsStreamChanged. resolve -> compile -> render; a
     // refusal is shown verbatim, since a proof must never lie about parts.
     QWidget *buildAsciiPreviewPanel();
-    // The lab's bottom terminal: the recipe editor and its ASCII proof side by
-    // side in a horizontal splitter (direction.md R7 — "text editor + ASCII
-    // render in Bottom"). Authoring on the left, the proof on the right.
+    // The lab's bottom terminal: a tab widget switching between the recipe
+    // Editor and its ASCII Proof (and, later, the script format) — one
+    // full-width view at a time. Editor is the default tab.
     QWidget *buildRecipeTerminalPanel(edi::shell::FeatureContext &context);
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;

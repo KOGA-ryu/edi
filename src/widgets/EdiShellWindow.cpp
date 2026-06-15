@@ -21,6 +21,7 @@
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QMouseEvent>
 #include <QResizeEvent>
 #include <QTimer>
@@ -623,20 +624,20 @@ std::function<QString(bool)> EdiShellWindow::textEditorPathProvider()
 
 QWidget *EdiShellWindow::buildRecipeTerminalPanel(FeatureContext &context)
 {
-    // The lab's bottom terminal: the recipe editor and its ASCII proof side by
-    // side (direction.md R7 — "text editor + ASCII render in Bottom"). Authoring
-    // on the left, the proof of what the stream compiles to on the right; the
-    // proof re-renders as the recipe changes (Apply -> opsStreamChanged). A
-    // horizontal splitter so the user can give either half more room. The proof
-    // panel's opsStreamChanged connection binds to itself, so it dies with the
-    // split on the next workspace switch — same per-mount lifecycle as the rest.
-    auto *split = new QSplitter(Qt::Horizontal);
-    split->setObjectName(QStringLiteral("recipeTerminal"));
-    split->addWidget(buildTextEditorPanel(context, textEditorPathProvider()));
-    split->addWidget(buildAsciiPreviewPanel());
-    split->setStretchFactor(0, 3); // the editor gets the larger default share
-    split->setStretchFactor(1, 2);
-    return split;
+    // The lab's bottom terminal: TABBED views of the recipe — the Editor (recipe
+    // text + Apply/Build) and the ASCII Proof (live Front/Side/Top of what the
+    // stream compiles to), one full-width view at a time, with the script-format
+    // and mesh proof as future tabs. The proof re-renders as the recipe changes
+    // (Apply -> opsStreamChanged) even while its tab is hidden, so switching to
+    // it is instant. Editor is the default tab — you author first. Each tab page
+    // dies with the terminal on a workspace switch (the proof's connection binds
+    // to its own panel), the same per-mount lifecycle as the rest.
+    auto *tabs = new QTabWidget;
+    tabs->setObjectName(QStringLiteral("recipeTerminal"));
+    tabs->setDocumentMode(true);
+    tabs->addTab(buildTextEditorPanel(context, textEditorPathProvider()), QStringLiteral("Editor"));
+    tabs->addTab(buildAsciiPreviewPanel(), QStringLiteral("ASCII Proof"));
+    return tabs;
 }
 
 void EdiShellWindow::applyShellStyle()

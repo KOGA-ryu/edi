@@ -9,6 +9,7 @@
 
 #include <algorithm>
 
+#include "app/AppState.h"
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingSerialize.h"
@@ -121,6 +122,12 @@ int main(int argc, char **argv)
         QStringLiteral("export-map"),
         QStringLiteral("Project the --map-file to a TOON map document for the game engine (Seam B), then exit."),
         QStringLiteral("toon-path"));
+    const QCommandLineOption workspaceOption(
+        QStringLiteral("workspace"),
+        QStringLiteral("Switch to a workspace (drafting, blender, map; text/project/planning "
+                       "resolve to drafting) before --snapshot/--probe. Ignored by --export-map "
+                       "(headless); 'settings' is UI-only and refused here."),
+        QStringLiteral("mode"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
@@ -130,6 +137,7 @@ int main(int argc, char **argv)
     parser.addOption(mapFileOption);
     parser.addOption(asciiMapOption);
     parser.addOption(exportMapOption);
+    parser.addOption(workspaceOption);
     parser.process(app);
 
     // Seam B export (Phase D): project a .map.toml straight to a TOON map document
@@ -311,6 +319,26 @@ int main(int argc, char **argv)
         } else {
             const bool ok = controller->createMapFromAscii(file.readAll().toStdString());
             QTextStream(stdout) << "ascii-map: " << (ok ? "generated" : "rejected") << '\n';
+        }
+    }
+
+    // Eyeball ANY job, not just the shipped drafting one: switch the window to a
+    // named workspace mode before the capture settles. Runs after the map/ascii
+    // population above, so --workspace map --map-file <dungeon> renders the Map
+    // browser over a real dungeon's graph. (Mode resolves by the same names the
+    // rail uses; an unknown name is a named refusal, never a silent fallback.)
+    if (parser.isSet(workspaceOption)) {
+        QTextStream err(stderr);
+        const auto mode = edi::app::workspaceModeFromName(parser.value(workspaceOption).toStdString());
+        if (!mode) {
+            err << "workspace: unknown mode '" << parser.value(workspaceOption) << "'\n";
+        } else if (*mode == edi::app::WorkspaceMode::Settings) {
+            // Settings is a pop-out the rail opens, not a layout setWorkspaceMode
+            // can mount — passing it would silently no-op to drafting. Refuse by
+            // name rather than mislead (the same named-refusal rule the seams use).
+            err << "workspace: 'settings' is UI-only, not a snapshot workspace\n";
+        } else {
+            window.setWorkspaceMode(*mode);
         }
     }
 

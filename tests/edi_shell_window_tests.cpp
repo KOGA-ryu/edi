@@ -1253,6 +1253,54 @@ int main(int argc, char **argv)
         assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) == nullptr);
     }
 
+    // The recipe lab's ASCII proof pane: switching to the Blender (lab) job
+    // mounts it in the Left slot; it renders the live op stream's projection and
+    // re-renders on opsStreamChanged (the editor's Apply path) — the lab's first
+    // "one feature reacts to what another produced" coupling.
+    {
+        EdiShellWindow shell;
+        shell.show();
+        shell.setWorkspaceMode(edi::app::WorkspaceMode::Blender);
+        assert(shell.currentWorkspaceId() == QStringLiteral("blender"));
+
+        // The lab's bottom terminal is the editor + ASCII proof split; the proof
+        // lives inside it. Switching auto-opens both the Bottom terminal (a
+        // distinguishing slot here) and the Right render preview, so the proof is
+        // revealed without a manual expand.
+        assert(shell.findChild<QSplitter *>(QStringLiteral("recipeTerminal")) != nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
+        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Bottom)
+               != edi::shell::PanelVisibility::Collapsed);
+        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
+               != edi::shell::PanelVisibility::Collapsed);
+        auto *asciiView = shell.findChild<QPlainTextEdit *>(QStringLiteral("asciiPreviewText"));
+        assert(asciiView != nullptr);
+        // Empty stream: a proof of nothing says so, never a misleading blank grid.
+        assert(asciiView->toPlainText().contains(QStringLiteral("No recipe")));
+
+        // Apply a literal (binding-free) recipe through the editor's hook; the
+        // op stream changes, opsStreamChanged fires, and the pane re-renders.
+        const QString applyError = shell.applyOpsScript(
+            "op.0.type = \"AddCylinder\"\n"
+            "op.0.name = \"bare.drum\"\n"
+            "op.0.radius = \"1\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.z = \"0\"\n");
+        assert(applyError.isEmpty()); // the strict reader accepted it
+        assert(asciiView->toPlainText().contains(QStringLiteral("FRONT PROJECTION")));
+
+        // The projection selector re-renders the chosen view.
+        auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));
+        assert(projection != nullptr);
+        projection->setCurrentIndex(1); // Side
+        assert(asciiView->toPlainText().contains(QStringLiteral("SIDE PROJECTION")));
+
+        // Leaving the lab tears the pane down (its opsStreamChanged connection
+        // dies with it — the window signal source outlives the panel).
+        shell.setWorkspaceMode(edi::app::WorkspaceMode::Drafting);
+        assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) == nullptr);
+    }
+
     // F1 — the object list: a browsable projection of the document. It
     // mirrors object count, tracks selection both ways, and selectObjectById
     // is selection-only (no undo step, same rule as marquee).

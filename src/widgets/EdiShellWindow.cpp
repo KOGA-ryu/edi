@@ -88,12 +88,17 @@ WorkspaceLayout blenderWorkspaceLayout()
     WorkspaceLayout layout = draftingWorkspaceLayout();
     layout.id = QStringLiteral("blender");
     layout.label = QStringLiteral("Blender");
-    // What distinguishes the Blender job from drafting: the Right slot shows the
-    // render preview instead of the drafting inspector. Canvas stays in Main, the
-    // bpy editor (with Build) in the bottom terminal.
+    // This is the recipe lab: canvas in Main (supplies the measurements recipes
+    // bind to), the object list in Left (the objects bindings reference), the
+    // Blender RENDER preview in Right ("script is execution"), and the bottom
+    // terminal a split of the recipe EDITOR + its ASCII PROOF ("recipe is truth,
+    // ASCII is proof"). So the two distinguishing slots swap off drafting:
+    // Right -> blender_preview, Bottom -> recipe_terminal (editor + proof).
     for (SlotBinding &binding : layout.bindings) {
         if (binding.slot == ShellSlot::Right) {
             binding.featureId = QStringLiteral("blender_preview");
+        } else if (binding.slot == ShellSlot::Bottom) {
+            binding.featureId = QStringLiteral("recipe_terminal");
         }
     }
     return layout;
@@ -122,17 +127,21 @@ WorkspaceLayout mapWorkspaceLayout()
     return layout;
 }
 
-// A job's Right slot is "distinguishing" when it holds a feature OTHER than the
-// drafting inspector — the map browser, the render preview. Such a job earns an
-// auto-opened Right panel on a rail switch, so the click reveals the workspace's
-// point instead of an identical-looking canvas. A pure predicate over the layout
-// data: no per-feature branching, so a future Right-slot feature inherits this
-// for free just by being bound there.
-bool rightSlotIsDistinguishing(const WorkspaceLayout &layout)
+// A slot is "distinguishing" when it holds a feature that IS the workspace's
+// point — the map browser, the render preview, the recipe terminal — rather than
+// the shared infrastructure every job carries: the drafting inspector/object
+// list, or the bare text editor. A job earns an auto-opened panel on a rail
+// switch for each such slot, so the click reveals the workspace's point instead
+// of an identical-looking canvas. A pure predicate over the layout data: no
+// per-feature branching beyond naming the two shared defaults, so a future slot
+// feature inherits this for free just by being bound there.
+bool slotIsDistinguishing(const WorkspaceLayout &layout, ShellSlot slot)
 {
     for (const SlotBinding &binding : layout.bindings) {
-        if (binding.slot == ShellSlot::Right) {
-            return !binding.featureId.isEmpty() && binding.featureId != QStringLiteral("drafting");
+        if (binding.slot == slot) {
+            return !binding.featureId.isEmpty()
+                && binding.featureId != QStringLiteral("drafting")
+                && binding.featureId != QStringLiteral("text_editor");
         }
     }
     return false;
@@ -241,16 +250,7 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
     textEditor.label = QStringLiteral("Text Editor");
     textEditor.supportedSlots = {ShellSlot::Bottom};
     textEditor.buildPanel = [this](ShellSlot, FeatureContext &context) -> QWidget * {
-        // The provider is read at CLICK time: tests set m_textEditorPathProvider
-        // after construction; absent one, the buttons open a real QFileDialog.
-        return buildTextEditorPanel(context, [this](bool forSave) -> QString {
-            if (m_textEditorPathProvider) {
-                return m_textEditorPathProvider(forSave);
-            }
-            return forSave
-                ? QFileDialog::getSaveFileName(this, QStringLiteral("Save Text"))
-                : QFileDialog::getOpenFileName(this, QStringLiteral("Open Text"));
-        });
+        return buildTextEditorPanel(context, textEditorPathProvider());
     };
     m_featureRegistry.features.push_back(textEditor);
 
@@ -279,6 +279,20 @@ EdiShellWindow::EdiShellWindow(QWidget *parent)
         return buildMapBrowserPanel();
     };
     m_featureRegistry.features.push_back(mapBrowser);
+
+    // Feature #6: the recipe lab's bottom terminal — the editor and its ASCII
+    // proof side by side (direction.md R7). It composes two panels into the
+    // Bottom slot, so it owns the path provider both halves need; like the other
+    // feature panels it is stateless and rebuilt per mount, and the proof half
+    // re-renders on opsStreamChanged. The Blender job binds Bottom to this.
+    FeatureDescriptor recipeTerminal;
+    recipeTerminal.id = QStringLiteral("recipe_terminal");
+    recipeTerminal.label = QStringLiteral("Recipe Terminal");
+    recipeTerminal.supportedSlots = {ShellSlot::Bottom};
+    recipeTerminal.buildPanel = [this](ShellSlot, FeatureContext &context) -> QWidget * {
+        return buildRecipeTerminalPanel(context);
+    };
+    m_featureRegistry.features.push_back(recipeTerminal);
 
     // The splitter carries only the in-flow left panel beside the main area.
     // Right and bottom panels are overlays INSIDE the main area: they cover
@@ -572,20 +586,57 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
             : draftingWorkspaceLayout();
     if (target.id != m_workspaceLayout.id) {
         switchWorkspaceLayout(target);
-        // First-class feel: switching INTO a job whose Right slot is a
-        // distinguishing feature (map browser, render preview) reveals that
-        // panel, so the rail click shows the workspace's point rather than a
-        // canvas indistinguishable from drafting. Additive only — it opens a
-        // collapsed Right, never force-collapses one, so it stays consistent
-        // with the persist-across-switches panel model and the user can still
-        // collapse it. Scoped to this rail/CLI verb; restore and history paths
-        // keep the saved panel state untouched.
-        if (rightSlotIsDistinguishing(target)) {
-            setPanelCollapsed(ShellSlot::Right, false);
+        // First-class feel: switching INTO a job reveals each slot that holds a
+        // distinguishing feature — the map opens its Right browser; the lab opens
+        // its Right render preview AND its Bottom recipe terminal (editor + ASCII
+        // proof) — so the rail click shows the workspace's point rather than a
+        // canvas indistinguishable from drafting. A slot holding the shared
+        // drafting panels or the bare editor is left as-is (slotIsDistinguishing
+        // excludes both), so drafting/map keep their default bottom-collapsed.
+        // Additive only — it opens a collapsed panel, never force-collapses one,
+        // so it stays consistent with the persist-across-switches panel model and
+        // the user can still collapse it. Scoped to this rail/CLI verb; restore
+        // and history paths keep the saved panel state untouched.
+        for (const ShellSlot slot : {ShellSlot::Left, ShellSlot::Right, ShellSlot::Bottom}) {
+            if (slotIsDistinguishing(target, slot)) {
+                setPanelCollapsed(slot, false);
+            }
         }
     } else {
         m_draftingFeature->refreshInspector();
     }
+}
+
+std::function<QString(bool)> EdiShellWindow::textEditorPathProvider()
+{
+    // Read at CLICK time: tests install m_textEditorPathProvider after
+    // construction; absent one, the buttons open a real QFileDialog.
+    return [this](bool forSave) -> QString {
+        if (m_textEditorPathProvider) {
+            return m_textEditorPathProvider(forSave);
+        }
+        return forSave
+            ? QFileDialog::getSaveFileName(this, QStringLiteral("Save Text"))
+            : QFileDialog::getOpenFileName(this, QStringLiteral("Open Text"));
+    };
+}
+
+QWidget *EdiShellWindow::buildRecipeTerminalPanel(FeatureContext &context)
+{
+    // The lab's bottom terminal: the recipe editor and its ASCII proof side by
+    // side (direction.md R7 — "text editor + ASCII render in Bottom"). Authoring
+    // on the left, the proof of what the stream compiles to on the right; the
+    // proof re-renders as the recipe changes (Apply -> opsStreamChanged). A
+    // horizontal splitter so the user can give either half more room. The proof
+    // panel's opsStreamChanged connection binds to itself, so it dies with the
+    // split on the next workspace switch — same per-mount lifecycle as the rest.
+    auto *split = new QSplitter(Qt::Horizontal);
+    split->setObjectName(QStringLiteral("recipeTerminal"));
+    split->addWidget(buildTextEditorPanel(context, textEditorPathProvider()));
+    split->addWidget(buildAsciiPreviewPanel());
+    split->setStretchFactor(0, 3); // the editor gets the larger default share
+    split->setStretchFactor(1, 2);
+    return split;
 }
 
 void EdiShellWindow::applyShellStyle()

@@ -182,8 +182,23 @@ protected:
     // per mount and re-projected on modelChanged (the connection dies with the
     // panel on the next workspace switch).
     QWidget *buildMapBrowserPanel();
+    // The recipe lab's ASCII proof pane (registry feature #6): renders the
+    // current op stream's selected orthographic projection, rebuilt per mount
+    // and re-rendered on opsStreamChanged. resolve -> compile -> render; a
+    // refusal is shown verbatim, since a proof must never lie about parts.
+    QWidget *buildAsciiPreviewPanel();
+    // The lab's bottom terminal: the recipe editor and its ASCII proof side by
+    // side in a horizontal splitter (direction.md R7 — "text editor + ASCII
+    // render in Bottom"). Authoring on the left, the proof on the right.
+    QWidget *buildRecipeTerminalPanel(edi::shell::FeatureContext &context);
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+signals:
+    // Emitted whenever the recipe op stream is replaced (Open Ops Recipe, the
+    // editor's Apply). The ASCII proof pane subscribes to re-render — the lab's
+    // first "one feature reacts to what another produced" coupling.
+    void opsStreamChanged();
 
 private:
     void promptSaveDrawing();
@@ -194,6 +209,13 @@ private:
     void promptExportHpgl();
     void promptExportGcode();
     void syncOpsScriptDocument(); // E4: stream -> editor script doc
+    // resolve -> compile -> validate -> render the current op stream into the
+    // ASCII text for one projection (0=Front, 1=Side, 2=Top), or a human
+    // message (no recipe / named refusal) when it cannot be shown.
+    QString renderOpsAsciiProjection(int projectionIndex);
+    // The text editor's path chooser, shared by the editor feature and the lab's
+    // recipe terminal: a test-injected provider, else a real QFileDialog.
+    std::function<QString(bool forSave)> textEditorPathProvider();
     void promptOpenOpsRecipe();
     void promptSaveOpsRecipe();
     void promptExportResolvedOps();

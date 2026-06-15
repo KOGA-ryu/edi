@@ -5,9 +5,13 @@
 #include <QFileDialog>
 #include <QSaveFile>
 #include <QFileInfo>
+#include <QComboBox>
+#include <QFontDatabase>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPixmap>
 #include <QString>
 #include <QStringList>
@@ -245,6 +249,7 @@ bool EdiShellWindow::openOpsRecipeFromPath(const QString &path)
     m_opsStream = parsed.stream;
     m_lastRecipeError.clear();
     syncOpsScriptDocument(); // E4: the editor's script view follows the stream
+    emit opsStreamChanged(); // the ASCII proof pane re-renders off the new stream
     return true;
 }
 
@@ -291,6 +296,7 @@ QString EdiShellWindow::applyOpsScript(const std::string &text)
     }
     m_opsStream = parsed.stream;
     syncOpsScriptDocument();
+    emit opsStreamChanged(); // the ASCII proof pane re-renders off the new stream
     return {};
 }
 
@@ -735,6 +741,93 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
     // next workspace switch — the controller outlives both, and a lambda writing
     // into deleted labels is exactly the per-mount dangling hazard to avoid.
     connect(m_controller, &DrawingDocumentController::modelChanged, panel, refresh);
+
+    return panel;
+}
+
+QString EdiShellWindow::renderOpsAsciiProjection(int projectionIndex)
+{
+    using namespace edi::recipe;
+    if (m_opsStream.ops.empty()) {
+        return QStringLiteral("No recipe loaded.\nOpen or edit an ops recipe to see its ASCII proof.");
+    }
+    // The same gate the CLI/export path uses (exportOpsPreviewsToDir): resolve
+    // against the LIVE drawing, then compile, validate, render. A proof must
+    // refuse what it cannot show, so every failure surfaces verbatim instead of
+    // a misleading picture — "proof never guesses."
+    const OpResolveResult resolved = resolveRecipeOps(
+        m_opsStream,
+        m_controller->draftingDocument(),
+        m_controller->draftingGridProjection());
+    if (!resolved.ok) {
+        return QStringLiteral("Unresolved bindings:\n%1").arg(joinOpResolveFindings(resolved.findings));
+    }
+    const RecipeCompileResult compiled = compileRecipeOps(resolved.stream.ops);
+    if (!compiled.ok) {
+        return QString::fromStdString(compiled.message);
+    }
+    const OpValidationReport report = validateRecipeOps(compiled.ops);
+    if (!report.ok) {
+        QStringList lines;
+        for (const OpFinding &finding : report.findings) {
+            if (finding.severity == OpFinding::Severity::Error) {
+                lines << QStringLiteral("%1: %2")
+                             .arg(QString::fromStdString(finding.code),
+                                  QString::fromStdString(finding.message));
+            }
+        }
+        return QStringLiteral("Invalid recipe:\n%1").arg(lines.join(QLatin1Char('\n')));
+    }
+    const AsciiProjection projection = projectionIndex == 1 ? AsciiProjection::Side
+                                     : projectionIndex == 2 ? AsciiProjection::Top
+                                                            : AsciiProjection::Front;
+    const AsciiRenderResult render = renderOpsProjection(compiled.ops, projection);
+    if (!render.ok) {
+        return QString::fromStdString(render.message);
+    }
+    return QString::fromStdString(render.text);
+}
+
+QWidget *EdiShellWindow::buildAsciiPreviewPanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("asciiPreviewPanel"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(6);
+
+    auto *header = new QHBoxLayout;
+    auto *title = new QLabel(QStringLiteral("ASCII Proof"));
+    title->setObjectName(QStringLiteral("asciiPreviewTitle"));
+    auto *projection = new QComboBox;
+    projection->setObjectName(QStringLiteral("asciiPreviewProjection"));
+    projection->addItem(QStringLiteral("Front")); // index 0/1/2 -> Front/Side/Top
+    projection->addItem(QStringLiteral("Side"));
+    projection->addItem(QStringLiteral("Top"));
+    header->addWidget(title);
+    header->addStretch(1);
+    header->addWidget(projection);
+    layout->addLayout(header);
+
+    auto *view = new QPlainTextEdit;
+    view->setObjectName(QStringLiteral("asciiPreviewText"));
+    view->setReadOnly(true);
+    // Monospace + no wrap so the orthographic grid lines up column-for-column.
+    view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    view->setLineWrapMode(QPlainTextEdit::NoWrap);
+    layout->addWidget(view, 1);
+
+    // Re-render the selected projection from the current op stream. The view is
+    // read-only: authoring stays in the editor; this pane only PROVES.
+    auto refresh = [this, projection, view]() {
+        view->setPlainText(renderOpsAsciiProjection(projection->currentIndex()));
+    };
+    refresh();
+    // Switching the projection re-renders; so does any op-stream change (the
+    // editor's Apply / Open Ops Recipe, via opsStreamChanged). Both connections
+    // bind to `panel`, so they die when the pane is torn down on a switch — the
+    // window (signal source) and controller outlive it.
+    connect(projection, &QComboBox::currentIndexChanged, panel, [refresh](int) { refresh(); });
+    connect(this, &EdiShellWindow::opsStreamChanged, panel, [refresh]() { refresh(); });
 
     return panel;
 }

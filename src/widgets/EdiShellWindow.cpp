@@ -99,6 +99,23 @@ WorkspaceLayout blenderWorkspaceLayout()
     return layout;
 }
 
+// The Map job: the dungeon-authoring surface, and the third built-in layout.
+// The map IS drafting-document content — walls, rooms, plugs, and connections
+// all live in the DraftingDocument (the doc-level vectors ride along for free
+// undo). So, exactly like the Blender job, it reuses the drafting canvas in
+// Main/Left and the bottom editor rather than standing up a parallel canvas
+// (which would duplicate the document's ~16 object-walkers for no gain). A
+// distinct id/label is all the rail needs to mount it as its own job; a later
+// slice swaps the Right slot to a map-specific browser, the way Blender swaps
+// in its render preview.
+WorkspaceLayout mapWorkspaceLayout()
+{
+    WorkspaceLayout layout = draftingWorkspaceLayout();
+    layout.id = QStringLiteral("map");
+    layout.label = QStringLiteral("Map");
+    return layout;
+}
+
 } // namespace
 
 EdiShellWindow::EdiShellWindow(QWidget *parent)
@@ -508,12 +525,15 @@ void EdiShellWindow::setWorkspaceMode(edi::app::WorkspaceMode mode)
     // The rail is the workspace switcher: a mode maps to a layout, and the
     // switch goes through the same trail-pushing path as everything else.
     // (Settings is no longer a layout — the rail intercepts it before here
-    // and opens the pop-out instead; see buildActivityRail.) Blender is the
-    // second real layout; the other modes still resolve to drafting until they
-    // grow their own jobs.
+    // and opens the pop-out instead; see buildActivityRail.) Blender and Map
+    // are the two real non-drafting layouts; the remaining modes (Text,
+    // Project, Planning) still resolve to drafting until they grow their own
+    // jobs.
     const WorkspaceLayout target = (mode == edi::app::WorkspaceMode::Blender)
         ? blenderWorkspaceLayout()
-        : draftingWorkspaceLayout();
+        : (mode == edi::app::WorkspaceMode::Map)
+            ? mapWorkspaceLayout()
+            : draftingWorkspaceLayout();
     if (target.id != m_workspaceLayout.id) {
         switchWorkspaceLayout(target);
     } else {

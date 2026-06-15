@@ -1184,6 +1184,27 @@ int main(int argc, char **argv)
         assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
+    // Map workspace: the rail's mode->layout switch resolves Map to its own
+    // job (id "map"). The map is drafting-document content, so the layout
+    // reuses the drafting canvas — Drafting and Map are sibling jobs whose
+    // bindings match, which is exactly why the id (not the panels) is the
+    // observable that proves the new ternary arm fires.
+    {
+        EdiShellWindow shell;
+        shell.show();
+        assert(shell.currentWorkspaceId() == QStringLiteral("drafting"));
+
+        shell.setWorkspaceMode(edi::app::WorkspaceMode::Map);
+        assert(shell.currentWorkspaceId() == QStringLiteral("map"));
+        // The shared canvas mounts under the Map job (no parallel surface).
+        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+
+        // The switch is reversible; the mounted id tracks the rail.
+        shell.setWorkspaceMode(edi::app::WorkspaceMode::Drafting);
+        assert(shell.currentWorkspaceId() == QStringLiteral("drafting"));
+    }
+
     // F1 — the object list: a browsable projection of the document. It
     // mirrors object count, tracks selection both ways, and selectObjectById
     // is selection-only (no undo step, same rule as marquee).

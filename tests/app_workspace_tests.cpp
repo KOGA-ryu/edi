@@ -24,12 +24,21 @@ int main()
     // Blender is the second real workspace (the rest are still placeholders).
     assert(workspaceModeName(WorkspaceMode::Blender) == std::string("blender"));
     assert(workspaceModeLabel(WorkspaceMode::Blender) == std::string("Blender"));
+    // Map is the third real workspace (the dungeon-authoring surface): every
+    // mode helper must round-trip it, since the rail builds its button from
+    // these tables by name.
+    assert(workspaceModeName(WorkspaceMode::Map) == std::string("map"));
+    assert(workspaceModeLabel(WorkspaceMode::Map) == std::string("Map"));
+    assert(workspaceModeIcon(WorkspaceMode::Map) == std::string("M"));
+    assert(workspaceModeFromName("map") == WorkspaceMode::Map);
     const auto activities = defaultWorkspaceActivities();
-    assert(activities.size() == 6);
+    assert(activities.size() == 7);
     assert(activities.front().mode == WorkspaceMode::Drafting);
     assert(activities.front().enabled);
     assert(!activities[1].enabled);
     assert(activities[4].mode == WorkspaceMode::Blender && activities[4].enabled);
+    assert(activities[5].mode == WorkspaceMode::Map && activities[5].enabled);
+    assert(activities[6].mode == WorkspaceMode::Settings);
     setStatusMessage(state, "ready");
     assert(state.statusMessage == "ready");
 

@@ -112,6 +112,10 @@ public:
     // geometry AND bindings (switching workspaces if they differ).
     bool loadWorkspaceLayout(const QString &path);
     bool saveWorkspaceLayout(const QString &path) const;
+    // Workspace test seam: which job is mounted right now. The rail's
+    // mode->layout switch is otherwise only observable through the panels,
+    // and sibling jobs (Drafting/Map) share bindings — so tests read the id.
+    QString currentWorkspaceId() const { return m_workspaceLayout.id; }
 
     // The text editor SESSION (E2): which documents are open and which is
     // active, restored across restarts. loadTextSession remembers the path (the
@@ -138,6 +142,10 @@ public:
     // The document is untouched — only the glass around it changes. Pushes
     // onto the workspace history (the chrome's back/forward buttons).
     void switchWorkspaceLayout(const edi::shell::WorkspaceLayout &layout);
+    // The rail's mode->layout verb: map a WorkspaceMode to its job and switch
+    // to it (Settings is intercepted earlier as a pop-out). Public so tests can
+    // drive the mode switch the rail performs, like switchWorkspaceLayout above.
+    void setWorkspaceMode(edi::app::WorkspaceMode mode);
 
     // Live theming: the four palette inputs + fonts. Setting them re-derives
     // the whole token set and restyles shell QSS and canvas chrome instantly;
@@ -198,7 +206,6 @@ private:
     QWidget *buildActivityRail();
     QWidget *buildTitleBar();
     QWidget *buildStatusBar();
-    void setWorkspaceMode(edi::app::WorkspaceMode mode);
     void applyShellStyle();
     void refreshPanelVisibility();
     void applyPanelSizesToSplitters();

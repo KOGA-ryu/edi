@@ -12,6 +12,7 @@ enum class WorkspaceMode {
     Project,
     Planning,
     Blender,
+    Map,
     Settings
 };
 

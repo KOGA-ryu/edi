@@ -444,11 +444,13 @@ int main()
     // before Seam C) decodes to an empty list — additive-tolerant, no version bump.
     {
         DraftingDocument roomDoc = makeDraftingDocument("rooms");
+        roomDoc.canvasPerAuthoredUnit = 0.02; // Seam C: authoring scale rides along
         roomDoc.rooms.push_back(DraftingMapRoom{"entrance", {21.0, 47.5}, 6.0, 2.0, "stone"});
         roomDoc.rooms.push_back(DraftingMapRoom{"hall", {18.0, 35.0}, 12.0, 11.0, "wood"});
 
         auto restored = draftingDocumentFromValue(draftingDocumentToValue(roomDoc));
         assert(restored.ok && restored.value);
+        assert(restored.value->canvasPerAuthoredUnit == 0.02); // scale survives the round-trip
         assert(restored.value->rooms.size() == 2);
         const auto &r0 = restored.value->rooms[0];
         assert(r0.name == "entrance" && r0.material == "stone");

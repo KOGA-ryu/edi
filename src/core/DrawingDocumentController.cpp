@@ -2016,8 +2016,12 @@ bool DrawingDocumentController::createRoomFromSpec(const RoomSpec &spec)
     return createObjectsAndSelect(std::move(planned.objects), std::move(plugs), std::move(connections));
 }
 
-bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &spec)
+bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &spec, double canvasPerAuthoredUnit)
 {
+    // Record the authoring scale on the document so the engine export can recover
+    // authored units from the canvas-unit coordinates stored here. Document metadata
+    // (like title), not undo-able content — set once, up front.
+    m_document.canvasPerAuthoredUnit = canvasPerAuthoredUnit;
     // One serial threads through every room's walls, plug markers, plugs, and
     // connections, so all ids are globally unique by construction — the per-room
     // namespace lives only in the resolution map below, never baked into ids.

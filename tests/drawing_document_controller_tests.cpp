@@ -3973,7 +3973,8 @@ int main(int argc, char **argv)
         spec.rooms.push_back(b);
 
         DrawingDocumentController mapCtl;
-        assert(mapCtl.createMapFromSpec(spec));
+        assert(mapCtl.createMapFromSpec(spec, 0.02)); // authored at 0.02 canvas/ft
+        assert(nearlyEqual(mapCtl.draftingDocument().canvasPerAuthoredUnit, 0.02)); // scale recorded
         assert(mapCtl.draftingDocument().rooms.size() == 2);
         const edi::drafting::DraftingMapRoom &ra = mapCtl.draftingDocument().rooms[0];
         assert(ra.name == "a" && ra.material == "stone");

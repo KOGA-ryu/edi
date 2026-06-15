@@ -759,6 +759,7 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"title", MsgPackValue::text(document.title)},
         {"active_layer_id", MsgPackValue::text(document.activeLayerId)},
         {"revision", MsgPackValue::integer(static_cast<std::int64_t>(document.revision))},
+        {"canvas_per_authored_unit", MsgPackValue::number(document.canvasPerAuthoredUnit)},
         {"layers", MsgPackValue::array(std::move(layers))},
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
@@ -808,6 +809,8 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
     document.title = asString(child(*documentValue, "title"), {});
     document.activeLayerId = asString(child(*documentValue, "active_layer_id"), document.activeLayerId);
     document.revision = static_cast<std::uint64_t>(asInt(child(*documentValue, "revision"), 0));
+    // Additive + tolerant: a file before Seam C has no scale and defaults to 1.0.
+    document.canvasPerAuthoredUnit = asDouble(child(*documentValue, "canvas_per_authored_unit"), 1.0);
 
     if (const MsgPackValue *layers = child(*documentValue, "layers");
         layers && layers->type == MsgPackValue::Type::Array) {

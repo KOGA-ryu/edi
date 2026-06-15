@@ -123,6 +123,11 @@ struct DraftingDocument {
     std::vector<DraftingObjectId> selectedObjectIds;
     std::optional<DraftingObjectId> activeObjectId;
     std::uint64_t revision = 0;
+    // Seam C: the scale a map was authored at — CANVAS units per authored unit
+    // (e.g. 0.02 canvas per foot). The document stores every coordinate in canvas
+    // units; the engine export divides by this to recover the authored units (feet).
+    // 1.0 means coordinates ARE the authored units (a hand-drawn doc / no map scale).
+    double canvasPerAuthoredUnit = 1.0;
 };
 
 struct DraftingObjectBuildResult {

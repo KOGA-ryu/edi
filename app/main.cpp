@@ -251,11 +251,13 @@ int main(int argc, char **argv)
             err << "map-file: could not open " << parser.value(mapFileOption) << '\n';
         } else {
             const std::string text = file.readAll().toStdString();
-            const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(text, 0.02);
+            constexpr double kCanvasPerFoot = 0.02; // 0.02 canvas/ft puts a 50 ft board across the canvas
+            const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(text, kCanvasPerFoot);
             if (!parsed.ok) {
                 err << "map-file: " << QString::fromStdString(parsed.message) << '\n';
             } else {
-                const bool ok = controller->createMapFromSpec(parsed.spec);
+                // Record the same scale on the document so the engine export recovers feet.
+                const bool ok = controller->createMapFromSpec(parsed.spec, kCanvasPerFoot);
                 QTextStream(stdout) << "map-file: " << (ok ? "generated" : "rejected by builder") << '\n';
             }
         }

@@ -235,7 +235,10 @@ public:
     // Generate a whole MULTI-ROOM map from one neutral spec: plan every room,
     // mint globally-unique ids on a single serial, resolve cross-room connections
     // (by room.plug), and create all rooms + plugs + connections in ONE undo step.
-    bool createMapFromSpec(const edi::drafting::MapSpec &spec);
+    // `canvasPerAuthoredUnit` is the scale the spec was parsed at (canvas units per
+    // authored unit, e.g. 0.02 canvas/ft) — recorded on the document so the engine
+    // export can recover authored units. 1.0 = the spec is already in canvas units.
+    bool createMapFromSpec(const edi::drafting::MapSpec &spec, double canvasPerAuthoredUnit = 1.0);
     // Generate a map from an ASCII glyph grid (the control-gate authoring path):
     // parse, derive walls/doors/features, auto-fit + centre on the board, and
     // create-and-select atomically. Glyphs are data; tags stay neutral.

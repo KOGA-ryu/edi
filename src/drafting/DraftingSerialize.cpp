@@ -406,12 +406,7 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     for (const std::string &tag : m.tags) {
         tagItems.push_back(MsgPackValue::text(tag));
     }
-    MsgPackValue blockPlacement = MsgPackValue::map({
-        {"block_id", MsgPackValue::text(m.blockPlacement.blockId)},
-        {"asset_ref", MsgPackValue::text(m.blockPlacement.assetRef)},
-        {"instance_id", MsgPackValue::text(m.blockPlacement.instanceId)},
-    });
-    return MsgPackValue::map({
+    std::vector<std::pair<std::string, MsgPackValue>> fields = {
         {"schema_version", MsgPackValue::integer(static_cast<std::int64_t>(m.schemaVersion))},
         {"author", MsgPackValue::text(m.author)},
         {"source", MsgPackValue::text(m.source)},
@@ -427,8 +422,18 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"material", MsgPackValue::text(m.material)},
         {"export_group", MsgPackValue::text(m.exportGroup)},
         {"tags", MsgPackValue::array(std::move(tagItems))},
-        {"block_placement", std::move(blockPlacement)},
-    });
+    };
+    // Only a block-PLACED object carries placement provenance — an ordinary object
+    // writes no block_placement key at all (the tolerant read defaults it to empty),
+    // so .edidraw isn't an empty 3-string map on every object.
+    if (!m.blockPlacement.instanceId.empty()) {
+        fields.emplace_back("block_placement", MsgPackValue::map({
+            {"block_id", MsgPackValue::text(m.blockPlacement.blockId)},
+            {"asset_ref", MsgPackValue::text(m.blockPlacement.assetRef)},
+            {"instance_id", MsgPackValue::text(m.blockPlacement.instanceId)},
+        }));
+    }
+    return MsgPackValue::map(std::move(fields));
 }
 
 ObjectMetadata readMetadata(const MsgPackValue *v)

@@ -3929,7 +3929,10 @@ int main(int argc, char **argv)
                     continue; // an original (hand-drawn) object, not a placement
                 }
                 ++stamped;
-                assert(bp.blockId == def.id);
+                // `blockId` is a stable VALUE captured before the undo/redo above
+                // (which repopulated draftingDocument().blocks, so the `def`
+                // reference is stale here — read the value, not the reference).
+                assert(bp.blockId == blockId.toStdString());
                 assert(bp.assetRef == "recipe.tavern_table");
                 if (sharedInstanceId.isEmpty()) {
                     sharedInstanceId = QString::fromStdString(bp.instanceId);

@@ -1,9 +1,15 @@
 #include "io/MapToonExport.h"
 
+#include "drafting/DraftingGeometry.h" // includeBounds
+
+#include <cmath>
 #include <cstdio>
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace edi::io {
 namespace {
@@ -117,6 +123,160 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
         out << "  " << cell(plugKey(connection.from.roomName, connection.from.plugName))
             << "," << cell(plugKey(connection.to.roomName, connection.to.plugName))
             << "," << cell(connection.type)
+            << "\n";
+    }
+    return out.str();
+}
+
+namespace {
+
+using edi::drafting::DraftingMapRoom;
+using edi::drafting::Point2D;
+
+// Split a globally-unique plug handle "room.plug" on its first '.'.
+std::pair<std::string, std::string> splitRoomPlug(const std::string &full)
+{
+    const std::size_t dot = full.find('.');
+    if (dot == std::string::npos) {
+        return {full, std::string{}};
+    }
+    return {full.substr(0, dot), full.substr(dot + 1)};
+}
+
+// Which edge of a room footprint an anchor sits on — the document plug carries no
+// edge, so derive it as the nearest of the four sides (canvas units; origin = NW,
+// +y south).
+std::string deriveEdge(const DraftingMapRoom &room, Point2D anchor)
+{
+    double best = std::abs(anchor.y - room.origin.y);
+    std::string edge = "N";
+    if (const double d = std::abs(anchor.y - (room.origin.y + room.height)); d < best) { best = d; edge = "S"; }
+    if (const double d = std::abs(anchor.x - room.origin.x); d < best) { best = d; edge = "W"; }
+    if (const double d = std::abs(anchor.x - (room.origin.x + room.width)); d < best) { best = d; edge = "E"; }
+    return edge;
+}
+
+} // namespace
+
+std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
+                            const std::string &title, const std::string &units)
+{
+    // Authored units = canvas / scale. Guard a zero/invalid scale (treat as 1:1).
+    const double scale = document.canvasPerAuthoredUnit > 0.0 ? document.canvasPerAuthoredUnit : 1.0;
+    const auto authored = [scale](double canvas) { return num(canvas / scale); };
+    const auto findRoom = [&document](const std::string &name) -> const DraftingMapRoom * {
+        for (const auto &room : document.rooms) {
+            if (room.name == name) {
+                return &room;
+            }
+        }
+        return nullptr;
+    };
+
+    std::ostringstream out;
+    out << "kind: map\n";
+    if (!title.empty()) {
+        out << "title: " << cell(title) << "\n";
+    }
+    if (!units.empty()) {
+        out << "units: " << cell(units) << "\n";
+    }
+    out << "\n";
+
+    out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
+    for (const auto &room : document.rooms) {
+        out << "  " << cell(room.name)
+            << "," << cell(authored(room.origin.x) + "," + authored(room.origin.y))
+            << "," << cell(authored(room.width) + "," + authored(room.height))
+            << "," << cell(room.material)
+            << "\n";
+    }
+    out << "\n";
+
+    std::set<std::string> connectedPlugIds;
+    for (const auto &connection : document.connections) {
+        connectedPlugIds.insert(connection.plugA);
+        connectedPlugIds.insert(connection.plugB);
+    }
+    out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected}:\n";
+    for (const auto &plug : document.plugs) {
+        const auto [roomName, plugName] = splitRoomPlug(plug.name);
+        std::string edge = "?";
+        if (const DraftingMapRoom *room = findRoom(roomName)) {
+            edge = deriveEdge(*room, plug.anchor);
+        }
+        const std::string type = plug.type.empty() ? "door" : plug.type;
+        out << "  " << cell(roomName)
+            << "," << cell(plugName)
+            << "," << edge
+            << "," << cell(type)
+            << "," << (connectedPlugIds.count(plug.id) > 0 ? "true" : "false")
+            << "\n";
+    }
+    out << "\n";
+
+    // Resolve a plug id back to its "room.plug" name (the engine reads names).
+    const auto plugNameById = [&document](const std::string &id) -> std::string {
+        for (const auto &plug : document.plugs) {
+            if (plug.id == id) {
+                return plug.name;
+            }
+        }
+        return id; // fall back to the raw id if unresolved
+    };
+    out << "connections[" << document.connections.size() << "]{from,to,type}:\n";
+    for (const auto &connection : document.connections) {
+        out << "  " << cell(plugNameById(connection.plugA))
+            << "," << cell(plugNameById(connection.plugB))
+            << "," << cell(connection.type)
+            << "\n";
+    }
+    out << "\n";
+
+    // Block instances: FLATTEN scattered each placement into N independent objects,
+    // so re-form them by grouping on the BlockPlacementMetadata instanceId. The
+    // placement centre is the union of the group's bounds; the room is whichever
+    // footprint contains it (canvas units). scale/rotation are 1/0 (translate-only).
+    struct Accum {
+        std::string asset;
+        edi::drafting::Bounds2D bounds;
+        bool init = false;
+    };
+    std::vector<std::string> order;
+    std::unordered_map<std::string, Accum> instances;
+    for (const auto &object : document.objects) {
+        const auto &bp = object.metadata.blockPlacement;
+        if (bp.instanceId.empty()) {
+            continue; // an ordinary object, not a placement
+        }
+        Accum &acc = instances[bp.instanceId];
+        if (!acc.init) {
+            acc.init = true;
+            acc.asset = bp.assetRef;
+            acc.bounds = object.bounds;
+            order.push_back(bp.instanceId);
+        } else {
+            acc.bounds = edi::drafting::includeBounds(acc.bounds, object.bounds);
+        }
+    }
+    const auto roomAt = [&document](Point2D point) -> std::string {
+        for (const auto &room : document.rooms) {
+            if (point.x >= room.origin.x && point.x <= room.origin.x + room.width
+                && point.y >= room.origin.y && point.y <= room.origin.y + room.height) {
+                return room.name;
+            }
+        }
+        return std::string{};
+    };
+    out << "blocks[" << order.size() << "]{room,asset,origin,scale,rotation}:\n";
+    for (const std::string &id : order) {
+        const Accum &acc = instances[id];
+        const Point2D centre{acc.bounds.x + acc.bounds.width / 2.0, acc.bounds.y + acc.bounds.height / 2.0};
+        out << "  " << cell(roomAt(centre))
+            << "," << cell(acc.asset)
+            << "," << cell(authored(centre.x) + "," + authored(centre.y))
+            << "," << "1"  // translate-only placement: unit scale
+            << "," << "0"  // and no rotation
             << "\n";
     }
     return out.str();

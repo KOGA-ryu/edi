@@ -622,6 +622,30 @@ DraftingDeclaredConnection readConnection(const MsgPackValue &v)
     return connection;
 }
 
+// Named map rooms (Seam C): flat maps mirroring plugValue. Footprint is authored
+// (NW corner + size), stored directly — not derived, so it is read back verbatim.
+MsgPackValue mapRoomValue(const DraftingMapRoom &room)
+{
+    return MsgPackValue::map({
+        {"name", MsgPackValue::text(room.name)},
+        {"origin", pointValue(room.origin)},
+        {"width", MsgPackValue::number(room.width)},
+        {"height", MsgPackValue::number(room.height)},
+        {"material", MsgPackValue::text(room.material)},
+    });
+}
+
+DraftingMapRoom readMapRoom(const MsgPackValue &v)
+{
+    DraftingMapRoom room;
+    room.name = asString(child(v, "name"), room.name);
+    room.origin = readPoint(child(v, "origin"));
+    room.width = asDouble(child(v, "width"), room.width);
+    room.height = asDouble(child(v, "height"), room.height);
+    room.material = asString(child(v, "material"), room.material);
+    return room;
+}
+
 // --- block library (Phase C) -------------------------------------------------
 // A block is an id + name + an array of full object maps (reusing objectValue /
 // readObject verbatim). The cached `bounds` is pure DERIVED data — like an
@@ -702,6 +726,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         connections.push_back(connectionValue(connection));
     }
 
+    std::vector<MsgPackValue> rooms;
+    rooms.reserve(document.rooms.size());
+    for (const auto &room : document.rooms) {
+        rooms.push_back(mapRoomValue(room));
+    }
+
     std::vector<MsgPackValue> blocks;
     blocks.reserve(document.blocks.size());
     for (const auto &block : document.blocks) {
@@ -718,9 +748,9 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         ? MsgPackValue::text(*document.activeObjectId)
         : MsgPackValue::nil();
 
-    // The map graph (plugs/connections) and the block library are additive arrays
-    // beside `objects`. Like wall_visual (M1.3), they are read tolerantly —
-    // missing => empty — so this needs NO document-version bump: nothing
+    // The map graph (plugs/connections), the named rooms, and the block library are
+    // additive arrays beside `objects`. Like wall_visual (M1.3), they are read
+    // tolerantly — missing => empty — so this needs NO document-version bump: nothing
     // reinterprets an existing field, the only case the v1->v2 stroke bump existed
     // for. Old edi opening one of these files just drops the unknown keys (the
     // documented forward-compat behaviour).
@@ -733,6 +763,7 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
         {"connections", MsgPackValue::array(std::move(connections))},
+        {"rooms", MsgPackValue::array(std::move(rooms))},
         {"blocks", MsgPackValue::array(std::move(blocks))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
         {"active_object_id", std::move(activeObject)},
@@ -818,6 +849,17 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         for (const auto &connection : connections->arrayValue) {
             if (connection.type == MsgPackValue::Type::Map) {
                 document.connections.push_back(readConnection(connection));
+            }
+        }
+    }
+
+    // Named map rooms: same tolerant additive read — a file written before Seam C
+    // has no "rooms" key and decodes to an empty list.
+    if (const MsgPackValue *rooms = child(*documentValue, "rooms");
+        rooms && rooms->type == MsgPackValue::Type::Array) {
+        for (const auto &room : rooms->arrayValue) {
+            if (room.type == MsgPackValue::Type::Map) {
+                document.rooms.push_back(readMapRoom(room));
             }
         }
     }

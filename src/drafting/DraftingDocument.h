@@ -64,6 +64,20 @@ struct DraftingDeclaredConnection {
     std::string type;                // neutral role tag, default empty ("corridor"/...)
 };
 
+// A named room as a NEUTRAL map entity (Seam C). The document keeps walls + plugs
+// + connections, but loses the room's identity (name + footprint) once authored —
+// only plug-name prefixes survive. Storing the room makes the document the single
+// self-describing source the engine export reads (rooms keyed by NAME, what plugs
+// reference as "room.plug"). Footprint is the AUTHORED rectangle (NW corner +
+// size), stored directly — it is authored data, not derived from the walls.
+struct DraftingMapRoom {
+    std::string name;                // unique within the map ("entrance", "room1")
+    Point2D origin;                  // NW corner, authored units
+    double width = 0.0;
+    double height = 0.0;
+    std::string material;            // neutral tag, e.g. "stone"
+};
+
 // --- Block library (Phase C: the "flash sheet") ------------------------------
 // A BLOCK is a named, saved group of objects — a reusable symbol (a table, a
 // door, a girih tile). It lives here as plain document-level data, beside the
@@ -101,6 +115,9 @@ struct DraftingDocument {
     // existing DocumentSnapshot undo/redo for free — no separate undo plumbing.
     std::vector<DraftingPlug> plugs;
     std::vector<DraftingDeclaredConnection> connections;
+    // Named map rooms (Seam C): the neutral footprints the engine export needs,
+    // kept beside the graph so they ride the same free undo + persistence.
+    std::vector<DraftingMapRoom> rooms;
     // Block library rides inside the document too (same free undo as the graph).
     std::vector<DraftingBlock> blocks;
     std::vector<DraftingObjectId> selectedObjectIds;

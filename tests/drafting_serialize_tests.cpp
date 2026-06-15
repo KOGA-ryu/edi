@@ -439,5 +439,37 @@ int main()
         assert(stripped.value->connections.empty());
     }
 
+    // Seam C: named map rooms round-trip through the value + byte layers (footprint
+    // stored verbatim, not derived), and a document with NO "rooms" key (every file
+    // before Seam C) decodes to an empty list — additive-tolerant, no version bump.
+    {
+        DraftingDocument roomDoc = makeDraftingDocument("rooms");
+        roomDoc.rooms.push_back(DraftingMapRoom{"entrance", {21.0, 47.5}, 6.0, 2.0, "stone"});
+        roomDoc.rooms.push_back(DraftingMapRoom{"hall", {18.0, 35.0}, 12.0, 11.0, "wood"});
+
+        auto restored = draftingDocumentFromValue(draftingDocumentToValue(roomDoc));
+        assert(restored.ok && restored.value);
+        assert(restored.value->rooms.size() == 2);
+        const auto &r0 = restored.value->rooms[0];
+        assert(r0.name == "entrance" && r0.material == "stone");
+        assert(r0.origin.x == 21.0 && r0.origin.y == 47.5);
+        assert(r0.width == 6.0 && r0.height == 2.0);
+        assert(restored.value->rooms[1].name == "hall" && restored.value->rooms[1].material == "wood");
+
+        auto decoded = decodeDraftingDocument(encodeDraftingDocument(roomDoc), "fixture");
+        assert(decoded.ok && decoded.value && decoded.value->rooms.size() == 2);
+
+        MsgPackValue value = draftingDocumentToValue(roomDoc);
+        for (auto &entry : value.mapValue) {
+            if (entry.first != "document") continue;
+            auto &dm = entry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "rooms") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto strippedRooms = draftingDocumentFromValue(value);
+        assert(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
+    }
+
     return 0;
 }

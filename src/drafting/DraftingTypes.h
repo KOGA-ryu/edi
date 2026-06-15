@@ -187,6 +187,17 @@ struct WallVisualMetadata {
     WallType type = WallType::Solid;
 };
 
+// Seam B: provenance stamped on each object a block placement FLATTEN-stamps.
+// FLATTEN keeps no LIVE link to the definition, so the asset is SNAPSHOT here — it
+// survives deleting the block. `instanceId` groups the N stamped objects of ONE
+// placement so the engine export (Seam C) can re-form the instance from the
+// flattened geometry. An empty instanceId means an ordinary object, not a placement.
+struct BlockPlacementMetadata {
+    DraftingBlockId blockId;   // the definition this object was stamped from
+    std::string assetRef;      // snapshot of the block's asset (what Seam C emits)
+    std::string instanceId;    // groups the objects of one placement
+};
+
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
     std::string author;
@@ -205,6 +216,7 @@ struct ObjectMetadata {
     std::string material;
     std::string exportGroup;
     std::vector<std::string> tags;
+    BlockPlacementMetadata blockPlacement; // Seam B: set only on block-placed objects
 };
 
 struct PointGeometry {

@@ -406,6 +406,11 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     for (const std::string &tag : m.tags) {
         tagItems.push_back(MsgPackValue::text(tag));
     }
+    MsgPackValue blockPlacement = MsgPackValue::map({
+        {"block_id", MsgPackValue::text(m.blockPlacement.blockId)},
+        {"asset_ref", MsgPackValue::text(m.blockPlacement.assetRef)},
+        {"instance_id", MsgPackValue::text(m.blockPlacement.instanceId)},
+    });
     return MsgPackValue::map({
         {"schema_version", MsgPackValue::integer(static_cast<std::int64_t>(m.schemaVersion))},
         {"author", MsgPackValue::text(m.author)},
@@ -422,6 +427,7 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
         {"material", MsgPackValue::text(m.material)},
         {"export_group", MsgPackValue::text(m.exportGroup)},
         {"tags", MsgPackValue::array(std::move(tagItems))},
+        {"block_placement", std::move(blockPlacement)},
     });
 }
 
@@ -470,6 +476,13 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
                 m.tags.push_back(item.stringValue);
             }
         }
+    }
+    // Tolerant: a record before Seam B has no block_placement and decodes to empty
+    // (an ordinary object), so existing .edidraw files load unchanged.
+    if (const MsgPackValue *bp = child(*v, "block_placement")) {
+        m.blockPlacement.blockId = asString(child(*bp, "block_id"), m.blockPlacement.blockId);
+        m.blockPlacement.assetRef = asString(child(*bp, "asset_ref"), m.blockPlacement.assetRef);
+        m.blockPlacement.instanceId = asString(child(*bp, "instance_id"), m.blockPlacement.instanceId);
     }
     return m;
 }

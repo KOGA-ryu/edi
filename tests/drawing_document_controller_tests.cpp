@@ -3864,12 +3864,13 @@ int main(int argc, char **argv)
         // definition lands in one undo step; its members are normalized to the
         // origin (lower-left at 0,0), extent = the selection's union span.
         blockCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(blockCtl.defineBlockFromSelection("table"));
+        assert(blockCtl.defineBlockFromSelection("table", "recipe.tavern_table"));
         assert(blockCtl.draftingDocument().blocks.size() == 1);
         const edi::drafting::DraftingBlock &def = blockCtl.draftingDocument().blocks.front();
         const QString blockId = QString::fromStdString(def.id);
         assert(blockId.startsWith("block_"));
         assert(def.name == "table");
+        assert(def.assetRef == "recipe.tavern_table"); // Seam B: linked at define time
         assert(def.objects.size() == 2);
         assert(nearlyEqual(def.bounds.x, 0.0) && nearlyEqual(def.bounds.y, 0.0));
         assert(nearlyEqual(def.bounds.width, 0.3) && nearlyEqual(def.bounds.height, 0.3));
@@ -3915,6 +3916,29 @@ int main(int argc, char **argv)
             }
             assert(instanceCount == 2);
             assert(ids.size() == objects.size());
+        }
+
+        // Seam B provenance: every placed object is traceable to its block + asset,
+        // and the two share ONE instance id (so Seam C can re-form the placement).
+        {
+            QString sharedInstanceId;
+            int stamped = 0;
+            for (const edi::drafting::DraftingObject &obj : blockCtl.draftingDocument().objects) {
+                const auto &bp = obj.metadata.blockPlacement;
+                if (bp.instanceId.empty()) {
+                    continue; // an original (hand-drawn) object, not a placement
+                }
+                ++stamped;
+                assert(bp.blockId == def.id);
+                assert(bp.assetRef == "recipe.tavern_table");
+                if (sharedInstanceId.isEmpty()) {
+                    sharedInstanceId = QString::fromStdString(bp.instanceId);
+                } else {
+                    assert(QString::fromStdString(bp.instanceId) == sharedInstanceId); // one placement
+                }
+            }
+            assert(stamped == 2);
+            assert(sharedInstanceId.startsWith("blockinst_"));
         }
 
         // Independence (FLATTEN): the definition is byte-unchanged by placement,

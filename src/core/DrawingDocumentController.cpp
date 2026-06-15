@@ -2925,12 +2925,25 @@ bool DrawingDocumentController::placeBlockInstance(const QString &blockId, doubl
     const double dy = y - (block.bounds.y + block.bounds.height / 2.0);
 
     // FLATTEN: independent transformed COPIES via the SAME paste planner copy/paste
-    // uses — no link back to the definition, deliberately no provenance breadcrumb
-    // (a placed object is just an ordinary shape). Thread the serial counter
-    // through, reclaim on failure. Instance ids are "instance_NNNN".
+    // uses — no LIVE link back to the definition. Thread the serial counter through,
+    // reclaim on failure. Instance ids are "instance_NNNN".
     const int serialBefore = m_nextObjectSerial;
+    // Seam B provenance: one instance id groups this placement's objects. Minted off
+    // the same monotonic serial BEFORE the paste, so the object ids that follow push
+    // highestDocumentIdSerial above it on reload (no collision). The block's assetRef
+    // is SNAPSHOT onto every stamped object — FLATTEN keeps no live link, so deleting
+    // the definition can't strand the placement, and the engine export (Seam C) reads
+    // the asset straight off the placed geometry.
+    const std::string instanceId = toStdString(nextObjectId(QStringLiteral("blockinst"), m_nextObjectSerial++));
+    const DraftingBlockId blockProvenanceId = block.id;
+    const std::string assetRef = block.assetRef;
     DraftingPasteResult plan = planDraftingPaste(block.objects, "instance", m_nextObjectSerial, dx, dy);
     m_nextObjectSerial = plan.nextSerial;
+    for (DraftingObject &placed : plan.objects) {
+        placed.metadata.blockPlacement.blockId = blockProvenanceId;
+        placed.metadata.blockPlacement.assetRef = assetRef;
+        placed.metadata.blockPlacement.instanceId = instanceId;
+    }
 
     m_lastEditStatus.clear();
     // createObjectsAndSelect refuses an empty batch; a stored block always holds

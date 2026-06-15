@@ -86,10 +86,12 @@ what fills it (real asset ids) waits on P2's Blender lab.
   `FeatureDescriptor` + `mapWorkspaceLayout()` (reuses the drafting canvas — the map IS
   document content — and swaps the Right slot to a live `map_browser` graph view, mirroring
   Blender's Right-slot preview), a real rail "M" switch (`setWorkspaceMode` now public; the
-  `--workspace` snapshot flag eyeballs any job). ○ *Remaining:* a map settings page (layers,
+  `--workspace` snapshot flag eyeballs any job), and an auto-opened Right panel for any
+  "distinguishing" job (map browser / render preview) so the rail click reveals the
+  workspace's point (map AND blender now). ○ *Remaining:* a map settings page (layers,
   block-library filter, dimensions, export options — overlaps P3's `buildSettingsPage` hook);
-  view auto-fit; interior point-features; the Right overlay opens collapsed by default
-  (a shell-chrome default shared with Blender — P4).
+  view auto-fit; interior point-features; the browser shows footprints in CANVAS units, not
+  authored feet (divide by `canvasPerAuthoredUnit` — a readability polish).
 - **Blender recipe lab — Feature #3 + ASCII proof.** Register an `ascii_preview`
   feature + panel reading `RecipeOpsAscii`; define the lab `WorkspaceLayout`
   (canvas supplies params + editor/ASCII in Bottom + script-format in Right); a recipe

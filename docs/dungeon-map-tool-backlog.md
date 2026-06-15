@@ -86,12 +86,24 @@ stamp independent editable instances → browse/stamp from the palette → round
 `.edidraw`. Translate-only (rotation/scale await the deferred `transformGeometry` slice).
 **Next: Phase D (Seam B export), then STOP.**
 
-### Phase D — Seam B export (M4) · compute: exporter pattern + design-light
-- **◻ D1 — TOON map-graph projection.** Project rooms/plugs/connections/neutral tags
-  to TOON via `ToonExport`. *Accept:* the dungeon exports a stable TOON doc carrying
-  every neutral field the engine needs (golden test).
-- **◻ D2 — export action** (`--export-map` CLI + UI hook). *Accept:* file written; loop
-  closed. → **STOP (tool-first complete).**
+### Phase D — Seam B export (M4) ✅ DONE (d19f685) · compute: exporter pattern + design-light
+- **✅ D1 — TOON map projection.** `exportMapToToon` (src/io/MapToonExport, pure) projects
+  the typed **MapSpec** (NOT a lossy document reconstruction — the document drops room
+  footprints/edges/names; the MapSpec carries them) to three flat tabular TOON arrays:
+  rooms{name,origin,size,material}, plugs{room,name,edge,type,connected}, connections{from,to,type}.
+  Rooms keyed by name; `connected` derived; empty plug type → "door". *Accept (met):*
+  `map_toon_export_tests` pins the exact wire format (golden contract).
+- **✅ D2 — export action** (`--export-map <toon>` CLI). Headless: parse `--map-file` at
+  canvasPerUnit=1.0 (authored feet), project, write, exit. *Accept (met):* the reference
+  dungeon exports 12 rooms / 26 plugs / 12 connections; loop closed.
+
+**Phase D COMPLETE → TOOL-FIRST PROGRAM COMPLETE (STOP-LINE REACHED).** The full
+author → export loop ships: `.map.toml` → rooms/walls/corridors/doors/blocks in edi →
+neutral TOON map across Seam B to the game engine. Generation (BSP/WFC) is out of scope
+by mandate. Optional past the line: the deferred `transformGeometry` (block rotate/scale),
+and the polish items below. A future generalization (if needed): export edi-edited
+*documents* (not just authored `.map.toml`), which would first store rooms/edges in the
+document — the heavier "real Seam B from the live doc" path.
 
 ## Cross-cutting polish (fold in opportunistically)
 - **◻ P1 — view auto-fit** for authored maps (frame the whole map to the viewport;

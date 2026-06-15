@@ -27,8 +27,8 @@ Sub-backlogs this board sits over: `docs/dungeon-map-tool-backlog.md`,
 | Seam | What it is | State | The connective work missing |
 |------|-----------|:-----:|-----------------------------|
 | **A — Blender → asset** | recipe TOML → bind/resolve → deterministic bpy → headless render | **engine solid · no UI home** | The recipe engine parses/binds/resolves (refuses to compile an unresolved stream — proof never guesses)/compiles to bpy, and `ProcessRunStore` spawns headless Blender → PNG. Missing: a **lab workspace** fusing the drafting grid (it supplies the parameters) + editor + ASCII proof + render, and the **ASCII preview** stage. Fires only via CLI/Build today. R2 mesh/OBJ proof designed (`edi-ui/.claude/plans/R2a-obj-proof.md`), unbuilt. |
-| **B — asset → dungeon** | a Blender asset placed in a map as a block/symbol | **🔴 THE BREAK** | `struct DraftingBlock` (`DraftingDocument.h`) has **no `assetId`/`recipeId`** — a block is hand-drawn geometry with zero provenance, and `placeBlockInstance` FLATTEN-stamps copies indistinguishable from hand drawing. Fix: add an asset-reference field (additive MessagePack, no version bump), thread it through `buildBlockFromObjects`/`CreateBlockCommand`, and stamp `blockProvenance` onto each placed instance. **Highest leverage in the whole project** — without it the pipeline is three disconnected tools. |
-| **C — dungeon → engine** | the neutral map crosses to the engine | **partial · gated on B** | `exportMapToToon` ships rooms/plugs/connections (CLI `--export-map`) but **not block instances** — the engine gets topology, zero asset placements. Fix: a 4th TOON section `blocks[]{room, asset_id, origin, scale, rotation}`, extract placed instances from the document at export, and persist block defs with `.map.toml` so reload doesn't drop them. |
+| **B — asset → dungeon** | a Blender asset placed in a map as a block/symbol | **◐ REPAIRED (data path)** | ✅ `DraftingBlock.assetRef` (S0 `d0c8821`) · ✅ set at define time (S1 `f4ebb30`) · ✅ `BlockPlacementMetadata` snapshots the asset + an `instanceId` onto every FLATTEN-stamped object (S2 `4364719`). A placement is now traceable to its asset, and the N flattened objects of one stamp share an instance id. Remaining: the asset VALUES stay empty until the Blender lab produces real asset ids to link (Seam A's UI). |
+| **C — dungeon → engine** | the neutral map crosses to the engine | **partial · unblocked by B** | `exportMapToToon` ships rooms/plugs/connections (CLI `--export-map`) but **not block instances** — the engine gets topology, zero asset placements. Now that S2 stamps placements, the export can re-form them. Fix: a 4th TOON section `blocks[]{room, asset_id, origin, scale, rotation}` grouped by `instanceId`. **Needs the export to read the DOCUMENT** (placed blocks live there, not in the `.map.toml`), which in turn wants **rooms stored in the document** (today only the `MapSpec` has footprints) so the document is the single export source. |
 
 **Recommended first move:** **Seam B → Seam C** (small, data-first, mostly mirrors
 the plug/connection precedent). Done together, "Blender asset → dungeon → engine"
@@ -68,16 +68,17 @@ pattern F6 already uses).
 
 **P1 · Pipeline continuity (do first — highest leverage)**
 
-- **Seam B repair — block ↔ asset link.** S0 add an optional asset/recipe string id
-  to `DraftingBlock` (additive MessagePack, no version bump — mirror `wall_visual`).
-  S1 thread it through `buildBlockFromObjects` + `CreateBlockCommand` so
-  `defineBlockFromSelection` records provenance. S2 stamp `blockProvenance` onto each
-  placed instance's `ObjectMetadata`. S3 (opt) named anchor points (door-left, table-foot)
-  vs center-only placement.
-- **Seam C completion — blocks in the TOON export.** Add `blocks[]{room, asset_id,
-  origin, scale, rotation}` to `MapToonExport`; extract placed instances at export;
-  persist block defs with `.map.toml`; a golden fixture exporting the reference dungeon
-  *with* placed blocks. (Gated on Seam B's stable id.)
+- **✅ Seam B repair — block ↔ asset link.** S0 `DraftingBlock.assetRef` (`d0c8821`) ·
+  S1 set at define (`f4ebb30`) · S2 `BlockPlacementMetadata` snapshot + `instanceId` on
+  each placed object (`4364719`). S3 (opt, deferred) named anchor points vs center-only.
+- **◻ Seam C completion — blocks in the TOON export.** The remaining pipeline-flow
+  piece. Two slices: **(a) rooms in the document** — add a `DraftingMapRoom` vector
+  (name/origin/size/material), populated by `createMapFromSpec`, additive MessagePack,
+  so the document is the single self-describing export source (also fixes blocks-lost-on-
+  reload). **(b) document-based export** — `exportMapToToon` reads the document (rooms
+  from the vector, plugs/connections from theirs, `blocks[]{room, asset_id, origin,
+  scale, rotation}` grouped by `instanceId`); a fixture exporting the reference dungeon
+  *with* placed blocks. Wire `--export-map` to take an `.edidraw` document.
 
 **P2 · The big UI homes (what "it all needs a spot" means)**
 

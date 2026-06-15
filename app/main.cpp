@@ -2,6 +2,7 @@
 #include <QCommandLineParser>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QTextStream>
 #include <QTimer>
@@ -10,6 +11,7 @@
 
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
+#include "io/MapToonExport.h"
 #include "io/RoomSpecStore.h"
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
@@ -114,6 +116,10 @@ int main(int argc, char **argv)
         QStringLiteral("ascii-map"),
         QStringLiteral("Generate a map from an ASCII glyph grid file (the control-gate path)."),
         QStringLiteral("path"));
+    const QCommandLineOption exportMapOption(
+        QStringLiteral("export-map"),
+        QStringLiteral("Project the --map-file to a TOON map document for the game engine (Seam B), then exit."),
+        QStringLiteral("toon-path"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
@@ -122,7 +128,43 @@ int main(int argc, char **argv)
     parser.addOption(roomFileOption);
     parser.addOption(mapFileOption);
     parser.addOption(asciiMapOption);
+    parser.addOption(exportMapOption);
     parser.process(app);
+
+    // Seam B export (Phase D): project a .map.toml straight to a TOON map document
+    // the game engine reads, then exit — a headless CLI action that needs no
+    // window. Parsed with canvasPerUnit=1.0 so footprints stay in the AUTHORED
+    // unit (feet), not canvas units. This is the tool-first author->export
+    // terminus: a stable neutral map crosses Seam B to the engine.
+    if (parser.isSet(exportMapOption)) {
+        QTextStream err(stderr);
+        if (!parser.isSet(mapFileOption)) {
+            err << "export-map: requires --map-file <path> as the source\n";
+            return 2;
+        }
+        QFile in(parser.value(mapFileOption));
+        if (!in.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            err << "export-map: could not open " << parser.value(mapFileOption) << '\n';
+            return 2;
+        }
+        const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(in.readAll().toStdString(), 1.0);
+        if (!parsed.ok) {
+            err << "export-map: " << QString::fromStdString(parsed.message) << '\n';
+            return 2;
+        }
+        const QString title = QFileInfo(parser.value(mapFileOption)).baseName(); // "dungeon.map.toml" -> "dungeon"
+        const std::string toon = edi::io::exportMapToToon(parsed.spec, title.toStdString());
+        QFile out(parser.value(exportMapOption));
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            err << "export-map: could not write " << parser.value(exportMapOption) << '\n';
+            return 2;
+        }
+        out.write(toon.data(), static_cast<qint64>(toon.size()));
+        QTextStream(stdout) << "export-map: wrote " << parser.value(exportMapOption)
+                            << " (" << parsed.spec.rooms.size() << " rooms, "
+                            << parsed.spec.connections.size() << " connections)\n";
+        return 0;
+    }
 
     EdiShellWindow window;
     window.loadSettings(edi::io::defaultSettingsPath());

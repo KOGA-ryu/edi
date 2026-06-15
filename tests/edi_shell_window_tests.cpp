@@ -1271,8 +1271,9 @@ int main(int argc, char **argv)
         // preview, so the proof is one tab-click away without a manual expand.
         auto *terminalTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeTerminal"));
         assert(terminalTabs != nullptr);
-        assert(terminalTabs->count() == 2); // Editor + ASCII Proof
+        assert(terminalTabs->count() == 3); // Steps + Editor + ASCII Proof
         assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
+        assert(shell.findChild<QListWidget *>(QStringLiteral("opStepsList")) != nullptr);
 
         // The Right slot tabs the recipe OUTPUTS: the Blender render (its label
         // still findable, whichever tab is forward) and the Compiled recipe.
@@ -1305,6 +1306,34 @@ int main(int argc, char **argv)
         // The compiled view re-serialized off the same opsStreamChanged: the
         // literal cylinder compiles straight through, so it names its op type.
         assert(compiledView->toPlainText().contains(QStringLiteral("AddCylinder")));
+
+        // The Steps inspector lists the recipe's ops; selecting one shows its
+        // numeric fields, and editing one (the verb the spinbox's editingFinished
+        // calls) mutates the stream + re-renders the proof — the human's surface.
+        auto *steps = shell.findChild<QListWidget *>(QStringLiteral("opStepsList"));
+        assert(steps != nullptr);
+        assert(steps->count() == 1); // the one AddCylinder we applied
+        steps->setCurrentRow(0);
+        // Its radius field is present (the cylinder's first editable field) and
+        // shows the authored value.
+        auto *radiusSpin = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
+        assert(radiusSpin != nullptr);
+        assert(radiusSpin->value() == 1.0); // from the applied recipe
+        // Tune it through the public edit verb; the stream + proof + compiled all
+        // follow, with no manual TOML.
+        shell.applyOpFieldEdit(0, QStringLiteral("radius"), 2.5);
+        const auto *tunedCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
+        assert(tunedCylinder != nullptr && tunedCylinder->radius == 2.5);
+        assert(compiledView->toPlainText().contains(QStringLiteral("2.5"))); // re-serialized
+        assert(radiusSpin->value() == 2.5);                                  // spin followed the change
+
+        // Drive the REAL spinbox commit path (editingFinished) to prove the
+        // wiring and that the resulting re-render does not loop back into another
+        // edit (a programmatic setValue refresh never re-fires editingFinished).
+        radiusSpin->setValue(4.0);
+        emit radiusSpin->editingFinished(); // what a focus-out / Enter triggers
+        const auto *reCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
+        assert(reCylinder != nullptr && reCylinder->radius == 4.0);
 
         // The projection selector re-renders the chosen view.
         auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));

@@ -625,17 +625,19 @@ std::function<QString(bool)> EdiShellWindow::textEditorPathProvider()
 
 QWidget *EdiShellWindow::buildRecipeTerminalPanel(FeatureContext &context)
 {
-    // The lab's bottom terminal: TABBED views of the recipe — the Editor (recipe
-    // text + Apply/Build) and the ASCII Proof (live Front/Side/Top of what the
-    // stream compiles to), one full-width view at a time, with the script-format
-    // and mesh proof as future tabs. The proof re-renders as the recipe changes
-    // (Apply -> opsStreamChanged) even while its tab is hidden, so switching to
-    // it is instant. Editor is the default tab — you author first. Each tab page
-    // dies with the terminal on a workspace switch (the proof's connection binds
-    // to its own panel), the same per-mount lifecycle as the rest.
+    // The lab's bottom terminal: TABBED views of the recipe — the Steps
+    // inspector (the HUMAN's click-to-tune surface), the Editor (the TOML, the
+    // AI's surface — "toml is for ai to edit"), and the ASCII Proof — one
+    // full-width view at a time, with the script-format/mesh proof as future
+    // tabs. Steps is the default: the human composes by clicking, not by typing
+    // TOML. The proof re-renders as the recipe changes (any edit ->
+    // opsStreamChanged) even while its tab is hidden, so switching is instant.
+    // Each tab page dies with the terminal on a workspace switch, the same
+    // per-mount lifecycle as the rest.
     auto *tabs = new QTabWidget;
     tabs->setObjectName(QStringLiteral("recipeTerminal"));
     tabs->setDocumentMode(true);
+    tabs->addTab(buildOpStepsPanel(), QStringLiteral("Steps"));
     tabs->addTab(buildTextEditorPanel(context, textEditorPathProvider()), QStringLiteral("Editor"));
     tabs->addTab(buildAsciiPreviewPanel(), QStringLiteral("ASCII Proof"));
     return tabs;

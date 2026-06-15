@@ -6,7 +6,9 @@
 #include <QSaveFile>
 #include <QFileInfo>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFontDatabase>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -25,6 +27,7 @@
 
 #include "core/DrawingCore.h"
 #include "recipe/RecipeOpsAscii.h"
+#include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
@@ -903,6 +906,169 @@ QWidget *EdiShellWindow::buildLabRightPanel()
     tabs->addTab(buildBlenderPreviewPanel(), QStringLiteral("Render"));
     tabs->addTab(buildCompiledRecipePanel(), QStringLiteral("Compiled"));
     return tabs;
+}
+
+void EdiShellWindow::applyOpFieldEdit(int opIndex, const QString &fieldKey, double value)
+{
+    if (opIndex < 0 || opIndex >= static_cast<int>(m_opsStream.ops.size())) {
+        return;
+    }
+    // Edit a COPY, commit only if the key is an editable field of this op — an
+    // unknown key leaves the stream untouched. Then re-sync the TOML view (the
+    // AI's surface follows the human's edit) and re-render the proof/compiled.
+    edi::recipe::RecipeOp edited = m_opsStream.ops[static_cast<std::size_t>(opIndex)];
+    if (!edi::recipe::setOpFieldValue(edited, fieldKey.toStdString(), value)) {
+        return;
+    }
+    m_opsStream.ops[static_cast<std::size_t>(opIndex)] = std::move(edited);
+    syncOpsScriptDocument();
+    emit opsStreamChanged();
+}
+
+namespace {
+// "tube_height" -> "Tube Height": the human label for a TOML field key.
+QString prettyFieldLabel(const QString &key)
+{
+    QStringList words = key.split(QLatin1Char('_'), Qt::SkipEmptyParts);
+    for (QString &word : words) {
+        word[0] = word[0].toUpper();
+    }
+    return words.join(QLatin1Char(' '));
+}
+} // namespace
+
+QWidget *EdiShellWindow::buildOpStepsPanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("opStepsPanel"));
+    auto *layout = new QHBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(12);
+
+    auto *list = new QListWidget;
+    list->setObjectName(QStringLiteral("opStepsList"));
+    list->setMaximumWidth(220);
+    layout->addWidget(list);
+
+    auto *fields = new QWidget;
+    fields->setObjectName(QStringLiteral("opStepsFields"));
+    auto *form = new QFormLayout(fields);
+    form->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(fields, 1);
+
+    // A field bound to a drafted measurement is READ here, not edited — its
+    // number comes from the canvas through the resolve pass, so the inspector
+    // shows it disabled rather than letting a literal edit be silently dropped.
+    auto isBound = [this](int index, const std::string &key) {
+        for (const edi::recipe::RecipeFieldBinding &binding : m_opsStream.bindings) {
+            if (binding.opIndex == static_cast<std::size_t>(index) && binding.fieldKey == key) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Build fresh spinboxes for the selected op. Called ONLY on selection change
+    // (and the first build) — never from opsStreamChanged — so it can delete the
+    // old spins without ever deleting one mid-signal during its own commit.
+    auto rebuildFields = [this, form, fields, isBound](int index) {
+        while (form->rowCount() > 0) {
+            form->removeRow(0);
+        }
+        if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
+            return;
+        }
+        const edi::recipe::RecipeOp &op = m_opsStream.ops[static_cast<std::size_t>(index)];
+        for (const edi::recipe::RecipeOpField &field : edi::recipe::opFields(op)) {
+            const QString key = QString::fromStdString(field.key);
+            auto *spin = new QDoubleSpinBox;
+            spin->setObjectName(QStringLiteral("opField_%1").arg(key));
+            spin->setDecimals(3);
+            spin->setRange(-1000000.0, 1000000.0);
+            spin->setValue(field.value);
+            const bool bound = isBound(index, field.key);
+            spin->setEnabled(!bound);
+            // Commit on editingFinished (not valueChanged): a programmatic
+            // setValue during a value refresh never fires it, so the proof's
+            // re-render can't loop back into another edit.
+            if (!bound) {
+                connect(spin, &QDoubleSpinBox::editingFinished, fields,
+                        [this, index, key, spin]() { applyOpFieldEdit(index, key, spin->value()); });
+            }
+            form->addRow(prettyFieldLabel(key) + (bound ? QStringLiteral("  (bound)") : QString()), spin);
+        }
+    };
+
+    // Re-read the selected op's values into the EXISTING spins (no widget
+    // delete) — signal-safe, so it runs on every opsStreamChanged, whether the
+    // change came from this inspector, the editor's Apply, or an Open.
+    auto refreshFieldValues = [this, fields](int index) {
+        if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
+            return;
+        }
+        for (const edi::recipe::RecipeOpField &field : edi::recipe::opFields(m_opsStream.ops[static_cast<std::size_t>(index)])) {
+            const QString name = QStringLiteral("opField_%1").arg(QString::fromStdString(field.key));
+            if (auto *spin = fields->findChild<QDoubleSpinBox *>(name)) {
+                spin->setValue(field.value);
+            }
+        }
+    };
+
+    // Re-list the ops, preserving the selected row. Block the list's signals so
+    // the programmatic reselect does not rebuild fields mid-refresh.
+    auto rebuildList = [this, list]() {
+        const QSignalBlocker block(list);
+        const int keep = list->currentRow();
+        list->clear();
+        int i = 0;
+        for (const edi::recipe::RecipeOp &op : m_opsStream.ops) {
+            list->addItem(QStringLiteral("%1  %2")
+                              .arg(i, 2, 10, QLatin1Char('0'))
+                              .arg(QString::fromLatin1(edi::recipe::recipeOpTypeName(op))));
+            ++i;
+        }
+        if (keep >= 0 && keep < list->count()) {
+            list->setCurrentRow(keep);
+        } else if (list->count() > 0) {
+            list->setCurrentRow(0);
+        }
+    };
+
+    // On a stream change, rebuild the spins only if the selected op's field
+    // SHAPE changed (count or first key) — which happens only via Open/Apply, a
+    // structural edit, never a spin's own value commit. So a rebuild here is
+    // never mid-signal; a value-only change just refreshes the existing spins.
+    auto syncToSelection = [this, fields, rebuildFields, refreshFieldValues](int index) {
+        if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
+            rebuildFields(index); // clears the form
+            return;
+        }
+        const std::vector<edi::recipe::RecipeOpField> desired =
+            edi::recipe::opFields(m_opsStream.ops[static_cast<std::size_t>(index)]);
+        const QList<QDoubleSpinBox *> built = fields->findChildren<QDoubleSpinBox *>();
+        bool sameShape = built.size() == static_cast<int>(desired.size());
+        if (sameShape && !desired.empty()) {
+            sameShape = fields->findChild<QDoubleSpinBox *>(
+                            QStringLiteral("opField_%1").arg(QString::fromStdString(desired.front().key)))
+                        != nullptr;
+        }
+        if (sameShape) {
+            refreshFieldValues(index);
+        } else {
+            rebuildFields(index);
+        }
+    };
+
+    connect(list, &QListWidget::currentRowChanged, panel,
+            [rebuildFields](int row) { rebuildFields(row); });
+    connect(this, &EdiShellWindow::opsStreamChanged, panel,
+            [rebuildList, syncToSelection, list]() {
+                rebuildList();
+                syncToSelection(list->currentRow());
+            });
+    rebuildList();
+    rebuildFields(list->currentRow());
+
+    return panel;
 }
 
 void EdiShellWindow::showRenderImage(const QString &imagePath)

@@ -71,6 +71,11 @@ public:
     // E4: the strict-reader hook behind the editor's Apply button — parses
     // the script text, replaces the op stream, echoes canonical TOML back.
     QString applyOpsScript(const std::string &text);
+    // The human op inspector's edit verb: set one editable double field of the
+    // op at opIndex, then re-sync the TOML view (for the AI) and re-render the
+    // proof/compiled. A no-op if the index or field is invalid. Public so the
+    // inspector's spinboxes and tests drive it the same way.
+    void applyOpFieldEdit(int opIndex, const QString &fieldKey, double value);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -187,10 +192,15 @@ protected:
     // and re-rendered on opsStreamChanged. resolve -> compile -> render; a
     // refusal is shown verbatim, since a proof must never lie about parts.
     QWidget *buildAsciiPreviewPanel();
-    // The lab's bottom terminal: a tab widget switching between the recipe
-    // Editor and its ASCII Proof (and, later, the script format) — one
-    // full-width view at a time. Editor is the default tab.
+    // The lab's bottom terminal: a tab widget over the recipe's views — the
+    // human's Steps inspector (default), the AI's TOML Editor, and the ASCII
+    // Proof — one full-width view at a time.
     QWidget *buildRecipeTerminalPanel(edi::shell::FeatureContext &context);
+    // The Steps inspector (the human's click-to-tune surface): a list of the
+    // recipe's ops; selecting one shows its editable numeric fields as spinboxes
+    // that commit through applyOpFieldEdit. Rebuilt per mount, re-listed on
+    // opsStreamChanged. A field bound to a drafted measurement is read-only here.
+    QWidget *buildOpStepsPanel();
     // The lab's Right slot: tabbed recipe OUTPUTS — the Blender render and the
     // Compiled recipe (resolve+compile, what the proof and Build consume). Tabs
     // compress both into one slot; Render is the default.

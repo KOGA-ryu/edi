@@ -45,7 +45,7 @@ Legend — state: ✅ done · ◐ partial · ○ planned/missing.  Profile: sett
 | **Drafting** (canvas + object list + inspector + status) | Drafting workspace, all 4 slots | flat `edi.toml`, no F6 page → **missing** | ✅ |
 | **Tool belt** (weapon-cross carousel) | Drafting, floating palette | F6 "Tool Belt" page | ✅ |
 | **Block library** (define / stamp / palette) | Drafting, floating "Blocks" palette | tags only → **missing** | ◐ (Seam-B gap) |
-| **Dungeon-map authoring** | **NO dedicated workspace** — runs inside Drafting + CLI | **missing** | ✅ logic / ○ home |
+| **Dungeon-map authoring** | **Map workspace** (rail "M" + real switch; reuses the drafting canvas + object list, Right slot = live map graph browser) | **missing** | ✅ logic / ◐ home |
 | **Text editor** | Drafting + Blender, Bottom slot | none (highlighting/autosave) → **missing** | ✅ |
 | **Settings (F6)** | pop-out `Qt::Tool` window | Theme / Tool Belt / Panels pages | ✅ |
 | **Theme** | F6 Theme page | **real profiles** (`profiles/*.toml`) | ✅ |
@@ -82,11 +82,14 @@ what fills it (real asset ids) waits on P2's Blender lab.
 
 **P2 · The big UI homes (what "it all needs a spot" means)**
 
-- **Map authoring as a first-class workspace.** A `map` `FeatureDescriptor` +
-  `WorkspaceLayout` (map=Main, room/object browser=Left, properties=Right); a map rail
-  button + real switch (replace the Project/Planning fall-through); a map settings page
-  (layers, block-library filter, dimensions, export options); view auto-fit + interior
-  point-features (P1/P2 polish).
+- **Map authoring as a first-class workspace.** ✅ *Core shipped (slices 1–2):* a `map`
+  `FeatureDescriptor` + `mapWorkspaceLayout()` (reuses the drafting canvas — the map IS
+  document content — and swaps the Right slot to a live `map_browser` graph view, mirroring
+  Blender's Right-slot preview), a real rail "M" switch (`setWorkspaceMode` now public; the
+  `--workspace` snapshot flag eyeballs any job). ○ *Remaining:* a map settings page (layers,
+  block-library filter, dimensions, export options — overlaps P3's `buildSettingsPage` hook);
+  view auto-fit; interior point-features; the Right overlay opens collapsed by default
+  (a shell-chrome default shared with Blender — P4).
 - **Blender recipe lab — Feature #3 + ASCII proof.** Register an `ascii_preview`
   feature + panel reading `RecipeOpsAscii`; define the lab `WorkspaceLayout`
   (canvas supplies params + editor/ASCII in Bottom + script-format in Right); a recipe

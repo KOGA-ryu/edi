@@ -1,0 +1,14 @@
+kind: map
+title: minimal
+units: feet
+
+rooms[2]{name,origin,size,material}:
+  a,"0,0","8,6",stone
+  b,"12,0","8,6",stone
+
+plugs[2]{room,name,edge,type,connected}:
+  a,to_b,E,door,true
+  b,to_a,W,door,true
+
+connections[1]{from,to,type}:
+  a.to_b,b.to_a,corridor

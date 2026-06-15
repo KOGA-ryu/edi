@@ -1,0 +1,22 @@
+kind: map
+title: hallway
+units: feet
+
+rooms[4]{name,origin,size,material}:
+  r1,"0,0","6,6",stone
+  r2,"10,0","6,6",stone
+  r3,"20,0","6,6",stone
+  r4,"30,0","6,6",stone
+
+plugs[6]{room,name,edge,type,connected}:
+  r1,next,E,door,true
+  r2,prev,W,door,true
+  r2,next,E,door,true
+  r3,prev,W,door,true
+  r3,next,E,door,true
+  r4,prev,W,door,true
+
+connections[3]{from,to,type}:
+  r1.next,r2.prev,corridor
+  r2.next,r3.prev,corridor
+  r3.next,r4.prev,corridor

@@ -1,0 +1,21 @@
+# Minimal map: two rooms, one corridor — the smallest valid Seam-A graph.
+# Distances in feet. A sanity floor for the engine's map reader.
+map.room.0.name = "a"
+map.room.0.width = "8"
+map.room.0.height = "6"
+map.room.0.origin_x = "0"
+map.room.0.origin_y = "0"
+map.room.0.plug.0.edge = "E"
+map.room.0.plug.0.name = "to_b"
+
+map.room.1.name = "b"
+map.room.1.width = "8"
+map.room.1.height = "6"
+map.room.1.origin_x = "12"
+map.room.1.origin_y = "0"
+map.room.1.plug.0.edge = "W"
+map.room.1.plug.0.name = "to_a"
+
+map.connection.0.from = "a.to_b"
+map.connection.0.to = "b.to_a"
+map.connection.0.type = "corridor"

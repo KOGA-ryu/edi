@@ -1,0 +1,26 @@
+kind: map
+title: hub
+units: feet
+
+rooms[5]{name,origin,size,material}:
+  hub,"10,10","6,6",stone
+  north,"10,0","6,4",stone
+  east,"20,10","6,6",stone
+  south,"10,20","6,6",stone
+  west,"0,10","6,6",stone
+
+plugs[8]{room,name,edge,type,connected}:
+  hub,to_n,N,door,true
+  hub,to_e,E,door,true
+  hub,to_s,S,door,true
+  hub,to_w,W,door,true
+  north,to_hub,S,door,true
+  east,to_hub,W,door,true
+  south,to_hub,N,door,true
+  west,to_hub,E,door,true
+
+connections[4]{from,to,type}:
+  hub.to_n,north.to_hub,corridor
+  hub.to_e,east.to_hub,corridor
+  hub.to_s,south.to_hub,corridor
+  hub.to_w,west.to_hub,corridor

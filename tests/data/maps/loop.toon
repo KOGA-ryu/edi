@@ -1,0 +1,25 @@
+kind: map
+title: loop
+units: feet
+
+rooms[4]{name,origin,size,material}:
+  nw,"0,0","8,8",stone
+  ne,"16,0","8,8",stone
+  se,"16,16","8,8",stone
+  sw,"0,16","8,8",stone
+
+plugs[8]{room,name,edge,type,connected}:
+  nw,to_ne,E,door,true
+  nw,to_sw,S,door,true
+  ne,to_nw,W,door,true
+  ne,to_se,S,door,true
+  se,to_ne,N,door,true
+  se,to_sw,W,door,true
+  sw,to_nw,N,door,true
+  sw,to_se,E,door,true
+
+connections[4]{from,to,type}:
+  nw.to_ne,ne.to_nw,corridor
+  ne.to_se,se.to_ne,corridor
+  se.to_sw,sw.to_se,corridor
+  sw.to_nw,nw.to_sw,corridor

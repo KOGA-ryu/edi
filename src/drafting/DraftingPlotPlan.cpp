@@ -190,19 +190,26 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, false);
         } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
-            // Plot the SAMPLED curve as an open chain. This visit has no
-            // terminal static_assert, so a missing arm here is SILENT (the
-            // spline would simply never plot) — it must be added by hand.
+            // Plot the SAMPLED curve as an open chain.
             appendVertexSegments(plan, object, layer, sampleSpline(geometry), false);
         } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
             // v1: plot the CENTERLINE as a single segment, exactly like
             // LineGeometry. Honest minimal — emitting the band OUTLINE (a closed
-            // rectangle following the a->b band) is a later plot option. Like the
-            // spline arm above, this visit has NO terminal static_assert, so a
-            // missing wall arm is SILENT — it must be added by hand.
+            // rectangle following the a->b band) is a later plot option.
             appendSegment(plan, object, layer, geometry.a, geometry.b);
-        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
-            // text annotations carry no plot segments
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>
+                || std::is_same_v<Geometry, GuideGeometry>
+                || std::is_same_v<Geometry, ConstructionLineGeometry>
+                || std::is_same_v<Geometry, DimensionGeometry>) {
+            // The four kinds that emit NO plot segments. Text annotations carry
+            // none; guides/construction lines/dimensions are filtered out earlier
+            // by draftingShapeCanPlot, so they never reach here — but the arm is
+            // explicit so the guard below can hold. Behavior unchanged: these
+            // previously fell through to nothing (no matching branch).
+        } else {
+            // This visit used to be silent (a new kind would simply never plot);
+            // the guard makes a future kind a COMPILE error that names this site.
+            static_assert(always_false_v<Geometry>, "appendPlotSegments: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
 }
@@ -211,10 +218,10 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
 // canvas painter does NOT fill. This mirrors DrawingCanvasObjectPainter's
 // closed-shape set exactly (rectangle, circle, ellipse, polygon) so SVG fill
 // agrees with the canvas. The ring walks the same points as the stroke outline,
-// so fill and stroke never disagree at the edge. Like appendPlotSegments this is
-// an if-constexpr visit with no terminal static_assert — the `else` arm absorbs
-// every non-fillable kind (point/line/arc/polyline/spline/wall/text), so a new
-// geometry kind is silently treated as "no fill" until taught otherwise.
+// so fill and stroke never disagree at the edge. Every kind has an explicit arm
+// (a fillable ring, or an explicit empty for the ten non-fillable kinds) and a
+// terminal always_false_v guard — so a future geometry kind must consciously pick
+// "fillable" or "not", as a COMPILE error, rather than silently never filling.
 std::vector<Point2D> closedFillRing(const DraftingGeometry &geometry)
 {
     return std::visit([](const auto &shape) -> std::vector<Point2D> {
@@ -247,8 +254,23 @@ std::vector<Point2D> closedFillRing(const DraftingGeometry &geometry)
             return sampleEllipse(shape);
         } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
             return shape.vertices;
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, PointGeometry>
+                || std::is_same_v<Geometry, LineGeometry>
+                || std::is_same_v<Geometry, ArcGeometry>
+                || std::is_same_v<Geometry, PolylineGeometry>
+                || std::is_same_v<Geometry, GuideGeometry>
+                || std::is_same_v<Geometry, ConstructionLineGeometry>
+                || std::is_same_v<Geometry, DimensionGeometry>
+                || std::is_same_v<Geometry, TextAnnotationGeometry>
+                || std::is_same_v<Geometry, SplineGeometry>
+                || std::is_same_v<Geometry, WallGeometry>) {
+            // The ten kinds the canvas painter does NOT fill: an empty ring, the
+            // explicit form of the old catch-all `else`. The frozen fill boundary
+            // (solid only; fillable set = rectangle/circle/ellipse/polygon) is what
+            // keeps these OUT — this arm records that decision per kind.
             return {};
+        } else {
+            static_assert(always_false_v<Geometry>, "closedFillRing: unhandled geometry kind — add an arm");
         }
     }, geometry);
 }

@@ -56,5 +56,28 @@ charter's "every visit is exhaustive" overstatement to point at the real map.
 - Deferred (NOT this campaign): #4 dry-run Script line (touches behavior; folds with
   backlog Script-ASCII work), #5 craftsman param-type default (hand-built-TOML-only).
 
+### Builder batch — 2026-06-16 — edi-blender-lab-builder (COMPLETE)
+Brief `briefs/003`; report `replies/003-cartography-hardening.md`.
+- **Slice A** `4a561e8` — `estimateBounds` → `std::visit` over named overload struct
+  `BoundsEstimator` (templated on the `include` lambda, by-member, inlinable). All 10
+  arms explicit: 5 keep identical extent math, 5 explicit no-ops, AddLabel comment re
+  Python `bounds_of` divergence.
+- **Slice B** `b6af915` — `static_assert(std::variant_size_v<RecipeOp> == 10)` at top
+  of `recipeOpsFromToml` + teaching comment. `<variant>` transitive; no new include.
+- **Gate (recipe slice):** recipe targets build clean; `ctest` recipe slice **7/7**
+  (incl. `recipe_ops_ascii_tests` + doric goldens unchanged); scan clean; all 3
+  cross-language checks green (`--obj-out` 306482-byte OBJ, `--list-craftsmen`, smoke).
+- **Cross-dept BLOCKER surfaced:** full `cmake --build build` fails compiling
+  `tests/drafting_room_tests.cpp` (missing `#include <memory>` for `std::make_shared`)
+  — confirmed pre-existing via `git stash`, edi-drafting's ownership, untouched by
+  this batch. Analogous to the documented `edi_shell_window_tests` exclusion.
+  Escalated to hub.
+
+### Reviewer diff-audit gate — 2026-06-16 — edi-blender-lab-reviewer (OPEN)
+Brief `briefs/004-cartography-audit.md` — adversarially verify slice A is truly
+behavior-preserving (identical extents; correct no-op arms; the templated struct
+captures `include` correctly; no UB/dangling) and slice B's assert is correct/placed.
+
 ## Next
-- Builder batch (slices A+B) → green gate → reviewer diff audit → closeout.
+- Reviewer diff audit → closeout doc + LEDGER→Closed → report closeout to hub.
+- Hub/edi-drafting to fix `drafting_room_tests.cpp` `<memory>` include (not ours).

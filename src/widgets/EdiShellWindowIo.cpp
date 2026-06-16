@@ -14,11 +14,13 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTabWidget>
+#include <QTimer>
 #include <QPixmap>
 #include <QString>
 #include <QStringList>
@@ -976,6 +978,63 @@ void EdiShellWindow::moveRecipeOpAt(int opIndex, int delta)
     emit opsStreamChanged();
 }
 
+void EdiShellWindow::bindOpField(int opIndex, const QString &fieldKey, const QString &objectId,
+                                 const QString &measurement)
+{
+    if (opIndex < 0) {
+        return;
+    }
+    if (edi::recipe::addRecipeBinding(m_opsStream, static_cast<std::size_t>(opIndex), fieldKey.toStdString(),
+                                      objectId.toStdString(), measurement.toStdString())) {
+        syncOpsScriptDocument();
+        emit opsStreamChanged();
+    }
+}
+
+void EdiShellWindow::unbindOpField(int opIndex, const QString &fieldKey)
+{
+    if (opIndex < 0) {
+        return;
+    }
+    edi::recipe::clearRecipeBinding(m_opsStream, static_cast<std::size_t>(opIndex), fieldKey.toStdString());
+    syncOpsScriptDocument();
+    emit opsStreamChanged();
+}
+
+void EdiShellWindow::showOpBindMenu(int opIndex, const QString &fieldKey, bool bound, const QPoint &globalPos)
+{
+    // The actions DEFER (singleShot 0): binding rebuilds the inspector fields,
+    // and doing that while still inside the spinbox's context-menu event would
+    // delete the spinbox mid-signal. The zero-timer runs after the event returns.
+    QMenu menu;
+    if (bound) {
+        connect(menu.addAction(QStringLiteral("Unbind")), &QAction::triggered, &menu, [this, opIndex, fieldKey]() {
+            QTimer::singleShot(0, this, [this, opIndex, fieldKey]() { unbindOpField(opIndex, fieldKey); });
+        });
+    } else {
+        // Bind to a drafted object's measurement: one submenu per object, each
+        // offering the four measurement fields the resolve pass understands.
+        const auto &objects = m_controller->draftingDocument().objects;
+        if (objects.empty()) {
+            menu.addAction(QStringLiteral("(draw something to bind to)"))->setEnabled(false);
+        }
+        for (const edi::drafting::DraftingObject &object : objects) {
+            const QString objectId = QString::fromStdString(object.id);
+            QMenu *sub = menu.addMenu(objectId);
+            for (const QString &measurement :
+                 {QStringLiteral("width"), QStringLiteral("height"), QStringLiteral("length"), QStringLiteral("radius")}) {
+                connect(sub->addAction(measurement), &QAction::triggered, &menu,
+                        [this, opIndex, fieldKey, objectId, measurement]() {
+                            QTimer::singleShot(0, this, [this, opIndex, fieldKey, objectId, measurement]() {
+                                bindOpField(opIndex, fieldKey, objectId, measurement);
+                            });
+                        });
+            }
+        }
+    }
+    menu.exec(globalPos);
+}
+
 namespace {
 // "tube_height" -> "Tube Height": the human label for a TOML field key.
 QString prettyFieldLabel(const QString &key)
@@ -1039,22 +1098,12 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     form->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(fields, 1);
 
-    // A field bound to a drafted measurement is READ here, not edited — its
-    // number comes from the canvas through the resolve pass, so the inspector
-    // shows it disabled rather than letting a literal edit be silently dropped.
-    auto isBound = [this](int index, const std::string &key) {
-        for (const edi::recipe::RecipeFieldBinding &binding : m_opsStream.bindings) {
-            if (binding.opIndex == static_cast<std::size_t>(index) && binding.fieldKey == key) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    // Build fresh spinboxes for the selected op. Called ONLY on selection change
-    // (and the first build) — never from opsStreamChanged — so it can delete the
-    // old spins without ever deleting one mid-signal during its own commit.
-    auto rebuildFields = [this, form, fields, isBound](int index) {
+    // Build fresh field widgets for the selected op. Called ONLY on selection
+    // change (and the first build) — never from opsStreamChanged — so it can
+    // delete the old widgets without ever deleting one mid-signal during its own
+    // commit. A field bound to a drafted measurement (its number comes from the
+    // canvas via resolve) renders disabled, with the binding named in its label.
+    auto rebuildFields = [this, form, fields](int index) {
         while (form->rowCount() > 0) {
             form->removeRow(0);
         }
@@ -1069,7 +1118,11 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             // A bound double is read here, not edited (its number comes from the
             // canvas through resolve); a read-only reference (a revolved profile
             // id) likewise. Both render disabled.
-            const bool bound = scalar.kind == RecipeFieldKind::Number && isBound(index, scalar.key);
+            const edi::recipe::RecipeFieldBinding *binding =
+                scalar.kind == RecipeFieldKind::Number
+                    ? edi::recipe::findRecipeBinding(m_opsStream, static_cast<std::size_t>(index), scalar.key)
+                    : nullptr;
+            const bool bound = binding != nullptr;
             const bool enabled = scalar.editable && !bound;
             // Each widget commits through a USER-only signal (editingFinished /
             // activated / clicked) — never one a programmatic refresh fires — so
@@ -1081,11 +1134,21 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
                 spin->setDecimals(3);
                 spin->setRange(-1000000.0, 1000000.0);
                 spin->setValue(scalar.number);
-                if (enabled) {
+                // A bound number is read-only (not disabled) so it still takes a
+                // right-click to unbind; its value comes from resolve, not here.
+                spin->setReadOnly(bound);
+                if (!bound) {
                     connect(spin, &QDoubleSpinBox::editingFinished, fields, [this, index, key, spin]() {
                         applyOpScalarEdit(index, key, RecipeScalarValue{spin->value()});
                     });
                 }
+                spin->setToolTip(bound ? QStringLiteral("Bound — right-click to unbind")
+                                       : QStringLiteral("Right-click to bind to a drafted measurement"));
+                spin->setContextMenuPolicy(Qt::CustomContextMenu);
+                connect(spin, &QWidget::customContextMenuRequested, spin,
+                        [this, index, key, bound, spin](const QPoint &at) {
+                            showOpBindMenu(index, key, bound, spin->mapToGlobal(at));
+                        });
                 widget = spin;
                 break;
             }
@@ -1138,9 +1201,16 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             }
             }
             widget->setObjectName(QStringLiteral("opField_%1").arg(key));
-            widget->setEnabled(enabled);
-            form->addRow(QString::fromStdString(scalar.label) + (bound ? QStringLiteral("  (bound)") : QString()),
-                         widget);
+            // A bound number stays ENABLED (read-only) so its bind menu is
+            // reachable; every other disabled state is the plain enabled flag.
+            widget->setEnabled(scalar.kind == RecipeFieldKind::Number ? true : enabled);
+            QString rowLabel = QString::fromStdString(scalar.label);
+            if (binding != nullptr) {
+                rowLabel += QStringLiteral("  ← %1.%2")
+                                .arg(QString::fromStdString(binding->objectId),
+                                     QString::fromStdString(binding->field));
+            }
+            form->addRow(rowLabel, widget);
         }
     };
 
@@ -1211,6 +1281,26 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             sameShape = fields->findChild<QWidget *>(
                             QStringLiteral("opField_%1").arg(QString::fromStdString(desired.front().key)))
                         != nullptr;
+        }
+        // A binding flip (bound <-> literal) changes a number's read-only state
+        // but not the field shape; detect it so the widget is rebuilt. A binding
+        // only ever changes via the menu/verbs, never a value commit, so this
+        // rebuild is still never reached mid-signal.
+        if (sameShape) {
+            for (const edi::recipe::RecipeOpScalar &scalar : desired) {
+                if (scalar.kind != edi::recipe::RecipeFieldKind::Number) {
+                    continue;
+                }
+                const bool boundNow = edi::recipe::findRecipeBinding(
+                                          m_opsStream, static_cast<std::size_t>(index), scalar.key)
+                                      != nullptr;
+                auto *spin = fields->findChild<QDoubleSpinBox *>(
+                    QStringLiteral("opField_%1").arg(QString::fromStdString(scalar.key)));
+                if (spin != nullptr && spin->isReadOnly() != boundNow) {
+                    sameShape = false;
+                    break;
+                }
+            }
         }
         if (sameShape) {
             refreshFieldValues(index);

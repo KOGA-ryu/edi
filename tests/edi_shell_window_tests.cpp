@@ -1350,6 +1350,20 @@ int main(int argc, char **argv)
         assert(richCylinder != nullptr);
         assert(richCylinder->material == "marble" && richCylinder->vertices == 32 && richCylinder->entasis);
 
+        // Binding picker: bind the radius to a drafted measurement. The stream
+        // carries the binding and the field rebuilds read-only (its number now
+        // comes from the canvas through resolve); unbind returns it to a literal.
+        shell.bindOpField(0, QStringLiteral("radius"), QStringLiteral("plank_1"), QStringLiteral("length"));
+        assert(shell.opsStream().bindings.size() == 1);
+        assert(shell.opsStream().bindings[0].objectId == "plank_1");
+        assert(shell.opsStream().bindings[0].field == "length");
+        auto *boundRadius = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
+        assert(boundRadius != nullptr && boundRadius->isReadOnly());
+        shell.unbindOpField(0, QStringLiteral("radius"));
+        assert(shell.opsStream().bindings.empty());
+        auto *freeRadius = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
+        assert(freeRadius != nullptr && !freeRadius->isReadOnly());
+
         // The palette appends a step by CLICK: a new unit cylinder joins the
         // recipe, the Steps list grows, and it lands as a real AddCylinder.
         const int before = static_cast<int>(shell.opsStream().ops.size());

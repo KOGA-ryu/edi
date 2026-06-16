@@ -1,5 +1,7 @@
 #include "recipe/RecipeOpsBind.h"
 
+#include <algorithm>
+
 namespace edi::recipe {
 
 namespace {
@@ -147,6 +149,38 @@ bool setOpFieldValue(RecipeOp &op, const std::string &fieldKey, double value)
 std::vector<RecipeOpField> opFields(const RecipeOp &op)
 {
     return std::visit(FieldList{}, op);
+}
+
+void clearRecipeBinding(RecipeOpStream &stream, std::size_t opIndex, const std::string &fieldKey)
+{
+    auto &bindings = stream.bindings;
+    bindings.erase(std::remove_if(bindings.begin(), bindings.end(),
+                                  [&](const RecipeFieldBinding &binding) {
+                                      return binding.opIndex == opIndex && binding.fieldKey == fieldKey;
+                                  }),
+                   bindings.end());
+}
+
+bool addRecipeBinding(RecipeOpStream &stream, std::size_t opIndex, const std::string &fieldKey,
+                      const std::string &objectId, const std::string &field)
+{
+    if (opIndex >= stream.ops.size() || !opFieldBindable(stream.ops[opIndex], fieldKey)) {
+        return false;
+    }
+    clearRecipeBinding(stream, opIndex, fieldKey); // one binding per field
+    stream.bindings.push_back({opIndex, fieldKey, objectId, field});
+    return true;
+}
+
+const RecipeFieldBinding *findRecipeBinding(const RecipeOpStream &stream, std::size_t opIndex,
+                                            const std::string &fieldKey)
+{
+    for (const RecipeFieldBinding &binding : stream.bindings) {
+        if (binding.opIndex == opIndex && binding.fieldKey == fieldKey) {
+            return &binding;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace edi::recipe

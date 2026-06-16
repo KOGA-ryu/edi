@@ -42,6 +42,21 @@ bool opFieldBindable(const RecipeOp &op, const std::string &fieldKey);
 // table opFieldBindable/setOpFieldValue use, so the three never disagree.
 std::vector<RecipeOpField> opFields(const RecipeOp &op);
 
+// Bind op `opIndex`'s field `fieldKey` to drafted object `objectId`'s
+// measurement `field` (width/height/length/radius), replacing any binding
+// already on that field. False (no change) if the field is not a bindable
+// double of that op. The binding picker's create verb.
+bool addRecipeBinding(RecipeOpStream &stream, std::size_t opIndex, const std::string &fieldKey,
+                      const std::string &objectId, const std::string &field);
+
+// Remove any binding on op `opIndex`'s field `fieldKey` (back to a literal).
+void clearRecipeBinding(RecipeOpStream &stream, std::size_t opIndex, const std::string &fieldKey);
+
+// The binding on op `opIndex`'s field `fieldKey`, or nullptr — the inspector
+// reads it to show "bound to <object>.<field>" and offer Unbind.
+const RecipeFieldBinding *findRecipeBinding(const RecipeOpStream &stream, std::size_t opIndex,
+                                            const std::string &fieldKey);
+
 // Writes a value through the registry's member pointer. False (and no
 // write) when the field is not bindable on this op — the resolve pass
 // turns that into a named refusal.

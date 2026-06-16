@@ -89,6 +89,12 @@ public:
     // range. Public so the inspector buttons and tests share them.
     void removeRecipeOpAt(int opIndex);
     void moveRecipeOpAt(int opIndex, int delta);
+    // The binding picker's verbs: bind op `opIndex`'s field to drafted object
+    // `objectId`'s `measurement` (width/height/length/radius), or clear it back
+    // to a literal, then sync + re-render. Public so the menu and tests share.
+    void bindOpField(int opIndex, const QString &fieldKey, const QString &objectId,
+                     const QString &measurement);
+    void unbindOpField(int opIndex, const QString &fieldKey);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -218,6 +224,10 @@ protected:
     // palette op type; clicking appends a unit step via appendRecipeOp. Lives in
     // the lab's Right slot beside Render/Compiled.
     QWidget *buildStepPalettePanel();
+    // The binding picker menu: right-clicking a numeric field pops this — Unbind
+    // when bound, else a drafted-object -> measurement chooser that calls
+    // bindOpField. Reads the live drawing for the object list.
+    void showOpBindMenu(int opIndex, const QString &fieldKey, bool bound, const QPoint &globalPos);
     // The lab's Right slot: tabbed recipe OUTPUTS — the Blender render and the
     // Compiled recipe (resolve+compile, what the proof and Build consume). Tabs
     // compress both into one slot; Render is the default.

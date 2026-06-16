@@ -894,6 +894,19 @@ int main()
         assert(setOpScalar(cyl, "radius", 2.0)); // a double still routes through the registry
         assert(std::get_if<AddCylinderOp>(&cyl)->radius == 2.0);
         assert(!setOpScalar(cyl, "nonsense", 1.0)); // unknown key
+
+        // Binding picker core: add / find / replace / clear a measurement binding.
+        RecipeOpStream bstream;
+        bstream.ops = {makeRecipeOp("AddBox", "b").value()};
+        assert(addRecipeBinding(bstream, 0, "width", "plank_1", "length"));
+        const RecipeFieldBinding *found = findRecipeBinding(bstream, 0, "width");
+        assert(found != nullptr && found->objectId == "plank_1" && found->field == "length");
+        assert(addRecipeBinding(bstream, 0, "width", "plank_2", "width")); // re-bind REPLACES
+        assert(bstream.bindings.size() == 1);
+        assert(findRecipeBinding(bstream, 0, "width")->objectId == "plank_2");
+        assert(!addRecipeBinding(bstream, 0, "name", "x", "width")); // not a bindable double
+        clearRecipeBinding(bstream, 0, "width");
+        assert(bstream.bindings.empty() && findRecipeBinding(bstream, 0, "width") == nullptr);
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +

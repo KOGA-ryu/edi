@@ -118,10 +118,22 @@
   include — is a speculative edi-drafting hygiene FYI (build is green), passed to
   the hub as one line, not a blocker.
 
-### Builder extraction slice 005 (DraftingMapTypes.h, shape a) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/005-builder-mapttypes-extraction.md`
-- 003 committed (B1 `1a26ee7` present) → dispatched. Builds on 003; B1's comment
-  travels with the moved `DraftingPlug`.
+### Builder extraction slice 005 (DraftingMapTypes.h, shape a) — 2026-06-16 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/005-builder-mapttypes-extraction.md`
+- Commit `8e82c41`. Pure motion: 183 ins / 136 del across exactly the three
+  headers, no `.cpp`. Gate GREEN 95/95; scan clean; snapshot identical (900×760).
+- **Planner verification (lightweight, pure motion):** `git show --stat` = only
+  the 3 headers; B1's TODO confirmed at `DraftingMapTypes.h:95` (rode along with
+  `DraftingPlug`); all 4 structs + 2 enums + forward-decl in the new header;
+  structs gone from `DraftingDocument.h`; the 4 vectors remain. Shape (a) exact.
+  No heavyweight 005 audit needed — byte-identical motion, reviewer-settled design.
+- CMakeLists.txt correctly NOT touched (edi-ui's shared file). Cosmetic follow-up:
+  the new header isn't listed though its 2 siblings are (build-irrelevant) → an
+  edi-ui-owned change. Recorded in the closeout pointers + flagged to the hub.
+
+### Closeout — 2026-06-16 — edi-dungeon-map-planner
+- `docs/closeouts/h2-src-drafting-map-boundary.md` freezes the H2 boundary + the
+  cartography refactors. Reported to the hub; LEDGER row → Closed.
 
 ### Reviewer diff audit of 003 — 2026-06-16 — edi-dungeon-map-reviewer (CLOSED — CLEAN)
 - Brief: `006-reviewer-003-diff-audit.md` ·
@@ -146,12 +158,14 @@
   corrected accordingly.
 
 ## Open questions / blockers
-- None blocking. 003 fully cleared (built green + audit CLEAN). Only the
-  extraction slice 005 remains in flight; hub veto-window on (a)/(c) still open
-  (silence ⇒ ship a).
+- **None. Campaign CLOSED.** All deliverables landed: the architecture doc, the
+  three refactors (A1/N1/B1, audit CLEAN), and the H2 `DraftingMapTypes.h`
+  extraction (verified). Boundary frozen in the closeout.
+- One cosmetic follow-up handed OFF (not ours): edi-ui may list
+  `DraftingMapTypes.h` in `CMakeLists.txt` for IDE source-group parity.
 
 ## Next
-- 005 (DraftingMapTypes.h extraction) returns green → verify B1's TODO traveled
-  onto the moved `DraftingPlug` → (optional quick diff-audit of 005 — pure motion,
-  may fold into closeout) → write closeout freezing the H2 boundary + the
-  cartography refactors → report closeout to hub → move LEDGER row to Closed.
+- Campaign closed. Next dungeon-map work is the charter backlog
+  (`docs/dungeon-map-tool-backlog.md`) — but the tool-first program (Phases A–D)
+  is COMPLETE and the mandate STOP-LINE holds (no generation). Await a new hub
+  brief / fork before opening a feature campaign.

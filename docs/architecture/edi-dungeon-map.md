@@ -38,18 +38,19 @@ relation over objects in the SAME drawing.
   the CORE regions, dungeon-map edits the MAP regions, neither edits the other's.
   Disjoint lines ⇒ master merges stay clean.
 
-### Our deliverable from H2 (behavior-preserving, fold into cartography)
-Extract the map struct/enum DEFINITIONS into a dungeon-map-owned
-**`DraftingMapTypes.h`** that `DraftingTypes.h`/`DraftingDocument.h` include. The
-document KEEPS its plug/connection/room/block vectors (still one document); only
-the definitions move. ONE isolated slice, pure code motion, green-gated — shrinks
-the shared-edit surface to the include line + the vectors. Do this BEFORE any map
-feature work. **Design note (planner):** the move has a real include-layering
-constraint — the map metadata (`ObjectRole`/`WallType`/`WallVisualMetadata`/
-`BlockPlacementMetadata`) is embedded inside core `ObjectMetadata`, and
-`DraftingBlock` contains core `DraftingObject`s — so the exact header split + the
-`DraftingBlock`↔`DraftingObject` cycle is being settled by a reviewer scoping gate
-(brief 004) before the builder executes it.
+### Our deliverable from H2 — **LANDED** (commit `8e82c41`, shape a)
+The map struct/enum DEFINITIONS now live in a dungeon-map-owned
+**`src/drafting/DraftingMapTypes.h`** that `DraftingTypes.h`/`DraftingDocument.h`
+include; the document KEEPS its plug/connection/room/block vectors (still one
+document). Pure behavior-preserving code motion (95/95 green, snapshot identical).
+**Shape (a):** one header, included once mid-`DraftingTypes.h` (namespace
+close/reopen) just before `ObjectMetadata`. The `DraftingBlock`↔`DraftingObject`
+cycle is broken by a `struct DraftingObject;` forward-decl in the map header —
+valid because since C++17 `std::vector` may be instantiated with an incomplete
+element type (`DraftingObject` is completed by `DraftingDocument.h` before any
+`DraftingBlock` op is odr-used). Result: `DraftingDocument.h`'s entire map surface
+is now just the four vectors; `DraftingTypes.h`'s is the one include line.
+**Frozen in `docs/closeouts/h2-src-drafting-map-boundary.md`.**
 
 ### The map subsystem is cleanly separable
 Map data lives in wholly-owned files plus a small, well-marked set of arms
@@ -59,6 +60,7 @@ departments out of each other's way.
 ### Wholly-OURS files (map-specific, no drafting-core role)
 | File | Role |
 | --- | --- |
+| `src/drafting/DraftingMapTypes.h` | **(H2 extraction)** the map record DEFINITIONS: id aliases `DraftingPlugId`/`ConnectionId`/`BlockId`; enums `ObjectRole`/`WallType`; `WallVisualMetadata`/`BlockPlacementMetadata`; structs `DraftingPlug`/`DeclaredConnection`/`MapRoom`/`Block`; the name⇄enum free-func decls. Included by `DraftingTypes.h` (mid-file) |
 | `src/drafting/DraftingRoom.{h,cpp}` | Authoring structs (`RoomSpec`, `RoomPlugSpec`, `MapSpec`, `RoomEdge`) + `planDraftingRoom` |
 | `src/drafting/DraftingCorridor.{h,cpp}` | `CorridorSpec` → centerline → wall geometry (door↔door routing) |
 | `src/drafting/DraftingPathfind.{h,cpp}` | grid A* for v2 corridor obstacle avoidance |
@@ -72,8 +74,8 @@ departments out of each other's way.
 ### SHARED files — map-specific symbols vs the file's core role
 | File | Map-specific symbols (OURS) | Core role (drafting's) |
 | --- | --- | --- |
-| `DraftingTypes.h` | `DraftingPlugId`/`DraftingConnectionId` (`:18-19`); `WallType` enum (`:96`); `WallVisualMetadata` (`:186`); `BlockPlacementMetadata` (`:195`); `wallTypeName`/`wallTypeFromName` (`:355-357`); `DraftingBlockId` | other ids, geometry variant, stroke/fill/layer/measurement metadata |
-| `DraftingDocument.h` | `DraftingPlug` (`:47`), `DraftingDeclaredConnection` (`:60`), `DraftingMapRoom` (`:73`), `DraftingBlock` (`:95`); doc vectors `plugs`/`connections`/`rooms`/`blocks` (`:116-122`); `canvasPerAuthoredUnit` (`:130`); plug/conn/block clauses of `highestDocumentIdSerial` (`:148-153`) | `DraftingObject`, `DraftingLayer`, objects/layers vectors, find/index helpers |
+| `DraftingTypes.h` | **(post-H2)** just the `#include "drafting/DraftingMapTypes.h"` line (mid-file, before `ObjectMetadata`) — the map id/enum/metadata DEFINITIONS moved OUT into that header | other ids, geometry variant, stroke/fill/layer/measurement metadata, `ObjectMetadata` (which embeds the moved map metadata) |
+| `DraftingDocument.h` | **(post-H2)** just the four doc vectors `plugs`/`connections`/`rooms`/`blocks` (`:52-58`) + `canvasPerAuthoredUnit` + the plug/conn/block clauses of `highestDocumentIdSerial` — the four record STRUCTS moved OUT into `DraftingMapTypes.h` (reached transitively via the `DraftingTypes.h` include) | `DraftingObject`, `DraftingLayer`, objects/layers vectors, find/index helpers |
 | `DraftingCommands.{h,cpp}` | arms `CreatePlug`/`DeletePlug`/`DeclareConnection`/`DeleteConnection` (`.h:151-165`), `CreateBlock`/`DeleteBlock` (`:172-178`), `CreateMapRoom` (`:182`); visit clauses (`.cpp:322-335`) | the other 26 arms + the visitor scaffold |
 | `DraftingSerialize.cpp` | `plugValue`/`readPlug` (`:588-607`), `connectionValue`/`readConnection` (`:610-627`), `mapRoomValue`/`readMapRoom` (`:632-651`), `blockValue`/`readBlock` (`:660-703`), doc-level plugs/connections/rooms/blocks emit+read (`:722-744`,`:843-884`), `canvas_per_authored_unit` (`:767`,`:818`) | layer/object/geometry codecs, envelope, version gate |
 | `DrawingDocumentController.cpp` | `createMapFromSpec` (`:2019-2198`), `createMapFromAscii` (`:2200+`), 4-arg `createObjectsAndSelect` (`:2271-2325`) | the entire non-map controller |

@@ -169,22 +169,31 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!std::isfinite(typedCommand.dx) || !std::isfinite(typedCommand.dy)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
             }
-            // This command's translation decision: the same finite delta for every
-            // selected object. The containsObject guard is THIS command's own
-            // validation (a stale selection target is rejected before any move) —
-            // align/distribute instead trust planDraftingAlignment to name only
-            // live objects. Validating up front is equivalent to the old in-loop
-            // check: the moves run on a throwaway copy, so a rejection mid-way
-            // never mutated the document either way.
-            std::vector<DraftingTranslation> translations;
-            translations.reserve(document.selectedObjectIds.size());
+            // MoveSelection keeps its OWN interleaved loop rather than routing
+            // through applyTranslationPlan: the containsObject guard and the
+            // moveObject call must stay INTERLEAVED, because the FIRST failing id
+            // in selection order decides the rejection MESSAGE. Pre-scanning all
+            // existence checks first (the earlier dedup) was the same error CODE
+            // but a different message for a [present+locked, missing] selection —
+            // the locked move would surface "object is locked", while a pre-scan
+            // reports the later missing id's "selection target does not exist".
+            // message is observable upstream, so this stays interleaved. (Align/
+            // Distribute have no such per-id guard, so they share the helper.)
+            DraftingDocument candidate = document;
             for (const DraftingObjectId &objectId : document.selectedObjectIds) {
-                if (!containsObject(document, objectId)) {
+                if (!containsObject(candidate, objectId)) {
                     return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
                 }
-                translations.push_back({objectId, typedCommand.dx, typedCommand.dy});
+                const DraftingStoreResult move = moveObject(candidate, objectId, typedCommand.dx, typedCommand.dy);
+                if (!move.ok) {
+                    return fromStoreResult(move);
+                }
             }
-            return applyTranslationPlan(document, translations);
+            if (!document.selectedObjectIds.empty()) {
+                candidate.revision = document.revision + 1;
+                document = std::move(candidate);
+            }
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, EditObjectHandleCommand>) {
             const DraftingObject *object = findObject(document, typedCommand.objectId);
             if (object == nullptr) {

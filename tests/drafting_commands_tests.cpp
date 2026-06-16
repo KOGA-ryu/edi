@@ -370,6 +370,39 @@ int main()
     assert(badSelectionMove.code == DraftingResultCode::InvalidGeometry);
     assert(editDocument.revision == revisionBeforeBadMove);
 
+    // MoveSelection rejection ORDER (protects the interleaved containsObject
+    // guard against a future "pre-scan all ids first" dedup): for a
+    // [present+locked, stale] selection the FIRST id decides the message. The
+    // locked object is examined first and moveObject reports "object is locked";
+    // a pre-scan would instead report the LATER missing id's "selection target
+    // does not exist" — same CODE, different message, and message is observable
+    // upstream (finishEdit). So the guard must stay interleaved with the move.
+    {
+        DraftingDocument lockOrderDocument = makeDraftingDocument("lock_order_doc");
+        auto lockOrderBuilt = buildDraftingObject("locked_obj", DraftingShapeKind::Point, PointGeometry{{1.0, 1.0}});
+        assert(lockOrderBuilt.ok);
+        assert(applyDraftingCommand(lockOrderDocument, CreateObjectCommand{lockOrderBuilt.object}).ok);
+        assert(applyDraftingCommand(lockOrderDocument, UpdateObjectFlagsCommand{"locked_obj", true, true}).ok);
+        const auto revisionBeforeLockOrder = lockOrderDocument.revision;
+
+        // Locked FIRST, stale SECOND. Inject the selection directly —
+        // SelectObjectsCommand would reject the stale id at entry.
+        lockOrderDocument.selectedObjectIds = {"locked_obj", "ghost_obj"};
+        auto lockedThenMissing = applyDraftingCommand(lockOrderDocument, MoveSelectionCommand{1.0, 0.0});
+        assert(!lockedThenMissing.ok);
+        assert(lockedThenMissing.code == DraftingResultCode::InvalidSelectionTarget);
+        assert(lockedThenMissing.message == "object is locked");
+        assert(lockOrderDocument.revision == revisionBeforeLockOrder);
+
+        // Stale FIRST: the guard fires before any move is attempted.
+        lockOrderDocument.selectedObjectIds = {"ghost_obj", "locked_obj"};
+        auto missingThenLocked = applyDraftingCommand(lockOrderDocument, MoveSelectionCommand{1.0, 0.0});
+        assert(!missingThenLocked.ok);
+        assert(missingThenLocked.code == DraftingResultCode::InvalidSelectionTarget);
+        assert(missingThenLocked.message == "selection target does not exist");
+        assert(lockOrderDocument.revision == revisionBeforeLockOrder);
+    }
+
     DraftingDocument guideCommandDocument = makeDraftingDocument("guide_command_doc");
     auto guideA = buildDraftingObject("guide_a", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25});
     auto guideDuplicate = buildDraftingObject("guide_dup", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.2500005});

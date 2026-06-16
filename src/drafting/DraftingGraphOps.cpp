@@ -129,6 +129,10 @@ DraftingStoreResult undeclareConnection(DraftingDocument &document, const Drafti
     return DraftingStoreResult::accepted();
 }
 
+// NOTE(dungeon-map): this handles object DELETE (cascade plugs/connections). The
+// object MOVE counterpart — re-syncing DraftingPlug::anchor when an anchoring
+// object moves — does NOT exist yet; see the TODO on DraftingPlug::anchor in
+// DraftingDocument.h. A syncGraphForMovedObject() sibling is the deferred fix.
 bool pruneGraphForRemovedObject(DraftingDocument &document, const DraftingObjectId &removedObjectId)
 {
     // Collect the ids of plugs anchored to the now-removed object.

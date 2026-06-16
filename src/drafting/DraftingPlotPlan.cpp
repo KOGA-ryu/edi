@@ -207,6 +207,67 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
     }, object.geometry);
 }
 
+// The closed vertex ring for a SOLID-fillable shape, or empty for any kind the
+// canvas painter does NOT fill. This mirrors DrawingCanvasObjectPainter's
+// closed-shape set exactly (rectangle, circle, ellipse, polygon) so SVG fill
+// agrees with the canvas. The ring walks the same points as the stroke outline,
+// so fill and stroke never disagree at the edge. Like appendPlotSegments this is
+// an if-constexpr visit with no terminal static_assert — the `else` arm absorbs
+// every non-fillable kind (point/line/arc/polyline/spline/wall/text), so a new
+// geometry kind is silently treated as "no fill" until taught otherwise.
+std::vector<Point2D> closedFillRing(const DraftingGeometry &geometry)
+{
+    return std::visit([](const auto &shape) -> std::vector<Point2D> {
+        using Geometry = std::decay_t<decltype(shape)>;
+        if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            return {
+                shape.origin,
+                {shape.origin.x + shape.width, shape.origin.y},
+                {shape.origin.x + shape.width, shape.origin.y + shape.height},
+                {shape.origin.x, shape.origin.y + shape.height},
+            };
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            // 32 segments, matching the circle stroke arm in appendPlotSegments
+            // (NOT sampleEllipse's 64) so the fill ring lands on the same
+            // outline the stroke draws — a smoother fill would peek past it.
+            constexpr int circleSegments = 32;
+            constexpr double pi = 3.14159265358979323846;
+            std::vector<Point2D> ring;
+            ring.reserve(circleSegments);
+            for (int index = 0; index < circleSegments; ++index) {
+                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(circleSegments);
+                ring.push_back({
+                    shape.center.x + std::cos(angle) * shape.radius,
+                    shape.center.y + std::sin(angle) * shape.radius,
+                });
+            }
+            return ring;
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            // Shared sampler — same ring the ellipse stroke walks (closed, 64).
+            return sampleEllipse(shape);
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
+            return shape.vertices;
+        } else {
+            return {};
+        }
+    }, geometry);
+}
+
+void appendPlotFill(DraftingPlotPlan &plan, const DraftingObject &object)
+{
+    // Same rule the canvas painter applies: a closed fillable kind with
+    // opacity>0 and a valid #rrggbb colour. Reuses the plot's color gate
+    // (isValidStrokeColor) — one vocabulary for "a colour this system accepts".
+    if (object.fill.opacity <= 0.0 || !isValidStrokeColor(object.fill.color)) {
+        return;
+    }
+    std::vector<Point2D> ring = closedFillRing(object.geometry);
+    if (ring.size() < 3) {
+        return; // not a closed region (non-fillable kind or degenerate)
+    }
+    plan.fills.push_back({object.id, std::move(ring), object.fill.color, object.fill.opacity});
+}
+
 void appendTravelSegments(DraftingPlotPlan &plan)
 {
     constexpr double minimumTravel = 0.000001;
@@ -251,6 +312,14 @@ void applyCalibrationScale(DraftingPlotPlan &plan)
     for (DraftingPlotSegment &segment : plan.segments) {
         segment.a = scalePoint(segment.rawA, plan.calibrationScale);
         segment.b = scalePoint(segment.rawB, plan.calibrationScale);
+    }
+    // Fill rings are collected in raw space too, so they ride the same
+    // calibration the segments do — otherwise a scaled plot's fill would
+    // detach from its (scaled) outline.
+    for (DraftingPlotFill &fill : plan.fills) {
+        for (Point2D &point : fill.points) {
+            point = scalePoint(point, plan.calibrationScale);
+        }
     }
 }
 
@@ -631,6 +700,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
             layer->plot.strokeWidth,
         });
         appendPlotSegments(plan, object, *layer);
+        appendPlotFill(plan, object);
 
         if (boundsOutsideDrawableArea(object.bounds, grid)) {
             plan.warnings.push_back({

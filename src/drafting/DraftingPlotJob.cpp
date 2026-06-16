@@ -62,6 +62,7 @@ DraftingPlotJob buildDraftingPlotJob(const DraftingPlotPlan &plan)
 {
     DraftingPlotJob job;
     job.strokeSegments = plan.segments;
+    job.fills = plan.fills;
     job.travelSegments = plan.travelSegments;
     job.layerStats = plan.layerStats;
     job.penStats = plan.penStats;

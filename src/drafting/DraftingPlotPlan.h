@@ -48,6 +48,19 @@ struct DraftingPlotSegment {
     double opacity = 1.0;
 };
 
+// Solid per-object fill, carried on a SEPARATE channel from the stroke
+// segments. Fill is a closed-region concept SVG can paint but pen plotters
+// (HPGL/G-code) cannot — so it must NOT ride on DraftingPlotSegment, which is
+// the shared pen-plotter vocabulary. `points` is the closed vertex ring in the
+// same projected space as a segment's `a`/`b` (the SVG writer multiplies by the
+// page's mm size); `color` is "#rrggbb"; `opacity` is the fill alpha (0..1).
+struct DraftingPlotFill {
+    DraftingObjectId objectId;
+    std::vector<Point2D> points;
+    std::string color;
+    double opacity = 1.0;
+};
+
 struct DraftingPlotTravelSegment {
     DraftingObjectId fromObjectId;
     DraftingObjectId toObjectId;
@@ -92,6 +105,9 @@ struct DraftingPlotWarning {
 struct DraftingPlotPlan {
     std::vector<DraftingPlotObject> objects;
     std::vector<DraftingPlotSegment> segments;
+    // Per-object solid fills, beside (not inside) the stroke segments — see
+    // DraftingPlotFill. Empty for documents whose objects have no fill.
+    std::vector<DraftingPlotFill> fills;
     std::vector<DraftingPlotTravelSegment> travelSegments;
     std::vector<DraftingPlotLayerStats> layerStats;
     std::vector<DraftingPlotPenStats> penStats;

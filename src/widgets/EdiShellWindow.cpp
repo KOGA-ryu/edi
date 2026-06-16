@@ -640,7 +640,13 @@ QWidget *EdiShellWindow::buildRecipeTerminalPanel(FeatureContext &context)
     tabs->addTab(buildOpStepsPanel(), QStringLiteral("Steps"));
     tabs->addTab(buildTextEditorPanel(context, textEditorPathProvider()), QStringLiteral("Editor"));
     tabs->addTab(buildAsciiPreviewPanel(), QStringLiteral("ASCII Proof"));
-    return tabs;
+    // Inset the tab strip like every other panel, so it sits inside the window
+    // frame rather than flush to its edge. (recipeTerminal stays findable.)
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("recipeTerminalPanel"));
+    auto *panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(8, 8, 8, 8);
+    panelLayout->addWidget(tabs);
+    return panel;
 }
 
 void EdiShellWindow::applyShellStyle()

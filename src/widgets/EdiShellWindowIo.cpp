@@ -939,7 +939,14 @@ QWidget *EdiShellWindow::buildLabRightPanel()
     tabs->addTab(buildStepPalettePanel(), QStringLiteral("Palette"));
     tabs->addTab(buildBlenderPreviewPanel(), QStringLiteral("Render"));
     tabs->addTab(buildCompiledRecipePanel(), QStringLiteral("Compiled"));
-    return tabs;
+    // Inset the tab strip inside a margined region like every other panel — a
+    // bare tab widget bleeds flush to the window edge ("outside" the frame); the
+    // margin pulls the tabs inside it. (recipeOutput stays findable underneath.)
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("recipeOutputPanel"));
+    auto *panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(8, 8, 8, 8);
+    panelLayout->addWidget(tabs);
+    return panel;
 }
 
 void EdiShellWindow::applyOpScalarEdit(int opIndex, const QString &fieldKey,

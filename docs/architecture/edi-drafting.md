@@ -41,19 +41,30 @@ ConstructionLine, Dimension, TextAnnotation, Spline, Wall.
   handleAnchors(:825); `DraftingHitTest.cpp:62`; `DraftingNumericEdit.cpp:69`;
   `DraftingSnap.cpp:267`; `DraftingObjectEdit.cpp:257,499`; `DraftingSerialize.cpp:137`;
   `DrawingDocumentProjection.cpp:313,530`.
-- **UNGUARDED** (a new 15th kind would compile and silently mis-behave) — see §5:
-  `DraftingMirror.cpp:20` (else returns geometry unchanged, gated by a hand-kept
-  `supportsMirror` list :57-66); `DraftingQuickMeasure.cpp:110` (if-constexpr chain,
-  no terminal arm → degrades to base measure); `DraftingPlotPlan.cpp:143`
-  (appendPlotSegments) + `:220` (closedFillRing) — self-documented silent.
+- **NOW GUARDED (cartography batch 002, commit `2a1be77`)** — formerly unguarded;
+  made compile-exhaustive via explicit per-kind arms + `always_false_v` terminal,
+  behavior-preserving (each new arm reproduces the prior fall-through; reviewer
+  diff-audit ACCEPT): `DraftingMirror.cpp` `mirrorGeometry` (7 transform + 7
+  explicit pass-through; see the two-list note below); `DraftingQuickMeasure.cpp`
+  `quickMeasureAt` (5 measured + 9 explicit `Unsupported` — the old `else` returned
+  `Unsupported`, NOT a base measure); `DraftingPlotPlan.cpp` `appendPlotSegments` +
+  `closedFillRing` (explicit no-segment / empty-ring arms).
+  - **Mirror two-list note:** the mirrorable set lives in TWO hand-kept places by
+    design — the `mirrorGeometry` visit (keys on geometry TYPE) and `supportsMirror`
+    (keys on `DraftingShapeKind`). They AGREE today; `mirrorDraftingObject` gates on
+    `supportsMirror` BEFORE the visit, so the pass-through arms are inert in practice.
+    Not unified (unifying would be behavior-risking); the visit guard now prevents
+    forgetting a kind on the visit side, and a sync comment flags `supportsMirror`.
 
 ### `std::visit` over `DraftingCommand`
 Exactly ONE: `applyDraftingCommand` (`DraftingCommands.cpp:68-340`). Most arms are a
 one-line delegate to a `*Ops` free function via `fromStoreResult`;
 CreateObjects/MoveSelection/Align/Distribute/Select* inline a validate→stage→commit
-block (justified by their batch O(N²)-avoidance comments). **The terminal `else`
-(:336-338) returns a RUNTIME rejection — NOT `always_false_v`**, so the command
-variant is the one variant in the core that is NOT compile-exhaustive (HIGH, §5).
+block (justified by their batch O(N²)-avoidance comments). The terminal arm is now
+`static_assert(always_false_v<Command>)` (commit `985e200`, `DraftingCommands.cpp:336-342`)
+— so the command variant IS compile-exhaustive like the geometry visits (a missing
+arm fails the build). The inline blocks MoveSelection/Align/Distribute remain
+near-duplicates → dedup slice still pending (§5).
 
 ## 3. The ops slices (free functions over plain structs)
 `DraftingGeometry` (validate/computeBounds/translateGeometry/handleAnchors/area +
@@ -111,22 +122,23 @@ widget(objectName field) → controller.applyFieldEdit("numeric", …, value, pl
 Ranked; tracked in campaign `drafting-20260616-cartography`. None depends on the
 ownership fork (§6).
 
-- **HIGH** — `applyDraftingCommand` terminal `else` → `static_assert(always_false_v<…>)`
-  (`DraftingCommands.cpp:336-338`). Every arm is already handled, so this is
-  behavior-preserving today; it makes a missing arm a COMPILE error per the charter.
-  Risk LOW.
-- **MED** — make the unguarded geometry visits exhaustive (`DraftingMirror.cpp:20`,
-  `DraftingQuickMeasure.cpp:110`, `DraftingPlotPlan.cpp:143,220`). ⚠ NOT a bare
-  `always_false_v`: these currently let some kinds fall through unchanged. The
-  behavior-preserving move is to make every currently-reachable kind's behavior
-  EXPLICIT (explicit no-op/base arms) so only a NEW kind fails to compile. Risk LOW
-  if done that way.
-- **MED** — dedup MoveSelection/AlignSelection/Distribute (`DraftingCommands.cpp:141-159,
-  259-279,280-300`): three near-identical copy-doc→loop-moveObject→commit blocks
-  differing only in the mode gate. Factor an `applyTranslationPlan` helper. (Higher
-  care — it restructures behavior-bearing code; gate carefully.) Risk LOW-MED.
-- **LOW** — extract `circleSegments=32` named constant (`DraftingPlotPlan.cpp:171,233`);
-  clarify the `highestDocumentIdSerial` comment re: rooms (`DraftingDocument.h:150-153`).
+- ✅ **DONE (HIGH, `985e200`)** — `applyDraftingCommand` terminal `else` →
+  `static_assert(always_false_v)`. Behavior-preserving; reviewer ACCEPT.
+- ✅ **DONE (MED, `2a1be77`)** — the four unguarded geometry visits (Mirror,
+  QuickMeasure, PlotPlan ×2) made compile-exhaustive by making each kind's current
+  behavior EXPLICIT, then guarding. Behavior-preserving; reviewer ACCEPT + targeted
+  ctest green. (See §2 for the per-visit detail + the Mirror two-list note.)
+- ✅ **DONE (LOW, `cae383a`)** — `circleSegments=32` → `constexpr kCircleSegments`
+  (one name for both the stroke-outline count and the fill-ring count; they must
+  stay equal).
+- ⏳ **PENDING (MED) — dedup MoveSelection/AlignSelection/Distribute**
+  (`DraftingCommands.cpp` ~`:141-159,259-279,280-300`): three near-identical
+  copy-doc→loop-moveObject→commit blocks differing only in the mode gate. Factor an
+  `applyTranslationPlan` helper. Higher care — restructures behavior-bearing code;
+  gate carefully (build + a reviewer diff-audit). Risk LOW-MED.
+- **DEFERRED to edi-dungeon-map (MAP region per ruling H2)** — the
+  `highestDocumentIdSerial` rooms-comment clarification (`DraftingDocument.h:150-153`):
+  not ours to edit.
 - **NOTE (not a bug)** — circle is analytic on screen (`DrawingDocumentProjection.cpp:569-573`)
   but faceted at 32 segments on export (`DraftingPlotPlan.cpp:171,233`); ellipse is 64
   both places. SVG is internally consistent (stroke 32 == fill 32). A known

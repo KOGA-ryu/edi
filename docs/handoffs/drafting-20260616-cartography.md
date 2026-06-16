@@ -64,11 +64,21 @@
   `DraftingShapeKind`) — NOT unified (would be behavior-risking); the visit guard now
   catches a forgotten kind on the VISIT side + a sync comment added.
 
-### Reviewer diff-audit — OPEN 2026-06-16 (edi-drafting-reviewer, via bus)
-- Brief: `~/dept-bus/edi-drafting/briefs/004-cartography-diff-audit-reviewer.md`
-- Priority question: confirm QuickMeasure's 9 `Unsupported` arms reproduce the OLD
-  `else` result exactly (the gate-map called it "degrades to base measure" — verify
-  base-measure vs Unsupported is not a silent behavior change).
+### Reviewer diff-audit — DONE 2026-06-16 — VERDICT: ACCEPT all 3 commits
+- Reply: `~/dept-bus/edi-drafting/replies/002-cartography-diff-audit.md`. Tried to
+  break "behavior-preserving"; could not. All 6 checks confirmed.
+- QuickMeasure resolved: the old `else` returned `Unsupported` (NOT a base measure —
+  the gate-map wording was the reviewer's own imprecision); the 9 named arms return
+  byte-identical `Unsupported`. 5 measured + 9 Unsupported = 14.
+- Mirror: 7 transform arms bit-identical; pass-through arms == old `Polygon||Polyline`
+  + catch-all (unchanged); the two hand-kept lists AGREE today; pass-through inert
+  (gated by `supportsMirror` before the visit). PlotPlan: emit-parity for every kind,
+  frozen fill boundary intact. `kCircleSegments`: pure rename, 32 both sites.
+  `static_assert`: idiom matches, dead today. Scope: only the 4 core files; no map
+  region, no shared-header MAP struct, no io/widgets.
+- Planner belt-and-suspenders: `ctest -R 'mirror|quick_measure|plot'` → 8/8 green.
+- **Integrated into architecture doc §2 + §5** (visits now marked GUARDED; backlog
+  items marked DONE with commits; Mirror two-list design note recorded).
 
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):

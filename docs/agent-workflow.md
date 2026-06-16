@@ -160,3 +160,88 @@ panels), `CMakeLists.txt`, and `app/main.cpp`. So:
 
 Manage: `git worktree list` · `git worktree add /Users/kogaryu/edi-<dept> -b dept/<dept>` ·
 `git worktree remove <path>`.
+
+## Communication topology (the honest mechanics)
+
+The **hub is this main session** — the user's single window. Everything funnels
+through the hub to the user; the user talks only to the hub.
+
+What Claude Code actually supports here (verified, not assumed):
+
+- **Subagents are ONE-SHOT.** A spawned agent runs in isolated context and returns
+  ONE final message, then it is gone. There is no re-engaging it (`SendMessage` /
+  agent-teams is an experimental flag, off here). "Re-running a role" means
+  spawning a FRESH agent that re-reads the durable state below.
+- **No reliable 3-tier nesting.** Do not count on a spawned agent spawning and
+  managing its own workers. The orchestrator (the hub, or a department SESSION
+  acting as hub) drives the one-shot workers directly.
+- **Workers cannot talk to each other or to the user** — enforced by tools: the
+  builder/reviewer/researcher have NO Agent tool, so they cannot message anyone;
+  they only return their report to whoever spawned them. That IS "workers talk only
+  to their planner."
+- **No agent can force `/compact`.** Compaction is automatic (the harness, as
+  context fills) or manual (the user types `/compact`). The hub stays lean by
+  OFFLOADING heavy work to one-shot agents (their context never enters the hub) and
+  via the **Compact Instructions** in `CLAUDE.md` (which steer what survives).
+
+So the durable backbone is FILES, not agent memory:
+
+- **The ledger** `docs/handoffs/LEDGER.md` — the registry the hub maintains: each
+  thread/campaign's id, department, current gate, status, handoff doc, and session
+  id. The map of who is doing what.
+- **Handoff docs** `docs/handoffs/<campaign-id>.md` — the per-campaign state a gate
+  writes for the next gate to read. Agents hand off THROUGH this file (they cannot
+  message each other).
+- **Closeout docs** `docs/closeouts/<boundary>.md` — freeze a boundary so future
+  work does not re-litigate it.
+
+## Persistent threads = sessions
+
+A true persistent "planner thread" is a separate Claude Code SESSION — open one per
+department (ideally in its worktree); it adopts that department's planner charter.
+Sessions have stable IDs. The hub coordinates them through the ledger plus the
+session tools: `list_sessions` / `search_session_transcripts` to SEE what a
+department thread did, and `send_message` to hand off to one (this prompts the user
+to confirm — it is not silent). The hub cannot CREATE a session; the user opens the
+thread, it picks up its charter + the ledger, and runs its gates.
+
+## Gates — the unit of work
+
+Work moves in GATES, in order. The reviewer/research gates run BEFORE the builder
+batch ON PURPOSE — to understand the boundary before building wrappers faster than
+we understood it. The planner RECORDS each gate's result in the campaign's handoff
+doc (a read-only reviewer returns its findings; the planner is the scribe), and the
+next gate reads it first.
+
+1. **Research gate** (researcher) — "how do other repos solve this?" Opened ONLY
+   when the missing input is EXTERNAL / reference knowledge. NOT for an ownership
+   question (that is the reviewer gate).
+2. **Reviewer gate** (reviewer) — "where does this belong in edi, and what exactly
+   is allowed?" Ownership, naming, repo fit, duplication risk, scope. BEFORE code.
+   Its verdict is "boundary settled — yes/no."
+3. **Builder batch** (builder) — "implement these slices, commit between them, do
+   not pause unless blocked." Bounded batches, verified against the green gate,
+   facts reported.
+4. **Closeout doc** (planner) — "freeze the boundary so future work does not
+   re-litigate it." Written to `docs/closeouts/`.
+
+A planner opens gates in this order, folds each gate's handoff into the next, and
+opens the builder batch ONLY once the reviewer gate has settled the boundary. The
+planner keeps the long road coherent and decides which lane opens next; it does not
+itself write large code (that is a builder batch). Because each worker is one-shot
+and reads only its brief + its charter, the planner BRIEFS each worker with its
+specific gate role — e.g. "you are the reviewer gate: settle ownership/naming/
+duplication/scope for X and propose NO code," or "you are the builder batch:
+implement these N slices, commit between them, don't pause unless blocked."
+
+## What the hub does autonomously (and what it cannot)
+
+- **Can, without asking:** spawn one-shot gate-agents; read/write the ledger,
+  handoff, and closeout docs; read other sessions via `list_sessions` /
+  `search_session_transcripts`.
+- **Needs the user:** `send_message` to another session (confirmation prompt);
+  creating a new session/thread (the user opens it); forcing a `/compact` (the user
+  types it, or the harness auto-compacts).
+- **The hub's context-hygiene move:** push heavy reading/building into one-shot
+  agents so only their short reports return — that is what keeps this window lean
+  between the user's manual compactions.

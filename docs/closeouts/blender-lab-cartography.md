@@ -68,6 +68,16 @@ defects.** Reviewer independently reproduced the green gate.
   edi-drafting (`e61c638`/`2938d7a`), confirmed pre-existing and independent of this
   batch. **Escalated to the hub; edi-drafting owns the one-line fix.** Analogous to the
   documented `edi_shell_window_tests` golden-PNG environmental exclusion.
+  - **HUB RULING (H3, `replies/hub-note-memory-blocker.md`):** confirmed + hub-owned.
+    The fix (restore `#include <memory>` in the three drafting test files, **master
+    commit `3f2c068`**) belongs on shared `master` and awaits user authorization; not
+    yet applied. Hub ratified the interim: **scope the cartography gate to our own
+    recipe/`edi_craft` targets** (done) and close out. Do NOT patch the drafting test
+    locally — it is drafting-owned and the fix is coming on master.
+  - **PENDING FOLLOW-UP (not a re-open):** once `3f2c068` lands on master, `git rebase
+    master` on `dept/blender-lab` and confirm the FULL `cmake --build build` + `ctest
+    -E edi_shell_window_tests` goes green. Until then the recipe-slice gate (green) is
+    the operative proof for this campaign.
 
 ## Not re-opened by this campaign
 

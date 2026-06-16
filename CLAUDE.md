@@ -73,3 +73,25 @@ If `.git/index.lock` or `.git/HEAD.lock` blocks a commit, verify it is a zero-by
   user-defined conversions won't chain).
 - Plan structs carry concrete geometry types; `UpdateGeometryCommand` takes the variant.
 - The `/goal` command (`.claude/commands/goal.md`) encodes the refactor-campaign protocol.
+
+## Agent workflow
+
+Work is organized into departments — `edi-drafting`, `edi-blender-lab`, `edi-ui`,
+`edi-dungeon-map` — each with a planner + builder/reviewer/researcher under
+`.claude/agents/edi-<dept>/`, a charter in `docs/departments/`, and (for the three
+domain departments) a git worktree. The main session is the HUB (the user's one
+window); it runs work in GATES — research → reviewer → builder → closeout, in that
+order — and tracks every thread in `docs/handoffs/LEDGER.md`. Subagents are
+one-shot and workers report only to their planner; the durable handoff is files
+(the ledger, `docs/handoffs/`, `docs/closeouts/`), not agent memory. Full protocol:
+`docs/agent-workflow.md`.
+
+## Compact Instructions
+
+When compacting this conversation, PRESERVE: the active campaign ids + their status
+from `docs/handoffs/LEDGER.md`; any boundary currently being settled (the open
+reviewer-gate question); the green-gate state of the last build (build/ctest/scan);
+and any unpushed-commit / unmerged-worktree state. Do NOT spend compaction budget
+restating the agent workflow, the gate definitions, or the department charters —
+those live in files (`docs/agent-workflow.md`, `docs/departments/`,
+`.claude/agents/`) and are re-read on demand.

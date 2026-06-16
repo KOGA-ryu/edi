@@ -25,8 +25,19 @@
 3. **Slice 3 — cleanup.** Correct `docs/drafting-gaps.md §0` (fill IS rendered now).
    - Hidden-complexity flags carried for the builder: solid-only (hatch out), fill-opacity is real, closed-set must match the painter exactly, z-order fill-under-stroke, and the circle-tessellation mismatch (32 in plot plan vs 64 in `sampleEllipse` — pick one).
 
+### Builder batch — RUN 2026-06-16 (builder, dept/drafting)
+All three slices implemented and committed on `dept/drafting`. Green gate run after each slice.
+
+- **Prereq fix (own commit `3f2c068`)** — `tests/{drafting_room,drafting_ascii_map,drafting_corridor}_tests.cpp` were missing `#include <memory>` (a toolchain change dropped the transitive include), so `std::make_shared` failed to resolve and the WHOLE build broke before any test ran. Pre-existing on `dept/drafting`, unrelated to fill, but it blocked the gate for all drafting work — fixed first, in its own commit, to keep the fill slices clean.
+- **Slice 1 (`a225491`)** — `DraftingPlotFill {objectId, points (closed ring), color, opacity}` added to `DraftingPlotPlan.h` + `fills` vector on `DraftingPlotPlan` and `DraftingPlotJob`. `closedFillRing` (an if-constexpr visit mirroring the painter's fillable set: rectangle/circle/ellipse/polygon) + `appendPlotFill` (gate: `opacity>0 && isValidStrokeColor`) collect into the plan; `applyCalibrationScale` scales fill points too; `buildDraftingPlotJob` copies `fills`. HPGL/G-code untouched (they read only `strokeSegments`) — their tests stay green. **Resolved the tessellation flag:** circle fill uses **32** segments to MATCH its stroke outline (not sampleEllipse's 64) so fill never peeks past the stroke; ellipse reuses `sampleEllipse`. Test: new fill-collection block in `drafting_plot_plan_tests.cpp`.
+- **Slice 2 (`2d48501`)** — `svgFromPlotJob` emits one closed `<path fill="#rrggbb" … Z/>` per `DraftingPlotFill`, BEFORE the stroke-group loop (fill-under-stroke z-order), `fill-opacity` only when ≠1 (gated on formatted text like stroke-opacity). Golden bytes unchanged (fill-less job → no fill path → byte-identical); additive assertions added to `drafting_svg_out_tests.cpp`.
+- **Slice 3 (`170bccf`)** — corrected `docs/drafting-gaps.md §0`: fill is rendered end-to-end (canvas + SVG); remaining gaps narrowed to the authoring legs (controller setter + inspector UI) + solid-only. Docs-only.
+
+**Green gate:** `cmake --build build` clean; `ctest` **95/95 pass** with ONE test excluded — see blocker below. Scan clean (no `.js`/`.qml`, no `.json` outside `.claude/`, no QtQml/QtQuick).
+
 ## Open questions / blockers
-- None blocking — boundary settled. (Builder must respect: per-object, solid-only, additive output, no change to the plotter segment vocabulary.)
+- **PRE-EXISTING, OUT-OF-CHARTER (not resolved):** `edi_shell_window_tests` fails on a **golden PNG pixel-budget mismatch** (6508 differing pixels vs budget 4180 against `tests/golden/default_shell_1100x760.png`). This is a UI-chrome rendering golden owned by **edi-ui**, and the drift is environmental (font/rasterization), NOT caused by this campaign — the fill work touches zero rendered chrome (default doc has no filled objects; canvas fill predates this work). I did NOT regenerate the golden: that is edi-ui's artifact and a machine-specific regen would be the wrong fix from this seat. Flagging for the HUB to route to edi-ui. All other 95 tests pass; my fill slices are fully green.
+- Boundary otherwise settled and respected: per-object, solid-only, additive output, no change to the plotter segment vocabulary.
 
 ## Next
 - Run the builder batch in the `/Users/kogaryu/edi-drafting` worktree (rebase master → implement slices 1–3 → green gate → commit to `dept/drafting`), then write the closeout freezing the side-channel boundary.

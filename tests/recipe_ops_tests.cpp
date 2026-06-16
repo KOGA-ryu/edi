@@ -849,6 +849,22 @@ int main()
         assert(std::get_if<AddBoxOp>(&*newBox)->width == 1.0);
         assert(std::get_if<AddBoxOp>(&*newBox)->name == "b0");
         assert(!makeRecipeOp("AddProfileMoulding", "x").has_value());
+
+        // Remove/reorder keep the binding table (bindings are by op INDEX) sane.
+        RecipeOpStream s;
+        s.ops = {makeRecipeOp("AddBox", "a").value(),
+                 makeRecipeOp("AddCylinder", "b").value(),
+                 makeRecipeOp("AddSphere", "c").value()};
+        s.bindings = {{0, "width", "obj0", "width"}, {2, "radius", "obj2", "radius"}};
+        removeRecipeOp(s, 0); // op a gone; the sphere's binding slides 2 -> 1
+        assert(s.ops.size() == 2);
+        assert(recipeOpTypeName(s.ops[0]) == std::string("AddCylinder"));
+        assert(s.bindings.size() == 1 && s.bindings[0].opIndex == 1);
+        moveRecipeOp(s, 1, 0); // sphere to the front; its binding follows to 0
+        assert(recipeOpTypeName(s.ops[0]) == std::string("AddSphere"));
+        assert(s.bindings[0].opIndex == 0);
+        removeRecipeOp(s, 99); // out of range: no-op
+        assert(s.ops.size() == 2);
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +

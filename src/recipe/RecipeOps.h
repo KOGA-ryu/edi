@@ -214,6 +214,17 @@ const std::vector<std::string> &recipePaletteOpTypes();
 // clicking" factory: the vocabulary owns what a fresh step looks like.
 std::optional<RecipeOp> makeRecipeOp(const std::string &typeName, const std::string &name);
 
+// Remove the op at `index`, keeping the binding table consistent: bindings on
+// that op are dropped, and bindings on later ops shift their opIndex down. A
+// no-op if the index is out of range. (CutFlutes targets ops by NAME, which is
+// stable, so only the index-keyed bindings need fixing up.)
+void removeRecipeOp(RecipeOpStream &stream, std::size_t index);
+
+// Move the op at `from` to `to`, remapping every binding's opIndex through the
+// same move so a field stays bound to its op. A no-op if either index is out of
+// range or they are equal.
+void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to);
+
 // Compile pass: every AddProfileMouldingOp expands to an AddMouldingOp via
 // the term compiler; all other ops pass through unchanged. Rejection names
 // the op (the compiler's own pointable message).

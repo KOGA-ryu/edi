@@ -80,6 +80,11 @@ public:
     // primitive) to the recipe, then sync + re-render. A no-op for a type the
     // palette does not offer. Public so the palette buttons and tests share it.
     void appendRecipeOp(const QString &typeName);
+    // Remove the step at opIndex / move it by delta (-1 up, +1 down), keeping
+    // bindings consistent, then sync + re-render. No-ops at the ends/out of
+    // range. Public so the inspector buttons and tests share them.
+    void removeRecipeOpAt(int opIndex);
+    void moveRecipeOpAt(int opIndex, int delta);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;

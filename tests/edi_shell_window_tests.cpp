@@ -1345,6 +1345,17 @@ int main(int argc, char **argv)
         assert(std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops.back()) != nullptr);
         assert(steps->count() == before + 1); // the Steps list grew with it
 
+        // Remove/reorder buttons drive the verbs: select the just-added step and
+        // remove it; the stream shrinks back. (Move's index fixup is covered in
+        // recipe_ops_tests; here we confirm the buttons are wired.)
+        assert(shell.findChild<QPushButton *>(QStringLiteral("moveStepUp")) != nullptr);
+        assert(shell.findChild<QPushButton *>(QStringLiteral("moveStepDown")) != nullptr);
+        auto *removeStepButton = shell.findChild<QPushButton *>(QStringLiteral("removeStep"));
+        assert(removeStepButton != nullptr);
+        steps->setCurrentRow(before); // the appended op sits at the old size
+        removeStepButton->click();
+        assert(static_cast<int>(shell.opsStream().ops.size()) == before);
+
         // The projection selector re-renders the chosen view.
         auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));
         assert(projection != nullptr);

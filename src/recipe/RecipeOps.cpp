@@ -122,4 +122,45 @@ std::optional<RecipeOp> makeRecipeOp(const std::string &typeName, const std::str
     return std::nullopt;
 }
 
+void removeRecipeOp(RecipeOpStream &stream, std::size_t index)
+{
+    if (index >= stream.ops.size()) {
+        return;
+    }
+    stream.ops.erase(stream.ops.begin() + static_cast<std::ptrdiff_t>(index));
+    std::vector<RecipeFieldBinding> kept;
+    kept.reserve(stream.bindings.size());
+    for (RecipeFieldBinding binding : stream.bindings) {
+        if (binding.opIndex == index) {
+            continue; // its op is gone
+        }
+        if (binding.opIndex > index) {
+            --binding.opIndex; // everything after slid down one
+        }
+        kept.push_back(binding);
+    }
+    stream.bindings = std::move(kept);
+}
+
+void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to)
+{
+    if (from >= stream.ops.size() || to >= stream.ops.size() || from == to) {
+        return;
+    }
+    RecipeOp moved = std::move(stream.ops[from]);
+    stream.ops.erase(stream.ops.begin() + static_cast<std::ptrdiff_t>(from));
+    stream.ops.insert(stream.ops.begin() + static_cast<std::ptrdiff_t>(to), std::move(moved));
+    // Remap binding indices through the same erase+insert: the moved op carries
+    // its bindings to `to`, and the ops that slid over shift by one.
+    for (RecipeFieldBinding &binding : stream.bindings) {
+        if (binding.opIndex == from) {
+            binding.opIndex = to;
+        } else if (from < to && binding.opIndex > from && binding.opIndex <= to) {
+            --binding.opIndex;
+        } else if (to < from && binding.opIndex >= to && binding.opIndex < from) {
+            ++binding.opIndex;
+        }
+    }
+}
+
 } // namespace edi::recipe

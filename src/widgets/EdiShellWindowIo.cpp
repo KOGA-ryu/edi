@@ -944,6 +944,28 @@ void EdiShellWindow::appendRecipeOp(const QString &typeName)
     emit opsStreamChanged();  // the Steps list, the proof, and the compiled view follow
 }
 
+void EdiShellWindow::removeRecipeOpAt(int opIndex)
+{
+    if (opIndex < 0 || opIndex >= static_cast<int>(m_opsStream.ops.size())) {
+        return;
+    }
+    edi::recipe::removeRecipeOp(m_opsStream, static_cast<std::size_t>(opIndex));
+    syncOpsScriptDocument();
+    emit opsStreamChanged();
+}
+
+void EdiShellWindow::moveRecipeOpAt(int opIndex, int delta)
+{
+    const int to = opIndex + delta;
+    if (opIndex < 0 || opIndex >= static_cast<int>(m_opsStream.ops.size())
+        || to < 0 || to >= static_cast<int>(m_opsStream.ops.size())) {
+        return;
+    }
+    edi::recipe::moveRecipeOp(m_opsStream, static_cast<std::size_t>(opIndex), static_cast<std::size_t>(to));
+    syncOpsScriptDocument();
+    emit opsStreamChanged();
+}
+
 namespace {
 // "tube_height" -> "Tube Height": the human label for a TOML field key.
 QString prettyFieldLabel(const QString &key)
@@ -963,10 +985,43 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     layout->setContentsMargins(12, 8, 12, 8);
     layout->setSpacing(12);
 
+    // Left column: the step list with Remove / Up / Down beneath it.
+    auto *leftColumn = new QVBoxLayout;
     auto *list = new QListWidget;
     list->setObjectName(QStringLiteral("opStepsList"));
     list->setMaximumWidth(220);
-    layout->addWidget(list);
+    leftColumn->addWidget(list);
+    auto *stepButtons = new QHBoxLayout;
+    auto *removeButton = new QPushButton(QStringLiteral("Remove"));
+    removeButton->setObjectName(QStringLiteral("removeStep"));
+    auto *upButton = new QPushButton(QStringLiteral("↑"));
+    upButton->setObjectName(QStringLiteral("moveStepUp"));
+    auto *downButton = new QPushButton(QStringLiteral("↓"));
+    downButton->setObjectName(QStringLiteral("moveStepDown"));
+    stepButtons->addWidget(removeButton);
+    stepButtons->addWidget(upButton);
+    stepButtons->addWidget(downButton);
+    leftColumn->addLayout(stepButtons);
+    layout->addLayout(leftColumn);
+    // Remove acts on the selection; Up/Down move it and keep it selected so a
+    // run of clicks walks a step through the recipe.
+    connect(removeButton, &QPushButton::clicked, panel, [this, list]() {
+        removeRecipeOpAt(list->currentRow());
+    });
+    connect(upButton, &QPushButton::clicked, panel, [this, list]() {
+        const int row = list->currentRow();
+        moveRecipeOpAt(row, -1);
+        if (row - 1 >= 0) {
+            list->setCurrentRow(row - 1);
+        }
+    });
+    connect(downButton, &QPushButton::clicked, panel, [this, list]() {
+        const int row = list->currentRow();
+        moveRecipeOpAt(row, 1);
+        if (row + 1 < list->count()) {
+            list->setCurrentRow(row + 1);
+        }
+    });
 
     auto *fields = new QWidget;
     fields->setObjectName(QStringLiteral("opStepsFields"));

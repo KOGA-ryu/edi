@@ -43,6 +43,33 @@ bool commandModeIsDistribute(DraftingAlignmentMode mode)
     return mode == DraftingAlignmentMode::DistributeX || mode == DraftingAlignmentMode::DistributeY;
 }
 
+// The copy -> loop(moveObject) -> commit skeleton that MoveSelection,
+// AlignSelection and DistributeSelection used to inline THREE times. Each command
+// still owns its OWN translation DECISION (a uniform delta, an align plan, or a
+// distribute plan); only the apply step is shared. The variation is pure DATA —
+// the list of per-object translations — so no class hierarchy or callable is
+// needed. Behavior-bearing details preserved verbatim from the inlined copies:
+// the moves run on a COPY and a mid-loop moveObject failure returns its store
+// result with the document UNTOUCHED (all-or-nothing), and the revision bumps
+// only when there was at least one translation to apply.
+DraftingCommandResult applyTranslationPlan(
+    DraftingDocument &document,
+    const std::vector<DraftingTranslation> &translations)
+{
+    DraftingDocument candidate = document;
+    for (const DraftingTranslation &translation : translations) {
+        const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
+        if (!move.ok) {
+            return fromStoreResult(move);
+        }
+    }
+    if (!translations.empty()) {
+        candidate.revision = document.revision + 1;
+        document = std::move(candidate);
+    }
+    return DraftingCommandResult::accepted();
+}
+
 bool sameGuidePosition(const DraftingObject &a, const DraftingObject &b)
 {
     const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
@@ -142,21 +169,22 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!std::isfinite(typedCommand.dx) || !std::isfinite(typedCommand.dy)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
             }
-            DraftingDocument candidate = document;
+            // This command's translation decision: the same finite delta for every
+            // selected object. The containsObject guard is THIS command's own
+            // validation (a stale selection target is rejected before any move) —
+            // align/distribute instead trust planDraftingAlignment to name only
+            // live objects. Validating up front is equivalent to the old in-loop
+            // check: the moves run on a throwaway copy, so a rejection mid-way
+            // never mutated the document either way.
+            std::vector<DraftingTranslation> translations;
+            translations.reserve(document.selectedObjectIds.size());
             for (const DraftingObjectId &objectId : document.selectedObjectIds) {
-                if (!containsObject(candidate, objectId)) {
+                if (!containsObject(document, objectId)) {
                     return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
                 }
-                const DraftingStoreResult move = moveObject(candidate, objectId, typedCommand.dx, typedCommand.dy);
-                if (!move.ok) {
-                    return fromStoreResult(move);
-                }
+                translations.push_back({objectId, typedCommand.dx, typedCommand.dy});
             }
-            if (!document.selectedObjectIds.empty()) {
-                candidate.revision = document.revision + 1;
-                document = std::move(candidate);
-            }
-            return DraftingCommandResult::accepted();
+            return applyTranslationPlan(document, translations);
         } else if constexpr (std::is_same_v<Command, EditObjectHandleCommand>) {
             const DraftingObject *object = findObject(document, typedCommand.objectId);
             if (object == nullptr) {
@@ -264,19 +292,9 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!plan.ok) {
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }
-
-            DraftingDocument candidate = document;
-            for (const DraftingTranslation &translation : plan.translations) {
-                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
-                if (!move.ok) {
-                    return fromStoreResult(move);
-                }
-            }
-            if (!plan.translations.empty()) {
-                candidate.revision = document.revision + 1;
-                document = std::move(candidate);
-            }
-            return DraftingCommandResult::accepted();
+            // Align's translation decision is the alignment plan; the apply is the
+            // shared skeleton.
+            return applyTranslationPlan(document, plan.translations);
         } else if constexpr (std::is_same_v<Command, DistributeSelectionCommand>) {
             if (!commandModeIsDistribute(typedCommand.mode)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "distribute command requires a distribute mode");
@@ -285,19 +303,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!plan.ok) {
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }
-
-            DraftingDocument candidate = document;
-            for (const DraftingTranslation &translation : plan.translations) {
-                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
-                if (!move.ok) {
-                    return fromStoreResult(move);
-                }
-            }
-            if (!plan.translations.empty()) {
-                candidate.revision = document.revision + 1;
-                document = std::move(candidate);
-            }
-            return DraftingCommandResult::accepted();
+            // Distribute's translation decision is the distribute plan; same apply.
+            return applyTranslationPlan(document, plan.translations);
         } else if constexpr (std::is_same_v<Command, SelectObjectCommand>) {
             if (!containsObject(document, typedCommand.objectId)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");

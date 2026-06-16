@@ -9,7 +9,7 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| _(none yet)_ | | | | | |
+| drafting-20260616-fill-svg | edi-drafting | builder | open (boundary settled) | [docs/handoffs/drafting-20260616-fill-svg.md](drafting-20260616-fill-svg.md) | hub |
 
 ## Conventions
 

@@ -80,6 +80,15 @@
 - **Integrated into architecture doc §2 + §5** (visits now marked GUARDED; backlog
   items marked DONE with commits; Mirror two-list design note recorded).
 
+### Builder slice — dedup translation commands — BRIEFED 2026-06-16
+- Brief: `~/dept-bus/edi-drafting/briefs/005-cartography-dedup-builder.md`
+- Last core refactor in the backlog: factor the triplicated copy-doc→loop-move→commit
+  skeleton of MoveSelection/AlignSelection/Distribute into one `applyTranslationPlan`
+  helper (variation as data/plan callable, not subclassing). Behavior byte-identical;
+  CORE region only (`DraftingCommands.{cpp,h}`). Reviewer diff-audit to follow.
+- After this lands + audits clean, the cartography campaign's refactor backlog is
+  EMPTY → write the cartography closeout.
+
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):
   by-domain, SINGLE document.** Do NOT split `DraftingDocument`/`DraftingCommand`.

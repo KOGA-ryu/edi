@@ -73,11 +73,27 @@ Brief `briefs/003`; report `replies/003-cartography-hardening.md`.
   this batch. Analogous to the documented `edi_shell_window_tests` exclusion.
   Escalated to hub.
 
-### Reviewer diff-audit gate — 2026-06-16 — edi-blender-lab-reviewer (OPEN)
-Brief `briefs/004-cartography-audit.md` — adversarially verify slice A is truly
-behavior-preserving (identical extents; correct no-op arms; the templated struct
-captures `include` correctly; no UB/dangling) and slice B's assert is correct/placed.
+### Reviewer diff-audit gate — 2026-06-16 — edi-blender-lab-reviewer (COMPLETE)
+Brief `briefs/004`; verdict `replies/004-cartography-audit.md`.
+- **Slice A: behavior-preserving — YES** (high confidence). Per-op extents
+  byte-equivalent (only `->`→`.`); empty-profile early-out preserved (`return`≡old
+  `continue`); 5 no-op arms frame nothing new; templated struct holds `include` by
+  const-ref (mutations land on the real `bounds`, no dangle/copy); 10 explicit arms,
+  no `auto` catch-all → real exhaustiveness; goldens unchanged.
+- **Slice B: behavior-preserving — YES** (high confidence). Assert value correct,
+  `<variant>` in scope, declaration-only (no runtime/logic effect), message names
+  both obligations.
+- **No defects. Reviewer independently REPRODUCED green:** `ctest -R recipe` 7/7,
+  `--obj-out` byte-stable OBJ, smoke ok.
+- Confirms `drafting_room_tests.cpp` failure independent + edi-drafting's (intro'd by
+  `e61c638`/`2938d7a`), correctly escalated, NOT ours.
+- **Verdict: CLOSE THE CAMPAIGN.**
+
+### Closeout — 2026-06-16 — planner
+`docs/closeouts/blender-lab-cartography.md` written; LEDGER row → Closed; closeout
+reported to hub. Recipe-slice gate green; full-build gate blocked only by the
+external drafting `<memory>` issue (hub/edi-drafting owns it).
 
 ## Next
-- Reviewer diff audit → closeout doc + LEDGER→Closed → report closeout to hub.
-- Hub/edi-drafting to fix `drafting_room_tests.cpp` `<memory>` include (not ours).
+- (none — campaign closed) Future: the feature roadmap (extrude M2, craftsmen M4…)
+  is a separate campaign per `~/dept-bus/ROADMAPS-DRAFT.md`.

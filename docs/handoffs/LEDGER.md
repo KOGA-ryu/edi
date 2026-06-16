@@ -10,7 +10,6 @@ update it when a gate opens, advances, blocks, or closes.
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260616-fill-svg | edi-drafting | builder | open (boundary settled) | [docs/handoffs/drafting-20260616-fill-svg.md](drafting-20260616-fill-svg.md) | hub |
-| blender-lab-20260616-cartography | edi-blender-lab | builder | in-gate (boundary settled) | [docs/handoffs/blender-lab-20260616-cartography.md](blender-lab-20260616-cartography.md) | edi-blender-lab-planner |
 
 ## Conventions
 
@@ -30,4 +29,4 @@ boundary.)_
 
 | Campaign id | Closeout doc | Closed |
 | --- | --- | --- |
-| _(none yet)_ | | |
+| blender-lab-20260616-cartography | [docs/closeouts/blender-lab-cartography.md](../closeouts/blender-lab-cartography.md) | 2026-06-16 |

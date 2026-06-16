@@ -17,14 +17,44 @@
 
 ## Gate log
 
-### Reviewer gate — 2026-06-16 — edi-blender-lab-reviewer (OPEN)
-Brief sent: `~/dept-bus/edi-blender-lab/briefs/002-cartography-reviewer.md`.
-Awaiting findings (read-only map + refactor candidates, NO code).
+### Reviewer gate — 2026-06-16 — edi-blender-lab-reviewer (COMPLETE)
+Brief: `briefs/002-cartography-reviewer.md`; findings:
+`~/dept-bus/edi-blender-lab/replies/002-cartography-reviewer.md`. Planner
+spot-verified the load-bearing line cites (estimateBounds 5/10, palette 4 types,
+store-reader default, empty Script ascii arm — all confirmed).
+- **RecipeOp = exactly 10 arms.**
+- **Interpreter map CORRECTED:** the "7 visit sites" prior was 7 *roles*. Reality:
+  **10 compiler-exhaustive `std::visit` call sites (9 distinct visitors)** + **2
+  roles that are NOT exhaustive** (store reader = string if-ladder w/ refusing
+  default; resolve = lathe-only `get_if`) + a **3rd non-exhaustive `get_if`**:
+  `estimateBounds` (ascii framing) covers only 5/10 ops, silent fall-through.
+- **C++↔Python TOML contract: NO DRIFT** (every op key-for-key; live `--obj-out`,
+  `--dry-run`, `--list-craftsmen` green on the doric sample).
+- **Script invisible in TWO proof tiers** (ASCII + dry-run); OBJ is its only proof.
+- All 3 planner priors CONFIRMED (lathe-only bridge; lathe absent from palette;
+  empty Script ascii arm — deliberate + commented).
+- No data-oriented-rule violations. ProcessRunStore/BlenderRunPlan are src/io +
+  src/scripting (seams we record, not edit).
+- **Boundary settled? YES.** Architecture mapped; refactor candidates ranked.
+
+### Scribe — 2026-06-16 — planner
+Wrote `docs/architecture/edi-blender-lab.md` (first draft, §1–§10). Corrected the
+charter's "every visit is exhaustive" overstatement to point at the real map.
 
 ## Open questions / blockers
 - Worktree has NO `build/` dir yet — `cmake -S . -B build` needed once before the
-  green gate runs (builder concern when that gate opens).
+  green gate runs (told builder to configure it in slice A).
+
+## Decided — behavior-preserving builder batch (this campaign)
+- **Slice A** (MED–HIGH): convert `estimateBounds` (RecipeOpsAscii.cpp:81–116) to a
+  compiler-exhaustive `std::visit` overload set — no-op arms for the 5 draw-nothing
+  ops, identical extents for the 5 it already frames. Comment the AddLabel
+  divergence from Python `bounds_of`. Behavior-preserving.
+- **Slice B** (MED): `static_assert(std::variant_size_v<RecipeOp> == 10)` + teaching
+  comment beside the store-reader if-ladder (RecipeOpsStore.cpp:~605) — a tripwire
+  for the one non-compiler-enforced interpreter role. Compile-time only.
+- Deferred (NOT this campaign): #4 dry-run Script line (touches behavior; folds with
+  backlog Script-ASCII work), #5 craftsman param-type default (hand-built-TOML-only).
 
 ## Next
-- Fold reviewer findings into `docs/architecture/edi-blender-lab.md` (first draft).
-- Decide behavior-preserving refactor slices → builder batch.
+- Builder batch (slices A+B) → green gate → reviewer diff audit → closeout.

@@ -71,6 +71,40 @@ std::string svgFromPlotJob(const DraftingPlotJob &job, const DraftingGridProject
         << formatNumber(widthMm) << ' ' << formatNumber(heightMm)
         << "\" width=\"" << formatNumber(widthMm) << "mm\" height=\"" << formatNumber(heightMm) << "mm\">\n";
 
+    // Per-object solid fills come BEFORE the stroke paths so the strokes paint
+    // over them (fill-under-stroke z-order, matching the canvas). Fill arrives on
+    // a separate channel from the stroke segments — a closed <path> per object,
+    // never hung on a per-pen group (one pen groups many objects, so fill would
+    // bleed across them). SVG's default stroke is "none", so a fill path needs no
+    // stroke attribute; its outline is the matching stroke path drawn on top.
+    for (const DraftingPlotFill &fill : job.fills) {
+        if (fill.points.size() < 3) {
+            continue;
+        }
+        out << "  <path fill=\"" << fill.color << "\"";
+        // Like stroke-opacity, emit only when it says something AT OUTPUT
+        // RESOLUTION — exact 1.0 formats to "1", so a fully opaque fill carries
+        // no attribute (and a fill-less document stays byte-identical anyway).
+        const std::string fillOpacityText = formatNumber(fill.opacity);
+        if (fillOpacityText != "1") {
+            out << " fill-opacity=\"" << fillOpacityText << "\"";
+        }
+        out << " d=\"";
+        for (std::size_t i = 0; i < fill.points.size(); ++i) {
+            // Same projection as the stroke segments: normalized point * page mm.
+            const double x = fill.points[i].x * widthMm;
+            const double y = fill.points[i].y * heightMm;
+            if (i == 0) {
+                out << 'M' << formatNumber(x) << ',' << formatNumber(y);
+            } else {
+                out << " L" << formatNumber(x) << ',' << formatNumber(y);
+            }
+        }
+        // Z closes the ring back to the first point (a filled region, not a
+        // chain) — the samplers return an OPEN ring, so the writer closes it.
+        out << " Z\"/>\n";
+    }
+
     for (std::size_t g = 0; g < groups.size(); ++g) {
         if (groups[g].empty()) {
             continue;

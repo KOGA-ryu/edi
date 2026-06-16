@@ -9,7 +9,7 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| drafting-20260616-cartography | edi-drafting | reviewer | open | [docs/handoffs/drafting-20260616-cartography.md](drafting-20260616-cartography.md) | edi-drafting-planner |
+| _(none active)_ | | | | | |
 
 ## Conventions
 
@@ -30,3 +30,4 @@ boundary.)_
 | Campaign id | Closeout doc | Closed |
 | --- | --- | --- |
 | drafting-20260616-fill-svg | [docs/closeouts/drafting-fill-side-channel.md](../closeouts/drafting-fill-side-channel.md) | 2026-06-16 |
+| drafting-20260616-cartography | [docs/closeouts/drafting-cartography.md](../closeouts/drafting-cartography.md) | 2026-06-16 |

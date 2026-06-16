@@ -131,11 +131,22 @@ ownership fork (§6).
 - ✅ **DONE (LOW, `cae383a`)** — `circleSegments=32` → `constexpr kCircleSegments`
   (one name for both the stroke-outline count and the fill-ring count; they must
   stay equal).
-- ⏳ **PENDING (MED) — dedup MoveSelection/AlignSelection/Distribute**
-  (`DraftingCommands.cpp` ~`:141-159,259-279,280-300`): three near-identical
-  copy-doc→loop-moveObject→commit blocks differing only in the mode gate. Factor an
-  `applyTranslationPlan` helper. Higher care — restructures behavior-bearing code;
-  gate carefully (build + a reviewer diff-audit). Risk LOW-MED.
+- ✅ **DONE (MED, `818736e` + fix `9ab72aa`)** — dedup the translation commands.
+  `applyTranslationPlan(DraftingDocument&, const vector<DraftingTranslation>&)`
+  (file-local) now runs the shared copy→loop-moveObject→commit; **AlignSelection +
+  DistributeSelection delegate to it** (their old blocks were byte-identical —
+  reviewer-confirmed). Variation is pure DATA (the translation vector), no
+  subclassing. **MoveSelection deliberately KEEPS its own interleaved loop** and does
+  NOT share the helper: its per-id `containsObject` guard must stay INTERLEAVED with
+  the move because the FIRST failing id in selection order decides the rejection
+  **message** — a `[present+locked, missing]` selection must surface "object is
+  locked" (from `moveObject`), not the pre-scan's "selection target does not exist".
+  message is observable upstream (`finishEdit`), so the interleaved order is
+  load-bearing. (The first dedup attempt hoisted the guard and was sent back on
+  exactly this; the regression is now pinned by a test in `drafting_commands_tests`.)
+  Also note: the `containsObject` guard intercepts a missing id with
+  `InvalidSelectionTarget` BEFORE `moveObject` would return `ObjectNotFound` — that is
+  what distinguishes a stale selection target from a generic not-found.
 - **DEFERRED to edi-dungeon-map (MAP region per ruling H2)** — the
   `highestDocumentIdSerial` rooms-comment clarification (`DraftingDocument.h:150-153`):
   not ours to edit.

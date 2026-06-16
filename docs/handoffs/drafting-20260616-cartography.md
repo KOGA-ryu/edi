@@ -123,11 +123,27 @@
   lenient "code-only contract" reading. Keep `applyTranslationPlan` + the Align/Distribute
   delegations; revert ONLY MoveSelection's guard hoist to interleaved.
 
-### Builder fix — BRIEFED 2026-06-16
-- Brief: `~/dept-bus/edi-drafting/briefs/007-cartography-dedup-fix-builder.md`
-- Restore MoveSelection's interleaved containsObject→moveObject so the locked-then-
-  missing case returns "object is locked" exactly as before; keep helper for
-  Align/Distribute. Re-audit (cheap) after.
+### Builder fix — DONE 2026-06-16 (commit `9ab72aa`) — ACCEPTED
+- Reply: `~/dept-bus/edi-drafting/replies/007-cartography-dedup-fix-builder.md`.
+  Chose the preferred shape: MoveSelection keeps its OWN interleaved loop (not the
+  helper); Align/Distribute still delegate. Added a `drafting_commands_tests` block
+  asserting both orderings ([locked,missing]→"object is locked"; [missing,…]→
+  "selection target does not exist"). Build clean; ctest 95/95; scan clean.
+- **Planner verification (proportionate, inline — revert-to-baseline + already-audited
+  helper):** `git diff 054d4586(pre-dedup baseline) 9ab72aa` shows MoveSelection's arm
+  is IDENTICAL to baseline modulo a comment; the ONLY changes are the new helper +
+  Align/Distribute delegating to it. Net dedup is behavior-preserving by construction.
+  `ctest -R drafting_commands` → 1/1 green. **ACCEPTED — no further audit needed.**
+- Builder nuance folded into architecture doc §5: the `containsObject` guard's
+  interleaved order is load-bearing (distinguishes stale-target `InvalidSelectionTarget`
+  from `moveObject`'s `ObjectNotFound`).
+
+### CLOSEOUT — campaign COMPLETE 2026-06-16
+- Refactor backlog EMPTY. Four core refactors landed + verified: `985e200`
+  (command `static_assert`), `2a1be77` (4 geometry visits exhaustive), `cae383a`
+  (`kCircleSegments`), `818736e`+`9ab72aa` (translation dedup).
+- Architecture doc `docs/architecture/edi-drafting.md` is the durable map (kept current).
+- Closeout: `docs/closeouts/drafting-cartography.md`. LEDGER row → Closed.
 
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):

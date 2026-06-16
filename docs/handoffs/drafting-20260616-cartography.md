@@ -46,6 +46,30 @@
   behavior-bearing code — wants its own careful gate). Map-graph extraction is
   BLOCKED on the hub fork.
 
+### Builder batch — DONE 2026-06-16 (edi-drafting-builder, via bus)
+- Reply: `~/dept-bus/edi-drafting/replies/002-cartography-exhaustiveness-builder.md`.
+- **Slice 1 `985e200`** — `applyDraftingCommand` terminal `else` →
+  `static_assert(always_false_v<Command>)`; all 33 arms compile-match, runtime
+  byte-identical. **Slice 2 `2a1be77`** — four geometry visits made
+  compile-exhaustive WITHOUT behavior change (explicit per-kind arms + terminal
+  guard): Mirror (7 transform + 7 explicit pass-through), QuickMeasure (5 measured +
+  9 explicit `Unsupported`), PlotPlan appendPlotSegments + closedFillRing (explicit
+  empty/no-segment arms; fillable set + circle-32 frozen-boundary respected).
+  **Slice 3a `cae383a`** — magic `32` → `constexpr kCircleSegments` (stroke + fill
+  must stay equal). **Slice 3b** dropped + reverted (map region).
+- Green gate: build clean (compiling PROVES exhaustiveness over 14 kinds); ctest
+  95/95 (`-E edi_shell_window_tests`, the known edi-ui golden drift); scan clean.
+- Builder flags for the arch doc: the mirrorable set lives in TWO hand-kept lists
+  by design (`mirrorGeometry` visit keys on geometry type, `supportsMirror` keys on
+  `DraftingShapeKind`) — NOT unified (would be behavior-risking); the visit guard now
+  catches a forgotten kind on the VISIT side + a sync comment added.
+
+### Reviewer diff-audit — OPEN 2026-06-16 (edi-drafting-reviewer, via bus)
+- Brief: `~/dept-bus/edi-drafting/briefs/004-cartography-diff-audit-reviewer.md`
+- Priority question: confirm QuickMeasure's 9 `Unsupported` arms reproduce the OLD
+  `else` result exactly (the gate-map called it "degrades to base measure" — verify
+  base-measure vs Unsupported is not a silent behavior change).
+
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):
   by-domain, SINGLE document.** Do NOT split `DraftingDocument`/`DraftingCommand`.

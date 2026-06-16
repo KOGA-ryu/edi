@@ -385,6 +385,230 @@ def _fmt(value: float) -> str:
     return format(value, "g")
 
 
+# ---------------------------------------------------------------------------
+# Mesh proof (no bpy): a deterministic OBJ of the resolved+compiled stream, so
+# organic work has a proof tier beyond the ASCII silhouettes. Primitives are
+# replicated ANALYTICALLY — the proof mesh need not match bpy's tessellation
+# bit-for-bit; determinism and honest dimensions are the contract. The
+# taper/entasis shaft and the moulding lathe SHARE their loft math with build()
+# (the two functions below), so the proof and the bpy build cannot drift.
+
+def cylinder_loft(op: dict) -> tuple[list, list]:
+    """Local (verts, faces) for a tapered/entasis cylinder — v0's ring loft,
+    shared by build()'s shaft branch and the OBJ proof."""
+    rings = 24
+    vertices = max(4, op["vertices"])
+    radius = op["radius"]
+    top_radius = op["taper_top_radius"] if op["taper_top_radius"] is not None else radius
+    height = op["height"]
+    verts: list = []
+    faces: list = []
+    for ring in range(rings + 1):
+        t = ring / rings
+        z_local = -height * 0.5 + height * t
+        linear_radius = radius + (top_radius - radius) * t
+        bulge = math.sin(math.pi * t) * radius * op["entasis_ratio"] if op["entasis"] else 0.0
+        rr = max(0.001, linear_radius + bulge)
+        for index in range(vertices):
+            angle = math.tau * index / vertices
+            verts.append((math.cos(angle) * rr, math.sin(angle) * rr, z_local))
+    for ring in range(rings):
+        current = ring * vertices
+        nxt_ring = (ring + 1) * vertices
+        for index in range(vertices):
+            nxt = (index + 1) % vertices
+            faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
+    faces.append(list(range(vertices - 1, -1, -1)))
+    top_start = rings * vertices
+    faces.append(list(range(top_start, top_start + vertices)))
+    return verts, faces
+
+
+def moulding_rings(op: dict) -> tuple[list, list]:
+    """Local (verts, faces) for a moulding — the profile spun as stacked rings,
+    shared by build()'s add_moulding and the OBJ proof."""
+    vertices = max(4, op["vertices"])
+    verts: list = []
+    faces: list = []
+    for point in op["profile"]:
+        rr = max(0.001, point["radius"])
+        for index in range(vertices):
+            angle = math.tau * index / vertices
+            verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
+    for ring in range(len(op["profile"]) - 1):
+        current = ring * vertices
+        nxt_ring = (ring + 1) * vertices
+        for index in range(vertices):
+            nxt = (index + 1) % vertices
+            faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
+    faces.append(list(range(vertices - 1, -1, -1)))
+    top_start = (len(op["profile"]) - 1) * vertices
+    faces.append(list(range(top_start, top_start + vertices)))
+    return verts, faces
+
+
+def _axis_apply(v: tuple, axis: str) -> tuple:
+    # Mirror build()'s _apply_axis: a shape built along local Z, rotated +pi/2
+    # onto the named axis (so the OBJ verts bake what bpy applies as a rotation).
+    x, y, z = v
+    if axis == "x":
+        return (z, y, -x)   # rotate about Y
+    if axis == "y":
+        return (x, -z, y)   # rotate about X
+    return (x, y, z)
+
+
+def _ring(radius: float, z: float, count: int) -> list:
+    return [(math.cos(math.tau * i / count) * radius, math.sin(math.tau * i / count) * radius, z)
+            for i in range(count)]
+
+
+def _plain_cylinder_local(radius: float, height: float, count: int) -> tuple[list, list]:
+    # Two count-gon rings (bottom, top) + side quads + two caps: the analytic
+    # stand-in for bpy's primitive cylinder (whose pole/cap layout is its own).
+    verts = _ring(radius, -height * 0.5, count) + _ring(radius, height * 0.5, count)
+    faces = []
+    for i in range(count):
+        ni = (i + 1) % count
+        faces.append([i, ni, count + ni, count + i])
+    faces.append(list(range(count - 1, -1, -1)))
+    faces.append(list(range(count, 2 * count)))
+    return verts, faces
+
+
+def box_mesh(op: dict) -> tuple[list, list]:
+    hw, hd, hh = op["width"] / 2, op["depth"] / 2, op["height"] / 2
+    cz = _center_z(op)
+    x, y = op["x"], op["y"]
+    verts = [(x - hw, y - hd, cz - hh), (x + hw, y - hd, cz - hh),
+             (x + hw, y + hd, cz - hh), (x - hw, y + hd, cz - hh),
+             (x - hw, y - hd, cz + hh), (x + hw, y - hd, cz + hh),
+             (x + hw, y + hd, cz + hh), (x - hw, y + hd, cz + hh)]
+    faces = [[0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1],
+             [1, 5, 6, 2], [2, 6, 7, 3], [3, 7, 4, 0]]
+    return verts, faces
+
+
+def sphere_mesh(op: dict) -> tuple[list, list]:
+    # A lat/long sphere (poles collapse to a point — divergent from bpy's UV
+    # sphere, fine for a shape proof). segments/rings from v0's add_sphere.
+    segments = max(8, op["vertices"])
+    rings = max(4, op["vertices"] // 2)
+    r = op["radius"]
+    x, y, z0 = op["x"], op["y"], op["z"]
+    verts = []
+    for ring in range(rings + 1):
+        phi = math.pi * ring / rings
+        z = math.cos(phi) * r
+        rr = math.sin(phi) * r
+        for seg in range(segments):
+            theta = math.tau * seg / segments
+            verts.append((math.cos(theta) * rr + x, math.sin(theta) * rr + y, z + z0))
+    faces = []
+    for ring in range(rings):
+        for seg in range(segments):
+            ns = (seg + 1) % segments
+            faces.append([ring * segments + seg, ring * segments + ns,
+                          (ring + 1) * segments + ns, (ring + 1) * segments + seg])
+    return verts, faces
+
+
+def _cylinder_world(op: dict) -> tuple[list, list]:
+    if op["taper_top_radius"] is not None or op["entasis"]:
+        local, faces = cylinder_loft(op)
+    else:
+        local, faces = _plain_cylinder_local(op["radius"], op["height"], max(4, op["vertices"]))
+    axis = op["axis"]
+    loc_z = _center_z(op) if axis == "z" else op["z"]
+    verts = []
+    for v in local:
+        rx, ry, rz = _axis_apply(v, axis)
+        verts.append((rx + op["x"], ry + op["y"], rz + loc_z))
+    return verts, faces
+
+
+def _moulding_world(op: dict) -> tuple[list, list]:
+    local, faces = moulding_rings(op)
+    return [(v[0] + op["x"], v[1] + op["y"], v[2] + op["base_z"]) for v in local], faces
+
+
+def _ring_world(op: dict) -> tuple[list, list]:
+    fake = dict(op, radius=op["radius"] + op["overhang"], height=op["tube_height"],
+                taper_top_radius=None, entasis=False, axis="z", z_mode="center",
+                entasis_ratio=0.045)
+    return _cylinder_world(fake)
+
+
+def _flute_target_extent(ops: list, name: str) -> tuple:
+    # The z-centre, z-height, and xy-radius of a flute target (a z cylinder).
+    for op in ops:
+        if op.get("name") == name and op["type"] == "AddCylinder":
+            return _center_z(op), op["height"], op["radius"]
+    return 0.0, 1.0, 1.0
+
+
+def cutflute_objects(ops: list, op: dict) -> list:
+    # CutFlutes emits its CUTTERS as named objects (A's offset arithmetic).
+    # Boolean cutting is execution's job; a proof shows where the tool bites.
+    z_c, z_h, target_r = _flute_target_extent(ops, op["target"])
+    count = max(1, op["count"])
+    if op["cutter_radius"] is not None and op["at_radius"] is not None:
+        cutter_radius = op["cutter_radius"]
+        cutter_offset = op["at_radius"] + cutter_radius - op["depth"]
+    else:
+        cutter_radius = max(0.02, target_r * op["width_ratio"] * 0.5)
+        cutter_offset = max(0.001, target_r + cutter_radius - op["depth"])
+    z0 = z_c - z_h * 0.5 if op["start_z"] is None else op["start_z"]
+    z1 = z_c + z_h * 0.5 if op["end_z"] is None else op["end_z"]
+    cutter_depth = max(0.001, z1 - z0)
+    z_mid = (z0 + z1) * 0.5
+    objects = []
+    for index in range(count):
+        angle = math.tau * index / count
+        cx = math.cos(angle) * cutter_offset
+        cy = math.sin(angle) * cutter_offset
+        local, faces = _plain_cylinder_local(cutter_radius, cutter_depth, 18)
+        verts = [(v[0] + cx, v[1] + cy, v[2] + z_mid) for v in local]
+        objects.append((f"{op['target']}.flute_cutter_{index:02d}", verts, faces))
+    return objects
+
+
+def obj_objects(ops: list) -> list:
+    """(name, verts, faces) per buildable op — the OBJ proof's object list, in
+    op order. AddLabel carries no mesh (it is text), so it is skipped."""
+    out = []
+    for op in ops:
+        kind = op["type"]
+        if kind == "AddBox":
+            out.append((op["name"], *box_mesh(op)))
+        elif kind == "AddCylinder":
+            out.append((op["name"], *_cylinder_world(op)))
+        elif kind == "AddSphere":
+            out.append((op["name"], *sphere_mesh(op)))
+        elif kind == "AddRing":
+            out.append((op["name"], *_ring_world(op)))
+        elif kind == "AddMoulding":
+            out.append((op["name"], *_moulding_world(op)))
+        elif kind == "CutFlutes":
+            out.extend(cutflute_objects(ops, op))
+    return out
+
+
+def obj_lines(ops: list) -> list:
+    """The OBJ text: `o <name>` groups, `v`/`f` only (no normals/uv — the proof
+    is shape, not shading), 1-indexed across the file, op order, fixed `g` floats."""
+    lines: list = []
+    base = 1
+    for name, verts, faces in obj_objects(ops):
+        lines.append(f"o {name}")
+        for vx, vy, vz in verts:
+            lines.append(f"v {_fmt(vx)} {_fmt(vy)} {_fmt(vz)}")
+        for face in faces:
+            lines.append("f " + " ".join(str(base + i) for i in face))
+        base += len(verts)
+    return lines
+
+
 def plan_lines(ops: list[dict]) -> list[str]:
     """The dry run: one deterministic line per op, plus the computed rig."""
     lines = [f"# edi_craft dry run — {len(ops)} ops"]
@@ -509,32 +733,9 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
             assign_material(obj, op["material"])
             polish(obj, 0.035, 1)
             return obj
-        # Tapered/entasis shaft: v0's ring loft, verbatim math.
-        rings = 24
-        vertices = max(4, op["vertices"])
-        radius = op["radius"]
-        top_radius = top if top is not None else radius
-        height = op["height"]
-        verts = []
-        faces = []
-        for ring in range(rings + 1):
-            t = ring / rings
-            z_local = -height * 0.5 + height * t
-            linear_radius = radius + (top_radius - radius) * t
-            bulge = math.sin(math.pi * t) * radius * op["entasis_ratio"] if op["entasis"] else 0.0
-            rr = max(0.001, linear_radius + bulge)
-            for index in range(vertices):
-                angle = math.tau * index / vertices
-                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, z_local))
-        for ring in range(rings):
-            current = ring * vertices
-            nxt_ring = (ring + 1) * vertices
-            for index in range(vertices):
-                nxt = (index + 1) % vertices
-                faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
-        faces.append(list(range(vertices - 1, -1, -1)))
-        top_start = rings * vertices
-        faces.append(list(range(top_start, top_start + vertices)))
+        # Tapered/entasis shaft: v0's ring loft, now shared with the OBJ proof
+        # (cylinder_loft is the same math this branch had inline).
+        verts, faces = cylinder_loft(op)
         mesh = bpy.data.meshes.new(op["name"] + "_mesh")
         mesh.from_pydata(verts, [], faces)
         mesh.update(calc_edges=True)
@@ -573,24 +774,9 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         return obj
 
     def add_moulding(op):
-        # The mason's profile spun as stacked rings, capped both ends.
-        vertices = max(4, op["vertices"])
-        verts = []
-        faces = []
-        for point in op["profile"]:
-            rr = max(0.001, point["radius"])
-            for index in range(vertices):
-                angle = math.tau * index / vertices
-                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
-        for ring in range(len(op["profile"]) - 1):
-            current = ring * vertices
-            nxt_ring = (ring + 1) * vertices
-            for index in range(vertices):
-                nxt = (index + 1) % vertices
-                faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
-        faces.append(list(range(vertices - 1, -1, -1)))
-        top_start = (len(op["profile"]) - 1) * vertices
-        faces.append(list(range(top_start, top_start + vertices)))
+        # The mason's profile spun as stacked rings, capped both ends — shared
+        # with the OBJ proof (moulding_rings is this branch's former inline math).
+        verts, faces = moulding_rings(op)
         mesh = bpy.data.meshes.new(op["name"] + "_mesh")
         mesh.from_pydata(verts, [], faces)
         mesh.update(calc_edges=True)
@@ -718,11 +904,17 @@ def main(argv: list[str]) -> int:
     else:
         argv = argv[1:]
     dry_run = "--dry-run" in argv
+    obj_out = next((arg.split("=", 1)[1] for arg in argv if arg.startswith("--obj-out=")), None)
     paths = [arg for arg in argv if not arg.startswith("--")]
     if len(paths) != 1:
-        print("usage: edi_craft.py [--dry-run] <ops_compiled.toml>", file=sys.stderr)
+        print("usage: edi_craft.py [--dry-run] [--obj-out=<path>] <ops_compiled.toml>", file=sys.stderr)
         return 2
     ops = parse_ops(paths[0])
+    if obj_out is not None:
+        # The mesh proof: a deterministic OBJ, no Blender — write it and exit.
+        with open(obj_out, "w") as handle:
+            handle.write("\n".join(obj_lines(ops)) + "\n")
+        return 0
     if dry_run:
         print("\n".join(plan_lines(ops)))
         return 0

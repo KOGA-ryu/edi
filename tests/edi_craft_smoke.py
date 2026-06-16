@@ -148,6 +148,21 @@ def main() -> int:
         golden = f.read()
     assert plan == golden, "dry-run plan drifted from samples/doric_column/doric_dry_run.txt"
 
+    # The mesh proof (R2): the OBJ of the compiled doric is byte-stable and
+    # carries every op as a named object — the flute cutters included. The
+    # byte-golden pins all 6928 verts / 6192 faces; these extra checks name the
+    # semantics so a mutation (a dropped cutter, a renamed object) reads clearly.
+    obj = "\n".join(edi_craft.obj_lines(ops)) + "\n"
+    with open(os.path.join(SAMPLES, "doric_column.obj"), encoding="utf-8") as f:
+        obj_golden = f.read()
+    assert obj == obj_golden, "mesh proof OBJ drifted from samples/doric_column/doric_column.obj"
+    obj_names = [line[2:] for line in obj.splitlines() if line.startswith("o ")]
+    assert len(obj_names) == 28, f"OBJ object count drifted: {len(obj_names)}"
+    cutters = [name for name in obj_names if ".flute_cutter_" in name]
+    assert len(cutters) == 20, f"flute cutter count drifted: {len(cutters)}"
+    assert obj.count("\nv ") + (1 if obj.startswith("v ") else 0) == 6928, "OBJ vertex count drifted"
+    assert obj.count("\nf ") + (1 if obj.startswith("f ") else 0) == 6192, "OBJ face count drifted"
+
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.
     path = write_temp(PLAN_FIXTURE)

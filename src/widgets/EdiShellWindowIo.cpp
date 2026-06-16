@@ -33,9 +33,11 @@
 #include <vector>
 
 #include "core/DrawingCore.h"
+#include "recipe/RecipeCraftsmen.h"
 #include "recipe/RecipeOpsAscii.h"
 #include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeOpSchema.h"
+#include "recipe/RecipeTextNumbers.h"
 #include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
@@ -1000,6 +1002,34 @@ void EdiShellWindow::appendRecipeOp(const QString &typeName)
     emit opsStreamChanged();  // the Steps list, the proof, and the compiled view follow
 }
 
+void EdiShellWindow::appendScriptStep(const QString &craftsmanId)
+{
+    const edi::recipe::CraftsmanManifest *manifest =
+        edi::recipe::findCraftsman(m_craftsmen, craftsmanId.toStdString());
+    if (manifest == nullptr) {
+        return; // not a registered craftsman
+    }
+    // Name the step "<id>_<position>" — unique while we only ever append, the
+    // same scheme appendRecipeOp uses. makeScriptOp seeds every param at its
+    // manifest default, so the step is immediately visible in the proof.
+    const std::string name =
+        QStringLiteral("%1_%2").arg(craftsmanId).arg(m_opsStream.ops.size()).toStdString();
+    m_opsStream.ops.push_back(edi::recipe::makeScriptOp(*manifest, name));
+    syncOpsScriptDocument();
+    emit opsStreamChanged();
+}
+
+void EdiShellWindow::setCraftsmanRegistryToml(const QString &toml)
+{
+    // Parse-and-store; a bad registry leaves the list empty (no craftsman
+    // buttons) rather than throwing. The palette reads m_craftsmen when it is
+    // built, so this must run before the lab workspace mounts (main.cpp feeds
+    // it at startup; tests feed it before switching to the Blender workspace).
+    const edi::recipe::CraftsmanRegistryResult parsed =
+        edi::recipe::parseCraftsmanRegistryToml(toml.toStdString(), "craftsmen");
+    m_craftsmen = parsed.craftsmen;
+}
+
 void EdiShellWindow::removeRecipeOpAt(int opIndex)
 {
     if (opIndex < 0 || opIndex >= static_cast<int>(m_opsStream.ops.size())) {
@@ -1142,12 +1172,93 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     form->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(fields, 1);
 
+    // For a ScriptOp param, the manifest's declaration (its label + type);
+    // nullptr for a built-in field, a non-Script op, or an unregistered
+    // craftsman. The inspector renders a craftsman param with a widget the
+    // MANIFEST types (number/integer/material/…) instead of the plain text the
+    // pure schema reports — the type lives in the python script, so this overlay
+    // lives here, where the registry is, not in the Qt-free schema.
+    auto paramSpec = [this](const edi::recipe::RecipeOp &op, const std::string &key)
+        -> const edi::recipe::CraftsmanParam * {
+        const auto *script = std::get_if<edi::recipe::ScriptOp>(&op);
+        if (script == nullptr) {
+            return nullptr;
+        }
+        const edi::recipe::CraftsmanManifest *manifest =
+            edi::recipe::findCraftsman(m_craftsmen, script->scriptId);
+        if (manifest == nullptr) {
+            return nullptr;
+        }
+        for (const edi::recipe::CraftsmanParam &param : manifest->params) {
+            if (param.key == key) {
+                return &param;
+            }
+        }
+        return nullptr;
+    };
+
+    // A manifest-typed editor for one craftsman param. The param's VALUE is a
+    // string in the op's bag, so whatever the widget, the commit formats back to
+    // a string (numberKeyText for a number, "true"/"false" for a bool, …). Params
+    // are not bindable, so there is no bind menu — just the editor.
+    auto buildParamWidget = [this, fields](int index, const QString &key, const std::string &type,
+                                           const std::string &valueText) -> QWidget * {
+        using edi::recipe::RecipeScalarValue;
+        if (type == "number") {
+            auto *spin = new QDoubleSpinBox;
+            spin->setDecimals(3);
+            spin->setRange(-1000000.0, 1000000.0);
+            double value = 0.0;
+            edi::recipe::parseNumberText(valueText, value);
+            spin->setValue(value);
+            connect(spin, &QDoubleSpinBox::editingFinished, fields, [this, index, key, spin]() {
+                applyOpScalarEdit(index, key, RecipeScalarValue{edi::recipe::numberKeyText(spin->value())});
+            });
+            return spin;
+        }
+        if (type == "integer") {
+            auto *spin = new QSpinBox;
+            spin->setRange(-1000000, 1000000);
+            spin->setValue(QString::fromStdString(valueText).toInt());
+            connect(spin, &QSpinBox::editingFinished, fields, [this, index, key, spin]() {
+                applyOpScalarEdit(index, key, RecipeScalarValue{std::to_string(spin->value())});
+            });
+            return spin;
+        }
+        if (type == "material") {
+            auto *combo = new QComboBox;
+            for (const std::string &material : edi::recipe::recipeMaterialTable()) {
+                combo->addItem(QString::fromStdString(material));
+            }
+            combo->setCurrentText(QString::fromStdString(valueText));
+            connect(combo, &QComboBox::activated, fields, [this, index, key, combo](int) {
+                applyOpScalarEdit(index, key, RecipeScalarValue{combo->currentText().toStdString()});
+            });
+            return combo;
+        }
+        if (type == "bool" || type == "boolean") {
+            auto *check = new QCheckBox;
+            check->setChecked(valueText == "true");
+            connect(check, &QCheckBox::clicked, fields, [this, index, key](bool on) {
+                applyOpScalarEdit(index, key, RecipeScalarValue{std::string(on ? "true" : "false")});
+            });
+            return check;
+        }
+        // text / string / anything unrecognized: a plain line edit (the value is
+        // already a string; an unknown manifest type degrades to editable text).
+        auto *edit = new QLineEdit(QString::fromStdString(valueText));
+        connect(edit, &QLineEdit::editingFinished, fields, [this, index, key, edit]() {
+            applyOpScalarEdit(index, key, RecipeScalarValue{edit->text().toStdString()});
+        });
+        return edit;
+    };
+
     // Build fresh field widgets for the selected op. Called ONLY on selection
     // change (and the first build) — never from opsStreamChanged — so it can
     // delete the old widgets without ever deleting one mid-signal during its own
     // commit. A field bound to a drafted measurement (its number comes from the
     // canvas via resolve) renders disabled, with the binding named in its label.
-    auto rebuildFields = [this, form, fields](int index) {
+    auto rebuildFields = [this, form, fields, paramSpec, buildParamWidget](int index) {
         while (form->rowCount() > 0) {
             form->removeRow(0);
         }
@@ -1159,6 +1270,15 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             using edi::recipe::RecipeFieldKind;
             using edi::recipe::RecipeScalarValue;
             const QString key = QString::fromStdString(scalar.key);
+            // A craftsman param renders by its MANIFEST type, with the manifest's
+            // label; the pure schema reported it as plain text. (Unknown craftsman
+            // ⇒ no spec ⇒ it falls through to that text widget below.)
+            if (const edi::recipe::CraftsmanParam *spec = paramSpec(op, scalar.key)) {
+                QWidget *paramWidget = buildParamWidget(index, key, spec->type, scalar.text);
+                paramWidget->setObjectName(QStringLiteral("opField_%1").arg(key));
+                form->addRow(QString::fromStdString(spec->label), paramWidget);
+                continue;
+            }
             // A bound double is read here, not edited (its number comes from the
             // canvas through resolve); a read-only reference (a revolved profile
             // id) likewise. Both render disabled.
@@ -1261,14 +1381,42 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     // Re-read the selected op's values into the EXISTING spins (no widget
     // delete) — signal-safe, so it runs on every opsStreamChanged, whether the
     // change came from this inspector, the editor's Apply, or an Open.
-    auto refreshFieldValues = [this, fields](int index) {
+    auto refreshFieldValues = [this, fields, paramSpec](int index) {
         if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
             return;
         }
         using edi::recipe::RecipeFieldKind;
-        for (const edi::recipe::RecipeOpScalar &scalar :
-             edi::recipe::opEditableScalars(m_opsStream.ops[static_cast<std::size_t>(index)])) {
+        const edi::recipe::RecipeOp &op = m_opsStream.ops[static_cast<std::size_t>(index)];
+        for (const edi::recipe::RecipeOpScalar &scalar : edi::recipe::opEditableScalars(op)) {
             const QString name = QStringLiteral("opField_%1").arg(QString::fromStdString(scalar.key));
+            // A craftsman param's widget is whatever its manifest type built — so
+            // refresh it by that type, not the schema's plain-text kind, or its
+            // typed spin/combo would never follow an external (editor) edit.
+            if (const edi::recipe::CraftsmanParam *spec = paramSpec(op, scalar.key)) {
+                const std::string &type = spec->type;
+                if (type == "number") {
+                    if (auto *w = fields->findChild<QDoubleSpinBox *>(name)) {
+                        double value = 0.0;
+                        edi::recipe::parseNumberText(scalar.text, value);
+                        w->setValue(value);
+                    }
+                } else if (type == "integer") {
+                    if (auto *w = fields->findChild<QSpinBox *>(name)) {
+                        w->setValue(QString::fromStdString(scalar.text).toInt());
+                    }
+                } else if (type == "material") {
+                    if (auto *w = fields->findChild<QComboBox *>(name)) {
+                        w->setCurrentText(QString::fromStdString(scalar.text));
+                    }
+                } else if (type == "bool" || type == "boolean") {
+                    if (auto *w = fields->findChild<QCheckBox *>(name)) {
+                        w->setChecked(scalar.text == "true");
+                    }
+                } else if (auto *w = fields->findChild<QLineEdit *>(name)) {
+                    w->setText(QString::fromStdString(scalar.text));
+                }
+                continue;
+            }
             switch (scalar.kind) {
             case RecipeFieldKind::Number:
                 if (auto *w = fields->findChild<QDoubleSpinBox *>(name)) { w->setValue(scalar.number); }
@@ -1388,6 +1536,24 @@ QWidget *EdiShellWindow::buildStepPalettePanel()
         connect(button, &QPushButton::clicked, panel, [this, typeName]() { appendRecipeOp(typeName); });
         layout->addWidget(button);
     }
+
+    // The custom craftsmen, from the loaded registry (edi_craft --list-craftsmen):
+    // one button per craftsman, under its own heading, appending a Script step
+    // seeded from the manifest. Empty registry ⇒ no heading, no buttons — the
+    // built-in palette stands alone until a craftsman is installed + fed in.
+    if (!m_craftsmen.empty()) {
+        auto *craftsmenTitle = new QLabel(QStringLiteral("Craftsmen"));
+        craftsmenTitle->setObjectName(QStringLiteral("craftsmanPaletteTitle"));
+        layout->addWidget(craftsmenTitle);
+        for (const edi::recipe::CraftsmanManifest &manifest : m_craftsmen) {
+            const QString id = QString::fromStdString(manifest.id);
+            auto *button = new QPushButton(QString::fromStdString(manifest.label));
+            button->setObjectName(QStringLiteral("addCraftsman_%1").arg(id));
+            connect(button, &QPushButton::clicked, panel, [this, id]() { appendScriptStep(id); });
+            layout->addWidget(button);
+        }
+    }
+
     layout->addStretch(1);
     return panel;
 }

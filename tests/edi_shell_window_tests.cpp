@@ -1409,6 +1409,89 @@ int main(int argc, char **argv)
         assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) == nullptr);
     }
 
+    // Custom craftsmen: a fed-in registry adds craftsman buttons to the palette,
+    // clicking one composes a Script step, and the inspector renders its params
+    // with the widgets the MANIFEST types. The registry is INJECTED (main.cpp
+    // runs edi_craft --list-craftsmen; the test feeds a literal) and must be set
+    // before the lab mounts so the palette is built with the buttons.
+    {
+        EdiShellWindow craft;
+        craft.setCraftsmanRegistryToml(QStringLiteral(
+            "craftsman.0.id = \"twisted_column\"\n"
+            "craftsman.0.label = \"Twisted Column\"\n"
+            "craftsman.0.param.0.key = \"radius\"\n"
+            "craftsman.0.param.0.label = \"Radius\"\n"
+            "craftsman.0.param.0.type = \"number\"\n"
+            "craftsman.0.param.0.default = \"1.0\"\n"
+            "craftsman.0.param.1.key = \"sides\"\n"
+            "craftsman.0.param.1.label = \"Sides\"\n"
+            "craftsman.0.param.1.type = \"integer\"\n"
+            "craftsman.0.param.1.default = \"4\"\n"
+            "craftsman.0.param.2.key = \"material\"\n"
+            "craftsman.0.param.2.label = \"Material\"\n"
+            "craftsman.0.param.2.type = \"material\"\n"
+            "craftsman.0.param.2.default = \"stone\"\n"));
+        assert(craft.craftsmen().size() == 1);
+        craft.show();
+        craft.setWorkspaceMode(edi::app::WorkspaceMode::Blender);
+
+        // The palette grew a Craftsmen heading + a button per craftsman.
+        assert(craft.findChild<QLabel *>(QStringLiteral("craftsmanPaletteTitle")) != nullptr);
+        auto *craftBtn = craft.findChild<QPushButton *>(QStringLiteral("addCraftsman_twisted_column"));
+        assert(craftBtn != nullptr);
+
+        // Click it: a Script step joins the recipe, seeded from the manifest.
+        craftBtn->click();
+        assert(craft.opsStream().ops.size() == 1);
+        const auto *script = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
+        assert(script != nullptr && script->scriptId == "twisted_column");
+        assert(script->params.size() == 3);
+
+        // Select the step; the inspector renders each param with the widget its
+        // MANIFEST type calls for, plus the placement spins and the read-only id.
+        auto *steps = craft.findChild<QListWidget *>(QStringLiteral("opStepsList"));
+        assert(steps != nullptr && steps->count() == 1);
+        steps->setCurrentRow(0);
+        auto *radius = craft.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
+        auto *sides = craft.findChild<QSpinBox *>(QStringLiteral("opField_sides"));
+        auto *material = craft.findChild<QComboBox *>(QStringLiteral("opField_material"));
+        auto *scriptId = craft.findChild<QLineEdit *>(QStringLiteral("opField_script"));
+        assert(radius != nullptr && sides != nullptr && material != nullptr && scriptId != nullptr);
+        assert(radius->value() == 1.0 && sides->value() == 4);
+        assert(material->currentText() == QStringLiteral("stone"));
+        assert(!scriptId->isEnabled()); // the craftsman id is a read-only reference
+        // x/y/z are still the bindable placement spins.
+        assert(craft.findChild<QDoubleSpinBox *>(QStringLiteral("opField_x")) != nullptr);
+
+        // Edit a number param through the REAL widget commit path: its value is
+        // stored back AS A STRING in the bag, formatted as the store would.
+        sides->setValue(6);
+        emit sides->editingFinished();
+        radius->setValue(2.5);
+        emit radius->editingFinished();
+        const auto *tuned = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
+        assert(tuned != nullptr);
+        const auto paramValue = [tuned](const std::string &key) -> std::string {
+            for (const edi::recipe::ScriptParam &p : tuned->params) {
+                if (p.key == key) return p.value;
+            }
+            return "<none>";
+        };
+        assert(paramValue("sides") == "6");
+        assert(paramValue("radius") == "2.5");
+
+        // The material dropdown commits a string too (re-fetch the op afterward).
+        craft.applyOpScalarEdit(0, QStringLiteral("material"),
+                                edi::recipe::RecipeScalarValue{std::string("marble")});
+        const auto *afterMaterial = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
+        assert(afterMaterial != nullptr);
+        bool sawMarble = false;
+        for (const edi::recipe::ScriptParam &p : afterMaterial->params) {
+            sawMarble = sawMarble || (p.key == "material" && p.value == "marble");
+        }
+        assert(sawMarble);
+    }
+
     // F1 — the object list: a browsable projection of the document. It
     // mirrors object count, tracks selection both ways, and selectObjectById
     // is selection-only (no undo step, same rule as marquee).

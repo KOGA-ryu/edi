@@ -16,6 +16,7 @@
 
 #include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
 #include "recipe/RecipeOpSchema.h" // the inspector's scalar-field schema + RecipeScalarValue
+#include "recipe/RecipeCraftsmen.h" // the custom-craftsman registry (palette + inspector)
 #include "text/TextDocumentStore.h" // the editor's documents, window-owned (E1)
 #include "io/ProcessRunStore.h" // the Blender lab's subprocess seam
 #include "scripting/BlenderRunPlan.h" // the pure plan the runner executes
@@ -89,6 +90,18 @@ public:
     // primitive) to the recipe, then sync + re-render. A no-op for a type the
     // palette does not offer. Public so the palette buttons and tests share it.
     void appendRecipeOp(const QString &typeName);
+    // The craftsman palette's append verb: add a Script step dispatching to the
+    // registered craftsman `craftsmanId`, its params seeded from the manifest.
+    // A no-op for an id not in the loaded registry. Public so the palette
+    // buttons and tests share it.
+    void appendScriptStep(const QString &craftsmanId);
+    // Load the craftsmen registry the python half prints (edi_craft.py
+    // --list-craftsmen). Injected — main.cpp runs the subprocess and feeds the
+    // TOML; tests feed a literal. Set it BEFORE the lab workspace mounts so the
+    // palette is built with the craftsman buttons. A parse failure leaves the
+    // registry empty (no craftsman buttons), never throws.
+    void setCraftsmanRegistryToml(const QString &toml);
+    const std::vector<edi::recipe::CraftsmanManifest> &craftsmen() const { return m_craftsmen; }
     // Remove the step at opIndex / move it by delta (-1 up, +1 down), keeping
     // bindings consistent, then sync + re-render. No-ops at the ends/out of
     // range. Public so the inspector buttons and tests share them.
@@ -379,6 +392,7 @@ private:
     QString m_currentDrawingPath;
     QString m_lastRecipeError;
     edi::recipe::RecipeOpStream m_opsStream; // the op pipeline's loaded stream (R1-B05)
+    std::vector<edi::recipe::CraftsmanManifest> m_craftsmen; // the loaded craftsmen registry
     // The text editor's documents (E1): window-owned like m_opsStream, so
     // workspace remounts (which recreate feature instances) cannot lose
     // edits; the panel reaches it through the FeatureContext bus.

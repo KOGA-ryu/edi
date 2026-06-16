@@ -105,10 +105,29 @@
      `!plan.translations.empty()`) — collapses to `!translations.empty()` since Move
      makes one translation per id.
 
-### Reviewer diff-audit — OPEN 2026-06-16 (commit `818736e`)
-- Brief: `~/dept-bus/edi-drafting/briefs/006-cartography-dedup-audit-reviewer.md`
-- PRIORITY: falsify the hoist (#1) — is moving the existence check from interleaved
-  to pre-loop truly behavior-equivalent for ALL orderings/rejection paths?
+### Reviewer diff-audit — DONE 2026-06-16 — VERDICT: SEND-BACK (one minor real divergence)
+- Reply: `~/dept-bus/edi-drafting/replies/003-cartography-dedup-audit.md`.
+- Checks 2–5 (commit-gate collapse, Align/Distribute, data-oriented fit, scope) all
+  CONFIRMED clean/byte-identical. The helper + Align/Distribute delegations are a
+  genuine safe dedup.
+- **The hoist (#1) — BEHAVIOR CHANGE FOUND (minor, error-path message only).** When a
+  selection holds a present-but-LOCKED id BEFORE a stale/missing id ([A locked, B
+  missing]): OLD interleaved code returns `InvalidSelectionTarget / "object is locked"`
+  (moveObject rejects A first, B never examined); NEW pre-scan returns
+  `InvalidSelectionTarget / "selection target does not exist"` (B caught in the check
+  loop first). Same error CODE, DIFFERENT `message` — and `DraftingCommandResult.message`
+  is observable upstream (finishEdit). No divergence when all ids present or when the
+  missing id is first.
+- **PLANNER RULING:** SEND-BACK. The campaign mandate is behavior-preserving ONLY and
+  `message` is observable; the fix is cheap + certainly-correct, so we do NOT take the
+  lenient "code-only contract" reading. Keep `applyTranslationPlan` + the Align/Distribute
+  delegations; revert ONLY MoveSelection's guard hoist to interleaved.
+
+### Builder fix — BRIEFED 2026-06-16
+- Brief: `~/dept-bus/edi-drafting/briefs/007-cartography-dedup-fix-builder.md`
+- Restore MoveSelection's interleaved containsObject→moveObject so the locked-then-
+  missing case returns "object is locked" exactly as before; keep helper for
+  Align/Distribute. Re-audit (cheap) after.
 
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):

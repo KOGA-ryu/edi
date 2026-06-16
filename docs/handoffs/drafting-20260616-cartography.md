@@ -47,17 +47,17 @@
   BLOCKED on the hub fork.
 
 ## Open questions / blockers
-- **ESCALATED TO HUB 2026-06-16 — `src/drafting` map-graph ownership fork.** The map
-  graph physically lives in our files and is NOT separable by file alone:
-  `DraftingDocument` (a CORE type) embeds the plug/connection/room/block vectors and
-  `DraftingCommand` (a CORE variant) embeds 7 map arms. The two departments collide
-  on `DraftingDocument.h` + `DraftingCommands.h` regardless. The hub must rule the
-  boundary AXIS: (a) by-file ownership (dungeon-map gets a sub-target, map structs
-  migrate, forcing a Document/Command split) OR (b) by-domain ownership (structs stay
-  in the shared core doc; dungeon-map owns the `*Ops`/`*Room`/`*Corridor`/`*Pathfind`/
-  `*AsciiMap` files + map command semantics). No builder spend on a split until ruled.
-- `transformGeometry` is absent and is a shared primitive (us + dungeon-map) — flag
-  for JOINT design before either builds it (architecture doc §7).
+- **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):
+  by-domain, SINGLE document.** Do NOT split `DraftingDocument`/`DraftingCommand`.
+  Shared headers co-edited BY REGION (drafting=core, dungeon-map=map). Recorded
+  verbatim in architecture doc §6. Consequences folded:
+  - Builder slice 3b (`highestDocumentIdSerial` comment) is a MAP region → DROPPED
+    from batch 002 via amendment brief 003; deferred to dungeon-map. Batch is now
+    Slice 1 + Slice 2 + Slice 3a (all core).
+  - `transformGeometry` is DRAFTING-owned (dungeon-map consumes); it is a parked
+    FEATURE, not cartography work — ownership recorded in architecture doc §7.
+  - dungeon-map will extract map struct/enum defs into a `DraftingMapTypes.h`
+    (their slice, not ours) — shrinks our shared-edit surface to an include line.
 
 ## Next
 - Builder runs batch 002 (exhaustiveness + nits) → green gate → commits to

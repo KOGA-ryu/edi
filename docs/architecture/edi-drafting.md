@@ -137,8 +137,32 @@ leakage found in the scanned scope.
 
 ## 6. Seams to other departments
 
-- **edi-dungeon-map (DOMAIN owner of the map graph, which physically lives in our
-  files — BOUNDARY UNRESOLVED, escalated to hub).** Map-specific, by citation:
+### The `src/drafting` ownership boundary — HUB RULING H2 (2026-06-16), SETTLED
+**By-domain, SINGLE document.** Do NOT split `DraftingDocument` or `DraftingCommand`
+— a plug/room/connection is a relation over objects in the SAME drawing, so the
+one-document data model stays.
+- **edi-drafting owns:** the core geometry types + ops + the CORE command arms + the
+  CORE regions of the shared headers — the `DraftingGeometry` variant, geometry ops,
+  plot/export, the controller spine.
+- **edi-dungeon-map owns:** the map graph — the whole-file set (`DraftingGraphOps`,
+  `DraftingRoom`, `DraftingCorridor`, `DraftingPathfind`, `DraftingAsciiMap`,
+  `DraftingBlockOps`), the 7 map command arms (CreatePlug, DeletePlug,
+  DeclareConnection, DeleteConnection, CreateBlock, DeleteBlock, CreateMapRoom) +
+  their semantics, and the map STRUCT/ENUM definitions (`DraftingPlug`/
+  `DeclaredConnection`/`MapRoom`/`Block`; `DraftingPlugId`/`ConnectionId`/`BlockId`;
+  `ObjectRole`, `WallType`, `WallVisualMetadata`, `BlockPlacementMetadata`).
+  `WallGeometry` stays CORE — it rides every geometry visit; shared geometry, not
+  map-only.
+- **Shared headers** (`DraftingDocument.h`, `DraftingTypes.h`, `DraftingCommands.*`)
+  are co-edited **by REGION, not by file**: drafting edits CORE regions, dungeon-map
+  edits MAP regions, neither touches the other's region (disjoint lines → clean
+  master merges). The `highestDocumentIdSerial` map-id scan is a MAP region.
+- **dungeon-map's pending behavior-preserving slice:** extract the map struct/enum
+  DEFINITIONS into a dungeon-map-owned `DraftingMapTypes.h` (included by
+  `DraftingTypes.h`/`DraftingDocument.h`); the document KEEPS its vectors — only the
+  definitions move. Shrinks the shared-edit surface to the include line + the vectors.
+
+Map-specific citations (dungeon-map's region; listed so we know what NOT to touch):
   - Types in `DraftingTypes.h`: `DraftingPlugId`/`DraftingConnectionId` (:18-19),
     `ObjectRole` (:83-89), `WallType` (:96-101), `WallVisualMetadata` (:186-188),
     `BlockPlacementMetadata` (:195-199), `DraftingBlockId` (:23). (`WallGeometry`
@@ -153,10 +177,9 @@ leakage found in the scanned scope.
     DeleteBlock, CreateMapRoom — dispatch at `DraftingCommands.cpp:322-335`.
   - Whole files: `DraftingGraphOps.*`, `DraftingRoom.*`, `DraftingCorridor.*`,
     `DraftingPathfind.*`, `DraftingAsciiMap.*`, `DraftingBlockOps.*`.
-  - **THE FORK (see §7):** the map graph is NOT separable by file alone —
-    `DraftingDocument` (core) embeds the map vectors and `DraftingCommand` (core)
-    embeds the 7 map arms. The two departments collide on `DraftingDocument.h` +
-    `DraftingCommands.h` no matter what. The hub must rule the boundary axis.
+  - (The map graph is not file-separable — `DraftingDocument` embeds the map vectors
+    and `DraftingCommand` embeds the 7 map arms — which is exactly why ruling H2 chose
+    co-edit-by-region over a file split. Document/Command are NOT split.)
 - **edi-blender-lab (reads, never writes our core):** `MeasurementMetadata` +
   `MeasurementUnit` (`DraftingTypes.h:156-160,68-76`), `ScaleCalibration`/
   `MeasurementCalibrationResult` (`DraftingMeasurement.h`), `DraftingQuickMeasureResult`
@@ -168,9 +191,10 @@ leakage found in the scanned scope.
   Canvas interaction lives in `src/widgets/DrawingCanvas*` (our behavior, edi-ui's
   file ownership — coordinate).
 
-## 7. Missing primitive — `transformGeometry`
+## 7. Missing primitive — `transformGeometry` (DRAFTING-owned, per ruling H2)
 CONFIRMED ABSENT — only a forward-looking comment at `DrawingCore.h:287`
-("transformGeometry slice"). Rotate/scale over the 14 kinds WOULD belong in
-`DraftingGeometry.{h,cpp}` beside `translateGeometry` (a sibling guarded visit).
-A shared primitive both we (rotate/scale tools) and dungeon-map (room/block
-placement transforms) will need → flag for JOINT design before either builds it.
+("transformGeometry slice"). Rotate/scale over the 14 kinds belongs in
+`DraftingGeometry.{h,cpp}` beside `translateGeometry` (a sibling guarded visit) and
+is **edi-drafting-owned**; dungeon-map CONSUMES it (room/block placement transforms).
+It is a FEATURE (parked in `~/dept-bus/ROADMAPS-DRAFT.md`) — do NOT build it during
+the cartography campaign; this entry records the ownership only.

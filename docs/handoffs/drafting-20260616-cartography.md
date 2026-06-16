@@ -89,6 +89,27 @@
 - After this lands + audits clean, the cartography campaign's refactor backlog is
   EMPTY → write the cartography closeout.
 
+### Builder slice — dedup — DONE 2026-06-16 (commit `818736e`)
+- Reply: `~/dept-bus/edi-drafting/replies/005-cartography-dedup-builder.md`. Touched
+  ONLY `DraftingCommands.cpp` (CORE). New file-local `applyTranslationPlan(document,
+  vector<DraftingTranslation>)` runs the shared copy→loop-moveObject→commit; the 3
+  arms each build their own translation list and delegate. Variation modeled as DATA
+  (the translation vector) — no enum/callable/class. Build clean; ctest 95/95
+  (`-E edi_shell_window_tests`); scan clean.
+- **Builder flagged 2 real (non-byte-identical) differences, both claimed preserved:**
+  1. MoveSelection's extra in-loop `containsObject` guard (rejects stale target with
+     `InvalidSelectionTarget`) was HOISTED ahead of the moves; builder argues
+     equivalence (moves run on a throwaway `candidate`, so a rejection never mutated
+     the real doc; first-missing-id rejection same order/code).
+  2. The commit gate text differed (`!selectedObjectIds.empty()` vs
+     `!plan.translations.empty()`) — collapses to `!translations.empty()` since Move
+     makes one translation per id.
+
+### Reviewer diff-audit — OPEN 2026-06-16 (commit `818736e`)
+- Brief: `~/dept-bus/edi-drafting/briefs/006-cartography-dedup-audit-reviewer.md`
+- PRIORITY: falsify the hoist (#1) — is moving the existence check from interleaved
+  to pre-loop truly behavior-equivalent for ALL orderings/rejection paths?
+
 ## Open questions / blockers
 - **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):
   by-domain, SINGLE document.** Do NOT split `DraftingDocument`/`DraftingCommand`.

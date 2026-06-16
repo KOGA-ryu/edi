@@ -74,10 +74,13 @@ defects.** Reviewer independently reproduced the green gate.
     yet applied. Hub ratified the interim: **scope the cartography gate to our own
     recipe/`edi_craft` targets** (done) and close out. Do NOT patch the drafting test
     locally — it is drafting-owned and the fix is coming on master.
-  - **PENDING FOLLOW-UP (not a re-open):** once `3f2c068` lands on master, `git rebase
-    master` on `dept/blender-lab` and confirm the FULL `cmake --build build` + `ctest
-    -E edi_shell_window_tests` goes green. Until then the recipe-slice gate (green) is
-    the operative proof for this campaign.
+  - **RESOLVED 2026-06-16:** the user authorized the master fix (cherry-pick
+    `3f2c068`, master now `f87bc1b`). Rebased `dept/blender-lab` on master (clean, no
+    conflicts — cartography touched only `src/recipe` + docs). **Full gate now GREEN:**
+    `cmake --build build` clean, **`ctest -E edi_shell_window_tests` 95/95**, scan
+    clean, all 3 cross-language checks green (`--obj-out` 13148-line OBJ,
+    `--list-craftsmen`, smoke). Only `edi_shell_window_tests` (edi-ui golden-PNG
+    environmental drift) remains excluded. No follow-up outstanding.
 
 ## Not re-opened by this campaign
 

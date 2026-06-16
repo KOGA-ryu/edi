@@ -10,20 +10,27 @@ that it's exhaustive. These are the gaps it glosses.
 
 ---
 
-## 0. Fill is a dormant data model — closed shapes can't be filled (highest leverage)
+## 0. Fill is rendered (canvas + SVG) — only the AUTHORING legs remain
 
 - **Exists:** `FillStyle { double opacity = 0.0; std::string color = "#ffffff"; }`
-  — `src/drafting/DraftingTypes.h:113`, carried on the object and serialized.
-- **Missing, all three layers:**
+  — `src/drafting/DraftingTypes.h`, carried on the object and serialized.
+- **Rendered, both legs:**
+  - **canvas** — the painter fills closed shapes (rectangle / circle / ellipse /
+    polygon) on the canvas-fill rule `fillOpacity > 0 && valid colour`
+    (`DrawingCanvasObjectPainter.cpp:464-480`); opacity 0 keeps `Qt::NoBrush`.
+  - **SVG** — `svgFromPlotJob` paints a closed `<path fill="#rrggbb">` per filled
+    object (`DraftingSvgOut.cpp`), fed by a `DraftingPlotFill` side-channel on
+    `DraftingPlotJob` (collected in `buildDraftingPlotPlan`). Fill rides BESIDE the
+    stroke segments, never on `DraftingPlotSegment` — that stream is shared with the
+    pen-plotter formats (HPGL/G-code), which have no fill concept and ignore it.
+- **Still missing — the authoring legs:**
   - no controller setter (the setter family is `setSelectedObjectStroke*` /
     `…Locked` / `…Visible` / `…Role…`; there is **no** `setSelectedObjectFill*`),
   - no inspector UI in the Style group,
-  - **not rendered** — the painter fills only the *point marker*
-    (`DrawingCanvasObjectPainter.cpp:333`), and SVG export writes `fill="none"`
-    explicitly (`DraftingSvgOut.cpp:79`).
-- **Impact:** rectangle / circle / polygon / arc are **outline-only**. Solid and
-  region fills are foundational for the art-tool half, and the data + serialization
-  already exist — only render → setter → inspector are missing.
+  - **solid only** — no hatch / pattern fill (the "Hatch / pattern fill" bullet in §1).
+- **Impact:** a closed shape with a fill set renders filled on the canvas AND in SVG
+  export; what is missing is the way to AUTHOR a fill from the UI (setter + inspector),
+  so today fill arrives only via load or a programmatic edit, not a click.
 
 ## 1. Primitives / geometry that don't exist
 
@@ -97,5 +104,5 @@ role / material / tags; SVG / HPGL / G-code export; the modular-panel inspector.
 
 The drafting surface is genuinely strong. The gaps above are the difference between
 "a capable exact-measurement canvas" and "a full draft *and* art toolset" — with
-**fill (#0)** the one place a feature is already half-built in the data model and
-just needs wiring out.
+**fill (#0)** now rendered end to end (canvas + SVG) and only its UI authoring legs
+(setter + inspector) left to wire.

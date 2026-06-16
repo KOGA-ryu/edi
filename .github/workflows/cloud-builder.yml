@@ -1,0 +1,91 @@
+name: cloud-builder
+
+# A cloud BUILDER: a GitHub Actions runner does an edi department's builder batch
+# from a settled handoff doc, runs the green gate, and pushes to the department
+# branch — so the heavy build/test work happens OFF your Mac. The reviewer/research
+# gates (the thinking) stay local; only the bounded, verified implementation runs
+# here. Trigger from the hub:
+#   gh workflow run cloud-builder.yml -f department=edi-drafting -f branch=dept/drafting \
+#       -f handoff=docs/handoffs/drafting-20260616-fill-svg.md
+# Then sync locally:  tools/dept-sync.sh edi-drafting
+#
+# Scope: the DOMAIN departments (dept/* branches). edi-ui owns the shared shell on
+# master and stays local + human-reviewed — it is not a cloud-builder target.
+
+on:
+  workflow_dispatch:
+    inputs:
+      department:
+        description: "Department (edi-drafting | edi-blender-lab | edi-dungeon-map)"
+        required: true
+        type: string
+      branch:
+        description: "Branch to build on (dept/drafting | dept/blender-lab | dept/dungeon-map)"
+        required: true
+        type: string
+      handoff:
+        description: "Handoff doc with the scoped slices (docs/handoffs/<id>.md)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  builder:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout the department branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - name: Git identity
+        run: |
+          git config user.email "edi-cloud-builder[bot]@users.noreply.github.com"
+          git config user.name "edi cloud builder"
+
+      - name: Install build deps (Qt6 + CMake)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential \
+            qt6-base-dev qt6-base-dev-tools libgl1-mesa-dev libxkbcommon-dev
+
+      - name: Configure (so build/ exists for the gate)
+        run: cmake -S . -B build
+
+      - name: Run the cloud builder
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the ${{ github.event.inputs.department }} department's BUILDER, running on a
+            cloud runner. You do the coding, only the coding.
+
+            Read first, in order: CLAUDE.md (the hard rules), docs/agent-workflow.md (the gate
+            protocol — you are the builder batch), docs/departments/${{ github.event.inputs.department }}.md
+            (your charter: scope, ownership, how to verify), and the handoff doc
+            ${{ github.event.inputs.handoff }} (the reviewer gate already SETTLED the boundary
+            there — the scoped slices ARE your batch; do not re-open the boundary).
+
+            Implement the scoped slices ONE AT A TIME. After each slice, run the GREEN GATE:
+              cmake --build build
+              ctest --test-dir build --output-on-failure        # must be fully green
+            plus the scan: no .js/.qml anywhere, no .json outside .claude/, no QtQml/QtQuick.
+            Never claim a slice done on red. Obey CLAUDE.md (data-oriented: free functions over
+            plain structs, no JSON, no subclassing for behavior; behavior-preserving unless the
+            brief asks otherwise; teach in commit bodies). Stay inside the charter's file ownership.
+
+            Commit each verified slice with a "claude: <imperative summary>" message and the
+            Co-Authored-By trailer, then push:
+              git push origin HEAD:${{ github.event.inputs.branch }}
+            Record what you did in the handoff doc's "Builder batch" section and commit that too.
+            If you hit a blocker you cannot resolve, STOP and write the blocker into the handoff
+            doc instead of guessing — do not push a red build.
+          claude_args: |
+            --max-turns 40
+            --allowedTools 'Read,Edit,Write,Grep,Glob,Bash(cmake:*),Bash(ctest:*),Bash(git:*),Bash(python3:*),Bash(find:*),Bash(grep:*),Bash(chmod:*),Bash(./build/edi:*)'

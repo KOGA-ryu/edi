@@ -79,4 +79,47 @@ RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)
     return result;
 }
 
+const std::vector<std::string> &recipePaletteOpTypes()
+{
+    // The primitives a single click can append as a VALID step. The mouldings,
+    // the lathe, and flutes need a sequence/reference/target to be valid, so
+    // they are authored elsewhere, not one-click-added.
+    static const std::vector<std::string> kTypes = {
+        "AddBox", "AddCylinder", "AddSphere", "AddRing"};
+    return kTypes;
+}
+
+std::optional<RecipeOp> makeRecipeOp(const std::string &typeName, const std::string &name)
+{
+    // Unit starter dimensions so a freshly clicked step is immediately visible
+    // in the proof; the human then tunes it through the Steps inspector.
+    if (typeName == "AddBox") {
+        AddBoxOp op;
+        op.name = name;
+        op.width = op.depth = op.height = 1.0;
+        return RecipeOp{op};
+    }
+    if (typeName == "AddCylinder") {
+        AddCylinderOp op;
+        op.name = name;
+        op.radius = 0.5;
+        op.height = 1.0;
+        return RecipeOp{op};
+    }
+    if (typeName == "AddSphere") {
+        AddSphereOp op;
+        op.name = name;
+        op.radius = 0.5;
+        return RecipeOp{op};
+    }
+    if (typeName == "AddRing") {
+        AddRingOp op;
+        op.name = name;
+        op.radius = 0.5;
+        op.tubeHeight = 0.25;
+        return RecipeOp{op};
+    }
+    return std::nullopt;
+}
+
 } // namespace edi::recipe

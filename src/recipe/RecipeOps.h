@@ -203,6 +203,17 @@ const std::vector<std::string> &recipeMaterialTable();
 // vocabulary, not re-invented. Empty string for unknown.
 const char *recipeOpTypeName(const RecipeOp &op);
 
+// The op types the human's step PALETTE offers — the primitives that are valid
+// from a single click (unit starter dimensions). Mouldings need a term
+// sequence, the lathe a drafted-profile reference, flutes a target op, so those
+// are authored, not one-click-appended (yet).
+const std::vector<std::string> &recipePaletteOpTypes();
+
+// A new op of the named palette type with unit starter dimensions and `name`,
+// or nullopt for a type the palette does not offer. The "string scripts by
+// clicking" factory: the vocabulary owns what a fresh step looks like.
+std::optional<RecipeOp> makeRecipeOp(const std::string &typeName, const std::string &name);
+
 // Compile pass: every AddProfileMouldingOp expands to an AddMouldingOp via
 // the term compiler; all other ops pass through unchanged. Rejection names
 // the op (the compiler's own pointable message).

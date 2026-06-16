@@ -833,6 +833,22 @@ int main()
         }
         assert(opFields(RecipeOp{AddSphereOp{}}).size() == 4); // radius, z, x, y
         assert(opFields(RecipeOp{AddCylinderOp{}})[5].key == "entasis_ratio");
+
+        // The step palette: every offered type makes a valid, named, unit-sized
+        // op the inspector can immediately tune; an off-palette type makes
+        // nothing (mouldings/lathe/flutes need more than a click to be valid).
+        const std::vector<std::string> &palette = recipePaletteOpTypes();
+        assert(palette.size() == 4); // box, cylinder, sphere, ring
+        for (const std::string &type : palette) {
+            const std::optional<RecipeOp> made = makeRecipeOp(type, "step_test");
+            assert(made.has_value());
+            assert(recipeOpTypeName(*made) == type);
+        }
+        const std::optional<RecipeOp> newBox = makeRecipeOp("AddBox", "b0");
+        assert(newBox.has_value());
+        assert(std::get_if<AddBoxOp>(&*newBox)->width == 1.0);
+        assert(std::get_if<AddBoxOp>(&*newBox)->name == "b0");
+        assert(!makeRecipeOp("AddProfileMoulding", "x").has_value());
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +

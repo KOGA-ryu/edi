@@ -334,7 +334,12 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
         } else if constexpr (std::is_same_v<Command, CreateMapRoomCommand>) {
             return fromStoreResult(addMapRoom(document, typedCommand.room));
         } else {
-            return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
+            // Exhaustiveness guard (same idiom as the guarded DraftingGeometry
+            // visits): every command alternative is handled above, so this arm is
+            // never instantiated today. A NEW DraftingCommand variant must now fail
+            // to COMPILE here — naming this function — instead of silently
+            // returning a runtime "unsupported command" rejection.
+            static_assert(always_false_v<Command>, "applyDraftingCommand: unhandled DraftingCommand arm — add an arm");
         }
     }, command);
 }

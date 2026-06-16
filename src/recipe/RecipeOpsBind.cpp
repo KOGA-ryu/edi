@@ -70,6 +70,15 @@ constexpr FieldRow<AddLabelOp> kLabelFields[] = {
     {"z", &AddLabelOp::z},
 };
 
+// A custom craftsman's PLACEMENT is bindable like every other op's (drive the
+// step from a drafted measurement); its untyped param bag is NOT — bindings
+// resolve to doubles, and the params are opaque strings the craftsman coerces.
+constexpr FieldRow<ScriptOp> kScriptFields[] = {
+    {"x", &ScriptOp::x},
+    {"y", &ScriptOp::y},
+    {"z", &ScriptOp::z},
+};
+
 template <typename Op, std::size_t N>
 double Op::*findMember(const FieldRow<Op> (&rows)[N], const std::string &fieldKey)
 {
@@ -97,6 +106,7 @@ struct FieldVisit {
     bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
+    bool operator()(ScriptOp &op) const { return handle(op, findMember(kScriptFields, fieldKey)); }
 };
 
 // Lists every {key, value} of an op by walking its registry table — the read
@@ -121,6 +131,7 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
     std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
     std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
+    std::vector<RecipeOpField> operator()(const ScriptOp &op) const { return of(op, kScriptFields); }
 };
 
 } // namespace

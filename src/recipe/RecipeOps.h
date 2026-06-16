@@ -160,6 +160,35 @@ struct AddLabelOp {
     double z = 0.0;
 };
 
+// One untyped craftsman parameter: a TOML key and its RAW string value. The
+// type lives in the craftsman's MANIFEST (radius=number, sides=integer,
+// material=…), not here — C++ cannot see the Python script's schema, so it
+// carries the value verbatim and the craftsman coerces it (float()/int()/…)
+// at build/proof time. The inspector overlays the manifest types later.
+struct ScriptParam {
+    std::string key;
+    std::string value;
+};
+
+// A CUSTOM CRAFTSMAN step: dispatch to a user Python script (tools/blender/
+// craftsmen/<id>.py) that the built-in op vocabulary cannot express. The
+// shape mirrors edi_craft.py's `Script` op EXACTLY — a craftsman id, a
+// placement (x/y/z, bindable like every other op), and a free param bag —
+// so a stream this side writes is one the craftsmen library reads. The bag
+// is generic on purpose: parse-time knows the position and the id; the
+// per-craftsman schema (the MANIFEST) types the rest. Param keys are
+// constrained to flat TOML bare keys distinct from the built-ins
+// (type/script/name/x/y/z) — see recipeScriptParamKeyProblem, enforced at
+// read, write, AND validate so the C++ and python halves never diverge.
+struct ScriptOp {
+    std::string name;     // defaults to scriptId on load, as the python half does
+    std::string scriptId; // the craftsman's MANIFEST id ("twisted_column")
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    std::vector<ScriptParam> params;
+};
+
 using RecipeOp = std::variant<
     AddBoxOp,
     AddCylinderOp,
@@ -169,7 +198,8 @@ using RecipeOp = std::variant<
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
     CutFlutesOp,
-    AddLabelOp>;
+    AddLabelOp,
+    ScriptOp>;
 
 // A measurement binding: "this op's field comes from that drafted
 // object's measurement" — pipeline A's crown jewel, carried over
@@ -202,6 +232,17 @@ const std::vector<std::string> &recipeMaterialTable();
 // v0 op-type names kept verbatim ("AddBox", "CutFlutes") — the user's
 // vocabulary, not re-invented. Empty string for unknown.
 const char *recipeOpTypeName(const RecipeOp &op);
+
+// A craftsman param key must be a flat TOML BARE key (letters, digits, '_'
+// or '-') that does NOT collide with the Script op's built-in keys
+// (type/script/name/x/y/z). Anything else cannot round-trip: a '.' nests
+// into a table under the python half's tomllib (so the two readers hand the
+// craftsman structurally different params), a space/'='/'#' makes the
+// emitted line unreadable, and a built-in collision overwrites that field on
+// write. Returns "" when the key is valid, else a one-line reason naming the
+// problem — so the strict reader, the writer (B02), and the validator all
+// refuse the same keys by name instead of leaving the contract to a comment.
+std::string recipeScriptParamKeyProblem(const std::string &key);
 
 // The op types the human's step PALETTE offers — the primitives that are valid
 // from a single click (unit starter dimensions). Mouldings need a term

@@ -97,6 +97,32 @@ int main()
         assert(empty.text.find("TOP PROJECTION") != std::string::npos);
     }
 
+    // ---- A custom-craftsman Script op is NOT refused (unlike the uncompiled/
+    // unresolved cases above): its shape is a Python proof_mesh the ASCII
+    // vocabulary cannot rasterize, so this projection simply draws nothing for
+    // it — the craftsman's proof is the OBJ mesh tier. A lone Script renders
+    // like an empty stream; beside a box, the box is unaffected. ----
+    {
+        ScriptOp twist;
+        twist.scriptId = "twisted_column";
+        twist.name = "twist";
+        twist.params = {{"sides", "6"}};
+        const AsciiRenderResult lone =
+            renderOpsProjection({RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
+        assert(lone.ok); // proved, not refused
+        assert(lone.text.find("FRONT PROJECTION") != std::string::npos);
+
+        AddBoxOp slab;
+        slab.name = "slab";
+        slab.width = slab.depth = slab.height = 4.0;
+        const AsciiRenderResult withBox =
+            renderOpsProjection({RecipeOp{slab}}, AsciiProjection::Front, 24, 16);
+        const AsciiRenderResult boxAndScript =
+            renderOpsProjection({RecipeOp{slab}, RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
+        assert(withBox.ok && boxAndScript.ok);
+        assert(withBox.text == boxAndScript.text); // the Script adds nothing
+    }
+
     // ---- Top-projection subset golden. The doric top golden above is 100%
     // overdrawn by the entablature slab (it is a single box rect — zero ▒/▓
     // cells survive), so every circular top-view path is invisible to it.

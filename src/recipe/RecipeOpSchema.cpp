@@ -140,6 +140,19 @@ void appendExtras(std::vector<RecipeOpScalar> &out, const AddLabelOp &op)
     out.push_back(textField("name", op.name));
     out.push_back(textField("text", op.text));
 }
+void appendExtras(std::vector<RecipeOpScalar> &out, const ScriptOp &op)
+{
+    out.push_back(textField("name", op.name));
+    // The craftsman id is the dispatch target; it is chosen in the palette
+    // (it decides the whole param schema), so it is a read-only reference here.
+    out.push_back(textField("script", op.scriptId, /*editable=*/false));
+    // Every param as an editable string. The values ARE strings in the bag, so
+    // a text field edits any of them; the manifest-typed inspector overlay
+    // (number/integer/material widgets) lands in the palette/inspector slice.
+    for (const ScriptParam &param : op.params) {
+        out.push_back(textField(param.key, param.value));
+    }
+}
 
 // --- setters: one overload per op type, by key, from a typed value ---
 
@@ -222,6 +235,15 @@ bool setExtra(AddLabelOp &op, const std::string &key, const RecipeScalarValue &v
 {
     if (key == "name") return asText(value, op.name);
     if (key == "text") return asText(value, op.text);
+    return false;
+}
+bool setExtra(ScriptOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "script") return false; // read-only reference; the palette owns craftsman choice
+    for (ScriptParam &param : op.params) {
+        if (param.key == key) return asText(value, param.value);
+    }
     return false;
 }
 

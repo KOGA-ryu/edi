@@ -798,6 +798,9 @@ int main()
             {CutFlutesOp{}, {"depth", "width_ratio"},
              {"count", "start_z", "end_z", "target", "cutter_radius", "at_radius"}},
             {AddLabelOp{}, {"x", "y", "z"}, {"text", "name", "width"}},
+            // A craftsman's placement binds; its id, name, and (opaque) params
+            // do not — "radius" is a param key here, never a bindable double.
+            {ScriptOp{}, {"x", "y", "z"}, {"script", "name", "radius"}},
         };
         for (const RegistryPin &pin : registryPins) {
             for (const char *key : pin.bindable) {
@@ -983,6 +986,231 @@ int main()
         const OpStreamTextResult halfWritten = recipeOpsToToml(halfPairStream);
         assert(!halfWritten.ok);
         assert(halfWritten.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
+    }
+
+    // ---- Custom craftsmen: the Script op. The C++ side cannot see the
+    // craftsman's MANIFEST (it lives in the Python script), so it carries a
+    // free, untyped param bag and round-trips the EXACT shape edi_craft.py's
+    // parse_ops reads — type/script/name/x/y/z + flat params.
+    {
+        // Round-trip a fully-specified craftsman step, and pin the on-disk keys
+        // edi_craft consumes/sweeps (a writer drift that broke the python half
+        // would fail HERE, by name).
+        RecipeOpStream zoo;
+        zoo.id = "craft_zoo";
+        zoo.name = "Craft Zoo";
+        ScriptOp tw;
+        tw.scriptId = "twisted_column";
+        tw.name = "twist.core";
+        tw.x = 0.5;
+        tw.y = -0.25;
+        tw.z = 4.0;
+        tw.params = {{"radius", "1.25"}, {"sides", "6"}, {"material", "marble"}};
+        zoo.ops.push_back(tw);
+
+        const OpStreamTextResult w = recipeOpsToToml(zoo);
+        assert(w.ok);
+        assert(w.text.find("op.0.type = \"Script\"") != std::string::npos);
+        assert(w.text.find("op.0.script = \"twisted_column\"") != std::string::npos);
+        assert(w.text.find("op.0.name = \"twist.core\"") != std::string::npos);
+        assert(w.text.find("op.0.radius = \"1.25\"") != std::string::npos);
+        assert(w.text.find("op.0.sides = \"6\"") != std::string::npos);
+        assert(w.text.find("op.0.material = \"marble\"") != std::string::npos);
+
+        const OpStreamParseResult rp = recipeOpsFromToml(w.text, "craft.zoo");
+        assert(rp.ok && rp.stream.ops.size() == 1);
+        const auto *back = std::get_if<ScriptOp>(&rp.stream.ops[0]);
+        assert(back != nullptr && back->scriptId == "twisted_column" && back->name == "twist.core");
+        assert(near(back->x, 0.5) && near(back->y, -0.25) && near(back->z, 4.0));
+        assert(back->params.size() == 3);
+        const auto pval = [&](const char *key) -> std::string {
+            for (const ScriptParam &p : back->params) {
+                if (p.key == key) return p.value;
+            }
+            return "<none>";
+        };
+        assert(pval("radius") == "1.25" && pval("sides") == "6" && pval("material") == "marble");
+        // The canonical writer is idempotent (the lab re-serializes on every edit).
+        assert(recipeOpsToToml(rp.stream).text == w.text);
+
+        // Minimal hand file: only type + script. Name falls back to the id (the
+        // python default), x/y/z default to 0, the bag is empty.
+        const OpStreamParseResult mini = recipeOpsFromToml(
+            "op.0.type = \"Script\"\n"
+            "op.0.script = \"twisted_column\"\n", "mini");
+        assert(mini.ok);
+        const auto *m = std::get_if<ScriptOp>(&mini.stream.ops[0]);
+        assert(m != nullptr && m->scriptId == "twisted_column" && m->name == "twisted_column");
+        assert(m->x == 0.0 && m->y == 0.0 && m->z == 0.0 && m->params.empty());
+
+        // A missing craftsman id is refused at READ, by name (requireText).
+        const OpStreamParseResult noScript = recipeOpsFromToml(
+            "op.0.type = \"Script\"\n"
+            "op.0.name = \"x\"\n", "bad");
+        assert(!noScript.ok);
+        assert(noScript.message == "missing required key: op.0.script");
+
+        // The bag accepts ANY key — there is no schema to audit it against here
+        // (the craftsman's MANIFEST owns that), so the global unknown-key audit
+        // does not fire on a Script op's params.
+        const OpStreamParseResult wild = recipeOpsFromToml(
+            "op.0.type = \"Script\"\n"
+            "op.0.script = \"twisted_column\"\n"
+            "op.0.name = \"w\"\n"
+            "op.0.whatever = \"42\"\n"
+            "op.0.another_param = \"hi\"\n", "wild");
+        assert(wild.ok);
+        const auto *wl = std::get_if<ScriptOp>(&wild.stream.ops[0]);
+        assert(wl != nullptr && wl->params.size() == 2);
+
+        // The param-key contract is ENFORCED at write, read, and validate (not
+        // just asserted in a comment): a key that collides with a built-in
+        // would overwrite it in the flat map; a dotted/spaced key would emit an
+        // unreadable line or nest under the python half's tomllib. All three
+        // gates refuse the same keys, by name.
+        {
+            // recipeScriptParamKeyProblem: the shared predicate.
+            assert(recipeScriptParamKeyProblem("sides").empty());
+            assert(recipeScriptParamKeyProblem("my-param_2").empty());
+            assert(!recipeScriptParamKeyProblem("name").empty());  // built-in
+            assert(!recipeScriptParamKeyProblem("a.b").empty());   // nests under tomllib
+            assert(!recipeScriptParamKeyProblem("has space").empty());
+            assert(!recipeScriptParamKeyProblem("").empty());
+
+            // WRITE (B02): a colliding key refuses by name.
+            RecipeOpStream collide;
+            ScriptOp bad;
+            bad.scriptId = "c";
+            bad.name = "bad";
+            bad.params = {{"name", "oops"}};
+            collide.ops.push_back(bad);
+            const OpStreamTextResult cw = recipeOpsToToml(collide);
+            assert(!cw.ok);
+            assert(cw.message == "op.0: param key 'name' collides with the built-in field 'name'");
+
+            // WRITE: a dotted key refuses by name.
+            RecipeOpStream dotted;
+            ScriptOp dot;
+            dot.scriptId = "c";
+            dot.name = "d";
+            dot.params = {{"a.b", "v"}};
+            dotted.ops.push_back(dot);
+            const OpStreamTextResult dw = recipeOpsToToml(dotted);
+            assert(!dw.ok);
+            assert(dw.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
+
+            // READ: the strict reader refuses a dotted param key (it would round
+            // -trip apart under tomllib). Reserved keys can't reach here — the
+            // position readers consume them first — so the dotted case is the
+            // reachable one.
+            const OpStreamParseResult dottedRead = recipeOpsFromToml(
+                "op.0.type = \"Script\"\n"
+                "op.0.script = \"c\"\n"
+                "op.0.a.b = \"v\"\n", "dotted");
+            assert(!dottedRead.ok);
+            assert(dottedRead.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
+
+            // VALIDATE: a bad key surfaces as a named finding.
+            ScriptOp badVal;
+            badVal.scriptId = "c";
+            badVal.name = "v";
+            badVal.params = {{"bad key", "1"}};
+            const OpValidationReport vr = validateRecipeOps({RecipeOp{badVal}});
+            assert(!vr.ok);
+            bool sawBadKey = false;
+            for (const OpFinding &f : vr.findings) {
+                sawBadKey = sawBadKey || f.code == "bad_param_key";
+            }
+            assert(sawBadKey);
+
+            // A hyphenated key is legal and round-trips.
+            RecipeOpStream okStream;
+            ScriptOp okScript;
+            okScript.scriptId = "c";
+            okScript.name = "ok";
+            okScript.params = {{"my-param", "7"}};
+            okStream.ops.push_back(okScript);
+            const OpStreamTextResult okw = recipeOpsToToml(okStream);
+            assert(okw.ok);
+            const OpStreamParseResult okr = recipeOpsFromToml(okw.text, "ok");
+            assert(okr.ok);
+            const auto *okBack = std::get_if<ScriptOp>(&okr.stream.ops[0]);
+            assert(okBack != nullptr && okBack->params.size() == 1
+                   && okBack->params[0].key == "my-param" && okBack->params[0].value == "7");
+        }
+
+        // Placement BINDS like every other op: write omits the literal x and
+        // emits .object/.field; read restores the binding into the table.
+        RecipeOpStream bound;
+        ScriptOp anchored;
+        anchored.scriptId = "twisted_column";
+        anchored.name = "twist";
+        anchored.params = {{"sides", "6"}};
+        bound.ops.push_back(anchored);
+        bound.bindings = {{0, "x", "anchor", "width"}};
+        const OpStreamTextResult bw = recipeOpsToToml(bound);
+        assert(bw.ok);
+        assert(bw.text.find("op.0.x.object = \"anchor\"") != std::string::npos);
+        assert(bw.text.find("op.0.x.field = \"width\"") != std::string::npos);
+        assert(bw.text.find("op.0.x = ") == std::string::npos); // no literal beside the binding
+        const OpStreamParseResult br = recipeOpsFromToml(bw.text, "bound.script");
+        assert(br.ok && br.stream.bindings.size() == 1);
+        assert(br.stream.bindings[0].opIndex == 0 && br.stream.bindings[0].fieldKey == "x"
+               && br.stream.bindings[0].objectId == "anchor" && br.stream.bindings[0].field == "width");
+        const auto *brBack = std::get_if<ScriptOp>(&br.stream.ops[0]);
+        assert(brBack != nullptr && brBack->params.size() == 1
+               && brBack->params[0].key == "sides" && brBack->params[0].value == "6");
+
+        // compile leaves a Script op untouched (no lowering needed) — it reaches
+        // the craftsmen library as-is.
+        const RecipeCompileResult comp = compileRecipeOps(zoo.ops);
+        assert(comp.ok && comp.ops.size() == 1
+               && recipeOpTypeName(comp.ops[0]) == std::string("Script"));
+
+        // Validate: the one C++-side invariant is a craftsman to dispatch to.
+        ScriptOp ghost;
+        ghost.name = "ghost"; // scriptId left empty
+        const OpValidationReport noId = validateRecipeOps({RecipeOp{ghost}});
+        assert(!noId.ok);
+        bool sawMissing = false;
+        for (const OpFinding &f : noId.findings) {
+            sawMissing = sawMissing || f.code == "missing_script_reference";
+        }
+        assert(sawMissing);
+        const OpValidationReport good = validateRecipeOps({RecipeOp{tw}});
+        assert(good.ok);
+        // A Script name participates in duplicate detection (opName sees it).
+        AddBoxOp clash;
+        clash.name = "twist.core";
+        clash.width = clash.depth = clash.height = 1.0;
+        const OpValidationReport dup = validateRecipeOps({RecipeOp{tw}, RecipeOp{clash}});
+        bool sawDup = false;
+        for (const OpFinding &f : dup.findings) {
+            sawDup = sawDup || f.code == "duplicate_name";
+        }
+        assert(sawDup);
+
+        // The inspector schema: x/y/z are Numbers (the registry), name is
+        // editable text, the craftsman id is READ-ONLY, each param is editable
+        // text; setOpScalar writes each back by typed value.
+        RecipeOp scOp = RecipeOp{tw};
+        bool sawX = false, sawName = false, sawScriptRO = false, sawSides = false;
+        for (const RecipeOpScalar &s : opEditableScalars(scOp)) {
+            if (s.key == "x") sawX = s.kind == RecipeFieldKind::Number && near(s.number, 0.5);
+            else if (s.key == "name") sawName = s.kind == RecipeFieldKind::Text && s.text == "twist.core" && s.editable;
+            else if (s.key == "script") sawScriptRO = !s.editable && s.text == "twisted_column";
+            else if (s.key == "sides") sawSides = s.kind == RecipeFieldKind::Text && s.text == "6";
+        }
+        assert(sawX && sawName && sawScriptRO && sawSides);
+        assert(setOpScalar(scOp, "name", std::string("renamed")));
+        assert(std::get_if<ScriptOp>(&scOp)->name == "renamed");
+        assert(setOpScalar(scOp, "sides", std::string("8"))); // a param
+        assert(std::get_if<ScriptOp>(&scOp)->params[1].value == "8"); // {radius, sides, material}
+        assert(setOpScalar(scOp, "x", 5.0)); // a double still routes through the registry
+        assert(near(std::get_if<ScriptOp>(&scOp)->x, 5.0));
+        assert(!setOpScalar(scOp, "script", std::string("other"))); // read-only id
+        assert(std::get_if<ScriptOp>(&scOp)->scriptId == "twisted_column");
+        assert(!setOpScalar(scOp, "nope", std::string("x"))); // unknown key
     }
 
     return 0;

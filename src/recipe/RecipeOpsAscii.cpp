@@ -435,6 +435,12 @@ struct ProjectionDrawer {
     }
 
     void operator()(const AddLabelOp &) const {} // labels are Blender-side text
+
+    // A custom craftsman's shape is computed by its Python proof_mesh (an
+    // arbitrary loft/twist the ASCII vocabulary cannot rasterize), so this
+    // schematic draws nothing for it — the craftsman's proof is the OBJ mesh
+    // tier (edi_craft --obj-out), not this 2D projection.
+    void operator()(const ScriptOp &) const {}
 };
 
 } // namespace

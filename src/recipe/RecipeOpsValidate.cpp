@@ -231,6 +231,29 @@ struct OpChecker {
     }
 
     void operator()(const AddLabelOp &) const {}
+
+    void operator()(const ScriptOp &op) const
+    {
+        // The MANIFEST (param types, ranges, materials) lives in the Python
+        // craftsman, invisible to C++ — so the deep checks are the craftsman's
+        // own job at build (edi_craft coerces + validates). The one invariant
+        // this side CAN enforce is that there is a craftsman to dispatch to.
+        if (op.scriptId.empty()) {
+            add(findings, Severity::Error, "missing_script_reference",
+                op.name + " needs a craftsman script id.");
+        }
+        // The param bag is opaque, but its KEYS must round-trip: a collision
+        // with a built-in or a non-bare key would silently corrupt the file or
+        // diverge between the C++ and python readers. Surface it as a named
+        // finding (the writer refuses it too) instead of leaving the contract
+        // to a comment.
+        for (const ScriptParam &param : op.params) {
+            const std::string problem = recipeScriptParamKeyProblem(param.key);
+            if (!problem.empty()) {
+                add(findings, Severity::Error, "bad_param_key", op.name + " " + problem);
+            }
+        }
+    }
 };
 
 const std::string *opName(const RecipeOp &op)
@@ -245,6 +268,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
+        const std::string *operator()(const ScriptOp &o) const { return &o.name; }
     };
     return std::visit(NameGetter{}, op);
 }

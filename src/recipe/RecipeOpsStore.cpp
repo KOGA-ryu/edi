@@ -196,6 +196,24 @@ struct OpWriter {
         put("y", op.y);
         put("z", op.z);
     }
+
+    void operator()(const ScriptOp &op) const
+    {
+        put("type", std::string("Script"));
+        put("script", op.scriptId);
+        put("name", op.name);
+        // x/y/z go through the bound-aware put(): a bound coordinate is omitted
+        // and its .object/.field stand in, exactly like every other op.
+        put("x", op.x);
+        put("y", op.y);
+        put("z", op.z);
+        // The free param bag, verbatim strings. recipeOpsToToml already refused
+        // any param key that collides with a built-in above or isn't a bare key
+        // (the pre-serialization pass), so each lands in its own slot here.
+        for (const ScriptParam &param : op.params) {
+            put(param.key.c_str(), param.value);
+        }
+    }
 };
 
 // ---- Reading -----------------------------------------------------------
@@ -533,6 +551,19 @@ OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
                 return result;
             }
         }
+        // Same B02 rule for a craftsman's param bag: a key that collides with a
+        // built-in (it would overwrite that field in the flat map) or isn't a
+        // bare key (it would emit an unreadable line, or nest under tomllib)
+        // must refuse here, not silently corrupt the file.
+        if (const auto *script = std::get_if<ScriptOp>(&stream.ops[i])) {
+            for (const ScriptParam &param : script->params) {
+                const std::string problem = recipeScriptParamKeyProblem(param.key);
+                if (!problem.empty()) {
+                    result.message = opPrefix(i) + ": " + problem;
+                    return result;
+                }
+            }
+        }
     }
 
     for (std::size_t i = 0; i < stream.ops.size(); ++i) {
@@ -749,6 +780,48 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "z", op.z, true)) {
                 result.message = reader.error;
                 return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "Script") {
+            // A custom-craftsman step (matches edi_craft.parse_ops): a script
+            // id, a placement, and a free param bag. The position is bindable;
+            // everything else under this op's prefix is an untyped param.
+            ScriptOp op;
+            if (!reader.requireText(prefix + ".script", op.scriptId)) {
+                result.message = reader.error;
+                return result;
+            }
+            op.name = op.scriptId; // the python default: name falls back to the id
+            if (!reader.optionalTextDefault(prefix + ".name", op.name)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.bindableNumber(prefix, "z", op.z, false)) {
+                result.message = reader.error;
+                return result;
+            }
+            // Sweep every still-unconsumed key under this op's prefix into the
+            // param bag and MARK it consumed, so the trailing unknown-key audit
+            // still guards typos in the built-in fields above. There is no
+            // schema to check the params against here — that is the craftsman's
+            // MANIFEST, read at proof/build — so the bag accepts any key. The
+            // trailing dot in `opDot` keeps op.1 from swallowing op.10's keys.
+            const std::string opDot = prefix + ".";
+            for (const auto &[key, value] : config) {
+                if (key.rfind(opDot, 0) != 0 || consumed.find(key) != consumed.end()) {
+                    continue;
+                }
+                // The strict reader holds the same param-key contract the writer
+                // does: a dotted/illegal key would round-trip differently here
+                // than under the python half's tomllib, so refuse it by name
+                // rather than load a file the two languages read apart.
+                const std::string paramKey = key.substr(opDot.size());
+                const std::string problem = recipeScriptParamKeyProblem(paramKey);
+                if (!problem.empty()) {
+                    result.message = prefix + ": " + problem;
+                    return result;
+                }
+                op.params.push_back({paramKey, value});
+                consumed.insert(key);
             }
             result.stream.ops.push_back(std::move(op));
         } else {

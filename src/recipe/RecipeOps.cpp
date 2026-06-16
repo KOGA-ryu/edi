@@ -35,8 +35,36 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
+        const char *operator()(const ScriptOp &) const { return "Script"; }
     };
     return std::visit(Namer{}, op);
+}
+
+std::string recipeScriptParamKeyProblem(const std::string &key)
+{
+    if (key.empty()) {
+        return "param key must not be empty";
+    }
+    // The keys the Script op writes itself: a param of the same name would
+    // overwrite that field on write (name/x/…) or, for "type", make the op
+    // unreadable on reload. The python parse_ops shadows these too.
+    static const char *const reserved[] = {"type", "script", "name", "x", "y", "z"};
+    for (const char *const taken : reserved) {
+        if (key == taken) {
+            return "param key '" + key + "' collides with the built-in field '" + key + "'";
+        }
+    }
+    // TOML bare-key charset MINUS '.' ('.' is our prefix separator and nests a
+    // table under tomllib): letters, digits, '_' and '-'. A char outside it
+    // either breaks the emitted line or diverges between the two readers.
+    for (const char ch : key) {
+        const bool bare = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-';
+        if (!bare) {
+            return "param key '" + key + "' must be letters, digits, '_' or '-'";
+        }
+    }
+    return "";
 }
 
 RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)

@@ -245,3 +245,34 @@ implement these N slices, commit between them, don't pause unless blocked."
 - **The hub's context-hygiene move:** push heavy reading/building into one-shot
   agents so only their short reports return — that is what keeps this window lean
   between the user's manual compactions.
+
+## The terminal/tab realization (persistent role sessions)
+
+The robust way to run this topology — given subagents are one-shot — is to make
+each ROLE a persistent `claude` SESSION in a terminal tab, instead of an ephemeral
+subagent. This is the user's chosen setup.
+
+- **One macOS Terminal window per department; one tab per role** — planner,
+  reviewer, builder, researcher — each a `claude` session launched as that role:
+  `cd <worktree> && claude --agent edi-<dept>-<role>` (the planner is
+  `--agent edi-<dept>`). Each window's cwd is the department's worktree; edi-ui's
+  is `~/edi` (master, the shell owner). Launch helper: `tools/dept-terminals.sh`.
+  *(Verify the `--agent` flag in your Terminal — `claude --help | grep -i agent` —
+  before trusting the launcher.)*
+- **The role tabs are SEPARATE sessions — they do NOT spawn each other.** They
+  coordinate through the shared repo: the **ledger** + the **handoff docs**. The
+  planner writes a self-contained brief into the campaign's handoff doc; the builder
+  tab reads it, implements, writes its result back; the planner tab reads that. The
+  handoff doc IS the channel between tabs (they cannot message each other) — which
+  is exactly what it is for.
+- **The Claude app is the hub/conductor.** It maintains the ledger, drafts the
+  briefs/handoff docs, and reads what each tab produced (commits, handoff updates).
+  The human carries work between tabs, or the app feeds a tab via AppleScript
+  (`osascript` — `tools/dept-terminals.sh` shows the shape).
+- **Token reality:** each tab is a full session. Open a department's window when you
+  work it, not all sixteen at once.
+
+In this realization the planner does NOT use the Agent tool to delegate — it hands
+off through the handoff doc to the worker's tab. (A planner running solo, with no
+worker tabs open, can still spawn a one-shot gate-agent for a quick gate; both paths
+write their result to the same handoff doc.)

@@ -213,6 +213,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeOpsValidate.cpp
     src/recipe/RecipeOpsAscii.h
     src/recipe/RecipeOpsAscii.cpp
+    src/recipe/RecipeCraftsmen.h
+    src/recipe/RecipeCraftsmen.cpp
 )
 
 target_include_directories(edi_recipe_core PUBLIC
@@ -399,6 +401,7 @@ target_compile_definitions(recipe_ops_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CUR
 add_edi_contract_test(recipe_ops_ascii_tests tests/recipe_ops_ascii_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_ops_ascii_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 add_edi_contract_test(recipe_ops_resolve_tests tests/recipe_ops_resolve_tests.cpp edi_recipe_core)
+add_edi_contract_test(recipe_craftsmen_tests tests/recipe_craftsmen_tests.cpp edi_recipe_core)
 add_edi_contract_test(recipe_drafted_column_tests tests/recipe_drafted_column_tests.cpp edi_recipe_core)
 target_compile_definitions(recipe_drafted_column_tests PRIVATE EDI_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/samples")
 

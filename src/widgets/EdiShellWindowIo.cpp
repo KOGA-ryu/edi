@@ -21,6 +21,7 @@
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QPixmap>
 #include <QString>
 #include <QStringList>
@@ -338,6 +339,18 @@ bool EdiShellWindow::saveOpsRecipeToPath(const QString &path)
 }
 
 namespace {
+
+// A small "pop out" button (objectName per panel) for a panel header — wired by
+// the caller to float a freshly-built copy of the panel.
+QToolButton *makePopOutButton(const QString &objectName)
+{
+    auto *button = new QToolButton;
+    button->setObjectName(objectName);
+    button->setText(QStringLiteral("⇱"));
+    button->setToolTip(QStringLiteral("Pop out into a floating window"));
+    button->setAutoRaise(true);
+    return button;
+}
 
 // Findings one per line ("op.3.radius: object not found: gone"), so the chrome
 // shows EVERY stale binding at once — the op pipeline's per-binding isolation
@@ -844,9 +857,13 @@ QWidget *EdiShellWindow::buildAsciiPreviewPanel()
     projection->addItem(QStringLiteral("Front")); // index 0/1/2 -> Front/Side/Top
     projection->addItem(QStringLiteral("Side"));
     projection->addItem(QStringLiteral("Top"));
+    auto *popOut = makePopOutButton(QStringLiteral("popOutAscii"));
+    connect(popOut, &QToolButton::clicked, panel,
+            [this]() { popOutPanel(QStringLiteral("ASCII Proof"), buildAsciiPreviewPanel()); });
     header->addWidget(title);
     header->addStretch(1);
     header->addWidget(projection);
+    header->addWidget(popOut);
     layout->addLayout(header);
 
     auto *view = new QPlainTextEdit;
@@ -879,14 +896,21 @@ QWidget *EdiShellWindow::buildCompiledRecipePanel()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(12, 8, 12, 8);
     layout->setSpacing(6);
+    auto *header = new QHBoxLayout;
     auto *title = new QLabel(QStringLiteral("Compiled"));
     title->setObjectName(QStringLiteral("compiledRecipeTitle"));
+    auto *popOut = makePopOutButton(QStringLiteral("popOutCompiled"));
+    connect(popOut, &QToolButton::clicked, panel,
+            [this]() { popOutPanel(QStringLiteral("Compiled"), buildCompiledRecipePanel()); });
+    header->addWidget(title);
+    header->addStretch(1);
+    header->addWidget(popOut);
     auto *view = new QPlainTextEdit;
     view->setObjectName(QStringLiteral("compiledRecipeText"));
     view->setReadOnly(true);
     view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     view->setLineWrapMode(QPlainTextEdit::NoWrap);
-    layout->addWidget(title);
+    layout->addLayout(header);
     layout->addWidget(view, 1);
 
     // Read-only projection of the compiled stream; re-serialized on every recipe
@@ -938,6 +962,26 @@ void EdiShellWindow::applyOpFieldEdit(int opIndex, const QString &fieldKey, doub
 {
     applyOpScalarEdit(opIndex, fieldKey, edi::recipe::RecipeScalarValue{value});
 }
+
+QWidget *EdiShellWindow::popOutPanel(const QString &title, QWidget *content)
+{
+    // A top-level tool window parented to the shell (so it rides with the app and
+    // tests still find it via findChild). The content is a freshly BUILT panel —
+    // it carries its own live subscriptions, independent of the docked one, so a
+    // workspace switch never orphans it. WA_DeleteOnClose disposes both on close.
+    auto *node = new QWidget(this, Qt::Tool);
+    node->setObjectName(QStringLiteral("floatingNode"));
+    node->setWindowTitle(title);
+    node->setAttribute(Qt::WA_DeleteOnClose);
+    auto *layout = new QVBoxLayout(node);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(content);
+    const QSize hint = content->sizeHint();
+    node->resize(hint.isValid() && !hint.isEmpty() ? hint : QSize(380, 480));
+    node->show();
+    return node;
+}
+
 
 void EdiShellWindow::appendRecipeOp(const QString &typeName)
 {

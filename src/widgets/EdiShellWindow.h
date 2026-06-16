@@ -80,6 +80,11 @@ public:
     void applyOpScalarEdit(int opIndex, const QString &fieldKey,
                            const edi::recipe::RecipeScalarValue &value);
     void applyOpFieldEdit(int opIndex, const QString &fieldKey, double value);
+    // Pop a panel out into a floating window that hovers over the app — the
+    // "node" idea. The content widget is hosted in a top-level tool window;
+    // closing it disposes both. Returns the window. Public so the panels'
+    // pop-out buttons and tests share it.
+    QWidget *popOutPanel(const QString &title, QWidget *content);
     // The palette's append verb: add a new step of the named op type (a unit
     // primitive) to the recipe, then sync + re-render. A no-op for a type the
     // palette does not offer. Public so the palette buttons and tests share it.

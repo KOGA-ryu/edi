@@ -31,6 +31,7 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QToolButton>
 #include <QString>
 #include <QFile>
 #include <QFileInfo>
@@ -1390,6 +1391,17 @@ int main(int argc, char **argv)
         assert(projection != nullptr);
         projection->setCurrentIndex(1); // Side
         assert(asciiView->toPlainText().contains(QStringLiteral("SIDE PROJECTION")));
+
+        // Pop-out: the ASCII proof's pop-out button floats a fresh copy into a
+        // top-level node window carrying its own live proof view.
+        auto *popOutAscii = shell.findChild<QToolButton *>(QStringLiteral("popOutAscii"));
+        assert(popOutAscii != nullptr);
+        popOutAscii->click();
+        auto *node = shell.findChild<QWidget *>(QStringLiteral("floatingNode"));
+        assert(node != nullptr && node->isWindow());
+        assert(node->findChild<QPlainTextEdit *>(QStringLiteral("asciiPreviewText")) != nullptr);
+        node->close(); // WA_DeleteOnClose disposes the float
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
         // Leaving the lab tears the pane down (its opsStreamChanged connection
         // dies with it — the window signal source outlives the panel).

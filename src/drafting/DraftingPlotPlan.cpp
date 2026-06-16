@@ -16,6 +16,12 @@
 namespace edi::drafting {
 namespace {
 
+// The number of segments a circle is tessellated into — for BOTH its plotted
+// stroke outline (appendPlotSegments) and its SVG fill ring (closedFillRing).
+// One constant because the two MUST stay equal: a fill ring smoother than the
+// stroke would peek past the outline (per the frozen fill side-channel boundary).
+constexpr int kCircleSegments = 32;
+
 int layerOrderForObject(const DraftingDocument &document, const DraftingObject &object)
 {
     const DraftingLayer *layer = findLayer(document, object.layerId);
@@ -168,11 +174,10 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
             appendSegment(plan, object, layer, c, d);
             appendSegment(plan, object, layer, d, a);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            constexpr int circleSegments = 32;
             constexpr double pi = 3.14159265358979323846;
             Point2D previous{geometry.center.x + geometry.radius, geometry.center.y};
-            for (int index = 1; index <= circleSegments; ++index) {
-                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(circleSegments);
+            for (int index = 1; index <= kCircleSegments; ++index) {
+                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(kCircleSegments);
                 const Point2D next{
                     geometry.center.x + std::cos(angle) * geometry.radius,
                     geometry.center.y + std::sin(angle) * geometry.radius,
@@ -234,15 +239,14 @@ std::vector<Point2D> closedFillRing(const DraftingGeometry &geometry)
                 {shape.origin.x, shape.origin.y + shape.height},
             };
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            // 32 segments, matching the circle stroke arm in appendPlotSegments
-            // (NOT sampleEllipse's 64) so the fill ring lands on the same
-            // outline the stroke draws — a smoother fill would peek past it.
-            constexpr int circleSegments = 32;
+            // kCircleSegments matches the circle stroke arm in appendPlotSegments
+            // (NOT sampleEllipse's 64) so the fill ring lands on the same outline
+            // the stroke draws — a smoother fill would peek past it.
             constexpr double pi = 3.14159265358979323846;
             std::vector<Point2D> ring;
-            ring.reserve(circleSegments);
-            for (int index = 0; index < circleSegments; ++index) {
-                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(circleSegments);
+            ring.reserve(kCircleSegments);
+            for (int index = 0; index < kCircleSegments; ++index) {
+                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(kCircleSegments);
                 ring.push_back({
                     shape.center.x + std::cos(angle) * shape.radius,
                     shape.center.y + std::sin(angle) * shape.radius,

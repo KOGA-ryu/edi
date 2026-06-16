@@ -120,14 +120,28 @@ builder, and whether to gate it through the reviewer.
 
 ## Parallel departments — git worktrees
 
-Each department works in its own **git worktree** (a separate working directory
-sharing this one repository) so departments edit in parallel without colliding in
-the file system. `master` is the integration line; the agents + charters live on
-`master`, so every worktree inherits them.
+Each **domain** department works in its own **git worktree** (a separate working
+directory sharing this one repository) so departments edit in parallel without
+colliding in the file system. `master` is the integration line; the agents +
+charters live on `master`, so every worktree inherits them.
 
-Convention: `/Users/kogaryu/edi-<dept>` on branch `dept/<dept>`, each with its own
-`build/` (run `cmake -S . -B build` once — CMake build trees are per-worktree and
-not shared).
+`edi-ui` is the exception: it works **on `master`**, not a worktree, because it
+OWNS the shared shell (`EdiShellWindow*`, `CMakeLists.txt`, `app/main.cpp`).
+Making the shell's owner the integration line keeps those shared files
+single-author — the domain departments rebase shell changes DOWN from master
+rather than fighting edi-ui over them.
+
+Current layout:
+
+| Department | Working dir | Branch |
+| --- | --- | --- |
+| edi-ui (+ integration) | `/Users/kogaryu/edi` | `master` |
+| edi-drafting | `/Users/kogaryu/edi-drafting` | `dept/drafting` |
+| edi-blender-lab | `/Users/kogaryu/edi-blender-lab` | `dept/blender-lab` |
+| edi-dungeon-map | `/Users/kogaryu/edi-dungeon-map` | `dept/dungeon-map` |
+
+Each domain worktree needs its own `build/` once: `cmake -S . -B build` (CMake
+build trees are per-worktree, not shared).
 
 **The rebase contract (this is what keeps departments from tripping).** Three
 files are shared by ALL departments and worktrees cannot isolate them:

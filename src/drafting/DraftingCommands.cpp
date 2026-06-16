@@ -334,7 +334,12 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
         } else if constexpr (std::is_same_v<Command, CreateMapRoomCommand>) {
             return fromStoreResult(addMapRoom(document, typedCommand.room));
         } else {
-            return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
+            // Compile-time exhaustiveness guard, mirroring the geometry visitors
+            // in DraftingGeometry.cpp. In an `if constexpr` chain the terminal
+            // `else` is only INSTANTIATED for a Command type no branch matched, so
+            // a forgotten future arm becomes a NAMED BUILD ERROR here instead of a
+            // silent runtime reject. (always_false_v lives in DraftingTypes.h.)
+            static_assert(always_false_v<Command>, "applyDraftingCommand: unhandled DraftingCommand arm");
         }
     }, command);
 }

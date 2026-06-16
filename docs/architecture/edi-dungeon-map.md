@@ -1,10 +1,11 @@
 # Architecture — the dungeon-map subsystem
 
-> **Status: first draft (verified)** — folded from the reviewer-gate survey of
-> campaign `dungeon-map-20260616-cartography` (reply 002, read-only, anchored to
-> the `dept/dungeon-map` working tree). This is the durable map of the subsystem;
-> keep it current as slices land. `file:line` anchors are as-surveyed and drift
-> with edits — trust the symbol name over the number if they disagree.
+> **Status: current** — campaign `dungeon-map-20260616-cartography` CLOSED; this
+> doc reflects the LANDED state (the A1/N1/B1 refactors + the H2
+> `DraftingMapTypes.h` extraction are all in the tree, not pending). Refreshed
+> 2026-06-16 after the hub's integration audit. This is the durable map of the
+> subsystem; keep it current as slices land. `file:line` anchors are as-surveyed
+> and drift with edits — trust the symbol name over the number if they disagree.
 
 The map subsystem turns an authored `.map.toml` into a neutral drafting document
 (rooms + walls + corridors + doors + blocks) and exports it across **Seam B/C** as
@@ -17,22 +18,24 @@ avoidance from authored door pairs (authoring, not generation).
 
 ## 1. Ownership boundary — ours vs the drafting core's — **HUB-RULED (H2)**
 
-### The ruling (HUB H2, user-ruled 2026-06-16 — verbatim)
+### The ruling (HUB H2, user-ruled 2026-06-16)
 **By-domain, SINGLE document.** Do NOT split `DraftingDocument` or
 `DraftingCommand`. Keep the one-document data model — a plug/room/connection is a
-relation over objects in the SAME drawing.
+relation over objects in the SAME drawing. (Real-symbol names below; the strictly
+verbatim ruling text is in `docs/closeouts/h2-src-drafting-map-boundary.md`.)
 - **edi-drafting owns:** the core geometry types + ops + the CORE command arms +
   the core regions of the shared headers — the `DraftingGeometry` variant,
   geometry ops, plot/export, the controller spine.
 - **edi-dungeon-map owns:** the map graph — the whole-file set (`DraftingGraphOps`,
   `DraftingRoom`, `DraftingCorridor`, `DraftingPathfind`, `DraftingAsciiMap`,
-  `DraftingBlockOps`), the 7 map command arms (`CreatePlug`, `DeletePlug`,
-  `DeclareConnection`, `DeleteConnection`, `CreateBlock`, `DeleteBlock`,
-  `CreateMapRoom`) + their semantics, and the map STRUCT/ENUM definitions
-  (`DraftingPlug`/`DeclaredConnection`/`MapRoom`/`Block`; `DraftingPlugId`/
-  `ConnectionId`/`BlockId`; `ObjectRole`, `WallType`, `WallVisualMetadata`,
-  `BlockPlacementMetadata`). **`WallGeometry` stays CORE** — it rides every
-  geometry visit; it is shared geometry, not map-only.
+  `DraftingBlockOps`), the 7 map command arms (`CreatePlugCommand`,
+  `DeletePlugCommand`, `DeclareConnectionCommand`, `DeleteConnectionCommand`,
+  `CreateBlockCommand`, `DeleteBlockCommand`, `CreateMapRoomCommand`) + their
+  semantics, and the map STRUCT/ENUM definitions (`DraftingPlug`,
+  `DraftingDeclaredConnection`, `DraftingMapRoom`, `DraftingBlock`;
+  `DraftingPlugId`, `DraftingConnectionId`, `DraftingBlockId`; `ObjectRole`,
+  `WallType`, `WallVisualMetadata`, `BlockPlacementMetadata`). **`WallGeometry`
+  stays CORE** — it rides every geometry visit; it is shared geometry, not map-only.
 - **Shared headers** (`DraftingDocument.h`, `DraftingTypes.h`,
   `DraftingCommands.*`) are co-edited **by REGION, not by file**: drafting edits
   the CORE regions, dungeon-map edits the MAP regions, neither edits the other's.
@@ -60,7 +63,7 @@ departments out of each other's way.
 ### Wholly-OURS files (map-specific, no drafting-core role)
 | File | Role |
 | --- | --- |
-| `src/drafting/DraftingMapTypes.h` | **(H2 extraction)** the map record DEFINITIONS: id aliases `DraftingPlugId`/`ConnectionId`/`BlockId`; enums `ObjectRole`/`WallType`; `WallVisualMetadata`/`BlockPlacementMetadata`; structs `DraftingPlug`/`DeclaredConnection`/`MapRoom`/`Block`; the name⇄enum free-func decls. Included by `DraftingTypes.h` (mid-file) |
+| `src/drafting/DraftingMapTypes.h` | **(H2 extraction)** the map record DEFINITIONS: id aliases `DraftingPlugId`/`DraftingConnectionId`/`DraftingBlockId`; enums `ObjectRole`/`WallType`; `WallVisualMetadata`/`BlockPlacementMetadata`; structs `DraftingPlug`/`DraftingDeclaredConnection`/`DraftingMapRoom`/`DraftingBlock`; the name⇄enum free-func decls. Included by `DraftingTypes.h` (mid-file) |
 | `src/drafting/DraftingRoom.{h,cpp}` | Authoring structs (`RoomSpec`, `RoomPlugSpec`, `MapSpec`, `RoomEdge`) + `planDraftingRoom` |
 | `src/drafting/DraftingCorridor.{h,cpp}` | `CorridorSpec` → centerline → wall geometry (door↔door routing) |
 | `src/drafting/DraftingPathfind.{h,cpp}` | grid A* for v2 corridor obstacle avoidance |
@@ -105,19 +108,20 @@ departments out of each other's way.
 
 ## 2. The plug / connection graph model — **CONFIRMED neutral**
 
-- **Two document-level vectors** (plus `rooms`, `blocks`): `DraftingDocument::plugs`
-  and `::connections` (`DraftingDocument.h:116-117`), `rooms` (`:120`), `blocks`
-  (`:122`). A plug is a RELATION, not a `DraftingGeometry` variant — `DraftingPlug`
-  (`:47`) anchors to a doc object **by id** (`anchorObjectId`, `:49`); the header
-  comment (`:36-46`) states the rationale.
-- **`DraftingPlug` fields** (`:47-53`): `id`, `anchorObjectId`, `name`, `type`
-  (open vocab), `anchor` (cached `Point2D` — see B1 staleness note in §7).
-  **No passable/weight/direction.**
-- **`DraftingDeclaredConnection` fields** (`:60-65`): `id`, `plugA`, `plugB`,
-  `type` (neutral role tag). Comment (`:57-59`) calls out the deliberate ABSENCE
+- **Two document-level vectors** (plus `rooms`, `blocks`) on `DraftingDocument`
+  (`DraftingDocument.h`): `plugs` (`:52`), `connections` (`:53`), `rooms` (`:56`),
+  `blocks` (`:58`). The record STRUCTS themselves now live in `DraftingMapTypes.h`
+  (post-H2 extraction). A plug is a RELATION, not a `DraftingGeometry` variant —
+  `DraftingPlug` (`DraftingMapTypes.h:89`) anchors to a doc object **by id**
+  (`anchorObjectId`); its leading comment states the rationale.
+- **`DraftingPlug` fields** (`DraftingMapTypes.h:89`): `id`, `anchorObjectId`,
+  `name`, `type` (open vocab), `anchor` (cached `Point2D` — carries the B1
+  authoring-time staleness TODO at `:95`; see §7). **No passable/weight/direction.**
+- **`DraftingDeclaredConnection` fields** (`DraftingMapTypes.h:111`): `id`, `plugA`,
+  `plugB`, `type` (neutral role tag). Its comment calls out the deliberate ABSENCE
   of `passable`/`weight`/`direction`/`locked`.
-- `WallType` (`DraftingTypes.h:96`) is a *render* classification only
-  (Solid/Door/Window/Secret); comment `:91-94` confirms it "carries no behaviour."
+- `WallType` (`DraftingMapTypes.h:46`) is a *render* classification only
+  (Solid/Door/Window/Secret); its comment confirms it "carries no behaviour."
 
 ## 3. Map arms of `DraftingCommand` + visit sites
 
@@ -133,13 +137,14 @@ departments out of each other's way.
   correctly EXCLUDES map arms (they mutate content, not just selection). ✓ No
   other variant-wide visit exists.
 
-**⚠ Non-exhaustive-visit FLAG (Finding A1):** the chain's terminal `else`
-(`DraftingCommands.cpp:336-338`) is a **runtime** `rejected("unsupported command")`,
-NOT a compile-time `always_false_v` — unlike the geometry visitors
+**✅ Exhaustive-visit guard (Finding A1 — DONE, commit `4ca427e`):** the chain's
+terminal `else` (`DraftingCommands.cpp`) is now a compile-time
+`static_assert(always_false_v<Command>, …)`, mirroring the geometry visitors
 (`DraftingGeometry.cpp`: `geometryKind`/`validateGeometry`/`computeBounds`/
 `translateGeometry`/`handleAnchors` all end in `always_false_v`). A forgotten
-future arm therefore compiles and silently rejects at runtime instead of failing
-the build. **This is the highest-value hardening (refactor slice #1).**
+future command arm is now a NAMED BUILD ERROR, not a silent runtime reject. (Was
+the campaign's highest-value hardening; verified by a 34↔34 arm diff + a
+fires-on-deletion check. Audit CLEAN.)
 
 ## 4. MessagePack codec for map data — **CONFIRMED additive-tolerant, no bump**
 
@@ -205,15 +210,19 @@ of the live document on every `modelChanged`; footprints in authored feet
 - Seam A into map code: `parseMapSpecToml`/`parseRoomSpecToml` — neutral parse, no
   rules.
 
-## 7. Refactor candidates (behavior-preserving only) — ranked
+## 7. Refactor candidates — campaign status
 
-| # | Severity | Where | Defect | Behavior-preserving fix |
-| --- | --- | --- | --- | --- |
-| A1 | BUG (latent) | `DraftingCommands.cpp:336-338` | terminal `else` is a runtime reject, not `always_false_v`; a forgotten arm silently rejects instead of failing the build | mirror the geometry-visitor `static_assert(always_false_v<Command>)`. *Accept:* all arms dispatch; deleting any one arm fails to compile |
-| N1 | NIT (dup) | `MapToonExport.cpp:82-90` & `176-184` | the two overloads duplicate the TOON header + rooms/plugs/connections row shapes | hoist `writeHeader()` + a row helper. *Accept:* both overloads byte-identical; `map_toon_export_tests` green |
-| B1 | BUG (latent, no trigger) | `DraftingDocument.h:52` + move path | `plug.anchor` cache is authored-once, NOT synced on object move; export `deriveEdge` (`MapToonExport.cpp:149`) would read a drifted anchor once interactive move lands | **document the contract now** (comment + TODO); the real `syncGraphForMovedObject` fix is **note-don't-build** (mandate — no feature) |
-| N3 | NIT (low) | `DrawingDocumentController.cpp:2304-2317` | the plug/conn/room sub-command results are intentionally dropped 3× | optional tiny `applyTrusted(cmd)` debug-assert wrapper. Low value — defer |
-| N2 | none | `MapToonExport.cpp:37` | `edgeName` unreachable `return "?"` | already commented; no action |
+The cartography campaign landed A1/N1/B1 (all behavior-preserving, diff-audit
+CLEAN). They are recorded here as DONE so a future campaign does NOT re-spawn
+them. Only N3 (deferred) and N2 (no-action) remain open — neither is worth a slice.
+
+| # | Status | Where | What it was / what landed |
+| --- | --- | --- | --- |
+| A1 | ✅ DONE `4ca427e` | `DraftingCommands.cpp` | runtime `rejected("unsupported command")` → compile-time `static_assert(always_false_v<Command>)`; a forgotten arm is now a named build error. Verified 34↔34 + fires-on-deletion |
+| N1 | ✅ DONE `fcae7eb` | `MapToonExport.cpp` | the two `exportMapToToon` overloads de-duped into anon-namespace helpers (`writeMapHeader`/`writeRoomRow`/`writePlugRow`/`writeConnectionRow`); byte-identical output, golden unchanged |
+| B1 | ✅ DONE `1a26ee7` | `DraftingMapTypes.h` (`DraftingPlug.anchor`) + `DraftingGraphOps.cpp` | `plug.anchor` authoring-time staleness CONTRACT documented (TODO). The real `syncGraphForMovedObject` fix stays **note-don't-build** — a FEATURE, out of mandate (see §8) |
+| N3 | ◻ open (low, deferred) | `DrawingDocumentController.cpp:2304-2317` | plug/conn/room sub-command results intentionally dropped 3×; an optional `applyTrusted(cmd)` debug-assert wrapper would document intent. Low value — not scheduled |
+| N2 | — no action | `MapToonExport.cpp:37` | `edgeName` unreachable `return "?"` — already commented; intentional |
 
 **Cascade integrity (checked CLEAN):** object-delete → `removeObject` →
 `pruneGraphForRemovedObject` drops anchored plugs AND their edges

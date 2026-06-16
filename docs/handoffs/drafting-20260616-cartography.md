@@ -23,17 +23,43 @@
   ("what's in our own files, what belongs to whom"), not external/reference
   knowledge. Per the gate discipline this opens at the reviewer gate.
 
-### Reviewer gate — OPEN 2026-06-16 — edi-drafting-reviewer (briefed via bus)
-- Brief: `~/dept-bus/edi-drafting/briefs/001-cartography-reviewer.md`
-- Awaiting the inventory + boundary + refactor-candidate findings.
+### Reviewer gate — DONE 2026-06-16 — edi-drafting-reviewer (via bus)
+- Reply: `~/dept-bus/edi-drafting/replies/001-cartography-reviewer-map.md` (full
+  inventory: 1a files, 1b types, 1c the 14 geometry arms + 19 visit sites, 1d the
+  33 command arms + the single dispatch, 1e plan/build fns, 1f controller helpers,
+  1g call-graph).
+- **Folded into `docs/architecture/edi-drafting.md` (first draft).**
+- **Gate verdict: boundary CONFIRMED but NOT settled — ONE fork escalated to hub**
+  (the map-graph ownership axis; see blockers). Code-health verdict: issues-found,
+  all behavior-preserving (one HIGH, rest MED/LOW).
+- **Refactor backlog captured** in the architecture doc §5. The behavior-preserving
+  slices do NOT depend on the ownership fork → builder batch can run in parallel
+  with the hub's arbitration.
+
+### Builder batch — BRIEFED 2026-06-16 (exhaustiveness + nits)
+- Brief: `~/dept-bus/edi-drafting/briefs/002-cartography-exhaustiveness-builder.md`
+- Slices: (1 HIGH) DraftingCommand terminal `else` → `static_assert(always_false_v)`;
+  (2 MED) make the 3 unguarded geometry visits exhaustive by making current behavior
+  EXPLICIT (Mirror, QuickMeasure, PlotPlan ×2) — NOT a bare guard; (3 LOW)
+  `circleSegments` named constant + `highestDocumentIdSerial` comment fix.
+- DEFERRED to a later batch: MoveSelection/Align/Distribute dedup (MED, restructures
+  behavior-bearing code — wants its own careful gate). Map-graph extraction is
+  BLOCKED on the hub fork.
 
 ## Open questions / blockers
-- The **`src/drafting` ownership boundary**: map graph (plug/connection vectors,
-  `DraftingMapRoom`/wall geometry, `CreatePlugCommand`/`DeletePlugCommand`) lives
-  inside our files but is edi-dungeon-map's DOMAIN. To be flagged to the hub once
-  the reviewer confirms the exact file/type split — the hub arbitrates with
-  edi-dungeon-map.
+- **ESCALATED TO HUB 2026-06-16 — `src/drafting` map-graph ownership fork.** The map
+  graph physically lives in our files and is NOT separable by file alone:
+  `DraftingDocument` (a CORE type) embeds the plug/connection/room/block vectors and
+  `DraftingCommand` (a CORE variant) embeds 7 map arms. The two departments collide
+  on `DraftingDocument.h` + `DraftingCommands.h` regardless. The hub must rule the
+  boundary AXIS: (a) by-file ownership (dungeon-map gets a sub-target, map structs
+  migrate, forcing a Document/Command split) OR (b) by-domain ownership (structs stay
+  in the shared core doc; dungeon-map owns the `*Ops`/`*Room`/`*Corridor`/`*Pathfind`/
+  `*AsciiMap` files + map command semantics). No builder spend on a split until ruled.
+- `transformGeometry` is absent and is a shared primitive (us + dungeon-map) — flag
+  for JOINT design before either builds it (architecture doc §7).
 
 ## Next
-- Reviewer returns findings → planner writes `docs/architecture/edi-drafting.md`
-  (first draft) + decides the refactor slices → brief the builder.
+- Builder runs batch 002 (exhaustiveness + nits) → green gate → commits to
+  dept/drafting → reply. Planner keeps the architecture doc current as it lands.
+- Await hub ruling on the ownership fork.

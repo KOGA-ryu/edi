@@ -123,17 +123,35 @@
 - 003 committed (B1 `1a26ee7` present) → dispatched. Builds on 003; B1's comment
   travels with the moved `DraftingPlug`.
 
-### Reviewer diff audit of 003 — DISPATCHED (parallel with 005)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/006-reviewer-003-diff-audit.md`
-- Read-only adversarial audit of commits `4ca427e`/`fcae7eb`/`1a26ee7` (+ prep
-  `c9d6156`). Independent of 005 (immutable commits) → runs in parallel.
+### Reviewer diff audit of 003 — 2026-06-16 — edi-dungeon-map-reviewer (CLOSED — CLEAN)
+- Brief: `006-reviewer-003-diff-audit.md` ·
+  Reply: `~/dept-bus/edi-dungeon-map/replies/006-reviewer-003-diff-audit.md`
+- **Verdict: 003 audit CLEAN** — all three slices truly behavior-preserving; no
+  bug, no behavior change, no scope-creep, no neutral-law/data-oriented regression.
+- A1: 34↔34 independently re-verified; closed variant ⇒ terminal else never
+  instantiated today (assert can't fire) yet fires correctly on a future
+  unhandled arm; grep for `"unsupported command"` across src+tests is EMPTY (no
+  test relied on the old reject). A1 untouched by 005 (005 moves defs, not arms).
+- N1: byte-identical confirmed field-by-field; the golden covers BOTH overloads +
+  all 4 helpers + comma-quoting + the no-title path → byte-identity is tested, not
+  just claimed. `blocks[]` stayed inline (untouched).
+- B1: comments accurate, contract TRUE (`anchor` set at authoring
+  `DrawingDocumentController.cpp:2112`/`:1991`, read by Seam C `deriveEdge`
+  `MapToonExport.cpp:206`), honestly deferred. One cosmetic sub-nit, no action.
+  **For 005: re-confirm B1's TODO travels intact onto the moved `DraftingPlug`.**
+- prep `<memory>`: correct, IWYU-minimal, IN-TERRITORY (reviewer agrees the 3
+  tests are ours). **Reviewer RAN the non-test drafting-source sweep → EMPTY**
+  (only 2 `src/` files use smart pointers, both already include `<memory>`). So NO
+  edi-drafting remediation is warranted — just a one-line IWYU habit note. Hub FYI
+  corrected accordingly.
 
 ## Open questions / blockers
-- None blocking. Boundary SETTLED by HUB H2. The `DraftingMapTypes.h` include
-  shape is being designed (gate 004); a flagged hub question may surface if H2's
-  "single header" conflicts with the `DraftingBlock`↔`DraftingObject` cycle.
+- None blocking. 003 fully cleared (built green + audit CLEAN). Only the
+  extraction slice 005 remains in flight; hub veto-window on (a)/(c) still open
+  (silence ⇒ ship a).
 
 ## Next
-- Builder lands A1/N1/B1 (003) → reviewer settles extraction design (004) →
-  builder executes extraction (005, AFTER 003 so B1's comment rides along) →
-  diff audit → closeout.
+- 005 (DraftingMapTypes.h extraction) returns green → verify B1's TODO traveled
+  onto the moved `DraftingPlug` → (optional quick diff-audit of 005 — pure motion,
+  may fold into closeout) → write closeout freezing the H2 boundary + the
+  cartography refactors → report closeout to hub → move LEDGER row to Closed.

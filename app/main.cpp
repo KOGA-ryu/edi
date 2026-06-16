@@ -1,9 +1,12 @@
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
 
@@ -219,6 +222,30 @@ int main(int argc, char **argv)
     window.loadSettings(edi::io::defaultSettingsPath());
     window.loadWorkspaceLayout(edi::io::defaultWorkspaceLayoutPath());
     window.loadTextSession(edi::io::defaultTextSessionPath());
+
+    // Feed the custom-craftsman registry before any workspace mounts: run
+    // edi_craft.py --list-craftsmen under python and hand the window the TOML it
+    // prints, so the lab palette offers the installed craftsmen. BEST-EFFORT —
+    // a missing python or script (or a non-dev layout) just leaves the registry
+    // empty (no craftsman buttons), and the 5s cap keeps a hung python from
+    // blocking startup. The widget seam is injected (tests feed a literal), so
+    // this is the one place the real subprocess lives. The script sits at
+    // <repo>/tools/blender beside the build dir the binary runs from.
+    {
+        const QString python = QStandardPaths::findExecutable(QStringLiteral("python3"));
+        const QString craftScript = QDir::cleanPath(
+            QCoreApplication::applicationDirPath()
+            + QStringLiteral("/../tools/blender/edi_craft.py"));
+        if (!python.isEmpty() && QFileInfo::exists(craftScript)) {
+            QProcess listing;
+            listing.start(python, {craftScript, QStringLiteral("--list-craftsmen")});
+            if (listing.waitForFinished(5000) && listing.exitStatus() == QProcess::NormalExit
+                && listing.exitCode() == 0) {
+                window.setCraftsmanRegistryToml(QString::fromUtf8(listing.readAllStandardOutput()));
+            }
+        }
+    }
+
     window.show();
 
     // Synthetic load for the bench: a deterministic fan of lines through the

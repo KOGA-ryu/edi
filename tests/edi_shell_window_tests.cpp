@@ -1279,7 +1279,7 @@ int main(int argc, char **argv)
         // still findable, whichever tab is forward) and the Compiled recipe.
         auto *outputTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeOutput"));
         assert(outputTabs != nullptr);
-        assert(outputTabs->count() == 2); // Render + Compiled
+        assert(outputTabs->count() == 3); // Palette + Render + Compiled
         assert(shell.findChild<QLabel *>(QStringLiteral("blenderPreview")) != nullptr);
         auto *compiledView = shell.findChild<QPlainTextEdit *>(QStringLiteral("compiledRecipeText"));
         assert(compiledView != nullptr);
@@ -1334,6 +1334,16 @@ int main(int argc, char **argv)
         emit radiusSpin->editingFinished(); // what a focus-out / Enter triggers
         const auto *reCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
         assert(reCylinder != nullptr && reCylinder->radius == 4.0);
+
+        // The palette appends a step by CLICK: a new unit cylinder joins the
+        // recipe, the Steps list grows, and it lands as a real AddCylinder.
+        const int before = static_cast<int>(shell.opsStream().ops.size());
+        auto *addCylinder = shell.findChild<QPushButton *>(QStringLiteral("addStep_AddCylinder"));
+        assert(addCylinder != nullptr);
+        addCylinder->click();
+        assert(static_cast<int>(shell.opsStream().ops.size()) == before + 1);
+        assert(std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops.back()) != nullptr);
+        assert(steps->count() == before + 1); // the Steps list grew with it
 
         // The projection selector re-renders the chosen view.
         auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));

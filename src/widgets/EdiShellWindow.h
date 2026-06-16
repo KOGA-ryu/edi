@@ -76,6 +76,10 @@ public:
     // proof/compiled. A no-op if the index or field is invalid. Public so the
     // inspector's spinboxes and tests drive it the same way.
     void applyOpFieldEdit(int opIndex, const QString &fieldKey, double value);
+    // The palette's append verb: add a new step of the named op type (a unit
+    // primitive) to the recipe, then sync + re-render. A no-op for a type the
+    // palette does not offer. Public so the palette buttons and tests share it.
+    void appendRecipeOp(const QString &typeName);
     QString lastRecipeError() const { return m_lastRecipeError; }
     QString currentDrawingPath() const { return m_currentDrawingPath; }
     bool isDocumentDirty() const;
@@ -201,6 +205,10 @@ protected:
     // that commit through applyOpFieldEdit. Rebuilt per mount, re-listed on
     // opsStreamChanged. A field bound to a drafted measurement is read-only here.
     QWidget *buildOpStepsPanel();
+    // The step palette (the human's click-to-CHAIN surface): one button per
+    // palette op type; clicking appends a unit step via appendRecipeOp. Lives in
+    // the lab's Right slot beside Render/Compiled.
+    QWidget *buildStepPalettePanel();
     // The lab's Right slot: tabbed recipe OUTPUTS — the Blender render and the
     // Compiled recipe (resolve+compile, what the proof and Build consume). Tabs
     // compress both into one slot; Render is the default.

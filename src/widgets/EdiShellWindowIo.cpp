@@ -14,6 +14,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QTabWidget>
 #include <QPixmap>
 #include <QString>
@@ -893,16 +894,17 @@ QWidget *EdiShellWindow::buildCompiledRecipePanel()
 
 QWidget *EdiShellWindow::buildLabRightPanel()
 {
-    // The lab's Right: tabbed recipe OUTPUTS — the Blender Render ("script is
+    // The lab's Right: the step PALETTE (the human's click-to-chain add-surface,
+    // the default tab) plus the recipe OUTPUTS — the Blender Render ("script is
     // execution") and the Compiled recipe (resolve+compile, what the proof and
-    // Build actually consume). Tabs compress both into one slot; Render is the
-    // default. Each pane is the same per-mount, re-render-on-change panel as the
-    // rest, so a workspace switch tears the whole tab widget down cleanly. The
-    // render pane keeps its "blenderPreview" label, so showRenderImage still
-    // finds it whichever tab is forward.
+    // Build consume). Tabs compress all three into one slot. Each pane is the
+    // same per-mount, re-render-on-change panel as the rest, so a workspace
+    // switch tears the whole tab widget down cleanly. The render pane keeps its
+    // "blenderPreview" label, so showRenderImage finds it whichever tab is up.
     auto *tabs = new QTabWidget;
     tabs->setObjectName(QStringLiteral("recipeOutput"));
     tabs->setDocumentMode(true);
+    tabs->addTab(buildStepPalettePanel(), QStringLiteral("Palette"));
     tabs->addTab(buildBlenderPreviewPanel(), QStringLiteral("Render"));
     tabs->addTab(buildCompiledRecipePanel(), QStringLiteral("Compiled"));
     return tabs;
@@ -923,6 +925,23 @@ void EdiShellWindow::applyOpFieldEdit(int opIndex, const QString &fieldKey, doub
     m_opsStream.ops[static_cast<std::size_t>(opIndex)] = std::move(edited);
     syncOpsScriptDocument();
     emit opsStreamChanged();
+}
+
+void EdiShellWindow::appendRecipeOp(const QString &typeName)
+{
+    // Name the step "<type>_<position>" — unique while we only ever append.
+    const QString label = typeName.startsWith(QStringLiteral("Add")) ? typeName.mid(3) : typeName;
+    const std::string name = QStringLiteral("%1_%2")
+                                 .arg(label.toLower())
+                                 .arg(m_opsStream.ops.size())
+                                 .toStdString();
+    std::optional<edi::recipe::RecipeOp> op = edi::recipe::makeRecipeOp(typeName.toStdString(), name);
+    if (!op) {
+        return; // a type the palette does not offer
+    }
+    m_opsStream.ops.push_back(std::move(*op));
+    syncOpsScriptDocument(); // the AI's TOML grows the step too
+    emit opsStreamChanged();  // the Steps list, the proof, and the compiled view follow
 }
 
 namespace {
@@ -1068,6 +1087,32 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     rebuildList();
     rebuildFields(list->currentRow());
 
+    return panel;
+}
+
+QWidget *EdiShellWindow::buildStepPalettePanel()
+{
+    QFrame *panel = edi::shell::makeRegionFrame(QStringLiteral("stepPalettePanel"));
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(12, 8, 12, 8);
+    layout->setSpacing(6);
+    auto *title = new QLabel(QStringLiteral("Add Step"));
+    title->setObjectName(QStringLiteral("stepPaletteTitle"));
+    layout->addWidget(title);
+
+    // One button per palette op type — clicking appends a unit step (the
+    // "string scripts by clicking" gesture); the Steps inspector and the proof
+    // pick it up off opsStreamChanged. Data-driven from recipePaletteOpTypes(),
+    // so a new palette type is a row in that table, not a button here.
+    for (const std::string &type : edi::recipe::recipePaletteOpTypes()) {
+        const QString typeName = QString::fromStdString(type);
+        const QString label = typeName.startsWith(QStringLiteral("Add")) ? typeName.mid(3) : typeName;
+        auto *button = new QPushButton(label);
+        button->setObjectName(QStringLiteral("addStep_%1").arg(typeName));
+        connect(button, &QPushButton::clicked, panel, [this, typeName]() { appendRecipeOp(typeName); });
+        layout->addWidget(button);
+    }
+    layout->addStretch(1);
     return panel;
 }
 

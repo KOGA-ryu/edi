@@ -62,6 +62,82 @@ void cylinderExtents(const AddCylinderOp &op, double out[6])
     out[5] = z + op.height / 2;
 }
 
+// Exhaustive bounds visitor — one operator() per RecipeOp arm, the same
+// named-overload-struct pattern ProjectionDrawer uses below. This replaces
+// the old 5-of-10 get_if ladder: the compiler now forces a framing decision
+// for EVERY op (the "compiler is the checklist" property the other
+// interpreters already have — docs/architecture/edi-blender-lab.md §2), so a
+// future op arm cannot silently inherit no ASCII framing. The five geometry
+// arms accumulate the SAME extents as before (identical numbers); the other
+// five are explicit no-ops, matching today's silent fall-through exactly.
+// `Include` is templated on the caller's capturing lambda so the call stays a
+// direct, inlinable invocation (zero runtime cost vs. the old chain).
+template <typename Include>
+struct BoundsEstimator {
+    const Include &include;
+    double inf;
+
+    void operator()(const AddBoxOp &box) const
+    {
+        const double z = boxZCenter(box);
+        include(box.x - box.width / 2, box.x + box.width / 2,
+                box.y - box.depth / 2, box.y + box.depth / 2,
+                z - box.height / 2, z + box.height / 2);
+    }
+
+    void operator()(const AddCylinderOp &cylinder) const
+    {
+        double extents[6];
+        cylinderExtents(cylinder, extents);
+        include(extents[0], extents[1], extents[2], extents[3], extents[4], extents[5]);
+    }
+
+    void operator()(const AddSphereOp &sphere) const
+    {
+        include(sphere.x - sphere.radius, sphere.x + sphere.radius,
+                sphere.y - sphere.radius, sphere.y + sphere.radius,
+                sphere.z - sphere.radius, sphere.z + sphere.radius);
+    }
+
+    void operator()(const AddRingOp &ring) const
+    {
+        const double radius = ring.radius + ring.overhang;
+        include(ring.x - radius, ring.x + radius,
+                ring.y - radius, ring.y + radius,
+                ring.z - ring.tubeHeight / 2, ring.z + ring.tubeHeight / 2);
+    }
+
+    void operator()(const AddMouldingOp &moulding) const
+    {
+        if (moulding.profile.empty()) {
+            return; // empty-profile early-out, as before
+        }
+        double radius = 0.0;
+        double minLocalZ = inf;
+        double maxLocalZ = -inf;
+        for (const MouldingPoint &point : moulding.profile) {
+            radius = std::max(radius, point.radius);
+            minLocalZ = std::min(minLocalZ, point.z);
+            maxLocalZ = std::max(maxLocalZ, point.z);
+        }
+        include(moulding.x - radius, moulding.x + radius,
+                moulding.y - radius, moulding.y + radius,
+                moulding.baseZ + minLocalZ, moulding.baseZ + maxLocalZ);
+    }
+
+    // The remaining five arms contribute no framing today — explicit no-ops,
+    // exactly as the old ladder fell through. They are spelled out so a future
+    // op arm can't silently join this set.
+    void operator()(const AddProfileMouldingOp &) const {}
+    void operator()(const AddRevolvedProfileOp &) const {}
+    void operator()(const CutFlutesOp &) const {}
+    // AddLabel stays a no-op HERE even though Python's bounds_of
+    // (edi_craft.py ~:440) folds the label point into its frame — the C++ and
+    // Python framing rigs intentionally differ; do NOT change behavior to match.
+    void operator()(const AddLabelOp &) const {}
+    void operator()(const ScriptOp &) const {}
+};
+
 // v0's estimate_bounds for the architectural core: CutFlutes and AddLabel
 // contribute nothing; the taper/entasis bulge is deliberately ignored
 // (v0's choice — the 2.0 pad absorbs it; preserved for byte fidelity).
@@ -79,40 +155,7 @@ Bounds estimateBounds(const std::vector<RecipeOp> &ops)
     };
 
     for (const RecipeOp &op : ops) {
-        if (const auto *box = std::get_if<AddBoxOp>(&op)) {
-            const double z = boxZCenter(*box);
-            include(box->x - box->width / 2, box->x + box->width / 2,
-                    box->y - box->depth / 2, box->y + box->depth / 2,
-                    z - box->height / 2, z + box->height / 2);
-        } else if (const auto *cylinder = std::get_if<AddCylinderOp>(&op)) {
-            double extents[6];
-            cylinderExtents(*cylinder, extents);
-            include(extents[0], extents[1], extents[2], extents[3], extents[4], extents[5]);
-        } else if (const auto *sphere = std::get_if<AddSphereOp>(&op)) {
-            include(sphere->x - sphere->radius, sphere->x + sphere->radius,
-                    sphere->y - sphere->radius, sphere->y + sphere->radius,
-                    sphere->z - sphere->radius, sphere->z + sphere->radius);
-        } else if (const auto *ring = std::get_if<AddRingOp>(&op)) {
-            const double radius = ring->radius + ring->overhang;
-            include(ring->x - radius, ring->x + radius,
-                    ring->y - radius, ring->y + radius,
-                    ring->z - ring->tubeHeight / 2, ring->z + ring->tubeHeight / 2);
-        } else if (const auto *moulding = std::get_if<AddMouldingOp>(&op)) {
-            if (moulding->profile.empty()) {
-                continue;
-            }
-            double radius = 0.0;
-            double minLocalZ = inf;
-            double maxLocalZ = -inf;
-            for (const MouldingPoint &point : moulding->profile) {
-                radius = std::max(radius, point.radius);
-                minLocalZ = std::min(minLocalZ, point.z);
-                maxLocalZ = std::max(maxLocalZ, point.z);
-            }
-            include(moulding->x - radius, moulding->x + radius,
-                    moulding->y - radius, moulding->y + radius,
-                    moulding->baseZ + minLocalZ, moulding->baseZ + maxLocalZ);
-        }
+        std::visit(BoundsEstimator<decltype(include)>{include, inf}, op);
     }
 
     if (bounds.minX == inf) {

@@ -583,6 +583,22 @@ OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
 
 OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string &source)
 {
+    // TRIPWIRE — the store READER below is a string-keyed if/else ladder over
+    // the `type` key, NOT a std::visit over RecipeOp. Every WRITER-side
+    // interpreter is compiler-exhaustive (add a RecipeOp arm or it won't
+    // compile — docs/architecture/edi-blender-lab.md §2), but a reader keyed by
+    // a runtime string can't be: growing RecipeOp does NOT break this
+    // function's compile, so a forgotten reader branch would only fail at
+    // runtime (the refusing "unknown op type" default at the bottom). This
+    // static_assert is the deliberate guard that DOES break: bump the variant
+    // and this fires, reminding the next author to add a reader branch HERE and
+    // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
+    // cross-language TOML contract is a two-sided obligation (§3).
+    static_assert(std::variant_size_v<RecipeOp> == 10,
+                  "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
+                  "ladder is string-keyed, not a std::visit, so the compiler "
+                  "won't force it) AND a matching parse_ops arm in edi_craft.py.");
+
     OpStreamParseResult result;
     const auto parsed = edi::formats::readTomlStaticConfig(text, source);
     if (!parsed.ok) {

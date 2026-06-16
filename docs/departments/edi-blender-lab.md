@@ -28,8 +28,14 @@ Do NOT touch: the shell chrome/theming (edi-ui) or the drafting core
 
 ## Architecture (the rules to obey)
 The `RecipeOp` variant is the vocabulary core; **every `std::visit` over it is
-exhaustive** — namer, store writer+reader, validate, resolve, ascii, bind,
-schema (add the arm or it won't compile). The stream is TOML (`recipeOpsToToml`/
+compiler-exhaustive** — namer, store WRITER, validate, ascii, bind, schema (add
+the arm or it won't compile). Two interpreter ROLES are NOT `std::visit` and a new
+arm slips past them silently: the store **reader** (`recipeOpsFromToml`, a string
+if-ladder with a refusing default) and **resolve** (touches only the lathe arm).
+A third site, `estimateBounds` (ascii framing), is a non-exhaustive `get_if`
+ladder covering 5/10 ops. The precise interpreter map + the cross-language TOML
+contract live in `docs/architecture/edi-blender-lab.md` — read it before adding an
+op arm. The stream is TOML (`recipeOpsToToml`/
 `recipeOpsFromToml`), never JSON; the C++ writer's shape must match
 `edi_craft.parse_ops` key-for-key (the cross-language contract). Custom craftsmen
 = the generic `ScriptOp` (id + placement + untyped param bag; param keys are

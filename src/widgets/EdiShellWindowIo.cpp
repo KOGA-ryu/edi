@@ -1177,6 +1177,10 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     fields->setObjectName(QStringLiteral("opStepsFields"));
     auto *form = new QFormLayout(fields);
     form->setContentsMargins(0, 0, 0, 0);
+    // Keep each field at its natural size instead of stretching it across the
+    // whole panel — a full-width numeric spin reads as broken. Fields pack to
+    // the left of the form column; the empty space to their right is fine.
+    form->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
     layout->addWidget(fields, 1);
 
     // For a ScriptOp param, the manifest's declaration (its label + type);
@@ -1202,6 +1206,49 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             }
         }
         return nullptr;
+    };
+
+    // The op's editable scalars in DISPLAY order. For a Script op the store
+    // sweeps params from a sorted map (so a loaded step lists them
+    // alphabetically), but the craftsman declared a deliberate order — render
+    // the built-ins (x/y/z/name/script) first, then the params in MANIFEST
+    // order. A plain op (or unregistered craftsman) keeps the schema's order.
+    auto orderedScalars =
+        [this](const edi::recipe::RecipeOp &op) -> std::vector<edi::recipe::RecipeOpScalar> {
+        std::vector<edi::recipe::RecipeOpScalar> all = edi::recipe::opEditableScalars(op);
+        const auto *script = std::get_if<edi::recipe::ScriptOp>(&op);
+        if (script == nullptr) {
+            return all;
+        }
+        const edi::recipe::CraftsmanManifest *manifest =
+            edi::recipe::findCraftsman(m_craftsmen, script->scriptId);
+        if (manifest == nullptr) {
+            return all;
+        }
+        const auto isParam = [manifest](const std::string &key) {
+            for (const edi::recipe::CraftsmanParam &p : manifest->params) {
+                if (p.key == key) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        std::vector<edi::recipe::RecipeOpScalar> ordered;
+        ordered.reserve(all.size());
+        for (const edi::recipe::RecipeOpScalar &scalar : all) {
+            if (!isParam(scalar.key)) {
+                ordered.push_back(scalar); // built-ins first, in their own order
+            }
+        }
+        for (const edi::recipe::CraftsmanParam &param : manifest->params) {
+            for (const edi::recipe::RecipeOpScalar &scalar : all) {
+                if (scalar.key == param.key) {
+                    ordered.push_back(scalar);
+                    break;
+                }
+            }
+        }
+        return ordered;
     };
 
     // A manifest-typed editor for one craftsman param. The param's VALUE is a
@@ -1265,7 +1312,7 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     // delete the old widgets without ever deleting one mid-signal during its own
     // commit. A field bound to a drafted measurement (its number comes from the
     // canvas via resolve) renders disabled, with the binding named in its label.
-    auto rebuildFields = [this, form, fields, paramSpec, buildParamWidget](int index) {
+    auto rebuildFields = [this, form, fields, paramSpec, buildParamWidget, orderedScalars](int index) {
         while (form->rowCount() > 0) {
             form->removeRow(0);
         }
@@ -1273,7 +1320,10 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             return;
         }
         const edi::recipe::RecipeOp &op = m_opsStream.ops[static_cast<std::size_t>(index)];
-        for (const edi::recipe::RecipeOpScalar &scalar : edi::recipe::opEditableScalars(op)) {
+        // orderedScalars (not opEditableScalars) so a craftsman's params render in
+        // MANIFEST order; only this row-building path cares about field order —
+        // the refresh/shape paths key off objectName + count, which are unchanged.
+        for (const edi::recipe::RecipeOpScalar &scalar : orderedScalars(op)) {
             using edi::recipe::RecipeFieldKind;
             using edi::recipe::RecipeScalarValue;
             const QString key = QString::fromStdString(scalar.key);

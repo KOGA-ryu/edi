@@ -39,7 +39,9 @@ Requires python >= 3.11 (tomllib); Blender >= 4.1 ships it.
 
 from __future__ import annotations
 
+import importlib.util
 import math
+import os
 import sys
 
 try:
@@ -65,6 +67,54 @@ MATERIALS = {
 ARCHITECTURAL_OPS = (
     "AddBox", "AddCylinder", "AddSphere", "AddRing", "AddMoulding", "CutFlutes", "AddLabel",
 )
+
+
+# ---------------------------------------------------------------------------
+# Custom craftsmen: user Python scripts in a scanned folder, each a self-
+# describing step type. A script exposes MANIFEST (id, label, params),
+# proof_mesh(op) -> (verts, faces) for the proof, and build(op) for bpy. The
+# C++ lab reads the registry (`--list-craftsmen`) to fill the palette + render
+# the inspector; the proof and the build dispatch a "Script" op to its module.
+
+def default_craftsmen_dir() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "craftsmen")
+
+
+def load_craftsmen(folder: str) -> dict:
+    """id -> module for every .py in `folder` exposing a MANIFEST with an id."""
+    registry: dict = {}
+    if not folder or not os.path.isdir(folder):
+        return registry
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py") or name.startswith("_"):
+            continue
+        path = os.path.join(folder, name)
+        spec = importlib.util.spec_from_file_location(f"edi_craftsman_{name[:-3]}", path)
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        manifest = getattr(module, "MANIFEST", None)
+        if isinstance(manifest, dict) and manifest.get("id"):
+            registry[manifest["id"]] = module
+    return registry
+
+
+def craftsmen_manifest_toml(folder: str) -> str:
+    """The registry as flat TOML — what the C++ lab consumes to offer custom
+    steps in the palette and render their params in the inspector."""
+    registry = load_craftsmen(folder)
+    lines: list = []
+    for i, (cid, module) in enumerate(sorted(registry.items())):
+        manifest = module.MANIFEST
+        lines.append(f'craftsman.{i}.id = "{cid}"')
+        lines.append(f'craftsman.{i}.label = "{manifest.get("label", cid)}"')
+        for j, param in enumerate(manifest.get("params", [])):
+            lines.append(f'craftsman.{i}.param.{j}.key = "{param["key"]}"')
+            lines.append(f'craftsman.{i}.param.{j}.label = "{param.get("label", param["key"])}"')
+            lines.append(f'craftsman.{i}.param.{j}.type = "{param.get("type", "number")}"')
+            lines.append(f'craftsman.{i}.param.{j}.default = "{param.get("default", "")}"')
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +235,21 @@ def parse_ops(path: str) -> list[dict]:
             # uncompiled moulding above; the C++ passes refuse it too.
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddRevolvedProfile must be resolved before building: {name}")
+        if op_type == "Script":
+            # A custom-craftsman step: a script id, a position, and a free param
+            # bag. parse_ops does not know the craftsman's schema (it lives in
+            # the script's MANIFEST), so it reads the params generically and the
+            # craftsman coerces them — no unknown-key audit for these fields.
+            script_id = _text(op_key, fields, consumed, "script")
+            name = _text(op_key, fields, consumed, "name", script_id)
+            x = _number(op_key, fields, consumed, "x", 0.0)
+            y = _number(op_key, fields, consumed, "y", 0.0)
+            z = _number(op_key, fields, consumed, "z", 0.0)
+            params = {key: value for key, value in fields.items() if key not in consumed}
+            ops.append({"type": "Script", "script": script_id, "name": name,
+                        "x": x, "y": y, "z": z, "params": params})
+            index += 1
+            continue
         if op_type not in ARCHITECTURAL_OPS:
             raise ValueError(f"{op_key}.type: unknown op type {op_type!r}")
 
@@ -573,9 +638,12 @@ def cutflute_objects(ops: list, op: dict) -> list:
     return objects
 
 
-def obj_objects(ops: list) -> list:
+def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
     """(name, verts, faces) per buildable op — the OBJ proof's object list, in
-    op order. AddLabel carries no mesh (it is text), so it is skipped."""
+    op order. AddLabel carries no mesh (it is text), so it is skipped; a Script
+    op asks its craftsman for the proof mesh (an unknown craftsman is skipped)."""
+    if craftsmen is None:
+        craftsmen = load_craftsmen(default_craftsmen_dir())
     out = []
     for op in ops:
         kind = op["type"]
@@ -591,15 +659,20 @@ def obj_objects(ops: list) -> list:
             out.append((op["name"], *_moulding_world(op)))
         elif kind == "CutFlutes":
             out.extend(cutflute_objects(ops, op))
+        elif kind == "Script":
+            module = craftsmen.get(op["script"])
+            if module is not None and hasattr(module, "proof_mesh"):
+                verts, faces = module.proof_mesh(op)
+                out.append((op["name"], verts, faces))
     return out
 
 
-def obj_lines(ops: list) -> list:
+def obj_lines(ops: list, craftsmen: dict | None = None) -> list:
     """The OBJ text: `o <name>` groups, `v`/`f` only (no normals/uv — the proof
     is shape, not shading), 1-indexed across the file, op order, fixed `g` floats."""
     lines: list = []
     base = 1
-    for name, verts, faces in obj_objects(ops):
+    for name, verts, faces in obj_objects(ops, craftsmen):
         lines.append(f"o {name}")
         for vx, vy, vz in verts:
             lines.append(f"v {_fmt(vx)} {_fmt(vy)} {_fmt(vz)}")
@@ -857,7 +930,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         bpy.context.collection.objects.link(obj)
         return obj
 
-    craftsmen = {
+    builders = {
         "AddBox": add_box,
         "AddCylinder": add_cylinder,
         "AddSphere": add_sphere,
@@ -866,8 +939,16 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         "CutFlutes": cut_flutes,
         "AddLabel": add_label,
     }
+    custom = load_craftsmen(default_craftsmen_dir())
     for op in ops:
-        craftsmen[op["type"]](op)
+        if op["type"] == "Script":
+            module = custom.get(op["script"])
+            if module is None or not hasattr(module, "build"):
+                failures.append(f"Script: unknown craftsman {op['script']!r}")
+            else:
+                module.build(op)
+            continue
+        builders[op["type"]](op)
 
     # The preview rig, computed from what was actually built — v0 hardcoded
     # a rig that neither framed nor lit its own column.
@@ -903,6 +984,13 @@ def main(argv: list[str]) -> int:
         argv = argv[argv.index("--") + 1:]
     else:
         argv = argv[1:]
+    # --list-craftsmen[=<folder>]: print the custom-craftsman registry as TOML
+    # (the lab's palette + inspector read it) and exit. Needs no ops file.
+    for arg in argv:
+        if arg == "--list-craftsmen" or arg.startswith("--list-craftsmen="):
+            folder = arg.split("=", 1)[1] if "=" in arg else default_craftsmen_dir()
+            print(craftsmen_manifest_toml(folder))
+            return 0
     dry_run = "--dry-run" in argv
     obj_out = next((arg.split("=", 1)[1] for arg in argv if arg.startswith("--obj-out=")), None)
     paths = [arg for arg in argv if not arg.startswith("--")]

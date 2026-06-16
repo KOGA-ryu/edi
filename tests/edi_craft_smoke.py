@@ -163,6 +163,24 @@ def main() -> int:
     assert obj.count("\nv ") + (1 if obj.startswith("v ") else 0) == 6928, "OBJ vertex count drifted"
     assert obj.count("\nf ") + (1 if obj.startswith("f ") else 0) == 6192, "OBJ face count drifted"
 
+    # Custom craftsmen (the foundation): the scanner finds the sample script, the
+    # registry exposes its manifest as TOML (what the C++ lab reads), and a
+    # Script op renders in the proof through the craftsman's proof_mesh.
+    registry = edi_craft.load_craftsmen(edi_craft.default_craftsmen_dir())
+    assert "twisted_column" in registry, "twisted_column craftsman not discovered"
+    manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
+    assert 'craftsman.0.id = "twisted_column"' in manifest_toml
+    assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
+    script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
+                 "x": 0.0, "y": 0.0, "z": 0.0,
+                 "params": {"radius": "1", "height": "4", "sides": "6", "turns": "1", "rings": "8"}}
+    objects = edi_craft.obj_objects([script_op])
+    assert len(objects) == 1 and objects[0][0] == "twist", "Script op did not render one object"
+    assert len(objects[0][1]) == 9 * 6, f"twisted column vert count: {len(objects[0][1])}"  # (rings+1)*sides
+    unknown = {"type": "Script", "script": "nope", "name": "x",
+               "x": 0.0, "y": 0.0, "z": 0.0, "params": {}}
+    assert edi_craft.obj_objects([unknown]) == [], "an unknown craftsman should be skipped, not crash"
+
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.
     path = write_temp(PLAN_FIXTURE)

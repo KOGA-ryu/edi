@@ -35,7 +35,8 @@
 Point, Line, Rectangle, Circle, Arc, Ellipse, Polygon, Polyline, Guide,
 ConstructionLine, Dimension, TextAnnotation, Spline, Wall.
 
-### `std::visit` over `DraftingGeometry` — 19 sites, exhaustiveness state
+### `std::visit` over `DraftingGeometry` — 17 sites, exhaustiveness state
+(13 GUARDED + 4 NOW-GUARDED below = 17.)
 - **GUARDED** (terminal `always_false_v`): `DraftingGeometry.cpp` geometryKind(:303),
   validateGeometry(:394), computeBounds(:519), translateGeometry(:616),
   handleAnchors(:825); `DraftingHitTest.cpp:62`; `DraftingNumericEdit.cpp:69`;

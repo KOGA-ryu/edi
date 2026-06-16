@@ -20,6 +20,7 @@
 #include <QLabel>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QListWidget>
@@ -1490,6 +1491,41 @@ int main(int argc, char **argv)
             sawMarble = sawMarble || (p.key == "material" && p.value == "marble");
         }
         assert(sawMarble);
+
+        // The inspector renders params in MANIFEST order, not the order they sit
+        // in the op. Load a recipe whose params sweep ALPHABETICALLY off disk
+        // (the store reads from a sorted map), then force a clean field rebuild:
+        // the rows must still read radius → sides → material (the manifest's
+        // order), never material → radius → sides (alphabetical).
+        const QString applyErr = craft.applyOpsScript(
+            "op.0.type = \"Script\"\n"
+            "op.0.script = \"twisted_column\"\n"
+            "op.0.name = \"t\"\n"
+            "op.0.radius = \"1\"\n"
+            "op.0.sides = \"4\"\n"
+            "op.0.material = \"stone\"\n");
+        assert(applyErr.isEmpty());
+        const auto *loaded = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
+        assert(loaded != nullptr && loaded->params.size() == 3);
+        assert(loaded->params[0].key == "material"); // proof the store swept alphabetically
+        steps->setCurrentRow(-1); // force currentRowChanged so the fields rebuild fresh
+        steps->setCurrentRow(0);
+        auto *fieldsWidget = craft.findChild<QWidget *>(QStringLiteral("opStepsFields"));
+        assert(fieldsWidget != nullptr);
+        auto *form = qobject_cast<QFormLayout *>(fieldsWidget->layout());
+        assert(form != nullptr);
+        QStringList rowLabels;
+        for (int row = 0; row < form->rowCount(); ++row) {
+            if (auto *item = form->itemAt(row, QFormLayout::LabelRole)) {
+                if (auto *label = qobject_cast<QLabel *>(item->widget())) {
+                    rowLabels << label->text();
+                }
+            }
+        }
+        const int iRadius = rowLabels.indexOf(QStringLiteral("Radius"));
+        const int iSides = rowLabels.indexOf(QStringLiteral("Sides"));
+        const int iMaterial = rowLabels.indexOf(QStringLiteral("Material"));
+        assert(iRadius >= 0 && iSides > iRadius && iMaterial > iSides); // manifest order
     }
 
     // F1 — the object list: a browsable projection of the document. It

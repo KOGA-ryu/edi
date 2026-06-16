@@ -99,11 +99,34 @@
   extraction lands after 003 anyway.
 - `.cpp` motion: NONE (name-funcs resolve through the include chain). Pure motion.
 
-### Builder extraction slice (DraftingMapTypes.h, shape a) — QUEUED
+### Builder batch 003 (A1/N1/B1) — 2026-06-16 — edi-dungeon-map-builder (DONE)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/003-builder-cartography-refactors.md`
+- Commits: prep `c9d6156` (+`<memory>`), A1 `4ca427e`, N1 `fcae7eb`, B1 `1a26ee7`.
+- **Gate GREEN:** build exit 0; `ctest -E edi_shell_window_tests` → 95/95 pass;
+  N1 golden UNMODIFIED; scan clean; snapshot PNG 900×760; export spot-check
+  rooms[12]/plugs[26]/connections[12]. Behavior-preserving.
+- A1 pre-check rigorous: 34 variant alternatives ↔ 34 handled branches (empty
+  diff); guard verified to FIRE on a deleted arm, then restored (not committed).
+- N1: helpers take resolved strings (the two overloads share no room/plug TYPE —
+  `MapSpec` room vs `DraftingMapRoom`); byte-identical output proves the de-dup.
+- **Ownership correction (planner):** the prep `<memory>` fix touched
+  `tests/drafting_room_/_corridor_/_ascii_map_` — the builder tagged these
+  "edi-drafting territory," but they test `planDraftingRoom`/`CorridorSpec`/
+  `DraftingAsciiMap` = wholly-OURS map primitives (arch §1). So the fix is in OUR
+  territory, correctly done, NO handoff needed for the test files. The builder's
+  deeper note — sweep non-test DRAFTING SOURCES for the same dropped-transitive-
+  include — is a speculative edi-drafting hygiene FYI (build is green), passed to
+  the hub as one line, not a blocker.
+
+### Builder extraction slice 005 (DraftingMapTypes.h, shape a) — DISPATCHED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/005-builder-mapttypes-extraction.md`
-- Dispatch AFTER builder batch 003 commits (so B1's `plug.anchor` comment rides
-  with the moved `DraftingPlug`). Held pending 003's reply doorbell + hub
-  veto-window on the (a)/(c) call.
+- 003 committed (B1 `1a26ee7` present) → dispatched. Builds on 003; B1's comment
+  travels with the moved `DraftingPlug`.
+
+### Reviewer diff audit of 003 — DISPATCHED (parallel with 005)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/006-reviewer-003-diff-audit.md`
+- Read-only adversarial audit of commits `4ca427e`/`fcae7eb`/`1a26ee7` (+ prep
+  `c9d6156`). Independent of 005 (immutable commits) → runs in parallel.
 
 ## Open questions / blockers
 - None blocking. Boundary SETTLED by HUB H2. The `DraftingMapTypes.h` include

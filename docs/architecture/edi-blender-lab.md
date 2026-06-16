@@ -1,9 +1,12 @@
 # Architecture — edi-blender-lab (the recipe lab / Seam A)
 
-> **Status:** first draft, 2026-06-16 (campaign `blender-lab-20260616-cartography`).
-> The durable map of how the recipe lab is structured. Folded from the reviewer
-> gate's read-only enumeration (`~/dept-bus/edi-blender-lab/replies/002-…`),
-> spot-verified by the planner. Keep this current as the lab changes.
+> **Status:** 2026-06-16, refreshed post-batch (campaign
+> `blender-lab-20260616-cartography`, CLOSED). The durable map of how the recipe
+> lab is structured. Folded from the reviewer gate's read-only enumeration
+> (`~/dept-bus/edi-blender-lab/replies/002-…`), spot-verified by the planner, then
+> refreshed against live source after the hardening batch landed (§10 marks the two
+> refactors DONE; §2/§5 anchors re-grepped after the `BoundsEstimator` insertion
+> drifted the ascii line numbers). Keep this current as the lab changes.
 >
 > Doctrine: **"Recipe is truth. ASCII preview is proof. Blender script is
 > execution."** The human composes an op stream by CLICKING; the AI edits the
@@ -43,7 +46,7 @@ The charter's shorthand "7 visit sites (namer, store writer+reader, validate,
 resolve, ascii, bind, schema)" lists 7 **roles**, not visit sites, **and two of
 those roles are not `std::visit` at all.** The accurate map:
 
-**Compiler-exhaustive `std::visit` over `RecipeOp` — 10 call sites / 9 distinct
+**Compiler-exhaustive `std::visit` over `RecipeOp` — 11 call sites / 10 distinct
 visitor mechanisms.** An added arm fails to compile at each (overload set has no
 match):
 
@@ -53,36 +56,46 @@ match):
 | `OpWriter` (store WRITER) | RecipeOpsStore.cpp:571 | std::visit + overload struct |
 | `OpChecker` (validate) | RecipeOpsValidate.cpp:297 | std::visit + overload struct |
 | `NameGetter` (validate) | RecipeOpsValidate.cpp:273 | std::visit + overload struct |
-| `ProjectionDrawer` (ascii draw) | RecipeOpsAscii.cpp:492 | std::visit + overload struct |
+| `BoundsEstimator` (ascii framing) | RecipeOpsAscii.cpp:158 (struct :76) | std::visit + overload struct templated on the `include` lambda |
+| `ProjectionDrawer` (ascii draw) | RecipeOpsAscii.cpp:535 (struct :344) | std::visit + overload struct |
 | `FieldVisit` (bind — exists) | RecipeOpsBind.cpp:144 | std::visit + member-ptr table |
 | `FieldVisit` (bind — write) | RecipeOpsBind.cpp:157 | std::visit + member-ptr table |
 | `FieldList` (bind — list) | RecipeOpsBind.cpp:162 | std::visit + member-ptr table |
 | `appendExtras` (schema) | RecipeOpSchema.cpp:264 | std::visit generic-λ → 10 free-fn overloads |
 | `setExtra` (schema) | RecipeOpSchema.cpp:277 | std::visit generic-λ → 10 free-fn overloads |
 
+> `BoundsEstimator` was added by the cartography campaign (`4a561e8`) — it replaced a
+> non-exhaustive 5/10 `get_if` ladder. See §10.
+
 **The two roles that are NOT compiler-enforced** (a new arm slips through silently):
 
-- **Store READER** `recipeOpsFromToml` (RecipeOpsStore.cpp:605–831): a **string
-  if/else-if ladder over the `type` key** with a refusing default at :828
+- **Store READER** `recipeOpsFromToml` (RecipeOpsStore.cpp:584–845): a **string
+  if/else-if ladder over the `type` key** with a refusing default at :844
   (`"unknown op type"`). A new variant arm does not force a branch here — it is
   rejected at *runtime* as unknown, not at compile time. This is the single place
-  the "every visit is exhaustive" promise is not the compiler's job. *(Hardening
-  candidate — see §10.)*
+  the "every visit is exhaustive" promise is not the compiler's job. **Guarded since
+  the cartography campaign by a `static_assert(std::variant_size_v<RecipeOp> == 10)`
+  tripwire at the top of the function (`b6af915`, :597)** — growing the variant now
+  fails this assert, reminding the author to add a reader branch + a matching
+  `parse_ops` arm. See §10.
 - **Resolve** `resolveRecipeOps` (RecipeOpsResolve.cpp): touches only the lathe arm
   by design (`get_if<AddRevolvedProfileOp>` at :93, `holds_alternative<…>` at :166).
   Not a dispatch over all arms; nothing to make exhaustive.
 
-**A third non-exhaustive `get_if` ladder the charter never claimed:** `estimateBounds`
-(RecipeOpsAscii.cpp:81–116) accumulates ASCII framing bounds for **only 5 of 10**
-ops (Box, Cylinder, Sphere, Ring, Moulding) and silently ignores the other 5. A new
-op compiles with no bounds contribution. *(Top hardening candidate — see §10.)*
+**`estimateBounds` is now exhaustive (was the 3rd silent `get_if` ladder).** Before
+the cartography campaign it framed only 5/10 ops via a `get_if` chain; `4a561e8`
+converted it to the `BoundsEstimator` `std::visit` above (RecipeOpsAscii.cpp:144,
+struct :76) — 5 ops keep identical extents, the other 5 are explicit no-op arms, so a
+new op now forces a framing decision at compile time.
 
 **Empty / stub `ProjectionDrawer` arms** (all deliberate, most commented):
-`AddLabelOp` (:437, labels are Blender-side text) and `ScriptOp` (:443, a
+`AddLabelOp` (:480, labels are Blender-side text) and `ScriptOp` (:486, a
 craftsman's shape is its Python `proof_mesh`; OBJ is its proof tier, not 2D ASCII).
-`AddProfileMoulding`/`AddRevolvedProfile` arms (:409/:410) are empty but
-**unreachable** — `renderOpsProjection` refuses both at :456/:464 before dispatch.
-`OpChecker(AddLabelOp)` is empty (:233 — nothing to validate).
+`AddProfileMoulding`/`AddRevolvedProfile` arms (:452/:453) are empty but
+**unreachable** — `renderOpsProjection` refuses both at :502/:507 before dispatch.
+`OpChecker(AddLabelOp)` is empty (:233 — nothing to validate). (The 5 `BoundsEstimator`
+no-op arms — AddProfileMoulding/AddRevolvedProfile/CutFlutes/AddLabel/Script — are at
+:131–138.)
 
 ## 3. The C++↔Python TOML contract — key-for-key, NO DRIFT
 
@@ -108,8 +121,9 @@ guard is the cross-language smoke (`--obj-out`, `tests/edi_craft_smoke.py`). Run
 on every store or `edi_craft.py` change.
 
 Param-key rule `recipeScriptParamKeyProblem` (RecipeOps.cpp:43) enforced in THREE C++
-places — store write (:558), store read (:817), validate (:250) — guarding the bare-
-key/no-collision rule the Python `tomllib` half needs. Materials table parity: C++
+places — store write (RecipeOpsStore.cpp:560), store read (:834), validate
+(RecipeOpsValidate.cpp:251) — guarding the bare-key/no-collision rule the Python
+`tomllib` half needs. Materials table parity: C++
 `recipeMaterialTable` (RecipeOps.cpp:10) ≡ Python `MATERIALS` (edi_craft.py:57),
 identical 7 entries.
 
@@ -133,13 +147,14 @@ identical 7 entries.
 stay the resolved value every downstream consumer reads — no consumer needs to know a
 field was bound. Refuse-by-name when unresolved: `recipeOpsResolved` (:156) is false
 if any binding remains OR any `AddRevolvedProfileOp` survives; downstream refusals by
-name at compile (RecipeOps.cpp:78), ascii (:456/:464), Python parse_ops (:228/:231).
+name at compile (RecipeOps.cpp:78), ascii (RecipeOpsAscii.cpp:502/:507), Python
+parse_ops (:228/:231).
 
 ## 5. The proof tiers
 
 | tier | producer | proves | ops drawn | invisible |
 |---|---|---|---|---|
-| **ASCII** | `renderOpsProjection` (RecipeOpsAscii.cpp:448) | 2D silhouette front/side/top vs goldens | Box, Cylinder, Sphere, Ring, Moulding, CutFlutes | **Script (empty :443)**, AddLabel (empty); ProfileMoulding/Revolved refused |
+| **ASCII** | `renderOpsProjection` (RecipeOpsAscii.cpp:491) | 2D silhouette front/side/top vs goldens | Box, Cylinder, Sphere, Ring, Moulding, CutFlutes | **Script (empty :486)**, AddLabel (empty :480); ProfileMoulding/Revolved refused :502/:507 |
 | **dry-run** | `plan_lines` (edi_craft.py:685) | one deterministic build line per op | Box, Cylinder, Sphere, Ring, Moulding, CutFlutes, AddLabel | **Script — no branch** (header counts it, emits no line) |
 | **compiled** | `compileRecipeOps` (RecipeOps.cpp:70) | ProfileMoulding→Moulding term expansion | — | — |
 | **OBJ mesh** | `obj_objects`/`obj_lines` (edi_craft.py:641/670) | deterministic mesh, honest dimensions | all incl. **Script via `proof_mesh`** | AddLabel (text, no mesh) |
@@ -196,23 +211,24 @@ grepped, not fully line-read; treat the host files as edi-ui's.)*
    CONFIRMED.** Palette = {AddBox, AddCylinder, AddSphere, AddRing} (RecipeOps.cpp:115);
    `makeRecipeOp` builds only those four. The lathe needs a profile reference, so it is
    authored, not one-click-appended.
-3. **`ScriptOp` empty ASCII arm at RecipeOpsAscii.cpp:443 — CONFIRMED** (and
+3. **`ScriptOp` empty ASCII arm at RecipeOpsAscii.cpp:486 — CONFIRMED** (and
    commented). EXTENSION: Script is also dropped from the dry-run tier; OBJ is its only
    proof.
 
 ## 10. Refactor candidates (behavior-preserving only — ranked)
 
 From the reviewer gate. Map-and-clean campaign: **no features** (no new ops, no
-extrude). Status tracks this campaign's builder batch.
+extrude). Status reflects the LANDED builder batch (`4a561e8`, `b6af915`,
+reviewer-audited clean; cartography closed — see `docs/closeouts/blender-lab-cartography.md`).
 
-| # | value | candidate | cheapest fix | this campaign? |
+| # | value | candidate | cheapest fix | status |
 |---|---|---|---|---|
-| 1 | MED–HIGH | `estimateBounds` non-exhaustive (5/10 ops, silent fall-through) | convert to a `std::visit` overload set; no-op arms for draw-nothing ops; same extents | **YES — slice A** |
-| 2 | MED | store READER if-ladder not compiler-exhaustive | `static_assert(variant_size_v<RecipeOp> == 10)` + teaching comment beside the ladder | **YES — slice B** |
-| 3 | MED | charter says reader/resolve are exhaustive visits (they aren't) | record the corrected map (this doc) + a charter note | **YES — done in this doc; charter note** |
-| 4 | LOW–MED | dry-run `plan_lines` emits no Script line (header miscounts) | add a Script branch | deferred — touches dry-run *behavior*; folds with the backlog Script-ASCII work |
-| 5 | LOW | craftsman `param.type` default: C++ "text" vs Python "number" | align C++ fallback / document | deferred — only reachable on hand-built registry TOML |
-| 6 | LOW | `estimateBounds` omits AddLabel (Python `bounds_of` includes it) | comment the divergence (no behavior change) | folds into slice A as a comment |
+| 1 | MED–HIGH | `estimateBounds` non-exhaustive (5/10 ops, silent fall-through) | convert to a `std::visit` overload set; no-op arms for draw-nothing ops; same extents | **DONE — `4a561e8` (BoundsEstimator)** |
+| 2 | MED | store READER if-ladder not compiler-exhaustive | `static_assert(variant_size_v<RecipeOp> == 10)` + teaching comment beside the ladder | **DONE — `b6af915`** |
+| 3 | MED | charter says reader/resolve are exhaustive visits (they aren't) | record the corrected map (this doc) + a charter note | **DONE — this doc §2 + charter note** |
+| 4 | LOW–MED | dry-run `plan_lines` emits no Script line (header miscounts) | add a Script branch | OPEN (deferred) — touches dry-run *behavior*; folds with the backlog Script-ASCII work (roadmap M1 slice 2) |
+| 5 | LOW | craftsman `param.type` default: C++ "text" vs Python "number" | align C++ fallback / document | OPEN (deferred) — only reachable on hand-built registry TOML |
+| 6 | LOW | `estimateBounds` omits AddLabel (Python `bounds_of` includes it) | comment the divergence (no behavior change) | **DONE — folded into `4a561e8` as the AddLabel-arm comment** |
 
 No data-oriented-rule violations found: no subclassing-for-behavior, no stateful logic
 objects, no hidden JSON, no `.js`/`.qml` in scope. The variant + free-function +

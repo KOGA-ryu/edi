@@ -203,6 +203,8 @@ add_library(edi_recipe_core STATIC
     src/recipe/RecipeOps.cpp
     src/recipe/RecipeOpsBind.h
     src/recipe/RecipeOpsBind.cpp
+    src/recipe/RecipeOpSchema.h
+    src/recipe/RecipeOpSchema.cpp
     src/recipe/RecipeOpsResolve.h
     src/recipe/RecipeOpsResolve.cpp
     src/recipe/RecipeOpsStore.h

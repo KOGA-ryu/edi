@@ -1335,6 +1335,21 @@ int main(int argc, char **argv)
         const auto *reCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
         assert(reCylinder != nullptr && reCylinder->radius == 4.0);
 
+        // Beyond numbers: the cylinder shows a material combo, a name line-edit,
+        // a vertices int-spin, and an entasis checkbox — and the scalar verb sets
+        // each kind back onto the op.
+        assert(shell.findChild<QComboBox *>(QStringLiteral("opField_material")) != nullptr);
+        assert(shell.findChild<QLineEdit *>(QStringLiteral("opField_name")) != nullptr);
+        assert(shell.findChild<QSpinBox *>(QStringLiteral("opField_vertices")) != nullptr);
+        assert(shell.findChild<QCheckBox *>(QStringLiteral("opField_entasis")) != nullptr);
+        shell.applyOpScalarEdit(0, QStringLiteral("material"),
+                                edi::recipe::RecipeScalarValue{std::string("marble")});
+        shell.applyOpScalarEdit(0, QStringLiteral("vertices"), edi::recipe::RecipeScalarValue{32});
+        shell.applyOpScalarEdit(0, QStringLiteral("entasis"), edi::recipe::RecipeScalarValue{true});
+        const auto *richCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
+        assert(richCylinder != nullptr);
+        assert(richCylinder->material == "marble" && richCylinder->vertices == 32 && richCylinder->entasis);
+
         // The palette appends a step by CLICK: a new unit cylinder joins the
         // recipe, the Steps list grows, and it lands as a real AddCylinder.
         const int before = static_cast<int>(shell.opsStream().ops.size());

@@ -5,16 +5,19 @@
 #include <QFileDialog>
 #include <QSaveFile>
 #include <QFileInfo>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QPixmap>
 #include <QString>
@@ -29,6 +32,7 @@
 #include "core/DrawingCore.h"
 #include "recipe/RecipeOpsAscii.h"
 #include "recipe/RecipeOpsBind.h"
+#include "recipe/RecipeOpSchema.h"
 #include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
@@ -910,21 +914,27 @@ QWidget *EdiShellWindow::buildLabRightPanel()
     return tabs;
 }
 
-void EdiShellWindow::applyOpFieldEdit(int opIndex, const QString &fieldKey, double value)
+void EdiShellWindow::applyOpScalarEdit(int opIndex, const QString &fieldKey,
+                                      const edi::recipe::RecipeScalarValue &value)
 {
     if (opIndex < 0 || opIndex >= static_cast<int>(m_opsStream.ops.size())) {
         return;
     }
-    // Edit a COPY, commit only if the key is an editable field of this op — an
-    // unknown key leaves the stream untouched. Then re-sync the TOML view (the
-    // AI's surface follows the human's edit) and re-render the proof/compiled.
+    // Edit a COPY, commit only if the key+kind is a real scalar of this op — an
+    // unknown key or wrong kind leaves the stream untouched. Then re-sync the
+    // TOML view (the AI's surface follows the human) and re-render the proof.
     edi::recipe::RecipeOp edited = m_opsStream.ops[static_cast<std::size_t>(opIndex)];
-    if (!edi::recipe::setOpFieldValue(edited, fieldKey.toStdString(), value)) {
+    if (!edi::recipe::setOpScalar(edited, fieldKey.toStdString(), value)) {
         return;
     }
     m_opsStream.ops[static_cast<std::size_t>(opIndex)] = std::move(edited);
     syncOpsScriptDocument();
     emit opsStreamChanged();
+}
+
+void EdiShellWindow::applyOpFieldEdit(int opIndex, const QString &fieldKey, double value)
+{
+    applyOpScalarEdit(opIndex, fieldKey, edi::recipe::RecipeScalarValue{value});
 }
 
 void EdiShellWindow::appendRecipeOp(const QString &typeName)
@@ -1052,23 +1062,85 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
             return;
         }
         const edi::recipe::RecipeOp &op = m_opsStream.ops[static_cast<std::size_t>(index)];
-        for (const edi::recipe::RecipeOpField &field : edi::recipe::opFields(op)) {
-            const QString key = QString::fromStdString(field.key);
-            auto *spin = new QDoubleSpinBox;
-            spin->setObjectName(QStringLiteral("opField_%1").arg(key));
-            spin->setDecimals(3);
-            spin->setRange(-1000000.0, 1000000.0);
-            spin->setValue(field.value);
-            const bool bound = isBound(index, field.key);
-            spin->setEnabled(!bound);
-            // Commit on editingFinished (not valueChanged): a programmatic
-            // setValue during a value refresh never fires it, so the proof's
-            // re-render can't loop back into another edit.
-            if (!bound) {
-                connect(spin, &QDoubleSpinBox::editingFinished, fields,
-                        [this, index, key, spin]() { applyOpFieldEdit(index, key, spin->value()); });
+        for (const edi::recipe::RecipeOpScalar &scalar : edi::recipe::opEditableScalars(op)) {
+            using edi::recipe::RecipeFieldKind;
+            using edi::recipe::RecipeScalarValue;
+            const QString key = QString::fromStdString(scalar.key);
+            // A bound double is read here, not edited (its number comes from the
+            // canvas through resolve); a read-only reference (a revolved profile
+            // id) likewise. Both render disabled.
+            const bool bound = scalar.kind == RecipeFieldKind::Number && isBound(index, scalar.key);
+            const bool enabled = scalar.editable && !bound;
+            // Each widget commits through a USER-only signal (editingFinished /
+            // activated / clicked) — never one a programmatic refresh fires — so
+            // re-rendering after a commit never loops back into another edit.
+            QWidget *widget = nullptr;
+            switch (scalar.kind) {
+            case RecipeFieldKind::Number: {
+                auto *spin = new QDoubleSpinBox;
+                spin->setDecimals(3);
+                spin->setRange(-1000000.0, 1000000.0);
+                spin->setValue(scalar.number);
+                if (enabled) {
+                    connect(spin, &QDoubleSpinBox::editingFinished, fields, [this, index, key, spin]() {
+                        applyOpScalarEdit(index, key, RecipeScalarValue{spin->value()});
+                    });
+                }
+                widget = spin;
+                break;
             }
-            form->addRow(prettyFieldLabel(key) + (bound ? QStringLiteral("  (bound)") : QString()), spin);
+            case RecipeFieldKind::Integer: {
+                auto *spin = new QSpinBox;
+                spin->setRange(0, 1000000);
+                spin->setValue(scalar.integer);
+                if (enabled) {
+                    connect(spin, &QSpinBox::editingFinished, fields, [this, index, key, spin]() {
+                        applyOpScalarEdit(index, key, RecipeScalarValue{spin->value()});
+                    });
+                }
+                widget = spin;
+                break;
+            }
+            case RecipeFieldKind::Boolean: {
+                auto *check = new QCheckBox;
+                check->setChecked(scalar.boolean);
+                if (enabled) {
+                    connect(check, &QCheckBox::clicked, fields, [this, index, key](bool on) {
+                        applyOpScalarEdit(index, key, RecipeScalarValue{on});
+                    });
+                }
+                widget = check;
+                break;
+            }
+            case RecipeFieldKind::Choice: {
+                auto *combo = new QComboBox;
+                for (const std::string &choice : scalar.choices) {
+                    combo->addItem(QString::fromStdString(choice));
+                }
+                combo->setCurrentText(QString::fromStdString(scalar.text));
+                if (enabled) {
+                    connect(combo, &QComboBox::activated, fields, [this, index, key, combo](int) {
+                        applyOpScalarEdit(index, key, RecipeScalarValue{combo->currentText().toStdString()});
+                    });
+                }
+                widget = combo;
+                break;
+            }
+            case RecipeFieldKind::Text: {
+                auto *edit = new QLineEdit(QString::fromStdString(scalar.text));
+                if (enabled) {
+                    connect(edit, &QLineEdit::editingFinished, fields, [this, index, key, edit]() {
+                        applyOpScalarEdit(index, key, RecipeScalarValue{edit->text().toStdString()});
+                    });
+                }
+                widget = edit;
+                break;
+            }
+            }
+            widget->setObjectName(QStringLiteral("opField_%1").arg(key));
+            widget->setEnabled(enabled);
+            form->addRow(QString::fromStdString(scalar.label) + (bound ? QStringLiteral("  (bound)") : QString()),
+                         widget);
         }
     };
 
@@ -1079,10 +1151,26 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
         if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
             return;
         }
-        for (const edi::recipe::RecipeOpField &field : edi::recipe::opFields(m_opsStream.ops[static_cast<std::size_t>(index)])) {
-            const QString name = QStringLiteral("opField_%1").arg(QString::fromStdString(field.key));
-            if (auto *spin = fields->findChild<QDoubleSpinBox *>(name)) {
-                spin->setValue(field.value);
+        using edi::recipe::RecipeFieldKind;
+        for (const edi::recipe::RecipeOpScalar &scalar :
+             edi::recipe::opEditableScalars(m_opsStream.ops[static_cast<std::size_t>(index)])) {
+            const QString name = QStringLiteral("opField_%1").arg(QString::fromStdString(scalar.key));
+            switch (scalar.kind) {
+            case RecipeFieldKind::Number:
+                if (auto *w = fields->findChild<QDoubleSpinBox *>(name)) { w->setValue(scalar.number); }
+                break;
+            case RecipeFieldKind::Integer:
+                if (auto *w = fields->findChild<QSpinBox *>(name)) { w->setValue(scalar.integer); }
+                break;
+            case RecipeFieldKind::Boolean:
+                if (auto *w = fields->findChild<QCheckBox *>(name)) { w->setChecked(scalar.boolean); }
+                break;
+            case RecipeFieldKind::Choice:
+                if (auto *w = fields->findChild<QComboBox *>(name)) { w->setCurrentText(QString::fromStdString(scalar.text)); }
+                break;
+            case RecipeFieldKind::Text:
+                if (auto *w = fields->findChild<QLineEdit *>(name)) { w->setText(QString::fromStdString(scalar.text)); }
+                break;
             }
         }
     };
@@ -1111,17 +1199,16 @@ QWidget *EdiShellWindow::buildOpStepsPanel()
     // SHAPE changed (count or first key) — which happens only via Open/Apply, a
     // structural edit, never a spin's own value commit. So a rebuild here is
     // never mid-signal; a value-only change just refreshes the existing spins.
-    auto syncToSelection = [this, fields, rebuildFields, refreshFieldValues](int index) {
+    auto syncToSelection = [this, fields, form, rebuildFields, refreshFieldValues](int index) {
         if (index < 0 || index >= static_cast<int>(m_opsStream.ops.size())) {
             rebuildFields(index); // clears the form
             return;
         }
-        const std::vector<edi::recipe::RecipeOpField> desired =
-            edi::recipe::opFields(m_opsStream.ops[static_cast<std::size_t>(index)]);
-        const QList<QDoubleSpinBox *> built = fields->findChildren<QDoubleSpinBox *>();
-        bool sameShape = built.size() == static_cast<int>(desired.size());
+        const std::vector<edi::recipe::RecipeOpScalar> desired =
+            edi::recipe::opEditableScalars(m_opsStream.ops[static_cast<std::size_t>(index)]);
+        bool sameShape = form->rowCount() == static_cast<int>(desired.size());
         if (sameShape && !desired.empty()) {
-            sameShape = fields->findChild<QDoubleSpinBox *>(
+            sameShape = fields->findChild<QWidget *>(
                             QStringLiteral("opField_%1").arg(QString::fromStdString(desired.front().key)))
                         != nullptr;
         }

@@ -3,6 +3,7 @@
 // round-trip body below is the prototype's own example
 // (examples/doric_column_recipe_v0.json), translated key-for-key.
 #include "recipe/RecipeOps.h"
+#include "recipe/RecipeOpSchema.h"
 #include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
@@ -865,6 +866,34 @@ int main()
         assert(s.bindings[0].opIndex == 0);
         removeRecipeOp(s, 99); // out of range: no-op
         assert(s.ops.size() == 2);
+
+        // opEditableScalars covers what opFields cannot — enums, material, ints,
+        // bools, strings — and setOpScalar writes each back by typed value.
+        RecipeOp cyl = makeRecipeOp("AddCylinder", "drum").value();
+        bool sawMaterial = false, sawZMode = false, sawName = false, sawVertices = false;
+        for (const RecipeOpScalar &scalar : opEditableScalars(cyl)) {
+            if (scalar.key == "material") {
+                sawMaterial = scalar.kind == RecipeFieldKind::Choice && !scalar.choices.empty();
+            } else if (scalar.key == "z_mode") {
+                sawZMode = scalar.kind == RecipeFieldKind::Choice && scalar.choices.size() == 2;
+            } else if (scalar.key == "name") {
+                sawName = scalar.kind == RecipeFieldKind::Text && scalar.text == "drum";
+            } else if (scalar.key == "vertices") {
+                sawVertices = scalar.kind == RecipeFieldKind::Integer && scalar.integer == 96;
+            }
+        }
+        assert(sawMaterial && sawZMode && sawName && sawVertices);
+        assert(setOpScalar(cyl, "material", std::string("marble")));
+        assert(std::get_if<AddCylinderOp>(&cyl)->material == "marble");
+        assert(setOpScalar(cyl, "z_mode", std::string("base")));
+        assert(std::get_if<AddCylinderOp>(&cyl)->zMode == ZMode::Base);
+        assert(setOpScalar(cyl, "vertices", 48));
+        assert(std::get_if<AddCylinderOp>(&cyl)->vertices == 48);
+        assert(setOpScalar(cyl, "entasis", true));
+        assert(std::get_if<AddCylinderOp>(&cyl)->entasis);
+        assert(setOpScalar(cyl, "radius", 2.0)); // a double still routes through the registry
+        assert(std::get_if<AddCylinderOp>(&cyl)->radius == 2.0);
+        assert(!setOpScalar(cyl, "nonsense", 1.0)); // unknown key
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +

@@ -15,6 +15,7 @@
 #include "widgets/ShellTheme.h"
 
 #include "recipe/RecipeOps.h" // the op pipeline's stream, held for its verbs (R1-B05)
+#include "recipe/RecipeOpSchema.h" // the inspector's scalar-field schema + RecipeScalarValue
 #include "text/TextDocumentStore.h" // the editor's documents, window-owned (E1)
 #include "io/ProcessRunStore.h" // the Blender lab's subprocess seam
 #include "scripting/BlenderRunPlan.h" // the pure plan the runner executes
@@ -71,10 +72,13 @@ public:
     // E4: the strict-reader hook behind the editor's Apply button — parses
     // the script text, replaces the op stream, echoes canonical TOML back.
     QString applyOpsScript(const std::string &text);
-    // The human op inspector's edit verb: set one editable double field of the
-    // op at opIndex, then re-sync the TOML view (for the AI) and re-render the
-    // proof/compiled. A no-op if the index or field is invalid. Public so the
-    // inspector's spinboxes and tests drive it the same way.
+    // The human op inspector's edit verbs: set one scalar field of the op at
+    // opIndex (any kind — number/int/bool/enum/material/string), or the double
+    // convenience overload, then re-sync the TOML (for the AI) and re-render the
+    // proof/compiled. A no-op if the index, key, or value kind is invalid.
+    // Public so the inspector's widgets and tests drive them the same way.
+    void applyOpScalarEdit(int opIndex, const QString &fieldKey,
+                           const edi::recipe::RecipeScalarValue &value);
     void applyOpFieldEdit(int opIndex, const QString &fieldKey, double value);
     // The palette's append verb: add a new step of the named op type (a unit
     // primitive) to the recipe, then sync + re-render. A no-op for a type the

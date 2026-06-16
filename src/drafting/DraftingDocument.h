@@ -50,6 +50,15 @@ struct DraftingPlug {
     std::string name;                // authored label, e.g. "north_doorway"
     std::string type;                // neutral open vocabulary: "door"/"portal"/...
     Point2D anchor;                  // cached gap-center, so draw/export need not re-derive
+    // TODO(dungeon-map): `anchor` is a cache computed at AUTHORING time (when the
+    // plug is created from its anchorObjectId's geometry) and is NOT re-synced when
+    // that anchoring object is later moved or edited. The Seam C export reads it —
+    // MapToonExport.cpp deriveEdge() picks the room side nearest `anchor` — so an
+    // interactive move of a plug-anchored object would DRIFT the exported edge while
+    // the live geometry has moved on. The real fix is a syncGraphForMovedObject()
+    // sibling to pruneGraphForRemovedObject() (recompute anchors for plugs whose
+    // anchorObjectId moved). DEFERRED: that is a feature, out of the cartography
+    // campaign's behavior-preserving mandate — recorded here, not built.
 };
 
 // A declared connection is a NEUTRAL edge: "plug A links to plug B". It references

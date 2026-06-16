@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
-# Pull a department's CLOUD-BUILDER commits down into its local worktree, so the
-# Mac stays in sync with work done on the GitHub Actions runner. The other half of
-# the chain: the hub triggers `gh workflow run cloud-builder.yml ...`, the runner
-# pushes to dept/<name>, and this pulls it back.
+# Pull a department's worker commits from the Linux box DIRECTLY over SSH into its
+# local worktree — no GitHub round-trip. The box builds; this brings the verified
+# commits back to the Mac. The box's shared repo (~/edi/.git) holds every dept/*
+# branch its worktrees commit to, so we fetch from there.
 #   tools/dept-sync.sh edi-drafting | all
-# Fast-forward only: if local and cloud diverged (you also committed locally), it
-# says so and leaves the worktree for you to rebase/merge deliberately.
+# Override the host/repo with EDI_WORKER_HOST / EDI_WORKER_REPO if needed.
 
 set -euo pipefail
+HOST="${EDI_WORKER_HOST:-linux-worker}"
+REPO="${EDI_WORKER_REPO:-edi}"   # ~/edi on the box (the shared .git)
 
+ensure_remote() {  # worktree
+  local wt="$1"
+  git -C "$wt" remote get-url box >/dev/null 2>&1 || git -C "$wt" remote add box "${HOST}:${REPO}"
+}
 sync_one() {  # dept  worktree  branch
   local dept="$1" wt="$2" br="$3"
-  echo "── $dept ($br) ──"
-  if [[ ! -d "$wt" ]]; then echo "  worktree missing: $wt"; return; fi
-  git -C "$wt" fetch origin "$br"
-  if git -C "$wt" merge-base --is-ancestor "$br" "origin/$br"; then
-    git -C "$wt" merge --ff-only "origin/$br" && echo "  synced → $(git -C "$wt" rev-parse --short HEAD)"
+  echo "── $dept ($br) ← box ──"
+  [[ -d "$wt" ]] || { echo "  worktree missing: $wt"; return; }
+  ensure_remote "$wt"
+  git -C "$wt" fetch -q box "$br"
+  if git -C "$wt" merge --ff-only "box/$br" 2>&1 | sed 's/^/  /'; then
+    echo "  at $(git -C "$wt" rev-parse --short HEAD)"
   else
-    echo "  DIVERGED — local has commits the cloud doesn't; rebase in $wt before syncing"
+    echo "  DIVERGED (you also committed locally) — rebase in $wt before syncing"
   fi
 }
 

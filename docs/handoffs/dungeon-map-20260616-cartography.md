@@ -67,9 +67,31 @@
 - Slices: A1 (compile-time command guard) · N1 (TOON emitter de-dup) · B1
   (document the plug.anchor staleness contract). All behavior-preserving.
 
+### HUB RULING H2 — 2026-06-16 — src/drafting ownership boundary
+- `~/dept-bus/RULING-H2-src-drafting-boundary.md`. By-domain, SINGLE document
+  (no split of `DraftingDocument`/`DraftingCommand`). edi-dungeon-map owns the map
+  graph whole-file set + the 7 map command arms + the map struct/enum DEFINITIONS;
+  `WallGeometry` stays CORE. Shared headers co-edited by REGION not by file.
+  Recorded verbatim in `docs/architecture/edi-dungeon-map.md §1`.
+- **New deliverable (fold into cartography):** extract the map struct/enum defs
+  into a dungeon-map-owned `DraftingMapTypes.h` (document keeps its vectors). Pure
+  code motion, before any feature work.
+- `transformGeometry` = drafting-owned shared primitive, a FEATURE, note-don't-
+  build (recorded §8).
+
+### Reviewer scoping gate (DraftingMapTypes.h) — 2026-06-16 — edi-dungeon-map-reviewer (OPEN)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/004-reviewer-mapttypes-extraction-design.md`
+- Runs in PARALLEL with builder batch 003 (independent: design vs code).
+- Must settle the include-layering cycle: map metadata is embedded in core
+  `ObjectMetadata`; `DraftingBlock` contains core `DraftingObject`. Faithful to H2,
+  behavior-preserving, minimal churn. (awaiting design)
+
 ## Open questions / blockers
-- None blocking. The `src/drafting` ownership boundary is SETTLED (low collision
-  risk); reported to the hub for awareness, not arbitration.
+- None blocking. Boundary SETTLED by HUB H2. The `DraftingMapTypes.h` include
+  shape is being designed (gate 004); a flagged hub question may surface if H2's
+  "single header" conflicts with the `DraftingBlock`↔`DraftingObject` cycle.
 
 ## Next
-- Builder lands A1/N1/B1 → diff audit (reviewer) → closeout.
+- Builder lands A1/N1/B1 (003) → reviewer settles extraction design (004) →
+  builder executes extraction (005, AFTER 003 so B1's comment rides along) →
+  diff audit → closeout.

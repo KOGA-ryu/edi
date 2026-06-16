@@ -10,7 +10,7 @@ update it when a gate opens, advances, blocks, or closes.
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260616-fill-svg | edi-drafting | builder | open (boundary settled) | [docs/handoffs/drafting-20260616-fill-svg.md](drafting-20260616-fill-svg.md) | hub |
-| dungeon-map-20260616-cartography | edi-dungeon-map | builder | open (boundary settled; A1/N1/B1) | [docs/handoffs/dungeon-map-20260616-cartography.md](dungeon-map-20260616-cartography.md) | edi-dungeon-map-planner |
+| dungeon-map-20260616-cartography | edi-dungeon-map | builder+reviewer (parallel) | in-gate (003 A1/N1/B1 building; 004 DraftingMapTypes.h design) | [docs/handoffs/dungeon-map-20260616-cartography.md](dungeon-map-20260616-cartography.md) | edi-dungeon-map-planner |
 
 ## Conventions
 

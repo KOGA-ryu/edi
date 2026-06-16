@@ -15,10 +15,44 @@ The reviewer confirmed this law holds end-to-end: no `passable`/`weight`/
 generation present — corridor routing is deterministic L/Z + A* obstacle
 avoidance from authored door pairs (authoring, not generation).
 
-## 1. Ownership boundary — ours vs the drafting core's — **SETTLED**
+## 1. Ownership boundary — ours vs the drafting core's — **HUB-RULED (H2)**
 
-We SHARE `src/drafting` with edi-drafting. The map subsystem is cleanly separable:
-map data lives in wholly-owned files plus a small, well-marked set of arms
+### The ruling (HUB H2, user-ruled 2026-06-16 — verbatim)
+**By-domain, SINGLE document.** Do NOT split `DraftingDocument` or
+`DraftingCommand`. Keep the one-document data model — a plug/room/connection is a
+relation over objects in the SAME drawing.
+- **edi-drafting owns:** the core geometry types + ops + the CORE command arms +
+  the core regions of the shared headers — the `DraftingGeometry` variant,
+  geometry ops, plot/export, the controller spine.
+- **edi-dungeon-map owns:** the map graph — the whole-file set (`DraftingGraphOps`,
+  `DraftingRoom`, `DraftingCorridor`, `DraftingPathfind`, `DraftingAsciiMap`,
+  `DraftingBlockOps`), the 7 map command arms (`CreatePlug`, `DeletePlug`,
+  `DeclareConnection`, `DeleteConnection`, `CreateBlock`, `DeleteBlock`,
+  `CreateMapRoom`) + their semantics, and the map STRUCT/ENUM definitions
+  (`DraftingPlug`/`DeclaredConnection`/`MapRoom`/`Block`; `DraftingPlugId`/
+  `ConnectionId`/`BlockId`; `ObjectRole`, `WallType`, `WallVisualMetadata`,
+  `BlockPlacementMetadata`). **`WallGeometry` stays CORE** — it rides every
+  geometry visit; it is shared geometry, not map-only.
+- **Shared headers** (`DraftingDocument.h`, `DraftingTypes.h`,
+  `DraftingCommands.*`) are co-edited **by REGION, not by file**: drafting edits
+  the CORE regions, dungeon-map edits the MAP regions, neither edits the other's.
+  Disjoint lines ⇒ master merges stay clean.
+
+### Our deliverable from H2 (behavior-preserving, fold into cartography)
+Extract the map struct/enum DEFINITIONS into a dungeon-map-owned
+**`DraftingMapTypes.h`** that `DraftingTypes.h`/`DraftingDocument.h` include. The
+document KEEPS its plug/connection/room/block vectors (still one document); only
+the definitions move. ONE isolated slice, pure code motion, green-gated — shrinks
+the shared-edit surface to the include line + the vectors. Do this BEFORE any map
+feature work. **Design note (planner):** the move has a real include-layering
+constraint — the map metadata (`ObjectRole`/`WallType`/`WallVisualMetadata`/
+`BlockPlacementMetadata`) is embedded inside core `ObjectMetadata`, and
+`DraftingBlock` contains core `DraftingObject`s — so the exact header split + the
+`DraftingBlock`↔`DraftingObject` cycle is being settled by a reviewer scoping gate
+(brief 004) before the builder executes it.
+
+### The map subsystem is cleanly separable
+Map data lives in wholly-owned files plus a small, well-marked set of arms
 threaded through shared files. This table is the contract that keeps the two
 departments out of each other's way.
 
@@ -185,6 +219,10 @@ of the live document on every `modelChanged`; footprints in authored feet
 (`:76-97`); connection refs validated on declare (`:99-118`). No dangling gap.
 
 ## 8. Known forward dependency (note, do not build)
-- `transformGeometry` (rotate/scale over the geometry kinds) does NOT exist yet
-  and is **edi-drafting-owned**. Future per-instance block rotation/scale depends
-  on it. Out of this campaign's scope. (Same box: B1's interactive-move sync.)
+- **`transformGeometry`** (rotate/scale over the geometry kinds) does NOT exist
+  yet. **HUB H2: drafting-owned shared primitive** — it lives in
+  `DraftingGeometry.{h,cpp}` beside `translateGeometry` (a guarded visit), and
+  **dungeon-map CONSUMES it**. It is a FEATURE (parked in
+  `~/dept-bus/ROADMAPS-DRAFT.md`) — do NOT build it during cartography. Future
+  per-instance block rotation/scale depends on it. (Same box: B1's
+  interactive-move `plug.anchor` sync.)

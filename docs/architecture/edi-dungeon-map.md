@@ -1,58 +1,190 @@
 # Architecture — the dungeon-map subsystem
 
-> **Status: DRAFT skeleton — pending the reviewer-gate survey**
-> (campaign `dungeon-map-20260616-cartography`). Section bodies are filled from
-> `edi-dungeon-map-reviewer`'s verified `file:line` findings; until then each
-> section states only what the charter/seam docs already assert, marked
-> _(unverified)_. This doc is the durable map of the subsystem — keep it current.
+> **Status: first draft (verified)** — folded from the reviewer-gate survey of
+> campaign `dungeon-map-20260616-cartography` (reply 002, read-only, anchored to
+> the `dept/dungeon-map` working tree). This is the durable map of the subsystem;
+> keep it current as slices land. `file:line` anchors are as-surveyed and drift
+> with edits — trust the symbol name over the number if they disagree.
 
 The map subsystem turns an authored `.map.toml` into a neutral drafting document
-(rooms + walls + corridors + doors + blocks) and exports it across **Seam B** as a
-neutral TOON map for the user's OWN game engine. **Layered law: edi records
+(rooms + walls + corridors + doors + blocks) and exports it across **Seam B/C** as
+a neutral TOON map for the user's OWN game engine. **Layered law: edi records
 geometry + neutral tags; it does NOT simulate. No game rules, no generation.**
+The reviewer confirmed this law holds end-to-end: no `passable`/`weight`/
+`direction`/`blocksMovement` on any persisted struct, and no WFC/procedural
+generation present — corridor routing is deterministic L/Z + A* obstacle
+avoidance from authored door pairs (authoring, not generation).
 
-## 1. Ownership boundary — ours vs the drafting core's
+## 1. Ownership boundary — ours vs the drafting core's — **SETTLED**
 
-We SHARE `src/drafting` with edi-drafting. This table is the contract that keeps
-the two departments from colliding; the hub arbitrates disputes.
+We SHARE `src/drafting` with edi-drafting. The map subsystem is cleanly separable:
+map data lives in wholly-owned files plus a small, well-marked set of arms
+threaded through shared files. This table is the contract that keeps the two
+departments out of each other's way.
 
-| Owner | Files / types | Role |
+### Wholly-OURS files (map-specific, no drafting-core role)
+| File | Role |
+| --- | --- |
+| `src/drafting/DraftingRoom.{h,cpp}` | Authoring structs (`RoomSpec`, `RoomPlugSpec`, `MapSpec`, `RoomEdge`) + `planDraftingRoom` |
+| `src/drafting/DraftingCorridor.{h,cpp}` | `CorridorSpec` → centerline → wall geometry (door↔door routing) |
+| `src/drafting/DraftingPathfind.{h,cpp}` | grid A* for v2 corridor obstacle avoidance |
+| `src/drafting/DraftingGraphOps.{h,cpp}` | plug/connection/room **mutation ops** + cascade prune |
+| `src/drafting/DraftingAsciiMap.{h,cpp}` | ASCII-map parse path (`createMapFromAscii`) |
+| `src/drafting/DraftingBlockOps.{h,cpp}` | block-library ops (Phase C) |
+| `src/io/MapToonExport.{h,cpp}` | Seam B/C TOON export (both overloads) |
+| `src/io/RoomSpecStore.{h,cpp}` | `parseRoomSpecToml` / `parseMapSpecToml` (Seam A authoring) |
+| `tests/` | `drafting_room_`, `drafting_corridor_`, `drafting_graph_ops_`, `drafting_ascii_map_`, `drafting_block_ops_`, `room_spec_store_`, `map_spec_store_`, `map_toon_export_` |
+
+### SHARED files — map-specific symbols vs the file's core role
+| File | Map-specific symbols (OURS) | Core role (drafting's) |
 | --- | --- | --- |
-| _pending reviewer survey_ | | |
+| `DraftingTypes.h` | `DraftingPlugId`/`DraftingConnectionId` (`:18-19`); `WallType` enum (`:96`); `WallVisualMetadata` (`:186`); `BlockPlacementMetadata` (`:195`); `wallTypeName`/`wallTypeFromName` (`:355-357`); `DraftingBlockId` | other ids, geometry variant, stroke/fill/layer/measurement metadata |
+| `DraftingDocument.h` | `DraftingPlug` (`:47`), `DraftingDeclaredConnection` (`:60`), `DraftingMapRoom` (`:73`), `DraftingBlock` (`:95`); doc vectors `plugs`/`connections`/`rooms`/`blocks` (`:116-122`); `canvasPerAuthoredUnit` (`:130`); plug/conn/block clauses of `highestDocumentIdSerial` (`:148-153`) | `DraftingObject`, `DraftingLayer`, objects/layers vectors, find/index helpers |
+| `DraftingCommands.{h,cpp}` | arms `CreatePlug`/`DeletePlug`/`DeclareConnection`/`DeleteConnection` (`.h:151-165`), `CreateBlock`/`DeleteBlock` (`:172-178`), `CreateMapRoom` (`:182`); visit clauses (`.cpp:322-335`) | the other 26 arms + the visitor scaffold |
+| `DraftingSerialize.cpp` | `plugValue`/`readPlug` (`:588-607`), `connectionValue`/`readConnection` (`:610-627`), `mapRoomValue`/`readMapRoom` (`:632-651`), `blockValue`/`readBlock` (`:660-703`), doc-level plugs/connections/rooms/blocks emit+read (`:722-744`,`:843-884`), `canvas_per_authored_unit` (`:767`,`:818`) | layer/object/geometry codecs, envelope, version gate |
+| `DrawingDocumentController.cpp` | `createMapFromSpec` (`:2019-2198`), `createMapFromAscii` (`:2200+`), 4-arg `createObjectsAndSelect` (`:2271-2325`) | the entire non-map controller |
+| `DrawingCore.h` | `createMapFromSpec`/`createMapFromAscii` decls (`:241-245`), plug/conn/room overload of `createObjectsAndSelect` (`:370`) | controller class surface |
+| `EdiShellWindowIo.cpp` | `buildMapBrowserPanel` (`:700-772`) | all other panel builders |
+| `EdiShellWindow.cpp` | `mapWorkspaceLayout` (`:118`), the Map layout-selector branch (`:586-587`) | shell window |
+| `app/AppState.cpp` | `WorkspaceMode::Map` arms (`:40,61,82,103,129,145`) | workspace enum machinery |
+| `app/main.cpp` | `--map-file` (`:117`,`:325-337`), `--export-map` (`:130`,`:157-214`) | CLI entry |
 
-**Boundary risks:** _(pending)_
+> **Note on ownership of shared shell files:** `EdiShellWindow.cpp`,
+> `app/main.cpp`, `CMakeLists.txt` are **edi-ui's** integration-line files (the
+> rebase contract). Our map *content* there (the Map browser panel, the
+> `--map-file`/`--export-map` CLI arms) is map-specific logic, but edits to those
+> files are a hub/edi-ui coordination, not a local dept/dungeon-map edit.
 
-## 2. The plug / connection graph model
-- `plugs` and `declared_connections` — 2 document-level vectors on
-  `DraftingDocument` _(unverified — reviewer to confirm)_. A plug is a RELATION,
-  not a `DraftingGeometry` variant.
-- Neutral-only: no passable/weight/direction. _(pending struct defs + line anchors)_
+### Boundary risks (where future edits could collide with edi-drafting)
+1. **`DraftingTypes.h` variant `static_assert`** — a new geometry kind from
+   edi-drafting bumps the variant; map code adds NO geometry kinds (plug/
+   connection/block are document vectors by design — §2), so the two departments
+   touch *different regions*. Low collision risk; the one shared header both edit.
+2. **`DraftingCommands` variant list** — both departments append arms to the same
+   `std::variant` + the same if-constexpr chain. Append-only but textually
+   adjacent → merge friction. Small slices + frequent rebase is the mitigation.
+3. **`createObjectsAndSelect`** has two overloads (objects-only vs
+   +plugs/conns/rooms); the map overload is the richer one, and any drafting-side
+   change to the base batch path must keep it working.
 
-## 3. The map arms of `DraftingCommand` + visit sites
-- Command arms (`CreatePlug`/`DeletePlug`/`CreateConnection`/block arms…) and the
-  `std::visit`/dispatch sites that must handle each. _(pending — incl. any
-  non-exhaustive visit flagged.)_
+## 2. The plug / connection graph model — **CONFIRMED neutral**
 
-## 4. The MessagePack codec for map data
-- How plugs / declared_connections / blocks (de)serialize in
-  `DraftingSerialize.cpp`. Contract: additive-tolerant — missing key ⇒ default,
-  NO version bump (like `wall_visual`). _(pending — confirm + line anchors;
-  flag any non-tolerant field.)_
+- **Two document-level vectors** (plus `rooms`, `blocks`): `DraftingDocument::plugs`
+  and `::connections` (`DraftingDocument.h:116-117`), `rooms` (`:120`), `blocks`
+  (`:122`). A plug is a RELATION, not a `DraftingGeometry` variant — `DraftingPlug`
+  (`:47`) anchors to a doc object **by id** (`anchorObjectId`, `:49`); the header
+  comment (`:36-46`) states the rationale.
+- **`DraftingPlug` fields** (`:47-53`): `id`, `anchorObjectId`, `name`, `type`
+  (open vocab), `anchor` (cached `Point2D` — see B1 staleness note in §7).
+  **No passable/weight/direction.**
+- **`DraftingDeclaredConnection` fields** (`:60-65`): `id`, `plugA`, `plugB`,
+  `type` (neutral role tag). Comment (`:57-59`) calls out the deliberate ABSENCE
+  of `passable`/`weight`/`direction`/`locked`.
+- `WallType` (`DraftingTypes.h:96`) is a *render* classification only
+  (Solid/Door/Window/Secret); comment `:91-94` confirms it "carries no behaviour."
+
+## 3. Map arms of `DraftingCommand` + visit sites
+
+**Arms (7):** `CreatePlugCommand`, `DeletePlugCommand`, `DeclareConnectionCommand`,
+`DeleteConnectionCommand`, `CreateBlockCommand`, `DeleteBlockCommand`,
+`CreateMapRoomCommand` (`DraftingCommands.h:151-184`; variant list `:214-220`).
+
+**Dispatch sites:**
+- `applyDraftingCommand` if-constexpr chain — all 7 handled, each a one-line
+  delegate to a `DraftingGraphOps`/`DraftingBlockOps` free function
+  (`DraftingCommands.cpp:322-335`). ✓
+- `DrawingDocumentController.cpp:1278-1279` — the selection-only undo classifier
+  correctly EXCLUDES map arms (they mutate content, not just selection). ✓ No
+  other variant-wide visit exists.
+
+**⚠ Non-exhaustive-visit FLAG (Finding A1):** the chain's terminal `else`
+(`DraftingCommands.cpp:336-338`) is a **runtime** `rejected("unsupported command")`,
+NOT a compile-time `always_false_v` — unlike the geometry visitors
+(`DraftingGeometry.cpp`: `geometryKind`/`validateGeometry`/`computeBounds`/
+`translateGeometry`/`handleAnchors` all end in `always_false_v`). A forgotten
+future arm therefore compiles and silently rejects at runtime instead of failing
+the build. **This is the highest-value hardening (refactor slice #1).**
+
+## 4. MessagePack codec for map data — **CONFIRMED additive-tolerant, no bump**
+
+- Versions: `kDraftingDocumentVersion = 2`,
+  `kDraftingDocumentMinReadVersion = 1` (`DraftingSerialize.h:20-21`). The v1→v2
+  bump was the per-object stroke shim ONLY (`DraftingSerialize.cpp:323-328`);
+  **the map fields added NO further bump** (emit comment `:756-761`; read comments
+  `:843-845`,`:864-865`,`:875-876`).
+- **Tolerant defaults (missing key ⇒ default):**
+  - plugs/connections/rooms/blocks arrays — absent ⇒ empty vector (`:846-884`),
+    each row type-gated (`type == Map`).
+  - `canvas_per_authored_unit` — absent ⇒ `1.0` (`:818`).
+  - `block.asset_ref` — absent ⇒ empty (the explicit `wall_visual` precedent,
+    `:680-682`).
+  - `wall_visual` — absent ⇒ Solid (`:469-471`); `block_placement` — absent ⇒
+    empty (`:485-490`).
+  - `readPlug`/`readConnection`/`readMapRoom` fall back to each struct's own
+    default (`:602-651`) — every field tolerant.
+- **No latent intolerant field** in the map codec. Note: a block's *nested* object
+  skips a malformed member (tolerant, `:687-689`), whereas a *top-level* object is
+  a hard SyntaxError (`:830-838`) — intentional asymmetry, commented.
+- **Round-trip:** plug `anchor`, connection endpoints, room footprint, block
+  objects all serialize/read symmetrically (`drafting_serialize_tests` covers it).
 
 ## 5. What-calls-what: `.map.toml` → rendered objects
-- `parseMapSpecToml` / `createMapFromSpec` (`io/RoomSpecStore`) → MapSpec →
-  controller/CLI (`--map-file`) → document objects → projection → painter.
-  _(pending compact call-graph.)_
 
-## 6. Seams in / out
-- **Seam B/C export:** `exportMapToToon` / `io/MapToonExport` / `--export-map` →
-  TOON (never JSON, never UVTT), projecting the typed MapSpec. _(pending confirm.)_
+```
+app/main.cpp:325 (--map-file)
+ └─ edi::io::parseMapSpecToml(text, kCanvasPerFoot)          RoomSpecStore.cpp
+      └─ MapSpec (DraftingRoom.h:99) — neutral, validated (unique names,
+         non-overlapping footprints, every connection endpoint resolves)
+ └─ controller->createMapFromSpec(spec, kCanvasPerFoot)      DrawingDocumentController.cpp:2019
+      ├─ m_document.canvasPerAuthoredUnit = scale             :2024
+      ├─ per room: inject opening at each CONNECTED plug       :2082-2095
+      │    └─ planDraftingRoom(roomSpec, mintId)              DraftingRoom.cpp → wall segments + plug markers
+      ├─ per plug placement: mint DraftingPlug + door leaf     :2104-2138
+      ├─ per connection: mint DraftingDeclaredConnection       :2147-2160
+      │    └─ routeCorridorCenterline + corridorWalls         DraftingCorridor.cpp / DraftingPathfind.cpp
+      └─ createObjectsAndSelect(objects, plugs, conns, rooms)  :2196 → :2271
+           ├─ CreateObjectsCommand (atomic)                    :2295
+           ├─ CreatePlug / DeclareConnection / CreateMapRoom    :2304-2317 (results intentionally dropped — §7 N3)
+           ├─ SelectObjectsCommand                             :2318
+           └─ commitEdit(false); emit modelChanged()           :2322-2323
+                └─ projection → painter + buildMapBrowserPanel refresh (EdiShellWindowIo.cpp:769)
+```
+The Map browser (`EdiShellWindowIo.cpp:722-762`) is a **read-only** re-projection
+of the live document on every `modelChanged`; footprints in authored feet
+(`canvas / scale`, `:741`).
 
-## 7. Refactor candidates (behavior-preserving only)
-- _(pending — ranked by value, each with `file:line`, the defect, and a
-  one-line behavior-preserving fix sketch.)_
+## 6. Seams in / out — Seam B/C **CONFIRMED TOON** (never JSON/UVTT)
+
+- **Seam B** — `exportMapToToon(MapSpec)` (`MapToonExport.cpp:72-129`): `kind: map`
+  + three TOON tabular arrays `rooms/plugs/connections`. `connected` is DERIVED
+  from the connection set (`:76-80`), not stored. Projects the **typed MapSpec**,
+  not a document reconstruction.
+- **Seam C** — `exportMapToToon(DraftingDocument)` (`:161-283`): same three arrays
+  + a fourth `blocks[]` re-formed by grouping placed objects on
+  `BlockPlacementMetadata.instanceId` (`:247-281`). Projects the live typed
+  document; divides canvas units by `canvasPerAuthoredUnit` to recover authored
+  feet (`:165-166`); plug `edge` derived from anchor vs footprint (`:149-157`).
+- CLI `--export-map` (`app/main.cpp:157-214`) dispatches by extension: `.edidraw`
+  → decode doc → Seam C; `.map.toml` → parse → Seam B.
+- Seam A into map code: `parseMapSpecToml`/`parseRoomSpecToml` — neutral parse, no
+  rules.
+
+## 7. Refactor candidates (behavior-preserving only) — ranked
+
+| # | Severity | Where | Defect | Behavior-preserving fix |
+| --- | --- | --- | --- | --- |
+| A1 | BUG (latent) | `DraftingCommands.cpp:336-338` | terminal `else` is a runtime reject, not `always_false_v`; a forgotten arm silently rejects instead of failing the build | mirror the geometry-visitor `static_assert(always_false_v<Command>)`. *Accept:* all arms dispatch; deleting any one arm fails to compile |
+| N1 | NIT (dup) | `MapToonExport.cpp:82-90` & `176-184` | the two overloads duplicate the TOON header + rooms/plugs/connections row shapes | hoist `writeHeader()` + a row helper. *Accept:* both overloads byte-identical; `map_toon_export_tests` green |
+| B1 | BUG (latent, no trigger) | `DraftingDocument.h:52` + move path | `plug.anchor` cache is authored-once, NOT synced on object move; export `deriveEdge` (`MapToonExport.cpp:149`) would read a drifted anchor once interactive move lands | **document the contract now** (comment + TODO); the real `syncGraphForMovedObject` fix is **note-don't-build** (mandate — no feature) |
+| N3 | NIT (low) | `DrawingDocumentController.cpp:2304-2317` | the plug/conn/room sub-command results are intentionally dropped 3× | optional tiny `applyTrusted(cmd)` debug-assert wrapper. Low value — defer |
+| N2 | none | `MapToonExport.cpp:37` | `edgeName` unreachable `return "?"` | already commented; no action |
+
+**Cascade integrity (checked CLEAN):** object-delete → `removeObject` →
+`pruneGraphForRemovedObject` drops anchored plugs AND their edges
+(`DraftingGraphOps.cpp:132-163`); plug-delete → `removePlug` cascades edges
+(`:76-97`); connection refs validated on declare (`:99-118`). No dangling gap.
 
 ## 8. Known forward dependency (note, do not build)
-- `transformGeometry` (rotate/scale over the 14 geometry kinds) does NOT exist
-  yet and is **edi-drafting-owned**. Future per-instance block rotation/scale
-  depends on it. Out of this campaign's scope.
+- `transformGeometry` (rotate/scale over the geometry kinds) does NOT exist yet
+  and is **edi-drafting-owned**. Future per-instance block rotation/scale depends
+  on it. Out of this campaign's scope. (Same box: B1's interactive-move sync.)

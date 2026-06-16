@@ -44,14 +44,32 @@
 
 ## Gate log
 
-### Reviewer gate — 2026-06-16 — edi-dungeon-map-reviewer (OPEN)
+### Reviewer gate — 2026-06-16 — edi-dungeon-map-reviewer (CLOSED — boundary settled YES)
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/002-reviewer-cartography-survey.md`
-- (awaiting findings)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/002-reviewer-cartography-survey.md`
+- **Boundary: settled YES.** Map subsystem cleanly separable — wholly-owned files
+  + a small, well-marked set of arms in shared `src/drafting` files. Full
+  ownership table folded into `docs/architecture/edi-dungeon-map.md §1`.
+- Neutral law CONFIRMED end-to-end (no passable/weight/direction on any persisted
+  struct; A* costs are transient routing internals, never serialized/exported).
+- MessagePack CONFIRMED additive-tolerant, no version bump. Cascades CLEAN.
+- Findings → refactor slices (architecture doc §7): **A1** (BUG latent — runtime
+  command guard should be compile-time `always_false_v`), **N1** (TOON emitter
+  duplication across the 2 overloads), **B1** (stale `plug.anchor` — document the
+  contract now; real sync fix is note-don't-build per mandate). N2 no-action,
+  N3 low-value/deferred.
+- Boundary risks (low, for hub awareness): shared `DraftingTypes.h` variant
+  static_assert region, the `DraftingCommands` variant append list, and the
+  `createObjectsAndSelect` richer overload.
+
+### Builder batch — 2026-06-16 — edi-dungeon-map-builder (OPEN)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/003-builder-cartography-refactors.md`
+- Slices: A1 (compile-time command guard) · N1 (TOON emitter de-dup) · B1
+  (document the plug.anchor staleness contract). All behavior-preserving.
 
 ## Open questions / blockers
-- The `src/drafting` ownership boundary with edi-drafting — to be FLAGGED to the
-  hub for arbitration once the reviewer enumerates it.
+- None blocking. The `src/drafting` ownership boundary is SETTLED (low collision
+  risk); reported to the hub for awareness, not arbitration.
 
 ## Next
-- Fold reviewer findings into `docs/architecture/edi-dungeon-map.md`.
-- Decide behavior-preserving refactor slices; brief the builder.
+- Builder lands A1/N1/B1 → diff audit (reviewer) → closeout.

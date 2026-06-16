@@ -11,16 +11,8 @@ using DraftingDocumentId = std::string;
 using DraftingObjectId = std::string;
 using LayerId = std::string;
 using StyleId = std::string;
-// Map-graph handles. Opaque strings like the object/layer ids above — a plug and
-// a declared connection are identified, referenced, and validated exactly the way
-// objects are, so they reuse the same alias shape rather than inventing a new id
-// type. (Phase 2 / docs/dungeon-map-graph-work-order.md.)
-using DraftingPlugId = std::string;
-using DraftingConnectionId = std::string;
-// Block-library handle (Phase C / "flash sheet"). A block DEFINITION is a named,
-// saved group of objects; its id is minted and validated like an object id (one
-// monotonic serial, distinct "block_" prefix), so it reuses the same alias shape.
-using DraftingBlockId = std::string;
+// Map-graph / block-library id aliases (DraftingPlugId, DraftingConnectionId,
+// DraftingBlockId) moved to DraftingMapTypes.h, included mid-file below.
 
 enum class DraftingShapeKind {
     Point,
@@ -75,30 +67,8 @@ enum class MeasurementUnit {
     Foot
 };
 
-// N3: the legacy object "role" — a semantic tag the 3D/export pipeline reads
-// (a wall extrudes, a cutout subtracts, a collider is invisible but solid).
-// An enum, not a free string, because the set is closed and downstream code
-// switches on it; material / export_group / tags below stay free-form
-// because those vocabularies are open and user-defined.
-enum class ObjectRole {
-    None,
-    Wall,
-    Floor,
-    Cutout,
-    Collider
-};
-
-// M1.3 dungeon-map: a wall's NEUTRAL classification — it changes only how the
-// wall DRAWS (a secret door reads flush, a window thin), never what it means.
-// Whether a secret door blocks sight is the game engine's rule across Seam B;
-// this enum carries no behaviour. Closed enum (the painter switches on it),
-// exactly like ObjectRole above; the open vocabulary rides ObjectMetadata.tags.
-enum class WallType {
-    Solid,
-    Door,
-    Window,
-    Secret
-};
+// ObjectRole and WallType (closed map/render enums) moved to DraftingMapTypes.h,
+// included mid-file below (just before ObjectMetadata, which embeds them).
 
 struct Point2D {
     double x = 0.0;
@@ -180,23 +150,18 @@ struct LineVisualMetadata {
     bool startArrow = false;
 };
 
-// M1.3: per-wall render classification. Default Solid keeps every existing wall
-// byte-identical. The painter reads `type` to vary the band (Secret dashed,
-// Window thin/double, Door distinct); the open vocabulary stays in tags.
-struct WallVisualMetadata {
-    WallType type = WallType::Solid;
-};
+// WallVisualMetadata and BlockPlacementMetadata moved to DraftingMapTypes.h. It is
+// included here, at FILE SCOPE, because ObjectMetadata below embeds those structs
+// (and ObjectRole/WallType) by value — they must be complete first. The include sits
+// here rather than at the top because the map document-record structs it also
+// carries (DraftingPlug/MapRoom/Block) hold Point2D/Bounds2D by value, so those core
+// types must be defined first (above). Namespace is closed/reopened so the
+// self-namespaced header is included cleanly.
+}  // namespace edi::drafting — closed so DraftingMapTypes.h is included at file scope
 
-// Seam B: provenance stamped on each object a block placement FLATTEN-stamps.
-// FLATTEN keeps no LIVE link to the definition, so the asset is SNAPSHOT here — it
-// survives deleting the block. `instanceId` groups the N stamped objects of ONE
-// placement so the engine export (Seam C) can re-form the instance from the
-// flattened geometry. An empty instanceId means an ordinary object, not a placement.
-struct BlockPlacementMetadata {
-    DraftingBlockId blockId;   // the definition this object was stamped from
-    std::string assetRef;      // snapshot of the block's asset (what Seam C emits)
-    std::string instanceId;    // groups the objects of one placement
-};
+#include "drafting/DraftingMapTypes.h"
+
+namespace edi::drafting {
 
 struct ObjectMetadata {
     std::uint32_t schemaVersion = 1;
@@ -349,12 +314,8 @@ const char *shapeKindName(DraftingShapeKind kind);
 DraftingShapeKind shapeKindFromName(const std::string &name);
 const char *guideOrientationName(GuideOrientation orientation);
 const char *dimensionKindName(DimensionKind kind);
-const char *objectRoleName(ObjectRole role);
-// Inverse of objectRoleName; unknown names fall back to None.
-ObjectRole objectRoleFromName(const std::string &name);
-const char *wallTypeName(WallType type);
-// Inverse of wallTypeName; unknown names fall back to Solid.
-WallType wallTypeFromName(const std::string &name);
+// objectRoleName/objectRoleFromName/wallTypeName/wallTypeFromName declared in
+// DraftingMapTypes.h (included mid-file above), beside the enums they name.
 const char *draftingResultCodeName(DraftingResultCode code);
 bool isValidDraftingObjectId(const DraftingObjectId &id);
 bool isValidDraftingDocumentId(const DraftingDocumentId &id);

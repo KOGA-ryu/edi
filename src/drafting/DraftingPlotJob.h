@@ -9,6 +9,9 @@ namespace edi::drafting {
 
 struct DraftingPlotJob {
     std::vector<DraftingPlotSegment> strokeSegments;
+    // Per-object solid fills (see DraftingPlotFill). The SVG writer paints
+    // them; HPGL/G-code ignore the field — a pen plotter has no fill.
+    std::vector<DraftingPlotFill> fills;
     std::vector<DraftingPlotTravelSegment> travelSegments;
     std::vector<DraftingPlotLayerStats> layerStats;
     std::vector<DraftingPlotPenStats> penStats;

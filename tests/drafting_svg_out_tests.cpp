@@ -144,5 +144,52 @@ int main()
         assert(paths == 1); // same look at output resolution -> one path
     }
 
+    // Fill side-channel: a closed <path fill="#..."> is emitted per fill
+    // record, BEFORE the stroke paths (fill-under-stroke z-order). The opaque
+    // fill carries no fill-opacity attribute; the half-opaque one does.
+    {
+        DraftingPlotJob job;
+        job.strokeSegments = {
+            segment({0.1, 0.1}, {0.9, 0.1}, "pen_black", "#000000", 2.0),
+        };
+        DraftingPlotFill solid;
+        solid.objectId = "rect";
+        solid.points = {{0.1, 0.1}, {0.9, 0.1}, {0.9, 0.9}, {0.1, 0.9}};
+        solid.color = "#ff0000";
+        solid.opacity = 1.0; // fully opaque -> no fill-opacity attribute
+        DraftingPlotFill faded;
+        faded.objectId = "tri";
+        faded.points = {{0.2, 0.2}, {0.4, 0.2}, {0.3, 0.4}};
+        faded.color = "#00ff00";
+        faded.opacity = 0.5;
+        job.fills = {solid, faded};
+
+        const std::string svgFill = svgFromPlotJob(job, page());
+        // Opaque fill: colour present, closed with Z, no fill-opacity.
+        const std::size_t opaqueAt = svgFill.find("<path fill=\"#ff0000\" d=\"M10,10 L90,10 L90,90 L10,90 Z\"/>");
+        assert(opaqueAt != std::string::npos);
+        // Half-opaque fill carries the attribute.
+        const std::size_t fadedAt = svgFill.find("<path fill=\"#00ff00\" fill-opacity=\"0.5\" d=\"M20,20 L40,20 L30,40 Z\"/>");
+        assert(fadedAt != std::string::npos);
+        // Fill paints UNDER the stroke: both fills precede the stroke path.
+        const std::size_t strokeAt = svgFill.find("<path fill=\"none\"");
+        assert(strokeAt != std::string::npos);
+        assert(opaqueAt < strokeAt);
+        assert(fadedAt < strokeAt);
+        // Exactly one fill-opacity occurrence (the opaque fill omits it).
+        assert(svgFill.find("fill-opacity", svgFill.find("fill-opacity") + 1) == std::string::npos);
+    }
+
+    // A job with no fills emits no fill path — the byte-identical default the
+    // boundary requires (the golden assertion above already proves this for the
+    // line-only sample job; here we make the absence explicit).
+    {
+        const std::string svgNoFill = svgFromPlotJob(sampleJob(), page());
+        // Every <path> in the fill-less job is a stroke path (fill="none").
+        for (std::size_t at = svgNoFill.find("<path"); at != std::string::npos; at = svgNoFill.find("<path", at + 1)) {
+            assert(svgNoFill.compare(at, std::string("<path fill=\"none\"").size(), "<path fill=\"none\"") == 0);
+        }
+    }
+
     return 0;
 }

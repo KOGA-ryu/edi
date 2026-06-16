@@ -198,6 +198,49 @@ int main()
     }
     assert(std::isfinite(segmentPlan.travelDistance));
     assert(segmentPlan.travelDistance > 0.0);
+    // Default objects carry no fill (FillStyle::opacity defaults to 0), so the
+    // fill channel stays empty — the byte-identical default the boundary requires.
+    assert(segmentPlan.fills.empty());
+
+    // Fill plumbing: only closed fillable kinds with opacity>0 and a valid
+    // colour collect a fill ring; line/polyline never do, and fill rides a
+    // SEPARATE channel from the stroke segments.
+    {
+        DraftingDocument fillDocument = makeDraftingDocument("fill_doc");
+        DraftingObject filledRect = makeObject("frect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.3, 0.3}, 0.2, 0.1});
+        filledRect.fill.opacity = 0.5;
+        filledRect.fill.color = "#ff0000";
+        assert(addObject(fillDocument, filledRect).ok);
+        DraftingObject filledCircle = makeObject("fcircle", DraftingShapeKind::Circle, CircleGeometry{{0.6, 0.6}, 0.1});
+        filledCircle.fill.opacity = 1.0;
+        filledCircle.fill.color = "#00ff00";
+        assert(addObject(fillDocument, filledCircle).ok);
+        DraftingObject filledPolygon = makeObject("fpoly", DraftingShapeKind::Polygon, PolygonGeometry{{{0.1, 0.6}, {0.2, 0.6}, {0.2, 0.7}}});
+        filledPolygon.fill.opacity = 0.25;
+        filledPolygon.fill.color = "#0000ff";
+        assert(addObject(fillDocument, filledPolygon).ok);
+        // opacity 0 (the default) -> no fill, even on a fillable kind.
+        DraftingObject unfilledRect = makeObject("urect", DraftingShapeKind::Rectangle, RectangleGeometry{{0.05, 0.05}, 0.05, 0.05});
+        assert(addObject(fillDocument, unfilledRect).ok);
+        // A fill colour set on an OPEN kind never reaches the fill channel.
+        DraftingObject filledLine = makeObject("fline", DraftingShapeKind::Line, LineGeometry{{0.4, 0.1}, {0.5, 0.1}});
+        filledLine.fill.opacity = 1.0;
+        filledLine.fill.color = "#ffffff";
+        assert(addObject(fillDocument, filledLine).ok);
+
+        const DraftingPlotPlan fillPlan = buildDraftingPlotPlan(fillDocument, projectDraftingGrid(defaultDraftingGridSettings()));
+        assert(fillPlan.fills.size() == 3);
+        assert(fillPlan.fills[0].objectId == "frect");
+        assert(fillPlan.fills[0].color == "#ff0000");
+        assert(nearlyEqual(fillPlan.fills[0].opacity, 0.5));
+        assert(fillPlan.fills[0].points.size() == 4); // rectangle corners
+        assert(fillPlan.fills[1].objectId == "fcircle");
+        assert(fillPlan.fills[1].points.size() == 32); // matches the stroke tessellation
+        assert(fillPlan.fills[2].objectId == "fpoly");
+        assert(fillPlan.fills[2].points.size() == 3);
+        // Fills are additive: stroke segments still flow as before.
+        assert(!fillPlan.segments.empty());
+    }
 
     DraftingDocument travelDocument = makeDraftingDocument("travel_doc");
     assert(addObject(travelDocument, makeObject("line_a", DraftingShapeKind::Line, LineGeometry{{0.1, 0.1}, {0.2, 0.1}})).ok);

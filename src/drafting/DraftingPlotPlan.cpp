@@ -16,6 +16,12 @@
 namespace edi::drafting {
 namespace {
 
+// The number of segments a circle is tessellated into — for BOTH its plotted
+// stroke outline (appendPlotSegments) and its SVG fill ring (closedFillRing).
+// One constant because the two MUST stay equal: a fill ring smoother than the
+// stroke would peek past the outline (per the frozen fill side-channel boundary).
+constexpr int kCircleSegments = 32;
+
 int layerOrderForObject(const DraftingDocument &document, const DraftingObject &object)
 {
     const DraftingLayer *layer = findLayer(document, object.layerId);
@@ -168,11 +174,10 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
             appendSegment(plan, object, layer, c, d);
             appendSegment(plan, object, layer, d, a);
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
-            constexpr int circleSegments = 32;
             constexpr double pi = 3.14159265358979323846;
             Point2D previous{geometry.center.x + geometry.radius, geometry.center.y};
-            for (int index = 1; index <= circleSegments; ++index) {
-                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(circleSegments);
+            for (int index = 1; index <= kCircleSegments; ++index) {
+                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(kCircleSegments);
                 const Point2D next{
                     geometry.center.x + std::cos(angle) * geometry.radius,
                     geometry.center.y + std::sin(angle) * geometry.radius,
@@ -190,21 +195,103 @@ void appendPlotSegments(DraftingPlotPlan &plan, const DraftingObject &object, co
         } else if constexpr (std::is_same_v<Geometry, PolylineGeometry>) {
             appendVertexSegments(plan, object, layer, geometry.vertices, false);
         } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
-            // Plot the SAMPLED curve as an open chain. This visit has no
-            // terminal static_assert, so a missing arm here is SILENT (the
-            // spline would simply never plot) — it must be added by hand.
+            // Plot the SAMPLED curve as an open chain.
             appendVertexSegments(plan, object, layer, sampleSpline(geometry), false);
         } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
             // v1: plot the CENTERLINE as a single segment, exactly like
             // LineGeometry. Honest minimal — emitting the band OUTLINE (a closed
-            // rectangle following the a->b band) is a later plot option. Like the
-            // spline arm above, this visit has NO terminal static_assert, so a
-            // missing wall arm is SILENT — it must be added by hand.
+            // rectangle following the a->b band) is a later plot option.
             appendSegment(plan, object, layer, geometry.a, geometry.b);
-        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
-            // text annotations carry no plot segments
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>
+                || std::is_same_v<Geometry, GuideGeometry>
+                || std::is_same_v<Geometry, ConstructionLineGeometry>
+                || std::is_same_v<Geometry, DimensionGeometry>) {
+            // The four kinds that emit NO plot segments. Text annotations carry
+            // none; guides/construction lines/dimensions are filtered out earlier
+            // by draftingShapeCanPlot, so they never reach here — but the arm is
+            // explicit so the guard below can hold. Behavior unchanged: these
+            // previously fell through to nothing (no matching branch).
+        } else {
+            // This visit used to be silent (a new kind would simply never plot);
+            // the guard makes a future kind a COMPILE error that names this site.
+            static_assert(always_false_v<Geometry>, "appendPlotSegments: unhandled geometry kind — add an arm");
         }
     }, object.geometry);
+}
+
+// The closed vertex ring for a SOLID-fillable shape, or empty for any kind the
+// canvas painter does NOT fill. This mirrors DrawingCanvasObjectPainter's
+// closed-shape set exactly (rectangle, circle, ellipse, polygon) so SVG fill
+// agrees with the canvas. The ring walks the same points as the stroke outline,
+// so fill and stroke never disagree at the edge. Every kind has an explicit arm
+// (a fillable ring, or an explicit empty for the ten non-fillable kinds) and a
+// terminal always_false_v guard — so a future geometry kind must consciously pick
+// "fillable" or "not", as a COMPILE error, rather than silently never filling.
+std::vector<Point2D> closedFillRing(const DraftingGeometry &geometry)
+{
+    return std::visit([](const auto &shape) -> std::vector<Point2D> {
+        using Geometry = std::decay_t<decltype(shape)>;
+        if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            return {
+                shape.origin,
+                {shape.origin.x + shape.width, shape.origin.y},
+                {shape.origin.x + shape.width, shape.origin.y + shape.height},
+                {shape.origin.x, shape.origin.y + shape.height},
+            };
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            // kCircleSegments matches the circle stroke arm in appendPlotSegments
+            // (NOT sampleEllipse's 64) so the fill ring lands on the same outline
+            // the stroke draws — a smoother fill would peek past it.
+            constexpr double pi = 3.14159265358979323846;
+            std::vector<Point2D> ring;
+            ring.reserve(kCircleSegments);
+            for (int index = 0; index < kCircleSegments; ++index) {
+                const double angle = 2.0 * pi * static_cast<double>(index) / static_cast<double>(kCircleSegments);
+                ring.push_back({
+                    shape.center.x + std::cos(angle) * shape.radius,
+                    shape.center.y + std::sin(angle) * shape.radius,
+                });
+            }
+            return ring;
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            // Shared sampler — same ring the ellipse stroke walks (closed, 64).
+            return sampleEllipse(shape);
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>) {
+            return shape.vertices;
+        } else if constexpr (std::is_same_v<Geometry, PointGeometry>
+                || std::is_same_v<Geometry, LineGeometry>
+                || std::is_same_v<Geometry, ArcGeometry>
+                || std::is_same_v<Geometry, PolylineGeometry>
+                || std::is_same_v<Geometry, GuideGeometry>
+                || std::is_same_v<Geometry, ConstructionLineGeometry>
+                || std::is_same_v<Geometry, DimensionGeometry>
+                || std::is_same_v<Geometry, TextAnnotationGeometry>
+                || std::is_same_v<Geometry, SplineGeometry>
+                || std::is_same_v<Geometry, WallGeometry>) {
+            // The ten kinds the canvas painter does NOT fill: an empty ring, the
+            // explicit form of the old catch-all `else`. The frozen fill boundary
+            // (solid only; fillable set = rectangle/circle/ellipse/polygon) is what
+            // keeps these OUT — this arm records that decision per kind.
+            return {};
+        } else {
+            static_assert(always_false_v<Geometry>, "closedFillRing: unhandled geometry kind — add an arm");
+        }
+    }, geometry);
+}
+
+void appendPlotFill(DraftingPlotPlan &plan, const DraftingObject &object)
+{
+    // Same rule the canvas painter applies: a closed fillable kind with
+    // opacity>0 and a valid #rrggbb colour. Reuses the plot's color gate
+    // (isValidStrokeColor) — one vocabulary for "a colour this system accepts".
+    if (object.fill.opacity <= 0.0 || !isValidStrokeColor(object.fill.color)) {
+        return;
+    }
+    std::vector<Point2D> ring = closedFillRing(object.geometry);
+    if (ring.size() < 3) {
+        return; // not a closed region (non-fillable kind or degenerate)
+    }
+    plan.fills.push_back({object.id, std::move(ring), object.fill.color, object.fill.opacity});
 }
 
 void appendTravelSegments(DraftingPlotPlan &plan)
@@ -251,6 +338,14 @@ void applyCalibrationScale(DraftingPlotPlan &plan)
     for (DraftingPlotSegment &segment : plan.segments) {
         segment.a = scalePoint(segment.rawA, plan.calibrationScale);
         segment.b = scalePoint(segment.rawB, plan.calibrationScale);
+    }
+    // Fill rings are collected in raw space too, so they ride the same
+    // calibration the segments do — otherwise a scaled plot's fill would
+    // detach from its (scaled) outline.
+    for (DraftingPlotFill &fill : plan.fills) {
+        for (Point2D &point : fill.points) {
+            point = scalePoint(point, plan.calibrationScale);
+        }
     }
 }
 
@@ -631,6 +726,7 @@ DraftingPlotPlan buildDraftingPlotPlan(
             layer->plot.strokeWidth,
         });
         appendPlotSegments(plan, object, *layer);
+        appendPlotFill(plan, object);
 
         if (boundsOutsideDrawableArea(object.bounds, grid)) {
             plan.warnings.push_back({

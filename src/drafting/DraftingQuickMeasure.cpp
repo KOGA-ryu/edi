@@ -160,7 +160,19 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.label = std::string("dimension ") + dimensionKindName(geometry.kind) + " "
                 + compactNumber(result.physicalDisplayedLength) + " " + result.unitLabel + " @ "
                 + compactNumber(result.physicalAngleDeg) + " deg";
-        } else {
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>
+                || std::is_same_v<Geometry, EllipseGeometry>
+                || std::is_same_v<Geometry, PolygonGeometry>
+                || std::is_same_v<Geometry, PolylineGeometry>
+                || std::is_same_v<Geometry, GuideGeometry>
+                || std::is_same_v<Geometry, ConstructionLineGeometry>
+                || std::is_same_v<Geometry, TextAnnotationGeometry>
+                || std::is_same_v<Geometry, SplineGeometry>
+                || std::is_same_v<Geometry, WallGeometry>) {
+            // The nine kinds with no quick measurement YET: this is the explicit
+            // form of the old catch-all `else` — they report Unsupported, exactly
+            // as before. Listed by name so the terminal guard below can force a
+            // future kind to consciously pick "measure it" or "join this list".
             result = DraftingQuickMeasureResult::rejected(
                 DraftingQuickMeasureKind::Unsupported,
                 DraftingResultCode::InvalidGeometry,
@@ -169,6 +181,8 @@ DraftingQuickMeasureResult quickMeasureAt(
             result.objectId = object->id;
             result.objectKind = object->kind;
             result.hitDistance = hit.distance;
+        } else {
+            static_assert(always_false_v<Geometry>, "quickMeasureAt: unhandled geometry kind — add an arm");
         }
     }, object->geometry);
 

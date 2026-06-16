@@ -43,6 +43,33 @@ bool commandModeIsDistribute(DraftingAlignmentMode mode)
     return mode == DraftingAlignmentMode::DistributeX || mode == DraftingAlignmentMode::DistributeY;
 }
 
+// The copy -> loop(moveObject) -> commit skeleton that MoveSelection,
+// AlignSelection and DistributeSelection used to inline THREE times. Each command
+// still owns its OWN translation DECISION (a uniform delta, an align plan, or a
+// distribute plan); only the apply step is shared. The variation is pure DATA —
+// the list of per-object translations — so no class hierarchy or callable is
+// needed. Behavior-bearing details preserved verbatim from the inlined copies:
+// the moves run on a COPY and a mid-loop moveObject failure returns its store
+// result with the document UNTOUCHED (all-or-nothing), and the revision bumps
+// only when there was at least one translation to apply.
+DraftingCommandResult applyTranslationPlan(
+    DraftingDocument &document,
+    const std::vector<DraftingTranslation> &translations)
+{
+    DraftingDocument candidate = document;
+    for (const DraftingTranslation &translation : translations) {
+        const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
+        if (!move.ok) {
+            return fromStoreResult(move);
+        }
+    }
+    if (!translations.empty()) {
+        candidate.revision = document.revision + 1;
+        document = std::move(candidate);
+    }
+    return DraftingCommandResult::accepted();
+}
+
 bool sameGuidePosition(const DraftingObject &a, const DraftingObject &b)
 {
     const auto *guideA = std::get_if<GuideGeometry>(&a.geometry);
@@ -142,6 +169,16 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!std::isfinite(typedCommand.dx) || !std::isfinite(typedCommand.dy)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "move delta must be finite");
             }
+            // MoveSelection keeps its OWN interleaved loop rather than routing
+            // through applyTranslationPlan: the containsObject guard and the
+            // moveObject call must stay INTERLEAVED, because the FIRST failing id
+            // in selection order decides the rejection MESSAGE. Pre-scanning all
+            // existence checks first (the earlier dedup) was the same error CODE
+            // but a different message for a [present+locked, missing] selection —
+            // the locked move would surface "object is locked", while a pre-scan
+            // reports the later missing id's "selection target does not exist".
+            // message is observable upstream, so this stays interleaved. (Align/
+            // Distribute have no such per-id guard, so they share the helper.)
             DraftingDocument candidate = document;
             for (const DraftingObjectId &objectId : document.selectedObjectIds) {
                 if (!containsObject(candidate, objectId)) {
@@ -264,19 +301,9 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!plan.ok) {
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }
-
-            DraftingDocument candidate = document;
-            for (const DraftingTranslation &translation : plan.translations) {
-                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
-                if (!move.ok) {
-                    return fromStoreResult(move);
-                }
-            }
-            if (!plan.translations.empty()) {
-                candidate.revision = document.revision + 1;
-                document = std::move(candidate);
-            }
-            return DraftingCommandResult::accepted();
+            // Align's translation decision is the alignment plan; the apply is the
+            // shared skeleton.
+            return applyTranslationPlan(document, plan.translations);
         } else if constexpr (std::is_same_v<Command, DistributeSelectionCommand>) {
             if (!commandModeIsDistribute(typedCommand.mode)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "distribute command requires a distribute mode");
@@ -285,19 +312,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             if (!plan.ok) {
                 return DraftingCommandResult::rejected(plan.code, plan.message);
             }
-
-            DraftingDocument candidate = document;
-            for (const DraftingTranslation &translation : plan.translations) {
-                const DraftingStoreResult move = moveObject(candidate, translation.objectId, translation.dx, translation.dy);
-                if (!move.ok) {
-                    return fromStoreResult(move);
-                }
-            }
-            if (!plan.translations.empty()) {
-                candidate.revision = document.revision + 1;
-                document = std::move(candidate);
-            }
-            return DraftingCommandResult::accepted();
+            // Distribute's translation decision is the distribute plan; same apply.
+            return applyTranslationPlan(document, plan.translations);
         } else if constexpr (std::is_same_v<Command, SelectObjectCommand>) {
             if (!containsObject(document, typedCommand.objectId)) {
                 return DraftingCommandResult::rejected(DraftingResultCode::InvalidSelectionTarget, "selection target does not exist");
@@ -334,7 +350,12 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
         } else if constexpr (std::is_same_v<Command, CreateMapRoomCommand>) {
             return fromStoreResult(addMapRoom(document, typedCommand.room));
         } else {
-            return DraftingCommandResult::rejected(DraftingResultCode::InvalidGeometry, "unsupported command");
+            // Exhaustiveness guard (same idiom as the guarded DraftingGeometry
+            // visits): every command alternative is handled above, so this arm is
+            // never instantiated today. A NEW DraftingCommand variant must now fail
+            // to COMPILE here — naming this function — instead of silently
+            // returning a runtime "unsupported command" rejection.
+            static_assert(always_false_v<Command>, "applyDraftingCommand: unhandled DraftingCommand arm — add an arm");
         }
     }, command);
 }

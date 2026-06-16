@@ -1,0 +1,164 @@
+# Handoff — drafting-20260616-cartography
+
+> The per-campaign state. Each gate appends its result; the NEXT gate reads this
+> first. Agents hand off THROUGH this file — they cannot message each other.
+
+- **Campaign**: drafting-20260616-cartography
+- **Department**: edi-drafting
+- **Goal (one line)**: MAP, DOCUMENT, and behavior-preservingly REFACTOR the
+  drafting core (`src/drafting`, `src/core`) so its architecture is understood and
+  clean BEFORE features land — produce `docs/architecture/edi-drafting.md` and a
+  vetted refactor backlog.
+- **Boundary (the question the reviewer gate must settle)**: what is the true
+  file/type inventory of the drafting core, what is core-geometry (ours) vs
+  map-specific (dungeon-map's domain living in our files), where are the seams to
+  other departments, and which refactor candidates are real (duplication, dead
+  code, non-exhaustive visits, drift from the data-oriented rules, missing
+  explaining comments) — all BEHAVIOR-PRESERVING.
+
+## Gate log
+
+### Research gate — SKIPPED
+- The missing input is an internal OWNERSHIP / architecture-mapping question
+  ("what's in our own files, what belongs to whom"), not external/reference
+  knowledge. Per the gate discipline this opens at the reviewer gate.
+
+### Reviewer gate — DONE 2026-06-16 — edi-drafting-reviewer (via bus)
+- Reply: `~/dept-bus/edi-drafting/replies/001-cartography-reviewer-map.md` (full
+  inventory: 1a files, 1b types, 1c the 14 geometry arms + 19 visit sites, 1d the
+  33 command arms + the single dispatch, 1e plan/build fns, 1f controller helpers,
+  1g call-graph).
+- **Folded into `docs/architecture/edi-drafting.md` (first draft).**
+- **Gate verdict: boundary CONFIRMED but NOT settled — ONE fork escalated to hub**
+  (the map-graph ownership axis; see blockers). Code-health verdict: issues-found,
+  all behavior-preserving (one HIGH, rest MED/LOW).
+- **Refactor backlog captured** in the architecture doc §5. The behavior-preserving
+  slices do NOT depend on the ownership fork → builder batch can run in parallel
+  with the hub's arbitration.
+
+### Builder batch — BRIEFED 2026-06-16 (exhaustiveness + nits)
+- Brief: `~/dept-bus/edi-drafting/briefs/002-cartography-exhaustiveness-builder.md`
+- Slices: (1 HIGH) DraftingCommand terminal `else` → `static_assert(always_false_v)`;
+  (2 MED) make the 3 unguarded geometry visits exhaustive by making current behavior
+  EXPLICIT (Mirror, QuickMeasure, PlotPlan ×2) — NOT a bare guard; (3 LOW)
+  `circleSegments` named constant + `highestDocumentIdSerial` comment fix.
+- DEFERRED to a later batch: MoveSelection/Align/Distribute dedup (MED, restructures
+  behavior-bearing code — wants its own careful gate). Map-graph extraction is
+  BLOCKED on the hub fork.
+
+### Builder batch — DONE 2026-06-16 (edi-drafting-builder, via bus)
+- Reply: `~/dept-bus/edi-drafting/replies/002-cartography-exhaustiveness-builder.md`.
+- **Slice 1 `985e200`** — `applyDraftingCommand` terminal `else` →
+  `static_assert(always_false_v<Command>)`; all 33 arms compile-match, runtime
+  byte-identical. **Slice 2 `2a1be77`** — four geometry visits made
+  compile-exhaustive WITHOUT behavior change (explicit per-kind arms + terminal
+  guard): Mirror (7 transform + 7 explicit pass-through), QuickMeasure (5 measured +
+  9 explicit `Unsupported`), PlotPlan appendPlotSegments + closedFillRing (explicit
+  empty/no-segment arms; fillable set + circle-32 frozen-boundary respected).
+  **Slice 3a `cae383a`** — magic `32` → `constexpr kCircleSegments` (stroke + fill
+  must stay equal). **Slice 3b** dropped + reverted (map region).
+- Green gate: build clean (compiling PROVES exhaustiveness over 14 kinds); ctest
+  95/95 (`-E edi_shell_window_tests`, the known edi-ui golden drift); scan clean.
+- Builder flags for the arch doc: the mirrorable set lives in TWO hand-kept lists
+  by design (`mirrorGeometry` visit keys on geometry type, `supportsMirror` keys on
+  `DraftingShapeKind`) — NOT unified (would be behavior-risking); the visit guard now
+  catches a forgotten kind on the VISIT side + a sync comment added.
+
+### Reviewer diff-audit — DONE 2026-06-16 — VERDICT: ACCEPT all 3 commits
+- Reply: `~/dept-bus/edi-drafting/replies/002-cartography-diff-audit.md`. Tried to
+  break "behavior-preserving"; could not. All 6 checks confirmed.
+- QuickMeasure resolved: the old `else` returned `Unsupported` (NOT a base measure —
+  the gate-map wording was the reviewer's own imprecision); the 9 named arms return
+  byte-identical `Unsupported`. 5 measured + 9 Unsupported = 14.
+- Mirror: 7 transform arms bit-identical; pass-through arms == old `Polygon||Polyline`
+  + catch-all (unchanged); the two hand-kept lists AGREE today; pass-through inert
+  (gated by `supportsMirror` before the visit). PlotPlan: emit-parity for every kind,
+  frozen fill boundary intact. `kCircleSegments`: pure rename, 32 both sites.
+  `static_assert`: idiom matches, dead today. Scope: only the 4 core files; no map
+  region, no shared-header MAP struct, no io/widgets.
+- Planner belt-and-suspenders: `ctest -R 'mirror|quick_measure|plot'` → 8/8 green.
+- **Integrated into architecture doc §2 + §5** (visits now marked GUARDED; backlog
+  items marked DONE with commits; Mirror two-list design note recorded).
+
+### Builder slice — dedup translation commands — BRIEFED 2026-06-16
+- Brief: `~/dept-bus/edi-drafting/briefs/005-cartography-dedup-builder.md`
+- Last core refactor in the backlog: factor the triplicated copy-doc→loop-move→commit
+  skeleton of MoveSelection/AlignSelection/Distribute into one `applyTranslationPlan`
+  helper (variation as data/plan callable, not subclassing). Behavior byte-identical;
+  CORE region only (`DraftingCommands.{cpp,h}`). Reviewer diff-audit to follow.
+- After this lands + audits clean, the cartography campaign's refactor backlog is
+  EMPTY → write the cartography closeout.
+
+### Builder slice — dedup — DONE 2026-06-16 (commit `818736e`)
+- Reply: `~/dept-bus/edi-drafting/replies/005-cartography-dedup-builder.md`. Touched
+  ONLY `DraftingCommands.cpp` (CORE). New file-local `applyTranslationPlan(document,
+  vector<DraftingTranslation>)` runs the shared copy→loop-moveObject→commit; the 3
+  arms each build their own translation list and delegate. Variation modeled as DATA
+  (the translation vector) — no enum/callable/class. Build clean; ctest 95/95
+  (`-E edi_shell_window_tests`); scan clean.
+- **Builder flagged 2 real (non-byte-identical) differences, both claimed preserved:**
+  1. MoveSelection's extra in-loop `containsObject` guard (rejects stale target with
+     `InvalidSelectionTarget`) was HOISTED ahead of the moves; builder argues
+     equivalence (moves run on a throwaway `candidate`, so a rejection never mutated
+     the real doc; first-missing-id rejection same order/code).
+  2. The commit gate text differed (`!selectedObjectIds.empty()` vs
+     `!plan.translations.empty()`) — collapses to `!translations.empty()` since Move
+     makes one translation per id.
+
+### Reviewer diff-audit — DONE 2026-06-16 — VERDICT: SEND-BACK (one minor real divergence)
+- Reply: `~/dept-bus/edi-drafting/replies/003-cartography-dedup-audit.md`.
+- Checks 2–5 (commit-gate collapse, Align/Distribute, data-oriented fit, scope) all
+  CONFIRMED clean/byte-identical. The helper + Align/Distribute delegations are a
+  genuine safe dedup.
+- **The hoist (#1) — BEHAVIOR CHANGE FOUND (minor, error-path message only).** When a
+  selection holds a present-but-LOCKED id BEFORE a stale/missing id ([A locked, B
+  missing]): OLD interleaved code returns `InvalidSelectionTarget / "object is locked"`
+  (moveObject rejects A first, B never examined); NEW pre-scan returns
+  `InvalidSelectionTarget / "selection target does not exist"` (B caught in the check
+  loop first). Same error CODE, DIFFERENT `message` — and `DraftingCommandResult.message`
+  is observable upstream (finishEdit). No divergence when all ids present or when the
+  missing id is first.
+- **PLANNER RULING:** SEND-BACK. The campaign mandate is behavior-preserving ONLY and
+  `message` is observable; the fix is cheap + certainly-correct, so we do NOT take the
+  lenient "code-only contract" reading. Keep `applyTranslationPlan` + the Align/Distribute
+  delegations; revert ONLY MoveSelection's guard hoist to interleaved.
+
+### Builder fix — DONE 2026-06-16 (commit `9ab72aa`) — ACCEPTED
+- Reply: `~/dept-bus/edi-drafting/replies/007-cartography-dedup-fix-builder.md`.
+  Chose the preferred shape: MoveSelection keeps its OWN interleaved loop (not the
+  helper); Align/Distribute still delegate. Added a `drafting_commands_tests` block
+  asserting both orderings ([locked,missing]→"object is locked"; [missing,…]→
+  "selection target does not exist"). Build clean; ctest 95/95; scan clean.
+- **Planner verification (proportionate, inline — revert-to-baseline + already-audited
+  helper):** `git diff 054d4586(pre-dedup baseline) 9ab72aa` shows MoveSelection's arm
+  is IDENTICAL to baseline modulo a comment; the ONLY changes are the new helper +
+  Align/Distribute delegating to it. Net dedup is behavior-preserving by construction.
+  `ctest -R drafting_commands` → 1/1 green. **ACCEPTED — no further audit needed.**
+- Builder nuance folded into architecture doc §5: the `containsObject` guard's
+  interleaved order is load-bearing (distinguishes stale-target `InvalidSelectionTarget`
+  from `moveObject`'s `ObjectNotFound`).
+
+### CLOSEOUT — campaign COMPLETE 2026-06-16
+- Refactor backlog EMPTY. Four core refactors landed + verified: `985e200`
+  (command `static_assert`), `2a1be77` (4 geometry visits exhaustive), `cae383a`
+  (`kCircleSegments`), `818736e`+`9ab72aa` (translation dedup).
+- Architecture doc `docs/architecture/edi-drafting.md` is the durable map (kept current).
+- Closeout: `docs/closeouts/drafting-cartography.md`. LEDGER row → Closed.
+
+## Open questions / blockers
+- **RESOLVED 2026-06-16 — HUB RULING H2 (`~/dept-bus/RULING-H2-src-drafting-boundary.md`):
+  by-domain, SINGLE document.** Do NOT split `DraftingDocument`/`DraftingCommand`.
+  Shared headers co-edited BY REGION (drafting=core, dungeon-map=map). Recorded
+  verbatim in architecture doc §6. Consequences folded:
+  - Builder slice 3b (`highestDocumentIdSerial` comment) is a MAP region → DROPPED
+    from batch 002 via amendment brief 003; deferred to dungeon-map. Batch is now
+    Slice 1 + Slice 2 + Slice 3a (all core).
+  - `transformGeometry` is DRAFTING-owned (dungeon-map consumes); it is a parked
+    FEATURE, not cartography work — ownership recorded in architecture doc §7.
+  - dungeon-map will extract map struct/enum defs into a `DraftingMapTypes.h`
+    (their slice, not ours) — shrinks our shared-edit surface to an include line.
+
+## Next
+- Builder runs batch 002 (exhaustiveness + nits) → green gate → commits to
+  dept/drafting → reply. Planner keeps the architecture doc current as it lands.
+- Await hub ruling on the ownership fork.

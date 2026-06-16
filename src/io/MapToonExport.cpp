@@ -67,6 +67,59 @@ std::string plugKey(const std::string &room, const std::string &plug)
     return room + "." + plug; // the globally-unique handle plugs/connections use
 }
 
+// --- Shared TOON shape ----------------------------------------------------
+// Both exportMapToToon overloads (MapSpec vs DraftingDocument) emit the SAME
+// document grammar; only the field SOURCES differ (authored num() vs derived
+// edge, etc.). These helpers own the byte shape — the preamble and the three
+// row forms — so the two callers stay character-for-character identical and
+// the grammar lives in one place. Callers pass already-resolved strings; the
+// helpers decide what gets cell()-quoted (note: edge is emitted bare, like the
+// MapSpec path always did).
+
+void writeMapHeader(std::ostringstream &out, const std::string &title, const std::string &units)
+{
+    out << "kind: map\n";
+    if (!title.empty()) {
+        out << "title: " << cell(title) << "\n";
+    }
+    if (!units.empty()) {
+        out << "units: " << cell(units) << "\n";
+    }
+    out << "\n";
+}
+
+void writeRoomRow(std::ostringstream &out, const std::string &name,
+                  const std::string &origin, const std::string &size,
+                  const std::string &material)
+{
+    out << "  " << cell(name)
+        << "," << cell(origin)
+        << "," << cell(size)
+        << "," << cell(material)
+        << "\n";
+}
+
+void writePlugRow(std::ostringstream &out, const std::string &room,
+                  const std::string &name, const std::string &edge,
+                  const std::string &type, bool connected)
+{
+    out << "  " << cell(room)
+        << "," << cell(name)
+        << "," << edge // bare: edge tokens are always N/E/S/W/? — no delimiters
+        << "," << cell(type)
+        << "," << (connected ? "true" : "false")
+        << "\n";
+}
+
+void writeConnectionRow(std::ostringstream &out, const std::string &from,
+                        const std::string &to, const std::string &type)
+{
+    out << "  " << cell(from)
+        << "," << cell(to)
+        << "," << cell(type)
+        << "\n";
+}
+
 } // namespace
 
 std::string exportMapToToon(const MapSpec &spec, const std::string &title, const std::string &units)
@@ -80,23 +133,15 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
     }
 
     std::ostringstream out;
-    out << "kind: map\n";
-    if (!title.empty()) {
-        out << "title: " << cell(title) << "\n";
-    }
-    if (!units.empty()) {
-        out << "units: " << cell(units) << "\n";
-    }
-    out << "\n";
+    writeMapHeader(out, title, units);
 
     out << "rooms[" << spec.rooms.size() << "]{name,origin,size,material}:\n";
     for (const auto &room : spec.rooms) {
         const auto &rs = room.spec;
-        out << "  " << cell(room.name)
-            << "," << cell(num(rs.origin.x) + "," + num(rs.origin.y))
-            << "," << cell(num(rs.width) + "," + num(rs.height))
-            << "," << cell(rs.wallMaterial)
-            << "\n";
+        writeRoomRow(out, room.name,
+                     num(rs.origin.x) + "," + num(rs.origin.y),
+                     num(rs.width) + "," + num(rs.height),
+                     rs.wallMaterial);
     }
     out << "\n";
 
@@ -108,22 +153,18 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
     for (const auto &room : spec.rooms) {
         for (const auto &plug : room.spec.plugs) {
             const std::string type = plug.type.empty() ? "door" : plug.type;
-            out << "  " << cell(room.name)
-                << "," << cell(plug.name)
-                << "," << edgeName(plug.edge)
-                << "," << cell(type)
-                << "," << (connected.count(plugKey(room.name, plug.name)) > 0 ? "true" : "false")
-                << "\n";
+            writePlugRow(out, room.name, plug.name, edgeName(plug.edge), type,
+                         connected.count(plugKey(room.name, plug.name)) > 0);
         }
     }
     out << "\n";
 
     out << "connections[" << spec.connections.size() << "]{from,to,type}:\n";
     for (const auto &connection : spec.connections) {
-        out << "  " << cell(plugKey(connection.from.roomName, connection.from.plugName))
-            << "," << cell(plugKey(connection.to.roomName, connection.to.plugName))
-            << "," << cell(connection.type)
-            << "\n";
+        writeConnectionRow(out,
+                           plugKey(connection.from.roomName, connection.from.plugName),
+                           plugKey(connection.to.roomName, connection.to.plugName),
+                           connection.type);
     }
     return out.str();
 }
@@ -174,22 +215,14 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     };
 
     std::ostringstream out;
-    out << "kind: map\n";
-    if (!title.empty()) {
-        out << "title: " << cell(title) << "\n";
-    }
-    if (!units.empty()) {
-        out << "units: " << cell(units) << "\n";
-    }
-    out << "\n";
+    writeMapHeader(out, title, units);
 
     out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
     for (const auto &room : document.rooms) {
-        out << "  " << cell(room.name)
-            << "," << cell(authored(room.origin.x) + "," + authored(room.origin.y))
-            << "," << cell(authored(room.width) + "," + authored(room.height))
-            << "," << cell(room.material)
-            << "\n";
+        writeRoomRow(out, room.name,
+                     authored(room.origin.x) + "," + authored(room.origin.y),
+                     authored(room.width) + "," + authored(room.height),
+                     room.material);
     }
     out << "\n";
 
@@ -206,12 +239,8 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
             edge = deriveEdge(*room, plug.anchor);
         }
         const std::string type = plug.type.empty() ? "door" : plug.type;
-        out << "  " << cell(roomName)
-            << "," << cell(plugName)
-            << "," << edge
-            << "," << cell(type)
-            << "," << (connectedPlugIds.count(plug.id) > 0 ? "true" : "false")
-            << "\n";
+        writePlugRow(out, roomName, plugName, edge, type,
+                     connectedPlugIds.count(plug.id) > 0);
     }
     out << "\n";
 
@@ -226,10 +255,8 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     };
     out << "connections[" << document.connections.size() << "]{from,to,type}:\n";
     for (const auto &connection : document.connections) {
-        out << "  " << cell(plugNameById(connection.plugA))
-            << "," << cell(plugNameById(connection.plugB))
-            << "," << cell(connection.type)
-            << "\n";
+        writeConnectionRow(out, plugNameById(connection.plugA),
+                           plugNameById(connection.plugB), connection.type);
     }
     out << "\n";
 

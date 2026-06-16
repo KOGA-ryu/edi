@@ -79,12 +79,31 @@
 - `transformGeometry` = drafting-owned shared primitive, a FEATURE, note-don't-
   build (recorded §8).
 
-### Reviewer scoping gate (DraftingMapTypes.h) — 2026-06-16 — edi-dungeon-map-reviewer (OPEN)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/004-reviewer-mapttypes-extraction-design.md`
-- Runs in PARALLEL with builder batch 003 (independent: design vs code).
-- Must settle the include-layering cycle: map metadata is embedded in core
-  `ObjectMetadata`; `DraftingBlock` contains core `DraftingObject`. Faithful to H2,
-  behavior-preserving, minimal churn. (awaiting design)
+### Reviewer scoping gate (DraftingMapTypes.h) — 2026-06-16 — edi-dungeon-map-reviewer (CLOSED — design settled YES)
+- Brief: `004-reviewer-mapttypes-extraction-design.md` ·
+  Reply: `~/dept-bus/edi-dungeon-map/replies/004-reviewer-mapttypes-extraction-design.md`
+- **Cycle resolved truthfully:** since C++17 `std::vector` may be instantiated
+  with an INCOMPLETE element type, so `struct DraftingObject;` forward-declared in
+  the map header lets `DraftingBlock` hold `std::vector<DraftingObject>` by value —
+  the single-header shape (a) is viable, no `DraftingDocument.h` include cycle.
+- **Two metadata structs are Point2D-free** (`WallVisualMetadata` = one `WallType`;
+  `BlockPlacementMetadata` = three strings) and embed in `ObjectMetadata`; the
+  doc-record structs (`DraftingPlug.anchor`, `DraftingMapRoom.origin`) need
+  `Point2D` BY VALUE → the single include point sits just before `ObjectMetadata`
+  (`DraftingTypes.h:~201`), where `Point2D`/`Bounds2D` are already complete.
+- **PLANNER DECISION: shape (a)** — one `DraftingMapTypes.h`, included once
+  mid-`DraftingTypes.h` (close/reopen namespace), forward-declaring core
+  `DraftingObject`. Rationale: faithful to H2's literal single-header mandate;
+  reviewer's lean; forward-decl is one standard, commented line. Hub given a
+  veto-window toward fallback shape (c) (two headers) — non-blocking, since the
+  extraction lands after 003 anyway.
+- `.cpp` motion: NONE (name-funcs resolve through the include chain). Pure motion.
+
+### Builder extraction slice (DraftingMapTypes.h, shape a) — QUEUED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/005-builder-mapttypes-extraction.md`
+- Dispatch AFTER builder batch 003 commits (so B1's `plug.anchor` comment rides
+  with the moved `DraftingPlug`). Held pending 003's reply doorbell + hub
+  veto-window on the (a)/(c) call.
 
 ## Open questions / blockers
 - None blocking. Boundary SETTLED by HUB H2. The `DraftingMapTypes.h` include

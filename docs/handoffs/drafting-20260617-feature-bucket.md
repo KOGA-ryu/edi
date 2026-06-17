@@ -88,8 +88,23 @@
 - On ACCEPT → `bus-hub drafting "transformGeometry landed 167768e"` to unblock
   dungeon-map → open DR-02.
 
+### DR-01 — CLOSED 2026-06-17 ✅ — audited ACCEPT, bused to hub
+- Audit reply: `~/dept-bus/edi-drafting/replies/004-DR01-audit.md` — ACCEPT, no
+  issues; center-anchor + rotation sense verified vs the REAL model matrices
+  (`arcPointAtAngle`, `rectangleCorners`), test genuinely distinguishes the corrected
+  rule (wrong rule → `bounds.x=0`, assert rejects), lossy Ellipse/Text pinned by
+  dedicated asserts.
+- **BUSED to hub** `transformGeometry landed 167768e` + the consumer contract (mapPoint
+  property; Rectangle center-anchor; Ellipse/Text v1 lossy caveats; Guide identity;
+  deferred additive-rotationDeg follow-up). dungeon-map DM-14/15 unblocked.
+
+### DR-02 quadrant / nearest-on-curve snaps — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/012-DR02-snaps-builder.md`. Boundary
+  spec-settled (additive enum + settings + candidate emission; behavior-preserving for
+  existing snaps) → no reviewer gate up front. No dependency.
+
 ## Open questions / blockers
-- (none blocking — DR-01 green, fast keystone audit in flight before the bus)
+- (none blocking — DR-01 closed + bused; DR-02 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

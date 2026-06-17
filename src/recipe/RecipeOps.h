@@ -104,6 +104,12 @@ struct AddMouldingOp {
     // revolve (today's behavior, the byte-preserving default); < 360 is a
     // partial revolve (arch / apse niche), capped at both open ends.
     double sweepDegrees = 360.0;
+    // BL-07: screw/helix — z gained per full turn, and how many turns. rise 0
+    // = no helix (the byte-preserving default); != 0 spirals into a thread /
+    // volute over screwTurns full turns (a sweep-time z-offset, NOT a profile
+    // mutation — see moulding_rings).
+    double screwRise = 0.0;
+    double screwTurns = 1.0;
 };
 
 // One planar footprint vertex, physical x/y in the drawing plane.
@@ -161,6 +167,9 @@ struct AddRevolvedProfileOp {
     // (the behavior-preserving default). SURVIVES lowering — copied onto the
     // AddMouldingOp this lowers to, since the build runs on the moulding.
     double sweepDegrees = 360.0;
+    // BL-07: screw/helix params, also survive lowering (default 0/1 = no helix).
+    double screwRise = 0.0;
+    double screwTurns = 1.0;
 };
 
 // The extrude, op-vocabulary native (BL-01): like the lathe a REFERENCE to a

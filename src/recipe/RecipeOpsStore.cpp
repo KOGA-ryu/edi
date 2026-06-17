@@ -114,6 +114,8 @@ struct OpWriter {
         put("vertices", op.vertices);
         put("material", op.material);
         put("sweep_degrees", op.sweepDegrees);
+        put("screw_rise", op.screwRise);
+        put("screw_turns", op.screwTurns);
         for (std::size_t i = 0; i < op.profile.size(); ++i) {
             const std::string pointPrefix = prefix + ".profile." + std::to_string(i);
             config[pointPrefix + ".term"] = op.profile[i].term;
@@ -180,6 +182,8 @@ struct OpWriter {
         put("vertices", op.vertices);
         put("material", op.material);
         put("sweep_degrees", op.sweepDegrees);
+        put("screw_rise", op.screwRise);
+        put("screw_turns", op.screwTurns);
     }
 
     void operator()(const AddExtrudedProfileOp &op) const
@@ -753,6 +757,8 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)
+                || !reader.bindableNumber(prefix, "screw_rise", op.screwRise, false)
+                || !reader.bindableNumber(prefix, "screw_turns", op.screwTurns, false)
                 || !readMouldingPoints(reader, prefix, op.profile)) {
                 result.message = reader.error;
                 return result;
@@ -800,7 +806,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
-                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)) {
+                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)
+                || !reader.bindableNumber(prefix, "screw_rise", op.screwRise, false)
+                || !reader.bindableNumber(prefix, "screw_turns", op.screwTurns, false)) {
                 result.message = reader.error;
                 return result;
             }

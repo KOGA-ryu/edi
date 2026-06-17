@@ -49,6 +49,10 @@ constexpr FieldRow<AddMouldingOp> kMouldingFields[] = {
     // sweep_degrees is bindable like the other numerics (kept in step with the
     // store reader's bindableNumber read and the schema's Number scalar).
     {"sweep_degrees", &AddMouldingOp::sweepDegrees},
+    // BL-07: screw/helix params, bindable like sweep_degrees (a drafted
+    // measurement could drive the per-turn rise or the turn count).
+    {"screw_rise", &AddMouldingOp::screwRise},
+    {"screw_turns", &AddMouldingOp::screwTurns},
 };
 
 // BL-03: the lowered prism carrier. Its numeric fields mirror AddMoulding's
@@ -71,6 +75,8 @@ constexpr FieldRow<AddRevolvedProfileOp> kRevolvedProfileFields[] = {
     {"x", &AddRevolvedProfileOp::x},
     {"y", &AddRevolvedProfileOp::y},
     {"sweep_degrees", &AddRevolvedProfileOp::sweepDegrees}, // BL-06, see kMouldingFields
+    {"screw_rise", &AddRevolvedProfileOp::screwRise},       // BL-07
+    {"screw_turns", &AddRevolvedProfileOp::screwTurns},     // BL-07
 };
 
 // BL-01: the extrude exposes the lathe's baseZ/x/y plus its own `height` —

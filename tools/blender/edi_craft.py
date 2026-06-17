@@ -348,6 +348,10 @@ def parse_ops(path: str) -> list[dict]:
                 # AddRevolvedProfile is refused-before-build on this side, so only
                 # the lowered AddMoulding carries the swept arc into the mesh.
                 sweep_degrees=_number(op_key, fields, consumed, "sweep_degrees", 360.0),
+                # BL-07: screw/helix — rise per full turn (0 = no helix) and turn
+                # count (default 1). Same reasoning: only the lowered moulding reads.
+                screw_rise=_number(op_key, fields, consumed, "screw_rise", 0.0),
+                screw_turns=_number(op_key, fields, consumed, "screw_turns", 1.0),
             )
         elif op_type == "AddPrism":
             # The lowered prism carrier (BL-03/04): a closed planar footprint
@@ -554,12 +558,46 @@ def moulding_rings(op: dict) -> tuple[list, list]:
     tau*i/vertices, the ring wraps via (i+1)%vertices, no radial seam). Below
     360 the rings span only that arc (vertices points over [0, sweep], no wrap)
     and the two RADIAL open ends — the angle-0 and angle-sweep cross-sections —
-    are capped so a partial revolve is a closed solid, not an open shell."""
+    are capped so a partial revolve is a closed solid, not an open shell.
+
+    BL-07: screw_rise lifts the sweep into a helix (thread / volute). The lift
+    is applied HERE, at sweep time, to each angular sample's z — it is NEVER
+    written back into the profile points, so the moulding_profile_not_monotonic
+    validator (which reads the profile cross-section) never sees it and a helix
+    cannot falsely trip it. rise 0 (default) skips this entirely and runs the
+    BL-06 path verbatim — the byte-preserving guarantee."""
     vertices = max(4, op["vertices"])
     sweep = op.get("sweep_degrees", 360.0)
+    screw_rise = op.get("screw_rise", 0.0)
+    screw_turns = op.get("screw_turns", 1.0)
     nrings = len(op["profile"])
     verts: list = []
     faces: list = []
+
+    if screw_rise != 0.0:
+        # Helix mode (v1 rule): a thread of screw_turns FULL turns. sweep_degrees
+        # does NOT also clip a helix in v1 (a partial-AND-helical sweep is a
+        # future combination) — FLAGGED. The profile cross-section is swept along
+        # a helical path: each angular sample lifts the WHOLE section by
+        # screw_rise per full turn, so the moulding's silhouette spirals upward.
+        steps = max(4, int(round(vertices * screw_turns)))  # angular segments over the whole helix
+        total = math.tau * screw_turns
+        nprof = nrings
+        for j in range(steps + 1):
+            angle = total * j / steps
+            lift = screw_rise * (angle / math.tau)  # rise per FULL turn (tau)
+            for point in op["profile"]:
+                rr = max(0.001, point["radius"])
+                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"] + lift))
+        # The swept skin: quads spanning the profile direction (i) and the helix
+        # direction (j). An open ribbon — the thread surface — well-formed (no
+        # degenerate faces); end caps are a future refinement.
+        for j in range(steps):
+            cur = j * nprof
+            nxt = (j + 1) * nprof
+            for i in range(nprof - 1):
+                faces.append([cur + i, cur + i + 1, nxt + i + 1, nxt + i])
+        return verts, faces
 
     if sweep >= 360.0:
         # Full revolve — UNCHANGED from before (the doric golden's byte path).

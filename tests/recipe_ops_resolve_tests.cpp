@@ -668,6 +668,13 @@ int main()
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
         assert(lowered != nullptr);
         assert(near(lowered->height, -2.5)); // the negative depth survived into the carrier
+        // The lowered prism validates (negative prism height is allowed) and
+        // carries no zero-height finding.
+        const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);
+        assert(prismReport.ok);
+        for (const OpFinding &f : prismReport.findings) {
+            assert(f.code != "prism_zero_height");
+        }
     }
 
     // ---- BL-06: a partial-revolve sweepDegrees on the lathe SURVIVES lowering
@@ -686,13 +693,25 @@ int main()
         assert(lowered != nullptr);
         assert(near(lowered->sweepDegrees, 180.0)); // the chosen arc travelled into the carrier
         assert(validateRecipeOps(r.stream.ops).ok);
-        // The lowered prism also validates (negative prism height is allowed)
-        // and carries no zero-height finding.
-        const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);
-        assert(prismReport.ok);
-        for (const OpFinding &f : prismReport.findings) {
-            assert(f.code != "prism_zero_height");
-        }
+    }
+
+    // ---- BL-07: the screw/helix params also SURVIVE lowering onto the
+    // moulding the lathe becomes (the build spirals the moulding). ----
+    {
+        RecipeOpStream s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "spiral.volute";
+        lathe.profile = "shaft";
+        lathe.screwRise = 1.5;  // z gained per full turn
+        lathe.screwTurns = 3.0; // three turns -> a thread
+        s.ops.push_back(lathe);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->screwRise, 1.5));  // the helix travelled into the carrier
+        assert(near(lowered->screwTurns, 3.0));
+        assert(validateRecipeOps(r.stream.ops).ok);
     }
 
     return 0;

@@ -187,9 +187,10 @@ def main() -> int:
     # shell. A full revolve (the default 360) keeps the original face topology.
     # (N=2 rings, V=8 verts/ring: full = (N-1)*V wall + 2 z-caps = 10 faces;
     # partial = (N-1)*(V-1) wall + 2 z-caps + 2 radial caps = 11 faces.)
-    def moulding(sweep):
+    def moulding(sweep=360.0, screw_rise=0.0, screw_turns=1.0):
         return {"type": "AddMoulding", "name": "band", "base_z": 0.0, "x": 0.0, "y": 0.0,
                 "vertices": 8, "material": "stone", "sweep_degrees": sweep,
+                "screw_rise": screw_rise, "screw_turns": screw_turns,
                 "profile": [{"term": "a", "z": 0.0, "radius": 1.0},
                             {"term": "b", "z": 1.0, "radius": 1.0}]}
     full_verts, full_faces = edi_craft.moulding_rings(moulding(360.0))
@@ -202,6 +203,24 @@ def main() -> int:
         for face in faces:
             assert all(0 <= i < len(verts) for i in face), "face references a missing vertex"
             assert len(face) >= 3, "degenerate face"
+
+    # BL-07: a screw_rise>0 moulding produces a measurably RISING mesh — the
+    # sweep spirals up by ~screw_rise per full turn over screw_turns turns. The
+    # default (rise 0) matches the non-helix mesh exactly (behavior-preserving).
+    flat_verts, _ = edi_craft.moulding_rings(moulding(screw_rise=0.0))
+    helix_verts, helix_faces = edi_craft.moulding_rings(
+        moulding(screw_rise=2.0, screw_turns=3.0))
+    flat_z = [v[2] for v in flat_verts]
+    helix_z = [v[2] for v in helix_verts]
+    assert max(flat_z) - min(flat_z) == 1.0, "non-helix z-extent is just the profile (1.0)"
+    # rise 2.0 * 3 turns = 6.0 global lift, plus the profile's own 1.0 span.
+    assert (max(helix_z) - min(helix_z)) >= 6.0, "helix must rise by ~screw_rise*screw_turns"
+    for face in helix_faces:  # well-formed
+        assert all(0 <= i < len(helix_verts) for i in face), "helix face references a missing vertex"
+        assert len(face) >= 3, "degenerate helix face"
+    # The default (rise 0) is byte-identical to the plain non-helix mesh.
+    assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
+        edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"
 
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a

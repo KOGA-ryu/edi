@@ -27,14 +27,27 @@ void checkMaterial(std::vector<OpFinding> &findings, const std::string &name, co
     }
 }
 
+// The shared lathe parameter checks, called from both the AddRevolvedProfile
+// (lathe) arm and the AddMoulding arm it lowers to, so the two stay in step.
 // BL-06: a revolve sweeps an arc in (0, 360]. 360 is the full ring (the
-// default); 0 or negative makes no solid, and > 360 over-winds — both refused
-// by name. Shared by the lathe and the moulding it lowers to.
-void checkSweep(std::vector<OpFinding> &findings, const std::string &name, double sweepDegrees)
+// default); 0 or negative makes no solid, and > 360 over-winds — refused by
+// name. BL-07: screw_turns must be a positive, finite count (0 or negative
+// makes no helix; non-finite is nonsense); screw_rise may be any FINITE value
+// (0 = no helix, negative = a left-hand spiral, both legitimate).
+void checkLatheParams(std::vector<OpFinding> &findings, const std::string &name,
+                      double sweepDegrees, double screwRise, double screwTurns)
 {
     if (sweepDegrees <= 0 || sweepDegrees > 360) {
         add(findings, Severity::Error, "bad_sweep_degrees",
             name + " sweep must be in (0, 360].");
+    }
+    if (!(screwTurns > 0) || !std::isfinite(screwTurns)) {
+        add(findings, Severity::Error, "bad_screw_turns",
+            name + " screw_turns must be a positive, finite count.");
+    }
+    if (!std::isfinite(screwRise)) {
+        add(findings, Severity::Error, "bad_screw_rise",
+            name + " screw_rise must be finite.");
     }
 }
 
@@ -129,7 +142,7 @@ struct OpChecker {
                     op.name + " profile z values must rise in order.");
             }
         }
-        checkSweep(findings, op.name, op.sweepDegrees);
+        checkLatheParams(findings, op.name, op.sweepDegrees, op.screwRise, op.screwTurns);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -150,7 +163,7 @@ struct OpChecker {
             add(findings, Severity::Warning, "low_revolved_profile_vertices",
                 op.name + " has low vertex count: " + std::to_string(op.vertices));
         }
-        checkSweep(findings, op.name, op.sweepDegrees);
+        checkLatheParams(findings, op.name, op.sweepDegrees, op.screwRise, op.screwTurns);
         checkMaterial(findings, op.name, op.material);
     }
 

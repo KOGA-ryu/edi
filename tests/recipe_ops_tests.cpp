@@ -1486,5 +1486,63 @@ int main()
         assert(near(std::get_if<AddMouldingOp>(&probe)->sweepDegrees, 90.0));
     }
 
+    // ---- BL-07: screw/helix params (screw_rise, screw_turns) — numeric fields
+    // on BOTH lathe and moulding, default 0/1 = no helix (behavior-preserving).
+    // Round-trip, default, validate bounds, and the bind affordance. ----
+    {
+        // Defaults: rise 0, turns 1, and they round-trip; an absent key parses
+        // to the default (a pre-BL-07 file stays non-helical).
+        AddMouldingOp m;
+        m.name = "thread.band";
+        m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
+        assert(near(m.screwRise, 0.0) && near(m.screwTurns, 1.0)); // struct defaults
+        m.screwRise = 2.0;
+        m.screwTurns = 4.0;
+        RecipeOpStream ms;
+        ms.ops.push_back(m);
+        const OpStreamTextResult mw = recipeOpsToToml(ms);
+        assert(mw.ok);
+        assert(mw.text.find("op.0.screw_rise = \"2\"") != std::string::npos);
+        assert(mw.text.find("op.0.screw_turns = \"4\"") != std::string::npos);
+        const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
+        assert(mBack != nullptr && near(mBack->screwRise, 2.0) && near(mBack->screwTurns, 4.0));
+
+        // Absent keys default to 0 / 1 on the lathe (the pre-BL-07 guarantee).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddRevolvedProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        const auto *bareL = std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0]);
+        assert(near(bareL->screwRise, 0.0) && near(bareL->screwTurns, 1.0));
+
+        // Validate: screw_turns <= 0 refused by name on BOTH ops; a NEGATIVE
+        // screw_rise (left-hand spiral) is allowed.
+        const auto sawBadTurns = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_screw_turns") return true;
+            }
+            return false;
+        };
+        AddMouldingOp zeroTurns = m; zeroTurns.screwTurns = 0.0;
+        assert(sawBadTurns(validateRecipeOps({RecipeOp{zeroTurns}})));
+        AddRevolvedProfileOp negTurns; negTurns.name = "n"; negTurns.profile = "p";
+        negTurns.screwTurns = -1.0;
+        assert(sawBadTurns(validateRecipeOps({RecipeOp{negTurns}})));
+        AddMouldingOp leftHand = m; leftHand.screwRise = -3.0; // left-hand spiral, allowed
+        const OpValidationReport leftReport = validateRecipeOps({RecipeOp{leftHand}});
+        assert(leftReport.ok);
+
+        // The bind affordance: both screw params are bindable Numbers on both ops.
+        for (const char *key : {"screw_rise", "screw_turns"}) {
+            assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, key));
+            assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, key));
+        }
+        RecipeOp probe = RecipeOp{AddRevolvedProfileOp{}};
+        assert(setOpFieldValue(probe, "screw_rise", 5.0));
+        assert(near(std::get_if<AddRevolvedProfileOp>(&probe)->screwRise, 5.0));
+    }
+
     return 0;
 }

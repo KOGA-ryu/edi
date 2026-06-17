@@ -228,11 +228,13 @@ def main() -> int:
     registry = edi_craft.load_craftsmen(edi_craft.default_craftsmen_dir())
     assert "twisted_column" in registry, "twisted_column craftsman not discovered"
     assert "radial_petal" in registry, "radial_petal craftsman not discovered"
+    assert "nfold_star" in registry, "nfold_star craftsman not discovered"
     manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
-    # Craftsmen are emitted sorted by id, so radial_petal (r) precedes
-    # twisted_column (t): radial_petal is craftsman.0, twisted_column craftsman.1.
-    assert 'craftsman.0.id = "radial_petal"' in manifest_toml
-    assert 'craftsman.1.id = "twisted_column"' in manifest_toml
+    # Craftsmen are emitted sorted by id: nfold_star (n) < radial_petal (r) <
+    # twisted_column (t) — so 0/1/2 respectively.
+    assert 'craftsman.0.id = "nfold_star"' in manifest_toml
+    assert 'craftsman.1.id = "radial_petal"' in manifest_toml
+    assert 'craftsman.2.id = "twisted_column"' in manifest_toml
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,
@@ -260,6 +262,34 @@ def main() -> int:
         assert all(0 <= i < len(petal_verts) for i in face), "petal face references a missing vertex"
     # zRise lifts the petal tips above the flat hub (a gentle dome).
     assert max(v[2] for v in petal_verts) > 0.0, "zRise should lift the petal tips"
+
+    # BL-13: the {n/k} star prism renders a deterministic, CLOSED mesh through
+    # its pure proof_mesh — a 2n-vertex alternating outline extruded into a
+    # prism. With n points: verts = 4n (bottom + top outline), faces = 2 + 2n
+    # (two caps + 2n side quads). Pin the committed sample (n=8).
+    star_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "nfold_star", "nfold_star_ops_compiled.toml"))
+    star_objs = edi_craft.obj_objects(star_ops)
+    assert len(star_objs) == 1 and star_objs[0][0] == "girih.star"
+    star_verts, star_faces = star_objs[0][1], star_objs[0][2]
+    assert len(star_verts) == 4 * 8, f"nfold_star vert count: {len(star_verts)}"
+    assert len(star_faces) == 2 + 2 * 8, f"nfold_star face count: {len(star_faces)}"
+    star_zs = [v[2] for v in star_verts]
+    assert max(star_zs) - min(star_zs) == 0.6, "star prism z-extent must equal height (0.6)"
+    for face in star_faces:
+        assert len(set(face)) >= 3, "degenerate star face"
+        assert all(0 <= i < len(star_verts) for i in face), "star face references a missing vertex"
+    # A DEGENERATE skip (k=1, k>=n, or non-coprime {6/2}) must still render a
+    # well-formed, non-empty mesh — the coprime/clamp guard, not a crash. The
+    # loaded registry hands back the craftsman module itself.
+    nfold = registry["nfold_star"]
+    for points, skip in (("6", "2"), ("7", "1"), ("7", "99"), ("3", "2")):
+        op = {"params": {"points": points, "skip": skip}, "x": 0.0, "y": 0.0, "z": 0.0}
+        verts, faces = nfold.proof_mesh(op)
+        n = max(3, int(points))
+        assert len(verts) == 4 * n and len(faces) == 2 + 2 * n, f"degenerate-k mesh malformed: {points}/{skip}"
+        for face in faces:
+            assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.

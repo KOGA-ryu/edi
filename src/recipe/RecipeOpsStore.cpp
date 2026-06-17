@@ -121,6 +121,24 @@ struct OpWriter {
         }
     }
 
+    void operator()(const AddPrismOp &op) const
+    {
+        put("type", std::string("AddPrism"));
+        put("name", op.name);
+        put("height", op.height);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("material", op.material);
+        // The footprint is a contiguous indexed run footprint.i.{x,y}, the same
+        // shape (and reader rule: read until a gap) AddMoulding uses for profile.i.
+        for (std::size_t i = 0; i < op.footprint.size(); ++i) {
+            const std::string pointPrefix = prefix + ".footprint." + std::to_string(i);
+            config[pointPrefix + ".x"] = numberKeyText(op.footprint[i].x);
+            config[pointPrefix + ".y"] = numberKeyText(op.footprint[i].y);
+        }
+    }
+
     void operator()(const AddProfileMouldingOp &op) const
     {
         put("type", std::string("AddProfileMoulding"));
@@ -159,6 +177,18 @@ struct OpWriter {
         put("x", op.x);
         put("y", op.y);
         put("vertices", op.vertices);
+        put("material", op.material);
+    }
+
+    void operator()(const AddExtrudedProfileOp &op) const
+    {
+        put("type", std::string("AddExtrudedProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("height", op.height);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
         put("material", op.material);
     }
 
@@ -500,6 +530,25 @@ bool readMouldingPoints(OpReader &reader, const std::string &prefix,
     }
 }
 
+// Reads the contiguous footprint.i.{x,y} run until a gap (a missing .x ends
+// the run), the same shape readMouldingPoints uses for the profile run.
+bool readPrismFootprint(OpReader &reader, const std::string &prefix,
+                        std::vector<PrismPoint> &out)
+{
+    for (std::size_t i = 0;; ++i) {
+        const std::string pointPrefix = prefix + ".footprint." + std::to_string(i);
+        if (reader.config.find(pointPrefix + ".x") == reader.config.end()) {
+            return true;
+        }
+        PrismPoint point;
+        if (!reader.requireNumber(pointPrefix + ".x", point.x)
+            || !reader.requireNumber(pointPrefix + ".y", point.y)) {
+            return false;
+        }
+        out.push_back(std::move(point));
+    }
+}
+
 } // namespace
 
 OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
@@ -594,7 +643,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
     // and this fires, reminding the next author to add a reader branch HERE and
     // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
     // cross-language TOML contract is a two-sided obligation (§3).
-    static_assert(std::variant_size_v<RecipeOp> == 10,
+    static_assert(std::variant_size_v<RecipeOp> == 12,
                   "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
                   "ladder is string-keyed, not a std::visit, so the compiler "
                   "won't force it) AND a matching parse_ops arm in edi_craft.py.");
@@ -706,6 +755,26 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 return result;
             }
             result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddPrism") {
+            // The lowered prism carrier (BL-03). Read with bindableNumber so the
+            // reader, the bind registry, and the inspector agree on which fields
+            // are numeric (mirroring AddMoulding). In practice a prism is born
+            // from lowering with no bindings — its source AddExtrudedProfile's
+            // bindings were already applied pre-lowering — so the binding path
+            // here is unexercised, but keeping the shapes in step avoids drift.
+            // footprint.i.{x,y} reads as a contiguous run until a gap.
+            AddPrismOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !readPrismFootprint(reader, prefix, op.footprint)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
         } else if (*type == "AddProfileMoulding") {
             AddProfileMouldingOp op;
             if (!reader.requireText(prefix + ".name", op.name)
@@ -727,6 +796,25 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddExtrudedProfile") {
+            // Key-for-key the OpWriter's AddExtrudedProfile arm — the
+            // cross-language contract (§3) is what this branch upholds, and
+            // a forgotten key here is a runtime "unknown" not a compile error
+            // (the static_assert above is the only compile-time guard the
+            // string-keyed reader gets). height/base_z/x/y are bindable like
+            // the lathe's numeric fields; profile is the drafted-object id.
+            AddExtrudedProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
                 return result;

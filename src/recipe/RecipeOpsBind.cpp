@@ -47,6 +47,15 @@ constexpr FieldRow<AddMouldingOp> kMouldingFields[] = {
     {"y", &AddMouldingOp::y},
 };
 
+// BL-03: the lowered prism carrier. Its numeric fields mirror AddMoulding's
+// (base_z/x/y) plus `height`, kept in step with the store reader and inspector.
+constexpr FieldRow<AddPrismOp> kPrismFields[] = {
+    {"height", &AddPrismOp::height},
+    {"base_z", &AddPrismOp::baseZ},
+    {"x", &AddPrismOp::x},
+    {"y", &AddPrismOp::y},
+};
+
 constexpr FieldRow<AddProfileMouldingOp> kProfileMouldingFields[] = {
     {"base_z", &AddProfileMouldingOp::baseZ},
     {"x", &AddProfileMouldingOp::x},
@@ -57,6 +66,15 @@ constexpr FieldRow<AddRevolvedProfileOp> kRevolvedProfileFields[] = {
     {"base_z", &AddRevolvedProfileOp::baseZ},
     {"x", &AddRevolvedProfileOp::x},
     {"y", &AddRevolvedProfileOp::y},
+};
+
+// BL-01: the extrude exposes the lathe's baseZ/x/y plus its own `height` —
+// the new bindable field, so a drafted measurement can drive the extrude depth.
+constexpr FieldRow<AddExtrudedProfileOp> kExtrudedProfileFields[] = {
+    {"height", &AddExtrudedProfileOp::height},
+    {"base_z", &AddExtrudedProfileOp::baseZ},
+    {"x", &AddExtrudedProfileOp::x},
+    {"y", &AddExtrudedProfileOp::y},
 };
 
 constexpr FieldRow<CutFlutesOp> kFluteFields[] = {
@@ -102,8 +120,10 @@ struct FieldVisit {
     bool operator()(AddSphereOp &op) const { return handle(op, findMember(kSphereFields, fieldKey)); }
     bool operator()(AddRingOp &op) const { return handle(op, findMember(kRingFields, fieldKey)); }
     bool operator()(AddMouldingOp &op) const { return handle(op, findMember(kMouldingFields, fieldKey)); }
+    bool operator()(AddPrismOp &op) const { return handle(op, findMember(kPrismFields, fieldKey)); }
     bool operator()(AddProfileMouldingOp &op) const { return handle(op, findMember(kProfileMouldingFields, fieldKey)); }
     bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
+    bool operator()(AddExtrudedProfileOp &op) const { return handle(op, findMember(kExtrudedProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
     bool operator()(ScriptOp &op) const { return handle(op, findMember(kScriptFields, fieldKey)); }
@@ -127,8 +147,10 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddSphereOp &op) const { return of(op, kSphereFields); }
     std::vector<RecipeOpField> operator()(const AddRingOp &op) const { return of(op, kRingFields); }
     std::vector<RecipeOpField> operator()(const AddMouldingOp &op) const { return of(op, kMouldingFields); }
+    std::vector<RecipeOpField> operator()(const AddPrismOp &op) const { return of(op, kPrismFields); }
     std::vector<RecipeOpField> operator()(const AddProfileMouldingOp &op) const { return of(op, kProfileMouldingFields); }
     std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
+    std::vector<RecipeOpField> operator()(const AddExtrudedProfileOp &op) const { return of(op, kExtrudedProfileFields); }
     std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
     std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
     std::vector<RecipeOpField> operator()(const ScriptOp &op) const { return of(op, kScriptFields); }

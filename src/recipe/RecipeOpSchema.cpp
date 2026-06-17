@@ -117,6 +117,14 @@ void appendExtras(std::vector<RecipeOpScalar> &out, const AddMouldingOp &op)
     out.push_back(intField("vertices", op.vertices));
     out.push_back(materialField(op.material));
 }
+void appendExtras(std::vector<RecipeOpScalar> &out, const AddPrismOp &op)
+{
+    // The doubles (height, base_z, x, y) come from opFields; the extras are the
+    // non-numeric scalars. No `vertices` (a prism has a footprint, not a facet
+    // count) and the footprint itself is geometry, not an inspector scalar.
+    out.push_back(textField("name", op.name));
+    out.push_back(materialField(op.material));
+}
 void appendExtras(std::vector<RecipeOpScalar> &out, const AddProfileMouldingOp &op)
 {
     out.push_back(textField("name", op.name));
@@ -128,6 +136,15 @@ void appendExtras(std::vector<RecipeOpScalar> &out, const AddRevolvedProfileOp &
     out.push_back(textField("name", op.name));
     out.push_back(textField("profile", op.profile, /*editable=*/false)); // a drafted object id, picked elsewhere
     out.push_back(intField("vertices", op.vertices));
+    out.push_back(materialField(op.material));
+}
+void appendExtras(std::vector<RecipeOpScalar> &out, const AddExtrudedProfileOp &op)
+{
+    // The doubles (height, base_z, x, y) come from opFields; the extras are the
+    // non-numeric scalars. No `vertices` — the extrude has no facet count
+    // (unlike the lathe, which revolves N segments).
+    out.push_back(textField("name", op.name));
+    out.push_back(textField("profile", op.profile, /*editable=*/false)); // a drafted object id, picked elsewhere
     out.push_back(materialField(op.material));
 }
 void appendExtras(std::vector<RecipeOpScalar> &out, const CutFlutesOp &op)
@@ -210,6 +227,12 @@ bool setExtra(AddMouldingOp &op, const std::string &key, const RecipeScalarValue
     if (key == "vertices") return asInt(value, op.vertices);
     return false;
 }
+bool setExtra(AddPrismOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "material") return asText(value, op.material);
+    return false;
+}
 bool setExtra(AddProfileMouldingOp &op, const std::string &key, const RecipeScalarValue &value)
 {
     if (key == "name") return asText(value, op.name);
@@ -222,6 +245,13 @@ bool setExtra(AddRevolvedProfileOp &op, const std::string &key, const RecipeScal
     if (key == "name") return asText(value, op.name);
     if (key == "material") return asText(value, op.material);
     if (key == "vertices") return asInt(value, op.vertices);
+    // `profile` is a read-only reference here; the binding/object picker owns it.
+    return false;
+}
+bool setExtra(AddExtrudedProfileOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "material") return asText(value, op.material);
     // `profile` is a read-only reference here; the binding/object picker owns it.
     return false;
 }

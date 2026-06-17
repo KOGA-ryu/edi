@@ -102,6 +102,30 @@ struct AddMouldingOp {
     std::string material = "stone";
 };
 
+// One planar footprint vertex, physical x/y in the drawing plane.
+struct PrismPoint {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+// The BUILDABLE prism carrier (BL-03): the concrete lowered form an
+// AddExtrudedProfileOp resolves to, exactly parallel to how the lathe
+// (AddRevolvedProfileOp) lowers to AddMouldingOp. It carries a closed planar
+// `footprint` (physical x/y, like AddMoulding carries a (z, radius) point
+// vector) swept straight up +z by `height` from `baseZ`. Unlike the profile-
+// REFERENCE ops it is NOT refused before build — it passes compile, preview,
+// and export like AddMoulding; its 3D proof is the OBJ mesh (BL-04), and like
+// ScriptOp it draws nothing in 2D ASCII.
+struct AddPrismOp {
+    std::string name;
+    std::vector<PrismPoint> footprint; // closed planar loop, physical x/y
+    double height = 0.0;
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    std::string material = "stone";
+};
+
 struct AddProfileMouldingOp {
     std::string name;
     double baseZ = 0.0;
@@ -128,6 +152,25 @@ struct AddRevolvedProfileOp {
     double x = 0.0;
     double y = 0.0;
     int vertices = 96;
+    std::string material = "stone";
+};
+
+// The extrude, op-vocabulary native (BL-01): like the lathe a REFERENCE to a
+// drafted profile (its closed cross-section), not a copy of its points — the
+// drafting document stays the single measurement authority. Where the lathe
+// REVOLVES the profile around an axis, this PRISMATICALLY extrudes it `height`
+// up the Z axis from `baseZ`, placed at (x, y). The resolve pass will lower it
+// (BL-03, not this slice); until then it is authored-only and refused by every
+// buildable consumer by name, exactly like AddRevolvedProfileOp. `height` has
+// no natural default (a zero-height extrude is degenerate — validate refuses
+// it); a NEGATIVE height is allowed (it becomes a push/pull cut in BL-05).
+struct AddExtrudedProfileOp {
+    std::string name;
+    std::string profile; // a drafted object's id — the reference, like the lathe
+    double height = 0.0;
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
     std::string material = "stone";
 };
 
@@ -195,8 +238,10 @@ using RecipeOp = std::variant<
     AddSphereOp,
     AddRingOp,
     AddMouldingOp,
+    AddPrismOp,
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
+    AddExtrudedProfileOp,
     CutFlutesOp,
     AddLabelOp,
     ScriptOp>;

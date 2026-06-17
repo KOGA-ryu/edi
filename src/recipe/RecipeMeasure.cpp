@@ -106,6 +106,30 @@ ProfileSource profileSourcePoints(const edi::drafting::DraftingObject &object)
     return source;
 }
 
+// The shared front half of BOTH profile projectors: resolve an object id to
+// its ordered document-space points, refusing with the four canonical
+// wordings (empty id, missing object, short polyline, unsupported kind). The
+// lathe and the extrude differ ONLY in how they project these points, so the
+// id lookup, the arc sampling, and the refusal contract live here ONCE — a
+// change to a wording (or the 64-seg arc rule) moves both projectors in step.
+ProfileSource resolveProfileSource(
+    const edi::drafting::DraftingDocument &drafting,
+    const std::string &objectId)
+{
+    using namespace edi::drafting;
+    ProfileSource source;
+    if (objectId.empty()) {
+        source.message = "no profile bound";
+        return source;
+    }
+    const DraftingObject *object = findObject(drafting, objectId);
+    if (object == nullptr) {
+        source.message = "profile object not found: " + objectId;
+        return source;
+    }
+    return profileSourcePoints(*object);
+}
+
 } // namespace
 
 // The page-to-part mapping, the convention the whole lathe rests on: the
@@ -122,16 +146,7 @@ ProfilePointsResult resolveProfilePoints(
     using namespace edi::drafting;
 
     ProfilePointsResult result;
-    if (objectId.empty()) {
-        result.message = "no profile bound";
-        return result;
-    }
-    const DraftingObject *object = findObject(drafting, objectId);
-    if (object == nullptr) {
-        result.message = "profile object not found: " + objectId;
-        return result;
-    }
-    ProfileSource source = profileSourcePoints(*object);
+    ProfileSource source = resolveProfileSource(drafting, objectId);
     if (!source.ok) {
         result.message = source.message;
         return result;
@@ -141,6 +156,37 @@ ProfilePointsResult resolveProfilePoints(
         result.points.push_back({
             physicalWidth(point.x, grid),
             physicalHeight(1.0 - point.y, grid),
+        });
+    }
+    result.ok = true;
+    return result;
+}
+
+// The extrude's page-to-part mapping, deliberately DIFFERENT from the lathe's:
+// the drafted figure is read as a planar FOOTPRINT in the drawing plane —
+// drafted x maps to physical x, drafted y to physical y, with NO radius
+// reinterpretation and NO 1-y z-flip. The prism then rises straight up +z by
+// `height` from `baseZ`. (The lathe instead spins the page-left=axis profile
+// around z; that is why its y becomes z and its x becomes a radius. Same
+// extracted points, two different projections — one spins, one sweeps up.)
+ProfilePointsResult resolveExtrudeProfilePoints(
+    const edi::drafting::DraftingDocument &drafting,
+    const edi::drafting::DraftingGridProjection &grid,
+    const std::string &objectId)
+{
+    using namespace edi::drafting;
+
+    ProfilePointsResult result;
+    ProfileSource source = resolveProfileSource(drafting, objectId);
+    if (!source.ok) {
+        result.message = source.message;
+        return result;
+    }
+    result.points.reserve(source.points.size());
+    for (const Point2D &point : source.points) {
+        result.points.push_back({
+            physicalWidth(point.x, grid),
+            physicalHeight(point.y, grid),
         });
     }
     result.ok = true;

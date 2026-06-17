@@ -56,6 +56,11 @@ DraftingDocument labDocument()
     PolylineGeometry folded;
     folded.vertices = {{0.1, 0.5}, {0.2, 0.2}, {0.15, 0.7}}; // physical z 4.0,6.4,2.4 — non-monotonic
     assert(addObject(drafting, object("folded", DraftingShapeKind::Polyline, folded)).ok);
+    // A closed square loop for the extrude (BL-03) footprint test — the last
+    // vertex repeats the first, as a closed drafted polyline does.
+    PolylineGeometry panel;
+    panel.vertices = {{0.1, 0.1}, {0.3, 0.1}, {0.3, 0.3}, {0.1, 0.3}, {0.1, 0.1}};
+    assert(addObject(drafting, object("panel", DraftingShapeKind::Polyline, panel)).ok);
     return drafting;
 }
 
@@ -533,6 +538,78 @@ int main()
         assert(r.findings.size() == 1);
         assert(r.findings[0].key == "op.0.radius");
         assert(r.findings[0].message == "not a finite number");
+    }
+
+    // ---- Extrude lowering (BL-03): every AddExtrudedProfileOp lowers to a
+    // concrete AddPrismOp whose footprint is the drafted figure's PHYSICAL
+    // x/y (no radius reinterpretation, no z-flip — the projector that
+    // contrasts the lathe). A bound height lands before lowering. ----
+    {
+        RecipeOpStream s;
+        s.id = "resolve.extrude";
+        AddExtrudedProfileOp prism;
+        prism.name = "wall.panel";
+        prism.profile = "panel";
+        prism.baseZ = 1.0;
+        prism.material = "limestone";
+        s.ops.push_back(prism);
+        s.bindings = {{0, "height", "plank", "height"}}; // 2.0 — lands pre-lowering
+
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        assert(r.stream.bindings.empty());
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr); // the extrude reference is GONE, a prism stands
+        assert(lowered->name == "wall.panel");
+        assert(near(lowered->height, 0.25 * 8.0)); // the bound height landed: 2.0
+        assert(near(lowered->baseZ, 1.0));
+        assert(lowered->material == "limestone");
+        // Footprint = physical x/y of the closed square (x*12, y*8), the
+        // repeated closing vertex preserved.
+        assert(lowered->footprint.size() == 5);
+        assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
+        assert(near(lowered->footprint[1].x, 0.3 * 12.0) && near(lowered->footprint[1].y, 0.1 * 8.0));
+        assert(near(lowered->footprint[2].x, 0.3 * 12.0) && near(lowered->footprint[2].y, 0.3 * 8.0));
+        assert(near(lowered->footprint[4].x, 0.1 * 12.0) && near(lowered->footprint[4].y, 0.1 * 8.0));
+        // The lowered prism passes validation and the resolve gate.
+        assert(validateRecipeOps(r.stream.ops).ok);
+        assert(recipeOpsResolved(r.stream));
+        // The input is pure-functionally untouched.
+        assert(std::get_if<AddExtrudedProfileOp>(&s.ops[0]) != nullptr);
+    }
+
+    // ---- Extrude refusals: deleted / wrong-kind / open use the SHARED profile
+    // wordings (the same four the lathe uses); a line (2 points) is degenerate
+    // for a footprint and refused by name. All keyed op.<i>.profile. ----
+    {
+        const auto oneExtrude = [](std::string profileId) {
+            RecipeOpStream s;
+            AddExtrudedProfileOp e;
+            e.name = "e";
+            e.profile = std::move(profileId);
+            e.height = 2.0;
+            s.ops.push_back(e);
+            return s;
+        };
+        // deleted object — shared wording
+        const OpResolveResult gone = resolveRecipeOps(oneExtrude("gone"), drafting, grid);
+        assert(!gone.ok && gone.stream.ops.empty());
+        assert(gone.findings[0].key == "op.0.profile");
+        assert(gone.findings[0].message == "profile object not found: gone");
+        // wrong kind — shared wording
+        const OpResolveResult wrong = resolveRecipeOps(oneExtrude("hole"), drafting, grid);
+        assert(!wrong.ok);
+        assert(wrong.findings[0].message == "profile needs a line, polyline, or arc");
+        // empty reference — shared wording
+        const OpResolveResult unbound = resolveRecipeOps(oneExtrude(""), drafting, grid);
+        assert(!unbound.ok);
+        assert(unbound.findings[0].message == "no profile bound");
+        // a LINE (the 2-vertex shaft polyline) projects to 2 distinct points —
+        // not an area, so the footprint is degenerate, refused by name.
+        const OpResolveResult line = resolveRecipeOps(oneExtrude("shaft"), drafting, grid);
+        assert(!line.ok);
+        assert(line.findings[0].key == "op.0.profile");
+        assert(line.findings[0].message == "profile must enclose at least three distinct points");
     }
 
     return 0;

@@ -163,6 +163,24 @@ def main() -> int:
     assert obj.count("\nv ") + (1 if obj.startswith("v ") else 0) == 6928, "OBJ vertex count drifted"
     assert obj.count("\nf ") + (1 if obj.startswith("f ") else 0) == 6192, "OBJ face count drifted"
 
+    # The extrude spine (BL-04): the lowered AddPrism builds a height-bearing
+    # prism PURELY (no bpy), so its OBJ is a byte-golden too. The L-bracket
+    # footprint (6 points) lofts to 12 verts (bottom + top cap) and 8 faces
+    # (2 caps + 6 side quads); the z-extent equals the op's height — the mesh is
+    # honest about dimension, never abs()'d. This is why the OBJ proof needs no
+    # Blender: _prism_world is pure, and add_prism (bpy) builds from the SAME
+    # mesh, so the headless proof and the Blender build cannot drift.
+    prism_dir = os.path.join(ROOT, "samples", "extruded_figure")
+    prism_ops = edi_craft.parse_ops(os.path.join(prism_dir, "extruded_figure_ops_compiled.toml"))
+    prism_obj = "\n".join(edi_craft.obj_lines(prism_ops)) + "\n"
+    with open(os.path.join(prism_dir, "extruded_figure.obj"), encoding="utf-8") as f:
+        prism_golden = f.read()
+    assert prism_obj == prism_golden, "prism OBJ drifted from samples/extruded_figure/extruded_figure.obj"
+    prism_zs = [float(line.split()[3]) for line in prism_obj.splitlines() if line.startswith("v ")]
+    assert len(prism_zs) == 12, f"prism vertex count drifted: {len(prism_zs)}"
+    assert max(prism_zs) - min(prism_zs) == 3.0, "prism z-extent must equal the op height (3)"
+    assert prism_obj.count("\nf ") == 8, "prism face count drifted (2 caps + 6 sides)"
+
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a
     # Script op renders in the proof through the craftsman's proof_mesh.
@@ -225,6 +243,12 @@ def main() -> int:
     refuses(
         'op.0.type = "AddRevolvedProfile"\nop.0.name = "m"\n',
         "AddRevolvedProfile must be resolved before building",
+    )
+    # The extrude reference (BL-01/04): only the lowered AddPrism reaches a
+    # build — a raw extrude is refused by name, parity with C++ compile/resolve.
+    refuses(
+        'op.0.type = "AddExtrudedProfile"\nop.0.name = "m"\n',
+        "AddExtrudedProfile must be resolved before building",
     )
     refuses('op.0.type = "AddDodecahedron"\n', "unknown op type")
 

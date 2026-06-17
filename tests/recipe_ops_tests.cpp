@@ -5,6 +5,7 @@
 #include "recipe/RecipeOps.h"
 #include "recipe/RecipeOpSchema.h"
 #include "recipe/RecipeOpsBind.h"
+#include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
 
@@ -1211,6 +1212,187 @@ int main()
         assert(!setOpScalar(scOp, "script", std::string("other"))); // read-only id
         assert(std::get_if<ScriptOp>(&scOp)->scriptId == "twisted_column");
         assert(!setOpScalar(scOp, "nope", std::string("x"))); // unknown key
+    }
+
+    // ---- AddExtrudedProfile (BL-01): a profile-reference op like the lathe —
+    // authored, refused-before-build, lowered later (BL-03). Round trip plus
+    // refusal, the two proofs the brief asks for. ----
+    {
+        // Round trip: every field survives writer -> reader, key-for-key, and
+        // the canonical writer is idempotent. base_z is bindable (true) so the
+        // hand-omitted x/y exercise the reader defaults like the lathe.
+        RecipeOpStream zoo;
+        zoo.id = "extrude.zoo";
+        zoo.name = "Extrude Zoo";
+        AddExtrudedProfileOp prism;
+        prism.name = "wall.panel";
+        prism.profile = "panel_outline"; // a drafted object id, the reference
+        prism.height = 2.5;
+        prism.baseZ = 1.0;
+        prism.x = 0.5;
+        prism.y = -0.25;
+        prism.material = "marble";
+        zoo.ops.push_back(prism);
+
+        const OpStreamTextResult written = recipeOpsToToml(zoo);
+        assert(written.ok);
+        // Writer key shape — a drift that broke BL-04's parse_ops would fail here.
+        assert(written.text.find("op.0.type = \"AddExtrudedProfile\"") != std::string::npos);
+        assert(written.text.find("op.0.profile = \"panel_outline\"") != std::string::npos);
+        assert(written.text.find("op.0.height = \"2.5\"") != std::string::npos);
+        assert(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
+        assert(written.text.find("op.0.material = \"marble\"") != std::string::npos);
+
+        const OpStreamParseResult back = recipeOpsFromToml(written.text, "extrude.zoo");
+        assert(back.ok && back.stream.ops.size() == 1);
+        const auto *prismBack = std::get_if<AddExtrudedProfileOp>(&back.stream.ops[0]);
+        assert(prismBack != nullptr && prismBack->name == "wall.panel"
+               && prismBack->profile == "panel_outline" && near(prismBack->height, 2.5)
+               && near(prismBack->baseZ, 1.0) && near(prismBack->x, 0.5)
+               && near(prismBack->y, -0.25) && prismBack->material == "marble");
+        assert(recipeOpsToToml(back.stream).text == written.text); // idempotent
+
+        // Reader defaults from a minimal hand file: x/y -> 0, material -> stone.
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddExtrudedProfile\"\n"
+            "op.0.name = \"bare.prism\"\n"
+            "op.0.profile = \"outline\"\n"
+            "op.0.height = \"3\"\n"
+            "op.0.base_z = \"0\"\n", "minimal");
+        assert(bare.ok);
+        const auto *bareBack = std::get_if<AddExtrudedProfileOp>(&bare.stream.ops[0]);
+        assert(bareBack != nullptr && bareBack->x == 0.0 && bareBack->y == 0.0
+               && bareBack->material == "stone");
+
+        // Refusal #1: an unlowered extrude cannot compile, refused BY NAME like
+        // the lathe; recipeOpsResolved agrees it is not safe downstream.
+        AddExtrudedProfileOp unlowered;
+        unlowered.name = "shaft.extruded";
+        unlowered.profile = "outline";
+        unlowered.height = 4.0;
+        const RecipeCompileResult refused = compileRecipeOps({RecipeOp{unlowered}});
+        assert(!refused.ok);
+        assert(refused.message
+               == "AddExtrudedProfile must be resolved before compiling: shaft.extruded");
+        assert(refused.ops.empty());
+        RecipeOpStream survives;
+        survives.ops = {RecipeOp{unlowered}};
+        assert(!recipeOpsResolved(survives));
+
+        // Refusal #2: a zero height fails validate by its finding name; a valid
+        // op passes; a NEGATIVE height is deliberately allowed (BL-05 push/pull).
+        AddExtrudedProfileOp flat = unlowered;
+        flat.height = 0.0;
+        const OpValidationReport flatReport = validateRecipeOps({RecipeOp{flat}});
+        assert(!flatReport.ok);
+        bool sawZeroHeight = false;
+        for (const OpFinding &f : flatReport.findings) {
+            sawZeroHeight = sawZeroHeight || f.code == "extruded_profile_zero_height";
+        }
+        assert(sawZeroHeight);
+        assert(validateRecipeOps({RecipeOp{unlowered}}).ok); // height 4.0, valid
+        AddExtrudedProfileOp pushPull = unlowered;
+        pushPull.height = -1.5; // allowed: not refused here
+        const OpValidationReport negReport = validateRecipeOps({RecipeOp{pushPull}});
+        for (const OpFinding &f : negReport.findings) {
+            assert(f.code != "extruded_profile_zero_height");
+        }
+
+        // Bind registry + schema, pinned: height/base_z/x/y bind; profile and
+        // material stay literal-only; the inspector exposes name + read-only
+        // profile + material.
+        RecipeOp bindProbe = RecipeOp{prism};
+        for (const char *key : {"height", "base_z", "x", "y"}) {
+            assert(opFieldBindable(bindProbe, key));
+        }
+        for (const char *key : {"profile", "material", "name"}) {
+            assert(!opFieldBindable(bindProbe, key));
+        }
+        bool sawProfileRO = false, sawMaterial = false, sawHeight = false;
+        for (const RecipeOpScalar &s : opEditableScalars(bindProbe)) {
+            if (s.key == "profile") sawProfileRO = !s.editable && s.text == "panel_outline";
+            else if (s.key == "material") sawMaterial = s.kind == RecipeFieldKind::Choice;
+            else if (s.key == "height") sawHeight = s.kind == RecipeFieldKind::Number && near(s.number, 2.5);
+        }
+        assert(sawProfileRO && sawMaterial && sawHeight);
+    }
+
+    // ---- AddPrism (BL-03): the BUILDABLE lowered carrier. Round trip the
+    // footprint.i.{x,y} run key-for-key, and pin its validate findings. Unlike
+    // the profile-reference ops it passes compile and is NOT refused. ----
+    {
+        RecipeOpStream zoo;
+        zoo.id = "prism.zoo";
+        zoo.name = "Prism Zoo";
+        AddPrismOp prism;
+        prism.name = "wall.block";
+        prism.footprint = {{1.2, 0.8}, {3.6, 0.8}, {3.6, 2.4}, {1.2, 2.4}};
+        prism.height = 2.0;
+        prism.baseZ = 1.0;
+        prism.x = 0.5;
+        prism.y = -0.25;
+        prism.material = "marble";
+        zoo.ops.push_back(prism);
+
+        const OpStreamTextResult written = recipeOpsToToml(zoo);
+        assert(written.ok);
+        assert(written.text.find("op.0.type = \"AddPrism\"") != std::string::npos);
+        assert(written.text.find("op.0.height = \"2\"") != std::string::npos);
+        assert(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
+        assert(written.text.find("op.0.footprint.0.x = \"1.2\"") != std::string::npos);
+        assert(written.text.find("op.0.footprint.2.y = \"2.4\"") != std::string::npos);
+
+        const OpStreamParseResult back = recipeOpsFromToml(written.text, "prism.zoo");
+        assert(back.ok && back.stream.ops.size() == 1);
+        const auto *prismBack = std::get_if<AddPrismOp>(&back.stream.ops[0]);
+        assert(prismBack != nullptr && prismBack->name == "wall.block"
+               && near(prismBack->height, 2.0) && near(prismBack->baseZ, 1.0)
+               && near(prismBack->x, 0.5) && near(prismBack->y, -0.25)
+               && prismBack->material == "marble");
+        assert(prismBack->footprint.size() == 4);
+        assert(near(prismBack->footprint[0].x, 1.2) && near(prismBack->footprint[0].y, 0.8));
+        assert(near(prismBack->footprint[3].x, 1.2) && near(prismBack->footprint[3].y, 2.4));
+        assert(recipeOpsToToml(back.stream).text == written.text); // idempotent
+
+        // BUILDABLE carrier: compile passes it through untouched (like
+        // AddMoulding), and it does NOT make the stream unresolved.
+        const RecipeCompileResult compiled = compileRecipeOps({RecipeOp{prism}});
+        assert(compiled.ok && compiled.ops.size() == 1
+               && recipeOpTypeName(compiled.ops[0]) == std::string("AddPrism"));
+        RecipeOpStream resolvedStream;
+        resolvedStream.ops = {RecipeOp{prism}};
+        assert(recipeOpsResolved(resolvedStream));
+        assert(validateRecipeOps({RecipeOp{prism}}).ok);
+
+        // Validate refusals by name: a degenerate footprint (< 3 points) and a
+        // zero/non-finite height. A NEGATIVE height is ALLOWED (BL-05).
+        AddPrismOp sliver = prism;
+        sliver.footprint = {{0.0, 0.0}, {1.0, 0.0}}; // a line, not an area
+        const OpValidationReport sliverReport = validateRecipeOps({RecipeOp{sliver}});
+        assert(!sliverReport.ok);
+        bool sawDegenerate = false;
+        for (const OpFinding &f : sliverReport.findings) {
+            sawDegenerate = sawDegenerate || f.code == "prism_degenerate_footprint";
+        }
+        assert(sawDegenerate);
+
+        AddPrismOp flat = prism;
+        flat.height = 0.0;
+        const OpValidationReport flatReport = validateRecipeOps({RecipeOp{flat}});
+        assert(!flatReport.ok);
+        bool sawZeroHeight = false;
+        for (const OpFinding &f : flatReport.findings) {
+            sawZeroHeight = sawZeroHeight || f.code == "prism_zero_height";
+        }
+        assert(sawZeroHeight);
+
+        AddPrismOp pushPull = prism;
+        pushPull.height = -1.5; // allowed
+        const OpValidationReport negReport = validateRecipeOps({RecipeOp{pushPull}});
+        for (const OpFinding &f : negReport.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+        assert(negReport.ok);
     }
 
     return 0;

@@ -327,11 +327,30 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   Tracing suggests the canonical mirror is ALREADY latently wrong for ROTATED rectangles
   (even at orthogonal axes), and DR-11 inherits it. Audit to adjudicate the math + recommend
   fix-now (flip `rotationDeg` in the canonical arm) vs accept-v1-limitation, with blast radius.
-- **HOLDING:** DR-11 NOT reported to edi-ui and DR-12 NOT opened until the audit settles.
+### DR-11 audit — DONE 2026-06-17 — VERDICT: ACCEPT-with-FOLLOWUP
+- Reply: `~/dept-bus/edi-drafting/replies/006-DR11-audit.md`. DR-11 itself CORRECT + clean
+  (conjugation verified numerically — all 4 reflected positions recomputed; canonical path
+  +202/−0 untouched; supportsMirror gate + Arc reject + Dimension-offset flip all confirmed).
+- **Math CONFIRMED:** the canonical rectangle mirror arm never flips `rotationDeg` → reflection
+  result off by `2(θ−r)`. Pre-existing latent bug (single-axis mirror of a rotated rect is
+  already wrong: r=30°→30°, should be −30°); DR-11 inherits it. Position is correct; ONLY
+  `rotationDeg` is wrong.
+- **FIX-NOW (audit-prescribed, one line):** `rotationDeg = -rotationDeg` in the canonical rect
+  arm, OUTSIDE the H/V branch — fixes single-axis AND DR-11 (nets `−r+2θ`). Zero existing-test
+  breakage (only rect mirror test is axis-aligned, `−0==0`). It's a behavior CHANGE → own
+  "fix" commit + 2 new tests. mirrorGeometry is shared (dungeon-map consumes) → FLAG to hub.
+
+### DR-11-fix — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/025-DR11fix-mirror-rect-rotation-builder.md`. One-line
+  canonical-arm fix + 2 tests. Lands on top of DR-11. Accept inline when green (audit
+  pre-verified the exact change).
+- **Plan:** when the fix lands → report DR-11 (`02fd45e`) + fix as ONE batch to edi-ui, and
+  FLAG the hub re: the shared canonical-mirror rotated-rect semantics change (dungeon-map
+  consumes; position unaffected, orientation-only — a fix they want). THEN open DR-12.
 
 ## Open questions / blockers
-- DR-11 rectangle-reflection correctness — under audit (may surface a latent canonical-mirror
-  bug needing a behavior-correcting fix + test, which would touch the shared canonical path).
+- Shared-mirror semantics change (rotated-rect orientation under reflection) — to be flagged
+  to the hub for the dungeon-map boundary when the fix lands.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

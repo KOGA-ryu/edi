@@ -67,8 +67,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ✅ `012d48f` (rebased) |
 | DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ←12,DR-01 | ✅ `419db06` (rebased) |
 | DM-15 | transform placed instance (`transformBlockInstance`) | ←14,DR-01 | ✅ `4beb3b5` (rebased) |
-| DM-01 | view-auto-fit sliver: `computeDocumentBounds()` getter | 🟦 W1 | ▶ batch-7 (016) |
-| DM-11 | map browser sliver: shared `DraftingMapQuery` (`deriveEdge`+`connected`) | 🟦 W1 | ▶ batch-7 (016) |
+| DM-01 | view-auto-fit sliver: `computeDocumentBounds()` getter | 🟦 W1 | ✅ `32b297b` |
+| DM-11 | map browser sliver: shared `DraftingMapQuery` (`deriveEdge`+`connected`) | 🟦 W1 | ✅ `1b8dacb` |
 
 ## Gate log
 
@@ -275,10 +275,21 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   members/setters vs my block-placement members/setters); resolved keeping BOTH.
   **Green gate on new base: build clean · ctest 99/99 · scan clean · snapshot.**
 
-### Builder batch-7 (DM-01/DM-11 slivers) — DISPATCHED (parallel with DM-14/15 audit)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/016-builder-dm01-dm11-slivers.md`
-- DM-01 `computeDocumentBounds()→optional`; DM-11 new no-Qt `DraftingMapQuery.{h,cpp}`
-  (`deriveEdge`+`plugIsConnected`), MapToonExport switched to it (golden unchanged).
+### Builder batch-7 (DM-01/DM-11 slivers) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/016-builder-dm01-dm11-slivers.md`
+- DM-01 `32b297b`: `documentObjectsBounds(doc)→optional<Bounds2D>` (free fn in
+  `DraftingDocument`) + thin `computeDocumentBounds()` getter. DM-11 `1b8dacb`: new
+  no-Qt `DraftingMapQuery.{h,cpp}` (`deriveEdge` + `plugIsConnected(connections,
+  plugId)`); `MapToonExport` switched to the shared helpers — **golden UNCHANGED**
+  (pure extraction). 101/101 green. CMakeLists additions flagged (additive, no
+  edi-ui target). **Signatures for edi-ui** recorded in the reply (the exact headers
+  `buildMapBrowserPanel`/`computeFitView` include). **ALL 15 DM TASKS BUILT.**
+
+### Builder batch-8 (composed-scale overflow guard) — DISPATCHED (final)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/018-builder-scale-overflow-guard.md`
+- The DM-14/15 audit nit: guard the composed `scale *= factor` against `+inf`
+  (refuse the member), with a pathological 1e200×1e200 test. Last code change before
+  the final edi-ui hand-off + closeout.
 
 ### Reviewer diff-audit of DM-14/15 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN, 1 nit)
 - Reply: `~/dept-bus/edi-dungeon-map/replies/017-reviewer-dm1415-audit.md`

@@ -9,7 +9,8 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01 in flight) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
+| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01 landed on master; DR-02 snap sources next) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
+| ui-20260617-master-integration | edi-ui | builder | open (master integration line + chrome bucket) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
 
 ## Conventions
 

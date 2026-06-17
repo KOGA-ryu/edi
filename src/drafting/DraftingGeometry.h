@@ -29,6 +29,11 @@ Bounds2D computeBounds(const DraftingGeometry &geometry);
 Bounds2D includeBounds(Bounds2D bounds, Bounds2D next);
 bool boundsContainsPoint(Bounds2D bounds, Point2D point);
 DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, double dy);
+// Rotate by `rotationDeg` (CCW, matching the structs' existing degree convention)
+// and uniformly scale by `scale`, both ABOUT `pivot`. The sibling of
+// translateGeometry; pure, value-in/value-out. Uniform scale keeps every kind in
+// its own family (a Circle stays a Circle, an Arc stays circular — never demotes).
+DraftingGeometry transformGeometry(const DraftingGeometry &geometry, Point2D pivot, double rotationDeg, double scale);
 Point2D translatePoint(Point2D point, double dx, double dy);
 bool translationHasEffect(double dx, double dy);
 double distance(Point2D a, Point2D b);

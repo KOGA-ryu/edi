@@ -36,13 +36,13 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
 | BL-05 | Push/Pull height authoring + bind | M | **SHIPPED** (tests-only, no gap) | `7d0a73d` |
 | BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
-| BL-07 | Lathe screw/helix params | M | builder done, reviewer audit | `2e251c7` |
+| BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | dep BL-04 + arm-serial | — |
 | BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
-| BL-12 | Craftsman radial_petal | S | ready (no dep) | — |
+| BL-12 | Craftsman radial_petal | S | builder briefed | — |
 | BL-13 | Craftsman nfold_star | S | dep BL-12 | — |
 | BL-14 | Named-recipe library + chaining | M | ready (no dep) | — |
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
@@ -133,8 +133,23 @@ Brief `briefs/014-bl07-screw.md`. screwRise(0)/screwTurns(1) on both lathe ops (
 lowering), reuses BL-06's plumbing + validate block; default 0 = behavior-preserving;
 helix vs partial-sweep interaction defined v1. Goldens get additive screw keys → audit.
 
+### BL-07 — SHIPPED 2026-06-17 (audit `replies/015`: SHIP, ribbon accept-v1)
+Reviewer empirically verified the crux (profile byte-unchanged after a helix `moulding_rings`
+run → can't trip `moulding_profile_not_monotonic`); goldens purely additive #2; doric
+byte-identical; mesh well-formed (pos/neg/1-turn). Open helix ribbon = justified v1
+deferral, not a defect.
+
+## Deferred follow-ups (tracked — recipe-lab polish, not blocking)
+- **Watertight helix** (end caps + closure) — BL-07's v1 helix is an open ribbon; BL-06's
+  partial revolve is watertight. Fold into a future helix refinement.
+- **sweep×screw silent-override warning** — `screw_rise != 0` ignores `sweep_degrees` in
+  v1 (full helix, not partial). Add a validate-WARNING (`sweep_degrees < 360 AND
+  screw_rise != 0` → "sweep ignored under helix in v1") when the partial-AND-helical
+  combination is built. (Reviewer-suggested; cheap, no golden change.)
+- **Edge-incidence manifold assert** in the smoke (BL-06 note) — lock watertightness.
+- **bounds_of arc/helix-awareness** — currently frames within ±max_radius (loose, correct).
+
 ## Next
-- BL-07 builder → reviewer audit (golden additive-regen #2 + the monotonic-z-validator
-  non-trip + the helix mesh) → cadence report to hub (BL-05/06/07 chunk) → Wave-1
-  independents BL-12 (craftsman) / BL-14 (library).
-- Arm-adders still serial: BL-08 (→13), BL-11 (→14) — one at a time, later.
+- Cadence report to hub (BL-05/06/07 since the spine) — DONE.
+- **BL-12** (radial_petal craftsman, pure Python, S) — briefed. Then BL-14 (library),
+  BL-13 (nfold_star, dep BL-12). Arm-adders BL-08 (→13) / BL-11 (→14) serial, later.

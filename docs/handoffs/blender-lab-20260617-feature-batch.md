@@ -32,8 +32,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | Task | Title | Size | Status | Commit(s) |
 |---|---|---|---|---|
 | BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
-| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | builder done, reviewer audit | `e166709` |
-| BL-04 | edi_craft.py prism build + OBJ golden | M | blocked on BL-03 | — |
+| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
+| BL-04 | edi_craft.py prism build + OBJ golden | M | builder briefed | — |
 | BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
 | BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
 | BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
@@ -72,9 +72,25 @@ AddExtrudedProfile→AddPrismOp via a new `resolveExtrudeProfilePoints` footprin
 projector. AddPrismOp = OBJ-only-proof (mirrors Script's ASCII: no-op bounds, empty
 draw, NOT refused — it is the buildable carrier).
 
+### BL-03 — SHIPPED 2026-06-17 (keystone audit `replies/008`: SHIP, no defects)
+Reviewer reconstructed old-vs-new `resolveProfilePoints` line-by-line → lathe
+**byte-identical** (the `ProfileSource.ok=false` default is the load-bearing invariant);
+all 12 sites real; carrier passes every buildable consumer; no raw extrude survives
+resolve (BL-01 seam dissolved); reader key-for-key BL-04-ready. **Flags resolved:**
+(a) bindable prism fields KEEP (AddMoulding precedent), (b) degenerate wording ACCEPTABLE.
+**Deferred (recorded, not a blocker):** the footprint gate checks distinct-count (≥3)
+but not collinearity/zero-area — CONSISTENT with the family (lathe/moulding guard
+neither). A 3+ collinear-distinct figure lowers to a flat prism (no crash). NOT adding a
+prism-only guard (would diverge from the family); parked as a possible future
+"degenerate-geometry guards across the carrier family" polish item.
+
+### BL-04 — builder briefed 2026-06-17
+Brief `briefs/009-bl04-prism-python.md`. The Python prism half: ARCHITECTURAL_OPS +
+parse_ops (key-for-key) + `_prism_world` mesh + obj/plan/bounds/build + raw-extrude
+refusal + a new sample + OBJ golden + smoke. Completes the extrude spine.
+
 ## Next
-- BL-03 builder → reviewer diff audit (carrier shape + footprint projection + the
-  variant→12 pass are the keystone joint) → BL-04 (Python prism build + OBJ golden).
-- Arch doc: I (scribe) refresh §1/§2 to add arms 11 (AddExtrudedProfile) + 12
-  (AddPrismOp) once the spine BL-01/03/04 lands as a coherent unit (avoid mid-spine
-  churn).
+- BL-04 builder → reviewer audit (cross-language key-for-key is the named risky joint) →
+  **report SPINE complete to hub** (BL-01/03/04, the ~3-task mark).
+- Arch doc: I (scribe) refresh §1/§2/§3/§5 to add arms 11 (AddExtrudedProfile) + 12
+  (AddPrismOp) + the prism Python contract once BL-04 lands (the spine as a unit).

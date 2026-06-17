@@ -59,6 +59,15 @@ constexpr FieldRow<AddRevolvedProfileOp> kRevolvedProfileFields[] = {
     {"y", &AddRevolvedProfileOp::y},
 };
 
+// BL-01: the extrude exposes the lathe's baseZ/x/y plus its own `height` —
+// the new bindable field, so a drafted measurement can drive the extrude depth.
+constexpr FieldRow<AddExtrudedProfileOp> kExtrudedProfileFields[] = {
+    {"height", &AddExtrudedProfileOp::height},
+    {"base_z", &AddExtrudedProfileOp::baseZ},
+    {"x", &AddExtrudedProfileOp::x},
+    {"y", &AddExtrudedProfileOp::y},
+};
+
 constexpr FieldRow<CutFlutesOp> kFluteFields[] = {
     {"depth", &CutFlutesOp::depth},
     {"width_ratio", &CutFlutesOp::widthRatio},
@@ -104,6 +113,7 @@ struct FieldVisit {
     bool operator()(AddMouldingOp &op) const { return handle(op, findMember(kMouldingFields, fieldKey)); }
     bool operator()(AddProfileMouldingOp &op) const { return handle(op, findMember(kProfileMouldingFields, fieldKey)); }
     bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
+    bool operator()(AddExtrudedProfileOp &op) const { return handle(op, findMember(kExtrudedProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
     bool operator()(ScriptOp &op) const { return handle(op, findMember(kScriptFields, fieldKey)); }
@@ -129,6 +139,7 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddMouldingOp &op) const { return of(op, kMouldingFields); }
     std::vector<RecipeOpField> operator()(const AddProfileMouldingOp &op) const { return of(op, kProfileMouldingFields); }
     std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
+    std::vector<RecipeOpField> operator()(const AddExtrudedProfileOp &op) const { return of(op, kExtrudedProfileFields); }
     std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
     std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
     std::vector<RecipeOpField> operator()(const ScriptOp &op) const { return of(op, kScriptFields); }

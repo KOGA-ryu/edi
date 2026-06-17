@@ -3,6 +3,7 @@
 #include "recipe/RecipeTextNumbers.h"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_set>
 
 namespace edi::recipe {
@@ -140,6 +141,28 @@ struct OpChecker {
         checkMaterial(findings, op.name, op.material);
     }
 
+    void operator()(const AddExtrudedProfileOp &op) const
+    {
+        // BL-01: like the lathe, the drafted-profile reference must exist; its
+        // resolvability is the resolve pass's concern (BL-03).
+        if (op.profile.empty()) {
+            add(findings, Severity::Error, "missing_profile_reference",
+                op.name + " needs a drafted profile reference.");
+        }
+        // A zero or non-finite extrude has no prism — refuse it. A NEGATIVE
+        // height is deliberately allowed: BL-05 reads it as a push/pull cut, so
+        // refusing it here would block that future meaning.
+        if (op.height == 0.0 || !std::isfinite(op.height)) {
+            add(findings, Severity::Error, "extruded_profile_zero_height",
+                op.name + " needs a non-zero, finite height.");
+        }
+        if (op.baseZ < 0) {
+            add(findings, Severity::Warning, "negative_extruded_profile_base_z",
+                op.name + " starts below z=0.");
+        }
+        checkMaterial(findings, op.name, op.material);
+    }
+
     void operator()(const AddProfileMouldingOp &op) const
     {
         if (op.baseZ < 0) {
@@ -266,6 +289,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddProfileMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
+        const std::string *operator()(const AddExtrudedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
         const std::string *operator()(const ScriptOp &o) const { return &o.name; }

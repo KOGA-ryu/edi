@@ -130,6 +130,9 @@ struct BoundsEstimator {
     // op arm can't silently join this set.
     void operator()(const AddProfileMouldingOp &) const {}
     void operator()(const AddRevolvedProfileOp &) const {}
+    // AddExtrudedProfile (BL-01) is not framed pre-lowering, like the lathe:
+    // renderOpsProjection refuses it before dispatch, so this stays a no-op.
+    void operator()(const AddExtrudedProfileOp &) const {}
     void operator()(const CutFlutesOp &) const {}
     // AddLabel stays a no-op HERE even though Python's bounds_of
     // (edi_craft.py ~:440) folds the label point into its frame — the C++ and
@@ -451,6 +454,7 @@ struct ProjectionDrawer {
 
     void operator()(const AddProfileMouldingOp &) const {} // refused before dispatch
     void operator()(const AddRevolvedProfileOp &) const {} // refused before dispatch
+    void operator()(const AddExtrudedProfileOp &) const {} // refused before dispatch
 
     void operator()(const CutFlutesOp &op) const
     {
@@ -506,6 +510,13 @@ AsciiRenderResult renderOpsProjection(const std::vector<RecipeOp> &ops,
         // refuse what it cannot show, and an unresolved profile has no points.
         if (const auto *unresolved = std::get_if<AddRevolvedProfileOp>(&op)) {
             result.message = "AddRevolvedProfile must be resolved before preview: " + unresolved->name;
+            return result;
+        }
+        // Same contract for the extrude (BL-01): unlowered, it has no mesh to
+        // silhouette, so refuse it before dispatch — the empty ProjectionDrawer
+        // and BoundsEstimator arms above are thereby unreachable.
+        if (const auto *unresolved = std::get_if<AddExtrudedProfileOp>(&op)) {
+            result.message = "AddExtrudedProfile must be resolved before preview: " + unresolved->name;
             return result;
         }
     }

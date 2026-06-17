@@ -155,15 +155,17 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
 
 bool recipeOpsResolved(const RecipeOpStream &stream)
 {
-    // Two unresolved states, both fatal downstream: a measurement binding that
-    // never got written, and an AddRevolvedProfileOp that never got lowered. A
-    // successful resolveRecipeOps clears both; anything that fails this is not
-    // safe to compile, preview, or export.
+    // Unresolved states, all fatal downstream: a measurement binding that
+    // never got written, an AddRevolvedProfileOp that never got lowered, and
+    // (BL-01) an AddExtrudedProfileOp that never got lowered. A successful
+    // resolveRecipeOps clears them; anything that fails this is not safe to
+    // compile, preview, or export.
     if (!stream.bindings.empty()) {
         return false;
     }
     for (const RecipeOp &op : stream.ops) {
-        if (std::holds_alternative<AddRevolvedProfileOp>(op)) {
+        if (std::holds_alternative<AddRevolvedProfileOp>(op)
+            || std::holds_alternative<AddExtrudedProfileOp>(op)) {
             return false;
         }
     }

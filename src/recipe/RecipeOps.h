@@ -131,6 +131,25 @@ struct AddRevolvedProfileOp {
     std::string material = "stone";
 };
 
+// The extrude, op-vocabulary native (BL-01): like the lathe a REFERENCE to a
+// drafted profile (its closed cross-section), not a copy of its points — the
+// drafting document stays the single measurement authority. Where the lathe
+// REVOLVES the profile around an axis, this PRISMATICALLY extrudes it `height`
+// up the Z axis from `baseZ`, placed at (x, y). The resolve pass will lower it
+// (BL-03, not this slice); until then it is authored-only and refused by every
+// buildable consumer by name, exactly like AddRevolvedProfileOp. `height` has
+// no natural default (a zero-height extrude is degenerate — validate refuses
+// it); a NEGATIVE height is allowed (it becomes a push/pull cut in BL-05).
+struct AddExtrudedProfileOp {
+    std::string name;
+    std::string profile; // a drafted object's id — the reference, like the lathe
+    double height = 0.0;
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    std::string material = "stone";
+};
+
 struct CutFlutesOp {
     std::string target; // names an earlier op — validated in order
     int count = 0;
@@ -197,6 +216,7 @@ using RecipeOp = std::variant<
     AddMouldingOp,
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
+    AddExtrudedProfileOp,
     CutFlutesOp,
     AddLabelOp,
     ScriptOp>;

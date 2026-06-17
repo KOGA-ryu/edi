@@ -162,6 +162,18 @@ struct OpWriter {
         put("material", op.material);
     }
 
+    void operator()(const AddExtrudedProfileOp &op) const
+    {
+        put("type", std::string("AddExtrudedProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("height", op.height);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("material", op.material);
+    }
+
     void operator()(const CutFlutesOp &op) const
     {
         put("type", std::string("CutFlutes"));
@@ -594,7 +606,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
     // and this fires, reminding the next author to add a reader branch HERE and
     // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
     // cross-language TOML contract is a two-sided obligation (§3).
-    static_assert(std::variant_size_v<RecipeOp> == 10,
+    static_assert(std::variant_size_v<RecipeOp> == 11,
                   "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
                   "ladder is string-keyed, not a std::visit, so the compiler "
                   "won't force it) AND a matching parse_ops arm in edi_craft.py.");
@@ -727,6 +739,25 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddExtrudedProfile") {
+            // Key-for-key the OpWriter's AddExtrudedProfile arm — the
+            // cross-language contract (§3) is what this branch upholds, and
+            // a forgotten key here is a runtime "unknown" not a compile error
+            // (the static_assert above is the only compile-time guard the
+            // string-keyed reader gets). height/base_z/x/y are bindable like
+            // the lathe's numeric fields; profile is the drafted-object id.
+            AddExtrudedProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)) {
                 result.message = reader.error;
                 return result;

@@ -33,6 +33,7 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddMouldingOp &) const { return "AddMoulding"; }
         const char *operator()(const AddProfileMouldingOp &) const { return "AddProfileMoulding"; }
         const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
+        const char *operator()(const AddExtrudedProfileOp &) const { return "AddExtrudedProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
         const char *operator()(const ScriptOp &) const { return "Script"; }
@@ -78,6 +79,14 @@ RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)
         if (const auto *revolved = std::get_if<AddRevolvedProfileOp>(&op)) {
             result.message =
                 "AddRevolvedProfile must be resolved before compiling: " + revolved->name;
+            result.ops.clear();
+            return result;
+        }
+        // Same contract for the extrude (BL-01): a profile reference that
+        // reached compile means resolve never lowered it. Refuse by name.
+        if (const auto *extruded = std::get_if<AddExtrudedProfileOp>(&op)) {
+            result.message =
+                "AddExtrudedProfile must be resolved before compiling: " + extruded->name;
             result.ops.clear();
             return result;
         }

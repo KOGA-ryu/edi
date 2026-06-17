@@ -13,8 +13,10 @@
 
 #include <cassert>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <random>
 #include <string>
 
 using namespace edi::recipe;
@@ -1542,6 +1544,111 @@ int main()
         RecipeOp probe = RecipeOp{AddRevolvedProfileOp{}};
         assert(setOpFieldValue(probe, "screw_rise", 5.0));
         assert(near(std::get_if<AddRevolvedProfileOp>(&probe)->screwRise, 5.0));
+    }
+
+    // ---- BL-14: the named-recipe LIBRARY — save/list/load round-trip through a
+    // temp dir, reusing the stream (de)serializers. ----
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = fs::temp_directory_path()
+            / ("edi_recipe_lib_" + std::to_string(std::random_device{}()));
+        fs::remove_all(dir);
+
+        RecipeOpStream lib;
+        lib.id = "lib_pedestal";
+        lib.name = "pedestal";
+        AddBoxOp slab;
+        slab.name = "slab";
+        slab.width = slab.depth = 3.0;
+        slab.height = 0.5;
+        lib.ops.push_back(slab);
+        AddCylinderOp drum;
+        drum.name = "drum";
+        drum.radius = 1.0;
+        drum.height = 4.0;
+        lib.ops.push_back(drum);
+        lib.bindings = {{1, "radius", "gauge", "radius"}};
+
+        const OpStreamTextResult saved = saveLibraryRecipe(dir.string(), lib);
+        assert(saved.ok);
+        const std::vector<std::string> names = listLibraryRecipes(dir.string());
+        assert(names.size() == 1 && names[0] == "pedestal"); // filename = sanitized name
+        const OpStreamParseResult loaded = loadLibraryRecipe(dir.string(), "pedestal");
+        assert(loaded.ok);
+        assert(loaded.stream.ops.size() == 2);
+        assert(loaded.stream.id == "lib_pedestal" && loaded.stream.name == "pedestal");
+        assert(std::get_if<AddBoxOp>(&loaded.stream.ops[0])->name == "slab");
+        assert(loaded.stream.bindings.size() == 1
+               && loaded.stream.bindings[0].opIndex == 1
+               && loaded.stream.bindings[0].objectId == "gauge");
+        // A missing recipe fails by name, not a crash.
+        const OpStreamParseResult missing = loadLibraryRecipe(dir.string(), "nope");
+        assert(!missing.ok && missing.message.find("recipe not found") != std::string::npos);
+        // A missing directory lists empty (not an error).
+        assert(listLibraryRecipes((dir / "no_such").string()).empty());
+        fs::remove_all(dir);
+    }
+
+    // ---- BL-14: appendRecipe — binding index re-offset. A source binding on
+    // op j lands at j + target.ops.size(); the target binding is untouched. ----
+    {
+        RecipeOpStream target;
+        AddBoxOp a; a.name = "t.a"; a.width = a.depth = a.height = 1.0;
+        AddBoxOp b; b.name = "t.b"; b.width = b.depth = b.height = 1.0;
+        target.ops = {RecipeOp{a}, RecipeOp{b}};       // M = 2 ops
+        target.bindings = {{0, "width", "t_obj", "width"}};
+
+        RecipeOpStream source;
+        source.name = "src";
+        AddCylinderOp c; c.name = "s.c"; c.radius = 1.0; c.height = 2.0;
+        source.ops = {RecipeOp{c}};
+        source.bindings = {{0, "radius", "s_obj", "radius"}}; // j = 0
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 3);
+        assert(target.bindings.size() == 2);
+        // The target binding is untouched.
+        assert(target.bindings[0].opIndex == 0 && target.bindings[0].objectId == "t_obj");
+        // The source binding re-offset by M=2: j(0) -> 2.
+        assert(target.bindings[1].opIndex == 2 && target.bindings[1].objectId == "s_obj");
+    }
+
+    // ---- BL-14 KEY TEST: name namespacing prevents cross-reference. Target has
+    // an op named "shaft"; source has its OWN "shaft" plus a CutFlutes targeting
+    // "shaft". After append the source names are namespaced and the flute points
+    // at the SOURCE shaft (not the target's), and the merged stream validates. ----
+    {
+        RecipeOpStream target;
+        AddCylinderOp targetShaft;
+        targetShaft.name = "shaft";  // a name the source ALSO uses
+        targetShaft.radius = 2.0;
+        targetShaft.height = 10.0;
+        target.ops = {RecipeOp{targetShaft}};
+
+        RecipeOpStream source;
+        source.name = "capital";
+        AddCylinderOp srcShaft;
+        srcShaft.name = "shaft";     // same bare name as the target's
+        srcShaft.radius = 1.0;
+        srcShaft.height = 4.0;
+        CutFlutesOp flutes;
+        flutes.target = "shaft";     // must resolve to the SOURCE shaft
+        flutes.count = 20;
+        flutes.depth = 0.1;
+        source.ops = {RecipeOp{srcShaft}, RecipeOp{flutes}};
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 3);
+        // The target shaft keeps its bare name (never namespaced).
+        assert(std::get_if<AddCylinderOp>(&target.ops[0])->name == "shaft");
+        // The source ops are namespaced under "capital::".
+        assert(std::get_if<AddCylinderOp>(&target.ops[1])->name == "capital::shaft");
+        // The source flute's target was rewritten to the NAMESPACED source shaft,
+        // not left pointing at the target's bare "shaft".
+        assert(std::get_if<CutFlutesOp>(&target.ops[2])->target == "capital::shaft");
+        // The merged stream validates: the flute finds its target within the
+        // spliced block (validation matches names in order).
+        assert(validateRecipeOps(target.ops).ok);
     }
 
     return 0;

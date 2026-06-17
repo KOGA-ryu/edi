@@ -2,6 +2,7 @@
 
 #include "recipe/RecipeMouldings.h"
 
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -327,6 +328,24 @@ void removeRecipeOp(RecipeOpStream &stream, std::size_t index);
 // same move so a field stays bound to its op. A no-op if either index is out of
 // range or they are equal.
 void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to);
+
+// Rewrite the by-NAME references an op holds to OTHER ops, through a rename map
+// (orig name -> new name). Only the arms that reference another op by name are
+// touched (today: CutFlutesOp::target; BL-11's boolean a/b join here). An op's
+// OWN name is not this function's concern — appendRecipe renames that directly.
+// A reference not in the map is left as-is.
+void remapRecipeOpNameRefs(RecipeOp &op, const std::map<std::string, std::string> &rename);
+
+// Splice `source`'s ops onto the end of `target` as a self-consistent chain — a
+// pure, deterministic DATA merge (no execution, no Python). Two remaps keep the
+// chained recipe honest and stop the spliced block from cross-referencing the
+// target's ops: (1) every source binding's opIndex is re-offset by
+// target.ops.size(); (2) every source op name is deterministically NAMESPACED
+// (prefixed with the source recipe's name/id), and source-internal name
+// references are rewritten to match — so a source CutFlutes targeting "shaft"
+// resolves to the SOURCE's shaft, never a target op that happens to share the
+// name. Target names and references are never touched.
+void appendRecipe(RecipeOpStream &target, const RecipeOpStream &source);
 
 // Compile pass: every AddProfileMouldingOp expands to an AddMouldingOp via
 // the term compiler; all other ops pass through unchanged. Rejection names

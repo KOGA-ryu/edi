@@ -3,6 +3,7 @@
 #include "recipe/RecipeOps.h"
 
 #include <string>
+#include <vector>
 
 namespace edi::recipe {
 
@@ -29,5 +30,23 @@ struct OpStreamParseResult {
 };
 
 OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string &source = {});
+
+// The named-recipe LIBRARY: a directory of reusable `*.ops.toml` recipes (strict
+// TOML, never JSON — reusing recipeOpsToToml/recipeOpsFromToml). The filename is
+// the recipe's name (or id when name is empty), sanitized to bare chars so it is
+// a safe, deterministic path. These are thin free functions over std::filesystem;
+// parse/IO failures propagate via the existing result type (ok=false + message).
+
+// Write `stream` to <dirPath>/<sanitized name-or-id>.ops.toml (creating dirPath
+// if needed). On success, `text` carries the written TOML.
+OpStreamTextResult saveLibraryRecipe(const std::string &dirPath, const RecipeOpStream &stream);
+
+// Read <dirPath>/<name>.ops.toml back into a stream (`name` is the bare recipe
+// name, no extension). A missing file or parse error fails with a named message.
+OpStreamParseResult loadLibraryRecipe(const std::string &dirPath, const std::string &name);
+
+// The bare names (no `.ops.toml` extension) of the recipes in `dirPath`, sorted.
+// A missing directory yields an empty list (not an error).
+std::vector<std::string> listLibraryRecipes(const std::string &dirPath);
 
 } // namespace edi::recipe

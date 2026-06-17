@@ -5,6 +5,10 @@
 #include "recipe/RecipeOpsBind.h"
 #include "recipe/RecipeTextNumbers.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -959,6 +963,85 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
 
     result.ok = true;
     return result;
+}
+
+namespace {
+
+// The library file stem: the recipe's name (or id when name is empty),
+// sanitized to bare TOML/path-safe chars — letters, digits, '_' and '-'; any
+// other char becomes '_'. Deterministic, so the same recipe always lands on the
+// same file; collapses to "recipe" if nothing usable remains.
+std::string libraryStem(const RecipeOpStream &stream)
+{
+    const std::string &source = !stream.name.empty() ? stream.name : stream.id;
+    std::string stem;
+    for (const char ch : source) {
+        const bool bare = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-';
+        stem.push_back(bare ? ch : '_');
+    }
+    return stem.empty() ? std::string("recipe") : stem;
+}
+
+const char *const kLibrarySuffix = ".ops.toml";
+
+} // namespace
+
+OpStreamTextResult saveLibraryRecipe(const std::string &dirPath, const RecipeOpStream &stream)
+{
+    OpStreamTextResult result = recipeOpsToToml(stream);
+    if (!result.ok) {
+        return result; // a stream that won't serialize is named by recipeOpsToToml
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(dirPath, ec); // idempotent; ec ignored, the write reports
+    const std::filesystem::path path =
+        std::filesystem::path(dirPath) / (libraryStem(stream) + kLibrarySuffix);
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        result.ok = false;
+        result.message = "cannot write recipe file: " + path.string();
+        return result;
+    }
+    out << result.text;
+    return result;
+}
+
+OpStreamParseResult loadLibraryRecipe(const std::string &dirPath, const std::string &name)
+{
+    OpStreamParseResult result;
+    const std::filesystem::path path =
+        std::filesystem::path(dirPath) / (name + kLibrarySuffix);
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        result.message = "recipe not found: " + path.string();
+        return result;
+    }
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return recipeOpsFromToml(text, path.string());
+}
+
+std::vector<std::string> listLibraryRecipes(const std::string &dirPath)
+{
+    std::vector<std::string> names;
+    std::error_code ec;
+    std::filesystem::directory_iterator it(dirPath, ec);
+    if (ec) {
+        return names; // a missing directory is an empty library, not an error
+    }
+    const std::string suffix = kLibrarySuffix;
+    for (const auto &entry : it) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::string filename = entry.path().filename().string();
+        if (filename.size() > suffix.size()
+            && filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            names.push_back(filename.substr(0, filename.size() - suffix.size()));
+        }
+    }
+    std::sort(names.begin(), names.end());
+    return names;
 }
 
 } // namespace edi::recipe

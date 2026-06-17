@@ -201,4 +201,90 @@ void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to)
     }
 }
 
+namespace {
+
+// Apply a rename map to a single name reference, in place. A name absent from
+// the map is left untouched (it pointed outside the renamed set).
+void applyRename(std::string &ref, const std::map<std::string, std::string> &rename)
+{
+    const auto it = rename.find(ref);
+    if (it != rename.end()) {
+        ref = it->second;
+    }
+}
+
+// A mutable pointer to an op's OWN name field, or nullptr for the arms that have
+// none (CutFlutesOp names a target, not itself). A visitor over the existing
+// arms — the same shape as validate's NameGetter, but writable.
+struct MutableName {
+    std::string *operator()(AddBoxOp &o) const { return &o.name; }
+    std::string *operator()(AddCylinderOp &o) const { return &o.name; }
+    std::string *operator()(AddSphereOp &o) const { return &o.name; }
+    std::string *operator()(AddRingOp &o) const { return &o.name; }
+    std::string *operator()(AddMouldingOp &o) const { return &o.name; }
+    std::string *operator()(AddPrismOp &o) const { return &o.name; }
+    std::string *operator()(AddProfileMouldingOp &o) const { return &o.name; }
+    std::string *operator()(AddRevolvedProfileOp &o) const { return &o.name; }
+    std::string *operator()(AddExtrudedProfileOp &o) const { return &o.name; }
+    std::string *operator()(CutFlutesOp &) const { return nullptr; }
+    std::string *operator()(AddLabelOp &o) const { return &o.name; }
+    std::string *operator()(ScriptOp &o) const { return &o.name; }
+};
+
+std::string *opMutableName(RecipeOp &op) { return std::visit(MutableName{}, op); }
+
+} // namespace
+
+void remapRecipeOpNameRefs(RecipeOp &op, const std::map<std::string, std::string> &rename)
+{
+    // A visit over the EXISTING arms: only those that reference ANOTHER op by
+    // name need rewriting. Today that is CutFlutesOp::target alone; when BL-11's
+    // boolean op lands, its `a`/`b` operand-name fields rewrite HERE too (add
+    // their arm). Every other arm is a deliberate no-op.
+    if (auto *flutes = std::get_if<CutFlutesOp>(&op)) {
+        applyRename(flutes->target, rename);
+    }
+}
+
+void appendRecipe(RecipeOpStream &target, const RecipeOpStream &source)
+{
+    const std::size_t offset = target.ops.size();
+
+    // Namespace EVERY spliced op name (v1 rule): a deterministic prefix derived
+    // from the source recipe's name (or id when name is empty). Renaming ALL
+    // names — not only colliding ones — guarantees the spliced block can never
+    // resolve a by-name reference against a target op, regardless of what the
+    // target happens to be called. (The alternative, collision-only renaming,
+    // is less code to read but its correctness depends on the target's names,
+    // which appendRecipe should not have to reason about.)
+    const std::string prefix = (!source.name.empty() ? source.name : source.id) + "::";
+    std::map<std::string, std::string> rename;
+    for (const RecipeOp &op : source.ops) {
+        RecipeOp probe = op; // opMutableName needs a mutable ref; we only read here
+        if (const std::string *name = opMutableName(probe); name != nullptr && !name->empty()) {
+            rename[*name] = prefix + *name;
+        }
+    }
+
+    target.ops.reserve(target.ops.size() + source.ops.size());
+    for (const RecipeOp &sourceOp : source.ops) {
+        RecipeOp copy = sourceOp;
+        // First rewrite the op's OWN name, then its references to OTHER source
+        // ops — both through the same map, so the block stays internally wired.
+        if (std::string *name = opMutableName(copy)) {
+            applyRename(*name, rename);
+        }
+        remapRecipeOpNameRefs(copy, rename);
+        target.ops.push_back(std::move(copy));
+    }
+
+    // Binding index re-offset: a source binding on its op j now addresses op
+    // j + offset in the merged stream (same fixup style as move/removeRecipeOp).
+    target.bindings.reserve(target.bindings.size() + source.bindings.size());
+    for (RecipeFieldBinding binding : source.bindings) {
+        binding.opIndex += offset;
+        target.bindings.push_back(binding);
+    }
+}
+
 } // namespace edi::recipe

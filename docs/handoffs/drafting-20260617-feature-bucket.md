@@ -20,6 +20,15 @@
   spec-settled); builder; green gate `cmake --build build && ctest --test-dir build
   -E edi_shell_window_tests` + scan. Rebase on master at the start of each task.
 
+## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
+edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
+handoff doc (conflict-free, department-specific) + `bus-hub`. This kills the
+cross-department rebase conflict on the shared LEDGER. **Amended rebase rule for the
+builder:** on a `docs/handoffs/LEDGER.md` conflict during `git rebase origin/master`,
+take MASTER's version and DROP our hunks (do NOT re-apply) — this is folded into builder
+briefs from DR-06 on. (Historical note: dept/drafting carries +33 LEDGER lines across 5
+pre-policy commits; the hub/edi-ui discard these at integration.)
+
 ## Gate log
 
 ### DR-01 transformGeometry — builder BRIEFED 2026-06-17

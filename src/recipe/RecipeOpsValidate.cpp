@@ -226,6 +226,34 @@ struct OpChecker {
             add(findings, Severity::Warning, "negative_prism_base_z",
                 op.name + " starts below z=0.");
         }
+        // BL-10 depth verbs. normalOffset is a signed inflate — any finite value
+        // is fine (negative shrinks the shell), only non-finite is refused.
+        if (!std::isfinite(op.normalOffset)) {
+            add(findings, Severity::Error, "bad_normal_offset",
+                op.name + " normal_offset must be finite.");
+        }
+        if (!std::isfinite(op.inset)) {
+            add(findings, Severity::Error, "bad_inset", op.name + " inset must be finite.");
+        } else if (op.inset > 0 && op.footprint.size() >= 3) {
+            // Conservative self-intersection guard (NOT a true straight-skeleton
+            // test): refuse an inset that could reach the footprint's centerline
+            // — i.e. >= half the SMALLER bbox extent. A v1 per-edge inward offset
+            // pinches a non-convex loop before that, so this only bounds the
+            // obvious collapse; a real straight-skeleton inset is the future fix.
+            double minX = op.footprint[0].x, maxX = op.footprint[0].x;
+            double minY = op.footprint[0].y, maxY = op.footprint[0].y;
+            for (const PrismPoint &p : op.footprint) {
+                minX = std::min(minX, p.x);
+                maxX = std::max(maxX, p.x);
+                minY = std::min(minY, p.y);
+                maxY = std::max(maxY, p.y);
+            }
+            const double smaller = std::min(maxX - minX, maxY - minY);
+            if (op.inset >= 0.5 * smaller) {
+                add(findings, Severity::Error, "prism_inset_too_large",
+                    op.name + " inset is too large for its footprint (would collapse it).");
+            }
+        }
         checkTaperEnd(findings, op.name, op.taperEnd);
         checkMaterial(findings, op.name, op.material);
     }

@@ -146,6 +146,12 @@ struct AddPrismOp {
     // path start to taperEnd at the path end (a shaft / spire). 1.0 = no taper
     // (the byte-preserving default). Ignored for a straight extrude (empty path).
     double taperEnd = 1.0;
+    // BL-10: two cheap depth verbs. `inset` shrinks the footprint loop inward
+    // (a recessed lip) before extruding/lofting; `normalOffset` fattens the
+    // built shell along its normals (a uniform inflate, negative = shrink).
+    // Both default 0 = behavior-preserving (the identity path is byte-identical).
+    double inset = 0.0;
+    double normalOffset = 0.0;
 };
 
 struct AddProfileMouldingOp {

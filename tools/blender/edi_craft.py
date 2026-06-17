@@ -411,6 +411,10 @@ def parse_ops(path: str) -> list[dict]:
                 # BL-09: taper scale at the path end (1.0 = none). Straight
                 # extrude (empty path) ignores it.
                 taper_end=_number(op_key, fields, consumed, "taper_end", 1.0),
+                # BL-10: inset shrinks the footprint inward; normal_offset
+                # inflates the shell along its normals. Both 0 = no change.
+                inset=_number(op_key, fields, consumed, "inset", 0.0),
+                normal_offset=_number(op_key, fields, consumed, "normal_offset", 0.0),
             )
         elif op_type == "CutFlutes":
             # Explicit cutter geometry (R1-B04b): optional, present-together,
@@ -781,6 +785,80 @@ def _moulding_world(op: dict) -> tuple[list, list]:
     return [(v[0] + op["x"], v[1] + op["y"], v[2] + op["base_z"]) for v in local], faces
 
 
+def _inset_polygon(pts: list, inset: float) -> list:
+    """BL-10: shrink a closed footprint loop INWARD by `inset`. v1 is a per-edge
+    edge-normal offset along the corner bisector (NOT a straight-skeleton solver)
+    — exact for convex corners; a non-convex loop can pinch under a large inset,
+    which is why C++ validate refuses an oversized inset. inset 0 = identity."""
+    n = len(pts)
+    if inset == 0.0 or n < 3:
+        return pts
+    # Signed area gives the winding, so "inward" is the correct edge-normal side.
+    area = 0.0
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        area += x0 * y1 - x1 * y0
+    ccw = area > 0.0
+    out = []
+    for i in range(n):
+        px, py = pts[(i - 1) % n]
+        cx, cy = pts[i]
+        qx, qy = pts[(i + 1) % n]
+        e1x, e1y = cx - px, cy - py
+        e2x, e2y = qx - cx, qy - cy
+        l1 = math.hypot(e1x, e1y) or 1.0
+        l2 = math.hypot(e2x, e2y) or 1.0
+        e1x, e1y = e1x / l1, e1y / l1
+        e2x, e2y = e2x / l2, e2y / l2
+        if ccw:  # interior is to the LEFT of each directed edge
+            n1x, n1y = -e1y, e1x
+            n2x, n2y = -e2y, e2x
+        else:
+            n1x, n1y = e1y, -e1x
+            n2x, n2y = e2y, -e2x
+        bx, by = n1x + n2x, n1y + n2y
+        bl = math.hypot(bx, by)
+        if bl < 1e-9:
+            out.append((cx, cy))
+            continue
+        bx, by = bx / bl, by / bl
+        cos_half = max(1e-6, bx * n1x + by * n1y)  # bisector vs edge normal
+        d = inset / cos_half  # so the perpendicular offset on each edge is `inset`
+        out.append((cx + bx * d, cy + by * d))
+    return out
+
+
+def _offset_along_normals(verts: list, faces: list, dist: float) -> list:
+    """BL-10: inflate (or, for negative dist, shrink) a shell by pushing each
+    vertex along its normal — the per-vertex normal is the sum of incident face
+    normals (Newell's method). dist 0 = identity."""
+    if dist == 0.0:
+        return verts
+    normals = [[0.0, 0.0, 0.0] for _ in verts]
+    for face in faces:
+        nx = ny = nz = 0.0
+        k = len(face)
+        for i in range(k):
+            ax, ay, az = verts[face[i]]
+            bx, by, bz = verts[face[(i + 1) % k]]
+            nx += (ay - by) * (az + bz)
+            ny += (az - bz) * (ax + bx)
+            nz += (ax - bx) * (ay + by)
+        for idx in face:
+            normals[idx][0] += nx
+            normals[idx][1] += ny
+            normals[idx][2] += nz
+    out = []
+    for (vx, vy, vz), (nx, ny, nz) in zip(verts, normals):
+        length = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if length < 1e-12:
+            out.append((vx, vy, vz))
+        else:
+            out.append((vx + nx / length * dist, vy + ny / length * dist, vz + nz / length * dist))
+    return out
+
+
 def _prism_world(op: dict) -> tuple[list, list]:
     """The lowered prism mesh, built PURELY (no bpy): the closed footprint
     polygon swept from a bottom cap at z=base_z to a top cap at z=base_z+height,
@@ -800,6 +878,7 @@ def _prism_world(op: dict) -> tuple[list, list]:
     pts = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
+    pts = _inset_polygon(pts, op.get("inset", 0.0))  # BL-10: shrink the footprint
     n = len(pts)
     x, y = op["x"], op["y"]
     z0 = op["base_z"]
@@ -812,7 +891,7 @@ def _prism_world(op: dict) -> tuple[list, list]:
     for i in range(n):                                        # side quads
         j = (i + 1) % n
         faces.append([i, j, n + j, n + i])
-    return verts, faces
+    return _offset_along_normals(verts, faces, op.get("normal_offset", 0.0)), faces
 
 
 def _swept_prism_world(op: dict) -> tuple[list, list]:
@@ -836,6 +915,7 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     fp = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(fp) >= 2 and fp[0] == fp[-1]:
         fp = fp[:-1]
+    fp = _inset_polygon(fp, op.get("inset", 0.0))  # BL-10: shrink the cross-section
     # Drop consecutive-duplicate path points so a segment always has a tangent.
     raw = [(p["x"], p["y"]) for p in op["path"]]
     path = [raw[0]]
@@ -884,7 +964,7 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     faces.append([i for i in range(n)])                       # start cap
     last = (m - 1) * n
     faces.append([last + (n - 1 - i) for i in range(n)])      # end cap (reversed)
-    return verts, faces
+    return _offset_along_normals(verts, faces, op.get("normal_offset", 0.0)), faces
 
 
 def _ring_world(op: dict) -> tuple[list, list]:

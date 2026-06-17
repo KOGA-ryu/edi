@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <random>
 #include <string>
 
@@ -1781,6 +1782,59 @@ int main()
         // The bind affordance: taper_end is a bindable Number on both ops.
         assert(opFieldBindable(RecipeOp{AddSweepProfileOp{}}, "taper_end"));
         assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
+    }
+
+    // ---- BL-10: inset + normal_offset depth params on AddPrism. Round-trip,
+    // defaults 0, validate refuses an oversized inset / non-finite by name. ----
+    {
+        AddPrismOp prism;
+        prism.name = "lipped";
+        prism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
+        prism.height = 2.0;
+        assert(near(prism.inset, 0.0) && near(prism.normalOffset, 0.0)); // struct defaults
+        prism.inset = 0.3;
+        prism.normalOffset = -0.1;
+        RecipeOpStream ps;
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.inset = \"0.3\"") != std::string::npos);
+        assert(pw.text.find("op.0.normal_offset = \"-0.1\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && near(pBack->inset, 0.3) && near(pBack->normalOffset, -0.1));
+
+        // Absent keys default to 0 (a pre-BL-10 prism is unchanged).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddPrism\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.base_z = \"0\"\n"
+            "op.0.footprint.0.x = \"0\"\nop.0.footprint.0.y = \"0\"\n"
+            "op.0.footprint.1.x = \"1\"\nop.0.footprint.1.y = \"0\"\n"
+            "op.0.footprint.2.x = \"1\"\nop.0.footprint.2.y = \"1\"\n", "bare");
+        assert(bare.ok);
+        const auto *bareP = std::get_if<AddPrismOp>(&bare.stream.ops[0]);
+        assert(near(bareP->inset, 0.0) && near(bareP->normalOffset, 0.0));
+
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == code) return true;
+            }
+            return false;
+        };
+        // A 4x4 footprint: smaller extent 4, so inset >= 2.0 would collapse it.
+        AddPrismOp big = prism; big.inset = 2.5;
+        assert(sawCode(validateRecipeOps({RecipeOp{big}}), "prism_inset_too_large"));
+        AddPrismOp okInset = prism; okInset.inset = 0.5; // well under half the extent
+        assert(!sawCode(validateRecipeOps({RecipeOp{okInset}}), "prism_inset_too_large"));
+        // Non-finite is refused by name on each.
+        AddPrismOp nanOffset = prism;
+        nanOffset.normalOffset = std::numeric_limits<double>::infinity();
+        assert(sawCode(validateRecipeOps({RecipeOp{nanOffset}}), "bad_normal_offset"));
+
+        // Both bindable Numbers.
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "inset"));
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
     }
 
     // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,

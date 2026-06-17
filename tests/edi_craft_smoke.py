@@ -220,6 +220,27 @@ def main() -> int:
     assert abs(end_extent - 0.5 * start_extent) < 1e-9, \
         f"taper_end=0.5 should halve the end cross-section: start {start_extent}, end {end_extent}"
 
+    # BL-10: inset shrinks the (straight) extrude's footprint; normal_offset
+    # fattens the shell. Both 0 are byte-identical to the existing mesh.
+    straight = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "extruded_figure", "extruded_figure_ops_compiled.toml"))[0]
+    base = edi_craft._prism_world(straight)[0]
+    assert edi_craft._prism_world(dict(straight, inset=0.0, normal_offset=0.0))[0] == base, \
+        "inset=0 normal_offset=0 must be byte-identical to the plain prism"
+
+    def xy_extent(verts):
+        xs = [v[0] for v in verts]
+        ys = [v[1] for v in verts]
+        return (max(xs) - min(xs)) + (max(ys) - min(ys))
+    inset_verts = edi_craft._prism_world(dict(straight, inset=0.3))[0]
+    assert xy_extent(inset_verts) < xy_extent(base) - 1e-9, "inset>0 must shrink the footprint"
+
+    def bbox_vol(verts):
+        xs = [v[0] for v in verts]; ys = [v[1] for v in verts]; zs = [v[2] for v in verts]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys)) * (max(zs) - min(zs))
+    fat_verts = edi_craft._prism_world(dict(straight, normal_offset=0.5))[0]
+    assert bbox_vol(fat_verts) > bbox_vol(base) + 1e-9, "normal_offset>0 must fatten the shell"
+
     # BL-11: an AddBoolean's PROOF emits its two operands (looked up by name),
     # each tagged with the boolean intent — it does NOT compute the CSG. The
     # committed sample is a box minus a cylinder; the OBJ carries the operands

@@ -63,6 +63,8 @@ constexpr FieldRow<AddPrismOp> kPrismFields[] = {
     {"x", &AddPrismOp::x},
     {"y", &AddPrismOp::y},
     {"taper_end", &AddPrismOp::taperEnd}, // BL-09
+    {"inset", &AddPrismOp::inset},        // BL-10
+    {"normal_offset", &AddPrismOp::normalOffset},
 };
 
 constexpr FieldRow<AddProfileMouldingOp> kProfileMouldingFields[] = {

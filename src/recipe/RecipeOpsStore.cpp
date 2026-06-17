@@ -151,6 +151,8 @@ struct OpWriter {
         put("y", op.y);
         put("material", op.material);
         put("taper_end", op.taperEnd);
+        put("inset", op.inset);
+        put("normal_offset", op.normalOffset);
         // The footprint is a contiguous indexed run footprint.i.{x,y}, the same
         // shape (and reader rule: read until a gap) AddMoulding uses for profile.i.
         for (std::size_t i = 0; i < op.footprint.size(); ++i) {
@@ -849,6 +851,8 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
                 || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false) // BL-09; default 1
+                || !reader.bindableNumber(prefix, "inset", op.inset, false)          // BL-10; default 0
+                || !reader.bindableNumber(prefix, "normal_offset", op.normalOffset, false)
                 || !readPrismPointRun(reader, prefix, "footprint", op.footprint)
                 || !readPrismPointRun(reader, prefix, "path", op.path)) { // BL-08; absent = empty
                 result.message = reader.error;

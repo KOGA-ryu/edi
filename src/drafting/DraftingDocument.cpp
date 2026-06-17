@@ -154,6 +154,21 @@ std::optional<std::size_t> objectIndexById(const DraftingDocument &document, con
     return std::nullopt;
 }
 
+std::optional<Bounds2D> documentObjectsBounds(const DraftingDocument &document)
+{
+    // Fold every object's cached bounds with the same helper the rest of the core
+    // uses (so an empty/degenerate object never widens the box incorrectly). An empty
+    // document has no extent — nullopt, NOT a zero rect — so the caller can no-op.
+    if (document.objects.empty()) {
+        return std::nullopt;
+    }
+    Bounds2D bounds = document.objects.front().bounds;
+    for (std::size_t i = 1; i < document.objects.size(); ++i) {
+        bounds = includeBounds(bounds, document.objects[i].bounds);
+    }
+    return bounds;
+}
+
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id)
 {
     const auto index = objectIndexById(document, id);

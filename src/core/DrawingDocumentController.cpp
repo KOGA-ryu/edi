@@ -847,6 +847,34 @@ double DrawingDocumentController::chamferSetback() const
     return m_chamferSetback;
 }
 
+void DrawingDocumentController::setBlockPlacementRotation(double rotationDeg)
+{
+    // Guard: a NaN/inf rotation would corrupt transformGeometry and spuriously emit
+    // through the additive block_placement codec. Reject silently (keep the current).
+    if (std::isfinite(rotationDeg)) {
+        m_blockPlacementRotation = rotationDeg;
+    }
+}
+
+void DrawingDocumentController::setBlockPlacementScale(double scale)
+{
+    // Scale must be finite AND > 0 (a zero/negative scale collapses or mirrors the
+    // geometry, neither of which this placement transform means). Invalid ⇒ untouched.
+    if (std::isfinite(scale) && scale > 0.0) {
+        m_blockPlacementScale = scale;
+    }
+}
+
+double DrawingDocumentController::blockPlacementRotation() const
+{
+    return m_blockPlacementRotation;
+}
+
+double DrawingDocumentController::blockPlacementScale() const
+{
+    return m_blockPlacementScale;
+}
+
 void DrawingDocumentController::setArrayCount(int count)
 {
     m_arrayCount = std::clamp(count, 1, 99);
@@ -3290,10 +3318,25 @@ bool DrawingDocumentController::placeBlockInstance(const QString &blockId, doubl
     const std::string assetRef = block.assetRef;
     DraftingPasteResult plan = planDraftingPaste(block.objects, "instance", m_nextObjectSerial, dx, dy);
     m_nextObjectSerial = plan.nextSerial;
+    // DM-14: the FLATTEN copies are now centred on the click point, so that IS the
+    // placement pivot. Rotate/scale each copy about it and record the transform on
+    // the placement metadata. IDENTITY (0deg / 1.0) short-circuits: leaving the
+    // geometry and bounds untouched keeps the stamp BYTE-IDENTICAL to the pre-DM-14
+    // path (and rotationDeg 0 / scale 1 are the metadata defaults the codec omits).
+    const Point2D placementCenter{x, y};
+    const double rotation = m_blockPlacementRotation;
+    const double scale = m_blockPlacementScale;
+    const bool identity = (rotation == 0.0 && scale == 1.0);
     for (DraftingObject &placed : plan.objects) {
         placed.metadata.blockPlacement.blockId = blockProvenanceId;
         placed.metadata.blockPlacement.assetRef = assetRef;
         placed.metadata.blockPlacement.instanceId = instanceId;
+        placed.metadata.blockPlacement.rotationDeg = rotation;
+        placed.metadata.blockPlacement.scale = scale;
+        if (!identity) {
+            placed.geometry = transformGeometry(placed.geometry, placementCenter, rotation, scale);
+            placed.bounds = computeBounds(placed.geometry);
+        }
     }
 
     m_lastEditStatus.clear();
@@ -3306,6 +3349,69 @@ bool DrawingDocumentController::placeBlockInstance(const QString &blockId, doubl
                           DraftingResultCode::InvalidSelectionTarget,
                           QStringLiteral("stamp rejected: target layer is locked or missing"));
     }
+    return true;
+}
+
+bool DrawingDocumentController::transformBlockInstance(const QString &instanceId,
+                                                       double deltaRotationDeg, double scaleFactor)
+{
+    // NaN/range guard (batch-4 audit): never feed a non-finite angle or a
+    // non-positive scale into transformGeometry or the block_placement codec.
+    if (!std::isfinite(deltaRotationDeg) || !std::isfinite(scaleFactor) || scaleFactor <= 0.0) {
+        return false;
+    }
+    const std::string id = toStdString(instanceId);
+
+    // Gather the group and its union-of-bounds centre (the pivot) from the CURRENT
+    // geometry, before any mutation — so every object rotates/scales about the same
+    // fixed point, the way the placement centre anchored the original stamp.
+    std::vector<DraftingObjectId> members;
+    Bounds2D unionBounds;
+    bool any = false;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.metadata.blockPlacement.instanceId != id) {
+            continue;
+        }
+        unionBounds = any ? includeBounds(unionBounds, object.bounds) : object.bounds;
+        any = true;
+        members.push_back(object.id);
+    }
+    if (!any) {
+        return false; // no object carries this instance id
+    }
+    const Point2D center{unionBounds.x + unionBounds.width / 2.0,
+                         unionBounds.y + unionBounds.height / 2.0};
+
+    // One undo step: transform geometry + accumulate the metadata transform per
+    // member inside a single edit bracket (UpdateGeometryCommand recomputes bounds).
+    beginEdit();
+    for (const DraftingObjectId &memberId : members) {
+        const DraftingObject *object = findObject(m_document, memberId);
+        if (object == nullptr) {
+            continue; // defensive — the group was just read from the same document
+        }
+        // Cumulative: a second transform composes onto the first (90+45, 2*1.5).
+        const double newRotation = object->metadata.blockPlacement.rotationDeg + deltaRotationDeg;
+        const double newScale = object->metadata.blockPlacement.scale * scaleFactor;
+        // Guard the COMPOSED result, not just the inputs: a pathological-but-finite
+        // sequence (e.g. scale 1e200 then a 1e200 factor) overflows to inf. Refuse
+        // this member rather than write a non-finite scale — upholds the invariant
+        // that the block_placement codec never persists a non-finite value (and keeps
+        // transformGeometry off inf coords). The rest of the group still transforms
+        // atomically in this one undo bracket.
+        if (!std::isfinite(newScale) || newScale <= 0.0 || !std::isfinite(newRotation)) {
+            continue;
+        }
+        const DraftingGeometry transformed =
+            transformGeometry(object->geometry, center, deltaRotationDeg, scaleFactor);
+        ObjectMetadata metadata = object->metadata;
+        metadata.blockPlacement.rotationDeg = newRotation;
+        metadata.blockPlacement.scale = newScale;
+        applyDraftingCommand(m_document, UpdateGeometryCommand{memberId, DraftingGeometry{transformed}});
+        applyDraftingCommand(m_document, UpdateMetadataCommand{memberId, std::move(metadata)});
+    }
+    commitEdit(false);
+    emit modelChanged();
     return true;
 }
 

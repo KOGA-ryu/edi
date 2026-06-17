@@ -90,6 +90,9 @@ int highestDocumentIdSerial(const DraftingDocument &document);
 DraftingLayer makeDraftingLayer(LayerId id, std::string name, int order = 0);
 DraftingLayer makeDefaultLayer();
 std::optional<std::size_t> objectIndexById(const DraftingDocument &document, const DraftingObjectId &id);
+// The union of every object's cached bounds, or nullopt for an empty document — so a
+// caller (DM-01: edi-ui's fit-view) can no-op instead of fitting a degenerate rect.
+std::optional<Bounds2D> documentObjectsBounds(const DraftingDocument &document);
 DraftingObject *findObject(DraftingDocument &document, const DraftingObjectId &id);
 const DraftingObject *findObject(const DraftingDocument &document, const DraftingObjectId &id);
 const DraftingObject *activeObject(const DraftingDocument &document);

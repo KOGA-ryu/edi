@@ -1,6 +1,7 @@
 #include "io/MapToonExport.h"
 
 #include "drafting/DraftingGeometry.h" // includeBounds
+#include "drafting/DraftingMapQuery.h" // deriveEdge, plugIsConnected (shared with the map browser)
 
 #include <cmath>
 #include <cstdio>
@@ -202,19 +203,6 @@ std::pair<std::string, std::string> splitRoomPlug(const std::string &full)
     return {full.substr(0, dot), full.substr(dot + 1)};
 }
 
-// Which edge of a room footprint an anchor sits on — the document plug carries no
-// edge, so derive it as the nearest of the four sides (canvas units; origin = NW,
-// +y south).
-std::string deriveEdge(const DraftingMapRoom &room, Point2D anchor)
-{
-    double best = std::abs(anchor.y - room.origin.y);
-    std::string edge = "N";
-    if (const double d = std::abs(anchor.y - (room.origin.y + room.height)); d < best) { best = d; edge = "S"; }
-    if (const double d = std::abs(anchor.x - room.origin.x); d < best) { best = d; edge = "W"; }
-    if (const double d = std::abs(anchor.x - (room.origin.x + room.width)); d < best) { best = d; edge = "E"; }
-    return edge;
-}
-
 } // namespace
 
 std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
@@ -244,21 +232,19 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     }
     out << "\n";
 
-    std::set<std::string> connectedPlugIds;
-    for (const auto &connection : document.connections) {
-        connectedPlugIds.insert(connection.plugA);
-        connectedPlugIds.insert(connection.plugB);
-    }
     out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
     for (const auto &plug : document.plugs) {
         const auto [roomName, plugName] = splitRoomPlug(plug.name);
         std::string edge = "?";
         if (const DraftingMapRoom *room = findRoom(roomName)) {
-            edge = deriveEdge(*room, plug.anchor);
+            edge = edi::drafting::deriveEdge(*room, plug.anchor);
         }
         const std::string type = plug.type.empty() ? "door" : plug.type;
+        // Shared with the map browser: a plug is connected iff a declared connection
+        // names it (DraftingMapQuery — the single source so the two views never drift).
         writePlugRow(out, roomName, plugName, edge, type,
-                     connectedPlugIds.count(plug.id) > 0, joinFlags(plug.flags));
+                     edi::drafting::plugIsConnected(document.connections, plug.id),
+                     joinFlags(plug.flags));
     }
     out << "\n";
 

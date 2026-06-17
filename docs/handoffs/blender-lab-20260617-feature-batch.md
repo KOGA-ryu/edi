@@ -107,10 +107,20 @@ Do NOT commit `docs/handoffs/LEDGER.md` on `dept/blender-lab` (kills rebase conf
 edi-ui owns the master LEDGER per PROTOCOL.md). State lives HERE (this handoff doc) +
 `bus-hub` reports. This doc is the department's source of truth.
 
+## Master integration
+- 2026-06-17: spine (BL-01/03/04) MERGED to master by edi-ui (master `0041783`, tip
+  `efb6032`). Rebased `dept/blender-lab` onto master `dd226c4` (carries drafting
+  transformGeometry+snaps + dungeon-map DM-02..08). Clean (recipe work isolated). Full
+  integration line GREEN: build clean, ctest 96/96, recipe 7/7, prism/smoke ok. Rebased
+  tip `bf9bae3`. Report closeouts to edi-ui for the (master-owned) ledger.
+
+### BL-06 — builder briefed 2026-06-17
+Brief `briefs/012-bl06-sweep.md`. Field-add `sweepDegrees` (default 360) on
+AddRevolvedProfile, SURVIVES lowering to AddMoulding, threads both languages +
+`moulding_rings`. Behavior-preserving (default 360 = doric golden byte-identical).
+Unblocks BL-07. No arm collision.
+
 ## Next
-- **BL-05** (Push/Pull height authoring: bind + schema + zero-height refusal + negative
-  = cut) — dep BL-04 ✓, no arm collision. Next up.
-- Wave-1 independents now unblocked (no arm-table contention until BL-08): BL-06 (lathe
-  sweepDegrees), BL-12 (radial_petal craftsman), BL-14 (recipe library). Queue through
-  the single builder after BL-05.
+- BL-06 builder → reviewer audit (survives-lowering + doric-byte-identical are the
+  joints) → BL-07 (screw/helix, dep BL-06) OR a Wave-1 independent (BL-12/BL-14).
 - Arm-adders still serial: BL-08 (→13), BL-11 (→14) — one at a time, later.

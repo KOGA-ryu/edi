@@ -35,8 +35,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
 | BL-05 | Push/Pull height authoring + bind | M | **SHIPPED** (tests-only, no gap) | `7d0a73d` |
-| BL-06 | Lathe sweepDegrees param | M | builder done, reviewer audit | `6a62c8f` |
-| BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
+| BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
+| BL-07 | Lathe screw/helix params | M | builder briefed | — |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | dep BL-04 + arm-serial | — |
 | BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
@@ -120,7 +120,21 @@ AddRevolvedProfile, SURVIVES lowering to AddMoulding, threads both languages +
 `moulding_rings`. Behavior-preserving (default 360 = doric golden byte-identical).
 Unblocks BL-07. No arm collision.
 
+### BL-06 — SHIPPED 2026-06-17 (audit `replies/013`: SHIP, manifold-verified)
+Reviewer independently edge-incidence-checked the <360 mesh (0 non-manifold edges
+across many sweep/ring/vertex combos); the 3 regenerated goldens are PURELY additive
+(`sweep_degrees="360"`, writer-sorted position); doric byte-identical; survives lowering;
+validate parity on both arms; bind choice KEEP. **Deferred polish (recorded):** fold an
+edge-incidence (every edge bounds 2 faces) assert into the smoke to lock watertightness
+against regressions — optional, a future slice (could ride BL-07 which extends the same mesh).
+
+### BL-07 — builder briefed 2026-06-17
+Brief `briefs/014-bl07-screw.md`. screwRise(0)/screwTurns(1) on both lathe ops (survives
+lowering), reuses BL-06's plumbing + validate block; default 0 = behavior-preserving;
+helix vs partial-sweep interaction defined v1. Goldens get additive screw keys → audit.
+
 ## Next
-- BL-06 builder → reviewer audit (survives-lowering + doric-byte-identical are the
-  joints) → BL-07 (screw/helix, dep BL-06) OR a Wave-1 independent (BL-12/BL-14).
+- BL-07 builder → reviewer audit (golden additive-regen #2 + the monotonic-z-validator
+  non-trip + the helix mesh) → cadence report to hub (BL-05/06/07 chunk) → Wave-1
+  independents BL-12 (craftsman) / BL-14 (library).
 - Arm-adders still serial: BL-08 (→13), BL-11 (→14) — one at a time, later.

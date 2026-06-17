@@ -26,6 +26,23 @@
   region-fill arm = inspector `fillRegionButton` (A); DM-14 spins = Left panel;
   DM-11 golden = edi-ui co-bless when it lands.
 
+## transformGeometry contract (for DM-14/15 — RECORD, hub signal 2026-06-17)
+DR-01 keystone is BUILT (drafting `167768e`) and edi-ui is MERGING it to master.
+**DM-14/15 stay parked until it lands on MASTER** — then rebase and build them.
+Verify with `git grep transformGeometry master -- src/drafting/DraftingGeometry.*`
+before dispatching DM-14/15. (As of this note: NOT on master; tip still `f87bc1b`.)
+
+**Signature:** `transformGeometry(g, pivot, rotationDeg /*deg CCW*/, scale /*uniform*/)`.
+- **Rectangle = CENTER-anchored** under transform (Ruling A) — not corner-anchored.
+- **LOSSY cases (do NOT assume fidelity):** a rotated non-circular **Ellipse drops
+  its axis tilt**; rotated **Text drops baseline angle**; **Guide = identity** (a
+  rotate/scale is a no-op on guides). So a block whose objects include ellipses/
+  text/guides will NOT perfectly preserve tilt under per-instance rotation — record
+  this as a known v1 fidelity note in the DM-14/15 brief + acceptance (test with
+  shapes that DO transform faithfully: line/rect/polygon/circle/arc/spline).
+- It is **drafting-owned** (`DraftingGeometry.{h,cpp}`); dungeon-map CONSUMES it via
+  `placeBlockInstance` (DM-14) and `transformBlockInstance` (DM-15). Do not modify it.
+
 ## Master state note
 Rebased onto master `f87bc1b` (edi-drafting's `<memory>` test fix — my identical
 `c9d6156` was auto-skipped). My 22 cartography commits ride on top, still unmerged
@@ -50,8 +67,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 (boundary SETTLED) |
 | DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
 | DM-11 | map browser content: shared read-only `deriveEdge(plug,room)` helper (sliver) | 🟦 W1 | ◻ assess (panel is edi-ui) |
-| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ waits transformGeometry |
-| DM-15 | transform placed instance (`transformBlockInstance`) | ⏸ ←14,DR-01 | ⏸ waits transformGeometry |
+| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ DR-01 BUILT (drafting 167768e); waits edi-ui landing it on MASTER |
+| DM-15 | transform placed instance (`transformBlockInstance`) | ⏸ ←14,DR-01 | ⏸ same — then rebase + build last |
 
 ## Gate log
 

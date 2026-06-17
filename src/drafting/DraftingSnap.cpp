@@ -160,6 +160,113 @@ DraftingSnapResult nearestGuideSnap(Point2D point, const DraftingDocument &docum
     return noneSnap(point);
 }
 
+// Clamp the cursor's foot-of-perpendicular onto the segment [a,b]. Mirrors the
+// hit-test's distanceToSegment math, but returns the POINT (not the distance) —
+// there is no public segment-projection helper to reuse.
+Point2D projectOnSegment(Point2D a, Point2D b, Point2D point)
+{
+    const double dx = b.x - a.x;
+    const double dy = b.y - a.y;
+    const double length2 = dx * dx + dy * dy;
+    if (length2 <= 0.0) {
+        return a; // degenerate segment: the single point
+    }
+    const double t = clamp01(((point.x - a.x) * dx + (point.y - a.y) * dy) / length2);
+    return {a.x + t * dx, a.y + t * dy};
+}
+
+// The UNCLAMPED foot of perpendicular from `point` onto the segment's line, but
+// ONLY when it lands on the segment (t in [0,1], small epsilon). nullopt
+// otherwise — unlike projectOnSegment this never clamps to an endpoint, because a
+// "perpendicular" candidate past a segment end is not actually perpendicular (and
+// the endpoint is already an Endpoint snap, so clamping would mislabel it).
+std::optional<Point2D> perpendicularFootOnSegment(Point2D a, Point2D b, Point2D point)
+{
+    const double dx = b.x - a.x;
+    const double dy = b.y - a.y;
+    const double length2 = dx * dx + dy * dy;
+    if (length2 <= 0.0) {
+        return std::nullopt; // degenerate segment has no perpendicular foot
+    }
+    constexpr double epsilon = 0.000001;
+    const double t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / length2;
+    if (t < -epsilon || t > 1.0 + epsilon) {
+        return std::nullopt;
+    }
+    return Point2D{a.x + t * dx, a.y + t * dy};
+}
+
+// Nearest point on a chain of segments (closed adds the wrap-around edge). nullopt
+// when there is no edge to project onto (< 2 vertices — those are vertex snaps).
+std::optional<Point2D> nearestOnVertexList(const std::vector<Point2D> &vertices, Point2D point, bool closed)
+{
+    if (vertices.size() < 2) {
+        return std::nullopt;
+    }
+    std::optional<Point2D> best;
+    double bestDistance = std::numeric_limits<double>::max();
+    auto consider = [&](Point2D a, Point2D b) {
+        const Point2D projected = projectOnSegment(a, b, point);
+        const double candidateDistance = distance(projected, point);
+        if (candidateDistance < bestDistance) {
+            bestDistance = candidateDistance;
+            best = projected;
+        }
+    };
+    for (std::size_t i = 0; i + 1 < vertices.size(); ++i) {
+        consider(vertices[i], vertices[i + 1]);
+    }
+    if (closed) {
+        consider(vertices.back(), vertices.front());
+    }
+    return best;
+}
+
+// The cursor's nearest point ON an object's curve, for the v1 OnCurve kinds:
+// line, circle, arc, and polyline/polygon edges. Other kinds (wall, construction
+// line, dimension, ellipse, spline) have no OnCurve candidate yet -> nullopt.
+std::optional<Point2D> nearestPointOnCurve(const DraftingObject &object, Point2D point)
+{
+    if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+        return projectOnSegment(line->a, line->b, point);
+    }
+    if (const auto *circle = std::get_if<CircleGeometry>(&object.geometry)) {
+        const double centerDistance = distance(circle->center, point);
+        if (centerDistance <= 0.0) {
+            return std::nullopt; // cursor exactly at the center — direction undefined
+        }
+        const double scale = circle->radius / centerDistance;
+        return Point2D{
+            circle->center.x + (point.x - circle->center.x) * scale,
+            circle->center.y + (point.y - circle->center.y) * scale,
+        };
+    }
+    if (const auto *arc = std::get_if<ArcGeometry>(&object.geometry)) {
+        // Same sweep convention as the arc hit-test / quadrant gate above.
+        constexpr double pi = 3.14159265358979323846;
+        const double lo = std::min(arc->startAngleDeg, arc->endAngleDeg);
+        const double hi = std::max(arc->startAngleDeg, arc->endAngleDeg);
+        double angle = std::atan2(point.y - arc->center.y, point.x - arc->center.x) * 180.0 / pi;
+        while (angle < lo) {
+            angle += 360.0;
+        }
+        if (angle <= hi) {
+            return arcPointAtAngle(arc->center, arc->radius, angle);
+        }
+        // Outside the sweep: the nearer endpoint is the closest on-curve point.
+        const Point2D start = arcPointAtAngle(arc->center, arc->radius, arc->startAngleDeg);
+        const Point2D end = arcPointAtAngle(arc->center, arc->radius, arc->endAngleDeg);
+        return distance(start, point) <= distance(end, point) ? start : end;
+    }
+    if (const auto *polygon = std::get_if<PolygonGeometry>(&object.geometry)) {
+        return nearestOnVertexList(polygon->vertices, point, true);
+    }
+    if (const auto *polyline = std::get_if<PolylineGeometry>(&object.geometry)) {
+        return nearestOnVertexList(polyline->vertices, point, false);
+    }
+    return std::nullopt;
+}
+
 DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &document, const DraftingSnapSettings &settings)
 {
     if (!settings.objectSnapEnabled || !std::isfinite(settings.objectTolerance) || settings.objectTolerance < 0.0) {
@@ -183,7 +290,66 @@ DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &docu
             found = true;
         }
     }
+    // OnCurve is the LOWEST-priority object snap: the nearest projection of the
+    // cursor onto a curve's body. It is a FALLBACK TIER — consulted only when no
+    // keypoint/guide/intersection snapped at all (`!found`), so EVERY keypoint
+    // wins whenever one is in range, even when the curve body happens to be a
+    // hair closer (the standard CAD "nearest" precedence, and what keeps the
+    // existing keypoint/intersection snaps byte-unchanged). It is computed here,
+    // not as a static per-object candidate, because it depends on the cursor.
+    // (The brief sketched "append after the keypoints"; under the existing <=
+    // tie-rule that would let a closer OnCurve outrank an intersection — e.g. a
+    // cursor nearer a line body than to a crossing — so the precedence is realized
+    // as this fallback tier instead. Same intent: keypoints always win.)
+    if (!found && settings.onCurveEnabled) {
+        for (const DraftingObject &object : document.objects) {
+            if (!object.visible || !kindMatchesGeometry(object.kind, object.geometry)) {
+                continue;
+            }
+            const DraftingLayer *layer = findLayer(document, object.layerId);
+            if (layer == nullptr || !layer->visible) {
+                continue;
+            }
+            const std::optional<Point2D> projected = nearestPointOnCurve(object, point);
+            if (!projected || !isFinite(*projected)) {
+                continue;
+            }
+            const double candidateDistance = distance(point, *projected);
+            if (candidateDistance <= settings.objectTolerance && candidateDistance < bestDistance) {
+                bestDistance = candidateDistance;
+                best = {
+                    normalizeDraftingPoint(*projected),
+                    DraftingSnapSourceKind::OnCurve,
+                    draftingSnapSourceKindName(DraftingSnapSourceKind::OnCurve),
+                    object.id,
+                };
+                found = true;
+            }
+        }
+    }
     return found ? candidateSnap(best) : noneSnap(point);
+}
+
+// The up-to-two tangent CONTACT angles (degrees, the model's atan2 convention)
+// from an external point to a circle. The classic Thales construction: a tangent
+// touches where the radius is perpendicular to the tangent line, so in the right
+// triangle (center, fromPoint, contact) the right angle is at the contact and the
+// angle at the center is acos(radius / |fromPoint-center|). The contacts therefore
+// sit at the center→fromPoint bearing ± that angle. Empty when fromPoint is inside
+// or on the circle (no external tangent) or the radius is degenerate.
+std::vector<double> tangentContactAnglesDeg(Point2D center, double radius, Point2D fromPoint)
+{
+    constexpr double pi = 3.14159265358979323846;
+    const double centerDistance = distance(center, fromPoint);
+    if (!(radius > 0.0) || centerDistance <= radius) {
+        return {};
+    }
+    const double bearing = std::atan2(fromPoint.y - center.y, fromPoint.x - center.x);
+    const double half = std::acos(radius / centerDistance); // radius/dist in (0,1)
+    return {
+        (bearing + half) * 180.0 / pi,
+        (bearing - half) * 180.0 / pi,
+    };
 }
 
 } // namespace
@@ -223,6 +389,14 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
         return "guide";
     case DraftingSnapSourceKind::Intersection:
         return "intersection";
+    case DraftingSnapSourceKind::Quadrant:
+        return "quadrant";
+    case DraftingSnapSourceKind::OnCurve:
+        return "on_curve";
+    case DraftingSnapSourceKind::Tangent:
+        return "tangent";
+    case DraftingSnapSourceKind::Perpendicular:
+        return "perpendicular";
     }
     return "unknown";
 }
@@ -305,6 +479,14 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.centerEnabled) {
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
             }
+            // The 4 cardinal points on the perimeter (0/90/180/270°). arcPointAtAngle
+            // is the shared center+radius→point helper, so a full circle is just the
+            // four quadrant angles with no sweep gate.
+            if (settings.quadrantEnabled) {
+                for (const double angle : {0.0, 90.0, 180.0, 270.0}) {
+                    addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, angle), DraftingSnapSourceKind::Quadrant);
+                }
+            }
         } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
             if (settings.centerEnabled) {
                 addCandidate(candidates, object, geometry.center, DraftingSnapSourceKind::Center);
@@ -312,6 +494,22 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
             if (settings.endpointEnabled) {
                 addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, geometry.startAngleDeg), DraftingSnapSourceKind::Endpoint);
                 addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, geometry.endAngleDeg), DraftingSnapSourceKind::Endpoint);
+            }
+            // Only the cardinal angles that lie WITHIN the arc's sweep are real
+            // perimeter points — a 0→90° arc has no 180/270° quadrant. The sweep
+            // test mirrors the arc hit-test convention exactly (lo/hi = min/max of
+            // the endpoints, wrap the candidate angle up to ≥ lo, in-sweep if ≤ hi).
+            if (settings.quadrantEnabled) {
+                const double lo = std::min(geometry.startAngleDeg, geometry.endAngleDeg);
+                const double hi = std::max(geometry.startAngleDeg, geometry.endAngleDeg);
+                for (double angle : {0.0, 90.0, 180.0, 270.0}) {
+                    while (angle < lo) {
+                        angle += 360.0;
+                    }
+                    if (angle <= hi) {
+                        addCandidate(candidates, object, arcPointAtAngle(geometry.center, geometry.radius, angle), DraftingSnapSourceKind::Quadrant);
+                    }
+                }
             }
         } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
             return;
@@ -448,6 +646,83 @@ std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocum
                     candidates.push_back({*crossing, DraftingSnapSourceKind::Intersection,
                                           draftingSnapSourceKindName(DraftingSnapSourceKind::Intersection),
                                           lines[i].id});
+                }
+            }
+        }
+    }
+    return candidates;
+}
+
+std::vector<DraftingSnapCandidate> relativeSnapCandidatesForDocument(const DraftingDocument &document, Point2D fromPoint, const DraftingSnapSettings &settings)
+{
+    std::vector<DraftingSnapCandidate> candidates;
+    if (!isFinite(fromPoint)) {
+        return candidates;
+    }
+
+    auto addPerpendicularFoot = [&](const DraftingObject &object, Point2D a, Point2D b) {
+        // A Perpendicular candidate must be a GENUINE perpendicular foot — emit it
+        // only when the unclamped projection lands on the segment; never clamp to an
+        // endpoint (the "deferred perpendicular" past a segment end is a future
+        // variant, not built here).
+        if (const std::optional<Point2D> foot = perpendicularFootOnSegment(a, b, fromPoint)) {
+            addCandidate(candidates, object, *foot, DraftingSnapSourceKind::Perpendicular);
+        }
+    };
+
+    for (const DraftingObject &object : document.objects) {
+        if (!object.visible || !kindMatchesGeometry(object.kind, object.geometry)) {
+            continue;
+        }
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !layer->visible) {
+            continue;
+        }
+
+        // TANGENT contacts from the anchor to circles/arcs. For a full circle both
+        // contacts apply; for an arc keep only contacts whose angle lies within the
+        // sweep (same lo/hi wrap convention as the quadrant gate / arc hit-test).
+        if (settings.tangentEnabled) {
+            if (const auto *circle = std::get_if<CircleGeometry>(&object.geometry)) {
+                for (const double angle : tangentContactAnglesDeg(circle->center, circle->radius, fromPoint)) {
+                    addCandidate(candidates, object, arcPointAtAngle(circle->center, circle->radius, angle), DraftingSnapSourceKind::Tangent);
+                }
+            } else if (const auto *arc = std::get_if<ArcGeometry>(&object.geometry)) {
+                const double lo = std::min(arc->startAngleDeg, arc->endAngleDeg);
+                const double hi = std::max(arc->startAngleDeg, arc->endAngleDeg);
+                for (double angle : tangentContactAnglesDeg(arc->center, arc->radius, fromPoint)) {
+                    double swept = angle;
+                    while (swept < lo) {
+                        swept += 360.0;
+                    }
+                    if (swept <= hi) {
+                        addCandidate(candidates, object, arcPointAtAngle(arc->center, arc->radius, angle), DraftingSnapSourceKind::Tangent);
+                    }
+                }
+            }
+        }
+
+        // PERPENDICULAR feet from the anchor onto straight lines / edges: line and
+        // construction-line segments, the wall centerline, and polyline/polygon
+        // edges. (Curved kinds use the tangent constraint above instead.)
+        if (settings.perpendicularEnabled) {
+            if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, line->a, line->b);
+            } else if (const auto *cline = std::get_if<ConstructionLineGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, cline->a, cline->b);
+            } else if (const auto *wall = std::get_if<WallGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, wall->a, wall->b);
+            } else if (const auto *polyline = std::get_if<PolylineGeometry>(&object.geometry)) {
+                for (std::size_t i = 0; i + 1 < polyline->vertices.size(); ++i) {
+                    addPerpendicularFoot(object, polyline->vertices[i], polyline->vertices[i + 1]);
+                }
+            } else if (const auto *polygon = std::get_if<PolygonGeometry>(&object.geometry)) {
+                const std::vector<Point2D> &v = polygon->vertices;
+                for (std::size_t i = 0; i + 1 < v.size(); ++i) {
+                    addPerpendicularFoot(object, v[i], v[i + 1]);
+                }
+                if (v.size() >= 2) {
+                    addPerpendicularFoot(object, v.back(), v.front()); // closing edge
                 }
             }
         }

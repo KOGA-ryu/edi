@@ -103,8 +103,54 @@
   spec-settled (additive enum + settings + candidate emission; behavior-preserving for
   existing snaps) → no reviewer gate up front. No dependency.
 
+### DR-02 — DONE 2026-06-17 ✅ (SHA `e405d89`, 96/96 green)
+- Reply: `~/dept-bus/edi-drafting/replies/012-DR02-snaps-builder.md`. `Quadrant` +
+  `OnCurve` added to the snap enum/settings/name; Circle 4-cardinal + Arc sweep-gated
+  quadrant emission; OnCurve for line/circle/arc/polyline/polygon edges. Existing
+  `drafting_snap_tests` green (behavior-preservation proof).
+- **PRECEDENCE DECISION (confirmed by planner) — durable:** OnCurve is a **fallback
+  tier** in `nearestObjectSnap`, consulted ONLY when no keypoint/guide/intersection
+  snapped (`!found`). The brief's literal "append after keypoints, rely on `<=`" was
+  FLAWED — selection is by distance, so a genuinely-closer OnCurve (line body 0.010)
+  would outrank the existing Intersection snap (0.014) and flip an existing test. The
+  fallback tier is the correct CAD semantics (nearest-on-curve only when no higher
+  snap is in aperture) and behavior-preserving. Any future "OnCurve competes on
+  distance with keypoints" is a DELIBERATE precedence change, not this slice.
+- Follow-ups noted (not urgent): OnCurve for wall/cline/dimension/ellipse/spline is
+  v1-absent; `projectOnSegment` is file-local in DraftingSnap — could be promoted to
+  `DraftingGeometry` as a shared primitive if another slice needs it.
+
+### DR-03 — tangent / perpendicular relative snaps — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/013-DR03-relative-snaps-builder.md`. Deps
+  DR-02 (satisfied). Boundary spec-settled; no reviewer gate up front.
+
+### DR-03 — SHIPPED 2026-06-17 (SHA `d9c7aca`, 96/96) → one small amendment in flight
+- Reply: `~/dept-bus/edi-drafting/replies/013-DR03-relative-snaps-builder.md`.
+  `Tangent`/`Perpendicular` added; new `relativeSnapCandidatesForDocument(doc,
+  fromPoint, settings)` (anchor-free path untouched); tangent = Thales contacts
+  (sweep-filtered, perpendicular-to-radius asserted); perpendicular feet for
+  line/cline/wall/polyline/polygon edges.
+- **Planner decisions:** (a) generous "edge" scope CONFIRMED (keep). (b) SEND-BACK
+  amendment `~/dept-bus/edi-drafting/briefs/014-DR03-perpendicular-onsegment-amendment.md`:
+  the builder used the CLAMPED foot (`projectOnSegment`), which returns the endpoint
+  when the true foot is off-segment → a mislabeled `Perpendicular` that isn't
+  perpendicular (and duplicates Endpoint). v1 = emit Perpendicular ONLY when the
+  unclamped foot lies on the segment (`t∈[0,1]`); infinite-line deferred-perp is a
+  future variant. Not consumed yet → cheap to settle now before edi-ui wiring.
+- DR-04 HELD until the amendment lands (single builder, sequential).
+
+### DR-03 — CLOSED 2026-06-17 ✅ (amendment SHA `d6b1738`, 96/96 green)
+- `~/dept-bus/edi-drafting/replies/014-DR03-perpendicular-onsegment-builder.md`.
+  `perpendicularFootOnSegment` (unclamped, `t∈[0,1]`, else nullopt); `projectOnSegment`
+  still backs OnCurve. Off-segment skip asserted. Perpendicular candidates are now
+  genuinely perpendicular. Infinite-line deferred-perp left as a noted future variant.
+
+### DR-04 — point-along-entity — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/015-DR04-point-along-builder.md`. Deps none.
+  Boundary spec-settled (pure op, Result idiom) → no reviewer gate up front.
+
 ## Open questions / blockers
-- (none blocking — DR-01 closed + bused; DR-02 in build)
+- (none blocking — DR-04 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

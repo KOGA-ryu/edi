@@ -20,6 +20,19 @@
   spec-settled); builder; green gate `cmake --build build && ctest --test-dir build
   -E edi_shell_window_tests` + scan. Rebase on master at the start of each task.
 
+## INTEGRATION CADENCE (2026-06-17) — edi-ui-integration-drafting owns master + LEDGER
+- Report verified BATCH TIPS + closeouts to `edi-ui-integration-drafting` (via
+  `~/dept-bus/drafting/replies/` + `bus-send`), NOT the hub. It merges to master and
+  rings back the new master tip. (Hub relay is retired for integration.)
+- **Rebase target = LOCAL `master`** (currently `dd226c4`), NOT `origin/master` — on
+  this box `origin/master` is STALE (`591e92c`). Local `master` is the live integration
+  line carrying DR-01/02/03 + blender-lab + dungeon-map batches. Builder briefs from
+  DR-08 say `git rebase master`. (DR-04/05/06 were built on the stale origin/master;
+  they rebase clean onto local master since their SHAs aren't yet on it.)
+- **DR-01/02/03 merged to master** (edi-ui: `b4f2eed` keystone, `bd3d99d` snaps;
+  master tip `dd226c4`). DR-04/05/06 reported to edi-ui for merge
+  (`~/dept-bus/drafting/replies/002-drafting-batch-DR04-06-ready.md`, tip `d3451d6`).
+
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
 handoff doc (conflict-free, department-specific) + `bus-hub`. This kills the

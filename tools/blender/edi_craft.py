@@ -65,7 +65,8 @@ MATERIALS = {
 }
 
 ARCHITECTURAL_OPS = (
-    "AddBox", "AddCylinder", "AddSphere", "AddRing", "AddMoulding", "CutFlutes", "AddLabel",
+    "AddBox", "AddCylinder", "AddSphere", "AddRing", "AddMoulding", "AddPrism",
+    "CutFlutes", "AddLabel",
 )
 
 
@@ -235,6 +236,13 @@ def parse_ops(path: str) -> list[dict]:
             # uncompiled moulding above; the C++ passes refuse it too.
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddRevolvedProfile must be resolved before building: {name}")
+        if op_type == "AddExtrudedProfile":
+            # The extrude reference (BL-01): like the lathe, only the LOWERED
+            # form (AddPrism) reaches a build — a raw extrude here means resolve
+            # never ran. Refused by name on BOTH sides (C++ compile/resolve and
+            # here), so the seam cannot leak an unbuildable reference.
+            name = fields.get("name", "?")
+            raise ValueError(f"{op_key}: AddExtrudedProfile must be resolved before building: {name}")
         if op_type == "Script":
             # A custom-craftsman step: a script id, a position, and a free param
             # bag. parse_ops does not know the craftsman's schema (it lives in
@@ -337,6 +345,41 @@ def parse_ops(path: str) -> list[dict]:
                 vertices=_integer(op_key, fields, consumed, "vertices", 96),
                 material=_material(op_key, fields, consumed),
             )
+        elif op_type == "AddPrism":
+            # The lowered prism carrier (BL-03/04): a closed planar footprint
+            # (physical x/y) read as a contiguous footprint.i.{x,y} run until the
+            # first missing .x — exactly the contiguous-index read AddMoulding
+            # uses for its profile.i run. Key-for-key with the C++ OpWriter.
+            footprint = []
+            points = fields.get("footprint", {})
+            consumed.add("footprint")
+            point_index = 0
+            while str(point_index) in points:
+                point = points[str(point_index)]
+                point_key = f"{op_key}.footprint.{point_index}"
+                point_consumed: set = set()
+                footprint.append({
+                    "x": _number(point_key, point, point_consumed, "x"),
+                    "y": _number(point_key, point, point_consumed, "y"),
+                })
+                extra_point = sorted(set(point) - point_consumed)
+                if extra_point:
+                    raise ValueError(f"{point_key}.{extra_point[0]}: unknown recipe key")
+                point_index += 1
+            leftover_points = sorted(set(points) - {str(i) for i in range(point_index)})
+            if leftover_points:
+                raise ValueError(f"{op_key}.footprint.{leftover_points[0]}: gapped or unknown footprint index")
+            if len(footprint) < 3:
+                raise ValueError(f"{op_key}: prism needs at least three footprint points")
+            op.update(
+                name=_text(op_key, fields, consumed, "name"),
+                height=_number(op_key, fields, consumed, "height"),
+                base_z=_number(op_key, fields, consumed, "base_z"),
+                footprint=footprint,
+                x=_number(op_key, fields, consumed, "x", 0.0),
+                y=_number(op_key, fields, consumed, "y", 0.0),
+                material=_material(op_key, fields, consumed),
+            )
         elif op_type == "CutFlutes":
             # Explicit cutter geometry (R1-B04b): optional, present-together,
             # XOR width_ratio. Parity with the C++ store reader — same wordings,
@@ -437,6 +480,15 @@ def bounds_of(ops: list[dict]) -> tuple[float, float, float, float, float, float
             z0 = op["base_z"] + min(point["z"] for point in op["profile"])
             z1 = op["base_z"] + max(point["z"] for point in op["profile"])
             include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
+        elif op["type"] == "AddPrism":
+            xs = [point["x"] for point in op["footprint"]]
+            ys = [point["y"] for point in op["footprint"]]
+            # base_z .. base_z+height, ordered min/max so a NEGATIVE height
+            # (the prism extruded downward — push/pull, BL-05) frames correctly.
+            z0 = min(op["base_z"], op["base_z"] + op["height"])
+            z1 = max(op["base_z"], op["base_z"] + op["height"])
+            include(op["x"] + min(xs), op["x"] + max(xs),
+                    op["y"] + min(ys), op["y"] + max(ys), z0, z1)
         elif op["type"] == "AddLabel":
             # A point, not a box: the op carries no text extent, but an
             # annotation must stay inside the framed view.
@@ -597,6 +649,34 @@ def _moulding_world(op: dict) -> tuple[list, list]:
     return [(v[0] + op["x"], v[1] + op["y"], v[2] + op["base_z"]) for v in local], faces
 
 
+def _prism_world(op: dict) -> tuple[list, list]:
+    """The lowered prism mesh, built PURELY (no bpy): the closed footprint
+    polygon swept from a bottom cap at z=base_z to a top cap at z=base_z+height,
+    placed at the op's (x, y) offset. Returns (verts, faces) like _moulding_world.
+
+    The footprint may repeat its first vertex as its last (a closed drafted
+    polyline does); that duplicate is dropped so the side wall has no zero-width
+    quad. A NEGATIVE height puts the top BELOW the base (the push/pull-cut
+    direction, BL-05) — the mesh stays valid, just inverted in z; never abs()'d,
+    so the OBJ's z-extent honestly reports the signed height."""
+    pts = [(point["x"], point["y"]) for point in op["footprint"]]
+    if len(pts) >= 2 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    n = len(pts)
+    x, y = op["x"], op["y"]
+    z0 = op["base_z"]
+    z1 = op["base_z"] + op["height"]
+    verts = [(px + x, py + y, z0) for px, py in pts]          # 0..n-1  bottom
+    verts += [(px + x, py + y, z1) for px, py in pts]         # n..2n-1 top
+    faces = []
+    faces.append([i for i in range(n)])                       # bottom cap
+    faces.append([2 * n - 1 - i for i in range(n)])           # top cap (reversed)
+    for i in range(n):                                        # side quads
+        j = (i + 1) % n
+        faces.append([i, j, n + j, n + i])
+    return verts, faces
+
+
 def _ring_world(op: dict) -> tuple[list, list]:
     fake = dict(op, radius=op["radius"] + op["overhang"], height=op["tube_height"],
                 taper_top_radius=None, entasis=False, axis="z", z_mode="center",
@@ -657,6 +737,8 @@ def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
             out.append((op["name"], *_ring_world(op)))
         elif kind == "AddMoulding":
             out.append((op["name"], *_moulding_world(op)))
+        elif kind == "AddPrism":
+            out.append((op["name"], *_prism_world(op)))
         elif kind == "CutFlutes":
             out.extend(cutflute_objects(ops, op))
         elif kind == "Script":
@@ -710,6 +792,10 @@ def plan_lines(ops: list[dict]) -> list[str]:
             lines.append(
                 f"AddMoulding {op['name']} base_z={_fmt(op['base_z'])} points={len(op['profile'])}"
                 f" max_r={_fmt(max_r)} material={op['material']}")
+        elif op["type"] == "AddPrism":
+            lines.append(
+                f"AddPrism {op['name']} base_z={_fmt(op['base_z'])} height={_fmt(op['height'])}"
+                f" points={len(op['footprint'])} material={op['material']}")
         elif op["type"] == "CutFlutes":
             z_range = ""
             if op["start_z"] is not None and op["end_z"] is not None:
@@ -861,6 +947,22 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         polish(obj, 0.03, 2)
         return obj
 
+    def add_prism(op):
+        # The lowered prism: built from the SAME pure _prism_world mesh the OBJ
+        # proof uses, so the headless proof and the Blender build cannot drift.
+        # _prism_world already places verts in world space (x/y offset, base_z),
+        # so the object sits at the origin.
+        verts, faces = _prism_world(op)
+        mesh = bpy.data.meshes.new(op["name"] + "_mesh")
+        mesh.from_pydata(verts, [], faces)
+        mesh.update(calc_edges=True)
+        obj = bpy.data.objects.new(op["name"], mesh)
+        bpy.context.collection.objects.link(obj)
+        bpy.context.view_layer.objects.active = obj
+        assign_material(obj, op["material"])
+        polish(obj, 0.02, 1)
+        return obj
+
     def cut_flutes(op):
         target = bpy.data.objects.get(op["target"])
         if target is None:
@@ -936,6 +1038,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         "AddSphere": add_sphere,
         "AddRing": add_ring,
         "AddMoulding": add_moulding,
+        "AddPrism": add_prism,
         "CutFlutes": cut_flutes,
         "AddLabel": add_label,
     }

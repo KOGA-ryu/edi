@@ -26,6 +26,34 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
    tool-option input, inspector field, picker, panel). Match the existing design exactly.
 3. **Shell goldens** (H1 + DM-11) — re-bless the machine-local goldens on this box.
 
+## ⏸ PAUSED CHECKPOINT (2026-06-17, hub context-swap) — RESUME HERE
+Master clean + green (**102/102**) at tip **`a6bbf4b`**. Held per hub pause; not scooping new
+work. A fresh hub session resumes. On resume, in priority order:
+
+1. **REBALANCE merges the hub queued (deferred — these are the resume task):**
+   - **blender-lab full batch-1** — `dept/blender-lab` (~30 ahead, verified-ready). Merge to
+     master per cadence, full gate, bus-hub when on master, ring blender-lab planner.
+   - **drafting DR-04..11** — land any verified drafting tips not yet on master (DR-04..10 are
+     already on master through `281e93a`; confirm DR-11 status and merge if green).
+   - Reason: integration was lagging completions; ui-integration was scoping batch-2 against a
+     stale master. Landing these makes master reflect reality.
+2. **Chrome batch-1 reviewer audit (PENDING):** hand the 3 chrome commits (`caafe9f` DR-10,
+   `0acba08` DM-10, `a6bbf4b` DM-14) + `/tmp/chrome_drafting.png` to edi-ui-reviewer
+   (signal-safety + widget-lifetime audit) before considering them closed.
+3. **DM-15 cross-dept GAP (blocks the DM-15 chrome slice):** the inspector verb needs core
+   plumbing edi-ui must NOT add itself — drafting/dungeon-map owe, in `DrawingDocument
+   Projection.cpp` (+ `activeObjectProjection` in `ShellWidgetHelpers.cpp`): a
+   `has_block_instance_selection` projection bool AND the selected object's `instance_id`
+   projected to the widget layer (so the button can gate on non-empty and pass the id to
+   `transformBlockInstance`). Once landed, DM-15 widget is a quick edi-ui follow-up mirroring
+   DM-10/DM-14. ESCALATE to hub to route (dungeon-map dept is closed/idle).
+4. **Chrome batch-2 (not started):** DM-01 auto-fit (`computeFitView` ← `computeDocumentBounds`)
+   + DM-11 map-browser plugs/connections sections in `buildMapBrowserPanel` → **co-bless the
+   `map` workspace golden** in that change.
+
+Untracked `docs/ui-surface/{blender-lab,dungeon-map}-batch2/` are ui-integration's (stale-base
+batch-2 specs) — NOT edi-ui's; left untouched.
+
 ## State as of 2026-06-17
 
 ### Done

@@ -10,7 +10,7 @@ update it when a gate opens, advances, blocks, or closes.
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..10 on master @281e93a; DR-10 rotate-copies = first SURFACED op → edi-ui chrome owed; DR-11 opens on confirm) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
-| ui-20260617-master-integration | edi-ui | builder (chrome batch opening) | open — look-forks SETTLED (DR-10 toggle-in-Repeat-fold, DM-10 inspector fill button, DM-14 Left-panel spins). Chrome queue: DR-10 rosette, DM-10 region-fill, DM-14/15 block transform, DM-01 auto-fit, DM-11 map-browser sections (+co-bless map golden) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
+| ui-20260617-master-integration | edi-ui | builder ⏸ PAUSED @a6bbf4b | chrome batch-1: DR-10/DM-10/DM-14 DONE+green (caafe9f/0acba08/a6bbf4b); DM-15 BLOCKED on cross-dept projection gap (has_block_instance_selection + instance_id); reviewer audit PENDING; batch-2 (DM-01/DM-11+golden) not started. RESUME: REBALANCE merges (blender-lab batch-1 + drafting) per hub. See handoff PAUSED CHECKPOINT. | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
 | blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (BL-01/03/04 merged to master @0041783; rebase + next batch) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
 
 ## Conventions

@@ -139,8 +139,18 @@
   future variant. Not consumed yet → cheap to settle now before edi-ui wiring.
 - DR-04 HELD until the amendment lands (single builder, sequential).
 
+### DR-03 — CLOSED 2026-06-17 ✅ (amendment SHA `d6b1738`, 96/96 green)
+- `~/dept-bus/edi-drafting/replies/014-DR03-perpendicular-onsegment-builder.md`.
+  `perpendicularFootOnSegment` (unclamped, `t∈[0,1]`, else nullopt); `projectOnSegment`
+  still backs OnCurve. Off-segment skip asserted. Perpendicular candidates are now
+  genuinely perpendicular. Infinite-line deferred-perp left as a noted future variant.
+
+### DR-04 — point-along-entity — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/015-DR04-point-along-builder.md`. Deps none.
+  Boundary spec-settled (pure op, Result idiom) → no reviewer gate up front.
+
 ## Open questions / blockers
-- (none blocking — DR-03 amendment in flight; DR-04 queued behind it)
+- (none blocking — DR-04 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

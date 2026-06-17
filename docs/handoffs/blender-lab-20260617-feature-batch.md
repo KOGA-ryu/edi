@@ -38,13 +38,13 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
 | BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
-| BL-08 | Follow-Me sweep op (→13) | L | dep BL-04 + arm-serial | — |
+| BL-08 | Follow-Me sweep op (→13) | L | builder briefed | — |
 | BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
-| BL-14 | Named-recipe library + chaining | M | builder done, reviewer audit | `834daed` |
+| BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
 
 ## Gate log
@@ -179,7 +179,21 @@ shared). New C++ source/test FILES would need a CMake edit = an edi-ui dependenc
 recipe_ops_tests) rather than add files. Only flag CMake to edi-ui if a new file is truly
 unavoidable.
 
+### BL-14 — SHIPPED 2026-06-17 (audit `replies/019`: SHIP, remap verified)
+Binding re-offset off-by-one-free; the no-cross-reference crux proven by a collision test
+that pins the remapped STRING (validate alone wouldn't catch a wrong-shaft cut); library
+store sound + crash-safe; doric byte-identical. **Reviewer rec (fold into BL-11):** convert
+`remapRecipeOpNameRefs` from get_if → exhaustive `std::visit` (CutFlutes rewrites target,
+other 11 explicit no-ops) so a future name-ref arm MUST declare its remap or fail to
+compile — BL-11's boolean a/b is exactly that arm. **Carry into BL-11.**
+
+### BL-08 — builder briefed 2026-06-17
+Brief `briefs/020-bl08-sweep.md`. New `AddSweepProfileOp` ref-arm (→13) + GENERALIZE the
+AddPrism carrier with an optional `path` (straight extrude when path empty = byte-identical;
+swept solid when present). Lower via resolved profile+path points; Python `_prism_world`
+branches. The heaviest L; arm-adder. Reviewer audit to follow.
+
 ## Next
-- BL-14 builder → reviewer audit (binding re-offset + name-ref remap correctness) → the
-  arm-adders BL-08 (sweep, →13) / BL-11 (boolean, →14) serial + BL-09/BL-10 dependents,
-  then BL-15 (TOON, dep BL-05 ✓).
+- BL-08 (sweep, →13) → BL-09 (taper-on-sweep, dep BL-08) → **BL-11** (boolean, →14 + the
+  remapRecipeOpNameRefs exhaustive-visit hardening) → BL-10 (prism inset/normalOffset
+  field-add) → BL-15 (TOON, dep BL-05 ✓). Arm-adders (BL-08, BL-11) one at a time.

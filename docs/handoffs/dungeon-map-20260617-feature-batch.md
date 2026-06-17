@@ -59,8 +59,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-06 | plug flags → TOON: `writePlugRow` `flags` column, both overloads | W3 ←05 | ✅ `e429af5` |
 | DM-02 | interior features: `RoomSpec.features` data + parse | W1 | ✅ `b330269` |
 | DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ✅ `4cfc7dd` |
-| DM-07 | Seam C edited round-trip: store room footprint+name in `document.rooms` | W1 | ◻ batch-3 |
-| DM-08 | Seam C round-trip regression test | W2 ←07 | ◻ batch-3 |
+| DM-07 | Seam C edited round-trip: store room footprint+name in `document.rooms` | W1 | ✅ verified intact (no code) |
+| DM-08 | Seam C round-trip regression test | W2 ←07 | ✅ `67c608e` |
 | DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ◻ batch-4 |
 | DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ◻ batch-4 |
 | DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ◻ batch-5 (boundary SETTLED) |
@@ -160,8 +160,38 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   codec) — NOT a first-class TOON `features[]` export section. A future Seam-C
   consumer wanting that is a separate slice.
 
-### Builder batch-3 (Seam C edited round-trip DM-07/08) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/012-builder-seam-c-roundtrip.md`
+### Builder batch-3 (Seam C edited round-trip DM-07/08) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/012-builder-seam-c-roundtrip.md`
+- **DM-07: round-trip VERIFIED INTACT (no code).** Builder traced all 4 links —
+  `createMapFromSpec`→`CreateMapRoomCommand`→`document.rooms` (5 fields);
+  `mapRoomValue` save; `readMapRoom` open (tolerant); Seam C `writeRoomRow` export.
+  All carry name+footprint+material. No gap. Matches arch §4/§5/§6.
+- **DM-08: pinned** `67c608e` (tests only) — persistence leg (encode→decode
+  byte-faithful) + export-fidelity leg (Seam C document export's `rooms[...]`
+  byte-identical to Seam B spec export). Guard-checked (scratch-dropped `material`
+  → test fails, reverted). Split across two existing test targets to avoid a
+  CMakeLists edit (edi-ui-owned). Gate GREEN 95/95, snapshot/export unchanged.
+
+### ⚠ BLOCKER (HUB-escalated) — dept-branch ↔ master integration + shared LEDGER
+- The builder's `git rebase master` could NOT complete: **local `master` (bd3d99d)
+  is the real integration line** (edi-ui integration + DR/BL merges, INCLUDING
+  `transformGeometry`/DR-01) — **86 commits ahead** of this branch; my branch is 34
+  ahead of it. The rebase **conflicts on the shared `docs/handoffs/LEDGER.md`** (21
+  master commits + ~10 of mine touch it). (`origin/master` 591e92c is a stale box-
+  vs-Mac ref, behind my branch — ignore it.)
+- **This is hub-owned** (integration + LEDGER reconciliation). Escalated via bus-hub.
+- **POLICY CHANGE I'm adopting now (to stop worsening it):** I will NO LONGER commit
+  the shared `LEDGER.md` on `dept/dungeon-map`. Campaign state lives in THIS
+  dept-local handoff doc (not cross-contended) + bus-hub reports; the hub owns the
+  master LEDGER. This removes the recurring conflict source going forward.
+- **DM-14/15 unblock depends on this:** `transformGeometry` is on local master, so
+  once the hub integrates my branch with master, DM-14/15 can rebase + build.
+- **Meanwhile:** batches 4 (DM-12/13) and 5 (DM-09/10) proceed on the CURRENT dept
+  tip (the builder proved work is correct on the tip; no rebase needed for them). I
+  tell the builder to SKIP the master rebase until the hub resolves integration.
+
+### Builder batch-4 (block transform record/export DM-12/13) — DISPATCHED (on current tip, NO rebase)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/013-builder-block-transform-record.md`
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

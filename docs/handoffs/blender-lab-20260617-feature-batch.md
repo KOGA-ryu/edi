@@ -40,12 +40,12 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
 | BL-09 | Taper-along-sweep param | M | **SHIPPED** (planner spot-check: clean) | `159d77b` |
-| BL-10 | Inset + normalOffset params | M | builder briefed | — |
+| BL-10 | Inset + normalOffset params | M | **SHIPPED** (planner spot-check: clean) | `46f0715` |
 | BL-11 | Solid boolean op (→14) | L | **SHIPPED** (audit: remap hardening verified) | `12df814` |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
 | BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
-| BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
+| BL-15 | TOON handoff of resolved stream | M | builder briefed (FINAL) | — |
 
 ## Gate log
 ### BL-01 — builder DONE 2026-06-17 (`cd646ab`), reviewer audit OPEN
@@ -235,6 +235,20 @@ refused by name. Last field-add before BL-15.
   proof-duplication** (BL-11: suppress consumed-operand standalone emission); sweep miter
   at corners (BL-08); per-axis/non-linear taper (BL-09).
 
+### BL-10 — SHIPPED 2026-06-17 (planner spot-check, no reviewer gate)
+inset/normalOffset field-adds on AddPrism. Spot-checked: goldens gained only
+`inset="0"`/`normal_offset="0"`; extruded_figure OBJ reproduced byte-identical; inset math
+sound (bisector `d=inset/cos_half`, identity-guarded, signed-area winding); validate bounds
+the collapse (`inset >= 0.5·smaller bbox`). Proven field-add pattern → accepted on green
+gate + spot-check.
+
+### BL-15 — builder briefed 2026-06-17 (FINAL TASK)
+Brief `briefs/026-bl15-toon.md`. `exportRecipeStreamToToon` — flatten a RESOLVED stream to a
+ToonPacket (op.N key scheme = the TOML addresses) via `exportToonPacket`; refuse an
+unresolved stream by name; never JSON. In RecipeOpsStore (edi_format_core is transitively
+linked — no CMakeLists edit). CLI verb is main.cpp = edi-ui's (flag).
+
 ## Next
-- BL-10 (inset/normalOffset) → BL-15 (TOON, dep BL-05 ✓) → BATCH CLOSEOUT: final arch-doc
-  anchor sweep (variant stable at 14), closeout doc, report batch-done to edi-ui.
+- BL-15 (TOON, FINAL) → **BATCH CLOSEOUT**: final arch-doc anchor sweep (variant stable at
+  14), closeout doc `docs/closeouts/blender-lab-feature-batch.md`, report batch-done to
+  edi-ui for integration/merge.

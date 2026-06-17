@@ -21,6 +21,11 @@ generation.
   portal) interactively → re-render the door leaf (the M1.3 WallType painter exists).
 - **Corridor edit** — independent-corridor model (charter fork: each connection emits
   its OWN editable corridor); re-route on plug move / connection change.
+  **HUB-RATIFIED DEFAULT (2026-06-17):** corridors are INDEPENDENT/editable (per the
+  corridor-routing research rec) — the reviewer (gate 019) may override ONLY with
+  strong cause; otherwise independent is the settled default. (Gate 019 already asks
+  this; I apply this default-framing when integrating its verdict — not interrupting
+  the in-flight one-shot reviewer.)
 - **Delete** plug/connection interactively (cascades exist: `pruneGraphForRemovedObject`,
   `removePlug`/`removeConnection`).
 

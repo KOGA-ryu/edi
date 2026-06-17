@@ -66,6 +66,11 @@ struct BlockPlacementMetadata {
     DraftingBlockId blockId;   // the definition this object was stamped from
     std::string assetRef;      // snapshot of the block's asset (what Seam C emits)
     std::string instanceId;    // groups the objects of one placement
+    // Neutral per-instance placement transform record (Seam C reads these). Identity
+    // by default — DM-14 will write real values via transformGeometry; this slice is
+    // identity-valued plumbing, so every existing placement stays byte-identical.
+    double rotationDeg = 0.0;  // placement rotation, degrees CCW; 0 = identity
+    double scale = 1.0;        // uniform placement scale; 1 = identity
 };
 
 const char *objectRoleName(ObjectRole role);

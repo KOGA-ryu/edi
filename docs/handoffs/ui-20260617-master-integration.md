@@ -29,10 +29,21 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
 ## State as of 2026-06-17
 
 ### Done
-- **Integration cadence merges into master (verified green each time):**
-  - `b4f2eed` — DR-01 transformGeometry keystone (`167768e`).
-  - `<DR-02/03 merge>` — DR-02 quadrant/nearest-on-curve (`e405d89`) + DR-03 tangent/
-    perpendicular snaps (`d9c7aca` + on-segment fix `d6b1738`). 97/97 green, scan clean.
+- **Integration cadence merges into master (verified green each time, 97/97 + scan):**
+  - `b4f2eed` — drafting DR-01 transformGeometry keystone (`167768e`).
+  - `bd3d99d` — drafting DR-02/03: quadrant/nearest-on-curve (`e405d89`) + tangent/
+    perpendicular snaps (`d9c7aca` + on-segment fix `d6b1738`).
+  - `0041783` — blender-lab BL-01/03/04: extrude spine + AddPrism carrier + Python prism
+    (isolated to src/recipe + tools/blender, no shared-file collision).
+  - `c6e98e3` — dungeon-map DM-02..08: interior features + plug flags + Seam C. Branch was
+    based on OLD master (`f87bc1b`) → duplicate-history 3-way conflicts resolved:
+    DraftingMapTypes.h + MapToonExport.cpp took THEIRS (DM-04/06 flags features),
+    DraftingCommands.cpp took OURS (cosmetic static_assert wording), docs took OURS.
+    **Unblocks DM-14/15** (transformGeometry consumers).
+- **Coordination is edi-ui's (no hub relay):** after each merge I bus the dept planner
+  directly the merged tip + rebase instruction. Sent dungeon-map (`c6e98e3`) + blender-lab
+  (`0041783`) reconciliation replies. Depts rebase on master; LEDGER conflicts always
+  resolve take-master.
 - **Master promoted** to `9967f0b` (cartography integration of all 3 depts), then
   **merged `dept/drafting` transformGeometry** (DR-01 keystone `167768e`) → master at
   `b4f2eed`. Clean merge (drafting core + 1 test + 1 CMakeLists line; no shell conflicts).

@@ -11,7 +11,8 @@ update it when a gate opens, advances, blocks, or closes.
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01/02/03 on master; DR-04 point-along-entity next) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
 | ui-20260617-master-integration | edi-ui | builder | open (master integration line + chrome bucket) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
-| blender-lab-20260617-feature-batch | edi-blender-lab | builder | in-gate (BL-04) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
+| blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (BL-01/03/04 merged to master @0041783; rebase + next batch) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
+| dungeon-map-20260617-feature-batch | edi-dungeon-map | builder | open (DM-02..08 merged to master @c6e98e3; rebase, batch-4/5 + DM-14/15 on top) | [docs/handoffs/dungeon-map-20260617-feature-batch.md](dungeon-map-20260617-feature-batch.md) | edi-dungeon-map-planner |
 
 ## Conventions
 

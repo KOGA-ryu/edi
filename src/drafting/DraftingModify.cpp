@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <optional>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace edi::drafting {
 
@@ -368,6 +371,106 @@ DraftingExtendResult extendLineToBoundary(const LineGeometry &target,
     }
     const LineGeometry extended = extendB ? LineGeometry{target.a, *best} : LineGeometry{*best, target.b};
     return DraftingExtendResult::accepted(extended);
+}
+
+DraftingBreakResult DraftingBreakResult::accepted(DraftingGeometry first, DraftingGeometry second)
+{
+    DraftingBreakResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.first = std::move(first);
+    result.second = std::move(second);
+    return result;
+}
+
+DraftingBreakResult DraftingBreakResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingBreakResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+namespace {
+
+// Clamped projection parameter t in [0,1] of `point` onto segment [a,b]. The foot
+// of perpendicular, clamped so the split always lands ON the segment.
+double projectParam(Point2D a, Point2D b, Point2D point)
+{
+    const double dx = b.x - a.x;
+    const double dy = b.y - a.y;
+    const double lengthSq = dx * dx + dy * dy;
+    if (lengthSq <= 0.0) {
+        return 0.0;
+    }
+    return std::clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq, 0.0, 1.0);
+}
+
+Point2D lerpPoint(Point2D a, Point2D b, double t)
+{
+    return {a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)};
+}
+
+} // namespace
+
+DraftingBreakResult breakGeometryAtPoint(const DraftingGeometry &geometry, Point2D at)
+{
+    constexpr double endpointEpsilon = 0.000001;
+
+    if (const auto *line = std::get_if<LineGeometry>(&geometry)) {
+        const Point2D split = lerpPoint(line->a, line->b, projectParam(line->a, line->b, at));
+        // Too near an endpoint → one piece would be zero-length. Reject.
+        if (distance(split, line->a) <= endpointEpsilon || distance(split, line->b) <= endpointEpsilon) {
+            return DraftingBreakResult::rejected(DraftingResultCode::InvalidGeometry,
+                                                 "break point is too close to an endpoint");
+        }
+        return DraftingBreakResult::accepted(
+            DraftingGeometry{LineGeometry{line->a, split}},
+            DraftingGeometry{LineGeometry{split, line->b}});
+    }
+
+    if (const auto *polyline = std::get_if<PolylineGeometry>(&geometry)) {
+        const std::vector<Point2D> &v = polyline->vertices;
+        if (v.size() < 2) {
+            return DraftingBreakResult::rejected(DraftingResultCode::InvalidGeometry,
+                                                 "polyline requires at least two vertices to break");
+        }
+        // The split lands on the segment whose projection is nearest the pick.
+        std::size_t bestSegment = 0;
+        double bestDistance = 0.0;
+        Point2D bestSplit = v.front();
+        for (std::size_t k = 0; k + 1 < v.size(); ++k) {
+            const Point2D candidate = lerpPoint(v[k], v[k + 1], projectParam(v[k], v[k + 1], at));
+            const double candidateDistance = distance(candidate, at);
+            if (k == 0 || candidateDistance < bestDistance) {
+                bestDistance = candidateDistance;
+                bestSegment = k;
+                bestSplit = candidate;
+            }
+        }
+        // A split at the very start or end leaves a zero-length piece. Reject.
+        if (distance(bestSplit, v.front()) <= endpointEpsilon || distance(bestSplit, v.back()) <= endpointEpsilon) {
+            return DraftingBreakResult::rejected(DraftingResultCode::InvalidGeometry,
+                                                 "break point is too close to an endpoint");
+        }
+        // The split vertex is INSERTED into BOTH halves: first = v[0..k] + split,
+        // second = split + v[k+1..end].
+        PolylineGeometry first;
+        for (std::size_t i = 0; i <= bestSegment; ++i) {
+            first.vertices.push_back(v[i]);
+        }
+        first.vertices.push_back(bestSplit);
+        PolylineGeometry second;
+        second.vertices.push_back(bestSplit);
+        for (std::size_t i = bestSegment + 1; i < v.size(); ++i) {
+            second.vertices.push_back(v[i]);
+        }
+        return DraftingBreakResult::accepted(DraftingGeometry{first}, DraftingGeometry{second});
+    }
+
+    return DraftingBreakResult::rejected(DraftingResultCode::InvalidGeometry,
+                                         "this kind cannot be broken");
 }
 
 } // namespace edi::drafting

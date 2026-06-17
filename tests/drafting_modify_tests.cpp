@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <variant>
 #include <vector>
 
 using namespace edi::drafting;
@@ -291,6 +292,46 @@ int main()
         // Boundary at x=1 is on the b-side; picking the a-end finds nothing.
         const LineGeometry boundary{{1.0, -1.0}, {1.0, 1.0}};
         assert(!extendLineToBoundary(target, {boundary}, {-0.1, 0.0}).ok);
+    }
+
+    // --- breakGeometryAtPoint --------------------------------------------
+    {
+        // A line broken at its midpoint → two half-lines sharing the split point.
+        const DraftingBreakResult r = breakGeometryAtPoint(DraftingGeometry{LineGeometry{{0.0, 0.0}, {1.0, 0.0}}}, {0.5, 0.2});
+        assert(r.ok);
+        const auto *first = std::get_if<LineGeometry>(&r.first);
+        const auto *second = std::get_if<LineGeometry>(&r.second);
+        assert(first != nullptr && second != nullptr);
+        assert(pointNear(first->a, 0.0, 0.0) && pointNear(first->b, 0.5, 0.0));
+        assert(pointNear(second->a, 0.5, 0.0) && pointNear(second->b, 1.0, 0.0));
+    }
+    {
+        // A polyline broken mid-segment splits the right segment, with the split
+        // vertex INSERTED into BOTH halves.
+        const PolylineGeometry source{{{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}}};
+        const DraftingBreakResult r = breakGeometryAtPoint(DraftingGeometry{source}, {1.0, 0.5});
+        assert(r.ok);
+        const auto *first = std::get_if<PolylineGeometry>(&r.first);
+        const auto *second = std::get_if<PolylineGeometry>(&r.second);
+        assert(first != nullptr && second != nullptr);
+        // first = [(0,0),(1,0),split=(1,0.5)]; second = [split=(1,0.5),(1,1)].
+        assert(first->vertices.size() == 3);
+        assert(pointNear(first->vertices[0], 0.0, 0.0));
+        assert(pointNear(first->vertices[1], 1.0, 0.0));
+        assert(pointNear(first->vertices[2], 1.0, 0.5));
+        assert(second->vertices.size() == 2);
+        assert(pointNear(second->vertices[0], 1.0, 0.5)); // shared split vertex
+        assert(pointNear(second->vertices[1], 1.0, 1.0));
+    }
+    {
+        // A break too close to an endpoint rejects (one piece would be zero-length).
+        const DraftingBreakResult r = breakGeometryAtPoint(DraftingGeometry{LineGeometry{{0.0, 0.0}, {1.0, 0.0}}}, {0.0, 0.0});
+        assert(!r.ok);
+        assert(r.code == DraftingResultCode::InvalidGeometry);
+        // An unsupported kind rejects too.
+        const DraftingBreakResult c = breakGeometryAtPoint(DraftingGeometry{CircleGeometry{{0.5, 0.5}, 0.2}}, {0.7, 0.5});
+        assert(!c.ok);
+        assert(c.code == DraftingResultCode::InvalidGeometry);
     }
 
     return 0;

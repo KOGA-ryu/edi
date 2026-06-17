@@ -67,8 +67,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 (boundary SETTLED) |
 | DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
 | DM-11 | map browser content: shared read-only `deriveEdge(plug,room)` helper (sliver) | 🟦 W1 | ◻ assess (panel is edi-ui) |
-| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ DR-01 BUILT (drafting 167768e); waits edi-ui landing it on MASTER |
-| DM-15 | transform placed instance (`transformBlockInstance`) | ⏸ ←14,DR-01 | ⏸ same — then rebase + build last |
+| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ transformGeometry on local master; waits edi-ui MERGE of my branch → then RESET-onto-master (preserve batch-4/5) → build |
+| DM-15 | transform placed instance (`transformBlockInstance`) | ⏸ ←14,DR-01 | ⏸ same — build last |
 
 ## Gate log
 
@@ -172,7 +172,27 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   → test fails, reverted). Split across two existing test targets to avoid a
   CMakeLists edit (edi-ui-owned). Gate GREEN 95/95, snapshot/export unchanged.
 
-### ⚠ BLOCKER (HUB-escalated) — dept-branch ↔ master integration + shared LEDGER
+### HUB RATIFICATION (2026-06-17) — LEDGER fix accepted; integration in progress
+- **LEDGER policy CONFIRMED:** stop committing `docs/handoffs/LEDGER.md` on the
+  dept branch — per-campaign handoff docs + bus-hub only. (Adopted.)
+- **edi-ui is MERGING `dept/dungeon-map` → master** (resolving the LEDGER conflict).
+- **DM-14/15 trigger + procedure:** when master carries (my work + transformGeometry),
+  **RESET onto master** (the hub said reset, NOT rebase — because the merge puts my
+  commits ON master, so reset aligns my branch to the integrated tip), THEN build
+  DM-14/15. ⚠ **SAFEGUARD (do not lose batch-4/5):** edi-ui merges the branch at a
+  SNAPSHOT; batch-4 (DM-12/13) and batch-5 (DM-09/10) commits made AFTER that
+  snapshot will NOT be in master. So the reset is NOT a blind `reset --hard master`:
+  1. `git fetch` + verify master has transformGeometry
+     (`git grep transformGeometry master -- src/drafting/DraftingGeometry.h`) AND my
+     merged work.
+  2. `git log master..HEAD` → list MY commits not yet in master (batch-4/5 etc.).
+  3. `git reset --hard master`, then `git cherry-pick` (or rebase) ONLY those
+     not-yet-in-master commits back on top. Verify the green gate. THEN DM-14/15.
+  4. If a cherry-picked commit conflicts on LEDGER, drop the LEDGER hunk (policy).
+- I'll confirm with the hub at reset time which snapshot was merged, so batch-4/5
+  reconciliation is unambiguous.
+
+### ⚠ BLOCKER (HUB-escalated → IN PROGRESS) — dept-branch ↔ master integration + shared LEDGER
 - The builder's `git rebase master` could NOT complete: **local `master` (bd3d99d)
   is the real integration line** (edi-ui integration + DR/BL merges, INCLUDING
   `transformGeometry`/DR-01) — **86 commits ahead** of this branch; my branch is 34

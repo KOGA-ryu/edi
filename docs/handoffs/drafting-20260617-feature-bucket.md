@@ -49,8 +49,30 @@
   `transformGeometry` rotation is lossless for them. Separate model slice: touches
   every ellipse/text visit + serialize + painter. NOT part of DR-01 (per contract).
 
+### DR-01 — BLOCKER raised + RULED 2026-06-17 (rectangle anchor)
+- Builder (`~/dept-bus/edi-drafting/replies/008-DR01-transformgeometry-builder.md`)
+  stopped before busing a wrong keystone: the contract's Rectangle rule
+  (`mapPoint(origin)` + `rotationDeg += θ`) is geometrically WRONG. The model rotates
+  rectangles about their CENTER (`rectangleCorners` :81-95 → `computeBounds:526`; the
+  painter `translate(center)/rotate/translate(-center)`; `DraftingObjectEdit` about
+  `rectangleCenter`). Mapping the origin corner + bumping rotationDeg leaves the box's
+  center un-orbited. Counterexample: square `origin=(0,0) w=h=2`, transform
+  `pivot=(0,0) θ=90° scale=1` → correct footprint `[-2,0]×[0,2]`, literal rule keeps
+  `[0,2]²`. Also contradicts the contract's own Arc rule (Arc correctly maps its
+  rotation-center).
+- **PLANNER RULING: A — center-anchored rectangle** (verified analytically incl.
+  scale: rendered corners' = `mapPoint(original corners)`; consistent with Arc).
+  Corrected rule = the canonical Rectangle rule going forward:
+  `C=origin+(w/2,h/2); C'=mapPoint(C); origin'=C'-(w'/2,h'/2); rotationDeg'+=θ;
+  w/h/cornerRadius/inset *= scale`. Builder told to ship it (brief 010) without
+  waiting on hub — A is provably correct. Rotation-SENSE check already confirmed OK
+  by builder (mapPoint matrix == the model's field-rotation; no sin flip).
+- **Reported to hub** as a contract correction (canonical contract line 59 needs the
+  center-anchor fix before dungeon-map consumes it).
+
 ## Open questions / blockers
-- (none blocking — canonical contract reconciled, builder amended, proceeding)
+- (none blocking — ruling A issued, builder shipping; hub asked to correct the
+  canonical contract's Rectangle rule)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

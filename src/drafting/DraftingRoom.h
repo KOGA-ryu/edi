@@ -42,6 +42,7 @@ struct RoomPlugSpec {
     double at = 0.0;
     std::string name;
     std::string type;
+    std::vector<std::string> flags; // neutral open-vocabulary tags (mandate: no meaning)
 };
 
 // A declared connection authored between two plugs, named by their plug `name`s
@@ -110,6 +111,7 @@ struct RoomPlugPlacement {
     DraftingObjectId anchorObjectId;
     std::string name;
     std::string type;
+    std::vector<std::string> flags;  // neutral tags, threaded from RoomPlugSpec like `type`
     Point2D anchor;
     RoomEdge edge = RoomEdge::North; // which wall the plug sits on (its outward normal)
 };

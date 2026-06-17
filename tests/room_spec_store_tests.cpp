@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <string>
+#include <vector>
 
 using namespace edi::io;
 using edi::drafting::RoomEdge;
@@ -107,6 +108,22 @@ int main()
         assert(parsed.spec.plugs[1].name == "east_portal");
         assert(parsed.spec.plugs[1].type == "door");          // default
         assert(nearlyEqual(parsed.spec.plugs[1].at, 4.0));    // default center of E (height/2)
+        assert(parsed.spec.plugs[0].flags.empty());           // flags absent -> empty
+    }
+
+    // Plug flags: a neutral comma-separated open vocabulary. Whitespace around each
+    // token is trimmed and empty tokens are dropped; absent flags stay empty.
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"win\"\nroom.plug.0.flags = \"window, passes_light ,, lit\"\n"
+            "room.plug.1.edge = \"S\"\nroom.plug.1.name = \"plain\"\n", // no flags key
+            1.0);
+        assert(parsed.ok);
+        assert(parsed.spec.plugs.size() == 2);
+        const std::vector<std::string> expected{"window", "passes_light", "lit"};
+        assert(parsed.spec.plugs[0].flags == expected); // trimmed, empty token dropped
+        assert(parsed.spec.plugs[1].flags.empty());     // absent -> empty
     }
 
     // A plug without a name is rejected — it would be unreferenceable.

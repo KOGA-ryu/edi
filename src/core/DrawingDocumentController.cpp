@@ -2109,6 +2109,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             // unambiguous even when two rooms share a bare plug name.
             plug.name = room.name + "." + placement.name;
             plug.type = placement.type;
+            plug.flags = placement.flags; // neutral tags, threaded through like `type`
             plug.anchor = placement.anchor;
             plugIdByKey.emplace(plugKey(room.name, placement.name), plug.id);
             doorByKey.emplace(plugKey(room.name, placement.name),

@@ -91,6 +91,9 @@ struct DraftingPlug {
     DraftingObjectId anchorObjectId; // the doc object (a Point marker) this plug rides on
     std::string name;                // authored label, e.g. "north_doorway"
     std::string type;                // neutral open vocabulary: "door"/"portal"/...
+    std::vector<std::string> flags;  // neutral OPEN vocabulary of string tags — edi
+                                     // RECORDS them, assigns NO rule meaning (mandate):
+                                     // no passable/weight/direction interpretation here.
     Point2D anchor;                  // cached gap-center, so draw/export need not re-derive
     // TODO(dungeon-map): `anchor` is a cache computed at AUTHORING time (when the
     // plug is created from its anchorObjectId's geometry) and is NOT re-synced when

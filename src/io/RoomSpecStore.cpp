@@ -2,12 +2,14 @@
 
 #include "formats/TomlReader.h"
 
+#include <cctype>
 #include <cstddef>
 #include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace edi::io {
 
@@ -51,6 +53,30 @@ std::string configString(const StaticConfig &config, const std::string &key, con
 bool hasKey(const StaticConfig &config, const std::string &key)
 {
     return config.find(key) != config.end();
+}
+
+// Split a neutral comma-separated tag list ("window, passes_light") into trimmed
+// tokens, dropping empties. Open vocabulary — no token is interpreted (mandate).
+std::vector<std::string> splitCommaTokens(const std::string &value)
+{
+    std::vector<std::string> tokens;
+    std::size_t start = 0;
+    while (start <= value.size()) {
+        const std::size_t comma = value.find(',', start);
+        const std::size_t end = comma == std::string::npos ? value.size() : comma;
+        std::size_t a = start;
+        std::size_t b = end;
+        while (a < b && std::isspace(static_cast<unsigned char>(value[a]))) ++a;
+        while (b > a && std::isspace(static_cast<unsigned char>(value[b - 1]))) --b;
+        if (b > a) {
+            tokens.push_back(value.substr(a, b - a));
+        }
+        if (comma == std::string::npos) {
+            break;
+        }
+        start = comma + 1;
+    }
+    return tokens;
 }
 
 std::optional<RoomEdge> edgeFromName(const std::string &name)
@@ -159,6 +185,7 @@ bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, doubl
             return false;
         }
         plug.type = configString(config, key + ".type", "door");
+        plug.flags = splitCommaTokens(configString(config, key + ".flags", ""));
         const std::string at = configString(config, key + ".at", "center");
         if (at == "center" || at.empty()) {
             plug.at = edgeLengthCanvas(spec, *edge) / 2.0;

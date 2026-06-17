@@ -57,8 +57,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-04 | plug flags: `DraftingPlug.flags` + `RoomPlugSpec` parse (comma-split) | W1 | ✅ `29be7a7` |
 | DM-05 | persist plug flags: additive `plugValue`/`readPlug`, no bump | W2 ←04 | ✅ `620a3c2` |
 | DM-06 | plug flags → TOON: `writePlugRow` `flags` column, both overloads | W3 ←05 | ✅ `e429af5` |
-| DM-02 | interior features: `RoomSpec.features` data + parse | W1 | ▶ batch-2 |
-| DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ▶ batch-2 |
+| DM-02 | interior features: `RoomSpec.features` data + parse | W1 | ✅ `b330269` |
+| DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ✅ `4cfc7dd` |
 | DM-07 | Seam C edited round-trip: store room footprint+name in `document.rooms` | W1 | ◻ batch-3 |
 | DM-08 | Seam C round-trip regression test | W2 ←07 | ◻ batch-3 |
 | DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ◻ batch-4 |
@@ -135,8 +135,33 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
     is correct-by-construction but not golden-exercised. Optional 1-line golden add;
     LOW value (cell()-quoting already golden-covered on origin/size). DEFERRED.
 
-### Builder batch-2 (interior features DM-02/03) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/011-builder-interior-features.md`
+### Builder batch-2 (interior features DM-02/03) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/011-builder-interior-features.md`
+- Commits `b330269` (data+parse), `4cfc7dd` (Point-marker realization). Gate GREEN
+  95/95, scan clean, snapshot identical, object count byte-unchanged (reference
+  dungeon authors no features).
+- **Planner coordinate verification (the one real risk — VERIFIED CORRECT myself):**
+  the builder found my brief's premise wrong and deviated correctly.
+  `parseRoomFields` (RoomSpecStore.cpp:108-116) scales `origin`/`width`/`height`/
+  `plug.at` by `canvasPerUnit` at PARSE — so `RoomSpec.origin` is CANVAS units.
+  Features are deliberately stored UNSCALED (authored feet, `:227-228` comment), so
+  the mint `at = origin(canvas) + feature.{x,y}(feet) × canvasPerAuthoredUnit` is
+  numerically correct (same 0.02 scale; test pins the absolute positions). The
+  neutral law is honored + test-asserted (`ObjectRole::None`, `feature:<type>` +
+  optional `name:<name>` tags; `toolProvenance="feature"`).
+- **PLANNER DECISION (the asymmetry the builder flagged):** ACCEPT features-in-feet
+  while the rest of RoomSpec is canvas. It is behavior-correct, well-commented, and
+  the alternative (scale-at-parse) isn't clearly better — a room-LOCAL offset is
+  most naturally stored as raw authored feet and resolved at the mint site where the
+  origin is known. No refactor. No reviewer gate: the one real risk (coordinates) is
+  planner-verified directly; batch-2 touches neither the additive codec nor adds
+  rule-meaning, so the charter's two risky joints don't apply.
+- Noted (not built): features are ordinary Point objects (round-trip via the object
+  codec) — NOT a first-class TOON `features[]` export section. A future Seam-C
+  consumer wanting that is a separate slice.
+
+### Builder batch-3 (Seam C edited round-trip DM-07/08) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/012-builder-seam-c-roundtrip.md`
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

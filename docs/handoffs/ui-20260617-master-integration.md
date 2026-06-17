@@ -57,18 +57,21 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
   Verified render correct vs reference before blessing. `edi_shell_window_tests` now 100%
   green here. **Hub told to drop the `-E edi_shell_window_tests` exclusion** from the gate.
 
-### Settled chrome-sliver interface (DM-01 / DM-11) — build contract
-Agreed with edi-dungeon-map (its brief 016, dispatched after DM-14/15 rebases):
-- **DM-01 auto-fit:** core gets a pure `documentObjectsBounds` free fn → `std::optional<Bounds2D>`
-  (`nullopt` on empty doc) + a thin read-only controller getter `computeDocumentBounds()`.
+### Settled chrome-sliver interface (DM-01 / DM-11) — FINAL SIGNATURES (slivers built)
+Built on dept/dungeon-map (`32b297b`, `1b8dacb`), 101/101, golden unchanged. Lands on master
+in dungeon-map's FULL FINAL TIP (after a scale-overflow hardening commit) — merge that, then
+wire chrome:
+- **DM-01 auto-fit:** `std::optional<edi::drafting::Bounds2D>`
+  `DrawingDocumentController::computeDocumentBounds() const` (`nullopt` on empty doc).
   edi-ui side: `computeFitView` consuming it via `viewportFitRect` / `clampViewportZoom`. No
-  control surface.
-- **DM-11 map browser:** new **no-Qt `src/drafting/DraftingMapQuery.{h,cpp}`** exposing
-  `deriveEdge(const DraftingMapRoom&, Point2D)` + `plugIsConnected(...)`; `MapToonExport`
-  switched to it (pure extraction, TOON golden UNCHANGED). Both io (MapToonExport) and widgets
-  (`buildMapBrowserPanel`, EdiShellWindowIo.cpp:700) include the SAME helper → panel and TOON
-  cannot drift. edi-ui wires the panel plugs/connections sections (flags = `·`-joined run,
-  Fork 2 ratified) and **co-blesses the `map` workspace golden** in that same change.
+  control surface (view behavior only).
+- **DM-11 map browser:** `#include "drafting/DraftingMapQuery.h"` (no-Qt core), exposing:
+  - `deriveEdge(const DraftingMapRoom&, Point2D) -> "N"/"E"/"S"/"W"`
+  - `plugIsConnected(const std::vector<DraftingDeclaredConnection>&, const DraftingPlugId&)`
+  `MapToonExport` already switched to it (golden UNCHANGED). edi-ui wires the
+  `buildMapBrowserPanel` (EdiShellWindowIo.cpp:700) plugs/connections sections from the SAME
+  helpers (flags = `·`-joined run, Fork 2 ratified) and **co-blesses the `map` workspace
+  golden** in that same change.
 
 ### Pending / waiting on upstream
 - **Chrome bucket is idle by design** — no surface-bearing op has landed yet.

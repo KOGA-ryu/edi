@@ -205,5 +205,51 @@ int main()
         assert(!filletLines(stubH, vv, 0.2, {0.5, 0.5}).ok);
     }
 
+    // --- chamferLines ----------------------------------------------------
+    {
+        // L-corner at the origin, equal setback → a 45° bevel between the two
+        // setback points; each line's corner end pulls back, the far end stays.
+        const LineGeometry h{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry v{{0.0, 0.0}, {0.0, 1.0}};
+        const DraftingChamferResult r = chamferLines(h, v, 0.3, 0.3, {0.5, 0.5});
+        assert(r.ok);
+        assert(pointNear(r.line1.a, 0.3, 0.0) && pointNear(r.line1.b, 1.0, 0.0));
+        assert(pointNear(r.line2.a, 0.0, 0.3) && pointNear(r.line2.b, 0.0, 1.0));
+        assert(pointNear(r.bevel.a, 0.3, 0.0) && pointNear(r.bevel.b, 0.0, 0.3));
+        // Equal setback on a right angle → the bevel runs at 45° (|dx| == |dy|).
+        assert(nearlyEqual(std::abs(r.bevel.b.x - r.bevel.a.x), std::abs(r.bevel.b.y - r.bevel.a.y)));
+    }
+    {
+        // X-crossing: chamfering the -x-y corner keeps each line's - arm and bevels
+        // across that corner (the pick selects the corner, like fillet).
+        const LineGeometry h{{-1.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry v{{0.0, -1.0}, {0.0, 1.0}};
+        const DraftingChamferResult r = chamferLines(h, v, 0.3, 0.3, {-0.5, -0.5});
+        assert(r.ok);
+        assert(pointNear(r.line1.a, -1.0, 0.0) && pointNear(r.line1.b, -0.3, 0.0));
+        assert(pointNear(r.line2.a, 0.0, -1.0) && pointNear(r.line2.b, 0.0, -0.3));
+        assert(pointNear(r.bevel.a, -0.3, 0.0) && pointNear(r.bevel.b, 0.0, -0.3));
+    }
+    {
+        // Asymmetric setbacks land at different distances along each line.
+        const LineGeometry h{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry v{{0.0, 0.0}, {0.0, 1.0}};
+        const DraftingChamferResult r = chamferLines(h, v, 0.2, 0.4, {0.5, 0.5});
+        assert(r.ok);
+        assert(pointNear(r.bevel.a, 0.2, 0.0) && pointNear(r.bevel.b, 0.0, 0.4));
+    }
+    {
+        // Parallel lines have no corner; a non-positive setback is refused.
+        const LineGeometry l1{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry l2{{0.0, 0.3}, {1.0, 0.3}};
+        assert(!chamferLines(l1, l2, 0.1, 0.1, {0.5, 0.15}).ok);
+        const LineGeometry vv{{0.0, 0.0}, {0.0, 1.0}};
+        assert(!chamferLines(l1, vv, 0.0, 0.1, {0.5, 0.5}).ok);
+        assert(!chamferLines(l1, vv, 0.1, -0.1, {0.5, 0.5}).ok);
+        // A setback that reaches/overruns its line's far end rejects.
+        const LineGeometry shortH{{0.0, 0.0}, {0.2, 0.0}};
+        assert(!chamferLines(shortH, vv, 0.3, 0.1, {0.5, 0.5}).ok);
+    }
+
     return 0;
 }

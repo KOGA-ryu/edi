@@ -64,6 +64,24 @@ struct DraftingSnapResult {
     DraftingObjectId sourceObjectId;
 };
 
+// The result of pointAlongEntity — mirrors the DraftingOffsetResult plan idiom
+// (ok + code + message + payload), so a caller branches on `ok` then reads `point`.
+struct DraftingPointAlongResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    Point2D point;
+
+    static DraftingPointAlongResult accepted(Point2D point);
+    static DraftingPointAlongResult rejected(DraftingResultCode code, std::string message);
+};
+
+// The point a typed DISTANCE along a line / arc / polyline / polygon, measured
+// from the start endpoint (fromEnd == false) or the far endpoint (fromEnd ==
+// true). Rejects an overshoot (distance > path length), a negative/non-finite
+// distance, or an unsupported geometry kind. Pure; no controller/UI wiring.
+DraftingPointAlongResult pointAlongEntity(const DraftingGeometry &geometry, double distance, bool fromEnd);
+
 Point2D normalizeDraftingPoint(Point2D point);
 const char *draftingSnapKindName(DraftingSnapKind kind);
 const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind);

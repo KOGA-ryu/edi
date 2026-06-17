@@ -20,6 +20,28 @@
   spec-settled); builder; green gate `cmake --build build && ctest --test-dir build
   -E edi_shell_window_tests` + scan. Rebase on master at the start of each task.
 
+## INTEGRATION CADENCE (2026-06-17) — edi-ui-integration-drafting owns master + LEDGER
+- Report verified BATCH TIPS + closeouts to `edi-ui-integration-drafting` (via
+  `~/dept-bus/drafting/replies/` + `bus-send`), NOT the hub. It merges to master and
+  rings back the new master tip. (Hub relay is retired for integration.)
+- **Rebase target = LOCAL `master`** (currently `dd226c4`), NOT `origin/master` — on
+  this box `origin/master` is STALE (`591e92c`). Local `master` is the live integration
+  line carrying DR-01/02/03 + blender-lab + dungeon-map batches. Builder briefs from
+  DR-08 say `git rebase master`. (DR-04/05/06 were built on the stale origin/master;
+  they rebase clean onto local master since their SHAs aren't yet on it.)
+- **DR-01/02/03 merged to master** (edi-ui: `b4f2eed` keystone, `bd3d99d` snaps;
+  master tip `dd226c4`). DR-04/05/06 reported to edi-ui for merge
+  (`~/dept-bus/drafting/replies/002-drafting-batch-DR04-06-ready.md`, tip `d3451d6`).
+
+## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
+edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
+handoff doc (conflict-free, department-specific) + `bus-hub`. This kills the
+cross-department rebase conflict on the shared LEDGER. **Amended rebase rule for the
+builder:** on a `docs/handoffs/LEDGER.md` conflict during `git rebase origin/master`,
+take MASTER's version and DROP our hunks (do NOT re-apply) — this is folded into builder
+briefs from DR-06 on. (Historical note: dept/drafting carries +33 LEDGER lines across 5
+pre-policy commits; the hub/edi-ui discard these at integration.)
+
 ## Gate log
 
 ### DR-01 transformGeometry — builder BRIEFED 2026-06-17
@@ -149,8 +171,49 @@
 - Brief: `~/dept-bus/edi-drafting/briefs/015-DR04-point-along-builder.md`. Deps none.
   Boundary spec-settled (pure op, Result idiom) → no reviewer gate up front.
 
+### DR-04 — CLOSED 2026-06-17 ✅ (SHA `4429a16`, 97/97 green)
+- `~/dept-bus/edi-drafting/replies/015-DR04-point-along-builder.md`.
+  `DraftingPointAlongResult` + `pointAlongEntity(geometry, distance, fromEnd)` in
+  `DraftingSnap.{h,cpp}` (line lerp / arc via distance·radius / polyline+polygon edge
+  walk; rejects overshoot/negative/non-finite/unsupported). Judgment calls accepted:
+  arc advances `sign(end−start)`; polygon `fromEnd` reverses the loop; distance==length
+  (±1e-9) lands on the far end. Reuses `distance`/`arcPointAtAngle` (no re-derived trig).
+- Follow-ups noted (not built, low priority): ConstructionLine + Spline support for
+  `pointAlongEntity` (cline trivial; spline needs sampled-curve arc length). DR-12
+  (array-along-curve) can fall back to the samplers for spline if it needs stationing.
+
+### DR-05 — circle through 3 / 2 points — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/016-DR05-derived-circle-builder.md`. Deps
+  none. New `DraftingDerived.{h,cpp}` (adds to `edi_drafting_core` sources). Boundary
+  spec-settled → no reviewer gate up front.
+
+### DR-05 — CLOSED 2026-06-17 ✅ (SHA `1dbbd4f`, 98/98 green)
+- `~/dept-bus/edi-drafting/replies/016-DR05-derived-circle-builder.md`. New
+  `DraftingDerived.{h,cpp}` (added to `edi_drafting_core`): `circleThroughThreePoints`
+  (branch-free determinant circumcenter, collinear/non-finite reject) +
+  `circleThroughTwoPoints` (diameter form, coincident reject). Epsilon 1e-9 on the
+  determinant (normalized 0..1 canvas space). File structured to grow for DR-06.
+
+### DR-06 — divide circle + inscribe N-gon/{n/k} star — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/017-DR06-inscribe-builder.md`. Deps DR-05 ✅.
+  Extends `DraftingDerived.{h,cpp}`. First builder brief carrying the LEDGER rebase
+  rule (policy 2026-06-17). Boundary spec-settled → no reviewer gate up front.
+
+### DR-06 — CLOSED 2026-06-17 ✅ (SHA `d3451d6`, 98/98 green)
+- `~/dept-bus/edi-drafting/replies/017-DR06-inscribe-builder.md`. `divideCirclePoints`
+  + `inscribeRegularPolygon` + `inscribeStarPolygon` extend `DraftingDerived`. {n/k}
+  validity fully enforced (`n≥5, 2≤step<n/2, gcd=1`; pentagram order `0,2,4,1,3`).
+  PolygonGeometry is implicitly closed (no flag); defensive `inscribableCircle` guard.
+  No LEDGER conflict. Snap/derived front (DR-02..06) complete.
+
+### DR-07 — chamfer two lines (op + CONTROLLER wiring) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/018-DR07-chamfer-builder.md`. Deps none.
+  FIRST controller-wiring slice of the bucket (mirrors the fillet path byte-for-byte).
+  **Plan: diff-audit after build** — controller atomicity + behavior-preservation of
+  the existing fillet/capture paths; if the pattern is clean, trust DR-08/09 more.
+
 ## Open questions / blockers
-- (none blocking — DR-04 in build)
+- (none blocking — DR-07 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

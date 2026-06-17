@@ -3578,6 +3578,70 @@ int main(int argc, char **argv)
         assert(!nonLine.isAwaitingPointCapture());
     }
 
+    // Chamfer verb: the angular sibling of fillet — select a line, pick the other
+    // line + corner; BOTH lines set back and a straight bevel is created (three
+    // objects from two) in ONE undo step. Pick-a-point's ChamferSecondLine consumer.
+    {
+        DrawingDocumentController chamferController;
+        chamferController.setSelectedToolId("line_tool");
+        chamferController.clickCanvasNormalized(0.3, 0.3);
+        chamferController.clickCanvasNormalized(0.8, 0.3); // horizontal arm
+        chamferController.clickCanvasNormalized(0.3, 0.3);
+        chamferController.clickCanvasNormalized(0.3, 0.8); // vertical arm
+        assert(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        chamferController.setSelectedToolId("select_move");
+        chamferController.clickCanvasNormalized(0.55, 0.3);
+        const QString targetId = chamferController.selectedObjectId();
+        assert(!targetId.isEmpty());
+
+        chamferController.setChamferSetback(0.1);
+        assert(nearlyEqual(chamferController.chamferSetback(), 0.1));
+        assert(chamferController.beginChamferSelectedLine());
+        assert(chamferController.isAwaitingPointCapture());
+        chamferController.clickCanvasNormalized(0.33, 0.5); // near the vertical line, in the corner
+        assert(!chamferController.isAwaitingPointCapture());
+
+        // Two set-back lines + one new bevel = 3 objects, and the bevel is a LINE.
+        const QVariantList objects = chamferController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 3);
+        int lineCount = 0;
+        for (const QVariant &v : objects) {
+            if (v.toMap().value("kind").toString() == QStringLiteral("line")) {
+                ++lineCount;
+            }
+        }
+        assert(lineCount == 3); // both arms + the bevel are all lines
+
+        // The whole chamfer (two trims + the bevel) is ONE undo step.
+        assert(chamferController.canUndo());
+        chamferController.undo();
+        assert(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        // A rejection (no second line) surfaces via edit_status, not a silent no-op.
+        DrawingDocumentController loneLine;
+        loneLine.setSelectedToolId("line_tool");
+        loneLine.clickCanvasNormalized(0.2, 0.2);
+        loneLine.clickCanvasNormalized(0.8, 0.2);
+        loneLine.setSelectedToolId("select_move");
+        loneLine.clickCanvasNormalized(0.5, 0.2);
+        assert(loneLine.beginChamferSelectedLine());
+        loneLine.clickCanvasNormalized(0.5, 0.5);
+        assert(!loneLine.isAwaitingPointCapture());
+        const QVariantMap status = loneLine.modelDocument().value("edit_status").toMap();
+        assert(status.value("ok").toBool() == false);
+        assert(status.value("mode").toString() == "chamfer");
+        assert(!status.value("message").toString().isEmpty());
+
+        // Chamfer refuses to arm when the selection is not a line.
+        DrawingDocumentController nonLineChamfer;
+        nonLineChamfer.setSelectedToolId("circle_tool");
+        nonLineChamfer.clickCanvasNormalized(0.5, 0.5);
+        nonLineChamfer.clickCanvasNormalized(0.6, 0.5);
+        assert(!nonLineChamfer.beginChamferSelectedLine());
+        assert(!nonLineChamfer.isAwaitingPointCapture());
+    }
+
     // Array failure paths: a user-reachable rejection (zero spacing) must
     // surface through edit_status, reclaim its minted serials, and a later
     // success must clear the stale status. Negative spacing must march the

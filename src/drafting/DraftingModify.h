@@ -51,4 +51,30 @@ DraftingFilletResult filletLines(const LineGeometry &line1,
                                  double radius,
                                  Point2D pick);
 
+struct DraftingChamferResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    // On success: the two lines trimmed/extended to their setback points, plus the
+    // straight bevel that joins them. Caller applies all three atomically.
+    LineGeometry line1;
+    LineGeometry line2;
+    LineGeometry bevel;
+
+    static DraftingChamferResult accepted(LineGeometry line1, LineGeometry line2, LineGeometry bevel);
+    static DraftingChamferResult rejected(DraftingResultCode code, std::string message);
+};
+
+// Bevel the corner between two lines — the angular sibling of filletLines: instead
+// of a tangent arc it sets each line back from the corner by setback1/setback2
+// along the line and joins those two setback points with a straight `bevel`. `pick`
+// selects which of the (up to four) corners — the bevel sits in the corner the pick
+// points at — and which other line. Rejects parallel/collinear lines, a
+// non-positive/non-finite setback, or a setback that overruns its line. Pure.
+DraftingChamferResult chamferLines(const LineGeometry &line1,
+                                   const LineGeometry &line2,
+                                   double setback1,
+                                   double setback2,
+                                   Point2D pick);
+
 } // namespace edi::drafting

@@ -337,6 +337,39 @@ DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &docu
 // angle at the center is acos(radius / |fromPoint-center|). The contacts therefore
 // sit at the center→fromPoint bearing ± that angle. Empty when fromPoint is inside
 // or on the circle (no external tangent) or the radius is degenerate.
+// Slack for "distance fits the path" comparisons (a distance equal to the length,
+// up to floating error, lands exactly on the far end rather than overshooting).
+constexpr double kPointAlongEpsilon = 0.000000001;
+
+// The point `distance` along an ordered traversal of points (each consecutive pair
+// is an edge). nullopt when distance overshoots the total walked length. A closed
+// shape passes its loop (vertices + first vertex) as the path.
+std::optional<Point2D> pointAlongPath(const std::vector<Point2D> &path, double distance)
+{
+    if (path.empty()) {
+        return std::nullopt;
+    }
+    if (distance <= kPointAlongEpsilon) {
+        return path.front();
+    }
+    double remaining = distance;
+    for (std::size_t i = 0; i + 1 < path.size(); ++i) {
+        const double segment = edi::drafting::distance(path[i], path[i + 1]);
+        if (segment <= 0.0) {
+            continue; // zero-length edge contributes nothing to walk
+        }
+        if (remaining <= segment + kPointAlongEpsilon) {
+            const double t = std::min(remaining / segment, 1.0);
+            return Point2D{
+                path[i].x + t * (path[i + 1].x - path[i].x),
+                path[i].y + t * (path[i + 1].y - path[i].y),
+            };
+        }
+        remaining -= segment;
+    }
+    return std::nullopt; // distance ran off the end of the path
+}
+
 std::vector<double> tangentContactAnglesDeg(Point2D center, double radius, Point2D fromPoint)
 {
     constexpr double pi = 3.14159265358979323846;
@@ -728,6 +761,101 @@ std::vector<DraftingSnapCandidate> relativeSnapCandidatesForDocument(const Draft
         }
     }
     return candidates;
+}
+
+DraftingPointAlongResult DraftingPointAlongResult::accepted(Point2D point)
+{
+    DraftingPointAlongResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.point = point;
+    return result;
+}
+
+DraftingPointAlongResult DraftingPointAlongResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingPointAlongResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+DraftingPointAlongResult pointAlongEntity(const DraftingGeometry &geometry, double distance, bool fromEnd)
+{
+    if (!std::isfinite(distance) || distance < 0.0) {
+        return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "distance must be finite and non-negative");
+    }
+
+    if (const auto *line = std::get_if<LineGeometry>(&geometry)) {
+        const Point2D start = fromEnd ? line->b : line->a;
+        const Point2D finish = fromEnd ? line->a : line->b;
+        const double length = edi::drafting::distance(start, finish);
+        if (distance > length + kPointAlongEpsilon) {
+            return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "distance exceeds line length");
+        }
+        if (length <= 0.0) {
+            return DraftingPointAlongResult::accepted(start); // zero-length line: the single point
+        }
+        const double t = std::min(distance / length, 1.0);
+        return DraftingPointAlongResult::accepted({start.x + t * (finish.x - start.x), start.y + t * (finish.y - start.y)});
+    }
+
+    if (const auto *arc = std::get_if<ArcGeometry>(&geometry)) {
+        constexpr double pi = 3.14159265358979323846;
+        if (!(arc->radius > 0.0)) {
+            return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "arc radius must be positive");
+        }
+        // Arc length = radius * |sweep in radians|; a typed distance maps to an
+        // angle by distance/radius (radians) — that is WHY the divide by radius:
+        // a longer radius sweeps fewer radians for the same walked distance.
+        const double sweepRad = (arc->endAngleDeg - arc->startAngleDeg) * pi / 180.0;
+        const double arcLength = arc->radius * std::abs(sweepRad);
+        if (distance > arcLength + kPointAlongEpsilon) {
+            return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "distance exceeds arc length");
+        }
+        const double deltaDeg = (distance / arc->radius) * 180.0 / pi;
+        // Advance in the direction of the sweep (start→end), or the reverse from
+        // the end. arcPointAtAngle owns the trig, so no sin/cos here.
+        const double direction = arc->endAngleDeg >= arc->startAngleDeg ? 1.0 : -1.0;
+        const double angleDeg = fromEnd
+            ? arc->endAngleDeg - direction * deltaDeg
+            : arc->startAngleDeg + direction * deltaDeg;
+        return DraftingPointAlongResult::accepted(arcPointAtAngle(arc->center, arc->radius, angleDeg));
+    }
+
+    if (const auto *polyline = std::get_if<PolylineGeometry>(&geometry)) {
+        if (polyline->vertices.size() < 2) {
+            return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "polyline requires at least two vertices");
+        }
+        std::vector<Point2D> path = polyline->vertices;
+        if (fromEnd) {
+            std::reverse(path.begin(), path.end());
+        }
+        if (const std::optional<Point2D> point = pointAlongPath(path, distance)) {
+            return DraftingPointAlongResult::accepted(*point);
+        }
+        return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "distance exceeds polyline length");
+    }
+
+    if (const auto *polygon = std::get_if<PolygonGeometry>(&geometry)) {
+        if (polygon->vertices.size() < 2) {
+            return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "polygon requires at least two vertices");
+        }
+        // A polygon is closed: append the first vertex so the loop's last edge
+        // (back→front) is walked too.
+        std::vector<Point2D> path = polygon->vertices;
+        path.push_back(polygon->vertices.front());
+        if (fromEnd) {
+            std::reverse(path.begin(), path.end());
+        }
+        if (const std::optional<Point2D> point = pointAlongPath(path, distance)) {
+            return DraftingPointAlongResult::accepted(*point);
+        }
+        return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "distance exceeds polygon length");
+    }
+
+    return DraftingPointAlongResult::rejected(DraftingResultCode::InvalidGeometry, "entity does not support point-along measurement");
 }
 
 DraftingSnapResult noneSnap(Point2D point)

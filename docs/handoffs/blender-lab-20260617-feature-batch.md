@@ -38,8 +38,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
 | BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
-| BL-08 | Follow-Me sweep op (→13) | L | builder done, reviewer audit | `2b54a9c` |
-| BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
+| BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
+| BL-09 | Taper-along-sweep param | M | builder briefed (+ BL-08 Python fold-in) | — |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
@@ -193,7 +193,19 @@ AddPrism carrier with an optional `path` (straight extrude when path empty = byt
 swept solid when present). Lower via resolved profile+path points; Python `_prism_world`
 branches. The heaviest L; arm-adder. Reviewer audit to follow.
 
+### BL-08 — SHIPPED 2026-06-17 (audit `replies/021`: SHIP, corners accept-v1)
+Both byte-identity guarantees reproduced (doric + empty-path prism; no existing golden
+touched); 13 sites filled; swept mesh well-formed at sharp corners (self-intersecting, not
+degenerate). **LOW finding folded into BL-09:** `parse_ops` lacks an explicit
+resolve-first refusal for raw `AddSweepProfile` (safe — refused as "unknown op type" — but
+inconsistent + unpinned); add a 4-line branch mirroring AddExtrudedProfile + a smoke pin.
+
+### BL-09 — builder briefed 2026-06-17
+Brief `briefs/022-bl09-taper.md`. `taperEnd`(1.0) field-add on AddSweepProfile + AddPrism
+(survives lowering), centroid-scale each swept loop; default 1.0 = swept golden
+byte-identical. PLUS the BL-08 Python refusal fold-in.
+
 ## Next
-- BL-08 (sweep, →13) → BL-09 (taper-on-sweep, dep BL-08) → **BL-11** (boolean, →14 + the
-  remapRecipeOpNameRefs exhaustive-visit hardening) → BL-10 (prism inset/normalOffset
-  field-add) → BL-15 (TOON, dep BL-05 ✓). Arm-adders (BL-08, BL-11) one at a time.
+- BL-09 (taper + fold-in) → **BL-11** (boolean, →14 + the remapRecipeOpNameRefs
+  exhaustive-visit hardening) → BL-10 (prism inset/normalOffset field-add) → BL-15 (TOON,
+  dep BL-05 ✓). BL-11 is the last arm-adder.

@@ -4094,5 +4094,66 @@ int main(int argc, char **argv)
         }
     }
 
+    // DM-10: region fill — arm a pick-a-point capture, then a click inside a room
+    // mints a filled Polygon of its footprint, auto-selected in one undo step.
+    {
+        edi::drafting::MapSpec spec;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.1, 0.1}; // canvas; footprint spans [0.1,0.4] in both axes
+        a.spec.width = 0.3;
+        a.spec.height = 0.3;
+        a.spec.wallThickness = 0.02;
+        spec.rooms.push_back(a);
+
+        DrawingDocumentController fillCtl;
+        assert(fillCtl.createMapFromSpec(spec, 0.02));
+        const int objectsAfterMap = static_cast<int>(fillCtl.draftingDocument().objects.size());
+        const std::uint64_t revAfterMap = fillCtl.draftingDocument().revision;
+
+        // Arming on a doc WITH rooms returns true, exposes the prompt, and does NOT
+        // touch the document (revision unchanged).
+        assert(fillCtl.beginRegionFillPick());
+        assert(fillCtl.isAwaitingPointCapture());
+        assert(fillCtl.pointCapturePrompt() == QStringLiteral("Click inside a room to fill"));
+        assert(fillCtl.draftingDocument().revision == revAfterMap);
+
+        // A click INSIDE the room footprint mints exactly one Polygon, filled
+        // (opacity > 0), auto-selected as the active object, revision bumped once,
+        // capture cleared.
+        fillCtl.clickCanvasNormalized(0.25, 0.25);
+        assert(!fillCtl.isAwaitingPointCapture()); // capture consumed
+        const auto &objs = fillCtl.draftingDocument().objects;
+        assert(static_cast<int>(objs.size()) == objectsAfterMap + 1);
+        const edi::drafting::DraftingObject &poly = objs.back();
+        assert(poly.kind == edi::drafting::DraftingShapeKind::Polygon);
+        assert(poly.fill.opacity > 0.0);
+        assert(fillCtl.draftingDocument().activeObjectId.has_value()
+               && *fillCtl.draftingDocument().activeObjectId == poly.id);
+        // The fill bumped the revision (it is one ATOMIC edit — createObjectsAndSelect
+        // brackets the create+select in a single beginEdit/commitEdit, so it collapses
+        // to ONE undo step, asserted below; the raw counter bumps per command).
+        assert(fillCtl.draftingDocument().revision > revAfterMap);
+        // Neutral: the fill carries NO ObjectRole (presentation only).
+        assert(poly.metadata.role == edi::drafting::ObjectRole::None);
+
+        // One undo removes the whole fill (the atomicity proof).
+        assert(fillCtl.undo());
+        assert(static_cast<int>(fillCtl.draftingDocument().objects.size()) == objectsAfterMap);
+
+        // Armed → click in OPEN SPACE → no object created, capture cleared, refusal
+        // surfaced (the document gains nothing).
+        assert(fillCtl.beginRegionFillPick());
+        const int before = static_cast<int>(fillCtl.draftingDocument().objects.size());
+        fillCtl.clickCanvasNormalized(0.9, 0.9); // outside the only room
+        assert(!fillCtl.isAwaitingPointCapture());
+        assert(static_cast<int>(fillCtl.draftingDocument().objects.size()) == before);
+
+        // Arming on an EMPTY-rooms document refuses (no dead prompt).
+        DrawingDocumentController emptyCtl;
+        assert(!emptyCtl.beginRegionFillPick());
+        assert(!emptyCtl.isAwaitingPointCapture());
+    }
+
     return 0;
 }

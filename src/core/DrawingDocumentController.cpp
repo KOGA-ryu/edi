@@ -7,6 +7,7 @@
 #include "drafting/DraftingAsciiMap.h"
 #include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingCorridor.h"
+#include "drafting/DraftingRegionFill.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingCalibration.h"
 #include "drafting/DraftingClipboard.h"
@@ -1800,6 +1801,57 @@ bool DrawingDocumentController::beginBlockInstancePick(const QString &blockId)
     return true;
 }
 
+bool DrawingDocumentController::beginRegionFillPick()
+{
+    // Require a target up front, exactly like beginBlockInstancePick: with no rooms,
+    // planRegionFill can never hit, so a "click inside a room to fill" prompt would be
+    // a dead end. Refuse the arm instead (the document stays untouched).
+    if (m_document.rooms.empty()) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::RegionFill,
+                                         QStringLiteral("Click inside a room to fill")};
+    emit pointerChanged(); // view state: the prompt appears, the document is untouched
+    return true;
+}
+
+bool DrawingDocumentController::fillEnclosedRegion(Point2D seed)
+{
+    const RegionFillPlan plan = planRegionFill(seed, m_document.rooms);
+    if (!plan.ok) {
+        // Open space (or a wall-bounded area with no room record): the documented
+        // no-op refusal — surface the prompt, create nothing, push no undo.
+        return finishEdit(QStringLiteral("fill"), QStringLiteral("region"), false, plan.code,
+                          QStringLiteral("click inside a room to fill"));
+    }
+
+    const int serialBefore = m_nextObjectSerial;
+    DraftingObjectBuildResult built = buildDraftingObject(
+        toStdString(nextObjectId(QStringLiteral("fill"), m_nextObjectSerial++)),
+        DraftingShapeKind::Polygon, PolygonGeometry{plan.ring});
+    if (!built.ok) {
+        m_nextObjectSerial = serialBefore;
+        return finishEdit(QStringLiteral("fill"), QStringLiteral("region"), false, built.code,
+                          drawing_core::qStringFromStdString(built.message));
+    }
+    built.object.bounds = computeBounds(built.object.geometry);
+    // Neutral PRESENTATION only: a visible floor tint (opacity > 0, default floor
+    // color). No ObjectRole, no region-type tag — the engine assigns meaning past
+    // Seam B; "floor color" is style, not a rule.
+    built.object.fill.opacity = 0.5;
+    built.object.fill.color = "#cdbfa3"; // warm stone floor, a neutral default
+
+    // create + auto-select in one undo step; activeObjectId becomes the new polygon
+    // (selectMany sets it). On a locked/missing target layer, reclaim and refuse.
+    if (!createObjectsAndSelect({std::move(built.object)})) {
+        m_nextObjectSerial = serialBefore;
+        return finishEdit(QStringLiteral("fill"), QStringLiteral("region"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("fill rejected: target layer is locked or missing"));
+    }
+    return true;
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring
@@ -1952,6 +2004,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::BlockInstance:
         placeBlockInstance(m_pendingBlockId, point.x, point.y);
+        break;
+    case PointCaptureIntent::RegionFill:
+        fillEnclosedRegion(point);
         break;
     }
     // The consumers emit modelChanged on success and on a surfaced failure, but

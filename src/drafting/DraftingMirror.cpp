@@ -2,7 +2,9 @@
 
 #include "drafting/DraftingGeometry.h"
 
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 namespace edi::drafting {
 namespace {
@@ -144,6 +146,68 @@ DraftingMirrorResult mirrorDraftingObject(
     }
     mirrored.bounds = computeBounds(mirrored.geometry);
     return DraftingMirrorResult::accepted(std::move(mirrored));
+}
+
+DraftingArrayResult kaleidoscopeMirror(
+    const DraftingObject &source,
+    const std::vector<DraftingObjectId> &newObjectIds,
+    Point2D center,
+    int axisCount)
+{
+    if (axisCount < 1) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "kaleidoscope needs at least one axis");
+    }
+    if (newObjectIds.size() != static_cast<std::size_t>(axisCount)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "kaleidoscope id count must equal the axis count");
+    }
+    if (!kindMatchesGeometry(source.kind, source.geometry)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+    // Gate on supportsMirror EXACTLY as mirrorDraftingObject does — the unsupported
+    // kinds (Arc, Ellipse, Polygon, Polyline, Guide, Text, Spline) reject here, so
+    // kaleidoscope never reflects a kind the canonical per-kind flip can't handle.
+    if (!supportsMirror(source.kind)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidSelectionTarget, "shape cannot be mirrored yet");
+    }
+    if (!isFinite(center)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "kaleidoscope centre must be finite");
+    }
+    std::unordered_set<DraftingObjectId> usedIds;
+    usedIds.reserve(newObjectIds.size());
+    for (const DraftingObjectId &id : newObjectIds) {
+        if (id.empty() || id == source.id || !usedIds.insert(id).second) {
+            return DraftingArrayResult::rejected(DraftingResultCode::DuplicateObjectId, "kaleidoscope object ids must be unique");
+        }
+    }
+
+    // Reflecting across the canonical horizontal axis THROUGH `center` (not the
+    // object's own bounds): a zero-size bounds at `center` makes mirrorPoint reflect
+    // about the line y = center.y. Reflection across an axis at angle θ is then this
+    // sandwiched between keystone rotations: rotate −θ (axis → horizontal), reflect,
+    // rotate +θ. mirrorGeometry supplies the per-kind orientation flip (e.g. a
+    // dimension's offset negates); transformGeometry supplies the rotation — no new
+    // angle math, so the result cannot diverge from the canonical reflection.
+    const Bounds2D centerBounds{center.x, center.y, 0.0, 0.0};
+    std::vector<DraftingObject> copies;
+    copies.reserve(newObjectIds.size());
+    for (int index = 0; index < axisCount; ++index) {
+        const double axisAngleDeg = static_cast<double>(index) * 180.0 / static_cast<double>(axisCount);
+        const DraftingGeometry aligned = transformGeometry(source.geometry, center, -axisAngleDeg, 1.0);
+        const DraftingGeometry reflected = mirrorGeometry(aligned, centerBounds, DraftingMirrorAxis::Horizontal);
+        DraftingObject object = source;
+        object.id = newObjectIds[static_cast<std::size_t>(index)];
+        object.geometry = transformGeometry(reflected, center, axisAngleDeg, 1.0);
+        object.metadata.toolProvenance = "kaleidoscope";
+        object.metadata.source = source.id;
+
+        const auto validation = validateDraftingObjectShape(object);
+        if (!validation.ok) {
+            return DraftingArrayResult::rejected(validation.code, validation.message);
+        }
+        object.bounds = computeBounds(object.geometry);
+        copies.push_back(std::move(object));
+    }
+    return DraftingArrayResult::accepted(std::move(copies));
 }
 
 } // namespace edi::drafting

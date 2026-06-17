@@ -1944,6 +1944,32 @@ bool DrawingDocumentController::runRotateCopiesAtCenter(Point2D center)
         });
 }
 
+bool DrawingDocumentController::beginKaleidoscopeCenterPick()
+{
+    // Same up-front "need a usable source" guard as the other centre picks; a
+    // different intent so the captured click runs the multi-axis mirror. The
+    // single-axis mirror verb (mirrorSelectedObject) is untouched.
+    const DraftingObject *source = activeObject(m_document);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::KaleidoscopeCenter,
+                                         QStringLiteral("Click to set the kaleidoscope centre")};
+    emit pointerChanged();
+    return true;
+}
+
+bool DrawingDocumentController::runKaleidoscopeAtCenter(Point2D center)
+{
+    // arrayCount() axes through the picked centre; same atomic one-undo array
+    // bracket + id-gen as the radial/rotate-copies paths. The op rejects an
+    // unsupported (non-mirrorable) source, surfaced through createArrayFromActiveObject.
+    return createArrayFromActiveObject(QStringLiteral("kaleidoscope"), m_arrayCount,
+        [center, this](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return kaleidoscopeMirror(source, newObjectIds, center, m_arrayCount);
+        });
+}
+
 QString DrawingDocumentController::pointCapturePrompt() const
 {
     return m_pointCapture ? m_pointCapture->prompt : QString();
@@ -2261,6 +2287,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::RotateCopiesCenter:
         runRotateCopiesAtCenter(point);
+        break;
+    case PointCaptureIntent::KaleidoscopeCenter:
+        runKaleidoscopeAtCenter(point);
         break;
     case PointCaptureIntent::TrimPoint:
         applyTrimAtPoint(point);

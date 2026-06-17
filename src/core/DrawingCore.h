@@ -39,6 +39,7 @@
 enum class PointCaptureIntent {
     RadialArrayCenter,
     RotateCopiesCenter, // like RadialArrayCenter, but each copy ROTATES to its spoke
+    KaleidoscopeCenter, // the click sets the centre of a multi-axis radial mirror
     TrimPoint,        // the click chooses which part of the selected line to trim away
     ExtendPoint,      // the click chooses which end of the selected line to extend
     FilletSecondLine, // the click picks the other line + the corner to round
@@ -228,6 +229,10 @@ public:
     bool beginRotateCopiesCenterPick();
     void setRotateCopiesTotalAngle(double totalAngleDeg);
     double rotateCopiesTotalAngle() const;
+    // Kaleidoscope: arms a centre pick; the captured click reflects the source
+    // across arrayCount() evenly spaced axes through that centre, one undo step.
+    // False when no editable source is selected. Single-axis mirror is unchanged.
+    bool beginKaleidoscopeCenterPick();
     // True while a pick-a-point capture is armed (the UI can show the prompt /
     // a crosshair cursor); pointCapturePrompt() is the text to display.
     bool isAwaitingPointCapture() const { return m_pointCapture.has_value(); }
@@ -443,6 +448,7 @@ private:
     // a plain argument, not controller state.
     bool runRadialArrayAtCenter(edi::drafting::Point2D center);
     bool runRotateCopiesAtCenter(edi::drafting::Point2D center);
+    bool runKaleidoscopeAtCenter(edi::drafting::Point2D center);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);

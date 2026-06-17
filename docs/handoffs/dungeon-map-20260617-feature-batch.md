@@ -46,8 +46,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-08 | Seam C round-trip regression test | W2 ←07 | ◻ batch-3 |
 | DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ◻ batch-4 |
 | DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ◻ batch-4 |
-| DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`) | W1 | ◻ batch-5 (reviewer boundary first) |
-| DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 |
+| DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ◻ batch-5 (boundary SETTLED) |
+| DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 (boundary SETTLED) |
 | DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
 | DM-11 | map browser content: shared read-only `deriveEdge(plug,room)` helper (sliver) | 🟦 W1 | ◻ assess (panel is edi-ui) |
 | DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ waits transformGeometry |
@@ -59,6 +59,36 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 - Read dispatch + DM bucket + surface spec. Rebased on master. Dispatched
   batch-1 (plug-flags spine DM-04/05/06) to builder + a region-fill reviewer
   boundary gate (DM-09/10) to reviewer in parallel.
+
+### Reviewer boundary — region fill (DM-09/10) — 2026-06-17 — edi-dungeon-map-reviewer (SETTLED YES)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/008-reviewer-region-fill-boundary.md`
+- **DISTINCT from drafting's DR-15** (DR-15 recolors a SELECTED object's
+  FillStyle; ours mints a NEW Polygon from a seed CLICK). No overlap, no hub
+  escalation — provided the builder holds to (a)/(b) and does NOT do (c).
+- **Algorithm: (a) room-footprint lookup for v1** (find the `DraftingMapRoom` whose
+  footprint contains the seed via `boundsContainsPoint`, emit its 4 corners as a
+  closed Polygon). **(b) general wall-loop trace PARKED** (forward-compat: add a
+  `walls` param later); **(c) closed-object containment REJECTED** (≈ DR-15).
+- **Home: `src/drafting/DraftingRegionFill.{h,cpp}` — NEW, wholly OURS** (map
+  domain — reads `DraftingMapRoom`). Test `tests/drafting_region_fill_tests.cpp`
+  in `tests/CMakeLists.txt`.
+- Signature: `RegionFillPlan planRegionFill(Point2D seed, const
+  std::vector<DraftingMapRoom>& rooms)`. Controller verb:
+  `PointCaptureIntent::RegionFill` + `beginRegionFillPick()` (REFUSE when
+  `m_document.rooms` empty) + `fillEnclosedRegion(Point2D)`, wired into the
+  `resolvePointCapture` switch (no default → exhaustiveness enforced).
+- **Neutral CONFIRMED:** emits a Polygon + `FillStyle` only; NO `ObjectRole`/tag.
+- v1 fidelity (documented): fills the AUTHORED footprint (ignores wall
+  half-thickness); a click with no containing room footprint = the no-op refusal.
+- **Note:** DM-09/10 reads `document.rooms`, which `createMapFromSpec` already
+  populates on map load (so it works pre-DM-07); DM-07 just makes it survive
+  save/reload. No hard dependency, but DM-07 (batch-3) lands before batch-5.
+- Cross-dept flag: `fillRegionButton` arming widget is edi-ui's — controller verb
+  is ours. Recorded for the hub.
+
+### Builder batch-5 (region fill DM-09/10) — QUEUED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/009-builder-region-fill.md` (written;
+  dispatch after batches 2–4 free the builder).
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

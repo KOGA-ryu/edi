@@ -43,8 +43,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
-| BL-13 | Craftsman nfold_star | S | builder briefed | — |
-| BL-14 | Named-recipe library + chaining | M | ready (no dep) | — |
+| BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
+| BL-14 | Named-recipe library + chaining | M | builder briefed | — |
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
 
 ## Gate log
@@ -160,7 +160,26 @@ tier; thickened petal a future refinement). Accepted on green gate — no risky 
 Brief `briefs/017-bl13-nfold-star.md`. Sibling craftsman to BL-12: an `{n/k}` star-prism
 (pure Python, no C++ arm), deterministic + coprime-guarded.
 
+### BL-13 — SHIPPED 2026-06-17 (additive, no gate)
+`nfold_star.py` {n/k} star-prism craftsman; `_resolve_k` coprime/clamp guard renders
+well-formed across every degenerate-k case (32v/18f, z-extent=height); doric untouched,
+ctest 99/99. Caps are 2n-gon non-convex star polygons (valid OBJ, fine for proof tier).
+Craftsmen pair (BL-12/13) complete.
+
+### BL-14 — builder briefed 2026-06-17
+Brief `briefs/018-bl14-library.md`. `appendRecipe` (binding-index re-offset + namespaced
+name-ref remap) + named-recipe library store, all in EXISTING files (no CMakeLists edit —
+that's edi-ui's). The File-menu "Append Ops Recipe…" chrome is edi-ui's (surface spec);
+we ship the free functions. Reviewer audit to follow (the binding/name remap is the joint).
+
+## CMakeLists constraint (recorded)
+`src/recipe` sources + tests are EXPLICITLY listed in `CMakeLists.txt` (edi-ui-owned,
+shared). New C++ source/test FILES would need a CMake edit = an edi-ui dependency/blocker.
+**Pattern: extend existing recipe source + test files** (RecipeOps/RecipeOpsStore/
+recipe_ops_tests) rather than add files. Only flag CMake to edi-ui if a new file is truly
+unavoidable.
+
 ## Next
-- BL-13 (nfold_star) → **BL-14** (named-recipe library + chaining, C++ free-functions, M)
-  → then the arm-adders: BL-08 (sweep, →13) and BL-11 (boolean, →14) serial, with
-  BL-09/BL-10 dependents, then BL-15 (TOON, dep BL-05 ✓).
+- BL-14 builder → reviewer audit (binding re-offset + name-ref remap correctness) → the
+  arm-adders BL-08 (sweep, →13) / BL-11 (boolean, →14) serial + BL-09/BL-10 dependents,
+  then BL-15 (TOON, dep BL-05 ✓).

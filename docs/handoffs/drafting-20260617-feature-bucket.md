@@ -73,9 +73,23 @@
   (Rectangle rule = center-anchor). dungeon-map will consume the corrected rule.
   Boundary settled — proceed and bus the green SHA.
 
+### DR-01 — SHIPPED 2026-06-17 (SHA `167768e`, 96/96 green) → diff-audit OPEN
+- Reply: `~/dept-bus/edi-drafting/replies/010-DR01-transformgeometry-builder.md`.
+  Ruling A implemented exactly (Rectangle center-anchor, orbit asserted on
+  computeBounds with the [-2,0]×[0,2] counterexample); other 13 arms per contract;
+  amendment-009 deltas 1–3 all in; rotation sense confirmed (no sin flip); deferred
+  Ellipse/Text follow-up flagged in comments. `cmake` clean; ctest 96/96
+  (`-E edi_shell_window_tests`); scan clean.
+- **Diff-audit OPEN** (cross-dept keystone — audit BEFORE busing so a bug doesn't
+  reach master/dungeon-map): brief `~/dept-bus/edi-drafting/briefs/011-DR01-audit-reviewer.md`.
+  Priority: the center-anchor correctness (assert on corners not stored origin), the
+  13 other arms, rotation sense, and whether the lossy Ellipse/Text limitation is
+  pinned by a DEDICATED assert (not masked by a self-cancelling round-trip).
+- On ACCEPT → `bus-hub drafting "transformGeometry landed 167768e"` to unblock
+  dungeon-map → open DR-02.
+
 ## Open questions / blockers
-- (none blocking — ruling A issued, builder shipping; hub asked to correct the
-  canonical contract's Rectangle rule)
+- (none blocking — DR-01 green, fast keystone audit in flight before the bus)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

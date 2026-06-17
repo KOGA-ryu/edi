@@ -3348,12 +3348,23 @@ bool DrawingDocumentController::transformBlockInstance(const QString &instanceId
         if (object == nullptr) {
             continue; // defensive — the group was just read from the same document
         }
+        // Cumulative: a second transform composes onto the first (90+45, 2*1.5).
+        const double newRotation = object->metadata.blockPlacement.rotationDeg + deltaRotationDeg;
+        const double newScale = object->metadata.blockPlacement.scale * scaleFactor;
+        // Guard the COMPOSED result, not just the inputs: a pathological-but-finite
+        // sequence (e.g. scale 1e200 then a 1e200 factor) overflows to inf. Refuse
+        // this member rather than write a non-finite scale — upholds the invariant
+        // that the block_placement codec never persists a non-finite value (and keeps
+        // transformGeometry off inf coords). The rest of the group still transforms
+        // atomically in this one undo bracket.
+        if (!std::isfinite(newScale) || newScale <= 0.0 || !std::isfinite(newRotation)) {
+            continue;
+        }
         const DraftingGeometry transformed =
             transformGeometry(object->geometry, center, deltaRotationDeg, scaleFactor);
         ObjectMetadata metadata = object->metadata;
-        // Cumulative: a second transform composes onto the first (90+45, 2*1.5).
-        metadata.blockPlacement.rotationDeg += deltaRotationDeg;
-        metadata.blockPlacement.scale *= scaleFactor;
+        metadata.blockPlacement.rotationDeg = newRotation;
+        metadata.blockPlacement.scale = newScale;
         applyDraftingCommand(m_document, UpdateGeometryCommand{memberId, DraftingGeometry{transformed}});
         applyDraftingCommand(m_document, UpdateMetadataCommand{memberId, std::move(metadata)});
     }

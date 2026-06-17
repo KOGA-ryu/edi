@@ -4365,6 +4365,55 @@ int main(int argc, char **argv)
         assert(nearlyEqual(placedRect(ctl).width, 0.4));
     }
 
+    // DM-15 hardening: a pathological-but-finite scale sequence must not compose to a
+    // non-finite value. A placement scale of 1e200 then a transform factor of 1e200
+    // overflows to inf; the member is REFUSED (skipped), so its metadata scale stays
+    // finite (1e200, not inf) — the codec never persists a non-finite value.
+    {
+        const auto placedRect = [](DrawingDocumentController &c) -> edi::drafting::RectangleGeometry {
+            for (const edi::drafting::DraftingObject &o : c.draftingDocument().objects) {
+                if (o.kind == edi::drafting::DraftingShapeKind::Rectangle
+                    && !o.metadata.blockPlacement.instanceId.empty()) {
+                    return std::get<edi::drafting::RectangleGeometry>(o.geometry);
+                }
+            }
+            assert(false && "no placed rectangle");
+            return {};
+        };
+
+        DrawingDocumentController ctl;
+        ctl.setSelectedToolId("rectangle_tool");
+        ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.clickCanvasNormalized(0.5, 0.5);
+        ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(ctl.defineBlockFromSelection("box"));
+        const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
+
+        // A huge-but-finite placement scale is accepted (finite, > 0).
+        ctl.setBlockPlacementScale(1e200);
+        assert(nearlyEqual(ctl.blockPlacementScale(), 1e200));
+        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        std::string instanceId;
+        for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+            if (!o.metadata.blockPlacement.instanceId.empty()) {
+                instanceId = o.metadata.blockPlacement.instanceId;
+            }
+        }
+        assert(!instanceId.empty());
+        assert(std::isfinite(ctl.draftingDocument().objects.back().metadata.blockPlacement.scale));
+
+        // 1e200 * 1e200 -> inf: the member is refused, leaving scale finite (1e200).
+        ctl.transformBlockInstance(QString::fromStdString(instanceId), 0.0, 1e200);
+        for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+            if (o.metadata.blockPlacement.instanceId == instanceId) {
+                assert(std::isfinite(o.metadata.blockPlacement.scale)); // never inf
+                assert(nearlyEqual(o.metadata.blockPlacement.scale, 1e200)); // unchanged
+            }
+        }
+        // The geometry stayed finite too (no inf coords written).
+        assert(std::isfinite(placedRect(ctl).width));
+    }
+
     // Seam C: createMapFromSpec records its rooms on the document (name + authored
     // footprint + material), atomically with the walls — one undo clears them all.
     {

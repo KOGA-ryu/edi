@@ -13,6 +13,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <limits>
@@ -3820,6 +3821,85 @@ int main(int argc, char **argv)
         assert(mapController.draftingDocument().objects.empty());
         assert(mapController.draftingDocument().plugs.empty());
         assert(mapController.draftingDocument().connections.empty());
+    }
+
+    // DM-03: interior features realize as ordinary tagged Point objects. The
+    // room-local AUTHORED-FEET offset is scaled by canvasPerAuthoredUnit and added
+    // to the room's CANVAS origin (the origin is not re-scaled).
+    {
+        edi::drafting::MapSpec map;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {1.0, 2.0}; // canvas units
+        a.spec.width = 0.4;
+        a.spec.height = 0.4;
+        a.spec.wallThickness = 0.02;
+        a.spec.features = {
+            {3.0, 4.0, "rubble", "cave_in"}, // 3,4 ft offset -> canvas +{0.06,0.08}
+            {5.0, 0.0, "statue", ""},         // 5,0 ft offset, no name
+        };
+        map.rooms = {a};
+
+        DrawingDocumentController featureController;
+        const double scale = 0.02; // canvas per authored foot
+        assert(featureController.createMapFromSpec(map, scale));
+        const edi::drafting::DraftingDocument &doc = featureController.draftingDocument();
+
+        int featureCount = 0;
+        bool sawRubble = false;
+        bool sawStatue = false;
+        for (const edi::drafting::DraftingObject &o : doc.objects) {
+            if (o.metadata.toolProvenance != "feature") {
+                continue;
+            }
+            ++featureCount;
+            assert(o.kind == edi::drafting::DraftingShapeKind::Point);
+            const auto tagHas = [&o](const std::string &t) {
+                return std::find(o.metadata.tags.begin(), o.metadata.tags.end(), t) != o.metadata.tags.end();
+            };
+            const auto point = std::get<edi::drafting::PointGeometry>(o.geometry).point;
+            if (tagHas("feature:rubble")) {
+                sawRubble = true;
+                assert(tagHas("name:cave_in"));     // named -> name:<name> tag
+                assert(nearlyEqual(point.x, 1.0 + 3.0 * scale)); // 1.06
+                assert(nearlyEqual(point.y, 2.0 + 4.0 * scale)); // 2.08
+            } else if (tagHas("feature:statue")) {
+                sawStatue = true;
+                // No name -> no name: tag, only the feature: tag.
+                assert(o.metadata.tags.size() == 1);
+                assert(nearlyEqual(point.x, 1.0 + 5.0 * scale)); // 1.10
+                assert(nearlyEqual(point.y, 2.0));               // y offset 0
+            }
+            // Neutral law: a feature carries NO ObjectRole.
+            assert(o.metadata.role == edi::drafting::ObjectRole::None);
+        }
+        assert(featureCount == 2 && sawRubble && sawStatue);
+
+        // Undo collapses the features with the rest of the map.
+        assert(featureController.undo());
+        assert(featureController.draftingDocument().objects.empty());
+    }
+
+    // DM-03: a room with NO features adds no extra objects (behavior unchanged).
+    {
+        edi::drafting::MapSpec map;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.0, 0.0};
+        a.spec.width = 0.4;
+        a.spec.height = 0.4;
+        a.spec.wallThickness = 0.02;
+        map.rooms = {a};
+
+        DrawingDocumentController plainController;
+        assert(plainController.createMapFromSpec(map));
+        int featureCount = 0;
+        for (const edi::drafting::DraftingObject &o : plainController.draftingDocument().objects) {
+            if (o.metadata.toolProvenance == "feature") {
+                ++featureCount;
+            }
+        }
+        assert(featureCount == 0); // no features authored -> no feature markers
     }
 
     // The wall tool's thickness option rides into the freshly drawn wall; an

@@ -2141,6 +2141,35 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         for (DraftingObject &object : planned.objects) {
             allObjects.push_back(std::move(object));
         }
+
+        // Interior point features: one ordinary Point object per RoomFeature. A
+        // feature is a free interior marker (no edge lock), so unlike a plug it has
+        // no graph record — it is just a tagged Point that rides the usual
+        // undo/persist/projection. POSITION: feature x,y are a room-local offset in
+        // AUTHORED FEET, while room.spec.origin is already in CANVAS units (the
+        // parser scaled it). So scale ONLY the offset by canvasPerAuthoredUnit and
+        // add it to the canvas origin — the same authored→canvas scale the rest of
+        // the map uses, applied at this single mint site (the canvas origin must NOT
+        // be re-scaled). NEUTRAL: the type rides as a `feature:<type>` tag (the
+        // open-vocabulary the inspector reads); a name, if any, rides as `name:<name>`
+        // (there is no display-name metadata field). No ObjectRole, no rule flag.
+        for (const edi::drafting::RoomFeature &feature : room.spec.features) {
+            const Point2D at{room.spec.origin.x + feature.x * canvasPerAuthoredUnit,
+                             room.spec.origin.y + feature.y * canvasPerAuthoredUnit};
+            DraftingObjectBuildResult marker = buildDraftingObject(
+                toStdString(nextObjectId(QStringLiteral("feature"), m_nextObjectSerial++)),
+                DraftingShapeKind::Point, PointGeometry{at});
+            if (!marker.ok) {
+                continue; // a Point never fails validation; defensive, like the door leaf
+            }
+            marker.object.bounds = computeBounds(marker.object.geometry);
+            marker.object.metadata.toolProvenance = "feature";
+            marker.object.metadata.tags = {"feature:" + feature.type};
+            if (!feature.name.empty()) {
+                marker.object.metadata.tags.push_back("name:" + feature.name);
+            }
+            allObjects.push_back(std::move(marker.object));
+        }
     }
 
     // Resolve cross-room connections to the minted plug ids (the parser already

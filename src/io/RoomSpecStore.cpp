@@ -2,12 +2,14 @@
 
 #include "formats/TomlReader.h"
 
+#include <cctype>
 #include <cstddef>
 #include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace edi::io {
 
@@ -17,6 +19,7 @@ using edi::drafting::MapSpec;
 using edi::drafting::NamedRoomSpec;
 using edi::drafting::RoomConnectionSpec;
 using edi::drafting::RoomEdge;
+using edi::drafting::RoomFeature;
 using edi::drafting::RoomOpening;
 using edi::drafting::RoomPlugSpec;
 using edi::drafting::RoomSpec;
@@ -51,6 +54,30 @@ std::string configString(const StaticConfig &config, const std::string &key, con
 bool hasKey(const StaticConfig &config, const std::string &key)
 {
     return config.find(key) != config.end();
+}
+
+// Split a neutral comma-separated tag list ("window, passes_light") into trimmed
+// tokens, dropping empties. Open vocabulary — no token is interpreted (mandate).
+std::vector<std::string> splitCommaTokens(const std::string &value)
+{
+    std::vector<std::string> tokens;
+    std::size_t start = 0;
+    while (start <= value.size()) {
+        const std::size_t comma = value.find(',', start);
+        const std::size_t end = comma == std::string::npos ? value.size() : comma;
+        std::size_t a = start;
+        std::size_t b = end;
+        while (a < b && std::isspace(static_cast<unsigned char>(value[a]))) ++a;
+        while (b > a && std::isspace(static_cast<unsigned char>(value[b - 1]))) --b;
+        if (b > a) {
+            tokens.push_back(value.substr(a, b - a));
+        }
+        if (comma == std::string::npos) {
+            break;
+        }
+        start = comma + 1;
+    }
+    return tokens;
 }
 
 std::optional<RoomEdge> edgeFromName(const std::string &name)
@@ -159,6 +186,7 @@ bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, doubl
             return false;
         }
         plug.type = configString(config, key + ".type", "door");
+        plug.flags = splitCommaTokens(configString(config, key + ".flags", ""));
         const std::string at = configString(config, key + ".at", "center");
         if (at == "center" || at.empty()) {
             plug.at = edgeLengthCanvas(spec, *edge) / 2.0;
@@ -177,6 +205,30 @@ bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, doubl
             plug.at = offset * canvasPerUnit;
         }
         spec.plugs.push_back(plug);
+    }
+    return true;
+}
+
+// Interior point features: a contiguous indexed list, exactly the plug/opening
+// dialect (room.feature.0.*, .1.*, … until the first absent index). The
+// discriminating key is `.type` — a feature is a neutral typed marker — so an
+// index with no `.type` ends the list. Unlike plugs/openings, x/y are NOT scaled
+// to canvas here: features are stored in AUTHORED FEET (room-local), and the
+// authoring controller applies the authored→canvas scale to the offset (see
+// RoomFeature's coordinate-frame note). edi assigns the type no meaning (mandate).
+bool parseRoomFeatures(const StaticConfig &config, const std::string &prefix, RoomSpec &spec)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = prefix + ".feature." + std::to_string(i);
+        if (!hasKey(config, key + ".type")) {
+            break;
+        }
+        RoomFeature feature;
+        feature.x = configDouble(config, key + ".x", 0.0);    // authored feet, NOT scaled
+        feature.y = configDouble(config, key + ".y", 0.0);    // (room-local offset from origin)
+        feature.type = configString(config, key + ".type", "");
+        feature.name = configString(config, key + ".name", "");
+        spec.features.push_back(feature);
     }
     return true;
 }
@@ -239,6 +291,7 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
     if (!parseRoomPlugs(config, "room", canvasPerUnit, spec, plugNames, out.message)) {
         return out;
     }
+    parseRoomFeatures(config, "room", spec);
 
     // Connections are edges between plugs, authored at MAP level (a connection can
     // span rooms). map.connection.<i>.{from,to,type}; stop at the first index with
@@ -318,6 +371,7 @@ MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUni
         if (!parseRoomPlugs(config, prefix, canvasPerUnit, spec, plugNames, out.message)) {
             return out;
         }
+        parseRoomFeatures(config, prefix, spec);
         plugsByRoom.emplace(name, std::move(plugNames));
         map.rooms.push_back({name, std::move(spec)});
     }

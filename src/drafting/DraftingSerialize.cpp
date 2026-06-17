@@ -587,13 +587,25 @@ std::optional<DraftingObject> readObject(const MsgPackValue &v, int documentVers
 
 MsgPackValue plugValue(const DraftingPlug &plug)
 {
-    return MsgPackValue::map({
+    std::vector<std::pair<std::string, MsgPackValue>> fields = {
         {"id", MsgPackValue::text(plug.id)},
         {"anchor_object_id", MsgPackValue::text(plug.anchorObjectId)},
         {"name", MsgPackValue::text(plug.name)},
         {"type", MsgPackValue::text(plug.type)},
         {"anchor", pointValue(plug.anchor)},
-    });
+    };
+    // Additive + tolerant, like wall_visual / asset_ref: emit `flags` ONLY when
+    // non-empty, so every plug authored before DM-05 stays byte-identical and the
+    // tolerant read below defaults a missing key to an empty vector. No version bump.
+    if (!plug.flags.empty()) {
+        std::vector<MsgPackValue> flagItems;
+        flagItems.reserve(plug.flags.size());
+        for (const std::string &flag : plug.flags) {
+            flagItems.push_back(MsgPackValue::text(flag));
+        }
+        fields.emplace_back("flags", MsgPackValue::array(std::move(flagItems)));
+    }
+    return MsgPackValue::map(std::move(fields));
 }
 
 DraftingPlug readPlug(const MsgPackValue &v)
@@ -603,6 +615,15 @@ DraftingPlug readPlug(const MsgPackValue &v)
     plug.anchorObjectId = asString(child(v, "anchor_object_id"), plug.anchorObjectId);
     plug.name = asString(child(v, "name"), plug.name);
     plug.type = asString(child(v, "type"), plug.type);
+    // Tolerant: a plug without `flags` (every file before DM-05) decodes to an empty
+    // vector — same shape as the `tags` read in readMetadata.
+    if (const MsgPackValue *flags = child(v, "flags"); flags && flags->type == MsgPackValue::Type::Array) {
+        for (const MsgPackValue &item : flags->arrayValue) {
+            if (item.type == MsgPackValue::Type::String) {
+                plug.flags.push_back(item.stringValue);
+            }
+        }
+    }
     plug.anchor = readPoint(child(v, "anchor"));
     return plug;
 }

@@ -178,6 +178,7 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         const auto &pb = b.plugs[i];
         assert(pa.id == pb.id && pa.anchorObjectId == pb.anchorObjectId);
         assert(pa.name == pb.name && pa.type == pb.type);
+        assert(pa.flags == pb.flags);
         assert(pa.anchor.x == pb.anchor.x && pa.anchor.y == pb.anchor.y);
     }
 
@@ -396,6 +397,7 @@ int main()
         north.anchorObjectId = "room.0";
         north.name = "north_doorway";
         north.type = "door";
+        north.flags = {"window", "passes_light"}; // DM-05: neutral tags round-trip
         north.anchor = {0.5, 0.25};
         graphDoc.plugs.push_back(north);
 
@@ -404,7 +406,7 @@ int main()
         east.anchorObjectId = "room.1";
         east.name = "east_portal";
         east.type = "portal";
-        east.anchor = {0.75, 0.5};
+        east.anchor = {0.75, 0.5}; // no flags: exercises emit-only-when-non-empty
         graphDoc.plugs.push_back(east);
 
         DraftingDeclaredConnection edge;
@@ -423,6 +425,30 @@ int main()
         assertDocumentsEqual(graphDoc, *decoded.value);
         assert(decoded.value->plugs.size() == 2);
         assert(decoded.value->connections.size() == 1);
+        // DM-05: flags survive the byte round-trip; the no-flags plug stays empty.
+        const std::vector<std::string> expectedFlags{"window", "passes_light"};
+        assert(decoded.value->plugs[0].flags == expectedFlags);
+        assert(decoded.value->plugs[1].flags.empty());
+        // No version bump — flags are additive-tolerant, like wall_visual / asset_ref.
+        assert(kDraftingDocumentVersion == 2);
+
+        // Additive-tolerant on the WRITE side too: a plug with no flags emits NO
+        // `flags` key at all (emit-when-non-empty), so a pre-DM-05 file is byte-equal.
+        MsgPackValue gv = draftingDocumentToValue(graphDoc);
+        for (const auto &entry : gv.mapValue) {
+            if (entry.first != "document") continue;
+            for (const auto &dm : entry.second.mapValue) {
+                if (dm.first != "plugs") continue;
+                const auto &plugArr = dm.second.arrayValue;
+                assert(plugArr.size() == 2);
+                bool firstHasFlags = false;
+                bool secondHasFlags = false;
+                for (const auto &kv : plugArr[0].mapValue) firstHasFlags |= (kv.first == "flags");
+                for (const auto &kv : plugArr[1].mapValue) secondHasFlags |= (kv.first == "flags");
+                assert(firstHasFlags);   // north carried flags
+                assert(!secondHasFlags); // east did not -> key absent entirely
+            }
+        }
 
         // Strip the graph keys to simulate a pre-graph file -> empty graph load.
         MsgPackValue value = draftingDocumentToValue(graphDoc);

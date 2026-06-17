@@ -99,15 +99,32 @@ void writeRoomRow(std::ostringstream &out, const std::string &name,
         << "\n";
 }
 
+// Join a plug's neutral flag tokens into the single `·`-separated run the TOON
+// `flags` column carries (Fork 2 ratified shape). Empty list -> empty string,
+// which the caller passes through cell() like any other cell. The middle dot is
+// chosen so the run is ONE cell with no comma/space, staying bare under cell().
+std::string joinFlags(const std::vector<std::string> &flags)
+{
+    std::string out;
+    for (std::size_t i = 0; i < flags.size(); ++i) {
+        if (i != 0) {
+            out += "·"; // U+00B7 MIDDLE DOT
+        }
+        out += flags[i];
+    }
+    return out;
+}
+
 void writePlugRow(std::ostringstream &out, const std::string &room,
                   const std::string &name, const std::string &edge,
-                  const std::string &type, bool connected)
+                  const std::string &type, bool connected, const std::string &flags)
 {
     out << "  " << cell(room)
         << "," << cell(name)
         << "," << edge // bare: edge tokens are always N/E/S/W/? — no delimiters
         << "," << cell(type)
         << "," << (connected ? "true" : "false")
+        << "," << cell(flags) // ·-joined neutral tags; empty -> "" via cell()
         << "\n";
 }
 
@@ -149,12 +166,13 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
     for (const auto &room : spec.rooms) {
         plugCount += room.spec.plugs.size();
     }
-    out << "plugs[" << plugCount << "]{room,name,edge,type,connected}:\n";
+    out << "plugs[" << plugCount << "]{room,name,edge,type,connected,flags}:\n";
     for (const auto &room : spec.rooms) {
         for (const auto &plug : room.spec.plugs) {
             const std::string type = plug.type.empty() ? "door" : plug.type;
             writePlugRow(out, room.name, plug.name, edgeName(plug.edge), type,
-                         connected.count(plugKey(room.name, plug.name)) > 0);
+                         connected.count(plugKey(room.name, plug.name)) > 0,
+                         joinFlags(plug.flags));
         }
     }
     out << "\n";
@@ -231,7 +249,7 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
         connectedPlugIds.insert(connection.plugA);
         connectedPlugIds.insert(connection.plugB);
     }
-    out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected}:\n";
+    out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
     for (const auto &plug : document.plugs) {
         const auto [roomName, plugName] = splitRoomPlug(plug.name);
         std::string edge = "?";
@@ -240,7 +258,7 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
         }
         const std::string type = plug.type.empty() ? "door" : plug.type;
         writePlugRow(out, roomName, plugName, edge, type,
-                     connectedPlugIds.count(plug.id) > 0);
+                     connectedPlugIds.count(plug.id) > 0, joinFlags(plug.flags));
     }
     out << "\n";
 

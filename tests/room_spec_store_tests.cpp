@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <string>
+#include <vector>
 
 using namespace edi::io;
 using edi::drafting::RoomEdge;
@@ -107,6 +108,51 @@ int main()
         assert(parsed.spec.plugs[1].name == "east_portal");
         assert(parsed.spec.plugs[1].type == "door");          // default
         assert(nearlyEqual(parsed.spec.plugs[1].at, 4.0));    // default center of E (height/2)
+        assert(parsed.spec.plugs[0].flags.empty());           // flags absent -> empty
+    }
+
+    // Plug flags: a neutral comma-separated open vocabulary. Whitespace around each
+    // token is trimmed and empty tokens are dropped; absent flags stay empty.
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.plug.0.edge = \"N\"\nroom.plug.0.name = \"win\"\nroom.plug.0.flags = \"window, passes_light ,, lit\"\n"
+            "room.plug.1.edge = \"S\"\nroom.plug.1.name = \"plain\"\n", // no flags key
+            1.0);
+        assert(parsed.ok);
+        assert(parsed.spec.plugs.size() == 2);
+        const std::vector<std::string> expected{"window", "passes_light", "lit"};
+        assert(parsed.spec.plugs[0].flags == expected); // trimmed, empty token dropped
+        assert(parsed.spec.plugs[1].flags.empty());     // absent -> empty
+    }
+
+    // Interior features parse as a contiguous indexed list keyed on `.type`. x/y
+    // stay in AUTHORED FEET (NOT scaled to canvas), room-local from the NW origin;
+    // contiguous indexing stops at the first gap; absent feature keys -> empty.
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml(
+            "room.width = \"10\"\nroom.height = \"8\"\n"
+            "room.feature.0.x = \"3\"\nroom.feature.0.y = \"4\"\nroom.feature.0.type = \"rubble\"\nroom.feature.0.name = \"cave_in\"\n"
+            "room.feature.1.x = \"5\"\nroom.feature.1.type = \"statue\"\n" // y + name default
+            "room.feature.3.type = \"orphan\"\n",                          // index 2 absent -> 3 not reached
+            0.02); // canvasPerUnit 0.02: proves x/y are NOT scaled by it
+        assert(parsed.ok);
+        assert(parsed.spec.features.size() == 2); // stops at the gap before index 3
+        assert(nearlyEqual(parsed.spec.features[0].x, 3.0)); // authored feet, unscaled
+        assert(nearlyEqual(parsed.spec.features[0].y, 4.0));
+        assert(parsed.spec.features[0].type == "rubble");
+        assert(parsed.spec.features[0].name == "cave_in");
+        assert(nearlyEqual(parsed.spec.features[1].x, 5.0));
+        assert(nearlyEqual(parsed.spec.features[1].y, 0.0)); // default
+        assert(parsed.spec.features[1].type == "statue");
+        assert(parsed.spec.features[1].name.empty());        // default
+    }
+
+    // A room with no feature keys -> empty features (behavior unchanged).
+    {
+        const RoomSpecParseResult parsed = parseRoomSpecToml("room.width = \"10\"\nroom.height = \"8\"\n", 1.0);
+        assert(parsed.ok);
+        assert(parsed.spec.features.empty());
     }
 
     // A plug without a name is rejected — it would be unreferenceable.

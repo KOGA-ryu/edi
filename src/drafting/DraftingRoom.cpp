@@ -171,6 +171,7 @@ DraftingRoomPlan planDraftingRoom(const RoomSpec &spec,
         placement.anchorObjectId = built.object.id;
         placement.name = plug.name;
         placement.type = plug.type;
+        placement.flags = plug.flags; // neutral tags ride through, exactly like `type`
         placement.anchor = at;
         placement.edge = plug.edge;
         plugs.push_back(std::move(placement));

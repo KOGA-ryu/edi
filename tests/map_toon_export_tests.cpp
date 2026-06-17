@@ -24,8 +24,8 @@ int main()
     a.spec.width = 10.0;
     a.spec.height = 5.0;
     a.spec.wallMaterial = "stone";
-    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::North, 0.0, "door1", ""});       // type defaults -> door
-    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::South, 0.0, "secret1", "secret"}); // dead-end
+    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::North, 0.0, "door1", "", {"window", "passes_light"}}); // type defaults -> door, carries flags
+    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::South, 0.0, "secret1", "secret"}); // dead-end, no flags
     spec.rooms.push_back(a);
 
     NamedRoomSpec b;
@@ -54,10 +54,10 @@ int main()
         "  a,\"1,2\",\"10,5\",stone\n"
         "  b,\"1,10\",\"8,6\",wood\n"
         "\n"
-        "plugs[3]{room,name,edge,type,connected}:\n"
-        "  a,door1,N,door,true\n"
-        "  a,secret1,S,secret,false\n"
-        "  b,in,N,door,true\n"
+        "plugs[3]{room,name,edge,type,connected,flags}:\n"
+        "  a,door1,N,door,true,window·passes_light\n"
+        "  a,secret1,S,secret,false,\"\"\n"
+        "  b,in,N,door,true,\"\"\n"
         "\n"
         "connections[1]{from,to,type}:\n"
         "  a.door1,b.in,corridor\n";
@@ -84,11 +84,12 @@ int main()
         DraftingPlug door;
         door.id = "plug_0001";
         door.name = "a.door";
+        door.flags = {"locked", "iron"}; // DM-06: flags column on the document overload
         door.anchor = {3.0, 2.0}; // on the N edge (y == origin.y)
         DraftingPlug exit;
         exit.id = "plug_0002";
         exit.name = "a.exit";
-        exit.anchor = {5.0, 5.0}; // on the E edge (x == origin.x + width)
+        exit.anchor = {5.0, 5.0}; // on the E edge (x == origin.x + width), no flags
         doc.plugs.push_back(door);
         doc.plugs.push_back(exit);
 
@@ -121,9 +122,9 @@ int main()
             "rooms[1]{name,origin,size,material}:\n"
             "  a,\"2,4\",\"8,12\",stone\n"
             "\n"
-            "plugs[2]{room,name,edge,type,connected}:\n"
-            "  a,door,N,door,true\n"
-            "  a,exit,E,door,true\n"
+            "plugs[2]{room,name,edge,type,connected,flags}:\n"
+            "  a,door,N,door,true,locked·iron\n"
+            "  a,exit,E,door,true,\"\"\n"
             "\n"
             "connections[1]{from,to,type}:\n"
             "  a.door,a.exit,corridor\n"
@@ -131,6 +132,51 @@ int main()
             "blocks[1]{room,asset,origin,scale,rotation}:\n"
             "  a,recipe.chair,\"6,8\",1,0\n";
         assert(docToon == expectedDoc);
+    }
+
+    // DM-08 export-fidelity (Seam C is not lossy vs Seam B for rooms). Build the SAME
+    // room two ways — an authored MapSpec (Seam B), and a DraftingDocument whose
+    // canvas coords divide by the stored scale back to those authored numbers
+    // (Seam C) — and assert the `rooms[...]` SECTION is byte-identical between the
+    // two exports. This is the edit-then-export fidelity contract: the document path
+    // (loaded → edited → saved → reloaded → exported) projects rooms with the same
+    // name + footprint + material the authored path emits. scale 0.5 is exact in
+    // binary, so authored(canvas) = canvas/0.5 recovers the integers exactly.
+    {
+        const double scale = 0.5;
+
+        MapSpec mspec;
+        NamedRoomSpec rr;
+        rr.name = "hall";
+        rr.spec.origin = {3.0, 4.0}; // authored feet (MapSpec export emits these directly)
+        rr.spec.width = 10.0;
+        rr.spec.height = 6.0;
+        rr.spec.wallMaterial = "stone";
+        mspec.rooms.push_back(rr);
+
+        DraftingDocument rdoc = makeDraftingDocument("rt");
+        rdoc.canvasPerAuthoredUnit = scale; // document stores CANVAS; export divides back
+        rdoc.rooms.push_back(DraftingMapRoom{
+            "hall", {3.0 * scale, 4.0 * scale}, 10.0 * scale, 6.0 * scale, "stone"});
+
+        // Slice out the `rooms[...]:` header + rows, up to the blank line that ends it.
+        const auto roomsSection = [](const std::string &toon) {
+            const std::size_t start = toon.find("rooms[");
+            assert(start != std::string::npos);
+            const std::size_t end = toon.find("\n\n", start);
+            return toon.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        };
+
+        const std::string specRooms = roomsSection(edi::io::exportMapToToon(mspec));
+        const std::string docRooms = roomsSection(edi::io::exportMapToToon(rdoc));
+        // Seam C agrees with Seam B for the rooms section, byte-for-byte.
+        assert(specRooms == docRooms);
+        // …and it actually carries the name + footprint + material (would fail if a
+        // field stopped projecting).
+        assert(docRooms.find("hall") != std::string::npos);
+        assert(docRooms.find("\"3,4\"") != std::string::npos);   // origin, authored
+        assert(docRooms.find("\"10,6\"") != std::string::npos);  // size, authored
+        assert(docRooms.find("stone") != std::string::npos);     // material
     }
 
     return 0;

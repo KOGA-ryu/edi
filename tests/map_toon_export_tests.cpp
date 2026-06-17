@@ -134,5 +134,50 @@ int main()
         assert(docToon == expectedDoc);
     }
 
+    // DM-08 export-fidelity (Seam C is not lossy vs Seam B for rooms). Build the SAME
+    // room two ways — an authored MapSpec (Seam B), and a DraftingDocument whose
+    // canvas coords divide by the stored scale back to those authored numbers
+    // (Seam C) — and assert the `rooms[...]` SECTION is byte-identical between the
+    // two exports. This is the edit-then-export fidelity contract: the document path
+    // (loaded → edited → saved → reloaded → exported) projects rooms with the same
+    // name + footprint + material the authored path emits. scale 0.5 is exact in
+    // binary, so authored(canvas) = canvas/0.5 recovers the integers exactly.
+    {
+        const double scale = 0.5;
+
+        MapSpec mspec;
+        NamedRoomSpec rr;
+        rr.name = "hall";
+        rr.spec.origin = {3.0, 4.0}; // authored feet (MapSpec export emits these directly)
+        rr.spec.width = 10.0;
+        rr.spec.height = 6.0;
+        rr.spec.wallMaterial = "stone";
+        mspec.rooms.push_back(rr);
+
+        DraftingDocument rdoc = makeDraftingDocument("rt");
+        rdoc.canvasPerAuthoredUnit = scale; // document stores CANVAS; export divides back
+        rdoc.rooms.push_back(DraftingMapRoom{
+            "hall", {3.0 * scale, 4.0 * scale}, 10.0 * scale, 6.0 * scale, "stone"});
+
+        // Slice out the `rooms[...]:` header + rows, up to the blank line that ends it.
+        const auto roomsSection = [](const std::string &toon) {
+            const std::size_t start = toon.find("rooms[");
+            assert(start != std::string::npos);
+            const std::size_t end = toon.find("\n\n", start);
+            return toon.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        };
+
+        const std::string specRooms = roomsSection(edi::io::exportMapToToon(mspec));
+        const std::string docRooms = roomsSection(edi::io::exportMapToToon(rdoc));
+        // Seam C agrees with Seam B for the rooms section, byte-for-byte.
+        assert(specRooms == docRooms);
+        // …and it actually carries the name + footprint + material (would fail if a
+        // field stopped projecting).
+        assert(docRooms.find("hall") != std::string::npos);
+        assert(docRooms.find("\"3,4\"") != std::string::npos);   // origin, authored
+        assert(docRooms.find("\"10,6\"") != std::string::npos);  // size, authored
+        assert(docRooms.find("stone") != std::string::npos);     // material
+    }
+
     return 0;
 }

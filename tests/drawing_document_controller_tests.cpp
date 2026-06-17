@@ -3,6 +3,7 @@
 
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingRoom.h"
+#include "drafting/DraftingSerialize.h"
 
 #include <QCoreApplication>
 #include <QSet>
@@ -4070,6 +4071,27 @@ int main(int argc, char **argv)
         assert(mapCtl.draftingDocument().rooms.empty());
         mapCtl.redo();
         assert(mapCtl.draftingDocument().rooms.size() == 2);
+
+        // DM-07/08 PERSISTENCE LEG: an EDITED document survives .edidraw save/reload
+        // with its rooms intact — the proof that Seam C reads rooms FROM the document
+        // (not the transient MapSpec). Encode to bytes, decode, and assert every
+        // room's name + footprint + material is byte-faithful. This is what would
+        // FAIL if mapRoomValue/readMapRoom ever dropped a field.
+        const edi::formats::ByteBuffer bytes =
+            edi::drafting::encodeDraftingDocument(mapCtl.draftingDocument());
+        const auto reloaded = edi::drafting::decodeDraftingDocument(bytes, "roundtrip");
+        assert(reloaded.ok && reloaded.value);
+        const auto &saved = mapCtl.draftingDocument().rooms;
+        const auto &back = reloaded.value->rooms;
+        assert(back.size() == saved.size() && back.size() == 2);
+        for (std::size_t i = 0; i < saved.size(); ++i) {
+            assert(back[i].name == saved[i].name);
+            assert(back[i].material == saved[i].material);
+            assert(nearlyEqual(back[i].origin.x, saved[i].origin.x));
+            assert(nearlyEqual(back[i].origin.y, saved[i].origin.y));
+            assert(nearlyEqual(back[i].width, saved[i].width));
+            assert(nearlyEqual(back[i].height, saved[i].height));
+        }
     }
 
     return 0;

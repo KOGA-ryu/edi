@@ -37,11 +37,11 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 
 | Task | What (my sliver) | Wave/dep | Status |
 | --- | --- | --- | --- |
-| DM-04 | plug flags: `DraftingPlug.flags` + `RoomPlugSpec` parse (comma-split) | W1 | ▶ batch-1 |
-| DM-05 | persist plug flags: additive `plugValue`/`readPlug`, no bump | W2 ←04 | ▶ batch-1 |
-| DM-06 | plug flags → TOON: `writePlugRow` `flags` column, both overloads | W3 ←05 | ▶ batch-1 |
-| DM-02 | interior features: `RoomSpec.features` data + parse | W1 | ◻ batch-2 |
-| DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ◻ batch-2 |
+| DM-04 | plug flags: `DraftingPlug.flags` + `RoomPlugSpec` parse (comma-split) | W1 | ✅ `29be7a7` |
+| DM-05 | persist plug flags: additive `plugValue`/`readPlug`, no bump | W2 ←04 | ✅ `620a3c2` |
+| DM-06 | plug flags → TOON: `writePlugRow` `flags` column, both overloads | W3 ←05 | ✅ `e429af5` |
+| DM-02 | interior features: `RoomSpec.features` data + parse | W1 | ▶ batch-2 |
+| DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ▶ batch-2 |
 | DM-07 | Seam C edited round-trip: store room footprint+name in `document.rooms` | W1 | ◻ batch-3 |
 | DM-08 | Seam C round-trip regression test | W2 ←07 | ◻ batch-3 |
 | DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ◻ batch-4 |
@@ -89,6 +89,24 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 ### Builder batch-5 (region fill DM-09/10) — QUEUED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/009-builder-region-fill.md` (written;
   dispatch after batches 2–4 free the builder).
+
+### Builder batch-1 (plug-flags DM-04/05/06) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/007-builder-plug-flags-spine.md`
+- Commits `29be7a7`/`620a3c2`/`e429af5`. Gate GREEN 95/95, scan clean, snapshot
+  identical, export rooms[12]/plugs[26]/connections[12]. Neutral law honored
+  (`flags` = bare `vector<string>`); additive codec, NO bump (v2); TOON golden
+  re-blessed (new `flags` column, empty→`""`). Builder resolved: `RoomPlugPlacement`
+  is the mint carrier (mirrored `type`); `splitCommaTokens` file-local helper.
+- Noted (not built): connections could carry the same neutral flags vocabulary
+  symmetrically — out of scope, parked.
+
+### Reviewer diff-audit of batch-1 — DISPATCHED (parallel with batch-2)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/010-reviewer-batch1-audit.md`
+- Focus the charter's risky joints: the additive MessagePack codec (DM-05
+  tolerance + no-bump) + neutral-document discipline + the TOON wire shape.
+
+### Builder batch-2 (interior features DM-02/03) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/011-builder-interior-features.md`
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

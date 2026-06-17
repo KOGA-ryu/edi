@@ -55,6 +55,51 @@ DraftingArrayResult buildTranslatedCopies(
     return DraftingArrayResult::accepted(std::move(copies));
 }
 
+// The rotating sibling of buildTranslatedCopies: each copy is TRANSFORMED (rotated
+// about `center` by its spoke angle, scale 1.0) rather than merely translated, so
+// the geometry itself turns with the fan. Same clone/re-id/validate/bounds
+// mechanics; the per-copy difference is data (a vector of angles in degrees).
+DraftingArrayResult buildRotatedCopies(
+    const DraftingObject &source,
+    const std::vector<DraftingObjectId> &newObjectIds,
+    Point2D center,
+    const std::vector<double> &anglesDeg,
+    const char *provenance)
+{
+    if (!kindMatchesGeometry(source.kind, source.geometry)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::KindGeometryMismatch, "shape kind does not match geometry");
+    }
+    std::unordered_set<DraftingObjectId> usedIds;
+    usedIds.reserve(newObjectIds.size());
+    for (const DraftingObjectId &id : newObjectIds) {
+        if (id.empty() || id == source.id || !usedIds.insert(id).second) {
+            return DraftingArrayResult::rejected(DraftingResultCode::DuplicateObjectId, "array object ids must be unique");
+        }
+    }
+
+    std::vector<DraftingObject> copies;
+    copies.reserve(newObjectIds.size());
+    for (std::size_t index = 0; index < newObjectIds.size(); ++index) {
+        DraftingObject object = source;
+        object.id = newObjectIds[index];
+        // transformGeometry rotates EVERY point about center, so the copy both
+        // orbits onto its spoke (its bounds centre lands where the radial array
+        // would place it) AND rotates in place (a rectangle's rotationDeg += angle).
+        object.geometry = transformGeometry(source.geometry, center, anglesDeg[index], 1.0);
+        object.metadata.toolProvenance = provenance;
+        object.metadata.source = source.id;
+
+        const auto validation = validateDraftingObjectShape(object);
+        if (!validation.ok) {
+            return DraftingArrayResult::rejected(validation.code, validation.message);
+        }
+        object.bounds = computeBounds(object.geometry);
+        copies.push_back(std::move(object));
+    }
+
+    return DraftingArrayResult::accepted(std::move(copies));
+}
+
 } // namespace
 
 DraftingArrayResult DraftingArrayResult::accepted(std::vector<DraftingObject> objects)
@@ -210,6 +255,39 @@ DraftingArrayResult radialArrayDraftingObject(
         offsets.push_back({center.x + rotatedX - reference.x, center.y + rotatedY - reference.y});
     }
     return buildTranslatedCopies(source, newObjectIds, offsets, "radial_array");
+}
+
+DraftingArrayResult rotateCopiesDraftingObject(
+    const DraftingObject &source,
+    const std::vector<DraftingObjectId> &newObjectIds,
+    Point2D center,
+    double totalAngleDeg)
+{
+    if (newObjectIds.empty()) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "rotate-copies requires at least one copy");
+    }
+    if (!std::isfinite(center.x) || !std::isfinite(center.y) || !std::isfinite(totalAngleDeg)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "rotate-copies centre and angle must be finite");
+    }
+    if (std::holds_alternative<GuideGeometry>(source.geometry)) {
+        // transformGeometry leaves a guide unchanged (an infinite axis-aligned line
+        // cannot rotate about a pivot), so every copy would be identical — reject,
+        // as the radial array does for the analogous stacking reason.
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "rotate-copies does not support guides");
+    }
+
+    // Same arm distribution as radialArrayDraftingObject: the fan is divided evenly
+    // among the copies PLUS the source, so the step is totalAngle / (copies + 1) and
+    // copy i sits at step*(i+1). totalAngle = 360 reproduces the radial ring exactly
+    // (copy angles 360/(copies+1) * (i+1)); the only difference is the copy ALSO
+    // rotates by that angle.
+    const std::size_t slots = newObjectIds.size() + 1;
+    std::vector<double> anglesDeg;
+    anglesDeg.reserve(newObjectIds.size());
+    for (std::size_t index = 0; index < newObjectIds.size(); ++index) {
+        anglesDeg.push_back(totalAngleDeg * static_cast<double>(index + 1) / static_cast<double>(slots));
+    }
+    return buildRotatedCopies(source, newObjectIds, center, anglesDeg, "rotate_copies");
 }
 
 } // namespace edi::drafting

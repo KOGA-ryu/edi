@@ -3454,6 +3454,48 @@ int main(int argc, char **argv)
         assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
+    // Rotate-copies rosette: the rotating sibling intent. Arming + the captured
+    // centre makes m_arrayCount copies in ONE undo step (the op test covers the
+    // per-spoke rotation; here we verify the controller wiring runs and orbits).
+    {
+        const double centerX = 0.5;
+        const double centerY = 0.5;
+        DrawingDocumentController rosette;
+        rosette.setSelectedToolId("circle_tool");
+        rosette.setFixedRadius(0.02);
+        rosette.clickCanvasNormalized(centerX - 0.2, centerY);
+        rosette.clickCanvasNormalized(centerX - 0.2, centerY); // fixed radius: sizes on a same-point click
+        assert(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        rosette.setSelectedToolId("select_move");
+        rosette.clickCanvasNormalized(centerX - 0.2, centerY); // reselect the source
+        rosette.setArrayCount(3);
+        rosette.setRotateCopiesTotalAngle(360.0);
+        assert(nearlyEqual(rosette.rotateCopiesTotalAngle(), 360.0));
+        assert(rosette.beginRotateCopiesCenterPick());
+        assert(rosette.isAwaitingPointCapture());
+        rosette.clickCanvasNormalized(centerX, centerY); // sets the rosette centre
+        assert(!rosette.isAwaitingPointCapture());
+
+        QVariantList objs = rosette.modelDocument().value("drawing_objects").toList();
+        assert(objs.size() == 4); // source + 3 rotated copies
+        for (int i = 1; i < objs.size(); ++i) {
+            QVariantMap copy = objs[i].toMap();
+            const double dx = copy.value("cx").toDouble() - centerX;
+            const double dy = copy.value("cy").toDouble() - centerY;
+            assert(nearlyEqual(std::hypot(dx, dy), 0.2)); // each copy orbits the ring
+        }
+        // ONE undo step removes all copies.
+        assert(rosette.canUndo());
+        rosette.undo();
+        assert(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Refuses to arm with nothing selected.
+        DrawingDocumentController emptyRosette;
+        assert(!emptyRosette.beginRotateCopiesCenterPick());
+        assert(!emptyRosette.isAwaitingPointCapture());
+    }
+
     // Trim verb: a line trimmed back to where another line crosses it, the
     // doomed side chosen by the captured click — pick-a-point's SECOND consumer
     // end-to-end (a different intent down the same capture path).

@@ -244,8 +244,27 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   controller pattern. **Carries the FIRST big rebase onto local `master`** (across 3
   depts' merged work) as STEP 0, + the chamfer min-bevel guard.
 
+### DR-08 — CLOSED 2026-06-17 ✅ (SHA `e309f25`, 98/98 green) — validated-pattern reuse
+- Reply: `~/dept-bus/edi-drafting/replies/020-DR08-extend-builder.md`. Big rebase onto
+  local `master` replayed CLEAN (DR-01..07 dropped as already-applied; no LEDGER/CMake
+  conflict). Post-rebase gate green BEFORE building. Then: chamfer shallow-corner guard
+  (Part A, closes the DR-07 audit note; reject when bevel ≤ 1e-6), `extendLineToBoundary`
+  (Part B, mirror of trim — target treated infinite, boundary as segment, nearest
+  crossing beyond the picked end), controller `ExtendPoint` verb (Part C, single
+  `applyCommandAndEmit`, pointer-capture-before-apply). Existing paths byte-unchanged.
+  (98 vs master's 99 = the box `-E`'s the edi-ui shell golden test.)
+- **Observed on master:** H2 `DraftingMapTypes.h` extraction has LANDED (dungeon-map);
+  map structs reach `DraftingDocument.h` transitively — no action our side. Arch doc §6
+  updated.
+- Reported DR-08 (`e309f25`) to edi-ui to pull.
+
+### DR-09 — break/divide line or polyline (op + controller) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/021-DR09-break-builder.md`. Deps none. Atomic
+  2-object edit (UpdateGeometry original→first + CreateObject second) — reuses the
+  validated controller pattern (like chamfer's atomic bracket). Lighter scrutiny.
+
 ## Open questions / blockers
-- (none blocking — DR-08 in build; merges flow to edi-ui as it pulls)
+- (none blocking — DR-09 in build; DR-08 reported to edi-ui)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

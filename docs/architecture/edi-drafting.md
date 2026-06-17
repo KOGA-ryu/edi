@@ -181,10 +181,11 @@ one-document data model stays.
   are co-edited **by REGION, not by file**: drafting edits CORE regions, dungeon-map
   edits MAP regions, neither touches the other's region (disjoint lines → clean
   master merges). The `highestDocumentIdSerial` map-id scan is a MAP region.
-- **dungeon-map's pending behavior-preserving slice:** extract the map struct/enum
-  DEFINITIONS into a dungeon-map-owned `DraftingMapTypes.h` (included by
-  `DraftingTypes.h`/`DraftingDocument.h`); the document KEEPS its vectors — only the
-  definitions move. Shrinks the shared-edit surface to the include line + the vectors.
+- **dungeon-map's behavior-preserving slice — LANDED on master (2026-06-17):** the map
+  struct/enum DEFINITIONS now live in a dungeon-map-owned `DraftingMapTypes.h`, included
+  by `DraftingTypes.h`/`DraftingDocument.h`; the document KEEPS its vectors — only the
+  definitions moved. The shared-edit surface is now the include line + the vectors. Map
+  structs reach our files transitively (no drafting-side change was needed).
 
 Map-specific citations (dungeon-map's region; listed so we know what NOT to touch):
   - Types in `DraftingTypes.h`: `DraftingPlugId`/`DraftingConnectionId` (:18-19),

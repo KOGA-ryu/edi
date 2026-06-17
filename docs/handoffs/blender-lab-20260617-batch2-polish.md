@@ -40,7 +40,13 @@ internals); RD2's CLI verb is edi-ui's (flag).
 Rebased `dept/blender-lab` onto master (b5f9d86, carries dungeon-map DM-01..15). Clean,
 30 ahead. Full gate green: build clean, ctest 101/101, 4 OBJ goldens byte-identical.
 
-### P1 — builder briefed 2026-06-17 (in flight)
+### P1 — SHIPPED 2026-06-17 (`730f6bc`, green-gate accepted)
+sweep×screw `helix_ignores_partial_sweep` non-fatal Warning in `checkLatheParams` (both
+ops); `assert_manifold` smoke helper applied to full+partial revolve + straight prism
+(codifies BL-06's hand-check); helix ribbon + swept excluded (documented). ctest 101/101,
+4 OBJ byte-identical, no golden change → green gate is the proof. Accepted.
+
+### P2 — builder briefed 2026-06-17
 
 ### RD3 — SHIPPED 2026-06-17 (`09cb3bb`, docs-only)
 `docs/craftsmen-authoring.md` — the M4 teaching doc (three-part contract, pure proof_mesh,

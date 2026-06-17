@@ -10,9 +10,8 @@ update it when a gate opens, advances, blocks, or closes.
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..10 on master @281e93a; DR-10 rotate-copies = first SURFACED op → edi-ui chrome owed; DR-11 opens on confirm) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
-| ui-20260617-master-integration | edi-ui | builder | open (master integration line + chrome bucket) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
+| ui-20260617-master-integration | edi-ui | builder (chrome batch opening) | open — look-forks SETTLED (DR-10 toggle-in-Repeat-fold, DM-10 inspector fill button, DM-14 Left-panel spins). Chrome queue: DR-10 rosette, DM-10 region-fill, DM-14/15 block transform, DM-01 auto-fit, DM-11 map-browser sections (+co-bless map golden) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
 | blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (BL-01/03/04 merged to master @0041783; rebase + next batch) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
-| dungeon-map-20260617-feature-batch | edi-dungeon-map | builder→edi-ui chrome | FEATURE-COMPLETE on master @7487f52 (DM-01..15, full batch); remaining = edi-ui chrome slice (DM-11 map-browser sections + DM-01 auto-fit + DM-14/15 surfaces, co-bless map golden) | [docs/handoffs/dungeon-map-20260617-feature-batch.md](dungeon-map-20260617-feature-batch.md) | edi-dungeon-map-planner |
 
 ## Conventions
 
@@ -36,3 +35,4 @@ boundary.)_
 | drafting-20260616-cartography | [docs/closeouts/drafting-cartography.md](../closeouts/drafting-cartography.md) | 2026-06-16 |
 | dungeon-map-20260616-cartography | [docs/closeouts/h2-src-drafting-map-boundary.md](../closeouts/h2-src-drafting-map-boundary.md) | 2026-06-16 |
 | blender-lab-20260616-cartography | [docs/closeouts/blender-lab-cartography.md](../closeouts/blender-lab-cartography.md) | 2026-06-16 |
+| dungeon-map-20260617-feature-batch | [docs/closeouts/dungeon-map-20260617-feature-batch.md](../closeouts/dungeon-map-20260617-feature-batch.md) | 2026-06-17 |

@@ -39,9 +39,9 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
-| BL-09 | Taper-along-sweep param | M | builder briefed (+ BL-08 Python fold-in) | — |
+| BL-09 | Taper-along-sweep param | M | **SHIPPED** (planner spot-check: clean) | `159d77b` |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
-| BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
+| BL-11 | Solid boolean op (→14) | L | builder briefed (+ remap hardening) | — |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
 | BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
@@ -205,7 +205,19 @@ Brief `briefs/022-bl09-taper.md`. `taperEnd`(1.0) field-add on AddSweepProfile +
 (survives lowering), centroid-scale each swept loop; default 1.0 = swept golden
 byte-identical. PLUS the BL-08 Python refusal fold-in.
 
+### BL-09 — SHIPPED 2026-06-17 (planner spot-check, no reviewer gate)
+Taper field-add (BL-06/07 pattern, 3rd of its kind). Spot-checked directly: both goldens
+gained ONLY `op.0.taper_end="1"`; swept OBJ reproduced byte-identical; taper math correct
+(lerp by path-length about the centroid, identity-guarded at 1.0); BL-08 Python refusal
+fold-in present + pinned. Lower-risk proven pattern → accepted on green gate + spot-check.
+
+### BL-11 — builder briefed 2026-06-17
+Brief `briefs/023-bl11-boolean.md`. New `AddBooleanOp` arm (→14, the LAST arm-adder),
+targets a/b by NAME like CutFlutes, BooleanKind enum, proof emits operands (CSG is
+bpy-only). PLUS the reviewer's fold-in: `remapRecipeOpNameRefs` → exhaustive `std::visit`
+with AddBoolean a/b joining it. Reviewer audit to follow.
+
 ## Next
-- BL-09 (taper + fold-in) → **BL-11** (boolean, →14 + the remapRecipeOpNameRefs
-  exhaustive-visit hardening) → BL-10 (prism inset/normalOffset field-add) → BL-15 (TOON,
-  dep BL-05 ✓). BL-11 is the last arm-adder.
+- BL-11 (boolean →14 + remap hardening) → BL-10 (prism inset/normalOffset field-add) →
+  BL-15 (TOON, dep BL-05 ✓). After BL-11 NO more arm-adders — variant settles at 14.
+- Batch end: closeout + final arch-doc anchor sweep (deferred during the batch).

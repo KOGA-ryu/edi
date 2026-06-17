@@ -9,7 +9,7 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..07 on master @f53b00b; DR-08 extend-to-boundary in flight, rebases on master) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
+| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..08 on master @9e9a1ab; DR-09 break/divide in flight, rebases on master) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
 | ui-20260617-master-integration | edi-ui | builder | open (master integration line + chrome bucket) | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
 | blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (BL-01/03/04 merged to master @0041783; rebase + next batch) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
 | dungeon-map-20260617-feature-batch | edi-dungeon-map | builder | open (DM-02..13 + region-fill on master @9ebfb7f; DM-14/15 building on top; DM-01/DM-11 chrome slivers → edi-ui) | [docs/handoffs/dungeon-map-20260617-feature-batch.md](dungeon-map-20260617-feature-batch.md) | edi-dungeon-map-planner |

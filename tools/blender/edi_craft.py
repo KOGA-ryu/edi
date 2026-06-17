@@ -344,6 +344,10 @@ def parse_ops(path: str) -> list[dict]:
                 y=_number(op_key, fields, consumed, "y", 0.0),
                 vertices=_integer(op_key, fields, consumed, "vertices", 96),
                 material=_material(op_key, fields, consumed),
+                # BL-06: partial-angle revolve, 360 = full (today's default).
+                # AddRevolvedProfile is refused-before-build on this side, so only
+                # the lowered AddMoulding carries the swept arc into the mesh.
+                sweep_degrees=_number(op_key, fields, consumed, "sweep_degrees", 360.0),
             )
         elif op_type == "AddPrism":
             # The lowered prism carrier (BL-03/04): a closed planar footprint
@@ -543,24 +547,68 @@ def cylinder_loft(op: dict) -> tuple[list, list]:
 
 def moulding_rings(op: dict) -> tuple[list, list]:
     """Local (verts, faces) for a moulding — the profile spun as stacked rings,
-    shared by build()'s add_moulding and the OBJ proof."""
+    shared by build()'s add_moulding and the OBJ proof.
+
+    BL-06: sweep_degrees controls how much arc the rings span. At the default
+    360 this is the FULL revolve — byte-identical to before (vertices points at
+    tau*i/vertices, the ring wraps via (i+1)%vertices, no radial seam). Below
+    360 the rings span only that arc (vertices points over [0, sweep], no wrap)
+    and the two RADIAL open ends — the angle-0 and angle-sweep cross-sections —
+    are capped so a partial revolve is a closed solid, not an open shell."""
     vertices = max(4, op["vertices"])
+    sweep = op.get("sweep_degrees", 360.0)
+    nrings = len(op["profile"])
     verts: list = []
     faces: list = []
+
+    if sweep >= 360.0:
+        # Full revolve — UNCHANGED from before (the doric golden's byte path).
+        for point in op["profile"]:
+            rr = max(0.001, point["radius"])
+            for index in range(vertices):
+                angle = math.tau * index / vertices
+                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
+        for ring in range(nrings - 1):
+            current = ring * vertices
+            nxt_ring = (ring + 1) * vertices
+            for index in range(vertices):
+                nxt = (index + 1) % vertices
+                faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
+        faces.append(list(range(vertices - 1, -1, -1)))
+        top_start = (nrings - 1) * vertices
+        faces.append(list(range(top_start, top_start + vertices)))
+        return verts, faces
+
+    # Partial revolve: vertices points span [0, sweep] inclusive, so there are
+    # vertices-1 segments per ring and NO wrap (the ring is an open arc). A
+    # partial sweep is a "cake slice" solid, so it also needs the ROTATION AXIS
+    # spine — one center vertex (radius 0) per ring — to close the end caps and
+    # the radial faces. (A full revolve wraps shut and never needs the axis.)
+    arc = math.radians(sweep)
     for point in op["profile"]:
         rr = max(0.001, point["radius"])
         for index in range(vertices):
-            angle = math.tau * index / vertices
+            angle = arc * index / (vertices - 1)
             verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
-    for ring in range(len(op["profile"]) - 1):
+    axis_base = nrings * vertices            # the axis verts start after the arc verts
+    for point in op["profile"]:
+        verts.append((0.0, 0.0, point["z"])) # center of this ring, on the spin axis
+    for ring in range(nrings - 1):
         current = ring * vertices
         nxt_ring = (ring + 1) * vertices
-        for index in range(vertices):
-            nxt = (index + 1) % vertices
-            faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
-    faces.append(list(range(vertices - 1, -1, -1)))
-    top_start = (len(op["profile"]) - 1) * vertices
-    faces.append(list(range(top_start, top_start + vertices)))
+        for index in range(vertices - 1):    # no wrap — the arc is open
+            faces.append([current + index, current + index + 1,
+                          nxt_ring + index + 1, nxt_ring + index])
+    # The bottom and top caps are SECTOR fans from the axis center to the arc.
+    faces.append([axis_base] + list(range(0, vertices)))                       # bottom sector
+    top = (nrings - 1) * vertices
+    faces.append([axis_base + (nrings - 1)] + list(range(top + vertices - 1, top - 1, -1)))  # top sector
+    # The two radial end caps — the profile cross-section at angle 0 and at
+    # angle sweep: up the profile, back down the axis spine (a closed 2N loop).
+    faces.append([ring * vertices for ring in range(nrings)]
+                 + [axis_base + ring for ring in range(nrings - 1, -1, -1)])         # angle 0
+    faces.append([ring * vertices + (vertices - 1) for ring in range(nrings - 1, -1, -1)]
+                 + [axis_base + ring for ring in range(nrings)])                     # angle sweep
     return verts, faces
 
 

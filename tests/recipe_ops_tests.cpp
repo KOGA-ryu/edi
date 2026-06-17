@@ -1418,5 +1418,73 @@ int main()
         assert(negReport.ok);
     }
 
+    // ---- BL-06: partial-angle revolve sweepDegrees — a numeric field on BOTH
+    // the lathe and the moulding it lowers to (it must survive lowering), with
+    // 360 as the behavior-preserving default. Round-trip, default, validate
+    // bounds (0, 360], and the bind affordance, on both ops. ----
+    {
+        // Default 360 round-trips and is the parsed default when the key is
+        // absent (a pre-BL-06 file stays a full revolve).
+        AddMouldingOp m;
+        m.name = "full.band";
+        m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
+        assert(near(m.sweepDegrees, 360.0)); // struct default
+        RecipeOpStream ms;
+        ms.ops.push_back(m);
+        const OpStreamTextResult mw = recipeOpsToToml(ms);
+        assert(mw.ok);
+        assert(mw.text.find("op.0.sweep_degrees = \"360\"") != std::string::npos);
+        const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
+        assert(mBack != nullptr && near(mBack->sweepDegrees, 360.0));
+
+        // A non-default sweep round-trips on the lathe.
+        AddRevolvedProfileOp lathe;
+        lathe.name = "niche";
+        lathe.profile = "arch_profile";
+        lathe.sweepDegrees = 180.0;
+        RecipeOpStream ls;
+        ls.ops.push_back(lathe);
+        const OpStreamTextResult lw = recipeOpsToToml(ls);
+        assert(lw.ok && lw.text.find("op.0.sweep_degrees = \"180\"") != std::string::npos);
+        const auto *lBack = std::get_if<AddRevolvedProfileOp>(&recipeOpsFromToml(lw.text, "l").stream.ops[0]);
+        assert(lBack != nullptr && near(lBack->sweepDegrees, 180.0));
+
+        // An absent key parses to the 360 default (the byte-preserving guarantee
+        // for any pre-BL-06 hand file).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddRevolvedProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        assert(near(std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0])->sweepDegrees, 360.0));
+
+        // Validate refuses 0 / negative / > 360 by name, on BOTH ops.
+        const auto sawBadSweep = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_sweep_degrees") return true;
+            }
+            return false;
+        };
+        AddMouldingOp zero = m; zero.sweepDegrees = 0.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{zero}})));
+        AddMouldingOp over = m; over.sweepDegrees = 361.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{over}})));
+        AddRevolvedProfileOp neg; neg.name = "n"; neg.profile = "p"; neg.sweepDegrees = -90.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{neg}})));
+        // The boundary 360 is allowed (full revolve); 180 is allowed.
+        AddMouldingOp ok360 = m; ok360.sweepDegrees = 360.0;
+        assert(!sawBadSweep(validateRecipeOps({RecipeOp{ok360}})));
+
+        // The bind affordance: sweep_degrees is a bindable Number on both ops
+        // (a drafted angle could drive it) — consistent with how the reader
+        // reads it (bindableNumber) and the inspector surfaces it.
+        assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, "sweep_degrees"));
+        assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, "sweep_degrees"));
+        RecipeOp probe = RecipeOp{AddMouldingOp{}};
+        assert(setOpFieldValue(probe, "sweep_degrees", 90.0));
+        assert(near(std::get_if<AddMouldingOp>(&probe)->sweepDegrees, 90.0));
+    }
+
     return 0;
 }

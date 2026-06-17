@@ -126,6 +126,7 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
         lowered.y = revolved->y;
         lowered.vertices = revolved->vertices;
         lowered.material = revolved->material;
+        lowered.sweepDegrees = revolved->sweepDegrees; // BL-06: the arc survives lowering
         lowered.profile.reserve(points.size());
         for (std::size_t point = 0; point < points.size(); ++point) {
             char term[16];

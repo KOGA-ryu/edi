@@ -113,6 +113,7 @@ struct OpWriter {
         put("y", op.y);
         put("vertices", op.vertices);
         put("material", op.material);
+        put("sweep_degrees", op.sweepDegrees);
         for (std::size_t i = 0; i < op.profile.size(); ++i) {
             const std::string pointPrefix = prefix + ".profile." + std::to_string(i);
             config[pointPrefix + ".term"] = op.profile[i].term;
@@ -178,6 +179,7 @@ struct OpWriter {
         put("y", op.y);
         put("vertices", op.vertices);
         put("material", op.material);
+        put("sweep_degrees", op.sweepDegrees);
     }
 
     void operator()(const AddExtrudedProfileOp &op) const
@@ -750,6 +752,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)
                 || !readMouldingPoints(reader, prefix, op.profile)) {
                 result.message = reader.error;
                 return result;
@@ -796,7 +799,8 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
-                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)) {
                 result.message = reader.error;
                 return result;
             }

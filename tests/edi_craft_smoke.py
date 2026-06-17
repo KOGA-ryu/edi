@@ -181,6 +181,28 @@ def main() -> int:
     assert max(prism_zs) - min(prism_zs) == 3.0, "prism z-extent must equal the op height (3)"
     assert prism_obj.count("\nf ") == 8, "prism face count drifted (2 caps + 6 sides)"
 
+    # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
+    # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)
+    # and the two radial open ends are capped, so it is a closed solid, not a
+    # shell. A full revolve (the default 360) keeps the original face topology.
+    # (N=2 rings, V=8 verts/ring: full = (N-1)*V wall + 2 z-caps = 10 faces;
+    # partial = (N-1)*(V-1) wall + 2 z-caps + 2 radial caps = 11 faces.)
+    def moulding(sweep):
+        return {"type": "AddMoulding", "name": "band", "base_z": 0.0, "x": 0.0, "y": 0.0,
+                "vertices": 8, "material": "stone", "sweep_degrees": sweep,
+                "profile": [{"term": "a", "z": 0.0, "radius": 1.0},
+                            {"term": "b", "z": 1.0, "radius": 1.0}]}
+    full_verts, full_faces = edi_craft.moulding_rings(moulding(360.0))
+    part_verts, part_faces = edi_craft.moulding_rings(moulding(180.0))
+    assert len(full_faces) == 10, f"full-revolve face topology drifted: {len(full_faces)}"
+    assert len(part_faces) == 11, f"partial-revolve face count: {len(part_faces)}"
+    assert part_faces != full_faces, "a <360 sweep must change the mesh"
+    # Well-formed: every face index references a real vertex, both meshes.
+    for verts, faces in ((full_verts, full_faces), (part_verts, part_faces)):
+        for face in faces:
+            assert all(0 <= i < len(verts) for i in face), "face references a missing vertex"
+            assert len(face) >= 3, "degenerate face"
+
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a
     # Script op renders in the proof through the craftsman's proof_mesh.

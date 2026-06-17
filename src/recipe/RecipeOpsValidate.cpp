@@ -27,6 +27,17 @@ void checkMaterial(std::vector<OpFinding> &findings, const std::string &name, co
     }
 }
 
+// BL-06: a revolve sweeps an arc in (0, 360]. 360 is the full ring (the
+// default); 0 or negative makes no solid, and > 360 over-winds — both refused
+// by name. Shared by the lathe and the moulding it lowers to.
+void checkSweep(std::vector<OpFinding> &findings, const std::string &name, double sweepDegrees)
+{
+    if (sweepDegrees <= 0 || sweepDegrees > 360) {
+        add(findings, Severity::Error, "bad_sweep_degrees",
+            name + " sweep must be in (0, 360].");
+    }
+}
+
 // The per-op checks, v0 codes and wording preserved. A visitor over the
 // variant — the same dispatch shape the drafting commands use.
 struct OpChecker {
@@ -118,6 +129,7 @@ struct OpChecker {
                     op.name + " profile z values must rise in order.");
             }
         }
+        checkSweep(findings, op.name, op.sweepDegrees);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -138,6 +150,7 @@ struct OpChecker {
             add(findings, Severity::Warning, "low_revolved_profile_vertices",
                 op.name + " has low vertex count: " + std::to_string(op.vertices));
         }
+        checkSweep(findings, op.name, op.sweepDegrees);
         checkMaterial(findings, op.name, op.material);
     }
 

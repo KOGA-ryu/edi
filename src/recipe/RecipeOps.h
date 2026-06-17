@@ -100,6 +100,10 @@ struct AddMouldingOp {
     double y = 0.0;
     int vertices = 96;
     std::string material = "stone";
+    // BL-06: how many degrees of arc the ring set sweeps. 360 = a full
+    // revolve (today's behavior, the byte-preserving default); < 360 is a
+    // partial revolve (arch / apse niche), capped at both open ends.
+    double sweepDegrees = 360.0;
 };
 
 // One planar footprint vertex, physical x/y in the drawing plane.
@@ -153,6 +157,10 @@ struct AddRevolvedProfileOp {
     double y = 0.0;
     int vertices = 96;
     std::string material = "stone";
+    // BL-06: partial-angle revolve (arch / apse niche). 360 = full revolve
+    // (the behavior-preserving default). SURVIVES lowering — copied onto the
+    // AddMouldingOp this lowers to, since the build runs on the moulding.
+    double sweepDegrees = 360.0;
 };
 
 // The extrude, op-vocabulary native (BL-01): like the lathe a REFERENCE to a

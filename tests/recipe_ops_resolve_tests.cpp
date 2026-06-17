@@ -668,6 +668,24 @@ int main()
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
         assert(lowered != nullptr);
         assert(near(lowered->height, -2.5)); // the negative depth survived into the carrier
+    }
+
+    // ---- BL-06: a partial-revolve sweepDegrees on the lathe SURVIVES lowering
+    // onto the AddMoulding it becomes (the build runs on the moulding, so the
+    // arc must travel with it). ----
+    {
+        RecipeOpStream s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "apse.niche";
+        lathe.profile = "shaft";
+        lathe.sweepDegrees = 180.0; // a half revolve — an arch/apse niche
+        s.ops.push_back(lathe);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->sweepDegrees, 180.0)); // the chosen arc travelled into the carrier
+        assert(validateRecipeOps(r.stream.ops).ok);
         // The lowered prism also validates (negative prism height is allowed)
         // and carries no zero-height finding.
         const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);

@@ -250,6 +250,48 @@ int main()
         const LineGeometry shortH{{0.0, 0.0}, {0.2, 0.0}};
         assert(!chamferLines(shortH, vv, 0.3, 0.1, {0.5, 0.5}).ok);
     }
+    {
+        // Near-0° wedge: the two lines meet at a vanishingly shallow angle (not
+        // parallel — lineIntersection still finds a vertex), so the bevel collapses
+        // to ~nothing. Reject "too shallow" rather than commit a degenerate bevel.
+        const LineGeometry h{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry almost{{0.0, 0.0}, {1.0, 0.0000004}}; // slope 4e-7
+        const DraftingChamferResult r = chamferLines(h, almost, 0.3, 0.3, {0.5, 0.25});
+        assert(!r.ok);
+        assert(r.code == DraftingResultCode::InvalidGeometry);
+        assert(r.message == "chamfer corner too shallow");
+    }
+
+    // --- extendLineToBoundary --------------------------------------------
+    {
+        // A short horizontal line extends its b-end (nearer the pick) to where its
+        // extension meets a perpendicular boundary at x = 1.
+        const LineGeometry target{{0.0, 0.0}, {0.5, 0.0}};
+        const LineGeometry boundary{{1.0, -1.0}, {1.0, 1.0}};
+        const DraftingExtendResult r = extendLineToBoundary(target, {boundary}, {0.6, 0.0});
+        assert(r.ok);
+        assert(pointNear(r.geometry.a, 0.0, 0.0)); // anchor end unchanged
+        assert(pointNear(r.geometry.b, 1.0, 0.0)); // b extended to the boundary
+    }
+    {
+        // Picking near the a-end extends the a-end to a boundary on that side.
+        const LineGeometry target{{0.0, 0.0}, {0.5, 0.0}};
+        const LineGeometry boundary{{-0.5, -1.0}, {-0.5, 1.0}};
+        const DraftingExtendResult r = extendLineToBoundary(target, {boundary}, {-0.1, 0.0});
+        assert(r.ok);
+        assert(pointNear(r.geometry.a, -0.5, 0.0)); // a extended back to the boundary
+        assert(pointNear(r.geometry.b, 0.5, 0.0));  // b unchanged
+    }
+    {
+        // No boundary reaches the extension → reject. A parallel line never
+        // crosses; a boundary only on the OTHER side of the picked end is skipped.
+        const LineGeometry target{{0.0, 0.0}, {0.5, 0.0}};
+        const LineGeometry parallel{{0.0, 0.5}, {1.0, 0.5}};
+        assert(!extendLineToBoundary(target, {parallel}, {0.6, 0.0}).ok);
+        // Boundary at x=1 is on the b-side; picking the a-end finds nothing.
+        const LineGeometry boundary{{1.0, -1.0}, {1.0, 1.0}};
+        assert(!extendLineToBoundary(target, {boundary}, {-0.1, 0.0}).ok);
+    }
 
     return 0;
 }

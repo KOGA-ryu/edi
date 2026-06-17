@@ -220,10 +220,25 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   Did NOT consume transformGeometry (identity record only). On current tip (no rebase).
 - → Reviewer diff-audit dispatched (additive-codec joint).
 
-### Reviewer diff-audit of batch-4 — DISPATCHED (parallel with batch-5)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/014-reviewer-batch4-audit.md`
-- Focus: the `block_placement` additive codec (identity byte-identical + no-bump +
-  4 corners), float default-compare hazard, the export column mapping, neutral law.
+### Reviewer diff-audit of batch-4 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/014-reviewer-batch4-audit.md`
+- **batch-4 audit CLEAN.** Additive codec: `block_placement` map appends
+  `rotation_deg`/`scale` LAST only when non-default (existing 3 keys unshifted →
+  identity placement byte-identical to pre-DM-12); tolerant read (absent⇒0/1); no
+  bump (v2). Float guard safe (`-0.0 == 0.0` so no spurious emit; no NaN path in
+  identity plumbing). Export mapping correct (scale=col4, rotation=col5; `%g`
+  identity = old `"1"`/`"0"` → golden legitimately UNCHANGED, not silent re-bless).
+  First-object-of-group sound (loop skips empty `instanceId`; FLATTEN shares
+  metadata). Neutral law honored; no `transformGeometry` call (only a comment); no
+  scope-creep.
+- **DM-14 REQUIREMENT (carry into the DM-14 brief — NOTE 2):** the exact-compare
+  emit guard means a computed transform landing exactly on 0/1 is (correctly)
+  omitted as identity — fine. BUT DM-14 must ensure computed rotation/scale are
+  **never NaN** (NaN != 0/1 ⇒ would spuriously emit + is invalid geometry). Validate
+  before writing.
+- **Closeout note (NOTE 1):** the DM-12 "four corners" = 3 executed + 1
+  (old-reads-new) contract-guaranteed by unknown-key-ignore, not an in-tree fixture
+  (same as batch-1's DM-05 note).
 
 ### Builder batch-5 (region fill DM-09/10) — DISPATCHED (on current tip, NO rebase)
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/009-builder-region-fill.md` (rebase

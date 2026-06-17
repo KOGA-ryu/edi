@@ -344,6 +344,51 @@ std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
     blockLayout->addWidget(m_blockList);
     refreshBlockPalette();
 
+    // DM-14 placement transform: rotation + scale spins directly under the block
+    // list (the user-settled fork: Left "Blocks" palette, co-located with the
+    // click-to-stamp list, NOT the Right inspector). They are the placement
+    // parameters consumed by the next placeBlockInstance — the author dials the
+    // transform, then clicks a block row to stamp it rotated/scaled. The
+    // fillet-radius-spin pattern verbatim: value set from the controller at build,
+    // pushed back on the USER valueChanged signal. Defaults 0 deg / 1.0 preserve
+    // today's identity placement exactly.
+    {
+        auto *row = new QWidget;
+        auto *rowLayout = new QHBoxLayout(row);
+        clearLayoutMargins(rowLayout);
+        rowLayout->setSpacing(6);
+        rowLayout->addWidget(new QLabel(QStringLiteral("Rotation")));
+        m_blockRotationSpin = new QDoubleSpinBox;
+        m_blockRotationSpin->setObjectName(QStringLiteral("blockRotationSpin"));
+        m_blockRotationSpin->setDecimals(1);
+        m_blockRotationSpin->setSingleStep(1.0);
+        m_blockRotationSpin->setRange(-360.0, 360.0);
+        m_blockRotationSpin->setValue(m_controller->blockPlacementRotation());
+        connect(m_blockRotationSpin, &QDoubleSpinBox::valueChanged, m_controller, [this](double deg) {
+            m_controller->setBlockPlacementRotation(deg);
+        });
+        rowLayout->addWidget(m_blockRotationSpin, 1);
+        blockLayout->addWidget(row);
+    }
+    {
+        auto *row = new QWidget;
+        auto *rowLayout = new QHBoxLayout(row);
+        clearLayoutMargins(rowLayout);
+        rowLayout->setSpacing(6);
+        rowLayout->addWidget(new QLabel(QStringLiteral("Scale")));
+        m_blockScaleSpin = new QDoubleSpinBox;
+        m_blockScaleSpin->setObjectName(QStringLiteral("blockScaleSpin"));
+        m_blockScaleSpin->setDecimals(3);
+        m_blockScaleSpin->setSingleStep(0.1);
+        m_blockScaleSpin->setRange(0.01, 100.0);
+        m_blockScaleSpin->setValue(m_controller->blockPlacementScale());
+        connect(m_blockScaleSpin, &QDoubleSpinBox::valueChanged, m_controller, [this](double factor) {
+            m_controller->setBlockPlacementScale(factor);
+        });
+        rowLayout->addWidget(m_blockScaleSpin, 1);
+        blockLayout->addWidget(row);
+    }
+
     return {
         {QStringLiteral("tool_belt"), QStringLiteral("Tools"), m_beltWidget},
         {QStringLiteral("block_palette"), QStringLiteral("Blocks"), blockPanel},

@@ -162,6 +162,11 @@ private:
     QLabel *m_objectListEmpty = nullptr;
     QListWidget *m_blockList = nullptr;
     QLineEdit *m_blockNameField = nullptr;
+    // DM-14: the per-placement transform for the NEXT stamped block. They bind to
+    // controller setters (setBlockPlacementRotation/Scale); the controller's next
+    // placeBlockInstance consumes them. Defaults 0 deg / 1.0 keep identity placement.
+    QDoubleSpinBox *m_blockRotationSpin = nullptr;
+    QDoubleSpinBox *m_blockScaleSpin = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QCheckBox *m_aspectLockToggle = nullptr;

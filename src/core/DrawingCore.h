@@ -38,6 +38,7 @@
 // "not armed" state, so the enum needs no None member.
 enum class PointCaptureIntent {
     RadialArrayCenter,
+    RotateCopiesCenter, // like RadialArrayCenter, but each copy ROTATES to its spoke
     TrimPoint,        // the click chooses which part of the selected line to trim away
     ExtendPoint,      // the click chooses which end of the selected line to extend
     FilletSecondLine, // the click picks the other line + the corner to round
@@ -213,6 +214,13 @@ public:
     // drawable centre. Returns false (and arms nothing) when no editable source
     // is selected. The captured click runs the array via runRadialArrayAtCenter.
     bool beginRadialArrayCenterPick();
+    // Rotate-copies rosette: the rotating sibling of the radial array. Arms a
+    // pick-a-point capture for the rosette centre; the captured click runs
+    // rotateCopiesDraftingObject (each copy rotated to its spoke). False when no
+    // editable source is selected. The total fan angle is rotateCopiesTotalAngle().
+    bool beginRotateCopiesCenterPick();
+    void setRotateCopiesTotalAngle(double totalAngleDeg);
+    double rotateCopiesTotalAngle() const;
     // True while a pick-a-point capture is armed (the UI can show the prompt /
     // a crosshair cursor); pointCapturePrompt() is the text to display.
     bool isAwaitingPointCapture() const { return m_pointCapture.has_value(); }
@@ -413,6 +421,7 @@ private:
     // centre (the only path today). Separated from the arming so the centre is
     // a plain argument, not controller state.
     bool runRadialArrayAtCenter(edi::drafting::Point2D center);
+    bool runRotateCopiesAtCenter(edi::drafting::Point2D center);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);
@@ -449,6 +458,7 @@ private:
     double m_wallThickness = 0.1; // wall tool option: band width at draw time
     double m_filletRadius = 0.05; // default rounding radius for the fillet verb
     double m_chamferSetback = 0.05; // default setback for the chamfer verb
+    double m_rotateCopiesTotalAngleDeg = 360.0; // default rotate-copies fan: a full ring
     // Array defaults match the retired hardcoded repeat (3 copies, 0.1
     // spacing) so the buttons behave identically until the spins are touched.
     int m_arrayCount = 3;

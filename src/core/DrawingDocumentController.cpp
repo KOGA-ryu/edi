@@ -1877,6 +1877,45 @@ bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
         });
 }
 
+bool DrawingDocumentController::beginRotateCopiesCenterPick()
+{
+    // The rotating sibling of beginRadialArrayCenterPick: same up-front "need a
+    // usable source" guard, a different intent so the captured click rotates the
+    // copies instead of only placing them.
+    const DraftingObject *source = activeObject(m_document);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::RotateCopiesCenter,
+                                         QStringLiteral("Click to set the rotate-copies centre")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::setRotateCopiesTotalAngle(double totalAngleDeg)
+{
+    // The fan angle the copies span. Clamp to a sensible non-zero range; an invalid
+    // value leaves the current angle untouched (like the fillet radius setter).
+    if (std::isfinite(totalAngleDeg) && std::abs(totalAngleDeg) >= 1.0) {
+        m_rotateCopiesTotalAngleDeg = std::clamp(totalAngleDeg, -360.0, 360.0);
+    }
+}
+
+double DrawingDocumentController::rotateCopiesTotalAngle() const
+{
+    return m_rotateCopiesTotalAngleDeg;
+}
+
+bool DrawingDocumentController::runRotateCopiesAtCenter(Point2D center)
+{
+    // Same atomic one-undo array bracket + copy count as the radial path; the only
+    // change is the rotating planner. m_arrayCount copies span m_rotateCopiesTotalAngleDeg.
+    return createArrayFromActiveObject(QStringLiteral("rotate-copies"), m_arrayCount,
+        [center, this](const DraftingObject &source, const std::vector<DraftingObjectId> &newObjectIds) {
+            return rotateCopiesDraftingObject(source, newObjectIds, center, m_rotateCopiesTotalAngleDeg);
+        });
+}
+
 QString DrawingDocumentController::pointCapturePrompt() const
 {
     return m_pointCapture ? m_pointCapture->prompt : QString();
@@ -2191,6 +2230,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
     switch (intent) {
     case PointCaptureIntent::RadialArrayCenter:
         runRadialArrayAtCenter(point);
+        break;
+    case PointCaptureIntent::RotateCopiesCenter:
+        runRotateCopiesAtCenter(point);
         break;
     case PointCaptureIntent::TrimPoint:
         applyTrimAtPoint(point);

@@ -263,8 +263,30 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   2-object edit (UpdateGeometry original→first + CreateObject second) — reuses the
   validated controller pattern (like chamfer's atomic bracket). Lighter scrutiny.
 
+- **MERGED (edi-ui):** DR-08 on master @`9e9a1ab` (100/100). DR-09 reported next.
+
+### DR-09 — CLOSED 2026-06-17 ✅ (SHA `d1d1501`, 99/99 green) — validated-pattern reuse
+- Reply: `~/dept-bus/edi-drafting/replies/021-DR09-break-builder.md`. Rebase clean.
+  `breakGeometryAtPoint` (Line clamped-foot split; Polyline segment split with the vertex
+  in BOTH halves; near-endpoint epsilon 1e-6 on whole-shape ends only; unsupported reject)
+  + `BreakPoint` controller verb (chamfer atomic 2-object pattern: UpdateGeometry original
+  + CreateObject piece, id/layer/style/kind captured before the bracket). Existing paths
+  byte-unchanged.
+- **RATIFIED convention (planner):** selection-after-edit is PER-VERB by what the user
+  most likely wants next — **break keeps the ORIGINAL (first piece) selected**;
+  chamfer/fillet select the NEW object. No functional issue; trivial to flip if edi-ui
+  wants uniformity later. Recorded so it isn't re-litigated.
+- Reported DR-09 (`d1d1501`) to edi-ui.
+
+### DR-10 — rotate-copies rosette (op + controller) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/022-DR10-rotate-copies-builder.md`. Deps DR-01 ✅
+  (first real transformGeometry CONSUMER). **Controller fork RESOLVED:** SIBLING capture
+  intent `RotateCopiesCenter` (not a flag on the existing radial path) — leaves
+  `radialArrayDraftingObject`/`RadialArrayCenter` byte-unchanged; reuses
+  `createArrayFromActiveObject`. Lighter scrutiny (validated array pattern).
+
 ## Open questions / blockers
-- (none blocking — DR-09 in build; DR-08 reported to edi-ui)
+- (none blocking — DR-10 in build; DR-09 reported to edi-ui)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

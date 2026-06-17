@@ -197,5 +197,49 @@ int main()
         assert(degenerate.code == DraftingResultCode::InvalidGeometry);
     }
 
+    // Rotate-copies: same arm distribution as the radial array (step =
+    // totalAngle/(copies+1)), but each copy is ROTATED to its spoke. A square at
+    // bounds centre (0.75,0.5), centre (0.5,0.5), full 360 ring, 3 copies → spokes
+    // 90/180/270: rotationDeg advances per spoke AND the centre orbits arm 0.25.
+    {
+        DraftingObject square = object("rc_src", DraftingShapeKind::Rectangle,
+                                       RectangleGeometry{{0.7, 0.45}, 0.1, 0.1, 0.0, 0.0, 0.0});
+        auto rosette = rotateCopiesDraftingObject(square, {"rc_1", "rc_2", "rc_3"}, {0.5, 0.5}, 360.0);
+        assert(rosette.ok);
+        assert(rosette.objects.size() == 3);
+        assert(rosette.objects[0].metadata.toolProvenance == "rotate_copies");
+        assert(rosette.objects[0].metadata.source == "rc_src");
+
+        const double arm = 0.25; // |(0.75,0.5) - (0.5,0.5)|
+        const double expectedAngle[3] = {90.0, 180.0, 270.0};
+        for (std::size_t i = 0; i < 3; ++i) {
+            const auto *r = std::get_if<RectangleGeometry>(&rosette.objects[i].geometry);
+            assert(r != nullptr);
+            assert(nearlyEqual(r->rotationDeg, expectedAngle[i])); // turns with the spoke
+            assert(nearlyEqual(r->width, 0.1) && nearlyEqual(r->height, 0.1)); // scale 1.0
+            // The rectangle's centre (origin + half-extent) orbits the ring.
+            const double cx = r->origin.x + r->width / 2.0;
+            const double cy = r->origin.y + r->height / 2.0;
+            assert(nearlyEqual(std::hypot(cx - 0.5, cy - 0.5), arm));
+        }
+        // The 90° copy's centre is (0.75,0.5) rotated 90° about (0.5,0.5) → (0.5,0.75).
+        const auto *first = std::get_if<RectangleGeometry>(&rosette.objects[0].geometry);
+        assert(nearlyEqual(first->origin.x + first->width / 2.0, 0.5));
+        assert(nearlyEqual(first->origin.y + first->height / 2.0, 0.75));
+
+        // Rejections: duplicate ids; no copies; non-finite; guides (cannot rotate).
+        auto dup = rotateCopiesDraftingObject(square, {"d", "d"}, {0.5, 0.5}, 360.0);
+        assert(!dup.ok);
+        assert(dup.code == DraftingResultCode::DuplicateObjectId);
+        assert(!rotateCopiesDraftingObject(square, {}, {0.5, 0.5}, 360.0).ok);
+        assert(!rotateCopiesDraftingObject(square, {"x"},
+                                           {std::numeric_limits<double>::quiet_NaN(), 0.5}, 360.0).ok);
+        DraftingObject guideSrc = object("rc_guide", DraftingShapeKind::Guide,
+                                         GuideGeometry{GuideOrientation::Horizontal, 0.5});
+        auto guideRosette = rotateCopiesDraftingObject(guideSrc, {"g1"}, {0.5, 0.5}, 360.0);
+        assert(!guideRosette.ok);
+        assert(guideRosette.code == DraftingResultCode::InvalidGeometry);
+    }
+
     return 0;
 }

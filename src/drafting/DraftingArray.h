@@ -62,4 +62,17 @@ DraftingArrayResult radialArrayDraftingObject(
     const std::vector<DraftingObjectId> &newObjectIds,
     Point2D center);
 
+// Rotate-copies rosette: like radialArrayDraftingObject, copies fill the remaining
+// slots of a fan/ring divided evenly among copies + source about `center` (step =
+// totalAngleDeg / (copies + 1), matching the radial arm distribution). UNLIKE the
+// placement-only radial array, each copy is actually ROTATED to its spoke via
+// transformGeometry (rotation only, scale 1.0) — so rectangles/walls/arcs turn with
+// the fan. Guides are rejected (a guide cannot rotate). The placement-only
+// radialArrayDraftingObject is left intact as the non-rotating variant.
+DraftingArrayResult rotateCopiesDraftingObject(
+    const DraftingObject &source,
+    const std::vector<DraftingObjectId> &newObjectIds,
+    Point2D center,
+    double totalAngleDeg);
+
 } // namespace edi::drafting

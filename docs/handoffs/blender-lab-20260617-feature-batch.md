@@ -40,8 +40,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
 | BL-09 | Taper-along-sweep param | M | **SHIPPED** (planner spot-check: clean) | `159d77b` |
-| BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
-| BL-11 | Solid boolean op (→14) | L | builder done, reviewer audit | `12df814` |
+| BL-10 | Inset + normalOffset params | M | builder briefed | — |
+| BL-11 | Solid boolean op (→14) | L | **SHIPPED** (audit: remap hardening verified) | `12df814` |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
 | BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
@@ -217,7 +217,24 @@ targets a/b by NAME like CutFlutes, BooleanKind enum, proof emits operands (CSG 
 bpy-only). PLUS the reviewer's fold-in: `remapRecipeOpNameRefs` → exhaustive `std::visit`
 with AddBoolean a/b joining it. Reviewer audit to follow.
 
+### BL-11 — SHIPPED 2026-06-17 (audit `replies/024`: SHIP, remap hardening verified)
+14 sites filled; AddBoolean buildable, CutFlutes-shaped; enum round-trips; 3 byte-diffs
+hold; by-name lookup crash-safe. **a==b refusal SOUND** (subtract(X,X)=∅ footgun; names
+unique). **remap hardening = the headline win** — exhaustive NameRefRemapper, chaining test
+pins a/b → source namespace. **Deferred follow-up (tracked):** suppress a consumed
+operand's standalone OBJ emission (mirror bpy; changes boolean golden — a deliberate slice).
+
+### BL-10 — builder briefed 2026-06-17
+Brief `briefs/025-bl10-inset.md`. inset(0)/normalOffset(0) field-adds on AddPrism (no arm);
+edge-normal inward offset + shell fatten; default 0 = byte-identical; oversized inset
+refused by name. Last field-add before BL-15.
+
+## Deferred follow-ups (tracked — recipe-lab polish, not blocking)
+- Watertight helix (BL-07); sweep×screw silent-override warning (BL-07); edge-incidence
+  manifold assert in smoke (BL-06); bounds_of arc/helix/sweep-tightness; **boolean
+  proof-duplication** (BL-11: suppress consumed-operand standalone emission); sweep miter
+  at corners (BL-08); per-axis/non-linear taper (BL-09).
+
 ## Next
-- BL-11 (boolean →14 + remap hardening) → BL-10 (prism inset/normalOffset field-add) →
-  BL-15 (TOON, dep BL-05 ✓). After BL-11 NO more arm-adders — variant settles at 14.
-- Batch end: closeout + final arch-doc anchor sweep (deferred during the batch).
+- BL-10 (inset/normalOffset) → BL-15 (TOON, dep BL-05 ✓) → BATCH CLOSEOUT: final arch-doc
+  anchor sweep (variant stable at 14), closeout doc, report batch-done to edi-ui.

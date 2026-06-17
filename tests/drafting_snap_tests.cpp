@@ -462,6 +462,14 @@ int main()
         for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(perpDoc, anchor, noPerp)) {
             assert(c.sourceKind != DraftingSnapSourceKind::Perpendicular);
         }
+
+        // On-segment-only: an anchor whose perpendicular foot would fall BEYOND an
+        // endpoint emits NO perpendicular candidate (it is not a genuine
+        // perpendicular, and the endpoint is already an Endpoint snap). The line
+        // spans x∈[0.2,0.8]; an anchor at x=0.9 projects to t>1 → skipped.
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(perpDoc, {0.9, 0.9})) {
+            assert(c.sourceKind != DraftingSnapSourceKind::Perpendicular);
+        }
     }
 
     return 0;

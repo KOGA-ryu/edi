@@ -175,6 +175,27 @@ Point2D projectOnSegment(Point2D a, Point2D b, Point2D point)
     return {a.x + t * dx, a.y + t * dy};
 }
 
+// The UNCLAMPED foot of perpendicular from `point` onto the segment's line, but
+// ONLY when it lands on the segment (t in [0,1], small epsilon). nullopt
+// otherwise — unlike projectOnSegment this never clamps to an endpoint, because a
+// "perpendicular" candidate past a segment end is not actually perpendicular (and
+// the endpoint is already an Endpoint snap, so clamping would mislabel it).
+std::optional<Point2D> perpendicularFootOnSegment(Point2D a, Point2D b, Point2D point)
+{
+    const double dx = b.x - a.x;
+    const double dy = b.y - a.y;
+    const double length2 = dx * dx + dy * dy;
+    if (length2 <= 0.0) {
+        return std::nullopt; // degenerate segment has no perpendicular foot
+    }
+    constexpr double epsilon = 0.000001;
+    const double t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / length2;
+    if (t < -epsilon || t > 1.0 + epsilon) {
+        return std::nullopt;
+    }
+    return Point2D{a.x + t * dx, a.y + t * dy};
+}
+
 // Nearest point on a chain of segments (closed adds the wrap-around edge). nullopt
 // when there is no edge to project onto (< 2 vertices — those are vertex snaps).
 std::optional<Point2D> nearestOnVertexList(const std::vector<Point2D> &vertices, Point2D point, bool closed)
@@ -640,8 +661,13 @@ std::vector<DraftingSnapCandidate> relativeSnapCandidatesForDocument(const Draft
     }
 
     auto addPerpendicularFoot = [&](const DraftingObject &object, Point2D a, Point2D b) {
-        // Reuse the DR-02 segment projection — the clamped foot of perpendicular.
-        addCandidate(candidates, object, projectOnSegment(a, b, fromPoint), DraftingSnapSourceKind::Perpendicular);
+        // A Perpendicular candidate must be a GENUINE perpendicular foot — emit it
+        // only when the unclamped projection lands on the segment; never clamp to an
+        // endpoint (the "deferred perpendicular" past a segment end is a future
+        // variant, not built here).
+        if (const std::optional<Point2D> foot = perpendicularFootOnSegment(a, b, fromPoint)) {
+            addCandidate(candidates, object, *foot, DraftingSnapSourceKind::Perpendicular);
+        }
     };
 
     for (const DraftingObject &object : document.objects) {

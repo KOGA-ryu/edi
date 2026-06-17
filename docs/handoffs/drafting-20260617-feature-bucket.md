@@ -315,8 +315,23 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   after build** (canonical H/V path byte-identical; supportsMirror sync; angle-flip
   correctness per kind).
 
+### DR-11 — SHIPPED `02fd45e`, 101/101 → diff-audit OPEN (rectangle-reflection question)
+- Reply: `~/dept-bus/edi-drafting/replies/023-DR11-kaleidoscope-builder.md`. Compose approach
+  `R(+θ)∘Mx∘R(−θ)` (transformGeometry rotations + canonical mirror via zero-size-bounds-at-C);
+  canonical path untouched. Builder corrected my brief: Arc is NOT in `supportsMirror` (7
+  mirrorable kinds per arch §2) → flip pinned on Dimension offset instead. Sibling
+  `KaleidoscopeCenter` verb.
+- **Diff-audit OPEN** (`~/dept-bus/edi-drafting/briefs/024-DR11-audit-reviewer.md`) with a
+  PRIORITY correctness question: the canonical rectangle arm does NOT flip `rotationDeg` under
+  mirror, so the conjugation nets `rotationDeg` UNCHANGED — but a true reflection maps `r → −r+2θ`.
+  Tracing suggests the canonical mirror is ALREADY latently wrong for ROTATED rectangles
+  (even at orthogonal axes), and DR-11 inherits it. Audit to adjudicate the math + recommend
+  fix-now (flip `rotationDeg` in the canonical arm) vs accept-v1-limitation, with blast radius.
+- **HOLDING:** DR-11 NOT reported to edi-ui and DR-12 NOT opened until the audit settles.
+
 ## Open questions / blockers
-- (none blocking — DR-11 in build, diff-audit planned)
+- DR-11 rectangle-reflection correctness — under audit (may surface a latent canonical-mirror
+  bug needing a behavior-correcting fix + test, which would touch the shared canonical path).
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

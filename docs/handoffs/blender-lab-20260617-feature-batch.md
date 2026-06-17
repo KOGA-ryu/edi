@@ -38,7 +38,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
 | BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
-| BL-08 | Follow-Me sweep op (→13) | L | builder briefed | — |
+| BL-08 | Follow-Me sweep op (→13) | L | builder done, reviewer audit | `2b54a9c` |
 | BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |

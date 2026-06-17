@@ -56,6 +56,24 @@ struct RoomConnectionSpec {
     std::string type;
 };
 
+// An INTERIOR point feature: a neutral marker placed freely inside the room, the
+// complement to the edge-locked RoomPlugSpec (a plug is pinned to a wall by
+// edge+at; a feature floats at a free x,y — e.g. centre rubble, a statue).
+//
+// COORDINATE FRAME: x,y are a ROOM-LOCAL offset from the room's NW `origin`, in
+// AUTHORED FEET (south-positive, same axes as origin/width/height). So the
+// realized ABSOLUTE authored position is `origin + {x,y}`. NOTE this differs from
+// the rest of RoomSpec, which the parser stores already-scaled to CANVAS units —
+// features stay in authored feet and the authoring controller applies the
+// authored→canvas scale to the OFFSET when it mints the marker (see
+// createMapFromSpec). `type` is a neutral open-vocabulary tag edi does not interpret.
+struct RoomFeature {
+    double x = 0.0;   // room-local offset from NW origin, authored feet
+    double y = 0.0;   // (south-positive, same axes as origin/width/height)
+    std::string type; // neutral open-vocabulary tag, e.g. "rubble", "statue"
+    std::string name; // authored label, optional
+};
+
 // A rectangular room in CANVAS units (the grid projection maps these to physical
 // feet/squares). origin is the NW corner. The room is pure spatial data plus a
 // neutral material tag — no game semantics, by design.
@@ -68,6 +86,7 @@ struct RoomSpec {
     std::vector<RoomOpening> openings;
     std::vector<RoomPlugSpec> plugs;
     std::vector<RoomConnectionSpec> connections; // edges between plugs (by name)
+    std::vector<RoomFeature> features;           // interior point markers (authored feet, room-local)
 };
 
 // --- multi-room map authoring (a whole dungeon from one file) ----------------

@@ -19,6 +19,7 @@ using edi::drafting::MapSpec;
 using edi::drafting::NamedRoomSpec;
 using edi::drafting::RoomConnectionSpec;
 using edi::drafting::RoomEdge;
+using edi::drafting::RoomFeature;
 using edi::drafting::RoomOpening;
 using edi::drafting::RoomPlugSpec;
 using edi::drafting::RoomSpec;
@@ -208,6 +209,30 @@ bool parseRoomPlugs(const StaticConfig &config, const std::string &prefix, doubl
     return true;
 }
 
+// Interior point features: a contiguous indexed list, exactly the plug/opening
+// dialect (room.feature.0.*, .1.*, … until the first absent index). The
+// discriminating key is `.type` — a feature is a neutral typed marker — so an
+// index with no `.type` ends the list. Unlike plugs/openings, x/y are NOT scaled
+// to canvas here: features are stored in AUTHORED FEET (room-local), and the
+// authoring controller applies the authored→canvas scale to the offset (see
+// RoomFeature's coordinate-frame note). edi assigns the type no meaning (mandate).
+bool parseRoomFeatures(const StaticConfig &config, const std::string &prefix, RoomSpec &spec)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = prefix + ".feature." + std::to_string(i);
+        if (!hasKey(config, key + ".type")) {
+            break;
+        }
+        RoomFeature feature;
+        feature.x = configDouble(config, key + ".x", 0.0);    // authored feet, NOT scaled
+        feature.y = configDouble(config, key + ".y", 0.0);    // (room-local offset from origin)
+        feature.type = configString(config, key + ".type", "");
+        feature.name = configString(config, key + ".name", "");
+        spec.features.push_back(feature);
+    }
+    return true;
+}
+
 // Split a cross-room ref "room.plug" on the FIRST dot. nullopt if there is no dot
 // or either half is empty. (Names are dotless by convention; a stray dot would
 // mis-split, but the room/plug existence check below then rejects it loudly.)
@@ -266,6 +291,7 @@ RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerU
     if (!parseRoomPlugs(config, "room", canvasPerUnit, spec, plugNames, out.message)) {
         return out;
     }
+    parseRoomFeatures(config, "room", spec);
 
     // Connections are edges between plugs, authored at MAP level (a connection can
     // span rooms). map.connection.<i>.{from,to,type}; stop at the first index with
@@ -345,6 +371,7 @@ MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUni
         if (!parseRoomPlugs(config, prefix, canvasPerUnit, spec, plugNames, out.message)) {
             return out;
         }
+        parseRoomFeatures(config, prefix, spec);
         plugsByRoom.emplace(name, std::move(plugNames));
         map.rooms.push_back({name, std::move(spec)});
     }

@@ -1,6 +1,28 @@
 # Handoff — dungeon-map-20260617-corridors-doors (BATCH-2)
 
-> Per-campaign state. **Status: SCOPE FLAGGED TO HUB — not building until confirmed.**
+> Per-campaign state. **Status: SCOPE CONFIRMED (interactive authoring) — design gate open.**
+
+## ✅ SCOPE RESOLVED (hub, 2026-06-17)
+Interpretation #2 confirmed: **BATCH-2 = the INTERACTIVE authoring loop in the LIVE
+tool** — plug tool, connection tool (editable corridor via two-plug pick), door
+authoring/type on plugs, corridor edit. NOT rebuilding the geometry (Phase A/B render
+from `.map.toml` stays). Build OPS; **edi-ui gates the surfaces** (no corridor/door
+surface spec exists yet — build ops now, wire chrome when the spec lands, per batch-1).
+Mandate holds: neutral (door type is a neutral tag; no passable/weight/direction), NO
+generation.
+
+## Planned task set (the interactive loop — to be refined by the design gate)
+- **Plug tool** — place a plug interactively (anchor a Point marker on a wall/object →
+  `CreatePlugCommand`). Reuses the `PointCaptureIntent` pick + `DraftingGraphOps`.
+- **Connection tool** — TWO-plug pick (plug A → plug B) → `DeclareConnectionCommand` +
+  route corridor geometry ON DEMAND (`routeCorridorCenterline`+`corridorWalls`). The
+  two-stage pick is the key NEW interaction (existing intents are single-pick).
+- **Door authoring / type on plugs** — set a plug's neutral type (door/window/secret/
+  portal) interactively → re-render the door leaf (the M1.3 WallType painter exists).
+- **Corridor edit** — independent-corridor model (charter fork: each connection emits
+  its OWN editable corridor); re-route on plug move / connection change.
+- **Delete** plug/connection interactively (cascades exist: `pruneGraphForRemovedObject`,
+  `removePlug`/`removeConnection`).
 
 - **Campaign**: dungeon-map-20260617-corridors-doors
 - **Department**: edi-dungeon-map
@@ -46,6 +68,14 @@ Chamfer/Break/BlockInstance/RegionFill — nothing for connect-plugs). The graph
 - Flagged the scope discrepancy to the hub via bus-hub. NOT building until confirmed
   (do not rebuild done work).
 
+### Reviewer boundary gate (interactive authoring design) — 2026-06-17 — OPEN
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/019-reviewer-interactive-authoring-design.md`
+- Settle: the plug-anchor model, the TWO-plug connection-pick mechanism (new vs
+  reuse), on-demand corridor routing + the editable-corridor (independent) model,
+  neutral door-type authoring, where verbs live, delete cascades, and the slice
+  breakdown. Neutral-boundary + data-oriented check. NO code.
+
 ## Next
-- Await hub scope ratification. On confirm of interpretation 2/3, open the campaign
-  (reviewer boundary if needed → builder); on interpretation 1, close BATCH-2.
+- Reviewer settles the interactive-authoring design → I spec the builder batches →
+  build ops (edi-ui wires chrome when the surface spec lands). bus-hub at ~3-task
+  marks + closeout when the bucket is done.

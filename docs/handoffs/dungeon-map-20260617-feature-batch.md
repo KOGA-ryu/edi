@@ -280,10 +280,27 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 - DM-01 `computeDocumentBounds()→optional`; DM-11 new no-Qt `DraftingMapQuery.{h,cpp}`
   (`deriveEdge`+`plugIsConnected`), MapToonExport switched to it (golden unchanged).
 
-### Reviewer diff-audit of DM-14/15 — DISPATCHED (parallel with batch-7)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/017-reviewer-dm1415-audit.md`
-- Audits `419db06`/`4beb3b5`: transform correctness (pivots, cumulative metadata),
-  the identity byte-identical contract, the NaN guard, undo atomicity, neutral law.
+### Reviewer diff-audit of DM-14/15 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN, 1 nit)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/017-reviewer-dm1415-audit.md`
+- **CLEAN.** Pivots correct (DM-14 placement center == block geometric center; DM-15
+  union-bounds center frozen `const` pre-mutation); identity short-circuit gates BOTH
+  transformGeometry AND computeBounds → bit-identical; NaN guard correct at both
+  boundaries; cumulative metadata starts from each member's own (90+45=135°, 2×1.5=3);
+  undo one-step; neutral; transformGeometry consumed-not-modified; DR-08 chamfer verb
+  fully intact beside my block-placement members (rebase resolution verified).
+- **FINDING (NIT, theoretical-only) — composed-scale overflow:** the guard validates
+  INPUTS (delta/factor finite, factor>0) but not the COMPOSED `scale *= factor`
+  (`DrawingDocumentController.cpp` ~`:3290`). Pathological finite inputs (1e200×1e200)
+  → `+inf` written to metadata + the additive codec (+ a geometry/metadata desync, the
+  rejected UpdateGeometry result ignored). Unreachable via the UI's bounded spins; NaN
+  never reaches anything. **PLANNER DECISION: FIX it** (not just TODO) — it breaches the
+  charter's "additive codec never sees non-finite" invariant, and the fix is ~1 line
+  (`if (!std::isfinite(composedScale)) refuse this member` before the
+  UpdateMetadataCommand). Fold into the wrap-up as a tiny hardening slice (batch-8)
+  after batch-7 slivers land.
+- Other NOTES (carry, no action): 360° treated as non-identity (fine, non-canonical
+  angle); tests use single-object blocks (multi-member shared-pivot correct by
+  inspection, unexercised); old-reads-new codec corner contract-guaranteed (carried).
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

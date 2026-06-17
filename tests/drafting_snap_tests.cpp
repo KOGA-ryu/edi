@@ -304,5 +304,91 @@ int main()
         }
     }
 
+    // DR-02: quadrant + nearest-on-curve snap sources.
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Quadrant)) == "quadrant");
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::OnCurve)) == "on_curve");
+    {
+        DraftingSnapSettings snapSettings;
+        snapSettings.objectSnapEnabled = true;
+        snapSettings.objectTolerance = 0.05;
+
+        // A circle emits exactly 4 quadrant candidates at the cardinal offsets.
+        DraftingObject circle = object("circle_1", DraftingShapeKind::Circle, CircleGeometry{{0.5, 0.5}, 0.2});
+        std::vector<DraftingSnapCandidate> circleCandidates = snapCandidatesForObject(circle, snapSettings);
+        int circleQuadrants = 0;
+        bool sawEast = false, sawNorth = false, sawWest = false, sawSouth = false;
+        for (const DraftingSnapCandidate &c : circleCandidates) {
+            if (c.sourceKind != DraftingSnapSourceKind::Quadrant) {
+                continue;
+            }
+            ++circleQuadrants;
+            sawEast = sawEast || (nearlyEqual(c.point.x, 0.7) && nearlyEqual(c.point.y, 0.5));
+            sawNorth = sawNorth || (nearlyEqual(c.point.x, 0.5) && nearlyEqual(c.point.y, 0.7));
+            sawWest = sawWest || (nearlyEqual(c.point.x, 0.3) && nearlyEqual(c.point.y, 0.5));
+            sawSouth = sawSouth || (nearlyEqual(c.point.x, 0.5) && nearlyEqual(c.point.y, 0.3));
+        }
+        assert(circleQuadrants == 4);
+        assert(sawEast && sawNorth && sawWest && sawSouth);
+
+        // Disabling the flag drops the quadrant candidates (center still present).
+        DraftingSnapSettings noQuadrant = snapSettings;
+        noQuadrant.quadrantEnabled = false;
+        for (const DraftingSnapCandidate &c : snapCandidatesForObject(circle, noQuadrant)) {
+            assert(c.sourceKind != DraftingSnapSourceKind::Quadrant);
+        }
+
+        // An arc emits ONLY the in-sweep quadrants: a 0→90° arc has the 0° and 90°
+        // cardinal points, not 180°/270°.
+        DraftingObject arc = object("arc_1", DraftingShapeKind::Arc, ArcGeometry{{0.5, 0.5}, 0.2, 0.0, 90.0});
+        int arcQuadrants = 0;
+        for (const DraftingSnapCandidate &c : snapCandidatesForObject(arc, snapSettings)) {
+            if (c.sourceKind != DraftingSnapSourceKind::Quadrant) {
+                continue;
+            }
+            ++arcQuadrants;
+            // Only east (0°) and north (90°) are in sweep.
+            assert((nearlyEqual(c.point.x, 0.7) && nearlyEqual(c.point.y, 0.5))
+                || (nearlyEqual(c.point.x, 0.5) && nearlyEqual(c.point.y, 0.7)));
+        }
+        assert(arcQuadrants == 2);
+
+        // A cursor near a circle's quadrant snaps onto it (Quadrant participates in
+        // resolveSnap; the perimeter point beats the far-away center).
+        DraftingDocument circleDoc = makeDraftingDocument("circle_doc");
+        assert(addObject(circleDoc, circle).ok);
+        DraftingSnapResult quadrantSnap = resolveSnap({0.71, 0.5}, circleDoc, snapSettings);
+        assert(quadrantSnap.kind == DraftingSnapKind::Object);
+        assert(quadrantSnap.sourceKind == DraftingSnapSourceKind::Quadrant);
+        assert(nearlyEqual(quadrantSnap.point.x, 0.7) && nearlyEqual(quadrantSnap.point.y, 0.5));
+    }
+    {
+        // OnCurve: a cursor just off a line (away from any keypoint) snaps onto its
+        // orthogonal projection.
+        DraftingDocument lineDoc = makeDraftingDocument("oncurve_doc");
+        assert(addObject(lineDoc, object("seg", DraftingShapeKind::Line, LineGeometry{{0.2, 0.4}, {0.8, 0.4}})).ok);
+        DraftingSnapSettings snapSettings;
+        snapSettings.objectSnapEnabled = true;
+        snapSettings.objectTolerance = 0.05;
+
+        DraftingSnapResult onCurve = resolveSnap({0.35, 0.42}, lineDoc, snapSettings);
+        assert(onCurve.kind == DraftingSnapKind::Object);
+        assert(onCurve.sourceKind == DraftingSnapSourceKind::OnCurve);
+        assert(onCurve.label == "on_curve");
+        assert(nearlyEqual(onCurve.point.x, 0.35) && nearlyEqual(onCurve.point.y, 0.4));
+
+        // Disabling the flag suppresses OnCurve — nothing else is in range here.
+        DraftingSnapSettings noOnCurve = snapSettings;
+        noOnCurve.onCurveEnabled = false;
+        assert(resolveSnap({0.35, 0.42}, lineDoc, noOnCurve).kind == DraftingSnapKind::None);
+
+        // PRIORITY: an endpoint beats a COINCIDENT OnCurve. A cursor just past the
+        // 'a' end projects (clamped) back onto the endpoint, so the projection and
+        // the endpoint coincide — the endpoint wins (OnCurve is the fallback tier).
+        DraftingSnapResult endpointWins = resolveSnap({0.18, 0.41}, lineDoc, snapSettings);
+        assert(endpointWins.kind == DraftingSnapKind::Object);
+        assert(endpointWins.sourceKind == DraftingSnapSourceKind::Endpoint);
+        assert(nearlyEqual(endpointWins.point.x, 0.2) && nearlyEqual(endpointWins.point.y, 0.4));
+    }
+
     return 0;
 }

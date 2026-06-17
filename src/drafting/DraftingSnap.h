@@ -22,7 +22,9 @@ enum class DraftingSnapSourceKind {
     Midpoint,
     Center,
     Guide,
-    Intersection // where two objects cross — a document-level (pairwise) candidate
+    Intersection, // where two objects cross — a document-level (pairwise) candidate
+    Quadrant,     // the 0/90/180/270° cardinal points on a circle/arc perimeter
+    OnCurve       // the nearest projection of the cursor onto a curve (lowest priority)
 };
 
 struct DraftingSnapSettings {
@@ -35,6 +37,8 @@ struct DraftingSnapSettings {
     bool centerEnabled = true;
     bool guideEnabled = true;
     bool intersectionEnabled = true;
+    bool quadrantEnabled = true;
+    bool onCurveEnabled = true;
     double gridStep = 1.0 / 16.0;
     double gridStepX = 0.0;
     double gridStepY = 0.0;

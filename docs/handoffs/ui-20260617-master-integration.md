@@ -3,6 +3,20 @@
 **Department:** edi-ui (owns `src/widgets`, the master integration line, the chrome bucket).
 **Session:** edi-ui-planner. **Gate:** builder (ongoing integration + chrome).
 
+## STANDING INTEGRATION CADENCE (hub-delegated 2026-06-17)
+edi-ui autonomously merges verified dept branches (drafting / dungeon-map / blender-lab)
+to master as green tasks accumulate — **no hub routing for routine merges**. Only
+cross-dept KEYSTONES come via the hub. Per-merge protocol:
+1. Inspect dept branch tip: `git -C ~/edi-<dept> log --oneline`; only merge CLOSED tasks.
+2. `git diff --stat <merge-base> <tip>` — confirm no shared-file collisions
+   (`EdiShellWindow*`, `CMakeLists.txt`, `app/main.cpp`); if a shared file is touched
+   that's a hub escalation, not a silent merge.
+3. `git merge --no-ff <tip>` into master with a teaching commit body.
+4. **Full green gate** (`cmake --build build && ctest` 100% + scan) — gate on FULL ctest
+   now (H1 `-E` exclusion dropped). If red, investigate / back the merge out; master
+   stays green so depts can rebase on it.
+5. Update LEDGER + this handoff; brief heartbeat to hub so depts know master advanced.
+
 ## What this thread is
 edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-edi-ui.md`):
 1. **Master integration line.** When a domain dept lands a verified op, the hub routes its
@@ -15,6 +29,10 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
 ## State as of 2026-06-17
 
 ### Done
+- **Integration cadence merges into master (verified green each time):**
+  - `b4f2eed` — DR-01 transformGeometry keystone (`167768e`).
+  - `<DR-02/03 merge>` — DR-02 quadrant/nearest-on-curve (`e405d89`) + DR-03 tangent/
+    perpendicular snaps (`d9c7aca` + on-segment fix `d6b1738`). 97/97 green, scan clean.
 - **Master promoted** to `9967f0b` (cartography integration of all 3 depts), then
   **merged `dept/drafting` transformGeometry** (DR-01 keystone `167768e`) → master at
   `b4f2eed`. Clean merge (drafting core + 1 test + 1 CMakeLists line; no shell conflicts).

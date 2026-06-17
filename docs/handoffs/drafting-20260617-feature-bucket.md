@@ -20,18 +20,24 @@
   spec-settled); builder; green gate `cmake --build build && ctest --test-dir build
   -E edi_shell_window_tests` + scan. Rebase on master at the start of each task.
 
-## INTEGRATION CADENCE (2026-06-17) — edi-ui-integration-drafting owns master + LEDGER
-- Report verified BATCH TIPS + closeouts to `edi-ui-integration-drafting` (via
-  `~/dept-bus/drafting/replies/` + `bus-send`), NOT the hub. It merges to master and
-  rings back the new master tip. (Hub relay is retired for integration.)
-- **Rebase target = LOCAL `master`** (currently `dd226c4`), NOT `origin/master` — on
-  this box `origin/master` is STALE (`591e92c`). Local `master` is the live integration
-  line carrying DR-01/02/03 + blender-lab + dungeon-map batches. Builder briefs from
-  DR-08 say `git rebase master`. (DR-04/05/06 were built on the stale origin/master;
-  they rebase clean onto local master since their SHAs aren't yet on it.)
-- **DR-01/02/03 merged to master** (edi-ui: `b4f2eed` keystone, `bd3d99d` snaps;
-  master tip `dd226c4`). DR-04/05/06 reported to edi-ui for merge
-  (`~/dept-bus/drafting/replies/002-drafting-batch-DR04-06-ready.md`, tip `d3451d6`).
+## INTEGRATION ROUTING (2026-06-17, corrected) — two different "edi-ui" things
+- **edi-ui (BUILD dept)** = owns shell files + MERGES dept branches to master
+  (autonomous integration cadence per HUB-LEDGER). **This is the merge owner.**
+- **edi-ui-integration(-drafting)** = surface-design DESIGNER GATE, **docs only, NO
+  merges** — produces `~/edi/docs/ui-surface/drafting/DR-surfaces.md`. I mistakenly
+  bused it the merge cadence; corrected.
+- **H6 (OPEN, hub-escalated):** edi-ui has **NO running session**, so no one is merging
+  right now. The designer logged my tip `d3451d6` + escalated merge-ownership to the
+  hub. → **Merges are BLOCKED until the hub names the owner** (an edi-ui session, or the
+  hub itself). This does NOT block my building.
+- **What I do meanwhile:** keep building DR-08+ on `dept/drafting` (commit, do NOT
+  merge); rebase each slice onto LOCAL `master` (now **`163a00a`**, carries DR-01/02/03
+  + blender-lab + dungeon-map; `origin/master` is STALE `591e92c`). Verified batch tips
+  accumulate; report them to the MERGE OWNER once the hub names it. Surface specs come
+  FROM the designer; chrome wiring is edi-ui's separate hand — my scope stays OP +
+  controller verbs.
+- Merged so far: DR-01/02/03 are in local `master`. DR-04/05/06 (tip `d3451d6`) +
+  DR-07 (next) queued, unmerged, pending H6.
 
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
@@ -206,11 +212,19 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   PolygonGeometry is implicitly closed (no flag); defensive `inscribableCircle` guard.
   No LEDGER conflict. Snap/derived front (DR-02..06) complete.
 
-### DR-07 — chamfer two lines (op + CONTROLLER wiring) — builder BRIEFED 2026-06-17
-- Brief: `~/dept-bus/edi-drafting/briefs/018-DR07-chamfer-builder.md`. Deps none.
-  FIRST controller-wiring slice of the bucket (mirrors the fillet path byte-for-byte).
-  **Plan: diff-audit after build** — controller atomicity + behavior-preservation of
-  the existing fillet/capture paths; if the pattern is clean, trust DR-08/09 more.
+### DR-07 — chamfer (op + controller wiring) — SHIPPED `0a8e943`, 98/98 → diff-audit OPEN
+- Reply: `~/dept-bus/edi-drafting/replies/018-DR07-chamfer-builder.md`. `chamferLines`
+  op + `ChamferSecondLine` capture intent + begin/apply/setback verbs; atomic 3-object
+  undo (UpdateGeometry×2 + CreateObject bevel in one beginEdit/commitEdit); fillet path
+  byte-unchanged; pointer-lifetime handled (ids/layer captured before mutation). 98/98
+  green incl. `drawing_document_controller_tests`.
+- **Diff-audit OPEN** (first controller-wiring slice — validate the pattern before
+  DR-08/09 reuse it): brief `~/dept-bus/edi-drafting/briefs/019-DR07-audit-reviewer.md`.
+  Priority: existing paths byte-unchanged, pointer-lifetime, atomic 1-step undo, op
+  correctness, scope.
+- Deliberate (accepted) duplication: `chamferLines` mirrors `filletLines`'s corner
+  logic rather than a shared `cornerFromPick` helper — kept to preserve fillet's bytes;
+  shared-helper extraction is a noted future cleanup.
 
 ## Open questions / blockers
 - (none blocking — DR-07 in build)

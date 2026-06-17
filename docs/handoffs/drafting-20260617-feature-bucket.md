@@ -35,6 +35,11 @@
   `origin/master` is STALE `591e92c`). Report verified batch tips to `edi-ui`.
 - **Reported to edi-ui:** DR-04..07 (tip `0a8e943`) — DR-04/05/06 green + DR-07 chamfer
   green & audited ACCEPT. edi-ui pulls.
+- **MERGED 2026-06-17 (edi-ui):** DR-04..07 on master @`f53b00b` (99/99 green). Local
+  `master` has since advanced to `9ebfb7f` (also carries dungeon-map DM-09..13). DR-08's
+  STEP-0 `git rebase master` lands on `9ebfb7f` — DR-01..07 drop as already-applied; only
+  DR-08 replays on top. (My branch is "ahead" of the stale `origin/dept/drafting`, which
+  we never push — edi-ui integrates the local branch.)
 
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign

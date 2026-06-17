@@ -61,8 +61,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-03 | features → Point markers in `createMapFromSpec` (+`feature:<type>` tag) | W2 ←02 | ✅ `4cfc7dd` |
 | DM-07 | Seam C edited round-trip: store room footprint+name in `document.rooms` | W1 | ✅ verified intact (no code) |
 | DM-08 | Seam C round-trip regression test | W2 ←07 | ✅ `67c608e` |
-| DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ◻ batch-4 |
-| DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ◻ batch-4 |
+| DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ✅ `30ee3b3` |
+| DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ✅ `d9022b9` |
 | DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ◻ batch-5 (boundary SETTLED) |
 | DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 (boundary SETTLED) |
 | DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
@@ -210,8 +210,24 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   tip (the builder proved work is correct on the tip; no rebase needed for them). I
   tell the builder to SKIP the master rebase until the hub resolves integration.
 
-### Builder batch-4 (block transform record/export DM-12/13) — DISPATCHED (on current tip, NO rebase)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/013-builder-block-transform-record.md`
+### Builder batch-4 (block transform record/export DM-12/13) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/013-builder-block-transform-record.md`
+- Commits `30ee3b3` (fields+persist), `d9022b9` (export). Gate GREEN 95/95;
+  TOON `blocks[]` golden **byte-identical** (identity `scale 1`→`"1"`, `rot 0`→`"0"`
+  via `%g` = old placeholders → proves the column mapping; header
+  `{room,asset,origin,scale,rotation}`, col4=scale col5=rotation). Additive codec:
+  `rotation_deg`/`scale` appended only when non-default, tolerant read, NO bump (v2).
+  Did NOT consume transformGeometry (identity record only). On current tip (no rebase).
+- → Reviewer diff-audit dispatched (additive-codec joint).
+
+### Reviewer diff-audit of batch-4 — DISPATCHED (parallel with batch-5)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/014-reviewer-batch4-audit.md`
+- Focus: the `block_placement` additive codec (identity byte-identical + no-bump +
+  4 corners), float default-compare hazard, the export column mapping, neutral law.
+
+### Builder batch-5 (region fill DM-09/10) — DISPATCHED (on current tip, NO rebase)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/009-builder-region-fill.md` (rebase
+  override added). Design settled in gate 008 (algo a, `DraftingRegionFill`).
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

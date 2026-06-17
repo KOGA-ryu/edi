@@ -390,5 +390,79 @@ int main()
         assert(nearlyEqual(endpointWins.point.x, 0.2) && nearlyEqual(endpointWins.point.y, 0.4));
     }
 
+    // DR-03: relative (anchor-dependent) tangent + perpendicular candidates.
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Tangent)) == "tangent");
+    assert(std::string(draftingSnapSourceKindName(DraftingSnapSourceKind::Perpendicular)) == "perpendicular");
+    {
+        // Tangent from an external anchor to a circle: two contacts, each with the
+        // anchor→contact segment perpendicular to the radius at the contact.
+        DraftingDocument tanDoc = makeDraftingDocument("tangent_doc");
+        const Point2D center{0.5, 0.5};
+        const double radius = 0.2;
+        assert(addObject(tanDoc, object("circle_t", DraftingShapeKind::Circle, CircleGeometry{center, radius})).ok);
+
+        const Point2D anchor{0.9, 0.5}; // d = 0.4 = 2r → contacts at ±60° from the bearing
+        std::vector<DraftingSnapCandidate> tangents;
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(tanDoc, anchor)) {
+            if (c.sourceKind == DraftingSnapSourceKind::Tangent) {
+                tangents.push_back(c);
+            }
+        }
+        assert(tangents.size() == 2);
+        bool sawUpper = false, sawLower = false;
+        for (const DraftingSnapCandidate &c : tangents) {
+            // anchor→contact ⊥ center→contact (dot product ≈ 0).
+            const double rx = c.point.x - center.x;
+            const double ry = c.point.y - center.y;
+            const double px = c.point.x - anchor.x;
+            const double py = c.point.y - anchor.y;
+            assert(std::abs(rx * px + ry * py) < 0.000001);
+            // The contact lies on the circle (radius preserved).
+            assert(nearlyEqual(std::sqrt(rx * rx + ry * ry), radius));
+            assert(nearlyEqual(c.point.x, 0.6)); // both contacts share x = 0.6
+            sawUpper = sawUpper || c.point.y > 0.5;
+            sawLower = sawLower || c.point.y < 0.5;
+        }
+        assert(sawUpper && sawLower);
+
+        // The flag gates it.
+        DraftingSnapSettings noTangent;
+        noTangent.tangentEnabled = false;
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(tanDoc, anchor, noTangent)) {
+            assert(c.sourceKind != DraftingSnapSourceKind::Tangent);
+        }
+
+        // An anchor INSIDE the circle yields no tangent candidate.
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(tanDoc, {0.55, 0.5})) {
+            assert(c.sourceKind != DraftingSnapSourceKind::Tangent);
+        }
+    }
+    {
+        // Perpendicular foot from an anchor onto a known line = orthogonal projection.
+        DraftingDocument perpDoc = makeDraftingDocument("perp_doc");
+        assert(addObject(perpDoc, object("seg_p", DraftingShapeKind::Line, LineGeometry{{0.2, 0.4}, {0.8, 0.4}})).ok);
+
+        const Point2D anchor{0.5, 0.9};
+        std::vector<DraftingSnapCandidate> feet;
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(perpDoc, anchor)) {
+            if (c.sourceKind == DraftingSnapSourceKind::Perpendicular) {
+                feet.push_back(c);
+            }
+        }
+        assert(feet.size() == 1);
+        assert(nearlyEqual(feet.front().point.x, 0.5) && nearlyEqual(feet.front().point.y, 0.4));
+        // anchor→foot ⊥ the line direction.
+        const double dirX = 0.6, dirY = 0.0;
+        const double fx = feet.front().point.x - anchor.x;
+        const double fy = feet.front().point.y - anchor.y;
+        assert(std::abs(fx * dirX + fy * dirY) < 0.000001);
+
+        DraftingSnapSettings noPerp;
+        noPerp.perpendicularEnabled = false;
+        for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(perpDoc, anchor, noPerp)) {
+            assert(c.sourceKind != DraftingSnapSourceKind::Perpendicular);
+        }
+    }
+
     return 0;
 }

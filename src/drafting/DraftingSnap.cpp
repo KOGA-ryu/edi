@@ -309,6 +309,28 @@ DraftingSnapResult nearestObjectSnap(Point2D point, const DraftingDocument &docu
     return found ? candidateSnap(best) : noneSnap(point);
 }
 
+// The up-to-two tangent CONTACT angles (degrees, the model's atan2 convention)
+// from an external point to a circle. The classic Thales construction: a tangent
+// touches where the radius is perpendicular to the tangent line, so in the right
+// triangle (center, fromPoint, contact) the right angle is at the contact and the
+// angle at the center is acos(radius / |fromPoint-center|). The contacts therefore
+// sit at the center→fromPoint bearing ± that angle. Empty when fromPoint is inside
+// or on the circle (no external tangent) or the radius is degenerate.
+std::vector<double> tangentContactAnglesDeg(Point2D center, double radius, Point2D fromPoint)
+{
+    constexpr double pi = 3.14159265358979323846;
+    const double centerDistance = distance(center, fromPoint);
+    if (!(radius > 0.0) || centerDistance <= radius) {
+        return {};
+    }
+    const double bearing = std::atan2(fromPoint.y - center.y, fromPoint.x - center.x);
+    const double half = std::acos(radius / centerDistance); // radius/dist in (0,1)
+    return {
+        (bearing + half) * 180.0 / pi,
+        (bearing - half) * 180.0 / pi,
+    };
+}
+
 } // namespace
 
 Point2D normalizeDraftingPoint(Point2D point)
@@ -350,6 +372,10 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
         return "quadrant";
     case DraftingSnapSourceKind::OnCurve:
         return "on_curve";
+    case DraftingSnapSourceKind::Tangent:
+        return "tangent";
+    case DraftingSnapSourceKind::Perpendicular:
+        return "perpendicular";
     }
     return "unknown";
 }
@@ -599,6 +625,78 @@ std::vector<DraftingSnapCandidate> snapCandidatesForDocument(const DraftingDocum
                     candidates.push_back({*crossing, DraftingSnapSourceKind::Intersection,
                                           draftingSnapSourceKindName(DraftingSnapSourceKind::Intersection),
                                           lines[i].id});
+                }
+            }
+        }
+    }
+    return candidates;
+}
+
+std::vector<DraftingSnapCandidate> relativeSnapCandidatesForDocument(const DraftingDocument &document, Point2D fromPoint, const DraftingSnapSettings &settings)
+{
+    std::vector<DraftingSnapCandidate> candidates;
+    if (!isFinite(fromPoint)) {
+        return candidates;
+    }
+
+    auto addPerpendicularFoot = [&](const DraftingObject &object, Point2D a, Point2D b) {
+        // Reuse the DR-02 segment projection — the clamped foot of perpendicular.
+        addCandidate(candidates, object, projectOnSegment(a, b, fromPoint), DraftingSnapSourceKind::Perpendicular);
+    };
+
+    for (const DraftingObject &object : document.objects) {
+        if (!object.visible || !kindMatchesGeometry(object.kind, object.geometry)) {
+            continue;
+        }
+        const DraftingLayer *layer = findLayer(document, object.layerId);
+        if (layer == nullptr || !layer->visible) {
+            continue;
+        }
+
+        // TANGENT contacts from the anchor to circles/arcs. For a full circle both
+        // contacts apply; for an arc keep only contacts whose angle lies within the
+        // sweep (same lo/hi wrap convention as the quadrant gate / arc hit-test).
+        if (settings.tangentEnabled) {
+            if (const auto *circle = std::get_if<CircleGeometry>(&object.geometry)) {
+                for (const double angle : tangentContactAnglesDeg(circle->center, circle->radius, fromPoint)) {
+                    addCandidate(candidates, object, arcPointAtAngle(circle->center, circle->radius, angle), DraftingSnapSourceKind::Tangent);
+                }
+            } else if (const auto *arc = std::get_if<ArcGeometry>(&object.geometry)) {
+                const double lo = std::min(arc->startAngleDeg, arc->endAngleDeg);
+                const double hi = std::max(arc->startAngleDeg, arc->endAngleDeg);
+                for (double angle : tangentContactAnglesDeg(arc->center, arc->radius, fromPoint)) {
+                    double swept = angle;
+                    while (swept < lo) {
+                        swept += 360.0;
+                    }
+                    if (swept <= hi) {
+                        addCandidate(candidates, object, arcPointAtAngle(arc->center, arc->radius, angle), DraftingSnapSourceKind::Tangent);
+                    }
+                }
+            }
+        }
+
+        // PERPENDICULAR feet from the anchor onto straight lines / edges: line and
+        // construction-line segments, the wall centerline, and polyline/polygon
+        // edges. (Curved kinds use the tangent constraint above instead.)
+        if (settings.perpendicularEnabled) {
+            if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, line->a, line->b);
+            } else if (const auto *cline = std::get_if<ConstructionLineGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, cline->a, cline->b);
+            } else if (const auto *wall = std::get_if<WallGeometry>(&object.geometry)) {
+                addPerpendicularFoot(object, wall->a, wall->b);
+            } else if (const auto *polyline = std::get_if<PolylineGeometry>(&object.geometry)) {
+                for (std::size_t i = 0; i + 1 < polyline->vertices.size(); ++i) {
+                    addPerpendicularFoot(object, polyline->vertices[i], polyline->vertices[i + 1]);
+                }
+            } else if (const auto *polygon = std::get_if<PolygonGeometry>(&object.geometry)) {
+                const std::vector<Point2D> &v = polygon->vertices;
+                for (std::size_t i = 0; i + 1 < v.size(); ++i) {
+                    addPerpendicularFoot(object, v[i], v[i + 1]);
+                }
+                if (v.size() >= 2) {
+                    addPerpendicularFoot(object, v.back(), v.front()); // closing edge
                 }
             }
         }

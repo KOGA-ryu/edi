@@ -285,8 +285,26 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   `radialArrayDraftingObject`/`RadialArrayCenter` byte-unchanged; reuses
   `createArrayFromActiveObject`. Lighter scrutiny (validated array pattern).
 
+- **MERGED (edi-ui):** DR-09 on master @`4103dab` (100/100). edi-ui flagged DR-09 carried
+  a stale-base dup of DR-08 (timing race). **CADENCE FIX:** open slice N+1's build only
+  AFTER edi-ui confirms slice N merged → the builder always rebases onto a master that
+  carries the prior tip. (Local master is updated in-place by edi-ui on the box; it was
+  never stale persistently — just a parallel-open race.)
+
+### DR-10 — CLOSED 2026-06-17 ✅ (SHA `6d0cc01`, 99/99 green) — first transformGeometry consumer
+- Reply: `~/dept-bus/edi-drafting/replies/022-DR10-rotate-copies-builder.md`. Rebase CLEAN
+  (base `f65e972` current — DR-07/08 cherry-pick-skipped; no dup this time). Sibling
+  `RotateCopiesCenter` intent (radial path byte-unchanged); `rotateCopiesDraftingObject`
+  uses `transformGeometry` per copy. Arm distribution mirrors radial exactly (step =
+  totalAngle/(copies+1); 3 copies/360 → spokes 90/180/270). `m_rotateCopiesTotalAngleDeg`
+  default 360, edi-ui surfaces it.
+- **RATIFIED (planner):** center==source-centre is ALLOWED for rotate-copies (valid rosette;
+  intentional difference from radial's zero-arm reject). Guides rejected (would stack).
+- Reported DR-10 (`6d0cc01`) to edi-ui. **DR-11 HELD until edi-ui confirms DR-10 merged**
+  (new post-merge sequencing).
+
 ## Open questions / blockers
-- (none blocking — DR-10 in build; DR-09 reported to edi-ui)
+- (none blocking — DR-10 reported; DR-11 intentionally held until DR-10 merge-confirm)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

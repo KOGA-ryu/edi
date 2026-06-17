@@ -139,6 +139,9 @@ struct BoundsEstimator {
     // Python framing rigs intentionally differ; do NOT change behavior to match.
     void operator()(const AddLabelOp &) const {}
     void operator()(const ScriptOp &) const {}
+    // AddPrism (BL-03) is a buildable carrier whose proof tier is the OBJ mesh
+    // (BL-04), not 2D ASCII — like ScriptOp it frames nothing here.
+    void operator()(const AddPrismOp &) const {}
 };
 
 // v0's estimate_bounds for the architectural core: CutFlutes and AddLabel
@@ -488,6 +491,11 @@ struct ProjectionDrawer {
     // schematic draws nothing for it — the craftsman's proof is the OBJ mesh
     // tier (edi_craft --obj-out), not this 2D projection.
     void operator()(const ScriptOp &) const {}
+
+    // AddPrism (BL-03): the lowered extrude carrier. Like ScriptOp its proof is
+    // the OBJ mesh (BL-04), not a 2D silhouette, so this draws nothing — and,
+    // unlike the profile-reference ops, it is NOT refused before dispatch.
+    void operator()(const AddPrismOp &) const {}
 };
 
 } // namespace

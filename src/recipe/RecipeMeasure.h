@@ -52,4 +52,14 @@ ProfilePointsResult resolveProfilePoints(
     const edi::drafting::DraftingGridProjection &grid,
     const std::string &objectId);
 
+// The extrude twin (BL-03): the SAME point extraction + the same four refusal
+// wordings as resolveProfilePoints, but projecting each drafted point to a
+// physical FOOTPRINT (x = physicalWidth(x), y = physicalHeight(y)) — no radius
+// reinterpretation, no 1-y z-flip. The prism rises +z by height from baseZ.
+// ProfilePointsResult::points here carry physical (x, y) footprint, not (radius, z).
+ProfilePointsResult resolveExtrudeProfilePoints(
+    const edi::drafting::DraftingDocument &drafting,
+    const edi::drafting::DraftingGridProjection &grid,
+    const std::string &objectId);
+
 } // namespace edi::recipe

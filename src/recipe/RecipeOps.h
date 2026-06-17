@@ -102,6 +102,30 @@ struct AddMouldingOp {
     std::string material = "stone";
 };
 
+// One planar footprint vertex, physical x/y in the drawing plane.
+struct PrismPoint {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+// The BUILDABLE prism carrier (BL-03): the concrete lowered form an
+// AddExtrudedProfileOp resolves to, exactly parallel to how the lathe
+// (AddRevolvedProfileOp) lowers to AddMouldingOp. It carries a closed planar
+// `footprint` (physical x/y, like AddMoulding carries a (z, radius) point
+// vector) swept straight up +z by `height` from `baseZ`. Unlike the profile-
+// REFERENCE ops it is NOT refused before build — it passes compile, preview,
+// and export like AddMoulding; its 3D proof is the OBJ mesh (BL-04), and like
+// ScriptOp it draws nothing in 2D ASCII.
+struct AddPrismOp {
+    std::string name;
+    std::vector<PrismPoint> footprint; // closed planar loop, physical x/y
+    double height = 0.0;
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    std::string material = "stone";
+};
+
 struct AddProfileMouldingOp {
     std::string name;
     double baseZ = 0.0;
@@ -214,6 +238,7 @@ using RecipeOp = std::variant<
     AddSphereOp,
     AddRingOp,
     AddMouldingOp,
+    AddPrismOp,
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
     AddExtrudedProfileOp,

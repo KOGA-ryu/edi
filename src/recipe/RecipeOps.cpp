@@ -31,6 +31,7 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddSphereOp &) const { return "AddSphere"; }
         const char *operator()(const AddRingOp &) const { return "AddRing"; }
         const char *operator()(const AddMouldingOp &) const { return "AddMoulding"; }
+        const char *operator()(const AddPrismOp &) const { return "AddPrism"; }
         const char *operator()(const AddProfileMouldingOp &) const { return "AddProfileMoulding"; }
         const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
         const char *operator()(const AddExtrudedProfileOp &) const { return "AddExtrudedProfile"; }

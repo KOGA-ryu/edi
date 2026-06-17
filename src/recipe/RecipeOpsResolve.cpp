@@ -138,6 +138,58 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
         resolved.ops[index] = std::move(lowered);
     }
 
+    // Extrude lowering (BL-03): every surviving AddExtrudedProfileOp becomes a
+    // concrete, buildable AddPrismOp — the same move as the lathe loop above,
+    // but the projection is the drafted FOOTPRINT (physical x/y in the drawing
+    // plane), not the lathe's (radius, z) spin profile. Runs AFTER bindings so a
+    // bound `height` has already landed. A dedicated carrier (not a reuse of
+    // AddMoulding) is the right call: a linear extrude is a planar loop swept
+    // straight up, whereas AddMoulding's points are (z, radius) rings revolved
+    // about an axis — forcing a footprint into that radius/z shape would lie
+    // about the geometry and mislead every downstream consumer.
+    for (std::size_t index = 0; index < resolved.ops.size(); ++index) {
+        const auto *extruded = std::get_if<AddExtrudedProfileOp>(&resolved.ops[index]);
+        if (extruded == nullptr) {
+            continue;
+        }
+        const std::string key = "op." + std::to_string(index) + ".profile";
+        const ProfilePointsResult footprint =
+            resolveExtrudeProfilePoints(drafting, grid, extruded->profile);
+        if (!footprint.ok) {
+            result.findings.push_back({key, footprint.message}); // shared wordings
+            continue;
+        }
+        // A prism needs a real polygon: count DISTINCT footprint points (a
+        // closed loop may repeat its first vertex as the last) — fewer than
+        // three means the drafted figure was a point or a line, not an area.
+        std::vector<edi::drafting::Point2D> distinct;
+        for (const edi::drafting::Point2D &point : footprint.points) {
+            const bool seen = std::any_of(distinct.begin(), distinct.end(),
+                                          [&point](const edi::drafting::Point2D &other) {
+                                              return other.x == point.x && other.y == point.y;
+                                          });
+            if (!seen) {
+                distinct.push_back(point);
+            }
+        }
+        if (distinct.size() < 3) {
+            result.findings.push_back({key, "profile must enclose at least three distinct points"});
+            continue;
+        }
+        AddPrismOp lowered;
+        lowered.name = extruded->name;
+        lowered.height = extruded->height;
+        lowered.baseZ = extruded->baseZ;
+        lowered.x = extruded->x;
+        lowered.y = extruded->y;
+        lowered.material = extruded->material;
+        lowered.footprint.reserve(footprint.points.size());
+        for (const edi::drafting::Point2D &point : footprint.points) {
+            lowered.footprint.push_back({point.x, point.y});
+        }
+        resolved.ops[index] = std::move(lowered);
+    }
+
     // All-or-nothing. `result` already defaults to ok=false with an empty
     // stream, so returning it now guarantees no half-resolved ops escape while
     // `findings` still carries every failure at once. Deleting this guard (or

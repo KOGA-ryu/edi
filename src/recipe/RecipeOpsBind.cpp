@@ -47,6 +47,15 @@ constexpr FieldRow<AddMouldingOp> kMouldingFields[] = {
     {"y", &AddMouldingOp::y},
 };
 
+// BL-03: the lowered prism carrier. Its numeric fields mirror AddMoulding's
+// (base_z/x/y) plus `height`, kept in step with the store reader and inspector.
+constexpr FieldRow<AddPrismOp> kPrismFields[] = {
+    {"height", &AddPrismOp::height},
+    {"base_z", &AddPrismOp::baseZ},
+    {"x", &AddPrismOp::x},
+    {"y", &AddPrismOp::y},
+};
+
 constexpr FieldRow<AddProfileMouldingOp> kProfileMouldingFields[] = {
     {"base_z", &AddProfileMouldingOp::baseZ},
     {"x", &AddProfileMouldingOp::x},
@@ -111,6 +120,7 @@ struct FieldVisit {
     bool operator()(AddSphereOp &op) const { return handle(op, findMember(kSphereFields, fieldKey)); }
     bool operator()(AddRingOp &op) const { return handle(op, findMember(kRingFields, fieldKey)); }
     bool operator()(AddMouldingOp &op) const { return handle(op, findMember(kMouldingFields, fieldKey)); }
+    bool operator()(AddPrismOp &op) const { return handle(op, findMember(kPrismFields, fieldKey)); }
     bool operator()(AddProfileMouldingOp &op) const { return handle(op, findMember(kProfileMouldingFields, fieldKey)); }
     bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
     bool operator()(AddExtrudedProfileOp &op) const { return handle(op, findMember(kExtrudedProfileFields, fieldKey)); }
@@ -137,6 +147,7 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddSphereOp &op) const { return of(op, kSphereFields); }
     std::vector<RecipeOpField> operator()(const AddRingOp &op) const { return of(op, kRingFields); }
     std::vector<RecipeOpField> operator()(const AddMouldingOp &op) const { return of(op, kMouldingFields); }
+    std::vector<RecipeOpField> operator()(const AddPrismOp &op) const { return of(op, kPrismFields); }
     std::vector<RecipeOpField> operator()(const AddProfileMouldingOp &op) const { return of(op, kProfileMouldingFields); }
     std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
     std::vector<RecipeOpField> operator()(const AddExtrudedProfileOp &op) const { return of(op, kExtrudedProfileFields); }

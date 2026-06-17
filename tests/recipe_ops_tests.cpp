@@ -1317,5 +1317,83 @@ int main()
         assert(sawProfileRO && sawMaterial && sawHeight);
     }
 
+    // ---- AddPrism (BL-03): the BUILDABLE lowered carrier. Round trip the
+    // footprint.i.{x,y} run key-for-key, and pin its validate findings. Unlike
+    // the profile-reference ops it passes compile and is NOT refused. ----
+    {
+        RecipeOpStream zoo;
+        zoo.id = "prism.zoo";
+        zoo.name = "Prism Zoo";
+        AddPrismOp prism;
+        prism.name = "wall.block";
+        prism.footprint = {{1.2, 0.8}, {3.6, 0.8}, {3.6, 2.4}, {1.2, 2.4}};
+        prism.height = 2.0;
+        prism.baseZ = 1.0;
+        prism.x = 0.5;
+        prism.y = -0.25;
+        prism.material = "marble";
+        zoo.ops.push_back(prism);
+
+        const OpStreamTextResult written = recipeOpsToToml(zoo);
+        assert(written.ok);
+        assert(written.text.find("op.0.type = \"AddPrism\"") != std::string::npos);
+        assert(written.text.find("op.0.height = \"2\"") != std::string::npos);
+        assert(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
+        assert(written.text.find("op.0.footprint.0.x = \"1.2\"") != std::string::npos);
+        assert(written.text.find("op.0.footprint.2.y = \"2.4\"") != std::string::npos);
+
+        const OpStreamParseResult back = recipeOpsFromToml(written.text, "prism.zoo");
+        assert(back.ok && back.stream.ops.size() == 1);
+        const auto *prismBack = std::get_if<AddPrismOp>(&back.stream.ops[0]);
+        assert(prismBack != nullptr && prismBack->name == "wall.block"
+               && near(prismBack->height, 2.0) && near(prismBack->baseZ, 1.0)
+               && near(prismBack->x, 0.5) && near(prismBack->y, -0.25)
+               && prismBack->material == "marble");
+        assert(prismBack->footprint.size() == 4);
+        assert(near(prismBack->footprint[0].x, 1.2) && near(prismBack->footprint[0].y, 0.8));
+        assert(near(prismBack->footprint[3].x, 1.2) && near(prismBack->footprint[3].y, 2.4));
+        assert(recipeOpsToToml(back.stream).text == written.text); // idempotent
+
+        // BUILDABLE carrier: compile passes it through untouched (like
+        // AddMoulding), and it does NOT make the stream unresolved.
+        const RecipeCompileResult compiled = compileRecipeOps({RecipeOp{prism}});
+        assert(compiled.ok && compiled.ops.size() == 1
+               && recipeOpTypeName(compiled.ops[0]) == std::string("AddPrism"));
+        RecipeOpStream resolvedStream;
+        resolvedStream.ops = {RecipeOp{prism}};
+        assert(recipeOpsResolved(resolvedStream));
+        assert(validateRecipeOps({RecipeOp{prism}}).ok);
+
+        // Validate refusals by name: a degenerate footprint (< 3 points) and a
+        // zero/non-finite height. A NEGATIVE height is ALLOWED (BL-05).
+        AddPrismOp sliver = prism;
+        sliver.footprint = {{0.0, 0.0}, {1.0, 0.0}}; // a line, not an area
+        const OpValidationReport sliverReport = validateRecipeOps({RecipeOp{sliver}});
+        assert(!sliverReport.ok);
+        bool sawDegenerate = false;
+        for (const OpFinding &f : sliverReport.findings) {
+            sawDegenerate = sawDegenerate || f.code == "prism_degenerate_footprint";
+        }
+        assert(sawDegenerate);
+
+        AddPrismOp flat = prism;
+        flat.height = 0.0;
+        const OpValidationReport flatReport = validateRecipeOps({RecipeOp{flat}});
+        assert(!flatReport.ok);
+        bool sawZeroHeight = false;
+        for (const OpFinding &f : flatReport.findings) {
+            sawZeroHeight = sawZeroHeight || f.code == "prism_zero_height";
+        }
+        assert(sawZeroHeight);
+
+        AddPrismOp pushPull = prism;
+        pushPull.height = -1.5; // allowed
+        const OpValidationReport negReport = validateRecipeOps({RecipeOp{pushPull}});
+        for (const OpFinding &f : negReport.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+        assert(negReport.ok);
+    }
+
     return 0;
 }

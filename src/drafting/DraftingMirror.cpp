@@ -43,6 +43,13 @@ DraftingGeometry mirrorGeometry(const DraftingGeometry &geometry, Bounds2D bound
             } else {
                 typedGeometry.origin.x = mirroredOrigin.x - typedGeometry.width;
             }
+            // Reflection reverses orientation: a rect rotated by r mirrors to -r (mod
+            // the rectangle's 180° symmetry). Applies to BOTH canonical axes (vertical
+            // wants -r+180 ≡ -r), so it lives OUTSIDE the H/V branch above. Position is
+            // handled separately and is unaffected. (Pre-existing canonical bug DR-11
+            // surfaced: without this, a single-axis mirror left rotationDeg unchanged,
+            // and the kaleidoscope conjugation R(+θ)∘Mx∘R(−θ) netted the wrong angle.)
+            typedGeometry.rotationDeg = -typedGeometry.rotationDeg;
             return typedGeometry;
         } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
             typedGeometry.center = mirrorPoint(typedGeometry.center, bounds, axis);

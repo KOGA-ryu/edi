@@ -107,6 +107,32 @@ int main()
     assert(nearlyEqual(rectGeometry->origin.y, 0.3));
     assert(nearlyEqual(rectGeometry->rotationDeg, 0.0));
 
+    // Reflection reverses orientation: a single-axis mirror of a ROTATED rectangle
+    // negates rotationDeg (r=30° -> -30°). The axis-aligned case above still holds
+    // (-0 == 0).
+    DraftingObject rotatedRect = object("rrect_1", DraftingShapeKind::Rectangle,
+                                        RectangleGeometry{{0.2, 0.3}, 0.4, 0.2, 30.0});
+    auto mirroredRotatedRect = mirrorDraftingObject(rotatedRect, "rrect_mirror", DraftingMirrorAxis::Horizontal);
+    assert(mirroredRotatedRect.ok);
+    const auto *rotatedRectGeometry = std::get_if<RectangleGeometry>(&mirroredRotatedRect.object.geometry);
+    assert(rotatedRectGeometry != nullptr);
+    assert(nearlyEqual(rotatedRectGeometry->rotationDeg, -30.0));
+
+    // DR-11 kaleidoscope across a 30° axis: an axis-aligned rect (r=0) reflects to
+    // r = -0 + 2θ = 60° (the conjugation R(+θ)∘mirror∘R(−θ) nets 2θ now that the
+    // canonical arm flips rotationDeg). 6 axes -> spacing 30°, so copy[1] is the 30°
+    // axis. The rect is centred on the kaleidoscope centre, so its centre is fixed.
+    DraftingObject centredRect = object("krect_1", DraftingShapeKind::Rectangle,
+                                        RectangleGeometry{{0.45, 0.45}, 0.1, 0.1, 0.0});
+    auto kRect = kaleidoscopeMirror(centredRect, {"kr_0", "kr_1", "kr_2", "kr_3", "kr_4", "kr_5"}, {0.5, 0.5}, 6);
+    assert(kRect.ok);
+    const auto *kRectGeometry = std::get_if<RectangleGeometry>(&kRect.objects[1].geometry);
+    assert(kRectGeometry != nullptr);
+    assert(nearlyEqual(kRectGeometry->rotationDeg, 60.0));
+    // Centre is invariant (the rect sits on the centre, on every axis through it).
+    assert(nearlyEqual(kRectGeometry->origin.x + kRectGeometry->width / 2.0, 0.5));
+    assert(nearlyEqual(kRectGeometry->origin.y + kRectGeometry->height / 2.0, 0.5));
+
     DraftingObject point = object("point_1", DraftingShapeKind::Point, PointGeometry{{0.25, 0.75}});
     auto mirroredPoint = mirrorDraftingObject(point, "point_mirror", DraftingMirrorAxis::Vertical);
     assert(mirroredPoint.ok);

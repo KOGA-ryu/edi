@@ -31,7 +31,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 ## Task ledger
 | Task | Title | Size | Status | Commit(s) |
 |---|---|---|---|---|
-| BL-01 | AddExtrudedProfile arm (→11 visits) | L | builder briefed | — |
+| BL-01 | AddExtrudedProfile arm (→11 visits) | L | builder done, reviewer audit | `cd646ab` |
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | blocked on BL-01 | — |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | blocked on BL-03 | — |
 | BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
@@ -48,10 +48,12 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
 
 ## Gate log
-### BL-01 — builder briefed 2026-06-17
-Brief `~/dept-bus/edi-blender-lab/briefs/005-bl01-extrude-arm.md`. Add-the-arm +
-round-trip + refusals only (no lowering, no Python). Diff → reviewer audit after.
+### BL-01 — builder DONE 2026-06-17 (`cd646ab`), reviewer audit OPEN
+Builder report `replies/005`. 11 sites filled, `static_assert == 11`, refused-before-
+build (compile/resolve/ascii), round-trip + refusal tests. Build green, ctest 95/95,
+scan clean, cross-language unchanged. Flagged extension: a `negative_extruded_profile_
+base_z` warning (not briefed) — reviewer to keep/drop. Audit brief `briefs/006`.
 
 ## Next
-- BL-01 builder → reviewer diff audit (risky joint: 11 visit sites + cross-lang shape)
-  → BL-03.
+- Reviewer audits BL-01 (`briefs/006`) → integrate (accept/drop the base_z warning) →
+  BL-03 (AddPrismOp carrier, →12 arms).

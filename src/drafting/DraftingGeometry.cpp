@@ -665,6 +665,125 @@ DraftingGeometry translateGeometry(const DraftingGeometry &geometry, double dx, 
     }, geometry);
 }
 
+namespace {
+
+// Rotate+uniform-scale a point about a pivot — THE one place trig lives for the
+// transform (deg->rad once). Uniform scale commutes with rotation, so
+// scale-then-rotate == rotate-then-scale (no ambiguity). The matrix here
+// (dx*c - dy*s, dx*s + dy*c) is the SAME one the model already uses for
+// field-rotation (rectangleCorners and the arc angle convention), so a point
+// rotated by mapPoint and a field rotated by `+= rotationDeg` agree in sense —
+// no sign flip is needed despite the y-down canvas.
+Point2D mapPoint(Point2D p, Point2D pivot, double rotationDeg, double scale)
+{
+    const double rad = rotationDeg * 3.14159265358979323846 / 180.0;
+    const double c = std::cos(rad);
+    const double s = std::sin(rad);
+    const double dx = (p.x - pivot.x) * scale;
+    const double dy = (p.y - pivot.y) * scale;
+    return Point2D{pivot.x + dx * c - dy * s, pivot.y + dx * s + dy * c};
+}
+
+} // namespace
+
+DraftingGeometry transformGeometry(const DraftingGeometry &geometry, Point2D pivot, double rotationDeg, double scale)
+{
+    return std::visit([&](auto typedGeometry) -> DraftingGeometry {
+        using Geometry = std::decay_t<decltype(typedGeometry)>;
+        if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            typedGeometry.point = mapPoint(typedGeometry.point, pivot, rotationDeg, scale);
+        } else if constexpr (std::is_same_v<Geometry, LineGeometry>) {
+            typedGeometry.a = mapPoint(typedGeometry.a, pivot, rotationDeg, scale);
+            typedGeometry.b = mapPoint(typedGeometry.b, pivot, rotationDeg, scale);
+        } else if constexpr (std::is_same_v<Geometry, RectangleGeometry>) {
+            // rotationDeg is about the rectangle's CENTER (matches computeBounds/
+            // painter), so the transform anchors on the center and re-derives
+            // origin — Rectangle is the lone kind whose defining point (origin) !=
+            // its rotation anchor (center). Mapping origin directly (the literal
+            // contract sketch) would leave the center mis-placed by R(theta) on the
+            // half-extent and the box would spin in place instead of orbiting the
+            // pivot; anchoring on the center makes the rendered corners equal
+            // mapPoint(original corners) exactly.
+            const Point2D center{
+                typedGeometry.origin.x + typedGeometry.width / 2.0,
+                typedGeometry.origin.y + typedGeometry.height / 2.0,
+            };
+            const Point2D mappedCenter = mapPoint(center, pivot, rotationDeg, scale);
+            typedGeometry.width *= scale;
+            typedGeometry.height *= scale;
+            typedGeometry.cornerRadius *= scale;
+            typedGeometry.inset *= scale;
+            typedGeometry.rotationDeg += rotationDeg;
+            typedGeometry.origin = {
+                mappedCenter.x - typedGeometry.width / 2.0,
+                mappedCenter.y - typedGeometry.height / 2.0,
+            };
+        } else if constexpr (std::is_same_v<Geometry, CircleGeometry>) {
+            // Uniform scale keeps it a circle; rotation only moves the center.
+            typedGeometry.center = mapPoint(typedGeometry.center, pivot, rotationDeg, scale);
+            typedGeometry.radius *= scale;
+        } else if constexpr (std::is_same_v<Geometry, ArcGeometry>) {
+            // Map the rotation anchor (center) and accumulate the angle on both
+            // ends — sweep magnitude preserved, orientation rotates.
+            typedGeometry.center = mapPoint(typedGeometry.center, pivot, rotationDeg, scale);
+            typedGeometry.radius *= scale;
+            typedGeometry.startAngleDeg += rotationDeg;
+            typedGeometry.endAngleDeg += rotationDeg;
+        } else if constexpr (std::is_same_v<Geometry, EllipseGeometry>) {
+            // v1 LIMITATION: the axis TILT from rotation is DROPPED — an
+            // axis-aligned ellipse has no field to store it, so rotation only moves
+            // the center while rx/ry stay axis-aligned (correct for circles rx==ry
+            // and for pure translate/scale; lossy only for a rotated non-circular
+            // ellipse). DEFERRED lossless fix: add an additive rotationDeg field to
+            // EllipseGeometry (mirroring Rectangle) — a separate model slice that
+            // touches every ellipse visit + serialize + painter; not built here.
+            typedGeometry.center = mapPoint(typedGeometry.center, pivot, rotationDeg, scale);
+            typedGeometry.rx *= scale;
+            typedGeometry.ry *= scale;
+        } else if constexpr (std::is_same_v<Geometry, GuideGeometry>) {
+            // IDENTITY no-op: a guide is an infinite axis-aligned reference line, so
+            // rotating/scaling it about an arbitrary pivot has no meaning in the v1
+            // model. A deliberate arm (returns unchanged), NOT a fall-through.
+        } else if constexpr (std::is_same_v<Geometry, ConstructionLineGeometry>) {
+            typedGeometry.a = mapPoint(typedGeometry.a, pivot, rotationDeg, scale);
+            typedGeometry.b = mapPoint(typedGeometry.b, pivot, rotationDeg, scale);
+        } else if constexpr (std::is_same_v<Geometry, DimensionGeometry>) {
+            typedGeometry.a = mapPoint(typedGeometry.a, pivot, rotationDeg, scale);
+            typedGeometry.b = mapPoint(typedGeometry.b, pivot, rotationDeg, scale);
+            typedGeometry.offset *= scale;
+        } else if constexpr (std::is_same_v<Geometry, PolygonGeometry>
+                             || std::is_same_v<Geometry, PolylineGeometry>) {
+            for (Point2D &point : typedGeometry.vertices) {
+                point = mapPoint(point, pivot, rotationDeg, scale);
+            }
+        } else if constexpr (std::is_same_v<Geometry, TextAnnotationGeometry>) {
+            // v1 LIMITATION: the baseline ANGLE is DROPPED — text has no angle
+            // field, so rotation only moves the anchor while text stays upright
+            // (correct for the common unrotated case). DEFERRED lossless fix: add
+            // an additive rotationDeg field to TextAnnotationGeometry (mirroring
+            // Rectangle) — a separate model slice touching every text visit +
+            // serialize + painter; not built here.
+            typedGeometry.position = mapPoint(typedGeometry.position, pivot, rotationDeg, scale);
+            typedGeometry.height *= scale;
+        } else if constexpr (std::is_same_v<Geometry, SplineGeometry>) {
+            // Transform the whole curve = transform every control point; the
+            // sampled form follows because it is recomputed from these.
+            for (Point2D &point : typedGeometry.controlPoints) {
+                point = mapPoint(point, pivot, rotationDeg, scale);
+            }
+        } else if constexpr (std::is_same_v<Geometry, WallGeometry>) {
+            // Map both centerline endpoints (like LineGeometry); thickness is a
+            // band width, so it scales but does not rotate.
+            typedGeometry.a = mapPoint(typedGeometry.a, pivot, rotationDeg, scale);
+            typedGeometry.b = mapPoint(typedGeometry.b, pivot, rotationDeg, scale);
+            typedGeometry.thickness *= scale;
+        } else {
+            static_assert(always_false_v<Geometry>, "transformGeometry: unhandled DraftingGeometry arm");
+        }
+        return typedGeometry;
+    }, geometry);
+}
+
 bool translationHasEffect(double dx, double dy)
 {
     constexpr double epsilon = 0.0000001;

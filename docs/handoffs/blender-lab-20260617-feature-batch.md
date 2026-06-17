@@ -45,7 +45,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
 | BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
-| BL-15 | TOON handoff of resolved stream | M | builder briefed (FINAL) | — |
+| BL-15 | TOON handoff of resolved stream | M | **SHIPPED** (spot-check: refactor preserved) | `9283d37` |
 
 ## Gate log
 ### BL-01 — builder DONE 2026-06-17 (`cd646ab`), reviewer audit OPEN
@@ -248,7 +248,19 @@ ToonPacket (op.N key scheme = the TOML addresses) via `exportToonPacket`; refuse
 unresolved stream by name; never JSON. In RecipeOpsStore (edi_format_core is transitively
 linked — no CMakeLists edit). CLI verb is main.cpp = edi-ui's (flag).
 
+### BL-15 — SHIPPED 2026-06-17 (planner spot-check; FINAL TASK)
+`exportRecipeStreamToToon` via a clean shared-source refactor: factored `recipeOpsToConfig`
+so TOML + TOON read ONE StaticConfig (key-drift structurally impossible). Spot-checked:
+recipe_ops_tests round-trip passes (recipeOpsToToml byte-preserved), doric byte-identical
+post-refactor, the parity/refusal/no-JSON tests are real. Accepted.
+
+## BATCH COMPLETE — all 15 tasks shipped
+Arch doc re-trued (§1 14-arm roster, §2 13 sites/12 visitors incl MutableName +
+NameRefRemapper + static_assert 14, §3 the contract additions). Closeout:
+`docs/closeouts/blender-lab-feature-batch.md`. Reported batch-done to edi-ui.
+
 ## Next
-- BL-15 (TOON, FINAL) → **BATCH CLOSEOUT**: final arch-doc anchor sweep (variant stable at
-  14), closeout doc `docs/closeouts/blender-lab-feature-batch.md`, report batch-done to
-  edi-ui for integration/merge.
+- Hub/edi-ui to integrate + merge `dept/blender-lab` (we do not merge). Deferred polish
+  (8 items above) is a future campaign. edi-ui dependencies to wire (chrome, not ours):
+  the profile/path/operand canvas-pickers, the File-menu Append/Export-TOON entries, the
+  `--recipe-toon` CLI verb.

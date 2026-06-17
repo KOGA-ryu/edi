@@ -33,7 +33,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 |---|---|---|---|---|
 | BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
-| BL-04 | edi_craft.py prism build + OBJ golden | M | builder done, reviewer audit | `914a473` |
+| BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
 | BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
 | BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
 | BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
@@ -89,8 +89,28 @@ Brief `briefs/009-bl04-prism-python.md`. The Python prism half: ARCHITECTURAL_OP
 parse_ops (key-for-key) + `_prism_world` mesh + obj/plan/bounds/build + raw-extrude
 refusal + a new sample + OBJ golden + smoke. Completes the extrude spine.
 
+### BL-04 — SHIPPED 2026-06-17 (audit `replies/010`: SHIP, spine sound end-to-end)
+Reviewer reproduced green; cross-language contract EXACT key-for-key (defaults
+included — the table in §1 of the verdict), mesh honest+pure (signed height, deduped
+loop, shared with the bpy build), raw extrude refused both sides, doric byte-identical,
+prism golden byte-pinned. **The north-star extrude spine is COMPLETE: a drafted figure
+→ AddExtrudedProfile → AddPrism → OBJ/Blender.**
+
+### Spine closeout — 2026-06-17 — planner
+Arch doc refreshed for the spine (§1 arms 11+12 + PrismPoint; §2 →12 arms +
+static_assert 12; §3 prism contract; §4 extrude lowering; §5 AddPrism OBJ tier; §9
+"no extrude" SUPERSEDED). Line-anchor full sweep deferred to batch close (arms 13/14
+still incoming). Reported SPINE COMPLETE to hub.
+
+## LEDGER policy (ratified 2026-06-17)
+Do NOT commit `docs/handoffs/LEDGER.md` on `dept/blender-lab` (kills rebase conflicts;
+edi-ui owns the master LEDGER per PROTOCOL.md). State lives HERE (this handoff doc) +
+`bus-hub` reports. This doc is the department's source of truth.
+
 ## Next
-- BL-04 builder → reviewer audit (cross-language key-for-key is the named risky joint) →
-  **report SPINE complete to hub** (BL-01/03/04, the ~3-task mark).
-- Arch doc: I (scribe) refresh §1/§2/§3/§5 to add arms 11 (AddExtrudedProfile) + 12
-  (AddPrismOp) + the prism Python contract once BL-04 lands (the spine as a unit).
+- **BL-05** (Push/Pull height authoring: bind + schema + zero-height refusal + negative
+  = cut) — dep BL-04 ✓, no arm collision. Next up.
+- Wave-1 independents now unblocked (no arm-table contention until BL-08): BL-06 (lathe
+  sweepDegrees), BL-12 (radial_petal craftsman), BL-14 (recipe library). Queue through
+  the single builder after BL-05.
+- Arm-adders still serial: BL-08 (→13), BL-11 (→14) — one at a time, later.

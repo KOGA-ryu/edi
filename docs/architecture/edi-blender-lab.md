@@ -1,12 +1,13 @@
 # Architecture — edi-blender-lab (the recipe lab / Seam A)
 
-> **Status:** 2026-06-16, refreshed post-batch (campaign
-> `blender-lab-20260616-cartography`, CLOSED). The durable map of how the recipe
-> lab is structured. Folded from the reviewer gate's read-only enumeration
-> (`~/dept-bus/edi-blender-lab/replies/002-…`), spot-verified by the planner, then
-> refreshed against live source after the hardening batch landed (§10 marks the two
-> refactors DONE; §2/§5 anchors re-grepped after the `BoundsEstimator` insertion
-> drifted the ascii line numbers). Keep this current as the lab changes.
+> **Status:** 2026-06-17, updated for the extrude spine (campaign
+> `blender-lab-20260617-feature-batch`, ACTIVE). The durable map of how the recipe
+> lab is structured. Folded from the cartography reviewer gate, then updated as the
+> feature batch lands: the extrude spine (BL-01 `AddExtrudedProfile` arm → BL-03
+> `AddPrism` carrier + lowering → BL-04 Python build + OBJ golden) is COMPLETE and
+> reflected in §1–§5 + §9. **Line anchors drift during the active batch (arms 13/14
+> still to come via BL-08/BL-11) — see the §1 freshness note; the full anchor sweep
+> happens at batch close.** Trust the symbol, re-grep the line.
 >
 > Doctrine: **"Recipe is truth. ASCII preview is proof. Blender script is
 > execution."** The human composes an op stream by CLICKING; the AI edits the
@@ -15,25 +16,32 @@
 
 ## 1. The `RecipeOp` variant — the vocabulary core
 
-`using RecipeOp = std::variant<…>` at `src/recipe/RecipeOps.h:192`. **Exactly 10
-arms** (verified — no more, no less):
+`using RecipeOp = std::variant<…>` at `src/recipe/RecipeOps.h:235`. **12 arms** —
+the original 10 plus the two added by the 2026-06-17 extrude spine (BL-01/BL-03).
+
+> **Anchor freshness:** the active feature batch (`blender-lab-20260617-feature-batch`)
+> keeps adding arms (BL-08→13, BL-11→14), so the `(:NN)` line anchors below drift
+> during the batch. The arm SET + what-lowers-to-what is current; the exact line
+> anchors are re-trued at batch CLOSE. Trust the symbol, re-grep the line.
 
 | # | op (decl) | key fields | purpose |
 |---|---|---|---|
-| 1 | `AddBoxOp` (:41) | width/depth/height/z/x/y; material; zMode | rectangular block |
-| 2 | `AddCylinderOp` (:53) | radius/height/z/x/y; vertices; taperTopRadius?; entasis(+ratio); axis; zMode | shaft / column core; taper + entasis bulge |
-| 3 | `AddSphereOp` (:71) | radius/z/x/y; vertices(=24); material | sphere |
-| 4 | `AddRingOp` (:81) | radius/tubeHeight/z/overhang/x/y; vertices | ring (cylinder alias; overhang widens radius) |
-| 5 | `AddMouldingOp` (:95) | baseZ; profile = vector<MouldingPoint{z,radius,term}>; x/y; vertices | low-level lathe: explicit (z,radius) points |
-| 6 | `AddProfileMouldingOp` (:105) | baseZ; sequence = vector<MouldingSegment>; … | term-sequence moulding; **compiles INTO AddMoulding** |
-| 7 | `AddRevolvedProfileOp` (:124) | **profile = str (drafted object id)**; baseZ; x/y; vertices | the lathe; a REFERENCE to a drafted profile; **lowers to AddMoulding at resolve** |
-| 8 | `CutFlutesOp` (:134) | target(str, names earlier op); count; depth; widthRatio; cutterRadius?/atRadius?/startZ?/endZ? | radial flute grooves; explicit-cutter XOR widthRatio |
-| 9 | `AddLabelOp` (:155) | text; x/y/z | Blender-side text annotation |
-| 10 | `ScriptOp` (:183) | scriptId(str); x/y/z; params = vector<ScriptParam{key,value}> | dispatch to a custom Python craftsman; untyped param bag |
+| 1 | `AddBoxOp` | width/depth/height/z/x/y; material; zMode | rectangular block |
+| 2 | `AddCylinderOp` | radius/height/z/x/y; vertices; taperTopRadius?; entasis(+ratio); axis; zMode | shaft / column core; taper + entasis bulge |
+| 3 | `AddSphereOp` | radius/z/x/y; vertices(=24); material | sphere |
+| 4 | `AddRingOp` | radius/tubeHeight/z/overhang/x/y; vertices | ring (cylinder alias; overhang widens radius) |
+| 5 | `AddMouldingOp` | baseZ; profile = vector<MouldingPoint{z,radius,term}>; x/y; vertices | low-level lathe: explicit (z,radius) points |
+| 6 | `AddProfileMouldingOp` | baseZ; sequence = vector<MouldingSegment>; … | term-sequence moulding; **compiles INTO AddMoulding** |
+| 7 | `AddRevolvedProfileOp` | **profile = str (drafted object id)**; baseZ; x/y; vertices | the lathe; a REFERENCE to a drafted profile; refused-before-build, **lowers to AddMoulding at resolve** |
+| 8 | `CutFlutesOp` | target(str, names earlier op); count; depth; widthRatio; cutterRadius?/atRadius?/startZ?/endZ? | radial flute grooves; explicit-cutter XOR widthRatio |
+| 9 | `AddLabelOp` | text; x/y/z | Blender-side text annotation |
+| 10 | `ScriptOp` | scriptId(str); x/y/z; params = vector<ScriptParam{key,value}> | dispatch to a custom Python craftsman; untyped param bag |
+| 11 | `AddExtrudedProfileOp` (:167) | **profile = str (drafted object id)**; height; baseZ; x/y; material | **the extrude** — a REFERENCE to a drafted closed figure; refused-before-build, **lowers to AddPrism at resolve** (the sibling of the lathe; negative height = push/pull-cut) |
+| 12 | `AddPrismOp` (:119) | footprint = vector<PrismPoint{x,y}>; height; baseZ; x/y; material | **the extrude's buildable carrier** — a concrete planar footprint swept by height; NOT refused, OBJ-only proof like ScriptOp; what AddExtrudedProfile lowers to |
 
-Supporting types: `ScriptParam` (:168), `RecipeFieldBinding` (:213 —
-opIndex/fieldKey/objectId/field, the **parallel** binding table), `RecipeOpStream`
-(:220 — id/name/ops/bindings).
+Supporting types: `ScriptParam`, `RecipeFieldBinding` (opIndex/fieldKey/objectId/field,
+the **parallel** binding table), `RecipeOpStream` (id/name/ops/bindings),
+`PrismPoint` (:106 — one planar footprint vertex, physical x/y).
 
 **The design WIN:** a new arm forces `-Werror=switch`-style exhaustiveness across
 every `std::visit` interpreter (below) — a forgotten interpreter *cannot compile*.
@@ -47,8 +55,11 @@ resolve, ascii, bind, schema)" lists 7 **roles**, not visit sites, **and two of
 those roles are not `std::visit` at all.** The accurate map:
 
 **Compiler-exhaustive `std::visit` over `RecipeOp` — 11 call sites / 10 distinct
-visitor mechanisms.** An added arm fails to compile at each (overload set has no
-match):
+visitor mechanisms**, each now covering **12 arms** (the spine added AddExtruded +
+AddPrism arms at every site; the `static_assert(std::variant_size_v<RecipeOp> == N)`
+tripwire is now `== 12`, RecipeOpsStore.cpp:646). An added arm fails to compile at
+each (overload set has no match). *(Site line anchors below drift during the active
+batch — see the §1 freshness note.)*
 
 | visitor | site | mechanism |
 |---|---|---|
@@ -95,7 +106,10 @@ craftsman's shape is its Python `proof_mesh`; OBJ is its proof tier, not 2D ASCI
 **unreachable** — `renderOpsProjection` refuses both at :502/:507 before dispatch.
 `OpChecker(AddLabelOp)` is empty (:233 — nothing to validate). (The 5 `BoundsEstimator`
 no-op arms — AddProfileMoulding/AddRevolvedProfile/CutFlutes/AddLabel/Script — are at
-:131–138.)
+:131–138.) **AddExtrudedProfile** (refused-before-build) gets the same treatment as the
+lathe: no-op bounds + empty draw + a `renderOpsProjection` refusal. **AddPrism** (the
+buildable carrier) mirrors `ScriptOp`: no-op bounds + empty draw + **NO** refusal —
+invisible in ASCII, proven in OBJ.
 
 ## 3. The C++↔Python TOML contract — key-for-key, NO DRIFT
 
@@ -105,10 +119,19 @@ The reviewer checked every op key-for-key: **every key the writer emits, the rea
 consumes, with matching name/type/default. No drift.** Verified live on the doric
 sample: `--dry-run`, `--obj-out` (13148-line OBJ), `--list-craftsmen` all green.
 
+**Extrude spine (2026-06-17) extends the contract:** `AddExtrudedProfile` is
+**refused-before-build on BOTH sides** (Python `parse_ops` raises "must be resolved
+before building", edi_craft.py:245 — only the lowered carrier reaches Python).
+`AddPrism` (the carrier) is read key-for-key: writer `type,name,height,base_z,x,y,
+material` + a contiguous `footprint.i.{x,y}` run ↔ Python `parse_ops` AddPrism branch
+(edi_craft.py:348) + `_prism_world` mesh (:652) + `add_prism` build (:1041). Audited
+exact, defaults included (BL-04, `replies/010`).
+
 Per-op keys (all confirmed equal): AddBox `type,name,width,depth,height,z,x,y,material,z_mode`;
 AddCylinder adds `vertices,[taper_top_radius],entasis,entasis_ratio,axis`; AddSphere
 `…,vertices(=24),material`; AddRing `…,tube_height,overhang`; AddMoulding `base_z` +
-`profile.i.{term,z,radius}`; CutFlutes `target,count,depth` + `(cutter_radius+at_radius)`
+`profile.i.{term,z,radius}`; AddPrism `name,height,base_z,x,y,material` + `footprint.i.{x,y}`;
+CutFlutes `target,count,depth` + `(cutter_radius+at_radius)`
 **XOR** `width_ratio(0.28)` + `[start_z],[end_z]` (the XOR + present-together rule is
 enforced **identically and with the same wordings** on both sides —
 RecipeOpsStore.cpp:735–758 / edi_craft.py:344–351); AddLabel `type,name,text,x,y,z`;
@@ -141,14 +164,23 @@ identical 7 entries.
    baseZ. Runs AFTER bindings. A strictly-falling profile is direction-normalized
    (order reversed, no coordinate touched, :112–121); a folded/non-monotonic profile
    lowers verbatim and fails validation honestly (`moulding_profile_not_monotonic`).
-3. **All-or-nothing** (:146): any finding → empty stream; else clear bindings, ok.
+3. **Extrude lowering** (RecipeOpsResolve.cpp:141, the spine's BL-03): every
+   `AddExtrudedProfileOp` → `AddPrismOp` via `resolveExtrudeProfilePoints` (RecipeMeasure).
+   **Different page-to-part convention from the lathe:** extrude takes the drafted figure
+   as a **footprint** (drafted x→physical x, drafted y→physical y, NO radius/z-flip) and
+   rises +z by `height` from baseZ — contrast the lathe's page-left=axis spin. The two
+   projectors share one point-extraction helper `resolveProfileSource` (arc sampling +
+   the four refusal wordings live once); the lathe output stayed byte-identical. Runs
+   after bindings; refuses deleted/open/degenerate profiles by name.
+4. **All-or-nothing**: any finding → empty stream; else clear bindings, ok.
 
 **Why a parallel binding table, not a sum-type per field:** the op's plain doubles
 stay the resolved value every downstream consumer reads — no consumer needs to know a
-field was bound. Refuse-by-name when unresolved: `recipeOpsResolved` (:156) is false
-if any binding remains OR any `AddRevolvedProfileOp` survives; downstream refusals by
-name at compile (RecipeOps.cpp:78), ascii (RecipeOpsAscii.cpp:502/:507), Python
-parse_ops (:228/:231).
+field was bound. Refuse-by-name when unresolved: `recipeOpsResolved` (RecipeOpsResolve.cpp:220)
+is false if any binding remains OR any `AddRevolvedProfileOp` **or `AddExtrudedProfileOp`**
+survives; downstream refusals by name at compile, ascii, Python `parse_ops`. After the
+spine, **no raw extrude survives a successful resolve** — only the lowered `AddPrism`
+carrier (buildable) does.
 
 ## 5. The proof tiers
 
@@ -157,10 +189,13 @@ parse_ops (:228/:231).
 | **ASCII** | `renderOpsProjection` (RecipeOpsAscii.cpp:491) | 2D silhouette front/side/top vs goldens | Box, Cylinder, Sphere, Ring, Moulding, CutFlutes | **Script (empty :486)**, AddLabel (empty :480); ProfileMoulding/Revolved refused :502/:507 |
 | **dry-run** | `plan_lines` (edi_craft.py:685) | one deterministic build line per op | Box, Cylinder, Sphere, Ring, Moulding, CutFlutes, AddLabel | **Script — no branch** (header counts it, emits no line) |
 | **compiled** | `compileRecipeOps` (RecipeOps.cpp:70) | ProfileMoulding→Moulding term expansion | — | — |
-| **OBJ mesh** | `obj_objects`/`obj_lines` (edi_craft.py:641/670) | deterministic mesh, honest dimensions | all incl. **Script via `proof_mesh`** | AddLabel (text, no mesh) |
+| **OBJ mesh** | `obj_objects`/`obj_lines` (edi_craft.py:641/670) | deterministic mesh, honest dimensions | all incl. **Script via `proof_mesh`** and **AddPrism via `_prism_world`** (:652) | AddLabel (text, no mesh) |
 
-**`ScriptOp` is invisible in TWO proof tiers — ASCII *and* dry-run. OBJ (`--obj-out`)
-is its only proof.** ASCII goldens: `samples/doric_column/previews/*`.
+**`ScriptOp` AND `AddPrism` are OBJ-only-proof** — invisible in ASCII (and Script in
+dry-run too); the OBJ mesh (`--obj-out`) is their proof tier. The extrude's golden:
+`samples/extruded_figure/extruded_figure.obj` (an L-bracket prism, 12v/8f, z-extent =
+height, byte-pinned in `tests/edi_craft_smoke.py`). ASCII goldens:
+`samples/doric_column/previews/*`.
 
 ## 6. Custom-craftsmen scan / manifest path
 
@@ -205,12 +240,16 @@ grepped, not fully line-read; treat the host files as edi-ui's.)*
 
 ## 9. Hypotheses settled (planner priors → verified)
 
-1. **Only canvas→bpy bridge is the lathe (`AddRevolvedProfile`); no extrude op —
-   CONFIRMED.** (M2 of the roadmap would add `AddExtrudedProfile`; not this campaign.)
-2. **`AddRevolvedProfile` is TOML/CLI-only, ABSENT from `recipePaletteOpTypes` —
-   CONFIRMED.** Palette = {AddBox, AddCylinder, AddSphere, AddRing} (RecipeOps.cpp:115);
-   `makeRecipeOp` builds only those four. The lathe needs a profile reference, so it is
-   authored, not one-click-appended.
+1. ~~**Only canvas→bpy bridge is the lathe; no extrude op.**~~ **SUPERSEDED
+   2026-06-17** — the extrude spine (BL-01/03/04) added the second canvas→bpy bridge:
+   `AddExtrudedProfile` (a drafted closed figure → depth) lowering to the `AddPrism`
+   carrier → OBJ/Blender. The lathe is no longer the only bridge. (BL-08 will add a
+   third: `AddSweepProfile`.)
+2. **`AddRevolvedProfile` AND `AddExtrudedProfile` are authored, ABSENT from
+   `recipePaletteOpTypes` —** still {AddBox, AddCylinder, AddSphere, AddRing}. Both the
+   lathe and the extrude need a profile *reference*, so they are authored (pick a
+   profile + tune), not one-click-appended. `AddPrism` is a lowered carrier, never
+   hand-clicked.
 3. **`ScriptOp` empty ASCII arm at RecipeOpsAscii.cpp:486 — CONFIRMED** (and
    commented). EXTENSION: Script is also dropped from the dry-run tier; OBJ is its only
    proof.

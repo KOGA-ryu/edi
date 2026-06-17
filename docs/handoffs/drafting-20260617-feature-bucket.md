@@ -149,8 +149,24 @@
 - Brief: `~/dept-bus/edi-drafting/briefs/015-DR04-point-along-builder.md`. Deps none.
   Boundary spec-settled (pure op, Result idiom) → no reviewer gate up front.
 
+### DR-04 — CLOSED 2026-06-17 ✅ (SHA `4429a16`, 97/97 green)
+- `~/dept-bus/edi-drafting/replies/015-DR04-point-along-builder.md`.
+  `DraftingPointAlongResult` + `pointAlongEntity(geometry, distance, fromEnd)` in
+  `DraftingSnap.{h,cpp}` (line lerp / arc via distance·radius / polyline+polygon edge
+  walk; rejects overshoot/negative/non-finite/unsupported). Judgment calls accepted:
+  arc advances `sign(end−start)`; polygon `fromEnd` reverses the loop; distance==length
+  (±1e-9) lands on the far end. Reuses `distance`/`arcPointAtAngle` (no re-derived trig).
+- Follow-ups noted (not built, low priority): ConstructionLine + Spline support for
+  `pointAlongEntity` (cline trivial; spline needs sampled-curve arc length). DR-12
+  (array-along-curve) can fall back to the samplers for spline if it needs stationing.
+
+### DR-05 — circle through 3 / 2 points — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/016-DR05-derived-circle-builder.md`. Deps
+  none. New `DraftingDerived.{h,cpp}` (adds to `edi_drafting_core` sources). Boundary
+  spec-settled → no reviewer gate up front.
+
 ## Open questions / blockers
-- (none blocking — DR-04 in build)
+- (none blocking — DR-05 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

@@ -65,10 +65,10 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ✅ `d9022b9` |
 | DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ✅ `55e5264` (rebased) |
 | DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ✅ `012d48f` (rebased) |
-| DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
-| DM-11 | map browser content: shared read-only `deriveEdge(plug,room)` helper (sliver) | 🟦 W1 | ◻ assess (panel is edi-ui) |
-| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ transformGeometry on local master; waits edi-ui MERGE of my branch → then RESET-onto-master (preserve batch-4/5) → build |
-| DM-15 | transform placed instance (`transformBlockInstance`) | ⏸ ←14,DR-01 | ⏸ same — build last |
+| DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ←12,DR-01 | ✅ `419db06` (rebased) |
+| DM-15 | transform placed instance (`transformBlockInstance`) | ←14,DR-01 | ✅ `4beb3b5` (rebased) |
+| DM-01 | view-auto-fit sliver: `computeDocumentBounds()` getter | 🟦 W1 | ▶ batch-7 (016) |
+| DM-11 | map browser sliver: shared `DraftingMapQuery` (`deriveEdge`+`connected`) | 🟦 W1 | ▶ batch-7 (016) |
 
 ## Gate log
 
@@ -262,9 +262,28 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   scan clean · snapshot renders.** The batch integrates with 100 commits of master.
 - LEDGER policy holds (no LEDGER commits; my old ones reconciled by edi-ui's merge).
 
-### Builder batch-6 (DM-14/15 per-instance block transform) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/015-builder-block-instance-transform.md`
-- Now unblocked (transformGeometry `167768e` on master). Build last, NaN-guarded.
+### Builder batch-6 (DM-14/15 per-instance block transform) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/015-builder-block-instance-transform.md`
+- Commits (pre-rebase `176f8fe`/`7af18e5`) → rebased `419db06` (DM-14) / `4beb3b5`
+  (DM-15). Identity byte-identical (short-circuit avoids transformGeometry ULP
+  drift); NaN/scale guards in setters AND `transformBlockInstance`; pivots = placement
+  center (DM-14) / group union-bounds center read pre-mutation (DM-15); undo-atomic
+  via Update commands; lossy ellipse/text/guide tilt avoided in tests (accepted v1).
+  Left the optional `has_block_instance_selection` projection key for edi-ui.
+- **Rebased onto master `9e9a1ab`** (advanced to include drafting's DR-08). Conflict
+  on `DrawingCore.h` + `DrawingDocumentController.cpp` — both ADDITIVE (DR-08 chamfer
+  members/setters vs my block-placement members/setters); resolved keeping BOTH.
+  **Green gate on new base: build clean · ctest 99/99 · scan clean · snapshot.**
+
+### Builder batch-7 (DM-01/DM-11 slivers) — DISPATCHED (parallel with DM-14/15 audit)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/016-builder-dm01-dm11-slivers.md`
+- DM-01 `computeDocumentBounds()→optional`; DM-11 new no-Qt `DraftingMapQuery.{h,cpp}`
+  (`deriveEdge`+`plugIsConnected`), MapToonExport switched to it (golden unchanged).
+
+### Reviewer diff-audit of DM-14/15 — DISPATCHED (parallel with batch-7)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/017-reviewer-dm1415-audit.md`
+- Audits `419db06`/`4beb3b5`: transform correctness (pivots, cumulative metadata),
+  the identity byte-identical contract, the NaN guard, undo atomicity, neutral law.
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

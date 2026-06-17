@@ -103,8 +103,29 @@
   spec-settled (additive enum + settings + candidate emission; behavior-preserving for
   existing snaps) → no reviewer gate up front. No dependency.
 
+### DR-02 — DONE 2026-06-17 ✅ (SHA `e405d89`, 96/96 green)
+- Reply: `~/dept-bus/edi-drafting/replies/012-DR02-snaps-builder.md`. `Quadrant` +
+  `OnCurve` added to the snap enum/settings/name; Circle 4-cardinal + Arc sweep-gated
+  quadrant emission; OnCurve for line/circle/arc/polyline/polygon edges. Existing
+  `drafting_snap_tests` green (behavior-preservation proof).
+- **PRECEDENCE DECISION (confirmed by planner) — durable:** OnCurve is a **fallback
+  tier** in `nearestObjectSnap`, consulted ONLY when no keypoint/guide/intersection
+  snapped (`!found`). The brief's literal "append after keypoints, rely on `<=`" was
+  FLAWED — selection is by distance, so a genuinely-closer OnCurve (line body 0.010)
+  would outrank the existing Intersection snap (0.014) and flip an existing test. The
+  fallback tier is the correct CAD semantics (nearest-on-curve only when no higher
+  snap is in aperture) and behavior-preserving. Any future "OnCurve competes on
+  distance with keypoints" is a DELIBERATE precedence change, not this slice.
+- Follow-ups noted (not urgent): OnCurve for wall/cline/dimension/ellipse/spline is
+  v1-absent; `projectOnSegment` is file-local in DraftingSnap — could be promoted to
+  `DraftingGeometry` as a shared primitive if another slice needs it.
+
+### DR-03 — tangent / perpendicular relative snaps — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/013-DR03-relative-snaps-builder.md`. Deps
+  DR-02 (satisfied). Boundary spec-settled; no reviewer gate up front.
+
 ## Open questions / blockers
-- (none blocking — DR-01 closed + bused; DR-02 in build)
+- (none blocking — DR-02 done; DR-03 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

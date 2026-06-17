@@ -41,7 +41,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
 | BL-09 | Taper-along-sweep param | M | **SHIPPED** (planner spot-check: clean) | `159d77b` |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
-| BL-11 | Solid boolean op (→14) | L | builder briefed (+ remap hardening) | — |
+| BL-11 | Solid boolean op (→14) | L | builder done, reviewer audit | `12df814` |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
 | BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |

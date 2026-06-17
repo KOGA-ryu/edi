@@ -117,10 +117,23 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 - Noted (not built): connections could carry the same neutral flags vocabulary
   symmetrically — out of scope, parked.
 
-### Reviewer diff-audit of batch-1 — DISPATCHED (parallel with batch-2)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/010-reviewer-batch1-audit.md`
-- Focus the charter's risky joints: the additive MessagePack codec (DM-05
-  tolerance + no-bump) + neutral-document discipline + the TOON wire shape.
+### Reviewer diff-audit of batch-1 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/010-reviewer-batch1-audit.md`
+- **batch-1 audit CLEAN.** Additive codec verified: `plugValue` APPENDS `flags`
+  only when non-empty (no-flags plug is byte-identical to pre-DM-05); `readPlug`
+  tolerant (absent⇒empty), mirrors `tags`; no bump (v2). Neutral law: grep proved
+  NO flag-value branching anywhere — bare `vector<string>` end to end. TOON: 6-cell
+  header both overloads, empty⇒`""`, `·`-run bare (U+00B7 not a quote trigger),
+  golden covers both overloads × empty/non-empty. `splitCommaTokens` locale-safe,
+  all edge cases. Thread-through faithful (`type` mirror); ASCII path mints no plugs
+  (no drop). No scope-creep.
+- **Carry to closeout (non-blocking notes):**
+  - NOTE 1 — the DM-05 "four corners" = 3 executed + 1 (old-binary-reads-new-file)
+    guaranteed structurally by the unknown-key-ignore contract, NOT an in-tree
+    fixture. Record so a future reader doesn't expect an old-binary test.
+  - NOTE 2 — a space-bearing flag token (forces `cell()` to quote the flags column)
+    is correct-by-construction but not golden-exercised. Optional 1-line golden add;
+    LOW value (cell()-quoting already golden-covered on origin/size). DEFERRED.
 
 ### Builder batch-2 (interior features DM-02/03) — DISPATCHED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/011-builder-interior-features.md`

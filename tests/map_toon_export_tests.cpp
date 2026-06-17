@@ -24,8 +24,8 @@ int main()
     a.spec.width = 10.0;
     a.spec.height = 5.0;
     a.spec.wallMaterial = "stone";
-    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::North, 0.0, "door1", ""});       // type defaults -> door
-    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::South, 0.0, "secret1", "secret"}); // dead-end
+    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::North, 0.0, "door1", "", {"window", "passes_light"}}); // type defaults -> door, carries flags
+    a.spec.plugs.push_back(RoomPlugSpec{RoomEdge::South, 0.0, "secret1", "secret"}); // dead-end, no flags
     spec.rooms.push_back(a);
 
     NamedRoomSpec b;
@@ -54,10 +54,10 @@ int main()
         "  a,\"1,2\",\"10,5\",stone\n"
         "  b,\"1,10\",\"8,6\",wood\n"
         "\n"
-        "plugs[3]{room,name,edge,type,connected}:\n"
-        "  a,door1,N,door,true\n"
-        "  a,secret1,S,secret,false\n"
-        "  b,in,N,door,true\n"
+        "plugs[3]{room,name,edge,type,connected,flags}:\n"
+        "  a,door1,N,door,true,window·passes_light\n"
+        "  a,secret1,S,secret,false,\"\"\n"
+        "  b,in,N,door,true,\"\"\n"
         "\n"
         "connections[1]{from,to,type}:\n"
         "  a.door1,b.in,corridor\n";
@@ -84,11 +84,12 @@ int main()
         DraftingPlug door;
         door.id = "plug_0001";
         door.name = "a.door";
+        door.flags = {"locked", "iron"}; // DM-06: flags column on the document overload
         door.anchor = {3.0, 2.0}; // on the N edge (y == origin.y)
         DraftingPlug exit;
         exit.id = "plug_0002";
         exit.name = "a.exit";
-        exit.anchor = {5.0, 5.0}; // on the E edge (x == origin.x + width)
+        exit.anchor = {5.0, 5.0}; // on the E edge (x == origin.x + width), no flags
         doc.plugs.push_back(door);
         doc.plugs.push_back(exit);
 
@@ -121,9 +122,9 @@ int main()
             "rooms[1]{name,origin,size,material}:\n"
             "  a,\"2,4\",\"8,12\",stone\n"
             "\n"
-            "plugs[2]{room,name,edge,type,connected}:\n"
-            "  a,door,N,door,true\n"
-            "  a,exit,E,door,true\n"
+            "plugs[2]{room,name,edge,type,connected,flags}:\n"
+            "  a,door,N,door,true,locked·iron\n"
+            "  a,exit,E,door,true,\"\"\n"
             "\n"
             "connections[1]{from,to,type}:\n"
             "  a.door,a.exit,corridor\n"

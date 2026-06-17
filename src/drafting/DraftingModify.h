@@ -97,4 +97,24 @@ DraftingExtendResult extendLineToBoundary(const LineGeometry &target,
                                           const std::vector<LineGeometry> &boundaries,
                                           Point2D pick);
 
+struct DraftingBreakResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    // On success: the original shortened to the break point, and the new piece from
+    // the break point onward. The two pieces SHARE the split point. Caller applies
+    // them atomically (UpdateGeometry the original + CreateObject the new piece).
+    DraftingGeometry first;
+    DraftingGeometry second;
+
+    static DraftingBreakResult accepted(DraftingGeometry first, DraftingGeometry second);
+    static DraftingBreakResult rejected(DraftingResultCode code, std::string message);
+};
+
+// Split a line or polyline at the point nearest `at` into two independent pieces
+// that share the split point (the inverse of joining). For a polyline the split
+// vertex is INSERTED into BOTH halves. Rejects a break too close to an endpoint
+// (it would yield a zero-length piece) and any unsupported kind. Pure.
+DraftingBreakResult breakGeometryAtPoint(const DraftingGeometry &geometry, Point2D at);
+
 } // namespace edi::drafting

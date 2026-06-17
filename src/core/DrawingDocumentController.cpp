@@ -1876,6 +1876,55 @@ void DrawingDocumentController::applyTrimAtPoint(Point2D point)
     applyCommandAndEmit(UpdateGeometryCommand{*m_document.activeObjectId, DraftingGeometry{result.geometry}});
 }
 
+bool DrawingDocumentController::beginExtendSelectedLine()
+{
+    // The mirror of trim: arm only when an editable line is selected; the captured
+    // click then chooses which end to lengthen (applyExtendAtPoint).
+    const DraftingObject *source = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::ExtendPoint,
+                                         QStringLiteral("Click the end of the line to extend")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::applyExtendAtPoint(Point2D point)
+{
+    const DraftingObject *target = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (target == nullptr) {
+        return; // the selection changed out from under the armed capture
+    }
+    const auto *targetLine = std::get_if<LineGeometry>(&target->geometry);
+    if (targetLine == nullptr) {
+        return;
+    }
+    // Every OTHER line is a candidate boundary. The pure op extends the picked end
+    // to the nearest one the line's extension reaches.
+    std::vector<LineGeometry> boundaries;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.id == target->id) {
+            continue;
+        }
+        if (const auto *line = std::get_if<LineGeometry>(&object.geometry)) {
+            boundaries.push_back(*line);
+        }
+    }
+    // Capture the id BEFORE applying — applyCommandAndEmit mutates m_document, which
+    // invalidates the `target` pointer (same hazard the trim/fillet/chamfer paths
+    // guard against).
+    const DraftingObjectId targetId = target->id;
+    const DraftingExtendResult result = extendLineToBoundary(*targetLine, boundaries, point);
+    if (!result.ok) {
+        // A dead extend click (no reachable boundary) says why, like trim.
+        finishEdit(QStringLiteral("extend"), drawing_core::qStringFromStdString(targetId), false,
+                   result.code, drawing_core::qStringFromStdString(result.message));
+        return;
+    }
+    applyCommandAndEmit(UpdateGeometryCommand{targetId, DraftingGeometry{result.geometry}});
+}
+
 bool DrawingDocumentController::beginFilletSelectedLine()
 {
     const DraftingObject *source = activeObjectOfKind(m_document, DraftingShapeKind::Line);
@@ -2036,6 +2085,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::TrimPoint:
         applyTrimAtPoint(point);
+        break;
+    case PointCaptureIntent::ExtendPoint:
+        applyExtendAtPoint(point);
         break;
     case PointCaptureIntent::FilletSecondLine:
         applyFilletAtPoint(point);

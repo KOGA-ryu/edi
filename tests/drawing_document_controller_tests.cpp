@@ -3642,6 +3642,75 @@ int main(int argc, char **argv)
         assert(!nonLineChamfer.isAwaitingPointCapture());
     }
 
+    // Extend verb: the mirror of trim — select a line, pick the end to lengthen;
+    // the line stretches to the nearest boundary line its extension reaches, in ONE
+    // undo step (no new object). Pick-a-point's ExtendPoint consumer.
+    {
+        DrawingDocumentController extendController;
+        extendController.setSelectedToolId("line_tool");
+        extendController.clickCanvasNormalized(0.3, 0.5);
+        extendController.clickCanvasNormalized(0.5, 0.5); // short horizontal target
+        extendController.clickCanvasNormalized(0.8, 0.2);
+        extendController.clickCanvasNormalized(0.8, 0.8); // vertical boundary at x=0.8
+        assert(extendController.modelDocument().value("drawing_objects").toList().size() == 2);
+
+        extendController.setSelectedToolId("select_move");
+        extendController.clickCanvasNormalized(0.4, 0.5); // select the horizontal line
+        const QString targetId = extendController.selectedObjectId();
+        assert(!targetId.isEmpty());
+
+        assert(extendController.beginExtendSelectedLine());
+        assert(extendController.isAwaitingPointCapture());
+        extendController.clickCanvasNormalized(0.55, 0.5); // pick near the b-end → extend it
+        assert(!extendController.isAwaitingPointCapture());
+
+        // Still 2 objects (extend updates, never creates); the b-end reached x=0.8.
+        QVariantList objects = extendController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 2);
+        QVariantMap extended;
+        for (const QVariant &v : objects) {
+            if (v.toMap().value("id").toString() == targetId) {
+                extended = v.toMap();
+            }
+        }
+        assert(!extended.isEmpty());
+        assert(nearlyEqual(extended.value("x2").toDouble(), 0.8));
+        assert(nearlyEqual(extended.value("y2").toDouble(), 0.5));
+        assert(nearlyEqual(extended.value("x1").toDouble(), 0.3)); // anchor end unchanged
+
+        // ONE undo step restores the original short line.
+        assert(extendController.canUndo());
+        extendController.undo();
+        for (const QVariant &v : extendController.modelDocument().value("drawing_objects").toList()) {
+            if (v.toMap().value("id").toString() == targetId) {
+                assert(nearlyEqual(v.toMap().value("x2").toDouble(), 0.5));
+            }
+        }
+
+        // A dead click (no reachable boundary) surfaces via edit_status, not silent.
+        DrawingDocumentController loneExtend;
+        loneExtend.setSelectedToolId("line_tool");
+        loneExtend.clickCanvasNormalized(0.3, 0.5);
+        loneExtend.clickCanvasNormalized(0.5, 0.5);
+        loneExtend.setSelectedToolId("select_move");
+        loneExtend.clickCanvasNormalized(0.4, 0.5);
+        assert(loneExtend.beginExtendSelectedLine());
+        loneExtend.clickCanvasNormalized(0.55, 0.5);
+        assert(!loneExtend.isAwaitingPointCapture());
+        const QVariantMap status = loneExtend.modelDocument().value("edit_status").toMap();
+        assert(status.value("ok").toBool() == false);
+        assert(status.value("mode").toString() == "extend");
+        assert(!status.value("message").toString().isEmpty());
+
+        // Extend refuses to arm when the selection is not a line.
+        DrawingDocumentController nonLineExtend;
+        nonLineExtend.setSelectedToolId("circle_tool");
+        nonLineExtend.clickCanvasNormalized(0.5, 0.5);
+        nonLineExtend.clickCanvasNormalized(0.6, 0.5);
+        assert(!nonLineExtend.beginExtendSelectedLine());
+        assert(!nonLineExtend.isAwaitingPointCapture());
+    }
+
     // Array failure paths: a user-reachable rejection (zero spacing) must
     // surface through edit_status, reclaim its minted serials, and a later
     // success must clear the stale status. Negative spacing must march the

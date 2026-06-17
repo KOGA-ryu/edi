@@ -38,6 +38,7 @@ namespace edi::recipe {
 
 enum class ZMode { Center, Base };
 enum class Axis { X, Y, Z };
+enum class BooleanKind { Union, Subtract, Intersect };
 
 struct AddBoxOp {
     std::string name;
@@ -242,6 +243,18 @@ struct CutFlutesOp {
     std::optional<double> endZ;
 };
 
+// The general solid composer (BL-11): combine two EARLIER ops by name with a
+// union / subtract / intersect. CutFlutes is a special case of this. A BUILDABLE
+// op (NOT refused-before-build) whose operands are drawn by their own ops; the
+// real CSG is execution-only (the proof shows the operands, like CutFlutes shows
+// cutters). Field is `kind` (not `op`) to avoid an op.N.op TOML key.
+struct AddBooleanOp {
+    std::string name;
+    std::string a; // names an EARLIER op — operand
+    std::string b; // names an EARLIER op — operand
+    BooleanKind kind = BooleanKind::Union;
+};
+
 struct AddLabelOp {
     std::string name;
     std::string text;
@@ -291,6 +304,7 @@ using RecipeOp = std::variant<
     AddExtrudedProfileOp,
     AddSweepProfileOp,
     CutFlutesOp,
+    AddBooleanOp,
     AddLabelOp,
     ScriptOp>;
 

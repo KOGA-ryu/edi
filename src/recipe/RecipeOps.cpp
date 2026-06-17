@@ -37,6 +37,7 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddExtrudedProfileOp &) const { return "AddExtrudedProfile"; }
         const char *operator()(const AddSweepProfileOp &) const { return "AddSweepProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
+        const char *operator()(const AddBooleanOp &) const { return "AddBoolean"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
         const char *operator()(const ScriptOp &) const { return "Script"; }
     };
@@ -236,23 +237,48 @@ struct MutableName {
     std::string *operator()(AddExtrudedProfileOp &o) const { return &o.name; }
     std::string *operator()(AddSweepProfileOp &o) const { return &o.name; }
     std::string *operator()(CutFlutesOp &) const { return nullptr; }
+    std::string *operator()(AddBooleanOp &o) const { return &o.name; }
     std::string *operator()(AddLabelOp &o) const { return &o.name; }
     std::string *operator()(ScriptOp &o) const { return &o.name; }
 };
 
 std::string *opMutableName(RecipeOp &op) { return std::visit(MutableName{}, op); }
 
+// An exhaustive visit that rewrites the by-NAME references an op holds to OTHER
+// ops, through a rename map. Exhaustive (not a get_if) so a future name-ref arm
+// MUST declare its remap or fail to compile — the "compiler is the checklist"
+// doctrine. The arms WITH references rewrite them; the rest are explicit no-ops.
+struct NameRefRemapper {
+    const std::map<std::string, std::string> &rename;
+
+    void operator()(CutFlutesOp &op) const { applyRename(op.target, rename); }
+    void operator()(AddBooleanOp &op) const
+    {
+        // Both operands are earlier-op names, so both must be namespaced on a
+        // splice (BL-14 chaining) exactly like CutFlutes.target.
+        applyRename(op.a, rename);
+        applyRename(op.b, rename);
+    }
+    // Every arm that does NOT name another op is an explicit no-op.
+    void operator()(AddBoxOp &) const {}
+    void operator()(AddCylinderOp &) const {}
+    void operator()(AddSphereOp &) const {}
+    void operator()(AddRingOp &) const {}
+    void operator()(AddMouldingOp &) const {}
+    void operator()(AddPrismOp &) const {}
+    void operator()(AddProfileMouldingOp &) const {}
+    void operator()(AddRevolvedProfileOp &) const {}
+    void operator()(AddExtrudedProfileOp &) const {}
+    void operator()(AddSweepProfileOp &) const {}
+    void operator()(AddLabelOp &) const {}
+    void operator()(ScriptOp &) const {}
+};
+
 } // namespace
 
 void remapRecipeOpNameRefs(RecipeOp &op, const std::map<std::string, std::string> &rename)
 {
-    // A visit over the EXISTING arms: only those that reference ANOTHER op by
-    // name need rewriting. Today that is CutFlutesOp::target alone; when BL-11's
-    // boolean op lands, its `a`/`b` operand-name fields rewrite HERE too (add
-    // their arm). Every other arm is a deliberate no-op.
-    if (auto *flutes = std::get_if<CutFlutesOp>(&op)) {
-        applyRename(flutes->target, rename);
-    }
+    std::visit(NameRefRemapper{rename}, op);
 }
 
 void appendRecipe(RecipeOpStream &target, const RecipeOpStream &source)

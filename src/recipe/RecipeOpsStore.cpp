@@ -22,6 +22,19 @@ std::string opPrefix(std::size_t index)
     return "op." + std::to_string(index);
 }
 
+const char *booleanKindText(BooleanKind kind)
+{
+    switch (kind) {
+    case BooleanKind::Subtract:
+        return "subtract";
+    case BooleanKind::Intersect:
+        return "intersect";
+    case BooleanKind::Union:
+        break;
+    }
+    return "union";
+}
+
 // ---- Writing -----------------------------------------------------------
 
 struct OpWriter {
@@ -247,6 +260,15 @@ struct OpWriter {
         if (op.endZ.has_value()) {
             put("end_z", *op.endZ);
         }
+    }
+
+    void operator()(const AddBooleanOp &op) const
+    {
+        put("type", std::string("AddBoolean"));
+        put("name", op.name);
+        put("a", op.a);
+        put("b", op.b);
+        put("kind", std::string(booleanKindText(op.kind)));
     }
 
     void operator()(const AddLabelOp &op) const
@@ -475,6 +497,25 @@ struct OpReader {
         return true;
     }
 
+    bool readBooleanKind(const std::string &key, BooleanKind &out)
+    {
+        const std::string *value = take(key);
+        if (value == nullptr) {
+            return true; // keep default (Union)
+        }
+        if (*value == "union") {
+            out = BooleanKind::Union;
+        } else if (*value == "subtract") {
+            out = BooleanKind::Subtract;
+        } else if (*value == "intersect") {
+            out = BooleanKind::Intersect;
+        } else {
+            error = key + ": kind must be union, subtract, or intersect, got '" + *value + "'";
+            return false;
+        }
+        return true;
+    }
+
     bool readBool(const std::string &key, bool &out)
     {
         const std::string *value = take(key);
@@ -677,7 +718,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
     // and this fires, reminding the next author to add a reader branch HERE and
     // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
     // cross-language TOML contract is a two-sided obligation (§3).
-    static_assert(std::variant_size_v<RecipeOp> == 13,
+    static_assert(std::variant_size_v<RecipeOp> == 14,
                   "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
                   "ladder is string-keyed, not a std::visit, so the compiler "
                   "won't force it) AND a matching parse_ops arm in edi_craft.py.");
@@ -931,6 +972,18 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             }
             if (present) {
                 op.endZ = value;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddBoolean") {
+            // BL-11: the general composer. a/b name earlier ops (validated in
+            // order, like CutFlutes.target); kind via readBooleanKind.
+            AddBooleanOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".a", op.a)
+                || !reader.requireText(prefix + ".b", op.b)
+                || !reader.readBooleanKind(prefix + ".kind", op.kind)) {
+                result.message = reader.error;
+                return result;
             }
             result.stream.ops.push_back(std::move(op));
         } else if (*type == "AddLabel") {

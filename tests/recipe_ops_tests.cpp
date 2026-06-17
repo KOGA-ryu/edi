@@ -1783,5 +1783,86 @@ int main()
         assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
     }
 
+    // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,
+    // and the remap-hardening chaining (Part 2). ----
+    {
+        // Round-trip every kind value through the kind TOML key.
+        struct KindCase { BooleanKind kind; const char *text; };
+        const KindCase cases[] = {
+            {BooleanKind::Union, "union"},
+            {BooleanKind::Subtract, "subtract"},
+            {BooleanKind::Intersect, "intersect"},
+        };
+        for (const KindCase &c : cases) {
+            RecipeOpStream s;
+            AddBooleanOp op;
+            op.name = "combo";
+            op.a = "lhs";
+            op.b = "rhs";
+            op.kind = c.kind;
+            s.ops.push_back(op);
+            const OpStreamTextResult w = recipeOpsToToml(s);
+            assert(w.ok);
+            assert(w.text.find(std::string("op.0.kind = \"") + c.text + "\"") != std::string::npos);
+            assert(w.text.find("op.0.a = \"lhs\"") != std::string::npos);
+            assert(w.text.find("op.0.b = \"rhs\"") != std::string::npos);
+            const auto *back = std::get_if<AddBooleanOp>(&recipeOpsFromToml(w.text, "b").stream.ops[0]);
+            assert(back != nullptr && back->a == "lhs" && back->b == "rhs" && back->kind == c.kind);
+        }
+        // A bad kind value is refused by name.
+        const OpStreamParseResult badKind = recipeOpsFromToml(
+            "op.0.type = \"AddBoolean\"\n"
+            "op.0.name = \"c\"\nop.0.a = \"x\"\nop.0.b = \"y\"\n"
+            "op.0.kind = \"merge\"\n", "bad");
+        assert(!badKind.ok && badKind.message.find("union, subtract, or intersect") != std::string::npos);
+
+        // Validate: a/b must name an EARLIER op; a later or absent operand is
+        // refused by name. A valid earlier-operand boolean validates clean.
+        AddBoxOp a; a.name = "solid.a"; a.width = a.depth = a.height = 1.0;
+        AddBoxOp b; b.name = "solid.b"; b.width = b.depth = b.height = 1.0;
+        AddBooleanOp good;
+        good.name = "good.union"; good.a = "solid.a"; good.b = "solid.b";
+        assert(validateRecipeOps({RecipeOp{a}, RecipeOp{b}, RecipeOp{good}}).ok);
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == code) return true;
+            }
+            return false;
+        };
+        // Operand b is absent.
+        AddBooleanOp missing;
+        missing.name = "bad"; missing.a = "solid.a"; missing.b = "ghost";
+        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{missing}}), "boolean_missing_operand"));
+        // Operand named LATER (the boolean comes before its operand).
+        AddBooleanOp early;
+        early.name = "early"; early.a = "solid.a"; early.b = "solid.a";
+        const OpValidationReport beforeOrder = validateRecipeOps({RecipeOp{early}, RecipeOp{a}});
+        assert(sawCode(beforeOrder, "boolean_missing_operand"));
+        // a == b is degenerate, refused by name.
+        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{early}}), "boolean_self_operand"));
+
+        // Part 2: the remap-hardening chaining — a spliced AddBoolean's a/b are
+        // namespaced to the SOURCE operands, never the target's same-named ops.
+        RecipeOpStream target;
+        AddBoxOp tShaft; tShaft.name = "shaft"; tShaft.width = tShaft.depth = tShaft.height = 1.0;
+        target.ops = {RecipeOp{tShaft}};
+        RecipeOpStream source;
+        source.name = "cap";
+        AddBoxOp sShaft; sShaft.name = "shaft"; sShaft.width = sShaft.depth = sShaft.height = 1.0;
+        AddCylinderOp sBore; sBore.name = "bore"; sBore.radius = 0.5; sBore.height = 2.0;
+        AddBooleanOp sBool;
+        sBool.name = "cut"; sBool.a = "shaft"; sBool.b = "bore"; sBool.kind = BooleanKind::Subtract;
+        source.ops = {RecipeOp{sShaft}, RecipeOp{sBore}, RecipeOp{sBool}};
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 4);
+        const auto *mergedBool = std::get_if<AddBooleanOp>(&target.ops[3]);
+        assert(mergedBool != nullptr);
+        // Both operands rewritten to the namespaced SOURCE names.
+        assert(mergedBool->a == "cap::shaft"); // not the target's bare "shaft"
+        assert(mergedBool->b == "cap::bore");
+        assert(validateRecipeOps(target.ops).ok); // the boolean finds its namespaced operands
+    }
+
     return 0;
 }

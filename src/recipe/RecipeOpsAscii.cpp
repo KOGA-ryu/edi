@@ -135,6 +135,9 @@ struct BoundsEstimator {
     void operator()(const AddExtrudedProfileOp &) const {}
     void operator()(const AddSweepProfileOp &) const {} // BL-08: refused pre-lowering, like the extrude
     void operator()(const CutFlutesOp &) const {}
+    // AddBoolean (BL-11) adds no new geometry — its operands are framed by their
+    // own ops — so it contributes nothing to the bounds.
+    void operator()(const AddBooleanOp &) const {}
     // AddLabel stays a no-op HERE even though Python's bounds_of
     // (edi_craft.py ~:440) folds the label point into its frame — the C++ and
     // Python framing rigs intentionally differ; do NOT change behavior to match.
@@ -498,6 +501,11 @@ struct ProjectionDrawer {
     // the OBJ mesh (BL-04), not a 2D silhouette, so this draws nothing — and,
     // unlike the profile-reference ops, it is NOT refused before dispatch.
     void operator()(const AddPrismOp &) const {}
+
+    // AddBoolean (BL-11): an OBJ-tier composer — its operands are drawn by their
+    // own ops, and the CSG result is execution-only. So it draws nothing here
+    // and, unlike the profile-reference ops, is NOT refused before dispatch.
+    void operator()(const AddBooleanOp &) const {}
 };
 
 } // namespace

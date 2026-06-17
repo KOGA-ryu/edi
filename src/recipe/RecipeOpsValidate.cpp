@@ -340,6 +340,27 @@ struct OpChecker {
         }
     }
 
+    void operator()(const AddBooleanOp &op) const
+    {
+        // BL-11: both operands must name an EARLIER op (the same in-order
+        // resolution CutFlutes.target uses — namesSoFar holds the ops seen
+        // before this one). A missing or later operand is refused by name.
+        if (namesSoFar.find(op.a) == namesSoFar.end()) {
+            add(findings, Severity::Error, "boolean_missing_operand",
+                "AddBoolean operand does not exist before: " + op.a);
+        }
+        if (namesSoFar.find(op.b) == namesSoFar.end()) {
+            add(findings, Severity::Error, "boolean_missing_operand",
+                "AddBoolean operand does not exist before: " + op.b);
+        }
+        // A boolean of an op with itself is degenerate (no second solid to
+        // combine) — refuse it (flagged: a conservative call; v1 has no use for it).
+        if (!op.a.empty() && op.a == op.b) {
+            add(findings, Severity::Error, "boolean_self_operand",
+                op.name + " combines an operand with itself: " + op.a);
+        }
+    }
+
     void operator()(const AddLabelOp &) const {}
 
     void operator()(const ScriptOp &op) const
@@ -380,6 +401,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddExtrudedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const AddSweepProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
+        const std::string *operator()(const AddBooleanOp &o) const { return &o.name; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
         const std::string *operator()(const ScriptOp &o) const { return &o.name; }
     };

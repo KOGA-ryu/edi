@@ -220,6 +220,21 @@ def main() -> int:
     assert abs(end_extent - 0.5 * start_extent) < 1e-9, \
         f"taper_end=0.5 should halve the end cross-section: start {start_extent}, end {end_extent}"
 
+    # BL-11: an AddBoolean's PROOF emits its two operands (looked up by name),
+    # each tagged with the boolean intent — it does NOT compute the CSG. The
+    # committed sample is a box minus a cylinder; the OBJ carries the operands
+    # under the boolean's name plus the operands' own objects.
+    bool_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "boolean_op", "boolean_op_ops_compiled.toml"))
+    bool_obj = "\n".join(edi_craft.obj_lines(bool_ops)) + "\n"
+    with open(os.path.join(ROOT, "samples", "boolean_op", "boolean_op.obj"),
+              encoding="utf-8") as f:
+        bool_golden = f.read()
+    assert bool_obj == bool_golden, "boolean OBJ drifted from samples/boolean_op/boolean_op.obj"
+    bool_names = [line[2:] for line in bool_obj.splitlines() if line.startswith("o ")]
+    assert "block.minus.bore.subtract.a" in bool_names, "boolean proof must emit operand a tagged"
+    assert "block.minus.bore.subtract.b" in bool_names, "boolean proof must emit operand b tagged"
+
     # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
     # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)
     # and the two radial open ends are capped, so it is a closed solid, not a

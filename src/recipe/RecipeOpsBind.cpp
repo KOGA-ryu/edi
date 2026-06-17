@@ -147,6 +147,9 @@ struct FieldVisit {
     bool operator()(AddExtrudedProfileOp &op) const { return handle(op, findMember(kExtrudedProfileFields, fieldKey)); }
     bool operator()(AddSweepProfileOp &op) const { return handle(op, findMember(kSweepProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
+    // BL-11: AddBoolean has NO bindable numeric fields (a/b strings, kind enum).
+    // A null member pointer makes handle report "not bindable" for any key.
+    bool operator()(AddBooleanOp &op) const { return handle(op, static_cast<double AddBooleanOp::*>(nullptr)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
     bool operator()(ScriptOp &op) const { return handle(op, findMember(kScriptFields, fieldKey)); }
 };
@@ -175,6 +178,7 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddExtrudedProfileOp &op) const { return of(op, kExtrudedProfileFields); }
     std::vector<RecipeOpField> operator()(const AddSweepProfileOp &op) const { return of(op, kSweepProfileFields); }
     std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
+    std::vector<RecipeOpField> operator()(const AddBooleanOp &) const { return {}; } // BL-11: no numeric fields
     std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
     std::vector<RecipeOpField> operator()(const ScriptOp &op) const { return of(op, kScriptFields); }
 };

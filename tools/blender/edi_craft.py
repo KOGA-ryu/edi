@@ -66,7 +66,7 @@ MATERIALS = {
 
 ARCHITECTURAL_OPS = (
     "AddBox", "AddCylinder", "AddSphere", "AddRing", "AddMoulding", "AddPrism",
-    "CutFlutes", "AddLabel",
+    "CutFlutes", "AddBoolean", "AddLabel",
 )
 
 
@@ -440,6 +440,19 @@ def parse_ops(path: str) -> list[dict]:
                 raise ValueError(
                     f"{op_key}: CutFlutes cuts vertical grooves; target "
                     f"{op['target']!r} is a {target_axis}-axis cylinder")
+        elif op_type == "AddBoolean":
+            # BL-11: the general composer. a/b name earlier ops; kind is one of
+            # union/subtract/intersect (key-for-key with the C++ store reader).
+            kind = _text(op_key, fields, consumed, "kind", "union")
+            if kind not in ("union", "subtract", "intersect"):
+                raise ValueError(
+                    f"{op_key}.kind: kind must be union, subtract, or intersect, got {kind!r}")
+            op.update(
+                name=_text(op_key, fields, consumed, "name"),
+                a=_text(op_key, fields, consumed, "a"),
+                b=_text(op_key, fields, consumed, "b"),
+                kind=kind,
+            )
         elif op_type == "AddLabel":
             op.update(
                 name=_text(op_key, fields, consumed, "name"),
@@ -915,6 +928,45 @@ def cutflute_objects(ops: list, op: dict) -> list:
     return objects
 
 
+def _mesh_for(op: dict, craftsmen: dict | None) -> tuple | None:
+    """(verts, faces) for one buildable op, or None for the ops that carry no
+    single mesh (AddLabel text; CutFlutes/AddBoolean, which compose others).
+    Used by AddBoolean's proof to fetch its operands' meshes."""
+    kind = op["type"]
+    if kind == "AddBox":
+        return box_mesh(op)
+    if kind == "AddCylinder":
+        return _cylinder_world(op)
+    if kind == "AddSphere":
+        return sphere_mesh(op)
+    if kind == "AddRing":
+        return _ring_world(op)
+    if kind == "AddMoulding":
+        return _moulding_world(op)
+    if kind == "AddPrism":
+        return _prism_world(op)
+    if kind == "Script" and craftsmen is not None:
+        module = craftsmen.get(op["script"])
+        if module is not None and hasattr(module, "proof_mesh"):
+            return module.proof_mesh(op)
+    return None
+
+
+def boolean_objects(ops: list, op: dict, craftsmen: dict | None = None) -> list:
+    # AddBoolean's proof shows its two OPERANDS (looked up by name), each tagged
+    # with the boolean intent — it does NOT compute the CSG. The real union/
+    # subtract/intersect is execution-only, exactly as CutFlutes emits its
+    # cutters rather than the cut result (a proof shows the inputs to the cut).
+    out = []
+    for role in ("a", "b"):
+        name = op[role]
+        operand = next((o for o in ops if o.get("name") == name), None)
+        mesh = _mesh_for(operand, craftsmen) if operand is not None else None
+        if mesh is not None:
+            out.append((f"{op['name']}.{op['kind']}.{role}", mesh[0], mesh[1]))
+    return out
+
+
 def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
     """(name, verts, faces) per buildable op — the OBJ proof's object list, in
     op order. AddLabel carries no mesh (it is text), so it is skipped; a Script
@@ -938,6 +990,8 @@ def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
             out.append((op["name"], *_prism_world(op)))
         elif kind == "CutFlutes":
             out.extend(cutflute_objects(ops, op))
+        elif kind == "AddBoolean":
+            out.extend(boolean_objects(ops, op, craftsmen))
         elif kind == "Script":
             module = craftsmen.get(op["script"])
             if module is not None and hasattr(module, "proof_mesh"):
@@ -1011,6 +1065,9 @@ def plan_lines(ops: list[dict]) -> list[str]:
             lines.append(
                 f"CutFlutes {op['target']} count={op['count']} depth={_fmt(op['depth'])}"
                 f" {cutter}{z_range}")
+        elif op["type"] == "AddBoolean":
+            lines.append(
+                f"AddBoolean {op['name']} {op['kind']} {op['a']} {op['b']}")
         elif op["type"] == "AddLabel":
             lines.append(f"AddLabel {op['name']} \"{op['text']}\" at ({_fmt(op['x'])}, {_fmt(op['y'])}, {_fmt(op['z'])})")
 
@@ -1233,6 +1290,34 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         bpy.context.collection.objects.link(obj)
         return obj
 
+    def add_boolean(op):
+        # BL-11: the only tier that truly cuts. Apply a boolean modifier to
+        # operand a, referencing operand b, then apply it. (The OBJ proof showed
+        # the operands tagged; here the CSG actually happens.)
+        a = bpy.data.objects.get(op["a"])
+        b = bpy.data.objects.get(op["b"])
+        if a is None or b is None:
+            failures.append(f"AddBoolean: operand not found: {op['a']!r} / {op['b']!r}")
+            return
+        operation = {"union": "UNION", "subtract": "DIFFERENCE",
+                     "intersect": "INTERSECT"}[op["kind"]]
+        modifier = a.modifiers.new(name=op["name"], type="BOOLEAN")
+        modifier.operation = operation
+        if hasattr(modifier, "solver"):
+            modifier.solver = "EXACT"
+        modifier.object = b
+        bpy.ops.object.select_all(action="DESELECT")
+        a.select_set(True)
+        bpy.context.view_layer.objects.active = a
+        try:
+            bpy.ops.object.modifier_apply(modifier=modifier.name)
+        except Exception as exc:  # collected so a failed cut cannot exit 0
+            failures.append(f"AddBoolean: failed to apply {op['name']}: {exc}")
+            a.modifiers.remove(modifier)
+        else:
+            bpy.data.objects.remove(b, do_unlink=True)  # b consumed into the result
+        return a
+
     builders = {
         "AddBox": add_box,
         "AddCylinder": add_cylinder,
@@ -1241,6 +1326,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         "AddMoulding": add_moulding,
         "AddPrism": add_prism,
         "CutFlutes": cut_flutes,
+        "AddBoolean": add_boolean,
         "AddLabel": add_label,
     }
     custom = load_craftsmen(default_craftsmen_dir())

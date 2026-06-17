@@ -63,8 +63,8 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
 | DM-08 | Seam C round-trip regression test | W2 ←07 | ✅ `67c608e` |
 | DM-12 | block rotation/scale fields: `BlockPlacementMetadata.rotationDeg/scale` + persist | W1 | ✅ `30ee3b3` |
 | DM-13 | export reads rotation/scale (replace 1/0 placeholders) | W3 ←12 | ✅ `d9022b9` |
-| DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ◻ batch-5 (boundary SETTLED) |
-| DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ◻ batch-5 (boundary SETTLED) |
+| DM-09 | region-fill boundary trace: pure `planRegionFill` (`DraftingRegionFill`), algo (a) footprint | W1 | ✅ `55e5264` (rebased) |
+| DM-10 | region-fill controller verb: `PointCaptureIntent::RegionFill` → filled Polygon | W2 ←09 | ✅ `012d48f` (rebased) |
 | DM-01 | view-auto-fit: `computeDocumentBounds()` controller getter (sliver) | 🟦 W1 | ◻ assess (mostly edi-ui) |
 | DM-11 | map browser content: shared read-only `deriveEdge(plug,room)` helper (sliver) | 🟦 W1 | ◻ assess (panel is edi-ui) |
 | DM-14 | place rotated/scaled block (`placeBlockInstance` extended) | ⏸ ←12,DR-01 | ⏸ transformGeometry on local master; waits edi-ui MERGE of my branch → then RESET-onto-master (preserve batch-4/5) → build |
@@ -240,9 +240,31 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   (old-reads-new) contract-guaranteed by unknown-key-ignore, not an in-tree fixture
   (same as batch-1's DM-05 note).
 
-### Builder batch-5 (region fill DM-09/10) — DISPATCHED (on current tip, NO rebase)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/009-builder-region-fill.md` (rebase
-  override added). Design settled in gate 008 (algo a, `DraftingRegionFill`).
+### Builder batch-5 (region fill DM-09/10) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/009-builder-region-fill.md`
+- Commits `55e5264` (pure `planRegionFill`), `012d48f` (controller verb + intent).
+  96/96 green pre-rebase. New wholly-ours `DraftingRegionFill.{h,cpp}`; algo (a)
+  footprint lookup; neutral fill (`role==None`, opacity 0.5 stone). v1 fills the
+  authored footprint (ignores wall half-thickness — the reviewer-accepted cut).
+- **⚠ CMakeLists flag (edi-ui coordination):** the new `DraftingRegionFill` source +
+  `drafting_region_fill_tests` need 2 additive `CMakeLists.txt` entries (mirroring
+  the `DraftingRoom`/`drafting_room_tests` pattern; no edi-ui target touched). The
+  builder made them to let the test build, per reviewer-008's explicit "register the
+  test." **Hand to edi-ui at merge** — they own CMakeLists; either bless the 2 lines
+  or take ownership.
+
+### ✅ INTEGRATION RESOLVED — rebased onto master, green
+- edi-ui merged my **DM-02..08** to master `c6e98e3` (tip `dd226c4`/`163a00a`).
+- **Rebased `dept/dungeon-map` onto master with ZERO conflicts** — DM-02..08 dropped
+  as already-applied; only batch-4 (DM-12/13) + batch-5 (DM-09/10) + 3 dept-local
+  docs commits replayed (edi-ui's superset merge made my hunks apply cleanly).
+- **Green gate on the NEW base: build clean · ctest 97/97 (−edi_shell_window) ·
+  scan clean · snapshot renders.** The batch integrates with 100 commits of master.
+- LEDGER policy holds (no LEDGER commits; my old ones reconciled by edi-ui's merge).
+
+### Builder batch-6 (DM-14/15 per-instance block transform) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/015-builder-block-instance-transform.md`
+- Now unblocked (transformGeometry `167768e` on master). Build last, NaN-guarded.
 
 ## Open questions / blockers
 - DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub

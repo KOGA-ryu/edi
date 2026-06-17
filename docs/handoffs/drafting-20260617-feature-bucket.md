@@ -348,9 +348,19 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   FLAG the hub re: the shared canonical-mirror rotated-rect semantics change (dungeon-map
   consumes; position unaffected, orientation-only — a fix they want). THEN open DR-12.
 
+### DR-11 + canonical-mirror fix — CLOSED 2026-06-17 ✅ (tips `02fd45e` + `db71c1b`, 101/101)
+- Fix reply: `~/dept-bus/edi-drafting/replies/025-DR11fix-mirror-rect-rotation-builder.md`.
+  One-line rect `rotationDeg` negation in the canonical arm; 2 new tests (single-axis r=30°→−30°;
+  kaleidoscope axis-aligned across 30° axis → 60°); old axis-aligned test still green. Accept
+  inline (audit pre-verified the exact change). Arch doc §2 mirror note updated.
+- Reported DR-11 + fix as ONE batch to edi-ui (tip `db71c1b`).
+- **FLAGGED to hub:** shared canonical-mirror semantics change — rotated-rect orientation under
+  reflection now corrected (`−r`); dungeon-map consumes `mirrorGeometry`; position unaffected,
+  axis-aligned rects unchanged. A fix dungeon-map wants.
+
 ## Open questions / blockers
-- Shared-mirror semantics change (rotated-rect orientation under reflection) — to be flagged
-  to the hub for the dungeon-map boundary when the fix lands.
+- (none blocking — DR-11+fix batch reported to edi-ui + hub-flagged; DR-12 held until
+  the batch merge-confirms, per the post-merge sequencing)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

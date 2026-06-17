@@ -46,7 +46,19 @@ ops); `assert_manifold` smoke helper applied to full+partial revolve + straight 
 (codifies BL-06's hand-check); helix ribbon + swept excluded (documented). ctest 101/101,
 4 OBJ byte-identical, no golden change → green gate is the proof. Accepted.
 
-### P2 — builder briefed 2026-06-17
+### P2 — SHIPPED 2026-06-17 (`8ae59f3`, planner spot-check)
+Suppress consumed-operand standalone OBJ emission (mirror bpy). boolean_op: 4 objects → 2
+(only the tagged operands). Spot-checked: object list = the 2 tagged operands, golden
+matches, tagged-operand coords byte-identical (faces just renumber −200), other 3 goldens
+byte-identical, smoke ok. Suppress-both (a standalone `a` would be a misleading half-cut).
+Chained-boolean handled (composites never suppressed). Accepted.
+
+### P3 — NOT dispatched (HUB PAUSE 2026-06-17)
+Paused by hub for a context swap BEFORE dispatching P3. No worker in flight. Resume point:
+brief P3 (watertight helix — close the open helix ribbon with end caps + radial closure,
+reuse BL-06's partial-revolve closing technique; then ADD the helix to P1's manifold
+assert). Only the helix smoke mesh changes (no committed golden uses a helix — doric etc.
+have screw_rise=0); the 4 OBJ goldens stay byte-identical. Then P4 → RD1 → RD2 → P5/P6 → P7.
 
 ### RD3 — SHIPPED 2026-06-17 (`09cb3bb`, docs-only)
 `docs/craftsmen-authoring.md` — the M4 teaching doc (three-part contract, pure proof_mesh,
@@ -56,5 +68,9 @@ the stale arch §6 "only twisted_column on disk" → three craftsmen + the autho
 link. The param.type default mismatch (C++ "text" vs Python "number") stays §10 candidate
 #5 (LOW, unreachable in practice; the doc now tells authors to always declare `type`).
 
-## Next
-- (RD3 done) P1 builder in flight → integrate → P2 (boolean dedup) …
+## Next (PAUSED — hub context swap; do not scoop until resumed)
+- **DONE this batch-2 so far:** RD3 (craftsmen doc `09cb3bb`), P1 (warning + manifold
+  `730f6bc`), P2 (boolean dedup `8ae59f3`). All on `dept/blender-lab`, green.
+- **RESUME AT:** P3 (watertight helix) — see its gate-log entry. Then P4 per-axis taper,
+  RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard geometry, P7 bounds tightness.
+- No worker in flight. Branch green. Awaiting fresh hub session.

@@ -124,8 +124,23 @@
 - Brief: `~/dept-bus/edi-drafting/briefs/013-DR03-relative-snaps-builder.md`. Deps
   DR-02 (satisfied). Boundary spec-settled; no reviewer gate up front.
 
+### DR-03 — SHIPPED 2026-06-17 (SHA `d9c7aca`, 96/96) → one small amendment in flight
+- Reply: `~/dept-bus/edi-drafting/replies/013-DR03-relative-snaps-builder.md`.
+  `Tangent`/`Perpendicular` added; new `relativeSnapCandidatesForDocument(doc,
+  fromPoint, settings)` (anchor-free path untouched); tangent = Thales contacts
+  (sweep-filtered, perpendicular-to-radius asserted); perpendicular feet for
+  line/cline/wall/polyline/polygon edges.
+- **Planner decisions:** (a) generous "edge" scope CONFIRMED (keep). (b) SEND-BACK
+  amendment `~/dept-bus/edi-drafting/briefs/014-DR03-perpendicular-onsegment-amendment.md`:
+  the builder used the CLAMPED foot (`projectOnSegment`), which returns the endpoint
+  when the true foot is off-segment → a mislabeled `Perpendicular` that isn't
+  perpendicular (and duplicates Endpoint). v1 = emit Perpendicular ONLY when the
+  unclamped foot lies on the segment (`t∈[0,1]`); infinite-line deferred-perp is a
+  future variant. Not consumed yet → cheap to settle now before edi-ui wiring.
+- DR-04 HELD until the amendment lands (single builder, sequential).
+
 ## Open questions / blockers
-- (none blocking — DR-02 done; DR-03 in build)
+- (none blocking — DR-03 amendment in flight; DR-04 queued behind it)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

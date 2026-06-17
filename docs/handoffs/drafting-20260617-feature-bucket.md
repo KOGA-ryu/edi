@@ -69,6 +69,9 @@
   by builder (mapPoint matrix == the model's field-rotation; no sin flip).
 - **Reported to hub** as a contract correction (canonical contract line 59 needs the
   center-anchor fix before dungeon-map consumes it).
+- **HUB RATIFIED 2026-06-17:** ruling A confirmed; canonical contract corrected
+  (Rectangle rule = center-anchor). dungeon-map will consume the corrected rule.
+  Boundary settled — proceed and bus the green SHA.
 
 ## Open questions / blockers
 - (none blocking — ruling A issued, builder shipping; hub asked to correct the

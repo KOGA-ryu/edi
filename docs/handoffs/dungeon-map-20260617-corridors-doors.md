@@ -73,12 +73,77 @@ Chamfer/Break/BlockInstance/RegionFill — nothing for connect-plugs). The graph
 - Flagged the scope discrepancy to the hub via bus-hub. NOT building until confirmed
   (do not rebuild done work).
 
-### Reviewer boundary gate (interactive authoring design) — 2026-06-17 — OPEN
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/019-reviewer-interactive-authoring-design.md`
-- Settle: the plug-anchor model, the TWO-plug connection-pick mechanism (new vs
-  reuse), on-demand corridor routing + the editable-corridor (independent) model,
-  neutral door-type authoring, where verbs live, delete cascades, and the slice
-  breakdown. Neutral-boundary + data-oriented check. NO code.
+### Reviewer boundary gate (interactive authoring design) — 2026-06-17 — SETTLED YES
+- Reply: `~/dept-bus/edi-dungeon-map/replies/019-reviewer-interactive-authoring-design.md`
+- **Design settled.** The whole loop reuses existing single-pick capture + graph/
+  corridor/door pieces — **NO new command arm, NO codec change, NO new struct, NO
+  subclassing.** 2 new `PointCaptureIntent` values (DATA) + thin verbs + pure helpers.
+  - **Plug tool:** snap-pick a wall point (snap runs before `resolvePointCapture`, free)
+    → mint Point marker + `CreatePlugCommand` (`beginPlugPick`/`placePlugAtPoint`).
+  - **Connection tool:** reuse the `m_pendingBlockId` idiom — ONE intent `PlugConnect`
+    + ONE member `m_pendingConnectionPlugA` (first click stores A + re-arms; second
+    resolves B → `connectPlugs`). Click→plug via `hitTestDocument` + NEW pure helper
+    `plugAtAnchorObject(doc, objectId)` in `DraftingGraphOps`. On-demand corridor from
+    existing `corridorWalls(routeCorridorCenterline(...))`.
+  - **Editable corridor:** INDEPENDENT (confirmed, = hub default). Corridor↔connection
+    tie = a NEUTRAL provenance tag `connection:<connId>` on each corridor wall (open-
+    vocab breadcrumb like `feature:<type>` — no new field/codec). Edit/delete/re-route
+    filter by the tag.
+  - **Door type:** `setPlugType(plugId,type)` → re-mint the `plug:<plugId>`-tagged Wall
+    leaf via the M1.3 `WallType` render mapping. Neutral.
+  - **Delete (the flagged trap):** rendered objects (marker/leaf/corridor walls) are
+    NOT graph records → gather-then-delete explicitly. `deletePlug`/`deleteConnection`
+    one bracket each; mind the `pruneGraphForRemovedObject`-vs-`DeletePlugCommand`
+    double-prune ordering (B2-4 brief calls it out).
+- Neutral + data-oriented + H2 boundary all confirmed. edi-ui owns the tool buttons.
+
+### PLANNER RULINGS on the 3 parked items (2026-06-17)
+1. **Auto-re-route-on-plug-move → PARK** (accept). v1 = a manual `rerouteConnection`
+   verb (B2-5); auto-sync joins the already-parked `plug.anchor`-staleness TODO. A
+   future `syncGraphForMovedObject` serves both. Consistent with the codebase's
+   parking discipline.
+2. **Wall-opening carve at the doorway → PARK** (accept abutting-but-solid v1). The
+   authored path carves a gap in the room wall; interactive v1 emits the corridor +
+   door leaf but leaves the room wall solid behind the leaf. The door LEAF already
+   provides the door representation (a door reads as a band within a wall), so
+   abutting-but-solid is visually acceptable for v1; carving = wall-segment splitting
+   (materially heavier), parked. **Flagged to hub/edi-ui** as a v1 visual choice (the
+   look is theirs) — record, not a blocker.
+3. **Merged/Vazgriz corridors → OUT OF SCOPE** (independent ratified). No action.
+   Also v1: `deleteConnection` keeps the plug's door leaf (not reverted to solid wall)
+   — accepted v1 choice (a plug can be reconnected); noted.
+
+### Ratified surface model (DM2-surfaces, hub 2026-06-17) — bake into ops
+- **plug pick = free canvas click** (snap runs before `resolvePointCapture`, free).
+- **connection create = two-click capture** (click plug A → click plug B).
+- **connection SELECT (for edit) = Map-browser ROW click** (not a canvas pick) — so a
+  connection is picked via the browser; my deliverable is `selectConnection(connId)` +
+  the relation-aware inspector context.
+- **door = auto-from-plug-type — NO separate door tool** (setPlugType drives the leaf).
+- **⚠ STRUCTURAL (my ops):** a connection is a RELATION (not a selectable object);
+  the inspector context keys on relation MEMBERSHIP → **`contextForKind`
+  (`src/drafting/DraftingInspectorPlan.cpp:59`, used `:98` on `selectedKind`) must
+  WIDEN from kind-only to relation-aware** (is the selected object a plug anchor? is a
+  connection selected?). This is its own slice **B2-CTX** + `selectConnection(connId)`.
+- (DM2-surfaces.md not yet on my worktree; decisions taken from the hub message.)
+
+### Slice plan + batch order (reviewer B2-1..B2-5 + the surface-spec B2-CTX)
+- **Builder batch-1** = B2-1 (plug tool, free-click) + B2-2 (connection two-click +
+  on-demand corridor). Brief `020` WRITTEN + READY. ⏸ **NOT dispatched (hub pause).**
+- batch-2 = **B2-CTX** (relation-aware `contextForKind` widening + `selectConnection`)
+  + B2-3 (door auto-from-type: `setPlugType`).
+- batch-3 = B2-4 (interactive delete + cascade cleanup — the double-prune-ordering
+  trap) + B2-5 (manual re-route).
+- Each carries the reviewer's baked acceptance. ui-integration wires chrome later.
+
+## ⏸ PAUSED — clean checkpoint (HUB context swap, 2026-06-17)
+- **Current task:** BATCH-2 interactive authoring; design SETTLED, surface model
+  ratified, batch-1 brief (`020`, plug+connection tools) WRITTEN and READY but **NOT
+  dispatched** (paused before scooping). No code in flight — only this handoff.
+- **Branch:** `dept/dungeon-map`, rebased on master; tree clean after this commit.
+- **RESUME POINT:** dispatch `~/dept-bus/edi-dungeon-map/briefs/020-builder-plug-connection-tools.md`
+  to `edi-dungeon-map-builder` (no rebuild needed first — docs-only checkpoint), then
+  continue batches 2–3 per the slice plan. No workers currently running.
 
 ## Next
 - Reviewer settles the interactive-authoring design → I spec the builder batches →

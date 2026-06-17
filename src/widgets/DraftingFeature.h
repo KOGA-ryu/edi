@@ -165,6 +165,11 @@ private:
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QCheckBox *m_aspectLockToggle = nullptr;
+    // DR-10: when the Repeat fold's "Rotate copies" toggle is on, the shared
+    // Radial button arms the rotate-copies rosette instead of the placement-only
+    // radial array. The toggle state is a pure UI choice (which op the one button
+    // runs), so it lives here as data, not as a widget subclass.
+    bool m_rotateCopies = false;
     QComboBox *m_gridPreset = nullptr;
     QComboBox *m_gridUnit = nullptr;
     QDoubleSpinBox *m_gridWidth = nullptr;

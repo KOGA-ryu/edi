@@ -1600,27 +1600,56 @@ QWidget *DraftingFeature::buildRepeatControls()
                  makeSpacingSpin(QStringLiteral("arraySpacingYSpin"), m_controller->arraySpacingY(),
                                  [this](double s) { m_controller->setArraySpacingY(s); }));
 
+    // DR-10 rotate-copies rosette: a tool-option toggle plus a total-angle spin.
+    // The toggle picks which op the shared Radial button (below) runs; off (the
+    // default) preserves today's placement-only radial array byte-for-byte. The
+    // angle spin mirrors arraySpacingXSpin — set at build, pushed back on edit —
+    // and binds to the controller's rotateCopiesTotalAngle param (default 360).
+    auto *rotateCopiesToggle = makeToggle(QStringLiteral("rotateCopiesToggle"),
+                                          QStringLiteral("Rotate copies"),
+                                          [this](bool on) { m_rotateCopies = on; },
+                                          m_rotateCopies);
+    layout->addWidget(rotateCopiesToggle, 3, 0, 1, 2);
+
+    auto *rosetteAngleSpin = new QDoubleSpinBox;
+    rosetteAngleSpin->setObjectName(QStringLiteral("rosetteAngleSpin"));
+    rosetteAngleSpin->setDecimals(1);
+    rosetteAngleSpin->setSingleStep(1.0);
+    rosetteAngleSpin->setRange(-360.0, 360.0); // a full ring by default; signed = spin direction
+    rosetteAngleSpin->setValue(m_controller->rotateCopiesTotalAngle());
+    connect(rosetteAngleSpin, &QDoubleSpinBox::valueChanged, m_controller, [this](double deg) {
+        m_controller->setRotateCopiesTotalAngle(deg);
+    });
+    addOptionRow(4, QStringLiteral("Total angle"), rosetteAngleSpin);
+
     auto *x = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat X"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("x"));
     });
-    layout->addWidget(x, 3, 0);
+    layout->addWidget(x, 5, 0);
 
     auto *y = makeActionButton(QStringLiteral("repeatButton"), QStringLiteral("Repeat Y"), [this]() {
         m_controller->repeatSelectedObject(QStringLiteral("y"));
     });
-    layout->addWidget(y, 3, 1);
+    layout->addWidget(y, 5, 1);
 
     auto *grid = makeActionButton(QStringLiteral("gridArrayButton"), QStringLiteral("Grid"), [this]() {
         m_controller->gridArraySelectedObject();
     });
-    layout->addWidget(grid, 4, 0);
+    layout->addWidget(grid, 6, 0);
 
     auto *radial = makeActionButton(QStringLiteral("radialArrayButton"), QStringLiteral("Radial"), [this]() {
         // Arms a pick-a-point capture; the next canvas click sets the ring
-        // centre (replacing the old hardcoded drawable centre).
-        m_controller->beginRadialArrayCenterPick();
+        // centre (replacing the old hardcoded drawable centre). DR-10: the
+        // "Rotate copies" toggle flips which op this one button arms — rosette
+        // (each copy rotated to its spoke) vs. placement-only radial array. The
+        // toggle defaults off, so the default behaviour is unchanged.
+        if (m_rotateCopies) {
+            m_controller->beginRotateCopiesCenterPick();
+        } else {
+            m_controller->beginRadialArrayCenterPick();
+        }
     });
-    layout->addWidget(radial, 4, 1);
+    layout->addWidget(radial, 6, 1);
 
     return panel;
 }

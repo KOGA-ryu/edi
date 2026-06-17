@@ -3711,6 +3711,76 @@ int main(int argc, char **argv)
         assert(!nonLineExtend.isAwaitingPointCapture());
     }
 
+    // Break verb: split a line at the picked point into TWO independent objects
+    // (original shortened + new piece) in ONE undo step. Pick-a-point's BreakPoint
+    // consumer; reuses the chamfer atomic multi-object pattern.
+    {
+        DrawingDocumentController breakController;
+        breakController.setSelectedToolId("line_tool");
+        breakController.clickCanvasNormalized(0.2, 0.5);
+        breakController.clickCanvasNormalized(0.8, 0.5); // one horizontal line
+        assert(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        breakController.setSelectedToolId("select_move");
+        breakController.clickCanvasNormalized(0.5, 0.5); // select the line
+        const QString targetId = breakController.selectedObjectId();
+        assert(!targetId.isEmpty());
+
+        assert(breakController.beginBreakSelectedObject());
+        assert(breakController.isAwaitingPointCapture());
+        breakController.clickCanvasNormalized(0.5, 0.5); // break at the midpoint
+        assert(!breakController.isAwaitingPointCapture());
+
+        // Two lines now: the original shortened + the new piece.
+        QVariantList objects = breakController.modelDocument().value("drawing_objects").toList();
+        assert(objects.size() == 2);
+        QVariantMap original;
+        QVariantMap piece;
+        for (const QVariant &v : objects) {
+            const QVariantMap m = v.toMap();
+            assert(m.value("kind").toString() == QStringLiteral("line"));
+            if (m.value("id").toString() == targetId) {
+                original = m;
+            } else {
+                piece = m;
+            }
+        }
+        assert(!original.isEmpty() && !piece.isEmpty());
+        assert(nearlyEqual(original.value("x1").toDouble(), 0.2) && nearlyEqual(original.value("x2").toDouble(), 0.5));
+        assert(nearlyEqual(piece.value("x1").toDouble(), 0.5) && nearlyEqual(piece.value("x2").toDouble(), 0.8));
+        // The original (first piece) stays selected.
+        assert(breakController.selectedObjectId() == targetId);
+
+        // ONE undo step restores the single original line.
+        assert(breakController.canUndo());
+        breakController.undo();
+        assert(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // A dead break (exactly at an endpoint) surfaces via edit_status, not silent.
+        DrawingDocumentController deadBreak;
+        deadBreak.setSelectedToolId("line_tool");
+        deadBreak.clickCanvasNormalized(0.2, 0.5);
+        deadBreak.clickCanvasNormalized(0.8, 0.5);
+        deadBreak.setSelectedToolId("select_move");
+        deadBreak.clickCanvasNormalized(0.5, 0.5);
+        assert(deadBreak.beginBreakSelectedObject());
+        deadBreak.clickCanvasNormalized(0.2, 0.5); // exactly the a endpoint
+        assert(!deadBreak.isAwaitingPointCapture());
+        const QVariantMap status = deadBreak.modelDocument().value("edit_status").toMap();
+        assert(status.value("ok").toBool() == false);
+        assert(status.value("mode").toString() == "break");
+        assert(!status.value("message").toString().isEmpty());
+        assert(deadBreak.modelDocument().value("drawing_objects").toList().size() == 1); // unchanged
+
+        // Break refuses to arm when the selection is neither line nor polyline.
+        DrawingDocumentController nonBreakable;
+        nonBreakable.setSelectedToolId("circle_tool");
+        nonBreakable.clickCanvasNormalized(0.5, 0.5);
+        nonBreakable.clickCanvasNormalized(0.6, 0.5);
+        assert(!nonBreakable.beginBreakSelectedObject());
+        assert(!nonBreakable.isAwaitingPointCapture());
+    }
+
     // Array failure paths: a user-reachable rejection (zero spacing) must
     // surface through edit_status, reclaim its minted serials, and a later
     // success must clear the stale status. Negative spacing must march the

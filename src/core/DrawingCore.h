@@ -42,6 +42,7 @@ enum class PointCaptureIntent {
     ExtendPoint,      // the click chooses which end of the selected line to extend
     FilletSecondLine, // the click picks the other line + the corner to round
     ChamferSecondLine, // the click picks the other line + the corner to bevel
+    BreakPoint,       // the click is where to split the selected line/polyline in two
     BlockInstance,    // the click is where to stamp the armed block (C3 palette)
     RegionFill,       // the click seeds a room-footprint fill (DM-10)
 };
@@ -240,6 +241,10 @@ public:
     bool beginChamferSelectedLine();
     void setChamferSetback(double setback);
     double chamferSetback() const;
+    // Break verb: arms a pick-a-point capture when a line or polyline is selected.
+    // The captured click splits it into TWO independent objects sharing the split
+    // point, in one undo step. False when no editable line/polyline is selected.
+    bool beginBreakSelectedObject();
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -427,6 +432,10 @@ private:
     // point: sets both back by m_chamferSetback and creates the bevel as one
     // atomic edit. Surfaces a status on rejection. Mirrors applyFilletAtPoint.
     void applyChamferAtPoint(edi::drafting::Point2D point);
+    // Splits the active line/polyline at the captured point: shortens the original
+    // to the split + creates the new piece (carrying the original's layer + style)
+    // as one atomic edit. Surfaces a status on rejection. Mirrors the chamfer atom.
+    void applyBreakAtPoint(edi::drafting::Point2D point);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);

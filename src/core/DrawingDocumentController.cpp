@@ -2127,6 +2127,63 @@ void DrawingDocumentController::applyChamferAtPoint(Point2D point)
     emit modelChanged();
 }
 
+bool DrawingDocumentController::beginBreakSelectedObject()
+{
+    // Break acts on a LINE or a POLYLINE (both have a path to split). Arm only when
+    // one is selected and editable; the captured click is the split point.
+    const DraftingObject *source = activeObject(m_document);
+    if (source == nullptr
+        || (source->kind != DraftingShapeKind::Line && source->kind != DraftingShapeKind::Polyline)
+        || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::BreakPoint,
+                                         QStringLiteral("Click where to break the object")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::applyBreakAtPoint(Point2D point)
+{
+    const DraftingObject *target = activeObject(m_document);
+    if (target == nullptr
+        || (target->kind != DraftingShapeKind::Line && target->kind != DraftingShapeKind::Polyline)) {
+        return; // the selection changed out from under the armed capture
+    }
+    const DraftingBreakResult result = breakGeometryAtPoint(target->geometry, point);
+    if (!result.ok) {
+        finishEdit(QStringLiteral("break"), drawing_core::qStringFromStdString(target->id), false,
+                   result.code, drawing_core::qStringFromStdString(result.message));
+        return;
+    }
+    // Atomic: shorten the original (UpdateGeometry) and create the new piece
+    // (CreateObject) as ONE undo step (the chamfer atom). Capture the id + layer +
+    // style + kind into LOCALS first — the commands reallocate m_document.objects,
+    // invalidating `target`. The new piece keeps the original's kind (a broken line
+    // is two lines; a broken polyline two polylines) and inherits its layer/style.
+    const DraftingObjectId targetId = target->id;
+    const LayerId layerId = target->layerId;
+    const StrokeStyle stroke = target->stroke;
+    const FillStyle fill = target->fill;
+    const DraftingShapeKind kind = target->kind;
+    const QString pieceId = nextObjectId(QStringLiteral("break"), m_nextObjectSerial++);
+    DraftingObject piece = makeDraftingObject(toStdString(pieceId), kind, DraftingGeometry{result.second});
+    piece.layerId = layerId;
+    piece.stroke = stroke;
+    piece.fill = fill;
+    piece.bounds = computeBounds(piece.geometry);
+    piece.metadata.toolProvenance = "break";
+
+    beginEdit();
+    applyDraftingCommand(m_document, UpdateGeometryCommand{targetId, DraftingGeometry{result.first}});
+    applyDraftingCommand(m_document, CreateObjectCommand{piece});
+    // The original (now the first piece) stays selected — the user broke a thing and
+    // is still working on it.
+    applyDraftingCommand(m_document, SelectObjectCommand{targetId});
+    commitEdit();
+    emit modelChanged();
+}
+
 void DrawingDocumentController::resolvePointCapture(Point2D point)
 {
     const PointCaptureIntent intent = m_pointCapture->intent;
@@ -2146,6 +2203,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::ChamferSecondLine:
         applyChamferAtPoint(point);
+        break;
+    case PointCaptureIntent::BreakPoint:
+        applyBreakAtPoint(point);
         break;
     case PointCaptureIntent::BlockInstance:
         placeBlockInstance(m_pendingBlockId, point.x, point.y);

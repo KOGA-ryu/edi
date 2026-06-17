@@ -285,11 +285,22 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   edi-ui target). **Signatures for edi-ui** recorded in the reply (the exact headers
   `buildMapBrowserPanel`/`computeFitView` include). **ALL 15 DM TASKS BUILT.**
 
-### Builder batch-8 (composed-scale overflow guard) — DISPATCHED (final)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/018-builder-scale-overflow-guard.md`
-- The DM-14/15 audit nit: guard the composed `scale *= factor` against `+inf`
-  (refuse the member), with a pathological 1e200×1e200 test. Last code change before
-  the final edi-ui hand-off + closeout.
+### Builder batch-8 (composed-scale overflow guard) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/018-builder-scale-overflow-guard.md`
+- `799de08`→rebased `8144777`. Guard SKIPS (not clamps) a member whose composed
+  `newScale`/`newRotation` is non-finite/≤0, assigning the pre-checked values so what
+  is validated is what is written; happy-path (135°/×3.0) unchanged; 101/101.
+
+### FINAL rebase + hand-off — 2026-06-17 — edi-dungeon-map-planner
+- Rebased the full stack (DM-14/15 + slivers + guard) onto master `cf9e383` (incl.
+  DR-09) — **ZERO conflicts**. **Green on the new base: build clean · ctest 101/101 ·
+  scan clean · snapshot · --export-map 12 rooms.** Final tip `8144777` handed to
+  edi-ui to merge + co-bless the map golden.
+
+### Closeout — 2026-06-17 — edi-dungeon-map-planner
+- `docs/closeouts/dungeon-map-20260617-feature-batch.md` freezes all 15 tasks +
+  the 6 decisions + the chrome split + carried notes. Reported to hub. (LEDGER
+  Closed row is edi-ui-owned — reported via bus, not edited here.)
 
 ### Reviewer diff-audit of DM-14/15 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN, 1 nit)
 - Reply: `~/dept-bus/edi-dungeon-map/replies/017-reviewer-dm1415-audit.md`
@@ -314,9 +325,12 @@ Legend: ✅ done · ▶ in gate · ◻ queued · ⏸ waiting (DR-01) · 🟦 edi
   inspection, unexercised); old-reads-new codec corner contract-guaranteed (carried).
 
 ## Open questions / blockers
-- DM-14/15 blocked on DR-01 (`transformGeometry`) — drafting builds it first; hub
-  signals merge. DM-12/13 deliberately split off so they land now (identity-valued).
+- **None. Feature batch COMPLETE** — all 15 DM tasks built, audited, rebased green,
+  frozen in the closeout. Final tip `8144777` handed to edi-ui for the master merge +
+  chrome wiring (DM-01 auto-fit, DM-11 browser sections, DM-14/15 surfaces — the look
+  is theirs). The only remaining step is edi-ui's merge confirmation.
 
 ## Next
-- Batches 2–5 queued; dispatch each as the builder frees. Assess DM-01/DM-11
-  sliver vs edi-ui ownership. Report kickoff to hub.
+- Await edi-ui's new-master-tip after they merge `8144777`. Then the dungeon-map
+  feature work is fully integrated. Next dungeon-map campaign awaits a hub brief —
+  the tool-first stop-line holds (no generation), mandate intact.

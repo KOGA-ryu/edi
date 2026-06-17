@@ -32,7 +32,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | Task | Title | Size | Status | Commit(s) |
 |---|---|---|---|---|
 | BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
-| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | builder briefed | — |
+| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | builder done, reviewer audit | `e166709` |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | blocked on BL-03 | — |
 | BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
 | BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |

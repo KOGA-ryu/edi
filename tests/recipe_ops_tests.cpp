@@ -1727,5 +1727,61 @@ int main()
         assert(eBack != nullptr && eBack->path.empty() && near(eBack->height, 2.0));
     }
 
+    // ---- BL-09: taper_end on the sweep + the prism it lowers to. Default 1.0,
+    // round-trip on both ops, validate refuses <= 0 / non-finite by name. ----
+    {
+        // Default 1.0 round-trips on both ops.
+        AddSweepProfileOp sweep;
+        sweep.name = "spire";
+        sweep.profile = "section";
+        sweep.path = "rib";
+        assert(near(sweep.taperEnd, 1.0)); // struct default
+        sweep.taperEnd = 0.4;
+        RecipeOpStream ss;
+        ss.ops.push_back(sweep);
+        const OpStreamTextResult sw = recipeOpsToToml(ss);
+        assert(sw.ok && sw.text.find("op.0.taper_end = \"0.4\"") != std::string::npos);
+        const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
+        assert(swBack != nullptr && near(swBack->taperEnd, 0.4));
+
+        AddPrismOp prism;
+        prism.name = "p";
+        prism.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        prism.path = {{0.0, 0.0}, {2.0, 0.0}};
+        prism.taperEnd = 0.5;
+        RecipeOpStream ps;
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok && pw.text.find("op.0.taper_end = \"0.5\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && near(pBack->taperEnd, 0.5));
+
+        // An absent taper_end defaults to 1.0 (a pre-BL-09 file is untapered).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddSweepProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"s\"\n"
+            "op.0.path = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        assert(near(std::get_if<AddSweepProfileOp>(&bare.stream.ops[0])->taperEnd, 1.0));
+
+        // Validate refuses taper_end <= 0 / non-finite by name on BOTH ops.
+        const auto sawBadTaper = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_taper_end") return true;
+            }
+            return false;
+        };
+        AddSweepProfileOp zeroTaper = sweep; zeroTaper.taperEnd = 0.0;
+        assert(sawBadTaper(validateRecipeOps({RecipeOp{zeroTaper}})));
+        AddPrismOp negTaper = prism; negTaper.taperEnd = -1.0;
+        assert(sawBadTaper(validateRecipeOps({RecipeOp{negTaper}})));
+
+        // The bind affordance: taper_end is a bindable Number on both ops.
+        assert(opFieldBindable(RecipeOp{AddSweepProfileOp{}}, "taper_end"));
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
+    }
+
     return 0;
 }

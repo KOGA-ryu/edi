@@ -723,12 +723,14 @@ int main()
         sweep.name = "cornice.run";
         sweep.profile = "panel"; // a closed square -> footprint
         sweep.path = "cut";      // a line (0.2,0.2)-(0.5,0.6) -> path
+        sweep.taperEnd = 0.5;    // BL-09: a tapering run
         s.ops.push_back(sweep);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
         assert(r.ok);
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
         assert(lowered != nullptr); // the sweep reference is GONE, a prism stands
         assert(lowered->name == "cornice.run");
+        assert(near(lowered->taperEnd, 0.5)); // BL-09: the taper survived lowering
         assert(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
         assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
         // The path is the projected "cut" line: (0.2,0.2)->(0.5,0.6) on the 12x8 grid.

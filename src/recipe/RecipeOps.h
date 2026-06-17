@@ -141,6 +141,10 @@ struct AddPrismOp {
     // the lowered form of AddSweepProfileOp. height is irrelevant when a path
     // is present.
     std::vector<PrismPoint> path;
+    // BL-09: taper along the sweep — the footprint is scaled from 1.0 at the
+    // path start to taperEnd at the path end (a shaft / spire). 1.0 = no taper
+    // (the byte-preserving default). Ignored for a straight extrude (empty path).
+    double taperEnd = 1.0;
 };
 
 struct AddProfileMouldingOp {
@@ -212,6 +216,9 @@ struct AddSweepProfileOp {
     double x = 0.0;
     double y = 0.0;
     std::string material = "stone";
+    // BL-09: taper — scale the profile from 1.0 at the path start to taperEnd at
+    // the end. 1.0 = no taper (default). SURVIVES lowering onto AddPrismOp.
+    double taperEnd = 1.0;
 };
 
 struct CutFlutesOp {

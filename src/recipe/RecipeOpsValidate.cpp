@@ -51,6 +51,17 @@ void checkLatheParams(std::vector<OpFinding> &findings, const std::string &name,
     }
 }
 
+// BL-09: the sweep taper is a SCALE factor on the profile (1.0 = no taper), so
+// it must be positive and finite — a zero/negative scale collapses or inverts
+// the cross-section. Shared by the sweep and the prism it lowers to.
+void checkTaperEnd(std::vector<OpFinding> &findings, const std::string &name, double taperEnd)
+{
+    if (!(taperEnd > 0) || !std::isfinite(taperEnd)) {
+        add(findings, Severity::Error, "bad_taper_end",
+            name + " taper_end must be a positive, finite scale.");
+    }
+}
+
 // The per-op checks, v0 codes and wording preserved. A visitor over the
 // variant — the same dispatch shape the drafting commands use.
 struct OpChecker {
@@ -215,6 +226,7 @@ struct OpChecker {
             add(findings, Severity::Warning, "negative_prism_base_z",
                 op.name + " starts below z=0.");
         }
+        checkTaperEnd(findings, op.name, op.taperEnd);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -234,6 +246,7 @@ struct OpChecker {
             add(findings, Severity::Warning, "negative_swept_profile_base_z",
                 op.name + " starts below z=0.");
         }
+        checkTaperEnd(findings, op.name, op.taperEnd);
         checkMaterial(findings, op.name, op.material);
     }
 

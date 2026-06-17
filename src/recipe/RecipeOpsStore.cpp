@@ -137,6 +137,7 @@ struct OpWriter {
         put("x", op.x);
         put("y", op.y);
         put("material", op.material);
+        put("taper_end", op.taperEnd);
         // The footprint is a contiguous indexed run footprint.i.{x,y}, the same
         // shape (and reader rule: read until a gap) AddMoulding uses for profile.i.
         for (std::size_t i = 0; i < op.footprint.size(); ++i) {
@@ -220,6 +221,7 @@ struct OpWriter {
         put("x", op.x);
         put("y", op.y);
         put("material", op.material);
+        put("taper_end", op.taperEnd);
     }
 
     void operator()(const CutFlutesOp &op) const
@@ -805,6 +807,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false) // BL-09; default 1
                 || !readPrismPointRun(reader, prefix, "footprint", op.footprint)
                 || !readPrismPointRun(reader, prefix, "path", op.path)) { // BL-08; absent = empty
                 result.message = reader.error;
@@ -869,7 +872,8 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
-                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)) { // BL-09
                 result.message = reader.error;
                 return result;
             }

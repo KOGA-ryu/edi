@@ -202,6 +202,24 @@ def main() -> int:
     assert len({v[0] for v in sw_verts}) > 1 and len({v[1] for v in sw_verts}) > 1 \
         and len({v[2] for v in sw_verts}) > 1, "swept solid must span x, y and z (the path bends it)"
 
+    # BL-09: a taper_end < 1 narrows the swept profile toward the end. The cross-
+    # section is the first n verts vs the last n verts; the end loop's extent is
+    # ~taper_end of the start. taper_end == 1.0 is byte-identical to BL-08.
+    n_fp = 4  # the swept_profile footprint has 4 points
+    def extent(loop):
+        return (max(p[2] for p in loop) - min(p[2] for p in loop))  # z-span of the cross-section
+    no_taper = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "swept_profile", "swept_profile_ops_compiled.toml"))[0]
+    base_verts = edi_craft._prism_world(no_taper)[0]
+    tapered = dict(no_taper, taper_end=0.5)
+    tap_verts = edi_craft._prism_world(tapered)[0]
+    assert edi_craft._prism_world(dict(no_taper, taper_end=1.0))[0] == base_verts, \
+        "taper_end=1.0 must be byte-identical to the no-taper sweep"
+    start_extent = extent(tap_verts[:n_fp])
+    end_extent = extent(tap_verts[-n_fp:])
+    assert abs(end_extent - 0.5 * start_extent) < 1e-9, \
+        f"taper_end=0.5 should halve the end cross-section: start {start_extent}, end {end_extent}"
+
     # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
     # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)
     # and the two radial open ends are capped, so it is a closed solid, not a
@@ -362,6 +380,12 @@ def main() -> int:
     refuses(
         'op.0.type = "AddExtrudedProfile"\nop.0.name = "m"\n',
         "AddExtrudedProfile must be resolved before building",
+    )
+    # The Follow-Me sweep reference (BL-08/09 fold-in): a raw AddSweepProfile is
+    # refused by name too, parity with the C++ compile/resolve refusals.
+    refuses(
+        'op.0.type = "AddSweepProfile"\nop.0.name = "m"\n',
+        "AddSweepProfile must be resolved before building",
     )
     refuses('op.0.type = "AddDodecahedron"\n', "unknown op type")
 

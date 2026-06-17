@@ -269,6 +269,13 @@ def parse_ops(path: str) -> list[dict]:
             # here), so the seam cannot leak an unbuildable reference.
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddExtrudedProfile must be resolved before building: {name}")
+        if op_type == "AddSweepProfile":
+            # The Follow-Me sweep reference (BL-08): like the extrude, only the
+            # LOWERED form (a path-bearing AddPrism) reaches a build. Refused by
+            # name on BOTH sides (BL-09 fold-in — the C++ compile/resolve already
+            # refuse it), so the seam cannot leak an unbuildable reference.
+            name = fields.get("name", "?")
+            raise ValueError(f"{op_key}: AddSweepProfile must be resolved before building: {name}")
         if op_type == "Script":
             # A custom-craftsman step: a script id, a position, and a free param
             # bag. parse_ops does not know the craftsman's schema (it lives in
@@ -401,6 +408,9 @@ def parse_ops(path: str) -> list[dict]:
                 x=_number(op_key, fields, consumed, "x", 0.0),
                 y=_number(op_key, fields, consumed, "y", 0.0),
                 material=_material(op_key, fields, consumed),
+                # BL-09: taper scale at the path end (1.0 = none). Straight
+                # extrude (empty path) ignores it.
+                taper_end=_number(op_key, fields, consumed, "taper_end", 1.0),
             )
         elif op_type == "CutFlutes":
             # Explicit cutter geometry (R1-B04b): optional, present-together,
@@ -799,9 +809,17 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     v1 orientation rule: the footprint cross-section stands UP perpendicular to
     the path — its local x maps to the path's in-plane normal, its local y maps
     to world z (above base_z). At each path point a copy of the loop is placed,
-    oriented by that point's straight-SEGMENT tangent (no miter at corners, no
-    taper — those are BL-09); consecutive loops are joined by side quads and the
-    first/last loops are capped, so the result is watertight."""
+    oriented by that point's straight-SEGMENT tangent (no miter at corners — that
+    is a future refinement); consecutive loops are joined by side quads and the
+    first/last loops are capped, so the result is watertight.
+
+    BL-09 taper: each loop is scaled by lerp(1.0, taper_end, fraction-of-path-
+    LENGTH) before placement — first loop at 1.0, last at taper_end (a shaft /
+    spire). The scale is about the footprint's CENTROID (the mean of its points),
+    not the origin or a bbox corner, so a symmetric profile narrows symmetrically
+    about its own center rather than drifting toward the axis. taper_end == 1.0
+    is the IDENTITY path: scaling is skipped entirely (centroid +/- can perturb
+    floats), so a no-taper sweep is byte-identical to the BL-08 golden."""
     fp = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(fp) >= 2 and fp[0] == fp[-1]:
         fp = fp[:-1]
@@ -815,6 +833,18 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     m = len(path)
     ox, oy, base_z = op["x"], op["y"], op["base_z"]
 
+    taper = op.get("taper_end", 1.0)
+    tapering = taper != 1.0
+    cx = sum(fx for fx, _ in fp) / n if tapering else 0.0  # footprint centroid
+    cy = sum(fy for _, fy in fp) / n if tapering else 0.0
+    # Cumulative path length per point, so the taper fraction tracks distance
+    # travelled (not raw point index) — uneven path spacing tapers evenly.
+    cumlen = [0.0]
+    for k in range(1, m):
+        cumlen.append(cumlen[-1] + math.hypot(path[k][0] - path[k - 1][0],
+                                              path[k][1] - path[k - 1][1]))
+    total = cumlen[-1] or 1.0
+
     loops = []
     for k in range(m):
         px, py = path[k]
@@ -825,7 +855,10 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
         length = math.hypot(tx, ty) or 1.0
         tx, ty = tx / length, ty / length
         nx, ny = -ty, tx  # in-plane normal to the path tangent
+        scale = 1.0 + (taper - 1.0) * (cumlen[k] / total)
         for fx, fy in fp:
+            if tapering:  # scale the cross-section about its centroid
+                fx, fy = cx + scale * (fx - cx), cy + scale * (fy - cy)
             loops.append((ox + px + fx * nx, oy + py + fx * ny, base_z + fy))
 
     verts = list(loops)

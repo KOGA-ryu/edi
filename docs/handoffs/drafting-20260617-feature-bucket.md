@@ -186,8 +186,21 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   Extends `DraftingDerived.{h,cpp}`. First builder brief carrying the LEDGER rebase
   rule (policy 2026-06-17). Boundary spec-settled → no reviewer gate up front.
 
+### DR-06 — CLOSED 2026-06-17 ✅ (SHA `d3451d6`, 98/98 green)
+- `~/dept-bus/edi-drafting/replies/017-DR06-inscribe-builder.md`. `divideCirclePoints`
+  + `inscribeRegularPolygon` + `inscribeStarPolygon` extend `DraftingDerived`. {n/k}
+  validity fully enforced (`n≥5, 2≤step<n/2, gcd=1`; pentagram order `0,2,4,1,3`).
+  PolygonGeometry is implicitly closed (no flag); defensive `inscribableCircle` guard.
+  No LEDGER conflict. Snap/derived front (DR-02..06) complete.
+
+### DR-07 — chamfer two lines (op + CONTROLLER wiring) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/018-DR07-chamfer-builder.md`. Deps none.
+  FIRST controller-wiring slice of the bucket (mirrors the fillet path byte-for-byte).
+  **Plan: diff-audit after build** — controller atomicity + behavior-preservation of
+  the existing fillet/capture paths; if the pattern is clean, trust DR-08/09 more.
+
 ## Open questions / blockers
-- (none blocking — DR-06 in build)
+- (none blocking — DR-07 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

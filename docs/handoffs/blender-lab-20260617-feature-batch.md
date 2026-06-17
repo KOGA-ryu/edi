@@ -31,8 +31,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 ## Task ledger
 | Task | Title | Size | Status | Commit(s) |
 |---|---|---|---|---|
-| BL-01 | AddExtrudedProfile arm (→11 visits) | L | builder done, reviewer audit | `cd646ab` |
-| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | blocked on BL-01 | — |
+| BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
+| BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | builder briefed | — |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | blocked on BL-03 | — |
 | BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
 | BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
@@ -54,6 +54,27 @@ build (compile/resolve/ascii), round-trip + refusal tests. Build green, ctest 95
 scan clean, cross-language unchanged. Flagged extension: a `negative_extruded_profile_
 base_z` warning (not briefed) — reviewer to keep/drop. Audit brief `briefs/006`.
 
+### BL-01 — SHIPPED 2026-06-17 (reviewer audit `replies/006`: SHIP, no defects)
+Reviewer reproduced green (full app builds, recipe ctest 7/7); confirmed all 11 sites
+real (no catch-all), reader key-for-key BL-04-ready, refused-before-build complete.
+**Integration decision:** KEEP the `negative_extruded_profile_base_z` warning — it is
+exact parity with the lathe/moulding `negative_*_base_z` warnings; omitting it was the
+inconsistency. No code change needed; accepted as-is.
+**Seam recorded (closes in BL-03):** `saveResolvedOpsToToml` (EdiShellWindowIo.cpp,
+edi-ui-host file, NOT ours) gates only on `resolved.ok`, so today it could serialize an
+UNLOWERED extrude into a "resolved" export — harmless (downstream compile/ascii/python
+still refuse). It closes naturally once BL-03 makes resolve LOWER the extrude (no raw
+extrude survives resolve). No action for us; BL-03 dissolves it.
+
+### BL-03 — builder briefed 2026-06-17
+Brief `briefs/007-bl03-prism-carrier.md`. New `AddPrismOp` arm (→12) + resolve-lowering
+AddExtrudedProfile→AddPrismOp via a new `resolveExtrudeProfilePoints` footprint
+projector. AddPrismOp = OBJ-only-proof (mirrors Script's ASCII: no-op bounds, empty
+draw, NOT refused — it is the buildable carrier).
+
 ## Next
-- Reviewer audits BL-01 (`briefs/006`) → integrate (accept/drop the base_z warning) →
-  BL-03 (AddPrismOp carrier, →12 arms).
+- BL-03 builder → reviewer diff audit (carrier shape + footprint projection + the
+  variant→12 pass are the keystone joint) → BL-04 (Python prism build + OBJ golden).
+- Arch doc: I (scribe) refresh §1/§2 to add arms 11 (AddExtrudedProfile) + 12
+  (AddPrismOp) once the spine BL-01/03/04 lands as a coherent unit (avoid mid-spine
+  churn).

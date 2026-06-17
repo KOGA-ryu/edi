@@ -832,6 +832,20 @@ double DrawingDocumentController::filletRadius() const
     return m_filletRadius;
 }
 
+void DrawingDocumentController::setChamferSetback(double setback)
+{
+    // Like the fillet radius: 0 is not a meaningful chamfer (no bevel), so an
+    // invalid value leaves the current setback untouched rather than disabling.
+    if (std::isfinite(setback) && setback > 0.0) {
+        m_chamferSetback = std::min(setback, 1.0);
+    }
+}
+
+double DrawingDocumentController::chamferSetback() const
+{
+    return m_chamferSetback;
+}
+
 void DrawingDocumentController::setArrayCount(int count)
 {
     m_arrayCount = std::clamp(count, 1, 99);
@@ -1936,6 +1950,82 @@ void DrawingDocumentController::applyFilletAtPoint(Point2D point)
     emit modelChanged();
 }
 
+bool DrawingDocumentController::beginChamferSelectedLine()
+{
+    const DraftingObject *source = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
+        return false;
+    }
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::ChamferSecondLine,
+                                         QStringLiteral("Click the other line near the corner to bevel")};
+    emit pointerChanged();
+    return true;
+}
+
+void DrawingDocumentController::applyChamferAtPoint(Point2D point)
+{
+    // Byte-for-byte the applyFilletAtPoint shape: resolve the target line, pick the
+    // nearest OTHER line, run the pure op, then apply the multi-object result in ONE
+    // begin/commit bracket. Only the op and the created object (a bevel LINE, not an
+    // arc) differ.
+    const DraftingObject *target = activeObjectOfKind(m_document, DraftingShapeKind::Line);
+    if (target == nullptr) {
+        return;
+    }
+    const auto *targetLine = std::get_if<LineGeometry>(&target->geometry);
+    if (targetLine == nullptr) {
+        return;
+    }
+    const DraftingObject *other = nullptr;
+    const LineGeometry *otherLine = nullptr;
+    double bestDistance = 0.0;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.id == target->id) {
+            continue;
+        }
+        const auto *line = std::get_if<LineGeometry>(&object.geometry);
+        if (line == nullptr) {
+            continue;
+        }
+        const double distanceToLine = hitDistance(object.geometry, point);
+        if (other == nullptr || distanceToLine < bestDistance) {
+            other = &object;
+            otherLine = line;
+            bestDistance = distanceToLine;
+        }
+    }
+    if (otherLine == nullptr) {
+        finishEdit(QStringLiteral("chamfer"), drawing_core::qStringFromStdString(target->id), false,
+                   DraftingResultCode::InvalidSelectionTarget, QStringLiteral("chamfer needs a second line"));
+        return;
+    }
+    // v1 uses ONE setback for both lines (like fillet's single radius).
+    const DraftingChamferResult result = chamferLines(*targetLine, *otherLine, m_chamferSetback, m_chamferSetback, point);
+    if (!result.ok) {
+        finishEdit(QStringLiteral("chamfer"), drawing_core::qStringFromStdString(target->id), false,
+                   result.code, drawing_core::qStringFromStdString(result.message));
+        return;
+    }
+    // Atomic: trim BOTH lines and create the bevel as ONE undo step. Capture the
+    // ids and layer up front — the pointers into m_document.objects must not be read
+    // after the first command mutates the vector.
+    const DraftingObjectId targetId = target->id;
+    const DraftingObjectId otherId = other->id;
+    const QString bevelId = nextObjectId(QStringLiteral("chamfer"), m_nextObjectSerial++);
+    DraftingObject bevel = makeDraftingObject(toStdString(bevelId), DraftingShapeKind::Line, DraftingGeometry{result.bevel});
+    bevel.layerId = target->layerId;
+    bevel.bounds = computeBounds(bevel.geometry);
+    bevel.metadata.toolProvenance = "chamfer";
+
+    beginEdit();
+    applyDraftingCommand(m_document, UpdateGeometryCommand{targetId, DraftingGeometry{result.line1}});
+    applyDraftingCommand(m_document, UpdateGeometryCommand{otherId, DraftingGeometry{result.line2}});
+    applyDraftingCommand(m_document, CreateObjectCommand{bevel});
+    applyDraftingCommand(m_document, SelectObjectCommand{bevel.id});
+    commitEdit();
+    emit modelChanged();
+}
+
 void DrawingDocumentController::resolvePointCapture(Point2D point)
 {
     const PointCaptureIntent intent = m_pointCapture->intent;
@@ -1949,6 +2039,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::FilletSecondLine:
         applyFilletAtPoint(point);
+        break;
+    case PointCaptureIntent::ChamferSecondLine:
+        applyChamferAtPoint(point);
         break;
     case PointCaptureIntent::BlockInstance:
         placeBlockInstance(m_pendingBlockId, point.x, point.y);

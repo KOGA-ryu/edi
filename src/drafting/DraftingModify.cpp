@@ -207,4 +207,80 @@ DraftingFilletResult filletLines(const LineGeometry &line1, const LineGeometry &
     return DraftingFilletResult::accepted(*newLine1, *newLine2, arc);
 }
 
+DraftingChamferResult DraftingChamferResult::accepted(LineGeometry line1, LineGeometry line2, LineGeometry bevel)
+{
+    DraftingChamferResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.line1 = line1;
+    result.line2 = line2;
+    result.bevel = bevel;
+    return result;
+}
+
+DraftingChamferResult DraftingChamferResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingChamferResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+DraftingChamferResult chamferLines(const LineGeometry &line1, const LineGeometry &line2,
+                                   double setback1, double setback2, Point2D pick)
+{
+    if (!std::isfinite(setback1) || setback1 <= 0.0 || !std::isfinite(setback2) || setback2 <= 0.0) {
+        return DraftingChamferResult::rejected(DraftingResultCode::InvalidGeometry,
+                                               "chamfer setback must be positive");
+    }
+    // Same corner-from-pick machinery as filletLines (mirrored here rather than
+    // extracted, to leave the fillet path byte-for-byte unchanged): the corner is
+    // where the two INFINITE lines meet; parallel/collinear pairs have none.
+    const std::optional<Point2D> vertex = lineIntersection(line1, line2);
+    if (!vertex) {
+        return DraftingChamferResult::rejected(DraftingResultCode::InvalidSelectionTarget,
+                                               "the two lines are parallel — no corner to chamfer");
+    }
+    const Point2D V = *vertex;
+
+    // Unit ray along each line from V, oriented toward the picked corner — the same
+    // selection filletLines uses (the side of V the click is on).
+    const auto cornerRay = [&](const LineGeometry &line) {
+        const Point2D dir = normalized(line.b.x - line.a.x, line.b.y - line.a.y);
+        const double towardPick = (pick.x - V.x) * dir.x + (pick.y - V.y) * dir.y;
+        return towardPick < 0.0 ? Point2D{-dir.x, -dir.y} : dir;
+    };
+    const Point2D d1 = cornerRay(line1);
+    const Point2D d2 = cornerRay(line2);
+
+    // The setback points: `setback` along each corner ray from V.
+    const Point2D s1{V.x + d1.x * setback1, V.y + d1.y * setback1};
+    const Point2D s2{V.x + d2.x * setback2, V.y + d2.y * setback2};
+
+    // Each line keeps the endpoint FARTHER along its corner ray and moves the
+    // nearer endpoint to the setback point — the same trim filletLines does for the
+    // tangent point. If the setback reaches or passes the kept end the line is too
+    // short, so reject (mirrors the fillet "radius too large" guard, which also
+    // stops a reversed phantom segment the length check alone would miss).
+    const auto meetSetback = [&](const LineGeometry &line, Point2D dir, Point2D setbackPoint, double setback)
+        -> std::optional<LineGeometry> {
+        const double projA = (line.a.x - V.x) * dir.x + (line.a.y - V.y) * dir.y;
+        const double projB = (line.b.x - V.x) * dir.x + (line.b.y - V.y) * dir.y;
+        const double keptProjection = std::max(projA, projB);
+        if (setback >= keptProjection) {
+            return std::nullopt; // setback at or past the kept end: too large
+        }
+        return projA <= projB ? LineGeometry{setbackPoint, line.b} : LineGeometry{line.a, setbackPoint};
+    };
+    const std::optional<LineGeometry> newLine1 = meetSetback(line1, d1, s1, setback1);
+    const std::optional<LineGeometry> newLine2 = meetSetback(line2, d2, s2, setback2);
+    if (!newLine1 || !newLine2) {
+        return DraftingChamferResult::rejected(DraftingResultCode::InvalidGeometry,
+                                               "chamfer setback is too large for these lines");
+    }
+
+    return DraftingChamferResult::accepted(*newLine1, *newLine2, LineGeometry{s1, s2});
+}
+
 } // namespace edi::drafting

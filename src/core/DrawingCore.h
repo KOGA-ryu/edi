@@ -40,6 +40,7 @@ enum class PointCaptureIntent {
     RadialArrayCenter,
     TrimPoint,        // the click chooses which part of the selected line to trim away
     FilletSecondLine, // the click picks the other line + the corner to round
+    ChamferSecondLine, // the click picks the other line + the corner to bevel
     BlockInstance,    // the click is where to stamp the armed block (C3 palette)
 };
 
@@ -225,6 +226,13 @@ public:
     bool beginFilletSelectedLine();
     void setFilletRadius(double radius);
     double filletRadius() const;
+    // Chamfer verb: the angular sibling of fillet. Arms a pick-a-point capture when
+    // a line is selected; the captured click picks the OTHER line and the corner,
+    // both lines are set back by chamferSetback() and a straight bevel joins them,
+    // all in one undo step. False when no editable line is selected.
+    bool beginChamferSelectedLine();
+    void setChamferSetback(double setback);
+    double chamferSetback() const;
     bool alignSelection(const QString &modeId);
     bool distributeSelection(const QString &axisId);
     bool createCalibrationPattern(const QString &patternId);
@@ -396,6 +404,10 @@ private:
     // point: trims both to the tangent points and creates the rounding arc as
     // one atomic edit. Surfaces a status on rejection.
     void applyFilletAtPoint(edi::drafting::Point2D point);
+    // Chamfers the active line against the nearest OTHER line to the captured
+    // point: sets both back by m_chamferSetback and creates the bevel as one
+    // atomic edit. Surfaces a status on rejection. Mirrors applyFilletAtPoint.
+    void applyChamferAtPoint(edi::drafting::Point2D point);
     bool createGuideFromActiveBounds(
         const char *sourceTag,
         const std::function<edi::drafting::DraftingGuidePlan(const edi::drafting::Bounds2D &bounds)> &planGuide);
@@ -408,6 +420,7 @@ private:
     double m_fixedRadius = 0.0;
     double m_wallThickness = 0.1; // wall tool option: band width at draw time
     double m_filletRadius = 0.05; // default rounding radius for the fillet verb
+    double m_chamferSetback = 0.05; // default setback for the chamfer verb
     // Array defaults match the retired hardcoded repeat (3 copies, 0.1
     // spacing) so the buttons behave identically until the spins are touched.
     int m_arrayCount = 3;

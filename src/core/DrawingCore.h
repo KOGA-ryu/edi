@@ -310,6 +310,15 @@ public:
     // depicts — the thread that lets a placement reach the engine.
     bool defineBlockFromSelection(const QString &name, const QString &assetRef = {});
     bool placeBlockInstance(const QString &blockId, double x, double y);
+    // DM-14: the per-instance placement transform applied by the NEXT placeBlockInstance
+    // (the spins that drive these live in edi-ui). Guarded setters — rotation must be
+    // finite, scale finite and > 0; an invalid value leaves the current state untouched
+    // (NaN/inf never reaches transformGeometry or the block_placement codec). Defaults
+    // 0deg / 1.0 reproduce the identity placement byte-for-byte.
+    void setBlockPlacementRotation(double rotationDeg);
+    void setBlockPlacementScale(double scale);
+    double blockPlacementRotation() const;
+    double blockPlacementScale() const;
     // C3 palette: arm a pick-a-point capture for placing `blockId` — the next
     // canvas click resolves to placeBlockInstance (same idiom as the radial-array
     // centre pick). Refused if the block does not exist.
@@ -449,6 +458,8 @@ private:
     double m_wallThickness = 0.1; // wall tool option: band width at draw time
     double m_filletRadius = 0.05; // default rounding radius for the fillet verb
     double m_chamferSetback = 0.05; // default setback for the chamfer verb
+    double m_blockPlacementRotation = 0.0; // DM-14: next placement rotation (deg CCW); identity
+    double m_blockPlacementScale = 1.0;    // DM-14: next placement uniform scale; identity
     // Array defaults match the retired hardcoded repeat (3 copies, 0.1
     // spacing) so the buttons behave identically until the spins are touched.
     int m_arrayCount = 3;

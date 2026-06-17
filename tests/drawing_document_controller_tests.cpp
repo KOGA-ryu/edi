@@ -4240,6 +4240,72 @@ int main(int argc, char **argv)
         assert(objectCount(blockCtl) == beforeStamp + 2);
     }
 
+    // DM-14: place a rotated/scaled block. A block of a rectangle (a faithfully-
+    // transforming, center-anchored shape) placed at identity is byte-identical to the
+    // pre-DM-14 stamp; placed at 90deg/x2 its geometry transforms about the click and
+    // the placement metadata records the transform.
+    {
+        const auto placedRect = [](DrawingDocumentController &c) -> edi::drafting::RectangleGeometry {
+            for (const edi::drafting::DraftingObject &o : c.draftingDocument().objects) {
+                if (o.kind == edi::drafting::DraftingShapeKind::Rectangle
+                    && !o.metadata.blockPlacement.instanceId.empty()) {
+                    return std::get<edi::drafting::RectangleGeometry>(o.geometry);
+                }
+            }
+            assert(false && "no placed rectangle");
+            return {};
+        };
+
+        DrawingDocumentController ctl;
+        ctl.setSelectedToolId("rectangle_tool");
+        ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.clickCanvasNormalized(0.5, 0.5); // 0.2 x 0.2 rectangle
+        ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(ctl.defineBlockFromSelection("box"));
+        const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
+
+        // Setter guards: a non-finite/non-positive value is rejected (state kept).
+        ctl.setBlockPlacementScale(2.0);
+        ctl.setBlockPlacementScale(0.0);   // invalid -> stays 2.0
+        ctl.setBlockPlacementScale(-1.0);  // invalid -> stays 2.0
+        assert(nearlyEqual(ctl.blockPlacementScale(), 2.0));
+        ctl.setBlockPlacementRotation(90.0);
+        assert(nearlyEqual(ctl.blockPlacementRotation(), 90.0));
+
+        // IDENTITY placement (0deg / 1.0) is byte-identical to the pre-DM-14 stamp: the
+        // rectangle keeps its 0.2 footprint and identity placement metadata.
+        ctl.setBlockPlacementRotation(0.0);
+        ctl.setBlockPlacementScale(1.0);
+        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        {
+            const edi::drafting::RectangleGeometry r = placedRect(ctl);
+            assert(nearlyEqual(r.width, 0.2) && nearlyEqual(r.height, 0.2)); // NOT scaled
+            for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+                if (!o.metadata.blockPlacement.instanceId.empty()) {
+                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0));
+                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
+                }
+            }
+        }
+        ctl.undo(); // drop the identity stamp
+
+        // 90deg / x2 placement: the rectangle scales (0.2 -> 0.4) and its metadata
+        // records the transform.
+        ctl.setBlockPlacementRotation(90.0);
+        ctl.setBlockPlacementScale(2.0);
+        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        {
+            const edi::drafting::RectangleGeometry r = placedRect(ctl);
+            assert(nearlyEqual(r.width, 0.4) && nearlyEqual(r.height, 0.4)); // scaled x2
+            for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+                if (!o.metadata.blockPlacement.instanceId.empty()) {
+                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+                }
+            }
+        }
+    }
+
     // Seam C: createMapFromSpec records its rooms on the document (name + authored
     // footprint + material), atomically with the walls — one undo clears them all.
     {

@@ -18,6 +18,7 @@
 #include <iterator>
 #include <limits>
 #include <random>
+#include <set>
 #include <string>
 
 using namespace edi::recipe;
@@ -1916,6 +1917,81 @@ int main()
         assert(mergedBool->a == "cap::shaft"); // not the target's bare "shaft"
         assert(mergedBool->b == "cap::bore");
         assert(validateRecipeOps(target.ops).ok); // the boolean finds its namespaced operands
+    }
+
+    // ---- BL-15: TOON handoff of a RESOLVED stream. Stable output, key parity
+    // with the TOML truth, refusal of an unresolved stream, and no JSON. ----
+    {
+        // Helper: the op.N / recipe. keys of a "key<sep>value" text.
+        const auto keysOf = [](const std::string &text, const std::string &sep) {
+            std::set<std::string> keys;
+            std::size_t pos = 0;
+            while (pos < text.size()) {
+                const std::size_t eol = text.find('\n', pos);
+                const std::string line = text.substr(pos, eol - pos);
+                const std::size_t s = line.find(sep);
+                if (s != std::string::npos) {
+                    const std::string key = line.substr(0, s);
+                    if (key.rfind("op.", 0) == 0 || key.rfind("recipe.", 0) == 0) {
+                        keys.insert(key);
+                    }
+                }
+                if (eol == std::string::npos) break;
+                pos = eol + 1;
+            }
+            return keys;
+        };
+
+        RecipeOpStream s;
+        s.id = "toon_demo";
+        s.name = "Toon Demo";
+        AddBoxOp box;
+        box.name = "block";
+        box.width = box.depth = box.height = 2.0;
+        box.z = 1.0;
+        s.ops.push_back(box);
+        AddPrismOp prism;
+        prism.name = "lid";
+        prism.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        prism.height = 0.5;
+        prism.baseZ = 2.0;
+        s.ops.push_back(prism);
+
+        const auto toon = exportRecipeStreamToToon(s);
+        assert(toon.ok && toon.value.has_value());
+        const std::string &text = *toon.value;
+        // TOON shape: kind/title meta, then flat key: value lines.
+        assert(text.find("kind: recipe\n") != std::string::npos);
+        assert(text.find("title: Toon Demo\n") != std::string::npos);
+        assert(text.find("op.0.type: AddBox\n") != std::string::npos);
+        assert(text.find("op.1.type: AddPrism\n") != std::string::npos);
+        assert(text.find("op.1.height: 0.5\n") != std::string::npos);
+        // No JSON object syntax — TOON is line-oriented, never JSON.
+        assert(text.find('{') == std::string::npos && text.find('}') == std::string::npos);
+
+        // No-drift guard: the TOON op/recipe keys are EXACTLY the TOML keys.
+        const OpStreamTextResult toml = recipeOpsToToml(s);
+        assert(toml.ok);
+        assert(keysOf(text, ": ") == keysOf(toml.text, " = "));
+
+        // Refusal: an unresolved stream (a surviving binding) is refused by name.
+        RecipeOpStream bound = s;
+        bound.bindings = {{0, "width", "gauge", "width"}};
+        const auto refusedBind = exportRecipeStreamToToon(bound);
+        assert(!refusedBind.ok);
+        assert(refusedBind.message.find("must be resolved before TOON handoff") != std::string::npos);
+
+        // Refusal: a surviving refused-before-build ref-op (lathe/extrude/sweep).
+        RecipeOpStream withLathe = s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "turned"; lathe.profile = "shaft";
+        withLathe.ops.push_back(lathe);
+        assert(!exportRecipeStreamToToon(withLathe).ok);
+        AddSweepProfileOp sweep;
+        sweep.name = "run"; sweep.profile = "p"; sweep.path = "rib";
+        RecipeOpStream withSweep = s;
+        withSweep.ops.push_back(sweep);
+        assert(!exportRecipeStreamToToon(withSweep).ok);
     }
 
     return 0;

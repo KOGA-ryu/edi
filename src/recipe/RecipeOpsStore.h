@@ -1,5 +1,6 @@
 #pragma once
 
+#include "formats/FormatResult.h"
 #include "recipe/RecipeOps.h"
 
 #include <string>
@@ -48,5 +49,13 @@ OpStreamParseResult loadLibraryRecipe(const std::string &dirPath, const std::str
 // The bare names (no `.ops.toml` extension) of the recipes in `dirPath`, sorted.
 // A missing directory yields an empty list (not an error).
 std::vector<std::string> listLibraryRecipes(const std::string &dirPath);
+
+// Project a RESOLVED op-stream to TOON — the project's AI-handoff format
+// (communication-only, NEVER JSON; format_strategy.md). The TOON fields are the
+// SAME flat op.N.<field> keys recipeOpsToToml writes (one shared key/value
+// source, so the AI sees the addresses it already knows and the two cannot
+// drift). Refuses by name if the stream is not resolved (any binding remains or
+// any refused-before-build ref-op survives) — a TOON of unresolved refs is a lie.
+edi::formats::FormatResult<std::string> exportRecipeStreamToToon(const RecipeOpStream &stream);
 
 } // namespace edi::recipe

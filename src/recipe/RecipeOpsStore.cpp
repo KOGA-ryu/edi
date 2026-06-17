@@ -2,7 +2,9 @@
 
 #include "formats/TomlReader.h"
 #include "formats/TomlWriter.h"
+#include "formats/ToonExport.h"
 #include "recipe/RecipeOpsBind.h"
+#include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeTextNumbers.h"
 
 #include <algorithm>
@@ -628,10 +630,24 @@ bool readPrismPointRun(OpReader &reader, const std::string &prefix, const std::s
 
 } // namespace
 
-OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
-{
-    OpStreamTextResult result;
+namespace {
+
+// The ONE key/value source for a serialized op-stream: build the flat
+// op.N.<field> StaticConfig (recipe.id/name + every op's keys via OpWriter),
+// validating the B02 invariants on the way. Both recipeOpsToToml (which then
+// formats it as TOML) and exportRecipeStreamToToon (which projects it to TOON)
+// call this, so the TOML truth and the TOON handoff address the SAME keys and
+// cannot drift. `message` is non-empty (and ok=false) on a refused stream.
+struct OpStreamConfigResult {
+    bool ok = false;
+    std::string message;
     edi::formats::StaticConfig config;
+};
+
+OpStreamConfigResult recipeOpsToConfig(const RecipeOpStream &stream)
+{
+    OpStreamConfigResult result;
+    edi::formats::StaticConfig &config = result.config;
     config["recipe.id"] = stream.id;
     config["recipe.name"] = stream.name;
 
@@ -696,8 +712,21 @@ OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
         const std::string prefix = opPrefix(i);
         std::visit(OpWriter{config, prefix, &boundByOp[i]}, stream.ops[i]);
     }
+    result.ok = true;
+    return result;
+}
 
-    const auto written = edi::formats::writeTomlStaticConfig(config, "recipe_ops");
+} // namespace
+
+OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
+{
+    OpStreamTextResult result;
+    OpStreamConfigResult cfg = recipeOpsToConfig(stream);
+    if (!cfg.ok) {
+        result.message = cfg.message;
+        return result;
+    }
+    const auto written = edi::formats::writeTomlStaticConfig(cfg.config, "recipe_ops");
     if (!written.ok) {
         result.message = written.message;
         return result;
@@ -1141,6 +1170,30 @@ std::vector<std::string> listLibraryRecipes(const std::string &dirPath)
     }
     std::sort(names.begin(), names.end());
     return names;
+}
+
+edi::formats::FormatResult<std::string> exportRecipeStreamToToon(const RecipeOpStream &stream)
+{
+    using Result = edi::formats::FormatResult<std::string>;
+    // RESOLVED-only: a TOON of a stream that still carries a binding or a
+    // refused-before-build reference (lathe/extrude/sweep) would describe ops
+    // the build cannot make — a lie in the handoff (§4). Refuse by name; the
+    // caller resolves first (no DraftingDocument here to do it for them).
+    if (!recipeOpsResolved(stream)) {
+        return Result::failure("recipe_toon", "recipe.unresolved",
+                               "recipe must be resolved before TOON handoff: " + stream.name);
+    }
+    // The TOON fields ARE the TOML config — one shared key source (recipeOpsToConfig),
+    // so the AI handoff addresses the same op.N.<field> keys as the TOML truth.
+    OpStreamConfigResult cfg = recipeOpsToConfig(stream);
+    if (!cfg.ok) {
+        return Result::failure("recipe_toon", "recipe.serialize", cfg.message);
+    }
+    edi::formats::ToonPacket packet;
+    packet.kind = "recipe";
+    packet.title = stream.name;
+    packet.fields = std::move(cfg.config); // recipe.id/name + every op.N.<field>
+    return edi::formats::exportToonPacket(packet, "recipe_toon");
 }
 
 } // namespace edi::recipe

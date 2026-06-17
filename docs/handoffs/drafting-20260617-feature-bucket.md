@@ -174,8 +174,20 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   none. New `DraftingDerived.{h,cpp}` (adds to `edi_drafting_core` sources). Boundary
   spec-settled → no reviewer gate up front.
 
+### DR-05 — CLOSED 2026-06-17 ✅ (SHA `1dbbd4f`, 98/98 green)
+- `~/dept-bus/edi-drafting/replies/016-DR05-derived-circle-builder.md`. New
+  `DraftingDerived.{h,cpp}` (added to `edi_drafting_core`): `circleThroughThreePoints`
+  (branch-free determinant circumcenter, collinear/non-finite reject) +
+  `circleThroughTwoPoints` (diameter form, coincident reject). Epsilon 1e-9 on the
+  determinant (normalized 0..1 canvas space). File structured to grow for DR-06.
+
+### DR-06 — divide circle + inscribe N-gon/{n/k} star — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/017-DR06-inscribe-builder.md`. Deps DR-05 ✅.
+  Extends `DraftingDerived.{h,cpp}`. First builder brief carrying the LEDGER rebase
+  rule (policy 2026-06-17). Boundary spec-settled → no reviewer gate up front.
+
 ## Open questions / blockers
-- (none blocking — DR-05 in build)
+- (none blocking — DR-06 in build)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

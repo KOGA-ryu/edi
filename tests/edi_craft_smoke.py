@@ -263,10 +263,11 @@ def main() -> int:
     fat_verts = edi_craft._prism_world(dict(straight, normal_offset=0.5))[0]
     assert bbox_vol(fat_verts) > bbox_vol(base) + 1e-9, "normal_offset>0 must fatten the shell"
 
-    # BL-11: an AddBoolean's PROOF emits its two operands (looked up by name),
-    # each tagged with the boolean intent — it does NOT compute the CSG. The
-    # committed sample is a box minus a cylinder; the OBJ carries the operands
-    # under the boolean's name plus the operands' own objects.
+    # BL-11 / P2: an AddBoolean's PROOF emits its two operands (by name) tagged
+    # with the boolean intent — it does NOT compute the CSG. P2: an operand
+    # CONSUMED by the boolean is no longer emitted STANDALONE (the real build
+    # consumes it), so the box-minus-cylinder sample carries ONLY the two tagged
+    # operands — `block` and `bore` do NOT appear standalone.
     bool_ops = edi_craft.parse_ops(
         os.path.join(ROOT, "samples", "boolean_op", "boolean_op_ops_compiled.toml"))
     bool_obj = "\n".join(edi_craft.obj_lines(bool_ops)) + "\n"
@@ -275,8 +276,10 @@ def main() -> int:
         bool_golden = f.read()
     assert bool_obj == bool_golden, "boolean OBJ drifted from samples/boolean_op/boolean_op.obj"
     bool_names = [line[2:] for line in bool_obj.splitlines() if line.startswith("o ")]
-    assert "block.minus.bore.subtract.a" in bool_names, "boolean proof must emit operand a tagged"
-    assert "block.minus.bore.subtract.b" in bool_names, "boolean proof must emit operand b tagged"
+    assert bool_names == ["block.minus.bore.subtract.a", "block.minus.bore.subtract.b"], \
+        f"boolean proof should be ONLY the two tagged operands, got {bool_names}"
+    assert "block" not in bool_names and "bore" not in bool_names, \
+        "consumed operands must NOT appear standalone (the boolean consumes them)"
 
     # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
     # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)

@@ -1053,9 +1053,25 @@ def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
     op asks its craftsman for the proof mesh (an unknown craftsman is skipped)."""
     if craftsmen is None:
         craftsmen = load_craftsmen(default_craftsmen_dir())
+    # The set of op-NAMES consumed as an operand by ANY AddBoolean. In the real
+    # bpy build a boolean CONSUMES its operands (they are not standalone after);
+    # the proof mirrors that — a consumed op appears ONCE, tagged under the
+    # boolean, not also standalone. v1 rule: BOTH a and b are inputs the boolean
+    # consumes, so both are suppressed standalone. Only standalone-mesh ops are
+    # skipped; a composite op (CutFlutes/AddBoolean) is never suppressed (so a
+    # chained boolean whose own result feeds another still emits its tagged ops).
+    consumed = set()
+    for op in ops:
+        if op["type"] == "AddBoolean":
+            consumed.add(op["a"])
+            consumed.add(op["b"])
+    standalone_kinds = {"AddBox", "AddCylinder", "AddSphere", "AddRing",
+                        "AddMoulding", "AddPrism", "Script"}
     out = []
     for op in ops:
         kind = op["type"]
+        if kind in standalone_kinds and op.get("name") in consumed:
+            continue  # consumed by a boolean -> appears only tagged under it
         if kind == "AddBox":
             out.append((op["name"], *box_mesh(op)))
         elif kind == "AddCylinder":

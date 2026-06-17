@@ -3310,6 +3310,58 @@ bool DrawingDocumentController::placeBlockInstance(const QString &blockId, doubl
     return true;
 }
 
+bool DrawingDocumentController::transformBlockInstance(const QString &instanceId,
+                                                       double deltaRotationDeg, double scaleFactor)
+{
+    // NaN/range guard (batch-4 audit): never feed a non-finite angle or a
+    // non-positive scale into transformGeometry or the block_placement codec.
+    if (!std::isfinite(deltaRotationDeg) || !std::isfinite(scaleFactor) || scaleFactor <= 0.0) {
+        return false;
+    }
+    const std::string id = toStdString(instanceId);
+
+    // Gather the group and its union-of-bounds centre (the pivot) from the CURRENT
+    // geometry, before any mutation — so every object rotates/scales about the same
+    // fixed point, the way the placement centre anchored the original stamp.
+    std::vector<DraftingObjectId> members;
+    Bounds2D unionBounds;
+    bool any = false;
+    for (const DraftingObject &object : m_document.objects) {
+        if (object.metadata.blockPlacement.instanceId != id) {
+            continue;
+        }
+        unionBounds = any ? includeBounds(unionBounds, object.bounds) : object.bounds;
+        any = true;
+        members.push_back(object.id);
+    }
+    if (!any) {
+        return false; // no object carries this instance id
+    }
+    const Point2D center{unionBounds.x + unionBounds.width / 2.0,
+                         unionBounds.y + unionBounds.height / 2.0};
+
+    // One undo step: transform geometry + accumulate the metadata transform per
+    // member inside a single edit bracket (UpdateGeometryCommand recomputes bounds).
+    beginEdit();
+    for (const DraftingObjectId &memberId : members) {
+        const DraftingObject *object = findObject(m_document, memberId);
+        if (object == nullptr) {
+            continue; // defensive — the group was just read from the same document
+        }
+        const DraftingGeometry transformed =
+            transformGeometry(object->geometry, center, deltaRotationDeg, scaleFactor);
+        ObjectMetadata metadata = object->metadata;
+        // Cumulative: a second transform composes onto the first (90+45, 2*1.5).
+        metadata.blockPlacement.rotationDeg += deltaRotationDeg;
+        metadata.blockPlacement.scale *= scaleFactor;
+        applyDraftingCommand(m_document, UpdateGeometryCommand{memberId, DraftingGeometry{transformed}});
+        applyDraftingCommand(m_document, UpdateMetadataCommand{memberId, std::move(metadata)});
+    }
+    commitEdit(false);
+    emit modelChanged();
+    return true;
+}
+
 void DrawingDocumentController::updateCreationPreviewNormalized(double x, double y)
 {
     if (!m_pendingCreation) {

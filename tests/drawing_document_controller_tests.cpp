@@ -4306,6 +4306,65 @@ int main(int argc, char **argv)
         }
     }
 
+    // DM-15: transform a PLACED instance about its group centre, the metadata
+    // accumulating, in one undo step.
+    {
+        const auto placedRect = [](DrawingDocumentController &c) -> edi::drafting::RectangleGeometry {
+            for (const edi::drafting::DraftingObject &o : c.draftingDocument().objects) {
+                if (o.kind == edi::drafting::DraftingShapeKind::Rectangle
+                    && !o.metadata.blockPlacement.instanceId.empty()) {
+                    return std::get<edi::drafting::RectangleGeometry>(o.geometry);
+                }
+            }
+            assert(false && "no placed rectangle");
+            return {};
+        };
+
+        DrawingDocumentController ctl;
+        ctl.setSelectedToolId("rectangle_tool");
+        ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.clickCanvasNormalized(0.5, 0.5);
+        ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(ctl.defineBlockFromSelection("box"));
+        const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
+
+        // Place a 90deg / x2 instance (rectangle now 0.4) and capture its instance id.
+        ctl.setBlockPlacementRotation(90.0);
+        ctl.setBlockPlacementScale(2.0);
+        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        std::string instanceId;
+        for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+            if (!o.metadata.blockPlacement.instanceId.empty()) {
+                instanceId = o.metadata.blockPlacement.instanceId;
+            }
+        }
+        assert(!instanceId.empty());
+
+        // A bad instance id refuses with no change.
+        const std::uint64_t revBefore = ctl.draftingDocument().revision;
+        assert(!ctl.transformBlockInstance(QStringLiteral("blockinst_nope"), 45.0, 1.5));
+        assert(ctl.draftingDocument().revision == revBefore);
+        // A non-positive scale factor refuses too (NaN/range guard).
+        assert(!ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 0.0));
+
+        // Transform by (+45deg, x1.5): geometry scales again (0.4 -> 0.6) and the
+        // metadata ACCUMULATES (90+45=135, 2*1.5=3.0) in one undo step.
+        assert(ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 1.5));
+        {
+            const edi::drafting::RectangleGeometry r = placedRect(ctl);
+            assert(nearlyEqual(r.width, 0.6) && nearlyEqual(r.height, 0.6)); // 0.4 x 1.5
+            for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+                if (o.metadata.blockPlacement.instanceId == instanceId) {
+                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 135.0));
+                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 3.0));
+                }
+            }
+        }
+        // One undo reverts the whole group transform (back to 0.4).
+        assert(ctl.undo());
+        assert(nearlyEqual(placedRect(ctl).width, 0.4));
+    }
+
     // Seam C: createMapFromSpec records its rooms on the document (name + authored
     // footprint + material), atomically with the walls — one undo clears them all.
     {

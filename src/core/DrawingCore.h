@@ -319,6 +319,11 @@ public:
     void setBlockPlacementScale(double scale);
     double blockPlacementRotation() const;
     double blockPlacementScale() const;
+    // DM-15: transform a PLACED instance (every object sharing `instanceId`) about the
+    // group's bounds centre by (deltaRotationDeg, scaleFactor) in one undo step, the
+    // metadata accumulating (rotationDeg += delta, scale *= factor). Returns false on a
+    // NaN/non-positive factor or an unknown instanceId (no change).
+    bool transformBlockInstance(const QString &instanceId, double deltaRotationDeg, double scaleFactor);
     // C3 palette: arm a pick-a-point capture for placing `blockId` — the next
     // canvas click resolves to placeBlockInstance (same idiom as the radial-array
     // centre pick). Refused if the block does not exist.

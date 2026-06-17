@@ -42,8 +42,8 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
 | BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
-| BL-12 | Craftsman radial_petal | S | builder briefed | — |
-| BL-13 | Craftsman nfold_star | S | dep BL-12 | — |
+| BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
+| BL-13 | Craftsman nfold_star | S | builder briefed | — |
 | BL-14 | Named-recipe library + chaining | M | ready (no dep) | — |
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
 
@@ -149,7 +149,18 @@ deferral, not a defect.
 - **Edge-incidence manifold assert** in the smoke (BL-06 note) — lock watertightness.
 - **bounds_of arc/helix-awareness** — currently frames within ±max_radius (loose, correct).
 
+### BL-12 — SHIPPED 2026-06-17 (pure Python, additive, no gate)
+`radial_petal.py` craftsman (kite lobes + hub fan), sample + smoke pins (41v/20f
+deterministic), `--list-craftsmen` lists it, doric untouched, ctest 99/99. Craftsmen
+sort by id → radial_petal is now `craftsman.0`; smoke updated, C++ test (hermetic
+registry string) unaffected. Note: single-sided petal lobe (thin leaf, fine for proof
+tier; thickened petal a future refinement). Accepted on green gate — no risky joint.
+
+### BL-13 — builder briefed 2026-06-17
+Brief `briefs/017-bl13-nfold-star.md`. Sibling craftsman to BL-12: an `{n/k}` star-prism
+(pure Python, no C++ arm), deterministic + coprime-guarded.
+
 ## Next
-- Cadence report to hub (BL-05/06/07 since the spine) — DONE.
-- **BL-12** (radial_petal craftsman, pure Python, S) — briefed. Then BL-14 (library),
-  BL-13 (nfold_star, dep BL-12). Arm-adders BL-08 (→13) / BL-11 (→14) serial, later.
+- BL-13 (nfold_star) → **BL-14** (named-recipe library + chaining, C++ free-functions, M)
+  → then the arm-adders: BL-08 (sweep, →13) and BL-11 (boolean, →14) serial, with
+  BL-09/BL-10 dependents, then BL-15 (TOON, dep BL-05 ✓).

@@ -33,9 +33,24 @@
   FYI in case the canonical contract adds anything.
 - Plan: builder → green gate → reviewer diff-audit (cross-dept keystone: verify all
   14 arms + the pinned Ellipse/Text v1 limitations) → bus the SHA to hub.
+- **Canonical contract delivered to box 2026-06-17**
+  (`~/dept-bus/edi-drafting/briefs/002-transformGeometry-contract.md`). RECONCILED vs
+  brief 008: signature + `mapPoint` + all 14 per-kind rules + test spec MATCH (brief
+  008 is more precise on field names — `PointGeometry.point`). 3 additive deltas sent
+  as amendment `~/dept-bus/edi-drafting/briefs/009-DR01-contract-reconcile-amendment.md`:
+  (1) document the DEFERRED Ellipse/Text `rotationDeg` follow-up at the code site;
+  (2) exact `static_assert` message; (3) sharpen the rotation-SENSE/sign verification
+  (CCW in the model's degree convention; point-rotation must agree with field-rotation
+  per `computeBounds:519`).
+
+## Backlog (deferred, recorded so it isn't lost)
+- **Ellipse/Text lossless rotation** — add an additive `rotationDeg` field to
+  `EllipseGeometry` + `TextAnnotationGeometry` (mirroring `RectangleGeometry`) so
+  `transformGeometry` rotation is lossless for them. Separate model slice: touches
+  every ellipse/text visit + serialize + painter. NOT part of DR-01 (per contract).
 
 ## Open questions / blockers
-- (none blocking — proceeding on the inline spec; missing contract file flagged to hub)
+- (none blocking — canonical contract reconciled, builder amended, proceeding)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

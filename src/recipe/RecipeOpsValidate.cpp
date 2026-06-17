@@ -49,6 +49,14 @@ void checkLatheParams(std::vector<OpFinding> &findings, const std::string &name,
         add(findings, Severity::Error, "bad_screw_rise",
             name + " screw_rise must be finite.");
     }
+    // BL-07 v1 interaction: a helix sweeps screwTurns FULL turns and IGNORES a
+    // partial sweep_degrees. The mesh is well-formed (so this is a WARNING, not
+    // an error), but the user who asked for a quarter sweep AND a helix got a
+    // full-turn helix — surface the silent override by name.
+    if (sweepDegrees < 360.0 && screwRise != 0.0) {
+        add(findings, Severity::Warning, "helix_ignores_partial_sweep",
+            name + ": sweep_degrees is ignored while screw_rise is set (v1 helix is full turns)");
+    }
 }
 
 // BL-09: the sweep taper is a SCALE factor on the profile (1.0 = no taper), so

@@ -1538,6 +1538,29 @@ int main()
         const OpValidationReport leftReport = validateRecipeOps({RecipeOp{leftHand}});
         assert(leftReport.ok);
 
+        // BATCH-2 P1: a partial sweep_degrees beside a helix is a non-fatal
+        // WARNING (the v1 helix ignores it — full turns). Fires only when BOTH a
+        // partial sweep AND a non-zero rise are set, on BOTH ops.
+        const auto sawHelixWarn = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "helix_ignores_partial_sweep") return true;
+            }
+            return false;
+        };
+        AddMouldingOp clash = m; clash.sweepDegrees = 90.0; clash.screwRise = 1.0;
+        const OpValidationReport clashReport = validateRecipeOps({RecipeOp{clash}});
+        assert(clashReport.ok);                 // a warning is non-fatal
+        assert(sawHelixWarn(clashReport));
+        AddMouldingOp partialOnly = m; partialOnly.sweepDegrees = 90.0; partialOnly.screwRise = 0.0;
+        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{partialOnly}})));
+        AddMouldingOp fullHelix = m; fullHelix.sweepDegrees = 360.0; fullHelix.screwRise = 1.0;
+        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{fullHelix}})));
+        // Also fires on the lathe (the other op carrying the fields).
+        AddRevolvedProfileOp latheClash;
+        latheClash.name = "l"; latheClash.profile = "p";
+        latheClash.sweepDegrees = 90.0; latheClash.screwRise = 1.0;
+        assert(sawHelixWarn(validateRecipeOps({RecipeOp{latheClash}})));
+
         // The bind affordance: both screw params are bindable Numbers on both ops.
         for (const char *key : {"screw_rise", "screw_turns"}) {
             assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, key));

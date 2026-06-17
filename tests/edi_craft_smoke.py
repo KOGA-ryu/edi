@@ -127,6 +127,25 @@ def write_temp(toml_text: str) -> str:
         return f.name
 
 
+def assert_manifold(verts, faces, label):
+    """A closed orientable manifold: every UNDIRECTED edge bounds exactly 2
+    faces, and no face is degenerate (< 3 distinct verts). Codifies the BL-06
+    reviewer's hand-check so a future regression fails loudly. Apply only to
+    meshes that SHOULD be watertight — NOT the open helix ribbon (BL-07, an
+    intentionally open surface) nor the self-intersecting swept solid (BL-08,
+    valid faces but not 2-manifold by design)."""
+    edge_faces = {}
+    for face in faces:
+        assert len(set(face)) >= 3, f"{label}: degenerate face {face}"
+        k = len(face)
+        for i in range(k):
+            a, b = face[i], face[(i + 1) % k]
+            edge = (min(a, b), max(a, b))
+            edge_faces[edge] = edge_faces.get(edge, 0) + 1
+    bad = {e: c for e, c in edge_faces.items() if c != 2}
+    assert not bad, f"{label}: non-manifold edges (incidence != 2): {list(bad.items())[:5]}"
+
+
 def main() -> int:
     # The two material vocabularies must stay one vocabulary: a key only in
     # C++ validates and previews but hard-errors in the Blender driver; one
@@ -180,6 +199,9 @@ def main() -> int:
     assert len(prism_zs) == 12, f"prism vertex count drifted: {len(prism_zs)}"
     assert max(prism_zs) - min(prism_zs) == 3.0, "prism z-extent must equal the op height (3)"
     assert prism_obj.count("\nf ") == 8, "prism face count drifted (2 caps + 6 sides)"
+    # The straight prism is a closed solid (caps + side quads) — watertight.
+    prism_objs = edi_craft.obj_objects(prism_ops)
+    assert_manifold(prism_objs[0][1], prism_objs[0][2], "straight prism")
 
     # BL-08: a Follow-Me sweep — an AddPrism WITH a path lofts the footprint
     # along the path into a closed swept solid. Footprint n=4, path m=3:
@@ -278,6 +300,12 @@ def main() -> int:
         for face in faces:
             assert all(0 <= i < len(verts) for i in face), "face references a missing vertex"
             assert len(face) >= 3, "degenerate face"
+    # The partial revolve is a closed "cake slice" solid (axis spine + caps) —
+    # watertight, every edge bounding exactly 2 faces. The FULL revolve is also
+    # closed, so assert both. (The open helix ribbon and the self-intersecting
+    # swept solid are excluded — see assert_manifold's note.)
+    assert_manifold(full_verts, full_faces, "full revolve")
+    assert_manifold(part_verts, part_faces, "partial revolve")
 
     # BL-07: a screw_rise>0 moulding produces a measurably RISING mesh — the
     # sweep spirals up by ~screw_rise per full turn over screw_turns turns. The

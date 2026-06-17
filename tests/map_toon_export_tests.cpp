@@ -179,5 +179,34 @@ int main()
         assert(docRooms.find("stone") != std::string::npos);     // material
     }
 
+    // DM-13: the blocks[] scale/rotation columns read the placement's real
+    // rotationDeg/scale (not the old 1/0 literals). A non-identity instance must
+    // surface its exact values in the exported row.
+    {
+        DraftingDocument doc = makeDraftingDocument("spun");
+        doc.canvasPerAuthoredUnit = 1.0;
+        doc.rooms.push_back(DraftingMapRoom{"a", {0.0, 0.0}, 10.0, 10.0, "stone"});
+
+        // One placed instance = two flattened objects sharing instanceId AND the same
+        // stamped placement transform (rot 45, scale 1.5).
+        const auto placed = [](const std::string &id, Point2D p) {
+            DraftingObject o = makeDraftingObject(id, DraftingShapeKind::Point, PointGeometry{p});
+            o.bounds = computeBounds(o.geometry);
+            o.metadata.blockPlacement.blockId = "block_0001";
+            o.metadata.blockPlacement.assetRef = "recipe.urn";
+            o.metadata.blockPlacement.instanceId = "blockinst_0009";
+            o.metadata.blockPlacement.rotationDeg = 45.0;
+            o.metadata.blockPlacement.scale = 1.5;
+            return o;
+        };
+        doc.objects.push_back(placed("instance_0001", {4.0, 4.0}));
+        doc.objects.push_back(placed("instance_0002", {6.0, 6.0})); // centre (5,5) -> room a
+
+        const std::string toon = edi::io::exportMapToToon(doc, "spun");
+        // The column order is {room,asset,origin,scale,rotation}: scale then rotation.
+        assert(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
+        assert(toon.find("  a,recipe.urn,\"5,5\",1.5,45\n") != std::string::npos);
+    }
+
     return 0;
 }

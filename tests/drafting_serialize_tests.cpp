@@ -499,5 +499,60 @@ int main()
         assert(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
     }
 
+    // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
+    // per-instance rotation/scale, additive-tolerant. A non-identity placement
+    // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,
+    // so pre-DM-12 instances stay byte-identical; an absent key reads back identity.
+    {
+        DraftingDocument placeDoc = makeDraftingDocument("placement");
+        // Object 0: a non-identity placement.
+        DraftingObject spun = makeObject("inst-1", DraftingShapeKind::Point, PointGeometry{{0.2, 0.3}}, "default");
+        spun.metadata.blockPlacement.blockId = "block_0001";
+        spun.metadata.blockPlacement.assetRef = "recipe.chair";
+        spun.metadata.blockPlacement.instanceId = "blockinst_0001";
+        spun.metadata.blockPlacement.rotationDeg = 30.0;
+        spun.metadata.blockPlacement.scale = 2.0;
+        // Object 1: an IDENTITY placement (rotation 0 / scale 1).
+        DraftingObject flat = makeObject("inst-2", DraftingShapeKind::Point, PointGeometry{{0.4, 0.5}}, "default");
+        flat.metadata.blockPlacement.blockId = "block_0001";
+        flat.metadata.blockPlacement.assetRef = "recipe.chair";
+        flat.metadata.blockPlacement.instanceId = "blockinst_0002";
+        placeDoc.objects = {spun, flat};
+
+        auto decoded = decodeDraftingDocument(encodeDraftingDocument(placeDoc), "fixture");
+        assert(decoded.ok && decoded.value && decoded.value->objects.size() == 2);
+        const auto &back0 = decoded.value->objects[0].metadata.blockPlacement;
+        assert(back0.rotationDeg == 30.0 && back0.scale == 2.0); // non-identity survives
+        const auto &back1 = decoded.value->objects[1].metadata.blockPlacement;
+        assert(back1.rotationDeg == 0.0 && back1.scale == 1.0);  // identity read back as default
+
+        // Write-side additivity: the identity placement's block_placement map carries
+        // NO rotation_deg / scale key; the non-identity one carries BOTH.
+        MsgPackValue value = draftingDocumentToValue(placeDoc);
+        for (const auto &entry : value.mapValue) {
+            if (entry.first != "document") continue;
+            for (const auto &dm : entry.second.mapValue) {
+                if (dm.first != "objects") continue;
+                const auto &objArr = dm.second.arrayValue;
+                assert(objArr.size() == 2);
+                const auto hasKey = [](const MsgPackValue &obj, const std::string &key) {
+                    for (const auto &kv : obj.mapValue) {
+                        if (kv.first != "metadata") continue;
+                        for (const auto &mv : kv.second.mapValue) {
+                            if (mv.first != "block_placement") continue;
+                            for (const auto &pv : mv.second.mapValue) {
+                                if (pv.first == key) return true;
+                            }
+                        }
+                    }
+                    return false;
+                };
+                assert(hasKey(objArr[0], "rotation_deg") && hasKey(objArr[0], "scale")); // non-identity
+                assert(!hasKey(objArr[1], "rotation_deg") && !hasKey(objArr[1], "scale")); // identity -> absent
+            }
+        }
+        assert(kDraftingDocumentVersion == 2); // additive — no bump
+    }
+
     return 0;
 }

@@ -427,11 +427,22 @@ MsgPackValue metadataValue(const ObjectMetadata &m)
     // writes no block_placement key at all (the tolerant read defaults it to empty),
     // so .edidraw isn't an empty 3-string map on every object.
     if (!m.blockPlacement.instanceId.empty()) {
-        fields.emplace_back("block_placement", MsgPackValue::map({
+        std::vector<std::pair<std::string, MsgPackValue>> placement = {
             {"block_id", MsgPackValue::text(m.blockPlacement.blockId)},
             {"asset_ref", MsgPackValue::text(m.blockPlacement.assetRef)},
             {"instance_id", MsgPackValue::text(m.blockPlacement.instanceId)},
-        }));
+        };
+        // Additive + tolerant, like asset_ref above: emit the placement transform
+        // ONLY when it departs from identity (rotation 0 / scale 1), so every
+        // existing identity placement encodes byte-identically. The tolerant read
+        // defaults a missing key back to identity. No version bump.
+        if (m.blockPlacement.rotationDeg != 0.0) {
+            placement.emplace_back("rotation_deg", MsgPackValue::number(m.blockPlacement.rotationDeg));
+        }
+        if (m.blockPlacement.scale != 1.0) {
+            placement.emplace_back("scale", MsgPackValue::number(m.blockPlacement.scale));
+        }
+        fields.emplace_back("block_placement", MsgPackValue::map(std::move(placement)));
     }
     return MsgPackValue::map(std::move(fields));
 }
@@ -488,6 +499,10 @@ ObjectMetadata readMetadata(const MsgPackValue *v)
         m.blockPlacement.blockId = asString(child(*bp, "block_id"), m.blockPlacement.blockId);
         m.blockPlacement.assetRef = asString(child(*bp, "asset_ref"), m.blockPlacement.assetRef);
         m.blockPlacement.instanceId = asString(child(*bp, "instance_id"), m.blockPlacement.instanceId);
+        // Absent placement transform ⇒ identity (rotation 0 / scale 1), so a
+        // pre-DM-12 instance reads back unchanged.
+        m.blockPlacement.rotationDeg = asDouble(child(*bp, "rotation_deg"), m.blockPlacement.rotationDeg);
+        m.blockPlacement.scale = asDouble(child(*bp, "scale"), m.blockPlacement.scale);
     }
     return m;
 }

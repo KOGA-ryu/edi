@@ -42,6 +42,7 @@ enum class PointCaptureIntent {
     FilletSecondLine, // the click picks the other line + the corner to round
     ChamferSecondLine, // the click picks the other line + the corner to bevel
     BlockInstance,    // the click is where to stamp the armed block (C3 palette)
+    RegionFill,       // the click seeds a room-footprint fill (DM-10)
 };
 
 struct PendingPointCapture {
@@ -302,6 +303,14 @@ public:
     // canvas click resolves to placeBlockInstance (same idiom as the radial-array
     // centre pick). Refused if the block does not exist.
     bool beginBlockInstancePick(const QString &blockId);
+    // DM-10 region fill: arm a pick-a-point capture whose click seeds a room-footprint
+    // fill. Refused (returns false) when the document has no rooms — no dead prompt,
+    // the same up-front guard beginBlockInstancePick uses for a vanished block.
+    bool beginRegionFillPick();
+    // The apply: locate the room containing `seed` (planRegionFill) and mint a filled
+    // Polygon of its footprint, auto-selected in one undo step; a seed in open space
+    // is a surfaced refusal. Resolved by resolvePointCapture once the click arrives.
+    bool fillEnclosedRegion(edi::drafting::Point2D seed);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);

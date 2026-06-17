@@ -281,10 +281,14 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     // Block instances: FLATTEN scattered each placement into N independent objects,
     // so re-form them by grouping on the BlockPlacementMetadata instanceId. The
     // placement centre is the union of the group's bounds; the room is whichever
-    // footprint contains it (canvas units). scale/rotation are 1/0 (translate-only).
+    // footprint contains it (canvas units). scale/rotation come from the placement's
+    // metadata (FLATTEN stamps one instance's objects with the same values); they are
+    // identity (1/0) until DM-14 writes real values.
     struct Accum {
         std::string asset;
         edi::drafting::Bounds2D bounds;
+        double scale = 1.0;       // from BlockPlacementMetadata.scale (identity 1)
+        double rotationDeg = 0.0; // from BlockPlacementMetadata.rotationDeg (identity 0)
         bool init = false;
     };
     std::vector<std::string> order;
@@ -299,6 +303,8 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
             acc.init = true;
             acc.asset = bp.assetRef;
             acc.bounds = object.bounds;
+            acc.scale = bp.scale;             // the instance's stamped placement transform
+            acc.rotationDeg = bp.rotationDeg; // (shared across the group; read off the first)
             order.push_back(bp.instanceId);
         } else {
             acc.bounds = edi::drafting::includeBounds(acc.bounds, object.bounds);
@@ -320,8 +326,8 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
         out << "  " << cell(roomAt(centre))
             << "," << cell(acc.asset)
             << "," << cell(authored(centre.x) + "," + authored(centre.y))
-            << "," << "1"  // translate-only placement: unit scale
-            << "," << "0"  // and no rotation
+            << "," << num(acc.scale)        // scale column (identity 1 -> "1")
+            << "," << num(acc.rotationDeg)  // rotation column (identity 0 -> "0")
             << "\n";
     }
     return out.str();

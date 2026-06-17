@@ -1317,6 +1317,29 @@ int main()
         assert(sawProfileRO && sawMaterial && sawHeight);
     }
 
+    // ---- BL-05: pin the push/pull AUTHORING SURFACE on AddExtrudedProfile —
+    // `height` is a depth verb that needs NO new mechanism: it is a bindable
+    // Number opField (the right-click bind affordance's target) AND an editable
+    // Number scalar (the field editor renders it), and a write actually REACHES
+    // the height member (so the bind/measure path lands on the right double).
+    {
+        RecipeOp op = RecipeOp{AddExtrudedProfileOp{}};
+        // (a) the bind affordance target: height is bindable.
+        assert(opFieldBindable(op, "height"));
+        // (b) a write reaches the height MEMBER (the gap-check: the binding/
+        //     measure path must land on height, not silently miss it).
+        assert(setOpFieldValue(op, "height", 7.5));
+        assert(near(std::get_if<AddExtrudedProfileOp>(&op)->height, 7.5));
+        // (c) the field editor sees an editable Number for height.
+        bool heightIsEditableNumber = false;
+        for (const RecipeOpScalar &s : opEditableScalars(op)) {
+            if (s.key == "height") {
+                heightIsEditableNumber = s.kind == RecipeFieldKind::Number && near(s.number, 7.5);
+            }
+        }
+        assert(heightIsEditableNumber);
+    }
+
     // ---- AddPrism (BL-03): the BUILDABLE lowered carrier. Round trip the
     // footprint.i.{x,y} run key-for-key, and pin its validate findings. Unlike
     // the profile-reference ops it passes compile and is NOT refused. ----

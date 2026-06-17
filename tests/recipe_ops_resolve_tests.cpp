@@ -612,5 +612,70 @@ int main()
         assert(line.findings[0].message == "profile must enclose at least three distinct points");
     }
 
+    // ---- BL-05 HEADLINE: push/pull as a depth verb — a DRAFTED MEASUREMENT
+    // drives the extrude height end-to-end. `height` is just a bindable Number
+    // opField on the extrude arm (BL-01), so the SAME bindings pass that fills
+    // a box width fills it: bind height -> the "cut" line's physical length,
+    // resolve, and the lowered AddPrism carries that measured depth. No depth
+    // mechanism of its own — a signed double on an existing arm, measured like
+    // any other field. ----
+    {
+        RecipeOpStream s;
+        s.id = "resolve.pushpull";
+        AddExtrudedProfileOp prism;
+        prism.name = "wall.pull";
+        prism.profile = "panel";
+        prism.baseZ = 0.0;
+        s.ops.push_back(prism);
+        s.bindings = {{0, "height", "cut", "length"}}; // measured line length -> depth
+
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        assert(r.stream.bindings.empty());
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        // The drafted "cut" line spans (0.3, 0.4) normalized on the 12x8 grid:
+        // physical length hypot(3.6, 3.2) — the SAME number the box-height
+        // binding measures in the happy-path block above. The extrude DEPTH is
+        // now a drafted measurement.
+        assert(near(lowered->height, std::hypot(0.3 * 12.0, 0.4 * 8.0)));
+        assert(validateRecipeOps(r.stream.ops).ok);
+        assert(recipeOpsResolved(r.stream));
+    }
+
+    // ---- BL-05: a NEGATIVE height is a buildable PUSH (downward cut), not a
+    // refusal. It passes validate with no zero-height finding and survives
+    // resolve into the carrier verbatim (BL-04's Python _prism_world then
+    // extrudes it downward — never abs()'d). The carrier carries the SIGN. ----
+    {
+        AddExtrudedProfileOp push;
+        push.name = "wall.push";
+        push.profile = "panel";
+        push.height = -2.5; // a downward push/pull cut
+        push.baseZ = 4.0;
+
+        // The extrude op itself validates: negative height is allowed (no
+        // extruded_profile_zero_height), only zero/non-finite is refused.
+        const OpValidationReport extrudeReport = validateRecipeOps({RecipeOp{push}});
+        for (const OpFinding &f : extrudeReport.findings) {
+            assert(f.code != "extruded_profile_zero_height");
+        }
+
+        RecipeOpStream s;
+        s.ops = {RecipeOp{push}};
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->height, -2.5)); // the negative depth survived into the carrier
+        // The lowered prism also validates (negative prism height is allowed)
+        // and carries no zero-height finding.
+        const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);
+        assert(prismReport.ok);
+        for (const OpFinding &f : prismReport.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+    }
+
     return 0;
 }

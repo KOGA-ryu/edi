@@ -1131,6 +1131,24 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Align To Guide"), fold.box, false));
     }
 
+    // DM-10 region fill: a document-context action that arms a canvas pick. Region
+    // fill needs no selected object (it is a "click inside a room" verb), so per the
+    // settled fork it lives as an inspector action button in the document context —
+    // mirroring how the Radial/Fillet verbs are inspector buttons — rather than a
+    // belt cell. makeActionButton is always enabled (no enable-key gate), which is
+    // correct here: the pick itself, not a selection, decides what gets filled.
+    group = beginInspectorGroup(QStringLiteral("region_fill_document"));
+    {
+        FoldBox fill = makeFoldBox();
+        auto *fillRegion = makeActionButton(QStringLiteral("fillRegionButton"), QStringLiteral("Fill Region"), [this]() {
+            // Arms a pick-a-point capture; the next canvas click seeds the
+            // enclosed-region fill (a new closed Polygon with a non-zero fill).
+            m_controller->beginRegionFillPick();
+        });
+        fill.layout->addWidget(fillRegion);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Region Fill"), fill.box, false));
+    }
+
     group = beginInspectorGroup(QStringLiteral("layers_document"));
     group->addWidget(makeCollapsibleSection(QStringLiteral("Layers"), buildLayerControls(), true));
 

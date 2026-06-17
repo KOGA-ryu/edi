@@ -31,7 +31,7 @@ const std::vector<ContextGroupsRow> &contextTable()
         // nothing selected means "configure the document". These groups move
         // to floating palettes / settings in F4-F5; until then this row keeps
         // them reachable.
-        {"document", {"layers_document", "guides_document", "calibration_document", "document_info", "canvas_state"}},
+        {"document", {"region_fill_document", "layers_document", "guides_document", "calibration_document", "document_info", "canvas_state"}},
         {"empty", {"empty_state"}},
     };
     return table;

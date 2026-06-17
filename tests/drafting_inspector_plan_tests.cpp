@@ -39,8 +39,10 @@ int main()
     {
         const DraftingInspectorPlan p = plan("select_move", false);
         assert(p.contextId == "document");
-        assert(sameGroups(p, {"layers_document", "guides_document", "calibration_document",
-                              "document_info", "canvas_state"}));
+        // DM-10: region_fill_document leads the document context (the Fill Region
+        // arming verb needs no selection, so it lives in the document-wide controls).
+        assert(sameGroups(p, {"region_fill_document", "layers_document", "guides_document",
+                              "calibration_document", "document_info", "canvas_state"}));
     }
 
     // A drawing tool with no options and nothing selected: quiet empty state.

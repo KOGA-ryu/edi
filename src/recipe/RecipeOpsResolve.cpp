@@ -193,6 +193,69 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
         resolved.ops[index] = std::move(lowered);
     }
 
+    // Sweep lowering (BL-08): every surviving AddSweepProfileOp becomes an
+    // AddPrismOp whose footprint is the resolved cross-section and whose `path`
+    // is the resolved sweep curve — both projected to the drawing-plane (the
+    // same footprint convention). height is irrelevant for a sweep (the path
+    // carries the run), so it is left at the default 0. This generalizes the ONE
+    // carrier (a path-bearing prism) rather than adding a second carrier arm.
+    const auto countDistinct = [](const std::vector<edi::drafting::Point2D> &pts) {
+        std::vector<edi::drafting::Point2D> distinct;
+        for (const edi::drafting::Point2D &point : pts) {
+            const bool seen = std::any_of(distinct.begin(), distinct.end(),
+                                          [&point](const edi::drafting::Point2D &o) {
+                                              return o.x == point.x && o.y == point.y;
+                                          });
+            if (!seen) {
+                distinct.push_back(point);
+            }
+        }
+        return distinct.size();
+    };
+    for (std::size_t index = 0; index < resolved.ops.size(); ++index) {
+        const auto *swept = std::get_if<AddSweepProfileOp>(&resolved.ops[index]);
+        if (swept == nullptr) {
+            continue;
+        }
+        const std::string profileKey = "op." + std::to_string(index) + ".profile";
+        const std::string pathKey = "op." + std::to_string(index) + ".path";
+        const ProfilePointsResult footprint =
+            resolveExtrudeProfilePoints(drafting, grid, swept->profile);
+        if (!footprint.ok) {
+            result.findings.push_back({profileKey, footprint.message}); // shared wordings
+            continue;
+        }
+        if (countDistinct(footprint.points) < 3) {
+            result.findings.push_back({profileKey, "profile must enclose at least three distinct points"});
+            continue;
+        }
+        const ProfilePointsResult path = resolveSweepPath(drafting, grid, swept->path);
+        if (!path.ok) {
+            result.findings.push_back({pathKey, path.message}); // shared wordings
+            continue;
+        }
+        if (countDistinct(path.points) < 2) {
+            result.findings.push_back({pathKey, "sweep path needs at least two distinct points"});
+            continue;
+        }
+        AddPrismOp lowered;
+        lowered.name = swept->name;
+        lowered.baseZ = swept->baseZ;
+        lowered.x = swept->x;
+        lowered.y = swept->y;
+        lowered.material = swept->material;
+        // height stays 0 — the path, not a straight rise, defines the solid.
+        lowered.footprint.reserve(footprint.points.size());
+        for (const edi::drafting::Point2D &point : footprint.points) {
+            lowered.footprint.push_back({point.x, point.y});
+        }
+        lowered.path.reserve(path.points.size());
+        for (const edi::drafting::Point2D &point : path.points) {
+            lowered.path.push_back({point.x, point.y});
+        }
+        resolved.ops[index] = std::move(lowered);
+    }
+
     // All-or-nothing. `result` already defaults to ok=false with an empty
     // stream, so returning it now guarantees no half-resolved ops escape while
     // `findings` still carries every failure at once. Deleting this guard (or
@@ -220,7 +283,8 @@ bool recipeOpsResolved(const RecipeOpStream &stream)
     }
     for (const RecipeOp &op : stream.ops) {
         if (std::holds_alternative<AddRevolvedProfileOp>(op)
-            || std::holds_alternative<AddExtrudedProfileOp>(op)) {
+            || std::holds_alternative<AddExtrudedProfileOp>(op)
+            || std::holds_alternative<AddSweepProfileOp>(op)) { // BL-08
             return false;
         }
     }

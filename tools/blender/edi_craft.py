@@ -199,6 +199,32 @@ def _material(op_key: str, fields: dict, consumed: set) -> str:
     return material
 
 
+def _point_run(op_key: str, fields: dict, run: str) -> list:
+    """Read a contiguous <run>.i.{x,y} point run until the first missing index,
+    by-name auditing each sub-key and refusing gaps — the same shape AddMoulding's
+    profile.i run uses. Shared by AddPrism's `footprint` and its optional BL-08
+    `path` (an absent run reads as an empty list). The caller marks `run` consumed."""
+    out = []
+    points = fields.get(run, {})
+    index = 0
+    while str(index) in points:
+        point = points[str(index)]
+        point_key = f"{op_key}.{run}.{index}"
+        point_consumed: set = set()
+        out.append({
+            "x": _number(point_key, point, point_consumed, "x"),
+            "y": _number(point_key, point, point_consumed, "y"),
+        })
+        extra = sorted(set(point) - point_consumed)
+        if extra:
+            raise ValueError(f"{point_key}.{extra[0]}: unknown recipe key")
+        index += 1
+    leftover = sorted(set(points) - {str(i) for i in range(index)})
+    if leftover:
+        raise ValueError(f"{op_key}.{run}.{leftover[0]}: gapped or unknown {run} index")
+    return out
+
+
 def parse_ops(path: str) -> list[dict]:
     """Parse a compiled op-stream TOML into typed op dicts, strictly.
 
@@ -355,35 +381,23 @@ def parse_ops(path: str) -> list[dict]:
             )
         elif op_type == "AddPrism":
             # The lowered prism carrier (BL-03/04): a closed planar footprint
-            # (physical x/y) read as a contiguous footprint.i.{x,y} run until the
-            # first missing .x — exactly the contiguous-index read AddMoulding
-            # uses for its profile.i run. Key-for-key with the C++ OpWriter.
-            footprint = []
-            points = fields.get("footprint", {})
+            # read as a contiguous footprint.i.{x,y} run, key-for-key with the C++
+            # OpWriter. BL-08 adds an OPTIONAL path.i.{x,y} run (the sweep curve);
+            # an absent path reads as empty = the straight height-extrude.
+            footprint = _point_run(op_key, fields, "footprint")
             consumed.add("footprint")
-            point_index = 0
-            while str(point_index) in points:
-                point = points[str(point_index)]
-                point_key = f"{op_key}.footprint.{point_index}"
-                point_consumed: set = set()
-                footprint.append({
-                    "x": _number(point_key, point, point_consumed, "x"),
-                    "y": _number(point_key, point, point_consumed, "y"),
-                })
-                extra_point = sorted(set(point) - point_consumed)
-                if extra_point:
-                    raise ValueError(f"{point_key}.{extra_point[0]}: unknown recipe key")
-                point_index += 1
-            leftover_points = sorted(set(points) - {str(i) for i in range(point_index)})
-            if leftover_points:
-                raise ValueError(f"{op_key}.footprint.{leftover_points[0]}: gapped or unknown footprint index")
+            path = _point_run(op_key, fields, "path")
+            consumed.add("path")
             if len(footprint) < 3:
                 raise ValueError(f"{op_key}: prism needs at least three footprint points")
+            if path and len(path) < 2:
+                raise ValueError(f"{op_key}: a sweep path needs at least two points")
             op.update(
                 name=_text(op_key, fields, consumed, "name"),
                 height=_number(op_key, fields, consumed, "height"),
                 base_z=_number(op_key, fields, consumed, "base_z"),
                 footprint=footprint,
+                path=path,
                 x=_number(op_key, fields, consumed, "x", 0.0),
                 y=_number(op_key, fields, consumed, "y", 0.0),
                 material=_material(op_key, fields, consumed),
@@ -489,14 +503,23 @@ def bounds_of(ops: list[dict]) -> tuple[float, float, float, float, float, float
             z1 = op["base_z"] + max(point["z"] for point in op["profile"])
             include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
         elif op["type"] == "AddPrism":
-            xs = [point["x"] for point in op["footprint"]]
-            ys = [point["y"] for point in op["footprint"]]
-            # base_z .. base_z+height, ordered min/max so a NEGATIVE height
-            # (the prism extruded downward — push/pull, BL-05) frames correctly.
-            z0 = min(op["base_z"], op["base_z"] + op["height"])
-            z1 = max(op["base_z"], op["base_z"] + op["height"])
-            include(op["x"] + min(xs), op["x"] + max(xs),
-                    op["y"] + min(ys), op["y"] + max(ys), z0, z1)
+            if op.get("path"):
+                # A swept solid: frame its actual verts (the path bends it out of
+                # a simple footprint box), computed from the same mesh builder.
+                verts, _ = _prism_world(op)
+                xs = [v[0] for v in verts]
+                ys = [v[1] for v in verts]
+                zs = [v[2] for v in verts]
+                include(min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+            else:
+                xs = [point["x"] for point in op["footprint"]]
+                ys = [point["y"] for point in op["footprint"]]
+                # base_z .. base_z+height, ordered min/max so a NEGATIVE height
+                # (the prism extruded downward — push/pull, BL-05) frames correctly.
+                z0 = min(op["base_z"], op["base_z"] + op["height"])
+                z1 = max(op["base_z"], op["base_z"] + op["height"])
+                include(op["x"] + min(xs), op["x"] + max(xs),
+                        op["y"] + min(ys), op["y"] + max(ys), z0, z1)
         elif op["type"] == "AddLabel":
             # A point, not a box: the op carries no text extent, but an
             # annotation must stay inside the framed view.
@@ -744,7 +767,13 @@ def _prism_world(op: dict) -> tuple[list, list]:
     polyline does); that duplicate is dropped so the side wall has no zero-width
     quad. A NEGATIVE height puts the top BELOW the base (the push/pull-cut
     direction, BL-05) — the mesh stays valid, just inverted in z; never abs()'d,
-    so the OBJ's z-extent honestly reports the signed height."""
+    so the OBJ's z-extent honestly reports the signed height.
+
+    BL-08: when op carries a PATH, the footprint is lofted along it instead
+    (see _swept_prism_world). An EMPTY path is the straight extrude below,
+    byte-identical to the BL-04 golden — the path branch never touches it."""
+    if op.get("path"):
+        return _swept_prism_world(op)
     pts = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
@@ -760,6 +789,55 @@ def _prism_world(op: dict) -> tuple[list, list]:
     for i in range(n):                                        # side quads
         j = (i + 1) % n
         faces.append([i, j, n + j, n + i])
+    return verts, faces
+
+
+def _swept_prism_world(op: dict) -> tuple[list, list]:
+    """BL-08 Follow-Me sweep: loft the footprint along the path into a closed
+    swept solid (a moulding run / corridor). PURE, no bpy.
+
+    v1 orientation rule: the footprint cross-section stands UP perpendicular to
+    the path — its local x maps to the path's in-plane normal, its local y maps
+    to world z (above base_z). At each path point a copy of the loop is placed,
+    oriented by that point's straight-SEGMENT tangent (no miter at corners, no
+    taper — those are BL-09); consecutive loops are joined by side quads and the
+    first/last loops are capped, so the result is watertight."""
+    fp = [(point["x"], point["y"]) for point in op["footprint"]]
+    if len(fp) >= 2 and fp[0] == fp[-1]:
+        fp = fp[:-1]
+    # Drop consecutive-duplicate path points so a segment always has a tangent.
+    raw = [(p["x"], p["y"]) for p in op["path"]]
+    path = [raw[0]]
+    for p in raw[1:]:
+        if p != path[-1]:
+            path.append(p)
+    n = len(fp)
+    m = len(path)
+    ox, oy, base_z = op["x"], op["y"], op["base_z"]
+
+    loops = []
+    for k in range(m):
+        px, py = path[k]
+        if k < m - 1:
+            tx, ty = path[k + 1][0] - px, path[k + 1][1] - py
+        else:
+            tx, ty = px - path[k - 1][0], py - path[k - 1][1]
+        length = math.hypot(tx, ty) or 1.0
+        tx, ty = tx / length, ty / length
+        nx, ny = -ty, tx  # in-plane normal to the path tangent
+        for fx, fy in fp:
+            loops.append((ox + px + fx * nx, oy + py + fx * ny, base_z + fy))
+
+    verts = list(loops)
+    faces = []
+    for k in range(m - 1):  # side quads between consecutive cross-sections
+        a, b = k * n, (k + 1) * n
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append([a + i, a + j, b + j, b + i])
+    faces.append([i for i in range(n)])                       # start cap
+    last = (m - 1) * n
+    faces.append([last + (n - 1 - i) for i in range(n)])      # end cap (reversed)
     return verts, faces
 
 
@@ -879,9 +957,13 @@ def plan_lines(ops: list[dict]) -> list[str]:
                 f"AddMoulding {op['name']} base_z={_fmt(op['base_z'])} points={len(op['profile'])}"
                 f" max_r={_fmt(max_r)} material={op['material']}")
         elif op["type"] == "AddPrism":
+            # A path (BL-08) makes it a swept solid; absent, it is the straight
+            # height-extrude. The plan line stays byte-identical when no path.
+            path = op.get("path") or []
+            sweep = f" path={len(path)}" if path else ""
             lines.append(
                 f"AddPrism {op['name']} base_z={_fmt(op['base_z'])} height={_fmt(op['height'])}"
-                f" points={len(op['footprint'])} material={op['material']}")
+                f" points={len(op['footprint'])}{sweep} material={op['material']}")
         elif op["type"] == "CutFlutes":
             z_range = ""
             if op["start_z"] is not None and op["end_z"] is not None:

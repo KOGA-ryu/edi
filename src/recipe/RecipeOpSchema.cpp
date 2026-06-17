@@ -147,6 +147,15 @@ void appendExtras(std::vector<RecipeOpScalar> &out, const AddExtrudedProfileOp &
     out.push_back(textField("profile", op.profile, /*editable=*/false)); // a drafted object id, picked elsewhere
     out.push_back(materialField(op.material));
 }
+void appendExtras(std::vector<RecipeOpScalar> &out, const AddSweepProfileOp &op)
+{
+    // BL-08: base_z/x/y come from opFields; profile and path are read-only
+    // drafted-object references (the object picker owns them).
+    out.push_back(textField("name", op.name));
+    out.push_back(textField("profile", op.profile, /*editable=*/false));
+    out.push_back(textField("path", op.path, /*editable=*/false));
+    out.push_back(materialField(op.material));
+}
 void appendExtras(std::vector<RecipeOpScalar> &out, const CutFlutesOp &op)
 {
     out.push_back(textField("target", op.target));
@@ -253,6 +262,13 @@ bool setExtra(AddExtrudedProfileOp &op, const std::string &key, const RecipeScal
     if (key == "name") return asText(value, op.name);
     if (key == "material") return asText(value, op.material);
     // `profile` is a read-only reference here; the binding/object picker owns it.
+    return false;
+}
+bool setExtra(AddSweepProfileOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "material") return asText(value, op.material);
+    // `profile` and `path` are read-only references; the object picker owns them.
     return false;
 }
 bool setExtra(CutFlutesOp &op, const std::string &key, const RecipeScalarValue &value)

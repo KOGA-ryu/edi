@@ -144,6 +144,14 @@ struct OpWriter {
             config[pointPrefix + ".x"] = numberKeyText(op.footprint[i].x);
             config[pointPrefix + ".y"] = numberKeyText(op.footprint[i].y);
         }
+        // BL-08: the optional sweep path, the SAME run shape. Emitted ONLY when
+        // present, so an empty-path prism writes no path.* keys and its TOML/OBJ
+        // stay byte-identical to the BL-04 straight-extrude golden.
+        for (std::size_t i = 0; i < op.path.size(); ++i) {
+            const std::string pointPrefix = prefix + ".path." + std::to_string(i);
+            config[pointPrefix + ".x"] = numberKeyText(op.path[i].x);
+            config[pointPrefix + ".y"] = numberKeyText(op.path[i].y);
+        }
     }
 
     void operator()(const AddProfileMouldingOp &op) const
@@ -196,6 +204,18 @@ struct OpWriter {
         put("name", op.name);
         put("profile", op.profile);
         put("height", op.height);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("material", op.material);
+    }
+
+    void operator()(const AddSweepProfileOp &op) const
+    {
+        put("type", std::string("AddSweepProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("path", op.path);
         put("base_z", op.baseZ);
         put("x", op.x);
         put("y", op.y);
@@ -540,13 +560,15 @@ bool readMouldingPoints(OpReader &reader, const std::string &prefix,
     }
 }
 
-// Reads the contiguous footprint.i.{x,y} run until a gap (a missing .x ends
-// the run), the same shape readMouldingPoints uses for the profile run.
-bool readPrismFootprint(OpReader &reader, const std::string &prefix,
-                        std::vector<PrismPoint> &out)
+// Reads a contiguous <run>.i.{x,y} point run until a gap (a missing .x ends the
+// run), the same shape readMouldingPoints uses for the profile run. Shared by
+// AddPrism's `footprint` and its optional BL-08 `path` (an absent run reads as
+// an empty vector — exactly the empty-path = straight-extrude default).
+bool readPrismPointRun(OpReader &reader, const std::string &prefix, const std::string &run,
+                       std::vector<PrismPoint> &out)
 {
     for (std::size_t i = 0;; ++i) {
-        const std::string pointPrefix = prefix + ".footprint." + std::to_string(i);
+        const std::string pointPrefix = prefix + "." + run + "." + std::to_string(i);
         if (reader.config.find(pointPrefix + ".x") == reader.config.end()) {
             return true;
         }
@@ -653,7 +675,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
     // and this fires, reminding the next author to add a reader branch HERE and
     // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
     // cross-language TOML contract is a two-sided obligation (§3).
-    static_assert(std::variant_size_v<RecipeOp> == 12,
+    static_assert(std::variant_size_v<RecipeOp> == 13,
                   "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
                   "ladder is string-keyed, not a std::visit, so the compiler "
                   "won't force it) AND a matching parse_ops arm in edi_craft.py.");
@@ -783,7 +805,8 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
-                || !readPrismFootprint(reader, prefix, op.footprint)) {
+                || !readPrismPointRun(reader, prefix, "footprint", op.footprint)
+                || !readPrismPointRun(reader, prefix, "path", op.path)) { // BL-08; absent = empty
                 result.message = reader.error;
                 return result;
             }
@@ -828,6 +851,21 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             if (!reader.requireText(prefix + ".name", op.name)
                 || !reader.requireText(prefix + ".profile", op.profile)
                 || !reader.bindableNumber(prefix, "height", op.height, true)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddSweepProfile") {
+            // BL-08: two drafted-object refs (profile + path) read key-for-key
+            // with the OpWriter; base_z/x/y bindable like the extrude's.
+            AddSweepProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.requireText(prefix + ".path", op.path)
                 || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)

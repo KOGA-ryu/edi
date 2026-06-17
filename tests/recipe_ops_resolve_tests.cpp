@@ -714,5 +714,58 @@ int main()
         assert(validateRecipeOps(r.stream.ops).ok);
     }
 
+    // ---- BL-08: a Follow-Me sweep resolves to a PATH-bearing AddPrism. The
+    // profile ("panel") becomes the footprint and the path ("cut", a line)
+    // becomes the sweep path — both projected to the physical drawing plane. ----
+    {
+        RecipeOpStream s;
+        AddSweepProfileOp sweep;
+        sweep.name = "cornice.run";
+        sweep.profile = "panel"; // a closed square -> footprint
+        sweep.path = "cut";      // a line (0.2,0.2)-(0.5,0.6) -> path
+        s.ops.push_back(sweep);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr); // the sweep reference is GONE, a prism stands
+        assert(lowered->name == "cornice.run");
+        assert(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
+        assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
+        // The path is the projected "cut" line: (0.2,0.2)->(0.5,0.6) on the 12x8 grid.
+        assert(lowered->path.size() == 2);
+        assert(near(lowered->path[0].x, 0.2 * 12.0) && near(lowered->path[0].y, 0.2 * 8.0));
+        assert(near(lowered->path[1].x, 0.5 * 12.0) && near(lowered->path[1].y, 0.6 * 8.0));
+        assert(validateRecipeOps(r.stream.ops).ok);
+        assert(recipeOpsResolved(r.stream));
+        assert(std::get_if<AddSweepProfileOp>(&s.ops[0]) != nullptr); // input untouched (purity)
+    }
+
+    // ---- BL-08 refusals: a deleted/wrong-kind profile-or-path, and a
+    // degenerate (single-point) path, refused by name with the shared wordings. ----
+    {
+        const auto oneSweep = [](std::string profile, std::string path) {
+            RecipeOpStream s;
+            AddSweepProfileOp e;
+            e.name = "e";
+            e.profile = std::move(profile);
+            e.path = std::move(path);
+            s.ops.push_back(e);
+            return s;
+        };
+        // deleted profile -> shared wording, keyed op.0.profile
+        const OpResolveResult goneP = resolveRecipeOps(oneSweep("gone", "cut"), drafting, grid);
+        assert(!goneP.ok && goneP.findings[0].key == "op.0.profile");
+        assert(goneP.findings[0].message == "profile object not found: gone");
+        // deleted path -> shared wording, keyed op.0.path
+        const OpResolveResult gonePath = resolveRecipeOps(oneSweep("panel", "gone"), drafting, grid);
+        assert(!gonePath.ok && gonePath.findings[0].key == "op.0.path");
+        assert(gonePath.findings[0].message == "profile object not found: gone");
+        // a path that is a single point ("hole" is a circle -> sampled, but use a
+        // wrong-kind to hit the shared wording instead): a circle has no path.
+        const OpResolveResult wrongPath = resolveRecipeOps(oneSweep("panel", "hole"), drafting, grid);
+        assert(!wrongPath.ok && wrongPath.findings[0].key == "op.0.path");
+        assert(wrongPath.findings[0].message == "profile needs a line, polyline, or arc");
+    }
+
     return 0;
 }

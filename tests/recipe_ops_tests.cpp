@@ -1651,5 +1651,81 @@ int main()
         assert(validateRecipeOps(target.ops).ok);
     }
 
+    // ---- BL-08: AddSweepProfile (the Follow-Me ref-op) round-trip + refusals,
+    // and AddPrism's optional `path` (empty AND non-empty), empty byte-identical. ----
+    {
+        // AddSweepProfile round-trips key-for-key (two drafted refs).
+        RecipeOpStream ss;
+        AddSweepProfileOp sweep;
+        sweep.name = "cornice.run";
+        sweep.profile = "section";
+        sweep.path = "run_path";
+        sweep.baseZ = 1.0;
+        sweep.material = "marble";
+        ss.ops.push_back(sweep);
+        const OpStreamTextResult sw = recipeOpsToToml(ss);
+        assert(sw.ok);
+        assert(sw.text.find("op.0.type = \"AddSweepProfile\"") != std::string::npos);
+        assert(sw.text.find("op.0.profile = \"section\"") != std::string::npos);
+        assert(sw.text.find("op.0.path = \"run_path\"") != std::string::npos);
+        const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
+        assert(swBack != nullptr && swBack->profile == "section" && swBack->path == "run_path"
+               && near(swBack->baseZ, 1.0) && swBack->material == "marble");
+
+        // Refused-before-build by name; recipeOpsResolved false while it survives.
+        const RecipeCompileResult refused = compileRecipeOps({RecipeOp{sweep}});
+        assert(!refused.ok);
+        assert(refused.message == "AddSweepProfile must be resolved before compiling: cornice.run");
+        RecipeOpStream survives;
+        survives.ops = {RecipeOp{sweep}};
+        assert(!recipeOpsResolved(survives));
+        // Validate refuses an empty profile/path by name.
+        AddSweepProfileOp noPath;
+        noPath.name = "n";
+        noPath.profile = "section"; // path empty
+        const OpValidationReport npr = validateRecipeOps({RecipeOp{noPath}});
+        bool sawMissingPath = false;
+        for (const OpFinding &f : npr.findings) {
+            sawMissingPath = sawMissingPath || f.code == "missing_path_reference";
+        }
+        assert(sawMissingPath);
+
+        // AddPrism with a non-empty path round-trips the path.i.{x,y} run.
+        RecipeOpStream ps;
+        AddPrismOp prism;
+        prism.name = "swept";
+        prism.footprint = {{-0.5, 0.0}, {0.5, 0.0}, {0.5, 1.0}, {-0.5, 1.0}};
+        prism.path = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 3.0}};
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.path.0.x = \"0\"") != std::string::npos);
+        assert(pw.text.find("op.0.path.2.y = \"3\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && pBack->path.size() == 3
+               && near(pBack->path[2].x, 4.0) && near(pBack->path[2].y, 3.0));
+        // A swept prism (path present) validates with NO zero-height finding
+        // (height is irrelevant when a path drives the solid).
+        const OpValidationReport pvr = validateRecipeOps({RecipeOp{prism}});
+        assert(pvr.ok);
+        for (const OpFinding &f : pvr.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+
+        // The empty-path prism emits NO path.* keys and round-trips exactly as a
+        // pre-BL-08 straight extrude — path stays empty.
+        RecipeOpStream es;
+        AddPrismOp straight;
+        straight.name = "straight";
+        straight.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        straight.height = 2.0; // empty path -> a straight extrude needs a height
+        es.ops.push_back(straight);
+        const OpStreamTextResult ew = recipeOpsToToml(es);
+        assert(ew.ok);
+        assert(ew.text.find(".path.") == std::string::npos); // no path keys at all
+        const auto *eBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(ew.text, "e").stream.ops[0]);
+        assert(eBack != nullptr && eBack->path.empty() && near(eBack->height, 2.0));
+    }
+
     return 0;
 }

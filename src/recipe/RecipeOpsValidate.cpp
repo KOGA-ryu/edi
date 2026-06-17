@@ -192,18 +192,46 @@ struct OpChecker {
     void operator()(const AddPrismOp &op) const
     {
         // BL-03: the lowered prism carrier. A real prism needs a polygon (>= 3
-        // footprint points) and a non-zero, finite height. A NEGATIVE height is
-        // allowed (BL-05 reads it as a push/pull cut), mirroring the extrude.
+        // footprint points).
         if (op.footprint.size() < 3) {
             add(findings, Severity::Error, "prism_degenerate_footprint",
                 op.name + " needs at least three footprint points.");
         }
-        if (op.height == 0.0 || !std::isfinite(op.height)) {
-            add(findings, Severity::Error, "prism_zero_height",
-                op.name + " needs a non-zero, finite height.");
+        // BL-08: an EMPTY path is a straight height-extrude — then a non-zero,
+        // finite height is required (a NEGATIVE height is allowed, BL-05's
+        // push/pull). A PRESENT path is a sweep: height is irrelevant (the
+        // lowering sets it 0), so the height check is skipped; but a path of one
+        // point is no path at all — refuse it.
+        if (op.path.empty()) {
+            if (op.height == 0.0 || !std::isfinite(op.height)) {
+                add(findings, Severity::Error, "prism_zero_height",
+                    op.name + " needs a non-zero, finite height.");
+            }
+        } else if (op.path.size() < 2) {
+            add(findings, Severity::Error, "prism_degenerate_path",
+                op.name + " sweep path needs at least two points.");
         }
         if (op.baseZ < 0) {
             add(findings, Severity::Warning, "negative_prism_base_z",
+                op.name + " starts below z=0.");
+        }
+        checkMaterial(findings, op.name, op.material);
+    }
+
+    void operator()(const AddSweepProfileOp &op) const
+    {
+        // BL-08: like the extrude, the two drafted-object references must be
+        // present; their resolvability is the resolve pass's concern.
+        if (op.profile.empty()) {
+            add(findings, Severity::Error, "missing_profile_reference",
+                op.name + " needs a drafted profile reference.");
+        }
+        if (op.path.empty()) {
+            add(findings, Severity::Error, "missing_path_reference",
+                op.name + " needs a drafted path reference.");
+        }
+        if (op.baseZ < 0) {
+            add(findings, Severity::Warning, "negative_swept_profile_base_z",
                 op.name + " starts below z=0.");
         }
         checkMaterial(findings, op.name, op.material);
@@ -337,6 +365,7 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddProfileMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const AddExtrudedProfileOp &o) const { return &o.name; }
+        const std::string *operator()(const AddSweepProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
         const std::string *operator()(const ScriptOp &o) const { return &o.name; }

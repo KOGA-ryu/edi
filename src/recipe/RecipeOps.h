@@ -135,6 +135,12 @@ struct AddPrismOp {
     double x = 0.0;
     double y = 0.0;
     std::string material = "stone";
+    // BL-08: an optional sweep PATH (physical x/y points). EMPTY = today's
+    // straight height-extrude (byte-preserving). Present = the footprint is
+    // lofted along the path into a swept solid (a moulding run / corridor) —
+    // the lowered form of AddSweepProfileOp. height is irrelevant when a path
+    // is present.
+    std::vector<PrismPoint> path;
 };
 
 struct AddProfileMouldingOp {
@@ -186,6 +192,22 @@ struct AddExtrudedProfileOp {
     std::string name;
     std::string profile; // a drafted object's id — the reference, like the lathe
     double height = 0.0;
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    std::string material = "stone";
+};
+
+// The Follow-Me sweep, op-vocabulary native (BL-08): like the extrude/lathe a
+// REFERENCE op — but it names TWO drafted objects, a cross-section `profile` and
+// a `path` to sweep it along (a moulding run / corridor). The resolve pass lowers
+// it to an AddPrismOp{footprint=profile, path=path points}; until then it is
+// authored-only and refused by every buildable consumer by name, exactly like
+// AddExtrudedProfileOp.
+struct AddSweepProfileOp {
+    std::string name;
+    std::string profile; // drafted object id — the cross-section
+    std::string path;    // drafted object id — the sweep path (polyline/line/arc)
     double baseZ = 0.0;
     double x = 0.0;
     double y = 0.0;
@@ -260,6 +282,7 @@ using RecipeOp = std::variant<
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
     AddExtrudedProfileOp,
+    AddSweepProfileOp,
     CutFlutesOp,
     AddLabelOp,
     ScriptOp>;

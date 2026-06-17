@@ -181,6 +181,27 @@ def main() -> int:
     assert max(prism_zs) - min(prism_zs) == 3.0, "prism z-extent must equal the op height (3)"
     assert prism_obj.count("\nf ") == 8, "prism face count drifted (2 caps + 6 sides)"
 
+    # BL-08: a Follow-Me sweep — an AddPrism WITH a path lofts the footprint
+    # along the path into a closed swept solid. Footprint n=4, path m=3:
+    # verts = n*m = 12, faces = (m-1)*n side quads + 2 end caps = 10. The solid
+    # bends out of a flat box — it spans x, y AND z — and every face is well-formed.
+    swept_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "swept_profile", "swept_profile_ops_compiled.toml"))
+    swept_obj = "\n".join(edi_craft.obj_lines(swept_ops)) + "\n"
+    with open(os.path.join(ROOT, "samples", "swept_profile", "swept_profile.obj"),
+              encoding="utf-8") as f:
+        swept_golden = f.read()
+    assert swept_obj == swept_golden, "swept OBJ drifted from samples/swept_profile/swept_profile.obj"
+    swept_objs = edi_craft.obj_objects(swept_ops)
+    sw_verts, sw_faces = swept_objs[0][1], swept_objs[0][2]
+    assert len(sw_verts) == 12, f"swept vert count: {len(sw_verts)}"
+    assert len(sw_faces) == 10, f"swept face count: {len(sw_faces)}"
+    for face in sw_faces:
+        assert len(set(face)) >= 3, "degenerate swept face"
+        assert all(0 <= i < len(sw_verts) for i in face), "swept face references a missing vertex"
+    assert len({v[0] for v in sw_verts}) > 1 and len({v[1] for v in sw_verts}) > 1 \
+        and len({v[2] for v in sw_verts}) > 1, "swept solid must span x, y and z (the path bends it)"
+
     # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
     # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)
     # and the two radial open ends are capped, so it is a closed solid, not a

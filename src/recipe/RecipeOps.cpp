@@ -35,6 +35,7 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddProfileMouldingOp &) const { return "AddProfileMoulding"; }
         const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
         const char *operator()(const AddExtrudedProfileOp &) const { return "AddExtrudedProfile"; }
+        const char *operator()(const AddSweepProfileOp &) const { return "AddSweepProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
         const char *operator()(const ScriptOp &) const { return "Script"; }
@@ -88,6 +89,13 @@ RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)
         if (const auto *extruded = std::get_if<AddExtrudedProfileOp>(&op)) {
             result.message =
                 "AddExtrudedProfile must be resolved before compiling: " + extruded->name;
+            result.ops.clear();
+            return result;
+        }
+        // Same contract for the Follow-Me sweep (BL-08).
+        if (const auto *swept = std::get_if<AddSweepProfileOp>(&op)) {
+            result.message =
+                "AddSweepProfile must be resolved before compiling: " + swept->name;
             result.ops.clear();
             return result;
         }
@@ -226,6 +234,7 @@ struct MutableName {
     std::string *operator()(AddProfileMouldingOp &o) const { return &o.name; }
     std::string *operator()(AddRevolvedProfileOp &o) const { return &o.name; }
     std::string *operator()(AddExtrudedProfileOp &o) const { return &o.name; }
+    std::string *operator()(AddSweepProfileOp &o) const { return &o.name; }
     std::string *operator()(CutFlutesOp &) const { return nullptr; }
     std::string *operator()(AddLabelOp &o) const { return &o.name; }
     std::string *operator()(ScriptOp &o) const { return &o.name; }

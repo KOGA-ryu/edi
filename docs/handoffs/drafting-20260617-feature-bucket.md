@@ -50,6 +50,24 @@ take MASTER's version and DROP our hunks (do NOT re-apply) — this is folded in
 briefs from DR-06 on. (Historical note: dept/drafting carries +33 LEDGER lines across 5
 pre-policy commits; the hub/edi-ui discard these at integration.)
 
+## ⏸ PAUSED — HUB CONTEXT SWAP (2026-06-17) — clean checkpoint
+- **State:** clean. Worktree clean, no builder mid-task. `dept/drafting` tip `11d8cea`
+  (docs); last CODE tip `db71c1b` (DR-11 + canonical-mirror rect fix).
+- **In flight / awaiting:** DR-11 + the canonical-mirror fix are CLOSED and reported to
+  edi-ui as a batch (pull to `db71c1b`); awaiting edi-ui's merge-confirm. Hub was flagged
+  on the shared `mirrorGeometry` rotated-rect change (dungeon-map consumes).
+- **Held (NOT scooped):** DR-12 array-along-curve — deliberately held until edi-ui confirms
+  the `db71c1b` batch merged (post-merge sequencing).
+- **RESUME for a fresh session:** (1) read this handoff + the INTEGRATION ROUTING / CADENCE /
+  POLICY blocks above. (2) Check whether edi-ui merged `db71c1b` (look for a reply in
+  `~/dept-bus/drafting/replies/` and `git merge-base --is-ancestor db71c1b master`). (3) If
+  merged → open **DR-12** (deps DR-01 ✅ + DR-04 ✅): brief the builder to `git rebase master`
+  (the REF) then implement `arrayAlongCurve` per `~/dept-bus/work-batch-plan.md` DR-12. (4)
+  Remaining after DR-12: DR-13 angular dim (ratified: INFER vertex, no new DimensionGeometry
+  field; CORE-region serialize-touching — brief carefully, consider a reviewer note), DR-14
+  arc-sweep dim (deps DR-13), DR-15 fill authoring (ratified: fill-selected-closed-object).
+  Bucket progress: DR-01..10 merged; DR-11+fix reported/pending-merge; DR-12..15 remain.
+
 ## Gate log
 
 ### DR-01 transformGeometry — builder BRIEFED 2026-06-17

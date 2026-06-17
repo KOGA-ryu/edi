@@ -303,8 +303,20 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - Reported DR-10 (`6d0cc01`) to edi-ui. **DR-11 HELD until edi-ui confirms DR-10 merged**
   (new post-merge sequencing).
 
+- **MERGED (edi-ui):** DR-10 on master @`281e93a` (100/100). edi-ui FIX: rebase onto the
+  `master` REF (`git rebase master`), never a pinned SHA — folded into the builder rule.
+
+### DR-11 — kaleidoscope / multi-axis radial mirror (op + controller) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/023-DR11-kaleidoscope-builder.md`. Deps DR-01 ✅.
+  Opened AFTER DR-10 merge-confirm (new sequencing — builder rebases onto a master with
+  DR-10). **Higher-risk slice:** extends `mirrorGeometry` to an arbitrary axis line (the
+  guarded visit + the two-hand-kept-lists note, arch §2) + per-kind reflection correctness
+  (arc sweep / rectangle rotationDeg flip orientation under reflection). **Plan: diff-audit
+  after build** (canonical H/V path byte-identical; supportsMirror sync; angle-flip
+  correctness per kind).
+
 ## Open questions / blockers
-- (none blocking — DR-10 reported; DR-11 intentionally held until DR-10 merge-confirm)
+- (none blocking — DR-11 in build, diff-audit planned)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

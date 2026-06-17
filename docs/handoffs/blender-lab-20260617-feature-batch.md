@@ -35,7 +35,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
 | BL-05 | Push/Pull height authoring + bind | M | **SHIPPED** (tests-only, no gap) | `7d0a73d` |
-| BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
+| BL-06 | Lathe sweepDegrees param | M | builder done, reviewer audit | `6a62c8f` |
 | BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
 | BL-08 | Follow-Me sweep op (→13) | L | dep BL-04 + arm-serial | — |

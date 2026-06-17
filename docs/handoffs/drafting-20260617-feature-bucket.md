@@ -20,18 +20,26 @@
   spec-settled); builder; green gate `cmake --build build && ctest --test-dir build
   -E edi_shell_window_tests` + scan. Rebase on master at the start of each task.
 
-## INTEGRATION CADENCE (2026-06-17) — edi-ui-integration-drafting owns master + LEDGER
-- Report verified BATCH TIPS + closeouts to `edi-ui-integration-drafting` (via
-  `~/dept-bus/drafting/replies/` + `bus-send`), NOT the hub. It merges to master and
-  rings back the new master tip. (Hub relay is retired for integration.)
-- **Rebase target = LOCAL `master`** (currently `dd226c4`), NOT `origin/master` — on
-  this box `origin/master` is STALE (`591e92c`). Local `master` is the live integration
-  line carrying DR-01/02/03 + blender-lab + dungeon-map batches. Builder briefs from
-  DR-08 say `git rebase master`. (DR-04/05/06 were built on the stale origin/master;
-  they rebase clean onto local master since their SHAs aren't yet on it.)
-- **DR-01/02/03 merged to master** (edi-ui: `b4f2eed` keystone, `bd3d99d` snaps;
-  master tip `dd226c4`). DR-04/05/06 reported to edi-ui for merge
-  (`~/dept-bus/drafting/replies/002-drafting-batch-DR04-06-ready.md`, tip `d3451d6`).
+## INTEGRATION ROUTING (2026-06-17, corrected) — two different "edi-ui" things
+- **edi-ui (BUILD dept)** = owns shell files + MERGES dept branches to master
+  (autonomous integration cadence per HUB-LEDGER). **This is the merge owner.**
+- **edi-ui-integration(-drafting)** = surface-design DESIGNER GATE, **docs only, NO
+  merges** — produces `~/edi/docs/ui-surface/drafting/DR-surfaces.md`. I mistakenly
+  bused it the merge cadence; corrected.
+- **H6 RESOLVED (hub, 2026-06-17):** the merge owner is **`edi-ui`** (the integration
+  dept, RUNNING). Route merge/integration signals (batch tips, closeouts) to the
+  `edi-ui` tmux session — NOT `edi-ui-integration-drafting` (docs-only designer). edi-ui
+  pulls verified dept branches to master.
+- **What I do:** keep building on `dept/drafting` (commit, do NOT self-merge); rebase
+  each slice onto LOCAL `master` (currently ~`163a00a`, advancing as edi-ui merges;
+  `origin/master` is STALE `591e92c`). Report verified batch tips to `edi-ui`.
+- **Reported to edi-ui:** DR-04..07 (tip `0a8e943`) — DR-04/05/06 green + DR-07 chamfer
+  green & audited ACCEPT. edi-ui pulls.
+- **MERGED 2026-06-17 (edi-ui):** DR-04..07 on master @`f53b00b` (99/99 green). Local
+  `master` has since advanced to `9ebfb7f` (also carries dungeon-map DM-09..13). DR-08's
+  STEP-0 `git rebase master` lands on `9ebfb7f` — DR-01..07 drop as already-applied; only
+  DR-08 replays on top. (My branch is "ahead" of the stale `origin/dept/drafting`, which
+  we never push — edi-ui integrates the local branch.)
 
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
@@ -206,14 +214,38 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   PolygonGeometry is implicitly closed (no flag); defensive `inscribableCircle` guard.
   No LEDGER conflict. Snap/derived front (DR-02..06) complete.
 
-### DR-07 — chamfer two lines (op + CONTROLLER wiring) — builder BRIEFED 2026-06-17
-- Brief: `~/dept-bus/edi-drafting/briefs/018-DR07-chamfer-builder.md`. Deps none.
-  FIRST controller-wiring slice of the bucket (mirrors the fillet path byte-for-byte).
-  **Plan: diff-audit after build** — controller atomicity + behavior-preservation of
-  the existing fillet/capture paths; if the pattern is clean, trust DR-08/09 more.
+### DR-07 — chamfer (op + controller wiring) — SHIPPED `0a8e943`, 98/98 → diff-audit OPEN
+- Reply: `~/dept-bus/edi-drafting/replies/018-DR07-chamfer-builder.md`. `chamferLines`
+  op + `ChamferSecondLine` capture intent + begin/apply/setback verbs; atomic 3-object
+  undo (UpdateGeometry×2 + CreateObject bevel in one beginEdit/commitEdit); fillet path
+  byte-unchanged; pointer-lifetime handled (ids/layer captured before mutation). 98/98
+  green incl. `drawing_document_controller_tests`.
+- **Diff-audit OPEN** (first controller-wiring slice — validate the pattern before
+  DR-08/09 reuse it): brief `~/dept-bus/edi-drafting/briefs/019-DR07-audit-reviewer.md`.
+  Priority: existing paths byte-unchanged, pointer-lifetime, atomic 1-step undo, op
+  correctness, scope.
+- Deliberate (accepted) duplication: `chamferLines` mirrors `filletLines`'s corner
+  logic rather than a shared `cornerFromPick` helper — kept to preserve fillet's bytes;
+  shared-helper extraction is a noted future cleanup.
+
+### DR-07 — CLOSED 2026-06-17 ✅ (SHA `0a8e943`, 98/98) — audit ACCEPT
+- Audit `~/dept-bus/edi-drafting/replies/005-DR07-audit.md`: +318/−0 (nothing existing
+  modified), pointer-capture-before-mutate + atomic 1-step undo mirror fillet exactly,
+  corner logic non-divergent. **Controller-wiring pattern VALIDATED → DR-08/09 reuse it
+  on lighter scrutiny (no mandatory audit unless something new arises).**
+- Non-blocking follow-up (FOLDED into DR-08): chamfer accepts a near-0° wedge → a
+  near-degenerate bevel; the controller doesn't check the CreateObject result, so a
+  partial chamfer could commit. Add a min-bevel-length (or min-corner-angle) reject to
+  `chamferLines` (cheap; same file DR-08 touches).
+
+### DR-08 — extend-line-to-boundary (op + controller) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/020-DR08-extend-builder.md`. Deps none. Mirrors
+  the TRIM path (single UpdateGeometry via applyCommandAndEmit). Reuses the validated
+  controller pattern. **Carries the FIRST big rebase onto local `master`** (across 3
+  depts' merged work) as STEP 0, + the chamfer min-bevel guard.
 
 ## Open questions / blockers
-- (none blocking — DR-07 in build)
+- (none blocking — DR-08 in build; merges flow to edi-ui as it pulls)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

@@ -258,6 +258,16 @@ DraftingChamferResult chamferLines(const LineGeometry &line1, const LineGeometry
     const Point2D s1{V.x + d1.x * setback1, V.y + d1.y * setback1};
     const Point2D s2{V.x + d2.x * setback2, V.y + d2.y * setback2};
 
+    // A near-degenerate corner — the two corner rays almost coincide (a ~0° wedge),
+    // which lineIntersection's far looser parallel test still lets through — would
+    // collapse the bevel to ~nothing. Reject rather than emit a degenerate bevel:
+    // the controller commits the CreateObject without checking the geometry, so a
+    // zero-length bevel would otherwise land as a partial, malformed chamfer.
+    if (distance(s1, s2) <= 0.000001) {
+        return DraftingChamferResult::rejected(DraftingResultCode::InvalidGeometry,
+                                               "chamfer corner too shallow");
+    }
+
     // Each line keeps the endpoint FARTHER along its corner ray and moves the
     // nearer endpoint to the setback point — the same trim filletLines does for the
     // tangent point. If the setback reaches or passes the kept end the line is too
@@ -281,6 +291,83 @@ DraftingChamferResult chamferLines(const LineGeometry &line1, const LineGeometry
     }
 
     return DraftingChamferResult::accepted(*newLine1, *newLine2, LineGeometry{s1, s2});
+}
+
+DraftingExtendResult DraftingExtendResult::accepted(LineGeometry geometry)
+{
+    DraftingExtendResult result;
+    result.ok = true;
+    result.code = DraftingResultCode::None;
+    result.geometry = geometry;
+    return result;
+}
+
+DraftingExtendResult DraftingExtendResult::rejected(DraftingResultCode code, std::string message)
+{
+    DraftingExtendResult result;
+    result.ok = false;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+DraftingExtendResult extendLineToBoundary(const LineGeometry &target,
+                                          const std::vector<LineGeometry> &boundaries,
+                                          Point2D pick)
+{
+    // A zero-length target has no direction to extend along.
+    const double dirX = target.b.x - target.a.x;
+    const double dirY = target.b.y - target.a.y;
+    const double lengthSq = dirX * dirX + dirY * dirY;
+    if (lengthSq <= 0.000001 * 0.000001) {
+        return DraftingExtendResult::rejected(DraftingResultCode::InvalidGeometry,
+                                              "cannot extend a zero-length line");
+    }
+
+    // Extend the END nearer the pick — the mirror of trim removing the picked end.
+    const bool extendB = distance(target.b, pick) <= distance(target.a, pick);
+    const auto projection = [&](Point2D point) {
+        return ((point.x - target.a.x) * dirX + (point.y - target.a.y) * dirY) / lengthSq;
+    };
+    // The crossing must lie ON the boundary segment (we extend to the real edge).
+    const auto onSegment = [](const LineGeometry &segment, Point2D point) {
+        const double sx = segment.b.x - segment.a.x;
+        const double sy = segment.b.y - segment.a.y;
+        const double len2 = sx * sx + sy * sy;
+        if (len2 <= 0.0) {
+            return false;
+        }
+        const double u = ((point.x - segment.a.x) * sx + (point.y - segment.a.y) * sy) / len2;
+        return u >= -0.000001 && u <= 1.0 + 0.000001;
+    };
+
+    // The new endpoint is the boundary crossing nearest the click, among those that
+    // lie BEYOND the extended end (an extension, not a point already on the segment)
+    // — mirroring trim's nearest-crossing-wins selection.
+    std::optional<Point2D> best;
+    double bestDistance = 0.0;
+    for (const LineGeometry &boundary : boundaries) {
+        const std::optional<Point2D> crossing = lineIntersection(target, boundary);
+        if (!crossing || !onSegment(boundary, *crossing)) {
+            continue;
+        }
+        const double t = projection(*crossing);
+        const bool beyondEnd = extendB ? (t > 1.0) : (t < 0.0);
+        if (!beyondEnd) {
+            continue; // the crossing is not past the end being extended
+        }
+        const double distanceToPick = distance(*crossing, pick);
+        if (!best || distanceToPick < bestDistance) {
+            best = crossing;
+            bestDistance = distanceToPick;
+        }
+    }
+    if (!best) {
+        return DraftingExtendResult::rejected(DraftingResultCode::InvalidSelectionTarget,
+                                              "no boundary crosses the line's extension");
+    }
+    const LineGeometry extended = extendB ? LineGeometry{target.a, *best} : LineGeometry{*best, target.b};
+    return DraftingExtendResult::accepted(extended);
 }
 
 } // namespace edi::drafting

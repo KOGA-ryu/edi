@@ -77,4 +77,24 @@ DraftingChamferResult chamferLines(const LineGeometry &line1,
                                    double setback2,
                                    Point2D pick);
 
+struct DraftingExtendResult {
+    bool ok = false;
+    DraftingResultCode code = DraftingResultCode::None;
+    std::string message;
+    LineGeometry geometry; // the target line, lengthened — valid only when ok
+
+    static DraftingExtendResult accepted(LineGeometry geometry);
+    static DraftingExtendResult rejected(DraftingResultCode code, std::string message);
+};
+
+// Lengthen the END of `target` nearer the `pick` along the line's direction until
+// it reaches the nearest boundary the line's INFINITE extension crosses (on the
+// boundary's segment) — the geometric mirror of trimLineAtPoint. Among the
+// boundaries, the crossing nearest the pick wins. Rejects when no boundary crosses
+// the extension (or the target is zero-length). Pure: the controller supplies the
+// other lines as boundaries.
+DraftingExtendResult extendLineToBoundary(const LineGeometry &target,
+                                          const std::vector<LineGeometry> &boundaries,
+                                          Point2D pick);
+
 } // namespace edi::drafting

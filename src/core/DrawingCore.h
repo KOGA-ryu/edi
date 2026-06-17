@@ -39,6 +39,7 @@
 enum class PointCaptureIntent {
     RadialArrayCenter,
     TrimPoint,        // the click chooses which part of the selected line to trim away
+    ExtendPoint,      // the click chooses which end of the selected line to extend
     FilletSecondLine, // the click picks the other line + the corner to round
     ChamferSecondLine, // the click picks the other line + the corner to bevel
     BlockInstance,    // the click is where to stamp the armed block (C3 palette)
@@ -220,6 +221,11 @@ public:
     // to where another line crosses it. False (arms nothing) when no editable
     // line is selected.
     bool beginTrimSelectedLine();
+    // Extend verb: the geometric mirror of trim. Arms a pick-a-point capture when a
+    // line is selected; the captured click chooses which END to lengthen, extending
+    // it to the nearest boundary line it would reach. False when no editable line is
+    // selected.
+    bool beginExtendSelectedLine();
     // Fillet verb: arms a pick-a-point capture when a line is selected. The
     // captured click picks the OTHER line and the corner; both lines are trimmed
     // to the tangent points and a rounding arc (radius = filletRadius()) joins
@@ -409,6 +415,10 @@ private:
     // the side the captured point fell on. Surfaces a status on rejection (no
     // crossing / would-collapse) so a dead trim click is never silent.
     void applyTrimAtPoint(edi::drafting::Point2D point);
+    // Extends the active line's nearer end to the nearest boundary line its
+    // extension reaches (one UpdateGeometry command). Surfaces a status on a dead
+    // click (no reachable boundary). Mirrors applyTrimAtPoint.
+    void applyExtendAtPoint(edi::drafting::Point2D point);
     // Fillets the active line against the nearest OTHER line to the captured
     // point: trims both to the tangent points and creates the rounding arc as
     // one atomic edit. Surfaces a status on rejection.

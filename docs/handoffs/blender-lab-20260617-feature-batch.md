@@ -34,7 +34,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
 | BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
-| BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
+| BL-05 | Push/Pull height authoring + bind | M | builder briefed (proving slice) | — |
 | BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
 | BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |

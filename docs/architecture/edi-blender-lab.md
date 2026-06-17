@@ -225,7 +225,9 @@ height, byte-pinned in `tests/edi_craft_smoke.py`). ASCII goldens:
 
 - **Discovery:** `load_craftsmen(folder)` (edi_craft.py:83) scans `*.py` (skips
   `_`-prefixed), imports each, registers those exposing a `MANIFEST` with an `id`.
-  Default folder `tools/blender/craftsmen` (only `twisted_column.py` on disk today).
+  Default folder `tools/blender/craftsmen` (three on disk: `twisted_column.py`,
+  `radial_petal.py` (BL-12), `nfold_star.py` (BL-13)). Authoring guide:
+  `docs/craftsmen-authoring.md`.
 - **Manifest → C++:** `craftsmen_manifest_toml` (:103) emits flat TOML
   (`craftsman.i.id/label`, `craftsman.i.param.j.key/label/type/default`); C++
   `parseCraftsmanRegistryToml` (RecipeCraftsmen.cpp:7) reads the same index-run shape.

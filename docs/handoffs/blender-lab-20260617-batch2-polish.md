@@ -40,7 +40,15 @@ internals); RD2's CLI verb is edi-ui's (flag).
 Rebased `dept/blender-lab` onto master (b5f9d86, carries dungeon-map DM-01..15). Clean,
 30 ahead. Full gate green: build clean, ctest 101/101, 4 OBJ goldens byte-identical.
 
-### P1 — builder briefed 2026-06-17 · RD3 — researcher briefed (parallel)
+### P1 — builder briefed 2026-06-17 (in flight)
+
+### RD3 — SHIPPED 2026-06-17 (`09cb3bb`, docs-only)
+`docs/craftsmen-authoring.md` — the M4 teaching doc (three-part contract, pure proof_mesh,
+manifest-typed params, scan flow, radial_petal walk-through, sacred-geometry intent,
+gotchas). Cited to the real craftsmen + arch doc. **Researcher flags integrated:** fixed
+the stale arch §6 "only twisted_column on disk" → three craftsmen + the authoring-guide
+link. The param.type default mismatch (C++ "text" vs Python "number") stays §10 candidate
+#5 (LOW, unreachable in practice; the doc now tells authors to always declare `type`).
 
 ## Next
-- P1 builder + RD3 researcher (parallel) → integrate → P2 …
+- (RD3 done) P1 builder in flight → integrate → P2 (boolean dedup) …

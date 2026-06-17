@@ -44,7 +44,7 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 | BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
 | BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
 | BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
-| BL-14 | Named-recipe library + chaining | M | builder briefed | — |
+| BL-14 | Named-recipe library + chaining | M | builder done, reviewer audit | `834daed` |
 | BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
 
 ## Gate log

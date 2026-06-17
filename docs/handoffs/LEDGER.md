@@ -10,6 +10,7 @@ update it when a gate opens, advances, blocks, or closes.
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
 | drafting-20260616-fill-svg | edi-drafting | builder | open (boundary settled) | [docs/handoffs/drafting-20260616-fill-svg.md](drafting-20260616-fill-svg.md) | hub |
+| dungeon-map-20260617-feature-batch | edi-dungeon-map | builder+reviewer (parallel) | in-gate (DM-01..13; batch-1 building, region-fill boundary running; DM-14/15 wait DR-01) | [docs/handoffs/dungeon-map-20260617-feature-batch.md](dungeon-map-20260617-feature-batch.md) | edi-dungeon-map-planner |
 
 ## Conventions
 

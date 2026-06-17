@@ -227,8 +227,12 @@ def main() -> int:
     # Script op renders in the proof through the craftsman's proof_mesh.
     registry = edi_craft.load_craftsmen(edi_craft.default_craftsmen_dir())
     assert "twisted_column" in registry, "twisted_column craftsman not discovered"
+    assert "radial_petal" in registry, "radial_petal craftsman not discovered"
     manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
-    assert 'craftsman.0.id = "twisted_column"' in manifest_toml
+    # Craftsmen are emitted sorted by id, so radial_petal (r) precedes
+    # twisted_column (t): radial_petal is craftsman.0, twisted_column craftsman.1.
+    assert 'craftsman.0.id = "radial_petal"' in manifest_toml
+    assert 'craftsman.1.id = "twisted_column"' in manifest_toml
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,
@@ -239,6 +243,23 @@ def main() -> int:
     unknown = {"type": "Script", "script": "nope", "name": "x",
                "x": 0.0, "y": 0.0, "z": 0.0, "params": {}}
     assert edi_craft.obj_objects([unknown]) == [], "an unknown craftsman should be skipped, not crash"
+
+    # BL-12: the radial-petal bloom renders a deterministic, well-formed mesh
+    # through its pure proof_mesh — a hub fan + one kite lobe per petal. With P
+    # petals: verts = 1 (hub center) + 4*P, faces = 2*P (P hub triangles + P
+    # petal kites). Pin the committed sample (P=10) and assert no degenerate face.
+    petal_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "radial_petal", "radial_petal_ops_compiled.toml"))
+    petal_objs = edi_craft.obj_objects(petal_ops)
+    assert len(petal_objs) == 1 and petal_objs[0][0] == "rose.window"
+    petal_verts, petal_faces = petal_objs[0][1], petal_objs[0][2]
+    assert len(petal_verts) == 1 + 4 * 10, f"radial_petal vert count: {len(petal_verts)}"
+    assert len(petal_faces) == 2 * 10, f"radial_petal face count: {len(petal_faces)}"
+    for face in petal_faces:
+        assert len(set(face)) >= 3, "degenerate petal face"
+        assert all(0 <= i < len(petal_verts) for i in face), "petal face references a missing vertex"
+    # zRise lifts the petal tips above the flat hub (a gentle dome).
+    assert max(v[2] for v in petal_verts) > 0.0, "zRise should lift the petal tips"
 
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.

@@ -44,6 +44,29 @@ _(append one row per merge: tip, what, edi-gate result)_
 | --- | --- | --- | --- | --- |
 | 2026-06-18 ~14:10 | blender-lab | `03b8cc1` → merge `ac3bf96` | M0 REALIZER (tools/blender/edi_realize.py + smoke test + sample evidence). Two-tier bpy: pure parse_toon/plan_greybox (GPU-free, ctest #100) + Blender OptiX render. | GREEN 105/105 + scan |
 | 2026-06-18 ~14:15 | drafting (support) | `366f23c` → merge `fb6ca25` | M0 PROPS SUPPORT: MapBlockSpec carrier on MapSpec (DraftingRoom.h) + createMapFromSpec block-stamp arm + e2e TOON-row assertion. The field the generator needs to place crypt props. | GREEN 105/105 + scan |
+| 2026-06-18 ~15:1x | drafting (COHERENCE) | `3ab8033` → merge `4273171` | no-magic-dims sweep: retire hardcoded kCorridorWidth=0.045 (corridor width DERIVES from room scale) + DraftingCanvasDims.h core spine naming canvas/door/wall dims. src/core+src/drafting only, disjoint from the fit slice. | GREEN 105/105 + scan |
+
+## SCALE-POLICY slice (edi-ui PRIMARY — `~/dept-bus/SCALE-POLICY.md`)
+The user's scale directive: the 2D canvas must FIT THE SCREEN at any dungeon size.
+- **`d5a5c40`** — added the **"no hardcoded dimensions" HARD RULE** to CLAUDE.md
+  (every dimension is named DATA; reviewer-enforced, no mechanical scan; exempt
+  epsilons/tolerances + unset 0.0). Green-gated.
+- **`6520a6d`** — canvas **auto-fit-to-content** for ANY dungeon size, all dims as
+  NAMED CONFIG: `kViewportFitPaddingFraction` (~10% breathing room, replaces the
+  magic 48px), `kViewportFitMinZoom` (fit-only floor so a 5× dungeon still frames
+  while interactive [0.2,16] is unchanged). Root-caused + fixed the MAP-workspace
+  right-panel clipping: the feature panels are OVERLAYS over a full-width canvas,
+  so the shell now pushes overlay occlusion to the canvas as view-insets and the
+  fit frames into the VISIBLE sub-rect. Verified single/doubled/5× in both
+  workspaces; default_shell golden 0-diff. **In edi-ui reviewer gate now** (also
+  doing the src/widgets dimension-literal sweep + the fit-padding coherence check
+  vs drafting's kAsciiBoardFillFraction).
+
+## Pending coordination
+- **`--generate-crypt <out> --scale <S>` CLI** (dungeon-map brief 048): edi-ui
+  owns the ~20-line headless flag in app/main.cpp (mirrors --export-map). Replied
+  ACK (reply 048). BLOCKED until dungeon-map brief 047 lands buildCryptMapSpec(scale)
+  + exportMapToToon sceneScale on master — merge that first, then build the flag.
 
 **Realizer gate evidence verified on the merged line** (render.log L288–294):
 `compute_device_type: OPTIX`, `[X] OPTIX NVIDIA GeForce RTX 5090`,

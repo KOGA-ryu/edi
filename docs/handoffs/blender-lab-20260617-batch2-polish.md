@@ -137,6 +137,22 @@ P6's algorithm research is DONE (`docs/inset-research.md`); P5 (miter) needs res
 
 ### P6 — builder briefed 2026-06-17 (`briefs/038`); P5-miter research — researcher briefed (`briefs/039`)
 
+### Checkpoint audit — 2026-06-17 (`replies/040`, Opus reviewer): P4/P4b/RD2 ALL CLEAN
+Retroactive adversarial pass on the spot-checked-then-merged slices. Reviewer traced the taper
+math, the P4b Y-only early-out guard (correctly does NOT skip — the exact risk), and the RD2
+merge-walk by hand; recipe ctest 7/7, 4 goldens byte-identical. No defects. Two benign notes
+(NOT followed up): P4 `t**negative` ZeroDivisionError only reachable bypassing validate; RD2
+rename shows in title AND a recipe.name delta (honest redundancy). **Confirms the fast-track
+spot-checks missed nothing.**
+
+### RD-miter research — SHIPPED 2026-06-17 (`d9508d4`, researcher): P5 de-risked
+`docs/miter-research.md`. Recommendation: bisector miter frame in `_swept_prism_world` —
+`miter_scale = 2/|t_in+t_out| = 1/cos(α/2)` (no trig), applied to the in-plane normal; start/end
+single-segment (scale 1.0); straight paths byte-identical. Refusal `prism_sweep_corner_too_sharp`
+when `|t_in+t_out| < 0.5` (miter_scale > 4 = SVG miterlimit). **GOLDEN FLAG: swept_profile's path
+has a 90° corner → P5 WILL change `swept_profile.obj` (miter_scale √2) — builder regenerates it.**
+
 ## Next (autonomous)
-- P6 (non-convex inset, edge-offset-then-intersect per research) + P5-miter research (parallel)
-  → P5 (sweep miter) → P7 (bounds tightness) → batch-2 CLOSEOUT. Rebase LOCAL master; bus tips.
+- P6 (non-convex inset) in flight → **P5 (sweep miter, research-ready, regen swept_profile.obj)**
+  → P7 (bounds tightness) → batch-2 CLOSEOUT. Reviewer free for the P6 geometry audit when it
+  lands. Rebase LOCAL master; bus edi-ui green tips.

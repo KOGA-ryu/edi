@@ -131,9 +131,10 @@ def assert_manifold(verts, faces, label):
     """A closed orientable manifold: every UNDIRECTED edge bounds exactly 2
     faces, and no face is degenerate (< 3 distinct verts). Codifies the BL-06
     reviewer's hand-check so a future regression fails loudly. Apply only to
-    meshes that SHOULD be watertight — NOT the open helix ribbon (BL-07, an
-    intentionally open surface) nor the self-intersecting swept solid (BL-08,
-    valid faces but not 2-manifold by design)."""
+    meshes that SHOULD be watertight — NOT the self-intersecting swept solid
+    (BL-08, valid faces but not 2-manifold by design). The helix (BL-07) IS
+    now closed (P3 added axis spine + inner/outer quads + end caps) so it IS
+    covered here."""
     edge_faces = {}
     for face in faces:
         assert len(set(face)) >= 3, f"{label}: degenerate face {face}"
@@ -310,9 +311,11 @@ def main() -> int:
     assert_manifold(full_verts, full_faces, "full revolve")
     assert_manifold(part_verts, part_faces, "partial revolve")
 
-    # BL-07: a screw_rise>0 moulding produces a measurably RISING mesh — the
-    # sweep spirals up by ~screw_rise per full turn over screw_turns turns. The
-    # default (rise 0) matches the non-helix mesh exactly (behavior-preserving).
+    # BL-07 / P3: a screw_rise>0 moulding produces a measurably RISING, CLOSED
+    # solid — the sweep spirals up by ~screw_rise per full turn over screw_turns
+    # turns, and P3's axis spine + inner/outer quads + end caps seal it into a
+    # 2-manifold (every edge bounds exactly 2 faces). The default (rise 0)
+    # matches the non-helix mesh EXACTLY — behavior-preserving, byte-identical.
     flat_verts, _ = edi_craft.moulding_rings(moulding(screw_rise=0.0))
     helix_verts, helix_faces = edi_craft.moulding_rings(
         moulding(screw_rise=2.0, screw_turns=3.0))
@@ -324,6 +327,9 @@ def main() -> int:
     for face in helix_faces:  # well-formed
         assert all(0 <= i < len(helix_verts) for i in face), "helix face references a missing vertex"
         assert len(face) >= 3, "degenerate helix face"
+    # The helix is now a closed 2-manifold solid (P3). Previously excluded
+    # because it was an open ribbon; now asserted.
+    assert_manifold(helix_verts, helix_faces, "helix")
     # The default (rise 0) is byte-identical to the plain non-helix mesh.
     assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
         edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"

@@ -15,6 +15,12 @@ struct ContextGroupsRow {
 const std::vector<ContextGroupsRow> &contextTable()
 {
     static const std::vector<ContextGroupsRow> table = {
+        // B2-CTX: relation-aware contexts. These win over the kind branch when the
+        // widget layer sets the corresponding bool in DraftingInspectorInput.
+        // groupIds name WIDGET containers edi-ui builds; these names are a
+        // dungeon-map ↔ edi-ui coordination point (provisional until edi-ui confirms).
+        {"object_connection", {"connection_summary", "connection_verbs"}},    // delete + re-route verbs
+        {"object_plug",       {"plug_summary", "plug_type", "plug_verbs"}},   // door-type picker + delete
         // A drawable shape: identity, numeric geometry, transforms, and the
         // guide-creation helpers that act on the selection's bounds.
         {"object_shape", {"selection_summary", "style", "geometry", "transform", "object_guides"}},
@@ -94,15 +100,23 @@ DraftingInspectorPlan planDraftingInspector(const DraftingInspectorInput &input)
     DraftingInspectorPlan plan;
     const std::vector<std::string> toolOptions = draftingToolOptionsGroups(input.toolId);
 
-    if (input.hasSelection) {
-        plan.contextId = contextForKind(input.selectedKind);
-    } else if (!toolOptions.empty()) {
-        plan.contextId = "tool_options";
-    } else if (input.toolId == "select_move") {
-        plan.contextId = "document";
-    } else {
-        plan.contextId = "empty";
-    }
+    // B2-CTX: relation branches sit ABOVE the kind branch so they fire first for
+    // map-authoring selections. Both bools default false, so every non-map call
+    // falls through to the existing kind / tool / document / empty chain —
+    // no regression to existing contexts (the key invariant).
+    //
+    // Why this order: a connection row-click is an EXPLICIT relation intent and
+    // wins over everything; an active plug-anchor object is more specific than its
+    // raw Point kind (which would fall to object_shape). Mutual exclusion is
+    // maintained by the controller: selectConnection clears the object selection
+    // and any object-select / begin*Pick / setSelectedToolId clears
+    // m_activeConnectionId — so both bools are never true simultaneously.
+    if      (input.hasConnectionSelection)  plan.contextId = "object_connection";
+    else if (input.activeIsPlugAnchor)      plan.contextId = "object_plug";
+    else if (input.hasSelection)            plan.contextId = contextForKind(input.selectedKind);
+    else if (!toolOptions.empty())          plan.contextId = "tool_options";
+    else if (input.toolId == "select_move") plan.contextId = "document";
+    else                                    plan.contextId = "empty";
 
     // Creation auto-selects the new object, so a draw loop (set sides, draw,
     // draw again) always has a selection by its second iteration. The active

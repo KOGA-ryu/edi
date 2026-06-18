@@ -548,6 +548,13 @@ QVariantMap DrawingDocumentController::modelDocument() const
             model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
         }
         model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
+        // B2-CTX: connection-selection keys. m_activeConnectionId is controller
+        // VIEW-STATE (not a document field), so it is inserted here rather than
+        // inside draftingDocumentToModelProjection. selectConnection() always emits
+        // modelChanged(), so the cache is re-built on every selection change —
+        // the keys are always current when the cache is fresh.
+        model.insert(QStringLiteral("has_connection_selection"), !m_activeConnectionId.empty());
+        model.insert(QStringLiteral("active_connection_id"), QString::fromStdString(m_activeConnectionId));
         m_cachedDocumentModel = model;
         m_cachedGrid = grid;
         m_cachedModelGeneration = m_modelGeneration;
@@ -765,6 +772,9 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     // somehow skipped (latent footgun: beginConnectionPick also clears, so it is safe
     // today, but defensive hygiene costs nothing and makes the invariant local here).
     m_pendingConnectionPlugA.clear();
+    // B2-CTX: a tool switch ends any connection selection — the inspector context
+    // the user was looking at is now stale, and the new tool starts fresh.
+    m_activeConnectionId.clear();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
     emit modelChanged();
@@ -1830,6 +1840,7 @@ bool DrawingDocumentController::beginRadialArrayCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RadialArrayCenter,
                                          QStringLiteral("Click to set the radial array centre")};
     emit pointerChanged(); // view state: the prompt appears, the document is untouched
@@ -1845,6 +1856,7 @@ bool DrawingDocumentController::beginBlockInstancePick(const QString &blockId)
     if (!blockIndexById(m_document, toStdString(blockId))) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pendingBlockId = blockId;
     m_pointCapture = PendingPointCapture{PointCaptureIntent::BlockInstance,
                                          QStringLiteral("Click to place the block")};
@@ -1860,6 +1872,7 @@ bool DrawingDocumentController::beginRegionFillPick()
     if (m_document.rooms.empty()) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RegionFill,
                                          QStringLiteral("Click inside a room to fill")};
     emit pointerChanged(); // view state: the prompt appears, the document is untouched
@@ -1912,6 +1925,7 @@ bool DrawingDocumentController::beginPlugPick()
     // that rooms exist), plug placement has no up-front precondition — any canvas
     // point is a valid anchor. The click path runs resolveSnap() BEFORE calling
     // resolvePointCapture(), so snapping to a wall endpoint/edge is free.
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugPlacement,
                                          QStringLiteral("Click a wall to place a plug")};
     emit pointerChanged(); // view state: prompt appears, document is untouched
@@ -1958,6 +1972,7 @@ bool DrawingDocumentController::beginConnectionPick()
     // it here resets any half-finished pick left over from a previous beginConnectionPick
     // that was never completed (e.g. user switched tools mid-flow).
     m_pendingConnectionPlugA.clear();
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugConnect,
                                          QStringLiteral("Click the first plug")};
     emit pointerChanged();
@@ -2070,6 +2085,23 @@ bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QStri
     return true;
 }
 
+void DrawingDocumentController::selectConnection(const QString &connId)
+{
+    // B2-CTX: the Map-browser row click lands here. Validate that the id names
+    // a real connection (connectionIndexById returns nullopt for an unknown id).
+    const std::string id = toStdString(connId);
+    if (!connectionIndexById(m_document, id)) {
+        return; // unknown id — no-op, no state change, no emission
+    }
+    m_activeConnectionId = id;
+    // Mutual exclusion: a connection selection and an object selection are never
+    // both active at the same time (the inspector context would be ambiguous).
+    // clearSelection is the same call the marquee path uses; it costs one
+    // linear scan but does not push an undo step.
+    clearSelection(m_document);
+    emit modelChanged();
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring
@@ -2090,6 +2122,7 @@ bool DrawingDocumentController::beginRotateCopiesCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RotateCopiesCenter,
                                          QStringLiteral("Click to set the rotate-copies centre")};
     emit pointerChanged();
@@ -2132,6 +2165,7 @@ bool DrawingDocumentController::beginKaleidoscopeCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::KaleidoscopeCenter,
                                          QStringLiteral("Click to set the kaleidoscope centre")};
     emit pointerChanged();
@@ -2162,6 +2196,7 @@ bool DrawingDocumentController::beginTrimSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::TrimPoint,
                                          QStringLiteral("Click the part of the line to trim away")};
     emit pointerChanged();
@@ -2208,6 +2243,7 @@ bool DrawingDocumentController::beginExtendSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::ExtendPoint,
                                          QStringLiteral("Click the end of the line to extend")};
     emit pointerChanged();
@@ -2255,6 +2291,7 @@ bool DrawingDocumentController::beginFilletSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::FilletSecondLine,
                                          QStringLiteral("Click the other line near the corner to round")};
     emit pointerChanged();
@@ -2329,6 +2366,7 @@ bool DrawingDocumentController::beginChamferSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::ChamferSecondLine,
                                          QStringLiteral("Click the other line near the corner to bevel")};
     emit pointerChanged();
@@ -2409,6 +2447,7 @@ bool DrawingDocumentController::beginBreakSelectedObject()
         || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::BreakPoint,
                                          QStringLiteral("Click where to break the object")};
     emit pointerChanged();
@@ -3755,6 +3794,8 @@ bool DrawingDocumentController::selectObjectById(const QString &id)
     if (findObject(m_document, objectId) == nullptr) {
         return false;
     }
+    // B2-CTX: object-select is mutually exclusive with connection-select.
+    m_activeConnectionId.clear();
     beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectCommand{objectId});
     if (!result.ok) {
@@ -3778,6 +3819,8 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
 
     const std::vector<DraftingObjectId> objectIds = selectableObjectsInBounds(m_document, marquee);
 
+    // B2-CTX: marquee select is mutually exclusive with connection-select.
+    m_activeConnectionId.clear();
     beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectsCommand{objectIds});
     if (!result.ok) {

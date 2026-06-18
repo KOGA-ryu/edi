@@ -379,6 +379,13 @@ public:
     // geometry tagged "connection:<id>" (same open-vocab breadcrumb as feature tags,
     // no new field/codec), all in one undo step via createObjectsAndSelect.
     bool connectPlugs(const QString &plugAId, const QString &plugBId);
+    // B2-CTX: select a declared connection by id (the Map-browser row calls this).
+    // Validates via connectionIndexById; on hit: records m_activeConnectionId,
+    // clears the object selection (mutual exclusion — a connection selection and an
+    // object selection are never both active), emits modelChanged(). On miss: no-op.
+    // The selection surfaces in the projection as has_connection_selection /
+    // active_connection_id so the widget layer can build the inspector input.
+    void selectConnection(const QString &connId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -538,6 +545,12 @@ private:
     // carrying state across the arm→first-click→second-click gap without widening
     // the PendingPointCapture struct (the data-oriented variation point stays minimal).
     std::string m_pendingConnectionPlugA;
+    // B2-CTX: the connection selected via the Map-browser row (empty = none).
+    // Transient VIEW-STATE — NOT a document field, NOT persisted — same idiom as
+    // m_pendingBlockId. Mutual exclusion: selectConnection clears the object
+    // selection; any object-select / begin*Pick / setSelectedToolId clears this.
+    // Surfaces in modelDocument() as has_connection_selection + active_connection_id.
+    std::string m_activeConnectionId;
     // Projection cache. The document-shaped model (objects, layers, grid,
     // plot plan, safety annotation, selection bounds) rebuilds only when a
     // modelChanged emission bumps the generation; every call then overlays

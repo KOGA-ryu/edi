@@ -4928,5 +4928,94 @@ int main(int argc, char **argv)
         assert(staleCtl.draftingDocument().connections.empty()); // no premature connection
     }
 
+    // --- B2-CTX: selectConnection + projection keys ----------------------------
+    //
+    // selectConnection(validId) → has_connection_selection=true + object selection cleared.
+    // selectConnection(unknownId) → no-op.
+    // Object-select after selectConnection → clears m_activeConnectionId.
+    {
+        DrawingDocumentController connSelCtl;
+
+        // Place two plugs and connect them to get a real DeclaredConnection.
+        connSelCtl.beginPlugPick();
+        connSelCtl.clickCanvasNormalized(0.3, 0.3);
+        connSelCtl.beginPlugPick();
+        connSelCtl.clickCanvasNormalized(0.7, 0.7);
+
+        // Retrieve both plug ids from the document.
+        const auto &plugs = connSelCtl.draftingDocument().plugs;
+        assert(plugs.size() == 2);
+        const QString plugAId = QString::fromStdString(plugs[0].id);
+        const QString plugBId = QString::fromStdString(plugs[1].id);
+
+        // Connect them → one DeclaredConnection is minted.
+        assert(connSelCtl.connectPlugs(plugAId, plugBId));
+        const auto &conns = connSelCtl.draftingDocument().connections;
+        assert(conns.size() == 1);
+        const QString connId = QString::fromStdString(conns[0].id);
+
+        // Before any selectConnection call: has_connection_selection should be false.
+        QVariantMap model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+
+        // selectConnection(unknownId) → no-op: the key stays false.
+        connSelCtl.selectConnection(QStringLiteral("no-such-connection-id"));
+        model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+
+        // selectConnection(validId) → has_connection_selection true + id set.
+        connSelCtl.selectConnection(connId);
+        model = connSelCtl.modelDocument();
+        assert(model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString() == connId);
+
+        // selectConnection also clears the object selection (mutual exclusion).
+        // First select an object, then call selectConnection; selection must be gone.
+        {
+            // Pick the first plug's anchor marker as our test object.
+            const QString markerId = QString::fromStdString(
+                connSelCtl.draftingDocument().objects.front().id);
+            assert(connSelCtl.selectObjectById(markerId));
+            // Object is now selected — connection select was cleared by selectObjectById.
+            assert(!connSelCtl.modelDocument()
+                       .value(QStringLiteral("has_connection_selection")).toBool());
+
+            // Now select the connection again.
+            connSelCtl.selectConnection(connId);
+            assert(connSelCtl.modelDocument()
+                       .value(QStringLiteral("has_connection_selection")).toBool());
+            // The object selection must be empty (clearSelection was called inside selectConnection).
+            assert(connSelCtl.modelDocument()
+                       .value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        }
+
+        // Object-select after selectConnection clears m_activeConnectionId.
+        const QString markerId = QString::fromStdString(
+            connSelCtl.draftingDocument().objects.front().id);
+        assert(connSelCtl.selectObjectById(markerId));
+        model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // active_object_is_plug: placing a plug marker and selecting it yields true.
+    {
+        DrawingDocumentController plugObjCtl;
+        plugObjCtl.beginPlugPick();
+        plugObjCtl.clickCanvasNormalized(0.5, 0.5);
+
+        // The freshly placed marker is auto-selected; it is a plug anchor.
+        QVariantMap model = plugObjCtl.modelDocument();
+        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+
+        // A plain (non-plug) object is NOT a plug anchor.
+        DrawingDocumentController plainCtl;
+        plainCtl.setSelectedToolId(QStringLiteral("circle_tool"));
+        plainCtl.clickCanvasNormalized(0.5, 0.5); // create a circle
+        model = plainCtl.modelDocument();
+        assert(!model.value(QStringLiteral("active_object_is_plug")).toBool());
+    }
+
     return 0;
 }

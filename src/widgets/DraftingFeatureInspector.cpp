@@ -370,6 +370,23 @@ void DraftingFeature::refreshInspector()
     rebuildGeometryEditor(selectedObject);
     applyGeometryEditStatus(editStatus);
     applyInspectorPlan(selectedObject);
+    // DM-15 sub-gate: the "block_instance" group lives in the object_shape plan
+    // context (so the plan shows it for any selected object), but must additionally
+    // hide when the active object is NOT a placed block instance. The projection
+    // bool lives at the document root (not inside the per-object map) because it
+    // derives from the active object's blockPlacement.instanceId, not from the
+    // object's own projection entry. Reading it here — after applyInspectorPlan —
+    // lets the plan run first (correct for the context/visibility base), then we
+    // narrow the "block_instance" group to only instances.
+    if (auto *blockInstanceGroup = m_inspectorGroups.value(QStringLiteral("block_instance"))) {
+        const bool isInstance = document.value(QStringLiteral("has_block_instance_selection")).toBool();
+        // Only override when the plan already made it visible (i.e. an object IS
+        // selected). When no object is selected the plan hides the whole
+        // object_shape context including this group; we must not fight it.
+        if (blockInstanceGroup->isVisible() && !isInstance) {
+            blockInstanceGroup->setVisible(false);
+        }
+    }
     setLabelText(m_objectsValue, QStringLiteral("Objects: %1").arg(objects.size()));
     if (m_guidesValue != nullptr) {
         m_guidesValue->setText(QStringLiteral("Guides: %1 visible / %2 total / %3 duplicate")

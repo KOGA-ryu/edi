@@ -1176,6 +1176,91 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         group->addWidget(makeCollapsibleSection(QStringLiteral("Align To Guide"), fold.box, false));
     }
 
+    // DM-15 "Block instance" inspector group — visible only for selected placed
+    // instances. The plan table puts this group in the object_shape context so its
+    // container widget exists whenever an object is selected; refreshInspector adds
+    // a second gate on the document-level "has_block_instance_selection" projection
+    // bool, hiding the group for non-instance objects. Two-gate pattern: plan =
+    // context ownership, refreshInspector = projection-bool sub-gate.
+    //
+    // The two spins are DELTA-only: they carry a delta rotation (degrees) and a
+    // scale FACTOR (multiplicative), not absolute values. They are NOT bound to a
+    // controller setter — only transformInstanceButton reads them at click time.
+    // This is intentional: no auto-commit on focus-out, no programmatic write-back
+    // during refresh, so a model change can never loop. Identity defaults (0.0 deg /
+    // 1.0 scale) are set before any connect() call (signal-safety: seed then wire).
+    group = beginInspectorGroup(QStringLiteral("block_instance"));
+    {
+        FoldBox instanceFold = makeFoldBox();
+
+        // Delta rotation spin — degrees. Range matches the DM-14 placement spin.
+        {
+            auto *row = new QWidget;
+            auto *rowLayout = new QHBoxLayout(row);
+            clearLayoutMargins(rowLayout);
+            rowLayout->setSpacing(6);
+            rowLayout->addWidget(new QLabel(QStringLiteral("Rotation delta")));
+            auto *spin = new QDoubleSpinBox;
+            spin->setObjectName(QStringLiteral("instanceRotationSpin"));
+            spin->setDecimals(1);
+            spin->setSingleStep(1.0);
+            spin->setRange(-360.0, 360.0);
+            // Seed BEFORE connect — no programmatic-write loop possible.
+            spin->setValue(0.0);
+            // No controller setter: this is read at click time only.
+            // QDoubleSpinBox::valueChanged fires on any programmatic setValue too,
+            // so connecting it to a setter here would loop on every refresh.
+            m_instanceRotationSpin = spin;
+            rowLayout->addWidget(spin, 1);
+            instanceFold.layout->addWidget(row);
+        }
+
+        // Scale factor spin — multiplicative. 1.0 = no change.
+        {
+            auto *row = new QWidget;
+            auto *rowLayout = new QHBoxLayout(row);
+            clearLayoutMargins(rowLayout);
+            rowLayout->setSpacing(6);
+            rowLayout->addWidget(new QLabel(QStringLiteral("Scale factor")));
+            auto *spin = new QDoubleSpinBox;
+            spin->setObjectName(QStringLiteral("instanceScaleSpin"));
+            spin->setDecimals(3);
+            spin->setSingleStep(0.1);
+            spin->setRange(0.01, 100.0);
+            // Seed BEFORE connect — identity factor avoids accidental shrink/grow.
+            spin->setValue(1.0);
+            m_instanceScaleSpin = spin;
+            rowLayout->addWidget(spin, 1);
+            instanceFold.layout->addWidget(row);
+        }
+
+        // The action button reads the spins + the active object's instance_id
+        // from the projection at click time. One controller call = one undo step.
+        // makeActionButton is always enabled; the group's own visibility (gated by
+        // refreshInspector on has_block_instance_selection) provides the real gate.
+        m_transformInstanceButton = makeActionButton(
+            QStringLiteral("transformInstanceButton"),
+            QStringLiteral("Transform Instance"),
+            [this]() {
+                const QVariantMap document = m_controller->modelDocument();
+                // Re-read instance_id at click time — it may have changed since
+                // the last refresh (user clicked a different object before clicking
+                // the button). Using the live document projection is safe here
+                // because this handler runs after the last modelChanged.
+                const QString instanceId = document.value(QStringLiteral("instance_id")).toString();
+                if (instanceId.isEmpty()) {
+                    return; // guard: button visible only for instances, but be safe
+                }
+                const double deltaRotDeg = m_instanceRotationSpin != nullptr
+                    ? m_instanceRotationSpin->value() : 0.0;
+                const double scaleFactor = m_instanceScaleSpin != nullptr
+                    ? m_instanceScaleSpin->value() : 1.0;
+                m_controller->transformBlockInstance(instanceId, deltaRotDeg, scaleFactor);
+            });
+        instanceFold.layout->addWidget(m_transformInstanceButton);
+        group->addWidget(makeCollapsibleSection(QStringLiteral("Block Instance"), instanceFold.box, true));
+    }
+
     // DM-10 region fill: a document-context action that arms a canvas pick. Region
     // fill needs no selected object (it is a "click inside a room" verb), so per the
     // settled fork it lives as an inspector action button in the document context —

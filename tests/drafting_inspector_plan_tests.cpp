@@ -65,13 +65,16 @@ int main()
     }
 
     // Every plain shape kind lands in the shared shape context.
+    // "block_instance" is always in the object_shape group list; refreshInspector
+    // adds a second projection-bool gate (has_block_instance_selection) to hide it
+    // for non-instance objects. Plan owns context; refresh owns the sub-gate.
     for (const DraftingShapeKind kind : {DraftingShapeKind::Point, DraftingShapeKind::Line,
                                          DraftingShapeKind::Rectangle, DraftingShapeKind::Circle,
                                          DraftingShapeKind::Arc, DraftingShapeKind::Polygon,
                                          DraftingShapeKind::Polyline}) {
         const DraftingInspectorPlan p = plan("select_move", true, kind);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"selection_summary", "style", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"selection_summary", "style", "geometry", "transform", "object_guides", "block_instance"}));
     }
 
     // Kind families with their own controls get their own contexts.
@@ -96,12 +99,12 @@ int main()
     {
         const DraftingInspectorPlan p = plan("regular_polygon_tool", true, DraftingShapeKind::Polygon);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"tool_polygon", "tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"tool_polygon", "tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides", "block_instance"}));
     }
     {
         const DraftingInspectorPlan p = plan("circle_tool", true, DraftingShapeKind::Circle);
         assert(p.contextId == "object_shape");
-        assert(sameGroups(p, {"tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides"}));
+        assert(sameGroups(p, {"tool_radius", "selection_summary", "style", "geometry", "transform", "object_guides", "block_instance"}));
     }
 
     // Selection wins over the document context even with the neutral tool.

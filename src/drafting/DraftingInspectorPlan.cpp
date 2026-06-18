@@ -17,7 +17,12 @@ const std::vector<ContextGroupsRow> &contextTable()
     static const std::vector<ContextGroupsRow> table = {
         // A drawable shape: identity, numeric geometry, transforms, and the
         // guide-creation helpers that act on the selection's bounds.
-        {"object_shape", {"selection_summary", "style", "geometry", "transform", "object_guides"}},
+        // "block_instance" is in this list so its container is visible
+        // whenever an object is selected; refreshInspector then adds a
+        // second gate on has_block_instance_selection to hide the group
+        // for non-instance objects. Two-gate pattern: plan owns context,
+        // refreshInspector owns the projection bool sub-gate.
+        {"object_shape", {"selection_summary", "style", "geometry", "transform", "object_guides", "block_instance"}},
         // Style shows only for kinds whose painter honors it: construction
         // lines and dimensions paint semantic palette colors by design, so
         // offering the controls there would store values nothing reads.

@@ -167,6 +167,16 @@ private:
     // placeBlockInstance consumes them. Defaults 0 deg / 1.0 keep identity placement.
     QDoubleSpinBox *m_blockRotationSpin = nullptr;
     QDoubleSpinBox *m_blockScaleSpin = nullptr;
+    // DM-15: inspector delta-transform spins for a selected placed instance.
+    // These are WRITE-ONLY-ON-CLICK deltas — they do not bind a controller setter;
+    // only transformInstanceButton reads them at click time. Defaulted to identity
+    // (0.0 deg / 1.0 scale) on build. No programmatic write-back: a refresh never
+    // touches them, so the group can never loop back into the controller.
+    QDoubleSpinBox *m_instanceRotationSpin = nullptr;
+    QDoubleSpinBox *m_instanceScaleSpin = nullptr;
+    // The transform button is stored so refreshInspector can gate it alongside the
+    // group — redundant when the group hides, but explicit for test discoverability.
+    QPushButton *m_transformInstanceButton = nullptr;
     BeltCrossWidget *m_beltWidget = nullptr;
     QSpinBox *m_polygonSidesSpin = nullptr;
     QCheckBox *m_aspectLockToggle = nullptr;

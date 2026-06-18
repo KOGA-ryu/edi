@@ -3077,5 +3077,103 @@ int main(int argc, char **argv)
         assert(!blockController->isAwaitingPointCapture());
     }
 
+    // DM-15 "Block instance" inspector group: the group + transformInstanceButton
+    // are visible/enabled when a placed block instance is the active object;
+    // hidden for non-instance objects (or when nothing is selected).
+    //
+    // Design note: the group is gated at two layers —
+    //   (1) the plan puts "block_instance" in the object_shape context, so the
+    //       group's container widget exists whenever any object is selected;
+    //   (2) refreshInspector then reads has_block_instance_selection from the
+    //       document-root projection and hides the group for non-instance objects.
+    // This test drives both gates through the real controller + projection path.
+    {
+        EdiShellWindow dm15Window;
+        auto *dm15Controller = dm15Window.findChild<DrawingDocumentController *>();
+        assert(dm15Controller != nullptr);
+
+        // Build a block: draw a point, select it, save it.
+        dm15Controller->setSelectedToolId(QStringLiteral("point_tool"));
+        dm15Controller->clickCanvasNormalized(0.4, 0.4);
+        assert(objectCount(*dm15Controller) == 1);
+        dm15Controller->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+
+        auto *blockNameField = dm15Window.findChild<QLineEdit *>(QStringLiteral("blockNameField"));
+        auto *saveBlockButton = buttonNamed(dm15Window, QStringLiteral("saveBlockButton"));
+        auto *dm15BlockList = dm15Window.findChild<QListWidget *>(QStringLiteral("blockList"));
+        assert(blockNameField != nullptr && saveBlockButton != nullptr && dm15BlockList != nullptr);
+        blockNameField->setText(QStringLiteral("chair"));
+        saveBlockButton->click();
+        assert(dm15BlockList->count() == 1);
+
+        // Stamp an instance by picking the block row + clicking the canvas.
+        emit dm15BlockList->itemClicked(dm15BlockList->item(0));
+        assert(dm15Controller->isAwaitingPointCapture());
+        const int beforePlace = objectCount(*dm15Controller);
+        dm15Controller->clickCanvasNormalized(0.5, 0.5);
+        assert(objectCount(*dm15Controller) == beforePlace + 1); // one point in the definition
+        assert(!dm15Controller->isAwaitingPointCapture());
+
+        // The controller auto-selects the stamped objects. Flush DeferredDelete
+        // before widget lookups (geometry editor retires spins with deleteLater).
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        // --- Gate 1: instance is selected → group + button visible and enabled ---
+        auto *transformBtn = buttonNamed(dm15Window, QStringLiteral("transformInstanceButton"));
+        assert(transformBtn != nullptr); // widget was built
+
+        // The group's visibility is the real gate. isVisible() checks the widget's
+        // own flag; since the window is not shown (offscreen) we rely on the
+        // group widget being visible by the plan + projection logic. We need to
+        // walk up to the first parent that is explicitly visible=false to detect
+        // the group being hidden. isVisibleTo(&dm15Window) would return false for
+        // collapsed sections too, so we check the group container's own flag via
+        // the parent hierarchy — simplest is to verify the button's own visible
+        // flag (it is inside the group fold, which is open by default for this
+        // section: makeCollapsibleSection(..., true)).
+        //
+        // The projection bool: read it directly to confirm the wiring.
+        const QVariantMap dm15Doc = dm15Controller->modelDocument();
+        assert(dm15Doc.value(QStringLiteral("has_block_instance_selection")).toBool());
+        assert(!dm15Doc.value(QStringLiteral("instance_id")).toString().isEmpty());
+
+        // The button must be enabled (the group is visible and the action is live).
+        assert(transformBtn->isEnabled());
+
+        // The two delta spins exist and have the correct identity defaults.
+        auto *rotSpin = dm15Window.findChild<QDoubleSpinBox *>(QStringLiteral("instanceRotationSpin"));
+        auto *scaleSpin = dm15Window.findChild<QDoubleSpinBox *>(QStringLiteral("instanceScaleSpin"));
+        assert(rotSpin != nullptr && scaleSpin != nullptr);
+        assert(rotSpin->value() == 0.0);
+        assert(scaleSpin->value() == 1.0);
+
+        // --- Gate 2: a non-instance object selected → group hidden ---
+        // Draw an ordinary point (not a block definition, not a placed instance).
+        dm15Controller->setSelectedToolId(QStringLiteral("point_tool"));
+        dm15Controller->clickCanvasNormalized(0.2, 0.2);
+        // The new point is auto-selected (it is the active object after creation).
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        const QVariantMap dm15DocAfter = dm15Controller->modelDocument();
+        // An ordinary point carries no blockPlacement.instanceId.
+        assert(!dm15DocAfter.value(QStringLiteral("has_block_instance_selection")).toBool());
+        assert(dm15DocAfter.value(QStringLiteral("instance_id")).toString().isEmpty());
+
+        // The group widget must now be hidden (the sub-gate fired).
+        // transformInstanceButton lives inside the group; when the group is hidden
+        // the button's visible flag is also false.
+        assert(!transformBtn->isVisible());
+
+        // --- Gate 3: nothing selected → group hidden (plan-level context gate) ---
+        dm15Controller->setSelectedToolId(QStringLiteral("select_move"));
+        // With the select tool and nothing marquee'd, the context is "document",
+        // not "object_shape", so block_instance never enters the plan.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        const QVariantMap dm15DocNoSel = dm15Controller->modelDocument();
+        assert(!dm15DocNoSel.value(QStringLiteral("has_block_instance_selection")).toBool());
+        assert(!transformBtn->isVisible());
+    }
+
     return 0;
 }

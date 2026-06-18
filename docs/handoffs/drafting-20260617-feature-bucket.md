@@ -41,6 +41,15 @@
   DR-08 replays on top. (My branch is "ahead" of the stale `origin/dept/drafting`, which
   we never push — edi-ui integrates the local branch.)
 
+## ⛔ HUB GUARD (fleet infra, 2026-06-17) — REBASE ONLY ONTO LOCAL `master`; NEVER origin/master
+**`origin/master` is STALE (`591e92c`).** `git fetch` + `git rebase origin/master` CORRUPTS the
+branch — it replays ~246 commits and DROPS the real integration (dungeon-map hit + recovered
+this). Until the hub sends ALL-CLEAR:
+- Builders rebase ONLY onto the **LOCAL `master` ref** (the real integration line, currently
+  `73c0832`): `git rebase master`. **Do NOT `git fetch`. Do NOT rebase `origin/master`.**
+- **EVERY slice brief to the builder must carry this guard.** (Our builders have used local
+  `master` all along — clean 2–9 commit replays, never 246 — so no corruption in this dept.)
+
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
 handoff doc (conflict-free, department-specific) + `bus-hub`. This kills the

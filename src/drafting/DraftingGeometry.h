@@ -38,7 +38,16 @@ Point2D translatePoint(Point2D point, double dx, double dy);
 bool translationHasEffect(double dx, double dy);
 double distance(Point2D a, Point2D b);
 double lineAngleDegrees(const LineGeometry &line);
+// Base-ray angle of a dimension: atan2(b − a) in degrees.
+// For all linear/radial kinds this IS the measured quantity; for Angular the
+// measured quantity is `offset` (the included angle), not the base-ray direction.
+// Use dimensionMeasuredAngle when you want the human-readable value.
 double dimensionAngleDegrees(const DimensionGeometry &dimension);
+// The angle that the user MEASURED: `offset` (included angle in degrees) for
+// Angular, otherwise `dimensionAngleDegrees` (the base-ray direction). This
+// keeps callers from accidentally displaying the repurposed `offset` field as a
+// standoff length for Angular dimensions.
+double dimensionMeasuredAngle(const DimensionGeometry &dimension);
 double displayedDimensionLength(double storedLength, DimensionKind kind);
 double storedDimensionLength(double displayedLength, DimensionKind kind);
 double area(const DraftingGeometry &geometry);

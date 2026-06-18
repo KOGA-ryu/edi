@@ -554,5 +554,41 @@ int main()
         assert(kDraftingDocumentVersion == 2); // additive — no bump
     }
 
+    // Angular dimension serialize round-trip (S4 / S7).
+    // The `"angular"` kind name was added to dimensionKindFromName; a/b/offset
+    // already serialize via the standard DimensionGeometry path.  Verify that
+    // kind + the repurposed offset (included angle in degrees) survive encode→decode.
+    {
+        DraftingDocument singleDoc;
+        singleDoc.id    = "angular-rt";
+        singleDoc.title = "Angular RT";
+        DraftingLayer layer;
+        layer.id   = "default";
+        layer.name = "default";
+        singleDoc.layers.push_back(layer);
+
+        DimensionGeometry angGeo;
+        angGeo.kind   = DimensionKind::Angular;
+        angGeo.a      = {0.0, 0.0};         // vertex
+        angGeo.b      = {0.1, 0.0};         // ray1 tip (kDefaultAngularArc along +X)
+        angGeo.offset = 90.0;               // 90° included angle
+
+        DraftingObject angObj;
+        angObj.id       = "ang-1";
+        angObj.kind     = DraftingShapeKind::Dimension;
+        angObj.geometry = angGeo;
+        // bounds is recomputed on decode (never stored) — leave default
+        angObj.layerId  = "default";
+        singleDoc.objects.push_back(angObj);
+
+        auto decoded = decodeDraftingDocument(encodeDraftingDocument(singleDoc), "angular-rt");
+        assert(decoded.ok);
+        const auto &roundTripped = std::get<DimensionGeometry>(decoded.value->objects[0].geometry);
+        assert(roundTripped.kind == DimensionKind::Angular);
+        assert(roundTripped.a.x == 0.0 && roundTripped.a.y == 0.0);
+        assert(roundTripped.b.x == 0.1 && roundTripped.b.y == 0.0);
+        assert(roundTripped.offset == 90.0);
+    }
+
     return 0;
 }

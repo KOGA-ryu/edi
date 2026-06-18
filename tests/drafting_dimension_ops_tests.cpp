@@ -1,4 +1,5 @@
 #include "drafting/DraftingDimensionOps.h"
+#include "drafting/DraftingGeometry.h"
 
 #include <cassert>
 #include <cmath>
@@ -71,6 +72,65 @@ int main()
         DimensionKind::Width);
     assert(!nonFinite.ok);
     assert(nonFinite.code == DraftingResultCode::InvalidGeometry);
+
+    // planDimensionKindChange → Angular must be rejected (S5): there is no
+    // lossless mapping from a linear dimension's a/b/offset to the angular
+    // vertex + two-ray + included-angle encoding.
+    auto toAngular = planDimensionKindChange(angled, DimensionKind::Angular);
+    assert(!toAngular.ok);
+    assert(toAngular.code == DraftingResultCode::InvalidSelectionTarget);
+
+    // planAngularDimension — perpendicular lines (S7 nominal case).
+    // l1 along +X, l2 along +Y; they cross at the origin.
+    // Expected: vertex = (0,0), ray1 tip = (0 + 0.1, 0) = (0.1, 0),
+    //           offset (included angle) ≈ 90°.
+    {
+        const LineGeometry l1{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry l2{{0.0, 0.0}, {0.0, 1.0}};
+        auto plan = planAngularDimension(l1, l2);
+        assert(plan.ok);
+        assert(plan.geometry.kind == DimensionKind::Angular);
+        assert(near(plan.geometry.a.x, 0.0) && near(plan.geometry.a.y, 0.0));
+        assert(near(plan.geometry.b.x, kDefaultAngularArc) && near(plan.geometry.b.y, 0.0));
+        assert(near(plan.geometry.offset, 90.0));
+    }
+
+    // Offset-origin: lines crossing off-origin still produce correct vertex.
+    // l1 horizontal at y=1, l2 vertical at x=2 → vertex = (2,1).
+    {
+        const LineGeometry l1{{0.0, 1.0}, {3.0, 1.0}};
+        const LineGeometry l2{{2.0, 0.0}, {2.0, 3.0}};
+        auto plan = planAngularDimension(l1, l2);
+        assert(plan.ok);
+        assert(near(plan.geometry.a.x, 2.0) && near(plan.geometry.a.y, 1.0));
+        assert(near(plan.geometry.offset, 90.0));
+    }
+
+    // Parallel lines must be rejected (S7).
+    {
+        const LineGeometry l1{{0.0, 0.0}, {1.0, 0.0}};
+        const LineGeometry l2{{0.0, 1.0}, {1.0, 1.0}};
+        auto plan = planAngularDimension(l1, l2);
+        assert(!plan.ok);
+        assert(plan.code == DraftingResultCode::InvalidSelectionTarget);
+    }
+
+    // dimensionMeasuredAngle (S3): Angular returns offset; linear returns
+    // the base-ray direction from dimensionAngleDegrees.
+    {
+        DimensionGeometry angDim;
+        angDim.kind   = DimensionKind::Angular;
+        angDim.a      = {0.0, 0.0};
+        angDim.b      = {0.1, 0.0};
+        angDim.offset = 45.0;
+        assert(near(dimensionMeasuredAngle(angDim), 45.0));
+
+        DimensionGeometry linDim{DimensionKind::Distance, {0.0, 0.0}, {1.0, 1.0}, 0.04};
+        assert(near(dimensionMeasuredAngle(linDim), 45.0)); // atan2(1,1)*180/π = 45°
+    }
+
+    // draftingDimensionKindFromId round-trip for "angular" (S1).
+    assert(draftingDimensionKindFromId("angular") == DimensionKind::Angular);
 
     return 0;
 }

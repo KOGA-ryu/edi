@@ -71,8 +71,20 @@ DraftingMotif is core-owned, name-keyed, FLATTEN-on-place — a deliberate twin 
 (hub-recorded). Place = fresh ordinary objects (new ids via m_nextObjectSerial), one
 CreateObjectsCommand = one undo.
 
+### M8-S1 audit — DONE 2026-06-17 — VERDICT: ACCEPT
+- Reply: `~/dept-bus/edi-drafting/replies/009-M8-S1-audit.md`. Persistent-format surface VERIFIED:
+  `motifs` encode/decode are exact inverses (reuse object codec; `bounds` derived, not
+  serialized); additive-tolerant, no version bump; capture excludes guides + resets
+  lock/visible + normalizes to (0,0); H2 clean (core struct, name-keyed, no id/assetRef);
+  `CreateMotifCommand` arm satisfies the static_assert; scope clean. The new `"motifs"` key is
+  safe to land in real `.edidraw` files.
+- **Non-blocking nit (deferred test-hardening):** the absent-`"motifs"`-key decode (old files →
+  empty motifs) is correct-by-inspection but only the empty-ARRAY case is directly tested. Add a
+  genuinely-absent-key serialize test — fold into the next builder touch (M8-S2 accept or a tiny
+  follow-up); NOT blocking (the additive-tolerance is the established wall_visual/plug pattern).
+
 ## Open questions / blockers
-- M8-S1 persistent-format audit in flight (backstop on the new `"motifs"` serialize key).
+- Deferred: harden the absent-`"motifs"`-key serialize test (non-blocking).
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

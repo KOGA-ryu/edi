@@ -32,4 +32,27 @@ DraftingDimensionPlan planDimensionKindChange(const DimensionGeometry &dimension
 // Rejects parallel / non-intersecting lines with InvalidSelectionTarget.
 DraftingDimensionPlan planAngularDimension(const LineGeometry &l1, const LineGeometry &l2);
 
+// Convenience planners that build a correct DimensionGeometry from a single
+// circle or arc pick — no new DimensionKind is introduced; each reuses an
+// existing kind with the right encoding.
+
+// Radius dimension for an arc: kind=Radius, a=center, b=midpoint on arc perimeter
+// (arcPointAtAngle at the mid-sweep angle), offset=0.04 (standoff).
+// Rejects zero or non-finite radius.
+DraftingDimensionPlan planRadialDimensionForArc(const ArcGeometry &arc);
+
+// Diameter dimension for a circle: kind=Diameter, a=center,
+// b=center+(radius,0) so stored |b−a|=radius while displayedDimensionLength
+// (kind=Diameter) doubles it to show the full diameter. offset=0.04.
+// Rejects zero or non-finite radius.
+DraftingDimensionPlan planRadialDimensionForCircle(const CircleGeometry &circle);
+
+// Arc-sweep dimension: reuses DimensionKind::Angular (DR-13 Candidate A encoding).
+//   a      = arc.center (vertex)
+//   b      = arcPointAtAngle(center, kDefaultAngularArc, startAngleDeg)  (ray1 tip)
+//   offset = arc.endAngleDeg − arc.startAngleDeg  (signed sweep in degrees)
+// dimensionMeasuredAngle of the result equals the arc's sweep angle.
+// Rejects zero/non-finite radius or zero sweep.
+DraftingDimensionPlan planArcSweepDimension(const ArcGeometry &arc);
+
 } // namespace edi::drafting

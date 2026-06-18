@@ -254,10 +254,22 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   the 3 keys; row→`selectConnection` wiring. Builder flagged: `cancelPendingCreation`
   does NOT clear `m_activeConnectionId` (Escape) — audit 028 checks if it's a gap.
 
-### Reviewer checkpoint audit of B2-CTX — DISPATCHED (parallel with 026)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/028-reviewer-b2ctx-audit.md`
-- Focus: no-regression to existing contexts, the mutual-exclusion invariant (12-site
-  clear completeness; the Escape gap), the 3 projection keys' cache-rebuild correctness.
+### Reviewer checkpoint audit of B2-CTX — 2026-06-17 — ISSUES FOUND (1 BUG, else clean)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/028-reviewer-b2ctx-audit.md`
+- Pure plan no-regression CLEAN; projection keys CLEAN; data-oriented/neutral CLEAN;
+  `m_activeConnectionId` not serialized (confirmed). `cancelPendingCreation` non-clear =
+  BENIGN (agree). contextId/groupId names provisional (edi-ui coord).
+- **BUG (medium-high):** `clickCanvasNormalized` `select_move` branch (`:3322-3329`) does
+  NOT clear `m_activeConnectionId` — the PRIMARY mouse-select path violates the mutual-
+  exclusion invariant. Click any object while a connection is selected → wrong (connection)
+  inspector; click a plug → BOTH bools true → `object_plug` hidden → **blocks future B2-3
+  door-type picker**. Green tests missed it (drove `selectObjectById`, not the canvas
+  click). *Fix:* one `m_activeConnectionId.clear()` at the top of `clickCanvasNormalized`
+  + a canvas-click test. **Must land before B2-3.**
+  - NOTE (record, don't gate): undo restoring an object selection while a connection is
+    selected is a narrow both-true corner (`m_activeConnectionId` not in snapshot).
+- → **Fix slice `029` written, QUEUED next after B2-4** (small; fixes the bug + unblocks
+  `object_plug`/B2-3). The reviewer-at-checkpoint earned its keep: green gate ≠ invariant.
 
 ### Builder slice 026 (B2-4 delete plug/connection + cascade) — DISPATCHED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/026-builder-b2-4-delete-cascade.md` (the

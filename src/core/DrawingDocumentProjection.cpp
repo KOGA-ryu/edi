@@ -795,8 +795,25 @@ QVariantMap draftingDocumentToModelProjection(
     // reads this to set DraftingInspectorInput::activeIsPlugAnchor so the inspector
     // plan picks the "object_plug" context instead of "object_shape".
     // plugAtAnchorObject returns std::optional<DraftingPlugId>; has_value() is the check.
-    const bool activeObjIsPlug =
-        activeObj && plugAtAnchorObject(document, activeObj->id).has_value();
+    const std::optional<DraftingPlugId> activePlugId =
+        activeObj ? plugAtAnchorObject(document, activeObj->id) : std::nullopt;
+    const bool activeObjIsPlug = activePlugId.has_value();
+    // Brief 037: active_plug_type — the current plug.type of the active plug anchor,
+    // so edi-ui's door-type picker can pre-select the right button without an extra
+    // round-trip. Derived by resolving plugId → index → .type; empty string when no
+    // plug is active (mirrors the empty-default convention used for all other keys).
+    // Two steps: plugAtAnchorObject gives us the DraftingPlugId, then plugIndexById
+    // gives the vector index so we can read .type directly — no linear scan on type.
+    const QString activePlugType = [&]() -> QString {
+        if (!activePlugId.has_value()) {
+            return {};
+        }
+        const auto idx = plugIndexById(document, *activePlugId);
+        if (!idx.has_value()) {
+            return {}; // defensive: plug record removed between anchor lookup and here
+        }
+        return qStringFromStdString(document.plugs[*idx].type);
+    }();
 
     QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
@@ -809,9 +826,12 @@ QVariantMap draftingDocumentToModelProjection(
         // revision like every other document projection key).
         {QStringLiteral("has_block_instance_selection"), !activeInstanceId.empty()},
         {QStringLiteral("instance_id"), qStringFromStdString(activeInstanceId)},
-        // B2-CTX active-object plug key: true when the active object is a plug anchor.
-        // The widget layer reads this to build DraftingInspectorInput::activeIsPlugAnchor.
+        // B2-CTX active-object plug keys: true/type when the active object is a plug anchor.
+        // The widget layer reads active_object_is_plug to build
+        // DraftingInspectorInput::activeIsPlugAnchor; edi-ui reads active_plug_type to
+        // pre-select the door-type picker (Brief 037).
         {QStringLiteral("active_object_is_plug"), activeObjIsPlug},
+        {QStringLiteral("active_plug_type"),      activePlugType},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},
         {QStringLiteral("guide_count"), guideCount},
         {QStringLiteral("visible_guide_count"), visibleGuideCount},

@@ -430,6 +430,8 @@ const char *draftingSnapSourceKindName(DraftingSnapSourceKind kind)
         return "tangent";
     case DraftingSnapSourceKind::Perpendicular:
         return "perpendicular";
+    case DraftingSnapSourceKind::Node:
+        return "node";
     }
     return "unknown";
 }
@@ -474,6 +476,19 @@ std::vector<DraftingSnapCandidate> snapCandidatesForObject(const DraftingObject 
     std::visit([&](const auto &geometry) {
         using Geometry = std::decay_t<decltype(geometry)>;
         if constexpr (std::is_same_v<Geometry, PointGeometry>) {
+            // A standalone Point carries two semantic snap kinds: Node (its own
+            // identity — a discrete geometry node) and Endpoint (for tools that
+            // treat any snappable point as a line-end anchor). Node is emitted
+            // FIRST so that Endpoint wins on a tie: nearestObjectSnap uses `<=`
+            // to update its best candidate, so the LAST equal-distance candidate
+            // wins. Emitting Node before Endpoint means when both flags are on,
+            // Endpoint shadows it — the existing snap tests see no change. When
+            // endpointEnabled=false but nodeEnabled=true (e.g. the user wants
+            // to snap to intersection nodes without catching all line ends), the
+            // Point still snaps as a semantic Node.
+            if (settings.nodeEnabled) {
+                addCandidate(candidates, object, geometry.point, DraftingSnapSourceKind::Node);
+            }
             if (settings.endpointEnabled) {
                 addCandidate(candidates, object, geometry.point, DraftingSnapSourceKind::Endpoint);
             }

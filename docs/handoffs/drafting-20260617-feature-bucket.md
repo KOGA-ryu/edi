@@ -420,9 +420,29 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - Fleet/ctx (resume duty): dept-status checked; my reviewer opus/183k OK, builder
   sonnet/fresh OK. (Researcher off-target but idle — converges at next use.)
 
+### DR-13 reviewer gate — SETTLED 2026-06-17 — Candidate A, no new field
+- Reply: `~/dept-bus/edi-drafting/replies/007-DR13-angular-representation.md`. **Representation
+  = Candidate A:** `a` = vertex V (`lineIntersection(l1,l2)` at plan time), `b` = point on
+  ray1 (`|b−a|` = arc radius), `offset` = signed included angle (deg) ray1→ray2 — repurposed
+  for Angular kind ONLY (doesn't corrupt other kinds). 5 dof exact; recoverable from
+  `{a,b,offset}` alone; round-trips verbatim. **"No new field" FEASIBLE — no hub fork
+  re-open.** B rejected (vertex unrecoverable). No version bump; old-reader degrades
+  angular→Distance (same additive-tolerance as prior kind adds, accepted).
+- **CROSS-DEPT SEAM FLAGGED to edi-ui** (coordination, not a fork): the canvas ARC painter
+  (`src/widgets/DrawingCanvas*`, edi-ui's file) must gain an Angular branch AND guard the
+  linear-dim painter from mis-drawing `offset`-as-angle — must land with/before Angular is
+  user-visible. DR-13 has no tool/controller wiring this slice, so no user-visible mis-render
+  ships now; the flag is for when edi-ui wires the tool + arc.
+
+### DR-13 core — builder BRIEFED 2026-06-17 (Sonnet, S1–S7)
+- Brief: `~/dept-bus/edi-drafting/briefs/028-DR13-angular-core-builder.md`. The 7 settled
+  core slices (enum+kind maps, planAngularDimension, dimensionMeasuredAngle, serialize
+  round-trip, reject kind-change-to-Angular, projection/inspector guard, op tests). Painter
+  arc + measurement-text formatting explicitly OUT. Builder sonnet/on-target/low-ctx (no cycle).
+
 ## Open questions / blockers
-- DR-13 angular-dimension REPRESENTATION under reviewer gate — may surface that "no new
-  DimensionGeometry field" is infeasible (→ a scope escalation to re-open the ratified fork).
+- DR-13 painter ARC is an edi-ui seam (flagged) — must accompany the eventual Angular
+  tool/controller wiring or the render breaks. Not blocking the core slices.
 - DR-11+fix+DR-12 (tip `e111398`) verified, await edi-ui pull (non-blocking).
 
 ## Next

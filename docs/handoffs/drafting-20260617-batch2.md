@@ -83,8 +83,33 @@ CreateObjectsCommand = one undo.
   genuinely-absent-key serialize test — fold into the next builder touch (M8-S2 accept or a tiny
   follow-up); NOT blocking (the additive-tolerance is the established wall_visual/plug pattern).
 
+### M8-S2 — CLOSED 2026-06-17 ✅ (SHA `c566987`, GREEN 103/103) → M8 COMPLETE
+- Reply: `~/dept-bus/edi-drafting/replies/036-M8-S2-motif-place-builder.md`. `placeMotif` FLATTEN
+  (fresh ids, no back-ref, translate motif (0,0)→point), `defineMotifFromSelection` +
+  `MotifPlacement` intent + `beginMotifPlacement`/`runMotifAtPoint`, one `CreateObjectsCommand` =
+  one undo. Mirrors the validated array/capture pattern. Accepted inline. Reported `c566987` to edi-ui.
+- **M8 COMPLETE** (S1+S2). Closeout: `docs/closeouts/drafting-motif-library.md`. S3
+  transform-on-place DEFERRED behind the fork (decide after v1 translate-only is in use; UX is
+  edi-ui's). M8-S1 merged @`fa8afb2`.
+
+### DR-13 follow-up — AngularDimension TOOL KIND + two-line-pick arm — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/037-DR13-angular-tool-arm-builder.md`. edi-ui surfaced a
+  cross-dept gap (`replies/037-...`): DR-13 core shipped but the TOOL path is incomplete —
+  `DraftingToolKind::AngularDimension` + the two-line-pick controller arm (→ `planAngularDimension`)
+  are MINE (I'd over-deferred them as "tool wiring"). edi-ui's belt cell + combo are merged
+  (`c498c9c`), waiting on this arm. PRIORITY over M2 (completes already-chromed work). Mirrors the
+  fillet two-line capture. Builder told to STOP-ask if the tool-dispatch hook is ambiguous.
+
+### M2 — materialize intersections (drop points where lines cross) — QUEUED next
+- Confirmed genuinely NEW (DR-02 added the intersection SNAP source; M2 materializes Point
+  OBJECTS at crossings — a create op). 3 slices (op / command+verb / Node snap source). dep:none.
+  Queue AFTER the DR-13 arm (single builder). NB: roadmap M3/M5/M6/M7 OVERLAP the DR bucket
+  (already done: DR-05/06, DR-10/11, DR-07/08/09, DR-13/14) — M2 is the next genuinely-new item;
+  M4's tangent-circle (Apollonius) stays parked.
+
 ## Open questions / blockers
-- Deferred: harden the absent-`"motifs"`-key serialize test (non-blocking).
+- DR-13 angular TOOL arm in flight (unblocks edi-ui's merged Angular chrome). M2 queued next.
+- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test.
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

@@ -68,9 +68,30 @@ the stale arch §6 "only twisted_column on disk" → three craftsmen + the autho
 link. The param.type default mismatch (C++ "text" vs Python "number") stays §10 candidate
 #5 (LOW, unreachable in practice; the doc now tells authors to always declare `type`).
 
-## Next (PAUSED — hub context swap; do not scoop until resumed)
-- **DONE this batch-2 so far:** RD3 (craftsmen doc `09cb3bb`), P1 (warning + manifold
-  `730f6bc`), P2 (boolean dedup `8ae59f3`). All on `dept/blender-lab`, green.
-- **RESUME AT:** P3 (watertight helix) — see its gate-log entry. Then P4 per-axis taper,
-  RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard geometry, P7 bounds tightness.
-- No worker in flight. Branch green. Awaiting fresh hub session.
+## RESUMED 2026-06-17 (fresh hub session, full fleet live)
+- **Merged + rebased:** edi-ui merged my full batch (feature batch + batch-2 P1/P2/RD3) to
+  master `88452bb` (HEAD `f8bed78` after a drafting merge). Rebased dept/blender-lab onto
+  master ref → branch == master (`ef9bf0a`, 0 ahead). edi-gate GREEN (101/101 + scan).
+- **New toolbelt in use:** `edi-gate` (build+ctest+scan), `bus-reply`/`bus-next`,
+  `dept-cycle`/`dept-status`/`bus-ctx`. Model tiering: builder/researcher Sonnet,
+  planner/reviewer Opus.
+- **Recycled at this boundary:** builder (was 682k/opus + stale brief 030) and researcher
+  (idle/opus) both dept-cycled → Sonnet, fresh context.
+
+## Next
+- **DONE batch-2:** RD3 craftsmen doc, P1 warning+manifold, P2 boolean dedup — all on master.
+### P3 — SHIPPED 2026-06-17 (`707bc06`, Sonnet; Opus audit `replies/031`: SHIP)
+Helix closed into a genuine watertight 2-manifold. Reviewer re-derived manifoldness across
+12 configs (turns×nprof×sign, incl. nprof=4 + 1-turn) — all closed; screw_rise=0 byte path
+untouched (4 goldens clean); lift intact; smoke helper honest. **Reviewer found** (NOT a P3
+regression): 18 inverted-winding edges — a PRE-EXISTING property of BL-06's axis-spine
+closure that P3 mirrors; cosmetic (OBJ proof has no normals; bpy recalcs). → **P3b** queued.
+
+### P3b — winding + orientation assert (reviewer-recommended, NEW)
+Reverse the outer-surface quad winding in BOTH the partial-revolve (BL-06) AND helix (P3)
+axis-spine closures so each is a properly ORIENTED boundary; extend `assert_manifold` with a
+directed-edge orientation check (every undirected edge traversed once each direction) +
+apply it. No committed golden uses a partial-revolve or helix → 4 goldens stay byte-identical
+(winding changes only smoke-pinned meshes). Small, localized.
+- Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
+  geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.

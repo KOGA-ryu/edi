@@ -633,20 +633,63 @@ def moulding_rings(op: dict) -> tuple[list, list]:
         steps = max(4, int(round(vertices * screw_turns)))  # angular segments over the whole helix
         total = math.tau * screw_turns
         nprof = nrings
+
+        # Arc verts: (steps+1) rings × nprof profile points each.
+        # Vert layout: j * nprof + i  (j=angular step, i=profile point index).
         for j in range(steps + 1):
             angle = total * j / steps
             lift = screw_rise * (angle / math.tau)  # rise per FULL turn (tau)
             for point in op["profile"]:
                 rr = max(0.001, point["radius"])
                 verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"] + lift))
-        # The swept skin: quads spanning the profile direction (i) and the helix
-        # direction (j). An open ribbon — the thread surface — well-formed (no
-        # degenerate faces); end caps are a future refinement.
+
+        # Axis spine: one center vertex per step j, sitting on the rotation axis
+        # at the helix's progressive z-lift.  These verts give the inner and
+        # outer caps a shared spine to fan against — the same role axis_base
+        # plays in the partial-revolve branch.  A 2-manifold solid requires that
+        # EVERY undirected edge bounds exactly 2 faces; without this spine the
+        # inner and outer helical tracks (i=0 and i=nprof-1) are open boundaries
+        # each shared by only 1 face.
+        axis_base = (steps + 1) * nprof
+        for j in range(steps + 1):
+            angle = total * j / steps
+            lift = screw_rise * (angle / math.tau)
+            verts.append((0.0, 0.0, lift))
+
+        # Swept skin: quads spanning profile (i) × helix-step (j).
         for j in range(steps):
             cur = j * nprof
             nxt = (j + 1) * nprof
             for i in range(nprof - 1):
                 faces.append([cur + i, cur + i + 1, nxt + i + 1, nxt + i])
+
+        # Inner surface: seal the inner helical track (i=0) by bridging it to
+        # the axis spine with one quad per step.  Adjacent quads share their
+        # "right" edge with the next quad's "left" edge, so all intermediate
+        # axis-to-arc edges are counted twice; only the j=0 and j=steps
+        # endpoint edges need the caps below to reach count 2.
+        for j in range(steps):
+            faces.append([j * nprof, (j + 1) * nprof,
+                          axis_base + j + 1, axis_base + j])
+
+        # Outer surface: same logic for the outer helical track (i=nprof-1).
+        # The axis spine edge (axis_base+j, axis_base+j+1) is shared between
+        # the inner quad and this outer quad for the same j, reaching count 2.
+        for j in range(steps):
+            faces.append([j * nprof + nprof - 1, (j + 1) * nprof + nprof - 1,
+                          axis_base + j + 1, axis_base + j])
+
+        # Start cap (j=0): close the entry face of the helix.  Fan the start
+        # profile cross-section (verts 0..nprof-1) and the start axis center
+        # (axis_base) into one polygon — profile traversed outer→inner so the
+        # face normal points away from the solid (left-hand rule, looking toward
+        # angle=0 from outside).
+        faces.append(list(range(nprof - 1, -1, -1)) + [axis_base])
+
+        # End cap (j=steps): close the exit face.  Profile traversed inner→outer
+        # (opposite winding from start cap so the normal again faces outward).
+        faces.append(list(range(steps * nprof, (steps + 1) * nprof)) + [axis_base + steps])
+
         return verts, faces
 
     if sweep >= 360.0:

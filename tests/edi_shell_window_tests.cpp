@@ -1215,7 +1215,12 @@ int main(int argc, char **argv)
         assert(summary->text().contains(QStringLiteral("0 rooms")));
         auto *mapList = shell.findChild<QListWidget *>(QStringLiteral("mapBrowserList"));
         assert(mapList != nullptr);
-        assert(mapList->count() == 0);
+        // An empty document still shows the two STRUCTURAL section headers (Plugs,
+        // Connections) — they are part of the browser's fixed shape, not content,
+        // so the readout always announces its sections even when graph-empty.
+        assert(mapList->count() == 2);
+        assert(mapList->item(0)->text() == QStringLiteral("── Plugs ──"));
+        assert(mapList->item(1)->text() == QStringLiteral("── Connections ──"));
 
         // The browser is LIVE: author a tiny two-room graph and the summary +
         // list re-project on modelChanged (the connection bound to the panel).
@@ -1230,13 +1235,16 @@ int main(int argc, char **argv)
         roomA.spec.origin = {0.0, 0.0};
         roomA.spec.width = 8.0;
         roomA.spec.height = 6.0;
-        roomA.spec.plugs.push_back({edi::drafting::RoomEdge::East, 3.0, "to_b", ""});
+        // Give the east plug a neutral type + open-vocabulary flags so the browser
+        // must render the trailing flags run (DM-04/06 display shape).
+        roomA.spec.plugs.push_back({edi::drafting::RoomEdge::East, 3.0, "to_b", "door",
+                                    {"window", "passes_light"}});
         edi::drafting::NamedRoomSpec roomB;
         roomB.name = "b";
         roomB.spec.origin = {12.0, 0.0};
         roomB.spec.width = 8.0;
         roomB.spec.height = 6.0;
-        roomB.spec.plugs.push_back({edi::drafting::RoomEdge::West, 3.0, "to_a", ""});
+        roomB.spec.plugs.push_back({edi::drafting::RoomEdge::West, 3.0, "to_a", "", {}});
         spec.rooms = {roomA, roomB};
         spec.connections.push_back({{"a", "to_b"}, {"b", "to_a"}, "corridor"});
         // Author at 0.25 canvas-per-authored-unit so the browser must DIVIDE to
@@ -1245,9 +1253,51 @@ int main(int argc, char **argv)
         assert(mapController->createMapFromSpec(spec, 0.25));
         assert(summary->text().contains(QStringLiteral("2 rooms")));
         assert(summary->text().contains(QStringLiteral("1 connection"))); // pluralized: singular
-        assert(mapList->count() == 3); // two room rows + one connection row
+        assert(summary->text().contains(QStringLiteral("2 plugs")));
+        // Rows: 2 rooms + "── Plugs ──" + 2 plug rows + "── Connections ──" + 1 conn.
+        assert(mapList->count() == 7);
         assert(mapList->item(0)->text().contains(QStringLiteral("32"))); // 8 / 0.25 authored
         assert(mapList->item(0)->text().contains(QStringLiteral("24"))); // 6 / 0.25 authored
+
+        // Collect the list rows by their leading symbol so the assertions don't
+        // depend on the exact interleave order beyond the documented sectioning.
+        QString plugsHeader;
+        QString connectionsHeader;
+        QStringList plugRows;
+        QStringList connectionRows;
+        for (int i = 0; i < mapList->count(); ++i) {
+            const QString text = mapList->item(i)->text();
+            if (text == QStringLiteral("── Plugs ──")) {
+                plugsHeader = text;
+            } else if (text == QStringLiteral("── Connections ──")) {
+                connectionsHeader = text;
+            } else if (text.startsWith(QStringLiteral("◦"))) {
+                plugRows << text;
+            } else if (text.startsWith(QStringLiteral("⟷"))) {
+                connectionRows << text;
+            }
+        }
+        assert(!plugsHeader.isEmpty());
+        assert(!connectionsHeader.isEmpty());
+        assert(plugRows.size() == 2);
+        assert(connectionRows.size() == 1);
+
+        // The east plug (a.to_b) sits on the room's E edge, is named by a
+        // connection (linked), and carries its two flags in a `·`-joined bracket.
+        QString eastRow;
+        for (const QString &row : plugRows) {
+            if (row.contains(QStringLiteral("to_b"))) {
+                eastRow = row;
+            }
+        }
+        assert(!eastRow.isEmpty());
+        assert(eastRow.contains(QStringLiteral("door")));     // neutral type
+        assert(eastRow.contains(QStringLiteral("· E ·")));    // derived edge
+        assert(eastRow.contains(QStringLiteral("linked")));   // named by a connection
+        assert(eastRow.contains(QStringLiteral("[window · passes_light]"))); // flags run
+
+        // The connection row shows its neutral role type ("corridor").
+        assert(connectionRows.front().contains(QStringLiteral("corridor")));
 
         // The switch is reversible; the id tracks the rail and the browser is
         // torn down (its modelChanged connection dies with it).

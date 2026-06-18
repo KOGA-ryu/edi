@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "core/DrawingCore.h"
+#include "drafting/DraftingMapQuery.h" // deriveEdge / plugIsConnected — shared with MapToonExport so the browser and TOON never drift (DM-11)
 #include "recipe/RecipeCraftsmen.h"
 #include "recipe/RecipeOpsAscii.h"
 #include "recipe/RecipeOpsBind.h"
@@ -756,8 +757,60 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
             }
             return QString::fromStdString(id);
         };
+
+        // --- Plugs section (DM-11) ------------------------------------------
+        // The plug's edge is NOT stored — derive it read-only the SAME way the
+        // TOON export does (deriveEdge over the plug's room footprint), through
+        // the shared DraftingMapQuery helper so the two views can never disagree.
+        // A plug names its room as the "room.plug" prefix of plug.name; find that
+        // room to pick the nearest side. No room (or no '.' prefix) → "?".
+        const auto findRoom = [&doc](const std::string &name) -> const edi::drafting::DraftingMapRoom * {
+            for (const edi::drafting::DraftingMapRoom &room : doc.rooms) {
+                if (room.name == name) {
+                    return &room;
+                }
+            }
+            return nullptr;
+        };
+        list->addItem(QStringLiteral("── Plugs ──"));
+        for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
+            const QString name = plug.name.empty() ? QString::fromStdString(plug.id)
+                                                   : QString::fromStdString(plug.name);
+            // Resolve the room from the "room.plug" prefix (mirrors MapToonExport's
+            // splitRoomPlug); the edge falls back to "?" when unresolvable.
+            QString edge = QStringLiteral("?");
+            const std::size_t dot = plug.name.find('.');
+            const std::string roomName = dot == std::string::npos ? plug.name : plug.name.substr(0, dot);
+            if (const edi::drafting::DraftingMapRoom *room = findRoom(roomName)) {
+                edge = QString::fromStdString(edi::drafting::deriveEdge(*room, plug.anchor));
+            }
+            const QString type = plug.type.empty() ? QStringLiteral("door") : QString::fromStdString(plug.type);
+            const bool connected = edi::drafting::plugIsConnected(doc.connections, plug.id);
+            QString row = QStringLiteral("◦ %1   %2 · %3 · %4")
+                              .arg(name, type, edge,
+                                   connected ? QStringLiteral("linked") : QStringLiteral("unlinked"));
+            // Flags are an OPEN vocabulary (DM-04): show them verbatim as a
+            // `·`-joined run in brackets, omitted entirely when empty (Fork 2).
+            if (!plug.flags.empty()) {
+                QStringList flagTokens;
+                flagTokens.reserve(static_cast<int>(plug.flags.size()));
+                for (const std::string &flag : plug.flags) {
+                    flagTokens << QString::fromStdString(flag);
+                }
+                row += QStringLiteral("   [%1]").arg(flagTokens.join(QStringLiteral(" · ")));
+            }
+            list->addItem(row);
+        }
+
+        // --- Connections section (DM-11) ------------------------------------
+        list->addItem(QStringLiteral("── Connections ──"));
         for (const edi::drafting::DraftingDeclaredConnection &conn : doc.connections) {
-            list->addItem(QStringLiteral("⟷ %1 ↔ %2").arg(plugLabel(conn.plugA), plugLabel(conn.plugB)));
+            QString row = QStringLiteral("⟷ %1 ↔ %2").arg(plugLabel(conn.plugA), plugLabel(conn.plugB));
+            // The neutral role tag is optional — show it only when authored.
+            if (!conn.type.empty()) {
+                row += QStringLiteral("   %1").arg(QString::fromStdString(conn.type));
+            }
+            list->addItem(row);
         }
     };
     refresh();

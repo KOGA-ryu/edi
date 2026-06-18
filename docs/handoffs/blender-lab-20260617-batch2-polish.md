@@ -95,10 +95,12 @@ partial revolve + helix; both pass. edi-gate GREEN (102/102), 4 goldens byte-ide
 the 18-edge analysis. Accepted on green gate + spot-check. **P3 closure family now both
 watertight AND oriented, locked by asserts.**
 
-## REBASE GUARD (standing, hub fleet-infra)
-origin/master is STALE/frozen. Rebase ONLY onto LOCAL `master` ref (no `git fetch`, never
-origin/master). In EVERY slice brief. Local master is the real line (73c0832 → 1a9a7df (P3)
-→ 2473a84 (P3b) → 70aae99 (DR-01..15 + more); rebase onto whatever it currently is).
+## REBASE PRACTICE (standing) — ALL-CLEAR 2026-06-17: origin reconciled (17c716a)
+The stale-origin corruption trap is GONE (origin fast-forwarded to the real line; now a
+current backup). **Practice UNCHANGED: rebase onto LOCAL `master` ref (planner-synced, always
+current) — `git rebase master`, no `git fetch` needed.** The action is identical; only the
+rationale changed (local master is the current line, not "origin is dangerous"). Local master
+has advanced through every merge (…→ 2878803 (RD1) → fa8afb2 (P4+P4b) → … rebase onto current).
 
 ## AUTONOMOUS run (user call) — run the queue ahead; bus-hub only on milestones
 ### P4 — SHIPPED 2026-06-17 (`2d2f02b`, Sonnet; spot-check)
@@ -152,7 +154,17 @@ single-segment (scale 1.0); straight paths byte-identical. Refusal `prism_sweep_
 when `|t_in+t_out| < 0.5` (miter_scale > 4 = SVG miterlimit). **GOLDEN FLAG: swept_profile's path
 has a 90° corner → P5 WILL change `swept_profile.obj` (miter_scale √2) — builder regenerates it.**
 
+### P6 — builder done (Sonnet); reviewer audit OPEN (`briefs/041`)
+Replaced `_inset_polygon` with edge-offset-then-intersect + refuse(None)/fallback + the
+`prism_inset_reflex_pinch` validate guard. **Builder CAUGHT + corrected a sign-flip typo in the
+research formula** (denom). edi-gate 103/103, 4 OBJ goldens byte-identical (inset=0 identity).
+Riskiest geometry + a corrected formula → full Opus audit before merge.
+
+### P7 — builder briefed (`briefs/042`) — runs WHILE P6 is audited (independent: bounds_of, not
+the inset/miter mesh). Tighten `bounds_of` for helix (z-lift) + swept prism (path extent). OBJ
+goldens unaffected (bounds_of is preview-framing, not obj_lines).
+
 ## Next (autonomous)
-- P6 (non-convex inset) in flight → **P5 (sweep miter, research-ready, regen swept_profile.obj)**
-  → P7 (bounds tightness) → batch-2 CLOSEOUT. Reviewer free for the P6 geometry audit when it
-  lands. Rebase LOCAL master; bus edi-ui green tips.
+- P6 audit (reviewer) + P7 (builder) in PARALLEL → then **P5 (sweep miter, on VERIFIED P6;
+  research-ready; regen swept_profile.obj)** → batch-2 CLOSEOUT. P5 stacks on P6 (same
+  `_swept_prism_world`) so it waits for P6's audit. Rebase LOCAL master; bus edi-ui green tips.

@@ -2274,5 +2274,72 @@ int main()
         assert(sameText.find("recipe.") == std::string::npos);
     }
 
+    // ---- P5: prism_sweep_corner_too_sharp — validate guard on the sweep path
+    // of an AddPrism (the lowered sweep carrier). The bisector miter frame works
+    // well for turn angles up to ~151°; beyond that the miter_scale = 2/|b|
+    // exceeds 4.0 (the SVG stroke-miterlimit=4 default) and the cross-section
+    // spike becomes a rendering defect. The guard uses the SAME |b| = |t_in+t_out|
+    // quantity that _swept_prism_world computes, so the validate threshold and
+    // the Python clamp (min(2/bl, 10)) are consistent.
+    //
+    // Geometry of |b|: for a turn of α (= the exterior angle, measured from
+    // the straight-ahead direction), t_in+t_out has magnitude 2·cos(α/2).
+    // At α=0 (straight): |b|=2, miter_scale=1. At α=90°: |b|=√2≈1.41.
+    // At α=151°: |b|≈0.5, miter_scale=4 — the threshold.
+    // At α=180° (U-turn): |b|=0, scale→∞ — the hard failure.
+    {
+        // Shared helper: does a validation report carry a specific finding code?
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == code) return true;
+            }
+            return false;
+        };
+
+        // A minimal, valid footprint for all path tests below.
+        const std::vector<PrismPoint> tri = {{0.0, 0.0}, {1.0, 0.0}, {0.5, 1.0}};
+
+        // ---- Near-hairpin path: almost a U-turn, well above the 151° threshold.
+        // path (0,0) → (1,0) → (0,0.01):
+        //   t_in = (1,0),  t_out ≈ (-0.9999, 0.01) (almost left)
+        //   b = t_in+t_out ≈ (0.0001, 0.01),  |b| ≈ 0.01 << 0.5 → fires. ----
+        AddPrismOp hairpin;
+        hairpin.name = "hairpin";
+        hairpin.footprint = tri;
+        hairpin.path = {{0.0, 0.0}, {1.0, 0.0}, {0.0, 0.01}}; // ≈180° turn
+        assert(sawCode(validateRecipeOps({RecipeOp{hairpin}}), "prism_sweep_corner_too_sharp"));
+        // The finding should be an Error, not just a warning.
+        for (const OpFinding &f : validateRecipeOps({RecipeOp{hairpin}}).findings) {
+            if (f.code == "prism_sweep_corner_too_sharp") {
+                assert(f.severity == OpFinding::Severity::Error);
+            }
+        }
+
+        // ---- Gentle corner: 90° (the swept_profile sample's corner at (4,0)).
+        // t_in=(1,0), t_out=(0,1) → b=(1,1), |b|=√2≈1.414 >> 0.5 → passes. ----
+        AddPrismOp right90;
+        right90.name = "right90";
+        right90.footprint = tri;
+        right90.path = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 3.0}}; // the swept_profile path
+        assert(!sawCode(validateRecipeOps({RecipeOp{right90}}), "prism_sweep_corner_too_sharp"));
+        assert(validateRecipeOps({RecipeOp{right90}}).ok);
+
+        // ---- Two-point path (no interior point): can't fire, never enters the
+        // loop. A straight two-segment extrude should validate clean. ----
+        AddPrismOp straight;
+        straight.name = "straight";
+        straight.footprint = tri;
+        straight.path = {{0.0, 0.0}, {5.0, 0.0}}; // single segment, no interior point
+        assert(!sawCode(validateRecipeOps({RecipeOp{straight}}), "prism_sweep_corner_too_sharp"));
+
+        // ---- Empty path (a straight extrude without a swept path): the guard
+        // is only checked when path.size() >= 3, so an empty path does not fire. ----
+        AddPrismOp noPath;
+        noPath.name = "no_path";
+        noPath.footprint = tri;
+        noPath.height = 2.0; // empty path → needs a height
+        assert(!sawCode(validateRecipeOps({RecipeOp{noPath}}), "prism_sweep_corner_too_sharp"));
+    }
+
     return 0;
 }

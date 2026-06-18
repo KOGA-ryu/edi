@@ -1934,6 +1934,55 @@ bool DrawingDocumentController::runMotifAtPoint(Point2D point)
     return true;
 }
 
+void DrawingDocumentController::applyAngularDimensionAtPoint(Point2D point)
+{
+    // Resolve the stored first-line by id — the pointer from the first click is gone.
+    const DraftingObject *line1Obj = findObject(m_document, m_pendingAngularFirstLineId);
+    if (line1Obj == nullptr || line1Obj->kind != DraftingShapeKind::Line) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   DraftingResultCode::InvalidSelectionTarget,
+                   QStringLiteral("first line is no longer in the document"));
+        return;
+    }
+    const auto *line1 = std::get_if<LineGeometry>(&line1Obj->geometry);
+    if (line1 == nullptr) { return; } // should not happen; line1Obj->kind == Line
+
+    // Hit-test the second click for a Line (any Line in the document).
+    const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+    const DraftingObject *line2Obj = hit.ok ? findObject(m_document, hit.objectId) : nullptr;
+    if (line2Obj == nullptr || line2Obj->kind != DraftingShapeKind::Line) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   DraftingResultCode::InvalidSelectionTarget,
+                   QStringLiteral("click on a second line to complete the angular dimension"));
+        return;
+    }
+    const auto *line2 = std::get_if<LineGeometry>(&line2Obj->geometry);
+    if (line2 == nullptr) { return; }
+
+    // Plan the Angular dimension. Rejects parallel lines (no intersection).
+    const DraftingDimensionPlan plan = planAngularDimension(*line1, *line2);
+    if (!plan.ok) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   plan.code, drawing_core::qStringFromStdString(plan.message));
+        return;
+    }
+
+    // Mint the dimension id and build the DraftingObject. Capture ids/geometry
+    // BEFORE the first applyDraftingCommand invalidates pointers into m_document.objects.
+    const QString dimId = nextObjectId(QStringLiteral("dim"), m_nextObjectSerial++);
+    DraftingObject dim = makeDraftingObject(toStdString(dimId), DraftingShapeKind::Dimension,
+                                            DraftingGeometry{plan.geometry});
+    dim.layerId = line1Obj->layerId; // inherit the first line's layer
+    dim.bounds  = computeBounds(dim.geometry);
+    dim.metadata.toolProvenance = "angular_dimension";
+
+    beginEdit();
+    applyDraftingCommand(m_document, CreateObjectCommand{dim});
+    applyDraftingCommand(m_document, SelectObjectCommand{dim.id});
+    commitEdit();
+    emit modelChanged();
+}
+
 bool DrawingDocumentController::beginRegionFillPick()
 {
     // Require a target up front, exactly like beginBlockInstancePick: with no rooms,
@@ -2572,6 +2621,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::MotifPlacement:
         runMotifAtPoint(point);
+        break;
+    case PointCaptureIntent::AngularDimensionSecondLine:
+        applyAngularDimensionAtPoint(point);
         break;
     case PointCaptureIntent::RegionFill:
         fillEnclosedRegion(point);
@@ -3435,6 +3487,29 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         } else {
             emit pointerChanged();
         }
+        return;
+    }
+
+    // Angular dimension: two-line-pick, NOT a drag.  First click hit-tests for a
+    // Line; if found, store its id and arm the second-line capture.  This must be
+    // checked BEFORE the two-click drag fallback so AngularDimension never sets a
+    // m_pendingCreation (which would try buildDraftingObjectForTool on the second click).
+    if (kind == DraftingToolKind::AngularDimension) {
+        const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+        const DraftingObject *hitObj = hit.ok ? findObject(m_document, hit.objectId) : nullptr;
+        if (hitObj == nullptr || hitObj->kind != DraftingShapeKind::Line) {
+            commitEdit();
+            finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                       DraftingResultCode::InvalidSelectionTarget,
+                       QStringLiteral("click on a line to start an angular dimension"));
+            return;
+        }
+        // Capture the id by value — the pointer is invalidated by any future mutation.
+        m_pendingAngularFirstLineId = hitObj->id;
+        m_pointCapture = PendingPointCapture{PointCaptureIntent::AngularDimensionSecondLine,
+                                             QStringLiteral("Click the second line")};
+        commitEdit(); // harmless empty edit bracket
+        emit pointerChanged();
         return;
     }
 

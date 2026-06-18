@@ -54,6 +54,8 @@ enum class PointCaptureIntent {
                       // in m_pendingConnectionPlugA, the same cross-click idiom as
                       // m_pendingBlockId for BlockInstance.
     MotifPlacement,   // click FLATTEN-drops the armed motif at that point (M8-S2)
+    AngularDimensionSecondLine, // DR-13 arm: first Line stored; click picks the second
+                                // Line → planAngularDimension → CreateObjectCommand
 };
 
 struct PendingPointCapture {
@@ -488,6 +490,9 @@ private:
     // M8-S2: FLATTEN-drop the armed motif at the captured point. Called from
     // resolvePointCapture; private because the public entry is beginMotifPlacement.
     bool runMotifAtPoint(edi::drafting::Point2D point);
+    // DR-13: second-line pick for the angular-dimension two-click arm. Called from
+    // resolvePointCapture; the first line id is in m_pendingAngularFirstLineId.
+    void applyAngularDimensionAtPoint(edi::drafting::Point2D point);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);
@@ -553,6 +558,10 @@ private:
     // (M8-S2). Stored by name (not pointer) so a concurrent document mutation cannot
     // invalidate it across the arm→click gap — same idiom as m_pendingBlockId.
     QString m_pendingMotifName;
+    // DR-13 angular-dimension two-line-pick: the first line clicked is stored by id
+    // (not pointer — pointers into m_document.objects can be invalidated by any command
+    // that appends/erases). The second click resolves it and calls planAngularDimension.
+    edi::drafting::DraftingObjectId m_pendingAngularFirstLineId;
     // The first plug id stored mid-two-click while a PlugConnect capture is armed.
     // Empty = awaiting the first click. Mirrors m_pendingBlockId: controller member
     // carrying state across the arm→first-click→second-click gap without widening

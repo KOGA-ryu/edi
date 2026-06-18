@@ -4951,5 +4951,108 @@ int main(int argc, char **argv)
         assert(objectCount(motifCtl) == beforePlace);
     }
 
+    // DR-13: angular_dimension_tool — two-line-pick arm
+    // Mirrors the fillet test: click a line → arm capture; click second line →
+    // planAngularDimension → one Dimension object created in one undo step.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+
+        // Nominal: two perpendicular lines → Angular dimension created.
+        {
+            DrawingDocumentController angCtl;
+            angCtl.setSelectedToolId("line_tool");
+            // Horizontal line from (0.2,0.4) to (0.7,0.4).
+            angCtl.clickCanvasNormalized(0.2, 0.4);
+            angCtl.clickCanvasNormalized(0.7, 0.4);
+            // Vertical line from (0.4,0.2) to (0.4,0.7).
+            angCtl.clickCanvasNormalized(0.4, 0.2);
+            angCtl.clickCanvasNormalized(0.4, 0.7);
+            assert(objectCount(angCtl) == 2);
+
+            const int before = objectCount(angCtl);
+            angCtl.setSelectedToolId("angular_dimension_tool");
+
+            // First click: hit horizontal line midpoint → arms capture.
+            angCtl.clickCanvasNormalized(0.45, 0.4);
+            assert(angCtl.isAwaitingPointCapture());
+            assert(!angCtl.pointCapturePrompt().isEmpty());
+            // No object created by the first click.
+            assert(objectCount(angCtl) == before);
+
+            // Second click: hit vertical line midpoint → creates Angular dimension.
+            angCtl.clickCanvasNormalized(0.4, 0.45);
+            assert(!angCtl.isAwaitingPointCapture());
+            assert(objectCount(angCtl) == before + 1);
+
+            // Confirm the new object is a dimension.
+            const QVariantList objs =
+                angCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+            bool hasDim = false;
+            for (const QVariant &v : objs) {
+                if (v.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("dimension")) {
+                    hasDim = true;
+                    break;
+                }
+            }
+            assert(hasDim);
+
+            // The whole operation is ONE undo step.
+            assert(angCtl.canUndo());
+            angCtl.undo();
+            assert(objectCount(angCtl) == before);
+        }
+
+        // Second-pick is not a line (empty space) → no object, capture cleared.
+        {
+            DrawingDocumentController angCtl2;
+            angCtl2.setSelectedToolId("line_tool");
+            angCtl2.clickCanvasNormalized(0.1, 0.3);
+            angCtl2.clickCanvasNormalized(0.6, 0.3);
+            assert(objectCount(angCtl2) == 1);
+
+            angCtl2.setSelectedToolId("angular_dimension_tool");
+            angCtl2.clickCanvasNormalized(0.35, 0.3); // hit the line
+            assert(angCtl2.isAwaitingPointCapture());
+
+            const int before2 = objectCount(angCtl2);
+            angCtl2.clickCanvasNormalized(0.9, 0.9); // empty space — no line here
+            assert(!angCtl2.isAwaitingPointCapture());
+            // No new object should appear.
+            assert(objectCount(angCtl2) == before2);
+        }
+
+        // First click is not on a line → no capture armed.
+        {
+            DrawingDocumentController angCtl3;
+            angCtl3.setSelectedToolId("angular_dimension_tool");
+            angCtl3.clickCanvasNormalized(0.5, 0.5); // nothing in document
+            assert(!angCtl3.isAwaitingPointCapture());
+        }
+
+        // Parallel lines → planAngularDimension rejects → no object created.
+        {
+            DrawingDocumentController angCtl4;
+            angCtl4.setSelectedToolId("line_tool");
+            // Two horizontal lines (same slope).
+            angCtl4.clickCanvasNormalized(0.1, 0.3);
+            angCtl4.clickCanvasNormalized(0.6, 0.3); // line1: y=0.3
+            angCtl4.clickCanvasNormalized(0.1, 0.6);
+            angCtl4.clickCanvasNormalized(0.6, 0.6); // line2: y=0.6
+            assert(objectCount(angCtl4) == 2);
+
+            angCtl4.setSelectedToolId("angular_dimension_tool");
+            angCtl4.clickCanvasNormalized(0.35, 0.3); // arm on line1
+            assert(angCtl4.isAwaitingPointCapture());
+
+            const int before4 = objectCount(angCtl4);
+            angCtl4.clickCanvasNormalized(0.35, 0.6); // pick line2 (parallel)
+            assert(!angCtl4.isAwaitingPointCapture());
+            // planAngularDimension rejects parallel lines — no new object.
+            assert(objectCount(angCtl4) == before4);
+        }
+    }
+
     return 0;
 }

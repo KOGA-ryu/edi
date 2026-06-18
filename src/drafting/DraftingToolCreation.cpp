@@ -82,6 +82,9 @@ DraftingToolKind draftingToolKindFromId(const std::string &toolId)
     if (toolId == "diameter_dimension_tool") {
         return DraftingToolKind::DiameterDimension;
     }
+    if (toolId == "angular_dimension_tool") {
+        return DraftingToolKind::AngularDimension;
+    }
     return DraftingToolKind::Unknown;
 }
 
@@ -136,6 +139,8 @@ const char *draftingToolKindName(DraftingToolKind kind)
         return "radius_dimension";
     case DraftingToolKind::DiameterDimension:
         return "diameter_dimension";
+    case DraftingToolKind::AngularDimension:
+        return "angular_dimension";
     case DraftingToolKind::Unknown:
         return "unknown";
     }
@@ -275,6 +280,14 @@ DraftingObjectBuildResult buildDraftingObjectForTool(const DraftingToolCreationR
     } else if (request.tool == DraftingToolKind::DiameterDimension) {
         kind = DraftingShapeKind::Dimension;
         geometry = DimensionGeometry{DimensionKind::Diameter, request.start, request.end, 0.04};
+    } else if (request.tool == DraftingToolKind::AngularDimension) {
+        // Angular is NOT a drag-created tool — the controller picks two lines
+        // interactively via PointCaptureIntent::AngularDimensionSecondLine and
+        // calls planAngularDimension directly.  If this arm is somehow reached
+        // (e.g. from a test or future fallback) it must fail cleanly rather
+        // than produce a nonsensical dimension from a drag gesture.
+        return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry,
+                                                   "angular_dimension_tool does not build from a drag — use the two-line-pick arm");
     } else {
         return DraftingObjectBuildResult::rejected(DraftingResultCode::InvalidGeometry, "tool cannot create a drafting object");
     }

@@ -32,6 +32,10 @@ enum class DraftingToolKind {
     HeightDimension,
     RadiusDimension,
     DiameterDimension,
+    // Angular dimension: NOT a drag tool — the user clicks two lines and the
+    // controller's two-line-pick arm (DR-13 follow-up) calls planAngularDimension.
+    // buildDraftingObjectForTool rejects this kind explicitly (see below).
+    AngularDimension,
     Unknown
 };
 

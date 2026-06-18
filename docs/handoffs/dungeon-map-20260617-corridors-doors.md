@@ -371,10 +371,25 @@ plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspecto
   2. No `door_leaf_type` projection key — edi-ui's door-type picker reads the plug's
      current `type` from the document (or a future key). Note in the chrome contract update.
 
-### Reviewer checkpoint audit of B2-3 — DISPATCHED (035, parallel with 034)
-- Focus: the new command arm wiring/exhaustiveness, `updatePlug` field-isolation, the
-  `wallTypeForPlugType` behavior-preserving extraction, the leaf re-mint/one-undo, the
-  authored-leaf-duplicate gap.
+### Reviewer checkpoint audit of B2-3 — 2026-06-17 — ISSUES FOUND (1 BUG, else clean)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/035-reviewer-b2-3-audit.md`
+- CLEAN: the new `UpdatePlugCommand` arm (A1 guard forced it; no missed dispatch site),
+  `updatePlug` (type-only, ++rev, rejects unknown), the `wallTypeForPlugType` extraction
+  (byte-identical, authored render unchanged), the `setPlugType` one-bracket leaf re-mint.
+- **BUG (medium, latent) — authored-leaf gap (affects BOTH B2-3 + B2-4):** authored door
+  leaves from `createMapFromSpec` are UNTAGGED. `object_plug` surfaces for ANY plug marker
+  (not just interactive — `plugAtAnchorObject` doesn't distinguish), so `setPlugType` on a
+  `.map.toml` plug DUPLICATES the leaf, and `deletePlug` ORPHANS it. Both audits (030/035)
+  tested only interactive (tagged) plugs — the authored↔interactive seam was the blind spot.
+  **The reviewer PREDICTED this in gate 023 (backfill the authored leaf tag); I failed to
+  fold it into the B2-3 brief — lesson: track gate recommendations explicitly.**
+  → **Fix slice `036` written, QUEUED after 034:** backfill `tags += "plug:<id>"` on the
+  authored leaf in `createMapFromSpec` (one tag, behavior-preserving, closes both) + tests
+  for authored-plug set/delete. Must land before closeout.
+- **NOTE (edi-ui, flag #3):** the door-type picker needs the plug's CURRENT type to
+  pre-select → add an `active_plug_type` projection key (mirror `active_object_is_plug`)
+  IF the picker pre-selects; else write-only. Confirm UX → fold into the chrome-contract
+  update at closeout.
 
 ### Builder slice 034 (undo/redo both-true reconcile) — DISPATCHED
 - The last ratified batch-3 correctness item. After 034 + the B2-3 audit clear → batch-2

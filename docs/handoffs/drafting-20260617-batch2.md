@@ -47,8 +47,17 @@
 - M8-S2 (place/FLATTEN + `MotifPlacement` intent) follows S1; reviewer diff-audit on S1 (it
   touches the persistent format) before/with S2.
 
+### M1 — CLOSED 2026-06-17 ✅ (SHA `eeba231`, GREEN 102/102)
+- Reply: `~/dept-bus/edi-drafting/replies/032-M1-delete-construction-lines-builder.md`. Mirrors
+  `DeleteAllGuidesCommand` exactly (`DeleteAllConstructionLinesCommand` + `deleteAllConstructionLines()`);
+  mixed-doc test pins (only CLs removed, others byte-identical, one undo, no-CL no-op). Rejected
+  an over-general `DeleteAllOfKindCommand` (YAGNI). Accepted inline; reported `eeba231` to edi-ui.
+
+### M8-S1 — motif record+capture+serialize — builder FIRED 2026-06-17 (brief 034)
+- Now running (builder free after M1). Stacks on M1 on dept/drafting. Reviewer diff-audit
+  planned after S1 (persistent-format slice). Then M8-S2 (place/FLATTEN + MotifPlacement intent).
+
 ## Open questions / blockers
-- M8 motif-record representation — under reviewer gate (document vs sidecar + serialize shape).
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

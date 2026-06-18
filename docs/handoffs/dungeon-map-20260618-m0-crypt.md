@@ -42,7 +42,23 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
      after G1 lands AND drafting's `MapSpec::blocks` field is live on local master.
 4. **Closeout** + bus-hub when the generator emits a valid crypt TOON green.
 
-## Cross-dept: MapSpec block field — SETTLED (drafting reply 042)
+## Cross-dept: realizer confirmation — ALL 3 ASKS CONFIRMED (blender-lab reply 040)
+- Realizer adopts contract v1 as-is (no renegotiation). 2D→3D map-x→X/map-y→Y/+Z-up
+  matches; `crypt.stair` is the realizer's stair-block path; the §3 slice RENDERED on
+  the 5090 (OptiX, 3.3 s, 1080p). Realizer green on dept/blender-lab @821e87a.
+- HEADS-UP folded: a STRAIGHT slice yields only 8/10 piece types (no corridor_l, no
+  stair). The M0 GATE wants all 10 from the one-command generator→PNG. So **§3
+  RETARGETED**: the generator now REPRODUCES the proven fixture
+  `samples/crypt_m0/crypt.toon` (L-corridor + crypt.stair) → all 10 → drop-in for the
+  fixture. Contract §3 + G1/G2 briefs updated; G1 builder sent a REVISED-geometry
+  doorbell (commit 5b6f672).
+- Fixture golden (the generator's target):
+  rooms: entrance "0,0" "15,15" / crypt "35,25" "20,20" (stone);
+  plugs: entrance,to_crypt,E,door,true,crypt | crypt,to_entrance,W,door,true,crypt;
+  connections: entrance.to_crypt ↔ crypt.to_entrance, corridor;
+  blocks: crypt.sarcophagus "45,35" | crypt.brazier "40,40" | crypt.stair "36,35".
+
+## Cross-dept: MapSpec block field — SETTLED (drafting reply 042/043)
 - `MapBlockSpec{assetRef, position(ABSOLUTE authored feet, centre), rotationDeg,
   scale, name}` + `MapSpec::blocks` (additive, default-empty). NOT reusing
   DraftingBlock (definition-less declaration, deliberate twin).

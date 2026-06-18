@@ -169,4 +169,38 @@ light2 = [p for p in edi_realize.plan_greybox(doc, d2) if p.is_light][0]
 if abs(light2.light_energy - light1.light_energy) > 1e-6:
     fail("scaling the TABLE must not change the light (it rides wire room area)")
 
+# --- 9. The toggleable scale-reference overlay (figure + floor checker) ------
+# Default OFF: no figure pieces, plain floor material (back-compat — earlier
+# steps used reference=False implicitly).
+base = edi_realize.plan_greybox(doc, D)
+if any(p.kind == "ref_figure" for p in base):
+    fail("reference overlay must be OFF by default")
+if any(p.material in ("ref_a", "ref_b") for p in base):
+    fail("floor checker must be OFF by default")
+# ON: a figure appears and the floor is checkered.
+refp = edi_realize.plan_greybox(doc, D, reference=True)
+fig = [p for p in refp if p.kind == "ref_figure"]
+if len(fig) != 2:
+    fail(f"reference overlay should add a 2-piece figure, got {len(fig)}")
+if not any(p.material == "ref_a" for p in refp) or not any(p.material == "ref_b" for p in refp):
+    fail("reference overlay should checker the floor (ref_a + ref_b)")
+
+
+def figure_top(pieces):
+    f = [p for p in pieces if p.kind == "ref_figure"]
+    return max(p.z + p.sz / 2.0 for p in f)
+
+
+# THE POINT: the figure is FIXED at figure_h regardless of S (it does NOT scale).
+top1 = figure_top(edi_realize.plan_greybox(doc, D.scaled(1.0), reference=True))
+top4 = figure_top(edi_realize.plan_greybox(doc, D.scaled(4.0), reference=True))
+# top = floor_t (scales) + figure_h (fixed); subtract floor_t to compare the
+# figure's own height contribution — it must be identical at S=1 and S=4.
+h1 = top1 - D.scaled(1.0).floor_t
+h4 = top4 - D.scaled(4.0).floor_t
+if abs(h1 - D.figure_h) > 1e-9 or abs(h4 - D.figure_h) > 1e-9:
+    fail(f"figure height must equal figure_h at every S (got {h1}, {h4})")
+if abs(h1 - h4) > 1e-9:
+    fail("figure must NOT scale with S (that is what makes scale visible)")
+
 print("edi_realize smoke: ok")

@@ -97,6 +97,13 @@ class GreyboxDims:
     light_min: float = 2000.0     # floor so a tiny room is never black
     brazier_softness: float = 0.6 # light radius (ft) — softens shadows
     ambient_strength: float = 0.5 # world fill (dimensionless)
+    # --- scale-reference overlay (toggled on for the greybox DEMO, off for art) ---
+    # A FIXED human proxy: its size is a real-world constant and is DELIBERATELY
+    # excluded from scaled() — so as the dungeon grows (S↑) the 6 ft figure shrinks
+    # in frame and the scale reads instantly. The grid reference reuses the existing
+    # 5 ft floor tiling (tile, §1), shown as a checker (more cells = bigger).
+    figure_h: float = 6.0         # human reference height — NEVER scales with S
+    figure_w: float = 1.4         # human proxy width — NEVER scales with S
 
     def scaled(self, s: float) -> "GreyboxDims":
         """The single SCALE KNOB (dungeon-map brief 044): return a copy with every
@@ -110,6 +117,9 @@ class GreyboxDims:
           room gets MORE 5 ft cells, not bigger ones. (brief 046 scales the envelope
           constants — corridor/door/wall/floor — but NOT the grid module.)
         * `min_leg` — a length TOLERANCE, not an envelope dimension.
+        * `figure_h` / `figure_w` — the scale-reference human proxy is a FIXED
+          real-world constant; not scaling it is the WHOLE POINT (it shrinks in
+          frame as the dungeon grows, making S visible).
         * the corner/endcap FACTORS (ratios), the span-relative camera offsets (the
           camera auto-frames any span), the render resolution + samples, the world
           fill, and — crucially — the brazier light DENSITY (W/ft²). The light's
@@ -432,9 +442,32 @@ def _map_area(doc: MapDoc) -> float:
     return max(1.0, (maxx - minx) * (maxy - miny))
 
 
-def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS) -> list[Piece]:
+def _figure_spot(doc: MapDoc, dims: GreyboxDims) -> Optional[tuple[float, float]]:
+    """Where to stand the scale-reference figure: in a LIT room (one holding a
+    brazier) if any, else the largest room — offset two grid tiles off centre so
+    it doesn't sit inside the centre sarcophagus. None if there are no rooms."""
+    target = None
+    for blk in doc.blocks:
+        piece = blk.asset.split(".", 1)[1] if "." in blk.asset else blk.asset
+        if piece == PIECE_BRAZIER:
+            target = _room_at(doc, blk.x, blk.y)
+            if target is not None:
+                break
+    if target is None and doc.rooms:
+        target = max(doc.rooms, key=lambda r: r.w * r.h)
+    if target is None:
+        return None
+    return target.ox + target.w / 2.0 - 2.0 * dims.tile, target.oy + target.h / 2.0
+
+
+def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
+                 reference: bool = False) -> list[Piece]:
     """Resolve the whole map to greybox pieces. Deterministic + pure. Every
-    dimension comes from `dims` (the realizer-owned table), never a literal."""
+    dimension comes from `dims` (the realizer-owned table), never a literal.
+
+    `reference=True` adds the toggleable SCALE-REFERENCE overlay: a checker on the
+    5 ft floor grid + a FIXED 6 ft human proxy that does NOT scale with S, so the
+    dungeon's scale is visible at a glance (on for the greybox demo, off for art)."""
     theme = _theme_of(doc)
     pieces: list[Piece] = []
 
@@ -461,8 +494,13 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS) -> list[Piece]:
             for iy in range(ny):
                 cx = room.ox + (ix + 0.5) * tw
                 cy = room.oy + (iy + 0.5) * th
+                # Reference overlay: checker the 5 ft floor grid so the tile count
+                # (= dungeon size) reads at a glance. Off ⇒ the room's material.
+                floor_mat = room.material
+                if reference:
+                    floor_mat = "ref_a" if (ix + iy) % 2 == 0 else "ref_b"
                 pieces.append(Piece(PIECE_FLOOR, ref(PIECE_FLOOR), cx, cy, dims.floor_t / 2.0,
-                                    tw, th, dims.floor_t, material=room.material))
+                                    tw, th, dims.floor_t, material=floor_mat))
                 pieces.append(Piece(PIECE_CEILING, ref(PIECE_CEILING), cx, cy, dims.wall_h - dims.floor_t / 2.0,
                                     tw, th, dims.floor_t, material=room.material))
 
@@ -578,6 +616,24 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS) -> list[Piece]:
             pieces.append(Piece("prop", blk.asset, blk.x, blk.y, dims.prop_base_z * s,
                                 pw * s, pd * s, ph * s, rot_deg=blk.rotation,
                                 material="stone"))
+
+    # ---- Scale-reference figure (toggle): a FIXED 6 ft human proxy ----------
+    # Its size comes from dims.figure_* which scaled() NEVER touches, so it stays
+    # 6 ft as the dungeon grows — shrinking in frame to read the scale. Stands on
+    # the floor (lifted by the floor slab thickness) in a lit room. Two pieces:
+    # a body cylinder + a sphere head, sized so the total height == figure_h.
+    spot = _figure_spot(doc, dims) if reference else None
+    if spot is not None:
+        fx, fy = spot
+        head_d = dims.figure_w
+        body_h = max(head_d, dims.figure_h - head_d)  # body + head == figure_h
+        base = dims.floor_t  # stand on top of the floor slab
+        pieces.append(Piece("ref_figure", "ref.figure", fx, fy, base + body_h / 2.0,
+                            dims.figure_w, dims.figure_w, body_h,
+                            material="figure", shape="cylinder"))
+        pieces.append(Piece("ref_figure", "ref.figure", fx, fy, base + body_h + head_d / 2.0,
+                            head_d, head_d, head_d,
+                            material="figure", shape="sphere"))
 
     return pieces
 
@@ -695,10 +751,14 @@ def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
 # Blender tier (bpy) — build + Cycles OptiX render
 # =============================================================================
 GREY_MATERIALS = {
-    # name: (r,g,b,a) base color
+    # name: (r,g,b,a) base color (appearance, not dimensions)
     "stone": (0.46, 0.45, 0.42, 1.0),
     "marble": (0.80, 0.78, 0.74, 1.0),
     "bronze": (0.45, 0.30, 0.12, 1.0),
+    # scale-reference overlay: two greys for the floor checker + a vivid figure.
+    "ref_a": (0.62, 0.60, 0.55, 1.0),
+    "ref_b": (0.30, 0.29, 0.27, 1.0),
+    "figure": (0.85, 0.18, 0.12, 1.0),  # red proxy — unmistakable against greybox
 }
 
 
@@ -748,6 +808,9 @@ def build_scene(bpy, pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS):  # 
 
         if p.shape == "cylinder":
             bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.5, depth=1.0,
+                                                 location=(p.x, p.y, p.z))
+        elif p.shape == "sphere":
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=12, radius=0.5,
                                                  location=(p.x, p.y, p.z))
         else:
             bpy.ops.mesh.primitive_cube_add(size=1.0, location=(p.x, p.y, p.z))
@@ -861,9 +924,10 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
     map_path = next((a for a in argv if not a.startswith("--")), None)
     out_png = next((a.split("=", 1)[1] for a in argv if a.startswith("--render=")), None)
     cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
+    reference = "--reference" in argv  # toggle the scale-reference overlay (off ⇒ art-clean)
     if not map_path or not out_png:
         sys.stderr.write("usage: blender -b -P edi_realize.py -- <map.toon> --render=<out.png> "
-                         "[--scale=S] [--samples=N]\n")
+                         "[--scale=S] [--reference] [--samples=N]\n")
         return 2
 
     with open(map_path, "r", encoding="utf-8") as fh:
@@ -873,13 +937,15 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
     scale = float(cli_scale) if cli_scale is not None else doc.scale
     dims = DEFAULT_DIMS.scaled(scale)
     samples = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--samples=")), str(dims.samples)))
-    pieces = plan_greybox(doc, dims)
+    pieces = plan_greybox(doc, dims, reference)
 
     print("=" * 64)
     print("edi_realize — M0 crypt realizer")
     print(f"blender version: {bpy.app.version_string}")
     print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
           f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
+    print(f"reference overlay: {'ON' if reference else 'off'}  "
+          f"(figure {dims.figure_h:g} ft FIXED + {dims.tile:g} ft floor checker)")
     print(plan_summary(doc, pieces))
     print("=" * 64)
 
@@ -929,18 +995,19 @@ def main(argv: list[str]) -> int:
     # Pure tier (no Blender): parse + plan + (--obj-out / summary).
     obj_out = next((a.split("=", 1)[1] for a in argv if a.startswith("--obj-out=")), None)
     cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
+    reference = "--reference" in argv
     paths = [a for a in argv if not a.startswith("--")]
     if not paths:
         sys.stderr.write(
             "usage:\n"
-            "  edi_realize.py <map.toon> [--scale=S] [--obj-out=out.obj]   # pure proof\n"
-            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--scale=S] [--samples=N]\n")
+            "  edi_realize.py <map.toon> [--scale=S] [--reference] [--obj-out=out.obj]   # pure proof\n"
+            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--scale=S] [--reference] [--samples=N]\n")
         return 2
     with open(paths[0], "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
     scale = float(cli_scale) if cli_scale is not None else doc.scale
     dims = DEFAULT_DIMS.scaled(scale)
-    pieces = plan_greybox(doc, dims)
+    pieces = plan_greybox(doc, dims, reference)
     print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
           f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
     print(plan_summary(doc, pieces))

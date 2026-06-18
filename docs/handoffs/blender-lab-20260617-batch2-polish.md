@@ -4,8 +4,10 @@
 - **STATUS: BATCH-2 COMPLETE.** All 8 deferred-polish (P1, P2, P3, P3b, P4, P4b, P5, P6, P7)
   + 3 roadmap-depth (RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, RD3 craftsmen doc) shipped
   & verified. Closeout frozen: `docs/closeouts/blender-lab-batch2-polish.md`.
-- **DEPT TIP:** `28ad079` on `dept/blender-lab`, **2 ahead of LOCAL master, 0 behind,
-  edi-gate GREEN** (build + ctest + scan). Bussed to edi-ui for the final merge.
+- **DEPT TIP:** current HEAD of `dept/blender-lab` (≈`898d76c` + this commit), **3 ahead of
+  LOCAL master, 0 behind, edi-gate GREEN** (build + ctest + scan). Bussed to edi-ui for merge.
+  (Note: a transient BUILD FAILED during checkpoint was a non-lab brace imbalance at the
+  dungeon-map merge seam, already fixed on master `ed90e3d`; resolved by rebasing onto it.)
 - **NO worker in flight.** All four roles idle at clean boundaries.
 - **REBASE PRACTICE (standing):** rebase onto LOCAL `master` ref only (`git rebase master`,
   no `git fetch`). Origin reconciled (ALL-CLEAR) but local master stays the target.

@@ -325,12 +325,18 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
 plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspector context
 (B2-CTX) · delete plug/connection (B2-4) · manual re-route (B2-5) · selection hygiene
 (029). All green (edi-gate), all no-rebase; B2-CTX/B2-4/B2-5 audited CLEAN.
-- **GREEN TIP `4ae930d`** (code at `3b5e643` + handoff) → bus-hub'd to edi-ui to merge.
-- **B2-3 (door-type) decision** surfaced to hub/user (user's queue omitted it; gate-023
-  settled, ready). **batch-3 hardening candidates** surfaced: locked-layer NIT (B2-4),
-  undo both-true corner + `cancelPendingCreation` (B2-CTX), B2-5 follows-moved-anchor
-  coverage test, the corridor/export anchor-sync asymmetry.
-- Awaiting hub/user: merge confirmation + the B2-3-and-batch-3 scope call.
+- **batch-3 coverage (`032`) DONE** (`9442f78`, green): the B2-5 follows-moved-anchor
+  test (stale-anchor regression now FAILS) + `cancelPendingCreation` clear (with the
+  conditional `modelChanged` emit so the projection cache can't lie). Planner-verified
+  (test + 1-line; light check, no re-audit). **This completes the user-authorized queue**
+  (B2-CTX → B2-4 → B2-5 → batch-3 coverage).
+- **UPDATED GREEN TIP = post-032** (code through `9442f78` + handoff) → re-bus-hub'd to
+  edi-ui (supersedes the earlier `4ae930d`).
+- **STILL AWAITING hub/user decisions** (surfaced): (1) B2-3 door-type — include or close
+  batch-2 without it (gate-023-settled, ready); (2) the MARGINAL batch-3 NITs — locked-
+  layer delete, undo-both-true corner (record-don't-gate, deferred). Plus edi-ui's merge.
+- **REST point:** user-authorized queue complete + reported. Resting on those decisions
+  per protocol (blocked + reported → rest until hub/worker rings).
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

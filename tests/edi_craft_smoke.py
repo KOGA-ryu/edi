@@ -552,6 +552,78 @@ def main() -> int:
     assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
         edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"
 
+    # P7: bounds_of tightness for helix + swept prism.
+    #
+    # WHY this matters: bounds_of feeds the dry-run / snapshot preview rig.
+    # A loose frame makes the camera pull back too far (the helix lifts out of
+    # the preview box), giving a bad composition.  OBJ output is unaffected —
+    # bounds_of is preview-framing only, not part of obj_lines.
+    #
+    # APPROACH: for helix mouldings, bounds_of now calls _moulding_world and
+    # frames from the actual mesh verts — the same approach the swept-prism arm
+    # (already correct since BL-08) uses.  For straight (non-helix) mouldings
+    # and straight prisms the formula path is unchanged.
+
+    # ---- Helix moulding: z-max must cover the screw_rise * screw_turns lift.
+    # With rise=2, turns=3: lift=6; profile z in [0,1]; base_z=0.
+    # Old frame: z_max = 1.  New (correct) frame: z_max = 7 (= 1 + 6).
+    p7_helix_op = moulding(screw_rise=2.0, screw_turns=3.0)
+    p7_hx0, p7_hx1, p7_hy0, p7_hy1, p7_hz0, p7_hz1 = edi_craft.bounds_of([p7_helix_op])
+    # z-max must reach or exceed base_z + max_profile_z + screw_rise*screw_turns = 7.
+    assert p7_hz1 >= 7.0 - 1e-9, \
+        f"helix bounds_of z-max must cover the lift (got {p7_hz1}, expected ≥ 7.0)"
+    # z-min must cover the base (profile starts at z=0).
+    assert p7_hz0 <= 0.0 + 1e-9, \
+        f"helix bounds_of z-min must cover the base (got {p7_hz0})"
+    # x/y radius must still cover the profile's max_radius (=1.0 here).
+    assert p7_hx1 >= 1.0 - 1e-9, "helix bounds_of x-max must cover max profile radius"
+    assert p7_hx0 <= -1.0 + 1e-9, "helix bounds_of x-min must cover -max profile radius"
+
+    # ---- Straight (non-helix) moulding: bounds UNCHANGED (formula path stays). ----
+    p7_flat_op = moulding(screw_rise=0.0)          # rise=0 → formula path
+    p7_fx0, p7_fx1, p7_fy0, p7_fy1, p7_fz0, p7_fz1 = edi_craft.bounds_of([p7_flat_op])
+    assert p7_fz0 == 0.0 and p7_fz1 == 1.0, \
+        f"straight moulding bounds_of z must stay [0,1] (got [{p7_fz0},{p7_fz1}])"
+    assert p7_fx0 == -1.0 and p7_fx1 == 1.0, \
+        f"straight moulding bounds_of x must stay [-1,1] (got [{p7_fx0},{p7_fx1}])"
+
+    # ---- Negative screw_rise: helix goes DOWN — z-min must cover the drop. ----
+    # rise=-2, turns=3 → lift=-6; profile z in [0,1]; z-min = 0 + (-6) = -6.
+    p7_down_op = moulding(screw_rise=-2.0, screw_turns=3.0)
+    _, _, _, _, p7_dz0, p7_dz1 = edi_craft.bounds_of([p7_down_op])
+    assert p7_dz0 <= -6.0 + 1e-9, \
+        f"descending helix bounds_of z-min must cover the drop (got {p7_dz0})"
+    assert p7_dz1 >= 1.0 - 1e-9, \
+        f"descending helix bounds_of z-max must still cover the profile top (got {p7_dz1})"
+
+    # ---- Swept prism: x/y bounds cover the FULL path extent (already correct
+    # since BL-08 — this test guards against future regression). ----
+    # Footprint is a unit square at origin; path extends 10 units along +x.
+    p7_sfp = [{"x": 0.0, "y": 0.0}, {"x": 1.0, "y": 0.0},
+              {"x": 1.0, "y": 1.0}, {"x": 0.0, "y": 1.0}]
+    p7_spath = [{"x": 0.0, "y": 0.0}, {"x": 10.0, "y": 0.0}]
+    p7_swept_op = {"type": "AddPrism", "name": "long_run",
+                   "footprint": p7_sfp, "path": p7_spath,
+                   "x": 0.0, "y": 0.0, "base_z": 0.0, "height": 0.0,
+                   "inset": 0.0, "normal_offset": 0.0}
+    p7_sx0, p7_sx1, p7_sy0, p7_sy1, p7_sz0, p7_sz1 = edi_craft.bounds_of([p7_swept_op])
+    # The path runs from x=0 to x=10; the bounds must reach x=10 (the far end).
+    assert p7_sx1 >= 10.0 - 1e-9, \
+        f"swept prism bounds_of x-max must cover path extent (got {p7_sx1})"
+    # Footprint is 1×1; some y-extent must be present.
+    assert p7_sy1 > p7_sy0 + 1e-9, "swept prism must have non-zero y extent"
+
+    # ---- Straight prism (no path): bounds UNCHANGED by P7. ----
+    p7_sprism_op = {"type": "AddPrism", "name": "block",
+                    "footprint": p7_sfp, "x": 2.0, "y": 3.0,
+                    "base_z": 1.0, "height": 4.0, "inset": 0.0, "normal_offset": 0.0}
+    p7_px0, p7_px1, p7_py0, p7_py1, p7_pz0, p7_pz1 = edi_craft.bounds_of([p7_sprism_op])
+    # Footprint xs in [0,1] offset by x=2 → [2, 3]; ys in [0,1] offset by y=3 → [3, 4].
+    assert abs(p7_px0 - 2.0) < 1e-9 and abs(p7_px1 - 3.0) < 1e-9, \
+        f"straight prism x bounds must be [2,3] (got [{p7_px0},{p7_px1}])"
+    assert abs(p7_pz0 - 1.0) < 1e-9 and abs(p7_pz1 - 5.0) < 1e-9, \
+        f"straight prism z bounds must be [1,5] (got [{p7_pz0},{p7_pz1}])"
+
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a
     # Script op renders in the proof through the craftsman's proof_mesh.

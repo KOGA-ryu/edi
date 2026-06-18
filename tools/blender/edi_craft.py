@@ -531,10 +531,27 @@ def bounds_of(ops: list[dict]) -> tuple[float, float, float, float, float, float
             include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r,
                     op["z"] - op["tube_height"] / 2, op["z"] + op["tube_height"] / 2)
         elif op["type"] == "AddMoulding":
-            r = max(point["radius"] for point in op["profile"])
-            z0 = op["base_z"] + min(point["z"] for point in op["profile"])
-            z1 = op["base_z"] + max(point["z"] for point in op["profile"])
-            include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
+            if op.get("screw_rise", 0.0) != 0.0:
+                # P7: a HELIX moulding (screw_rise != 0) rises by
+                # screw_rise * screw_turns above the profile's own z range.
+                # The formula-only path misses this lift entirely, so a tall
+                # helix extends far past the preview box.  Use the actual mesh
+                # verts instead — the same approach the swept-prism arm already
+                # uses.  Framing from `_moulding_world` verts is exact by
+                # construction and can never drift from the rendered mesh.
+                mverts, _ = _moulding_world(op)
+                mxs = [v[0] for v in mverts]
+                mys = [v[1] for v in mverts]
+                mzs = [v[2] for v in mverts]
+                include(min(mxs), max(mxs), min(mys), max(mys), min(mzs), max(mzs))
+            else:
+                # Straight moulding (no helix): the formula is exact and cheap.
+                # Left UNCHANGED from the original so the doric dry-run framing
+                # is byte-identical (and the test suite doesn't need updating).
+                r = max(point["radius"] for point in op["profile"])
+                z0 = op["base_z"] + min(point["z"] for point in op["profile"])
+                z1 = op["base_z"] + max(point["z"] for point in op["profile"])
+                include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
         elif op["type"] == "AddPrism":
             if op.get("path"):
                 # A swept solid: frame its actual verts (the path bends it out of

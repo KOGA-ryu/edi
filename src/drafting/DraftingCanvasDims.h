@@ -40,4 +40,10 @@ inline constexpr double kDefaultRoomWallThickness = 0.1;
 // tool and the room spec are separate concepts, so keep separate data — if one default shifts later they
 // must not be conflated.
 inline constexpr double kDefaultWallToolThickness = 0.1;
+
+// The normalized canvas board extent (canvas units). The board is the unit square, so this is the maximum
+// any single canvas dimension (a radius, a setback, a thickness, a spacing magnitude) may take; the numeric
+// setters clamp to it. One named source for what was a scattered bare `1.0` (and subsumes 050's
+// kMaxWallToolThickness, which was just the board extent under another name).
+inline constexpr double kCanvasBoardExtent = 1.0;
 } // namespace edi::drafting

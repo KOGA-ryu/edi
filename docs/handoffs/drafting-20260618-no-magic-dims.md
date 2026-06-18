@@ -47,3 +47,28 @@ Behavior flags: keep the 044 ratios as `x*(a/b)` (NOT pre-rounded) for byte-iden
   floor opacity. Separate slice (unrelated to corridors), keeps 046 tight.
 
 Each slice: edi-gate green, behavior-preserving, reviewer-audited for residual magic dims, then merged.
+
+## STATUS — SWEEP COMPLETE (2026-06-18)
+Map/canvas path is free of magic dimension literals (modulo the 3 justified deferrals). All green 105/105,
+behavior-preserving (byte-identical), no test edits in the naming slices.
+- 044 — corridor derives from room scale (the COHERENCE slice; doubled crypt corridor = 10 ft). MERGED to master.
+- 046 — `DraftingCanvasDims.h` spine + corridor/door/wall dims (createMapFromSpec, createConnection, setPlugType). MERGED.
+- 047 — paste/duplicate nudge, ascii board fraction, RoomSpec.wallThickness default. MERGED.
+- 049 — wall-tool default thickness (`kDefaultWallToolThickness`). MERGED.
+- 050+051 — max-clamp consolidation: one `kCanvasBoardExtent` for the board-extent max clamps
+  (fixed/fillet radius, chamfer setback, wall thickness, array spacing). On dept/drafting tip 94bc04d,
+  green; READY TO MERGE (050 added `kMaxWallToolThickness`, 051 folded it into `kCanvasBoardExtent` — net:
+  one board-extent constant).
+- Reviewer gates: 045 (inventory) + 048 (sweep audit, ACCEPT-WITH-NIT → nit = the wall-tool residual, closed by 049/050/051).
+- `DraftingCanvasDims.h` constants: kDefaultCorridorWidth, kRoomShortEdgePerCorridor, kDoorLeafToCorridorRatio,
+  kCorridorWallToCorridorRatio, kCopyNudgeOffset, kAsciiBoardFillFraction, kDefaultRoomWallThickness,
+  kDefaultWallToolThickness, kCanvasBoardExtent.
+
+### Deferred / exempt (justified)
+- `DraftingCorridor.h` CorridorSpec defaults (width 0.06 / wallThickness 0.02) + DraftingCorridor.cpp:177
+  margin 0.06 — dungeon-map's H2 boundary (corridor module), dormant (always overridden). FLAGGED to dungeon-map.
+- EXEMPT (not spatial dimensions): floor fill.opacity 0.5; opacity clamps 0..1; polygon side count 3..24;
+  rotate-copies angle range ±360; all `0.0` unset/invalid guards.
+- Broader `src/drafting` ops carry dimension literals that are already DATA-compliant (named struct/spec
+  fields): DraftingCalibration, DraftingGrid, DraftingTypes offsets, DraftingOffset 0.05, etc. Not defects;
+  out of the map/canvas scope. Available as a lower-priority widen if ever requested.

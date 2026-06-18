@@ -180,8 +180,12 @@ the OBJ (`# WARNING: inset rejected — self-intersection or inversion`).
    `d_i = normalize(pts[(i+1)%n] - pts[i])`. The inward normal `n_i = (-d_i.y, d_i.x)` for
    CCW, `(d_i.y, -d_i.x)` for CW. Store as `(Px, Py, dx, dy)`.
 3. **Intersect adjacent offset lines** for each vertex: solve the 2×2 system
-   `P_prev + t * d_prev = P_curr + s * d_curr`. The determinant is
-   `denom = d_prev.x * (-d_curr.y) - d_prev.y * (-d_curr.x)`.  
+   `P_prev + t * d_prev = P_curr + s * d_curr`. Cross both sides with `d_curr` (which kills
+   the `s` term) → the determinant is the 2D cross product
+   `denom = d_prev × d_curr = d_prev.x * d_curr.y - d_prev.y * d_curr.x`.
+   *(Corrected 2026-06-17, P6 audit: an earlier draft wrote `d_prev.x*(-d_curr.y) -
+   d_prev.y*(-d_curr.x)` = `-(d_prev × d_curr)` — a sign flip that places the vertex on the
+   OUTWARD side. The form above is the verified-correct one the P6 implementation uses.)*  
    - If `|denom| < 1e-9`: edges are parallel (collinear input vertices); use the midpoint of the
      two line anchor points as a fallback vertex (edge effectively collapses here).
    - Otherwise: `t = ((P_curr - P_prev) × d_curr) / denom`; new vertex =

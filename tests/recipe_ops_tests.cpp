@@ -1978,6 +1978,56 @@ int main()
         assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
     }
 
+    // ---- P6: prism_inset_reflex_pinch guard — a second, tighter validate check
+    // that fires specifically at reflex corners of NON-CONVEX footprints. The
+    // bbox guard (prism_inset_too_large) is too coarse: it passes insets that
+    // are safe for a CONVEX footprint at the same bbox size but will pinch a
+    // reflex vertex. The per-vertex pinch bound is O(n) and geometry-aware. ----
+    {
+        // L-shaped footprint (6 vertices, one reflex vertex at the inner corner):
+        //   (0,4)─(0,0)─(4,0)─(4,2)
+        //   │              │
+        //   (2,4)──────(2,2)
+        // CCW winding (positive shoelace area). Reflex vertex at (2,2):
+        //   edge in from (4,2): length 2 | edge out to (2,4): length 2
+        //   pinch limit = 0.5 * min(2, 2) = 1.0.
+        const std::vector<PrismPoint> lShape = {
+            {0.0, 0.0}, {4.0, 0.0}, {4.0, 2.0}, {2.0, 2.0}, {2.0, 4.0}, {0.0, 4.0}};
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) { if (f.code == code) return true; }
+            return false;
+        };
+        AddPrismOp reflexPrism;
+        reflexPrism.name = "l_shape";
+        reflexPrism.footprint = lShape;
+        reflexPrism.height = 2.0;
+
+        // inset = 0.5 → well under the 1.0 pinch limit AND the 2.0 bbox limit.
+        // Neither guard fires — this is a safe inset for the L-shape.
+        reflexPrism.inset = 0.5;
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+
+        // inset = 1.1 → exceeds the 1.0 pinch limit for the reflex vertex, but
+        // is BELOW the 2.0 bbox limit. prism_inset_too_large does NOT fire; the
+        // new per-reflex guard DOES. This is the specific case the bbox guard
+        // misses but the per-vertex geometry check catches.
+        reflexPrism.inset = 1.1;
+        assert(sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+
+        // Convex footprint (the 4×4 square from BL-10): has no reflex vertices,
+        // so prism_inset_reflex_pinch must NOT fire, even for large insets.
+        // (prism_inset_too_large fires instead at inset >= 2.0.)
+        AddPrismOp convexPrism;
+        convexPrism.name = "square";
+        convexPrism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
+        convexPrism.height = 2.0;
+        convexPrism.inset = 2.5; // fires bbox guard, NOT reflex guard
+        assert(!sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_reflex_pinch"));
+        assert(sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_too_large"));
+    }
+
     // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,
     // and the remap-hardening chaining (Part 2). ----
     {
@@ -2132,6 +2182,96 @@ int main()
         RecipeOpStream withSweep = s;
         withSweep.ops.push_back(sweep);
         assert(!exportRecipeStreamToToon(withSweep).ok);
+    }
+
+    // ---- RD2: exportRecipeStreamDiffToToon — semantic diff of two resolved
+    // streams emitted as TOON. The diff uses the SAME op.N.<field> key
+    // vocabulary as the TOML / BL-15 TOON, so the AI can point at a diff key
+    // and know exactly which field to change in the recipe. ----
+    {
+        // ---- Case 1: a single field change (height 2 → 3). ----
+        // Only the changed key appears in the diff; unchanged keys are OMITTED.
+        RecipeOpStream before;
+        before.id = "diff_demo";
+        before.name = "Diff Demo";
+        AddBoxOp boxA;
+        boxA.name = "block"; boxA.width = boxA.depth = boxA.height = 2.0; boxA.z = 1.0;
+        before.ops.push_back(boxA);
+
+        RecipeOpStream after = before;
+        std::get<AddBoxOp>(after.ops[0]).height = 3.0; // one field changed
+
+        const auto diffResult = exportRecipeStreamDiffToToon(before, after);
+        assert(diffResult.ok && diffResult.value.has_value());
+        const std::string &diffText = *diffResult.value;
+
+        // TOON shape: kind/title header then flat key: value lines.
+        assert(diffText.find("kind: recipe-diff\n") != std::string::npos);
+        assert(diffText.find("title: Diff Demo\n") != std::string::npos); // same name → after.name
+
+        // The changed key appears with "old -> new" (raw config values, no quotes).
+        assert(diffText.find("op.0.height: 2 -> 3\n") != std::string::npos);
+
+        // Unchanged keys are OMITTED — the diff carries only deltas.
+        assert(diffText.find("op.0.type:") == std::string::npos);
+        assert(diffText.find("op.0.name:") == std::string::npos);
+        assert(diffText.find("recipe.id:") == std::string::npos);  // recipe keys also omitted when unchanged
+
+        // No JSON object syntax.
+        assert(diffText.find('{') == std::string::npos && diffText.find('}') == std::string::npos);
+
+        // ---- Case 2: added op → the new op's keys appear as "(added) -> value". ----
+        RecipeOpStream afterAdd = before;
+        AddPrismOp extra;
+        extra.name = "lid"; extra.footprint = {{0,0},{1,0},{1,1}}; extra.height = 0.5; extra.baseZ = 2.0;
+        afterAdd.ops.push_back(extra);
+
+        const auto diffAdd = exportRecipeStreamDiffToToon(before, afterAdd);
+        assert(diffAdd.ok && diffAdd.value.has_value());
+        const std::string &addText = *diffAdd.value;
+        // The added op's type key appears as "(added) -> AddPrism".
+        assert(addText.find("op.1.type: (added) -> AddPrism\n") != std::string::npos);
+        // The first op (unchanged) does NOT appear.
+        assert(addText.find("op.0.") == std::string::npos);
+
+        // ---- Case 3: removed op → the old op's keys appear as "value -> (removed)". ----
+        const auto diffRem = exportRecipeStreamDiffToToon(afterAdd, before); // swap: 2 ops → 1 op
+        assert(diffRem.ok && diffRem.value.has_value());
+        const std::string &remText = *diffRem.value;
+        assert(remText.find("op.1.type: AddPrism -> (removed)\n") != std::string::npos);
+        assert(remText.find("op.0.") == std::string::npos); // first op unchanged, omitted
+
+        // ---- Case 4: title when stream names differ ("A -> B"). ----
+        RecipeOpStream renamedAfter = after;
+        renamedAfter.name = "Diff Demo v2";
+        const auto diffRename = exportRecipeStreamDiffToToon(before, renamedAfter);
+        assert(diffRename.ok && diffRename.value.has_value());
+        assert(diffRename.value->find("title: Diff Demo -> Diff Demo v2\n") != std::string::npos);
+
+        // ---- Case 5: refusal — unresolved BEFORE (binding survives). ----
+        RecipeOpStream boundBefore = before;
+        boundBefore.bindings = {{0, "width", "gauge", "width"}};
+        const auto refBefore = exportRecipeStreamDiffToToon(boundBefore, after);
+        assert(!refBefore.ok);
+        assert(refBefore.message.find("before stream must be resolved") != std::string::npos);
+
+        // ---- Case 6: refusal — unresolved AFTER (surviving ref-op). ----
+        RecipeOpStream refAfter = after;
+        AddRevolvedProfileOp latHe;
+        latHe.name = "col"; latHe.profile = "shaft";
+        refAfter.ops.push_back(latHe);
+        const auto refAfterResult = exportRecipeStreamDiffToToon(before, refAfter);
+        assert(!refAfterResult.ok);
+        assert(refAfterResult.message.find("after stream must be resolved") != std::string::npos);
+
+        // ---- Case 7: identical streams → empty delta (no field lines). ----
+        const auto diffSame = exportRecipeStreamDiffToToon(before, before);
+        assert(diffSame.ok && diffSame.value.has_value());
+        // Only the kind/title header lines; no op.* or recipe.* field lines.
+        const std::string &sameText = *diffSame.value;
+        assert(sameText.find("kind: recipe-diff\n") != std::string::npos);
+        assert(sameText.find("op.") == std::string::npos);
+        assert(sameText.find("recipe.") == std::string::npos);
     }
 
     return 0;

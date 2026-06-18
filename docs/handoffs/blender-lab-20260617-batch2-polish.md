@@ -95,10 +95,12 @@ partial revolve + helix; both pass. edi-gate GREEN (102/102), 4 goldens byte-ide
 the 18-edge analysis. Accepted on green gate + spot-check. **P3 closure family now both
 watertight AND oriented, locked by asserts.**
 
-## REBASE GUARD (standing, hub fleet-infra)
-origin/master is STALE/frozen. Rebase ONLY onto LOCAL `master` ref (no `git fetch`, never
-origin/master). In EVERY slice brief. Local master is the real line (73c0832 → 1a9a7df (P3)
-→ 2473a84 (P3b) → 70aae99 (DR-01..15 + more); rebase onto whatever it currently is).
+## REBASE PRACTICE (standing) — ALL-CLEAR 2026-06-17: origin reconciled (17c716a)
+The stale-origin corruption trap is GONE (origin fast-forwarded to the real line; now a
+current backup). **Practice UNCHANGED: rebase onto LOCAL `master` ref (planner-synced, always
+current) — `git rebase master`, no `git fetch` needed.** The action is identical; only the
+rationale changed (local master is the current line, not "origin is dangerous"). Local master
+has advanced through every merge (…→ 2878803 (RD1) → fa8afb2 (P4+P4b) → … rebase onto current).
 
 ## AUTONOMOUS run (user call) — run the queue ahead; bus-hub only on milestones
 ### P4 — SHIPPED 2026-06-17 (`2d2f02b`, Sonnet; spot-check)
@@ -123,11 +125,57 @@ ops) in front/side/top + BoundsEstimator frames it. doric ASCII previews byte-id
 Script), 4 OBJ goldens unchanged, edi-gate GREEN (102/102), new M1 ascii test. M1 Script-
 visibility closed. (P4+P4b merged to master `fa8afb2` by edi-ui.)
 
-### RD2 — builder briefed 2026-06-17 (`briefs/037`)
+### RD2 — SHIPPED 2026-06-17 (`28a2a83`, Sonnet; spot-check)
 `exportRecipeStreamDiffToToon(before, after)` — diff two resolved streams' shared
-`recipeOpsToConfig` flat keys → TOON deltas (`op.4.height: 2 -> 3`); refuse unresolved by
-name; never JSON. In RecipeOpsStore. `--recipe-diff` CLI verb is edi-ui's (flag).
+`recipeOpsToConfig` flat keys → TOON deltas (`op.0.height: 2 -> 3`, `(added)`/`(removed)`);
+refuse unresolved by name; never JSON; key-parity (the diff key IS the TOML key). 7 pinned
+tests, edi-gate 103/103, 4 OBJ goldens byte-identical. `--recipe-diff` CLI flagged edi-ui.
+M6 semantic-diff closed. (RD1 merged to master `2878803`.)
+
+## Queue REORDER (planner, autonomous): P6 before P5
+P6's algorithm research is DONE (`docs/inset-research.md`); P5 (miter) needs research. So:
+**P6 (inset, builder) NOW** + **P5-miter research (researcher) in PARALLEL** → then P5
+(builder, with research) → P7 → closeout. Keeps the builder fed AND de-risks the hardest item.
+
+### P6 — builder briefed 2026-06-17 (`briefs/038`); P5-miter research — researcher briefed (`briefs/039`)
+
+### Checkpoint audit — 2026-06-17 (`replies/040`, Opus reviewer): P4/P4b/RD2 ALL CLEAN
+Retroactive adversarial pass on the spot-checked-then-merged slices. Reviewer traced the taper
+math, the P4b Y-only early-out guard (correctly does NOT skip — the exact risk), and the RD2
+merge-walk by hand; recipe ctest 7/7, 4 goldens byte-identical. No defects. Two benign notes
+(NOT followed up): P4 `t**negative` ZeroDivisionError only reachable bypassing validate; RD2
+rename shows in title AND a recipe.name delta (honest redundancy). **Confirms the fast-track
+spot-checks missed nothing.**
+
+### RD-miter research — SHIPPED 2026-06-17 (`d9508d4`, researcher): P5 de-risked
+`docs/miter-research.md`. Recommendation: bisector miter frame in `_swept_prism_world` —
+`miter_scale = 2/|t_in+t_out| = 1/cos(α/2)` (no trig), applied to the in-plane normal; start/end
+single-segment (scale 1.0); straight paths byte-identical. Refusal `prism_sweep_corner_too_sharp`
+when `|t_in+t_out| < 0.5` (miter_scale > 4 = SVG miterlimit). **GOLDEN FLAG: swept_profile's path
+has a 90° corner → P5 WILL change `swept_profile.obj` (miter_scale √2) — builder regenerates it.**
+
+### P6 — builder done (Sonnet); reviewer audit OPEN (`briefs/041`)
+Replaced `_inset_polygon` with edge-offset-then-intersect + refuse(None)/fallback + the
+`prism_inset_reflex_pinch` validate guard. **Builder CAUGHT + corrected a sign-flip typo in the
+research formula** (denom). edi-gate 103/103, 4 OBJ goldens byte-identical (inset=0 identity).
+Riskiest geometry + a corrected formula → full Opus audit before merge.
+
+### P6 — SHIPPED 2026-06-17 (`c0fce01`, Sonnet; Opus audit `replies/041`: SHIP, clean)
+Reviewer independently re-derived the line-intersection formula (builder's correction RIGHT —
+the research had a real sign flip), probed refuse/fallback across many reflex configs (no
+false-accept, no over-reject), verified the validate guard + fallback (no leak) + byte-identity
++ identity early-out. Riskiest item, verified sound. **Doc nit fixed:** `docs/inset-research.md`
+§4 denom corrected (was sign-flipped) so a future reader can't re-introduce the bug.
+
+### P7 — SHIPPED 2026-06-17 (`replies/042`, Sonnet; spot-check)
+`bounds_of` helix branch now scans `_moulding_world` verts (exact, drift-proof z-lift + radius);
+straight branch keeps the formula verbatim (byte-identical doric); swept prism already tight
+since BL-08 (added a regression test). OBJ goldens unaffected (preview-framing only). 103/103.
+
+### P5 — builder briefed 2026-06-17 (`briefs/043`) — the FINAL batch-2 slice (on verified P6)
+Bisector miter frame in `_swept_prism_world` per `docs/miter-research.md`. **Regenerates
+`swept_profile.obj`** (90° corner → miter_scale √2). Sharp-corner refusal.
 
 ## Next (autonomous)
-- RD2 (in flight) → P5 (sweep miter) → P6 (non-convex inset, use `docs/inset-research.md`)
-  → P7 (bounds tightness) → batch-2 CLOSEOUT. Rebase each on LOCAL master; bus edi-ui green tips.
+- P5 (miter) → batch-2 CLOSEOUT (all 8 deferred + 3 roadmap-depth items done). Bus edi-ui;
+  rebase LOCAL master.

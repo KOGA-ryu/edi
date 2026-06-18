@@ -10,6 +10,7 @@ reviewed against bpy semantics); everything testable without Blender is
 tested here so a refactor cannot silently bend the plan.
 """
 
+import math
 import os
 import re
 import sys
@@ -368,6 +369,109 @@ def main() -> int:
     fat_verts = edi_craft._prism_world(dict(straight, normal_offset=0.5))[0]
     assert bbox_vol(fat_verts) > bbox_vol(base) + 1e-9, "normal_offset>0 must fatten the shell"
 
+    # P6: robust non-convex inset (edge-offset-then-intersect).
+    # v2 replaces the per-vertex bisector-amplification (1/cos_half → ∞ at
+    # reflex corners) with a per-EDGE offset + line-intersection approach that
+    # is numerically stable at all corner types, plus post-hoc area-flip and
+    # edge-crossing checks that return None on bad results.
+
+    # Helper: signed shoelace area of a 2D polygon.
+    def signed_area_p6(pts):
+        n2 = len(pts)
+        a = 0.0
+        for i in range(n2):
+            x0, y0 = pts[i]; x1, y1 = pts[(i + 1) % n2]
+            a += x0 * y1 - x1 * y0
+        return a * 0.5
+
+    # ---- Case 1: convex footprint with inset > 0 produces a smaller,
+    # well-formed polygon (same as v1 — both exact for convex corners). ----
+    p6_convex = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]  # 4×4 square CCW
+    p6_result = edi_craft._inset_polygon(p6_convex, 0.5)
+    assert p6_result is not None, "convex inset must succeed"
+    # The inset polygon has SMALLER signed area.
+    assert signed_area_p6(p6_result) < signed_area_p6(p6_convex) - 1e-9, \
+        "inset > 0 must produce a smaller polygon"
+    assert len(p6_result) == 4, "convex inset must keep vertex count"
+    # All result vertices must be strictly inside the original bbox.
+    p6_xs = [p[0] for p in p6_result]; p6_ys = [p[1] for p in p6_result]
+    assert min(p6_xs) > 0.0 + 1e-9 and max(p6_xs) < 4.0 - 1e-9, \
+        "inset polygon must be strictly inside original x-range"
+    assert min(p6_ys) > 0.0 + 1e-9 and max(p6_ys) < 4.0 - 1e-9, \
+        "inset polygon must be strictly inside original y-range"
+
+    # ---- Case 2: identity — inset = 0.0 is byte-identical. ----
+    assert edi_craft._inset_polygon(p6_convex, 0.0) is p6_convex, \
+        "inset=0 must return the same pts object (identity)"
+
+    # ---- Case 3: non-convex (L-shape) footprint with a MODERATE inset that
+    # v1 would handle poorly at the reflex vertex — v2 produces a valid,
+    # non-self-intersecting inset. ----
+    # L-shape (CCW): one reflex vertex at (2,2); adjacent edges each length 2.
+    # Pinch limit = 0.5*min(2,2) = 1.0; inset=0.5 is safely below it.
+    p6_lshape = [
+        (0.0, 0.0), (4.0, 0.0), (4.0, 2.0),
+        (2.0, 2.0), (2.0, 4.0), (0.0, 4.0)]
+    p6_nc = edi_craft._inset_polygon(p6_lshape, 0.5)
+    assert p6_nc is not None, \
+        "L-shape with moderate inset should produce a valid result, not None"
+    assert len(p6_nc) == 6, "vertex count must be preserved"
+    # The area of the inset polygon must be smaller (it was shrunk in).
+    assert signed_area_p6(p6_nc) < signed_area_p6(p6_lshape) - 1e-9, \
+        "non-convex inset must produce a smaller polygon"
+    # Sanity: verify all result edges have positive length (no degenerate edges).
+    for i in range(len(p6_nc)):
+        ex0, ey0 = p6_nc[i]; ex1, ey1 = p6_nc[(i + 1) % len(p6_nc)]
+        assert math.hypot(ex1 - ex0, ey1 - ey0) > 1e-9, "degenerate edge in inset result"
+
+    # ---- Case 4: oversized inset on the non-convex footprint returns None
+    # (the post-hoc area-flip or edge-crossing check fires) and the caller
+    # falls back to the original un-inset footprint. ----
+    # inset=1.5 > pinch limit=1.0 — the C++ guard refuses this; if it somehow
+    # reaches Python (defense-in-depth), None is returned.
+    p6_over = edi_craft._inset_polygon(p6_lshape, 1.5)
+    assert p6_over is None, \
+        "oversized inset on non-convex footprint must return None (self-intersection detected)"
+
+    # Confirm the caller (_prism_world) falls back to the original footprint
+    # when _inset_polygon returns None: build two ops — one with the safe
+    # inset (0.5) and one that is oversized (1.5, which will be None) — and
+    # verify the fallback op's XY footprint matches the original.
+    p6_fp_dicts = [{"x": x, "y": y} for x, y in p6_lshape]
+    p6_op_safe = {"type": "AddPrism", "name": "l_safe",
+                  "footprint": p6_fp_dicts, "x": 0.0, "y": 0.0,
+                  "base_z": 0.0, "height": 1.0, "inset": 0.5,
+                  "normal_offset": 0.0}
+    p6_op_over = {"type": "AddPrism", "name": "l_over",
+                  "footprint": p6_fp_dicts, "x": 0.0, "y": 0.0,
+                  "base_z": 0.0, "height": 1.0, "inset": 1.5,
+                  "normal_offset": 0.0}
+    p6_verts_safe, _ = edi_craft._prism_world(p6_op_safe)
+    p6_verts_over, _ = edi_craft._prism_world(p6_op_over)
+    # Fallback: the oversized-inset op's bottom cap verts must match the
+    # ORIGINAL footprint (no inset applied), not the failed inset result.
+    p6_n = len(p6_lshape)
+    p6_orig_xy = set(p6_lshape)
+    p6_over_xy = set((v[0], v[1]) for v in p6_verts_over[:p6_n])
+    assert p6_orig_xy == p6_over_xy, \
+        "oversized-inset fallback: bottom cap must match the original footprint"
+    # Safe inset: bottom cap verts differ from original (they were shrunk).
+    p6_safe_xy = set((v[0], v[1]) for v in p6_verts_safe[:p6_n])
+    assert p6_safe_xy != p6_orig_xy, \
+        "safe inset: bottom cap must differ from original (inset was applied)"
+
+    # ---- Case 5: obj_lines with the oversized-inset op includes a # WARNING
+    # comment line — and the warning does not contain '{' or '}' (no JSON). ----
+    p6_warn_lines = edi_craft.obj_lines([p6_op_over])
+    p6_wcs = [l for l in p6_warn_lines if l.startswith("# WARNING:")]
+    assert p6_wcs, "obj_lines must emit # WARNING for a rejected inset"
+    for wc in p6_wcs:
+        assert '{' not in wc and '}' not in wc, "OBJ warning must not contain JSON syntax"
+    # obj_lines with the safe op must NOT emit a warning.
+    p6_safe_lines = edi_craft.obj_lines([p6_op_safe])
+    assert not any(l.startswith("# WARNING:") for l in p6_safe_lines), \
+        "obj_lines must not emit a warning for a successful inset"
+
     # BL-11 / P2: an AddBoolean's PROOF emits its two operands (by name) tagged
     # with the boolean intent — it does NOT compute the CSG. P2: an operand
     # CONSUMED by the boolean is no longer emitted STANDALONE (the real build
@@ -447,6 +551,78 @@ def main() -> int:
     # The default (rise 0) is byte-identical to the plain non-helix mesh.
     assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
         edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"
+
+    # P7: bounds_of tightness for helix + swept prism.
+    #
+    # WHY this matters: bounds_of feeds the dry-run / snapshot preview rig.
+    # A loose frame makes the camera pull back too far (the helix lifts out of
+    # the preview box), giving a bad composition.  OBJ output is unaffected —
+    # bounds_of is preview-framing only, not part of obj_lines.
+    #
+    # APPROACH: for helix mouldings, bounds_of now calls _moulding_world and
+    # frames from the actual mesh verts — the same approach the swept-prism arm
+    # (already correct since BL-08) uses.  For straight (non-helix) mouldings
+    # and straight prisms the formula path is unchanged.
+
+    # ---- Helix moulding: z-max must cover the screw_rise * screw_turns lift.
+    # With rise=2, turns=3: lift=6; profile z in [0,1]; base_z=0.
+    # Old frame: z_max = 1.  New (correct) frame: z_max = 7 (= 1 + 6).
+    p7_helix_op = moulding(screw_rise=2.0, screw_turns=3.0)
+    p7_hx0, p7_hx1, p7_hy0, p7_hy1, p7_hz0, p7_hz1 = edi_craft.bounds_of([p7_helix_op])
+    # z-max must reach or exceed base_z + max_profile_z + screw_rise*screw_turns = 7.
+    assert p7_hz1 >= 7.0 - 1e-9, \
+        f"helix bounds_of z-max must cover the lift (got {p7_hz1}, expected ≥ 7.0)"
+    # z-min must cover the base (profile starts at z=0).
+    assert p7_hz0 <= 0.0 + 1e-9, \
+        f"helix bounds_of z-min must cover the base (got {p7_hz0})"
+    # x/y radius must still cover the profile's max_radius (=1.0 here).
+    assert p7_hx1 >= 1.0 - 1e-9, "helix bounds_of x-max must cover max profile radius"
+    assert p7_hx0 <= -1.0 + 1e-9, "helix bounds_of x-min must cover -max profile radius"
+
+    # ---- Straight (non-helix) moulding: bounds UNCHANGED (formula path stays). ----
+    p7_flat_op = moulding(screw_rise=0.0)          # rise=0 → formula path
+    p7_fx0, p7_fx1, p7_fy0, p7_fy1, p7_fz0, p7_fz1 = edi_craft.bounds_of([p7_flat_op])
+    assert p7_fz0 == 0.0 and p7_fz1 == 1.0, \
+        f"straight moulding bounds_of z must stay [0,1] (got [{p7_fz0},{p7_fz1}])"
+    assert p7_fx0 == -1.0 and p7_fx1 == 1.0, \
+        f"straight moulding bounds_of x must stay [-1,1] (got [{p7_fx0},{p7_fx1}])"
+
+    # ---- Negative screw_rise: helix goes DOWN — z-min must cover the drop. ----
+    # rise=-2, turns=3 → lift=-6; profile z in [0,1]; z-min = 0 + (-6) = -6.
+    p7_down_op = moulding(screw_rise=-2.0, screw_turns=3.0)
+    _, _, _, _, p7_dz0, p7_dz1 = edi_craft.bounds_of([p7_down_op])
+    assert p7_dz0 <= -6.0 + 1e-9, \
+        f"descending helix bounds_of z-min must cover the drop (got {p7_dz0})"
+    assert p7_dz1 >= 1.0 - 1e-9, \
+        f"descending helix bounds_of z-max must still cover the profile top (got {p7_dz1})"
+
+    # ---- Swept prism: x/y bounds cover the FULL path extent (already correct
+    # since BL-08 — this test guards against future regression). ----
+    # Footprint is a unit square at origin; path extends 10 units along +x.
+    p7_sfp = [{"x": 0.0, "y": 0.0}, {"x": 1.0, "y": 0.0},
+              {"x": 1.0, "y": 1.0}, {"x": 0.0, "y": 1.0}]
+    p7_spath = [{"x": 0.0, "y": 0.0}, {"x": 10.0, "y": 0.0}]
+    p7_swept_op = {"type": "AddPrism", "name": "long_run",
+                   "footprint": p7_sfp, "path": p7_spath,
+                   "x": 0.0, "y": 0.0, "base_z": 0.0, "height": 0.0,
+                   "inset": 0.0, "normal_offset": 0.0}
+    p7_sx0, p7_sx1, p7_sy0, p7_sy1, p7_sz0, p7_sz1 = edi_craft.bounds_of([p7_swept_op])
+    # The path runs from x=0 to x=10; the bounds must reach x=10 (the far end).
+    assert p7_sx1 >= 10.0 - 1e-9, \
+        f"swept prism bounds_of x-max must cover path extent (got {p7_sx1})"
+    # Footprint is 1×1; some y-extent must be present.
+    assert p7_sy1 > p7_sy0 + 1e-9, "swept prism must have non-zero y extent"
+
+    # ---- Straight prism (no path): bounds UNCHANGED by P7. ----
+    p7_sprism_op = {"type": "AddPrism", "name": "block",
+                    "footprint": p7_sfp, "x": 2.0, "y": 3.0,
+                    "base_z": 1.0, "height": 4.0, "inset": 0.0, "normal_offset": 0.0}
+    p7_px0, p7_px1, p7_py0, p7_py1, p7_pz0, p7_pz1 = edi_craft.bounds_of([p7_sprism_op])
+    # Footprint xs in [0,1] offset by x=2 → [2, 3]; ys in [0,1] offset by y=3 → [3, 4].
+    assert abs(p7_px0 - 2.0) < 1e-9 and abs(p7_px1 - 3.0) < 1e-9, \
+        f"straight prism x bounds must be [2,3] (got [{p7_px0},{p7_px1}])"
+    assert abs(p7_pz0 - 1.0) < 1e-9 and abs(p7_pz1 - 5.0) < 1e-9, \
+        f"straight prism z bounds must be [1,5] (got [{p7_pz0},{p7_pz1}])"
 
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a

@@ -1204,4 +1204,77 @@ edi::formats::FormatResult<std::string> exportRecipeStreamToToon(const RecipeOpS
     return edi::formats::exportToonPacket(packet, "recipe_toon");
 }
 
+edi::formats::FormatResult<std::string> exportRecipeStreamDiffToToon(
+    const RecipeOpStream &before, const RecipeOpStream &after)
+{
+    using Result = edi::formats::FormatResult<std::string>;
+    // Precondition: BOTH sides must be resolved. Diffing an unresolved stream
+    // (one that still carries a binding or a refused-before-build ref-op) would
+    // describe changes to placeholders the build cannot make — the same "lie in
+    // the handoff" doctrine as exportRecipeStreamToToon (BL-15). Refuse by name
+    // so the caller knows which side needs resolving; do NOT auto-resolve here
+    // (we have no DraftingDocument to resolve against).
+    if (!recipeOpsResolved(before)) {
+        return Result::failure("recipe_diff", "recipe.unresolved",
+                               "before stream must be resolved before diff: " + before.name);
+    }
+    if (!recipeOpsResolved(after)) {
+        return Result::failure("recipe_diff", "recipe.unresolved",
+                               "after stream must be resolved before diff: " + after.name);
+    }
+
+    // Get both flat key→value maps from the ONE shared key source.
+    // Reusing recipeOpsToConfig means diff keys are byte-identical to the TOML
+    // and the BL-15 TOON: an AI that knows "op.4.height" from the TOML or the
+    // full TOON can point at the same key in the diff without translation.
+    OpStreamConfigResult beforeCfg = recipeOpsToConfig(before);
+    if (!beforeCfg.ok) {
+        return Result::failure("recipe_diff", "recipe.serialize",
+                               "before: " + beforeCfg.message);
+    }
+    OpStreamConfigResult afterCfg = recipeOpsToConfig(after);
+    if (!afterCfg.ok) {
+        return Result::failure("recipe_diff", "recipe.serialize",
+                               "after: " + afterCfg.message);
+    }
+
+    // Walk both maps simultaneously — both are std::map<string,string> so they
+    // are already sorted by key. A single-pass merge gives the delta in sorted
+    // order without a separate "collect union then sort" step.
+    edi::formats::StaticConfig delta;
+    const auto &bMap = beforeCfg.config;
+    const auto &aMap = afterCfg.config;
+    auto bit = bMap.cbegin();
+    auto ait = aMap.cbegin();
+    while (bit != bMap.cend() || ait != aMap.cend()) {
+        const bool bDone = (bit == bMap.cend());
+        const bool aDone = (ait == aMap.cend());
+        if (!bDone && (aDone || bit->first < ait->first)) {
+            // Key exists in BEFORE only → it was removed in AFTER.
+            delta[bit->first] = bit->second + " -> (removed)";
+            ++bit;
+        } else if (!aDone && (bDone || ait->first < bit->first)) {
+            // Key exists in AFTER only → it was added.
+            delta[ait->first] = "(added) -> " + ait->second;
+            ++ait;
+        } else {
+            // Key exists in BOTH: emit only if values differ (omit unchanged).
+            if (bit->second != ait->second) {
+                delta[bit->first] = bit->second + " -> " + ait->second;
+            }
+            ++bit;
+            ++ait;
+        }
+    }
+
+    edi::formats::ToonPacket packet;
+    packet.kind = "recipe-diff";
+    // Title: keep the stream name when both sides share it (the common case —
+    // diffing two revisions of the same recipe). When they differ, show both.
+    packet.title = (before.name == after.name) ? after.name
+                                                : before.name + " -> " + after.name;
+    packet.fields = std::move(delta);
+    return edi::formats::exportToonPacket(packet, "recipe_diff");
+}
+
 } // namespace edi::recipe

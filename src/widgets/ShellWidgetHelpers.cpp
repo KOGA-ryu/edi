@@ -98,10 +98,15 @@ ScrollablePanel makeScrollablePanel(const QString &objectName, int minWidth, int
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     outer->addWidget(scroll);
 
+    // Layout dims come from the ShellTheme defaults (the single source of
+    // truth for view metrics) rather than threading a derived theme through
+    // every caller of this free helper — these tokens do not vary with the
+    // color inputs, so a default-constructed ShellTheme carries them exactly.
+    const ShellTheme dims;
     auto *contentWidget = new QWidget;
     auto *content = new QVBoxLayout(contentWidget);
-    content->setContentsMargins(12, 12, 12, 12);
-    content->setSpacing(8);
+    content->setContentsMargins(dims.panelPadding, dims.panelPadding, dims.panelPadding, dims.panelPadding);
+    content->setSpacing(dims.panelSpacing);
     scroll->setWidget(contentWidget);
     // setWidget() force-enables autoFillBackground on the content widget,
     // which then paints the PLATFORM palette (light gray on macOS) edge to
@@ -120,7 +125,7 @@ QPushButton *makeRailButton(const QString &label, const QString &tooltip, bool a
     button->setCheckable(true);
     button->setChecked(active);
     button->setEnabled(enabled);
-    button->setMinimumHeight(30);
+    button->setMinimumHeight(ShellTheme{}.buttonMinHeight);
     return button;
 }
 
@@ -137,7 +142,7 @@ QWidget *makeCollapsibleSection(const QString &title, QWidget *content, bool ope
     section->setObjectName(QStringLiteral("collapsibleSection"));
     auto *layout = new QVBoxLayout(section);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(4);
+    layout->setSpacing(ShellTheme{}.sectionSpacing);
 
     auto *header = new QPushButton((openInitially ? QStringLiteral("▾ ") : QStringLiteral("▸ ")) + title);
     header->setObjectName(QStringLiteral("sectionToggle"));

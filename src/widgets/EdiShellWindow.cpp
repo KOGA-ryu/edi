@@ -1136,7 +1136,7 @@ void EdiShellWindow::refreshChrome()
         if (button->property("faceKey").toString() != faceKey) {
             button->setProperty("faceKey", faceKey);
             button->setIcon(QIcon(panelToggleFace(slot, QColor(theme.textMuted), barColor, devicePixelRatioF())));
-            button->setIconSize(QSize(16, 14));
+            button->setIconSize(QSize(theme.panelToggleIconW, theme.panelToggleIconH));
         }
     };
     reflect(m_toggleLeftButton, ShellSlot::Left);
@@ -1298,17 +1298,22 @@ void EdiShellWindow::layoutMainArea()
     // Grip offsets clamp to 0: when a panel fills the whole area (terminal at
     // full height), the grip must stay fully inside it and grabbable — at -4
     // half the hit zone would be clipped at exactly the moment it matters.
+    // (overlayGripHitPx is the inner-edge inset, overlayGripBandPx the band
+    // thickness — view metrics read from the theme, not magic numbers.)
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
     if (m_rightGrip != nullptr) {
         m_rightGrip->setVisible(rightShown);
         if (rightShown) {
-            m_rightGrip->setGeometry(std::max(0, width - rightWidth - 4), 0, 8, height - bottomHeight);
+            m_rightGrip->setGeometry(std::max(0, width - rightWidth - theme.overlayGripHitPx),
+                0, theme.overlayGripBandPx, height - bottomHeight);
             m_rightGrip->raise();
         }
     }
     if (m_bottomGrip != nullptr) {
         m_bottomGrip->setVisible(bottomShown);
         if (bottomShown) {
-            m_bottomGrip->setGeometry(0, std::max(0, height - bottomHeight - 4), width, 8);
+            m_bottomGrip->setGeometry(0, std::max(0, height - bottomHeight - theme.overlayGripHitPx),
+                width, theme.overlayGripBandPx);
             m_bottomGrip->raise();
         }
     }

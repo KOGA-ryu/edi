@@ -19,12 +19,13 @@ using namespace edi::shell;
 
 QWidget *EdiShellWindow::buildActivityRail()
 {
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
     auto *rail = makeRegionFrame(QStringLiteral("activityRail"));
-    rail->setFixedWidth(52);
+    rail->setFixedWidth(theme.railWidth);
 
     auto *layout = new QVBoxLayout(rail);
-    layout->setContentsMargins(8, 8, 8, 8);
-    layout->setSpacing(6);
+    layout->setContentsMargins(theme.railPadding, theme.railPadding, theme.railPadding, theme.railPadding);
+    layout->setSpacing(theme.railSpacing);
 
     m_activityGroup = new QButtonGroup(rail);
     m_activityGroup->setExclusive(true);
@@ -72,12 +73,13 @@ QWidget *EdiShellWindow::buildTitleBar()
     // lights, left-panel collapse, back/forward (workspace history — the
     // "rabbit hole" trail, NOT undo/redo), File/Edit/Settings, then on the
     // right the terminal (bottom) and right-panel collapse toggles.
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
     auto *bar = makeRegionFrame(QStringLiteral("titleBar"));
-    bar->setFixedHeight(42);
+    bar->setFixedHeight(theme.chromeBarHeight);
 
     auto *layout = new QHBoxLayout(bar);
-    layout->setContentsMargins(10, 0, 10, 0);
-    layout->setSpacing(6);
+    layout->setContentsMargins(theme.chromeBarPaddingH, 0, theme.chromeBarPaddingH, 0);
+    layout->setSpacing(theme.chromeBarSpacing);
 
     const auto addTraffic = [&](const QString &name, const QString &tooltip, const std::function<void()> &onClick) {
         auto *button = new QPushButton;
@@ -95,7 +97,7 @@ QWidget *EdiShellWindow::buildTitleBar()
     addTraffic(QStringLiteral("trafficZoom"), QStringLiteral("Zoom window"), [this]() {
         isMaximized() ? showNormal() : showMaximized();
     });
-    layout->addSpacing(8);
+    layout->addSpacing(theme.chromeGroupSpacing);
 
     const auto addPanelToggle = [&](const QString &name, const QString &tooltip, ShellSlot slot) {
         // Face-only button: refreshChrome paints the spec's frame+bar icon
@@ -179,7 +181,7 @@ QWidget *EdiShellWindow::buildTitleBar()
     m_chromePanelHost->setObjectName(QStringLiteral("chromePanelHost"));
     auto *chromePanelLayout = new QHBoxLayout(m_chromePanelHost);
     chromePanelLayout->setContentsMargins(0, 0, 0, 0);
-    chromePanelLayout->setSpacing(6);
+    chromePanelLayout->setSpacing(theme.chromeBarSpacing);
     layout->addWidget(m_chromePanelHost);
 
     // The drag region. Nothing else lives here: the user's bar inventory is
@@ -207,11 +209,12 @@ QWidget *EdiShellWindow::buildStatusBar()
     // document and how clean — the dirty marker recolors to the warning
     // token via a dynamic property, so state lives in data and the color
     // lives in the sheet.
+    const ShellTheme theme = deriveShellTheme(m_themeInputs);
     auto *bar = makeRegionFrame(QStringLiteral("statusBar"));
-    bar->setFixedHeight(28);
+    bar->setFixedHeight(theme.statusBarHeight);
     auto *layout = new QHBoxLayout(bar);
-    layout->setContentsMargins(10, 0, 10, 0);
-    layout->setSpacing(12);
+    layout->setContentsMargins(theme.statusBarPaddingH, 0, theme.statusBarPaddingH, 0);
+    layout->setSpacing(theme.statusBarSpacing);
 
     m_statusModeLabel = new QLabel;
     m_statusModeLabel->setObjectName(QStringLiteral("statusMode"));

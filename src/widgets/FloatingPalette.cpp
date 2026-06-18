@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 
 #include "widgets/ShellPanels.h"
+#include "widgets/ShellTheme.h"
 
 using namespace edi::shell;
 
@@ -13,11 +14,16 @@ FloatingPalette::FloatingPalette(const QString &paletteId, const QString &title,
 {
     setObjectName(QStringLiteral("floatingPalette"));
 
+    // View metrics from the ShellTheme defaults — see makeScrollablePanel:
+    // these dims do not vary with the color inputs, so a default-constructed
+    // ShellTheme is the single source of truth without threading a theme in.
+    const ShellTheme dims;
+
     // Chromeless: no frame background or border — the content floats bare
     // over the canvas, and only the nub + cells are visible.
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(3);
+    layout->setSpacing(dims.floatingPaletteSpacing);
 
     // The grab nub: a small handle beside the content, title as tooltip.
     // WA_StyledBackground because plain QWidgets ignore stylesheet
@@ -26,7 +32,7 @@ FloatingPalette::FloatingPalette(const QString &paletteId, const QString &title,
     m_grip->setObjectName(QStringLiteral("paletteGrip"));
     m_grip->setAttribute(Qt::WA_StyledBackground, true);
     m_grip->setCursor(Qt::SizeAllCursor);
-    m_grip->setFixedSize(10, 28);
+    m_grip->setFixedSize(dims.floatingPaletteGripW, dims.floatingPaletteGripH);
     m_grip->setToolTip(title);
     layout->addWidget(m_grip, 0, Qt::AlignVCenter);
 

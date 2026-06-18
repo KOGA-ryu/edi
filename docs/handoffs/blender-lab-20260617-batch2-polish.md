@@ -80,12 +80,18 @@ link. The param.type default mismatch (C++ "text" vs Python "number") stays §10
 
 ## Next
 - **DONE batch-2:** RD3 craftsmen doc, P1 warning+manifold, P2 boolean dedup — all on master.
-### P3 — builder done (`707bc06`, Sonnet), reviewer audit OPEN
-Closed the helix into a 2-manifold solid (axis spine + inner/outer quads + start/end caps);
-edi-gate GREEN (ctest 102/102), 4 OBJ goldens byte-identical, helix now passes
-`assert_manifold`. screw_rise=0 guarded byte-identical. Builder verified algebraically
-(nprof=2,3). Fiddly geometry from a fresh Sonnet → Opus reviewer audit (`briefs/031`):
-watertightness across configs + winding/orientation + the byte guarantees. Boundary ctx
-check: builder below-nudge (fresh), reviewer 372k OK, researcher below-nudge — no cycle.
+### P3 — SHIPPED 2026-06-17 (`707bc06`, Sonnet; Opus audit `replies/031`: SHIP)
+Helix closed into a genuine watertight 2-manifold. Reviewer re-derived manifoldness across
+12 configs (turns×nprof×sign, incl. nprof=4 + 1-turn) — all closed; screw_rise=0 byte path
+untouched (4 goldens clean); lift intact; smoke helper honest. **Reviewer found** (NOT a P3
+regression): 18 inverted-winding edges — a PRE-EXISTING property of BL-06's axis-spine
+closure that P3 mirrors; cosmetic (OBJ proof has no normals; bpy recalcs). → **P3b** queued.
+
+### P3b — winding + orientation assert (reviewer-recommended, NEW)
+Reverse the outer-surface quad winding in BOTH the partial-revolve (BL-06) AND helix (P3)
+axis-spine closures so each is a properly ORIENTED boundary; extend `assert_manifold` with a
+directed-edge orientation check (every undirected edge traversed once each direction) +
+apply it. No committed golden uses a partial-revolve or helix → 4 goldens stay byte-identical
+(winding changes only smoke-pinned meshes). Small, localized.
 - Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
   geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.

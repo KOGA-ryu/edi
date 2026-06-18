@@ -440,7 +440,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     const DrawingCanvasProjectedStyle &style = item.style;
     QPen pen(
         selected ? context.palette.selection : QColor(style.strokeColor),
-        selected ? 3.0 : style.strokeWidth);
+        selected ? drawing_canvas::kSelectedStrokePenPx : style.strokeWidth);
     if (!selected) {
         // Per-object opacity rides as pen alpha. Selection stays fully
         // opaque on purpose: a near-invisible object must still light up

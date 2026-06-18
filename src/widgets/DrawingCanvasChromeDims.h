@@ -83,4 +83,8 @@ inline constexpr double kPlotWarnLabelOffsetPx = 6.0;
 inline constexpr double kPreviewPenPx = 2.0;
 inline constexpr double kPreviewConstructionPenPx = 1.5;
 
+// The stroke width (px) a SELECTED object's outline is drawn at, overriding the
+// object's own strokeWidth so the selection reads boldly regardless of pen.
+inline constexpr double kSelectedStrokePenPx = 3.0;
+
 } // namespace drawing_canvas

@@ -39,6 +39,16 @@ int main()
     assert(draftingToolKindFromId("height_dimension_tool") == DraftingToolKind::HeightDimension);
     assert(draftingToolKindFromId("radius_dimension_tool") == DraftingToolKind::RadiusDimension);
     assert(draftingToolKindFromId("diameter_dimension_tool") == DraftingToolKind::DiameterDimension);
+    // DR-13: Angular dimension is NOT a drag-created tool — the controller uses the
+    // two-line-pick arm instead.  The tool-kind round-trip must still work so the
+    // controller can dispatch on it, and buildDraftingObjectForTool must fail cleanly.
+    assert(draftingToolKindFromId("angular_dimension_tool") == DraftingToolKind::AngularDimension);
+    assert(std::string(draftingToolKindName(DraftingToolKind::AngularDimension)) == "angular_dimension");
+    {
+        const auto bad = build("ang_1", DraftingToolKind::AngularDimension, {0.1, 0.1}, {0.5, 0.5});
+        assert(!bad.ok);
+        assert(bad.code == DraftingResultCode::InvalidGeometry);
+    }
     assert(std::string(draftingToolKindName(DraftingToolKind::Circle)) == "circle");
 
     // Double-arrow: a Line-geometry variant carrying BOTH arrowheads as metadata

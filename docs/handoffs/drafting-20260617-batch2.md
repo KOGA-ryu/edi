@@ -10,9 +10,12 @@
 - **Queue (this run)**: M1 (delete-all-construction-lines) → M8 (motif library / flash sheet).
 
 ## Standing rules (carry into every brief)
-- ⛔ **REBASE GUARD** (hub, still on until ALL-CLEAR): builders rebase ONLY onto the LOCAL
-  `master` ref (`git rebase master`); NO `git fetch`, NO `origin/master` (stale `591e92c`,
-  corrupts the branch). Origin reconcile in flight.
+- **REBASE PRACTICE** (ALL-CLEAR 2026-06-17 — origin reconciled): builders rebase onto the
+  LOCAL `master` ref (`git rebase master`) — it is the planner-synced, always-current
+  integration line. The stale-origin corruption trap is GONE (origin/master fast-forwarded to
+  `17c716a`, all batch work; now a current backup). Standing practice UNCHANGED: target LOCAL
+  `master` (no ancient-conflict risk); `git fetch`/origin is no longer dangerous but local
+  remains the authoritative rebase target.
 - LEDGER is edi-ui's (master only) — never commit it here. Toolbelt: `edi-gate` + `bus-reply`.
 - edi-ui = merge owner (route green tips there). Painter/tool chrome = edi-ui seams.
 
@@ -83,8 +86,48 @@ CreateObjectsCommand = one undo.
   genuinely-absent-key serialize test — fold into the next builder touch (M8-S2 accept or a tiny
   follow-up); NOT blocking (the additive-tolerance is the established wall_visual/plug pattern).
 
+### M8-S2 — CLOSED 2026-06-17 ✅ (SHA `c566987`, GREEN 103/103) → M8 COMPLETE
+- Reply: `~/dept-bus/edi-drafting/replies/036-M8-S2-motif-place-builder.md`. `placeMotif` FLATTEN
+  (fresh ids, no back-ref, translate motif (0,0)→point), `defineMotifFromSelection` +
+  `MotifPlacement` intent + `beginMotifPlacement`/`runMotifAtPoint`, one `CreateObjectsCommand` =
+  one undo. Mirrors the validated array/capture pattern. Accepted inline. Reported `c566987` to edi-ui.
+- **M8 COMPLETE** (S1+S2). Closeout: `docs/closeouts/drafting-motif-library.md`. S3
+  transform-on-place DEFERRED behind the fork (decide after v1 translate-only is in use; UX is
+  edi-ui's). M8-S1 merged @`fa8afb2`.
+
+### DR-13 follow-up — AngularDimension TOOL KIND + two-line-pick arm — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/037-DR13-angular-tool-arm-builder.md`. edi-ui surfaced a
+  cross-dept gap (`replies/037-...`): DR-13 core shipped but the TOOL path is incomplete —
+  `DraftingToolKind::AngularDimension` + the two-line-pick controller arm (→ `planAngularDimension`)
+  are MINE (I'd over-deferred them as "tool wiring"). edi-ui's belt cell + combo are merged
+  (`c498c9c`), waiting on this arm. PRIORITY over M2 (completes already-chromed work). Mirrors the
+  fillet two-line capture. Builder told to STOP-ask if the tool-dispatch hook is ambiguous.
+
+### M2 — materialize intersections (drop points where lines cross) — QUEUED next
+- Confirmed genuinely NEW (DR-02 added the intersection SNAP source; M2 materializes Point
+  OBJECTS at crossings — a create op). 3 slices (op / command+verb / Node snap source). dep:none.
+  Queue AFTER the DR-13 arm (single builder). NB: roadmap M3/M5/M6/M7 OVERLAP the DR bucket
+  (already done: DR-05/06, DR-10/11, DR-07/08/09, DR-13/14) — M2 is the next genuinely-new item;
+  M4's tangent-circle (Apollonius) stays parked.
+
+### DR-13 angular tool-arm — CLOSED 2026-06-17 ✅ (SHA `1fd80fb`, GREEN 103/103)
+- `DraftingToolKind::AngularDimension` + `angular_dimension_tool` id; two-line-pick arm in
+  `clickCanvasNormalized` + `applyAngularDimensionAtPoint` + `PointCaptureIntent::AngularDimensionSecondLine`
+  + `m_pendingAngularFirstLineId` (id stored, not pointer). Tests: nominal one-undo + 3 rejection
+  paths. Diff +214/−0, all my files (core/toolcreation + tests). Spot-checked, accepted. Reported
+  `1fd80fb` to edi-ui → unblocks their end-to-end Angular confirmation + arc painter. **DR-13
+  fully end-to-end now** (core + tool + chrome).
+
+### M2 (S1+S2) — materialize intersections — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/038-M2-intersection-points-builder.md`. Pure op
+  `documentIntersectionPoints` (visible Line+ConstructionLine segments, segmentIntersection,
+  dedup) + `dropIntersectionPoints()` verb (CreateObjectsCommand, auto-select, idempotent
+  skip-existing, selection-scoped). dep:none; no reviewer gate (reuses settled machinery). M2-S3
+  (Node snap source) is the next slice after.
+
 ## Open questions / blockers
-- Deferred: harden the absent-`"motifs"`-key serialize test (non-blocking).
+- M2 S1+S2 in build → then M2-S3 (Node snap source). 
+- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test.
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

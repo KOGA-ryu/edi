@@ -4951,5 +4951,217 @@ int main(int argc, char **argv)
         assert(objectCount(motifCtl) == beforePlace);
     }
 
+    // M2-S2: dropIntersectionPoints — materialise segment crossings as Point objects.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+        auto kindCount = [](DrawingDocumentController &c, const QString &kind) {
+            int n = 0;
+            for (const QVariant &v : c.modelDocument().value(QStringLiteral("drawing_objects")).toList()) {
+                if (v.toMap().value(QStringLiteral("kind")).toString() == kind) {
+                    ++n;
+                }
+            }
+            return n;
+        };
+
+        // Two crossing lines → exactly 1 Point at the crossing, auto-selected.
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.2, 0.5);
+            ctl.clickCanvasNormalized(0.8, 0.5); // horizontal y=0.5
+            ctl.clickCanvasNormalized(0.5, 0.2);
+            ctl.clickCanvasNormalized(0.5, 0.8); // vertical x=0.5
+            assert(objectCount(ctl) == 2);
+
+            // The line_tool auto-selects the last-created line, so we clear the
+            // selection before calling dropIntersectionPoints — this tests the
+            // whole-document path (no selection → full visible scan).
+            ctl.setSelectedToolId("select_move");
+            ctl.clickCanvasNormalized(0.99, 0.99); // empty space → clears selection
+            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+
+            const bool dropped = ctl.dropIntersectionPoints();
+            assert(dropped);
+            assert(objectCount(ctl) == 3);
+            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+
+            // The created Point is auto-selected.
+            const QVariantList selIds =
+                ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList();
+            assert(selIds.size() == 1);
+            assert(selIds[0].toString().startsWith(QStringLiteral("isect_")));
+
+            // The whole operation is ONE undo step.
+            assert(ctl.canUndo());
+            ctl.undo();
+            assert(objectCount(ctl) == 2);
+        }
+
+        // Idempotent: calling again after the first drop creates 0 new Points.
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.2, 0.5);
+            ctl.clickCanvasNormalized(0.8, 0.5);
+            ctl.clickCanvasNormalized(0.5, 0.2);
+            ctl.clickCanvasNormalized(0.5, 0.8);
+            // Clear the auto-selection so the whole-document path runs.
+            ctl.setSelectedToolId("select_move");
+            ctl.clickCanvasNormalized(0.99, 0.99);
+
+            assert(ctl.dropIntersectionPoints()); // first drop: creates 1 Point
+            const int after1 = objectCount(ctl);
+            assert(after1 == 3);
+
+            // The first drop auto-selects the new Point — clear selection again
+            // so the second call also uses the whole-document path.
+            ctl.clickCanvasNormalized(0.99, 0.99); // select_move still active → clears selection
+
+            const bool second = ctl.dropIntersectionPoints(); // second drop: 0 new
+            assert(!second);
+            assert(objectCount(ctl) == after1); // nothing added
+        }
+
+        // Selection-scoped: 3 lines, only 2 selected → only their crossing drops.
+        //
+        // Layout (all in the canvas [0,1] space):
+        //   l1: horizontal y=0.5, x=[0.1,0.9] — spans full width
+        //   l2: vertical   x=0.4, y=[0.3,0.7] — crosses l1 at (0.4, 0.5)
+        //   l3: vertical   x=0.6, y=[0.3,0.7] — crosses l1 at (0.6, 0.5)
+        // Full-document drop would give 2 Points.
+        //
+        // A marquee [0.0,0.25]→[0.55,0.75] selects l1 (x=[0.1,0.9] intersects)
+        // and l2 (x=0.4 ≤ 0.55) but NOT l3 (x=0.6 > 0.55 — no x overlap with the
+        // marquee box).  The selection-scoped drop then gives only l1∩l2=(0.4,0.5).
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.1, 0.5);
+            ctl.clickCanvasNormalized(0.9, 0.5); // l1: horizontal y=0.5
+            ctl.clickCanvasNormalized(0.4, 0.3);
+            ctl.clickCanvasNormalized(0.4, 0.7); // l2: vertical x=0.4
+            ctl.clickCanvasNormalized(0.6, 0.3);
+            ctl.clickCanvasNormalized(0.6, 0.7); // l3: vertical x=0.6
+            assert(objectCount(ctl) == 3);
+
+            // Arm the marquee so l1+l2 are selected but l3 is excluded.
+            ctl.selectObjectsInBoundsNormalized(0.0, 0.25, 0.55, 0.75);
+            // Confirm exactly 2 objects are selected (l1 and l2).
+            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
+
+            // Selection-scoped drop: only l1∩l2=(0.4,0.5) lands.
+            const bool dropped = ctl.dropIntersectionPoints();
+            assert(dropped);
+            assert(objectCount(ctl) == 4); // 3 lines + 1 Point
+            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+        }
+    }
+
+    // DR-13: angular_dimension_tool — two-line-pick arm
+    // Mirrors the fillet test: click a line → arm capture; click second line →
+    // planAngularDimension → one Dimension object created in one undo step.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+
+        // Nominal: two perpendicular lines → Angular dimension created.
+        {
+            DrawingDocumentController angCtl;
+            angCtl.setSelectedToolId("line_tool");
+            // Horizontal line from (0.2,0.4) to (0.7,0.4).
+            angCtl.clickCanvasNormalized(0.2, 0.4);
+            angCtl.clickCanvasNormalized(0.7, 0.4);
+            // Vertical line from (0.4,0.2) to (0.4,0.7).
+            angCtl.clickCanvasNormalized(0.4, 0.2);
+            angCtl.clickCanvasNormalized(0.4, 0.7);
+            assert(objectCount(angCtl) == 2);
+
+            const int before = objectCount(angCtl);
+            angCtl.setSelectedToolId("angular_dimension_tool");
+
+            // First click: hit horizontal line midpoint → arms capture.
+            angCtl.clickCanvasNormalized(0.45, 0.4);
+            assert(angCtl.isAwaitingPointCapture());
+            assert(!angCtl.pointCapturePrompt().isEmpty());
+            // No object created by the first click.
+            assert(objectCount(angCtl) == before);
+
+            // Second click: hit vertical line midpoint → creates Angular dimension.
+            angCtl.clickCanvasNormalized(0.4, 0.45);
+            assert(!angCtl.isAwaitingPointCapture());
+            assert(objectCount(angCtl) == before + 1);
+
+            // Confirm the new object is a dimension.
+            const QVariantList objs =
+                angCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+            bool hasDim = false;
+            for (const QVariant &v : objs) {
+                if (v.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("dimension")) {
+                    hasDim = true;
+                    break;
+                }
+            }
+            assert(hasDim);
+
+            // The whole operation is ONE undo step.
+            assert(angCtl.canUndo());
+            angCtl.undo();
+            assert(objectCount(angCtl) == before);
+        }
+
+        // Second-pick is not a line (empty space) → no object, capture cleared.
+        {
+            DrawingDocumentController angCtl2;
+            angCtl2.setSelectedToolId("line_tool");
+            angCtl2.clickCanvasNormalized(0.1, 0.3);
+            angCtl2.clickCanvasNormalized(0.6, 0.3);
+            assert(objectCount(angCtl2) == 1);
+
+            angCtl2.setSelectedToolId("angular_dimension_tool");
+            angCtl2.clickCanvasNormalized(0.35, 0.3); // hit the line
+            assert(angCtl2.isAwaitingPointCapture());
+
+            const int before2 = objectCount(angCtl2);
+            angCtl2.clickCanvasNormalized(0.9, 0.9); // empty space — no line here
+            assert(!angCtl2.isAwaitingPointCapture());
+            // No new object should appear.
+            assert(objectCount(angCtl2) == before2);
+        }
+
+        // First click is not on a line → no capture armed.
+        {
+            DrawingDocumentController angCtl3;
+            angCtl3.setSelectedToolId("angular_dimension_tool");
+            angCtl3.clickCanvasNormalized(0.5, 0.5); // nothing in document
+            assert(!angCtl3.isAwaitingPointCapture());
+        }
+
+        // Parallel lines → planAngularDimension rejects → no object created.
+        {
+            DrawingDocumentController angCtl4;
+            angCtl4.setSelectedToolId("line_tool");
+            // Two horizontal lines (same slope).
+            angCtl4.clickCanvasNormalized(0.1, 0.3);
+            angCtl4.clickCanvasNormalized(0.6, 0.3); // line1: y=0.3
+            angCtl4.clickCanvasNormalized(0.1, 0.6);
+            angCtl4.clickCanvasNormalized(0.6, 0.6); // line2: y=0.6
+            assert(objectCount(angCtl4) == 2);
+
+            angCtl4.setSelectedToolId("angular_dimension_tool");
+            angCtl4.clickCanvasNormalized(0.35, 0.3); // arm on line1
+            assert(angCtl4.isAwaitingPointCapture());
+
+            const int before4 = objectCount(angCtl4);
+            angCtl4.clickCanvasNormalized(0.35, 0.6); // pick line2 (parallel)
+            assert(!angCtl4.isAwaitingPointCapture());
+            // planAngularDimension rejects parallel lines — no new object.
+            assert(objectCount(angCtl4) == before4);
+        }
+    }
+
     return 0;
 }

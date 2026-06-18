@@ -96,6 +96,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingBlockOps.cpp
     src/drafting/DraftingMotifOps.h
     src/drafting/DraftingMotifOps.cpp
+    src/drafting/DraftingIntersectionOps.h
+    src/drafting/DraftingIntersectionOps.cpp
     src/drafting/DraftingCorridor.h
     src/drafting/DraftingCorridor.cpp
     src/drafting/DraftingPathfind.h
@@ -273,6 +275,7 @@ add_edi_contract_test(drafting_map_query_tests tests/drafting_map_query_tests.cp
 add_edi_contract_test(drafting_region_fill_tests tests/drafting_region_fill_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_block_ops_tests tests/drafting_block_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_motif_ops_tests tests/drafting_motif_ops_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_intersection_points_tests tests/drafting_intersection_points_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_corridor_tests tests/drafting_corridor_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_pathfind_tests tests/drafting_pathfind_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_modify_tests tests/drafting_modify_tests.cpp edi_drafting_core)

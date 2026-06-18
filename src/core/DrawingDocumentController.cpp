@@ -19,6 +19,7 @@
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingIntersectionOps.h"
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMapQuery.h"  // deriveEdge (B2-2 corridor routing)
 #include "drafting/DraftingMetadata.h"
@@ -1934,6 +1935,55 @@ bool DrawingDocumentController::runMotifAtPoint(Point2D point)
     return true;
 }
 
+void DrawingDocumentController::applyAngularDimensionAtPoint(Point2D point)
+{
+    // Resolve the stored first-line by id — the pointer from the first click is gone.
+    const DraftingObject *line1Obj = findObject(m_document, m_pendingAngularFirstLineId);
+    if (line1Obj == nullptr || line1Obj->kind != DraftingShapeKind::Line) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   DraftingResultCode::InvalidSelectionTarget,
+                   QStringLiteral("first line is no longer in the document"));
+        return;
+    }
+    const auto *line1 = std::get_if<LineGeometry>(&line1Obj->geometry);
+    if (line1 == nullptr) { return; } // should not happen; line1Obj->kind == Line
+
+    // Hit-test the second click for a Line (any Line in the document).
+    const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+    const DraftingObject *line2Obj = hit.ok ? findObject(m_document, hit.objectId) : nullptr;
+    if (line2Obj == nullptr || line2Obj->kind != DraftingShapeKind::Line) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   DraftingResultCode::InvalidSelectionTarget,
+                   QStringLiteral("click on a second line to complete the angular dimension"));
+        return;
+    }
+    const auto *line2 = std::get_if<LineGeometry>(&line2Obj->geometry);
+    if (line2 == nullptr) { return; }
+
+    // Plan the Angular dimension. Rejects parallel lines (no intersection).
+    const DraftingDimensionPlan plan = planAngularDimension(*line1, *line2);
+    if (!plan.ok) {
+        finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                   plan.code, drawing_core::qStringFromStdString(plan.message));
+        return;
+    }
+
+    // Mint the dimension id and build the DraftingObject. Capture ids/geometry
+    // BEFORE the first applyDraftingCommand invalidates pointers into m_document.objects.
+    const QString dimId = nextObjectId(QStringLiteral("dim"), m_nextObjectSerial++);
+    DraftingObject dim = makeDraftingObject(toStdString(dimId), DraftingShapeKind::Dimension,
+                                            DraftingGeometry{plan.geometry});
+    dim.layerId = line1Obj->layerId; // inherit the first line's layer
+    dim.bounds  = computeBounds(dim.geometry);
+    dim.metadata.toolProvenance = "angular_dimension";
+
+    beginEdit();
+    applyDraftingCommand(m_document, CreateObjectCommand{dim});
+    applyDraftingCommand(m_document, SelectObjectCommand{dim.id});
+    commitEdit();
+    emit modelChanged();
+}
+
 bool DrawingDocumentController::beginRegionFillPick()
 {
     // Require a target up front, exactly like beginBlockInstancePick: with no rooms,
@@ -2572,6 +2622,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::MotifPlacement:
         runMotifAtPoint(point);
+        break;
+    case PointCaptureIntent::AngularDimensionSecondLine:
+        applyAngularDimensionAtPoint(point);
         break;
     case PointCaptureIntent::RegionFill:
         fillEnclosedRegion(point);
@@ -3336,6 +3389,47 @@ bool DrawingDocumentController::deleteAllConstructionLines()
     return applyCommandAndEmit(DeleteAllConstructionLinesCommand{});
 }
 
+bool DrawingDocumentController::dropIntersectionPoints()
+{
+    // Select which segments participate: the selection if non-empty, else the
+    // whole visible document.  subsetIntersectionPoints still respects the
+    // visibility gate, so a selected-but-hidden line contributes nothing.
+    const std::vector<DraftingObjectId> &sel = m_document.selectedObjectIds;
+    const std::vector<Point2D> rawPts = sel.empty()
+        ? documentIntersectionPoints(m_document)
+        : subsetIntersectionPoints(m_document, sel);
+
+    // Idempotency: drop the filter BEFORE building objects.  Any intersection
+    // already represented by an existing Point is skipped so that calling
+    // dropIntersectionPoints twice in a row on the same geometry is a no-op on
+    // the second call — the first call's Points satisfy the filter.
+    const std::vector<Point2D> newPts = filterExistingIntersections(m_document, rawPts);
+    if (newPts.empty()) {
+        return false; // no new intersections — no command, no undo entry
+    }
+
+    // Build one DraftingObject per new intersection.  Ids are minted before
+    // createObjectsAndSelect so that the serial bookkeeper is not rolled back
+    // on an unexpected rejection (the rejection path is unreachable in practice
+    // — every Point has valid geometry — but defensive like the array paths).
+    std::vector<DraftingObject> objects;
+    objects.reserve(newPts.size());
+    for (const Point2D &pt : newPts) {
+        const QString id = nextObjectId(QStringLiteral("isect"), m_nextObjectSerial++);
+        DraftingObject obj = makeDraftingObject(toStdString(id), DraftingShapeKind::Point,
+                                                DraftingGeometry{PointGeometry{pt}});
+        obj.layerId = m_document.activeLayerId;
+        obj.bounds  = computeBounds(obj.geometry);
+        obj.metadata.toolProvenance = "intersection";
+        objects.push_back(std::move(obj));
+    }
+
+    // createObjectsAndSelect wraps everything in one CreateObjectsCommand +
+    // SelectObjectsCommand inside ONE beginEdit/commitEdit bracket — one undo
+    // step regardless of how many intersection Points were created.
+    return createObjectsAndSelect(std::move(objects));
+}
+
 bool DrawingDocumentController::mergeDuplicateGuides()
 {
     return applyCommandAndEmit(MergeDuplicateGuidesCommand{});
@@ -3435,6 +3529,29 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         } else {
             emit pointerChanged();
         }
+        return;
+    }
+
+    // Angular dimension: two-line-pick, NOT a drag.  First click hit-tests for a
+    // Line; if found, store its id and arm the second-line capture.  This must be
+    // checked BEFORE the two-click drag fallback so AngularDimension never sets a
+    // m_pendingCreation (which would try buildDraftingObjectForTool on the second click).
+    if (kind == DraftingToolKind::AngularDimension) {
+        const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+        const DraftingObject *hitObj = hit.ok ? findObject(m_document, hit.objectId) : nullptr;
+        if (hitObj == nullptr || hitObj->kind != DraftingShapeKind::Line) {
+            commitEdit();
+            finishEdit(QStringLiteral("angular_dimension"), QStringLiteral("pick"), false,
+                       DraftingResultCode::InvalidSelectionTarget,
+                       QStringLiteral("click on a line to start an angular dimension"));
+            return;
+        }
+        // Capture the id by value — the pointer is invalidated by any future mutation.
+        m_pendingAngularFirstLineId = hitObj->id;
+        m_pointCapture = PendingPointCapture{PointCaptureIntent::AngularDimensionSecondLine,
+                                             QStringLiteral("Click the second line")};
+        commitEdit(); // harmless empty edit bracket
+        emit pointerChanged();
         return;
     }
 

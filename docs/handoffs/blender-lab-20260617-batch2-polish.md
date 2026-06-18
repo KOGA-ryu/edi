@@ -1,5 +1,23 @@
 # Handoff — blender-lab-20260617-batch2-polish
 
+## ⏻ POWER-DOWN CHECKPOINT — 2026-06-17 (RESUME RECIPE)
+- **STATUS: BATCH-2 COMPLETE.** All 8 deferred-polish (P1, P2, P3, P3b, P4, P4b, P5, P6, P7)
+  + 3 roadmap-depth (RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, RD3 craftsmen doc) shipped
+  & verified. Closeout frozen: `docs/closeouts/blender-lab-batch2-polish.md`.
+- **DEPT TIP:** `28ad079` on `dept/blender-lab`, **2 ahead of LOCAL master, 0 behind,
+  edi-gate GREEN** (build + ctest + scan). Bussed to edi-ui for the final merge.
+- **NO worker in flight.** All four roles idle at clean boundaries.
+- **REBASE PRACTICE (standing):** rebase onto LOCAL `master` ref only (`git rebase master`,
+  no `git fetch`). Origin reconciled (ALL-CLEAR) but local master stays the target.
+- **NEXT (when resumed):** nothing required for batch-2. If edi-ui hasn't merged tip `28ad079`,
+  bus it. Otherwise the recipe lab is feature-complete (M1–M6) + geometry-hardened; the next
+  work is a NEW batch — the tracked follow-ups in the closeout (swept-solid manifold check,
+  partial-AND-helical sweep, per-axis taper curve, straight-skeleton inset) or a fresh hub brief.
+- **Durable memory = files:** this handoff + the two closeouts + the arch doc + the 3 research
+  docs + the briefs/replies on the bus. A fresh session recovers everything by reading.
+
+---
+
 > Batch-2: the 8 deferred recipe-lab polish items (from
 > `docs/closeouts/blender-lab-feature-batch.md`) + remaining roadmap depth.
 > Rebased on master first (the feature batch is merged). Build the OP/Python verbs;

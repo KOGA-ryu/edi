@@ -9,6 +9,16 @@ Qt6/C++20 2D drafting (CAD) application. CMake build, widget-based UI — delibe
 - **Data-oriented design.** Pure logic lives in `src/drafting/` as free functions over plain
   structs (`Drafting*Ops`). Variation points are data — enums, kinds, plan structs, member
   pointers — or plan callables. No subclassing for behavior, no stateful logic objects.
+- **No hardcoded dimensions — every dimension is DATA.** Any dimension — width, height,
+  thickness, radius, scale factor, fit-padding, spacing, greybox envelope — is a named
+  field in a spec / config / constants table, derived or parameterizable; never a magic
+  literal baked into logic. Where a dimension varies (scale, theme) it is a spec field or
+  parameter, not a frozen constant. *Exempt:* epsilons / tolerances (numerical, not
+  dimensions) and "unset" defaults (`= 0.0`). Reviewer-ENFORCED — a dimension is not
+  grep-distinguishable from any number, so there is no mechanical scan; each reviewer
+  audits its domain's diffs for magic dimension literals, builders introduce dimensions as
+  named data, and existing magic dims are defects to sweep. (See `~/dept-bus/SCALE-POLICY.md`
+  for the canvas↔feet↔Blender application.)
 - **Behavior-preserving refactors only** unless a change is explicitly requested.
 
 ## Architecture

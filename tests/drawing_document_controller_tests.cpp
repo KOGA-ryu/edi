@@ -5525,5 +5525,120 @@ int main(int argc, char **argv)
         assert(ctl.draftingDocument().plugs[0].type == "door"); // unchanged
     }
 
+    // --- Brief 034: undo/redo reconcile m_activeConnectionId ------------------
+    // SCENARIO: select object → selectConnection → undo → BOTH-TRUE must NOT happen.
+    // The undo restores the prior document snapshot which has activeObjectId set;
+    // m_activeConnectionId (view-state, not in snapshot) stays set from the
+    // selectConnection call.  reconcileActiveConnection() must clear it.
+
+    {
+        // (1) Conflict scenario: undo restores object selection while connection
+        // is selected → reconcile clears the connection selection.
+        DrawingDocumentController ctl;
+
+        // Place two plugs and connect them (creates a connection record).
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Step 1: select the plug-A anchor object (leaves a snapshot with
+        // activeObjectId set).
+        const QString anchorId = QString::fromStdString(
+            ctl.draftingDocument().plugs[0].anchorObjectId);
+        assert(ctl.selectObjectById(anchorId));
+        assert(ctl.draftingDocument().activeObjectId.has_value()); // object is selected
+
+        // Step 2: selectConnection → sets m_activeConnectionId, clears activeObjectId.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(!ctl.draftingDocument().activeObjectId.has_value()); // cleared by selectConnection
+
+        // Step 3: undo → restores the prior snapshot (activeObjectId set from step 1).
+        // reconcileActiveConnection() should see the conflict and clear m_activeConnectionId.
+        assert(ctl.undo());
+        // Object selection restored from snapshot → connection selection must be gone.
+        assert(ctl.draftingDocument().activeObjectId.has_value()); // object back
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    {
+        // (2) Benign undo: undo does NOT restore an object selection while a
+        // connection is selected → reconcile must NOT over-clear (connection
+        // selection survives the undo).
+        DrawingDocumentController ctl;
+
+        // Place two plugs and connect them.
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // selectConnection with NO object selected beforehand.
+        // The prior snapshot (from connectPlugs) has no activeObjectId.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Undo connectPlugs → removes the connection from the document.
+        // reconcileActiveConnection sees condition (2): the connection is now gone
+        // (dangling reference) → clears m_activeConnectionId.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().connections.empty()); // connection removed by undo
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    {
+        // (3) Benign undo where the connection STILL EXISTS and NO object selection
+        // is restored: reconcile must leave m_activeConnectionId intact.
+        //
+        // The snapshot for the undo-able action must have activeObjectId = nullopt,
+        // otherwise condition (1) of the reconcile fires. We ensure this by clicking
+        // an empty canvas spot (deselect) after connectPlugs — that click is a pure
+        // selection change (commitEdit detects it via documentsDifferOnlyBySelection)
+        // and does NOT push an undo snapshot — so the subsequent third-plug placement's
+        // beginEdit() captures a doc with activeObjectId = nullopt.
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Deselect everything: click an empty canvas region with select_move.
+        // This clears activeObjectId but does NOT push an undo snapshot (pure
+        // selection-only change). After this the doc has activeObjectId = nullopt.
+        ctl.clickCanvasNormalized(0.0, 0.0);
+        assert(!ctl.draftingDocument().activeObjectId.has_value());
+
+        // Place a third plug. beginEdit() inside createObjectsAndSelect now
+        // captures a snapshot with activeObjectId = nullopt (no conflict).
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.5, 0.1);
+        assert(ctl.draftingDocument().plugs.size() == 3); // third plug placed
+
+        // Select the connection (no object selection active).
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Undo the third plug: restored snapshot has activeObjectId = nullopt AND
+        // the connection still exists → neither reconcile condition fires →
+        // m_activeConnectionId stays → connection selection survives.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs.size() == 2); // third plug undone
+        assert(ctl.draftingDocument().connections.size() == 1); // connection still there
+        assert(!ctl.draftingDocument().activeObjectId.has_value()); // no object selected
+        // Connection selection must survive (no conflict, no dangling reference).
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString()
+               == cId);
+    }
+
     return 0;
 }

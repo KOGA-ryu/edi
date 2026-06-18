@@ -1422,6 +1422,31 @@ bool DrawingDocumentController::canRedo() const
     return !m_redoStack.empty();
 }
 
+void DrawingDocumentController::reconcileActiveConnection()
+{
+    // B2-CTX undo/redo both-true fix (audit 028): m_activeConnectionId is controller
+    // VIEW-STATE and is NOT stored in DocumentSnapshot, so restoring a snapshot can
+    // leave it pointing at a connection that no longer exists OR in conflict with an
+    // object selection the snapshot restored.  Two conditions mandate a clear:
+    //
+    //   1. The restored document has an active object selection (m_document.activeObjectId
+    //      is non-empty) — the mutual-exclusion invariant says connection selection and
+    //      object selection are never both live; the object wins (it is part of the
+    //      document's own authoritative state).
+    //
+    //   2. The connection m_activeConnectionId names is no longer in the document
+    //      (dangling reference — e.g. undo removed the connection record entirely).
+    //
+    // Called BEFORE emit modelChanged() so the projection cache (has_connection_selection,
+    // active_connection_id) rebuilds exactly once with the already-reconciled value —
+    // the inspector never sees an intermediate both-true state.
+    if (!m_activeConnectionId.empty() &&
+        (m_document.activeObjectId.has_value() ||
+         !connectionIndexById(m_document, m_activeConnectionId))) {
+        m_activeConnectionId.clear();
+    }
+}
+
 bool DrawingDocumentController::undo()
 {
     if (m_undoStack.empty()) {
@@ -1438,6 +1463,9 @@ bool DrawingDocumentController::undo()
     m_lastEditStatus.clear();
     // Undo replaces the whole document; any in-flight drag bracket is now stale.
     m_interactiveEditActive = false;
+    // B2-CTX: reconcile m_activeConnectionId against the newly-restored document
+    // BEFORE emitting so the projection sees the final consistent state in one pass.
+    reconcileActiveConnection();
     emit modelChanged();
     return true;
 }
@@ -1458,6 +1486,9 @@ bool DrawingDocumentController::redo()
     m_lastEditStatus.clear();
     // Redo replaces the whole document; any in-flight drag bracket is now stale.
     m_interactiveEditActive = false;
+    // B2-CTX: same reconcile as undo — the symmetry matters (a redo can equally
+    // restore an object selection while a connection is selected).
+    reconcileActiveConnection();
     emit modelChanged();
     return true;
 }

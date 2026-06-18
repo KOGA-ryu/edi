@@ -429,6 +429,13 @@ signals:
 
 private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
+    // B2-CTX undo/redo reconcile: after a snapshot is restored, m_activeConnectionId
+    // (controller view-state, NOT in DocumentSnapshot) may conflict with the restored
+    // document.  Clear it when the restored document has an active object selection
+    // (mutual-exclusion — the object wins) OR when the connection it names is no longer
+    // in the document (dangling reference).  Must be called BEFORE emit modelChanged()
+    // so the projection cache rebuilds once with the already-reconciled state.
+    void reconcileActiveConnection();
     // Undo snapshot bookkeeping. beginEdit() copies the document at the start of
     // a mutating action; commitEdit() (called right before emit, so canUndo() is
     // current when the view refreshes) pushes that snapshot onto the undo stack

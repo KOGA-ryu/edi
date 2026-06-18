@@ -53,6 +53,7 @@ enum class PointCaptureIntent {
                       // + corridor geometry (B2-2). State across the two clicks lives
                       // in m_pendingConnectionPlugA, the same cross-click idiom as
                       // m_pendingBlockId for BlockInstance.
+    MotifPlacement,   // click FLATTEN-drops the armed motif at that point (M8-S2)
 };
 
 struct PendingPointCapture {
@@ -355,6 +356,17 @@ public:
     // canvas click resolves to placeBlockInstance (same idiom as the radial-array
     // centre pick). Refused if the block does not exist.
     bool beginBlockInstancePick(const QString &blockId);
+    // M8-S2 motif placement: arm a pick-a-point capture for FLATTEN-dropping the
+    // named motif — the next canvas click resolves to runMotifAtPoint. Returns false
+    // if the motif does not exist (no dead prompt).  The motif name is captured BY
+    // VALUE (m_pendingMotifName) so a future document mutation cannot invalidate it.
+    // M8-S2 motif verbs. defineMotifFromSelection captures the current selection as
+    // a named motif DEFINITION (normalized to 0,0 lower-left, guides excluded) in
+    // one undo step — mirrors defineBlockFromSelection (no id, no assetRef).
+    // beginMotifPlacement arms a pick-a-point capture for FLATTEN-dropping the named
+    // motif; the captured click calls runMotifAtPoint.
+    bool defineMotifFromSelection(const QString &name);
+    bool beginMotifPlacement(const QString &name);
     // DM-10 region fill: arm a pick-a-point capture whose click seeds a room-footprint
     // fill. Refused (returns false) when the document has no rooms — no dead prompt,
     // the same up-front guard beginBlockInstancePick uses for a vanished block.
@@ -473,6 +485,9 @@ private:
     bool runRadialArrayAtCenter(edi::drafting::Point2D center);
     bool runRotateCopiesAtCenter(edi::drafting::Point2D center);
     bool runKaleidoscopeAtCenter(edi::drafting::Point2D center);
+    // M8-S2: FLATTEN-drop the armed motif at the captured point. Called from
+    // resolvePointCapture; private because the public entry is beginMotifPlacement.
+    bool runMotifAtPoint(edi::drafting::Point2D point);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);
@@ -534,6 +549,10 @@ private:
     // The block awaiting placement while a BlockInstance capture is armed; read
     // by resolvePointCapture once the placement click arrives.
     QString m_pendingBlockId;
+    // The motif name awaiting FLATTEN-drop while a MotifPlacement capture is armed
+    // (M8-S2). Stored by name (not pointer) so a concurrent document mutation cannot
+    // invalidate it across the arm→click gap — same idiom as m_pendingBlockId.
+    QString m_pendingMotifName;
     // The first plug id stored mid-two-click while a PlugConnect capture is armed.
     // Empty = awaiting the first click. Mirrors m_pendingBlockId: controller member
     // carrying state across the arm→first-click→second-click gap without widening

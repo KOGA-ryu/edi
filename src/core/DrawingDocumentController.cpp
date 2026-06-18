@@ -6,6 +6,7 @@
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
 #include "drafting/DraftingBlockOps.h"
+#include "drafting/DraftingMotifOps.h"
 #include "drafting/DraftingCorridor.h"
 #include "drafting/DraftingRegionFill.h"
 #include "drafting/DraftingRoom.h"
@@ -1857,6 +1858,82 @@ bool DrawingDocumentController::beginBlockInstancePick(const QString &blockId)
     return true;
 }
 
+bool DrawingDocumentController::defineMotifFromSelection(const QString &name)
+{
+    // Mirror of defineBlockFromSelection — gather selection in document order,
+    // build a normalized motif (guides excluded, lock/visible reset), apply via
+    // CreateMotifCommand in one undo step.  No id mint (motifs are name-keyed).
+    std::vector<DraftingObject> sources;
+    for (const DraftingObject &object : m_document.objects) {
+        if (std::find(m_document.selectedObjectIds.begin(), m_document.selectedObjectIds.end(), object.id)
+            != m_document.selectedObjectIds.end()) {
+            sources.push_back(object);
+        }
+    }
+    if (sources.empty()) {
+        return finishEdit(QStringLiteral("motif"), QStringLiteral("define"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("define motif: select objects first"));
+    }
+    DraftingMotif motif = buildMotifFromObjects(toStdString(name), sources);
+    // CreateMotifCommand rides DocumentSnapshot undo via applyCommandAndEmit.
+    return applyCommandAndEmit(CreateMotifCommand{std::move(motif)});
+}
+
+bool DrawingDocumentController::beginMotifPlacement(const QString &name)
+{
+    // Require the motif to exist up front — same shape as beginBlockInstancePick.
+    // A "click to place" prompt for a motif that does not exist would be a dead end.
+    // Capture the name BY VALUE so a concurrent addMotif/removeMotif cannot dangle it.
+    if (!motifIndexByName(m_document, toStdString(name))) {
+        return false;
+    }
+    m_pendingMotifName = name;
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::MotifPlacement,
+                                         QStringLiteral("Click to place the motif")};
+    emit pointerChanged(); // view state: the prompt appears; document is untouched
+    return true;
+}
+
+bool DrawingDocumentController::runMotifAtPoint(Point2D point)
+{
+    // Re-resolve the motif by the captured name — it may have been removed between
+    // the arm and the click (unlikely but not impossible).
+    const auto index = motifIndexByName(m_document, toStdString(m_pendingMotifName));
+    if (!index) {
+        return finishEdit(QStringLiteral("motif"), QStringLiteral("place"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("motif no longer exists"));
+    }
+    const DraftingMotif &motif = m_document.motifs[*index];
+
+    // Mint one fresh id per motif object — same serial pattern as the array paths.
+    const int serialBefore = m_nextObjectSerial;
+    std::vector<DraftingObjectId> newIds;
+    newIds.reserve(motif.objects.size());
+    for (std::size_t i = 0; i < motif.objects.size(); ++i) {
+        newIds.push_back(toStdString(nextObjectId(QStringLiteral("motif"), m_nextObjectSerial++)));
+    }
+
+    DraftingArrayResult result = placeMotif(motif, point, newIds);
+    if (!result.ok) {
+        m_nextObjectSerial = serialBefore; // reclaim unused serials
+        return finishEdit(QStringLiteral("motif"), QStringLiteral("place"), false,
+                          result.code, QString::fromStdString(result.message));
+    }
+
+    // createObjectsAndSelect wraps in one CreateObjectsCommand inside one
+    // beginEdit()/commitEdit() bracket — one undo step for the entire placement.
+    m_lastEditStatus.clear();
+    if (!createObjectsAndSelect(std::move(result.objects))) {
+        m_nextObjectSerial = serialBefore;
+        return finishEdit(QStringLiteral("motif"), QStringLiteral("place"), false,
+                          DraftingResultCode::InvalidSelectionTarget,
+                          QStringLiteral("motif placement rejected: target layer is locked or missing"));
+    }
+    return true;
+}
+
 bool DrawingDocumentController::beginRegionFillPick()
 {
     // Require a target up front, exactly like beginBlockInstancePick: with no rooms,
@@ -2492,6 +2569,9 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
         break;
     case PointCaptureIntent::BlockInstance:
         placeBlockInstance(m_pendingBlockId, point.x, point.y);
+        break;
+    case PointCaptureIntent::MotifPlacement:
+        runMotifAtPoint(point);
         break;
     case PointCaptureIntent::RegionFill:
         fillEnclosedRegion(point);

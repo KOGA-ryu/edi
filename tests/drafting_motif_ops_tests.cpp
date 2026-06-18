@@ -144,5 +144,52 @@ int main()
     assert(!r6.ok);
     assert(r6.code == DraftingResultCode::ObjectNotFound);
 
+    // --- placeMotif (M8-S2) ---------------------------------------------------
+
+    // Build a 2-object motif normalized to origin.
+    DraftingObject pA = makeDraftingObject("a", DraftingShapeKind::Point,
+        DraftingGeometry{PointGeometry{{0.0, 0.0}}});
+    pA.bounds = computeBounds(pA.geometry);
+    DraftingObject pB = makeDraftingObject("b", DraftingShapeKind::Point,
+        DraftingGeometry{PointGeometry{{1.0, 2.0}}});
+    pB.bounds = computeBounds(pB.geometry);
+
+    DraftingMotif m2 = buildMotifFromObjects("star", {pA, pB});
+    assert(m2.objects.size() == 2);
+
+    // Place at (3.0, 4.0): each object should be offset by (3,4).
+    std::vector<DraftingObjectId> ids = {"placed-1", "placed-2"};
+    DraftingArrayResult placed = placeMotif(m2, {3.0, 4.0}, ids);
+    assert(placed.ok);
+    assert(placed.objects.size() == 2);
+
+    // First object was at (0,0) → should be at (3,4).
+    const auto *g0 = std::get_if<PointGeometry>(&placed.objects[0].geometry);
+    assert(g0 != nullptr);
+    assert(near(g0->point.x, 3.0) && near(g0->point.y, 4.0));
+    assert(placed.objects[0].id == "placed-1");
+
+    // Second object was at (1,2) → should be at (4,6).
+    const auto *g1 = std::get_if<PointGeometry>(&placed.objects[1].geometry);
+    assert(g1 != nullptr);
+    assert(near(g1->point.x, 4.0) && near(g1->point.y, 6.0));
+    assert(placed.objects[1].id == "placed-2");
+
+    // No motif back-reference: metadata.blockPlacement is default (empty).
+    assert(placed.objects[0].metadata.blockPlacement.blockId.empty());
+    assert(placed.objects[1].metadata.blockPlacement.instanceId.empty());
+
+    // id-count mismatch: rejected.
+    auto bad1 = placeMotif(m2, {0.0, 0.0}, {"only-one"});
+    assert(!bad1.ok);
+    assert(bad1.code == DraftingResultCode::InvalidGeometry);
+
+    // Empty motif: rejected.
+    DraftingMotif empty;
+    empty.name = "empty";
+    auto bad2 = placeMotif(empty, {0.0, 0.0}, {});
+    assert(!bad2.ok);
+    assert(bad2.code == DraftingResultCode::InvalidGeometry);
+
     return 0;
 }

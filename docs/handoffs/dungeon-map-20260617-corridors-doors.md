@@ -153,10 +153,31 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
 - Reviewer is on opus/255k (target opus) — OK, no cycle.
 
 ### Updated batch order
-- batch-1 = B2-1 + B2-2 (`020`) — IN FLIGHT.
-- batch-1b = block-instance projection keys (`021`, cross-dept) — queued next.
+- batch-1 = B2-1 + B2-2 (`020`) — ✅ DONE `f4b6ac1`.
+- batch-1b = block-instance projection keys (`021`, cross-dept) — ▶ IN FLIGHT.
 - batch-2 = B2-CTX (relation-aware `contextForKind`) + B2-3 (setPlugType door-type).
 - batch-3 = B2-4 (delete + cascade cleanup) + B2-5 (manual re-route).
+
+### Builder batch-1 (B2-1+B2-2, plug+connection tools) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/020-builder-plug-connection-tools.md`
+- Commit `f4b6ac1` (B2-1+B2-2 COMBINED — builder judgment: shared enums/switch/state;
+  flagged). edi-gate GREEN 102/102, scan clean, authored path untouched. Plug tool
+  (free-click → marker+plug, one undo), connection tool (two-click → DeclareConnection +
+  `connection:<id>`-tagged corridor walls, one undo), `plugAtAnchorObject` helper. New
+  surface for edi-ui: `beginPlugPick()` / `beginConnectionPick()` (+ `pointCapturePrompt`).
+- Builder edge-case calls (→ audit 022 checks): first-click-miss = lenient re-arm; plug
+  outside all rooms → `deriveEdge` fallback `RoomEdge::North`; door leaf NOT minted on
+  interactive plugs (B2-3 `setPlugType` mints it). Context OK (sonnet, below-nudge).
+
+### Reviewer diff-audit of 020 — DISPATCHED (parallel with 021)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/022-reviewer-020-audit.md`
+- Focus: the two-click capture state machine (stale plug-A leaks, A-deleted-mid-pick),
+  neutral corridor tags, one-undo brackets, the edge-fallback judgment calls.
+
+### Builder slice 021 (block-instance projection keys, cross-dept) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/021-builder-block-instance-projection-keys.md`
+- `has_block_instance_selection` + `instance_id` in `DrawingDocumentProjection.cpp`.
+  **On land → bus-hub so the hub routes the tip to edi-ui (DM-15).**
 
 ## Next
 - Reviewer settles the interactive-authoring design → I spec the builder batches →

@@ -80,6 +80,12 @@ link. The param.type default mismatch (C++ "text" vs Python "number") stays §10
 
 ## Next
 - **DONE batch-2:** RD3 craftsmen doc, P1 warning+manifold, P2 boolean dedup — all on master.
-- **IN FLIGHT:** P3 (watertight helix) dispatched to the fresh Sonnet builder.
+### P3 — builder done (`707bc06`, Sonnet), reviewer audit OPEN
+Closed the helix into a 2-manifold solid (axis spine + inner/outer quads + start/end caps);
+edi-gate GREEN (ctest 102/102), 4 OBJ goldens byte-identical, helix now passes
+`assert_manifold`. screw_rise=0 guarded byte-identical. Builder verified algebraically
+(nprof=2,3). Fiddly geometry from a fresh Sonnet → Opus reviewer audit (`briefs/031`):
+watertightness across configs + winding/orientation + the byte guarantees. Boundary ctx
+check: builder below-nudge (fresh), reviewer 372k OK, researcher below-nudge — no cycle.
 - Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
   geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.

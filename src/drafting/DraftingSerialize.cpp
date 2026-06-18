@@ -42,6 +42,7 @@ DimensionKind dimensionKindFromName(const std::string &name)
     if (name == "height") return DimensionKind::Height;
     if (name == "radius") return DimensionKind::Radius;
     if (name == "diameter") return DimensionKind::Diameter;
+    if (name == "angular") return DimensionKind::Angular;
     return DimensionKind::Distance;
 }
 

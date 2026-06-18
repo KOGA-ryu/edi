@@ -41,7 +41,8 @@ enum class DimensionKind {
     Width,
     Height,
     Radius,
-    Diameter
+    Diameter,
+    Angular // arc-angle between two rays; `offset` stores the signed included angle in degrees
 };
 
 enum class DraftingResultCode {

@@ -218,6 +218,8 @@ const char *dimensionKindName(DimensionKind kind)
         return "radius";
     case DimensionKind::Diameter:
         return "diameter";
+    case DimensionKind::Angular:
+        return "angular";
     }
     return "distance";
 }
@@ -899,6 +901,17 @@ double dimensionAngleDegrees(const DimensionGeometry &dimension)
 {
     constexpr double pi = 3.14159265358979323846;
     return std::atan2(dimension.b.y - dimension.a.y, dimension.b.x - dimension.a.x) * 180.0 / pi;
+}
+
+double dimensionMeasuredAngle(const DimensionGeometry &dimension)
+{
+    // Angular dimensions repurpose `offset` as the signed included angle (degrees);
+    // for every other kind `offset` is a standoff length, and the measured quantity
+    // is the base-ray direction.
+    if (dimension.kind == DimensionKind::Angular) {
+        return dimension.offset;
+    }
+    return dimensionAngleDegrees(dimension);
 }
 
 double displayedDimensionLength(double storedLength, DimensionKind kind)

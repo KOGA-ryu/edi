@@ -338,6 +338,26 @@ plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspecto
 - **REST point:** user-authorized queue complete + reported. Resting on those decisions
   per protocol (blocked + reported → rest until hub/worker rings).
 
+### ▶ HUB RATIFIED both forks (2026-06-17) — resumed
+1. **B2-3 door-type — INCLUDE.** Dispatched (`033`, gate-023-settled: new
+   `UpdatePlugCommand` arm + `updatePlug` op + `setPlugType` one-bracket leaf re-mint +
+   promote `wallTypeForPlugType` to a free fn, behavior-preserving for the authored path).
+   ▶ IN FLIGHT. → AUDIT it (new command arm + authored-path extraction = risk).
+2. **batch-3 hardening — APPROVED as recommended.** The ratified-DO items: undo corner
+   (`034`, queued), cancelPendingCreation + B2-5 coverage (already in `032`). PARK auto
+   anchor-sync re-route. record-don't-gate the locked-layer/edge cases.
+3. **Chrome contract → edi-ui SENT** (`~/dept-bus/dungeon-map/replies/006-chrome-contract-batch2.md`):
+   the projection keys (`has_connection_selection`/`active_connection_id`/
+   `active_object_is_plug` + the DM-15 `has_block_instance_selection`/`instance_id`),
+   the contextIds (`object_connection`/`object_plug` + groups), and the verbs
+   (`beginPlugPick`/`beginConnectionPick`/`selectConnection`/`setPlugType`/`deletePlug`/
+   `deleteConnection`/`rerouteConnection`) — for edi-ui to wire the chrome.
+
+### Queue (post-ratify)
+- B2-3 (`033`) — ▶ IN FLIGHT → audit.
+- undo-both-true fix (`034`) — queued after B2-3.
+- Then: batch-2 fully complete → closeout + final green tip to edi-ui.
+
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,
 blocker, cross-dept need, green tip ready to merge). Reviewer at CHECKPOINTS (risky/

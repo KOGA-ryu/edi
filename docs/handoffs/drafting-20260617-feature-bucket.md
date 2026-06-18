@@ -488,11 +488,22 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - Context hygiene (reply boundary): builder sonnet/low/on-target (no cycle); researcher was
   off-target (opus) → `dept-cycle`d to its sonnet target (idle, harmless, phase-in advanced).
 
+- **MERGED (edi-ui):** DR-10-fix on master @`20ff64f` (green). DR-01..13-core + DR-10-fix
+  integrated. DR-14 GO'd by edi-ui.
+
+### DR-14 — arc/radius/diameter/sweep dimensioning (PURE op) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/030-DR14-arc-sweep-dim-builder.md`. Opened AFTER the
+  DR-10-fix merge-confirm (clean sequencing — builder rebases LATE onto the master ref with
+  DR-10-fix → no stale-base dup). 3 plan fns: `planRadialDimensionForArc` (Radius),
+  `planRadialDimensionForCircle` (Diameter), `planArcSweepDimension` (reuses DR-13 Angular,
+  offset=sweep). Planning conveniences over existing kinds — NO new DimensionKind. Pure op +
+  tests; Sonnet. Reviewer not needed (reuses settled kinds; planner spot-check on reply).
+
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
   with the eventual Angular tool wiring.
-- DR-14 (arc-sweep dim, deps DR-13 ✅) held until DR-10-fix merge-confirm; DR-15 (fill
-  authoring) after. Two slices left → then the bucket closeout.
+- After DR-14: DR-15 (fill authoring, ratified fill-selected-closed-object) is the LAST slice
+  → then the bucket closeout.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

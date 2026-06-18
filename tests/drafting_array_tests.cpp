@@ -241,5 +241,103 @@ int main()
         assert(guideRosette.code == DraftingResultCode::InvalidGeometry);
     }
 
+    // Array along a curve: K copies whose bounds-centre lands on evenly
+    // arc-length-spaced stations of the path, optionally rotated to the tangent.
+    {
+        // -- Line, no tangent: path (0,0)→(1,0), K=3 ----------------------
+        // Three copies; stations at d = 0, 0.5, 1.0.
+        // Source is a small circle at the origin (bounds-centre C = (0,0)), so
+        // each copy's circle-centre ends up exactly on its station.
+        DraftingObject srcCircle = object("aac_src",
+            DraftingShapeKind::Circle,
+            CircleGeometry{{0.0, 0.0}, 0.05});
+        const DraftingGeometry hLine{LineGeometry{{0.0, 0.0}, {1.0, 0.0}}};
+        auto lineNoTan = arrayAlongCurve(srcCircle, {"aac_0", "aac_1", "aac_2"}, hLine, /*alignToTangent=*/false);
+        assert(lineNoTan.ok);
+        assert(lineNoTan.objects.size() == 3);
+        assert(lineNoTan.objects[0].metadata.toolProvenance == "array_along_curve");
+        assert(lineNoTan.objects[0].metadata.source == "aac_src");
+        const auto *c0 = std::get_if<CircleGeometry>(&lineNoTan.objects[0].geometry);
+        const auto *c1 = std::get_if<CircleGeometry>(&lineNoTan.objects[1].geometry);
+        const auto *c2 = std::get_if<CircleGeometry>(&lineNoTan.objects[2].geometry);
+        assert(c0 != nullptr && c1 != nullptr && c2 != nullptr);
+        // stations: x = 0.0, 0.5, 1.0; all y = 0
+        assert(nearlyEqual(c0->center.x, 0.0) && nearlyEqual(c0->center.y, 0.0));
+        assert(nearlyEqual(c1->center.x, 0.5) && nearlyEqual(c1->center.y, 0.0));
+        assert(nearlyEqual(c2->center.x, 1.0) && nearlyEqual(c2->center.y, 0.0));
+        assert(nearlyEqual(c0->radius, 0.05)); // size is preserved
+
+        // -- Line, tangent: same path at 45° → each copy rotationDeg = 45 --
+        // Source: unit square Rectangle at origin (rotationDeg = 0).
+        // After alignToTangent the rectangle's rotationDeg accumulates the
+        // line angle because transformGeometry adds rotationDeg in-place.
+        DraftingObject srcRect = object("aac_rect",
+            DraftingShapeKind::Rectangle,
+            RectangleGeometry{{0.0, 0.0}, 0.1, 0.1, 0.0, 0.0, 0.0});
+        const DraftingGeometry diagLine{LineGeometry{{0.0, 0.0}, {1.0, 1.0}}};
+        auto lineTan = arrayAlongCurve(srcRect, {"aac_t0", "aac_t1"}, diagLine, /*alignToTangent=*/true);
+        assert(lineTan.ok);
+        assert(lineTan.objects.size() == 2);
+        for (const DraftingObject &obj : lineTan.objects) {
+            const auto *r = std::get_if<RectangleGeometry>(&obj.geometry);
+            assert(r != nullptr);
+            // The tangent of a 45° line is 45°; transformGeometry adds it to
+            // the rectangle's existing rotationDeg (0 → 45).
+            assert(nearlyEqual(r->rotationDeg, 45.0));
+        }
+
+        // -- Arc: quarter circle, K=3 → centres ON the arc ----------------
+        // Arc centre (0,0), radius 1, sweep 0°→90°.
+        // Stations: 0°, 45°, 90° on the circle.  Any point at arc-distance r
+        // from the arc centre satisfies this.  Use a PointGeometry source with
+        // its own point at (2,0) (off the arc) so the translate has a clear
+        // effect; after placement each copy sits on the arc.
+        DraftingObject srcPt = object("aac_pt",
+            DraftingShapeKind::Point,
+            PointGeometry{{2.0, 0.0}});
+        const DraftingGeometry quarterArc{ArcGeometry{{0.0, 0.0}, 1.0, 0.0, 90.0}};
+        auto arcResult = arrayAlongCurve(srcPt, {"arc_0", "arc_1", "arc_2"}, quarterArc, /*alignToTangent=*/false);
+        assert(arcResult.ok);
+        assert(arcResult.objects.size() == 3);
+        for (const DraftingObject &obj : arcResult.objects) {
+            const auto *pt = std::get_if<PointGeometry>(&obj.geometry);
+            assert(pt != nullptr);
+            // Each station is on the unit circle: distance from (0,0) ≈ 1.
+            const double dist = std::hypot(pt->point.x - 0.0, pt->point.y - 0.0);
+            assert(nearlyEqual(dist, 1.0));
+        }
+        // First station is the arc's start (1,0), last is the arc's end (0,1).
+        {
+            const auto *pt0 = std::get_if<PointGeometry>(&arcResult.objects[0].geometry);
+            const auto *pt2 = std::get_if<PointGeometry>(&arcResult.objects[2].geometry);
+            assert(nearlyEqual(pt0->point.x, 1.0) && nearlyEqual(pt0->point.y, 0.0));
+            assert(nearlyEqual(pt2->point.x, 0.0) && nearlyEqual(pt2->point.y, 1.0));
+        }
+
+        // -- Rejections ---------------------------------------------------
+        // Empty id list.
+        auto emptyIds = arrayAlongCurve(srcCircle, {}, hLine, false);
+        assert(!emptyIds.ok);
+        assert(emptyIds.code == DraftingResultCode::InvalidGeometry);
+
+        // Unsupported path kind (Circle).
+        const DraftingGeometry circlePath{CircleGeometry{{0.0, 0.0}, 1.0}};
+        auto circleReject = arrayAlongCurve(srcCircle, {"rej_0"}, circlePath, false);
+        assert(!circleReject.ok);
+        assert(circleReject.code == DraftingResultCode::InvalidGeometry);
+
+        // Unsupported path kind (Rectangle).
+        const DraftingGeometry rectPath{RectangleGeometry{{0.0, 0.0}, 1.0, 1.0, 0.0, 0.0, 0.0}};
+        auto rectReject = arrayAlongCurve(srcCircle, {"rej_1"}, rectPath, false);
+        assert(!rectReject.ok);
+        assert(rectReject.code == DraftingResultCode::InvalidGeometry);
+
+        // Zero-length path.
+        const DraftingGeometry zeroLine{LineGeometry{{0.5, 0.5}, {0.5, 0.5}}};
+        auto zeroLen = arrayAlongCurve(srcCircle, {"rej_2"}, zeroLine, false);
+        assert(!zeroLen.ok);
+        assert(zeroLen.code == DraftingResultCode::InvalidGeometry);
+    }
+
     return 0;
 }

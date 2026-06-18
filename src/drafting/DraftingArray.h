@@ -75,4 +75,17 @@ DraftingArrayResult rotateCopiesDraftingObject(
     Point2D center,
     double totalAngleDeg);
 
+// Distribute copies of `source` along `path`, optionally rotated to the path tangent.
+// Supported path kinds: Line, Polyline, Arc, Spline — others are rejected.
+// `K = newObjectIds.size()` copies are placed at evenly arc-length-spaced stations
+// that span the full path (both endpoints included for K ≥ 2; the single copy sits
+// at the path start for K == 1). Each copy's BOUNDS CENTRE lands on its station.
+// When `alignToTangent` is true, each copy is also rotated so its orientation matches
+// the path tangent at that station.
+// Controller wiring (the path-pick gesture) is deferred to edi-ui.
+DraftingArrayResult arrayAlongCurve(const DraftingObject &source,
+                                    const std::vector<DraftingObjectId> &newObjectIds,
+                                    const DraftingGeometry &path,
+                                    bool alignToTangent);
+
 } // namespace edi::drafting

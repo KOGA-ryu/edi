@@ -530,6 +530,21 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   investigation caught it.
 - Opened AFTER DR-14 merge-confirm (clean sequencing). Sonnet; planner spot-check on reply.
 
+### DR-15 — CLOSED 2026-06-17 ✅ (SHA `264fb1f`, GREEN 102/102) — bucket COMPLETE
+- Reply: `~/dept-bus/edi-drafting/replies/031-DR15-fill-authoring-gate-builder.md`.
+  `draftingShapeIsFillable` (exhaustive switch, true for rect/circle/ellipse/polygon) gates
+  both fill setters; Line now correctly rejects (test updated Line→Circle for positives +
+  Line-rejection added); Wall left false (painter doesn't fill it). Rebase clean onto LOCAL
+  master (guard held — no origin/master). Accepted inline. Reported DR-15 (`264fb1f`) to edi-ui.
+
+## ✅ BUCKET COMPLETE 2026-06-17 — DR-01..15 (+ DR-10-fix + canonical-mirror fix)
+- All 15 slices built + green; DR-01..14 merged, DR-15 (`264fb1f`) reported for the final
+  merge. Closeout: `docs/closeouts/drafting-feature-bucket.md` (freezes the settled
+  boundaries). Architecture doc §0 updated. Reported the milestone to the hub.
+- **Remaining = edi-ui's:** Angular painter arc + `isAngleField`, and all the deferred
+  tool/belt/tool-options chrome for the new verbs (per `DR-surfaces.md`).
+- Worker phase-in complete for this dept (planner opus, reviewer opus, builder+researcher sonnet).
+
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
   with the eventual Angular tool wiring.

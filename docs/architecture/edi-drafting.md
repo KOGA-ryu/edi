@@ -6,6 +6,24 @@
 > `drafting-20260616-cartography` (2026-06-16) — citations are file:line at that
 > commit and drift as code moves; re-grep before trusting an exact line.
 
+## 0. Feature bucket DR-01..15 (landed 2026-06-17) — the construction-kit verbs
+New ops/verbs from the bucket; settled boundaries in
+`docs/closeouts/drafting-feature-bucket.md`:
+- `transformGeometry` (rotate + uniform scale about a pivot, all 14 kinds, Rectangle
+  CENTER-anchored) — DRAFTING-owned, dungeon-map consumes (§7).
+- Snaps: `Quadrant`/`OnCurve`/`Tangent`/`Perpendicular` + `relativeSnapCandidatesForDocument`
+  (OnCurve is a fallback tier; perpendicular only when the foot is on-segment).
+- `pointAlongEntity`; `DraftingDerived` (`circleThroughThreePoints`/`TwoPoints`,
+  `divideCirclePoints`, inscribe N-gon / `{n/k}` star).
+- Controller verbs: chamfer / extend-to-boundary / break (atomic fillet/trim pattern);
+  `rotateCopiesDraftingObject` + `kaleidoscopeMirror` (transformGeometry consumers);
+  `arrayAlongCurve`.
+- Angular `DimensionKind` (Candidate-A: `{a=vertex, b=ray1 tip, offset=included angle°}`,
+  no new field) + arc/radius/diameter/sweep planners.
+- Fill-authoring gate `draftingShapeIsFillable` (rectangle/circle/ellipse/polygon).
+- Canonical mirror now reflects rectangle `rotationDeg → −r` (a latent bug fixed; shared
+  with dungeon-map). edi-ui owns the remaining tool/painter chrome seams (incl. the Angular arc).
+
 ## 1. The two layers
 
 - **`src/drafting/` → `edi_drafting_core`** — pure C++20, **no Qt types**. Plain

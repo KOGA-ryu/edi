@@ -56,6 +56,13 @@ ConstructionLine, Dimension, TextAnnotation, Spline, Wall.
     `supportsMirror` BEFORE the visit, so the pass-through arms are inert in practice.
     Not unified (unifying would be behavior-risking); the visit guard now prevents
     forgetting a kind on the visit side, and a sync comment flags `supportsMirror`.
+  - **Rectangle reflection (correctness fix, `db71c1b`, 2026-06-17):** the rectangle
+    arm now negates `rotationDeg` under mirror (`rotationDeg = -rotationDeg`, outside
+    the H/V branch) — reflection reverses orientation (`r → −r`, and via the DR-11
+    conjugation `−r+2θ` for an arbitrary axis). This corrected a PRE-EXISTING latent
+    bug (rotated rectangles previously mirrored to the wrong orientation; position was
+    always correct). Shared-surface: dungeon-map consumes `mirrorGeometry` — flagged to
+    the hub; axis-aligned rects are unaffected (`−0==0`).
 
 ### `std::visit` over `DraftingCommand`
 Exactly ONE: `applyDraftingCommand` (`DraftingCommands.cpp:68-340`). Most arms are a

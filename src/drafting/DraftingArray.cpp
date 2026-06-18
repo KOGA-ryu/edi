@@ -1,6 +1,7 @@
 #include "drafting/DraftingArray.h"
 
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingSnap.h"
 
 #include <cmath>
 #include <unordered_set>
@@ -98,6 +99,159 @@ DraftingArrayResult buildRotatedCopies(
     }
 
     return DraftingArrayResult::accepted(std::move(copies));
+}
+
+// ---- helpers for arrayAlongCurve ----------------------------------------
+
+constexpr double kPathPi = 3.14159265358979323846;
+// Slack for "d fits within total length" comparisons — identical in spirit to
+// kSpacingEpsilon but named for its distinct use (path overshoot guard).
+constexpr double kPathEpsilon = 1e-9;
+
+// Walk `segments` (an ordered list of points, each consecutive pair is an edge)
+// and return the point at arc-length `d`. Returns the last point on overshoot
+// instead of nullopt, because the caller already computed `d ≤ totalLength`;
+// floating-point rounding can push `d` just past the edge of the last segment.
+Point2D walkPath(const std::vector<Point2D> &pts, double d)
+{
+    if (pts.empty()) {
+        return {};
+    }
+    if (d <= kPathEpsilon) {
+        return pts.front();
+    }
+    double remaining = d;
+    for (std::size_t i = 0; i + 1 < pts.size(); ++i) {
+        const double seg = distance(pts[i], pts[i + 1]);
+        if (seg <= 0.0) {
+            continue; // zero-length edge: skip, don't subtract
+        }
+        if (remaining <= seg + kPathEpsilon) {
+            const double t = std::min(remaining / seg, 1.0);
+            return {pts[i].x + t * (pts[i + 1].x - pts[i].x),
+                    pts[i].y + t * (pts[i + 1].y - pts[i].y)};
+        }
+        remaining -= seg;
+    }
+    return pts.back(); // clamp to end on floating-point overshoot
+}
+
+// Total arc-length of the supported path kinds. Fills `splineSamples` (via
+// sampleSpline) when the path is a Spline so the caller reuses it for station
+// and tangent queries without re-sampling. Returns -1 for unsupported kinds.
+double curveArcLength(const DraftingGeometry &path, std::vector<Point2D> &splineSamples)
+{
+    if (const auto *line = std::get_if<LineGeometry>(&path)) {
+        return distance(line->a, line->b);
+    }
+    if (const auto *poly = std::get_if<PolylineGeometry>(&path)) {
+        double len = 0.0;
+        for (std::size_t i = 0; i + 1 < poly->vertices.size(); ++i) {
+            len += distance(poly->vertices[i], poly->vertices[i + 1]);
+        }
+        return len;
+    }
+    if (const auto *arc = std::get_if<ArcGeometry>(&path)) {
+        // Arc length = radius × |sweep in radians|.  The sign of the sweep
+        // tells us direction (CW vs CCW) but length is always positive.
+        const double sweepRad = (arc->endAngleDeg - arc->startAngleDeg) * kPathPi / 180.0;
+        return arc->radius * std::abs(sweepRad);
+    }
+    if (const auto *spline = std::get_if<SplineGeometry>(&path)) {
+        // Catmull-Rom spline: no closed-form arc-length, so approximate via
+        // sampleSpline (shared tessellation helper, stepsPerSegment=16 default).
+        splineSamples = sampleSpline(*spline);
+        double len = 0.0;
+        for (std::size_t i = 0; i + 1 < splineSamples.size(); ++i) {
+            len += distance(splineSamples[i], splineSamples[i + 1]);
+        }
+        return len;
+    }
+    return -1.0; // Circle, Rectangle, Guide, … → unsupported
+}
+
+// The point at arc-length `d` along the supported path.
+// For Line / Polyline / Arc, delegates to pointAlongEntity (the DR-04 helper)
+// which already owns the per-kind walking logic; any floating-point overshoot
+// beyond L is clamped by the caller before we arrive here, so the result is
+// always ok.  For Spline, walks the pre-sampled polyline.
+Point2D curveStationPoint(const DraftingGeometry &path,
+                          double d,
+                          const std::vector<Point2D> &splineSamples)
+{
+    if (!std::holds_alternative<SplineGeometry>(path)) {
+        const DraftingPointAlongResult r = pointAlongEntity(path, d, /*fromEnd=*/false);
+        if (r.ok) {
+            return r.point;
+        }
+        // Should not happen after clamping — fall through to the walk-path
+        // fallback for robustness (d might be at the floating-point edge of L).
+    }
+    return walkPath(splineSamples, d);
+}
+
+// Tangent direction angle (degrees, atan2 convention) at arc-length `d`.
+// — Line:     constant; the line's own direction.
+// — Polyline: the direction of whichever segment contains d.
+// — Arc:      the tangent is perpendicular to the radius.  The point on the arc
+//             at distance d has angle `startAngle + direction * (d/r * 180/π)`;
+//             the tangent is that angle ± 90° (+ for positive sweep, − for
+//             negative).  This derivation: the arc is parameterised by θ, so
+//             dP/dθ = (−r sin θ, r cos θ); atan2 of that vector is θ + 90°.
+// — Spline:   finite-difference between adjacent samples (same segment walk as
+//             Polyline, applied to the pre-sampled point list).
+double curveTangentDeg(const DraftingGeometry &path,
+                       double d,
+                       const std::vector<Point2D> &splineSamples)
+{
+    if (const auto *line = std::get_if<LineGeometry>(&path)) {
+        return lineAngleDegrees(*line); // same for every station on a line
+    }
+    if (const auto *poly = std::get_if<PolylineGeometry>(&path)) {
+        double remaining = d;
+        for (std::size_t i = 0; i + 1 < poly->vertices.size(); ++i) {
+            const double seg = distance(poly->vertices[i], poly->vertices[i + 1]);
+            if (seg <= 0.0) {
+                continue;
+            }
+            if (remaining <= seg + kPathEpsilon) {
+                return lineAngleDegrees(LineGeometry{poly->vertices[i], poly->vertices[i + 1]});
+            }
+            remaining -= seg;
+        }
+        // d is at or past the last vertex: use the last segment's direction.
+        const auto &vs = poly->vertices;
+        if (vs.size() >= 2) {
+            return lineAngleDegrees(LineGeometry{vs[vs.size() - 2], vs[vs.size() - 1]});
+        }
+        return 0.0;
+    }
+    if (const auto *arc = std::get_if<ArcGeometry>(&path)) {
+        // Positive sweep (endAngle > startAngle): tangent = pointAngle + 90°.
+        // Negative sweep: tangent = pointAngle − 90°.
+        const double direction = arc->endAngleDeg >= arc->startAngleDeg ? 1.0 : -1.0;
+        const double pointAngleDeg = arc->startAngleDeg + direction * (d / arc->radius) * 180.0 / kPathPi;
+        return pointAngleDeg + direction * 90.0;
+    }
+    // Spline: walk the pre-sampled polyline, return the containing segment's angle.
+    {
+        double remaining = d;
+        for (std::size_t i = 0; i + 1 < splineSamples.size(); ++i) {
+            const double seg = distance(splineSamples[i], splineSamples[i + 1]);
+            if (seg <= 0.0) {
+                continue;
+            }
+            if (remaining <= seg + kPathEpsilon) {
+                return lineAngleDegrees(LineGeometry{splineSamples[i], splineSamples[i + 1]});
+            }
+            remaining -= seg;
+        }
+        if (splineSamples.size() >= 2) {
+            const auto &ss = splineSamples;
+            return lineAngleDegrees(LineGeometry{ss[ss.size() - 2], ss[ss.size() - 1]});
+        }
+        return 0.0;
+    }
 }
 
 } // namespace
@@ -288,6 +442,101 @@ DraftingArrayResult rotateCopiesDraftingObject(
         anglesDeg.push_back(totalAngleDeg * static_cast<double>(index + 1) / static_cast<double>(slots));
     }
     return buildRotatedCopies(source, newObjectIds, center, anglesDeg, "rotate_copies");
+}
+
+DraftingArrayResult arrayAlongCurve(const DraftingObject &source,
+                                    const std::vector<DraftingObjectId> &newObjectIds,
+                                    const DraftingGeometry &path,
+                                    bool alignToTangent)
+{
+    const std::size_t K = newObjectIds.size();
+
+    // Reject immediately on empty id list — nothing to place.
+    if (K == 0) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+            "array-along-curve requires at least one copy");
+    }
+
+    // Compute arc-length and (for Spline) the sampled point list.  curveArcLength
+    // returns -1 for unsupported path kinds, so this also acts as a kind filter:
+    // only Line / Polyline / Arc / Spline produce a non-negative length.
+    std::vector<Point2D> splineSamples;
+    const double L = curveArcLength(path, splineSamples);
+    if (L < 0.0) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+            "array-along-curve path must be a Line, Polyline, Arc, or Spline");
+    }
+    if (!std::isfinite(L) || !(L > kPathEpsilon)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+            "array-along-curve path has zero or non-finite arc-length");
+    }
+
+    // Same kind/geometry consistency and unique-id checks that every array
+    // planner performs — reuse the pattern from buildTranslatedCopies.
+    if (!kindMatchesGeometry(source.kind, source.geometry)) {
+        return DraftingArrayResult::rejected(DraftingResultCode::KindGeometryMismatch,
+            "shape kind does not match geometry");
+    }
+    std::unordered_set<DraftingObjectId> usedIds;
+    usedIds.reserve(K);
+    for (const DraftingObjectId &id : newObjectIds) {
+        if (id.empty() || id == source.id || !usedIds.insert(id).second) {
+            return DraftingArrayResult::rejected(DraftingResultCode::DuplicateObjectId,
+                "array object ids must be unique");
+        }
+    }
+
+    // The anchor for translation: the source's bounds centre.  Recomputed from
+    // geometry (not from the stored bounds) so a stale bounds cache cannot
+    // shift every copy — same discipline as radialArrayDraftingObject.
+    const Bounds2D srcBounds = computeBounds(source.geometry);
+    const Point2D C{srcBounds.x + srcBounds.width / 2.0,
+                    srcBounds.y + srcBounds.height / 2.0};
+
+    std::vector<DraftingObject> copies;
+    copies.reserve(K);
+
+    for (std::size_t i = 0; i < K; ++i) {
+        // Evenly arc-length-spaced stations that include BOTH path endpoints.
+        // K == 1: only d = 0 (path start), so the single copy lands at the
+        //         start point.
+        // K >= 2: d_i = i * L / (K - 1), spanning 0 … L.
+        // Clamp to [0, L] to absorb floating-point rounding at the last station.
+        const double d = (K == 1)
+            ? 0.0
+            : std::min(static_cast<double>(i) * L / static_cast<double>(K - 1), L);
+
+        const Point2D station = curveStationPoint(path, d, splineSamples);
+
+        // Step 1: translate so the copy's centre lands on the station.
+        DraftingObject copy = source;
+        copy.id = newObjectIds[i];
+        copy.geometry = translateGeometry(source.geometry,
+                                          station.x - C.x,
+                                          station.y - C.y);
+
+        // Step 2 (optional): rotate to the path tangent, pivoting about the
+        // station itself so the centre stays pinned on the station.
+        // transformGeometry handles all geometry kinds: it rotates every point
+        // about the pivot AND increments any stored rotationDeg field — so a
+        // Rectangle's rotationDeg ends up at `sourceDeg + tangentDeg`.
+        if (alignToTangent) {
+            const double tangentDeg = curveTangentDeg(path, d, splineSamples);
+            copy.geometry = transformGeometry(copy.geometry, station, tangentDeg, 1.0);
+        }
+
+        copy.metadata.toolProvenance = "array_along_curve";
+        copy.metadata.source = source.id;
+
+        const auto validation = validateDraftingObjectShape(copy);
+        if (!validation.ok) {
+            return DraftingArrayResult::rejected(validation.code, validation.message);
+        }
+        copy.bounds = computeBounds(copy.geometry);
+        copies.push_back(std::move(copy));
+    }
+
+    return DraftingArrayResult::accepted(std::move(copies));
 }
 
 } // namespace edi::drafting

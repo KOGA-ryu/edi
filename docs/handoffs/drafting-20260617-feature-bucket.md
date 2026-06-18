@@ -50,6 +50,32 @@ take MASTER's version and DROP our hunks (do NOT re-apply) — this is folded in
 briefs from DR-06 on. (Historical note: dept/drafting carries +33 LEDGER lines across 5
 pre-policy commits; the hub/edi-ui discard these at integration.)
 
+## ▶ RESUMED 2026-06-17 — staged live test of the new toolbelt + Sonnet builder
+- New protocol absorbed: `edi-gate` (build+ctest+scan, auto-excludes shell golden),
+  `bus-reply`/`bus-cat`/`bus-next`; model tiering (builder=Sonnet → brief PRECISELY,
+  re-prime fresh windows). LEDGER is edi-ui's on master only (already adopted).
+- DR-11+fix (`db71c1b`) still NOT merged (master `5712648`); per hub, build DR-12 on
+  `dept/drafting` anyway (edi-ui integrates separately). DR-12 deps DR-01 ✅ + DR-04 ✅
+  (both on master). Opened DR-12 as the live-test slice (pure op, well-scoped for Sonnet).
+
+## ⏸ PAUSED — HUB CONTEXT SWAP (2026-06-17) — clean checkpoint
+- **State:** clean. Worktree clean, no builder mid-task. `dept/drafting` tip `11d8cea`
+  (docs); last CODE tip `db71c1b` (DR-11 + canonical-mirror rect fix).
+- **In flight / awaiting:** DR-11 + the canonical-mirror fix are CLOSED and reported to
+  edi-ui as a batch (pull to `db71c1b`); awaiting edi-ui's merge-confirm. Hub was flagged
+  on the shared `mirrorGeometry` rotated-rect change (dungeon-map consumes).
+- **Held (NOT scooped):** DR-12 array-along-curve — deliberately held until edi-ui confirms
+  the `db71c1b` batch merged (post-merge sequencing).
+- **RESUME for a fresh session:** (1) read this handoff + the INTEGRATION ROUTING / CADENCE /
+  POLICY blocks above. (2) Check whether edi-ui merged `db71c1b` (look for a reply in
+  `~/dept-bus/drafting/replies/` and `git merge-base --is-ancestor db71c1b master`). (3) If
+  merged → open **DR-12** (deps DR-01 ✅ + DR-04 ✅): brief the builder to `git rebase master`
+  (the REF) then implement `arrayAlongCurve` per `~/dept-bus/work-batch-plan.md` DR-12. (4)
+  Remaining after DR-12: DR-13 angular dim (ratified: INFER vertex, no new DimensionGeometry
+  field; CORE-region serialize-touching — brief carefully, consider a reviewer note), DR-14
+  arc-sweep dim (deps DR-13), DR-15 fill authoring (ratified: fill-selected-closed-object).
+  Bucket progress: DR-01..10 merged; DR-11+fix reported/pending-merge; DR-12..15 remain.
+
 ## Gate log
 
 ### DR-01 transformGeometry — builder BRIEFED 2026-06-17
@@ -285,8 +311,90 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   `radialArrayDraftingObject`/`RadialArrayCenter` byte-unchanged; reuses
   `createArrayFromActiveObject`. Lighter scrutiny (validated array pattern).
 
+- **MERGED (edi-ui):** DR-09 on master @`4103dab` (100/100). edi-ui flagged DR-09 carried
+  a stale-base dup of DR-08 (timing race). **CADENCE FIX:** open slice N+1's build only
+  AFTER edi-ui confirms slice N merged → the builder always rebases onto a master that
+  carries the prior tip. (Local master is updated in-place by edi-ui on the box; it was
+  never stale persistently — just a parallel-open race.)
+
+### DR-10 — CLOSED 2026-06-17 ✅ (SHA `6d0cc01`, 99/99 green) — first transformGeometry consumer
+- Reply: `~/dept-bus/edi-drafting/replies/022-DR10-rotate-copies-builder.md`. Rebase CLEAN
+  (base `f65e972` current — DR-07/08 cherry-pick-skipped; no dup this time). Sibling
+  `RotateCopiesCenter` intent (radial path byte-unchanged); `rotateCopiesDraftingObject`
+  uses `transformGeometry` per copy. Arm distribution mirrors radial exactly (step =
+  totalAngle/(copies+1); 3 copies/360 → spokes 90/180/270). `m_rotateCopiesTotalAngleDeg`
+  default 360, edi-ui surfaces it.
+- **RATIFIED (planner):** center==source-centre is ALLOWED for rotate-copies (valid rosette;
+  intentional difference from radial's zero-arm reject). Guides rejected (would stack).
+- Reported DR-10 (`6d0cc01`) to edi-ui. **DR-11 HELD until edi-ui confirms DR-10 merged**
+  (new post-merge sequencing).
+
+- **MERGED (edi-ui):** DR-10 on master @`281e93a` (100/100). edi-ui FIX: rebase onto the
+  `master` REF (`git rebase master`), never a pinned SHA — folded into the builder rule.
+
+### DR-11 — kaleidoscope / multi-axis radial mirror (op + controller) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/023-DR11-kaleidoscope-builder.md`. Deps DR-01 ✅.
+  Opened AFTER DR-10 merge-confirm (new sequencing — builder rebases onto a master with
+  DR-10). **Higher-risk slice:** extends `mirrorGeometry` to an arbitrary axis line (the
+  guarded visit + the two-hand-kept-lists note, arch §2) + per-kind reflection correctness
+  (arc sweep / rectangle rotationDeg flip orientation under reflection). **Plan: diff-audit
+  after build** (canonical H/V path byte-identical; supportsMirror sync; angle-flip
+  correctness per kind).
+
+### DR-11 — SHIPPED `02fd45e`, 101/101 → diff-audit OPEN (rectangle-reflection question)
+- Reply: `~/dept-bus/edi-drafting/replies/023-DR11-kaleidoscope-builder.md`. Compose approach
+  `R(+θ)∘Mx∘R(−θ)` (transformGeometry rotations + canonical mirror via zero-size-bounds-at-C);
+  canonical path untouched. Builder corrected my brief: Arc is NOT in `supportsMirror` (7
+  mirrorable kinds per arch §2) → flip pinned on Dimension offset instead. Sibling
+  `KaleidoscopeCenter` verb.
+- **Diff-audit OPEN** (`~/dept-bus/edi-drafting/briefs/024-DR11-audit-reviewer.md`) with a
+  PRIORITY correctness question: the canonical rectangle arm does NOT flip `rotationDeg` under
+  mirror, so the conjugation nets `rotationDeg` UNCHANGED — but a true reflection maps `r → −r+2θ`.
+  Tracing suggests the canonical mirror is ALREADY latently wrong for ROTATED rectangles
+  (even at orthogonal axes), and DR-11 inherits it. Audit to adjudicate the math + recommend
+  fix-now (flip `rotationDeg` in the canonical arm) vs accept-v1-limitation, with blast radius.
+### DR-11 audit — DONE 2026-06-17 — VERDICT: ACCEPT-with-FOLLOWUP
+- Reply: `~/dept-bus/edi-drafting/replies/006-DR11-audit.md`. DR-11 itself CORRECT + clean
+  (conjugation verified numerically — all 4 reflected positions recomputed; canonical path
+  +202/−0 untouched; supportsMirror gate + Arc reject + Dimension-offset flip all confirmed).
+- **Math CONFIRMED:** the canonical rectangle mirror arm never flips `rotationDeg` → reflection
+  result off by `2(θ−r)`. Pre-existing latent bug (single-axis mirror of a rotated rect is
+  already wrong: r=30°→30°, should be −30°); DR-11 inherits it. Position is correct; ONLY
+  `rotationDeg` is wrong.
+- **FIX-NOW (audit-prescribed, one line):** `rotationDeg = -rotationDeg` in the canonical rect
+  arm, OUTSIDE the H/V branch — fixes single-axis AND DR-11 (nets `−r+2θ`). Zero existing-test
+  breakage (only rect mirror test is axis-aligned, `−0==0`). It's a behavior CHANGE → own
+  "fix" commit + 2 new tests. mirrorGeometry is shared (dungeon-map consumes) → FLAG to hub.
+
+### DR-11-fix — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/025-DR11fix-mirror-rect-rotation-builder.md`. One-line
+  canonical-arm fix + 2 tests. Lands on top of DR-11. Accept inline when green (audit
+  pre-verified the exact change).
+- **Plan:** when the fix lands → report DR-11 (`02fd45e`) + fix as ONE batch to edi-ui, and
+  FLAG the hub re: the shared canonical-mirror rotated-rect semantics change (dungeon-map
+  consumes; position unaffected, orientation-only — a fix they want). THEN open DR-12.
+
+### DR-11 + canonical-mirror fix — CLOSED 2026-06-17 ✅ (tips `02fd45e` + `db71c1b`, 101/101)
+- Fix reply: `~/dept-bus/edi-drafting/replies/025-DR11fix-mirror-rect-rotation-builder.md`.
+  One-line rect `rotationDeg` negation in the canonical arm; 2 new tests (single-axis r=30°→−30°;
+  kaleidoscope axis-aligned across 30° axis → 60°); old axis-aligned test still green. Accept
+  inline (audit pre-verified the exact change). Arch doc §2 mirror note updated.
+- Reported DR-11 + fix as ONE batch to edi-ui (tip `db71c1b`).
+- **FLAGGED to hub:** shared canonical-mirror semantics change — rotated-rect orientation under
+  reflection now corrected (`−r`); dungeon-map consumes `mirrorGeometry`; position unaffected,
+  axis-aligned rects unchanged. A fix dungeon-map wants.
+
+### DR-12 — array-along-curve (PURE op) — builder BRIEFED 2026-06-17 (live toolbelt test)
+- Brief: `~/dept-bus/edi-drafting/briefs/026-DR12-array-along-curve-builder.md` (fresh Sonnet
+  builder — precise brief, fresh-window re-prime, concrete test numbers). Deps DR-01 ✅ + DR-04
+  ✅. Built on `dept/drafting` regardless of the DR-11 merge state (edi-ui integrates
+  separately). Uses the new toolbelt: builder runs `edi-gate` + replies via `bus-reply`.
+- When green + replied → bus-hub the result (staged live-test of the tooling). Reviewer
+  optional (per hub); planner reviews the report + edi-gate is the safety net.
+
 ## Open questions / blockers
-- (none blocking — DR-10 in build; DR-09 reported to edi-ui)
+- (none blocking — DR-12 in build via fresh Sonnet builder; DR-11+fix still pending edi-ui
+  merge, non-blocking)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

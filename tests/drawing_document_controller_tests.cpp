@@ -3496,6 +3496,38 @@ int main(int argc, char **argv)
         assert(!emptyRosette.isAwaitingPointCapture());
     }
 
+    // Kaleidoscope: arming + the captured centre reflects the source across
+    // arrayCount() axes (one copy per axis) in ONE undo step. The single-axis
+    // mirror verb is unchanged; the op test covers the per-kind orientation flip.
+    {
+        DrawingDocumentController kaleido;
+        kaleido.setSelectedToolId("line_tool");
+        kaleido.clickCanvasNormalized(0.6, 0.55);
+        kaleido.clickCanvasNormalized(0.7, 0.6); // a line (a mirrorable kind)
+        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        kaleido.setSelectedToolId("select_move");
+        kaleido.clickCanvasNormalized(0.65, 0.575); // select the line
+        assert(!kaleido.selectedObjectId().isEmpty());
+        kaleido.setArrayCount(3); // 3 axes -> 3 reflected copies
+
+        assert(kaleido.beginKaleidoscopeCenterPick());
+        assert(kaleido.isAwaitingPointCapture());
+        kaleido.clickCanvasNormalized(0.5, 0.5); // sets the kaleidoscope centre
+        assert(!kaleido.isAwaitingPointCapture());
+        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 4); // source + 3
+
+        // ONE undo step removes all reflected copies.
+        assert(kaleido.canUndo());
+        kaleido.undo();
+        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
+
+        // Refuses to arm with nothing selected.
+        DrawingDocumentController emptyKaleido;
+        assert(!emptyKaleido.beginKaleidoscopeCenterPick());
+        assert(!emptyKaleido.isAwaitingPointCapture());
+    }
+
     // Trim verb: a line trimmed back to where another line crosses it, the
     // doomed side chosen by the captured click — pick-a-point's SECOND consumer
     // end-to-end (a different intent down the same capture path).

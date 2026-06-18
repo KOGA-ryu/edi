@@ -107,6 +107,32 @@ int main()
     assert(nearlyEqual(rectGeometry->origin.y, 0.3));
     assert(nearlyEqual(rectGeometry->rotationDeg, 0.0));
 
+    // Reflection reverses orientation: a single-axis mirror of a ROTATED rectangle
+    // negates rotationDeg (r=30° -> -30°). The axis-aligned case above still holds
+    // (-0 == 0).
+    DraftingObject rotatedRect = object("rrect_1", DraftingShapeKind::Rectangle,
+                                        RectangleGeometry{{0.2, 0.3}, 0.4, 0.2, 30.0});
+    auto mirroredRotatedRect = mirrorDraftingObject(rotatedRect, "rrect_mirror", DraftingMirrorAxis::Horizontal);
+    assert(mirroredRotatedRect.ok);
+    const auto *rotatedRectGeometry = std::get_if<RectangleGeometry>(&mirroredRotatedRect.object.geometry);
+    assert(rotatedRectGeometry != nullptr);
+    assert(nearlyEqual(rotatedRectGeometry->rotationDeg, -30.0));
+
+    // DR-11 kaleidoscope across a 30° axis: an axis-aligned rect (r=0) reflects to
+    // r = -0 + 2θ = 60° (the conjugation R(+θ)∘mirror∘R(−θ) nets 2θ now that the
+    // canonical arm flips rotationDeg). 6 axes -> spacing 30°, so copy[1] is the 30°
+    // axis. The rect is centred on the kaleidoscope centre, so its centre is fixed.
+    DraftingObject centredRect = object("krect_1", DraftingShapeKind::Rectangle,
+                                        RectangleGeometry{{0.45, 0.45}, 0.1, 0.1, 0.0});
+    auto kRect = kaleidoscopeMirror(centredRect, {"kr_0", "kr_1", "kr_2", "kr_3", "kr_4", "kr_5"}, {0.5, 0.5}, 6);
+    assert(kRect.ok);
+    const auto *kRectGeometry = std::get_if<RectangleGeometry>(&kRect.objects[1].geometry);
+    assert(kRectGeometry != nullptr);
+    assert(nearlyEqual(kRectGeometry->rotationDeg, 60.0));
+    // Centre is invariant (the rect sits on the centre, on every axis through it).
+    assert(nearlyEqual(kRectGeometry->origin.x + kRectGeometry->width / 2.0, 0.5));
+    assert(nearlyEqual(kRectGeometry->origin.y + kRectGeometry->height / 2.0, 0.5));
+
     DraftingObject point = object("point_1", DraftingShapeKind::Point, PointGeometry{{0.25, 0.75}});
     auto mirroredPoint = mirrorDraftingObject(point, "point_mirror", DraftingMirrorAxis::Vertical);
     assert(mirroredPoint.ok);
@@ -125,6 +151,59 @@ int main()
     auto mismatch = mirrorDraftingObject(mismatched, "mismatch_mirror", DraftingMirrorAxis::Vertical);
     assert(!mismatch.ok);
     assert(mismatch.code == DraftingResultCode::KindGeometryMismatch);
+
+    // --- DR-11 kaleidoscope (multi-axis radial mirror) -------------------
+    // A POINT reflected across 4 axes (45° spacing) through (0.5,0.5). Relative to
+    // the centre the offset is (0.4,0.1); reflection across the axis at angle α is
+    // the standard reflection Refl(2α), so the four copies land at the points below.
+    {
+        DraftingObject kPoint = object("k_point", DraftingShapeKind::Point, PointGeometry{{0.9, 0.6}});
+        auto rosette = kaleidoscopeMirror(kPoint, {"kp_0", "kp_1", "kp_2", "kp_3"}, {0.5, 0.5}, 4);
+        assert(rosette.ok);
+        assert(rosette.objects.size() == 4);
+        assert(rosette.objects[0].metadata.toolProvenance == "kaleidoscope");
+        const double expected[4][2] = {
+            {0.9, 0.4}, // axis 0°   (reflect across horizontal through centre)
+            {0.6, 0.9}, // axis 45°  (Refl 90° swaps the relative offset)
+            {0.1, 0.6}, // axis 90°  (reflect across vertical)
+            {0.4, 0.1}, // axis 135° (Refl 270°)
+        };
+        for (std::size_t i = 0; i < 4; ++i) {
+            const auto *p = std::get_if<PointGeometry>(&rosette.objects[i].geometry);
+            assert(p != nullptr);
+            assert(nearlyEqual(p->point.x, expected[i][0]));
+            assert(nearlyEqual(p->point.y, expected[i][1]));
+        }
+    }
+    // ORIENTATION FLIP (the correctness risk). Arc is NOT in supportsMirror, so the
+    // brief's "reflect an Arc" is not reachable; the flip is pinned instead on a
+    // Dimension, whose offset the canonical mirrorGeometry NEGATES. One axis at 0°
+    // through the dimension's own line: endpoints stay, the offset sign flips.
+    {
+        DraftingObject dim = object("k_dim", DraftingShapeKind::Dimension,
+                                    DimensionGeometry{DimensionKind::Distance, {0.4, 0.5}, {0.6, 0.5}, 0.04});
+        auto flipped = kaleidoscopeMirror(dim, {"kd_0"}, {0.5, 0.5}, 1);
+        assert(flipped.ok);
+        const auto *d = std::get_if<DimensionGeometry>(&flipped.objects[0].geometry);
+        assert(d != nullptr);
+        assert(nearlyEqual(d->offset, -0.04)); // orientation flip: side negates
+        assert(nearlyEqual(d->a.x, 0.4) && nearlyEqual(d->a.y, 0.5));
+        assert(nearlyEqual(d->b.x, 0.6) && nearlyEqual(d->b.y, 0.5));
+    }
+    // Unsupported kind (Arc, absent from supportsMirror) rejects — exactly as the
+    // canonical single-axis mirror does.
+    {
+        DraftingObject arc = object("k_arc", DraftingShapeKind::Arc, ArcGeometry{{0.5, 0.5}, 0.2, 0.0, 90.0});
+        auto rejected = kaleidoscopeMirror(arc, {"ka_0"}, {0.5, 0.5}, 1);
+        assert(!rejected.ok);
+        assert(rejected.code == DraftingResultCode::InvalidSelectionTarget);
+    }
+    // axisCount < 1 and an id-count mismatch reject.
+    {
+        DraftingObject kPoint = object("k_point2", DraftingShapeKind::Point, PointGeometry{{0.7, 0.5}});
+        assert(!kaleidoscopeMirror(kPoint, {}, {0.5, 0.5}, 0).ok);
+        assert(!kaleidoscopeMirror(kPoint, {"only_one"}, {0.5, 0.5}, 2).ok); // size 1 != axisCount 2
+    }
 
     return 0;
 }

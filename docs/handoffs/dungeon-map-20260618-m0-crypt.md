@@ -42,6 +42,22 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
      after G1 lands AND drafting's `MapSpec::blocks` field is live on local master.
 4. **Closeout** + bus-hub when the generator emits a valid crypt TOON green.
 
+## USER DIRECTIVE (2026-06-18, hub brief 043): DOUBLE the crypt
+- "Double the rooms and hallways." Split across depts:
+  - ROOMS (wire/generator, mine): entrance 30×30 @ (0,10), crypt 50×50 @ (70,0),
+    STRAIGHT corridor (colinear plug midpoints at world y=25). Doubled TOON authored:
+    `~/dept-bus/dungeon-map/crypt_doubled.toon`. Props repositioned (scale stays 1):
+    sarcophagus (95,25), brazier (82,12), stair (76,8).
+  - HALLWAY WIDTH (realizer constant, blender-lab): CORRIDOR_W 5→10, DOOR_W →8 in
+    edi_realize.py. KEY: the frozen contract made corridor/door width REALIZER-
+    AUTHORITATIVE (§5) — NOT on the wire — so this is NOT a contract-lock invariant;
+    the lock stays on track. (Corrected the hub brief's pinned-DOOR_W assumption.)
+- Piece-types: STRAIGHT ⇒ 9/10 (no corridor_l); all-10 needs an L-route (user's call;
+  merged fixture keeps the all-10 demo). Flagged to hub.
+- Dispatched: doubled TOON → blender-lab to render on 5090 (auto-opens on desktop);
+  G1/G2 briefs re-retargeted to the doubled layout; builder rebuilding.
+- Contract commits: DOOR_W/double fold; bus-hub'd the hub.
+
 ## Cross-dept: realizer confirmation — ALL 3 ASKS CONFIRMED (blender-lab reply 040)
 - Realizer adopts contract v1 as-is (no renegotiation). 2D→3D map-x→X/map-y→Y/+Z-up
   matches; `crypt.stair` is the realizer's stair-block path; the §3 slice RENDERED on

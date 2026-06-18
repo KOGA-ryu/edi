@@ -2,9 +2,15 @@
 
 #include "formats/TomlReader.h"
 #include "formats/TomlWriter.h"
+#include "formats/ToonExport.h"
 #include "recipe/RecipeOpsBind.h"
+#include "recipe/RecipeOpsResolve.h"
 #include "recipe/RecipeTextNumbers.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -16,6 +22,19 @@ namespace {
 std::string opPrefix(std::size_t index)
 {
     return "op." + std::to_string(index);
+}
+
+const char *booleanKindText(BooleanKind kind)
+{
+    switch (kind) {
+    case BooleanKind::Subtract:
+        return "subtract";
+    case BooleanKind::Intersect:
+        return "intersect";
+    case BooleanKind::Union:
+        break;
+    }
+    return "union";
 }
 
 // ---- Writing -----------------------------------------------------------
@@ -113,6 +132,9 @@ struct OpWriter {
         put("y", op.y);
         put("vertices", op.vertices);
         put("material", op.material);
+        put("sweep_degrees", op.sweepDegrees);
+        put("screw_rise", op.screwRise);
+        put("screw_turns", op.screwTurns);
         for (std::size_t i = 0; i < op.profile.size(); ++i) {
             const std::string pointPrefix = prefix + ".profile." + std::to_string(i);
             config[pointPrefix + ".term"] = op.profile[i].term;
@@ -130,12 +152,23 @@ struct OpWriter {
         put("x", op.x);
         put("y", op.y);
         put("material", op.material);
+        put("taper_end", op.taperEnd);
+        put("inset", op.inset);
+        put("normal_offset", op.normalOffset);
         // The footprint is a contiguous indexed run footprint.i.{x,y}, the same
         // shape (and reader rule: read until a gap) AddMoulding uses for profile.i.
         for (std::size_t i = 0; i < op.footprint.size(); ++i) {
             const std::string pointPrefix = prefix + ".footprint." + std::to_string(i);
             config[pointPrefix + ".x"] = numberKeyText(op.footprint[i].x);
             config[pointPrefix + ".y"] = numberKeyText(op.footprint[i].y);
+        }
+        // BL-08: the optional sweep path, the SAME run shape. Emitted ONLY when
+        // present, so an empty-path prism writes no path.* keys and its TOML/OBJ
+        // stay byte-identical to the BL-04 straight-extrude golden.
+        for (std::size_t i = 0; i < op.path.size(); ++i) {
+            const std::string pointPrefix = prefix + ".path." + std::to_string(i);
+            config[pointPrefix + ".x"] = numberKeyText(op.path[i].x);
+            config[pointPrefix + ".y"] = numberKeyText(op.path[i].y);
         }
     }
 
@@ -178,6 +211,9 @@ struct OpWriter {
         put("y", op.y);
         put("vertices", op.vertices);
         put("material", op.material);
+        put("sweep_degrees", op.sweepDegrees);
+        put("screw_rise", op.screwRise);
+        put("screw_turns", op.screwTurns);
     }
 
     void operator()(const AddExtrudedProfileOp &op) const
@@ -190,6 +226,19 @@ struct OpWriter {
         put("x", op.x);
         put("y", op.y);
         put("material", op.material);
+    }
+
+    void operator()(const AddSweepProfileOp &op) const
+    {
+        put("type", std::string("AddSweepProfile"));
+        put("name", op.name);
+        put("profile", op.profile);
+        put("path", op.path);
+        put("base_z", op.baseZ);
+        put("x", op.x);
+        put("y", op.y);
+        put("material", op.material);
+        put("taper_end", op.taperEnd);
     }
 
     void operator()(const CutFlutesOp &op) const
@@ -215,6 +264,15 @@ struct OpWriter {
         if (op.endZ.has_value()) {
             put("end_z", *op.endZ);
         }
+    }
+
+    void operator()(const AddBooleanOp &op) const
+    {
+        put("type", std::string("AddBoolean"));
+        put("name", op.name);
+        put("a", op.a);
+        put("b", op.b);
+        put("kind", std::string(booleanKindText(op.kind)));
     }
 
     void operator()(const AddLabelOp &op) const
@@ -443,6 +501,25 @@ struct OpReader {
         return true;
     }
 
+    bool readBooleanKind(const std::string &key, BooleanKind &out)
+    {
+        const std::string *value = take(key);
+        if (value == nullptr) {
+            return true; // keep default (Union)
+        }
+        if (*value == "union") {
+            out = BooleanKind::Union;
+        } else if (*value == "subtract") {
+            out = BooleanKind::Subtract;
+        } else if (*value == "intersect") {
+            out = BooleanKind::Intersect;
+        } else {
+            error = key + ": kind must be union, subtract, or intersect, got '" + *value + "'";
+            return false;
+        }
+        return true;
+    }
+
     bool readBool(const std::string &key, bool &out)
     {
         const std::string *value = take(key);
@@ -530,13 +607,15 @@ bool readMouldingPoints(OpReader &reader, const std::string &prefix,
     }
 }
 
-// Reads the contiguous footprint.i.{x,y} run until a gap (a missing .x ends
-// the run), the same shape readMouldingPoints uses for the profile run.
-bool readPrismFootprint(OpReader &reader, const std::string &prefix,
-                        std::vector<PrismPoint> &out)
+// Reads a contiguous <run>.i.{x,y} point run until a gap (a missing .x ends the
+// run), the same shape readMouldingPoints uses for the profile run. Shared by
+// AddPrism's `footprint` and its optional BL-08 `path` (an absent run reads as
+// an empty vector — exactly the empty-path = straight-extrude default).
+bool readPrismPointRun(OpReader &reader, const std::string &prefix, const std::string &run,
+                       std::vector<PrismPoint> &out)
 {
     for (std::size_t i = 0;; ++i) {
-        const std::string pointPrefix = prefix + ".footprint." + std::to_string(i);
+        const std::string pointPrefix = prefix + "." + run + "." + std::to_string(i);
         if (reader.config.find(pointPrefix + ".x") == reader.config.end()) {
             return true;
         }
@@ -551,10 +630,24 @@ bool readPrismFootprint(OpReader &reader, const std::string &prefix,
 
 } // namespace
 
-OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
-{
-    OpStreamTextResult result;
+namespace {
+
+// The ONE key/value source for a serialized op-stream: build the flat
+// op.N.<field> StaticConfig (recipe.id/name + every op's keys via OpWriter),
+// validating the B02 invariants on the way. Both recipeOpsToToml (which then
+// formats it as TOML) and exportRecipeStreamToToon (which projects it to TOON)
+// call this, so the TOML truth and the TOON handoff address the SAME keys and
+// cannot drift. `message` is non-empty (and ok=false) on a refused stream.
+struct OpStreamConfigResult {
+    bool ok = false;
+    std::string message;
     edi::formats::StaticConfig config;
+};
+
+OpStreamConfigResult recipeOpsToConfig(const RecipeOpStream &stream)
+{
+    OpStreamConfigResult result;
+    edi::formats::StaticConfig &config = result.config;
     config["recipe.id"] = stream.id;
     config["recipe.name"] = stream.name;
 
@@ -619,8 +712,21 @@ OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
         const std::string prefix = opPrefix(i);
         std::visit(OpWriter{config, prefix, &boundByOp[i]}, stream.ops[i]);
     }
+    result.ok = true;
+    return result;
+}
 
-    const auto written = edi::formats::writeTomlStaticConfig(config, "recipe_ops");
+} // namespace
+
+OpStreamTextResult recipeOpsToToml(const RecipeOpStream &stream)
+{
+    OpStreamTextResult result;
+    OpStreamConfigResult cfg = recipeOpsToConfig(stream);
+    if (!cfg.ok) {
+        result.message = cfg.message;
+        return result;
+    }
+    const auto written = edi::formats::writeTomlStaticConfig(cfg.config, "recipe_ops");
     if (!written.ok) {
         result.message = written.message;
         return result;
@@ -643,7 +749,7 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
     // and this fires, reminding the next author to add a reader branch HERE and
     // a matching `edi_craft.parse_ops` arm in Python, key-for-key — the
     // cross-language TOML contract is a two-sided obligation (§3).
-    static_assert(std::variant_size_v<RecipeOp> == 12,
+    static_assert(std::variant_size_v<RecipeOp> == 14,
                   "RecipeOp grew: add a reader branch in recipeOpsFromToml (this "
                   "ladder is string-keyed, not a std::visit, so the compiler "
                   "won't force it) AND a matching parse_ops arm in edi_craft.py.");
@@ -750,6 +856,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)
+                || !reader.bindableNumber(prefix, "screw_rise", op.screwRise, false)
+                || !reader.bindableNumber(prefix, "screw_turns", op.screwTurns, false)
                 || !readMouldingPoints(reader, prefix, op.profile)) {
                 result.message = reader.error;
                 return result;
@@ -770,7 +879,11 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
-                || !readPrismFootprint(reader, prefix, op.footprint)) {
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false) // BL-09; default 1
+                || !reader.bindableNumber(prefix, "inset", op.inset, false)          // BL-10; default 0
+                || !reader.bindableNumber(prefix, "normal_offset", op.normalOffset, false)
+                || !readPrismPointRun(reader, prefix, "footprint", op.footprint)
+                || !readPrismPointRun(reader, prefix, "path", op.path)) { // BL-08; absent = empty
                 result.message = reader.error;
                 return result;
             }
@@ -796,7 +909,10 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalIntDefault(prefix + ".vertices", op.vertices)
-                || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "sweep_degrees", op.sweepDegrees, false)
+                || !reader.bindableNumber(prefix, "screw_rise", op.screwRise, false)
+                || !reader.bindableNumber(prefix, "screw_turns", op.screwTurns, false)) {
                 result.message = reader.error;
                 return result;
             }
@@ -816,6 +932,22 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)) {
+                result.message = reader.error;
+                return result;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddSweepProfile") {
+            // BL-08: two drafted-object refs (profile + path) read key-for-key
+            // with the OpWriter; base_z/x/y bindable like the extrude's.
+            AddSweepProfileOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".profile", op.profile)
+                || !reader.requireText(prefix + ".path", op.path)
+                || !reader.bindableNumber(prefix, "base_z", op.baseZ, true)
+                || !reader.bindableNumber(prefix, "x", op.x, false)
+                || !reader.bindableNumber(prefix, "y", op.y, false)
+                || !reader.optionalTextDefault(prefix + ".material", op.material)
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)) { // BL-09
                 result.message = reader.error;
                 return result;
             }
@@ -873,6 +1005,18 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
             }
             if (present) {
                 op.endZ = value;
+            }
+            result.stream.ops.push_back(std::move(op));
+        } else if (*type == "AddBoolean") {
+            // BL-11: the general composer. a/b name earlier ops (validated in
+            // order, like CutFlutes.target); kind via readBooleanKind.
+            AddBooleanOp op;
+            if (!reader.requireText(prefix + ".name", op.name)
+                || !reader.requireText(prefix + ".a", op.a)
+                || !reader.requireText(prefix + ".b", op.b)
+                || !reader.readBooleanKind(prefix + ".kind", op.kind)) {
+                result.message = reader.error;
+                return result;
             }
             result.stream.ops.push_back(std::move(op));
         } else if (*type == "AddLabel") {
@@ -947,6 +1091,109 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
 
     result.ok = true;
     return result;
+}
+
+namespace {
+
+// The library file stem: the recipe's name (or id when name is empty),
+// sanitized to bare TOML/path-safe chars — letters, digits, '_' and '-'; any
+// other char becomes '_'. Deterministic, so the same recipe always lands on the
+// same file; collapses to "recipe" if nothing usable remains.
+std::string libraryStem(const RecipeOpStream &stream)
+{
+    const std::string &source = !stream.name.empty() ? stream.name : stream.id;
+    std::string stem;
+    for (const char ch : source) {
+        const bool bare = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-';
+        stem.push_back(bare ? ch : '_');
+    }
+    return stem.empty() ? std::string("recipe") : stem;
+}
+
+const char *const kLibrarySuffix = ".ops.toml";
+
+} // namespace
+
+OpStreamTextResult saveLibraryRecipe(const std::string &dirPath, const RecipeOpStream &stream)
+{
+    OpStreamTextResult result = recipeOpsToToml(stream);
+    if (!result.ok) {
+        return result; // a stream that won't serialize is named by recipeOpsToToml
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(dirPath, ec); // idempotent; ec ignored, the write reports
+    const std::filesystem::path path =
+        std::filesystem::path(dirPath) / (libraryStem(stream) + kLibrarySuffix);
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        result.ok = false;
+        result.message = "cannot write recipe file: " + path.string();
+        return result;
+    }
+    out << result.text;
+    return result;
+}
+
+OpStreamParseResult loadLibraryRecipe(const std::string &dirPath, const std::string &name)
+{
+    OpStreamParseResult result;
+    const std::filesystem::path path =
+        std::filesystem::path(dirPath) / (name + kLibrarySuffix);
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        result.message = "recipe not found: " + path.string();
+        return result;
+    }
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return recipeOpsFromToml(text, path.string());
+}
+
+std::vector<std::string> listLibraryRecipes(const std::string &dirPath)
+{
+    std::vector<std::string> names;
+    std::error_code ec;
+    std::filesystem::directory_iterator it(dirPath, ec);
+    if (ec) {
+        return names; // a missing directory is an empty library, not an error
+    }
+    const std::string suffix = kLibrarySuffix;
+    for (const auto &entry : it) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::string filename = entry.path().filename().string();
+        if (filename.size() > suffix.size()
+            && filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            names.push_back(filename.substr(0, filename.size() - suffix.size()));
+        }
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+edi::formats::FormatResult<std::string> exportRecipeStreamToToon(const RecipeOpStream &stream)
+{
+    using Result = edi::formats::FormatResult<std::string>;
+    // RESOLVED-only: a TOON of a stream that still carries a binding or a
+    // refused-before-build reference (lathe/extrude/sweep) would describe ops
+    // the build cannot make — a lie in the handoff (§4). Refuse by name; the
+    // caller resolves first (no DraftingDocument here to do it for them).
+    if (!recipeOpsResolved(stream)) {
+        return Result::failure("recipe_toon", "recipe.unresolved",
+                               "recipe must be resolved before TOON handoff: " + stream.name);
+    }
+    // The TOON fields ARE the TOML config — one shared key source (recipeOpsToConfig),
+    // so the AI handoff addresses the same op.N.<field> keys as the TOML truth.
+    OpStreamConfigResult cfg = recipeOpsToConfig(stream);
+    if (!cfg.ok) {
+        return Result::failure("recipe_toon", "recipe.serialize", cfg.message);
+    }
+    edi::formats::ToonPacket packet;
+    packet.kind = "recipe";
+    packet.title = stream.name;
+    packet.fields = std::move(cfg.config); // recipe.id/name + every op.N.<field>
+    return edi::formats::exportToonPacket(packet, "recipe_toon");
 }
 
 } // namespace edi::recipe

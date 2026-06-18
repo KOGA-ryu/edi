@@ -612,5 +612,162 @@ int main()
         assert(line.findings[0].message == "profile must enclose at least three distinct points");
     }
 
+    // ---- BL-05 HEADLINE: push/pull as a depth verb — a DRAFTED MEASUREMENT
+    // drives the extrude height end-to-end. `height` is just a bindable Number
+    // opField on the extrude arm (BL-01), so the SAME bindings pass that fills
+    // a box width fills it: bind height -> the "cut" line's physical length,
+    // resolve, and the lowered AddPrism carries that measured depth. No depth
+    // mechanism of its own — a signed double on an existing arm, measured like
+    // any other field. ----
+    {
+        RecipeOpStream s;
+        s.id = "resolve.pushpull";
+        AddExtrudedProfileOp prism;
+        prism.name = "wall.pull";
+        prism.profile = "panel";
+        prism.baseZ = 0.0;
+        s.ops.push_back(prism);
+        s.bindings = {{0, "height", "cut", "length"}}; // measured line length -> depth
+
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        assert(r.stream.bindings.empty());
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        // The drafted "cut" line spans (0.3, 0.4) normalized on the 12x8 grid:
+        // physical length hypot(3.6, 3.2) — the SAME number the box-height
+        // binding measures in the happy-path block above. The extrude DEPTH is
+        // now a drafted measurement.
+        assert(near(lowered->height, std::hypot(0.3 * 12.0, 0.4 * 8.0)));
+        assert(validateRecipeOps(r.stream.ops).ok);
+        assert(recipeOpsResolved(r.stream));
+    }
+
+    // ---- BL-05: a NEGATIVE height is a buildable PUSH (downward cut), not a
+    // refusal. It passes validate with no zero-height finding and survives
+    // resolve into the carrier verbatim (BL-04's Python _prism_world then
+    // extrudes it downward — never abs()'d). The carrier carries the SIGN. ----
+    {
+        AddExtrudedProfileOp push;
+        push.name = "wall.push";
+        push.profile = "panel";
+        push.height = -2.5; // a downward push/pull cut
+        push.baseZ = 4.0;
+
+        // The extrude op itself validates: negative height is allowed (no
+        // extruded_profile_zero_height), only zero/non-finite is refused.
+        const OpValidationReport extrudeReport = validateRecipeOps({RecipeOp{push}});
+        for (const OpFinding &f : extrudeReport.findings) {
+            assert(f.code != "extruded_profile_zero_height");
+        }
+
+        RecipeOpStream s;
+        s.ops = {RecipeOp{push}};
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->height, -2.5)); // the negative depth survived into the carrier
+        // The lowered prism validates (negative prism height is allowed) and
+        // carries no zero-height finding.
+        const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);
+        assert(prismReport.ok);
+        for (const OpFinding &f : prismReport.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+    }
+
+    // ---- BL-06: a partial-revolve sweepDegrees on the lathe SURVIVES lowering
+    // onto the AddMoulding it becomes (the build runs on the moulding, so the
+    // arc must travel with it). ----
+    {
+        RecipeOpStream s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "apse.niche";
+        lathe.profile = "shaft";
+        lathe.sweepDegrees = 180.0; // a half revolve — an arch/apse niche
+        s.ops.push_back(lathe);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->sweepDegrees, 180.0)); // the chosen arc travelled into the carrier
+        assert(validateRecipeOps(r.stream.ops).ok);
+    }
+
+    // ---- BL-07: the screw/helix params also SURVIVE lowering onto the
+    // moulding the lathe becomes (the build spirals the moulding). ----
+    {
+        RecipeOpStream s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "spiral.volute";
+        lathe.profile = "shaft";
+        lathe.screwRise = 1.5;  // z gained per full turn
+        lathe.screwTurns = 3.0; // three turns -> a thread
+        s.ops.push_back(lathe);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->screwRise, 1.5));  // the helix travelled into the carrier
+        assert(near(lowered->screwTurns, 3.0));
+        assert(validateRecipeOps(r.stream.ops).ok);
+    }
+
+    // ---- BL-08: a Follow-Me sweep resolves to a PATH-bearing AddPrism. The
+    // profile ("panel") becomes the footprint and the path ("cut", a line)
+    // becomes the sweep path — both projected to the physical drawing plane. ----
+    {
+        RecipeOpStream s;
+        AddSweepProfileOp sweep;
+        sweep.name = "cornice.run";
+        sweep.profile = "panel"; // a closed square -> footprint
+        sweep.path = "cut";      // a line (0.2,0.2)-(0.5,0.6) -> path
+        sweep.taperEnd = 0.5;    // BL-09: a tapering run
+        s.ops.push_back(sweep);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr); // the sweep reference is GONE, a prism stands
+        assert(lowered->name == "cornice.run");
+        assert(near(lowered->taperEnd, 0.5)); // BL-09: the taper survived lowering
+        assert(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
+        assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
+        // The path is the projected "cut" line: (0.2,0.2)->(0.5,0.6) on the 12x8 grid.
+        assert(lowered->path.size() == 2);
+        assert(near(lowered->path[0].x, 0.2 * 12.0) && near(lowered->path[0].y, 0.2 * 8.0));
+        assert(near(lowered->path[1].x, 0.5 * 12.0) && near(lowered->path[1].y, 0.6 * 8.0));
+        assert(validateRecipeOps(r.stream.ops).ok);
+        assert(recipeOpsResolved(r.stream));
+        assert(std::get_if<AddSweepProfileOp>(&s.ops[0]) != nullptr); // input untouched (purity)
+    }
+
+    // ---- BL-08 refusals: a deleted/wrong-kind profile-or-path, and a
+    // degenerate (single-point) path, refused by name with the shared wordings. ----
+    {
+        const auto oneSweep = [](std::string profile, std::string path) {
+            RecipeOpStream s;
+            AddSweepProfileOp e;
+            e.name = "e";
+            e.profile = std::move(profile);
+            e.path = std::move(path);
+            s.ops.push_back(e);
+            return s;
+        };
+        // deleted profile -> shared wording, keyed op.0.profile
+        const OpResolveResult goneP = resolveRecipeOps(oneSweep("gone", "cut"), drafting, grid);
+        assert(!goneP.ok && goneP.findings[0].key == "op.0.profile");
+        assert(goneP.findings[0].message == "profile object not found: gone");
+        // deleted path -> shared wording, keyed op.0.path
+        const OpResolveResult gonePath = resolveRecipeOps(oneSweep("panel", "gone"), drafting, grid);
+        assert(!gonePath.ok && gonePath.findings[0].key == "op.0.path");
+        assert(gonePath.findings[0].message == "profile object not found: gone");
+        // a path that is a single point ("hole" is a circle -> sampled, but use a
+        // wrong-kind to hit the shared wording instead): a circle has no path.
+        const OpResolveResult wrongPath = resolveRecipeOps(oneSweep("panel", "hole"), drafting, grid);
+        assert(!wrongPath.ok && wrongPath.findings[0].key == "op.0.path");
+        assert(wrongPath.findings[0].message == "profile needs a line, polyline, or arc");
+    }
+
     return 0;
 }

@@ -35,7 +35,9 @@ const char *recipeOpTypeName(const RecipeOp &op)
         const char *operator()(const AddProfileMouldingOp &) const { return "AddProfileMoulding"; }
         const char *operator()(const AddRevolvedProfileOp &) const { return "AddRevolvedProfile"; }
         const char *operator()(const AddExtrudedProfileOp &) const { return "AddExtrudedProfile"; }
+        const char *operator()(const AddSweepProfileOp &) const { return "AddSweepProfile"; }
         const char *operator()(const CutFlutesOp &) const { return "CutFlutes"; }
+        const char *operator()(const AddBooleanOp &) const { return "AddBoolean"; }
         const char *operator()(const AddLabelOp &) const { return "AddLabel"; }
         const char *operator()(const ScriptOp &) const { return "Script"; }
     };
@@ -88,6 +90,13 @@ RecipeCompileResult compileRecipeOps(const std::vector<RecipeOp> &ops)
         if (const auto *extruded = std::get_if<AddExtrudedProfileOp>(&op)) {
             result.message =
                 "AddExtrudedProfile must be resolved before compiling: " + extruded->name;
+            result.ops.clear();
+            return result;
+        }
+        // Same contract for the Follow-Me sweep (BL-08).
+        if (const auto *swept = std::get_if<AddSweepProfileOp>(&op)) {
+            result.message =
+                "AddSweepProfile must be resolved before compiling: " + swept->name;
             result.ops.clear();
             return result;
         }
@@ -198,6 +207,118 @@ void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to)
         } else if (to < from && binding.opIndex >= to && binding.opIndex < from) {
             ++binding.opIndex;
         }
+    }
+}
+
+namespace {
+
+// Apply a rename map to a single name reference, in place. A name absent from
+// the map is left untouched (it pointed outside the renamed set).
+void applyRename(std::string &ref, const std::map<std::string, std::string> &rename)
+{
+    const auto it = rename.find(ref);
+    if (it != rename.end()) {
+        ref = it->second;
+    }
+}
+
+// A mutable pointer to an op's OWN name field, or nullptr for the arms that have
+// none (CutFlutesOp names a target, not itself). A visitor over the existing
+// arms — the same shape as validate's NameGetter, but writable.
+struct MutableName {
+    std::string *operator()(AddBoxOp &o) const { return &o.name; }
+    std::string *operator()(AddCylinderOp &o) const { return &o.name; }
+    std::string *operator()(AddSphereOp &o) const { return &o.name; }
+    std::string *operator()(AddRingOp &o) const { return &o.name; }
+    std::string *operator()(AddMouldingOp &o) const { return &o.name; }
+    std::string *operator()(AddPrismOp &o) const { return &o.name; }
+    std::string *operator()(AddProfileMouldingOp &o) const { return &o.name; }
+    std::string *operator()(AddRevolvedProfileOp &o) const { return &o.name; }
+    std::string *operator()(AddExtrudedProfileOp &o) const { return &o.name; }
+    std::string *operator()(AddSweepProfileOp &o) const { return &o.name; }
+    std::string *operator()(CutFlutesOp &) const { return nullptr; }
+    std::string *operator()(AddBooleanOp &o) const { return &o.name; }
+    std::string *operator()(AddLabelOp &o) const { return &o.name; }
+    std::string *operator()(ScriptOp &o) const { return &o.name; }
+};
+
+std::string *opMutableName(RecipeOp &op) { return std::visit(MutableName{}, op); }
+
+// An exhaustive visit that rewrites the by-NAME references an op holds to OTHER
+// ops, through a rename map. Exhaustive (not a get_if) so a future name-ref arm
+// MUST declare its remap or fail to compile — the "compiler is the checklist"
+// doctrine. The arms WITH references rewrite them; the rest are explicit no-ops.
+struct NameRefRemapper {
+    const std::map<std::string, std::string> &rename;
+
+    void operator()(CutFlutesOp &op) const { applyRename(op.target, rename); }
+    void operator()(AddBooleanOp &op) const
+    {
+        // Both operands are earlier-op names, so both must be namespaced on a
+        // splice (BL-14 chaining) exactly like CutFlutes.target.
+        applyRename(op.a, rename);
+        applyRename(op.b, rename);
+    }
+    // Every arm that does NOT name another op is an explicit no-op.
+    void operator()(AddBoxOp &) const {}
+    void operator()(AddCylinderOp &) const {}
+    void operator()(AddSphereOp &) const {}
+    void operator()(AddRingOp &) const {}
+    void operator()(AddMouldingOp &) const {}
+    void operator()(AddPrismOp &) const {}
+    void operator()(AddProfileMouldingOp &) const {}
+    void operator()(AddRevolvedProfileOp &) const {}
+    void operator()(AddExtrudedProfileOp &) const {}
+    void operator()(AddSweepProfileOp &) const {}
+    void operator()(AddLabelOp &) const {}
+    void operator()(ScriptOp &) const {}
+};
+
+} // namespace
+
+void remapRecipeOpNameRefs(RecipeOp &op, const std::map<std::string, std::string> &rename)
+{
+    std::visit(NameRefRemapper{rename}, op);
+}
+
+void appendRecipe(RecipeOpStream &target, const RecipeOpStream &source)
+{
+    const std::size_t offset = target.ops.size();
+
+    // Namespace EVERY spliced op name (v1 rule): a deterministic prefix derived
+    // from the source recipe's name (or id when name is empty). Renaming ALL
+    // names — not only colliding ones — guarantees the spliced block can never
+    // resolve a by-name reference against a target op, regardless of what the
+    // target happens to be called. (The alternative, collision-only renaming,
+    // is less code to read but its correctness depends on the target's names,
+    // which appendRecipe should not have to reason about.)
+    const std::string prefix = (!source.name.empty() ? source.name : source.id) + "::";
+    std::map<std::string, std::string> rename;
+    for (const RecipeOp &op : source.ops) {
+        RecipeOp probe = op; // opMutableName needs a mutable ref; we only read here
+        if (const std::string *name = opMutableName(probe); name != nullptr && !name->empty()) {
+            rename[*name] = prefix + *name;
+        }
+    }
+
+    target.ops.reserve(target.ops.size() + source.ops.size());
+    for (const RecipeOp &sourceOp : source.ops) {
+        RecipeOp copy = sourceOp;
+        // First rewrite the op's OWN name, then its references to OTHER source
+        // ops — both through the same map, so the block stays internally wired.
+        if (std::string *name = opMutableName(copy)) {
+            applyRename(*name, rename);
+        }
+        remapRecipeOpNameRefs(copy, rename);
+        target.ops.push_back(std::move(copy));
+    }
+
+    // Binding index re-offset: a source binding on its op j now addresses op
+    // j + offset in the merged stream (same fixup style as move/removeRecipeOp).
+    target.bindings.reserve(target.bindings.size() + source.bindings.size());
+    for (RecipeFieldBinding binding : source.bindings) {
+        binding.opIndex += offset;
+        target.bindings.push_back(binding);
     }
 }
 

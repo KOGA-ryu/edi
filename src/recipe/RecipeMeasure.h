@@ -62,4 +62,12 @@ ProfilePointsResult resolveExtrudeProfilePoints(
     const edi::drafting::DraftingGridProjection &grid,
     const std::string &objectId);
 
+// The Follow-Me sweep PATH (BL-08): the same drawing-plane footprint projection
+// as the cross-section (it is the curve the footprint rides along). Same four
+// refusal wordings; the >= 2 distinct-points rule is enforced by the resolve loop.
+ProfilePointsResult resolveSweepPath(
+    const edi::drafting::DraftingDocument &drafting,
+    const edi::drafting::DraftingGridProjection &grid,
+    const std::string &objectId);
+
 } // namespace edi::recipe

@@ -27,6 +27,49 @@ void checkMaterial(std::vector<OpFinding> &findings, const std::string &name, co
     }
 }
 
+// The shared lathe parameter checks, called from both the AddRevolvedProfile
+// (lathe) arm and the AddMoulding arm it lowers to, so the two stay in step.
+// BL-06: a revolve sweeps an arc in (0, 360]. 360 is the full ring (the
+// default); 0 or negative makes no solid, and > 360 over-winds — refused by
+// name. BL-07: screw_turns must be a positive, finite count (0 or negative
+// makes no helix; non-finite is nonsense); screw_rise may be any FINITE value
+// (0 = no helix, negative = a left-hand spiral, both legitimate).
+void checkLatheParams(std::vector<OpFinding> &findings, const std::string &name,
+                      double sweepDegrees, double screwRise, double screwTurns)
+{
+    if (sweepDegrees <= 0 || sweepDegrees > 360) {
+        add(findings, Severity::Error, "bad_sweep_degrees",
+            name + " sweep must be in (0, 360].");
+    }
+    if (!(screwTurns > 0) || !std::isfinite(screwTurns)) {
+        add(findings, Severity::Error, "bad_screw_turns",
+            name + " screw_turns must be a positive, finite count.");
+    }
+    if (!std::isfinite(screwRise)) {
+        add(findings, Severity::Error, "bad_screw_rise",
+            name + " screw_rise must be finite.");
+    }
+    // BL-07 v1 interaction: a helix sweeps screwTurns FULL turns and IGNORES a
+    // partial sweep_degrees. The mesh is well-formed (so this is a WARNING, not
+    // an error), but the user who asked for a quarter sweep AND a helix got a
+    // full-turn helix — surface the silent override by name.
+    if (sweepDegrees < 360.0 && screwRise != 0.0) {
+        add(findings, Severity::Warning, "helix_ignores_partial_sweep",
+            name + ": sweep_degrees is ignored while screw_rise is set (v1 helix is full turns)");
+    }
+}
+
+// BL-09: the sweep taper is a SCALE factor on the profile (1.0 = no taper), so
+// it must be positive and finite — a zero/negative scale collapses or inverts
+// the cross-section. Shared by the sweep and the prism it lowers to.
+void checkTaperEnd(std::vector<OpFinding> &findings, const std::string &name, double taperEnd)
+{
+    if (!(taperEnd > 0) || !std::isfinite(taperEnd)) {
+        add(findings, Severity::Error, "bad_taper_end",
+            name + " taper_end must be a positive, finite scale.");
+    }
+}
+
 // The per-op checks, v0 codes and wording preserved. A visitor over the
 // variant — the same dispatch shape the drafting commands use.
 struct OpChecker {
@@ -118,6 +161,7 @@ struct OpChecker {
                     op.name + " profile z values must rise in order.");
             }
         }
+        checkLatheParams(findings, op.name, op.sweepDegrees, op.screwRise, op.screwTurns);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -138,6 +182,7 @@ struct OpChecker {
             add(findings, Severity::Warning, "low_revolved_profile_vertices",
                 op.name + " has low vertex count: " + std::to_string(op.vertices));
         }
+        checkLatheParams(findings, op.name, op.sweepDegrees, op.screwRise, op.screwTurns);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -166,20 +211,78 @@ struct OpChecker {
     void operator()(const AddPrismOp &op) const
     {
         // BL-03: the lowered prism carrier. A real prism needs a polygon (>= 3
-        // footprint points) and a non-zero, finite height. A NEGATIVE height is
-        // allowed (BL-05 reads it as a push/pull cut), mirroring the extrude.
+        // footprint points).
         if (op.footprint.size() < 3) {
             add(findings, Severity::Error, "prism_degenerate_footprint",
                 op.name + " needs at least three footprint points.");
         }
-        if (op.height == 0.0 || !std::isfinite(op.height)) {
-            add(findings, Severity::Error, "prism_zero_height",
-                op.name + " needs a non-zero, finite height.");
+        // BL-08: an EMPTY path is a straight height-extrude — then a non-zero,
+        // finite height is required (a NEGATIVE height is allowed, BL-05's
+        // push/pull). A PRESENT path is a sweep: height is irrelevant (the
+        // lowering sets it 0), so the height check is skipped; but a path of one
+        // point is no path at all — refuse it.
+        if (op.path.empty()) {
+            if (op.height == 0.0 || !std::isfinite(op.height)) {
+                add(findings, Severity::Error, "prism_zero_height",
+                    op.name + " needs a non-zero, finite height.");
+            }
+        } else if (op.path.size() < 2) {
+            add(findings, Severity::Error, "prism_degenerate_path",
+                op.name + " sweep path needs at least two points.");
         }
         if (op.baseZ < 0) {
             add(findings, Severity::Warning, "negative_prism_base_z",
                 op.name + " starts below z=0.");
         }
+        // BL-10 depth verbs. normalOffset is a signed inflate — any finite value
+        // is fine (negative shrinks the shell), only non-finite is refused.
+        if (!std::isfinite(op.normalOffset)) {
+            add(findings, Severity::Error, "bad_normal_offset",
+                op.name + " normal_offset must be finite.");
+        }
+        if (!std::isfinite(op.inset)) {
+            add(findings, Severity::Error, "bad_inset", op.name + " inset must be finite.");
+        } else if (op.inset > 0 && op.footprint.size() >= 3) {
+            // Conservative self-intersection guard (NOT a true straight-skeleton
+            // test): refuse an inset that could reach the footprint's centerline
+            // — i.e. >= half the SMALLER bbox extent. A v1 per-edge inward offset
+            // pinches a non-convex loop before that, so this only bounds the
+            // obvious collapse; a real straight-skeleton inset is the future fix.
+            double minX = op.footprint[0].x, maxX = op.footprint[0].x;
+            double minY = op.footprint[0].y, maxY = op.footprint[0].y;
+            for (const PrismPoint &p : op.footprint) {
+                minX = std::min(minX, p.x);
+                maxX = std::max(maxX, p.x);
+                minY = std::min(minY, p.y);
+                maxY = std::max(maxY, p.y);
+            }
+            const double smaller = std::min(maxX - minX, maxY - minY);
+            if (op.inset >= 0.5 * smaller) {
+                add(findings, Severity::Error, "prism_inset_too_large",
+                    op.name + " inset is too large for its footprint (would collapse it).");
+            }
+        }
+        checkTaperEnd(findings, op.name, op.taperEnd);
+        checkMaterial(findings, op.name, op.material);
+    }
+
+    void operator()(const AddSweepProfileOp &op) const
+    {
+        // BL-08: like the extrude, the two drafted-object references must be
+        // present; their resolvability is the resolve pass's concern.
+        if (op.profile.empty()) {
+            add(findings, Severity::Error, "missing_profile_reference",
+                op.name + " needs a drafted profile reference.");
+        }
+        if (op.path.empty()) {
+            add(findings, Severity::Error, "missing_path_reference",
+                op.name + " needs a drafted path reference.");
+        }
+        if (op.baseZ < 0) {
+            add(findings, Severity::Warning, "negative_swept_profile_base_z",
+                op.name + " starts below z=0.");
+        }
+        checkTaperEnd(findings, op.name, op.taperEnd);
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -273,6 +376,27 @@ struct OpChecker {
         }
     }
 
+    void operator()(const AddBooleanOp &op) const
+    {
+        // BL-11: both operands must name an EARLIER op (the same in-order
+        // resolution CutFlutes.target uses — namesSoFar holds the ops seen
+        // before this one). A missing or later operand is refused by name.
+        if (namesSoFar.find(op.a) == namesSoFar.end()) {
+            add(findings, Severity::Error, "boolean_missing_operand",
+                "AddBoolean operand does not exist before: " + op.a);
+        }
+        if (namesSoFar.find(op.b) == namesSoFar.end()) {
+            add(findings, Severity::Error, "boolean_missing_operand",
+                "AddBoolean operand does not exist before: " + op.b);
+        }
+        // A boolean of an op with itself is degenerate (no second solid to
+        // combine) — refuse it (flagged: a conservative call; v1 has no use for it).
+        if (!op.a.empty() && op.a == op.b) {
+            add(findings, Severity::Error, "boolean_self_operand",
+                op.name + " combines an operand with itself: " + op.a);
+        }
+    }
+
     void operator()(const AddLabelOp &) const {}
 
     void operator()(const ScriptOp &op) const
@@ -311,7 +435,9 @@ const std::string *opName(const RecipeOp &op)
         const std::string *operator()(const AddProfileMouldingOp &o) const { return &o.name; }
         const std::string *operator()(const AddRevolvedProfileOp &o) const { return &o.name; }
         const std::string *operator()(const AddExtrudedProfileOp &o) const { return &o.name; }
+        const std::string *operator()(const AddSweepProfileOp &o) const { return &o.name; }
         const std::string *operator()(const CutFlutesOp &) const { return nullptr; }
+        const std::string *operator()(const AddBooleanOp &o) const { return &o.name; }
         const std::string *operator()(const AddLabelOp &o) const { return &o.name; }
         const std::string *operator()(const ScriptOp &o) const { return &o.name; }
     };

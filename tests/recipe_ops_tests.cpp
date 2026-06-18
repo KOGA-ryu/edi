@@ -13,8 +13,12 @@
 
 #include <cassert>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
+#include <random>
+#include <set>
 #include <string>
 
 using namespace edi::recipe;
@@ -1317,6 +1321,29 @@ int main()
         assert(sawProfileRO && sawMaterial && sawHeight);
     }
 
+    // ---- BL-05: pin the push/pull AUTHORING SURFACE on AddExtrudedProfile —
+    // `height` is a depth verb that needs NO new mechanism: it is a bindable
+    // Number opField (the right-click bind affordance's target) AND an editable
+    // Number scalar (the field editor renders it), and a write actually REACHES
+    // the height member (so the bind/measure path lands on the right double).
+    {
+        RecipeOp op = RecipeOp{AddExtrudedProfileOp{}};
+        // (a) the bind affordance target: height is bindable.
+        assert(opFieldBindable(op, "height"));
+        // (b) a write reaches the height MEMBER (the gap-check: the binding/
+        //     measure path must land on height, not silently miss it).
+        assert(setOpFieldValue(op, "height", 7.5));
+        assert(near(std::get_if<AddExtrudedProfileOp>(&op)->height, 7.5));
+        // (c) the field editor sees an editable Number for height.
+        bool heightIsEditableNumber = false;
+        for (const RecipeOpScalar &s : opEditableScalars(op)) {
+            if (s.key == "height") {
+                heightIsEditableNumber = s.kind == RecipeFieldKind::Number && near(s.number, 7.5);
+            }
+        }
+        assert(heightIsEditableNumber);
+    }
+
     // ---- AddPrism (BL-03): the BUILDABLE lowered carrier. Round trip the
     // footprint.i.{x,y} run key-for-key, and pin its validate findings. Unlike
     // the profile-reference ops it passes compile and is NOT refused. ----
@@ -1393,6 +1420,601 @@ int main()
             assert(f.code != "prism_zero_height");
         }
         assert(negReport.ok);
+    }
+
+    // ---- BL-06: partial-angle revolve sweepDegrees — a numeric field on BOTH
+    // the lathe and the moulding it lowers to (it must survive lowering), with
+    // 360 as the behavior-preserving default. Round-trip, default, validate
+    // bounds (0, 360], and the bind affordance, on both ops. ----
+    {
+        // Default 360 round-trips and is the parsed default when the key is
+        // absent (a pre-BL-06 file stays a full revolve).
+        AddMouldingOp m;
+        m.name = "full.band";
+        m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
+        assert(near(m.sweepDegrees, 360.0)); // struct default
+        RecipeOpStream ms;
+        ms.ops.push_back(m);
+        const OpStreamTextResult mw = recipeOpsToToml(ms);
+        assert(mw.ok);
+        assert(mw.text.find("op.0.sweep_degrees = \"360\"") != std::string::npos);
+        const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
+        assert(mBack != nullptr && near(mBack->sweepDegrees, 360.0));
+
+        // A non-default sweep round-trips on the lathe.
+        AddRevolvedProfileOp lathe;
+        lathe.name = "niche";
+        lathe.profile = "arch_profile";
+        lathe.sweepDegrees = 180.0;
+        RecipeOpStream ls;
+        ls.ops.push_back(lathe);
+        const OpStreamTextResult lw = recipeOpsToToml(ls);
+        assert(lw.ok && lw.text.find("op.0.sweep_degrees = \"180\"") != std::string::npos);
+        const auto *lBack = std::get_if<AddRevolvedProfileOp>(&recipeOpsFromToml(lw.text, "l").stream.ops[0]);
+        assert(lBack != nullptr && near(lBack->sweepDegrees, 180.0));
+
+        // An absent key parses to the 360 default (the byte-preserving guarantee
+        // for any pre-BL-06 hand file).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddRevolvedProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        assert(near(std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0])->sweepDegrees, 360.0));
+
+        // Validate refuses 0 / negative / > 360 by name, on BOTH ops.
+        const auto sawBadSweep = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_sweep_degrees") return true;
+            }
+            return false;
+        };
+        AddMouldingOp zero = m; zero.sweepDegrees = 0.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{zero}})));
+        AddMouldingOp over = m; over.sweepDegrees = 361.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{over}})));
+        AddRevolvedProfileOp neg; neg.name = "n"; neg.profile = "p"; neg.sweepDegrees = -90.0;
+        assert(sawBadSweep(validateRecipeOps({RecipeOp{neg}})));
+        // The boundary 360 is allowed (full revolve); 180 is allowed.
+        AddMouldingOp ok360 = m; ok360.sweepDegrees = 360.0;
+        assert(!sawBadSweep(validateRecipeOps({RecipeOp{ok360}})));
+
+        // The bind affordance: sweep_degrees is a bindable Number on both ops
+        // (a drafted angle could drive it) — consistent with how the reader
+        // reads it (bindableNumber) and the inspector surfaces it.
+        assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, "sweep_degrees"));
+        assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, "sweep_degrees"));
+        RecipeOp probe = RecipeOp{AddMouldingOp{}};
+        assert(setOpFieldValue(probe, "sweep_degrees", 90.0));
+        assert(near(std::get_if<AddMouldingOp>(&probe)->sweepDegrees, 90.0));
+    }
+
+    // ---- BL-07: screw/helix params (screw_rise, screw_turns) — numeric fields
+    // on BOTH lathe and moulding, default 0/1 = no helix (behavior-preserving).
+    // Round-trip, default, validate bounds, and the bind affordance. ----
+    {
+        // Defaults: rise 0, turns 1, and they round-trip; an absent key parses
+        // to the default (a pre-BL-07 file stays non-helical).
+        AddMouldingOp m;
+        m.name = "thread.band";
+        m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
+        assert(near(m.screwRise, 0.0) && near(m.screwTurns, 1.0)); // struct defaults
+        m.screwRise = 2.0;
+        m.screwTurns = 4.0;
+        RecipeOpStream ms;
+        ms.ops.push_back(m);
+        const OpStreamTextResult mw = recipeOpsToToml(ms);
+        assert(mw.ok);
+        assert(mw.text.find("op.0.screw_rise = \"2\"") != std::string::npos);
+        assert(mw.text.find("op.0.screw_turns = \"4\"") != std::string::npos);
+        const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
+        assert(mBack != nullptr && near(mBack->screwRise, 2.0) && near(mBack->screwTurns, 4.0));
+
+        // Absent keys default to 0 / 1 on the lathe (the pre-BL-07 guarantee).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddRevolvedProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        const auto *bareL = std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0]);
+        assert(near(bareL->screwRise, 0.0) && near(bareL->screwTurns, 1.0));
+
+        // Validate: screw_turns <= 0 refused by name on BOTH ops; a NEGATIVE
+        // screw_rise (left-hand spiral) is allowed.
+        const auto sawBadTurns = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_screw_turns") return true;
+            }
+            return false;
+        };
+        AddMouldingOp zeroTurns = m; zeroTurns.screwTurns = 0.0;
+        assert(sawBadTurns(validateRecipeOps({RecipeOp{zeroTurns}})));
+        AddRevolvedProfileOp negTurns; negTurns.name = "n"; negTurns.profile = "p";
+        negTurns.screwTurns = -1.0;
+        assert(sawBadTurns(validateRecipeOps({RecipeOp{negTurns}})));
+        AddMouldingOp leftHand = m; leftHand.screwRise = -3.0; // left-hand spiral, allowed
+        const OpValidationReport leftReport = validateRecipeOps({RecipeOp{leftHand}});
+        assert(leftReport.ok);
+
+        // BATCH-2 P1: a partial sweep_degrees beside a helix is a non-fatal
+        // WARNING (the v1 helix ignores it — full turns). Fires only when BOTH a
+        // partial sweep AND a non-zero rise are set, on BOTH ops.
+        const auto sawHelixWarn = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "helix_ignores_partial_sweep") return true;
+            }
+            return false;
+        };
+        AddMouldingOp clash = m; clash.sweepDegrees = 90.0; clash.screwRise = 1.0;
+        const OpValidationReport clashReport = validateRecipeOps({RecipeOp{clash}});
+        assert(clashReport.ok);                 // a warning is non-fatal
+        assert(sawHelixWarn(clashReport));
+        AddMouldingOp partialOnly = m; partialOnly.sweepDegrees = 90.0; partialOnly.screwRise = 0.0;
+        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{partialOnly}})));
+        AddMouldingOp fullHelix = m; fullHelix.sweepDegrees = 360.0; fullHelix.screwRise = 1.0;
+        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{fullHelix}})));
+        // Also fires on the lathe (the other op carrying the fields).
+        AddRevolvedProfileOp latheClash;
+        latheClash.name = "l"; latheClash.profile = "p";
+        latheClash.sweepDegrees = 90.0; latheClash.screwRise = 1.0;
+        assert(sawHelixWarn(validateRecipeOps({RecipeOp{latheClash}})));
+
+        // The bind affordance: both screw params are bindable Numbers on both ops.
+        for (const char *key : {"screw_rise", "screw_turns"}) {
+            assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, key));
+            assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, key));
+        }
+        RecipeOp probe = RecipeOp{AddRevolvedProfileOp{}};
+        assert(setOpFieldValue(probe, "screw_rise", 5.0));
+        assert(near(std::get_if<AddRevolvedProfileOp>(&probe)->screwRise, 5.0));
+    }
+
+    // ---- BL-14: the named-recipe LIBRARY — save/list/load round-trip through a
+    // temp dir, reusing the stream (de)serializers. ----
+    {
+        namespace fs = std::filesystem;
+        const fs::path dir = fs::temp_directory_path()
+            / ("edi_recipe_lib_" + std::to_string(std::random_device{}()));
+        fs::remove_all(dir);
+
+        RecipeOpStream lib;
+        lib.id = "lib_pedestal";
+        lib.name = "pedestal";
+        AddBoxOp slab;
+        slab.name = "slab";
+        slab.width = slab.depth = 3.0;
+        slab.height = 0.5;
+        lib.ops.push_back(slab);
+        AddCylinderOp drum;
+        drum.name = "drum";
+        drum.radius = 1.0;
+        drum.height = 4.0;
+        lib.ops.push_back(drum);
+        lib.bindings = {{1, "radius", "gauge", "radius"}};
+
+        const OpStreamTextResult saved = saveLibraryRecipe(dir.string(), lib);
+        assert(saved.ok);
+        const std::vector<std::string> names = listLibraryRecipes(dir.string());
+        assert(names.size() == 1 && names[0] == "pedestal"); // filename = sanitized name
+        const OpStreamParseResult loaded = loadLibraryRecipe(dir.string(), "pedestal");
+        assert(loaded.ok);
+        assert(loaded.stream.ops.size() == 2);
+        assert(loaded.stream.id == "lib_pedestal" && loaded.stream.name == "pedestal");
+        assert(std::get_if<AddBoxOp>(&loaded.stream.ops[0])->name == "slab");
+        assert(loaded.stream.bindings.size() == 1
+               && loaded.stream.bindings[0].opIndex == 1
+               && loaded.stream.bindings[0].objectId == "gauge");
+        // A missing recipe fails by name, not a crash.
+        const OpStreamParseResult missing = loadLibraryRecipe(dir.string(), "nope");
+        assert(!missing.ok && missing.message.find("recipe not found") != std::string::npos);
+        // A missing directory lists empty (not an error).
+        assert(listLibraryRecipes((dir / "no_such").string()).empty());
+        fs::remove_all(dir);
+    }
+
+    // ---- BL-14: appendRecipe — binding index re-offset. A source binding on
+    // op j lands at j + target.ops.size(); the target binding is untouched. ----
+    {
+        RecipeOpStream target;
+        AddBoxOp a; a.name = "t.a"; a.width = a.depth = a.height = 1.0;
+        AddBoxOp b; b.name = "t.b"; b.width = b.depth = b.height = 1.0;
+        target.ops = {RecipeOp{a}, RecipeOp{b}};       // M = 2 ops
+        target.bindings = {{0, "width", "t_obj", "width"}};
+
+        RecipeOpStream source;
+        source.name = "src";
+        AddCylinderOp c; c.name = "s.c"; c.radius = 1.0; c.height = 2.0;
+        source.ops = {RecipeOp{c}};
+        source.bindings = {{0, "radius", "s_obj", "radius"}}; // j = 0
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 3);
+        assert(target.bindings.size() == 2);
+        // The target binding is untouched.
+        assert(target.bindings[0].opIndex == 0 && target.bindings[0].objectId == "t_obj");
+        // The source binding re-offset by M=2: j(0) -> 2.
+        assert(target.bindings[1].opIndex == 2 && target.bindings[1].objectId == "s_obj");
+    }
+
+    // ---- BL-14 KEY TEST: name namespacing prevents cross-reference. Target has
+    // an op named "shaft"; source has its OWN "shaft" plus a CutFlutes targeting
+    // "shaft". After append the source names are namespaced and the flute points
+    // at the SOURCE shaft (not the target's), and the merged stream validates. ----
+    {
+        RecipeOpStream target;
+        AddCylinderOp targetShaft;
+        targetShaft.name = "shaft";  // a name the source ALSO uses
+        targetShaft.radius = 2.0;
+        targetShaft.height = 10.0;
+        target.ops = {RecipeOp{targetShaft}};
+
+        RecipeOpStream source;
+        source.name = "capital";
+        AddCylinderOp srcShaft;
+        srcShaft.name = "shaft";     // same bare name as the target's
+        srcShaft.radius = 1.0;
+        srcShaft.height = 4.0;
+        CutFlutesOp flutes;
+        flutes.target = "shaft";     // must resolve to the SOURCE shaft
+        flutes.count = 20;
+        flutes.depth = 0.1;
+        source.ops = {RecipeOp{srcShaft}, RecipeOp{flutes}};
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 3);
+        // The target shaft keeps its bare name (never namespaced).
+        assert(std::get_if<AddCylinderOp>(&target.ops[0])->name == "shaft");
+        // The source ops are namespaced under "capital::".
+        assert(std::get_if<AddCylinderOp>(&target.ops[1])->name == "capital::shaft");
+        // The source flute's target was rewritten to the NAMESPACED source shaft,
+        // not left pointing at the target's bare "shaft".
+        assert(std::get_if<CutFlutesOp>(&target.ops[2])->target == "capital::shaft");
+        // The merged stream validates: the flute finds its target within the
+        // spliced block (validation matches names in order).
+        assert(validateRecipeOps(target.ops).ok);
+    }
+
+    // ---- BL-08: AddSweepProfile (the Follow-Me ref-op) round-trip + refusals,
+    // and AddPrism's optional `path` (empty AND non-empty), empty byte-identical. ----
+    {
+        // AddSweepProfile round-trips key-for-key (two drafted refs).
+        RecipeOpStream ss;
+        AddSweepProfileOp sweep;
+        sweep.name = "cornice.run";
+        sweep.profile = "section";
+        sweep.path = "run_path";
+        sweep.baseZ = 1.0;
+        sweep.material = "marble";
+        ss.ops.push_back(sweep);
+        const OpStreamTextResult sw = recipeOpsToToml(ss);
+        assert(sw.ok);
+        assert(sw.text.find("op.0.type = \"AddSweepProfile\"") != std::string::npos);
+        assert(sw.text.find("op.0.profile = \"section\"") != std::string::npos);
+        assert(sw.text.find("op.0.path = \"run_path\"") != std::string::npos);
+        const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
+        assert(swBack != nullptr && swBack->profile == "section" && swBack->path == "run_path"
+               && near(swBack->baseZ, 1.0) && swBack->material == "marble");
+
+        // Refused-before-build by name; recipeOpsResolved false while it survives.
+        const RecipeCompileResult refused = compileRecipeOps({RecipeOp{sweep}});
+        assert(!refused.ok);
+        assert(refused.message == "AddSweepProfile must be resolved before compiling: cornice.run");
+        RecipeOpStream survives;
+        survives.ops = {RecipeOp{sweep}};
+        assert(!recipeOpsResolved(survives));
+        // Validate refuses an empty profile/path by name.
+        AddSweepProfileOp noPath;
+        noPath.name = "n";
+        noPath.profile = "section"; // path empty
+        const OpValidationReport npr = validateRecipeOps({RecipeOp{noPath}});
+        bool sawMissingPath = false;
+        for (const OpFinding &f : npr.findings) {
+            sawMissingPath = sawMissingPath || f.code == "missing_path_reference";
+        }
+        assert(sawMissingPath);
+
+        // AddPrism with a non-empty path round-trips the path.i.{x,y} run.
+        RecipeOpStream ps;
+        AddPrismOp prism;
+        prism.name = "swept";
+        prism.footprint = {{-0.5, 0.0}, {0.5, 0.0}, {0.5, 1.0}, {-0.5, 1.0}};
+        prism.path = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 3.0}};
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.path.0.x = \"0\"") != std::string::npos);
+        assert(pw.text.find("op.0.path.2.y = \"3\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && pBack->path.size() == 3
+               && near(pBack->path[2].x, 4.0) && near(pBack->path[2].y, 3.0));
+        // A swept prism (path present) validates with NO zero-height finding
+        // (height is irrelevant when a path drives the solid).
+        const OpValidationReport pvr = validateRecipeOps({RecipeOp{prism}});
+        assert(pvr.ok);
+        for (const OpFinding &f : pvr.findings) {
+            assert(f.code != "prism_zero_height");
+        }
+
+        // The empty-path prism emits NO path.* keys and round-trips exactly as a
+        // pre-BL-08 straight extrude — path stays empty.
+        RecipeOpStream es;
+        AddPrismOp straight;
+        straight.name = "straight";
+        straight.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        straight.height = 2.0; // empty path -> a straight extrude needs a height
+        es.ops.push_back(straight);
+        const OpStreamTextResult ew = recipeOpsToToml(es);
+        assert(ew.ok);
+        assert(ew.text.find(".path.") == std::string::npos); // no path keys at all
+        const auto *eBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(ew.text, "e").stream.ops[0]);
+        assert(eBack != nullptr && eBack->path.empty() && near(eBack->height, 2.0));
+    }
+
+    // ---- BL-09: taper_end on the sweep + the prism it lowers to. Default 1.0,
+    // round-trip on both ops, validate refuses <= 0 / non-finite by name. ----
+    {
+        // Default 1.0 round-trips on both ops.
+        AddSweepProfileOp sweep;
+        sweep.name = "spire";
+        sweep.profile = "section";
+        sweep.path = "rib";
+        assert(near(sweep.taperEnd, 1.0)); // struct default
+        sweep.taperEnd = 0.4;
+        RecipeOpStream ss;
+        ss.ops.push_back(sweep);
+        const OpStreamTextResult sw = recipeOpsToToml(ss);
+        assert(sw.ok && sw.text.find("op.0.taper_end = \"0.4\"") != std::string::npos);
+        const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
+        assert(swBack != nullptr && near(swBack->taperEnd, 0.4));
+
+        AddPrismOp prism;
+        prism.name = "p";
+        prism.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        prism.path = {{0.0, 0.0}, {2.0, 0.0}};
+        prism.taperEnd = 0.5;
+        RecipeOpStream ps;
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok && pw.text.find("op.0.taper_end = \"0.5\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && near(pBack->taperEnd, 0.5));
+
+        // An absent taper_end defaults to 1.0 (a pre-BL-09 file is untapered).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddSweepProfile\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.profile = \"s\"\n"
+            "op.0.path = \"p\"\n"
+            "op.0.base_z = \"0\"\n", "bare");
+        assert(bare.ok);
+        assert(near(std::get_if<AddSweepProfileOp>(&bare.stream.ops[0])->taperEnd, 1.0));
+
+        // Validate refuses taper_end <= 0 / non-finite by name on BOTH ops.
+        const auto sawBadTaper = [](const OpValidationReport &r) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == "bad_taper_end") return true;
+            }
+            return false;
+        };
+        AddSweepProfileOp zeroTaper = sweep; zeroTaper.taperEnd = 0.0;
+        assert(sawBadTaper(validateRecipeOps({RecipeOp{zeroTaper}})));
+        AddPrismOp negTaper = prism; negTaper.taperEnd = -1.0;
+        assert(sawBadTaper(validateRecipeOps({RecipeOp{negTaper}})));
+
+        // The bind affordance: taper_end is a bindable Number on both ops.
+        assert(opFieldBindable(RecipeOp{AddSweepProfileOp{}}, "taper_end"));
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
+    }
+
+    // ---- BL-10: inset + normal_offset depth params on AddPrism. Round-trip,
+    // defaults 0, validate refuses an oversized inset / non-finite by name. ----
+    {
+        AddPrismOp prism;
+        prism.name = "lipped";
+        prism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
+        prism.height = 2.0;
+        assert(near(prism.inset, 0.0) && near(prism.normalOffset, 0.0)); // struct defaults
+        prism.inset = 0.3;
+        prism.normalOffset = -0.1;
+        RecipeOpStream ps;
+        ps.ops.push_back(prism);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.inset = \"0.3\"") != std::string::npos);
+        assert(pw.text.find("op.0.normal_offset = \"-0.1\"") != std::string::npos);
+        const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
+        assert(pBack != nullptr && near(pBack->inset, 0.3) && near(pBack->normalOffset, -0.1));
+
+        // Absent keys default to 0 (a pre-BL-10 prism is unchanged).
+        const OpStreamParseResult bare = recipeOpsFromToml(
+            "op.0.type = \"AddPrism\"\n"
+            "op.0.name = \"bare\"\n"
+            "op.0.height = \"2\"\n"
+            "op.0.base_z = \"0\"\n"
+            "op.0.footprint.0.x = \"0\"\nop.0.footprint.0.y = \"0\"\n"
+            "op.0.footprint.1.x = \"1\"\nop.0.footprint.1.y = \"0\"\n"
+            "op.0.footprint.2.x = \"1\"\nop.0.footprint.2.y = \"1\"\n", "bare");
+        assert(bare.ok);
+        const auto *bareP = std::get_if<AddPrismOp>(&bare.stream.ops[0]);
+        assert(near(bareP->inset, 0.0) && near(bareP->normalOffset, 0.0));
+
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == code) return true;
+            }
+            return false;
+        };
+        // A 4x4 footprint: smaller extent 4, so inset >= 2.0 would collapse it.
+        AddPrismOp big = prism; big.inset = 2.5;
+        assert(sawCode(validateRecipeOps({RecipeOp{big}}), "prism_inset_too_large"));
+        AddPrismOp okInset = prism; okInset.inset = 0.5; // well under half the extent
+        assert(!sawCode(validateRecipeOps({RecipeOp{okInset}}), "prism_inset_too_large"));
+        // Non-finite is refused by name on each.
+        AddPrismOp nanOffset = prism;
+        nanOffset.normalOffset = std::numeric_limits<double>::infinity();
+        assert(sawCode(validateRecipeOps({RecipeOp{nanOffset}}), "bad_normal_offset"));
+
+        // Both bindable Numbers.
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "inset"));
+        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
+    }
+
+    // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,
+    // and the remap-hardening chaining (Part 2). ----
+    {
+        // Round-trip every kind value through the kind TOML key.
+        struct KindCase { BooleanKind kind; const char *text; };
+        const KindCase cases[] = {
+            {BooleanKind::Union, "union"},
+            {BooleanKind::Subtract, "subtract"},
+            {BooleanKind::Intersect, "intersect"},
+        };
+        for (const KindCase &c : cases) {
+            RecipeOpStream s;
+            AddBooleanOp op;
+            op.name = "combo";
+            op.a = "lhs";
+            op.b = "rhs";
+            op.kind = c.kind;
+            s.ops.push_back(op);
+            const OpStreamTextResult w = recipeOpsToToml(s);
+            assert(w.ok);
+            assert(w.text.find(std::string("op.0.kind = \"") + c.text + "\"") != std::string::npos);
+            assert(w.text.find("op.0.a = \"lhs\"") != std::string::npos);
+            assert(w.text.find("op.0.b = \"rhs\"") != std::string::npos);
+            const auto *back = std::get_if<AddBooleanOp>(&recipeOpsFromToml(w.text, "b").stream.ops[0]);
+            assert(back != nullptr && back->a == "lhs" && back->b == "rhs" && back->kind == c.kind);
+        }
+        // A bad kind value is refused by name.
+        const OpStreamParseResult badKind = recipeOpsFromToml(
+            "op.0.type = \"AddBoolean\"\n"
+            "op.0.name = \"c\"\nop.0.a = \"x\"\nop.0.b = \"y\"\n"
+            "op.0.kind = \"merge\"\n", "bad");
+        assert(!badKind.ok && badKind.message.find("union, subtract, or intersect") != std::string::npos);
+
+        // Validate: a/b must name an EARLIER op; a later or absent operand is
+        // refused by name. A valid earlier-operand boolean validates clean.
+        AddBoxOp a; a.name = "solid.a"; a.width = a.depth = a.height = 1.0;
+        AddBoxOp b; b.name = "solid.b"; b.width = b.depth = b.height = 1.0;
+        AddBooleanOp good;
+        good.name = "good.union"; good.a = "solid.a"; good.b = "solid.b";
+        assert(validateRecipeOps({RecipeOp{a}, RecipeOp{b}, RecipeOp{good}}).ok);
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) {
+                if (f.code == code) return true;
+            }
+            return false;
+        };
+        // Operand b is absent.
+        AddBooleanOp missing;
+        missing.name = "bad"; missing.a = "solid.a"; missing.b = "ghost";
+        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{missing}}), "boolean_missing_operand"));
+        // Operand named LATER (the boolean comes before its operand).
+        AddBooleanOp early;
+        early.name = "early"; early.a = "solid.a"; early.b = "solid.a";
+        const OpValidationReport beforeOrder = validateRecipeOps({RecipeOp{early}, RecipeOp{a}});
+        assert(sawCode(beforeOrder, "boolean_missing_operand"));
+        // a == b is degenerate, refused by name.
+        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{early}}), "boolean_self_operand"));
+
+        // Part 2: the remap-hardening chaining — a spliced AddBoolean's a/b are
+        // namespaced to the SOURCE operands, never the target's same-named ops.
+        RecipeOpStream target;
+        AddBoxOp tShaft; tShaft.name = "shaft"; tShaft.width = tShaft.depth = tShaft.height = 1.0;
+        target.ops = {RecipeOp{tShaft}};
+        RecipeOpStream source;
+        source.name = "cap";
+        AddBoxOp sShaft; sShaft.name = "shaft"; sShaft.width = sShaft.depth = sShaft.height = 1.0;
+        AddCylinderOp sBore; sBore.name = "bore"; sBore.radius = 0.5; sBore.height = 2.0;
+        AddBooleanOp sBool;
+        sBool.name = "cut"; sBool.a = "shaft"; sBool.b = "bore"; sBool.kind = BooleanKind::Subtract;
+        source.ops = {RecipeOp{sShaft}, RecipeOp{sBore}, RecipeOp{sBool}};
+
+        appendRecipe(target, source);
+        assert(target.ops.size() == 4);
+        const auto *mergedBool = std::get_if<AddBooleanOp>(&target.ops[3]);
+        assert(mergedBool != nullptr);
+        // Both operands rewritten to the namespaced SOURCE names.
+        assert(mergedBool->a == "cap::shaft"); // not the target's bare "shaft"
+        assert(mergedBool->b == "cap::bore");
+        assert(validateRecipeOps(target.ops).ok); // the boolean finds its namespaced operands
+    }
+
+    // ---- BL-15: TOON handoff of a RESOLVED stream. Stable output, key parity
+    // with the TOML truth, refusal of an unresolved stream, and no JSON. ----
+    {
+        // Helper: the op.N / recipe. keys of a "key<sep>value" text.
+        const auto keysOf = [](const std::string &text, const std::string &sep) {
+            std::set<std::string> keys;
+            std::size_t pos = 0;
+            while (pos < text.size()) {
+                const std::size_t eol = text.find('\n', pos);
+                const std::string line = text.substr(pos, eol - pos);
+                const std::size_t s = line.find(sep);
+                if (s != std::string::npos) {
+                    const std::string key = line.substr(0, s);
+                    if (key.rfind("op.", 0) == 0 || key.rfind("recipe.", 0) == 0) {
+                        keys.insert(key);
+                    }
+                }
+                if (eol == std::string::npos) break;
+                pos = eol + 1;
+            }
+            return keys;
+        };
+
+        RecipeOpStream s;
+        s.id = "toon_demo";
+        s.name = "Toon Demo";
+        AddBoxOp box;
+        box.name = "block";
+        box.width = box.depth = box.height = 2.0;
+        box.z = 1.0;
+        s.ops.push_back(box);
+        AddPrismOp prism;
+        prism.name = "lid";
+        prism.footprint = {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}};
+        prism.height = 0.5;
+        prism.baseZ = 2.0;
+        s.ops.push_back(prism);
+
+        const auto toon = exportRecipeStreamToToon(s);
+        assert(toon.ok && toon.value.has_value());
+        const std::string &text = *toon.value;
+        // TOON shape: kind/title meta, then flat key: value lines.
+        assert(text.find("kind: recipe\n") != std::string::npos);
+        assert(text.find("title: Toon Demo\n") != std::string::npos);
+        assert(text.find("op.0.type: AddBox\n") != std::string::npos);
+        assert(text.find("op.1.type: AddPrism\n") != std::string::npos);
+        assert(text.find("op.1.height: 0.5\n") != std::string::npos);
+        // No JSON object syntax — TOON is line-oriented, never JSON.
+        assert(text.find('{') == std::string::npos && text.find('}') == std::string::npos);
+
+        // No-drift guard: the TOON op/recipe keys are EXACTLY the TOML keys.
+        const OpStreamTextResult toml = recipeOpsToToml(s);
+        assert(toml.ok);
+        assert(keysOf(text, ": ") == keysOf(toml.text, " = "));
+
+        // Refusal: an unresolved stream (a surviving binding) is refused by name.
+        RecipeOpStream bound = s;
+        bound.bindings = {{0, "width", "gauge", "width"}};
+        const auto refusedBind = exportRecipeStreamToToon(bound);
+        assert(!refusedBind.ok);
+        assert(refusedBind.message.find("must be resolved before TOON handoff") != std::string::npos);
+
+        // Refusal: a surviving refused-before-build ref-op (lathe/extrude/sweep).
+        RecipeOpStream withLathe = s;
+        AddRevolvedProfileOp lathe;
+        lathe.name = "turned"; lathe.profile = "shaft";
+        withLathe.ops.push_back(lathe);
+        assert(!exportRecipeStreamToToon(withLathe).ok);
+        AddSweepProfileOp sweep;
+        sweep.name = "run"; sweep.profile = "p"; sweep.path = "rib";
+        RecipeOpStream withSweep = s;
+        withSweep.ops.push_back(sweep);
+        assert(!exportRecipeStreamToToon(withSweep).ok);
     }
 
     return 0;

@@ -2,6 +2,7 @@
 
 #include "recipe/RecipeMouldings.h"
 
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -37,6 +38,7 @@ namespace edi::recipe {
 
 enum class ZMode { Center, Base };
 enum class Axis { X, Y, Z };
+enum class BooleanKind { Union, Subtract, Intersect };
 
 struct AddBoxOp {
     std::string name;
@@ -100,6 +102,16 @@ struct AddMouldingOp {
     double y = 0.0;
     int vertices = 96;
     std::string material = "stone";
+    // BL-06: how many degrees of arc the ring set sweeps. 360 = a full
+    // revolve (today's behavior, the byte-preserving default); < 360 is a
+    // partial revolve (arch / apse niche), capped at both open ends.
+    double sweepDegrees = 360.0;
+    // BL-07: screw/helix — z gained per full turn, and how many turns. rise 0
+    // = no helix (the byte-preserving default); != 0 spirals into a thread /
+    // volute over screwTurns full turns (a sweep-time z-offset, NOT a profile
+    // mutation — see moulding_rings).
+    double screwRise = 0.0;
+    double screwTurns = 1.0;
 };
 
 // One planar footprint vertex, physical x/y in the drawing plane.
@@ -124,6 +136,22 @@ struct AddPrismOp {
     double x = 0.0;
     double y = 0.0;
     std::string material = "stone";
+    // BL-08: an optional sweep PATH (physical x/y points). EMPTY = today's
+    // straight height-extrude (byte-preserving). Present = the footprint is
+    // lofted along the path into a swept solid (a moulding run / corridor) —
+    // the lowered form of AddSweepProfileOp. height is irrelevant when a path
+    // is present.
+    std::vector<PrismPoint> path;
+    // BL-09: taper along the sweep — the footprint is scaled from 1.0 at the
+    // path start to taperEnd at the path end (a shaft / spire). 1.0 = no taper
+    // (the byte-preserving default). Ignored for a straight extrude (empty path).
+    double taperEnd = 1.0;
+    // BL-10: two cheap depth verbs. `inset` shrinks the footprint loop inward
+    // (a recessed lip) before extruding/lofting; `normalOffset` fattens the
+    // built shell along its normals (a uniform inflate, negative = shrink).
+    // Both default 0 = behavior-preserving (the identity path is byte-identical).
+    double inset = 0.0;
+    double normalOffset = 0.0;
 };
 
 struct AddProfileMouldingOp {
@@ -153,6 +181,13 @@ struct AddRevolvedProfileOp {
     double y = 0.0;
     int vertices = 96;
     std::string material = "stone";
+    // BL-06: partial-angle revolve (arch / apse niche). 360 = full revolve
+    // (the behavior-preserving default). SURVIVES lowering — copied onto the
+    // AddMouldingOp this lowers to, since the build runs on the moulding.
+    double sweepDegrees = 360.0;
+    // BL-07: screw/helix params, also survive lowering (default 0/1 = no helix).
+    double screwRise = 0.0;
+    double screwTurns = 1.0;
 };
 
 // The extrude, op-vocabulary native (BL-01): like the lathe a REFERENCE to a
@@ -174,6 +209,25 @@ struct AddExtrudedProfileOp {
     std::string material = "stone";
 };
 
+// The Follow-Me sweep, op-vocabulary native (BL-08): like the extrude/lathe a
+// REFERENCE op — but it names TWO drafted objects, a cross-section `profile` and
+// a `path` to sweep it along (a moulding run / corridor). The resolve pass lowers
+// it to an AddPrismOp{footprint=profile, path=path points}; until then it is
+// authored-only and refused by every buildable consumer by name, exactly like
+// AddExtrudedProfileOp.
+struct AddSweepProfileOp {
+    std::string name;
+    std::string profile; // drafted object id — the cross-section
+    std::string path;    // drafted object id — the sweep path (polyline/line/arc)
+    double baseZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    std::string material = "stone";
+    // BL-09: taper — scale the profile from 1.0 at the path start to taperEnd at
+    // the end. 1.0 = no taper (default). SURVIVES lowering onto AddPrismOp.
+    double taperEnd = 1.0;
+};
+
 struct CutFlutesOp {
     std::string target; // names an earlier op — validated in order
     int count = 0;
@@ -193,6 +247,18 @@ struct CutFlutesOp {
     std::optional<double> atRadius;
     std::optional<double> startZ;
     std::optional<double> endZ;
+};
+
+// The general solid composer (BL-11): combine two EARLIER ops by name with a
+// union / subtract / intersect. CutFlutes is a special case of this. A BUILDABLE
+// op (NOT refused-before-build) whose operands are drawn by their own ops; the
+// real CSG is execution-only (the proof shows the operands, like CutFlutes shows
+// cutters). Field is `kind` (not `op`) to avoid an op.N.op TOML key.
+struct AddBooleanOp {
+    std::string name;
+    std::string a; // names an EARLIER op — operand
+    std::string b; // names an EARLIER op — operand
+    BooleanKind kind = BooleanKind::Union;
 };
 
 struct AddLabelOp {
@@ -242,7 +308,9 @@ using RecipeOp = std::variant<
     AddProfileMouldingOp,
     AddRevolvedProfileOp,
     AddExtrudedProfileOp,
+    AddSweepProfileOp,
     CutFlutesOp,
+    AddBooleanOp,
     AddLabelOp,
     ScriptOp>;
 
@@ -310,6 +378,24 @@ void removeRecipeOp(RecipeOpStream &stream, std::size_t index);
 // same move so a field stays bound to its op. A no-op if either index is out of
 // range or they are equal.
 void moveRecipeOp(RecipeOpStream &stream, std::size_t from, std::size_t to);
+
+// Rewrite the by-NAME references an op holds to OTHER ops, through a rename map
+// (orig name -> new name). Only the arms that reference another op by name are
+// touched (today: CutFlutesOp::target; BL-11's boolean a/b join here). An op's
+// OWN name is not this function's concern — appendRecipe renames that directly.
+// A reference not in the map is left as-is.
+void remapRecipeOpNameRefs(RecipeOp &op, const std::map<std::string, std::string> &rename);
+
+// Splice `source`'s ops onto the end of `target` as a self-consistent chain — a
+// pure, deterministic DATA merge (no execution, no Python). Two remaps keep the
+// chained recipe honest and stop the spliced block from cross-referencing the
+// target's ops: (1) every source binding's opIndex is re-offset by
+// target.ops.size(); (2) every source op name is deterministically NAMESPACED
+// (prefixed with the source recipe's name/id), and source-internal name
+// references are rewritten to match — so a source CutFlutes targeting "shaft"
+// resolves to the SOURCE's shaft, never a target op that happens to share the
+// name. Target names and references are never touched.
+void appendRecipe(RecipeOpStream &target, const RecipeOpStream &source);
 
 // Compile pass: every AddProfileMouldingOp expands to an AddMouldingOp via
 // the term compiler; all other ops pass through unchanged. Rejection names

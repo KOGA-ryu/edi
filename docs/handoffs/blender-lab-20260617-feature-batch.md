@@ -33,19 +33,19 @@ BL-13, BL-09, BL-15. Arm-adders (BL-01/03/08/11) serialized as above.
 |---|---|---|---|---|
 | BL-01 | AddExtrudedProfile arm (→11 visits) | L | **SHIPPED** (audit clean) | `cd646ab` |
 | BL-03 | Resolve-lowering → new AddPrismOp (→12) | L | **SHIPPED** (keystone audit clean) | `e166709` |
-| BL-04 | edi_craft.py prism build + OBJ golden | M | builder done, reviewer audit | `914a473` |
-| BL-05 | Push/Pull height authoring + bind | M | blocked on BL-04 | — |
-| BL-06 | Lathe sweepDegrees param | M | ready (no dep) | — |
-| BL-07 | Lathe screw/helix params | M | dep BL-06 | — |
+| BL-04 | edi_craft.py prism build + OBJ golden | M | **SHIPPED** — SPINE COMPLETE | `914a473` |
+| BL-05 | Push/Pull height authoring + bind | M | **SHIPPED** (tests-only, no gap) | `7d0a73d` |
+| BL-06 | Lathe sweepDegrees param | M | **SHIPPED** (audit: manifold-verified) | `6a62c8f` |
+| BL-07 | Lathe screw/helix params | M | **SHIPPED** (audit: crux verified, ribbon accept-v1) | `2e251c7` |
 | BL-02→Bevel | Bevel depth verb on prism carrier | M | blocked on BL-04 | — |
-| BL-08 | Follow-Me sweep op (→13) | L | dep BL-04 + arm-serial | — |
-| BL-09 | Taper-along-sweep param | M | dep BL-08 | — |
-| BL-10 | Inset + normalOffset params | M | dep BL-04 | — |
-| BL-11 | Solid boolean op (→14) | L | dep BL-04 + arm-serial | — |
-| BL-12 | Craftsman radial_petal | S | ready (no dep) | — |
-| BL-13 | Craftsman nfold_star | S | dep BL-12 | — |
-| BL-14 | Named-recipe library + chaining | M | ready (no dep) | — |
-| BL-15 | TOON handoff of resolved stream | M | dep BL-05 | — |
+| BL-08 | Follow-Me sweep op (→13) | L | **SHIPPED** (audit: byte-ident + corners ok) | `2b54a9c` |
+| BL-09 | Taper-along-sweep param | M | **SHIPPED** (planner spot-check: clean) | `159d77b` |
+| BL-10 | Inset + normalOffset params | M | **SHIPPED** (planner spot-check: clean) | `46f0715` |
+| BL-11 | Solid boolean op (→14) | L | **SHIPPED** (audit: remap hardening verified) | `12df814` |
+| BL-12 | Craftsman radial_petal | S | **SHIPPED** (additive, no gate needed) | `0a2ab5b` |
+| BL-13 | Craftsman nfold_star | S | **SHIPPED** (additive, no gate needed) | `789f7bc` |
+| BL-14 | Named-recipe library + chaining | M | **SHIPPED** (audit: remap crux verified) | `834daed` |
+| BL-15 | TOON handoff of resolved stream | M | **SHIPPED** (spot-check: refactor preserved) | `9283d37` |
 
 ## Gate log
 ### BL-01 — builder DONE 2026-06-17 (`cd646ab`), reviewer audit OPEN
@@ -89,8 +89,178 @@ Brief `briefs/009-bl04-prism-python.md`. The Python prism half: ARCHITECTURAL_OP
 parse_ops (key-for-key) + `_prism_world` mesh + obj/plan/bounds/build + raw-extrude
 refusal + a new sample + OBJ golden + smoke. Completes the extrude spine.
 
+### BL-04 — SHIPPED 2026-06-17 (audit `replies/010`: SHIP, spine sound end-to-end)
+Reviewer reproduced green; cross-language contract EXACT key-for-key (defaults
+included — the table in §1 of the verdict), mesh honest+pure (signed height, deduped
+loop, shared with the bpy build), raw extrude refused both sides, doric byte-identical,
+prism golden byte-pinned. **The north-star extrude spine is COMPLETE: a drafted figure
+→ AddExtrudedProfile → AddPrism → OBJ/Blender.**
+
+### Spine closeout — 2026-06-17 — planner
+Arch doc refreshed for the spine (§1 arms 11+12 + PrismPoint; §2 →12 arms +
+static_assert 12; §3 prism contract; §4 extrude lowering; §5 AddPrism OBJ tier; §9
+"no extrude" SUPERSEDED). Line-anchor full sweep deferred to batch close (arms 13/14
+still incoming). Reported SPINE COMPLETE to hub.
+
+## LEDGER policy (ratified 2026-06-17)
+Do NOT commit `docs/handoffs/LEDGER.md` on `dept/blender-lab` (kills rebase conflicts;
+edi-ui owns the master LEDGER per PROTOCOL.md). State lives HERE (this handoff doc) +
+`bus-hub` reports. This doc is the department's source of truth.
+
+## Master integration
+- 2026-06-17: spine (BL-01/03/04) MERGED to master by edi-ui (master `0041783`, tip
+  `efb6032`). Rebased `dept/blender-lab` onto master `dd226c4` (carries drafting
+  transformGeometry+snaps + dungeon-map DM-02..08). Clean (recipe work isolated). Full
+  integration line GREEN: build clean, ctest 96/96, recipe 7/7, prism/smoke ok. Rebased
+  tip `bf9bae3`. Report closeouts to edi-ui for the (master-owned) ledger.
+
+### BL-06 — builder briefed 2026-06-17
+Brief `briefs/012-bl06-sweep.md`. Field-add `sweepDegrees` (default 360) on
+AddRevolvedProfile, SURVIVES lowering to AddMoulding, threads both languages +
+`moulding_rings`. Behavior-preserving (default 360 = doric golden byte-identical).
+Unblocks BL-07. No arm collision.
+
+### BL-06 — SHIPPED 2026-06-17 (audit `replies/013`: SHIP, manifold-verified)
+Reviewer independently edge-incidence-checked the <360 mesh (0 non-manifold edges
+across many sweep/ring/vertex combos); the 3 regenerated goldens are PURELY additive
+(`sweep_degrees="360"`, writer-sorted position); doric byte-identical; survives lowering;
+validate parity on both arms; bind choice KEEP. **Deferred polish (recorded):** fold an
+edge-incidence (every edge bounds 2 faces) assert into the smoke to lock watertightness
+against regressions — optional, a future slice (could ride BL-07 which extends the same mesh).
+
+### BL-07 — builder briefed 2026-06-17
+Brief `briefs/014-bl07-screw.md`. screwRise(0)/screwTurns(1) on both lathe ops (survives
+lowering), reuses BL-06's plumbing + validate block; default 0 = behavior-preserving;
+helix vs partial-sweep interaction defined v1. Goldens get additive screw keys → audit.
+
+### BL-07 — SHIPPED 2026-06-17 (audit `replies/015`: SHIP, ribbon accept-v1)
+Reviewer empirically verified the crux (profile byte-unchanged after a helix `moulding_rings`
+run → can't trip `moulding_profile_not_monotonic`); goldens purely additive #2; doric
+byte-identical; mesh well-formed (pos/neg/1-turn). Open helix ribbon = justified v1
+deferral, not a defect.
+
+## Deferred follow-ups (tracked — recipe-lab polish, not blocking)
+- **Watertight helix** (end caps + closure) — BL-07's v1 helix is an open ribbon; BL-06's
+  partial revolve is watertight. Fold into a future helix refinement.
+- **sweep×screw silent-override warning** — `screw_rise != 0` ignores `sweep_degrees` in
+  v1 (full helix, not partial). Add a validate-WARNING (`sweep_degrees < 360 AND
+  screw_rise != 0` → "sweep ignored under helix in v1") when the partial-AND-helical
+  combination is built. (Reviewer-suggested; cheap, no golden change.)
+- **Edge-incidence manifold assert** in the smoke (BL-06 note) — lock watertightness.
+- **bounds_of arc/helix-awareness** — currently frames within ±max_radius (loose, correct).
+
+### BL-12 — SHIPPED 2026-06-17 (pure Python, additive, no gate)
+`radial_petal.py` craftsman (kite lobes + hub fan), sample + smoke pins (41v/20f
+deterministic), `--list-craftsmen` lists it, doric untouched, ctest 99/99. Craftsmen
+sort by id → radial_petal is now `craftsman.0`; smoke updated, C++ test (hermetic
+registry string) unaffected. Note: single-sided petal lobe (thin leaf, fine for proof
+tier; thickened petal a future refinement). Accepted on green gate — no risky joint.
+
+### BL-13 — builder briefed 2026-06-17
+Brief `briefs/017-bl13-nfold-star.md`. Sibling craftsman to BL-12: an `{n/k}` star-prism
+(pure Python, no C++ arm), deterministic + coprime-guarded.
+
+### BL-13 — SHIPPED 2026-06-17 (additive, no gate)
+`nfold_star.py` {n/k} star-prism craftsman; `_resolve_k` coprime/clamp guard renders
+well-formed across every degenerate-k case (32v/18f, z-extent=height); doric untouched,
+ctest 99/99. Caps are 2n-gon non-convex star polygons (valid OBJ, fine for proof tier).
+Craftsmen pair (BL-12/13) complete.
+
+### BL-14 — builder briefed 2026-06-17
+Brief `briefs/018-bl14-library.md`. `appendRecipe` (binding-index re-offset + namespaced
+name-ref remap) + named-recipe library store, all in EXISTING files (no CMakeLists edit —
+that's edi-ui's). The File-menu "Append Ops Recipe…" chrome is edi-ui's (surface spec);
+we ship the free functions. Reviewer audit to follow (the binding/name remap is the joint).
+
+## CMakeLists constraint (recorded)
+`src/recipe` sources + tests are EXPLICITLY listed in `CMakeLists.txt` (edi-ui-owned,
+shared). New C++ source/test FILES would need a CMake edit = an edi-ui dependency/blocker.
+**Pattern: extend existing recipe source + test files** (RecipeOps/RecipeOpsStore/
+recipe_ops_tests) rather than add files. Only flag CMake to edi-ui if a new file is truly
+unavoidable.
+
+### BL-14 — SHIPPED 2026-06-17 (audit `replies/019`: SHIP, remap verified)
+Binding re-offset off-by-one-free; the no-cross-reference crux proven by a collision test
+that pins the remapped STRING (validate alone wouldn't catch a wrong-shaft cut); library
+store sound + crash-safe; doric byte-identical. **Reviewer rec (fold into BL-11):** convert
+`remapRecipeOpNameRefs` from get_if → exhaustive `std::visit` (CutFlutes rewrites target,
+other 11 explicit no-ops) so a future name-ref arm MUST declare its remap or fail to
+compile — BL-11's boolean a/b is exactly that arm. **Carry into BL-11.**
+
+### BL-08 — builder briefed 2026-06-17
+Brief `briefs/020-bl08-sweep.md`. New `AddSweepProfileOp` ref-arm (→13) + GENERALIZE the
+AddPrism carrier with an optional `path` (straight extrude when path empty = byte-identical;
+swept solid when present). Lower via resolved profile+path points; Python `_prism_world`
+branches. The heaviest L; arm-adder. Reviewer audit to follow.
+
+### BL-08 — SHIPPED 2026-06-17 (audit `replies/021`: SHIP, corners accept-v1)
+Both byte-identity guarantees reproduced (doric + empty-path prism; no existing golden
+touched); 13 sites filled; swept mesh well-formed at sharp corners (self-intersecting, not
+degenerate). **LOW finding folded into BL-09:** `parse_ops` lacks an explicit
+resolve-first refusal for raw `AddSweepProfile` (safe — refused as "unknown op type" — but
+inconsistent + unpinned); add a 4-line branch mirroring AddExtrudedProfile + a smoke pin.
+
+### BL-09 — builder briefed 2026-06-17
+Brief `briefs/022-bl09-taper.md`. `taperEnd`(1.0) field-add on AddSweepProfile + AddPrism
+(survives lowering), centroid-scale each swept loop; default 1.0 = swept golden
+byte-identical. PLUS the BL-08 Python refusal fold-in.
+
+### BL-09 — SHIPPED 2026-06-17 (planner spot-check, no reviewer gate)
+Taper field-add (BL-06/07 pattern, 3rd of its kind). Spot-checked directly: both goldens
+gained ONLY `op.0.taper_end="1"`; swept OBJ reproduced byte-identical; taper math correct
+(lerp by path-length about the centroid, identity-guarded at 1.0); BL-08 Python refusal
+fold-in present + pinned. Lower-risk proven pattern → accepted on green gate + spot-check.
+
+### BL-11 — builder briefed 2026-06-17
+Brief `briefs/023-bl11-boolean.md`. New `AddBooleanOp` arm (→14, the LAST arm-adder),
+targets a/b by NAME like CutFlutes, BooleanKind enum, proof emits operands (CSG is
+bpy-only). PLUS the reviewer's fold-in: `remapRecipeOpNameRefs` → exhaustive `std::visit`
+with AddBoolean a/b joining it. Reviewer audit to follow.
+
+### BL-11 — SHIPPED 2026-06-17 (audit `replies/024`: SHIP, remap hardening verified)
+14 sites filled; AddBoolean buildable, CutFlutes-shaped; enum round-trips; 3 byte-diffs
+hold; by-name lookup crash-safe. **a==b refusal SOUND** (subtract(X,X)=∅ footgun; names
+unique). **remap hardening = the headline win** — exhaustive NameRefRemapper, chaining test
+pins a/b → source namespace. **Deferred follow-up (tracked):** suppress a consumed
+operand's standalone OBJ emission (mirror bpy; changes boolean golden — a deliberate slice).
+
+### BL-10 — builder briefed 2026-06-17
+Brief `briefs/025-bl10-inset.md`. inset(0)/normalOffset(0) field-adds on AddPrism (no arm);
+edge-normal inward offset + shell fatten; default 0 = byte-identical; oversized inset
+refused by name. Last field-add before BL-15.
+
+## Deferred follow-ups (tracked — recipe-lab polish, not blocking)
+- Watertight helix (BL-07); sweep×screw silent-override warning (BL-07); edge-incidence
+  manifold assert in smoke (BL-06); bounds_of arc/helix/sweep-tightness; **boolean
+  proof-duplication** (BL-11: suppress consumed-operand standalone emission); sweep miter
+  at corners (BL-08); per-axis/non-linear taper (BL-09).
+
+### BL-10 — SHIPPED 2026-06-17 (planner spot-check, no reviewer gate)
+inset/normalOffset field-adds on AddPrism. Spot-checked: goldens gained only
+`inset="0"`/`normal_offset="0"`; extruded_figure OBJ reproduced byte-identical; inset math
+sound (bisector `d=inset/cos_half`, identity-guarded, signed-area winding); validate bounds
+the collapse (`inset >= 0.5·smaller bbox`). Proven field-add pattern → accepted on green
+gate + spot-check.
+
+### BL-15 — builder briefed 2026-06-17 (FINAL TASK)
+Brief `briefs/026-bl15-toon.md`. `exportRecipeStreamToToon` — flatten a RESOLVED stream to a
+ToonPacket (op.N key scheme = the TOML addresses) via `exportToonPacket`; refuse an
+unresolved stream by name; never JSON. In RecipeOpsStore (edi_format_core is transitively
+linked — no CMakeLists edit). CLI verb is main.cpp = edi-ui's (flag).
+
+### BL-15 — SHIPPED 2026-06-17 (planner spot-check; FINAL TASK)
+`exportRecipeStreamToToon` via a clean shared-source refactor: factored `recipeOpsToConfig`
+so TOML + TOON read ONE StaticConfig (key-drift structurally impossible). Spot-checked:
+recipe_ops_tests round-trip passes (recipeOpsToToml byte-preserved), doric byte-identical
+post-refactor, the parity/refusal/no-JSON tests are real. Accepted.
+
+## BATCH COMPLETE — all 15 tasks shipped
+Arch doc re-trued (§1 14-arm roster, §2 13 sites/12 visitors incl MutableName +
+NameRefRemapper + static_assert 14, §3 the contract additions). Closeout:
+`docs/closeouts/blender-lab-feature-batch.md`. Reported batch-done to edi-ui.
+
 ## Next
-- BL-04 builder → reviewer audit (cross-language key-for-key is the named risky joint) →
-  **report SPINE complete to hub** (BL-01/03/04, the ~3-task mark).
-- Arch doc: I (scribe) refresh §1/§2/§3/§5 to add arms 11 (AddExtrudedProfile) + 12
-  (AddPrismOp) + the prism Python contract once BL-04 lands (the spine as a unit).
+- Hub/edi-ui to integrate + merge `dept/blender-lab` (we do not merge). Deferred polish
+  (8 items above) is a future campaign. edi-ui dependencies to wire (chrome, not ours):
+  the profile/path/operand canvas-pickers, the File-menu Append/Export-TOON entries, the
+  `--recipe-toon` CLI verb.

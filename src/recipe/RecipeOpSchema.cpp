@@ -31,6 +31,15 @@ std::string zModeText(ZMode mode) { return mode == ZMode::Base ? "base" : "cente
 std::string axisText(Axis axis) { return axis == Axis::X ? "x" : axis == Axis::Y ? "y" : "z"; }
 ZMode parseZMode(const std::string &text) { return text == "base" ? ZMode::Base : ZMode::Center; }
 Axis parseAxis(const std::string &text) { return text == "x" ? Axis::X : text == "y" ? Axis::Y : Axis::Z; }
+std::string booleanKindText(BooleanKind k)
+{
+    return k == BooleanKind::Subtract ? "subtract" : k == BooleanKind::Intersect ? "intersect" : "union";
+}
+BooleanKind parseBooleanKind(const std::string &text)
+{
+    return text == "subtract" ? BooleanKind::Subtract
+        : text == "intersect" ? BooleanKind::Intersect : BooleanKind::Union;
+}
 
 RecipeOpScalar intField(const std::string &key, int value)
 {
@@ -81,6 +90,7 @@ RecipeOpScalar materialField(const std::string &value)
 
 const std::vector<std::string> kZModes = {"center", "base"};
 const std::vector<std::string> kAxes = {"x", "y", "z"};
+const std::vector<std::string> kBooleanKinds = {"union", "subtract", "intersect"};
 
 // The non-double scalars of each op, in display order (the doubles come first,
 // from opFields). One overload per op type — the variant visit picks it.
@@ -147,10 +157,28 @@ void appendExtras(std::vector<RecipeOpScalar> &out, const AddExtrudedProfileOp &
     out.push_back(textField("profile", op.profile, /*editable=*/false)); // a drafted object id, picked elsewhere
     out.push_back(materialField(op.material));
 }
+void appendExtras(std::vector<RecipeOpScalar> &out, const AddSweepProfileOp &op)
+{
+    // BL-08: base_z/x/y come from opFields; profile and path are read-only
+    // drafted-object references (the object picker owns them).
+    out.push_back(textField("name", op.name));
+    out.push_back(textField("profile", op.profile, /*editable=*/false));
+    out.push_back(textField("path", op.path, /*editable=*/false));
+    out.push_back(materialField(op.material));
+}
 void appendExtras(std::vector<RecipeOpScalar> &out, const CutFlutesOp &op)
 {
     out.push_back(textField("target", op.target));
     out.push_back(intField("count", op.count));
+}
+void appendExtras(std::vector<RecipeOpScalar> &out, const AddBooleanOp &op)
+{
+    // BL-11: the two operands are text refs to earlier ops (the operand picker
+    // owns them); kind is a Choice of the three booleans (like z_mode/axis).
+    out.push_back(textField("name", op.name));
+    out.push_back(textField("a", op.a, /*editable=*/false));
+    out.push_back(textField("b", op.b, /*editable=*/false));
+    out.push_back(choiceField("kind", booleanKindText(op.kind), kBooleanKinds));
 }
 void appendExtras(std::vector<RecipeOpScalar> &out, const AddLabelOp &op)
 {
@@ -255,10 +283,24 @@ bool setExtra(AddExtrudedProfileOp &op, const std::string &key, const RecipeScal
     // `profile` is a read-only reference here; the binding/object picker owns it.
     return false;
 }
+bool setExtra(AddSweepProfileOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "material") return asText(value, op.material);
+    // `profile` and `path` are read-only references; the object picker owns them.
+    return false;
+}
 bool setExtra(CutFlutesOp &op, const std::string &key, const RecipeScalarValue &value)
 {
     if (key == "target") return asText(value, op.target);
     if (key == "count") return asInt(value, op.count);
+    return false;
+}
+bool setExtra(AddBooleanOp &op, const std::string &key, const RecipeScalarValue &value)
+{
+    if (key == "name") return asText(value, op.name);
+    if (key == "kind") { std::string s; if (asText(value, s)) { op.kind = parseBooleanKind(s); return true; } }
+    // `a` and `b` are read-only operand references; the operand picker owns them.
     return false;
 }
 bool setExtra(AddLabelOp &op, const std::string &key, const RecipeScalarValue &value)

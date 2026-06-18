@@ -66,7 +66,7 @@ MATERIALS = {
 
 ARCHITECTURAL_OPS = (
     "AddBox", "AddCylinder", "AddSphere", "AddRing", "AddMoulding", "AddPrism",
-    "CutFlutes", "AddLabel",
+    "CutFlutes", "AddBoolean", "AddLabel",
 )
 
 
@@ -199,6 +199,32 @@ def _material(op_key: str, fields: dict, consumed: set) -> str:
     return material
 
 
+def _point_run(op_key: str, fields: dict, run: str) -> list:
+    """Read a contiguous <run>.i.{x,y} point run until the first missing index,
+    by-name auditing each sub-key and refusing gaps — the same shape AddMoulding's
+    profile.i run uses. Shared by AddPrism's `footprint` and its optional BL-08
+    `path` (an absent run reads as an empty list). The caller marks `run` consumed."""
+    out = []
+    points = fields.get(run, {})
+    index = 0
+    while str(index) in points:
+        point = points[str(index)]
+        point_key = f"{op_key}.{run}.{index}"
+        point_consumed: set = set()
+        out.append({
+            "x": _number(point_key, point, point_consumed, "x"),
+            "y": _number(point_key, point, point_consumed, "y"),
+        })
+        extra = sorted(set(point) - point_consumed)
+        if extra:
+            raise ValueError(f"{point_key}.{extra[0]}: unknown recipe key")
+        index += 1
+    leftover = sorted(set(points) - {str(i) for i in range(index)})
+    if leftover:
+        raise ValueError(f"{op_key}.{run}.{leftover[0]}: gapped or unknown {run} index")
+    return out
+
+
 def parse_ops(path: str) -> list[dict]:
     """Parse a compiled op-stream TOML into typed op dicts, strictly.
 
@@ -243,6 +269,13 @@ def parse_ops(path: str) -> list[dict]:
             # here), so the seam cannot leak an unbuildable reference.
             name = fields.get("name", "?")
             raise ValueError(f"{op_key}: AddExtrudedProfile must be resolved before building: {name}")
+        if op_type == "AddSweepProfile":
+            # The Follow-Me sweep reference (BL-08): like the extrude, only the
+            # LOWERED form (a path-bearing AddPrism) reaches a build. Refused by
+            # name on BOTH sides (BL-09 fold-in — the C++ compile/resolve already
+            # refuse it), so the seam cannot leak an unbuildable reference.
+            name = fields.get("name", "?")
+            raise ValueError(f"{op_key}: AddSweepProfile must be resolved before building: {name}")
         if op_type == "Script":
             # A custom-craftsman step: a script id, a position, and a free param
             # bag. parse_ops does not know the craftsman's schema (it lives in
@@ -344,41 +377,44 @@ def parse_ops(path: str) -> list[dict]:
                 y=_number(op_key, fields, consumed, "y", 0.0),
                 vertices=_integer(op_key, fields, consumed, "vertices", 96),
                 material=_material(op_key, fields, consumed),
+                # BL-06: partial-angle revolve, 360 = full (today's default).
+                # AddRevolvedProfile is refused-before-build on this side, so only
+                # the lowered AddMoulding carries the swept arc into the mesh.
+                sweep_degrees=_number(op_key, fields, consumed, "sweep_degrees", 360.0),
+                # BL-07: screw/helix — rise per full turn (0 = no helix) and turn
+                # count (default 1). Same reasoning: only the lowered moulding reads.
+                screw_rise=_number(op_key, fields, consumed, "screw_rise", 0.0),
+                screw_turns=_number(op_key, fields, consumed, "screw_turns", 1.0),
             )
         elif op_type == "AddPrism":
             # The lowered prism carrier (BL-03/04): a closed planar footprint
-            # (physical x/y) read as a contiguous footprint.i.{x,y} run until the
-            # first missing .x — exactly the contiguous-index read AddMoulding
-            # uses for its profile.i run. Key-for-key with the C++ OpWriter.
-            footprint = []
-            points = fields.get("footprint", {})
+            # read as a contiguous footprint.i.{x,y} run, key-for-key with the C++
+            # OpWriter. BL-08 adds an OPTIONAL path.i.{x,y} run (the sweep curve);
+            # an absent path reads as empty = the straight height-extrude.
+            footprint = _point_run(op_key, fields, "footprint")
             consumed.add("footprint")
-            point_index = 0
-            while str(point_index) in points:
-                point = points[str(point_index)]
-                point_key = f"{op_key}.footprint.{point_index}"
-                point_consumed: set = set()
-                footprint.append({
-                    "x": _number(point_key, point, point_consumed, "x"),
-                    "y": _number(point_key, point, point_consumed, "y"),
-                })
-                extra_point = sorted(set(point) - point_consumed)
-                if extra_point:
-                    raise ValueError(f"{point_key}.{extra_point[0]}: unknown recipe key")
-                point_index += 1
-            leftover_points = sorted(set(points) - {str(i) for i in range(point_index)})
-            if leftover_points:
-                raise ValueError(f"{op_key}.footprint.{leftover_points[0]}: gapped or unknown footprint index")
+            path = _point_run(op_key, fields, "path")
+            consumed.add("path")
             if len(footprint) < 3:
                 raise ValueError(f"{op_key}: prism needs at least three footprint points")
+            if path and len(path) < 2:
+                raise ValueError(f"{op_key}: a sweep path needs at least two points")
             op.update(
                 name=_text(op_key, fields, consumed, "name"),
                 height=_number(op_key, fields, consumed, "height"),
                 base_z=_number(op_key, fields, consumed, "base_z"),
                 footprint=footprint,
+                path=path,
                 x=_number(op_key, fields, consumed, "x", 0.0),
                 y=_number(op_key, fields, consumed, "y", 0.0),
                 material=_material(op_key, fields, consumed),
+                # BL-09: taper scale at the path end (1.0 = none). Straight
+                # extrude (empty path) ignores it.
+                taper_end=_number(op_key, fields, consumed, "taper_end", 1.0),
+                # BL-10: inset shrinks the footprint inward; normal_offset
+                # inflates the shell along its normals. Both 0 = no change.
+                inset=_number(op_key, fields, consumed, "inset", 0.0),
+                normal_offset=_number(op_key, fields, consumed, "normal_offset", 0.0),
             )
         elif op_type == "CutFlutes":
             # Explicit cutter geometry (R1-B04b): optional, present-together,
@@ -408,6 +444,19 @@ def parse_ops(path: str) -> list[dict]:
                 raise ValueError(
                     f"{op_key}: CutFlutes cuts vertical grooves; target "
                     f"{op['target']!r} is a {target_axis}-axis cylinder")
+        elif op_type == "AddBoolean":
+            # BL-11: the general composer. a/b name earlier ops; kind is one of
+            # union/subtract/intersect (key-for-key with the C++ store reader).
+            kind = _text(op_key, fields, consumed, "kind", "union")
+            if kind not in ("union", "subtract", "intersect"):
+                raise ValueError(
+                    f"{op_key}.kind: kind must be union, subtract, or intersect, got {kind!r}")
+            op.update(
+                name=_text(op_key, fields, consumed, "name"),
+                a=_text(op_key, fields, consumed, "a"),
+                b=_text(op_key, fields, consumed, "b"),
+                kind=kind,
+            )
         elif op_type == "AddLabel":
             op.update(
                 name=_text(op_key, fields, consumed, "name"),
@@ -481,14 +530,23 @@ def bounds_of(ops: list[dict]) -> tuple[float, float, float, float, float, float
             z1 = op["base_z"] + max(point["z"] for point in op["profile"])
             include(op["x"] - r, op["x"] + r, op["y"] - r, op["y"] + r, z0, z1)
         elif op["type"] == "AddPrism":
-            xs = [point["x"] for point in op["footprint"]]
-            ys = [point["y"] for point in op["footprint"]]
-            # base_z .. base_z+height, ordered min/max so a NEGATIVE height
-            # (the prism extruded downward — push/pull, BL-05) frames correctly.
-            z0 = min(op["base_z"], op["base_z"] + op["height"])
-            z1 = max(op["base_z"], op["base_z"] + op["height"])
-            include(op["x"] + min(xs), op["x"] + max(xs),
-                    op["y"] + min(ys), op["y"] + max(ys), z0, z1)
+            if op.get("path"):
+                # A swept solid: frame its actual verts (the path bends it out of
+                # a simple footprint box), computed from the same mesh builder.
+                verts, _ = _prism_world(op)
+                xs = [v[0] for v in verts]
+                ys = [v[1] for v in verts]
+                zs = [v[2] for v in verts]
+                include(min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+            else:
+                xs = [point["x"] for point in op["footprint"]]
+                ys = [point["y"] for point in op["footprint"]]
+                # base_z .. base_z+height, ordered min/max so a NEGATIVE height
+                # (the prism extruded downward — push/pull, BL-05) frames correctly.
+                z0 = min(op["base_z"], op["base_z"] + op["height"])
+                z1 = max(op["base_z"], op["base_z"] + op["height"])
+                include(op["x"] + min(xs), op["x"] + max(xs),
+                        op["y"] + min(ys), op["y"] + max(ys), z0, z1)
         elif op["type"] == "AddLabel":
             # A point, not a box: the op carries no text extent, but an
             # annotation must stay inside the framed view.
@@ -543,24 +601,102 @@ def cylinder_loft(op: dict) -> tuple[list, list]:
 
 def moulding_rings(op: dict) -> tuple[list, list]:
     """Local (verts, faces) for a moulding — the profile spun as stacked rings,
-    shared by build()'s add_moulding and the OBJ proof."""
+    shared by build()'s add_moulding and the OBJ proof.
+
+    BL-06: sweep_degrees controls how much arc the rings span. At the default
+    360 this is the FULL revolve — byte-identical to before (vertices points at
+    tau*i/vertices, the ring wraps via (i+1)%vertices, no radial seam). Below
+    360 the rings span only that arc (vertices points over [0, sweep], no wrap)
+    and the two RADIAL open ends — the angle-0 and angle-sweep cross-sections —
+    are capped so a partial revolve is a closed solid, not an open shell.
+
+    BL-07: screw_rise lifts the sweep into a helix (thread / volute). The lift
+    is applied HERE, at sweep time, to each angular sample's z — it is NEVER
+    written back into the profile points, so the moulding_profile_not_monotonic
+    validator (which reads the profile cross-section) never sees it and a helix
+    cannot falsely trip it. rise 0 (default) skips this entirely and runs the
+    BL-06 path verbatim — the byte-preserving guarantee."""
     vertices = max(4, op["vertices"])
+    sweep = op.get("sweep_degrees", 360.0)
+    screw_rise = op.get("screw_rise", 0.0)
+    screw_turns = op.get("screw_turns", 1.0)
+    nrings = len(op["profile"])
     verts: list = []
     faces: list = []
+
+    if screw_rise != 0.0:
+        # Helix mode (v1 rule): a thread of screw_turns FULL turns. sweep_degrees
+        # does NOT also clip a helix in v1 (a partial-AND-helical sweep is a
+        # future combination) — FLAGGED. The profile cross-section is swept along
+        # a helical path: each angular sample lifts the WHOLE section by
+        # screw_rise per full turn, so the moulding's silhouette spirals upward.
+        steps = max(4, int(round(vertices * screw_turns)))  # angular segments over the whole helix
+        total = math.tau * screw_turns
+        nprof = nrings
+        for j in range(steps + 1):
+            angle = total * j / steps
+            lift = screw_rise * (angle / math.tau)  # rise per FULL turn (tau)
+            for point in op["profile"]:
+                rr = max(0.001, point["radius"])
+                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"] + lift))
+        # The swept skin: quads spanning the profile direction (i) and the helix
+        # direction (j). An open ribbon — the thread surface — well-formed (no
+        # degenerate faces); end caps are a future refinement.
+        for j in range(steps):
+            cur = j * nprof
+            nxt = (j + 1) * nprof
+            for i in range(nprof - 1):
+                faces.append([cur + i, cur + i + 1, nxt + i + 1, nxt + i])
+        return verts, faces
+
+    if sweep >= 360.0:
+        # Full revolve — UNCHANGED from before (the doric golden's byte path).
+        for point in op["profile"]:
+            rr = max(0.001, point["radius"])
+            for index in range(vertices):
+                angle = math.tau * index / vertices
+                verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
+        for ring in range(nrings - 1):
+            current = ring * vertices
+            nxt_ring = (ring + 1) * vertices
+            for index in range(vertices):
+                nxt = (index + 1) % vertices
+                faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
+        faces.append(list(range(vertices - 1, -1, -1)))
+        top_start = (nrings - 1) * vertices
+        faces.append(list(range(top_start, top_start + vertices)))
+        return verts, faces
+
+    # Partial revolve: vertices points span [0, sweep] inclusive, so there are
+    # vertices-1 segments per ring and NO wrap (the ring is an open arc). A
+    # partial sweep is a "cake slice" solid, so it also needs the ROTATION AXIS
+    # spine — one center vertex (radius 0) per ring — to close the end caps and
+    # the radial faces. (A full revolve wraps shut and never needs the axis.)
+    arc = math.radians(sweep)
     for point in op["profile"]:
         rr = max(0.001, point["radius"])
         for index in range(vertices):
-            angle = math.tau * index / vertices
+            angle = arc * index / (vertices - 1)
             verts.append((math.cos(angle) * rr, math.sin(angle) * rr, point["z"]))
-    for ring in range(len(op["profile"]) - 1):
+    axis_base = nrings * vertices            # the axis verts start after the arc verts
+    for point in op["profile"]:
+        verts.append((0.0, 0.0, point["z"])) # center of this ring, on the spin axis
+    for ring in range(nrings - 1):
         current = ring * vertices
         nxt_ring = (ring + 1) * vertices
-        for index in range(vertices):
-            nxt = (index + 1) % vertices
-            faces.append([current + index, current + nxt, nxt_ring + nxt, nxt_ring + index])
-    faces.append(list(range(vertices - 1, -1, -1)))
-    top_start = (len(op["profile"]) - 1) * vertices
-    faces.append(list(range(top_start, top_start + vertices)))
+        for index in range(vertices - 1):    # no wrap — the arc is open
+            faces.append([current + index, current + index + 1,
+                          nxt_ring + index + 1, nxt_ring + index])
+    # The bottom and top caps are SECTOR fans from the axis center to the arc.
+    faces.append([axis_base] + list(range(0, vertices)))                       # bottom sector
+    top = (nrings - 1) * vertices
+    faces.append([axis_base + (nrings - 1)] + list(range(top + vertices - 1, top - 1, -1)))  # top sector
+    # The two radial end caps — the profile cross-section at angle 0 and at
+    # angle sweep: up the profile, back down the axis spine (a closed 2N loop).
+    faces.append([ring * vertices for ring in range(nrings)]
+                 + [axis_base + ring for ring in range(nrings - 1, -1, -1)])         # angle 0
+    faces.append([ring * vertices + (vertices - 1) for ring in range(nrings - 1, -1, -1)]
+                 + [axis_base + ring for ring in range(nrings)])                     # angle sweep
     return verts, faces
 
 
@@ -649,6 +785,80 @@ def _moulding_world(op: dict) -> tuple[list, list]:
     return [(v[0] + op["x"], v[1] + op["y"], v[2] + op["base_z"]) for v in local], faces
 
 
+def _inset_polygon(pts: list, inset: float) -> list:
+    """BL-10: shrink a closed footprint loop INWARD by `inset`. v1 is a per-edge
+    edge-normal offset along the corner bisector (NOT a straight-skeleton solver)
+    — exact for convex corners; a non-convex loop can pinch under a large inset,
+    which is why C++ validate refuses an oversized inset. inset 0 = identity."""
+    n = len(pts)
+    if inset == 0.0 or n < 3:
+        return pts
+    # Signed area gives the winding, so "inward" is the correct edge-normal side.
+    area = 0.0
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        area += x0 * y1 - x1 * y0
+    ccw = area > 0.0
+    out = []
+    for i in range(n):
+        px, py = pts[(i - 1) % n]
+        cx, cy = pts[i]
+        qx, qy = pts[(i + 1) % n]
+        e1x, e1y = cx - px, cy - py
+        e2x, e2y = qx - cx, qy - cy
+        l1 = math.hypot(e1x, e1y) or 1.0
+        l2 = math.hypot(e2x, e2y) or 1.0
+        e1x, e1y = e1x / l1, e1y / l1
+        e2x, e2y = e2x / l2, e2y / l2
+        if ccw:  # interior is to the LEFT of each directed edge
+            n1x, n1y = -e1y, e1x
+            n2x, n2y = -e2y, e2x
+        else:
+            n1x, n1y = e1y, -e1x
+            n2x, n2y = e2y, -e2x
+        bx, by = n1x + n2x, n1y + n2y
+        bl = math.hypot(bx, by)
+        if bl < 1e-9:
+            out.append((cx, cy))
+            continue
+        bx, by = bx / bl, by / bl
+        cos_half = max(1e-6, bx * n1x + by * n1y)  # bisector vs edge normal
+        d = inset / cos_half  # so the perpendicular offset on each edge is `inset`
+        out.append((cx + bx * d, cy + by * d))
+    return out
+
+
+def _offset_along_normals(verts: list, faces: list, dist: float) -> list:
+    """BL-10: inflate (or, for negative dist, shrink) a shell by pushing each
+    vertex along its normal — the per-vertex normal is the sum of incident face
+    normals (Newell's method). dist 0 = identity."""
+    if dist == 0.0:
+        return verts
+    normals = [[0.0, 0.0, 0.0] for _ in verts]
+    for face in faces:
+        nx = ny = nz = 0.0
+        k = len(face)
+        for i in range(k):
+            ax, ay, az = verts[face[i]]
+            bx, by, bz = verts[face[(i + 1) % k]]
+            nx += (ay - by) * (az + bz)
+            ny += (az - bz) * (ax + bx)
+            nz += (ax - bx) * (ay + by)
+        for idx in face:
+            normals[idx][0] += nx
+            normals[idx][1] += ny
+            normals[idx][2] += nz
+    out = []
+    for (vx, vy, vz), (nx, ny, nz) in zip(verts, normals):
+        length = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if length < 1e-12:
+            out.append((vx, vy, vz))
+        else:
+            out.append((vx + nx / length * dist, vy + ny / length * dist, vz + nz / length * dist))
+    return out
+
+
 def _prism_world(op: dict) -> tuple[list, list]:
     """The lowered prism mesh, built PURELY (no bpy): the closed footprint
     polygon swept from a bottom cap at z=base_z to a top cap at z=base_z+height,
@@ -658,10 +868,17 @@ def _prism_world(op: dict) -> tuple[list, list]:
     polyline does); that duplicate is dropped so the side wall has no zero-width
     quad. A NEGATIVE height puts the top BELOW the base (the push/pull-cut
     direction, BL-05) — the mesh stays valid, just inverted in z; never abs()'d,
-    so the OBJ's z-extent honestly reports the signed height."""
+    so the OBJ's z-extent honestly reports the signed height.
+
+    BL-08: when op carries a PATH, the footprint is lofted along it instead
+    (see _swept_prism_world). An EMPTY path is the straight extrude below,
+    byte-identical to the BL-04 golden — the path branch never touches it."""
+    if op.get("path"):
+        return _swept_prism_world(op)
     pts = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
+    pts = _inset_polygon(pts, op.get("inset", 0.0))  # BL-10: shrink the footprint
     n = len(pts)
     x, y = op["x"], op["y"]
     z0 = op["base_z"]
@@ -674,7 +891,80 @@ def _prism_world(op: dict) -> tuple[list, list]:
     for i in range(n):                                        # side quads
         j = (i + 1) % n
         faces.append([i, j, n + j, n + i])
-    return verts, faces
+    return _offset_along_normals(verts, faces, op.get("normal_offset", 0.0)), faces
+
+
+def _swept_prism_world(op: dict) -> tuple[list, list]:
+    """BL-08 Follow-Me sweep: loft the footprint along the path into a closed
+    swept solid (a moulding run / corridor). PURE, no bpy.
+
+    v1 orientation rule: the footprint cross-section stands UP perpendicular to
+    the path — its local x maps to the path's in-plane normal, its local y maps
+    to world z (above base_z). At each path point a copy of the loop is placed,
+    oriented by that point's straight-SEGMENT tangent (no miter at corners — that
+    is a future refinement); consecutive loops are joined by side quads and the
+    first/last loops are capped, so the result is watertight.
+
+    BL-09 taper: each loop is scaled by lerp(1.0, taper_end, fraction-of-path-
+    LENGTH) before placement — first loop at 1.0, last at taper_end (a shaft /
+    spire). The scale is about the footprint's CENTROID (the mean of its points),
+    not the origin or a bbox corner, so a symmetric profile narrows symmetrically
+    about its own center rather than drifting toward the axis. taper_end == 1.0
+    is the IDENTITY path: scaling is skipped entirely (centroid +/- can perturb
+    floats), so a no-taper sweep is byte-identical to the BL-08 golden."""
+    fp = [(point["x"], point["y"]) for point in op["footprint"]]
+    if len(fp) >= 2 and fp[0] == fp[-1]:
+        fp = fp[:-1]
+    fp = _inset_polygon(fp, op.get("inset", 0.0))  # BL-10: shrink the cross-section
+    # Drop consecutive-duplicate path points so a segment always has a tangent.
+    raw = [(p["x"], p["y"]) for p in op["path"]]
+    path = [raw[0]]
+    for p in raw[1:]:
+        if p != path[-1]:
+            path.append(p)
+    n = len(fp)
+    m = len(path)
+    ox, oy, base_z = op["x"], op["y"], op["base_z"]
+
+    taper = op.get("taper_end", 1.0)
+    tapering = taper != 1.0
+    cx = sum(fx for fx, _ in fp) / n if tapering else 0.0  # footprint centroid
+    cy = sum(fy for _, fy in fp) / n if tapering else 0.0
+    # Cumulative path length per point, so the taper fraction tracks distance
+    # travelled (not raw point index) — uneven path spacing tapers evenly.
+    cumlen = [0.0]
+    for k in range(1, m):
+        cumlen.append(cumlen[-1] + math.hypot(path[k][0] - path[k - 1][0],
+                                              path[k][1] - path[k - 1][1]))
+    total = cumlen[-1] or 1.0
+
+    loops = []
+    for k in range(m):
+        px, py = path[k]
+        if k < m - 1:
+            tx, ty = path[k + 1][0] - px, path[k + 1][1] - py
+        else:
+            tx, ty = px - path[k - 1][0], py - path[k - 1][1]
+        length = math.hypot(tx, ty) or 1.0
+        tx, ty = tx / length, ty / length
+        nx, ny = -ty, tx  # in-plane normal to the path tangent
+        scale = 1.0 + (taper - 1.0) * (cumlen[k] / total)
+        for fx, fy in fp:
+            if tapering:  # scale the cross-section about its centroid
+                fx, fy = cx + scale * (fx - cx), cy + scale * (fy - cy)
+            loops.append((ox + px + fx * nx, oy + py + fx * ny, base_z + fy))
+
+    verts = list(loops)
+    faces = []
+    for k in range(m - 1):  # side quads between consecutive cross-sections
+        a, b = k * n, (k + 1) * n
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append([a + i, a + j, b + j, b + i])
+    faces.append([i for i in range(n)])                       # start cap
+    last = (m - 1) * n
+    faces.append([last + (n - 1 - i) for i in range(n)])      # end cap (reversed)
+    return _offset_along_normals(verts, faces, op.get("normal_offset", 0.0)), faces
 
 
 def _ring_world(op: dict) -> tuple[list, list]:
@@ -718,15 +1008,70 @@ def cutflute_objects(ops: list, op: dict) -> list:
     return objects
 
 
+def _mesh_for(op: dict, craftsmen: dict | None) -> tuple | None:
+    """(verts, faces) for one buildable op, or None for the ops that carry no
+    single mesh (AddLabel text; CutFlutes/AddBoolean, which compose others).
+    Used by AddBoolean's proof to fetch its operands' meshes."""
+    kind = op["type"]
+    if kind == "AddBox":
+        return box_mesh(op)
+    if kind == "AddCylinder":
+        return _cylinder_world(op)
+    if kind == "AddSphere":
+        return sphere_mesh(op)
+    if kind == "AddRing":
+        return _ring_world(op)
+    if kind == "AddMoulding":
+        return _moulding_world(op)
+    if kind == "AddPrism":
+        return _prism_world(op)
+    if kind == "Script" and craftsmen is not None:
+        module = craftsmen.get(op["script"])
+        if module is not None and hasattr(module, "proof_mesh"):
+            return module.proof_mesh(op)
+    return None
+
+
+def boolean_objects(ops: list, op: dict, craftsmen: dict | None = None) -> list:
+    # AddBoolean's proof shows its two OPERANDS (looked up by name), each tagged
+    # with the boolean intent — it does NOT compute the CSG. The real union/
+    # subtract/intersect is execution-only, exactly as CutFlutes emits its
+    # cutters rather than the cut result (a proof shows the inputs to the cut).
+    out = []
+    for role in ("a", "b"):
+        name = op[role]
+        operand = next((o for o in ops if o.get("name") == name), None)
+        mesh = _mesh_for(operand, craftsmen) if operand is not None else None
+        if mesh is not None:
+            out.append((f"{op['name']}.{op['kind']}.{role}", mesh[0], mesh[1]))
+    return out
+
+
 def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
     """(name, verts, faces) per buildable op — the OBJ proof's object list, in
     op order. AddLabel carries no mesh (it is text), so it is skipped; a Script
     op asks its craftsman for the proof mesh (an unknown craftsman is skipped)."""
     if craftsmen is None:
         craftsmen = load_craftsmen(default_craftsmen_dir())
+    # The set of op-NAMES consumed as an operand by ANY AddBoolean. In the real
+    # bpy build a boolean CONSUMES its operands (they are not standalone after);
+    # the proof mirrors that — a consumed op appears ONCE, tagged under the
+    # boolean, not also standalone. v1 rule: BOTH a and b are inputs the boolean
+    # consumes, so both are suppressed standalone. Only standalone-mesh ops are
+    # skipped; a composite op (CutFlutes/AddBoolean) is never suppressed (so a
+    # chained boolean whose own result feeds another still emits its tagged ops).
+    consumed = set()
+    for op in ops:
+        if op["type"] == "AddBoolean":
+            consumed.add(op["a"])
+            consumed.add(op["b"])
+    standalone_kinds = {"AddBox", "AddCylinder", "AddSphere", "AddRing",
+                        "AddMoulding", "AddPrism", "Script"}
     out = []
     for op in ops:
         kind = op["type"]
+        if kind in standalone_kinds and op.get("name") in consumed:
+            continue  # consumed by a boolean -> appears only tagged under it
         if kind == "AddBox":
             out.append((op["name"], *box_mesh(op)))
         elif kind == "AddCylinder":
@@ -741,6 +1086,8 @@ def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
             out.append((op["name"], *_prism_world(op)))
         elif kind == "CutFlutes":
             out.extend(cutflute_objects(ops, op))
+        elif kind == "AddBoolean":
+            out.extend(boolean_objects(ops, op, craftsmen))
         elif kind == "Script":
             module = craftsmen.get(op["script"])
             if module is not None and hasattr(module, "proof_mesh"):
@@ -793,9 +1140,13 @@ def plan_lines(ops: list[dict]) -> list[str]:
                 f"AddMoulding {op['name']} base_z={_fmt(op['base_z'])} points={len(op['profile'])}"
                 f" max_r={_fmt(max_r)} material={op['material']}")
         elif op["type"] == "AddPrism":
+            # A path (BL-08) makes it a swept solid; absent, it is the straight
+            # height-extrude. The plan line stays byte-identical when no path.
+            path = op.get("path") or []
+            sweep = f" path={len(path)}" if path else ""
             lines.append(
                 f"AddPrism {op['name']} base_z={_fmt(op['base_z'])} height={_fmt(op['height'])}"
-                f" points={len(op['footprint'])} material={op['material']}")
+                f" points={len(op['footprint'])}{sweep} material={op['material']}")
         elif op["type"] == "CutFlutes":
             z_range = ""
             if op["start_z"] is not None and op["end_z"] is not None:
@@ -810,6 +1161,9 @@ def plan_lines(ops: list[dict]) -> list[str]:
             lines.append(
                 f"CutFlutes {op['target']} count={op['count']} depth={_fmt(op['depth'])}"
                 f" {cutter}{z_range}")
+        elif op["type"] == "AddBoolean":
+            lines.append(
+                f"AddBoolean {op['name']} {op['kind']} {op['a']} {op['b']}")
         elif op["type"] == "AddLabel":
             lines.append(f"AddLabel {op['name']} \"{op['text']}\" at ({_fmt(op['x'])}, {_fmt(op['y'])}, {_fmt(op['z'])})")
 
@@ -1032,6 +1386,34 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         bpy.context.collection.objects.link(obj)
         return obj
 
+    def add_boolean(op):
+        # BL-11: the only tier that truly cuts. Apply a boolean modifier to
+        # operand a, referencing operand b, then apply it. (The OBJ proof showed
+        # the operands tagged; here the CSG actually happens.)
+        a = bpy.data.objects.get(op["a"])
+        b = bpy.data.objects.get(op["b"])
+        if a is None or b is None:
+            failures.append(f"AddBoolean: operand not found: {op['a']!r} / {op['b']!r}")
+            return
+        operation = {"union": "UNION", "subtract": "DIFFERENCE",
+                     "intersect": "INTERSECT"}[op["kind"]]
+        modifier = a.modifiers.new(name=op["name"], type="BOOLEAN")
+        modifier.operation = operation
+        if hasattr(modifier, "solver"):
+            modifier.solver = "EXACT"
+        modifier.object = b
+        bpy.ops.object.select_all(action="DESELECT")
+        a.select_set(True)
+        bpy.context.view_layer.objects.active = a
+        try:
+            bpy.ops.object.modifier_apply(modifier=modifier.name)
+        except Exception as exc:  # collected so a failed cut cannot exit 0
+            failures.append(f"AddBoolean: failed to apply {op['name']}: {exc}")
+            a.modifiers.remove(modifier)
+        else:
+            bpy.data.objects.remove(b, do_unlink=True)  # b consumed into the result
+        return a
+
     builders = {
         "AddBox": add_box,
         "AddCylinder": add_cylinder,
@@ -1040,6 +1422,7 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
         "AddMoulding": add_moulding,
         "AddPrism": add_prism,
         "CutFlutes": cut_flutes,
+        "AddBoolean": add_boolean,
         "AddLabel": add_label,
     }
     custom = load_craftsmen(default_craftsmen_dir())

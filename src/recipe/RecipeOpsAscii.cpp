@@ -133,7 +133,11 @@ struct BoundsEstimator {
     // AddExtrudedProfile (BL-01) is not framed pre-lowering, like the lathe:
     // renderOpsProjection refuses it before dispatch, so this stays a no-op.
     void operator()(const AddExtrudedProfileOp &) const {}
+    void operator()(const AddSweepProfileOp &) const {} // BL-08: refused pre-lowering, like the extrude
     void operator()(const CutFlutesOp &) const {}
+    // AddBoolean (BL-11) adds no new geometry — its operands are framed by their
+    // own ops — so it contributes nothing to the bounds.
+    void operator()(const AddBooleanOp &) const {}
     // AddLabel stays a no-op HERE even though Python's bounds_of
     // (edi_craft.py ~:440) folds the label point into its frame — the C++ and
     // Python framing rigs intentionally differ; do NOT change behavior to match.
@@ -458,6 +462,7 @@ struct ProjectionDrawer {
     void operator()(const AddProfileMouldingOp &) const {} // refused before dispatch
     void operator()(const AddRevolvedProfileOp &) const {} // refused before dispatch
     void operator()(const AddExtrudedProfileOp &) const {} // refused before dispatch
+    void operator()(const AddSweepProfileOp &) const {}    // refused before dispatch (BL-08)
 
     void operator()(const CutFlutesOp &op) const
     {
@@ -496,6 +501,11 @@ struct ProjectionDrawer {
     // the OBJ mesh (BL-04), not a 2D silhouette, so this draws nothing — and,
     // unlike the profile-reference ops, it is NOT refused before dispatch.
     void operator()(const AddPrismOp &) const {}
+
+    // AddBoolean (BL-11): an OBJ-tier composer — its operands are drawn by their
+    // own ops, and the CSG result is execution-only. So it draws nothing here
+    // and, unlike the profile-reference ops, is NOT refused before dispatch.
+    void operator()(const AddBooleanOp &) const {}
 };
 
 } // namespace
@@ -525,6 +535,11 @@ AsciiRenderResult renderOpsProjection(const std::vector<RecipeOp> &ops,
         // and BoundsEstimator arms above are thereby unreachable.
         if (const auto *unresolved = std::get_if<AddExtrudedProfileOp>(&op)) {
             result.message = "AddExtrudedProfile must be resolved before preview: " + unresolved->name;
+            return result;
+        }
+        // Same contract for the Follow-Me sweep (BL-08).
+        if (const auto *unresolved = std::get_if<AddSweepProfileOp>(&op)) {
+            result.message = "AddSweepProfile must be resolved before preview: " + unresolved->name;
             return result;
         }
     }

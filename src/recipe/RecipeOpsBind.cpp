@@ -45,6 +45,14 @@ constexpr FieldRow<AddMouldingOp> kMouldingFields[] = {
     {"base_z", &AddMouldingOp::baseZ},
     {"x", &AddMouldingOp::x},
     {"y", &AddMouldingOp::y},
+    // BL-06: a drafted angle could drive the partial-revolve arc, so
+    // sweep_degrees is bindable like the other numerics (kept in step with the
+    // store reader's bindableNumber read and the schema's Number scalar).
+    {"sweep_degrees", &AddMouldingOp::sweepDegrees},
+    // BL-07: screw/helix params, bindable like sweep_degrees (a drafted
+    // measurement could drive the per-turn rise or the turn count).
+    {"screw_rise", &AddMouldingOp::screwRise},
+    {"screw_turns", &AddMouldingOp::screwTurns},
 };
 
 // BL-03: the lowered prism carrier. Its numeric fields mirror AddMoulding's
@@ -54,6 +62,9 @@ constexpr FieldRow<AddPrismOp> kPrismFields[] = {
     {"base_z", &AddPrismOp::baseZ},
     {"x", &AddPrismOp::x},
     {"y", &AddPrismOp::y},
+    {"taper_end", &AddPrismOp::taperEnd}, // BL-09
+    {"inset", &AddPrismOp::inset},        // BL-10
+    {"normal_offset", &AddPrismOp::normalOffset},
 };
 
 constexpr FieldRow<AddProfileMouldingOp> kProfileMouldingFields[] = {
@@ -66,6 +77,9 @@ constexpr FieldRow<AddRevolvedProfileOp> kRevolvedProfileFields[] = {
     {"base_z", &AddRevolvedProfileOp::baseZ},
     {"x", &AddRevolvedProfileOp::x},
     {"y", &AddRevolvedProfileOp::y},
+    {"sweep_degrees", &AddRevolvedProfileOp::sweepDegrees}, // BL-06, see kMouldingFields
+    {"screw_rise", &AddRevolvedProfileOp::screwRise},       // BL-07
+    {"screw_turns", &AddRevolvedProfileOp::screwTurns},     // BL-07
 };
 
 // BL-01: the extrude exposes the lathe's baseZ/x/y plus its own `height` —
@@ -75,6 +89,15 @@ constexpr FieldRow<AddExtrudedProfileOp> kExtrudedProfileFields[] = {
     {"base_z", &AddExtrudedProfileOp::baseZ},
     {"x", &AddExtrudedProfileOp::x},
     {"y", &AddExtrudedProfileOp::y},
+};
+
+// BL-08: the sweep exposes baseZ/x/y; profile and path are drafted-object
+// string references (the object picker owns them), never bindable doubles.
+constexpr FieldRow<AddSweepProfileOp> kSweepProfileFields[] = {
+    {"base_z", &AddSweepProfileOp::baseZ},
+    {"x", &AddSweepProfileOp::x},
+    {"y", &AddSweepProfileOp::y},
+    {"taper_end", &AddSweepProfileOp::taperEnd}, // BL-09
 };
 
 constexpr FieldRow<CutFlutesOp> kFluteFields[] = {
@@ -124,7 +147,11 @@ struct FieldVisit {
     bool operator()(AddProfileMouldingOp &op) const { return handle(op, findMember(kProfileMouldingFields, fieldKey)); }
     bool operator()(AddRevolvedProfileOp &op) const { return handle(op, findMember(kRevolvedProfileFields, fieldKey)); }
     bool operator()(AddExtrudedProfileOp &op) const { return handle(op, findMember(kExtrudedProfileFields, fieldKey)); }
+    bool operator()(AddSweepProfileOp &op) const { return handle(op, findMember(kSweepProfileFields, fieldKey)); }
     bool operator()(CutFlutesOp &op) const { return handle(op, findMember(kFluteFields, fieldKey)); }
+    // BL-11: AddBoolean has NO bindable numeric fields (a/b strings, kind enum).
+    // A null member pointer makes handle report "not bindable" for any key.
+    bool operator()(AddBooleanOp &op) const { return handle(op, static_cast<double AddBooleanOp::*>(nullptr)); }
     bool operator()(AddLabelOp &op) const { return handle(op, findMember(kLabelFields, fieldKey)); }
     bool operator()(ScriptOp &op) const { return handle(op, findMember(kScriptFields, fieldKey)); }
 };
@@ -151,7 +178,9 @@ struct FieldList {
     std::vector<RecipeOpField> operator()(const AddProfileMouldingOp &op) const { return of(op, kProfileMouldingFields); }
     std::vector<RecipeOpField> operator()(const AddRevolvedProfileOp &op) const { return of(op, kRevolvedProfileFields); }
     std::vector<RecipeOpField> operator()(const AddExtrudedProfileOp &op) const { return of(op, kExtrudedProfileFields); }
+    std::vector<RecipeOpField> operator()(const AddSweepProfileOp &op) const { return of(op, kSweepProfileFields); }
     std::vector<RecipeOpField> operator()(const CutFlutesOp &op) const { return of(op, kFluteFields); }
+    std::vector<RecipeOpField> operator()(const AddBooleanOp &) const { return {}; } // BL-11: no numeric fields
     std::vector<RecipeOpField> operator()(const AddLabelOp &op) const { return of(op, kLabelFields); }
     std::vector<RecipeOpField> operator()(const ScriptOp &op) const { return of(op, kScriptFields); }
 };

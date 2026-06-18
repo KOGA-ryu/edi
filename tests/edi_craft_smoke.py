@@ -127,6 +127,25 @@ def write_temp(toml_text: str) -> str:
         return f.name
 
 
+def assert_manifold(verts, faces, label):
+    """A closed orientable manifold: every UNDIRECTED edge bounds exactly 2
+    faces, and no face is degenerate (< 3 distinct verts). Codifies the BL-06
+    reviewer's hand-check so a future regression fails loudly. Apply only to
+    meshes that SHOULD be watertight — NOT the open helix ribbon (BL-07, an
+    intentionally open surface) nor the self-intersecting swept solid (BL-08,
+    valid faces but not 2-manifold by design)."""
+    edge_faces = {}
+    for face in faces:
+        assert len(set(face)) >= 3, f"{label}: degenerate face {face}"
+        k = len(face)
+        for i in range(k):
+            a, b = face[i], face[(i + 1) % k]
+            edge = (min(a, b), max(a, b))
+            edge_faces[edge] = edge_faces.get(edge, 0) + 1
+    bad = {e: c for e, c in edge_faces.items() if c != 2}
+    assert not bad, f"{label}: non-manifold edges (incidence != 2): {list(bad.items())[:5]}"
+
+
 def main() -> int:
     # The two material vocabularies must stay one vocabulary: a key only in
     # C++ validates and previews but hard-errors in the Blender driver; one
@@ -180,14 +199,148 @@ def main() -> int:
     assert len(prism_zs) == 12, f"prism vertex count drifted: {len(prism_zs)}"
     assert max(prism_zs) - min(prism_zs) == 3.0, "prism z-extent must equal the op height (3)"
     assert prism_obj.count("\nf ") == 8, "prism face count drifted (2 caps + 6 sides)"
+    # The straight prism is a closed solid (caps + side quads) — watertight.
+    prism_objs = edi_craft.obj_objects(prism_ops)
+    assert_manifold(prism_objs[0][1], prism_objs[0][2], "straight prism")
+
+    # BL-08: a Follow-Me sweep — an AddPrism WITH a path lofts the footprint
+    # along the path into a closed swept solid. Footprint n=4, path m=3:
+    # verts = n*m = 12, faces = (m-1)*n side quads + 2 end caps = 10. The solid
+    # bends out of a flat box — it spans x, y AND z — and every face is well-formed.
+    swept_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "swept_profile", "swept_profile_ops_compiled.toml"))
+    swept_obj = "\n".join(edi_craft.obj_lines(swept_ops)) + "\n"
+    with open(os.path.join(ROOT, "samples", "swept_profile", "swept_profile.obj"),
+              encoding="utf-8") as f:
+        swept_golden = f.read()
+    assert swept_obj == swept_golden, "swept OBJ drifted from samples/swept_profile/swept_profile.obj"
+    swept_objs = edi_craft.obj_objects(swept_ops)
+    sw_verts, sw_faces = swept_objs[0][1], swept_objs[0][2]
+    assert len(sw_verts) == 12, f"swept vert count: {len(sw_verts)}"
+    assert len(sw_faces) == 10, f"swept face count: {len(sw_faces)}"
+    for face in sw_faces:
+        assert len(set(face)) >= 3, "degenerate swept face"
+        assert all(0 <= i < len(sw_verts) for i in face), "swept face references a missing vertex"
+    assert len({v[0] for v in sw_verts}) > 1 and len({v[1] for v in sw_verts}) > 1 \
+        and len({v[2] for v in sw_verts}) > 1, "swept solid must span x, y and z (the path bends it)"
+
+    # BL-09: a taper_end < 1 narrows the swept profile toward the end. The cross-
+    # section is the first n verts vs the last n verts; the end loop's extent is
+    # ~taper_end of the start. taper_end == 1.0 is byte-identical to BL-08.
+    n_fp = 4  # the swept_profile footprint has 4 points
+    def extent(loop):
+        return (max(p[2] for p in loop) - min(p[2] for p in loop))  # z-span of the cross-section
+    no_taper = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "swept_profile", "swept_profile_ops_compiled.toml"))[0]
+    base_verts = edi_craft._prism_world(no_taper)[0]
+    tapered = dict(no_taper, taper_end=0.5)
+    tap_verts = edi_craft._prism_world(tapered)[0]
+    assert edi_craft._prism_world(dict(no_taper, taper_end=1.0))[0] == base_verts, \
+        "taper_end=1.0 must be byte-identical to the no-taper sweep"
+    start_extent = extent(tap_verts[:n_fp])
+    end_extent = extent(tap_verts[-n_fp:])
+    assert abs(end_extent - 0.5 * start_extent) < 1e-9, \
+        f"taper_end=0.5 should halve the end cross-section: start {start_extent}, end {end_extent}"
+
+    # BL-10: inset shrinks the (straight) extrude's footprint; normal_offset
+    # fattens the shell. Both 0 are byte-identical to the existing mesh.
+    straight = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "extruded_figure", "extruded_figure_ops_compiled.toml"))[0]
+    base = edi_craft._prism_world(straight)[0]
+    assert edi_craft._prism_world(dict(straight, inset=0.0, normal_offset=0.0))[0] == base, \
+        "inset=0 normal_offset=0 must be byte-identical to the plain prism"
+
+    def xy_extent(verts):
+        xs = [v[0] for v in verts]
+        ys = [v[1] for v in verts]
+        return (max(xs) - min(xs)) + (max(ys) - min(ys))
+    inset_verts = edi_craft._prism_world(dict(straight, inset=0.3))[0]
+    assert xy_extent(inset_verts) < xy_extent(base) - 1e-9, "inset>0 must shrink the footprint"
+
+    def bbox_vol(verts):
+        xs = [v[0] for v in verts]; ys = [v[1] for v in verts]; zs = [v[2] for v in verts]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys)) * (max(zs) - min(zs))
+    fat_verts = edi_craft._prism_world(dict(straight, normal_offset=0.5))[0]
+    assert bbox_vol(fat_verts) > bbox_vol(base) + 1e-9, "normal_offset>0 must fatten the shell"
+
+    # BL-11 / P2: an AddBoolean's PROOF emits its two operands (by name) tagged
+    # with the boolean intent — it does NOT compute the CSG. P2: an operand
+    # CONSUMED by the boolean is no longer emitted STANDALONE (the real build
+    # consumes it), so the box-minus-cylinder sample carries ONLY the two tagged
+    # operands — `block` and `bore` do NOT appear standalone.
+    bool_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "boolean_op", "boolean_op_ops_compiled.toml"))
+    bool_obj = "\n".join(edi_craft.obj_lines(bool_ops)) + "\n"
+    with open(os.path.join(ROOT, "samples", "boolean_op", "boolean_op.obj"),
+              encoding="utf-8") as f:
+        bool_golden = f.read()
+    assert bool_obj == bool_golden, "boolean OBJ drifted from samples/boolean_op/boolean_op.obj"
+    bool_names = [line[2:] for line in bool_obj.splitlines() if line.startswith("o ")]
+    assert bool_names == ["block.minus.bore.subtract.a", "block.minus.bore.subtract.b"], \
+        f"boolean proof should be ONLY the two tagged operands, got {bool_names}"
+    assert "block" not in bool_names and "bore" not in bool_names, \
+        "consumed operands must NOT appear standalone (the boolean consumes them)"
+
+    # BL-06: a partial-angle revolve (sweep_degrees < 360) yields a DIFFERENT,
+    # well-formed mesh — the rings span only the arc (no wrap, fewer wall quads)
+    # and the two radial open ends are capped, so it is a closed solid, not a
+    # shell. A full revolve (the default 360) keeps the original face topology.
+    # (N=2 rings, V=8 verts/ring: full = (N-1)*V wall + 2 z-caps = 10 faces;
+    # partial = (N-1)*(V-1) wall + 2 z-caps + 2 radial caps = 11 faces.)
+    def moulding(sweep=360.0, screw_rise=0.0, screw_turns=1.0):
+        return {"type": "AddMoulding", "name": "band", "base_z": 0.0, "x": 0.0, "y": 0.0,
+                "vertices": 8, "material": "stone", "sweep_degrees": sweep,
+                "screw_rise": screw_rise, "screw_turns": screw_turns,
+                "profile": [{"term": "a", "z": 0.0, "radius": 1.0},
+                            {"term": "b", "z": 1.0, "radius": 1.0}]}
+    full_verts, full_faces = edi_craft.moulding_rings(moulding(360.0))
+    part_verts, part_faces = edi_craft.moulding_rings(moulding(180.0))
+    assert len(full_faces) == 10, f"full-revolve face topology drifted: {len(full_faces)}"
+    assert len(part_faces) == 11, f"partial-revolve face count: {len(part_faces)}"
+    assert part_faces != full_faces, "a <360 sweep must change the mesh"
+    # Well-formed: every face index references a real vertex, both meshes.
+    for verts, faces in ((full_verts, full_faces), (part_verts, part_faces)):
+        for face in faces:
+            assert all(0 <= i < len(verts) for i in face), "face references a missing vertex"
+            assert len(face) >= 3, "degenerate face"
+    # The partial revolve is a closed "cake slice" solid (axis spine + caps) —
+    # watertight, every edge bounding exactly 2 faces. The FULL revolve is also
+    # closed, so assert both. (The open helix ribbon and the self-intersecting
+    # swept solid are excluded — see assert_manifold's note.)
+    assert_manifold(full_verts, full_faces, "full revolve")
+    assert_manifold(part_verts, part_faces, "partial revolve")
+
+    # BL-07: a screw_rise>0 moulding produces a measurably RISING mesh — the
+    # sweep spirals up by ~screw_rise per full turn over screw_turns turns. The
+    # default (rise 0) matches the non-helix mesh exactly (behavior-preserving).
+    flat_verts, _ = edi_craft.moulding_rings(moulding(screw_rise=0.0))
+    helix_verts, helix_faces = edi_craft.moulding_rings(
+        moulding(screw_rise=2.0, screw_turns=3.0))
+    flat_z = [v[2] for v in flat_verts]
+    helix_z = [v[2] for v in helix_verts]
+    assert max(flat_z) - min(flat_z) == 1.0, "non-helix z-extent is just the profile (1.0)"
+    # rise 2.0 * 3 turns = 6.0 global lift, plus the profile's own 1.0 span.
+    assert (max(helix_z) - min(helix_z)) >= 6.0, "helix must rise by ~screw_rise*screw_turns"
+    for face in helix_faces:  # well-formed
+        assert all(0 <= i < len(helix_verts) for i in face), "helix face references a missing vertex"
+        assert len(face) >= 3, "degenerate helix face"
+    # The default (rise 0) is byte-identical to the plain non-helix mesh.
+    assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
+        edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"
 
     # Custom craftsmen (the foundation): the scanner finds the sample script, the
     # registry exposes its manifest as TOML (what the C++ lab reads), and a
     # Script op renders in the proof through the craftsman's proof_mesh.
     registry = edi_craft.load_craftsmen(edi_craft.default_craftsmen_dir())
     assert "twisted_column" in registry, "twisted_column craftsman not discovered"
+    assert "radial_petal" in registry, "radial_petal craftsman not discovered"
+    assert "nfold_star" in registry, "nfold_star craftsman not discovered"
     manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
-    assert 'craftsman.0.id = "twisted_column"' in manifest_toml
+    # Craftsmen are emitted sorted by id: nfold_star (n) < radial_petal (r) <
+    # twisted_column (t) — so 0/1/2 respectively.
+    assert 'craftsman.0.id = "nfold_star"' in manifest_toml
+    assert 'craftsman.1.id = "radial_petal"' in manifest_toml
+    assert 'craftsman.2.id = "twisted_column"' in manifest_toml
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,
@@ -198,6 +351,51 @@ def main() -> int:
     unknown = {"type": "Script", "script": "nope", "name": "x",
                "x": 0.0, "y": 0.0, "z": 0.0, "params": {}}
     assert edi_craft.obj_objects([unknown]) == [], "an unknown craftsman should be skipped, not crash"
+
+    # BL-12: the radial-petal bloom renders a deterministic, well-formed mesh
+    # through its pure proof_mesh — a hub fan + one kite lobe per petal. With P
+    # petals: verts = 1 (hub center) + 4*P, faces = 2*P (P hub triangles + P
+    # petal kites). Pin the committed sample (P=10) and assert no degenerate face.
+    petal_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "radial_petal", "radial_petal_ops_compiled.toml"))
+    petal_objs = edi_craft.obj_objects(petal_ops)
+    assert len(petal_objs) == 1 and petal_objs[0][0] == "rose.window"
+    petal_verts, petal_faces = petal_objs[0][1], petal_objs[0][2]
+    assert len(petal_verts) == 1 + 4 * 10, f"radial_petal vert count: {len(petal_verts)}"
+    assert len(petal_faces) == 2 * 10, f"radial_petal face count: {len(petal_faces)}"
+    for face in petal_faces:
+        assert len(set(face)) >= 3, "degenerate petal face"
+        assert all(0 <= i < len(petal_verts) for i in face), "petal face references a missing vertex"
+    # zRise lifts the petal tips above the flat hub (a gentle dome).
+    assert max(v[2] for v in petal_verts) > 0.0, "zRise should lift the petal tips"
+
+    # BL-13: the {n/k} star prism renders a deterministic, CLOSED mesh through
+    # its pure proof_mesh — a 2n-vertex alternating outline extruded into a
+    # prism. With n points: verts = 4n (bottom + top outline), faces = 2 + 2n
+    # (two caps + 2n side quads). Pin the committed sample (n=8).
+    star_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "nfold_star", "nfold_star_ops_compiled.toml"))
+    star_objs = edi_craft.obj_objects(star_ops)
+    assert len(star_objs) == 1 and star_objs[0][0] == "girih.star"
+    star_verts, star_faces = star_objs[0][1], star_objs[0][2]
+    assert len(star_verts) == 4 * 8, f"nfold_star vert count: {len(star_verts)}"
+    assert len(star_faces) == 2 + 2 * 8, f"nfold_star face count: {len(star_faces)}"
+    star_zs = [v[2] for v in star_verts]
+    assert max(star_zs) - min(star_zs) == 0.6, "star prism z-extent must equal height (0.6)"
+    for face in star_faces:
+        assert len(set(face)) >= 3, "degenerate star face"
+        assert all(0 <= i < len(star_verts) for i in face), "star face references a missing vertex"
+    # A DEGENERATE skip (k=1, k>=n, or non-coprime {6/2}) must still render a
+    # well-formed, non-empty mesh — the coprime/clamp guard, not a crash. The
+    # loaded registry hands back the craftsman module itself.
+    nfold = registry["nfold_star"]
+    for points, skip in (("6", "2"), ("7", "1"), ("7", "99"), ("3", "2")):
+        op = {"params": {"points": points, "skip": skip}, "x": 0.0, "y": 0.0, "z": 0.0}
+        verts, faces = nfold.proof_mesh(op)
+        n = max(3, int(points))
+        assert len(verts) == 4 * n and len(faces) == 2 + 2 * n, f"degenerate-k mesh malformed: {points}/{skip}"
+        for face in faces:
+            assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.
@@ -249,6 +447,12 @@ def main() -> int:
     refuses(
         'op.0.type = "AddExtrudedProfile"\nop.0.name = "m"\n',
         "AddExtrudedProfile must be resolved before building",
+    )
+    # The Follow-Me sweep reference (BL-08/09 fold-in): a raw AddSweepProfile is
+    # refused by name too, parity with the C++ compile/resolve refusals.
+    refuses(
+        'op.0.type = "AddSweepProfile"\nop.0.name = "m"\n',
+        "AddSweepProfile must be resolved before building",
     )
     refuses('op.0.type = "AddDodecahedron"\n', "unknown op type")
 

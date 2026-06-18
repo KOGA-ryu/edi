@@ -210,9 +210,13 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   rebase). Builders building on the current tip never hit that. Brief 025 carries the
   ABSOLUTE no-git-remote rule + STOP-and-ask. Reported to hub.
 - **Master-sync note:** local master advanced to `7d85610` (DR-14). My branch is on
-  `73c0832`+my commits (green, real line). Planner will rebase onto local master at a
-  CONTROLLED batch boundary when needed (not blocking B2-CTX). origin/master STILL stale
-  `591e92c` — awaiting the user's origin reconcile (hub).
+  `73c0832`+my commits (green, real line). Planner rebases onto LOCAL master at a
+  CONTROLLED quiescent boundary when needed (not while a builder is mid-slice).
+- **✅ ALL-CLEAR (hub 2026-06-17):** origin/master reconciled (fast-forwarded to the real
+  line `17c716a` via a box→Mac SSH bridge); the stale-origin corruption trap is GONE.
+  **STANDING PRACTICE UNCHANGED** (now ratified fleet-wide): builders never touch git
+  remote; planner syncs onto LOCAL master; origin is now a current backup. My briefs'
+  no-git-remote rule stays as-is.
 
 ### Reviewer gate 023 (relation-context + plug-type mechanism) — 2026-06-17 — SETTLED YES
 - Reply: `~/dept-bus/edi-dungeon-map/replies/023-reviewer-relation-context-plugtype-mechanism.md`

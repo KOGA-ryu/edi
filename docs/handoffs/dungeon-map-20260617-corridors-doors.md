@@ -247,12 +247,26 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   + `m_activeConnectionId`; 3 projection keys; unit + controller tests. ABSOLUTE no-git-
   remote rule baked in. B2-3 (setPlugType) is next.
 
-### Batch order (current)
-- batch-2 = **B2-CTX** (do first) then **B2-3** (door-type) — design settled (023),
-  briefs to write, QUEUED behind 024. NO rebase in the briefs.
-- batch-3 = B2-4 (delete + cascade cleanup) + B2-5 (manual re-route).
+### ▶ AUTONOMOUS RUN (user call 2026-06-17)
+Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,
+blocker, cross-dept need, green tip ready to merge). Reviewer at CHECKPOINTS (risky/
+structural slices), not every one. dept-cycle workers at ticks. GUARD on: rebase ONLY
+onto LOCAL master until ALL-CLEAR (planner-only; origin reconcile in flight).
+
+**User's queue:** B2-CTX → B2-4 (delete) → B2-5 (re-route) → batch-3 coverage gaps.
+**B2-3 (door-type `setPlugType`, gate-023-settled) is OMITTED from the user's queue** →
+keep it DEFERRED in-scope; surface at the batch milestone (do NOT silently drop). B2-4
+cleans a `plug:<id>` leaf DEFENSIVELY (works whether or not B2-3 ran).
+
+### Queue / batch order
+- B2-CTX (`025`) — ▶ IN FLIGHT.
+- B2-4 delete plug/connection (`026`) — PRE-WRITTEN, queued.
+- B2-5 manual re-route (`027`) — PRE-WRITTEN, queued.
+- B2-3 door-type (`setPlugType`) — DEFERRED (surface at milestone).
+- batch-3 coverage/hardening — as audits surface (020 coverage already in 024).
 
 ## Next
-- 024 lands → dispatch B2-CTX → B2-3 (each no-rebase, on current tip). At every reply
-  boundary: `dept-status` + `dept-cycle` my workers >500k/on-opus. bus-hub the hub when
-  the master-ref fix lands (then rebasing is safe again). Closeout when the bucket's done.
+- 025 lands → reviewer CHECKPOINT (B2-CTX is structural) → dispatch 026 → 027. At each
+  reply boundary: `dept-status` + `dept-cycle` my workers >500k/on-opus. Planner rebases
+  onto LOCAL master at a controlled boundary (local master at `7d85610`/DR-14). Surface
+  B2-3 + closeout at the batch milestone (bus-hub).

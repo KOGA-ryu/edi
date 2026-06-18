@@ -70,7 +70,7 @@ under `tests/data/maps/*.toon` have neither).
       detaching by half a tile on even-tile-count edges); (2) stock-map 8/10 reality
       pinned + gate claim re-scoped (socket table covers 10, crypt fixture yields 10);
       (3) L-router greybox limit documented (real routing is dungeon-map's domain).
-- [ ] G5 closeout + rebase LOCAL master + edi-gate (build/ctest/scan green).
+- [x] G5 closeout + rebase LOCAL master + edi-gate — closeout `docs/closeouts/blender-lab-m0-realizer.md`; rebased @03b8cc1; edi-gate GREEN (build + 105/105 + scan). Master FF is edi-ui's lane.
 
 ## GATE EVIDENCE (PASS)
 - PNG: `samples/crypt_m0/crypt.png` — 1920×1080, valid crypt: 2 rooms +

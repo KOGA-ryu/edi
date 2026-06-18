@@ -392,9 +392,70 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - When green + replied → bus-hub the result (staged live-test of the tooling). Reviewer
   optional (per hub); planner reviews the report + edi-gate is the safety net.
 
+### DR-12 — CLOSED 2026-06-17 ✅ (SHA `e111398`, GREEN 101/101 via edi-gate) — LIVE-TOOLBELT TEST PASS
+- Reply: `~/dept-bus/edi-drafting/replies/026-DR12-array-along-curve-builder.md`. Fresh
+  Sonnet builder, precise brief → clean result: `arrayAlongCurve` (pure op) with
+  `curveArcLength`/`curveStationPoint`/`curveTangentDeg` helpers; Line/Polyline/Arc via
+  `pointAlongEntity`, Spline via a local `walkPath` on `sampleSpline` (pointAlongEntity's
+  walker isn't accessible); tangent via `transformGeometry(pivot=station)`; Polygon
+  rejected (not in brief). Tests: line centers 0/0.5/1.0, 45°→rotationDeg 45, arc stations
+  on-arc, 3 rejections. Rebase clean (9 commits replayed). `edi-gate` GREEN, `bus-reply`
+  used — the new toolbelt worked end-to-end.
+- **Minor follow-up noted (not blocking):** the Spline path branch has no NUMERIC test
+  (builder judged a known-sample assertion over-speccing). Add a spline-path test in a
+  later cleanup; the walk mirrors the tested line/arc algorithm.
+- **Live-test verdict:** PASS — precise brief + Sonnet builder + edi-gate + bus-reply +
+  planner review all exercised; builder context OK (no recycle needed).
+
+### DR-13 — angular dimension — opened at the REVIEWER GATE 2026-06-17 (representation)
+- Brief: `~/dept-bus/edi-drafting/briefs/027-DR13-angular-representation-reviewer.md`.
+  **Why a gate, not straight to the Sonnet builder:** the representation is genuinely
+  unsettled. `DimensionGeometry` persists only `{kind,a,b,offset}` (5 scalars); an angular
+  dim needs vertex(2)+2 rays(2)+arc-radius(1)=5 dof, but the ratified "store two ray
+  endpoints as a/b, no new field" leaves only `offset` for the vertex+2nd-ray and CAN'T
+  encode the vertex. A Sonnet builder must not improvise a PERSISTENT format. Reviewer
+  (Opus, on-target, 183k — no recycle) settles the exact `{a,b,offset}` encoding + how the
+  renderer recovers the vertex/angle + feasibility of "no new field" (escalate to hub if
+  infeasible) + bounded slices. Then I brief the builder precisely.
+- Fleet/ctx (resume duty): dept-status checked; my reviewer opus/183k OK, builder
+  sonnet/fresh OK. (Researcher off-target but idle — converges at next use.)
+
+### DR-13 reviewer gate — SETTLED 2026-06-17 — Candidate A, no new field
+- Reply: `~/dept-bus/edi-drafting/replies/007-DR13-angular-representation.md`. **Representation
+  = Candidate A:** `a` = vertex V (`lineIntersection(l1,l2)` at plan time), `b` = point on
+  ray1 (`|b−a|` = arc radius), `offset` = signed included angle (deg) ray1→ray2 — repurposed
+  for Angular kind ONLY (doesn't corrupt other kinds). 5 dof exact; recoverable from
+  `{a,b,offset}` alone; round-trips verbatim. **"No new field" FEASIBLE — no hub fork
+  re-open.** B rejected (vertex unrecoverable). No version bump; old-reader degrades
+  angular→Distance (same additive-tolerance as prior kind adds, accepted).
+- **CROSS-DEPT SEAM FLAGGED to edi-ui** (coordination, not a fork): the canvas ARC painter
+  (`src/widgets/DrawingCanvas*`, edi-ui's file) must gain an Angular branch AND guard the
+  linear-dim painter from mis-drawing `offset`-as-angle — must land with/before Angular is
+  user-visible. DR-13 has no tool/controller wiring this slice, so no user-visible mis-render
+  ships now; the flag is for when edi-ui wires the tool + arc.
+
+### DR-13 core — builder BRIEFED 2026-06-17 (Sonnet, S1–S7)
+- Brief: `~/dept-bus/edi-drafting/briefs/028-DR13-angular-core-builder.md`. The 7 settled
+  core slices (enum+kind maps, planAngularDimension, dimensionMeasuredAngle, serialize
+  round-trip, reject kind-change-to-Angular, projection/inspector guard, op tests). Painter
+  arc + measurement-text formatting explicitly OUT. Builder sonnet/on-target/low-ctx (no cycle).
+
+- **MERGED (edi-ui):** DR-11 + canonical-mirror fix + DR-12 on master @`f8bed78` (101/101);
+  master HEAD since advanced (`ef9bf0a`). DR-01..12 now all integrated.
+
+### QUEUED — DR-10-fix · rotate-copies total-angle clamp gap (edi-ui chrome-reviewer nit)
+- `setRotateCopiesTotalAngle` (~`DrawingDocumentController.cpp:1927`) silently ignores
+  `|angle| < 1.0`, but the shell's rosette spin allows `0.0` → silent field↔state divergence
+  (spin shows 0, controller keeps prior angle). **Planner semantics decision:** setter STORES
+  faithfully (drop the silent <1.0 swallow; keep only a non-finite guard); `rotateCopiesDraftingObject`
+  (op) REJECTS a degenerate near-zero total angle with a visible code+message (surfaced via
+  finishEdit). Data-oriented (validation in the op), no silent divergence, no degenerate ring.
+- Small independent slice; QUEUED as the NEXT builder slice AFTER DR-13 (single builder, mid-DR-13).
+  Rebase that slice onto master REF (now `ef9bf0a`+).
+
 ## Open questions / blockers
-- (none blocking — DR-12 in build via fresh Sonnet builder; DR-11+fix still pending edi-ui
-  merge, non-blocking)
+- DR-13 painter ARC is an edi-ui seam (flagged) — rides with the eventual Angular tool wiring.
+- DR-10-fix (rotate-copies clamp) queued behind DR-13.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

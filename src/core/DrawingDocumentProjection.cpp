@@ -178,22 +178,35 @@ QVariantList numericFieldsForObject(const DraftingObject &object, const Drafting
         pushNumericField(fields, numericField(QStringLiteral("x2"), QStringLiteral("X2")), grid);
         pushNumericField(fields, numericField(QStringLiteral("y2"), QStringLiteral("Y2")), grid);
         if (const auto *dimension = std::get_if<DimensionGeometry>(&object.geometry)) {
-            QString lengthLabel = QStringLiteral("Distance");
-            if (dimension->kind == DimensionKind::Width) {
-                lengthLabel = QStringLiteral("Width");
-            } else if (dimension->kind == DimensionKind::Height) {
-                lengthLabel = QStringLiteral("Height");
-            } else if (dimension->kind == DimensionKind::Radius) {
-                lengthLabel = QStringLiteral("Radius");
-            } else if (dimension->kind == DimensionKind::Diameter) {
-                lengthLabel = QStringLiteral("Diameter");
-            }
-            pushNumericField(fields, numericField(QStringLiteral("dimension_length"), lengthLabel, 0.0), grid);
-            if (dimension->kind != DimensionKind::Width && dimension->kind != DimensionKind::Height) {
-                pushNumericField(fields, numericField(QStringLiteral("dimension_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2), grid);
+            if (dimension->kind == DimensionKind::Angular) {
+                // Angular repurposes `offset` as the signed included angle in degrees.
+                // Expose it under the label "Angle" and suppress the linear
+                // dimension_length / Offset fields, which would mislead the inspector
+                // by treating the angle value as a standoff length.
+                // The field ID stays "offset" so the existing numeric-edit path in
+                // DraftingNumericEdit (fieldId == "offset" → geometry.offset = value)
+                // works without modification.
+                pushNumericField(fields, numericField(QStringLiteral("offset"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2), grid);
+            } else {
+                // Linear / radial kinds: length (with kind-specific label), optional
+                // base-ray angle, and the standoff field.
+                QString lengthLabel = QStringLiteral("Distance");
+                if (dimension->kind == DimensionKind::Width) {
+                    lengthLabel = QStringLiteral("Width");
+                } else if (dimension->kind == DimensionKind::Height) {
+                    lengthLabel = QStringLiteral("Height");
+                } else if (dimension->kind == DimensionKind::Radius) {
+                    lengthLabel = QStringLiteral("Radius");
+                } else if (dimension->kind == DimensionKind::Diameter) {
+                    lengthLabel = QStringLiteral("Diameter");
+                }
+                pushNumericField(fields, numericField(QStringLiteral("dimension_length"), lengthLabel, 0.0), grid);
+                if (dimension->kind != DimensionKind::Width && dimension->kind != DimensionKind::Height) {
+                    pushNumericField(fields, numericField(QStringLiteral("dimension_angle_deg"), QStringLiteral("Angle"), -360.0, 360.0, 1.0, 2), grid);
+                }
+                pushNumericField(fields, numericField(QStringLiteral("offset"), QStringLiteral("Offset")), grid);
             }
         }
-        pushNumericField(fields, numericField(QStringLiteral("offset"), QStringLiteral("Offset")), grid);
         break;
     case DraftingShapeKind::Wall:
         // A wall is a thick line: a/b endpoints mirror the Line arm (named

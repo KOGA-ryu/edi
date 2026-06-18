@@ -1071,9 +1071,11 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     v1 orientation rule: the footprint cross-section stands UP perpendicular to
     the path — its local x maps to the path's in-plane normal, its local y maps
     to world z (above base_z). At each path point a copy of the loop is placed,
-    oriented by that point's straight-SEGMENT tangent (no miter at corners — that
-    is a future refinement); consecutive loops are joined by side quads and the
-    first/last loops are capped, so the result is watertight.
+    oriented by the MITER tangent — the bisector of the adjacent segments (P5),
+    with the in-plane normal scaled by miter_scale = 2/|t_in+t_out| = 1/cos(α/2)
+    so the cross-section keeps its width through the corner; endpoints use the
+    single-segment tangent (scale 1.0). Consecutive loops are joined by side
+    quads and the first/last loops are capped, so the result is watertight.
 
     BL-09 taper: each loop is scaled by lerp(1.0, taper_end, fraction-of-path-
     LENGTH) before placement — first loop at 1.0, last at taper_end (a shaft /

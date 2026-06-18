@@ -176,6 +176,13 @@ since BL-08 (added a regression test). OBJ goldens unaffected (preview-framing o
 Bisector miter frame in `_swept_prism_world` per `docs/miter-research.md`. **Regenerates
 `swept_profile.obj`** (90° corner → miter_scale √2). Sharp-corner refusal.
 
-## Next (autonomous)
-- P5 (miter) → batch-2 CLOSEOUT (all 8 deferred + 3 roadmap-depth items done). Bus edi-ui;
-  rebase LOCAL master.
+### P5 — SHIPPED 2026-06-17 (`a004bc1`, Sonnet; Opus audit `replies/044`: SHIP, clean)
+Bisector miter frame, `miter_scale=2/|b|`, sharp-corner refusal. Reviewer hand-derived the
+miter math to the exact golden vert (4.5,-0.5), confirmed the regen is FAITHFUL (numstat 4+/4-
+= only the corner loop, byte-reproduced), straight paths byte-identical, guard sound. Stale
+docstring fixed inline (planner). Follow-ups tracked (manifold-on-sweep; not blocking).
+
+## BATCH-2 COMPLETE — all 8 deferred-polish + 3 roadmap-depth items shipped
+Closeout: `docs/closeouts/blender-lab-batch2-polish.md`. Reported to hub. The recipe lab's
+geometry is hardened (watertight+oriented closures, robust inset, mitered sweep) and the AI
+handoff completed (TOON export + semantic diff). Bus the final tip to edi-ui for merge.

@@ -5640,5 +5640,184 @@ int main(int argc, char **argv)
                == cId);
     }
 
+    // --- Brief 036: authored door-leaf tag backfill ---------------------------
+    // createMapFromSpec now stamps "plug:<id>" on authored door leaves so they are
+    // symmetric with interactive leaves. Two seam tests:
+    //   (1) setPlugType on an authored plug replaces the leaf (no duplicate).
+    //   (2) deletePlug on an authored plug removes the leaf (no orphan).
+    //
+    // Note: DrawingDocumentController is a QObject (non-copyable/non-movable), so
+    // we cannot return it from a helper lambda. The two-room fixture is inlined in
+    // each test block (same resolution as the B2-4 tests).
+
+    {
+        // (1) setPlugType on an authored plug: the authored leaf is REPLACED
+        // (not duplicated). After the call there must be exactly ONE leaf tagged
+        // "plug:<id>", and its wallVisual.type must reflect the new type.
+        DrawingDocumentController ctl;
+        {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec roomA;
+            roomA.name = "a";
+            roomA.spec.origin = {0.0, 0.0};
+            roomA.spec.width = 0.4;
+            roomA.spec.height = 0.4;
+            roomA.spec.wallThickness = 0.02;
+            roomA.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2, "door", "door"}};
+            edi::drafting::NamedRoomSpec roomB;
+            roomB.name = "b";
+            roomB.spec.origin = {0.6, 0.0};
+            roomB.spec.width = 0.4;
+            roomB.spec.height = 0.4;
+            roomB.spec.wallThickness = 0.02;
+            roomB.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2, "door", "door"}};
+            map.rooms = {roomA, roomB};
+            edi::drafting::MapConnectionSpec conn;
+            conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
+            map.connections = {conn};
+            assert(ctl.createMapFromSpec(map));
+        }
+        assert(ctl.draftingDocument().plugs.size() == 2);
+        assert(ctl.draftingDocument().connections.size() == 1);
+
+        // Pick plug "a.door" (the first plug whose name starts with "a.").
+        std::string plugId;
+        for (const auto &p : ctl.draftingDocument().plugs) {
+            if (p.name == "a.door") { plugId = p.id; break; }
+        }
+        assert(!plugId.empty());
+        const std::string leafTag = "plug:" + plugId;
+
+        // Authored leaf must already be tagged (the backfill fix).
+        int leafCountBefore = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountBefore; break; }
+            }
+        }
+        assert(leafCountBefore == 1); // exactly one authored leaf with the tag
+
+        // setPlugType → "window": must REPLACE, not duplicate.
+        assert(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
+        assert(ctl.draftingDocument().plugs[0].type == "window"
+               || ctl.draftingDocument().plugs[1].type == "window"); // one of them updated
+
+        int leafCountAfter = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountAfter; break; }
+            }
+        }
+        assert(leafCountAfter == 1); // still ONE leaf — authored leaf replaced, not duplicated
+
+        // The surviving leaf must be Window type.
+        bool foundWindow = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool hasTag = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { hasTag = true; break; }
+            }
+            if (!hasTag) { continue; }
+            const auto *wall = std::get_if<edi::drafting::WallGeometry>(&obj.geometry);
+            if (wall && obj.metadata.wallVisual.type == edi::drafting::WallType::Window) {
+                foundWindow = true;
+            }
+        }
+        assert(foundWindow);
+
+        // One undo reverts both type change and leaf swap.
+        assert(ctl.undo());
+        int leafCountAfterUndo = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountAfterUndo; break; }
+            }
+        }
+        assert(leafCountAfterUndo == 1); // back to one leaf
+        // The reverted leaf should be Door type (original authored type).
+        bool foundDoor = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool hasTag = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { hasTag = true; break; }
+            }
+            if (!hasTag) { continue; }
+            if (obj.metadata.wallVisual.type == edi::drafting::WallType::Door) {
+                foundDoor = true;
+            }
+        }
+        assert(foundDoor);
+    }
+
+    {
+        // (2) deletePlug on an authored plug: the authored leaf must be REMOVED.
+        // No stray toolProvenance="door" Wall should remain for this plug's id.
+        DrawingDocumentController ctl;
+        {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec roomA;
+            roomA.name = "a";
+            roomA.spec.origin = {0.0, 0.0};
+            roomA.spec.width = 0.4;
+            roomA.spec.height = 0.4;
+            roomA.spec.wallThickness = 0.02;
+            roomA.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2, "door", "door"}};
+            edi::drafting::NamedRoomSpec roomB;
+            roomB.name = "b";
+            roomB.spec.origin = {0.6, 0.0};
+            roomB.spec.width = 0.4;
+            roomB.spec.height = 0.4;
+            roomB.spec.wallThickness = 0.02;
+            roomB.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2, "door", "door"}};
+            map.rooms = {roomA, roomB};
+            edi::drafting::MapConnectionSpec conn;
+            conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
+            map.connections = {conn};
+            assert(ctl.createMapFromSpec(map));
+        }
+        assert(ctl.draftingDocument().plugs.size() == 2);
+
+        std::string plugId;
+        for (const auto &p : ctl.draftingDocument().plugs) {
+            if (p.name == "a.door") { plugId = p.id; break; }
+        }
+        assert(!plugId.empty());
+        const std::string leafTag = "plug:" + plugId;
+
+        // Sanity: leaf exists before delete.
+        bool leafBefore = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafBefore = true; break; }
+            }
+            if (leafBefore) break;
+        }
+        assert(leafBefore);
+
+        assert(ctl.deletePlug(QString::fromStdString(plugId)));
+
+        // Leaf must be gone (not orphaned).
+        bool leafAfter = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafAfter = true; break; }
+            }
+            if (leafAfter) break;
+        }
+        assert(!leafAfter); // no orphan
+
+        // No stray "door"-provenanced wall should remain for this plug either.
+        // (Guard against a leak where the tag was added but the leaf still isn't
+        //  collected because the gather loop has a bug.)
+        // We check that no Wall with toolProvenance="door" exists that has a tag
+        // matching the deleted plug. (The other plug's leaf may still be present.)
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.metadata.toolProvenance != "door") { continue; }
+            for (const auto &tag : obj.metadata.tags) {
+                assert(tag != leafTag); // no stray door leaf for the deleted plug
+            }
+        }
+    }
+
     return 0;
 }

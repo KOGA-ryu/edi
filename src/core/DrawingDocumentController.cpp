@@ -3095,6 +3095,10 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             plug.type = placement.type;
             plug.flags = placement.flags; // neutral tags, threaded through like `type`
             plug.anchor = placement.anchor;
+            // Capture the id BEFORE std::move so the leaf-tag site below can use it.
+            // The id is a stable, minted value that does not change after move; copying
+            // it here is O(N) on a short opaque string — negligible, and clear.
+            const std::string mintedPlugId = plug.id;
             plugIdByKey.emplace(plugKey(room.name, placement.name), plug.id);
             doorByKey.emplace(plugKey(room.name, placement.name),
                               std::make_pair(placement.anchor, placement.edge));
@@ -3118,6 +3122,13 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
                 if (leaf.ok) {
                     leaf.object.metadata.toolProvenance = "door";
                     leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
+                    // B2-3/036: tag the leaf with "plug:<plugId>" so it is symmetric with
+                    // interactive leaves (setPlugType) and visible to deletePlug's gather
+                    // loop. Without this tag: setPlugType mints a duplicate alongside the
+                    // authored leaf; deletePlug orphans it (never collects it). The tag is
+                    // a neutral provenance breadcrumb — no render/codec change (same pattern
+                    // as "connection:<connId>" on corridor walls, "feature:<type>" on markers).
+                    leaf.object.metadata.tags.push_back("plug:" + mintedPlugId);
                     allObjects.push_back(std::move(leaf.object));
                 }
             }

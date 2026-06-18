@@ -44,10 +44,27 @@ _(append one row per merge: tip, what, edi-gate result)_
 | --- | --- | --- | --- | --- |
 | — | — | — | (none yet — awaiting first green M0 tip) | — |
 
+## Seam notes (for the final converge-check)
+- 2026-06-18 ~13:57 — dungeon-map pushed a socket-contract PROPOSAL (v0) on its
+  branch (`e33cc3c`, docs-only, `docs/dungeon-map-m0-socket-contract.md`). HELD,
+  not merged — still in dungeon-map's reviewer gate; merging an unsettled
+  contract could mislead the realizer. Seam understood:
+  - Wire = existing `exportMapToToon` output (Seam C): 4 flat arrays
+    rooms/plugs/connections/blocks. NO new columns for M0.
+  - Split: STRUCTURE (10 piece types) is expanded from the graph by the
+    realizer; only PROPS (`crypt.sarcophagus`, `crypt.brazier`) ride as block
+    `asset_ref`s. asset_ref form `<theme>.<piece>`.
+  - Frame: feet, 5 ft grid module, min-corner room origin, block origin =
+    centre, M0 scale=1/rotation=0.
+  - **CROSS-DEPT CONFIRM POINT**: 2D→3D handedness (`map x→world X`,
+    `map y→world −Y`, +Z up). Contract flags the realizer must confirm this
+    matches its bpy build — watch for convergence before declaring the seam done.
+
 ## Open questions / blockers
-- None yet. Watching: M0 socket contract settlement (dungeon-map reviewer gate)
-  and the 5090/OptiX render-log evidence (blender-lab) — both are dept-owned
-  gate items, integration only confirms the seam lines up.
+- None blocking. Watching: contract freeze (dungeon-map reviewer verdict) →
+  bus-hub to blender-lab; the handedness confirm; and the 5090/OptiX render-log
+  evidence (blender-lab). All dept-owned gate items — integration only confirms
+  the seam lines up + keeps master green.
 
 ## Next
 - Poll the hub inbox + dept branch tips for the first green M0 tip; merge it.

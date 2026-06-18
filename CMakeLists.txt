@@ -551,6 +551,7 @@ add_executable(edi_shell_window_tests
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h
@@ -605,6 +606,7 @@ add_executable(drawing_canvas_widget_tests
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h
@@ -704,6 +706,7 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h

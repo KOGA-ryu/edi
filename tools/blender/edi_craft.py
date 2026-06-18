@@ -847,47 +847,129 @@ def _moulding_world(op: dict) -> tuple[list, list]:
     return [(v[0] + op["x"], v[1] + op["y"], v[2] + op["base_z"]) for v in local], faces
 
 
-def _inset_polygon(pts: list, inset: float) -> list:
-    """BL-10: shrink a closed footprint loop INWARD by `inset`. v1 is a per-edge
-    edge-normal offset along the corner bisector (NOT a straight-skeleton solver)
-    — exact for convex corners; a non-convex loop can pinch under a large inset,
-    which is why C++ validate refuses an oversized inset. inset 0 = identity."""
+# P6: module-level accumulator for inset-rejection warnings.  When
+# _inset_polygon returns None and the caller falls back to the original
+# footprint, it appends a "# WARNING: ..." string here.  obj_lines reads
+# and clears this list and prepends the warnings as OBJ comment lines so
+# the proof file honestly records that the inset was rejected.
+_inset_fallback_log: list = []
+
+
+def _inset_polygon(pts: list, inset: float):
+    """P6: shrink a closed footprint loop INWARD by `inset`.
+    Returns the offset polygon on success, or None if the result would be
+    self-intersecting or inverted (caller falls back to the un-inset polygon).
+    inset=0 returns pts unchanged (identity — byte-identical to v1 behavior).
+
+    v1 was a per-vertex bisector-amplification offset: 1/cos_half → ∞ at
+    reflex corners (interior angle > π), causing vertex blowup and self-
+    intersection.  v2 replaces it with EDGE-OFFSET-THEN-INTERSECT (Phase 1 of
+    Clipper2's offset engine):
+
+    1. For each edge, build the offset LINE (the edge translated inward by
+       `inset`).  Direction and anchor are all that is needed — the full line,
+       not a capped segment.
+    2. Intersect adjacent offset lines at each vertex via a 2×2 linear solve.
+       No 1/cos_half term — numerically stable at reflex corners.
+    3. Post-hoc area-flip check: if the signed shoelace area changed sign or
+       collapsed, the inset was too deep → return None.
+    4. Post-hoc edge-crossing check (O(n²) non-adjacent segment pairs): if any
+       pair properly intersects, the offset polygon is self-intersecting →
+       return None.
+
+    The C++ prism_inset_too_large + prism_inset_reflex_pinch guards (P6) are
+    the PRE-CHECK layer; _inset_polygon is the DEFENSE-IN-DEPTH layer that
+    catches marginal cases that pass the C++ guards but produce bad geometry."""
     n = len(pts)
     if inset == 0.0 or n < 3:
-        return pts
-    # Signed area gives the winding, so "inward" is the correct edge-normal side.
+        return pts  # identity: byte-identical to v1 (0-inset early-out)
+    # Signed shoelace area gives the winding. Identical to v1 — auditable.
     area = 0.0
     for i in range(n):
         x0, y0 = pts[i]
         x1, y1 = pts[(i + 1) % n]
         area += x0 * y1 - x1 * y0
+    if abs(area) < 1e-9:
+        return None  # degenerate polygon — nothing to inset
     ccw = area > 0.0
+
+    # Step 1: build per-edge offset lines.  For edge i → i+1, the inward unit
+    # normal is (-dy, dx) for CCW winding (interior is to the LEFT of the
+    # directed edge).  The offset line passes through (A + inset·n) with the
+    # same direction as the original edge.  Store as (Px, Py, dx, dy).
+    offset_lines = []
+    for i in range(n):
+        ax, ay = pts[i]
+        bx, by = pts[(i + 1) % n]
+        dx, dy = bx - ax, by - ay
+        length = math.hypot(dx, dy)
+        if length < 1e-12:
+            return None  # zero-length edge → degenerate footprint
+        dx /= length
+        dy /= length
+        if ccw:
+            nx, ny = -dy, dx   # inward normal: 90° CCW of direction
+        else:
+            nx, ny = dy, -dx   # inward normal: 90° CW of direction
+        offset_lines.append((ax + inset * nx, ay + inset * ny, dx, dy))
+
+    # Step 2: for each vertex i, intersect offset_line[i-1] and offset_line[i].
+    # The 2×2 system: P_prev + t·d_prev = P_curr + s·d_curr.
+    # Eliminate s using the cross-product rule (Cramer):
+    #   denom = d_prev × d_curr  (z-component: pdx*cdy - pdy*cdx)
+    #   t = (P_curr - P_prev) × d_curr / denom
+    # Parallel adjacent edges (denom ≈ 0) → the vertex is degenerate; use the
+    # midpoint of the two anchor points as a graceful fallback.
     out = []
     for i in range(n):
-        px, py = pts[(i - 1) % n]
-        cx, cy = pts[i]
-        qx, qy = pts[(i + 1) % n]
-        e1x, e1y = cx - px, cy - py
-        e2x, e2y = qx - cx, qy - cy
-        l1 = math.hypot(e1x, e1y) or 1.0
-        l2 = math.hypot(e2x, e2y) or 1.0
-        e1x, e1y = e1x / l1, e1y / l1
-        e2x, e2y = e2x / l2, e2y / l2
-        if ccw:  # interior is to the LEFT of each directed edge
-            n1x, n1y = -e1y, e1x
-            n2x, n2y = -e2y, e2x
+        px, py, pdx, pdy = offset_lines[(i - 1) % n]
+        cx, cy, cdx, cdy = offset_lines[i]
+        denom = pdx * cdy - pdy * cdx  # d_prev × d_curr
+        if abs(denom) < 1e-9:
+            # Parallel/collinear: intermediate vertex is degenerate; collapse
+            # it to the midpoint of the two line anchors.
+            out.append(((px + cx) * 0.5, (py + cy) * 0.5))
         else:
-            n1x, n1y = e1y, -e1x
-            n2x, n2y = e2y, -e2x
-        bx, by = n1x + n2x, n1y + n2y
-        bl = math.hypot(bx, by)
-        if bl < 1e-9:
-            out.append((cx, cy))
-            continue
-        bx, by = bx / bl, by / bl
-        cos_half = max(1e-6, bx * n1x + by * n1y)  # bisector vs edge normal
-        d = inset / cos_half  # so the perpendicular offset on each edge is `inset`
-        out.append((cx + bx * d, cy + by * d))
+            t = ((cx - px) * cdy - (cy - py) * cdx) / denom
+            out.append((px + t * pdx, py + t * pdy))
+
+    # Step 3: area-flip check (shoelace formula on the offset polygon).
+    # A sign flip means the offset polygon wound the other way → inverted.
+    # |area| < ε means it collapsed to a point or line.
+    new_area = 0.0
+    for i in range(n):
+        x0, y0 = out[i]
+        x1, y1 = out[(i + 1) % n]
+        new_area += x0 * y1 - x1 * y0
+    if abs(new_area) < 1e-9 or (new_area > 0) != ccw:
+        return None  # inverted or collapsed
+
+    # Step 4: edge-crossing check on the offset polygon.
+    # Test all non-adjacent segment pairs (i,j) with j ≥ i+2 and NOT the
+    # wrap-around pair (0, n-1).  A PROPER intersection (both params strictly
+    # in (0,1)) means the polygon self-intersects at this inset depth.
+    def _seg_cross(p1, p2, p3, p4):
+        """True if segments p1→p2 and p3→p4 properly intersect (not at endpoints)."""
+        d1x, d1y = p2[0] - p1[0], p2[1] - p1[1]
+        d2x, d2y = p4[0] - p3[0], p4[1] - p3[1]
+        denom2 = d1x * d2y - d1y * d2x
+        if abs(denom2) < 1e-12:
+            return False  # parallel / collinear
+        rx, ry = p3[0] - p1[0], p3[1] - p1[1]
+        t2 = (rx * d2y - ry * d2x) / denom2
+        u2 = (rx * d1y - ry * d1x) / denom2
+        eps = 1e-9
+        return (eps < t2 < 1.0 - eps) and (eps < u2 < 1.0 - eps)
+
+    for i in range(n):
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue  # adjacent wrap-around — share a vertex, not a crossing
+            p1, p2 = out[i], out[(i + 1) % n]
+            p3, p4 = out[j], out[(j + 1) % n]
+            if _seg_cross(p1, p2, p3, p4):
+                return None  # self-intersecting offset polygon
+
     return out
 
 
@@ -940,7 +1022,16 @@ def _prism_world(op: dict) -> tuple[list, list]:
     pts = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
-    pts = _inset_polygon(pts, op.get("inset", 0.0))  # BL-10: shrink the footprint
+    # P6: _inset_polygon returns None when the result would be self-intersecting
+    # or inverted (the post-hoc checks in v2 caught it).  Fall back to the
+    # original footprint so the proof emits a valid mesh; log a warning comment
+    # into the OBJ so the proof file honestly records the rejection.
+    _inset_raw = _inset_polygon(pts, op.get("inset", 0.0))
+    if _inset_raw is None:
+        _inset_fallback_log.append(
+            f"# WARNING: {op.get('name', '?')} inset rejected — self-intersection or inversion")
+    else:
+        pts = _inset_raw
     n = len(pts)
     x, y = op["x"], op["y"]
     z0 = op["base_z"]
@@ -977,7 +1068,14 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     fp = [(point["x"], point["y"]) for point in op["footprint"]]
     if len(fp) >= 2 and fp[0] == fp[-1]:
         fp = fp[:-1]
-    fp = _inset_polygon(fp, op.get("inset", 0.0))  # BL-10: shrink the cross-section
+    # P6: same None-fallback pattern as _prism_world — reject and warn rather
+    # than emit a self-intersecting sweep cross-section.
+    _fp_inset = _inset_polygon(fp, op.get("inset", 0.0))
+    if _fp_inset is None:
+        _inset_fallback_log.append(
+            f"# WARNING: {op.get('name', '?')} inset rejected — self-intersection or inversion")
+    else:
+        fp = _fp_inset
     # Drop consecutive-duplicate path points so a segment always has a tangent.
     raw = [(p["x"], p["y"]) for p in op["path"]]
     path = [raw[0]]
@@ -1177,10 +1275,21 @@ def obj_objects(ops: list, craftsmen: dict | None = None) -> list:
 
 def obj_lines(ops: list, craftsmen: dict | None = None) -> list:
     """The OBJ text: `o <name>` groups, `v`/`f` only (no normals/uv — the proof
-    is shape, not shading), 1-indexed across the file, op order, fixed `g` floats."""
-    lines: list = []
+    is shape, not shading), 1-indexed across the file, op order, fixed `g` floats.
+
+    P6: if any prism's inset was rejected and fell back to the original footprint,
+    the warning comment lines accumulated in _inset_fallback_log are prepended to
+    the output.  The `# WARNING: ...` lines are valid OBJ comments (OBJ ignores
+    lines starting with '#'); they appear before the first 'o' group so they are
+    visible at the top of the file without parsing the geometry."""
+    global _inset_fallback_log
+    _inset_fallback_log.clear()
+    objs = obj_objects(ops, craftsmen)  # may populate _inset_fallback_log
+    # Consume warnings collected during mesh generation (clear after snapshot).
+    lines: list = list(_inset_fallback_log)
+    _inset_fallback_log.clear()
     base = 1
-    for name, verts, faces in obj_objects(ops, craftsmen):
+    for name, verts, faces in objs:
         lines.append(f"o {name}")
         for vx, vy, vz in verts:
             lines.append(f"v {_fmt(vx)} {_fmt(vy)} {_fmt(vz)}")

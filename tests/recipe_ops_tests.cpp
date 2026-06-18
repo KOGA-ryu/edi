@@ -1978,6 +1978,56 @@ int main()
         assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
     }
 
+    // ---- P6: prism_inset_reflex_pinch guard — a second, tighter validate check
+    // that fires specifically at reflex corners of NON-CONVEX footprints. The
+    // bbox guard (prism_inset_too_large) is too coarse: it passes insets that
+    // are safe for a CONVEX footprint at the same bbox size but will pinch a
+    // reflex vertex. The per-vertex pinch bound is O(n) and geometry-aware. ----
+    {
+        // L-shaped footprint (6 vertices, one reflex vertex at the inner corner):
+        //   (0,4)─(0,0)─(4,0)─(4,2)
+        //   │              │
+        //   (2,4)──────(2,2)
+        // CCW winding (positive shoelace area). Reflex vertex at (2,2):
+        //   edge in from (4,2): length 2 | edge out to (2,4): length 2
+        //   pinch limit = 0.5 * min(2, 2) = 1.0.
+        const std::vector<PrismPoint> lShape = {
+            {0.0, 0.0}, {4.0, 0.0}, {4.0, 2.0}, {2.0, 2.0}, {2.0, 4.0}, {0.0, 4.0}};
+        const auto sawCode = [](const OpValidationReport &r, const char *code) {
+            for (const OpFinding &f : r.findings) { if (f.code == code) return true; }
+            return false;
+        };
+        AddPrismOp reflexPrism;
+        reflexPrism.name = "l_shape";
+        reflexPrism.footprint = lShape;
+        reflexPrism.height = 2.0;
+
+        // inset = 0.5 → well under the 1.0 pinch limit AND the 2.0 bbox limit.
+        // Neither guard fires — this is a safe inset for the L-shape.
+        reflexPrism.inset = 0.5;
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+
+        // inset = 1.1 → exceeds the 1.0 pinch limit for the reflex vertex, but
+        // is BELOW the 2.0 bbox limit. prism_inset_too_large does NOT fire; the
+        // new per-reflex guard DOES. This is the specific case the bbox guard
+        // misses but the per-vertex geometry check catches.
+        reflexPrism.inset = 1.1;
+        assert(sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+
+        // Convex footprint (the 4×4 square from BL-10): has no reflex vertices,
+        // so prism_inset_reflex_pinch must NOT fire, even for large insets.
+        // (prism_inset_too_large fires instead at inset >= 2.0.)
+        AddPrismOp convexPrism;
+        convexPrism.name = "square";
+        convexPrism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
+        convexPrism.height = 2.0;
+        convexPrism.inset = 2.5; // fires bbox guard, NOT reflex guard
+        assert(!sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_reflex_pinch"));
+        assert(sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_too_large"));
+    }
+
     // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,
     // and the remap-hardening chaining (Part 2). ----
     {

@@ -269,11 +269,10 @@ struct OpChecker {
         if (!std::isfinite(op.inset)) {
             add(findings, Severity::Error, "bad_inset", op.name + " inset must be finite.");
         } else if (op.inset > 0 && op.footprint.size() >= 3) {
-            // Conservative self-intersection guard (NOT a true straight-skeleton
-            // test): refuse an inset that could reach the footprint's centerline
-            // — i.e. >= half the SMALLER bbox extent. A v1 per-edge inward offset
-            // pinches a non-convex loop before that, so this only bounds the
-            // obvious collapse; a real straight-skeleton inset is the future fix.
+            // Guard 1 — global collapse guard (BL-10, unchanged): refuse an inset
+            // that could reach the footprint's bbox centerline. This is a coarse
+            // backstop that catches obvious full-collapse before we even run the
+            // polygon algorithm.
             double minX = op.footprint[0].x, maxX = op.footprint[0].x;
             double minY = op.footprint[0].y, maxY = op.footprint[0].y;
             for (const PrismPoint &p : op.footprint) {
@@ -286,6 +285,48 @@ struct OpChecker {
             if (op.inset >= 0.5 * smaller) {
                 add(findings, Severity::Error, "prism_inset_too_large",
                     op.name + " inset is too large for its footprint (would collapse it).");
+            }
+            // Guard 2 — per-reflex-vertex pinch guard (P6): the global bbox guard
+            // is too coarse for non-convex footprints. At a REFLEX vertex (interior
+            // angle > π), the edge-offset intersection travels farther into the
+            // polygon than at convex corners. The conservative bound: if
+            // inset >= 0.5 * min(adjacent edge lengths), the offset vertex can
+            // reach or cross through the far endpoint of the shorter adjacent edge,
+            // guaranteeing a self-intersection in the output. This is an O(n) check.
+            //
+            // Winding: CCW when the signed shoelace area is positive.
+            // Reflex detection: for each vertex i, the cross product of edge
+            //   a = (pts[i] - pts[i-1]) and b = (pts[i+1] - pts[i])
+            // has its z-component negative for a reflex vertex in a CCW polygon
+            // (and positive for CW). Cross-z = ax*by - ay*bx.
+            {
+                const std::size_t n = op.footprint.size();
+                double shoelace = 0.0;
+                for (std::size_t i = 0; i < n; ++i) {
+                    const PrismPoint &a = op.footprint[i];
+                    const PrismPoint &b = op.footprint[(i + 1) % n];
+                    shoelace += a.x * b.y - b.x * a.y;
+                }
+                const bool ccw = shoelace > 0.0;
+                for (std::size_t i = 0; i < n; ++i) {
+                    const PrismPoint &prev = op.footprint[(i + n - 1) % n];
+                    const PrismPoint &curr = op.footprint[i];
+                    const PrismPoint &next = op.footprint[(i + 1) % n];
+                    // a = edge into i, b = edge out of i.
+                    const double ax = curr.x - prev.x, ay = curr.y - prev.y;
+                    const double bx = next.x - curr.x, by = next.y - curr.y;
+                    const double crossZ = ax * by - ay * bx;
+                    // Reflex when cross-z has the OPPOSITE sign to a convex corner.
+                    const bool isReflex = ccw ? (crossZ < 0.0) : (crossZ > 0.0);
+                    if (!isReflex) continue;
+                    const double l1 = std::hypot(ax, ay);
+                    const double l2 = std::hypot(bx, by);
+                    if (op.inset >= 0.5 * std::min(l1, l2)) {
+                        add(findings, Severity::Error, "prism_inset_reflex_pinch",
+                            op.name + " inset is too large for a reflex vertex in its footprint.");
+                        break; // one finding per op, not per reflex vertex
+                    }
+                }
             }
         }
         checkTaperEnd(findings, op.name, op.taperEnd);

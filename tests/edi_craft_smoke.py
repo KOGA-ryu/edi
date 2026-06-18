@@ -10,6 +10,7 @@ reviewed against bpy semantics); everything testable without Blender is
 tested here so a refactor cannot silently bend the plan.
 """
 
+import math
 import os
 import re
 import sys
@@ -367,6 +368,109 @@ def main() -> int:
         return (max(xs) - min(xs)) * (max(ys) - min(ys)) * (max(zs) - min(zs))
     fat_verts = edi_craft._prism_world(dict(straight, normal_offset=0.5))[0]
     assert bbox_vol(fat_verts) > bbox_vol(base) + 1e-9, "normal_offset>0 must fatten the shell"
+
+    # P6: robust non-convex inset (edge-offset-then-intersect).
+    # v2 replaces the per-vertex bisector-amplification (1/cos_half → ∞ at
+    # reflex corners) with a per-EDGE offset + line-intersection approach that
+    # is numerically stable at all corner types, plus post-hoc area-flip and
+    # edge-crossing checks that return None on bad results.
+
+    # Helper: signed shoelace area of a 2D polygon.
+    def signed_area_p6(pts):
+        n2 = len(pts)
+        a = 0.0
+        for i in range(n2):
+            x0, y0 = pts[i]; x1, y1 = pts[(i + 1) % n2]
+            a += x0 * y1 - x1 * y0
+        return a * 0.5
+
+    # ---- Case 1: convex footprint with inset > 0 produces a smaller,
+    # well-formed polygon (same as v1 — both exact for convex corners). ----
+    p6_convex = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]  # 4×4 square CCW
+    p6_result = edi_craft._inset_polygon(p6_convex, 0.5)
+    assert p6_result is not None, "convex inset must succeed"
+    # The inset polygon has SMALLER signed area.
+    assert signed_area_p6(p6_result) < signed_area_p6(p6_convex) - 1e-9, \
+        "inset > 0 must produce a smaller polygon"
+    assert len(p6_result) == 4, "convex inset must keep vertex count"
+    # All result vertices must be strictly inside the original bbox.
+    p6_xs = [p[0] for p in p6_result]; p6_ys = [p[1] for p in p6_result]
+    assert min(p6_xs) > 0.0 + 1e-9 and max(p6_xs) < 4.0 - 1e-9, \
+        "inset polygon must be strictly inside original x-range"
+    assert min(p6_ys) > 0.0 + 1e-9 and max(p6_ys) < 4.0 - 1e-9, \
+        "inset polygon must be strictly inside original y-range"
+
+    # ---- Case 2: identity — inset = 0.0 is byte-identical. ----
+    assert edi_craft._inset_polygon(p6_convex, 0.0) is p6_convex, \
+        "inset=0 must return the same pts object (identity)"
+
+    # ---- Case 3: non-convex (L-shape) footprint with a MODERATE inset that
+    # v1 would handle poorly at the reflex vertex — v2 produces a valid,
+    # non-self-intersecting inset. ----
+    # L-shape (CCW): one reflex vertex at (2,2); adjacent edges each length 2.
+    # Pinch limit = 0.5*min(2,2) = 1.0; inset=0.5 is safely below it.
+    p6_lshape = [
+        (0.0, 0.0), (4.0, 0.0), (4.0, 2.0),
+        (2.0, 2.0), (2.0, 4.0), (0.0, 4.0)]
+    p6_nc = edi_craft._inset_polygon(p6_lshape, 0.5)
+    assert p6_nc is not None, \
+        "L-shape with moderate inset should produce a valid result, not None"
+    assert len(p6_nc) == 6, "vertex count must be preserved"
+    # The area of the inset polygon must be smaller (it was shrunk in).
+    assert signed_area_p6(p6_nc) < signed_area_p6(p6_lshape) - 1e-9, \
+        "non-convex inset must produce a smaller polygon"
+    # Sanity: verify all result edges have positive length (no degenerate edges).
+    for i in range(len(p6_nc)):
+        ex0, ey0 = p6_nc[i]; ex1, ey1 = p6_nc[(i + 1) % len(p6_nc)]
+        assert math.hypot(ex1 - ex0, ey1 - ey0) > 1e-9, "degenerate edge in inset result"
+
+    # ---- Case 4: oversized inset on the non-convex footprint returns None
+    # (the post-hoc area-flip or edge-crossing check fires) and the caller
+    # falls back to the original un-inset footprint. ----
+    # inset=1.5 > pinch limit=1.0 — the C++ guard refuses this; if it somehow
+    # reaches Python (defense-in-depth), None is returned.
+    p6_over = edi_craft._inset_polygon(p6_lshape, 1.5)
+    assert p6_over is None, \
+        "oversized inset on non-convex footprint must return None (self-intersection detected)"
+
+    # Confirm the caller (_prism_world) falls back to the original footprint
+    # when _inset_polygon returns None: build two ops — one with the safe
+    # inset (0.5) and one that is oversized (1.5, which will be None) — and
+    # verify the fallback op's XY footprint matches the original.
+    p6_fp_dicts = [{"x": x, "y": y} for x, y in p6_lshape]
+    p6_op_safe = {"type": "AddPrism", "name": "l_safe",
+                  "footprint": p6_fp_dicts, "x": 0.0, "y": 0.0,
+                  "base_z": 0.0, "height": 1.0, "inset": 0.5,
+                  "normal_offset": 0.0}
+    p6_op_over = {"type": "AddPrism", "name": "l_over",
+                  "footprint": p6_fp_dicts, "x": 0.0, "y": 0.0,
+                  "base_z": 0.0, "height": 1.0, "inset": 1.5,
+                  "normal_offset": 0.0}
+    p6_verts_safe, _ = edi_craft._prism_world(p6_op_safe)
+    p6_verts_over, _ = edi_craft._prism_world(p6_op_over)
+    # Fallback: the oversized-inset op's bottom cap verts must match the
+    # ORIGINAL footprint (no inset applied), not the failed inset result.
+    p6_n = len(p6_lshape)
+    p6_orig_xy = set(p6_lshape)
+    p6_over_xy = set((v[0], v[1]) for v in p6_verts_over[:p6_n])
+    assert p6_orig_xy == p6_over_xy, \
+        "oversized-inset fallback: bottom cap must match the original footprint"
+    # Safe inset: bottom cap verts differ from original (they were shrunk).
+    p6_safe_xy = set((v[0], v[1]) for v in p6_verts_safe[:p6_n])
+    assert p6_safe_xy != p6_orig_xy, \
+        "safe inset: bottom cap must differ from original (inset was applied)"
+
+    # ---- Case 5: obj_lines with the oversized-inset op includes a # WARNING
+    # comment line — and the warning does not contain '{' or '}' (no JSON). ----
+    p6_warn_lines = edi_craft.obj_lines([p6_op_over])
+    p6_wcs = [l for l in p6_warn_lines if l.startswith("# WARNING:")]
+    assert p6_wcs, "obj_lines must emit # WARNING for a rejected inset"
+    for wc in p6_wcs:
+        assert '{' not in wc and '}' not in wc, "OBJ warning must not contain JSON syntax"
+    # obj_lines with the safe op must NOT emit a warning.
+    p6_safe_lines = edi_craft.obj_lines([p6_op_safe])
+    assert not any(l.startswith("# WARNING:") for l in p6_safe_lines), \
+        "obj_lines must not emit a warning for a successful inset"
 
     # BL-11 / P2: an AddBoolean's PROOF emits its two operands (by name) tagged
     # with the boolean intent — it does NOT compute the CSG. P2: an operand

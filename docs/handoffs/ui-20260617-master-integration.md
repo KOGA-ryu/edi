@@ -26,6 +26,32 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
    tool-option input, inspector field, picker, panel). Match the existing design exactly.
 3. **Shell goldens** (H1 + DM-11) — re-bless the machine-local goldens on this box.
 
+## ⏻ POWER-DOWN CHECKPOINT (2026-06-17) — FINAL STATE, RESUME HERE
+Fleet powered down by hub call. **Master = `ed90e3d`, edi-gate GREEN 104/104 + scan, the
+complete latest integration line.** Origin reconciled to the integration line via the box→Mac
+SSH bridge (hub pushes origin; the BOX has no GitHub egress — never `git push` from here).
+
+**Everything integrated to local master:** all drafting (DR-01..15 + M1 + M2 + M8 motif library
++ DR-13 angular arm), all blender-lab (P1..P7 + RD1/RD2), all dungeon-map (feature batch DM-01..15
+CLOSED + interactive map-graph authoring corridors+doors `980cc67` CLOSED). Drafting reported its
+named queue exhausted (idle).
+
+**Chrome delivered + reviewer-ACCEPT:** DM bucket (DM-01/10/11/14/15), DR-11 kaleidoscope, DR-13
+angular belt cell+combo (now LIVE — arm landed), M8 Motifs palette.
+
+**Chrome backlog for next session (mine, all unblocked or with a noted dependency):**
+1. **Door-type picker** (dungeon-map batch-2) — hub-ratified: a type selector over the neutral
+   plug-type set, default door, bound to `active_plug_type`, PRE-SELECTING the plug's current type.
+   DEPENDENCY: dungeon-map must add the `active_plug_type` projection key (mirror
+   `active_object_is_plug`) — requested in `~/dept-bus/dungeon-map/replies/009-...`. Build ref:
+   chrome contract `~/dept-bus/dungeon-map/replies/006-chrome-contract-batch2.md` (read it first —
+   it may list MORE batch-2 chrome beyond the door picker).
+2. **DR-13 arc painter** — canvas paint seam (draw the angle arc + readout); arm is live.
+3. **M2-S3 Node-snap inspector checkbox** — projection key `node_enabled` is published; wire the checkbox.
+4. **DR-14/15 dim/fill cells, DR-07/08/09 modify-verb chrome** — specced in DR-surfaces, "SURFACE NOW".
+
+**Standing user look-call:** motif palette stays adjacent-to-Blocks (current) unless user moves it.
+
 ## RESUMED 2026-06-17 — progress since the pause
 - ✅ **REBALANCE merges landed:** blender-lab full batch @`88452bb`, drafting DR-11/12 @`f8bed78`.
   edi-gate green both. bus-hub'd.

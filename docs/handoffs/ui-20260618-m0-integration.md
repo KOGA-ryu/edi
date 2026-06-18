@@ -42,7 +42,14 @@ _(append one row per merge: tip, what, edi-gate result)_
 
 | When | Dept | Tip merged | What | edi-gate |
 | --- | --- | --- | --- | --- |
-| — | — | — | (none yet — awaiting first green M0 tip) | — |
+| 2026-06-18 ~14:10 | blender-lab | `03b8cc1` → merge `ac3bf96` | M0 REALIZER (tools/blender/edi_realize.py + smoke test + sample evidence). Two-tier bpy: pure parse_toon/plan_greybox (GPU-free, ctest #100) + Blender OptiX render. | GREEN 105/105 + scan |
+
+**Realizer gate evidence verified on the merged line** (render.log L288–294):
+`compute_device_type: OPTIX`, `[X] OPTIX NVIDIA GeForce RTX 5090`,
+`GPU CONFIRMED: rendering on OPTIX device(s): ['NVIDIA GeForce RTX 5090']`
+(CUDA box unchecked → no CPU fallback), 128 samples Finished `Time:00:03.14`,
+peak `1553M` (~1.5 GB), `crypt.png` 1920×1080. All 4 gate criteria PASS for the
+realizer half. Blender 4.5.9 (box version) — edi_craft seam re-verified clean.
 
 ## Seam notes (for the final converge-check)
 - 2026-06-18 ~13:57 — dungeon-map pushed a socket-contract PROPOSAL (v0) on its
@@ -67,4 +74,10 @@ _(append one row per merge: tip, what, edi-gate result)_
   the seam lines up + keeps master green.
 
 ## Next
-- Poll the hub inbox + dept branch tips for the first green M0 tip; merge it.
+- REALIZER merged ✓. Awaiting the GENERATOR (dungeon-map): hardcoded crypt
+  MapSpec → createMapFromSpec → Seam-B TOON. Merge when green.
+- THE CLOSING CONVERGE (gate criterion #4 — one-command whole chain): the
+  realizer ran on its own `samples/crypt_m0/crypt.toon`. Once the generator
+  lands, confirm the generator-emitted TOON feeds the realizer and renders —
+  i.e. the two halves agree on the wire + the 2D→3D handedness. That end-to-end
+  confirm is the M0 finish line; flag any divergence to both depts.

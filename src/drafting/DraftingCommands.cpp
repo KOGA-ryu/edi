@@ -1,6 +1,7 @@
 #include "drafting/DraftingCommands.h"
 
 #include "drafting/DraftingBlockOps.h"
+#include "drafting/DraftingMotifOps.h"
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingGraphOps.h"
 #include "drafting/DraftingGuideOps.h"
@@ -366,6 +367,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(removeBlock(document, typedCommand.blockId));
         } else if constexpr (std::is_same_v<Command, CreateMapRoomCommand>) {
             return fromStoreResult(addMapRoom(document, typedCommand.room));
+        } else if constexpr (std::is_same_v<Command, CreateMotifCommand>) {
+            return fromStoreResult(addMotif(document, typedCommand.motif));
         } else {
             // Exhaustiveness guard (same idiom as the guarded DraftingGeometry
             // visits): every command alternative is handled above, so this arm is

@@ -33,6 +33,21 @@ struct DraftingLayer {
     LayerPlotStyle plot;
 };
 
+// --- Motif library (CORE) ----------------------------------------------------
+// A motif is a flash-sheet TEMPLATE: a named, normalized bag of objects that can
+// be re-dropped (flattened) onto the grid.  It is the CORE twin of the map-owned
+// DraftingBlock — same flatten shape but:
+//   • name-keyed (no id, no assetRef, no Seam-B asset reference)
+//   • Guide objects are EXCLUDED at capture (guides have no local re-droppable
+//     position; ConstructionLines and everything else translate fine)
+//   • locked/visible reset to defaults on each template object
+// `bounds` is DERIVED — NOT serialised; recomputed on load.
+struct DraftingMotif {
+    std::string name;                  // unique key within the document
+    std::vector<DraftingObject> objects;
+    Bounds2D bounds;                   // origin-based union extent; not serialised
+};
+
 // --- Map graph + block library -----------------------------------------------
 // The document-record structs DraftingPlug, DraftingDeclaredConnection,
 // DraftingMapRoom and DraftingBlock moved to drafting/DraftingMapTypes.h (HUB H2 —
@@ -47,6 +62,9 @@ struct DraftingDocument {
     std::vector<DraftingLayer> layers;
     LayerId activeLayerId = "default";
     std::vector<DraftingObject> objects;
+    // Motif library (CORE): flash-sheet templates, name-keyed, not map-owned.
+    // Rides the same free DocumentSnapshot undo as objects/layers.
+    std::vector<DraftingMotif> motifs;
     // The map graph rides INSIDE the document (beside objects), so it inherits the
     // existing DocumentSnapshot undo/redo for free — no separate undo plumbing.
     std::vector<DraftingPlug> plugs;

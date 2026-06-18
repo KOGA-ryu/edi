@@ -136,14 +136,27 @@ Chamfer/Break/BlockInstance/RegionFill — nothing for connect-plugs). The graph
   trap) + B2-5 (manual re-route).
 - Each carries the reviewer's baked acceptance. ui-integration wires chrome later.
 
-## ⏸ PAUSED — clean checkpoint (HUB context swap, 2026-06-17)
-- **Current task:** BATCH-2 interactive authoring; design SETTLED, surface model
-  ratified, batch-1 brief (`020`, plug+connection tools) WRITTEN and READY but **NOT
-  dispatched** (paused before scooping). No code in flight — only this handoff.
-- **Branch:** `dept/dungeon-map`, rebased on master; tree clean after this commit.
-- **RESUME POINT:** dispatch `~/dept-bus/edi-dungeon-map/briefs/020-builder-plug-connection-tools.md`
-  to `edi-dungeon-map-builder` (no rebuild needed first — docs-only checkpoint), then
-  continue batches 2–3 per the slice plan. No workers currently running.
+## ▶ RESUMED (HUB, 2026-06-17) — full fleet live, new toolbelt + tiering
+Re-read the updated `~/dept-bus/PROTOCOL.md`: green gate = `edi-gate`; reply via
+`bus-reply`; number via `bus-next`; context hygiene via `bus-ctx`/`dept-cycle`;
+model tiering (planner+reviewer=Opus, builder+researcher=Sonnet); merges → `edi-ui`,
+surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-status` +
+`dept-cycle` any of MY workers >500k OR still on opus.**
+
+- **Batch-1 (B2-1+B2-2) DISPATCHED.** `dept-cycle`'d the builder opus→sonnet (was
+  412.8k on opus; rolled + shed context) and sent brief `020`. Builder working now.
+- **Cross-dept slice (hub-routed) — brief `021` WRITTEN, QUEUED behind 020:** add
+  `has_block_instance_selection` + `instance_id` to `DrawingDocumentProjection.cpp`
+  (block instances are our domain) for edi-ui's DM-15 inspector. **bus-hub the hub
+  when it lands so it routes the green tip to edi-ui.** (This is the optional
+  projection key the DM-15 builder noted but left.)
+- Reviewer is on opus/255k (target opus) — OK, no cycle.
+
+### Updated batch order
+- batch-1 = B2-1 + B2-2 (`020`) — IN FLIGHT.
+- batch-1b = block-instance projection keys (`021`, cross-dept) — queued next.
+- batch-2 = B2-CTX (relation-aware `contextForKind`) + B2-3 (setPlugType door-type).
+- batch-3 = B2-4 (delete + cascade cleanup) + B2-5 (manual re-route).
 
 ## Next
 - Reviewer settles the interactive-authoring design → I spec the builder batches →

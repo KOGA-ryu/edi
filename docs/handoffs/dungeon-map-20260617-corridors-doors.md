@@ -294,11 +294,23 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   trusted-sub-command pattern (createObjectsAndSelect, transformBlockInstance) — consistent,
   not a regression. Optional fix: pre-validate unlocked layers / surface partial-failure.
 
-### Builder slice 029 (m_activeConnectionId hygiene — EXPANDED) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/029-builder-b2ctx-mutex-fix.md`
-- Now covers BOTH the audit-028 bug (clear `m_activeConnectionId` at top of
-  `clickCanvasNormalized`) AND the B2-4 flag (validate-or-clear in the delete verbs).
-  Must land before B2-3. B2-5 (`027`) queued after.
+### Builder slice 029 (m_activeConnectionId hygiene — EXPANDED) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/029-builder-b2ctx-mutex-fix.md`. Commit
+  `7933f1c`. edi-gate GREEN 102/102; no-rebase honored; verified the clear at
+  `clickCanvasNormalized:777` + the delete-verb validate-or-clear guards. **Both fixed:**
+  the audit-028 mutex bug (clicking an object/plug while a connection is selected now
+  clears it → `object_plug` reachable → B2-3 unblocked) AND the B2-4 stale-after-delete.
+  4 tests (incl. the canvas-click path the audit said was uncovered). Planner-verified
+  (targeted fix of audited code per the reviewer's rec — no re-audit).
+- Open (record, deferred): undo-restoring-a-selection both-true corner;
+  `cancelPendingCreation` non-clear (benign). → batch-3 hardening candidates.
+
+### Builder slice 027 (B2-5 manual re-route) — DISPATCHED (the last CORE slice)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/027-builder-b2-5-reroute.md`
+- `rerouteConnection` (delete old `connection:<id>` corridor → re-emit from current plug
+  anchors; factor a shared `emitCorridorForConnection` helper from B2-2). After this the
+  CORE interactive loop (plug · connect · delete · re-route) is complete → BATCH MILESTONE
+  (bus-hub: green tip ready to merge + the B2-3-vs-defer decision).
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

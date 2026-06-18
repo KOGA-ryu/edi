@@ -386,6 +386,19 @@ public:
     // The selection surfaces in the projection as has_connection_selection /
     // active_connection_id so the widget layer can build the inspector input.
     void selectConnection(const QString &connId);
+    // B2-4: drop a declared connection + its rendered corridor geometry. One bracket:
+    // DeleteConnectionCommand (removes the graph edge, plugs stay) + DeleteObjectCommand
+    // for each object tagged "connection:<connId>". Returns false when the id is unknown.
+    // v1: the two plugs and their door leaves are NOT reverted — a plug can be
+    // reconnected. One undo restores the graph edge and all corridor objects.
+    bool deleteConnection(const QString &connId);
+    // B2-4: drop a plug + its cascade. Gather FIRST (before any mutation): the anchor
+    // marker, the door leaf (if any, tagged "plug:<plugId>"), and every corridor wall
+    // of each connection that named this plug (tagged "connection:<connId>"). ONE
+    // bracket: DeletePlugCommand (cascades all connection edges) THEN DeleteObjectCommand
+    // for every gathered object. Returns false when the plug id is unknown.
+    // One undo restores the plug, its connections, and all associated rendered objects.
+    bool deletePlug(const QString &plugId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);

@@ -2,6 +2,7 @@
 #include "core/DrawingDocumentProjection.h"
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingGraphOps.h"  // plugIndexById, connectionIndexById (B2-4 tests)
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingSerialize.h"
 
@@ -5015,6 +5016,131 @@ int main(int argc, char **argv)
         plainCtl.clickCanvasNormalized(0.5, 0.5); // create a circle
         model = plainCtl.modelDocument();
         assert(!model.value(QStringLiteral("active_object_is_plug")).toBool());
+    }
+
+    // --- B2-4: deleteConnection + deletePlug -----------------------------------
+    //
+    // Fixture shared across all four cases (repeated inline — DrawingDocumentController
+    // is a QObject, so it cannot move into a std::tuple returned from a lambda;
+    // four short setup sequences are clearer than heap-wrapping them).
+
+    // (1) deleteConnection(validId) — edge + corridor gone, plugs stay,
+    //     one undo restores everything.
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
+
+        // Count corridor walls (tagged "connection:<connId>").
+        const std::string connTag = "connection:" + cId.toStdString();
+        int corridorCount = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++corridorCount; break; }
+            }
+        }
+        assert(corridorCount > 0); // at least one corridor wall present
+
+        assert(ctl.deleteConnection(cId));
+
+        // Graph edge gone.
+        assert(ctl.draftingDocument().connections.empty());
+        // Corridor walls gone.
+        int remaining = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++remaining; break; }
+            }
+        }
+        assert(remaining == 0);
+        // Plug markers still present (both plugs + both markers).
+        assert(ctl.draftingDocument().plugs.size() == 2);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+               == objectsWithConn - corridorCount);
+
+        // One undo restores the edge AND the corridor.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().connections.size() == 1);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+    }
+
+    // (2) deleteConnection(unknownId) → no-op (returns false).
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId2 = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId2 = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId2, bId2));
+        const std::size_t connsBefore = ctl.draftingDocument().connections.size();
+        assert(!ctl.deleteConnection(QStringLiteral("no-such-connection")));
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+    }
+
+    // (3) deletePlug(plugA) — plug + connection + corridor + anchor marker gone;
+    //     plug B + its marker remain; one undo restores everything.
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
+        const std::size_t plugsBefore  = ctl.draftingDocument().plugs.size();       // 2
+        const std::size_t connsBefore  = ctl.draftingDocument().connections.size(); // 1
+
+        // Count objects that belong to plug A's connection (corridor walls tagged
+        // "connection:<cId>") plus the anchor marker itself.
+        const std::string connTag = "connection:" + cId.toStdString();
+        int doomed = 0; // corridor walls
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++doomed; break; }
+            }
+        }
+        doomed += 1; // + the anchor marker for plug A
+
+        assert(ctl.deletePlug(aId));
+
+        // Plug A gone; plug B still present.
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore - 1);
+        assert(!edi::drafting::plugIndexById(ctl.draftingDocument(), aId.toStdString()));
+        assert( edi::drafting::plugIndexById(ctl.draftingDocument(), bId.toStdString()));
+
+        // Connection gone (cascaded from DeletePlugCommand).
+        assert(ctl.draftingDocument().connections.empty());
+        assert(!edi::drafting::connectionIndexById(ctl.draftingDocument(), cId.toStdString()));
+
+        // Corridor walls and anchor marker of plug A gone.
+        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+               == objectsWithConn - doomed);
+        // Plug B's anchor marker still exists.
+        const std::string bAnchorId =
+            ctl.draftingDocument().plugs.front().anchorObjectId;
+        assert(edi::drafting::findObject(ctl.draftingDocument(), bAnchorId) != nullptr);
+
+        // One undo restores plug A + connection + corridor + anchor marker.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+    }
+
+    // (4) deletePlug(unknownId) → no-op (returns false).
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
+        assert(!ctl.deletePlug(QStringLiteral("no-such-plug")));
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
     }
 
     return 0;

@@ -2102,6 +2102,124 @@ void DrawingDocumentController::selectConnection(const QString &connId)
     emit modelChanged();
 }
 
+bool DrawingDocumentController::deleteConnection(const QString &connId)
+{
+    const std::string id = toStdString(connId);
+    if (!connectionIndexById(m_document, id)) {
+        return finishEdit(QStringLiteral("delete"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection does not exist"));
+    }
+
+    // Gather the corridor-wall object ids BEFORE the bracket mutates the document.
+    // A corridor wall is any document object whose tags contain "connection:<id>".
+    // The gather snapshot is stable because we iterate the live vector once before
+    // any erase — the same safe gather-first pattern deletePlug uses.
+    const std::string connTag = "connection:" + id;
+    std::vector<DraftingObjectId> corridorIds;
+    for (const DraftingObject &object : m_document.objects) {
+        for (const std::string &tag : object.metadata.tags) {
+            if (tag == connTag) {
+                corridorIds.push_back(object.id);
+                break; // one match per object is enough
+            }
+        }
+    }
+
+    // ONE bracket = one undo step that restores the edge AND the corridor geometry.
+    beginEdit();
+    // 1. Remove the graph edge (undeclareConnection). The two plugs and their door
+    //    leaves intentionally STAY — a disconnected plug can be reconnected (v1
+    //    choice ratified by gate 019).
+    applyDraftingCommand(m_document, DeleteConnectionCommand{id});
+    // 2. Delete each corridor wall. removeObject calls pruneGraphForRemovedObject on
+    //    the wall's id — but walls are never plug anchors, so the prune is a no-op.
+    for (const DraftingObjectId &wallId : corridorIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId});
+    }
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::deletePlug(const QString &plugId)
+{
+    const std::string id = toStdString(plugId);
+    const auto idx = plugIndexById(m_document, id);
+    if (!idx) {
+        return finishEdit(QStringLiteral("delete"), QStringLiteral("plug"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("plug does not exist"));
+    }
+
+    // ── GATHER FIRST ─────────────────────────────────────────────────────────
+    // Read all ids we need to delete BEFORE the first mutation. Once DeletePlugCommand
+    // fires, the plug and its connection records are gone from m_document — any
+    // subsequent lookup against them would find nothing.
+    //
+    // 1. The plug's anchor marker object.
+    const DraftingObjectId anchorId = m_document.plugs[*idx].anchorObjectId;
+
+    // 2. The door-leaf object (if any) tagged "plug:<plugId>".
+    //    B2-3 mints the leaf with this tag; it may not exist on a plain placed plug.
+    const std::string plugLeafTag = "plug:" + id;
+    std::string leafId;
+    for (const DraftingObject &object : m_document.objects) {
+        for (const std::string &tag : object.metadata.tags) {
+            if (tag == plugLeafTag) {
+                leafId = object.id;
+                break;
+            }
+        }
+        if (!leafId.empty()) {
+            break;
+        }
+    }
+
+    // 3. The corridor walls of every connection that names this plug (plugA or plugB).
+    //    One connection may have MULTIPLE corridor walls; collect all of them.
+    std::vector<DraftingObjectId> corridorIds;
+    for (const DraftingDeclaredConnection &conn : m_document.connections) {
+        if (conn.plugA == id || conn.plugB == id) {
+            const std::string connTag = "connection:" + conn.id;
+            for (const DraftingObject &object : m_document.objects) {
+                for (const std::string &tag : object.metadata.tags) {
+                    if (tag == connTag) {
+                        corridorIds.push_back(object.id);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── ONE BRACKET ──────────────────────────────────────────────────────────
+    // Command order is deliberate (the double-prune ordering the brief calls out):
+    //
+    //   A. DeletePlugCommand FIRST — removePlug() cascades the connection EDGES from
+    //      the graph (plugs.connections erased). The plug record is now gone.
+    //   B. DeleteObjectCommand for the anchor marker — removeObject calls
+    //      pruneGraphForRemovedObject(anchorId), which looks for plugs anchored to
+    //      anchorId and finds NONE (step A already removed the plug). The prune is
+    //      a harmless no-op. We do NOT rely on this marker-driven prune instead of
+    //      DeletePlugCommand — the explicit command keeps the order transparent.
+    //   C. DeleteObjectCommand for the door leaf (if gathered).
+    //   D. DeleteObjectCommand for each corridor wall (plug's connection corridors).
+    //      Same no-op prune as above — corridor walls are never plug anchors.
+    beginEdit();
+    applyDraftingCommand(m_document, DeletePlugCommand{id});  // A: graph edge cascade
+    applyDraftingCommand(m_document, DeleteObjectCommand{anchorId}); // B: anchor marker
+    if (!leafId.empty()) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{leafId}); // C: door leaf
+    }
+    for (const DraftingObjectId &wallId : corridorIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId}); // D: corridor walls
+    }
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring

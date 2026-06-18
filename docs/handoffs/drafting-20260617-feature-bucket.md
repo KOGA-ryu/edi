@@ -453,9 +453,32 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - Small independent slice; QUEUED as the NEXT builder slice AFTER DR-13 (single builder, mid-DR-13).
   Rebase that slice onto master REF (now `ef9bf0a`+).
 
+### DR-13 core — CLOSED 2026-06-17 ✅ (SHA `37dcb7f`, GREEN 101/101) — Candidate A, spot-checked
+- Reply: `~/dept-bus/edi-drafting/replies/028-DR13-angular-core-builder.md`. All 7 slices;
+  `planAngularDimension` matches the settled Candidate A; `dimensionKindName` switch
+  exhaustive (Angular arm + safe default); `dimensionKindFromName`/`draftingDimensionKindFromId`
+  symmetric round-trip; `planDimensionKindChange` rejects→Angular; `dimensionMeasuredAngle`
+  returns offset for Angular; projection guard shows "Angle"/suppresses length. Width/Height
+  if-chains fall through safely for Angular.
+- **Planner SPOT-CHECK (Opus, inline — no separate diff-audit):** verified the serialize
+  round-trip symmetry + the `DimensionKind` switch exhaustiveness + the kind maps + that
+  Angular stays off the length-edit paths. The reviewer GATE already did the deep
+  representation analysis; the implementation faithfully follows it; green incl. the new
+  round-trip test → ACCEPT inline.
+- Builder-flagged (acceptable, pre-painter): the Angular "Angle" field reuses fieldId
+  `"offset"` (DraftingNumericEdit is out-of-scope), so `physical_unit_kind` reads "length"
+  until edi-ui's Angular slice extends `isAngleField`. Noted with the painter seam.
+- Reported DR-13 (`37dcb7f`) to edi-ui to pull.
+
+### DR-10-fix — rotate-copies clamp — builder BRIEFED 2026-06-17 (next slice)
+- Brief: `~/dept-bus/edi-drafting/briefs/029-DR10fix-rotcopies-clamp-builder.md`. Setter
+  stores faithfully (drop the silent `>=1.0` swallow), op rejects degenerate near-zero total
+  angle (`<1e-6`) with a visible code+message. Stacks on DR-13 (clean — DR-13 not yet on
+  master, replays as branch-unique, no dup).
+
 ## Open questions / blockers
-- DR-13 painter ARC is an edi-ui seam (flagged) — rides with the eventual Angular tool wiring.
-- DR-10-fix (rotate-copies clamp) queued behind DR-13.
+- DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
+  with the eventual Angular tool wiring.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

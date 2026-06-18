@@ -440,10 +440,22 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   round-trip, reject kind-change-to-Angular, projection/inspector guard, op tests). Painter
   arc + measurement-text formatting explicitly OUT. Builder sonnet/on-target/low-ctx (no cycle).
 
+- **MERGED (edi-ui):** DR-11 + canonical-mirror fix + DR-12 on master @`f8bed78` (101/101);
+  master HEAD since advanced (`ef9bf0a`). DR-01..12 now all integrated.
+
+### QUEUED — DR-10-fix · rotate-copies total-angle clamp gap (edi-ui chrome-reviewer nit)
+- `setRotateCopiesTotalAngle` (~`DrawingDocumentController.cpp:1927`) silently ignores
+  `|angle| < 1.0`, but the shell's rosette spin allows `0.0` → silent field↔state divergence
+  (spin shows 0, controller keeps prior angle). **Planner semantics decision:** setter STORES
+  faithfully (drop the silent <1.0 swallow; keep only a non-finite guard); `rotateCopiesDraftingObject`
+  (op) REJECTS a degenerate near-zero total angle with a visible code+message (surfaced via
+  finishEdit). Data-oriented (validation in the op), no silent divergence, no degenerate ring.
+- Small independent slice; QUEUED as the NEXT builder slice AFTER DR-13 (single builder, mid-DR-13).
+  Rebase that slice onto master REF (now `ef9bf0a`+).
+
 ## Open questions / blockers
-- DR-13 painter ARC is an edi-ui seam (flagged) — must accompany the eventual Angular
-  tool/controller wiring or the render breaks. Not blocking the core slices.
-- DR-11+fix+DR-12 (tip `e111398`) verified, await edi-ui pull (non-blocking).
+- DR-13 painter ARC is an edi-ui seam (flagged) — rides with the eventual Angular tool wiring.
+- DR-10-fix (rotate-copies clamp) queued behind DR-13.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

@@ -357,10 +357,28 @@ plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspecto
    (`beginPlugPick`/`beginConnectionPick`/`selectConnection`/`setPlugType`/`deletePlug`/
    `deleteConnection`/`rerouteConnection`) — for edi-ui to wire the chrome.
 
-### Queue (post-ratify)
-- B2-3 (`033`) — ▶ IN FLIGHT → audit.
-- undo-both-true fix (`034`) — queued after B2-3.
-- Then: batch-2 fully complete → closeout + final green tip to edi-ui.
+### Builder slice 033 (B2-3 setPlugType / door authoring) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/033-builder-b2-3-setplugtype.md`. Commit
+  `94da743`. edi-gate GREEN 102/102; no-rebase honored. New `UpdatePlugCommand` arm +
+  `updatePlug` op (sets type only, ++rev) + `wallTypeForPlugType` promoted to
+  `DraftingMapQuery` (byte-identical; authored render unchanged) + `setPlugType` (one
+  bracket: UpdatePlug + delete/mint `plug:<id>` leaf, live anchor, one undo). Comprehensive
+  tests. → audit `035`.
+- **Builder flags → chrome contract / follow-up (fold into closeout):**
+  1. Authored-path leaves are UNTAGGED → `setPlugType` on an AUTHORED plug would DUPLICATE
+     the leaf. v1-safe because `object_plug` is reached only via interactive placement
+     (audit 035 verifies airtight); else a follow-up backfills the authored leaf tag.
+  2. No `door_leaf_type` projection key — edi-ui's door-type picker reads the plug's
+     current `type` from the document (or a future key). Note in the chrome contract update.
+
+### Reviewer checkpoint audit of B2-3 — DISPATCHED (035, parallel with 034)
+- Focus: the new command arm wiring/exhaustiveness, `updatePlug` field-isolation, the
+  `wallTypeForPlugType` behavior-preserving extraction, the leaf re-mint/one-undo, the
+  authored-leaf-duplicate gap.
+
+### Builder slice 034 (undo/redo both-true reconcile) — DISPATCHED
+- The last ratified batch-3 correctness item. After 034 + the B2-3 audit clear → batch-2
+  FULLY COMPLETE → closeout + final green tip to edi-ui.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

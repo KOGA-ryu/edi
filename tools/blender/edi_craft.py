@@ -1071,9 +1071,11 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     v1 orientation rule: the footprint cross-section stands UP perpendicular to
     the path — its local x maps to the path's in-plane normal, its local y maps
     to world z (above base_z). At each path point a copy of the loop is placed,
-    oriented by that point's straight-SEGMENT tangent (no miter at corners — that
-    is a future refinement); consecutive loops are joined by side quads and the
-    first/last loops are capped, so the result is watertight.
+    oriented by the MITER tangent — the bisector of the adjacent segments (P5),
+    with the in-plane normal scaled by miter_scale = 2/|t_in+t_out| = 1/cos(α/2)
+    so the cross-section keeps its width through the corner; endpoints use the
+    single-segment tangent (scale 1.0). Consecutive loops are joined by side
+    quads and the first/last loops are capped, so the result is watertight.
 
     BL-09 taper: each loop is scaled by lerp(1.0, taper_end, fraction-of-path-
     LENGTH) before placement — first loop at 1.0, last at taper_end (a shaft /
@@ -1130,23 +1132,81 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
                                               path[k][1] - path[k - 1][1]))
     total = cumlen[-1] or 1.0
 
+    # P5: pre-compute UNIT SEGMENT TANGENTS for all m−1 segments so each can
+    # be looked up by index.  segs[k] = normalised direction of path[k]→path[k+1].
+    # The duplicate-point filter above guarantees |seg| > 0 for all k.
+    segs = []
+    for k in range(m - 1):
+        dx = path[k + 1][0] - path[k][0]
+        dy = path[k + 1][1] - path[k][1]
+        L = math.hypot(dx, dy) or 1.0
+        segs.append((dx / L, dy / L))
+
     loops = []
     for k in range(m):
         px, py = path[k]
-        if k < m - 1:
-            tx, ty = path[k + 1][0] - px, path[k + 1][1] - py
+        # P5 BISECTOR MITER FRAME.
+        #
+        # BL-08 v1 used the outgoing (or incoming at the last point) segment
+        # tangent — fine for straight paths but leaves a discontinuous jump at
+        # corners: the quads on the "turn" side of the tube overlap while the
+        # quads on the "straight" side leave a gap.
+        #
+        # v2: at an INTERIOR path point (0 < k < m-1), use the normalised sum
+        # of the incoming and outgoing unit tangents — the bisector direction.
+        # The cross-section is then placed in the MITER PLANE (perpendicular to
+        # the bisector) so it meets both adjacent tubes flush.
+        #
+        # WHY bisector: t_in + t_out bisects the turn angle α between the two
+        # segments.  The miter plane is perpendicular to the bisector in XY.
+        # Placing the loop in that plane means the front and back faces of the
+        # cross-section lie exactly on the adjacent segment-perpendicular planes
+        # (no gap, no overlap).
+        #
+        # WHY miter_scale = 2/|t_in+t_out|: the miter plane is tilted α/2 from
+        # each adjacent perpendicular.  A profile width W in the miter plane has
+        # an apparent width of W·cos(α/2) = W·|b|/2 in the perpendicular view.
+        # To preserve the intended tube width, pre-scale the in-plane fx component
+        # by the inverse: 2/|b|.  Key identity: cos(α/2) = |t_in+t_out|/2,
+        # so no trig is required.
+        #
+        # BYTE-IDENTICAL for straight paths: collinear points have t_in = t_out,
+        # so b = 2·t_in, |b| = 2, miter_scale = 1.0 — identical to v1.
+        #
+        # ENDPOINTS: only one adjacent segment → single-segment perpendicular
+        # frame, miter_scale = 1.0, unchanged from v1.
+        if k == 0:
+            tx, ty = segs[0]
+            miter_scale = 1.0
+        elif k == m - 1:
+            tx, ty = segs[-1]
+            miter_scale = 1.0
         else:
-            tx, ty = px - path[k - 1][0], py - path[k - 1][1]
-        length = math.hypot(tx, ty) or 1.0
-        tx, ty = tx / length, ty / length
-        nx, ny = -ty, tx  # in-plane normal to the path tangent
+            tin_x, tin_y = segs[k - 1]
+            tout_x, tout_y = segs[k]
+            bx, by = tin_x + tout_x, tin_y + tout_y
+            bl = math.hypot(bx, by)
+            if bl < 1e-6:       # near-hairpin; validate should have refused this
+                tx, ty = tout_x, tout_y
+                miter_scale = 1.0
+            else:
+                tx, ty = bx / bl, by / bl
+                # Python safety clamp: validate is the real guard (it refuses
+                # bl < 0.5, i.e. miter_scale > 4); the clamp prevents infinite
+                # coordinates if _swept_prism_world is called without validate.
+                miter_scale = min(2.0 / bl, 10.0)
+        # In-plane normal, pre-scaled by miter_scale.
+        # At interior corners this widens the cross-section to compensate for
+        # the oblique cut; at endpoints and straight segments it equals nx/ny.
+        nx_eff = (-ty) * miter_scale
+        ny_eff =   tx  * miter_scale
         t = (cumlen[k] / total) ** taper_curve  # P4: curved fraction (1.0 = linear)
         sx = 1.0 + (taper - 1.0) * t   # P4b: per-axis X scale
         sy = 1.0 + (ey - 1.0) * t      # P4b: per-axis Y scale
         for fx, fy in fp:
             if tapering:  # scale the cross-section about its centroid, per axis
                 fx, fy = cx + sx * (fx - cx), cy + sy * (fy - cy)
-            loops.append((ox + px + fx * nx, oy + py + fx * ny, base_z + fy))
+            loops.append((ox + px + fx * nx_eff, oy + py + fx * ny_eff, base_z + fy))
 
     verts = list(loops)
     faces = []

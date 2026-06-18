@@ -1,5 +1,25 @@
 # Handoff — blender-lab-20260617-batch2-polish
 
+## ⏻ POWER-DOWN CHECKPOINT — 2026-06-17 (RESUME RECIPE)
+- **STATUS: BATCH-2 COMPLETE.** All 8 deferred-polish (P1, P2, P3, P3b, P4, P4b, P5, P6, P7)
+  + 3 roadmap-depth (RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, RD3 craftsmen doc) shipped
+  & verified. Closeout frozen: `docs/closeouts/blender-lab-batch2-polish.md`.
+- **DEPT TIP:** current HEAD of `dept/blender-lab` (≈`898d76c` + this commit), **3 ahead of
+  LOCAL master, 0 behind, edi-gate GREEN** (build + ctest + scan). Bussed to edi-ui for merge.
+  (Note: a transient BUILD FAILED during checkpoint was a non-lab brace imbalance at the
+  dungeon-map merge seam, already fixed on master `ed90e3d`; resolved by rebasing onto it.)
+- **NO worker in flight.** All four roles idle at clean boundaries.
+- **REBASE PRACTICE (standing):** rebase onto LOCAL `master` ref only (`git rebase master`,
+  no `git fetch`). Origin reconciled (ALL-CLEAR) but local master stays the target.
+- **NEXT (when resumed):** nothing required for batch-2. If edi-ui hasn't merged tip `28ad079`,
+  bus it. Otherwise the recipe lab is feature-complete (M1–M6) + geometry-hardened; the next
+  work is a NEW batch — the tracked follow-ups in the closeout (swept-solid manifold check,
+  partial-AND-helical sweep, per-axis taper curve, straight-skeleton inset) or a fresh hub brief.
+- **Durable memory = files:** this handoff + the two closeouts + the arch doc + the 3 research
+  docs + the briefs/replies on the bus. A fresh session recovers everything by reading.
+
+---
+
 > Batch-2: the 8 deferred recipe-lab polish items (from
 > `docs/closeouts/blender-lab-feature-batch.md`) + remaining roadmap depth.
 > Rebased on master first (the feature batch is merged). Build the OP/Python verbs;
@@ -176,6 +196,13 @@ since BL-08 (added a regression test). OBJ goldens unaffected (preview-framing o
 Bisector miter frame in `_swept_prism_world` per `docs/miter-research.md`. **Regenerates
 `swept_profile.obj`** (90° corner → miter_scale √2). Sharp-corner refusal.
 
-## Next (autonomous)
-- P5 (miter) → batch-2 CLOSEOUT (all 8 deferred + 3 roadmap-depth items done). Bus edi-ui;
-  rebase LOCAL master.
+### P5 — SHIPPED 2026-06-17 (`a004bc1`, Sonnet; Opus audit `replies/044`: SHIP, clean)
+Bisector miter frame, `miter_scale=2/|b|`, sharp-corner refusal. Reviewer hand-derived the
+miter math to the exact golden vert (4.5,-0.5), confirmed the regen is FAITHFUL (numstat 4+/4-
+= only the corner loop, byte-reproduced), straight paths byte-identical, guard sound. Stale
+docstring fixed inline (planner). Follow-ups tracked (manifold-on-sweep; not blocking).
+
+## BATCH-2 COMPLETE — all 8 deferred-polish + 3 roadmap-depth items shipped
+Closeout: `docs/closeouts/blender-lab-batch2-polish.md`. Reported to hub. The recipe lab's
+geometry is hardened (watertight+oriented closures, robust inset, mitered sweep) and the AI
+handoff completed (TOON export + semantic diff). Bus the final tip to edi-ui for merge.

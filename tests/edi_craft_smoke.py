@@ -693,6 +693,102 @@ def main() -> int:
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
+    # P5: bisector miter joints on _swept_prism_world.
+    #
+    # BL-08 v1 placed each cross-section loop perpendicular to ONE adjacent
+    # segment's tangent; at corners the quads on the tight side overlapped while
+    # the quads on the wide side left a gap. P5 v2 replaces that with a bisector
+    # miter frame — the cross-section is placed in the MITER PLANE, which is
+    # perpendicular to the normalised sum (t_in + t_out) of the adjacent unit
+    # tangents. The cross-section width is pre-scaled by 2/|t_in+t_out| (the
+    # miter-width compensation) so it keeps the same apparent width through the
+    # corner. STRAIGHT paths: t_in = t_out → b = 2·t_in → |b| = 2 → scale = 1 →
+    # byte-identical to v1.
+    #
+    # The swept_profile sample has a 90° corner at (4,0):
+    #   t_in = (1,0), t_out = (0,1), b = (1,1), |b| = √2, miter_scale = √2.
+    # Its golden was REGENERATED as part of P5 — the 4 corner-loop verts shift
+    # by ±0.5 in y (= 0.5 * 1/√2 * √2 = ±0.5) to account for the oblique cut.
+
+    # ---- Case 1: the new swept_profile golden matches.
+    # (The byte-exact comparison above already asserts this — this comment
+    # is the P5 semantic annotation on that assertion.)
+    # swept_obj == swept_golden is already asserted above. ✓
+
+    # ---- Case 2: a 90° corner sweep produces a mitered (non-collapsed) join.
+    # Build a synthetic sweep with the SAME footprint + path as swept_profile.
+    # The corner loop (k=1) should be the middle n_fp=4 verts of the 12-vert mesh.
+    p5_fp = [{"x": -0.5, "y": 0.0}, {"x": 0.5, "y": 0.0},
+             {"x": 0.5, "y": 1.0}, {"x": -0.5, "y": 1.0}]
+    p5_path = [{"x": 0.0, "y": 0.0}, {"x": 4.0, "y": 0.0}, {"x": 4.0, "y": 3.0}]
+    p5_op = {"footprint": p5_fp, "path": p5_path, "x": 0.0, "y": 0.0,
+             "base_z": 0.0, "inset": 0.0, "normal_offset": 0.0}
+    p5_verts, _ = edi_craft._prism_world(p5_op)
+    # 4 footprint points × 3 path points = 12 verts; k=1 → middle 4.
+    assert len(p5_verts) == 12, f"90° sweep vert count: {len(p5_verts)}"
+    p5_start_loop = p5_verts[:4]      # k=0 endpoint loop
+    p5_corner_loop = p5_verts[4:8]    # k=1 mitered corner loop
+    # The footprint's fy maps to world Z only, so each loop has n_fp/2 distinct
+    # XY positions (one per unique fx value: fx=-0.5 and fx=0.5 here).
+    # Key miter geometry at the 90° corner (t_in=(1,0), t_out=(0,1)):
+    #   b=(1,1), |b|=√2, miter_scale=√2.
+    #   nx_eff = (-1/√2)·√2 = -1; ny_eff = (1/√2)·√2 = 1.
+    #   fx=-0.5 → world=(4+0.5, 0-0.5, 0/1) = (4.5, -0.5, ·)
+    #   fx= 0.5 → world=(4-0.5, 0+0.5, 0/1) = (3.5,  0.5, ·)
+    # Confirm the miter is active: the corner loop spans BOTH X and Y (the
+    # oblique miter places verts at different x AND y, unlike the start loop
+    # which is purely Y-spread).
+    p5_start_xs = {v[0] for v in p5_start_loop}  # start: all verts at x=0
+    p5_corner_xs = {v[0] for v in p5_corner_loop}
+    p5_corner_ys = {v[1] for v in p5_corner_loop}
+    # Start loop: the path heads along +x (ny_eff=1, nx_eff=0) → all verts x=0.
+    assert len(p5_start_xs) == 1, "start endpoint loop should have no x-spread (path along +x)"
+    # Corner loop: the miter rotates the frame → verts shift in both X and Y.
+    assert len(p5_corner_xs) > 1, "mitered corner loop must span x (miter tilts the frame)"
+    assert len(p5_corner_ys) > 1, "mitered corner loop must span y (miter tilts the frame)"
+    # Confirm the x-span at the corner matches the golden: |4.5 - 3.5| = 1.0.
+    # (The miter_scale=√2 compensates so the tube width is preserved.)
+    p5_corner_x_span = max(p5_corner_xs) - min(p5_corner_xs)
+    assert abs(p5_corner_x_span - 1.0) < 1e-9, \
+        f"corner x-span should be 1.0 (width-compensated): got {p5_corner_x_span}"
+    # Confirm the y-extent: |-0.5 - 0.5| = 1.0 (same scale).
+    p5_corner_y_span = max(p5_corner_ys) - min(p5_corner_ys)
+    assert abs(p5_corner_y_span - 1.0) < 1e-9, \
+        f"corner y-span should be 1.0 (miter projects footprint width onto y): got {p5_corner_y_span}"
+
+    # ---- Case 3: a STRAIGHT-path sweep is byte-identical to BL-08 v1.
+    # With collinear path points t_in == t_out at every interior point, so
+    # b = 2·t_in, |b| = 2, miter_scale = 1.0 — exactly the v1 frame.
+    # Use the P4 fixture (3-point collinear path along +x) as the reference.
+    #
+    # For a collinear +x path: tx=1, ty=0 at all points → nx_eff=0, ny_eff=1
+    # (no miter amplification). The footprint's fx maps to world-y via ny_eff=1
+    # and fy maps to world-z. Across loops, the ONLY changing coordinate is the
+    # path's x — so y and z of corresponding verts are IDENTICAL for all loops.
+    p5_collinear_op = {"footprint": fp3, "path": path3, "x": 0.0, "y": 0.0,
+                       "base_z": 0.0, "inset": 0.0, "normal_offset": 0.0}
+    p5_straight_verts = edi_craft._prism_world(p5_collinear_op)[0]
+    n_fp3_loops = n_fp3  # 4 verts per loop
+    # The 3-loop collinear sweep has 12 verts (3 × 4).
+    assert len(p5_straight_verts) == 3 * n_fp3_loops, \
+        f"straight 3-point sweep should have 12 verts (got {len(p5_straight_verts)})"
+    # Check: y and z of corresponding verts are identical across all 3 loops.
+    # (Only x changes = the path moves along +x; no miter deviation in y/z.)
+    for i in range(n_fp3_loops):
+        v0 = p5_straight_verts[i]          # loop k=0
+        v1 = p5_straight_verts[n_fp3_loops + i]     # loop k=1
+        v2 = p5_straight_verts[2 * n_fp3_loops + i]  # loop k=2
+        assert abs(v0[1] - v1[1]) < 1e-12 and abs(v0[1] - v2[1]) < 1e-12, (
+            f"straight path: y of vert {i} should not change between loops "
+            f"(miter_scale=1 for collinear): {v0[1]}, {v1[1]}, {v2[1]}")
+        assert abs(v0[2] - v1[2]) < 1e-12 and abs(v0[2] - v2[2]) < 1e-12, (
+            f"straight path: z of vert {i} should not change between loops: "
+            f"{v0[2]}, {v1[2]}, {v2[2]}")
+    # Full vert-list equality: two calls produce the same result (no randomness).
+    p5_straight_v2 = edi_craft._prism_world(dict(p5_collinear_op))[0]
+    assert p5_straight_verts == p5_straight_v2, \
+        "straight-path sweep: two calls must produce identical vert lists"
+
     # The doric writes every field explicitly and uses no sphere/ring/label,
     # so the defaults and the remaining plan lines need their own fixture.
     path = write_temp(PLAN_FIXTURE)

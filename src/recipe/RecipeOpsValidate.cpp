@@ -329,6 +329,31 @@ struct OpChecker {
                 }
             }
         }
+        // P5: miter-joint corner guard — refuse sweep paths with corners so
+        // sharp that the miter scale (= 2/|t_in + t_out|) would exceed 4.
+        // A scale of 4 means the cross-section expands by ≥4× in the XY plane
+        // — visually a large spike, not a clean corner.  This matches SVG's
+        // stroke-miterlimit default (limit=4, bevel at turn angles > ~151°).
+        // Condition: |t_in + t_out| < 0.5 ↔ miter_scale > 4.0.
+        // Only checked for swept paths (path.size() >= 3 gives interior points).
+        if (op.path.size() >= 3) {
+            for (std::size_t k = 1; k + 1 < op.path.size(); ++k) {
+                const double inx  = op.path[k].x - op.path[k - 1].x;
+                const double iny  = op.path[k].y - op.path[k - 1].y;
+                const double outx = op.path[k + 1].x - op.path[k].x;
+                const double outy = op.path[k + 1].y - op.path[k].y;
+                const double lin  = std::hypot(inx, iny);
+                const double lout = std::hypot(outx, outy);
+                if (lin < 1e-9 || lout < 1e-9) continue; // dup point; dedup handles
+                const double bl = std::hypot((inx / lin) + (outx / lout),
+                                             (iny / lin) + (outy / lout));
+                if (bl < 0.5) { // miter_scale = 2/bl > 4.0
+                    add(findings, Severity::Error, "prism_sweep_corner_too_sharp",
+                        op.name + " sweep path has a corner sharper than ~151° (miter factor >4).");
+                    break; // one error per op
+                }
+            }
+        }
         checkTaperEnd(findings, op.name, op.taperEnd);
         checkTaperCurve(findings, op.name, op.taperCurve);  // P4
         checkTaperEndY(findings, op.name, op.taperEndY);    // P4b

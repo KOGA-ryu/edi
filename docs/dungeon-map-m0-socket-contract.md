@@ -92,25 +92,30 @@ realizer needs.
 
 ---
 
-## 3. The M0 crypt the generator hardcodes (the slice)
+## 3. The M0 crypt the generator hardcodes (the slice) — DOUBLED (user directive 2026-06-18)
 
-The generator REPRODUCES the proven dev fixture `samples/crypt_m0/crypt.toon`
-(rendered all-10 on the 5090) so the one-command chain generator→PNG yields the full
-gate render. Layout (5 ft-aligned):
-- **entrance** 15×15 @ (0,0), material stone. **crypt** 20×20 @ (35,25), material stone.
+The user dogfooding the live render asked to **double the rooms and hallways**. ROOM
+doubling is a generator/wire change (below); HALLWAY-WIDTH doubling is a REALIZER
+constant change (`CORRIDOR_W` 5→10, §5 — the wire carries no corridor width). The
+layout stays STRAIGHT (colinear plug midpoints) per the directive. Layout (5 ft-aligned):
+- **entrance** 30×30 @ (0,10), material stone. **crypt** 50×50 @ (70,0), material stone.
 - **1 plug per room** at its facing-edge MIDPOINT, type "door", flags `[crypt]`:
-  entrance `to_crypt` on **E** (anchor world (15,7.5)); crypt `to_entrance` on **W**
-  (anchor world (35,35)). The midpoints are NON-colinear (7.5 vs 35) ⇒ the realizer
-  routes an **L corridor** (`corridor_l`), which — together with the stair block —
-  is what makes the render exercise all 10 piece types (a straight slice yields 8/10).
+  entrance `to_crypt` on **E** (anchor world (30,25)); crypt `to_entrance` on **W**
+  (anchor world (70,25)). Midpoints COLINEAR at world y=25 ⇒ a **STRAIGHT corridor**
+  (`corridor_straight`), 40 ft long, 2 modules wide.
 - **1 connection** `entrance.to_crypt ↔ crypt.to_entrance`, type "corridor".
-- **3 block instances** in the crypt (identity transform): `crypt.sarcophagus` @
-  (45,35) + `crypt.brazier` @ (40,40) (the 2 PROPS + the scene light) and
-  `crypt.stair` @ (36,35) (the STAIR piece, delivered as a block per §2). 2 props +
-  1 light + 1 structural-stair-block.
-- Hand-authored, not generated — proves the seam, not an algorithm. Target: the
-  generator's `exportMapToToon` output equals the fixture's rooms/plugs/connections/
-  blocks rows (a drop-in for `samples/crypt_m0/crypt.toon`).
+- **3 block instances** in the crypt (identity transform — props keep scale 1, this is
+  a room/hallway scale-up not a prop scale-up): `crypt.sarcophagus` @ (95,25) +
+  `crypt.brazier` @ (82,12) (2 PROPS + the scene light) and `crypt.stair` @ (76,8)
+  (the STAIR piece, delivered as a block per §2).
+- **Piece-type note:** a STRAIGHT corridor emits no `corridor_l`, so this doubled
+  straight slice exercises **9 of 10** piece types (all but the L). All 10 require an
+  L-route (non-colinear plug midpoints) — the merged dev fixture
+  `samples/crypt_m0/crypt.toon` keeps that demonstration. Straight-vs-L is the user's
+  call; the realizer renders both.
+- Doubled TOON authored for the live render: `~/dept-bus/dungeon-map/crypt_doubled.toon`
+  (a drop-in for the pending generator output). Target: the generator's
+  `exportMapToToon` equals it.
 
 ---
 
@@ -146,11 +151,13 @@ greybox and art are swap-compatible.
 | --- | --- | --- |
 | TILE / MODULE | 5 | grid tile = floor cell = wall-panel length |
 | WALL_H | 12 | interior wall / ceiling height |
-| CORRIDOR_W | 5 | corridor width = one tile (DOOR_PLUG sized to a tile) |
-| DOOR_W | 4 | doorway clear opening (< CORRIDOR_W, leaves a frame) |
+| CORRIDOR_W | **10** | corridor width = **2 tiles** (user-doubled 2026-06-18; was 5) |
+| DOOR_W | **8** | doorway clear opening (< CORRIDOR_W, leaves a frame; scaled with CORRIDOR_W) |
 
-(edi's 2D-draw `kCorridorWidth = 0.045` is a CANVAS constant, never exported and
-unrelated to these — see §6.)
+CORRIDOR_W/DOOR_W are REALIZER-AUTHORITATIVE — the wire carries NO corridor/door
+width, so doubling the hallway is a realizer constant change (blender-lab owns the
+exact values; recorded here as reference). edi's 2D-draw `kCorridorWidth = 0.045` is a
+CANVAS constant, never exported and unrelated to these — see §6.
 
 ---
 
@@ -159,7 +166,14 @@ unrelated to these — see §6.)
 The only WIRE invariant is the §1 plug-position rule: plug = edge midpoint; the
 realizer derives doorway + corridor centerlines from it; the generator authors plugs
 at edge midpoints to match. `CORRIDOR_W`/`DOOR_W` are the realizer's expansion widths
-(§5), independent of edi's 2D-draw `kCorridorWidth`. **There is NO unit equivalence
+(§5), independent of edi's 2D-draw `kCorridorWidth`.
+
+**2-module corridor alignment (CORRIDOR_W = 10 ft):** a 2-module-wide corridor centred
+on a plug whose midpoint lands on a 5 ft GRID LINE spans an even cell-PAIR (e.g. a
+midpoint at y=25 → the corridor occupies y∈[20,30], both edges on grid lines). The
+doubled slice (§3) places each plug midpoint at world y=25 (a grid line), so the
+doubled corridor and both doorways tile cleanly with no half-cell overhang. (For an
+ODD-module corridor the midpoint would sit mid-cell instead — both are realizer-side.) **There is NO unit equivalence
 between DOOR_W and `kCorridorWidth`** — `kCorridorWidth = 0.045` is a canvas constant
 that does not scale and is never exported (it would read 0.045 ft at export scale, 2.25
 ft at the 0.02 render scale — neither is a tile). Disregard the earlier "DOOR_PLUG

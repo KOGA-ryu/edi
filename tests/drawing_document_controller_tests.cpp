@@ -5143,5 +5143,105 @@ int main(int argc, char **argv)
         assert(ctl.draftingDocument().plugs.size() == plugsBefore);
     }
 
+    // --- Brief 029: B2-CTX mutual-exclusion fixes ----------------------------
+
+    // Fix 1: canvas click clears an active connection selection.
+    // Drive via clickCanvasNormalized (NOT selectObjectById — that was already
+    // covered; the bug was specifically in the canvas-click path).
+    {
+        DrawingDocumentController ctl;
+
+        // Place two plugs, connect them, select the connection via Map-browser.
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Canvas-click on the first plug's anchor marker (at 0.3, 0.3 in normalised coords).
+        // This is a select_move click — it should clear the connection selection AND select
+        // the object.
+        ctl.setSelectedToolId(QStringLiteral("select_move"));
+        ctl.clickCanvasNormalized(0.3, 0.3);
+
+        // has_connection_selection must now be false — the canvas click cleared it.
+        const QVariantMap model = ctl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        // An object is now selected (the plug marker at that position).
+        assert(!model.value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+    }
+
+    // Fix 1 (plug-anchor variant): canvas-click a plug marker while a connection is
+    // selected → has_connection_selection false AND active_object_is_plug true.
+    // This proves the mutual-exclusion invariant holds: only one context is active.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+
+        // Click on the plug anchor at (0.3, 0.3).
+        ctl.setSelectedToolId(QStringLiteral("select_move"));
+        ctl.clickCanvasNormalized(0.3, 0.3);
+
+        const QVariantMap model = ctl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        // The clicked object is a plug anchor → active_object_is_plug should be true.
+        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+    }
+
+    // Fix 2a: selectConnection(id) → deleteConnection(id) → has_connection_selection false.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Delete the selected connection — must clear m_activeConnectionId.
+        assert(ctl.deleteConnection(cId));
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // Fix 2b: selectConnection(id) → deletePlug(endpoint) → connection cascaded
+    // → has_connection_selection false.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Select the connection, then delete plug A — the connection cascades.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        assert(ctl.deletePlug(aId));
+        // Connection is gone (cascade); m_activeConnectionId should be cleared.
+        assert(ctl.draftingDocument().connections.empty());
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
     return 0;
 }

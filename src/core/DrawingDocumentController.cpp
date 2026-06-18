@@ -2138,6 +2138,15 @@ bool DrawingDocumentController::deleteConnection(const QString &connId)
         applyDraftingCommand(m_document, DeleteObjectCommand{wallId});
     }
     commitEdit(/*selectionOnly=*/false);
+
+    // B2-CTX stale-select guard: if the just-deleted connection was the active one
+    // (selected via the Map-browser row), clear m_activeConnectionId so that
+    // has_connection_selection refreshes to false in the modelChanged projection.
+    // The clear must happen BEFORE emit so the projection is already correct when
+    // the inspector rebuilds.
+    if (!m_activeConnectionId.empty() && !connectionIndexById(m_document, m_activeConnectionId)) {
+        m_activeConnectionId.clear();
+    }
     emit modelChanged();
     return true;
 }
@@ -2216,6 +2225,13 @@ bool DrawingDocumentController::deletePlug(const QString &plugId)
         applyDraftingCommand(m_document, DeleteObjectCommand{wallId}); // D: corridor walls
     }
     commitEdit(/*selectionOnly=*/false);
+
+    // B2-CTX stale-select guard (same as deleteConnection): DeletePlugCommand
+    // cascades the connection edges, so any connection that was Map-browser-selected
+    // is now gone. Validate before the emit so the projection refreshes correctly.
+    if (!m_activeConnectionId.empty() && !connectionIndexById(m_document, m_activeConnectionId)) {
+        m_activeConnectionId.clear();
+    }
     emit modelChanged();
     return true;
 }
@@ -3431,6 +3447,14 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         resolvePointCapture(point);
         return;
     }
+
+    // B2-CTX mutual-exclusion: any canvas click shifts focus to the object layer,
+    // so a connection selection (set via the Map-browser row) must end here. This
+    // one clear covers all three sub-paths below: canvas-select, canvas-deselect,
+    // and the draw-while-connection-selected auto-select. The point-capture path
+    // above is exempt — it consumes the click before selection is touched.
+    // All sub-paths already emit modelChanged(), so no extra emit is needed here.
+    m_activeConnectionId.clear();
 
     m_lastGuideDragSnap.clear();
     const bool clearedEditStatus = !m_lastEditStatus.isEmpty();

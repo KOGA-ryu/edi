@@ -154,6 +154,10 @@ private:
     // C3 block palette: repopulate the block list from the document's blocks
     // (name + id), called on build and on every model change (like m_objectList).
     void refreshBlockPalette();
+    // M8: repopulate the motif list from the document's motifs (name-keyed),
+    // called on build and on every model change (same read-only projection
+    // discipline as refreshBlockPalette — the list never mutates the model).
+    void refreshMotifPalette();
 
     DrawingDocumentController *m_controller = nullptr;
     ShellActions m_actions;
@@ -162,6 +166,12 @@ private:
     QLabel *m_objectListEmpty = nullptr;
     QListWidget *m_blockList = nullptr;
     QLineEdit *m_blockNameField = nullptr;
+    // M8: the motif palette list (objectName "motifList"). Populated by
+    // refreshMotifPalette on build and on every modelChanged, keyed by name.
+    // The define button (objectName "defineMotifButton") prompts for a name
+    // and calls defineMotifFromSelection — the same QInputDialog flow as
+    // the block palette's save-block action.
+    QListWidget *m_motifList = nullptr;
     // DM-14: the per-placement transform for the NEXT stamped block. They bind to
     // controller setters (setBlockPlacementRotation/Scale); the controller's next
     // placeBlockInstance consumes them. Defaults 0 deg / 1.0 keep identity placement.

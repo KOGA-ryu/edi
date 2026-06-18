@@ -3211,6 +3211,59 @@ int main(int argc, char **argv)
         assert(!dr11Controller->isAwaitingPointCapture());
     }
 
+    // M8 Motif palette: the "Motifs" palette mounts alongside the Blocks
+    // palette; defineMotifFromSelection adds a row keyed by name; activating
+    // a row arms a MotifPlacement pick-a-point capture.
+    {
+        EdiShellWindow m8Window;
+        m8Window.show();
+        auto *m8Controller = m8Window.findChild<DrawingDocumentController *>();
+        assert(m8Controller != nullptr);
+
+        // defineMotifButton must exist (the QInputDialog trigger).
+        // Flush DeferredDelete before widget lookups (charter rule).
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *defineBtn = buttonNamed(m8Window, QStringLiteral("defineMotifButton"));
+        assert(defineBtn != nullptr);
+
+        // motifList must exist, initially empty.
+        auto *motifList = m8Window.findChild<QListWidget *>(QStringLiteral("motifList"));
+        assert(motifList != nullptr);
+        assert(motifList->count() == 0);
+
+        // Draw two objects and marquee-select them — defineMotifFromSelection
+        // operates on the active selection.
+        m8Controller->setSelectedToolId(QStringLiteral("point_tool"));
+        m8Controller->clickCanvasNormalized(0.3, 0.3);
+        m8Controller->clickCanvasNormalized(0.7, 0.7);
+        assert(objectCount(*m8Controller) == 2);
+        m8Controller->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+
+        // Define the motif directly through the controller (the button path
+        // goes through QInputDialog which is interactive; the controller verb
+        // is what the button calls after the prompt). A row for "star" appears.
+        const bool defined = m8Controller->defineMotifFromSelection(QStringLiteral("star"));
+        assert(defined);
+
+        // refreshInspector runs via the modelChanged connection; flush events
+        // so the list repopulation completes before we assert its count.
+        QCoreApplication::processEvents();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        assert(motifList->count() == 1);
+        assert(motifList->item(0)->text() == QStringLiteral("star"));
+
+        // Activating the row (USER signal — itemActivated) arms a MotifPlacement
+        // pick-a-point capture via beginMotifPlacement. The signal wiring is
+        // tested by emitting it directly (same as the block-palette test pattern).
+        assert(!m8Controller->isAwaitingPointCapture());
+        emit motifList->itemActivated(motifList->item(0));
+        assert(m8Controller->isAwaitingPointCapture());
+
+        // Cancel so the pick does not bleed into subsequent operations.
+        m8Controller->cancelPendingCreation();
+        assert(!m8Controller->isAwaitingPointCapture());
+    }
+
     // DR-13 Angular dimension chrome: the dimension row gains a new belt cell
     // and the dimensionKindCombo gains an "Angular" entry.
     {

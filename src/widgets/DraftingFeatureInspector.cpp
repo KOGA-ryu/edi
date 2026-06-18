@@ -222,6 +222,9 @@ void DraftingFeature::refreshInspector()
     // C3: keep the block palette in step with the document on every model change
     // (a newly defined block appears; a deleted one drops), like the object list.
     refreshBlockPalette();
+    // M8: same for the motif palette — a newly defined motif appears, a
+    // re-named or deleted one drops, in lock-step with modelChanged.
+    refreshMotifPalette();
 
     setLabelText(m_toolValue, QStringLiteral("Tool: %1").arg(m_controller->selectedToolId()));
     if (m_beltWidget != nullptr) {

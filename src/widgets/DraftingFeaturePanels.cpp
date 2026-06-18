@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QFileInfo>
 #include <QFrame>
+#include <QInputDialog>
 #include <QScrollArea>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -405,9 +406,59 @@ std::vector<edi::shell::FeaturePaletteSpec> DraftingFeature::buildPalettes()
         blockLayout->addWidget(row);
     }
 
+    // M8 motif palette: a sibling of the Blocks palette, directly below it.
+    // Pattern: same section/label/list treatment as the block palette —
+    // one "Define from selection" button (prompts via QInputDialog) + a list
+    // whose rows arm beginMotifPlacement on activation. The list is seeded
+    // before the activation signal is connected so the seed loop cannot fire
+    // a placement (read-only projection; signal-safety rule: seed before
+    // connect). Name stored by the item text — motifs are name-keyed (no id).
+    auto *motifPanel = new QWidget;
+    motifPanel->setObjectName(QStringLiteral("motifPalette"));
+    auto *motifLayout = new QVBoxLayout(motifPanel);
+    clearLayoutMargins(motifLayout);
+    motifLayout->setSpacing(6);
+
+    auto *defineMotifButton = new QPushButton(QStringLiteral("Define from selection"));
+    defineMotifButton->setObjectName(QStringLiteral("defineMotifButton"));
+    // Clicked (USER signal) → prompt for a name → defineMotifFromSelection.
+    // QInputDialog::getText is the shell-standard one-line prompt: same modal
+    // flow a user expects, no new dialog class, no stale state between clicks.
+    connect(defineMotifButton, &QPushButton::clicked, m_controller, [this]() {
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            nullptr,
+            QStringLiteral("Define Motif"),
+            QStringLiteral("Motif name:"),
+            QLineEdit::Normal,
+            QString(),
+            &ok);
+        if (ok && !name.trimmed().isEmpty()) {
+            m_controller->defineMotifFromSelection(name.trimmed());
+        }
+    });
+    motifLayout->addWidget(defineMotifButton);
+
+    m_motifList = new QListWidget;
+    m_motifList->setObjectName(QStringLiteral("motifList"));
+    // Same sane default height as the block list — prevents a giant black
+    // rectangle over the canvas when the library is empty.
+    m_motifList->setMaximumHeight(160);
+    // Seed the list BEFORE connecting the activation signal so the
+    // programmatic clear+populate below cannot fire beginMotifPlacement.
+    // The signal is connected ONCE at build time; at fire time we read the
+    // item's text (the name) — no per-item connection that could leak across
+    // a refresh (signal-safety: single connect, read name at fire time).
+    refreshMotifPalette();
+    connect(m_motifList, &QListWidget::itemActivated, m_controller, [this](QListWidgetItem *item) {
+        m_controller->beginMotifPlacement(item->text());
+    });
+    motifLayout->addWidget(m_motifList);
+
     return {
         {QStringLiteral("tool_belt"), QStringLiteral("Tools"), m_beltWidget},
         {QStringLiteral("block_palette"), QStringLiteral("Blocks"), blockPanel},
+        {QStringLiteral("motif_palette"), QStringLiteral("Motifs"), motifPanel},
     };
 }
 
@@ -427,6 +478,26 @@ void DraftingFeature::refreshBlockPalette()
         auto *item = new QListWidgetItem(name.isEmpty() ? id : name);
         item->setData(Qt::UserRole, id); // the row carries the block id to stamp
         m_blockList->addItem(item);
+    }
+}
+
+void DraftingFeature::refreshMotifPalette()
+{
+    if (m_motifList == nullptr) {
+        return; // palette not built yet (refreshInspector can run first)
+    }
+    // Rebuild the motif list as a read-only projection of the document's motifs.
+    // QSignalBlocker prevents the programmatic clear+add from re-firing
+    // itemActivated and accidentally arming a placement capture — the same
+    // write-back-loop guard the block palette and the object list use.
+    // Motifs are name-keyed (no id field): the row TEXT is the lookup key
+    // for beginMotifPlacement, and the QSignalBlocker guarantees this loop
+    // never calls it (no mutation path through a model-changed refresh).
+    const QSignalBlocker blocker(*m_motifList);
+    m_motifList->clear();
+    for (const edi::drafting::DraftingMotif &motif : m_controller->draftingDocument().motifs) {
+        const QString name = QString::fromStdString(motif.name);
+        m_motifList->addItem(name);
     }
 }
 

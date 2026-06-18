@@ -58,4 +58,16 @@ std::vector<std::string> listLibraryRecipes(const std::string &dirPath);
 // any refused-before-build ref-op survives) — a TOON of unresolved refs is a lie.
 edi::formats::FormatResult<std::string> exportRecipeStreamToToon(const RecipeOpStream &stream);
 
+// Semantic diff of two RESOLVED op-streams → TOON (roadmap M6 / RD2). Emits
+// only the CHANGED flat keys: "<old> -> <new>", "<old> -> (removed)", or
+// "(added) -> <new>". Unchanged keys are OMITTED (the diff carries only deltas).
+// The key vocabulary is IDENTICAL to exportRecipeStreamToToon / recipeOpsToToml —
+// flat op.N.<field> — so the AI can point at a diff key and know the TOML address.
+// Refuses by name if either stream is unresolved (same doctrine as BL-15).
+// title = after.name when names are equal, else "before.name -> after.name".
+// NOTE: the --recipe-diff CLI verb (headless AI handoff) lives in app/main.cpp
+// (edi-ui's file); this function is the pure-logic half it calls.
+edi::formats::FormatResult<std::string> exportRecipeStreamDiffToToon(
+    const RecipeOpStream &before, const RecipeOpStream &after);
+
 } // namespace edi::recipe

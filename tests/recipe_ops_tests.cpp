@@ -2134,5 +2134,95 @@ int main()
         assert(!exportRecipeStreamToToon(withSweep).ok);
     }
 
+    // ---- RD2: exportRecipeStreamDiffToToon — semantic diff of two resolved
+    // streams emitted as TOON. The diff uses the SAME op.N.<field> key
+    // vocabulary as the TOML / BL-15 TOON, so the AI can point at a diff key
+    // and know exactly which field to change in the recipe. ----
+    {
+        // ---- Case 1: a single field change (height 2 → 3). ----
+        // Only the changed key appears in the diff; unchanged keys are OMITTED.
+        RecipeOpStream before;
+        before.id = "diff_demo";
+        before.name = "Diff Demo";
+        AddBoxOp boxA;
+        boxA.name = "block"; boxA.width = boxA.depth = boxA.height = 2.0; boxA.z = 1.0;
+        before.ops.push_back(boxA);
+
+        RecipeOpStream after = before;
+        std::get<AddBoxOp>(after.ops[0]).height = 3.0; // one field changed
+
+        const auto diffResult = exportRecipeStreamDiffToToon(before, after);
+        assert(diffResult.ok && diffResult.value.has_value());
+        const std::string &diffText = *diffResult.value;
+
+        // TOON shape: kind/title header then flat key: value lines.
+        assert(diffText.find("kind: recipe-diff\n") != std::string::npos);
+        assert(diffText.find("title: Diff Demo\n") != std::string::npos); // same name → after.name
+
+        // The changed key appears with "old -> new" (raw config values, no quotes).
+        assert(diffText.find("op.0.height: 2 -> 3\n") != std::string::npos);
+
+        // Unchanged keys are OMITTED — the diff carries only deltas.
+        assert(diffText.find("op.0.type:") == std::string::npos);
+        assert(diffText.find("op.0.name:") == std::string::npos);
+        assert(diffText.find("recipe.id:") == std::string::npos);  // recipe keys also omitted when unchanged
+
+        // No JSON object syntax.
+        assert(diffText.find('{') == std::string::npos && diffText.find('}') == std::string::npos);
+
+        // ---- Case 2: added op → the new op's keys appear as "(added) -> value". ----
+        RecipeOpStream afterAdd = before;
+        AddPrismOp extra;
+        extra.name = "lid"; extra.footprint = {{0,0},{1,0},{1,1}}; extra.height = 0.5; extra.baseZ = 2.0;
+        afterAdd.ops.push_back(extra);
+
+        const auto diffAdd = exportRecipeStreamDiffToToon(before, afterAdd);
+        assert(diffAdd.ok && diffAdd.value.has_value());
+        const std::string &addText = *diffAdd.value;
+        // The added op's type key appears as "(added) -> AddPrism".
+        assert(addText.find("op.1.type: (added) -> AddPrism\n") != std::string::npos);
+        // The first op (unchanged) does NOT appear.
+        assert(addText.find("op.0.") == std::string::npos);
+
+        // ---- Case 3: removed op → the old op's keys appear as "value -> (removed)". ----
+        const auto diffRem = exportRecipeStreamDiffToToon(afterAdd, before); // swap: 2 ops → 1 op
+        assert(diffRem.ok && diffRem.value.has_value());
+        const std::string &remText = *diffRem.value;
+        assert(remText.find("op.1.type: AddPrism -> (removed)\n") != std::string::npos);
+        assert(remText.find("op.0.") == std::string::npos); // first op unchanged, omitted
+
+        // ---- Case 4: title when stream names differ ("A -> B"). ----
+        RecipeOpStream renamedAfter = after;
+        renamedAfter.name = "Diff Demo v2";
+        const auto diffRename = exportRecipeStreamDiffToToon(before, renamedAfter);
+        assert(diffRename.ok && diffRename.value.has_value());
+        assert(diffRename.value->find("title: Diff Demo -> Diff Demo v2\n") != std::string::npos);
+
+        // ---- Case 5: refusal — unresolved BEFORE (binding survives). ----
+        RecipeOpStream boundBefore = before;
+        boundBefore.bindings = {{0, "width", "gauge", "width"}};
+        const auto refBefore = exportRecipeStreamDiffToToon(boundBefore, after);
+        assert(!refBefore.ok);
+        assert(refBefore.message.find("before stream must be resolved") != std::string::npos);
+
+        // ---- Case 6: refusal — unresolved AFTER (surviving ref-op). ----
+        RecipeOpStream refAfter = after;
+        AddRevolvedProfileOp latHe;
+        latHe.name = "col"; latHe.profile = "shaft";
+        refAfter.ops.push_back(latHe);
+        const auto refAfterResult = exportRecipeStreamDiffToToon(before, refAfter);
+        assert(!refAfterResult.ok);
+        assert(refAfterResult.message.find("after stream must be resolved") != std::string::npos);
+
+        // ---- Case 7: identical streams → empty delta (no field lines). ----
+        const auto diffSame = exportRecipeStreamDiffToToon(before, before);
+        assert(diffSame.ok && diffSame.value.has_value());
+        // Only the kind/title header lines; no op.* or recipe.* field lines.
+        const std::string &sameText = *diffSame.value;
+        assert(sameText.find("kind: recipe-diff\n") != std::string::npos);
+        assert(sameText.find("op.") == std::string::npos);
+        assert(sameText.find("recipe.") == std::string::npos);
+    }
+
     return 0;
 }

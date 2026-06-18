@@ -12,9 +12,14 @@
 - **Guard**: rebase ONLY onto LOCAL master (planner-only); builders no git remote.
 
 ## Slices
-### `037` — `active_plug_type` projection key (RATIFIED) — DISPATCHED
-- edi-ui's door-type picker pre-selects the current type (hub-ratified UX) → add the key
-  (mirror `active_object_is_plug`). Small, clearly-needed. ▶ builder.
+### `037` — `active_plug_type` projection key (RATIFIED) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/037-builder-active-plug-type-key.md`. Commit
+  `450e95a` (builder checkpointed its own slice cleanly at power-down). edi-gate GREEN
+  102/102; no-rebase honored; shares the `plugAtAnchorObject` call (no double lookup).
+  `active_plug_type` (QString) = the active plug-anchor's `plug.type`, else `""`. Confirmed
+  to edi-ui with the consumer pattern (pre-select picker → `setPlugType`).
+- **FINAL GREEN TIP for edi-ui to merge: `450e95a`** (supersedes `980cc67` — adds
+  active_plug_type). The last ratified slice; the dungeon-map tool-first program is COMPLETE.
 
 ### `038` — reviewer backlog-exhaustion ASSESSMENT — 2026-06-17 — DONE: **EXHAUSTED, NOTHING-LEFT**
 - Reply: `~/dept-bus/edi-dungeon-map/replies/038-reviewer-backlog-exhaustion-assessment.md`

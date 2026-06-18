@@ -3122,22 +3122,25 @@ int main(int argc, char **argv)
         auto *transformBtn = buttonNamed(dm15Window, QStringLiteral("transformInstanceButton"));
         assert(transformBtn != nullptr); // widget was built
 
-        // The group's visibility is the real gate. isVisible() checks the widget's
-        // own flag; since the window is not shown (offscreen) we rely on the
-        // group widget being visible by the plan + projection logic. We need to
-        // walk up to the first parent that is explicitly visible=false to detect
-        // the group being hidden. isVisibleTo(&dm15Window) would return false for
-        // collapsed sections too, so we check the group container's own flag via
-        // the parent hierarchy — simplest is to verify the button's own visible
-        // flag (it is inside the group fold, which is open by default for this
-        // section: makeCollapsibleSection(..., true)).
-        //
+        // The group's OWN hidden flag is the real gate — isHidden() is
+        // ancestor-independent, so it reads correctly even though this offscreen
+        // window is never shown (a child's isVisible() is unconditionally false on
+        // an unshown top-level and would prove nothing — a tautology). Group
+        // objectName follows the inspectorGroup_<id> convention (see F2 above).
+        auto blockInstanceVisible = [&dm15Window]() {
+            QWidget *group =
+                dm15Window.findChild<QWidget *>(QStringLiteral("inspectorGroup_block_instance"));
+            assert(group != nullptr); // built once in ensureInspectorGroupsBuilt
+            return !group->isHidden();
+        };
+
         // The projection bool: read it directly to confirm the wiring.
         const QVariantMap dm15Doc = dm15Controller->modelDocument();
         assert(dm15Doc.value(QStringLiteral("has_block_instance_selection")).toBool());
         assert(!dm15Doc.value(QStringLiteral("instance_id")).toString().isEmpty());
 
-        // The button must be enabled (the group is visible and the action is live).
+        // The group is SHOWN for the placed instance, and the action is enabled.
+        assert(blockInstanceVisible());
         assert(transformBtn->isEnabled());
 
         // The two delta spins exist and have the correct identity defaults.
@@ -3159,10 +3162,8 @@ int main(int argc, char **argv)
         assert(!dm15DocAfter.value(QStringLiteral("has_block_instance_selection")).toBool());
         assert(dm15DocAfter.value(QStringLiteral("instance_id")).toString().isEmpty());
 
-        // The group widget must now be hidden (the sub-gate fired).
-        // transformInstanceButton lives inside the group; when the group is hidden
-        // the button's visible flag is also false.
-        assert(!transformBtn->isVisible());
+        // The group's own hidden flag must now be set (the sub-gate fired).
+        assert(!blockInstanceVisible());
 
         // --- Gate 3: nothing selected → group hidden (plan-level context gate) ---
         dm15Controller->setSelectedToolId(QStringLiteral("select_move"));
@@ -3172,7 +3173,7 @@ int main(int argc, char **argv)
 
         const QVariantMap dm15DocNoSel = dm15Controller->modelDocument();
         assert(!dm15DocNoSel.value(QStringLiteral("has_block_instance_selection")).toBool());
-        assert(!transformBtn->isVisible());
+        assert(!blockInstanceVisible());
     }
 
     return 0;

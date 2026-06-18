@@ -380,10 +380,15 @@ void DraftingFeature::refreshInspector()
     // narrow the "block_instance" group to only instances.
     if (auto *blockInstanceGroup = m_inspectorGroups.value(QStringLiteral("block_instance"))) {
         const bool isInstance = document.value(QStringLiteral("has_block_instance_selection")).toBool();
-        // Only override when the plan already made it visible (i.e. an object IS
-        // selected). When no object is selected the plan hides the whole
-        // object_shape context including this group; we must not fight it.
-        if (blockInstanceGroup->isVisible() && !isInstance) {
+        // Narrow the group to placed instances only: hide it whenever the active
+        // object is not an instance. applyInspectorPlan already set the
+        // context-level base (shown in object_shape, hidden otherwise), so we only
+        // ever further-hide here. We must NOT guard this on the group's isVisible():
+        // a child's isVisible() is false on an unshown top-level, which tied the
+        // gate to the window being shown and made it a tautology offscreen.
+        // setVisible(false) on an already-hidden group is a harmless no-op, so the
+        // unconditional narrow is both correct and testable.
+        if (!isInstance) {
             blockInstanceGroup->setVisible(false);
         }
     }

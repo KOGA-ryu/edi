@@ -517,12 +517,18 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   persistent-format change → accepted inline (no audit). Reported DR-14 (`81f6a60`) to edi-ui.
 - Builder ctx OK (low/on-target sonnet, no recycle).
 
-### DR-15 — fill authoring (ratified fill-selected-closed-object) — HELD until DR-14 merge-confirm
-- The LAST bucket slice. Held per clean post-merge sequencing (open after edi-ui confirms
-  DR-14). Spec: `~/dept-bus/work-batch-plan.md` DR-15 — a controller authoring action setting
-  FillStyle (opacity+color) on the active CLOSED object via `applyActiveObjectMetadataUpdate`/
-  `UpdateMetadataCommand`; reject open kinds; FillStyle is already plumbed end-to-end (DR fill
-  closeout). True bucket-fill stays parked.
+### DR-14 — MERGED (edi-ui) @`1a9a7df` (green); DR-15 GO'd.
+
+### DR-15 — fill authoring gate — builder BRIEFED 2026-06-17 (the LAST bucket slice)
+- Brief: `~/dept-bus/edi-drafting/briefs/031-DR15-fill-authoring-gate-builder.md` (carries the
+  rebase GUARD). **Spec premise was partly stale** (like fill-svg's): the fill setters ALREADY
+  exist — `setSelectedObjectFillColor` (`:1218`) + `setSelectedObjectFillOpacity` (`:1258`) set
+  `object.fill` via `UpdateFillStyleCommand`. The real gap = they don't GATE by kind. So DR-15 =
+  add `draftingShapeIsFillable` (Rectangle/Circle/Ellipse/Polygon — the frozen set from
+  `docs/closeouts/drafting-fill-side-channel.md`) + gate both setters to reject open kinds +
+  tests. True bucket-fill PARKED. Much smaller/cleaner than the spec implied — pre-brief
+  investigation caught it.
+- Opened AFTER DR-14 merge-confirm (clean sequencing). Sonnet; planner spot-check on reply.
 
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride

@@ -47,6 +47,12 @@ enum class PointCaptureIntent {
     BreakPoint,       // the click is where to split the selected line/polyline in two
     BlockInstance,    // the click is where to stamp the armed block (C3 palette)
     RegionFill,       // the click seeds a room-footprint fill (DM-10)
+    // Map-authoring tools (B2-1 / B2-2 interactive authoring):
+    PlugPlacement,    // click places a new plug anchor marker + DraftingPlug (B2-1)
+    PlugConnect,      // two-stage: click plug A → click plug B → DeclareConnection
+                      // + corridor geometry (B2-2). State across the two clicks lives
+                      // in m_pendingConnectionPlugA, the same cross-click idiom as
+                      // m_pendingBlockId for BlockInstance.
 };
 
 struct PendingPointCapture {
@@ -356,6 +362,23 @@ public:
     // Polygon of its footprint, auto-selected in one undo step; a seed in open space
     // is a surfaced refusal. Resolved by resolvePointCapture once the click arrives.
     bool fillEnclosedRegion(edi::drafting::Point2D seed);
+    // Map-authoring verbs (B2-1 — interactive plug placement). Arms a pick-a-point
+    // capture; the captured click calls placePlugAtPoint. No up-front precondition —
+    // always returns true (the user picks any point on the map canvas). Snap (run
+    // before resolvePointCapture) can land the marker precisely on a wall endpoint.
+    bool beginPlugPick();
+    // The apply: mint a Point marker at p anchored to a new DraftingPlug (type
+    // "door", name = minted neutral id), all in one undo step, auto-selected.
+    // Called by resolvePointCapture once the PlugPlacement click arrives.
+    bool placePlugAtPoint(edi::drafting::Point2D p);
+    // Map-authoring verbs (B2-2 — interactive connection + corridor). Arms the
+    // two-stage PlugConnect capture (first click = plug A, second = plug B).
+    // Always returns true; the two-click logic lives in resolvePointCapture.
+    bool beginConnectionPick();
+    // The apply: validate both plug ids, mint a DeclareConnection, route corridor
+    // geometry tagged "connection:<id>" (same open-vocab breadcrumb as feature tags,
+    // no new field/codec), all in one undo step via createObjectsAndSelect.
+    bool connectPlugs(const QString &plugAId, const QString &plugBId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -510,6 +533,11 @@ private:
     // The block awaiting placement while a BlockInstance capture is armed; read
     // by resolvePointCapture once the placement click arrives.
     QString m_pendingBlockId;
+    // The first plug id stored mid-two-click while a PlugConnect capture is armed.
+    // Empty = awaiting the first click. Mirrors m_pendingBlockId: controller member
+    // carrying state across the arm→first-click→second-click gap without widening
+    // the PendingPointCapture struct (the data-oriented variation point stays minimal).
+    std::string m_pendingConnectionPlugA;
     // Projection cache. The document-shaped model (objects, layers, grid,
     // plot plan, safety annotation, selection bounds) rebuilds only when a
     // modelChanged emission bumps the generation; every call then overlays

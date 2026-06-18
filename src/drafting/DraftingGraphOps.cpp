@@ -129,6 +129,21 @@ DraftingStoreResult undeclareConnection(DraftingDocument &document, const Drafti
     return DraftingStoreResult::accepted();
 }
 
+std::optional<DraftingPlugId> plugAtAnchorObject(const DraftingDocument &document,
+                                                  const DraftingObjectId &objectId)
+{
+    // Linear scan — the plug list is short (tens to low hundreds even for a large
+    // dungeon map) and this runs only on a user click, not per frame. There is at
+    // most ONE plug per anchor object (the document never anchors two plugs to the
+    // same marker), so we return the first match without continuing the scan.
+    for (const DraftingPlug &plug : document.plugs) {
+        if (plug.anchorObjectId == objectId) {
+            return plug.id;
+        }
+    }
+    return std::nullopt;
+}
+
 // NOTE(dungeon-map): this handles object DELETE (cascade plugs/connections). The
 // object MOVE counterpart — re-syncing DraftingPlug::anchor when an anchoring
 // object moves — does NOT exist yet; see the TODO on DraftingPlug::anchor in

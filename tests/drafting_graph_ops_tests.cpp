@@ -210,5 +210,33 @@ int main()
         assert(document.connections.empty());
     }
 
+    // --- plugAtAnchorObject (B2-2 interactive authoring helper) ----------------
+    // plugAtAnchorObject maps a document objectId back to the plug that anchors to
+    // it — the connection tool uses this to resolve a canvas hit-test result to a
+    // plug id. Returns nullopt when no plug anchors to the given objectId.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-anchor-lookup");
+        // Two Point markers, one plug anchored to each.
+        document.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        document.objects.push_back(makeDraftingObject("m.1", DraftingShapeKind::Point, PointGeometry{}));
+        document.objects.push_back(makeDraftingObject("m.2", DraftingShapeKind::Point, PointGeometry{}));
+
+        DraftingPlug a; a.id = "plug_a"; a.anchorObjectId = "m.0";
+        DraftingPlug b; b.id = "plug_b"; b.anchorObjectId = "m.1";
+        assert(addPlug(document, a).ok && addPlug(document, b).ok);
+
+        // Lookup on the anchored objects returns the correct plug id.
+        const auto idA = plugAtAnchorObject(document, "m.0");
+        assert(idA.has_value() && *idA == "plug_a");
+        const auto idB = plugAtAnchorObject(document, "m.1");
+        assert(idB.has_value() && *idB == "plug_b");
+
+        // m.2 has no plug anchoring to it → nullopt.
+        assert(!plugAtAnchorObject(document, "m.2").has_value());
+
+        // An unknown object id → nullopt.
+        assert(!plugAtAnchorObject(document, "nope").has_value());
+    }
+
     return 0;
 }

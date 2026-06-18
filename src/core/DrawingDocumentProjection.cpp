@@ -776,6 +776,20 @@ QVariantMap draftingDocumentToModelProjection(
         }
     }
 
+    // Block-instance selection keys (DM-15): the inspector uses these to decide
+    // whether to show the "Block instance" transform section (has_block_instance_selection)
+    // and which id to pass to transformBlockInstance() (instance_id). The derive is
+    // pure — the active object's blockPlacement.instanceId. An empty instanceId means
+    // an ordinary (non-placement) object; false / "" are the correct defaults for
+    // "nothing selected" and "selected object is not a block instance".
+    //
+    // Why activeObject() not findObject(): activeObject() is a one-liner in
+    // DraftingDocument.h that does the same optional-guard + linear scan, but its
+    // name makes the intent explicit — "the object currently shown in the inspector".
+    const DraftingObject *activeObj = activeObject(document);
+    const std::string activeInstanceId =
+        activeObj ? activeObj->metadata.blockPlacement.instanceId : std::string{};
+
     QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
         {QStringLiteral("drawing_objects"), objects},
@@ -783,6 +797,10 @@ QVariantMap draftingDocumentToModelProjection(
         {QStringLiteral("active_layer_id"), qStringFromStdString(document.activeLayerId)},
         {QStringLiteral("selected_object_ids"), selectedObjectIds},
         {QStringLiteral("active_object_id"), document.activeObjectId ? qStringFromStdString(*document.activeObjectId) : QString()},
+        // Block-instance keys — pure derive, never cached separately (they follow
+        // revision like every other document projection key).
+        {QStringLiteral("has_block_instance_selection"), !activeInstanceId.empty()},
+        {QStringLiteral("instance_id"), qStringFromStdString(activeInstanceId)},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},
         {QStringLiteral("guide_count"), guideCount},
         {QStringLiteral("visible_guide_count"), visibleGuideCount},

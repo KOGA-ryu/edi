@@ -107,8 +107,23 @@ CreateObjectsCommand = one undo.
   (already done: DR-05/06, DR-10/11, DR-07/08/09, DR-13/14) — M2 is the next genuinely-new item;
   M4's tangent-circle (Apollonius) stays parked.
 
+### DR-13 angular tool-arm — CLOSED 2026-06-17 ✅ (SHA `1fd80fb`, GREEN 103/103)
+- `DraftingToolKind::AngularDimension` + `angular_dimension_tool` id; two-line-pick arm in
+  `clickCanvasNormalized` + `applyAngularDimensionAtPoint` + `PointCaptureIntent::AngularDimensionSecondLine`
+  + `m_pendingAngularFirstLineId` (id stored, not pointer). Tests: nominal one-undo + 3 rejection
+  paths. Diff +214/−0, all my files (core/toolcreation + tests). Spot-checked, accepted. Reported
+  `1fd80fb` to edi-ui → unblocks their end-to-end Angular confirmation + arc painter. **DR-13
+  fully end-to-end now** (core + tool + chrome).
+
+### M2 (S1+S2) — materialize intersections — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/038-M2-intersection-points-builder.md`. Pure op
+  `documentIntersectionPoints` (visible Line+ConstructionLine segments, segmentIntersection,
+  dedup) + `dropIntersectionPoints()` verb (CreateObjectsCommand, auto-select, idempotent
+  skip-existing, selection-scoped). dep:none; no reviewer gate (reuses settled machinery). M2-S3
+  (Node snap source) is the next slice after.
+
 ## Open questions / blockers
-- DR-13 angular TOOL arm in flight (unblocks edi-ui's merged Angular chrome). M2 queued next.
+- M2 S1+S2 in build → then M2-S3 (Node snap source). 
 - Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test.
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 

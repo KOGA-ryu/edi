@@ -92,6 +92,20 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
 - The crypt props (G2): `crypt.sarcophagus` @ (45,10), `crypt.brazier` @ (40,5) —
   both inside the crypt footprint x∈[35,55] y∈[0,20] → room "crypt".
 
+## STANDING RULE (2026-06-18, USER) — every dimension is DATA
+Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.
+NO magic dimension literals in logic; every dimension is a named field in a spec/
+config/constants-table, derived or parameterizable. Exempt: epsilons/tolerances, unset
+0.0. REVIEWER-ENFORCED (no mechanical scan). Dungeon-map application:
+- Generator crypt LAYOUT dims → file-scope NAMED DATA TABLES (kCryptRooms/Plugs/Conns/
+  Blocks); buildCryptMapSpec only translates tables→MapSpec, no inline dimension literal.
+- Plug `at` DERIVED as edge midpoint from room dims (scale-robust, no second literal).
+- IN FLIGHT: builder sweeping the magic-literal G1 (d34fb11) to the table form,
+  behavior-preserving. Then REVIEWER audits the diff for magic dims + sweeps other
+  dungeon-map code opportunistically.
+- NOT mine: kCorridorWidth=0.045 retirement = drafting's slice (src/core), per
+  SCALE-POLICY per-dept split. Dungeon-map emits FEET (the canonical source of truth).
+
 ## Decisions made by the planner (to ratify)
 - Generator = standalone in-repo C++ (fork ratified by kickoff). Builds a MapSpec in
   authored FEET, docks to createMapFromSpec, places 2 blocks, exports the document TOON.

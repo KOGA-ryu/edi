@@ -186,12 +186,51 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
      the stale-member-after-tool-switch.
   → Bake into **batch-3** (the delete/reroute batch) or a final hardening slice.
 
-### Builder slice 021 (block-instance projection keys, cross-dept) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/021-builder-block-instance-projection-keys.md`
-- `has_block_instance_selection` + `instance_id` in `DrawingDocumentProjection.cpp`.
-  **On land → bus-hub so the hub routes the tip to edi-ui (DM-15).**
+### Builder slice 021 (block-instance projection keys) — 2026-06-17 — DONE + ROUTED + MERGED
+- `has_block_instance_selection`(bool) + `instance_id`(QString) in
+  `DrawingDocumentProjection.cpp` (always-present) + 3 tests. Builder ran edi-gate
+  GREEN but LEFT IT UNCOMMITTED (reply omitted hash); planner re-verified + committed.
+  bus-hub'd → HUB ACKED → **edi-ui MERGED it to master `73c0832`** (unblocks DM-15).
+
+## ⚠⚠ INCIDENT + RECOVERY (2026-06-17) — stale-master-ref rebase corruption
+- **What:** the builder's slice-start `git rebase master` (brief 024) landed on the
+  STALE `591e92c` (the box-vs-Mac origin/master, BEHIND the real integration), replaying
+  246 commits and dropping the real master state. Branch tip went to a bad `cb9e5aa`.
+- **Recovery (planner):** the REAL current master is `73c0832` (edi-ui's latest, which
+  already has my 020+021 merged + transformGeometry + the real integration). Verified
+  `73c0832` contains my good tip `8354488` and the real line (`d02ac86` ancestor), then
+  `git reset --hard 73c0832`. Branch clean, all work intact, nothing lost.
+- **Escalated to hub** (fleet-wide): origin/master=591e92c is stale; ANY dept builder
+  fetch+rebase onto it corrupts. Asked edi-ui to reconcile origin/master to the real line.
+- **🚫 STANDING ORDER until the hub fixes the ref: my builders do NOT `git rebase`/`git
+  fetch`.** The dept branch IS the current master; build on the current tip. (Baked into
+  brief 024 + all batch-2 briefs.) Builder recycled fresh + re-dispatched 024.
+
+### Reviewer gate 023 (relation-context + plug-type mechanism) — 2026-06-17 — SETTLED YES
+- Reply: `~/dept-bus/edi-dungeon-map/replies/023-reviewer-relation-context-plugtype-mechanism.md`
+- **B2-CTX:** widen `DraftingInspectorInput` +2 bools (`hasConnectionSelection`,
+  `activeIsPlugAnchor`); 2 precedence branches ABOVE the kind branch (no regression —
+  fire only on the new bools); rows `object_connection`/`object_plug` in `contextTable`;
+  controller `selectConnection(connId)` + `m_activeConnectionId` (clear on object-select/
+  pick/tool-switch) + 3 projection keys (`has_connection_selection`,`active_connection_id`
+  on the doc; `active_object_is_plug` on the active-object proj — mirror the 021 keys).
+- **B2-3:** chose **(a) new `UpdatePlugCommand` arm + `updatePlug` graph op** (reject
+  bracket-only mutation — no precedent; A1 static_assert auto-forces the branch); `type`
+  only. `setPlugType` = one bracket: UpdatePlug + delete old `plug:<id>` leaf + mint fresh
+  tagged leaf. Promote `wallTypeForPlugType` to a free fn (behavior-preserving extract).
+  New `plug:<plugId>` leaf-tag convention (B2-4 reuses). UX: fresh plug has NO leaf until
+  `setPlugType`/connect. edi-ui coord: groupId names, the verb widgets, row→selectConnection.
+
+### Builder slice 024 (020 NIT + coverage) — RE-DISPATCHED (post-recovery, NO rebase)
+- Recycled the builder fresh (sonnet /clear) + re-dispatched 024 with the 🚫no-rebase
+  order. Independent of batch-2. (Its first attempt triggered the incident above.)
+
+### Batch order (current)
+- batch-2 = **B2-CTX** (do first) then **B2-3** (door-type) — design settled (023),
+  briefs to write, QUEUED behind 024. NO rebase in the briefs.
+- batch-3 = B2-4 (delete + cascade cleanup) + B2-5 (manual re-route).
 
 ## Next
-- Reviewer settles the interactive-authoring design → I spec the builder batches →
-  build ops (edi-ui wires chrome when the surface spec lands). bus-hub at ~3-task
-  marks + closeout when the bucket is done.
+- 024 lands → dispatch B2-CTX → B2-3 (each no-rebase, on current tip). At every reply
+  boundary: `dept-status` + `dept-cycle` my workers >500k/on-opus. bus-hub the hub when
+  the master-ref fix lands (then rebasing is safe again). Closeout when the bucket's done.

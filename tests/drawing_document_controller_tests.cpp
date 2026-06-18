@@ -4951,6 +4951,115 @@ int main(int argc, char **argv)
         assert(objectCount(motifCtl) == beforePlace);
     }
 
+    // M2-S2: dropIntersectionPoints — materialise segment crossings as Point objects.
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+        auto kindCount = [](DrawingDocumentController &c, const QString &kind) {
+            int n = 0;
+            for (const QVariant &v : c.modelDocument().value(QStringLiteral("drawing_objects")).toList()) {
+                if (v.toMap().value(QStringLiteral("kind")).toString() == kind) {
+                    ++n;
+                }
+            }
+            return n;
+        };
+
+        // Two crossing lines → exactly 1 Point at the crossing, auto-selected.
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.2, 0.5);
+            ctl.clickCanvasNormalized(0.8, 0.5); // horizontal y=0.5
+            ctl.clickCanvasNormalized(0.5, 0.2);
+            ctl.clickCanvasNormalized(0.5, 0.8); // vertical x=0.5
+            assert(objectCount(ctl) == 2);
+
+            // The line_tool auto-selects the last-created line, so we clear the
+            // selection before calling dropIntersectionPoints — this tests the
+            // whole-document path (no selection → full visible scan).
+            ctl.setSelectedToolId("select_move");
+            ctl.clickCanvasNormalized(0.99, 0.99); // empty space → clears selection
+            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+
+            const bool dropped = ctl.dropIntersectionPoints();
+            assert(dropped);
+            assert(objectCount(ctl) == 3);
+            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+
+            // The created Point is auto-selected.
+            const QVariantList selIds =
+                ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList();
+            assert(selIds.size() == 1);
+            assert(selIds[0].toString().startsWith(QStringLiteral("isect_")));
+
+            // The whole operation is ONE undo step.
+            assert(ctl.canUndo());
+            ctl.undo();
+            assert(objectCount(ctl) == 2);
+        }
+
+        // Idempotent: calling again after the first drop creates 0 new Points.
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.2, 0.5);
+            ctl.clickCanvasNormalized(0.8, 0.5);
+            ctl.clickCanvasNormalized(0.5, 0.2);
+            ctl.clickCanvasNormalized(0.5, 0.8);
+            // Clear the auto-selection so the whole-document path runs.
+            ctl.setSelectedToolId("select_move");
+            ctl.clickCanvasNormalized(0.99, 0.99);
+
+            assert(ctl.dropIntersectionPoints()); // first drop: creates 1 Point
+            const int after1 = objectCount(ctl);
+            assert(after1 == 3);
+
+            // The first drop auto-selects the new Point — clear selection again
+            // so the second call also uses the whole-document path.
+            ctl.clickCanvasNormalized(0.99, 0.99); // select_move still active → clears selection
+
+            const bool second = ctl.dropIntersectionPoints(); // second drop: 0 new
+            assert(!second);
+            assert(objectCount(ctl) == after1); // nothing added
+        }
+
+        // Selection-scoped: 3 lines, only 2 selected → only their crossing drops.
+        //
+        // Layout (all in the canvas [0,1] space):
+        //   l1: horizontal y=0.5, x=[0.1,0.9] — spans full width
+        //   l2: vertical   x=0.4, y=[0.3,0.7] — crosses l1 at (0.4, 0.5)
+        //   l3: vertical   x=0.6, y=[0.3,0.7] — crosses l1 at (0.6, 0.5)
+        // Full-document drop would give 2 Points.
+        //
+        // A marquee [0.0,0.25]→[0.55,0.75] selects l1 (x=[0.1,0.9] intersects)
+        // and l2 (x=0.4 ≤ 0.55) but NOT l3 (x=0.6 > 0.55 — no x overlap with the
+        // marquee box).  The selection-scoped drop then gives only l1∩l2=(0.4,0.5).
+        {
+            DrawingDocumentController ctl;
+            ctl.setSelectedToolId("line_tool");
+            ctl.clickCanvasNormalized(0.1, 0.5);
+            ctl.clickCanvasNormalized(0.9, 0.5); // l1: horizontal y=0.5
+            ctl.clickCanvasNormalized(0.4, 0.3);
+            ctl.clickCanvasNormalized(0.4, 0.7); // l2: vertical x=0.4
+            ctl.clickCanvasNormalized(0.6, 0.3);
+            ctl.clickCanvasNormalized(0.6, 0.7); // l3: vertical x=0.6
+            assert(objectCount(ctl) == 3);
+
+            // Arm the marquee so l1+l2 are selected but l3 is excluded.
+            ctl.selectObjectsInBoundsNormalized(0.0, 0.25, 0.55, 0.75);
+            // Confirm exactly 2 objects are selected (l1 and l2).
+            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
+
+            // Selection-scoped drop: only l1∩l2=(0.4,0.5) lands.
+            const bool dropped = ctl.dropIntersectionPoints();
+            assert(dropped);
+            assert(objectCount(ctl) == 4); // 3 lines + 1 Point
+            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+        }
+    }
+
     // DR-13: angular_dimension_tool — two-line-pick arm
     // Mirrors the fillet test: click a line → arm capture; click second line →
     // planAngularDimension → one Dimension object created in one undo step.

@@ -309,6 +309,11 @@ public:
     bool deleteSelectedGuide();
     bool deleteAllGuides();
     bool deleteAllConstructionLines();
+    // M2-S2: drop a Point at every visible segment crossing (selection-scoped
+    // if objects are selected, else the whole document).  Idempotent — existing
+    // Points within tolerance are skipped.  Returns false with no undo entry
+    // when there are no new intersections to drop.
+    bool dropIntersectionPoints();
     bool mergeDuplicateGuides();
     bool setAllGuidesVisible(bool visible);
     bool setAllGuidesLocked(bool locked);

@@ -19,6 +19,7 @@
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
+#include "drafting/DraftingIntersectionOps.h"
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingMapQuery.h"  // deriveEdge (B2-2 corridor routing)
 #include "drafting/DraftingMetadata.h"
@@ -3386,6 +3387,47 @@ bool DrawingDocumentController::deleteAllGuides()
 bool DrawingDocumentController::deleteAllConstructionLines()
 {
     return applyCommandAndEmit(DeleteAllConstructionLinesCommand{});
+}
+
+bool DrawingDocumentController::dropIntersectionPoints()
+{
+    // Select which segments participate: the selection if non-empty, else the
+    // whole visible document.  subsetIntersectionPoints still respects the
+    // visibility gate, so a selected-but-hidden line contributes nothing.
+    const std::vector<DraftingObjectId> &sel = m_document.selectedObjectIds;
+    const std::vector<Point2D> rawPts = sel.empty()
+        ? documentIntersectionPoints(m_document)
+        : subsetIntersectionPoints(m_document, sel);
+
+    // Idempotency: drop the filter BEFORE building objects.  Any intersection
+    // already represented by an existing Point is skipped so that calling
+    // dropIntersectionPoints twice in a row on the same geometry is a no-op on
+    // the second call — the first call's Points satisfy the filter.
+    const std::vector<Point2D> newPts = filterExistingIntersections(m_document, rawPts);
+    if (newPts.empty()) {
+        return false; // no new intersections — no command, no undo entry
+    }
+
+    // Build one DraftingObject per new intersection.  Ids are minted before
+    // createObjectsAndSelect so that the serial bookkeeper is not rolled back
+    // on an unexpected rejection (the rejection path is unreachable in practice
+    // — every Point has valid geometry — but defensive like the array paths).
+    std::vector<DraftingObject> objects;
+    objects.reserve(newPts.size());
+    for (const Point2D &pt : newPts) {
+        const QString id = nextObjectId(QStringLiteral("isect"), m_nextObjectSerial++);
+        DraftingObject obj = makeDraftingObject(toStdString(id), DraftingShapeKind::Point,
+                                                DraftingGeometry{PointGeometry{pt}});
+        obj.layerId = m_document.activeLayerId;
+        obj.bounds  = computeBounds(obj.geometry);
+        obj.metadata.toolProvenance = "intersection";
+        objects.push_back(std::move(obj));
+    }
+
+    // createObjectsAndSelect wraps everything in one CreateObjectsCommand +
+    // SelectObjectsCommand inside ONE beginEdit/commitEdit bracket — one undo
+    // step regardless of how many intersection Points were created.
+    return createObjectsAndSelect(std::move(objects));
 }
 
 bool DrawingDocumentController::mergeDuplicateGuides()

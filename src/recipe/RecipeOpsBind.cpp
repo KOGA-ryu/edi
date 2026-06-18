@@ -62,8 +62,10 @@ constexpr FieldRow<AddPrismOp> kPrismFields[] = {
     {"base_z", &AddPrismOp::baseZ},
     {"x", &AddPrismOp::x},
     {"y", &AddPrismOp::y},
-    {"taper_end", &AddPrismOp::taperEnd}, // BL-09
-    {"inset", &AddPrismOp::inset},        // BL-10
+    {"taper_end", &AddPrismOp::taperEnd},    // BL-09
+    {"taper_curve", &AddPrismOp::taperCurve}, // P4
+    {"taper_end_y", &AddPrismOp::taperEndY},  // P4b
+    {"inset", &AddPrismOp::inset},           // BL-10
     {"normal_offset", &AddPrismOp::normalOffset},
 };
 
@@ -97,7 +99,9 @@ constexpr FieldRow<AddSweepProfileOp> kSweepProfileFields[] = {
     {"base_z", &AddSweepProfileOp::baseZ},
     {"x", &AddSweepProfileOp::x},
     {"y", &AddSweepProfileOp::y},
-    {"taper_end", &AddSweepProfileOp::taperEnd}, // BL-09
+    {"taper_end", &AddSweepProfileOp::taperEnd},    // BL-09
+    {"taper_curve", &AddSweepProfileOp::taperCurve}, // P4
+    {"taper_end_y", &AddSweepProfileOp::taperEndY},  // P4b
 };
 
 constexpr FieldRow<CutFlutesOp> kFluteFields[] = {

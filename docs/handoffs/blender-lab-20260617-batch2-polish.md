@@ -68,9 +68,18 @@ the stale arch §6 "only twisted_column on disk" → three craftsmen + the autho
 link. The param.type default mismatch (C++ "text" vs Python "number") stays §10 candidate
 #5 (LOW, unreachable in practice; the doc now tells authors to always declare `type`).
 
-## Next (PAUSED — hub context swap; do not scoop until resumed)
-- **DONE this batch-2 so far:** RD3 (craftsmen doc `09cb3bb`), P1 (warning + manifold
-  `730f6bc`), P2 (boolean dedup `8ae59f3`). All on `dept/blender-lab`, green.
-- **RESUME AT:** P3 (watertight helix) — see its gate-log entry. Then P4 per-axis taper,
-  RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard geometry, P7 bounds tightness.
-- No worker in flight. Branch green. Awaiting fresh hub session.
+## RESUMED 2026-06-17 (fresh hub session, full fleet live)
+- **Merged + rebased:** edi-ui merged my full batch (feature batch + batch-2 P1/P2/RD3) to
+  master `88452bb` (HEAD `f8bed78` after a drafting merge). Rebased dept/blender-lab onto
+  master ref → branch == master (`ef9bf0a`, 0 ahead). edi-gate GREEN (101/101 + scan).
+- **New toolbelt in use:** `edi-gate` (build+ctest+scan), `bus-reply`/`bus-next`,
+  `dept-cycle`/`dept-status`/`bus-ctx`. Model tiering: builder/researcher Sonnet,
+  planner/reviewer Opus.
+- **Recycled at this boundary:** builder (was 682k/opus + stale brief 030) and researcher
+  (idle/opus) both dept-cycled → Sonnet, fresh context.
+
+## Next
+- **DONE batch-2:** RD3 craftsmen doc, P1 warning+manifold, P2 boolean dedup — all on master.
+- **IN FLIGHT:** P3 (watertight helix) dispatched to the fresh Sonnet builder.
+- Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
+  geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.

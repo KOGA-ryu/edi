@@ -280,10 +280,19 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
 - Builder FLAG (folded into 029): the delete verbs leave `m_activeConnectionId` STALE
   (pointing at a deleted connection) → `has_connection_selection` true for a dead id.
 
-### Reviewer checkpoint audit of B2-4 — DISPATCHED (030, parallel with 029)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/030-reviewer-b2-4-audit.md`
-- Focus: gather-before-mutate completeness (all connections naming the plug), the
-  double-prune safety, no dangling/orphaned corridor, one-undo full restore.
+### Reviewer checkpoint audit of B2-4 — 2026-06-17 — CLEAN
+- Reply: `~/dept-bus/edi-dungeon-map/replies/030-reviewer-b2-4-audit.md`
+- **B2-4 audit CLEAN.** Cascade correct: gather-first complete (both endpoints, multi-
+  connection), double-prune genuinely idempotent (`removePlug` cascades edges; marker-
+  prune a no-op), no dangling/orphaned corridor, one-undo full restore. Tests exercise
+  delete→no-dangling→undo→restore end-to-end (genuinely thorough). Object selection
+  auto-cleaned via `removeObject`→`normalizeSelection`; `m_activeConnectionId` is the
+  sole gap (owned by 029).
+- **NIT (low, record-don't-gate → candidate for batch-3 hardening):** both verbs ignore
+  sub-command results; a gathered object on a LOCKED layer → its `DeleteObjectCommand`
+  rejected → stray rendered object (graph stays consistent). Matches the codebase's
+  trusted-sub-command pattern (createObjectsAndSelect, transformBlockInstance) — consistent,
+  not a regression. Optional fix: pre-validate unlocked layers / surface partial-failure.
 
 ### Builder slice 029 (m_activeConnectionId hygiene — EXPANDED) — DISPATCHED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/029-builder-b2ctx-mutex-fix.md`

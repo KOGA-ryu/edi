@@ -20,6 +20,7 @@
 #include <QCloseEvent>
 #include <QShortcut>
 #include <QSignalBlocker>
+#include <QMarginsF>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QMouseEvent>
@@ -1310,6 +1311,17 @@ void EdiShellWindow::layoutMainArea()
             m_bottomGrip->setGeometry(0, std::max(0, height - bottomHeight - 4), width, 8);
             m_bottomGrip->raise();
         }
+    }
+    // Tell the canvas how much of itself the floating overlays occlude, so its
+    // auto-fit frames a dungeon into the VISIBLE sub-rectangle instead of under a
+    // panel (the map-workspace clipping bug: the canvas is full-width, but the Map
+    // browser floats over its right edge). Pure data hand-off — the canvas owns no
+    // knowledge of which panels exist; the shell, which owns the geometry, reports
+    // the edges. Right/bottom only — left is the in-flow splitter panel (it
+    // resizes the main area, it does not overlay it) and there is no top overlay.
+    if (m_draftingFeature != nullptr && m_draftingFeature->canvas() != nullptr) {
+        m_draftingFeature->canvas()->setViewInsets(
+            QMarginsF(0.0, 0.0, static_cast<double>(rightWidth), static_cast<double>(bottomHeight)));
     }
     // Palettes re-clamp against the new area and stay above the overlays —
     // they float over everything in the main area by design.

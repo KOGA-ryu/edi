@@ -585,7 +585,7 @@ private:
     double m_rectInset = 0.0;
     bool m_aspectLockEnabled = false;
     double m_fixedRadius = 0.0;
-    double m_wallThickness = 0.1; // wall tool option: band width at draw time
+    double m_wallThickness = edi::drafting::kDefaultWallToolThickness; // wall tool option: band width at draw time
     double m_filletRadius = 0.05; // default rounding radius for the fillet verb
     double m_chamferSetback = 0.05; // default setback for the chamfer verb
     double m_rotateCopiesTotalAngleDeg = 360.0; // default rotate-copies fan: a full ring

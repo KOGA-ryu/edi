@@ -34,4 +34,10 @@ inline constexpr double kAsciiBoardFillFraction = 0.62;
 // The default room wall thickness when a RoomSpec does not author one (canvas units). The historical
 // default, now named.
 inline constexpr double kDefaultRoomWallThickness = 0.1;
+
+// The default thickness of a wall drawn with the wall tool (canvas units), when the user has not set one.
+// Distinct from kDefaultRoomWallThickness (a RoomSpec's default) though they share today's value: the wall
+// tool and the room spec are separate concepts, so keep separate data — if one default shifts later they
+// must not be conflated.
+inline constexpr double kDefaultWallToolThickness = 0.1;
 } // namespace edi::drafting

@@ -104,22 +104,28 @@ class GreyboxDims:
         with the generator's scaled 2D rooms. S=1 = the original crypt; S=4 = the
         twice-doubled one.
 
-        SCALE-INVARIANT (deliberately NOT × s): the corner/endcap FACTORS (ratios),
-        the span-relative camera offsets (the camera auto-frames any span), the
-        render resolution + samples, the world fill, and — crucially — the brazier
-        light DENSITY (W/ft²). The light's intensity is density × the room's AREA;
-        because the rooms arrive ALREADY scaled on the wire (area ∝ s²), the light
-        scales by s² for free — exactly the inverse-square compensation that keeps a
-        big room lit edge-to-edge. Scaling the density too would over-light (s⁴)."""
+        SCALE-INVARIANT (deliberately NOT × s):
+        * `tile` — the grid MODULE stays the neutral 5 ft (frozen contract §1); the
+          realizer tiles floors/walls on that fixed grid at every S, so a bigger
+          room gets MORE 5 ft cells, not bigger ones. (brief 046 scales the envelope
+          constants — corridor/door/wall/floor — but NOT the grid module.)
+        * `min_leg` — a length TOLERANCE, not an envelope dimension.
+        * the corner/endcap FACTORS (ratios), the span-relative camera offsets (the
+          camera auto-frames any span), the render resolution + samples, the world
+          fill, and — crucially — the brazier light DENSITY (W/ft²). The light's
+          intensity is density × the room's AREA; because the rooms arrive ALREADY
+          scaled on the wire (area ∝ s²), the light scales by s² for free — exactly
+          the inverse-square compensation that keeps a big room lit edge-to-edge.
+          Scaling the density too would over-light (s⁴)."""
         if s == 1.0:
             return self
         L = lambda v: v * s                       # noqa: E731 — length field × s
         T = lambda t: tuple(v * s for v in t)     # noqa: E731 — length tuple × s
         return replace(
             self,
-            tile=L(self.tile), wall_h=L(self.wall_h), wall_t=L(self.wall_t),
-            floor_t=L(self.floor_t), corridor_w=L(self.corridor_w), door_w=L(self.door_w),
-            min_leg=L(self.min_leg), column_w=L(self.column_w),
+            wall_h=L(self.wall_h), wall_t=L(self.wall_t), floor_t=L(self.floor_t),
+            corridor_w=L(self.corridor_w), door_w=L(self.door_w),
+            column_w=L(self.column_w),
             prop_base_z=L(self.prop_base_z), sarcophagus=T(self.sarcophagus),
             brazier_w=L(self.brazier_w), brazier_h=L(self.brazier_h),
             brazier_light_z=L(self.brazier_light_z), stair_h=L(self.stair_h),

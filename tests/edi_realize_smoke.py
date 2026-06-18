@@ -134,17 +134,19 @@ D = edi_realize.DEFAULT_DIMS
 if D.scaled(1.0) is not D:
     fail("scaled(1.0) should be identity (same object)")
 d2 = D.scaled(2.0)
-# every LENGTH field doubles
-for fld in ("tile", "wall_h", "wall_t", "floor_t", "corridor_w", "door_w",
-            "min_leg", "column_w", "prop_base_z", "brazier_w", "brazier_h",
+# every ENVELOPE LENGTH field doubles
+for fld in ("wall_h", "wall_t", "floor_t", "corridor_w", "door_w",
+            "column_w", "prop_base_z", "brazier_w", "brazier_h",
             "brazier_light_z", "stair_h", "stair_z", "brazier_softness"):
     if abs(getattr(d2, fld) - 2.0 * getattr(D, fld)) > 1e-9:
         fail(f"scaled(2).{fld} should double")
 if d2.sarcophagus != tuple(2.0 * v for v in D.sarcophagus):
     fail("scaled(2).sarcophagus tuple should double")
+# the grid MODULE (tile, contract §1), the length tolerance, and all
 # dimensionless / intensity / output fields are scale-INVARIANT
-for fld in ("corner_factor", "endcap_factor", "cam_off_x", "cam_off_y", "cam_off_z",
-            "res_x", "res_y", "samples", "light_per_sqft", "light_min", "ambient_strength"):
+for fld in ("tile", "min_leg", "corner_factor", "endcap_factor",
+            "cam_off_x", "cam_off_y", "cam_off_z", "res_x", "res_y", "samples",
+            "light_per_sqft", "light_min", "ambient_strength"):
     if getattr(d2, fld) != getattr(D, fld):
         fail(f"scaled(2).{fld} must stay scale-invariant")
 # corridor pieces actually widen under the scaled table

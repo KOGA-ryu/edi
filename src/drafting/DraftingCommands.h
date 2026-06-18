@@ -171,6 +171,16 @@ struct DeleteConnectionCommand {
     DraftingConnectionId connectionId;
 };
 
+// B2-3: mutate a plug's neutral type field. Only `type` is updated; the anchor,
+// anchorObjectId, id, name, and flags are never touched by this command (the
+// same field-isolation discipline addPlug/removePlug follow). The render-side
+// door leaf (setPlugType, controller layer) is RE-MINTED by the controller that
+// wraps this command — the graph op only mutates the record.
+struct UpdatePlugCommand {
+    DraftingPlugId plugId;
+    std::string    type;  // new neutral type tag (door/window/secret/portal/…)
+};
+
 // Block-library commands (Phase C). Same shape as the map-graph commands above:
 // CreateBlockCommand carries the WHOLE pre-built definition (the caller mints the
 // id and normalizes the objects; the op only validates), DeleteBlockCommand names
@@ -231,6 +241,7 @@ using DraftingCommand = std::variant<
     DeletePlugCommand,
     DeclareConnectionCommand,
     DeleteConnectionCommand,
+    UpdatePlugCommand,
     CreateBlockCommand,
     DeleteBlockCommand,
     CreateMapRoomCommand,

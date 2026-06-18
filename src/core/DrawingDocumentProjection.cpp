@@ -2,6 +2,7 @@
 
 #include "drafting/DraftingLayerOps.h"
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject (B2-CTX active_object_is_plug)
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingMeasurement.h"
 #include "drafting/DraftingMeasurementFormat.h"
@@ -789,6 +790,13 @@ QVariantMap draftingDocumentToModelProjection(
     const DraftingObject *activeObj = activeObject(document);
     const std::string activeInstanceId =
         activeObj ? activeObj->metadata.blockPlacement.instanceId : std::string{};
+    // B2-CTX: active_object_is_plug — true when the active object is a plug's anchor
+    // marker (i.e. plugAtAnchorObject finds a matching plug record). The widget layer
+    // reads this to set DraftingInspectorInput::activeIsPlugAnchor so the inspector
+    // plan picks the "object_plug" context instead of "object_shape".
+    // plugAtAnchorObject returns std::optional<DraftingPlugId>; has_value() is the check.
+    const bool activeObjIsPlug =
+        activeObj && plugAtAnchorObject(document, activeObj->id).has_value();
 
     QVariantMap result {
         {QStringLiteral("engine"), QStringLiteral("cpp_drafting_document")},
@@ -801,6 +809,9 @@ QVariantMap draftingDocumentToModelProjection(
         // revision like every other document projection key).
         {QStringLiteral("has_block_instance_selection"), !activeInstanceId.empty()},
         {QStringLiteral("instance_id"), qStringFromStdString(activeInstanceId)},
+        // B2-CTX active-object plug key: true when the active object is a plug anchor.
+        // The widget layer reads this to build DraftingInspectorInput::activeIsPlugAnchor.
+        {QStringLiteral("active_object_is_plug"), activeObjIsPlug},
         {QStringLiteral("revision"), static_cast<int>(document.revision)},
         {QStringLiteral("guide_count"), guideCount},
         {QStringLiteral("visible_guide_count"), visibleGuideCount},

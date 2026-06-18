@@ -35,6 +35,12 @@ std::optional<DraftingPlugId> plugAtAnchorObject(const DraftingDocument &documen
 // Mutations.
 DraftingStoreResult addPlug(DraftingDocument &document, DraftingPlug plug);
 DraftingStoreResult removePlug(DraftingDocument &document, const DraftingPlugId &id);
+// B2-3: update ONLY the neutral type field of an existing plug. The anchor,
+// anchorObjectId, id, name, and flags are never touched (field isolation). The
+// caller (setPlugType) re-mints the door leaf to match the new type; the graph
+// op owns only the record mutation. Returns rejected when the id is unknown.
+DraftingStoreResult updatePlug(DraftingDocument &document, const DraftingPlugId &id,
+                                const std::string &type);
 DraftingStoreResult declareConnection(DraftingDocument &document, DraftingDeclaredConnection connection);
 DraftingStoreResult undeclareConnection(DraftingDocument &document, const DraftingConnectionId &id);
 // Record a named map room (Seam C). Validates a non-empty, unique name; the

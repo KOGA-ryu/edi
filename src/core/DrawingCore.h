@@ -401,6 +401,40 @@ public:
     // geometry tagged "connection:<id>" (same open-vocab breadcrumb as feature tags,
     // no new field/codec), all in one undo step via createObjectsAndSelect.
     bool connectPlugs(const QString &plugAId, const QString &plugBId);
+    // B2-CTX: select a declared connection by id (the Map-browser row calls this).
+    // Validates via connectionIndexById; on hit: records m_activeConnectionId,
+    // clears the object selection (mutual exclusion — a connection selection and an
+    // object selection are never both active), emits modelChanged(). On miss: no-op.
+    // The selection surfaces in the projection as has_connection_selection /
+    // active_connection_id so the widget layer can build the inspector input.
+    void selectConnection(const QString &connId);
+    // B2-4: drop a declared connection + its rendered corridor geometry. One bracket:
+    // DeleteConnectionCommand (removes the graph edge, plugs stay) + DeleteObjectCommand
+    // for each object tagged "connection:<connId>". Returns false when the id is unknown.
+    // v1: the two plugs and their door leaves are NOT reverted — a plug can be
+    // reconnected. One undo restores the graph edge and all corridor objects.
+    bool deleteConnection(const QString &connId);
+    // B2-4: drop a plug + its cascade. Gather FIRST (before any mutation): the anchor
+    // marker, the door leaf (if any, tagged "plug:<plugId>"), and every corridor wall
+    // of each connection that named this plug (tagged "connection:<connId>"). ONE
+    // bracket: DeletePlugCommand (cascades all connection edges) THEN DeleteObjectCommand
+    // for every gathered object. Returns false when the plug id is unknown.
+    // One undo restores the plug, its connections, and all associated rendered objects.
+    bool deletePlug(const QString &plugId);
+    // B2-3: set a plug's neutral type and re-mint its door leaf. ONE bracket:
+    // UpdatePlugCommand (updates plug.type in the graph) + optional DeleteObjectCommand
+    // for the existing "plug:<plugId>"-tagged leaf + CreateObjectCommand for a fresh
+    // leaf (thin Wall band across the doorway, wallVisual.type = wallTypeForPlugType(type),
+    // toolProvenance = "door", tag "plug:<plugId>"). Returns false when the plug id is
+    // unknown. One undo reverts BOTH the type change and the leaf swap atomically.
+    bool setPlugType(const QString &plugId, const QString &type);
+    // B2-5: replace a connection's rendered corridor geometry with a freshly routed
+    // one that follows the two plugs' CURRENT anchor positions (reads the live marker
+    // geometry, not the stale plug.anchor snapshot). ONE bracket: delete old walls
+    // tagged "connection:<connId>" + create fresh tagged walls. The connection record
+    // and both plugs are untouched. Returns false when the id is unknown or its plugs
+    // can't be resolved. One undo reverts to the prior corridor.
+    bool rerouteConnection(const QString &connId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -417,6 +451,13 @@ signals:
 
 private:
     bool applyCommandAndEmit(const edi::drafting::DraftingCommand &command);
+    // B2-CTX undo/redo reconcile: after a snapshot is restored, m_activeConnectionId
+    // (controller view-state, NOT in DocumentSnapshot) may conflict with the restored
+    // document.  Clear it when the restored document has an active object selection
+    // (mutual-exclusion — the object wins) OR when the connection it names is no longer
+    // in the document (dangling reference).  Must be called BEFORE emit modelChanged()
+    // so the projection cache rebuilds once with the already-reconciled state.
+    void reconcileActiveConnection();
     // Undo snapshot bookkeeping. beginEdit() copies the document at the start of
     // a mutating action; commitEdit() (called right before emit, so canUndo() is
     // current when the view refreshes) pushes that snapshot onto the undo stack
@@ -500,6 +541,17 @@ private:
     // DR-13: second-line pick for the angular-dimension two-click arm. Called from
     // resolvePointCapture; the first line id is in m_pendingAngularFirstLineId.
     void applyAngularDimensionAtPoint(edi::drafting::Point2D point);
+    // B2-5 shared helper: build tagged corridor-wall DraftingObjects for a connection
+    // (connId) between two plugs. Reads each plug's CURRENT anchor from its anchor
+    // marker's live PointGeometry (so a moved marker is reflected; falls back to
+    // plug.anchor when the marker can't be found). Returns an empty vector when the
+    // centerline degenerates (e.g. both doors at the same point). DOES NOT apply any
+    // command — the caller owns the bracket. Both connectPlugs and rerouteConnection
+    // call this, keeping the routing logic in one place (DRY).
+    std::vector<edi::drafting::DraftingObject> buildTaggedCorridorWalls(
+        const std::string &connId,
+        const edi::drafting::DraftingPlug &plugA,
+        const edi::drafting::DraftingPlug &plugB);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);
@@ -574,6 +626,12 @@ private:
     // carrying state across the arm→first-click→second-click gap without widening
     // the PendingPointCapture struct (the data-oriented variation point stays minimal).
     std::string m_pendingConnectionPlugA;
+    // B2-CTX: the connection selected via the Map-browser row (empty = none).
+    // Transient VIEW-STATE — NOT a document field, NOT persisted — same idiom as
+    // m_pendingBlockId. Mutual exclusion: selectConnection clears the object
+    // selection; any object-select / begin*Pick / setSelectedToolId clears this.
+    // Surfaces in modelDocument() as has_connection_selection + active_connection_id.
+    std::string m_activeConnectionId;
     // Projection cache. The document-shaped model (objects, layers, grid,
     // plot plan, safety annotation, selection bounds) rebuilds only when a
     // modelChanged emission bumps the generation; every call then overlays

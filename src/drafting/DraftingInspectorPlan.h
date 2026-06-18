@@ -15,6 +15,12 @@ struct DraftingInspectorInput {
     bool hasSelection = false;
     // Read only when hasSelection is true.
     DraftingShapeKind selectedKind = DraftingShapeKind::Point;
+    // B2-CTX: relation membership flags. The widget layer supplies these from
+    // three projection keys (has_connection_selection, active_object_is_plug).
+    // Both default false so every non-map-authoring caller gets the existing
+    // kind-only dispatch unchanged — no regression to existing contexts.
+    bool hasConnectionSelection = false; // a Map-browser row selected a connection (relation)
+    bool activeIsPlugAnchor     = false; // the active object is a plug's anchor marker
 };
 
 // The resolved context plus the ordered list of section groups to show.

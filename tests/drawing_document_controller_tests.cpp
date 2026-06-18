@@ -2,6 +2,7 @@
 #include "core/DrawingDocumentProjection.h"
 
 #include "drafting/DraftingDocument.h"
+#include "drafting/DraftingGraphOps.h"  // plugIndexById, connectionIndexById (B2-4 tests)
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingSerialize.h"
 
@@ -5160,6 +5161,1012 @@ int main(int argc, char **argv)
             assert(!angCtl4.isAwaitingPointCapture());
             // planAngularDimension rejects parallel lines — no new object.
             assert(objectCount(angCtl4) == before4);
+    // --- 024 coverage: plug-A deleted between clicks -------------------------
+    // Arm the connection tool, complete the first click (plug A stored), then
+    // DELETE plug A's marker before the second click. The second click should
+    // see that the stored plug id no longer exists (apply-time re-validation in
+    // connectPlugs) and refuse: no DeclaredConnection, capture cleared.
+    //
+    // This path exercises the "both plugs must exist" guard in connectPlugs — the
+    // gap between the first click (plug A recorded) and the second click (plug A
+    // gone from the graph due to its anchor marker being deleted).
+    {
+        DrawingDocumentController delBetweenCtl;
+
+        // Place plug A at (0.3, 0.3) and plug B at (0.7, 0.7).
+        delBetweenCtl.beginPlugPick();
+        delBetweenCtl.clickCanvasNormalized(0.3, 0.3); // plug A
+        delBetweenCtl.beginPlugPick();
+        delBetweenCtl.clickCanvasNormalized(0.7, 0.7); // plug B
+
+        // Capture the marker id for plug A (we will delete it next).
+        const std::string markerAId = delBetweenCtl.draftingDocument().plugs[0].anchorObjectId;
+
+        // Arm the connection tool and do the first click (plug A stored).
+        assert(delBetweenCtl.beginConnectionPick());
+        delBetweenCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(delBetweenCtl.isAwaitingPointCapture()); // re-armed for second click
+        assert(delBetweenCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
+
+        // Delete plug A's marker WHILE the connection tool is still armed.
+        // selectObjectById does not cancel the pending capture — only setSelectedToolId
+        // does — so the PlugConnect state survives the delete.
+        assert(delBetweenCtl.selectObjectById(QString::fromStdString(markerAId)));
+        assert(delBetweenCtl.deleteSelectedObject());
+        // The cascade removed plug A from the graph; only plug B remains.
+        assert(delBetweenCtl.draftingDocument().plugs.size() == 1);
+
+        // Second click on plug B — the stored plug A id now resolves to nullopt in
+        // connectPlugs (apply-time re-validation); the tool refuses and clears.
+        delBetweenCtl.clickCanvasNormalized(0.7, 0.7);
+        assert(!delBetweenCtl.isAwaitingPointCapture()); // disarmed
+        assert(delBetweenCtl.draftingDocument().connections.empty()); // no connection made
+    }
+
+    // --- 024 coverage: empty-corridor fallback (degenerate same-point plugs) --
+    // When both plug anchors collapse to the SAME coordinate, routeCorridorCenterline
+    // returns a degenerate (zero-length) centerline and corridorWalls produces NO wall
+    // objects. connectPlugs falls back to an inline bracket that records ONLY the
+    // DeclaredConnection, so the graph edge exists without rendered geometry.
+    // One undo must remove that connection (the fallback bracket is one undo step).
+    {
+        DrawingDocumentController degCtl;
+
+        // Place two plug markers at the EXACT same normalized position.
+        // Each call mints a distinct marker and a distinct plug, but both anchors
+        // land at (0.5, 0.5) — the degenerate case for the corridor router.
+        degCtl.beginPlugPick();
+        degCtl.clickCanvasNormalized(0.5, 0.5); // plug A anchor (0.5, 0.5)
+        degCtl.beginPlugPick();
+        degCtl.clickCanvasNormalized(0.5, 0.5); // plug B anchor (0.5, 0.5) — same point
+
+        assert(degCtl.draftingDocument().plugs.size() == 2);
+        const int markersCount = static_cast<int>(degCtl.draftingDocument().objects.size()); // 2
+
+        const QString degPlugAId = QString::fromStdString(degCtl.draftingDocument().plugs[0].id);
+        const QString degPlugBId = QString::fromStdString(degCtl.draftingDocument().plugs[1].id);
+
+        // Call connectPlugs directly (bypassing the hit-test click path — both
+        // markers are at the same pixel and hit-test would return only one of them).
+        assert(degCtl.connectPlugs(degPlugAId, degPlugBId));
+
+        // The fallback path: one DeclaredConnection exists, NO corridor walls added.
+        assert(degCtl.draftingDocument().connections.size() == 1);
+        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+
+        // One undo removes the connection (the fallback bracket is one undo step).
+        assert(degCtl.undo());
+        assert(degCtl.draftingDocument().connections.empty());
+        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+    }
+
+    // --- 024 coverage: stale-member cleared on tool switch (NIT fix) ----------
+    // After a tool switch the two-stage connection state (m_pendingConnectionPlugA)
+    // must be wiped — the fix lives in setSelectedToolId alongside m_pointCapture.reset().
+    // Sequence: arm → first click (plug A stored) → switch tool → re-arm → click:
+    // the click must be treated as the FIRST click (prompt becomes "second"), not
+    // immediately connected to the stale A.
+    {
+        DrawingDocumentController staleCtl;
+
+        // Place two plugs at known positions.
+        staleCtl.beginPlugPick();
+        staleCtl.clickCanvasNormalized(0.3, 0.3); // plug A
+        staleCtl.beginPlugPick();
+        staleCtl.clickCanvasNormalized(0.7, 0.7); // plug B
+
+        // Arm connection tool and store plug A via the first click.
+        assert(staleCtl.beginConnectionPick());
+        staleCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(staleCtl.isAwaitingPointCapture()); // re-armed for second click
+
+        // Switch to a different tool — cancels the pick AND (NIT fix) clears
+        // m_pendingConnectionPlugA so it cannot bleed into the next session.
+        // NOTE: the default tool id is "select_move"; beginConnectionPick does NOT
+        // change it, so we must switch to a GENUINELY DIFFERENT tool to avoid the
+        // early-return guard (if (m_selectedToolId == toolId) return;).
+        staleCtl.setSelectedToolId(QStringLiteral("rectangle_tool"));
+        assert(!staleCtl.isAwaitingPointCapture()); // capture cancelled by tool switch
+
+        // Re-arm the connection tool (also clears m_pendingConnectionPlugA for safety).
+        assert(staleCtl.beginConnectionPick());
+        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
+
+        // Clicking plug A is now the FIRST click (plug A was NOT left stale from
+        // before the tool switch). The tool re-arms for the second click.
+        staleCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(staleCtl.isAwaitingPointCapture()); // still armed — waiting for second plug
+        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the second plug")); // FIRST click consumed
+        assert(staleCtl.draftingDocument().connections.empty()); // no premature connection
+    }
+
+    // --- B2-CTX: selectConnection + projection keys ----------------------------
+    //
+    // selectConnection(validId) → has_connection_selection=true + object selection cleared.
+    // selectConnection(unknownId) → no-op.
+    // Object-select after selectConnection → clears m_activeConnectionId.
+    {
+        DrawingDocumentController connSelCtl;
+
+        // Place two plugs and connect them to get a real DeclaredConnection.
+        connSelCtl.beginPlugPick();
+        connSelCtl.clickCanvasNormalized(0.3, 0.3);
+        connSelCtl.beginPlugPick();
+        connSelCtl.clickCanvasNormalized(0.7, 0.7);
+
+        // Retrieve both plug ids from the document.
+        const auto &plugs = connSelCtl.draftingDocument().plugs;
+        assert(plugs.size() == 2);
+        const QString plugAId = QString::fromStdString(plugs[0].id);
+        const QString plugBId = QString::fromStdString(plugs[1].id);
+
+        // Connect them → one DeclaredConnection is minted.
+        assert(connSelCtl.connectPlugs(plugAId, plugBId));
+        const auto &conns = connSelCtl.draftingDocument().connections;
+        assert(conns.size() == 1);
+        const QString connId = QString::fromStdString(conns[0].id);
+
+        // Before any selectConnection call: has_connection_selection should be false.
+        QVariantMap model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+
+        // selectConnection(unknownId) → no-op: the key stays false.
+        connSelCtl.selectConnection(QStringLiteral("no-such-connection-id"));
+        model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+
+        // selectConnection(validId) → has_connection_selection true + id set.
+        connSelCtl.selectConnection(connId);
+        model = connSelCtl.modelDocument();
+        assert(model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString() == connId);
+
+        // selectConnection also clears the object selection (mutual exclusion).
+        // First select an object, then call selectConnection; selection must be gone.
+        {
+            // Pick the first plug's anchor marker as our test object.
+            const QString markerId = QString::fromStdString(
+                connSelCtl.draftingDocument().objects.front().id);
+            assert(connSelCtl.selectObjectById(markerId));
+            // Object is now selected — connection select was cleared by selectObjectById.
+            assert(!connSelCtl.modelDocument()
+                       .value(QStringLiteral("has_connection_selection")).toBool());
+
+            // Now select the connection again.
+            connSelCtl.selectConnection(connId);
+            assert(connSelCtl.modelDocument()
+                       .value(QStringLiteral("has_connection_selection")).toBool());
+            // The object selection must be empty (clearSelection was called inside selectConnection).
+            assert(connSelCtl.modelDocument()
+                       .value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        }
+
+        // Object-select after selectConnection clears m_activeConnectionId.
+        const QString markerId = QString::fromStdString(
+            connSelCtl.draftingDocument().objects.front().id);
+        assert(connSelCtl.selectObjectById(markerId));
+        model = connSelCtl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // active_object_is_plug: placing a plug marker and selecting it yields true.
+    {
+        DrawingDocumentController plugObjCtl;
+        plugObjCtl.beginPlugPick();
+        plugObjCtl.clickCanvasNormalized(0.5, 0.5);
+
+        // The freshly placed marker is auto-selected; it is a plug anchor.
+        QVariantMap model = plugObjCtl.modelDocument();
+        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+
+        // A plain (non-plug) object is NOT a plug anchor.
+        DrawingDocumentController plainCtl;
+        plainCtl.setSelectedToolId(QStringLiteral("circle_tool"));
+        plainCtl.clickCanvasNormalized(0.5, 0.5); // create a circle
+        model = plainCtl.modelDocument();
+        assert(!model.value(QStringLiteral("active_object_is_plug")).toBool());
+    }
+
+    // --- B2-4: deleteConnection + deletePlug -----------------------------------
+    //
+    // Fixture shared across all four cases (repeated inline — DrawingDocumentController
+    // is a QObject, so it cannot move into a std::tuple returned from a lambda;
+    // four short setup sequences are clearer than heap-wrapping them).
+
+    // (1) deleteConnection(validId) — edge + corridor gone, plugs stay,
+    //     one undo restores everything.
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
+
+        // Count corridor walls (tagged "connection:<connId>").
+        const std::string connTag = "connection:" + cId.toStdString();
+        int corridorCount = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++corridorCount; break; }
+            }
+        }
+        assert(corridorCount > 0); // at least one corridor wall present
+
+        assert(ctl.deleteConnection(cId));
+
+        // Graph edge gone.
+        assert(ctl.draftingDocument().connections.empty());
+        // Corridor walls gone.
+        int remaining = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++remaining; break; }
+            }
+        }
+        assert(remaining == 0);
+        // Plug markers still present (both plugs + both markers).
+        assert(ctl.draftingDocument().plugs.size() == 2);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+               == objectsWithConn - corridorCount);
+
+        // One undo restores the edge AND the corridor.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().connections.size() == 1);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+    }
+
+    // (2) deleteConnection(unknownId) → no-op (returns false).
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId2 = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId2 = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId2, bId2));
+        const std::size_t connsBefore = ctl.draftingDocument().connections.size();
+        assert(!ctl.deleteConnection(QStringLiteral("no-such-connection")));
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+    }
+
+    // (3) deletePlug(plugA) — plug + connection + corridor + anchor marker gone;
+    //     plug B + its marker remain; one undo restores everything.
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
+        const std::size_t plugsBefore  = ctl.draftingDocument().plugs.size();       // 2
+        const std::size_t connsBefore  = ctl.draftingDocument().connections.size(); // 1
+
+        // Count objects that belong to plug A's connection (corridor walls tagged
+        // "connection:<cId>") plus the anchor marker itself.
+        const std::string connTag = "connection:" + cId.toStdString();
+        int doomed = 0; // corridor walls
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { ++doomed; break; }
+            }
+        }
+        doomed += 1; // + the anchor marker for plug A
+
+        assert(ctl.deletePlug(aId));
+
+        // Plug A gone; plug B still present.
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore - 1);
+        assert(!edi::drafting::plugIndexById(ctl.draftingDocument(), aId.toStdString()));
+        assert( edi::drafting::plugIndexById(ctl.draftingDocument(), bId.toStdString()));
+
+        // Connection gone (cascaded from DeletePlugCommand).
+        assert(ctl.draftingDocument().connections.empty());
+        assert(!edi::drafting::connectionIndexById(ctl.draftingDocument(), cId.toStdString()));
+
+        // Corridor walls and anchor marker of plug A gone.
+        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+               == objectsWithConn - doomed);
+        // Plug B's anchor marker still exists.
+        const std::string bAnchorId =
+            ctl.draftingDocument().plugs.front().anchorObjectId;
+        assert(edi::drafting::findObject(ctl.draftingDocument(), bAnchorId) != nullptr);
+
+        // One undo restores plug A + connection + corridor + anchor marker.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+    }
+
+    // (4) deletePlug(unknownId) → no-op (returns false).
+    {
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
+        assert(!ctl.deletePlug(QStringLiteral("no-such-plug")));
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+    }
+
+    // --- Brief 029: B2-CTX mutual-exclusion fixes ----------------------------
+
+    // Fix 1: canvas click clears an active connection selection.
+    // Drive via clickCanvasNormalized (NOT selectObjectById — that was already
+    // covered; the bug was specifically in the canvas-click path).
+    {
+        DrawingDocumentController ctl;
+
+        // Place two plugs, connect them, select the connection via Map-browser.
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Canvas-click on the first plug's anchor marker (at 0.3, 0.3 in normalised coords).
+        // This is a select_move click — it should clear the connection selection AND select
+        // the object.
+        ctl.setSelectedToolId(QStringLiteral("select_move"));
+        ctl.clickCanvasNormalized(0.3, 0.3);
+
+        // has_connection_selection must now be false — the canvas click cleared it.
+        const QVariantMap model = ctl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        // An object is now selected (the plug marker at that position).
+        assert(!model.value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+    }
+
+    // Fix 1 (plug-anchor variant): canvas-click a plug marker while a connection is
+    // selected → has_connection_selection false AND active_object_is_plug true.
+    // This proves the mutual-exclusion invariant holds: only one context is active.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+
+        // Click on the plug anchor at (0.3, 0.3).
+        ctl.setSelectedToolId(QStringLiteral("select_move"));
+        ctl.clickCanvasNormalized(0.3, 0.3);
+
+        const QVariantMap model = ctl.modelDocument();
+        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        // The clicked object is a plug anchor → active_object_is_plug should be true.
+        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+    }
+
+    // Fix 2a: selectConnection(id) → deleteConnection(id) → has_connection_selection false.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Delete the selected connection — must clear m_activeConnectionId.
+        assert(ctl.deleteConnection(cId));
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // Fix 2b: selectConnection(id) → deletePlug(endpoint) → connection cascaded
+    // → has_connection_selection false.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Select the connection, then delete plug A — the connection cascades.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        assert(ctl.deletePlug(aId));
+        // Connection is gone (cascade); m_activeConnectionId should be cleared.
+        assert(ctl.draftingDocument().connections.empty());
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // --- Brief 032: cancelPendingCreation clears m_activeConnectionId -----------
+    // Escape (cancelPendingCreation) must end any connection selection so the
+    // "any focus-shift ends the connection selection" invariant holds uniformly.
+    // Sequence: arm a pick (sets m_pointCapture) → selectConnection (sets
+    // m_activeConnectionId while m_pointCapture is still live) → cancelPendingCreation
+    // clears both and emits modelChanged so the projection cache refreshes.
+    // Note: beginPlugPick DOES clear m_activeConnectionId, so we call
+    // selectConnection AFTER beginPlugPick to put both states live simultaneously.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Arm a plug-pick (sets m_pointCapture; also clears m_activeConnectionId —
+        // that is correct behaviour for the begin*Pick family).
+        ctl.beginPlugPick();
+
+        // NOW set the connection selection while the point-capture is armed.
+        // selectConnection does not touch m_pointCapture, so both states are live.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Escape — cancelPendingCreation sees m_pointCapture (doesn't early-return),
+        // clears both m_pointCapture and m_activeConnectionId, then emits modelChanged
+        // because hadConnectionSelection was true.
+        ctl.cancelPendingCreation();
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    // --- Brief 027: B2-5 rerouteConnection -----------------------------------
+    // The reroute verb replaces a connection's corridor walls with freshly-routed
+    // ones that follow the two plugs' CURRENT anchor marker positions.
+    {
+        // (1) Basic reroute: place two plugs, connect them, move plug A's anchor
+        // marker, call rerouteConnection — old corridor walls are gone; new walls
+        // exist; connection record + plugs unchanged; one undo reverts the corridor.
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const std::string connTag = "connection:" + cId.toStdString();
+
+        // Snapshot the old corridor wall ids.
+        std::vector<std::string> oldWallIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { oldWallIds.push_back(obj.id); break; }
+            }
+        }
+        assert(!oldWallIds.empty()); // corridor must have been created
+
+        // Move plug A's anchor marker to a new position (simulates user drag).
+        // selectObjectById resolves to the marker; updateSelectedObjectGeometryField
+        // patches the PointGeometry via UpdateGeometryCommand.
+        const std::string anchorAId = ctl.draftingDocument().plugs[0].anchorObjectId;
+        assert(ctl.selectObjectById(QString::fromStdString(anchorAId)));
+        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("x"), 0.1));
+        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("y"), 0.1));
+
+        // Record document state before reroute so we can compare after.
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        const std::size_t connsBefore = ctl.draftingDocument().connections.size();
+        const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
+
+        // Reroute: must succeed and the connection + plugs must be untouched.
+        assert(ctl.rerouteConnection(cId));
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+        assert(ctl.draftingDocument().connections[0].id == cId.toStdString());
+        assert(ctl.draftingDocument().connections[0].plugA == aId.toStdString());
+        assert(ctl.draftingDocument().connections[0].plugB == bId.toStdString());
+
+        // Old corridor wall ids must be gone (the reroute deleted them).
+        for (const std::string &oldId : oldWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == oldId) { found = true; break; }
+            }
+            assert(!found); // old wall must no longer exist
+        }
+
+        // New corridor walls tagged with the SAME connTag must now exist.
+        std::vector<std::string> newWallIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { newWallIds.push_back(obj.id); break; }
+            }
+        }
+        assert(!newWallIds.empty()); // rerouted corridor must have walls
+        // Old and new wall ids are distinct (fresh ids were minted).
+        for (const std::string &newId : newWallIds) {
+            bool clash = false;
+            for (const std::string &oldId : oldWallIds) {
+                if (newId == oldId) { clash = true; break; }
+            }
+            assert(!clash);
+        }
+
+        // ── HEADLINE ASSERTION: the rerouted corridor FOLLOWS the moved anchor ──
+        // The corridorWalls geometry is WallGeometry{a, b, thickness}. The first
+        // wall segment's vertex `a` is at doorA ± (width/2) in the perpendicular
+        // direction — max offset hw = 0.0225 from the anchor point.  We assert
+        // that at least one endpoint of any new corridor wall is within epsilon
+        // (0.03 > hw) of the moved anchor (0.1, 0.1).
+        // A regression where buildTaggedCorridorWalls read the stale plug.anchor
+        // snapshot (0.3, 0.3) instead of the live marker geometry (0.1, 0.1)
+        // would produce wall vertices near (0.3, 0.3) and FAIL this assertion.
+        constexpr double kEpsilon = 0.03;
+        const edi::drafting::Point2D movedAnchorPt{0.1, 0.1};
+        bool corridorNearMovedAnchor = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool isNewWall = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { isNewWall = true; break; }
+            }
+            if (!isNewWall) { continue; }
+            const auto *wall = std::get_if<edi::drafting::WallGeometry>(&obj.geometry);
+            if (!wall) { continue; }
+            const auto withinEps = [&](const edi::drafting::Point2D &p) {
+                return std::hypot(p.x - movedAnchorPt.x, p.y - movedAnchorPt.y) < kEpsilon;
+            };
+            if (withinEps(wall->a) || withinEps(wall->b)) {
+                corridorNearMovedAnchor = true;
+                break;
+            }
+        }
+        assert(corridorNearMovedAnchor); // corridor must start at the moved anchor
+
+        // Total object count is unchanged (same number of corridor walls) or
+        // may differ — but at minimum the reroute produced at least one wall.
+        (void)objsBefore; // count check is approximate; presence check above is canonical
+
+        // One undo reverts the corridor (new walls gone, old walls back).
+        assert(ctl.undo());
+        bool oldWallsBack = true;
+        for (const std::string &oldId : oldWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == oldId) { found = true; break; }
+            }
+            if (!found) { oldWallsBack = false; break; }
+        }
+        assert(oldWallsBack);
+        // And the new walls from the reroute should be gone after undo.
+        for (const std::string &newId : newWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == newId) { found = true; break; }
+            }
+            assert(!found);
+        }
+    }
+
+    {
+        // (2) rerouteConnection(unknownId) → no-op (returns false, doc unchanged).
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        assert(!ctl.rerouteConnection(QStringLiteral("no-such-connection")));
+        // Document must be unchanged (no corridor modified or removed).
+        assert(ctl.draftingDocument().objects.size() == objsBefore);
+        assert(ctl.draftingDocument().connections.size() == 1);
+    }
+
+    // --- Brief 033: B2-3 setPlugType ------------------------------------------
+    // setPlugType updates plug.type AND creates/replaces the door leaf (a thin Wall
+    // tagged "plug:<plugId>") in ONE bracket (one undo step).
+
+    {
+        // (1) First setPlugType call on a fresh interactive plug: no pre-existing leaf →
+        // mints one.  Second call REPLACES the leaf (old leaf gone, new leaf with new type).
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const QString pId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const std::string leafTag = "plug:" + pId.toStdString();
+
+        // First setPlugType → "window".
+        assert(ctl.setPlugType(pId, QStringLiteral("window")));
+        assert(ctl.draftingDocument().plugs[0].type == "window");
+
+        // Exactly one Wall with the leaf tag must exist, and it must be Window type.
+        std::vector<std::string> leafIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafIds.push_back(obj.id); break; }
+            }
+        }
+        assert(leafIds.size() == 1); // exactly one leaf
+        // Retrieve the leaf and verify its WallVisual type.
+        const edi::drafting::DraftingObject *leafObj = nullptr;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == leafIds[0]) { leafObj = &obj; break; }
+        }
+        assert(leafObj != nullptr);
+        assert(leafObj->kind == edi::drafting::DraftingShapeKind::Wall);
+        assert(leafObj->metadata.wallVisual.type == edi::drafting::WallType::Window);
+        assert(leafObj->metadata.toolProvenance == "door");
+
+        // Second setPlugType → "secret": old leaf gone, new leaf present, type Secret.
+        const std::string firstLeafId = leafIds[0];
+        assert(ctl.setPlugType(pId, QStringLiteral("secret")));
+        assert(ctl.draftingDocument().plugs[0].type == "secret");
+
+        // Count leaves after second call — still exactly one.
+        leafIds.clear();
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafIds.push_back(obj.id); break; }
+            }
+        }
+        assert(leafIds.size() == 1);                   // still ONE leaf
+        assert(leafIds[0] != firstLeafId);             // fresh id (old leaf replaced)
+        // Find and check the new leaf.
+        const edi::drafting::DraftingObject *newLeaf = nullptr;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == leafIds[0]) { newLeaf = &obj; break; }
+        }
+        assert(newLeaf != nullptr);
+        assert(newLeaf->metadata.wallVisual.type == edi::drafting::WallType::Secret);
+    }
+
+    {
+        // (2) ONE undo after setPlugType reverts BOTH the type change AND the leaf.
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const QString pId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const std::string leafTag = "plug:" + pId.toStdString();
+
+        // Apply once (window).
+        assert(ctl.setPlugType(pId, QStringLiteral("window")));
+        const std::string windowLeafId = [&] {
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                for (const auto &t : obj.metadata.tags) {
+                    if (t == leafTag) return obj.id;
+                }
+            }
+            return std::string{};
+        }();
+        assert(!windowLeafId.empty());
+
+        // Undo: plug.type reverts to "door" (the default placed by placePlugAtPoint)
+        // and the window leaf disappears.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs[0].type == "door");
+        bool leafGone = true;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == windowLeafId) { leafGone = false; break; }
+        }
+        assert(leafGone);
+        // No leaf tag should remain at all (leaf was created by setPlugType, not
+        // by placePlugAtPoint — placePlugAtPoint creates no leaf).
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                assert(tag != leafTag); // no leaf should exist after undo
+            }
+        }
+    }
+
+    {
+        // (3) Unknown plug id → returns false, document unchanged.
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        assert(!ctl.setPlugType(QStringLiteral("no-such-plug"), QStringLiteral("window")));
+        assert(ctl.draftingDocument().objects.size() == objsBefore);
+        assert(ctl.draftingDocument().plugs[0].type == "door"); // unchanged
+    }
+
+    // --- Brief 034: undo/redo reconcile m_activeConnectionId ------------------
+    // SCENARIO: select object → selectConnection → undo → BOTH-TRUE must NOT happen.
+    // The undo restores the prior document snapshot which has activeObjectId set;
+    // m_activeConnectionId (view-state, not in snapshot) stays set from the
+    // selectConnection call.  reconcileActiveConnection() must clear it.
+
+    {
+        // (1) Conflict scenario: undo restores object selection while connection
+        // is selected → reconcile clears the connection selection.
+        DrawingDocumentController ctl;
+
+        // Place two plugs and connect them (creates a connection record).
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Step 1: select the plug-A anchor object (leaves a snapshot with
+        // activeObjectId set).
+        const QString anchorId = QString::fromStdString(
+            ctl.draftingDocument().plugs[0].anchorObjectId);
+        assert(ctl.selectObjectById(anchorId));
+        assert(ctl.draftingDocument().activeObjectId.has_value()); // object is selected
+
+        // Step 2: selectConnection → sets m_activeConnectionId, clears activeObjectId.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(!ctl.draftingDocument().activeObjectId.has_value()); // cleared by selectConnection
+
+        // Step 3: undo → restores the prior snapshot (activeObjectId set from step 1).
+        // reconcileActiveConnection() should see the conflict and clear m_activeConnectionId.
+        assert(ctl.undo());
+        // Object selection restored from snapshot → connection selection must be gone.
+        assert(ctl.draftingDocument().activeObjectId.has_value()); // object back
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    {
+        // (2) Benign undo: undo does NOT restore an object selection while a
+        // connection is selected → reconcile must NOT over-clear (connection
+        // selection survives the undo).
+        DrawingDocumentController ctl;
+
+        // Place two plugs and connect them.
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // selectConnection with NO object selected beforehand.
+        // The prior snapshot (from connectPlugs) has no activeObjectId.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Undo connectPlugs → removes the connection from the document.
+        // reconcileActiveConnection sees condition (2): the connection is now gone
+        // (dangling reference) → clears m_activeConnectionId.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().connections.empty()); // connection removed by undo
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
+    {
+        // (3) Benign undo where the connection STILL EXISTS and NO object selection
+        // is restored: reconcile must leave m_activeConnectionId intact.
+        //
+        // The snapshot for the undo-able action must have activeObjectId = nullopt,
+        // otherwise condition (1) of the reconcile fires. We ensure this by clicking
+        // an empty canvas spot (deselect) after connectPlugs — that click is a pure
+        // selection change (commitEdit detects it via documentsDifferOnlyBySelection)
+        // and does NOT push an undo snapshot — so the subsequent third-plug placement's
+        // beginEdit() captures a doc with activeObjectId = nullopt.
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Deselect everything: click an empty canvas region with select_move.
+        // This clears activeObjectId but does NOT push an undo snapshot (pure
+        // selection-only change). After this the doc has activeObjectId = nullopt.
+        ctl.clickCanvasNormalized(0.0, 0.0);
+        assert(!ctl.draftingDocument().activeObjectId.has_value());
+
+        // Place a third plug. beginEdit() inside createObjectsAndSelect now
+        // captures a snapshot with activeObjectId = nullopt (no conflict).
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.5, 0.1);
+        assert(ctl.draftingDocument().plugs.size() == 3); // third plug placed
+
+        // Select the connection (no object selection active).
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Undo the third plug: restored snapshot has activeObjectId = nullopt AND
+        // the connection still exists → neither reconcile condition fires →
+        // m_activeConnectionId stays → connection selection survives.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs.size() == 2); // third plug undone
+        assert(ctl.draftingDocument().connections.size() == 1); // connection still there
+        assert(!ctl.draftingDocument().activeObjectId.has_value()); // no object selected
+        // Connection selection must survive (no conflict, no dangling reference).
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString()
+               == cId);
+    }
+
+    // --- Brief 036: authored door-leaf tag backfill ---------------------------
+    // createMapFromSpec now stamps "plug:<id>" on authored door leaves so they are
+    // symmetric with interactive leaves. Two seam tests:
+    //   (1) setPlugType on an authored plug replaces the leaf (no duplicate).
+    //   (2) deletePlug on an authored plug removes the leaf (no orphan).
+    //
+    // Note: DrawingDocumentController is a QObject (non-copyable/non-movable), so
+    // we cannot return it from a helper lambda. The two-room fixture is inlined in
+    // each test block (same resolution as the B2-4 tests).
+
+    {
+        // (1) setPlugType on an authored plug: the authored leaf is REPLACED
+        // (not duplicated). After the call there must be exactly ONE leaf tagged
+        // "plug:<id>", and its wallVisual.type must reflect the new type.
+        DrawingDocumentController ctl;
+        {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec roomA;
+            roomA.name = "a";
+            roomA.spec.origin = {0.0, 0.0};
+            roomA.spec.width = 0.4;
+            roomA.spec.height = 0.4;
+            roomA.spec.wallThickness = 0.02;
+            roomA.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2, "door", "door"}};
+            edi::drafting::NamedRoomSpec roomB;
+            roomB.name = "b";
+            roomB.spec.origin = {0.6, 0.0};
+            roomB.spec.width = 0.4;
+            roomB.spec.height = 0.4;
+            roomB.spec.wallThickness = 0.02;
+            roomB.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2, "door", "door"}};
+            map.rooms = {roomA, roomB};
+            edi::drafting::MapConnectionSpec conn;
+            conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
+            map.connections = {conn};
+            assert(ctl.createMapFromSpec(map));
+        }
+        assert(ctl.draftingDocument().plugs.size() == 2);
+        assert(ctl.draftingDocument().connections.size() == 1);
+
+        // Pick plug "a.door" (the first plug whose name starts with "a.").
+        std::string plugId;
+        for (const auto &p : ctl.draftingDocument().plugs) {
+            if (p.name == "a.door") { plugId = p.id; break; }
+        }
+        assert(!plugId.empty());
+        const std::string leafTag = "plug:" + plugId;
+
+        // Authored leaf must already be tagged (the backfill fix).
+        int leafCountBefore = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountBefore; break; }
+            }
+        }
+        assert(leafCountBefore == 1); // exactly one authored leaf with the tag
+
+        // setPlugType → "window": must REPLACE, not duplicate.
+        assert(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
+        assert(ctl.draftingDocument().plugs[0].type == "window"
+               || ctl.draftingDocument().plugs[1].type == "window"); // one of them updated
+
+        int leafCountAfter = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountAfter; break; }
+            }
+        }
+        assert(leafCountAfter == 1); // still ONE leaf — authored leaf replaced, not duplicated
+
+        // The surviving leaf must be Window type.
+        bool foundWindow = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool hasTag = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { hasTag = true; break; }
+            }
+            if (!hasTag) { continue; }
+            const auto *wall = std::get_if<edi::drafting::WallGeometry>(&obj.geometry);
+            if (wall && obj.metadata.wallVisual.type == edi::drafting::WallType::Window) {
+                foundWindow = true;
+            }
+        }
+        assert(foundWindow);
+
+        // One undo reverts both type change and leaf swap.
+        assert(ctl.undo());
+        int leafCountAfterUndo = 0;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { ++leafCountAfterUndo; break; }
+            }
+        }
+        assert(leafCountAfterUndo == 1); // back to one leaf
+        // The reverted leaf should be Door type (original authored type).
+        bool foundDoor = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool hasTag = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { hasTag = true; break; }
+            }
+            if (!hasTag) { continue; }
+            if (obj.metadata.wallVisual.type == edi::drafting::WallType::Door) {
+                foundDoor = true;
+            }
+        }
+        assert(foundDoor);
+    }
+
+    {
+        // (2) deletePlug on an authored plug: the authored leaf must be REMOVED.
+        // No stray toolProvenance="door" Wall should remain for this plug's id.
+        DrawingDocumentController ctl;
+        {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec roomA;
+            roomA.name = "a";
+            roomA.spec.origin = {0.0, 0.0};
+            roomA.spec.width = 0.4;
+            roomA.spec.height = 0.4;
+            roomA.spec.wallThickness = 0.02;
+            roomA.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2, "door", "door"}};
+            edi::drafting::NamedRoomSpec roomB;
+            roomB.name = "b";
+            roomB.spec.origin = {0.6, 0.0};
+            roomB.spec.width = 0.4;
+            roomB.spec.height = 0.4;
+            roomB.spec.wallThickness = 0.02;
+            roomB.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2, "door", "door"}};
+            map.rooms = {roomA, roomB};
+            edi::drafting::MapConnectionSpec conn;
+            conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
+            map.connections = {conn};
+            assert(ctl.createMapFromSpec(map));
+        }
+        assert(ctl.draftingDocument().plugs.size() == 2);
+
+        std::string plugId;
+        for (const auto &p : ctl.draftingDocument().plugs) {
+            if (p.name == "a.door") { plugId = p.id; break; }
+        }
+        assert(!plugId.empty());
+        const std::string leafTag = "plug:" + plugId;
+
+        // Sanity: leaf exists before delete.
+        bool leafBefore = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafBefore = true; break; }
+            }
+            if (leafBefore) break;
+        }
+        assert(leafBefore);
+
+        assert(ctl.deletePlug(QString::fromStdString(plugId)));
+
+        // Leaf must be gone (not orphaned).
+        bool leafAfter = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafAfter = true; break; }
+            }
+            if (leafAfter) break;
+        }
+        assert(!leafAfter); // no orphan
+
+        // No stray "door"-provenanced wall should remain for this plug either.
+        // (Guard against a leak where the tag was added but the leaf still isn't
+        //  collected because the gather loop has a bug.)
+        // We check that no Wall with toolProvenance="door" exists that has a tag
+        // matching the deleted plug. (The other plug's leaf may still be present.)
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.metadata.toolProvenance != "door") { continue; }
+            for (const auto &tag : obj.metadata.tags) {
+                assert(tag != leafTag); // no stray door leaf for the deleted plug
+            }
         }
     }
 

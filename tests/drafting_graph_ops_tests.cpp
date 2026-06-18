@@ -238,5 +238,35 @@ int main()
         assert(!plugAtAnchorObject(document, "nope").has_value());
     }
 
+    // --- updatePlug (B2-3): mutate plug.type, touch nothing else ---------------
+    {
+        DraftingDocument document = makeDraftingDocument("doc-updateplug");
+        document.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        DraftingPlug a;
+        a.id             = "plug_a";
+        a.anchorObjectId = "m.0";
+        a.name           = "north_door";
+        a.type           = "door";
+        a.anchor         = {0.3, 0.3};
+        assert(addPlug(document, a).ok);
+        const std::size_t revBefore = document.revision;
+
+        // Happy path: update type to "window" — only type changes, revision bumped.
+        assert(updatePlug(document, "plug_a", "window").ok);
+        assert(document.plugs[0].type == "window");
+        assert(document.plugs[0].name == "north_door"); // name untouched
+        assert(document.plugs[0].anchor.x == a.anchor.x); // anchor untouched
+        assert(document.revision == revBefore + 1);
+
+        // "secret" updates correctly.
+        assert(updatePlug(document, "plug_a", "secret").ok);
+        assert(document.plugs[0].type == "secret");
+
+        // Unknown id is rejected; document unchanged.
+        const std::size_t revAfter = document.revision;
+        assert(!updatePlug(document, "no_such_plug", "door").ok);
+        assert(document.revision == revAfter); // no bump on rejection
+    }
+
     return 0;
 }

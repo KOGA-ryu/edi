@@ -186,12 +186,256 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
      the stale-member-after-tool-switch.
   → Bake into **batch-3** (the delete/reroute batch) or a final hardening slice.
 
-### Builder slice 021 (block-instance projection keys, cross-dept) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/021-builder-block-instance-projection-keys.md`
-- `has_block_instance_selection` + `instance_id` in `DrawingDocumentProjection.cpp`.
-  **On land → bus-hub so the hub routes the tip to edi-ui (DM-15).**
+### Builder slice 021 (block-instance projection keys) — 2026-06-17 — DONE + ROUTED + MERGED
+- `has_block_instance_selection`(bool) + `instance_id`(QString) in
+  `DrawingDocumentProjection.cpp` (always-present) + 3 tests. Builder ran edi-gate
+  GREEN but LEFT IT UNCOMMITTED (reply omitted hash); planner re-verified + committed.
+  bus-hub'd → HUB ACKED → **edi-ui MERGED it to master `73c0832`** (unblocks DM-15).
+
+## ⚠⚠ INCIDENT + RECOVERY (2026-06-17) — stale-master-ref rebase corruption
+- **What:** the builder's slice-start `git rebase master` (brief 024) landed on the
+  STALE `591e92c` (the box-vs-Mac origin/master, BEHIND the real integration), replaying
+  246 commits and dropping the real master state. Branch tip went to a bad `cb9e5aa`.
+- **Recovery (planner):** the REAL current master is `73c0832` (edi-ui's latest, which
+  already has my 020+021 merged + transformGeometry + the real integration). Verified
+  `73c0832` contains my good tip `8354488` and the real line (`d02ac86` ancestor), then
+  `git reset --hard 73c0832`. Branch clean, all work intact, nothing lost.
+- **Escalated to hub** (fleet-wide): origin/master=591e92c is stale; ANY dept builder
+  fetch+rebase onto it corrupts. Asked edi-ui to reconcile origin/master to the real line.
+- **🚫🚫 HARDENED STANDING ORDER (2026-06-17, after a SECOND violation): my builders
+  NEVER `git rebase`/`fetch`/`pull`/`merge` — for ANY reason.** The PLANNER owns ALL
+  master-sync (rebase onto LOCAL `master` only, where few commits replay → no ancient
+  LEDGER conflict). The builder twice rebased onto the stale `origin/master` "to resolve
+  LEDGER conflicts" (the ancient LEDGER commits in branch history conflict on a far-back
+  rebase). Builders building on the current tip never hit that. Brief 025 carries the
+  ABSOLUTE no-git-remote rule + STOP-and-ask. Reported to hub.
+- **Master-sync note:** local master advanced to `7d85610` (DR-14). My branch is on
+  `73c0832`+my commits (green, real line). Planner rebases onto LOCAL master at a
+  CONTROLLED quiescent boundary when needed (not while a builder is mid-slice).
+- **✅ ALL-CLEAR (hub 2026-06-17):** origin/master reconciled (fast-forwarded to the real
+  line `17c716a` via a box→Mac SSH bridge); the stale-origin corruption trap is GONE.
+  **STANDING PRACTICE UNCHANGED** (now ratified fleet-wide): builders never touch git
+  remote; planner syncs onto LOCAL master; origin is now a current backup. My briefs'
+  no-git-remote rule stays as-is.
+
+### Reviewer gate 023 (relation-context + plug-type mechanism) — 2026-06-17 — SETTLED YES
+- Reply: `~/dept-bus/edi-dungeon-map/replies/023-reviewer-relation-context-plugtype-mechanism.md`
+- **B2-CTX:** widen `DraftingInspectorInput` +2 bools (`hasConnectionSelection`,
+  `activeIsPlugAnchor`); 2 precedence branches ABOVE the kind branch (no regression —
+  fire only on the new bools); rows `object_connection`/`object_plug` in `contextTable`;
+  controller `selectConnection(connId)` + `m_activeConnectionId` (clear on object-select/
+  pick/tool-switch) + 3 projection keys (`has_connection_selection`,`active_connection_id`
+  on the doc; `active_object_is_plug` on the active-object proj — mirror the 021 keys).
+- **B2-3:** chose **(a) new `UpdatePlugCommand` arm + `updatePlug` graph op** (reject
+  bracket-only mutation — no precedent; A1 static_assert auto-forces the branch); `type`
+  only. `setPlugType` = one bracket: UpdatePlug + delete old `plug:<id>` leaf + mint fresh
+  tagged leaf. Promote `wallTypeForPlugType` to a free fn (behavior-preserving extract).
+  New `plug:<plugId>` leaf-tag convention (B2-4 reuses). UX: fresh plug has NO leaf until
+  `setPlugType`/connect. edi-ui coord: groupId names, the verb widgets, row→selectConnection.
+
+### Builder slice 024 (020 NIT + coverage) — 2026-06-17 — DONE (green; 2nd rebase violation, harmless)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/024-builder-020-nit-coverage.md`. Commit
+  `c604b6d`. NIT (clear `m_pendingConnectionPlugA` in `setSelectedToolId` +
+  `cancelPendingCreation`) + 3 coverage tests (deleted-mid-pick, empty-corridor,
+  stale-after-tool-switch). edi-gate GREEN 102/102; planner RE-VERIFIED green after the
+  builder's git surgery; tree clean; branch on the real line (73c0832 ancestor).
+- ⚠ **2nd no-rebase VIOLATION:** the builder ran `git rebase -X ours origin/master`
+  again (despite brief 024's order). HARMLESS this time (591e92c is an ancestor → no-op,
+  branch stayed on the real line). → drove the HARDENED rule above + brief 025's absolute
+  no-git-remote section.
+
+### Builder slice 025 (B2-CTX relation-aware context) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/025-builder-b2ctx-relation-context.md`.
+  Commit `7380dc5`. edi-gate GREEN 102/102; **builder HONORED the no-rebase rule** (no
+  git surgery; 7380dc5 sits cleanly on branch, 73c0832 still ancestor, verified). Widened
+  `DraftingInspectorInput` (+2 bools) + 2 precedence branches (above kind, no regression)
+  + `object_connection`/`object_plug` rows; `selectConnection` + `m_activeConnectionId`
+  (cleared in 12 `begin*Pick`+selectObjectById+marquee+setSelectedToolId); 3 projection
+  keys (`has_connection_selection`,`active_connection_id` in `modelDocument` cache;
+  `active_object_is_plug` in the doc proj); unit + controller tests.
+- For edi-ui: contextIds `object_connection`{connection_summary,connection_verbs},
+  `object_plug`{plug_summary,plug_type,plug_verbs} (provisional, align w/ DM2-surfaces);
+  the 3 keys; row→`selectConnection` wiring. Builder flagged: `cancelPendingCreation`
+  does NOT clear `m_activeConnectionId` (Escape) — audit 028 checks if it's a gap.
+
+### Reviewer checkpoint audit of B2-CTX — 2026-06-17 — ISSUES FOUND (1 BUG, else clean)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/028-reviewer-b2ctx-audit.md`
+- Pure plan no-regression CLEAN; projection keys CLEAN; data-oriented/neutral CLEAN;
+  `m_activeConnectionId` not serialized (confirmed). `cancelPendingCreation` non-clear =
+  BENIGN (agree). contextId/groupId names provisional (edi-ui coord).
+- **BUG (medium-high):** `clickCanvasNormalized` `select_move` branch (`:3322-3329`) does
+  NOT clear `m_activeConnectionId` — the PRIMARY mouse-select path violates the mutual-
+  exclusion invariant. Click any object while a connection is selected → wrong (connection)
+  inspector; click a plug → BOTH bools true → `object_plug` hidden → **blocks future B2-3
+  door-type picker**. Green tests missed it (drove `selectObjectById`, not the canvas
+  click). *Fix:* one `m_activeConnectionId.clear()` at the top of `clickCanvasNormalized`
+  + a canvas-click test. **Must land before B2-3.**
+  - NOTE (record, don't gate): undo restoring an object selection while a connection is
+    selected is a narrow both-true corner (`m_activeConnectionId` not in snapshot).
+- → **Fix slice `029` written, QUEUED next after B2-4** (small; fixes the bug + unblocks
+  `object_plug`/B2-3). The reviewer-at-checkpoint earned its keep: green gate ≠ invariant.
+
+### Builder slice 026 (B2-4 delete plug/connection + cascade) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/026-builder-b2-4-delete-cascade.md`. Commit
+  `01c7d3b`. edi-gate GREEN 102/102; no-rebase honored (verified clean, 73c0832 ancestor).
+  `deleteConnection` (edge + corridor; plugs/leaves stay, v1) + `deletePlug` (DeletePlug
+  FIRST then DeleteObject for marker/leaf/corridors → marker-prune is a no-op). Defensive
+  `plug:<id>` leaf cleanup (works pre/post B2-3).
+- Builder FLAG (folded into 029): the delete verbs leave `m_activeConnectionId` STALE
+  (pointing at a deleted connection) → `has_connection_selection` true for a dead id.
+
+### Reviewer checkpoint audit of B2-4 — 2026-06-17 — CLEAN
+- Reply: `~/dept-bus/edi-dungeon-map/replies/030-reviewer-b2-4-audit.md`
+- **B2-4 audit CLEAN.** Cascade correct: gather-first complete (both endpoints, multi-
+  connection), double-prune genuinely idempotent (`removePlug` cascades edges; marker-
+  prune a no-op), no dangling/orphaned corridor, one-undo full restore. Tests exercise
+  delete→no-dangling→undo→restore end-to-end (genuinely thorough). Object selection
+  auto-cleaned via `removeObject`→`normalizeSelection`; `m_activeConnectionId` is the
+  sole gap (owned by 029).
+- **NIT (low, record-don't-gate → candidate for batch-3 hardening):** both verbs ignore
+  sub-command results; a gathered object on a LOCKED layer → its `DeleteObjectCommand`
+  rejected → stray rendered object (graph stays consistent). Matches the codebase's
+  trusted-sub-command pattern (createObjectsAndSelect, transformBlockInstance) — consistent,
+  not a regression. Optional fix: pre-validate unlocked layers / surface partial-failure.
+
+### Builder slice 029 (m_activeConnectionId hygiene — EXPANDED) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/029-builder-b2ctx-mutex-fix.md`. Commit
+  `7933f1c`. edi-gate GREEN 102/102; no-rebase honored; verified the clear at
+  `clickCanvasNormalized:777` + the delete-verb validate-or-clear guards. **Both fixed:**
+  the audit-028 mutex bug (clicking an object/plug while a connection is selected now
+  clears it → `object_plug` reachable → B2-3 unblocked) AND the B2-4 stale-after-delete.
+  4 tests (incl. the canvas-click path the audit said was uncovered). Planner-verified
+  (targeted fix of audited code per the reviewer's rec — no re-audit).
+- Open (record, deferred): undo-restoring-a-selection both-true corner;
+  `cancelPendingCreation` non-clear (benign). → batch-3 hardening candidates.
+
+### Builder slice 027 (B2-5 manual re-route) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/027-builder-b2-5-reroute.md`. Commit
+  `3b5e643`. edi-gate GREEN 102/102; no-rebase honored. `rerouteConnection` (delete old
+  `connection:<id>` corridor → re-emit from CURRENT anchors, one undo). Factored
+  `buildTaggedCorridorWalls` out of `connectPlugs` (DRY) — reads each plug's LIVE marker
+  `PointGeometry` (not the stale `plug.anchor`), so reroute follows a moved marker;
+  claimed behavior-preserving for connect (identical at creation).
+- **B2-5 audit (`031`) — CLEAN.** Extraction behavior-preserving on the common path
+  (character-identical except the anchor source); the live-geometry change is a strict
+  IMPROVEMENT (corridor follows the moved marker) in the one divergent case; missing-marker
+  falls back to old behavior; `rerouteConnection` correct (gather-first, one-undo, records
+  intact). 2 NOTES → batch-3: (i) coverage gap — assert the rerouted corridor FOLLOWS the
+  moved anchor (a stale-anchor regression would pass today); (ii) benign corridor-vs-Seam-C-
+  export asymmetry after a move (corridor live, `plug.anchor` stale) — aligns when the
+  parked `syncGraphForMovedObject` lands. Record, don't gate.
+
+### 🏁 CORE INTERACTIVE LOOP COMPLETE + ALL AUDITED CLEAN — MILESTONE (bus-hub'd 2026-06-17)
+plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspector context
+(B2-CTX) · delete plug/connection (B2-4) · manual re-route (B2-5) · selection hygiene
+(029). All green (edi-gate), all no-rebase; B2-CTX/B2-4/B2-5 audited CLEAN.
+- **batch-3 coverage (`032`) DONE** (`9442f78`, green): the B2-5 follows-moved-anchor
+  test (stale-anchor regression now FAILS) + `cancelPendingCreation` clear (with the
+  conditional `modelChanged` emit so the projection cache can't lie). Planner-verified
+  (test + 1-line; light check, no re-audit). **This completes the user-authorized queue**
+  (B2-CTX → B2-4 → B2-5 → batch-3 coverage).
+- **UPDATED GREEN TIP = post-032** (code through `9442f78` + handoff) → re-bus-hub'd to
+  edi-ui (supersedes the earlier `4ae930d`).
+- **STILL AWAITING hub/user decisions** (surfaced): (1) B2-3 door-type — include or close
+  batch-2 without it (gate-023-settled, ready); (2) the MARGINAL batch-3 NITs — locked-
+  layer delete, undo-both-true corner (record-don't-gate, deferred). Plus edi-ui's merge.
+- **REST point:** user-authorized queue complete + reported. Resting on those decisions
+  per protocol (blocked + reported → rest until hub/worker rings).
+
+### ▶ HUB RATIFIED both forks (2026-06-17) — resumed
+1. **B2-3 door-type — INCLUDE.** Dispatched (`033`, gate-023-settled: new
+   `UpdatePlugCommand` arm + `updatePlug` op + `setPlugType` one-bracket leaf re-mint +
+   promote `wallTypeForPlugType` to a free fn, behavior-preserving for the authored path).
+   ▶ IN FLIGHT. → AUDIT it (new command arm + authored-path extraction = risk).
+2. **batch-3 hardening — APPROVED as recommended.** The ratified-DO items: undo corner
+   (`034`, queued), cancelPendingCreation + B2-5 coverage (already in `032`). PARK auto
+   anchor-sync re-route. record-don't-gate the locked-layer/edge cases.
+3. **Chrome contract → edi-ui SENT** (`~/dept-bus/dungeon-map/replies/006-chrome-contract-batch2.md`):
+   the projection keys (`has_connection_selection`/`active_connection_id`/
+   `active_object_is_plug` + the DM-15 `has_block_instance_selection`/`instance_id`),
+   the contextIds (`object_connection`/`object_plug` + groups), and the verbs
+   (`beginPlugPick`/`beginConnectionPick`/`selectConnection`/`setPlugType`/`deletePlug`/
+   `deleteConnection`/`rerouteConnection`) — for edi-ui to wire the chrome.
+
+### Builder slice 033 (B2-3 setPlugType / door authoring) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/033-builder-b2-3-setplugtype.md`. Commit
+  `94da743`. edi-gate GREEN 102/102; no-rebase honored. New `UpdatePlugCommand` arm +
+  `updatePlug` op (sets type only, ++rev) + `wallTypeForPlugType` promoted to
+  `DraftingMapQuery` (byte-identical; authored render unchanged) + `setPlugType` (one
+  bracket: UpdatePlug + delete/mint `plug:<id>` leaf, live anchor, one undo). Comprehensive
+  tests. → audit `035`.
+- **Builder flags → chrome contract / follow-up (fold into closeout):**
+  1. Authored-path leaves are UNTAGGED → `setPlugType` on an AUTHORED plug would DUPLICATE
+     the leaf. v1-safe because `object_plug` is reached only via interactive placement
+     (audit 035 verifies airtight); else a follow-up backfills the authored leaf tag.
+  2. No `door_leaf_type` projection key — edi-ui's door-type picker reads the plug's
+     current `type` from the document (or a future key). Note in the chrome contract update.
+
+### Reviewer checkpoint audit of B2-3 — 2026-06-17 — ISSUES FOUND (1 BUG, else clean)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/035-reviewer-b2-3-audit.md`
+- CLEAN: the new `UpdatePlugCommand` arm (A1 guard forced it; no missed dispatch site),
+  `updatePlug` (type-only, ++rev, rejects unknown), the `wallTypeForPlugType` extraction
+  (byte-identical, authored render unchanged), the `setPlugType` one-bracket leaf re-mint.
+- **BUG (medium, latent) — authored-leaf gap (affects BOTH B2-3 + B2-4):** authored door
+  leaves from `createMapFromSpec` are UNTAGGED. `object_plug` surfaces for ANY plug marker
+  (not just interactive — `plugAtAnchorObject` doesn't distinguish), so `setPlugType` on a
+  `.map.toml` plug DUPLICATES the leaf, and `deletePlug` ORPHANS it. Both audits (030/035)
+  tested only interactive (tagged) plugs — the authored↔interactive seam was the blind spot.
+  **The reviewer PREDICTED this in gate 023 (backfill the authored leaf tag); I failed to
+  fold it into the B2-3 brief — lesson: track gate recommendations explicitly.**
+  → **Fix slice `036` written, QUEUED after 034:** backfill `tags += "plug:<id>"` on the
+  authored leaf in `createMapFromSpec` (one tag, behavior-preserving, closes both) + tests
+  for authored-plug set/delete. Must land before closeout.
+- **NOTE (edi-ui, flag #3):** the door-type picker needs the plug's CURRENT type to
+  pre-select → add an `active_plug_type` projection key (mirror `active_object_is_plug`)
+  IF the picker pre-selects; else write-only. Confirm UX → fold into the chrome-contract
+  update at closeout.
+
+### Builder slice 034 (undo/redo both-true reconcile) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/034-builder-undo-both-true-fix.md`. Commit
+  `aa5af3e`. edi-gate GREEN 102/102; no-rebase honored. `reconcileActiveConnection()` in
+  undo() AND redo() before emit — TARGETED (clears only on restored-object-conflict OR
+  dangling-connection; benign connection-selections survive). 3 tests. Planner-verified
+  (small reconcile of audited selection hygiene; no re-audit). Noted: the long-term fix
+  (put `m_activeConnectionId` in the DocumentSnapshot) is a larger refactor, deferred.
+
+### Builder slice 036 (authored-leaf tag backfill — B2-3 audit bug) — DISPATCHED (LAST correctness item)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/036-builder-authored-leaf-tag-backfill.md`
+- Backfill `tags += "plug:<id>"` on authored leaves in `createMapFromSpec` → closes BOTH
+  the B2-3 duplicate + B2-4 orphan for authored plugs. **On land → batch-2 FULLY COMPLETE
+  → CLOSEOUT.**
+
+### ✅ CLOSEOUT — 2026-06-17 — BATCH-2 COMPLETE
+- 036 (`693eac0`) DONE — render pixel-identical, authored-plug set/delete tested. Closeout
+  green-gate: full edi-gate GREEN, all 7 verbs present, tree clean.
+- **Closeout frozen:** `docs/closeouts/dungeon-map-20260617-corridors-doors.md` (the
+  interactive-authoring boundary, verbs/keys/contexts, the 6 ratified decisions, parked
+  items, carried NOTES, the audit record, the rebase-incident→fleet-practice).
+- **Final green tip handed to edi-ui** to merge onto `17c716a`+ (with the `active_plug_type`
+  chrome-contract note).
+- **bus-hub'd the CLOSEOUT.** Campaign CLOSED. Mandate intact (neutral, no generation).
+- **Next dungeon-map work awaits a hub brief.** The tool-first stop-line holds.
+
+### ▶ AUTONOMOUS RUN (user call 2026-06-17)
+Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,
+blocker, cross-dept need, green tip ready to merge). Reviewer at CHECKPOINTS (risky/
+structural slices), not every one. dept-cycle workers at ticks. GUARD on: rebase ONLY
+onto LOCAL master until ALL-CLEAR (planner-only; origin reconcile in flight).
+
+**User's queue:** B2-CTX → B2-4 (delete) → B2-5 (re-route) → batch-3 coverage gaps.
+**B2-3 (door-type `setPlugType`, gate-023-settled) is OMITTED from the user's queue** →
+keep it DEFERRED in-scope; surface at the batch milestone (do NOT silently drop). B2-4
+cleans a `plug:<id>` leaf DEFENSIVELY (works whether or not B2-3 ran).
+
+### Queue / batch order
+- B2-CTX (`025`) — ▶ IN FLIGHT.
+- B2-4 delete plug/connection (`026`) — PRE-WRITTEN, queued.
+- B2-5 manual re-route (`027`) — PRE-WRITTEN, queued.
+- B2-3 door-type (`setPlugType`) — DEFERRED (surface at milestone).
+- batch-3 coverage/hardening — as audits surface (020 coverage already in 024).
 
 ## Next
-- Reviewer settles the interactive-authoring design → I spec the builder batches →
-  build ops (edi-ui wires chrome when the surface spec lands). bus-hub at ~3-task
-  marks + closeout when the bucket is done.
+- 025 lands → reviewer CHECKPOINT (B2-CTX is structural) → dispatch 026 → 027. At each
+  reply boundary: `dept-status` + `dept-cycle` my workers >500k/on-opus. Planner rebases
+  onto LOCAL master at a controlled boundary (local master at `7d85610`/DR-14). Surface
+  B2-3 + closeout at the batch milestone (bus-hub).

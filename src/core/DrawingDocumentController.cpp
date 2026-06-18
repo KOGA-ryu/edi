@@ -550,6 +550,13 @@ QVariantMap DrawingDocumentController::modelDocument() const
             model.insert(QStringLiteral("selection_plot_bounds_height"), 0.0);
         }
         model.insert(QStringLiteral("warnings"), plotWarningsToList(plotPlan.warnings));
+        // B2-CTX: connection-selection keys. m_activeConnectionId is controller
+        // VIEW-STATE (not a document field), so it is inserted here rather than
+        // inside draftingDocumentToModelProjection. selectConnection() always emits
+        // modelChanged(), so the cache is re-built on every selection change —
+        // the keys are always current when the cache is fresh.
+        model.insert(QStringLiteral("has_connection_selection"), !m_activeConnectionId.empty());
+        model.insert(QStringLiteral("active_connection_id"), QString::fromStdString(m_activeConnectionId));
         m_cachedDocumentModel = model;
         m_cachedGrid = grid;
         m_cachedModelGeneration = m_modelGeneration;
@@ -760,6 +767,16 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_pointCapture.reset(); // switching tools cancels an armed point pick
+    // Clear the two-stage connection state too — m_pendingConnectionPlugA carries the
+    // first plug id across clicks, and setSelectedToolId already promises a clean slate
+    // for the new tool. Without this, a stale plug A from a half-finished connection
+    // would survive into the next beginConnectionPick window if beginConnectionPick were
+    // somehow skipped (latent footgun: beginConnectionPick also clears, so it is safe
+    // today, but defensive hygiene costs nothing and makes the invariant local here).
+    m_pendingConnectionPlugA.clear();
+    // B2-CTX: a tool switch ends any connection selection — the inspector context
+    // the user was looking at is now stale, and the new tool starts fresh.
+    m_activeConnectionId.clear();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
     emit modelChanged();
@@ -1429,6 +1446,31 @@ bool DrawingDocumentController::canRedo() const
     return !m_redoStack.empty();
 }
 
+void DrawingDocumentController::reconcileActiveConnection()
+{
+    // B2-CTX undo/redo both-true fix (audit 028): m_activeConnectionId is controller
+    // VIEW-STATE and is NOT stored in DocumentSnapshot, so restoring a snapshot can
+    // leave it pointing at a connection that no longer exists OR in conflict with an
+    // object selection the snapshot restored.  Two conditions mandate a clear:
+    //
+    //   1. The restored document has an active object selection (m_document.activeObjectId
+    //      is non-empty) — the mutual-exclusion invariant says connection selection and
+    //      object selection are never both live; the object wins (it is part of the
+    //      document's own authoritative state).
+    //
+    //   2. The connection m_activeConnectionId names is no longer in the document
+    //      (dangling reference — e.g. undo removed the connection record entirely).
+    //
+    // Called BEFORE emit modelChanged() so the projection cache (has_connection_selection,
+    // active_connection_id) rebuilds exactly once with the already-reconciled value —
+    // the inspector never sees an intermediate both-true state.
+    if (!m_activeConnectionId.empty() &&
+        (m_document.activeObjectId.has_value() ||
+         !connectionIndexById(m_document, m_activeConnectionId))) {
+        m_activeConnectionId.clear();
+    }
+}
+
 bool DrawingDocumentController::undo()
 {
     if (m_undoStack.empty()) {
@@ -1445,6 +1487,9 @@ bool DrawingDocumentController::undo()
     m_lastEditStatus.clear();
     // Undo replaces the whole document; any in-flight drag bracket is now stale.
     m_interactiveEditActive = false;
+    // B2-CTX: reconcile m_activeConnectionId against the newly-restored document
+    // BEFORE emitting so the projection sees the final consistent state in one pass.
+    reconcileActiveConnection();
     emit modelChanged();
     return true;
 }
@@ -1465,6 +1510,9 @@ bool DrawingDocumentController::redo()
     m_lastEditStatus.clear();
     // Redo replaces the whole document; any in-flight drag bracket is now stale.
     m_interactiveEditActive = false;
+    // B2-CTX: same reconcile as undo — the symmetry matters (a redo can equally
+    // restore an object selection while a connection is selected).
+    reconcileActiveConnection();
     emit modelChanged();
     return true;
 }
@@ -1847,6 +1895,7 @@ bool DrawingDocumentController::beginRadialArrayCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RadialArrayCenter,
                                          QStringLiteral("Click to set the radial array centre")};
     emit pointerChanged(); // view state: the prompt appears, the document is untouched
@@ -1862,6 +1911,7 @@ bool DrawingDocumentController::beginBlockInstancePick(const QString &blockId)
     if (!blockIndexById(m_document, toStdString(blockId))) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pendingBlockId = blockId;
     m_pointCapture = PendingPointCapture{PointCaptureIntent::BlockInstance,
                                          QStringLiteral("Click to place the block")};
@@ -2002,6 +2052,7 @@ bool DrawingDocumentController::beginRegionFillPick()
     if (m_document.rooms.empty()) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RegionFill,
                                          QStringLiteral("Click inside a room to fill")};
     emit pointerChanged(); // view state: the prompt appears, the document is untouched
@@ -2054,6 +2105,7 @@ bool DrawingDocumentController::beginPlugPick()
     // that rooms exist), plug placement has no up-front precondition — any canvas
     // point is a valid anchor. The click path runs resolveSnap() BEFORE calling
     // resolvePointCapture(), so snapping to a wall endpoint/edge is free.
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugPlacement,
                                          QStringLiteral("Click a wall to place a plug")};
     emit pointerChanged(); // view state: prompt appears, document is untouched
@@ -2100,10 +2152,115 @@ bool DrawingDocumentController::beginConnectionPick()
     // it here resets any half-finished pick left over from a previous beginConnectionPick
     // that was never completed (e.g. user switched tools mid-flow).
     m_pendingConnectionPlugA.clear();
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugConnect,
                                          QStringLiteral("Click the first plug")};
     emit pointerChanged();
     return true;
+}
+
+// B2-5 shared helper ─────────────────────────────────────────────────────────
+// Build the tagged corridor-wall objects for a declared connection between
+// plugA and plugB.  Both connectPlugs (B2-2) and rerouteConnection (B2-5) call
+// this so the routing/tagging logic lives in ONE place (DRY).
+//
+// Key design choice: we read each plug's CURRENT anchor position from its
+// anchor MARKER's live PointGeometry, not from plug.anchor (which is a stale
+// snapshot set at creation time — see the TODO in DraftingMapTypes.h).  This
+// means rerouteConnection correctly follows a plug marker the user has moved
+// since the corridor was last rendered.  connectPlugs always creates the marker
+// and the plug in the same instant, so live-geometry == plug.anchor there —
+// behaviour is identical for the initial-connect case.
+//
+// DOES NOT apply any command.  Returns an empty vector when the centerline
+// degenerates to a single point (doors at identical positions); the caller
+// decides whether to skip the geometry or record only the graph edge.
+std::vector<DraftingObject> DrawingDocumentController::buildTaggedCorridorWalls(
+    const std::string              &connId,
+    const DraftingPlug             &plugA,
+    const DraftingPlug             &plugB)
+{
+    // Read the live marker position; fall back to the stale anchor snapshot
+    // when the marker object cannot be found (defensive: orphaned plug).
+    const auto currentAnchor = [&](const DraftingPlug &plug) -> Point2D {
+        const DraftingObject *marker = findObject(m_document, plug.anchorObjectId);
+        if (marker == nullptr) {
+            return plug.anchor; // stale-cache fallback (orphaned plug)
+        }
+        const auto *ptGeom = std::get_if<PointGeometry>(&marker->geometry);
+        return ptGeom ? ptGeom->point : plug.anchor;
+    };
+
+    const Point2D anchorA = currentAnchor(plugA);
+    const Point2D anchorB = currentAnchor(plugB);
+
+    // Derive the wall-edge for each anchor: find the room whose authored
+    // footprint contains the point, then pick the nearest wall.  Falls back to
+    // "N" (North) when the anchor sits in open space (rare; corridor still
+    // routes correctly via the North-stub heuristic).
+    const auto roomEdgeForPoint =
+        [&](Point2D pt) -> std::pair<const DraftingMapRoom *, std::string> {
+        for (const DraftingMapRoom &room : m_document.rooms) {
+            if (boundsContainsPoint(
+                    Bounds2D{room.origin.x, room.origin.y, room.width, room.height}, pt)) {
+                return {&room, deriveEdge(room, pt)};
+            }
+        }
+        return {nullptr, "N"};
+    };
+
+    // "N"/"E"/"S"/"W" string → RoomEdge enum.  These four values are the
+    // complete set deriveEdge returns (closed enum, DraftingRoom.h).
+    const auto toRoomEdge = [](const std::string &s) {
+        if (s == "E") { return RoomEdge::East;  }
+        if (s == "S") { return RoomEdge::South; }
+        if (s == "W") { return RoomEdge::West;  }
+        return RoomEdge::North;
+    };
+
+    const auto [roomA, edgeStrA] = roomEdgeForPoint(anchorA);
+    const auto [roomB, edgeStrB] = roomEdgeForPoint(anchorB);
+
+    CorridorSpec spec;
+    spec.doorA         = anchorA;
+    spec.edgeA         = toRoomEdge(edgeStrA);
+    spec.doorB         = anchorB;
+    spec.edgeB         = toRoomEdge(edgeStrB);
+    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
+    spec.wallThickness = 0.015;
+
+    // Obstacles: every room except the two containing the anchors.  Mirrors the
+    // authored path in createMapFromSpec (which skips request.from/to rooms so
+    // the corridor can leave through its own-room door opening).
+    std::vector<CorridorObstacle> obstacles;
+    for (const DraftingMapRoom &room : m_document.rooms) {
+        if (&room == roomA || &room == roomB) {
+            continue;
+        }
+        obstacles.push_back({room.origin, room.width, room.height});
+    }
+
+    std::vector<DraftingObject> walls = corridorWalls(
+        routeCorridorCenterline(spec, obstacles),
+        spec.width, spec.wallThickness,
+        [this]() {
+            // Mint a unique id for each wall segment.  m_nextObjectSerial is
+            // an unsigned counter that lives on the controller (not the document
+            // snapshot), so bumping it here is safe even outside a bracket.
+            return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
+        });
+
+    // Stamp each wall with the open-vocabulary provenance tag "connection:<connId>".
+    // This same breadcrumb pattern ("feature:<type>", "plug:<id>") is used
+    // throughout the dungeon-map layer — no new metadata field, no codec change.
+    // The tag survives persist / undo / projection for free; deleteConnection (B2-4)
+    // and rerouteConnection (B2-5) both filter by it.
+    // (toolProvenance = "corridor" is already set by corridorWalls() itself.)
+    for (DraftingObject &wall : walls) {
+        wall.metadata.tags.push_back("connection:" + connId);
+    }
+
+    return walls;
 }
 
 bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QString &plugBId)
@@ -2131,70 +2288,12 @@ bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QStri
     connection.plugB = bId;
     connection.type  = "corridor"; // neutral role tag — carries no game rule (Seam B)
 
-    // Derive each plug's wall edge: find the room whose authored footprint contains
-    // the plug anchor (boundsContainsPoint over DraftingMapRoom.origin/width/height),
-    // then map the nearest side to a RoomEdge so the corridor leaves each door
-    // perpendicular to its wall. Falls back to North when no room encloses the plug
-    // (interactive plug placed in open space — rare, corridor still routes via fallback).
-    const auto roomEdgeForPlug =
-        [&](const DraftingPlug &plug) -> std::pair<const DraftingMapRoom *, std::string> {
-        for (const DraftingMapRoom &room : m_document.rooms) {
-            if (boundsContainsPoint(Bounds2D{room.origin.x, room.origin.y, room.width, room.height},
-                                    plug.anchor)) {
-                return {&room, deriveEdge(room, plug.anchor)};
-            }
-        }
-        return {nullptr, "N"}; // open-space fallback: North stub, corridor still routes
-    };
-
-    // "N"/"E"/"S"/"W" string returned by deriveEdge → RoomEdge enum for CorridorSpec.
-    // The four values are the full set deriveEdge ever returns (closed enum in DraftingRoom.h).
-    const auto toRoomEdge = [](const std::string &s) {
-        if (s == "E") { return RoomEdge::East;  }
-        if (s == "S") { return RoomEdge::South; }
-        if (s == "W") { return RoomEdge::West;  }
-        return RoomEdge::North;
-    };
-
-    const auto [roomA, edgeStrA] = roomEdgeForPlug(plugA);
-    const auto [roomB, edgeStrB] = roomEdgeForPlug(plugB);
-
-    CorridorSpec spec;
-    spec.doorA         = plugA.anchor;
-    spec.edgeA         = toRoomEdge(edgeStrA);
-    spec.doorB         = plugB.anchor;
-    spec.edgeB         = toRoomEdge(edgeStrB);
-    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
-    spec.wallThickness = 0.015;
-
-    // Obstacles: every room EXCEPT the two the plugs sit in (a corridor is allowed
-    // to originate from its own rooms at the door openings). Mirrors the authored
-    // path in createMapFromSpec (which skips request.from/to rooms in its obstacle loop).
-    std::vector<CorridorObstacle> obstacles;
-    for (const DraftingMapRoom &room : m_document.rooms) {
-        if (&room == roomA || &room == roomB) {
-            continue;
-        }
-        obstacles.push_back({room.origin, room.width, room.height});
-    }
-
+    // Route the corridor through the shared helper (B2-5 DRY refactor).
+    // For a freshly-placed plug the live-geometry anchor == plug.anchor, so
+    // behaviour is identical to the pre-refactor inline code.
     const std::string connId = connection.id;
-    std::vector<DraftingObject> corridorObjects = corridorWalls(
-        routeCorridorCenterline(spec, obstacles),
-        spec.width, spec.wallThickness,
-        [this]() {
-            return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
-        });
-
-    // Stamp each corridor wall with the neutral provenance tag "connection:<connId>".
-    // This is the same open-vocabulary breadcrumb pattern as "feature:<type>" on
-    // feature markers (createMapFromSpec line ~2497) — NO new metadata field, NO codec
-    // change. The tag rides persist/undo/projection for free; delete (B2-4) and
-    // re-route (B2-5) gather the corridor by filtering objects with this tag.
-    // toolProvenance = "corridor" is already set by corridorWalls() itself.
-    for (DraftingObject &wall : corridorObjects) {
-        wall.metadata.tags.push_back("connection:" + connId);
-    }
+    std::vector<DraftingObject> corridorObjects =
+        buildTaggedCorridorWalls(connId, plugA, plugB);
 
     // One bracket: corridor walls + declared connection = one undo step.
     // createObjectsAndSelect requires a non-empty objects vector; if no corridor was
@@ -2207,6 +2306,311 @@ bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QStri
     // Fallback: no corridor geometry; still record the neutral graph edge.
     beginEdit();
     applyDraftingCommand(m_document, DeclareConnectionCommand{std::move(connection)});
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
+void DrawingDocumentController::selectConnection(const QString &connId)
+{
+    // B2-CTX: the Map-browser row click lands here. Validate that the id names
+    // a real connection (connectionIndexById returns nullopt for an unknown id).
+    const std::string id = toStdString(connId);
+    if (!connectionIndexById(m_document, id)) {
+        return; // unknown id — no-op, no state change, no emission
+    }
+    m_activeConnectionId = id;
+    // Mutual exclusion: a connection selection and an object selection are never
+    // both active at the same time (the inspector context would be ambiguous).
+    // clearSelection is the same call the marquee path uses; it costs one
+    // linear scan but does not push an undo step.
+    clearSelection(m_document);
+    emit modelChanged();
+}
+
+bool DrawingDocumentController::deleteConnection(const QString &connId)
+{
+    const std::string id = toStdString(connId);
+    if (!connectionIndexById(m_document, id)) {
+        return finishEdit(QStringLiteral("delete"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection does not exist"));
+    }
+
+    // Gather the corridor-wall object ids BEFORE the bracket mutates the document.
+    // A corridor wall is any document object whose tags contain "connection:<id>".
+    // The gather snapshot is stable because we iterate the live vector once before
+    // any erase — the same safe gather-first pattern deletePlug uses.
+    const std::string connTag = "connection:" + id;
+    std::vector<DraftingObjectId> corridorIds;
+    for (const DraftingObject &object : m_document.objects) {
+        for (const std::string &tag : object.metadata.tags) {
+            if (tag == connTag) {
+                corridorIds.push_back(object.id);
+                break; // one match per object is enough
+            }
+        }
+    }
+
+    // ONE bracket = one undo step that restores the edge AND the corridor geometry.
+    beginEdit();
+    // 1. Remove the graph edge (undeclareConnection). The two plugs and their door
+    //    leaves intentionally STAY — a disconnected plug can be reconnected (v1
+    //    choice ratified by gate 019).
+    applyDraftingCommand(m_document, DeleteConnectionCommand{id});
+    // 2. Delete each corridor wall. removeObject calls pruneGraphForRemovedObject on
+    //    the wall's id — but walls are never plug anchors, so the prune is a no-op.
+    for (const DraftingObjectId &wallId : corridorIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId});
+    }
+    commitEdit(/*selectionOnly=*/false);
+
+    // B2-CTX stale-select guard: if the just-deleted connection was the active one
+    // (selected via the Map-browser row), clear m_activeConnectionId so that
+    // has_connection_selection refreshes to false in the modelChanged projection.
+    // The clear must happen BEFORE emit so the projection is already correct when
+    // the inspector rebuilds.
+    if (!m_activeConnectionId.empty() && !connectionIndexById(m_document, m_activeConnectionId)) {
+        m_activeConnectionId.clear();
+    }
+    emit modelChanged();
+    return true;
+}
+
+bool DrawingDocumentController::deletePlug(const QString &plugId)
+{
+    const std::string id = toStdString(plugId);
+    const auto idx = plugIndexById(m_document, id);
+    if (!idx) {
+        return finishEdit(QStringLiteral("delete"), QStringLiteral("plug"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("plug does not exist"));
+    }
+
+    // ── GATHER FIRST ─────────────────────────────────────────────────────────
+    // Read all ids we need to delete BEFORE the first mutation. Once DeletePlugCommand
+    // fires, the plug and its connection records are gone from m_document — any
+    // subsequent lookup against them would find nothing.
+    //
+    // 1. The plug's anchor marker object.
+    const DraftingObjectId anchorId = m_document.plugs[*idx].anchorObjectId;
+
+    // 2. The door-leaf object (if any) tagged "plug:<plugId>".
+    //    B2-3 mints the leaf with this tag; it may not exist on a plain placed plug.
+    const std::string plugLeafTag = "plug:" + id;
+    std::string leafId;
+    for (const DraftingObject &object : m_document.objects) {
+        for (const std::string &tag : object.metadata.tags) {
+            if (tag == plugLeafTag) {
+                leafId = object.id;
+                break;
+            }
+        }
+        if (!leafId.empty()) {
+            break;
+        }
+    }
+
+    // 3. The corridor walls of every connection that names this plug (plugA or plugB).
+    //    One connection may have MULTIPLE corridor walls; collect all of them.
+    std::vector<DraftingObjectId> corridorIds;
+    for (const DraftingDeclaredConnection &conn : m_document.connections) {
+        if (conn.plugA == id || conn.plugB == id) {
+            const std::string connTag = "connection:" + conn.id;
+            for (const DraftingObject &object : m_document.objects) {
+                for (const std::string &tag : object.metadata.tags) {
+                    if (tag == connTag) {
+                        corridorIds.push_back(object.id);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── ONE BRACKET ──────────────────────────────────────────────────────────
+    // Command order is deliberate (the double-prune ordering the brief calls out):
+    //
+    //   A. DeletePlugCommand FIRST — removePlug() cascades the connection EDGES from
+    //      the graph (plugs.connections erased). The plug record is now gone.
+    //   B. DeleteObjectCommand for the anchor marker — removeObject calls
+    //      pruneGraphForRemovedObject(anchorId), which looks for plugs anchored to
+    //      anchorId and finds NONE (step A already removed the plug). The prune is
+    //      a harmless no-op. We do NOT rely on this marker-driven prune instead of
+    //      DeletePlugCommand — the explicit command keeps the order transparent.
+    //   C. DeleteObjectCommand for the door leaf (if gathered).
+    //   D. DeleteObjectCommand for each corridor wall (plug's connection corridors).
+    //      Same no-op prune as above — corridor walls are never plug anchors.
+    beginEdit();
+    applyDraftingCommand(m_document, DeletePlugCommand{id});  // A: graph edge cascade
+    applyDraftingCommand(m_document, DeleteObjectCommand{anchorId}); // B: anchor marker
+    if (!leafId.empty()) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{leafId}); // C: door leaf
+    }
+    for (const DraftingObjectId &wallId : corridorIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId}); // D: corridor walls
+    }
+    commitEdit(/*selectionOnly=*/false);
+
+    // B2-CTX stale-select guard (same as deleteConnection): DeletePlugCommand
+    // cascades the connection edges, so any connection that was Map-browser-selected
+    // is now gone. Validate before the emit so the projection refreshes correctly.
+    if (!m_activeConnectionId.empty() && !connectionIndexById(m_document, m_activeConnectionId)) {
+        m_activeConnectionId.clear();
+    }
+    emit modelChanged();
+    return true;
+}
+
+// B2-5: manual corridor re-route ──────────────────────────────────────────────
+// Replace a connection's rendered corridor walls with freshly-routed ones that
+// follow the two plugs' CURRENT anchor marker positions.  Useful after the user
+// moves a plug anchor and wants the corridor to follow.
+//
+// Design: ONE bracket (delete old walls + create new walls) → ONE undo step that
+// reverts the entire re-route atomically.  The connection record and both plugs
+// are intentionally untouched — only the rendered geometry is replaced.
+// Auto-re-route-on-plug-move stays PARKED (v1; recorded in DraftingMapTypes.h).
+bool DrawingDocumentController::rerouteConnection(const QString &connId)
+{
+    const std::string id = toStdString(connId);
+    const auto connIdx = connectionIndexById(m_document, id);
+    if (!connIdx) {
+        return finishEdit(QStringLiteral("reroute"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection does not exist"));
+    }
+    const DraftingDeclaredConnection &conn = m_document.connections[*connIdx];
+
+    // Resolve the plug records — both must exist (orphaned connections are a
+    // corrupt-document condition, not an interactive error, but we guard anyway).
+    const auto aIdx = plugIndexById(m_document, conn.plugA);
+    const auto bIdx = plugIndexById(m_document, conn.plugB);
+    if (!aIdx || !bIdx) {
+        return finishEdit(QStringLiteral("reroute"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection references missing plug(s)"));
+    }
+
+    // ── GATHER FIRST ─────────────────────────────────────────────────────────
+    // Snapshot the existing corridor wall ids BEFORE any mutation, so we can
+    // delete them inside the bracket even after the document state changes.
+    const std::string connTag = "connection:" + id;
+    std::vector<DraftingObjectId> oldWallIds;
+    for (const DraftingObject &obj : m_document.objects) {
+        for (const std::string &tag : obj.metadata.tags) {
+            if (tag == connTag) {
+                oldWallIds.push_back(obj.id);
+                break;
+            }
+        }
+    }
+
+    // Build the fresh corridor walls from the plugs' CURRENT anchor positions
+    // (buildTaggedCorridorWalls reads live PointGeometry, not the stale snapshot).
+    // This call increments m_nextObjectSerial for each new wall segment — that is
+    // safe outside the edit bracket (serial is controller state, not document).
+    std::vector<DraftingObject> newWalls = buildTaggedCorridorWalls(
+        id, m_document.plugs[*aIdx], m_document.plugs[*bIdx]);
+
+    // ── ONE BRACKET ──────────────────────────────────────────────────────────
+    // Delete old walls first, THEN create new ones.  Both halves are inside one
+    // bracket so one Ctrl+Z reverts the entire re-route atomically.
+    beginEdit();
+    for (const DraftingObjectId &wallId : oldWallIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId});
+    }
+    for (DraftingObject &wall : newWalls) {
+        applyDraftingCommand(m_document, CreateObjectCommand{wall});
+    }
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
+// B2-3: set plug type + re-mint door leaf ──────────────────────────────────────
+// Sets a plug's neutral type tag and replaces its rendered door-leaf object so
+// the visual matches the new type. Pure-type authoring: anchor and connections
+// are untouched. One bracket = one undo step (type + leaf swap together).
+bool DrawingDocumentController::setPlugType(const QString &plugId, const QString &type)
+{
+    const std::string id   = toStdString(plugId);
+    const std::string kind = toStdString(type);
+
+    const auto idx = plugIndexById(m_document, id);
+    if (!idx) {
+        return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("plug does not exist"));
+    }
+    const DraftingPlug &plug = m_document.plugs[*idx];
+
+    // ── GATHER existing leaf (before any mutation) ────────────────────────────
+    // The leaf is a Wall object tagged "plug:<plugId>" minted by a previous
+    // setPlugType (or by createMapFromSpec for authored plugs — though that path
+    // does NOT add the tag; see note below). Gather FIRST like B2-4 delete.
+    const std::string leafTag = "plug:" + id;
+    std::string existingLeafId;
+    for (const DraftingObject &obj : m_document.objects) {
+        for (const std::string &tag : obj.metadata.tags) {
+            if (tag == leafTag) { existingLeafId = obj.id; break; }
+        }
+        if (!existingLeafId.empty()) { break; }
+    }
+
+    // ── DERIVE leaf geometry ──────────────────────────────────────────────────
+    // The leaf is a thin Wall band across the doorway.  Read the CURRENT anchor
+    // position from the marker's live geometry (same live-read pattern as B2-5
+    // buildTaggedCorridorWalls — the stale plug.anchor cache is not reliable
+    // after a move).  Fall back to plug.anchor when the marker is missing.
+    const DraftingObject *marker = findObject(m_document, plug.anchorObjectId);
+    const auto *ptGeom = marker ? std::get_if<PointGeometry>(&marker->geometry) : nullptr;
+    const Point2D anchor = ptGeom ? ptGeom->point : plug.anchor;
+
+    // Edge: look up the room that contains the anchor, then derive the nearest
+    // wall side.  Open-space plugs (no enclosing room) fall back to "N".
+    std::string edgeStr = "N";
+    for (const DraftingMapRoom &room : m_document.rooms) {
+        if (boundsContainsPoint(Bounds2D{room.origin.x, room.origin.y, room.width, room.height},
+                                anchor)) {
+            edgeStr = deriveEdge(room, anchor);
+            break;
+        }
+    }
+    // Tangent along the wall: horizontal for N/S walls, vertical for E/W walls.
+    const bool isNorthSouth = (edgeStr == "N" || edgeStr == "S");
+    const Point2D tangent   = isNorthSouth ? Point2D{1.0, 0.0} : Point2D{0.0, 1.0};
+    constexpr double hw = 0.0225; // kCorridorWidth / 2.0 (0.045 / 2)
+    const Point2D leafA{anchor.x - tangent.x * hw, anchor.y - tangent.y * hw};
+    const Point2D leafB{anchor.x + tangent.x * hw, anchor.y + tangent.y * hw};
+
+    // Build the fresh leaf object (same shape as createMapFromSpec's leaf build).
+    const QString leafObjId = nextObjectId(QStringLiteral("door"), m_nextObjectSerial++);
+    DraftingObjectBuildResult leafBuilt = buildDraftingObject(
+        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, 0.02});
+    if (!leafBuilt.ok) {
+        --m_nextObjectSerial; // roll back the serial bump on failure
+        return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
+                          leafBuilt.code,
+                          drawing_core::qStringFromStdString(leafBuilt.message));
+    }
+    leafBuilt.object.bounds                    = computeBounds(leafBuilt.object.geometry);
+    leafBuilt.object.metadata.toolProvenance   = "door";
+    leafBuilt.object.metadata.wallVisual.type  = wallTypeForPlugType(kind);
+    // Tag "plug:<plugId>" so future setPlugType calls can find and replace this leaf.
+    leafBuilt.object.metadata.tags.push_back(leafTag);
+
+    // ── ONE BRACKET ───────────────────────────────────────────────────────────
+    // A. UpdatePlugCommand — sets plug.type in the graph record.
+    // B. DeleteObjectCommand for the old leaf (if gathered; skipped on first call).
+    // C. CreateObjectCommand for the fresh leaf.
+    // One Ctrl+Z reverts BOTH the type change and the leaf swap atomically.
+    beginEdit();
+    applyDraftingCommand(m_document, UpdatePlugCommand{id, kind});   // A
+    if (!existingLeafId.empty()) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{existingLeafId}); // B
+    }
+    applyDraftingCommand(m_document, CreateObjectCommand{leafBuilt.object}); // C
     commitEdit(/*selectionOnly=*/false);
     emit modelChanged();
     return true;
@@ -2232,6 +2636,7 @@ bool DrawingDocumentController::beginRotateCopiesCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::RotateCopiesCenter,
                                          QStringLiteral("Click to set the rotate-copies centre")};
     emit pointerChanged();
@@ -2274,6 +2679,7 @@ bool DrawingDocumentController::beginKaleidoscopeCenterPick()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::KaleidoscopeCenter,
                                          QStringLiteral("Click to set the kaleidoscope centre")};
     emit pointerChanged();
@@ -2304,6 +2710,7 @@ bool DrawingDocumentController::beginTrimSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::TrimPoint,
                                          QStringLiteral("Click the part of the line to trim away")};
     emit pointerChanged();
@@ -2350,6 +2757,7 @@ bool DrawingDocumentController::beginExtendSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::ExtendPoint,
                                          QStringLiteral("Click the end of the line to extend")};
     emit pointerChanged();
@@ -2397,6 +2805,7 @@ bool DrawingDocumentController::beginFilletSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::FilletSecondLine,
                                          QStringLiteral("Click the other line near the corner to round")};
     emit pointerChanged();
@@ -2471,6 +2880,7 @@ bool DrawingDocumentController::beginChamferSelectedLine()
     if (source == nullptr || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::ChamferSecondLine,
                                          QStringLiteral("Click the other line near the corner to bevel")};
     emit pointerChanged();
@@ -2551,6 +2961,7 @@ bool DrawingDocumentController::beginBreakSelectedObject()
         || !draftingObjectEffectivelyEditable(m_document, *source)) {
         return false;
     }
+    m_activeConnectionId.clear(); // B2-CTX: any begin*Pick clears connection-select
     m_pointCapture = PendingPointCapture{PointCaptureIntent::BreakPoint,
                                          QStringLiteral("Click where to break the object")};
     emit pointerChanged();
@@ -2774,15 +3185,8 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
-    const auto wallTypeForPlugType = [](const std::string &type) {
-        if (type == "window") {
-            return WallType::Window;
-        }
-        if (type == "secret") {
-            return WallType::Secret;
-        }
-        return WallType::Door;
-    };
+    // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so
+    // setPlugType shares the IDENTICAL mapping — one place if a new variant lands.
 
     // A plug with a CONNECTION gets a real opening (doorway) carved in its wall so
     // the corridor flows through, not into a solid wall. An UNCONNECTED plug — a
@@ -2846,6 +3250,10 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             plug.type = placement.type;
             plug.flags = placement.flags; // neutral tags, threaded through like `type`
             plug.anchor = placement.anchor;
+            // Capture the id BEFORE std::move so the leaf-tag site below can use it.
+            // The id is a stable, minted value that does not change after move; copying
+            // it here is O(N) on a short opaque string — negligible, and clear.
+            const std::string mintedPlugId = plug.id;
             plugIdByKey.emplace(plugKey(room.name, placement.name), plug.id);
             doorByKey.emplace(plugKey(room.name, placement.name),
                               std::make_pair(placement.anchor, placement.edge));
@@ -2869,6 +3277,13 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
                 if (leaf.ok) {
                     leaf.object.metadata.toolProvenance = "door";
                     leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
+                    // B2-3/036: tag the leaf with "plug:<plugId>" so it is symmetric with
+                    // interactive leaves (setPlugType) and visible to deletePlug's gather
+                    // loop. Without this tag: setPlugType mints a duplicate alongside the
+                    // authored leaf; deletePlug orphans it (never collects it). The tag is
+                    // a neutral provenance breadcrumb — no render/codec change (same pattern
+                    // as "connection:<connId>" on corridor walls, "feature:<type>" on markers).
+                    leaf.object.metadata.tags.push_back("plug:" + mintedPlugId);
                     allObjects.push_back(std::move(leaf.object));
                 }
             }
@@ -3469,6 +3884,14 @@ void DrawingDocumentController::clickCanvasNormalized(double x, double y)
         return;
     }
 
+    // B2-CTX mutual-exclusion: any canvas click shifts focus to the object layer,
+    // so a connection selection (set via the Map-browser row) must end here. This
+    // one clear covers all three sub-paths below: canvas-select, canvas-deselect,
+    // and the draw-while-connection-selected auto-select. The point-capture path
+    // above is exempt — it consumes the click before selection is touched.
+    // All sub-paths already emit modelChanged(), so no extra emit is needed here.
+    m_activeConnectionId.clear();
+
     m_lastGuideDragSnap.clear();
     const bool clearedEditStatus = !m_lastEditStatus.isEmpty();
     m_lastEditStatus.clear();
@@ -3633,7 +4056,19 @@ void DrawingDocumentController::cancelPendingCreation()
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_pointCapture.reset();
-    emit pointerChanged(); // view state, not a mutation
+    m_pendingConnectionPlugA.clear(); // symmetry with setSelectedToolId: force-cancel clears both
+    // B2-CTX: Escape ends any connection selection for the same reason as a tool
+    // switch — the inspector context the user was looking at is stale once the
+    // canvas is force-cancelled. The clear keeps the "any focus-shift ends the
+    // connection selection" invariant uniform across all exit paths.
+    // If a connection WAS selected, modelChanged must fire so the projection
+    // cache (has_connection_selection) refreshes to false immediately.
+    const bool hadConnectionSelection = !m_activeConnectionId.empty();
+    m_activeConnectionId.clear();
+    emit pointerChanged(); // pointer capture state changed
+    if (hadConnectionSelection) {
+        emit modelChanged(); // projection key has_connection_selection changed
+    }
 }
 
 bool DrawingDocumentController::deleteSelectedObject()
@@ -3971,6 +4406,8 @@ bool DrawingDocumentController::selectObjectById(const QString &id)
     if (findObject(m_document, objectId) == nullptr) {
         return false;
     }
+    // B2-CTX: object-select is mutually exclusive with connection-select.
+    m_activeConnectionId.clear();
     beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectCommand{objectId});
     if (!result.ok) {
@@ -3994,6 +4431,8 @@ bool DrawingDocumentController::selectObjectsInBoundsNormalized(double x1, doubl
 
     const std::vector<DraftingObjectId> objectIds = selectableObjectsInBounds(m_document, marquee);
 
+    // B2-CTX: marquee select is mutually exclusive with connection-select.
+    m_activeConnectionId.clear();
     beginEdit();
     const DraftingCommandResult result = applyDraftingCommand(m_document, SelectObjectsCommand{objectIds});
     if (!result.ok) {

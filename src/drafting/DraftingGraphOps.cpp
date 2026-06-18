@@ -73,6 +73,22 @@ DraftingStoreResult addPlug(DraftingDocument &document, DraftingPlug plug)
     return DraftingStoreResult::accepted();
 }
 
+DraftingStoreResult updatePlug(DraftingDocument &document, const DraftingPlugId &id,
+                                const std::string &type)
+{
+    // Sibling of addPlug/removePlug: validate first, mutate second, bump revision
+    // only on success — the same three-step pattern the whole store layer follows.
+    // Only `type` is written; anchor/anchorObjectId/id/name/flags stay untouched
+    // (the door leaf re-mint is the controller's concern, not the graph op's).
+    const auto idx = plugIndexById(document, id);
+    if (!idx) {
+        return DraftingStoreResult::rejected(DraftingResultCode::ObjectNotFound, "plug does not exist");
+    }
+    document.plugs[*idx].type = type;
+    ++document.revision;
+    return DraftingStoreResult::accepted();
+}
+
 DraftingStoreResult removePlug(DraftingDocument &document, const DraftingPlugId &id)
 {
     const auto index = plugIndexById(document, id);

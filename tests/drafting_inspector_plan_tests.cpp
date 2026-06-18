@@ -14,6 +14,24 @@ DraftingInspectorPlan plan(std::string toolId, bool hasSelection,
     return planDraftingInspector({std::move(toolId), hasSelection, kind});
 }
 
+// B2-CTX: helpers for the relation-aware branches (supply the new bools only).
+DraftingInspectorPlan planConnectionSelected()
+{
+    DraftingInspectorInput input;
+    input.hasConnectionSelection = true;
+    return planDraftingInspector(input);
+}
+
+DraftingInspectorPlan planPlugAnchor(bool hasSelection = false,
+                                     DraftingShapeKind kind = DraftingShapeKind::Point)
+{
+    DraftingInspectorInput input;
+    input.activeIsPlugAnchor = true;
+    input.hasSelection = hasSelection;
+    input.selectedKind = kind;
+    return planDraftingInspector(input);
+}
+
 bool sameGroups(const DraftingInspectorPlan &actual, const std::vector<std::string> &expected)
 {
     return actual.groupIds == expected;
@@ -111,6 +129,50 @@ int main()
     {
         const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::Line);
         assert(p.contextId == "object_shape");
+    }
+
+    // B2-CTX: relation-aware branches.
+    //
+    // (1) hasConnectionSelection=true → object_connection regardless of other fields.
+    {
+        const DraftingInspectorPlan p = planConnectionSelected();
+        assert(p.contextId == "object_connection");
+        assert(p.groupIds == (std::vector<std::string>{"connection_summary", "connection_verbs"}));
+    }
+    //   connection-select wins even when an object is also selected
+    {
+        DraftingInspectorInput input;
+        input.hasConnectionSelection = true;
+        input.hasSelection = true;
+        input.selectedKind = DraftingShapeKind::Circle;
+        const DraftingInspectorPlan p = planDraftingInspector(input);
+        assert(p.contextId == "object_connection"); // connection wins
+    }
+
+    // (2) activeIsPlugAnchor=true → object_plug (overrides the Point-kind fallback
+    //     to object_shape — a plug anchor is a Point, but its relation context wins).
+    {
+        const DraftingInspectorPlan p = planPlugAnchor(/*hasSelection=*/true, DraftingShapeKind::Point);
+        assert(p.contextId == "object_plug");
+        assert(p.groupIds == (std::vector<std::string>{"plug_summary", "plug_type", "plug_verbs"}));
+    }
+
+    // (3) Regression guard: a plain Point WITH selection and NO relation flags
+    //     still lands in object_shape (the kind-branch, not the plug branch).
+    {
+        const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::Point);
+        assert(p.contextId == "object_shape");
+    }
+    // And Circle with selection + no relation flags → object_shape (unchanged).
+    {
+        const DraftingInspectorPlan p = plan("select_move", true, DraftingShapeKind::Circle);
+        assert(p.contextId == "object_shape");
+    }
+
+    // (4) Empty input (both bools default false) → empty context (unchanged).
+    {
+        const DraftingInspectorPlan p = planDraftingInspector({});
+        assert(p.contextId == "empty");
     }
 
     return 0;

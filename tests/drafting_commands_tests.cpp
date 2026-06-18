@@ -508,6 +508,21 @@ int main()
         assert(graphDoc.connections.empty());
     }
 
+    // B2-3: UpdatePlugCommand arm — delegate to updatePlug, same accepted/rejected shape.
+    {
+        DraftingDocument doc = makeDraftingDocument("cmd-updateplug");
+        doc.objects.push_back(makeDraftingObject("m.0", DraftingShapeKind::Point, PointGeometry{}));
+        DraftingPlug p; p.id = "plug_a"; p.anchorObjectId = "m.0"; p.type = "door";
+        assert(applyDraftingCommand(doc, CreatePlugCommand{p}).ok);
+
+        // UpdatePlugCommand sets type correctly.
+        assert(applyDraftingCommand(doc, UpdatePlugCommand{"plug_a", "secret"}).ok);
+        assert(doc.plugs[0].type == "secret");
+
+        // UpdatePlugCommand for unknown plug is rejected.
+        assert(!applyDraftingCommand(doc, UpdatePlugCommand{"no_such_plug", "window"}).ok);
+    }
+
     // S4: deleting the object a plug anchors to, through the command path, prunes
     // the plug with it (so undo via DocumentSnapshot restores both atomically).
     {

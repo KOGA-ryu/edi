@@ -125,9 +125,25 @@ CreateObjectsCommand = one undo.
   skip-existing, selection-scoped). dep:none; no reviewer gate (reuses settled machinery). M2-S3
   (Node snap source) is the next slice after.
 
+### M2 (S1+S2) — CLOSED 2026-06-17 ✅ (SHA `34aa0da`, GREEN 104/104)
+- New `DraftingIntersectionOps.{h,cpp}`: `documentIntersectionPoints` + `subsetIntersectionPoints`
+  (selection-scoped) + `filterExistingIntersections` (idempotent skip-existing). `dropIntersectionPoints()`
+  verb reuses `createObjectsAndSelect` (atomic CreateObjectsCommand + auto-select, one undo).
+  New test file + controller tests. Diff +490/−0, all my files. Spot-checked, accepted. Reported
+  `34aa0da` to edi-ui.
+
+### M2-S3 — Node snap source — builder BRIEFED 2026-06-17 (completes M2)
+- Brief: `~/dept-bus/edi-drafting/briefs/039-M2-S3-node-snap-builder.md`. Add `Node` snap kind +
+  `nodeEnabled` flag + emission for Point objects (so the dropped intersection nodes snap) +
+  controller getter/setter via `setSnapFlag` (DrawingCore.h:440) + projection `node_enabled` key.
+  TOML persistence: mirror IF snap flags persist, else note deferred (DR-02/03 flags aren't
+  persisted either). Inspector checkbox = edi-ui. Anchors confirmed.
+
 ## Open questions / blockers
-- M2 S1+S2 in build → then M2-S3 (Node snap source). 
-- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test.
+- M2-S3 in build → completes M2. After M2: next batch-2/3 item (M4 tangent-circle stays parked;
+  the rest of drafting batch-2 overlaps the done DR bucket — likely move to a fresh roadmap pull).
+- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test; snap-flag TOML
+  persistence is its own slice if not already present (M2-S3 will report which).
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

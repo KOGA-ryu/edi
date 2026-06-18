@@ -4886,5 +4886,70 @@ int main(int argc, char **argv)
         assert(clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
     }
 
+    // M8-S2: motif capture (defineMotifFromSelection) + FLATTEN placement
+    // (beginMotifPlacement + canvas click → runMotifAtPoint).
+    {
+        auto objectCount = [](DrawingDocumentController &c) {
+            return c.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
+        };
+
+        DrawingDocumentController motifCtl;
+
+        // Build a 2-object doc (two Points).
+        motifCtl.setSelectedToolId(QStringLiteral("point_tool"));
+        motifCtl.clickCanvasNormalized(0.1, 0.2);
+        motifCtl.clickCanvasNormalized(0.4, 0.5);
+        assert(objectCount(motifCtl) == 2);
+
+        // beginMotifPlacement on a missing name → false (no capture armed).
+        assert(!motifCtl.beginMotifPlacement(QStringLiteral("nosuchname")));
+        assert(motifCtl.pointCapturePrompt().isEmpty());
+
+        // Marquee-select both points and define a motif.
+        motifCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
+        assert(motifCtl.draftingDocument().motifs.size() == 1);
+        assert(motifCtl.draftingDocument().motifs[0].name == "dot_pair");
+        assert(motifCtl.draftingDocument().motifs[0].objects.size() == 2);
+
+        // Define is one undo step; undoing removes the motif.
+        motifCtl.undo();
+        assert(motifCtl.draftingDocument().motifs.empty());
+        motifCtl.redo();
+        assert(motifCtl.draftingDocument().motifs.size() == 1);
+
+        // Define a second motif (same selection) with duplicate name → rejected.
+        motifCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
+        assert(!motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
+
+        // beginMotifPlacement with the correct name → arms a capture.
+        assert(motifCtl.beginMotifPlacement(QStringLiteral("dot_pair")));
+        assert(!motifCtl.pointCapturePrompt().isEmpty());
+
+        // Canvas click → FLATTEN-drop: two fresh "motif_" objects appear.
+        const int beforePlace = objectCount(motifCtl);
+        motifCtl.clickCanvasNormalized(0.7, 0.8);
+        assert(objectCount(motifCtl) == beforePlace + 2);
+
+        // Confirm auto-selection of the placed batch.
+        assert(motifCtl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
+
+        // The placed objects have "motif_" ids and are ordinary first-class objects.
+        const QVariantList objs = motifCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        bool foundMotifId = false;
+        for (const QVariant &v : objs) {
+            const QString id = v.toMap().value(QStringLiteral("id")).toString();
+            if (id.startsWith(QStringLiteral("motif_"))) {
+                foundMotifId = true;
+                break;
+            }
+        }
+        assert(foundMotifId);
+
+        // The whole placement is ONE undo step (beforePlace + 2 → beforePlace on undo).
+        assert(motifCtl.undo());
+        assert(objectCount(motifCtl) == beforePlace);
+    }
+
     return 0;
 }

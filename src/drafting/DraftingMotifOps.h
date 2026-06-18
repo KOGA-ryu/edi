@@ -1,7 +1,9 @@
 #pragma once
 
+#include "drafting/DraftingArray.h"   // DraftingArrayResult
 #include "drafting/DraftingDocument.h"
-#include "drafting/DraftingStore.h" // DraftingStoreResult
+#include "drafting/DraftingStore.h"   // DraftingStoreResult
+#include "drafting/DraftingTypes.h"   // Point2D
 
 #include <cstddef>
 #include <optional>
@@ -45,5 +47,19 @@ DraftingMotif buildMotifFromObjects(std::string name,
 // Mutations.
 DraftingStoreResult addMotif(DraftingDocument &document, DraftingMotif motif);
 DraftingStoreResult removeMotif(DraftingDocument &document, const std::string &name);
+
+// FLATTEN-on-place: re-drop a motif as ordinary DraftingObjects translated so
+// the motif's origin (0,0 lower-left, established by buildMotifFromObjects) lands
+// at `point`.  Each copy is assigned `newObjectIds[i]` and carries NO back-reference
+// to the motif — the placed objects are fully independent first-class objects.
+//
+// Returns DraftingArrayResult::accepted(objects) on success.
+// Rejects with InvalidGeometry if `motif.objects` is empty.
+// Rejects with InvalidGeometry if `newObjectIds.size() != motif.objects.size()`.
+// The caller (controller) mints the ids and wraps the result in one CreateObjectsCommand
+// = one undo step.
+DraftingArrayResult placeMotif(const DraftingMotif &motif,
+                               Point2D point,
+                               const std::vector<DraftingObjectId> &newObjectIds);
 
 } // namespace edi::drafting

@@ -208,3 +208,24 @@ CreateObjectsCommand = one undo.
   reusing placeBlockInstance's flatten path. Pre-scoped; awaiting the dungeon-map bus to brief builder.
 - RESUME: re-read this section + ~/dept-bus/M0-CRYPT-SLICE.md + bus log tail; check
   ~/dept-bus/edi-drafting/briefs|replies + ~/dept-bus/drafting/replies for any M0 brief; hold if none.
+
+### M0 PROPS FIELD — DELIVERED (2026-06-18), awaiting hub merge
+- ASK: dungeon-map coordination 040 → hub RATIFIED additive MapSpec block-instance field for the M0
+  crypt props (sarcophagus + brazier). SETTLED shape with dungeon-map (reply 042).
+- SHAPE: `MapBlockSpec{assetRef, position(ABSOLUTE authored feet), rotationDeg=0, scale=1, name}` +
+  `MapSpec::blocks` (DraftingRoom.h). createMapFromSpec stamps each as a Point marker carrying
+  `BlockPlacementMetadata{assetRef, instanceId off m_nextObjectSerial, rotationDeg, scale}` (blockId
+  empty). Reuses existing serialize (block_placement, additive, no version bump) + MapToonExport
+  (groups by instanceId) — no new codec. H2 clean (struct pure in src/drafting, realization in src/core).
+- COMMITS on dept/drafting (rebased on local master 15a5c19): 6f68618 (field + stamp arm + tests),
+  896edf0 (direct e2e createMapFromSpec→exportMapToToon TOON-row test, empty-blockId carrier).
+- GATE: edi-gate GREEN 104/104, scan clean, tip 896edf0.
+- REVIEW: edi-drafting-reviewer ACCEPT-WITH-NIT (briefs/042 audit). Nit = missing direct TOON seam
+  assertion → CLOSED by 896edf0. HIGH cross-dept confidence the props seam holds end-to-end.
+- MERGE: master owned by integration hub (edi-ui, /home/kogaRyu/edi worktree) per M0 INTEGRATION
+  clause — reported tip 896edf0 ready (bus-hub). NOT self-merged. Once on local master, bus dungeon-map
+  the SHA (reply 043 staged at ~/dept-bus/drafting/replies/043-mapblockspec-LIVE-on-branch.md).
+- DEFERRED follow-ups (NOT M0 blockers, only if dungeon-map asks): (1) MapBlockSpec `flags`/tags vector
+  + blocks[] TOON column (their side); (2) .map.toml parser arm for `blocks`; (3) out-of-room prop
+  policy (empty room cell is safe today). Open PIN to confirm: position is ABSOLUTE authored feet, not
+  room-local — one-line change if generator needs room-local.

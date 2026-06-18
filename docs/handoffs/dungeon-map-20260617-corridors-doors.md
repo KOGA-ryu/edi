@@ -169,10 +169,22 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   outside all rooms → `deriveEdge` fallback `RoomEdge::North`; door leaf NOT minted on
   interactive plugs (B2-3 `setPlugType` mints it). Context OK (sonnet, below-nudge).
 
-### Reviewer diff-audit of 020 — DISPATCHED (parallel with 021)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/022-reviewer-020-audit.md`
-- Focus: the two-click capture state machine (stale plug-A leaks, A-deleted-mid-pick),
-  neutral corridor tags, one-undo brackets, the edge-fallback judgment calls.
+### Reviewer diff-audit of 020 — 2026-06-17 — edi-dungeon-map-reviewer (CLEAN)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/022-reviewer-020-audit.md`
+- **020 audit CLEAN.** Two-click state machine sound (every path traced; plug-A
+  re-validated at apply so a deleted-mid-pick A → clean refuse; member cleared on every
+  second-click exit). Neutral law clean (corridor breadcrumb = pure provenance, no
+  rule; only "walkable" in a width comment). One-undo brackets verified at the bracket.
+  Edge calls defensible: North-edge fallback is route-cosmetic only (graph edge always
+  correct by id) AND exercised by the room-less B2-2 test; obstacle pointer-identity
+  skip valid. `plugAtAnchorObject` robust (unique ids ⇒ no false match; wrong hit → clean
+  miss). Authored path untouched; data-oriented; H2 held; switch exhaustive (no default).
+- **FOLD into a later slice (NIT + coverage, non-blocking):**
+  1. NIT — also clear `m_pendingConnectionPlugA` in `setSelectedToolId` (dormant-stale
+     after a tool-switch; harmless today, latent footgun). 1 line.
+  2. Coverage tests (cheap): plug-A-deleted-between-clicks; the empty-corridor fallback;
+     the stale-member-after-tool-switch.
+  → Bake into **batch-3** (the delete/reroute batch) or a final hardening slice.
 
 ### Builder slice 021 (block-instance projection keys, cross-dept) — DISPATCHED
 - Brief: `~/dept-bus/edi-dungeon-map/briefs/021-builder-block-instance-projection-keys.md`

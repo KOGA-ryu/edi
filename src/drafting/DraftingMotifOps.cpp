@@ -101,4 +101,32 @@ DraftingStoreResult removeMotif(DraftingDocument &document, const std::string &n
     return DraftingStoreResult::accepted();
 }
 
+DraftingArrayResult placeMotif(const DraftingMotif &motif,
+                               Point2D point,
+                               const std::vector<DraftingObjectId> &newObjectIds)
+{
+    if (motif.objects.empty()) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+                                             "cannot place an empty motif");
+    }
+    if (newObjectIds.size() != motif.objects.size()) {
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+                                             "newObjectIds count must match motif object count");
+    }
+
+    // Motif objects are normalized to origin (0,0); translating by `point` places
+    // the motif's lower-left corner at `point`.  Each copy is a fully independent
+    // DraftingObject — FLATTEN means NO back-reference to the motif.
+    std::vector<DraftingObject> placed;
+    placed.reserve(motif.objects.size());
+    for (std::size_t i = 0; i < motif.objects.size(); ++i) {
+        DraftingObject copy = motif.objects[i];       // deep copy (owns its geometry)
+        copy.geometry = translateGeometry(copy.geometry, point.x, point.y);
+        copy.bounds   = computeBounds(copy.geometry); // recompute; do not shift the box
+        copy.id       = newObjectIds[i];              // fresh id — no motif id carried
+        placed.push_back(std::move(copy));
+    }
+    return DraftingArrayResult::accepted(std::move(placed));
+}
+
 } // namespace edi::drafting

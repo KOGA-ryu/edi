@@ -77,6 +77,13 @@ constexpr DraftingToolSpec kDraftingTools[] = {
     {"height_dimension_tool", "Dimension: Height", "Dh", 9},
     {"radius_dimension_tool", "Dimension: Radius", "Dr", 9},
     {"diameter_dimension_tool", "Dimension: Diameter", "Di", 9},
+    // DR-13: angular dimension — two-line pick, plans via planAngularDimension.
+    // The controller arm (DraftingToolKind::AngularDimension + the two-line
+    // sequencing capture) is a CROSS-DEPT GAP flagged to edi-drafting. The
+    // belt cell and combo entry land here so the chrome is ready when the
+    // controller arm ships; clicking the cell sets the tool id without crashing
+    // (draftingToolKindFromId returns Unknown → reject on second click).
+    {"angular_dimension_tool", "Dimension: Angular", "Da", 9},
 };
 
 const DraftingToolSpec *draftingToolSpec(const QString &toolId)
@@ -163,6 +170,15 @@ BeltFace draftingToolFace(const QString &toolId)
     } else if (toolId == QLatin1String("diameter_dimension_tool")) {
         face.ellipses = {QRectF(0.15, 0.15, 0.7, 0.7)};
         face.polylines = {QPolygonF({P(0.18, 0.7), P(0.82, 0.3)})};
+    } else if (toolId == QLatin1String("angular_dimension_tool")) {
+        // Two lines meeting at a vertex near the bottom-left; a small arc
+        // across the opening angle tells apart from the linear siblings.
+        face.polylines = {
+            QPolygonF({P(0.15, 0.85), P(0.85, 0.15)}), // ray 1 (diagonal)
+            QPolygonF({P(0.15, 0.85), P(0.85, 0.65)}), // ray 2 (shallower)
+            // Arc approximation (3 segments) spanning the angle between the rays:
+            QPolygonF({P(0.38, 0.62), P(0.44, 0.53), P(0.53, 0.50)}),
+        };
     }
     return face; // unknown tools return an empty face -> text fallback
 }
@@ -981,6 +997,13 @@ void DraftingFeature::ensureInspectorGroupsBuilt()
         {QStringLiteral("Height"), QStringLiteral("height")},
         {QStringLiteral("Radius"), QStringLiteral("radius")},
         {QStringLiteral("Diameter"), QStringLiteral("diameter")},
+        // DR-13: Angular is a structural kind (vertex + two rays); selecting it
+        // on an EXISTING linear dimension is intentionally rejected by
+        // planDimensionKindChange — Angular dimensions are created fresh via the
+        // angular_dimension_tool belt cell, not converted from linear ones.
+        // The entry is present so a selected Angular dimension shows its kind
+        // correctly and can be read in tests by objectName "dimensionKindCombo".
+        {QStringLiteral("Angular"), QStringLiteral("angular")},
     }, [this](const QString &kindId) {
         m_controller->setSelectedDimensionKind(kindId);
     });

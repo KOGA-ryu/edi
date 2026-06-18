@@ -3211,5 +3211,41 @@ int main(int argc, char **argv)
         assert(!dr11Controller->isAwaitingPointCapture());
     }
 
+    // DR-13 Angular dimension chrome: the dimension row gains a new belt cell
+    // and the dimensionKindCombo gains an "Angular" entry.
+    {
+        EdiShellWindow dr13Window;
+        auto *dr13Controller = dr13Window.findChild<DrawingDocumentController *>();
+        assert(dr13Controller != nullptr);
+
+        // The dimensionKindCombo must carry an "Angular" entry (data "angular").
+        // Several combos share the objectName; comboWithFirstItemData finds the
+        // dimension combo by its first entry's data ("distance").
+        QComboBox *dimensionKindCombo = comboWithFirstItemData(dr13Window, QStringLiteral("distance"));
+        assert(dimensionKindCombo != nullptr);
+
+        // Check that "Angular" is present in the combo.
+        bool foundAngular = false;
+        for (int i = 0; i < dimensionKindCombo->count(); ++i) {
+            if (dimensionKindCombo->itemData(i).toString() == QStringLiteral("angular")) {
+                foundAngular = true;
+                break;
+            }
+        }
+        assert(foundAngular);
+
+        // The angular_dimension_tool belt cell must be registered in the default
+        // belt layout — it lives on beltRow 9 alongside the other dimension tools.
+        const edi::shell::BeltLayout defaultBelt = DraftingFeature::defaultBeltLayout();
+        bool foundAngularTool = false;
+        for (const QString &id : defaultBelt.itemIds) {
+            if (id == QStringLiteral("angular_dimension_tool")) {
+                foundAngularTool = true;
+                break;
+            }
+        }
+        assert(foundAngularTool);
+    }
+
     return 0;
 }

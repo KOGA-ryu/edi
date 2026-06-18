@@ -3176,5 +3176,40 @@ int main(int argc, char **argv)
         assert(!blockInstanceVisible());
     }
 
+    // DR-11 Kaleidoscope chrome: the Duplicate fold's mirror area gains an
+    // axisCountSpin (QSpinBox) and a kaleidoscopeButton (QPushButton).
+    // The axis-count spin shares m_arrayCount with the Repeat fold (the
+    // controller's shared count concept: N axes = N copies, same field as
+    // N radial copies). The kaleidoscope button arms a centre pick.
+    {
+        EdiShellWindow dr11Window;
+        auto *dr11Controller = dr11Window.findChild<DrawingDocumentController *>();
+        assert(dr11Controller != nullptr);
+
+        // axisCountSpin must be present and seeded from the controller.
+        auto *axisCountSpin = dr11Window.findChild<QSpinBox *>(QStringLiteral("axisCountSpin"));
+        assert(axisCountSpin != nullptr);
+        assert(axisCountSpin->value() == dr11Controller->arrayCount());
+
+        // Changing the spin propagates to the controller.
+        axisCountSpin->setValue(4);
+        assert(dr11Controller->arrayCount() == 4);
+
+        // The kaleidoscope button must be present.
+        auto *kaleidoscopeButton = dr11Window.findChild<QPushButton *>(QStringLiteral("kaleidoscopeButton"));
+        assert(kaleidoscopeButton != nullptr);
+
+        // Clicking it with a mirror-supported object selected arms a pick.
+        dr11Controller->setSelectedToolId(QStringLiteral("line_tool"));
+        dr11Controller->clickCanvasNormalized(0.3, 0.3);
+        dr11Controller->clickCanvasNormalized(0.6, 0.6);
+        assert(!dr11Controller->selectedObjectId().isEmpty());
+        kaleidoscopeButton->click();
+        assert(dr11Controller->isAwaitingPointCapture());
+        // Cancel so the pick does not bleed into subsequent operations.
+        dr11Controller->cancelPendingCreation();
+        assert(!dr11Controller->isAwaitingPointCapture());
+    }
+
     return 0;
 }

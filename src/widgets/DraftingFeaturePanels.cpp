@@ -1695,6 +1695,28 @@ QWidget *DraftingFeature::buildMirrorControls()
 {
     const auto [panel, layout] = makeControlGrid(QStringLiteral("mirrorControls"));
 
+    // The add-row helper mirrors buildRepeatControls: label in col 0, editor
+    // in col 1 of the same grid so the two controls share a column width.
+    const auto addOptionRow = [&](int row, const QString &label, QWidget *editor) {
+        layout->addWidget(new QLabel(label), row, 0);
+        layout->addWidget(editor, row, 1);
+    };
+
+    // DR-11: axis-count spin for the Kaleidoscope operation. The controller
+    // stores this in m_arrayCount (the same field the Repeat section uses),
+    // which is the minimal-footprint choice: kaleidoscope shares the count
+    // concept with radial array (N copies along N axes). A dedicated member
+    // would add a separate code path with no semantic difference — one shared
+    // count is the data-oriented design here. Seed value at build; push back
+    // on edit (same pattern as arrayCountSpin in buildRepeatControls).
+    auto *axisCountSpin = new QSpinBox;
+    axisCountSpin->setObjectName(QStringLiteral("axisCountSpin"));
+    axisCountSpin->setRange(1, 36); // 1 axis = single-line mirror; 36 = every 5 degrees
+    axisCountSpin->setValue(m_controller->arrayCount());
+    connect(axisCountSpin, &QSpinBox::valueChanged, m_controller, [this](int count) {
+        m_controller->setArrayCount(count);
+    });
+    addOptionRow(0, QStringLiteral("Axes"), axisCountSpin);
 
     auto *horizontal = makeActionButton(QStringLiteral("mirrorButton"), QStringLiteral("Mirror H"), [this]() {
         m_controller->mirrorSelectedObject(QStringLiteral("horizontal"));
@@ -1705,6 +1727,16 @@ QWidget *DraftingFeature::buildMirrorControls()
         m_controller->mirrorSelectedObject(QStringLiteral("vertical"));
     });
     layout->addWidget(vertical, 1, 1);
+
+    // DR-11 Kaleidoscope button: arms a pick-a-point capture; the next canvas
+    // click sets the symmetry centre and runs kaleidoscopeMirror with
+    // arrayCount() evenly-spaced axes through it. Same data-oriented pattern
+    // as beginRadialArrayCenterPick / beginRotateCopiesCenterPick: one button,
+    // one intent enum value, one resolution branch in resolvePointCapture.
+    auto *kaleidoscope = makeActionButton(QStringLiteral("kaleidoscopeButton"), QStringLiteral("Kaleidoscope"), [this]() {
+        m_controller->beginKaleidoscopeCenterPick();
+    });
+    layout->addWidget(kaleidoscope, 2, 0, 1, 2); // full-width so the label fits
 
     return panel;
 }

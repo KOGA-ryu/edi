@@ -312,16 +312,25 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   `buildTaggedCorridorWalls` out of `connectPlugs` (DRY) — reads each plug's LIVE marker
   `PointGeometry` (not the stale `plug.anchor`), so reroute follows a moved marker;
   claimed behavior-preserving for connect (identical at creation).
-- **→ B2-5 audit DISPATCHED (`031`):** the refactor + live-geometry-vs-snapshot is the
-  risk (a subtle break would regress the shipped connect tool). On clean → MILESTONE.
+- **B2-5 audit (`031`) — CLEAN.** Extraction behavior-preserving on the common path
+  (character-identical except the anchor source); the live-geometry change is a strict
+  IMPROVEMENT (corridor follows the moved marker) in the one divergent case; missing-marker
+  falls back to old behavior; `rerouteConnection` correct (gather-first, one-undo, records
+  intact). 2 NOTES → batch-3: (i) coverage gap — assert the rerouted corridor FOLLOWS the
+  moved anchor (a stale-anchor regression would pass today); (ii) benign corridor-vs-Seam-C-
+  export asymmetry after a move (corridor live, `plug.anchor` stale) — aligns when the
+  parked `syncGraphForMovedObject` lands. Record, don't gate.
 
-### 🏁 CORE INTERACTIVE LOOP COMPLETE (pending B2-5 audit)
+### 🏁 CORE INTERACTIVE LOOP COMPLETE + ALL AUDITED CLEAN — MILESTONE (bus-hub'd 2026-06-17)
 plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspector context
 (B2-CTX) · delete plug/connection (B2-4) · manual re-route (B2-5) · selection hygiene
-(029). All green, all no-rebase, B2-CTX/B2-4 audited clean. **On B2-5 audit clear →
-bus-hub MILESTONE:** green tip ready for edi-ui to merge + the B2-3 (door-type) defer-vs-
-include decision + batch-3 hardening candidates (locked-layer NIT, undo both-true corner,
-cancelPendingCreation) — surface, let hub/user set batch-3 scope.
+(029). All green (edi-gate), all no-rebase; B2-CTX/B2-4/B2-5 audited CLEAN.
+- **GREEN TIP `4ae930d`** (code at `3b5e643` + handoff) → bus-hub'd to edi-ui to merge.
+- **B2-3 (door-type) decision** surfaced to hub/user (user's queue omitted it; gate-023
+  settled, ready). **batch-3 hardening candidates** surfaced: locked-layer NIT (B2-4),
+  undo both-true corner + `cancelPendingCreation` (B2-CTX), B2-5 follows-moved-anchor
+  coverage test, the corridor/export anchor-sync asymmetry.
+- Awaiting hub/user: merge confirmation + the B2-3-and-batch-3 scope call.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

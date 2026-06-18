@@ -64,6 +64,16 @@ commit `13d6f96`.) DM-03 interior features reuse existing point editing — no n
   owes `DraftingToolKind::AngularDimension` + 2-line-pick arm → escalated, drafting building it) but
   the cell is provably benign (clean silent reject). Combo entry is live. Golden untouched.
 
+### Motif palette (M8) — DONE + audited ACCEPT (`41fb5f3`)
+User-decided: Left-panel Motifs palette "like Blocks". Built as a genuine FloatingPalette
+SIBLING of the Blocks palette (define-from-selection button + motif list) bound to
+`defineMotifFromSelection`/`beginMotifPlacement`/`document.motifs`. Reviewer ACCEPT: per-refresh
+repopulate signal-safe (single list-level connect + QSignalBlocker; beginMotifPlacement emits
+pointerChanged not modelChanged → no loop), golden re-bless legitimate (only the palette
+changed). Renders top-left over canvas where Blocks lives (NOT the far-left object column) —
+flagged to user for confirm; relocate only if they want the far-left column. Kaleidoscope
+axis-count KEPT SHARED with array count per user.
+
 ### Still open — drafting chrome backlog
 1. **DR-13 angular-dim PAINTER seam:** edi-ui's, rides the eventual Angular-tool chrome (combo
    entry + belt cell + arc painter).

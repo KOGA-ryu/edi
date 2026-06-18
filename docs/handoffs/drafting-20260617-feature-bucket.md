@@ -499,11 +499,27 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   offset=sweep). Planning conveniences over existing kinds — NO new DimensionKind. Pure op +
   tests; Sonnet. Reviewer not needed (reuses settled kinds; planner spot-check on reply).
 
+### DR-14 — CLOSED 2026-06-17 ✅ (SHA `81f6a60`, GREEN 102/102) — pure op, no new kind
+- Reply: `~/dept-bus/edi-drafting/replies/030-DR14-arc-sweep-dim-builder.md`. 3 planners:
+  `planRadialDimensionForArc` (Radius, b at mid-sweep), `planRadialDimensionForCircle`
+  (Diameter, stored radius → displayed 2×), `planArcSweepDimension` (reuses DR-13 Angular,
+  offset=endAngle−startAngle). Tests pin diameter-doubling, arc radius, sweep 0→90 & 30→120
+  (both ≈90), rejections. Rebase clean (current base, no dup). Reuses settled kinds, no
+  persistent-format change → accepted inline (no audit). Reported DR-14 (`81f6a60`) to edi-ui.
+- Builder ctx OK (low/on-target sonnet, no recycle).
+
+### DR-15 — fill authoring (ratified fill-selected-closed-object) — HELD until DR-14 merge-confirm
+- The LAST bucket slice. Held per clean post-merge sequencing (open after edi-ui confirms
+  DR-14). Spec: `~/dept-bus/work-batch-plan.md` DR-15 — a controller authoring action setting
+  FillStyle (opacity+color) on the active CLOSED object via `applyActiveObjectMetadataUpdate`/
+  `UpdateMetadataCommand`; reject open kinds; FillStyle is already plumbed end-to-end (DR fill
+  closeout). True bucket-fill stays parked.
+
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
   with the eventual Angular tool wiring.
-- After DR-14: DR-15 (fill authoring, ratified fill-selected-closed-object) is the LAST slice
-  → then the bucket closeout.
+- After DR-15 lands+merges → 15-task bucket COMPLETE → write the campaign closeout + final
+  architecture-doc pass.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

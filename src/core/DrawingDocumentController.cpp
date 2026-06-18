@@ -1226,6 +1226,13 @@ bool DrawingDocumentController::setSelectedObjectFillColor(const QString &color)
     if (object == nullptr) {
         return false;
     }
+    // Reject fill authoring on open/non-fillable kinds (Line, Arc, Polyline, …).
+    // The painter and SVG writer only fill Rectangle/Circle/Ellipse/Polygon; letting
+    // a fill command through on any other kind would silently write state that is
+    // never rendered — invisible "write-only" style storage.
+    if (!draftingShapeIsFillable(geometryKind(object->geometry))) {
+        return false;
+    }
     const QString trimmed = color.trimmed();
     // Same #rrggbb gate as stroke: empty is allowed (no fill colour chosen);
     // junk would persist and paint an undefined brush.
@@ -1264,6 +1271,11 @@ bool DrawingDocumentController::setSelectedObjectFillOpacity(double opacity)
     }
     const DraftingObject *object = findObject(m_document, *m_document.activeObjectId);
     if (object == nullptr) {
+        return false;
+    }
+    // Same fillable-kind gate as setSelectedObjectFillColor — same reasoning:
+    // an opacity on a Line/Arc/… would write invisible state the renderer ignores.
+    if (!draftingShapeIsFillable(geometryKind(object->geometry))) {
         return false;
     }
     if (!std::isfinite(opacity)) {
@@ -3237,6 +3249,11 @@ bool DrawingDocumentController::deleteSelectedGuide()
 bool DrawingDocumentController::deleteAllGuides()
 {
     return applyCommandAndEmit(DeleteAllGuidesCommand{});
+}
+
+bool DrawingDocumentController::deleteAllConstructionLines()
+{
+    return applyCommandAndEmit(DeleteAllConstructionLinesCommand{});
 }
 
 bool DrawingDocumentController::mergeDuplicateGuides()

@@ -41,6 +41,15 @@
   DR-08 replays on top. (My branch is "ahead" of the stale `origin/dept/drafting`, which
   we never push — edi-ui integrates the local branch.)
 
+## ⛔ HUB GUARD (fleet infra, 2026-06-17) — REBASE ONLY ONTO LOCAL `master`; NEVER origin/master
+**`origin/master` is STALE (`591e92c`).** `git fetch` + `git rebase origin/master` CORRUPTS the
+branch — it replays ~246 commits and DROPS the real integration (dungeon-map hit + recovered
+this). Until the hub sends ALL-CLEAR:
+- Builders rebase ONLY onto the **LOCAL `master` ref** (the real integration line, currently
+  `73c0832`): `git rebase master`. **Do NOT `git fetch`. Do NOT rebase `origin/master`.**
+- **EVERY slice brief to the builder must carry this guard.** (Our builders have used local
+  `master` all along — clean 2–9 commit replays, never 246 — so no corruption in this dept.)
+
 ## POLICY (ratified 2026-06-17) — do NOT commit docs/handoffs/LEDGER.md on dept/drafting
 edi-ui owns the master LEDGER (PROTOCOL.md). Track department state in THIS per-campaign
 handoff doc (conflict-free, department-specific) + `bus-hub`. This kills the
@@ -499,11 +508,48 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   offset=sweep). Planning conveniences over existing kinds — NO new DimensionKind. Pure op +
   tests; Sonnet. Reviewer not needed (reuses settled kinds; planner spot-check on reply).
 
+### DR-14 — CLOSED 2026-06-17 ✅ (SHA `81f6a60`, GREEN 102/102) — pure op, no new kind
+- Reply: `~/dept-bus/edi-drafting/replies/030-DR14-arc-sweep-dim-builder.md`. 3 planners:
+  `planRadialDimensionForArc` (Radius, b at mid-sweep), `planRadialDimensionForCircle`
+  (Diameter, stored radius → displayed 2×), `planArcSweepDimension` (reuses DR-13 Angular,
+  offset=endAngle−startAngle). Tests pin diameter-doubling, arc radius, sweep 0→90 & 30→120
+  (both ≈90), rejections. Rebase clean (current base, no dup). Reuses settled kinds, no
+  persistent-format change → accepted inline (no audit). Reported DR-14 (`81f6a60`) to edi-ui.
+- Builder ctx OK (low/on-target sonnet, no recycle).
+
+### DR-14 — MERGED (edi-ui) @`1a9a7df` (green); DR-15 GO'd.
+
+### DR-15 — fill authoring gate — builder BRIEFED 2026-06-17 (the LAST bucket slice)
+- Brief: `~/dept-bus/edi-drafting/briefs/031-DR15-fill-authoring-gate-builder.md` (carries the
+  rebase GUARD). **Spec premise was partly stale** (like fill-svg's): the fill setters ALREADY
+  exist — `setSelectedObjectFillColor` (`:1218`) + `setSelectedObjectFillOpacity` (`:1258`) set
+  `object.fill` via `UpdateFillStyleCommand`. The real gap = they don't GATE by kind. So DR-15 =
+  add `draftingShapeIsFillable` (Rectangle/Circle/Ellipse/Polygon — the frozen set from
+  `docs/closeouts/drafting-fill-side-channel.md`) + gate both setters to reject open kinds +
+  tests. True bucket-fill PARKED. Much smaller/cleaner than the spec implied — pre-brief
+  investigation caught it.
+- Opened AFTER DR-14 merge-confirm (clean sequencing). Sonnet; planner spot-check on reply.
+
+### DR-15 — CLOSED 2026-06-17 ✅ (SHA `264fb1f`, GREEN 102/102) — bucket COMPLETE
+- Reply: `~/dept-bus/edi-drafting/replies/031-DR15-fill-authoring-gate-builder.md`.
+  `draftingShapeIsFillable` (exhaustive switch, true for rect/circle/ellipse/polygon) gates
+  both fill setters; Line now correctly rejects (test updated Line→Circle for positives +
+  Line-rejection added); Wall left false (painter doesn't fill it). Rebase clean onto LOCAL
+  master (guard held — no origin/master). Accepted inline. Reported DR-15 (`264fb1f`) to edi-ui.
+
+## ✅ BUCKET COMPLETE 2026-06-17 — DR-01..15 (+ DR-10-fix + canonical-mirror fix)
+- All 15 slices built + green; DR-01..14 merged, DR-15 (`264fb1f`) reported for the final
+  merge. Closeout: `docs/closeouts/drafting-feature-bucket.md` (freezes the settled
+  boundaries). Architecture doc §0 updated. Reported the milestone to the hub.
+- **Remaining = edi-ui's:** Angular painter arc + `isAngleField`, and all the deferred
+  tool/belt/tool-options chrome for the new verbs (per `DR-surfaces.md`).
+- Worker phase-in complete for this dept (planner opus, reviewer opus, builder+researcher sonnet).
+
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
   with the eventual Angular tool wiring.
-- After DR-14: DR-15 (fill authoring, ratified fill-selected-closed-object) is the LAST slice
-  → then the bucket closeout.
+- After DR-15 lands+merges → 15-task bucket COMPLETE → write the campaign closeout + final
+  architecture-doc pass.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

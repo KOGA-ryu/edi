@@ -145,6 +145,23 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
                 ++document.revision;
             }
             return DraftingCommandResult::accepted();
+        } else if constexpr (std::is_same_v<Command, DeleteAllConstructionLinesCommand>) {
+            // Mirror of DeleteAllGuidesCommand: erase every object whose kind is
+            // ConstructionLine, normalise selection, and bump the revision (so the
+            // undo stack sees a distinct state).  A document with no construction
+            // lines is a no-op — the revision is not bumped, nothing is selected.
+            const auto before = document.objects.size();
+            document.objects.erase(
+                std::remove_if(document.objects.begin(), document.objects.end(),
+                    [](const DraftingObject &o) {
+                        return o.kind == DraftingShapeKind::ConstructionLine;
+                    }),
+                document.objects.end());
+            if (document.objects.size() != before) {
+                normalizeSelection(document);
+                ++document.revision;
+            }
+            return DraftingCommandResult::accepted();
         } else if constexpr (std::is_same_v<Command, MergeDuplicateGuidesCommand>) {
             std::vector<DraftingObject> merged;
             merged.reserve(document.objects.size());

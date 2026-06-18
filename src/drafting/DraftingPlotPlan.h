@@ -138,4 +138,18 @@ DraftingPlotPlan buildDraftingPlotPlan(
 // one vocabulary for "a color this system accepts".
 bool draftingStrokeColorIsValid(const std::string &value);
 
+// Returns true for exactly the four geometry kinds that can carry a solid fill
+// that the painter/SVG writer will actually render: Rectangle, Circle, Ellipse,
+// Polygon. Every other kind is an open or structurally line-only shape.
+//
+// This is kept in LOCKSTEP with the closedFillRing visitor above: that visitor
+// returns a non-empty ring for exactly these four kinds and falls through to
+// empty (or hits the static_assert) for the rest.  Enforcing the gate here at
+// authoring time — rather than silently ignoring the fill at render time —
+// keeps the model consistent and avoids invisible "write-only" state.
+//
+// The switch is EXHAUSTIVE over all 14 DraftingShapeKind members so that adding
+// a new kind is a compile error here too, forcing an explicit decision.
+bool draftingShapeIsFillable(DraftingShapeKind kind);
+
 } // namespace edi::drafting

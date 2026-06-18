@@ -3285,8 +3285,14 @@ int main(int argc, char **argv)
         assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
         assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
 
-        // Fill: per-object colour + opacity (no layer inheritance), clamped to
-        // [0,1], surfaced via own_fill_*. Default 0 keeps every shape unfilled.
+        // Fill: gated by kind — only Rectangle/Circle/Ellipse/Polygon carry a fill
+        // that the painter/SVG actually renders.  Open kinds (Line, Arc, …) are
+        // rejected at the setter so no invisible "write-only" fill state can build up.
+        // Add a Circle to this controller (away from the existing line) and select it.
+        styleController.setSelectedToolId(QStringLiteral("circle_tool"));
+        styleController.clickCanvasNormalized(0.5, 0.1); // center
+        styleController.clickCanvasNormalized(0.7, 0.1); // edge → radius 0.2
+        // circle_tool auto-selects the new object
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.0);
         assert(styleController.setSelectedObjectFillColor(QStringLiteral("#2244aa")));
         assert(styleController.setSelectedObjectFillOpacity(0.6));
@@ -3295,13 +3301,27 @@ int main(int argc, char **argv)
         assert(styled.value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
         assert(styleController.setSelectedObjectFillOpacity(5.0)); // clamps high
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 1.0);
-        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected by the gate
+        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected
         assert(!styleController.setSelectedObjectFillOpacity(std::numeric_limits<double>::quiet_NaN())); // non-finite rejected
-        // No-op guard: re-setting the value already in place is accepted but must
-        // NOT push an undo step — so the undo below restores 0.6, not 1.0.
-        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp: a no-op
+        // No-op guard: re-setting the value already in place must NOT push an undo step —
+        // so the undo below restores 0.6, not 1.0.
+        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp
         assert(styleController.undo());
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
+
+        // DR-15: fill setters on an open kind (Line) return false; object.fill unchanged.
+        // Re-select the diagonal line created at the top of this block.
+        styleController.setSelectedToolId(QStringLiteral("select_move"));
+        styleController.clickCanvasNormalized(0.3, 0.3); // midpoint of the (0.2,0.2)→(0.8,0.8) line
+        const QVariantMap lineBeforeFill = activeProjection();
+        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("#aabbcc")));
+        assert(!styleController.setSelectedObjectFillOpacity(0.7));
+        const QVariantMap lineAfterFill = activeProjection();
+        // fill state must be byte-identical after the rejected calls
+        assert(lineAfterFill.value(QStringLiteral("own_fill_color"))
+            == lineBeforeFill.value(QStringLiteral("own_fill_color")));
+        assert(lineAfterFill.value(QStringLiteral("own_fill_opacity"))
+            == lineBeforeFill.value(QStringLiteral("own_fill_opacity")));
     }
 
     // #30 parametric arrays: option state (count + spacings) drives repeat
@@ -4807,6 +4827,63 @@ int main(int argc, char **argv)
             assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
             assert(model.value(QStringLiteral("instance_id")).toString().isEmpty());
         }
+    }
+
+    // M1: deleteAllConstructionLines — clears exactly the ConstructionLine-kind
+    // objects in one undoable command, leaving every other kind byte-identical.
+    {
+        DrawingDocumentController clCtl;
+
+        // Build a mixed document: Line + Circle + 2 ConstructionLines.
+        clCtl.setSelectedToolId(QStringLiteral("line_tool"));
+        clCtl.clickCanvasNormalized(0.1, 0.1);
+        clCtl.clickCanvasNormalized(0.4, 0.4);
+
+        clCtl.setSelectedToolId(QStringLiteral("circle_tool"));
+        clCtl.clickCanvasNormalized(0.7, 0.7);
+        clCtl.clickCanvasNormalized(0.9, 0.7); // radius 0.2
+
+        clCtl.setSelectedToolId(QStringLiteral("horizontal_construction_line_tool"));
+        clCtl.clickCanvasNormalized(0.5, 0.3); // horizontal ConstructionLine
+
+        clCtl.setSelectedToolId(QStringLiteral("vertical_construction_line_tool"));
+        clCtl.clickCanvasNormalized(0.6, 0.5); // vertical ConstructionLine
+
+        const QVariantList before = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(before.size() == 4);
+
+        // Capture the ids and kinds of the two non-construction objects.
+        const QString lineId   = before[0].toMap().value(QStringLiteral("id")).toString();
+        const QString circleId = before[1].toMap().value(QStringLiteral("id")).toString();
+        assert(before[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(before[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+        assert(before[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        assert(before[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+
+        // Delete all construction lines.
+        assert(clCtl.deleteAllConstructionLines());
+
+        const QVariantList after = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(after.size() == 2); // only the Line and Circle remain
+
+        // Remaining objects are byte-identical (same ids, same kinds).
+        assert(after[0].toMap().value(QStringLiteral("id")).toString() == lineId);
+        assert(after[1].toMap().value(QStringLiteral("id")).toString() == circleId);
+        assert(after[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(after[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+
+        // One undo step restores all four objects.
+        assert(clCtl.undo());
+        const QVariantList restored = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(restored.size() == 4);
+        assert(restored[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        assert(restored[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+
+        // Calling deleteAllConstructionLines on a doc with NO construction lines
+        // is a no-op: does not crash, object count unchanged.
+        assert(clCtl.deleteAllConstructionLines()); // undone — all 4 back, then delete again
+        assert(clCtl.deleteAllConstructionLines()); // doc now has no CL — second call is a no-op
+        assert(clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
     }
 
     return 0;

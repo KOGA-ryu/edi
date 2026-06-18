@@ -27,6 +27,13 @@ struct DeleteObjectCommand {
 struct DeleteAllGuidesCommand {
 };
 
+// Removes every ConstructionLine-kind object from the document in one
+// undoable step — the "clear the scaffolding" action.  Mirrors
+// DeleteAllGuidesCommand exactly; commands are transient (not serialised),
+// so adding a new arm here has no persistent-format impact.
+struct DeleteAllConstructionLinesCommand {
+};
+
 struct MergeDuplicateGuidesCommand {
 };
 
@@ -188,6 +195,7 @@ using DraftingCommand = std::variant<
     CreateObjectsCommand,
     DeleteObjectCommand,
     DeleteAllGuidesCommand,
+    DeleteAllConstructionLinesCommand,
     MergeDuplicateGuidesCommand,
     MoveObjectCommand,
     MoveSelectionCommand,

@@ -687,6 +687,33 @@ bool draftingShapeCanPlot(DraftingShapeKind kind)
         && kind != DraftingShapeKind::Dimension;
 }
 
+bool draftingShapeIsFillable(DraftingShapeKind kind)
+{
+    // Exhaustive switch: every DraftingShapeKind member must appear here so
+    // that adding a 15th kind is a COMPILE ERROR (the -Wswitch-enum / default
+    // absence rule), forcing an explicit fillability decision for the new kind.
+    // This switch is kept in lockstep with the closedFillRing visitor which
+    // returns a non-empty ring for exactly these four kinds.
+    switch (kind) {
+    case DraftingShapeKind::Rectangle:     return true;
+    case DraftingShapeKind::Circle:        return true;
+    case DraftingShapeKind::Ellipse:       return true;
+    case DraftingShapeKind::Polygon:       return true;
+    // Open / structurally line-only / annotation kinds — fill has no effect:
+    case DraftingShapeKind::Point:         return false;
+    case DraftingShapeKind::Line:          return false;
+    case DraftingShapeKind::Arc:           return false;
+    case DraftingShapeKind::Polyline:      return false;
+    case DraftingShapeKind::Spline:        return false;
+    case DraftingShapeKind::Guide:         return false;
+    case DraftingShapeKind::ConstructionLine: return false;
+    case DraftingShapeKind::Dimension:     return false;
+    case DraftingShapeKind::TextAnnotation: return false;
+    case DraftingShapeKind::Wall:          return false;
+    }
+    return false; // unreachable; silences -Wreturn-type on non-GNU compilers
+}
+
 DraftingPlotPlan buildDraftingPlotPlan(const DraftingDocument &document, const DraftingGridProjection &grid)
 {
     return buildDraftingPlotPlan(document, grid, defaultDraftingPlotSettings());

@@ -305,6 +305,7 @@ public:
     bool alignSelectionToNearestGuide(const QString &modeId);
     bool deleteSelectedGuide();
     bool deleteAllGuides();
+    bool deleteAllConstructionLines();
     bool mergeDuplicateGuides();
     bool setAllGuidesVisible(bool visible);
     bool setAllGuidesLocked(bool locked);

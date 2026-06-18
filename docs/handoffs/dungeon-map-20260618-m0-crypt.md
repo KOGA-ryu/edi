@@ -133,7 +133,15 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
   geometry; edi records none of it.)
 - BUILDER 047 IN PROGRESS (working tree, uncommitted): buildCryptMapSpec(double scale)
   + kCryptBlocks present; awaiting its commit + reply, then reviewer diff-audit.
-- QUEUED (brief 049, doorbell HELD until 047 lands): corridor magic-dim sweep — drafting
+- ✅ 047 COMMITTED (was modal-blocked ~2h; hub unstuck) → PLANNER-SYNC: rebased
+  dept/dungeon-map onto LOCAL master bf3d6c8 (clean, no conflicts), edi-gate GREEN
+  (106/106 ctest + scan). Tip 1b3d4ab. Bussed edi-ui READY to merge + wire the
+  `--generate-crypt --scale` CLI (brief 048). Reviewer 050 diff-auditing 047 concurrently.
+- FIRED brief 049 (corridor magic-dim sweep) — builder's current slice.
+- AWAITING: edi-ui merge-to-master + CLI live → then bus-hub (047 on master + CLI live)
+  → M0 + scale-knob CLOSEOUT. Reviewer 050 verdict. Builder 049 reply.
+
+- (queued, now fired) brief 049: corridor magic-dim sweep — drafting
   flagged 3 DORMANT bare literals in OUR module (DraftingCorridor.h:21-22 width=0.06/
   wallThickness=0.02; .cpp:177 margin=0.06). Fix = named constexpr (kDefaultCorridorWidth/
   WallThickness in .h, kCorridorRouteMargin in .cpp anon ns), behavior-preserving (every

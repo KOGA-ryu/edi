@@ -1,8 +1,26 @@
 # Scale-knob design — one S dials the whole crypt (PROPOSAL, reviewer gate)
 
-**Status:** PROPOSAL — for the dungeon-map reviewer gate (mechanism is the planner's
-call WITH the reviewer, per hub brief 044) + blender-lab coordination (the realizer
-half). Frozen + bus-hub'd once settled.
+**Status:** FORK BLESSED by the hub → **(c)** (scaled-feet canonical + ONE neutral
+`scale` scene-scalar in the TOON header; the realizer scales its OWN constants by S).
+Remaining gates fold IMPLEMENTATION detail: reviewer 045 audits (c) for standing-rule
++ exact contract wording + grid-alignment; blender-lab 046 confirms the realizer-S
+table. Hub ask: the user dials S via a **single flag on the generator entry**, NOT a
+TOON hand-edit (see "User-facing knob" below).
+
+## RESOLVED (fork c) — the implementation
+- **Generator:** `buildCryptMapSpec(double scale=1.0)` scales base-table dims by S
+  (canonical SCALED feet in the doc). `exportMapToToon(doc, title, units, double
+  sceneScale=1.0)` gains a `sceneScale` param and writes ONE header line
+  `scale: <sceneScale>` (%g; default 1; missing ⇒ 1 for old TOONs — additive/tolerant).
+- **Realizer (blender-lab):** reads the `scale` header meta and multiplies its greybox
+  DATA TABLE by it — MODULE=5·S, CORRIDOR_W=5·S, DOOR_W=4·S, WALL_H=12·S, WALL_T/
+  FLOOR_T·S, brazier light range/energy·S; rooms placed at the LITERAL scaled feet (NOT
+  re-scaled). Same tile COUNT, bigger tiles. Camera auto-frames (already).
+- **User-facing knob (hub ask):** a single flag on the generator CLI entry —
+  RECOMMENDED `edi --generate-crypt <out.toon> --scale <S>` (writes the scaled TOON +
+  `scale:` meta; the render daemon watching /tmp/m0 renders + auto-opens). The CLI flag
+  lives in `app/main.cpp` (edi-ui-owned) → coordinated with edi-ui (brief 047). The
+  user types ONE command; NO TOON hand-edit.
 
 **Goal (hub brief 044):** replace per-change re-briefing ("double again") with ONE
 SCALE knob `S`. One number scales the whole dungeon — rooms, corridor, brazier light —
@@ -28,6 +46,23 @@ The chain currently runs at the twice-doubled size; that becomes **S=4**. So bas
   5 ft grid (the user dials 1/2/4). Non-integer S may land off-grid — DECISION for the
   gate: accept (props/feet tolerate it) vs snap. Recommend: accept; document that
   whole-number S preserves grid alignment.
+
+## SETTLED (reviewer 045 + blender-lab 046 folded, 2026-06-18)
+- **Wire = (c) scaled feet** (reject a/b). **`scale:` meta ADOPTED** (hub-blessed,
+  blender-lab-implemented) WITH the reviewer's anti-double-scale FENCE: advisory presenter
+  metadata, feet authoritative, realizer must NOT re-scale feet by it. (Reviewer preferred
+  no-meta/derive-from-span; NOT taken — span ≠ scale for M1 varied dungeons, so an explicit
+  shape-independent S is the right knob; the hub blessed it.) Contract §0/§5 amended.
+- **Base = S=1 = 15×15/25×25** is CONFIRMED CORRECT on the live tip (commit 1d0a487);
+  today = S=4 = 60/100 is consistent & on-grid. (The reviewer's "base is 30/50 ⇒ today=S=2"
+  BLOCKER was a STALE read of the pre-refactor tables — moot.)
+- **Grid (reviewer item 3 — ACCEPT, do not snap):** integer S preserves the 5 ft grid
+  (base is 5-ft-aligned); non-integer S is permitted but rooms may land off-grid (props
+  always float). Documented in contract §1 spirit.
+- **Realizer (blender-lab 046, fork c LIVE @4ee013e):** `GreyboxDims.scaled(S)` ×S on the
+  envelope; `tile`=5 FIXED; light density invariant (scales S² via wire area, no S input);
+  rooms at literal feet. S=1/2/4 demo rendered (/tmp/m0/crypt_S{1,2,4}.png, OptiX/5090).
+  Realizer reads `scale` header meta OR `--scale` CLI (CLI overrides).
 
 ## The FORK — how does S reach the REALIZER? (wire stays neutral)
 The realizer can't derive corridor/door WIDTH or light range from neutral feet (the

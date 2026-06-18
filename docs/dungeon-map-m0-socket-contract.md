@@ -47,6 +47,26 @@ blocks[B]{room,asset,origin,scale,rotation}      # placed instances, asset_ref c
 (§8). asset_ref + plug `type`/`flags` + connection `type` carry every neutral tag the
 realizer needs.
 
+**Header `scale` meta (SCALE KNOB, 2026-06-18; fork c, reviewer-045 fenced).** The
+header gains ONE optional dimensionless scene scalar (default 1, missing ⇒ 1, malformed
+⇒ 1 — additive/tolerant; emitted only when ≠ 1 so existing TOONs stay byte-identical):
+```
+kind: map
+title: crypt
+units: feet
+scale: <S>          # OPTIONAL scene scalar; ADVISORY presenter metadata, NOT geometry
+```
+**THE FENCE (reviewer 045 — prevents double-scaling):** the room/block FEET are already
+the fully-scaled canonical geometry and are AUTHORITATIVE. A presenter MAY read `scale`
+to size its OWN derived features; it MUST NOT re-scale room/block feet by it (the feet
+are already scaled — doing so double-scales). On any conflict, **feet win.** `scale` is
+one SCENE scalar (the analog of `units:`), no per-element widths, no rule ⇒ wire stays
+neutral. Written by `exportMapToToon(doc, title, units, sceneScale)`.
+*Why a meta and not derive-from-span (the reviewer's purer alt): an explicit S is a
+shape-INDEPENDENT knob — it generalizes to M1 varied dungeons where span ≠ scale (a long
+thin dungeon has a big span but is not "scaled up"). The hub blessed the meta; the
+realizer reads it.*
+
 ---
 
 ## 1. Coordinate frame, grid, & the plug-position rule — BINDING
@@ -158,6 +178,17 @@ CORRIDOR_W/DOOR_W are REALIZER-AUTHORITATIVE — the wire carries NO corridor/do
 width, so doubling the hallway is a realizer constant change (blender-lab owns the
 exact values; recorded here as reference). edi's 2D-draw `kCorridorWidth = 0.045` is a
 CANVAS constant, never exported and unrelated to these — see §6.
+
+**Scale-knob behavior (realizer, fork c — what scales by `scale: S`, what doesn't):**
+the realizer multiplies its ENVELOPE constants by S via its `GreyboxDims.scaled(S)`
+table — `WALL_H=12·S, WALL_T·S, FLOOR_T·S, CORRIDOR_W=5·S, DOOR_W=4·S, column + prop
+envelopes`. **Scale-INVARIANT by design:** (a) the grid **`tile` = 5 ft FIXED** (the §1
+canonical module — a bigger room gets MORE 5 ft cells, not bigger ones); (b) the brazier
+light **density (W/ft²) is invariant** — energy = density × the room AREA, and the room
+arrives already-scaled on the wire, so the light scales **S² for free** (correct
+inverse-square, keeps a big room lit to the corners) — so the light needs NO S input, it
+rides the wire area. Rooms/plugs/blocks place at the LITERAL scaled feet (the fence —
+NOT re-scaled by `scale`). Camera auto-frames the span.
 
 ---
 

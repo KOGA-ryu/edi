@@ -305,12 +305,23 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
 - Open (record, deferred): undo-restoring-a-selection both-true corner;
   `cancelPendingCreation` non-clear (benign). → batch-3 hardening candidates.
 
-### Builder slice 027 (B2-5 manual re-route) — DISPATCHED (the last CORE slice)
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/027-builder-b2-5-reroute.md`
-- `rerouteConnection` (delete old `connection:<id>` corridor → re-emit from current plug
-  anchors; factor a shared `emitCorridorForConnection` helper from B2-2). After this the
-  CORE interactive loop (plug · connect · delete · re-route) is complete → BATCH MILESTONE
-  (bus-hub: green tip ready to merge + the B2-3-vs-defer decision).
+### Builder slice 027 (B2-5 manual re-route) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/027-builder-b2-5-reroute.md`. Commit
+  `3b5e643`. edi-gate GREEN 102/102; no-rebase honored. `rerouteConnection` (delete old
+  `connection:<id>` corridor → re-emit from CURRENT anchors, one undo). Factored
+  `buildTaggedCorridorWalls` out of `connectPlugs` (DRY) — reads each plug's LIVE marker
+  `PointGeometry` (not the stale `plug.anchor`), so reroute follows a moved marker;
+  claimed behavior-preserving for connect (identical at creation).
+- **→ B2-5 audit DISPATCHED (`031`):** the refactor + live-geometry-vs-snapshot is the
+  risk (a subtle break would regress the shipped connect tool). On clean → MILESTONE.
+
+### 🏁 CORE INTERACTIVE LOOP COMPLETE (pending B2-5 audit)
+plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspector context
+(B2-CTX) · delete plug/connection (B2-4) · manual re-route (B2-5) · selection hygiene
+(029). All green, all no-rebase, B2-CTX/B2-4 audited clean. **On B2-5 audit clear →
+bus-hub MILESTONE:** green tip ready for edi-ui to merge + the B2-3 (door-type) defer-vs-
+include decision + batch-3 hardening candidates (locked-layer NIT, undo both-true corner,
+cancelPendingCreation) — surface, let hub/user set batch-3 scope.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

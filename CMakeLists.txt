@@ -402,6 +402,32 @@ target_include_directories(map_spec_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_edi_contract_test(map_toon_export_tests tests/map_toon_export_tests.cpp edi_drafting_core)
 target_sources(map_toon_export_tests PRIVATE src/io/MapToonExport.cpp)
 target_include_directories(map_toon_export_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# G1 crypt generator — full end-to-end chain test (buildCryptMapSpec ->
+# createMapFromSpec -> exportMapToToon).  Needs the controller sources
+# (same set as drawing_document_controller_tests) plus MapToonExport and
+# the new CryptGenerator module.  Uses QCoreApplication for the controller.
+add_executable(crypt_generator_tests
+    tests/crypt_generator_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
+)
+target_include_directories(crypt_generator_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(crypt_generator_tests PRIVATE
+    edi_drafting_core
+    Qt6::Core
+)
+add_test(NAME crypt_generator_tests COMMAND crypt_generator_tests)
+
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

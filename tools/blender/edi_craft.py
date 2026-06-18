@@ -673,11 +673,16 @@ def moulding_rings(op: dict) -> tuple[list, list]:
                           axis_base + j + 1, axis_base + j])
 
         # Outer surface: same logic for the outer helical track (i=nprof-1).
-        # The axis spine edge (axis_base+j, axis_base+j+1) is shared between
-        # the inner quad and this outer quad for the same j, reaching count 2.
+        # Winding is REVERSED from the inner quad so the two quads traverse
+        # the shared axis-spine edge (axis_base+j, axis_base+j+1) in OPPOSITE
+        # directions — the inner quad goes j+1→j, the outer goes j→j+1.
+        # A consistently oriented closed surface requires every directed edge
+        # (a→b) to appear in exactly ONE face; its reverse (b→a) in exactly
+        # one other.  With matching windings both faces carry the same directed
+        # spine edge and neither has its reverse, breaking orientation.
         for j in range(steps):
-            faces.append([j * nprof + nprof - 1, (j + 1) * nprof + nprof - 1,
-                          axis_base + j + 1, axis_base + j])
+            faces.append([axis_base + j, axis_base + j + 1,
+                          (j + 1) * nprof + nprof - 1, j * nprof + nprof - 1])
 
         # Start cap (j=0): close the entry face of the helix.  Fan the start
         # profile cross-section (verts 0..nprof-1) and the start axis center
@@ -731,9 +736,17 @@ def moulding_rings(op: dict) -> tuple[list, list]:
             faces.append([current + index, current + index + 1,
                           nxt_ring + index + 1, nxt_ring + index])
     # The bottom and top caps are SECTOR fans from the axis center to the arc.
-    faces.append([axis_base] + list(range(0, vertices)))                       # bottom sector
+    # Winding direction: the swept skin's bottom row traverses arc verts in the
+    # POSITIVE-angle direction (index → index+1).  A consistent orientation
+    # requires the bottom sector fan to traverse those same edges in the OPPOSITE
+    # direction, so the fan is arc-first in REVERSE angle order, closing to the
+    # axis — [vertices-1, ..., 0, axis_base].  Same logic flips the top fan to
+    # arc-first in FORWARD angle order — [top, top+1, ..., axis_base+nrings-1].
+    # (The "axis_base first" original order put the fan's traversal in the same
+    # direction as the swept skin, so both faces carried the same directed edge.)
+    faces.append(list(range(vertices - 1, -1, -1)) + [axis_base])             # bottom sector
     top = (nrings - 1) * vertices
-    faces.append([axis_base + (nrings - 1)] + list(range(top + vertices - 1, top - 1, -1)))  # top sector
+    faces.append(list(range(top, top + vertices)) + [axis_base + (nrings - 1)])  # top sector
     # The two radial end caps — the profile cross-section at angle 0 and at
     # angle sweep: up the profile, back down the axis spine (a closed 2N loop).
     faces.append([ring * vertices for ring in range(nrings)]

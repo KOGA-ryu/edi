@@ -87,11 +87,17 @@ untouched (4 goldens clean); lift intact; smoke helper honest. **Reviewer found*
 regression): 18 inverted-winding edges — a PRE-EXISTING property of BL-06's axis-spine
 closure that P3 mirrors; cosmetic (OBJ proof has no normals; bpy recalcs). → **P3b** queued.
 
-### P3b — winding + orientation assert (reviewer-recommended, NEW)
-Reverse the outer-surface quad winding in BOTH the partial-revolve (BL-06) AND helix (P3)
-axis-spine closures so each is a properly ORIENTED boundary; extend `assert_manifold` with a
-directed-edge orientation check (every undirected edge traversed once each direction) +
-apply it. No committed golden uses a partial-revolve or helix → 4 goldens stay byte-identical
-(winding changes only smoke-pinned meshes). Small, localized.
+### P3b — SHIPPED 2026-06-17 (Sonnet; planner spot-check)
+Reversed the partial-revolve sector fans + helix outer quads → both axis-spine closures are
+now properly ORIENTED. New `assert_oriented` (every directed edge count==1) applied to the
+partial revolve + helix; both pass. edi-gate GREEN (102/102), 4 goldens byte-identical
+(winding only touched smoke-pinned meshes), smoke passes manifold+oriented. Builder verified
+the 18-edge analysis. Accepted on green gate + spot-check. **P3 closure family now both
+watertight AND oriented, locked by asserts.**
+
+## REBASE GUARD (standing, hub fleet-infra)
+origin/master is STALE/frozen. Rebase ONLY onto LOCAL `master` ref (no `git fetch`, never
+origin/master). In EVERY slice brief. Local master is the real line (was 73c0832 → 1a9a7df
+after P3 merge).
 - Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
   geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.

@@ -147,6 +147,39 @@ def assert_manifold(verts, faces, label):
     assert not bad, f"{label}: non-manifold edges (incidence != 2): {list(bad.items())[:5]}"
 
 
+def assert_oriented(faces, label):
+    """A consistently oriented closed surface: every DIRECTED edge (a→b)
+    appears in exactly one face, with its reverse (b→a) in exactly one other.
+
+    Why this matters: in a closed 2-manifold every undirected edge has exactly
+    2 adjacent faces.  Those two faces can traverse the edge in the SAME
+    direction — meaning both 'own' (a→b) and neither owns (b→a) — or in
+    OPPOSITE directions, meaning one owns (a→b) and the other owns (b→a).
+    Only the latter is a consistently oriented surface (outward normals all
+    pointing the same way).  The former is 2-manifold but INVERTED on that
+    edge — the standard symptom of a sector fan or bridging quad wound the
+    same way as its neighbour instead of opposite.
+
+    Precondition: call assert_manifold first (undirected count=2 is assumed).
+    Apply to meshes that are BOTH closed AND should be consistently oriented
+    (partial revolve, helix).  Do NOT apply to the self-intersecting BL-08
+    swept solid."""
+    directed: dict = {}
+    for face in faces:
+        k = len(face)
+        for i in range(k):
+            a, b = face[i], face[(i + 1) % k]
+            directed[(a, b)] = directed.get((a, b), 0) + 1
+    # Every directed edge should appear exactly once (given manifold, if (a→b)
+    # count=1 then (b→a) must also be count=1 — there are exactly 2 traversals
+    # of the undirected edge and we've used one for each direction).
+    bad = {e: c for e, c in directed.items() if c != 1}
+    assert not bad, (
+        f"{label}: non-unit directed edges (same direction in 2 faces): "
+        f"{list(bad.items())[:5]}"
+    )
+
+
 def main() -> int:
     # The two material vocabularies must stay one vocabulary: a key only in
     # C++ validates and previews but hard-errors in the Blender driver; one
@@ -306,10 +339,15 @@ def main() -> int:
             assert len(face) >= 3, "degenerate face"
     # The partial revolve is a closed "cake slice" solid (axis spine + caps) —
     # watertight, every edge bounding exactly 2 faces. The FULL revolve is also
-    # closed, so assert both. (The open helix ribbon and the self-intersecting
-    # swept solid are excluded — see assert_manifold's note.)
+    # closed, so assert both. The self-intersecting swept solid (BL-08) stays
+    # excluded — see assert_manifold's note.
     assert_manifold(full_verts, full_faces, "full revolve")
     assert_manifold(part_verts, part_faces, "partial revolve")
+    # P3b: the partial revolve must also be CONSISTENTLY ORIENTED — every
+    # directed edge (a→b) in exactly one face, its reverse (b→a) in exactly one
+    # other.  The sector-fan winding fix (P3b) corrects the 18 directed edges
+    # that the original code traversed in the same direction as the swept skin.
+    assert_oriented(part_faces, "partial revolve")
 
     # BL-07 / P3: a screw_rise>0 moulding produces a measurably RISING, CLOSED
     # solid — the sweep spirals up by ~screw_rise per full turn over screw_turns
@@ -330,6 +368,11 @@ def main() -> int:
     # The helix is now a closed 2-manifold solid (P3). Previously excluded
     # because it was an open ribbon; now asserted.
     assert_manifold(helix_verts, helix_faces, "helix")
+    # P3b: the helix must also be consistently oriented — reversing the outer
+    # quads (P3b) ensures the shared axis-spine edge is traversed in OPPOSITE
+    # directions by the inner and outer quads, giving each directed edge a
+    # unique owner.
+    assert_oriented(helix_faces, "helix")
     # The default (rise 0) is byte-identical to the plain non-helix mesh.
     assert edi_craft.moulding_rings(moulding(screw_rise=0.0)) == \
         edi_craft.moulding_rings(moulding()), "rise=0 must match the non-helix mesh"

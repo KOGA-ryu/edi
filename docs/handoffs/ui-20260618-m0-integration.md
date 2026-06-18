@@ -43,6 +43,7 @@ _(append one row per merge: tip, what, edi-gate result)_
 | When | Dept | Tip merged | What | edi-gate |
 | --- | --- | --- | --- | --- |
 | 2026-06-18 ~14:10 | blender-lab | `03b8cc1` → merge `ac3bf96` | M0 REALIZER (tools/blender/edi_realize.py + smoke test + sample evidence). Two-tier bpy: pure parse_toon/plan_greybox (GPU-free, ctest #100) + Blender OptiX render. | GREEN 105/105 + scan |
+| 2026-06-18 ~14:15 | drafting (support) | `366f23c` → merge `fb6ca25` | M0 PROPS SUPPORT: MapBlockSpec carrier on MapSpec (DraftingRoom.h) + createMapFromSpec block-stamp arm + e2e TOON-row assertion. The field the generator needs to place crypt props. | GREEN 105/105 + scan |
 
 **Realizer gate evidence verified on the merged line** (render.log L288–294):
 `compute_device_type: OPTIX`, `[X] OPTIX NVIDIA GeForce RTX 5090`,

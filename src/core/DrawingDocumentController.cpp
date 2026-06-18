@@ -1979,6 +1979,110 @@ bool DrawingDocumentController::beginConnectionPick()
     return true;
 }
 
+// B2-5 shared helper ─────────────────────────────────────────────────────────
+// Build the tagged corridor-wall objects for a declared connection between
+// plugA and plugB.  Both connectPlugs (B2-2) and rerouteConnection (B2-5) call
+// this so the routing/tagging logic lives in ONE place (DRY).
+//
+// Key design choice: we read each plug's CURRENT anchor position from its
+// anchor MARKER's live PointGeometry, not from plug.anchor (which is a stale
+// snapshot set at creation time — see the TODO in DraftingMapTypes.h).  This
+// means rerouteConnection correctly follows a plug marker the user has moved
+// since the corridor was last rendered.  connectPlugs always creates the marker
+// and the plug in the same instant, so live-geometry == plug.anchor there —
+// behaviour is identical for the initial-connect case.
+//
+// DOES NOT apply any command.  Returns an empty vector when the centerline
+// degenerates to a single point (doors at identical positions); the caller
+// decides whether to skip the geometry or record only the graph edge.
+std::vector<DraftingObject> DrawingDocumentController::buildTaggedCorridorWalls(
+    const std::string              &connId,
+    const DraftingPlug             &plugA,
+    const DraftingPlug             &plugB)
+{
+    // Read the live marker position; fall back to the stale anchor snapshot
+    // when the marker object cannot be found (defensive: orphaned plug).
+    const auto currentAnchor = [&](const DraftingPlug &plug) -> Point2D {
+        const DraftingObject *marker = findObject(m_document, plug.anchorObjectId);
+        if (marker == nullptr) {
+            return plug.anchor; // stale-cache fallback (orphaned plug)
+        }
+        const auto *ptGeom = std::get_if<PointGeometry>(&marker->geometry);
+        return ptGeom ? ptGeom->point : plug.anchor;
+    };
+
+    const Point2D anchorA = currentAnchor(plugA);
+    const Point2D anchorB = currentAnchor(plugB);
+
+    // Derive the wall-edge for each anchor: find the room whose authored
+    // footprint contains the point, then pick the nearest wall.  Falls back to
+    // "N" (North) when the anchor sits in open space (rare; corridor still
+    // routes correctly via the North-stub heuristic).
+    const auto roomEdgeForPoint =
+        [&](Point2D pt) -> std::pair<const DraftingMapRoom *, std::string> {
+        for (const DraftingMapRoom &room : m_document.rooms) {
+            if (boundsContainsPoint(
+                    Bounds2D{room.origin.x, room.origin.y, room.width, room.height}, pt)) {
+                return {&room, deriveEdge(room, pt)};
+            }
+        }
+        return {nullptr, "N"};
+    };
+
+    // "N"/"E"/"S"/"W" string → RoomEdge enum.  These four values are the
+    // complete set deriveEdge returns (closed enum, DraftingRoom.h).
+    const auto toRoomEdge = [](const std::string &s) {
+        if (s == "E") { return RoomEdge::East;  }
+        if (s == "S") { return RoomEdge::South; }
+        if (s == "W") { return RoomEdge::West;  }
+        return RoomEdge::North;
+    };
+
+    const auto [roomA, edgeStrA] = roomEdgeForPoint(anchorA);
+    const auto [roomB, edgeStrB] = roomEdgeForPoint(anchorB);
+
+    CorridorSpec spec;
+    spec.doorA         = anchorA;
+    spec.edgeA         = toRoomEdge(edgeStrA);
+    spec.doorB         = anchorB;
+    spec.edgeB         = toRoomEdge(edgeStrB);
+    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
+    spec.wallThickness = 0.015;
+
+    // Obstacles: every room except the two containing the anchors.  Mirrors the
+    // authored path in createMapFromSpec (which skips request.from/to rooms so
+    // the corridor can leave through its own-room door opening).
+    std::vector<CorridorObstacle> obstacles;
+    for (const DraftingMapRoom &room : m_document.rooms) {
+        if (&room == roomA || &room == roomB) {
+            continue;
+        }
+        obstacles.push_back({room.origin, room.width, room.height});
+    }
+
+    std::vector<DraftingObject> walls = corridorWalls(
+        routeCorridorCenterline(spec, obstacles),
+        spec.width, spec.wallThickness,
+        [this]() {
+            // Mint a unique id for each wall segment.  m_nextObjectSerial is
+            // an unsigned counter that lives on the controller (not the document
+            // snapshot), so bumping it here is safe even outside a bracket.
+            return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
+        });
+
+    // Stamp each wall with the open-vocabulary provenance tag "connection:<connId>".
+    // This same breadcrumb pattern ("feature:<type>", "plug:<id>") is used
+    // throughout the dungeon-map layer — no new metadata field, no codec change.
+    // The tag survives persist / undo / projection for free; deleteConnection (B2-4)
+    // and rerouteConnection (B2-5) both filter by it.
+    // (toolProvenance = "corridor" is already set by corridorWalls() itself.)
+    for (DraftingObject &wall : walls) {
+        wall.metadata.tags.push_back("connection:" + connId);
+    }
+
+    return walls;
+}
+
 bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QString &plugBId)
 {
     const std::string aId = toStdString(plugAId);
@@ -2004,70 +2108,12 @@ bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QStri
     connection.plugB = bId;
     connection.type  = "corridor"; // neutral role tag — carries no game rule (Seam B)
 
-    // Derive each plug's wall edge: find the room whose authored footprint contains
-    // the plug anchor (boundsContainsPoint over DraftingMapRoom.origin/width/height),
-    // then map the nearest side to a RoomEdge so the corridor leaves each door
-    // perpendicular to its wall. Falls back to North when no room encloses the plug
-    // (interactive plug placed in open space — rare, corridor still routes via fallback).
-    const auto roomEdgeForPlug =
-        [&](const DraftingPlug &plug) -> std::pair<const DraftingMapRoom *, std::string> {
-        for (const DraftingMapRoom &room : m_document.rooms) {
-            if (boundsContainsPoint(Bounds2D{room.origin.x, room.origin.y, room.width, room.height},
-                                    plug.anchor)) {
-                return {&room, deriveEdge(room, plug.anchor)};
-            }
-        }
-        return {nullptr, "N"}; // open-space fallback: North stub, corridor still routes
-    };
-
-    // "N"/"E"/"S"/"W" string returned by deriveEdge → RoomEdge enum for CorridorSpec.
-    // The four values are the full set deriveEdge ever returns (closed enum in DraftingRoom.h).
-    const auto toRoomEdge = [](const std::string &s) {
-        if (s == "E") { return RoomEdge::East;  }
-        if (s == "S") { return RoomEdge::South; }
-        if (s == "W") { return RoomEdge::West;  }
-        return RoomEdge::North;
-    };
-
-    const auto [roomA, edgeStrA] = roomEdgeForPlug(plugA);
-    const auto [roomB, edgeStrB] = roomEdgeForPlug(plugB);
-
-    CorridorSpec spec;
-    spec.doorA         = plugA.anchor;
-    spec.edgeA         = toRoomEdge(edgeStrA);
-    spec.doorB         = plugB.anchor;
-    spec.edgeB         = toRoomEdge(edgeStrB);
-    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
-    spec.wallThickness = 0.015;
-
-    // Obstacles: every room EXCEPT the two the plugs sit in (a corridor is allowed
-    // to originate from its own rooms at the door openings). Mirrors the authored
-    // path in createMapFromSpec (which skips request.from/to rooms in its obstacle loop).
-    std::vector<CorridorObstacle> obstacles;
-    for (const DraftingMapRoom &room : m_document.rooms) {
-        if (&room == roomA || &room == roomB) {
-            continue;
-        }
-        obstacles.push_back({room.origin, room.width, room.height});
-    }
-
+    // Route the corridor through the shared helper (B2-5 DRY refactor).
+    // For a freshly-placed plug the live-geometry anchor == plug.anchor, so
+    // behaviour is identical to the pre-refactor inline code.
     const std::string connId = connection.id;
-    std::vector<DraftingObject> corridorObjects = corridorWalls(
-        routeCorridorCenterline(spec, obstacles),
-        spec.width, spec.wallThickness,
-        [this]() {
-            return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
-        });
-
-    // Stamp each corridor wall with the neutral provenance tag "connection:<connId>".
-    // This is the same open-vocabulary breadcrumb pattern as "feature:<type>" on
-    // feature markers (createMapFromSpec line ~2497) — NO new metadata field, NO codec
-    // change. The tag rides persist/undo/projection for free; delete (B2-4) and
-    // re-route (B2-5) gather the corridor by filtering objects with this tag.
-    // toolProvenance = "corridor" is already set by corridorWalls() itself.
-    for (DraftingObject &wall : corridorObjects) {
-        wall.metadata.tags.push_back("connection:" + connId);
-    }
+    std::vector<DraftingObject> corridorObjects =
+        buildTaggedCorridorWalls(connId, plugA, plugB);
 
     // One bracket: corridor walls + declared connection = one undo step.
     // createObjectsAndSelect requires a non-empty objects vector; if no corridor was
@@ -2232,6 +2278,72 @@ bool DrawingDocumentController::deletePlug(const QString &plugId)
     if (!m_activeConnectionId.empty() && !connectionIndexById(m_document, m_activeConnectionId)) {
         m_activeConnectionId.clear();
     }
+    emit modelChanged();
+    return true;
+}
+
+// B2-5: manual corridor re-route ──────────────────────────────────────────────
+// Replace a connection's rendered corridor walls with freshly-routed ones that
+// follow the two plugs' CURRENT anchor marker positions.  Useful after the user
+// moves a plug anchor and wants the corridor to follow.
+//
+// Design: ONE bracket (delete old walls + create new walls) → ONE undo step that
+// reverts the entire re-route atomically.  The connection record and both plugs
+// are intentionally untouched — only the rendered geometry is replaced.
+// Auto-re-route-on-plug-move stays PARKED (v1; recorded in DraftingMapTypes.h).
+bool DrawingDocumentController::rerouteConnection(const QString &connId)
+{
+    const std::string id = toStdString(connId);
+    const auto connIdx = connectionIndexById(m_document, id);
+    if (!connIdx) {
+        return finishEdit(QStringLiteral("reroute"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection does not exist"));
+    }
+    const DraftingDeclaredConnection &conn = m_document.connections[*connIdx];
+
+    // Resolve the plug records — both must exist (orphaned connections are a
+    // corrupt-document condition, not an interactive error, but we guard anyway).
+    const auto aIdx = plugIndexById(m_document, conn.plugA);
+    const auto bIdx = plugIndexById(m_document, conn.plugB);
+    if (!aIdx || !bIdx) {
+        return finishEdit(QStringLiteral("reroute"), QStringLiteral("connection"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("connection references missing plug(s)"));
+    }
+
+    // ── GATHER FIRST ─────────────────────────────────────────────────────────
+    // Snapshot the existing corridor wall ids BEFORE any mutation, so we can
+    // delete them inside the bracket even after the document state changes.
+    const std::string connTag = "connection:" + id;
+    std::vector<DraftingObjectId> oldWallIds;
+    for (const DraftingObject &obj : m_document.objects) {
+        for (const std::string &tag : obj.metadata.tags) {
+            if (tag == connTag) {
+                oldWallIds.push_back(obj.id);
+                break;
+            }
+        }
+    }
+
+    // Build the fresh corridor walls from the plugs' CURRENT anchor positions
+    // (buildTaggedCorridorWalls reads live PointGeometry, not the stale snapshot).
+    // This call increments m_nextObjectSerial for each new wall segment — that is
+    // safe outside the edit bracket (serial is controller state, not document).
+    std::vector<DraftingObject> newWalls = buildTaggedCorridorWalls(
+        id, m_document.plugs[*aIdx], m_document.plugs[*bIdx]);
+
+    // ── ONE BRACKET ──────────────────────────────────────────────────────────
+    // Delete old walls first, THEN create new ones.  Both halves are inside one
+    // bracket so one Ctrl+Z reverts the entire re-route atomically.
+    beginEdit();
+    for (const DraftingObjectId &wallId : oldWallIds) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{wallId});
+    }
+    for (DraftingObject &wall : newWalls) {
+        applyDraftingCommand(m_document, CreateObjectCommand{wall});
+    }
+    commitEdit(/*selectionOnly=*/false);
     emit modelChanged();
     return true;
 }

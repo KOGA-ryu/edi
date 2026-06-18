@@ -5243,5 +5243,118 @@ int main(int argc, char **argv)
         assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
+    // --- Brief 027: B2-5 rerouteConnection -----------------------------------
+    // The reroute verb replaces a connection's corridor walls with freshly-routed
+    // ones that follow the two plugs' CURRENT anchor marker positions.
+    {
+        // (1) Basic reroute: place two plugs, connect them, move plug A's anchor
+        // marker, call rerouteConnection — old corridor walls are gone; new walls
+        // exist; connection record + plugs unchanged; one undo reverts the corridor.
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+        const std::string connTag = "connection:" + cId.toStdString();
+
+        // Snapshot the old corridor wall ids.
+        std::vector<std::string> oldWallIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { oldWallIds.push_back(obj.id); break; }
+            }
+        }
+        assert(!oldWallIds.empty()); // corridor must have been created
+
+        // Move plug A's anchor marker to a new position (simulates user drag).
+        // selectObjectById resolves to the marker; updateSelectedObjectGeometryField
+        // patches the PointGeometry via UpdateGeometryCommand.
+        const std::string anchorAId = ctl.draftingDocument().plugs[0].anchorObjectId;
+        assert(ctl.selectObjectById(QString::fromStdString(anchorAId)));
+        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("x"), 0.1));
+        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("y"), 0.1));
+
+        // Record document state before reroute so we can compare after.
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        const std::size_t connsBefore = ctl.draftingDocument().connections.size();
+        const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
+
+        // Reroute: must succeed and the connection + plugs must be untouched.
+        assert(ctl.rerouteConnection(cId));
+        assert(ctl.draftingDocument().connections.size() == connsBefore);
+        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+        assert(ctl.draftingDocument().connections[0].id == cId.toStdString());
+        assert(ctl.draftingDocument().connections[0].plugA == aId.toStdString());
+        assert(ctl.draftingDocument().connections[0].plugB == bId.toStdString());
+
+        // Old corridor wall ids must be gone (the reroute deleted them).
+        for (const std::string &oldId : oldWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == oldId) { found = true; break; }
+            }
+            assert(!found); // old wall must no longer exist
+        }
+
+        // New corridor walls tagged with the SAME connTag must now exist.
+        std::vector<std::string> newWallIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { newWallIds.push_back(obj.id); break; }
+            }
+        }
+        assert(!newWallIds.empty()); // rerouted corridor must have walls
+        // Old and new wall ids are distinct (fresh ids were minted).
+        for (const std::string &newId : newWallIds) {
+            bool clash = false;
+            for (const std::string &oldId : oldWallIds) {
+                if (newId == oldId) { clash = true; break; }
+            }
+            assert(!clash);
+        }
+
+        // Total object count is unchanged (same number of corridor walls) or
+        // may differ — but at minimum the reroute produced at least one wall.
+        (void)objsBefore; // count check is approximate; presence check above is canonical
+
+        // One undo reverts the corridor (new walls gone, old walls back).
+        assert(ctl.undo());
+        bool oldWallsBack = true;
+        for (const std::string &oldId : oldWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == oldId) { found = true; break; }
+            }
+            if (!found) { oldWallsBack = false; break; }
+        }
+        assert(oldWallsBack);
+        // And the new walls from the reroute should be gone after undo.
+        for (const std::string &newId : newWallIds) {
+            bool found = false;
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                if (obj.id == newId) { found = true; break; }
+            }
+            assert(!found);
+        }
+    }
+
+    {
+        // (2) rerouteConnection(unknownId) → no-op (returns false, doc unchanged).
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        assert(!ctl.rerouteConnection(QStringLiteral("no-such-connection")));
+        // Document must be unchanged (no corridor modified or removed).
+        assert(ctl.draftingDocument().objects.size() == objsBefore);
+        assert(ctl.draftingDocument().connections.size() == 1);
+    }
+
     return 0;
 }

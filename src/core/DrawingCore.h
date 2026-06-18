@@ -399,6 +399,13 @@ public:
     // for every gathered object. Returns false when the plug id is unknown.
     // One undo restores the plug, its connections, and all associated rendered objects.
     bool deletePlug(const QString &plugId);
+    // B2-5: replace a connection's rendered corridor geometry with a freshly routed
+    // one that follows the two plugs' CURRENT anchor positions (reads the live marker
+    // geometry, not the stale plug.anchor snapshot). ONE bracket: delete old walls
+    // tagged "connection:<connId>" + create fresh tagged walls. The connection record
+    // and both plugs are untouched. Returns false when the id is unknown or its plugs
+    // can't be resolved. One undo reverts to the prior corridor.
+    bool rerouteConnection(const QString &connId);
     void updateCreationPreviewNormalized(double x, double y);
     bool editSelectedHandleNormalized(const QString &handleId, double x, double y);
     bool moveSelectionNormalized(double dx, double dy);
@@ -492,6 +499,17 @@ private:
     bool runRadialArrayAtCenter(edi::drafting::Point2D center);
     bool runRotateCopiesAtCenter(edi::drafting::Point2D center);
     bool runKaleidoscopeAtCenter(edi::drafting::Point2D center);
+    // B2-5 shared helper: build tagged corridor-wall DraftingObjects for a connection
+    // (connId) between two plugs. Reads each plug's CURRENT anchor from its anchor
+    // marker's live PointGeometry (so a moved marker is reflected; falls back to
+    // plug.anchor when the marker can't be found). Returns an empty vector when the
+    // centerline degenerates (e.g. both doors at the same point). DOES NOT apply any
+    // command — the caller owns the bracket. Both connectPlugs and rerouteConnection
+    // call this, keeping the routing logic in one place (DRY).
+    std::vector<edi::drafting::DraftingObject> buildTaggedCorridorWalls(
+        const std::string &connId,
+        const edi::drafting::DraftingPlug &plugA,
+        const edi::drafting::DraftingPlug &plugB);
     // Dispatches a resolved capture click to its waiting consumer (a switch on
     // the intent), then clears the capture. The point is already snapped.
     void resolvePointCapture(edi::drafting::Point2D point);

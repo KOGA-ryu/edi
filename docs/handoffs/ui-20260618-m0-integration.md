@@ -68,11 +68,27 @@ realizer half. Blender 4.5.9 (box version) — edi_craft seam re-verified clean.
     `map y→world −Y`, +Z up). Contract flags the realizer must confirm this
     matches its bpy build — watch for convergence before declaring the seam done.
 
+- 2026-06-18 ~14:20 — dungeon-map FROZE the contract v1 (`d79970e`, docs-only,
+  reconciled vs the merged realizer + live exporter). HELD (not merged) — will
+  ride in with the generator code on the same branch. The freeze CORRECTED the
+  handedness: `map-y → world Y` (the proposal's `−Y` was stale). It lists 3
+  realizer-confirm items.
+  - **HUB CROSS-CHECK (from the merged `edi_realize.py` on master)** — I can see
+    both halves, so I verified the 3 confirm items at the code level to de-risk
+    the re-render (blender-lab still owns the authoritative confirm):
+    1. Handedness: realizer uses `blk.x/blk.y` + `_plug_anchor` (edge midpoint)
+       directly as world coords, `location=(p.x,p.y,p.z)` (L288/421-438/600-608)
+       — NO negation. Frozen contract's `map-y→world Y` MATCHES. ✓
+    2. `crypt.stair`: `PIECE_STAIR` resolve exists (L433). ✓ (plausible)
+    3. Straight corridor: single-bend L-router degenerates to straight when
+       `start.y==end.y` (L458). ✓ (plausible)
+  - No TRUE divergence found between the frozen contract and the merged realizer.
+
 ## Open questions / blockers
-- None blocking. Watching: contract freeze (dungeon-map reviewer verdict) →
-  bus-hub to blender-lab; the handedness confirm; and the 5090/OptiX render-log
-  evidence (blender-lab). All dept-owned gate items — integration only confirms
-  the seam lines up + keeps master green.
+- None blocking. Watching: the GENERATOR code tip (merge it + the frozen-contract
+  docs together); blender-lab's formal ack of the 3 confirm items; then the
+  one-command whole-chain converge (the M0 finish line). All dept-owned gate
+  items — integration confirms the seam lines up + keeps master green.
 
 ## Next
 - REALIZER merged ✓. Awaiting the GENERATOR (dungeon-map): hardcoded crypt

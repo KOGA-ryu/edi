@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingMotifOps.h"
 #include "drafting/DraftingCorridor.h"
@@ -45,6 +46,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -832,7 +834,8 @@ void DrawingDocumentController::setWallThickness(double thickness)
 {
     // A zero/invalid thickness would be an invisible band, so fall back to the
     // 0.1 default (not "off") — a wall always has a visible width.
-    m_wallThickness = std::isfinite(thickness) && thickness > 0.0 ? std::min(thickness, 1.0) : 0.1;
+    m_wallThickness = std::isfinite(thickness) && thickness > 0.0 ? std::min(thickness, 1.0)
+                                                                  : edi::drafting::kDefaultWallToolThickness;
 }
 
 double DrawingDocumentController::wallThickness() const
@@ -2226,8 +2229,8 @@ std::vector<DraftingObject> DrawingDocumentController::buildTaggedCorridorWalls(
     spec.edgeA         = toRoomEdge(edgeStrA);
     spec.doorB         = anchorB;
     spec.edgeB         = toRoomEdge(edgeStrB);
-    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
-    spec.wallThickness = 0.015;
+    spec.width         = kDefaultCorridorWidth;  // walkable gap — both now reference the same
+    spec.wallThickness = kDefaultCorridorWidth * kCorridorWallToCorridorRatio; // named spine as createMapFromSpec
 
     // Obstacles: every room except the two containing the anchors.  Mirrors the
     // authored path in createMapFromSpec (which skips request.from/to rooms so
@@ -2580,14 +2583,15 @@ bool DrawingDocumentController::setPlugType(const QString &plugId, const QString
     // Tangent along the wall: horizontal for N/S walls, vertical for E/W walls.
     const bool isNorthSouth = (edgeStr == "N" || edgeStr == "S");
     const Point2D tangent   = isNorthSouth ? Point2D{1.0, 0.0} : Point2D{0.0, 1.0};
-    constexpr double hw = 0.0225; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double hw = kDefaultCorridorWidth / 2.0; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double leafThickness = kDefaultCorridorWidth * kDoorLeafToCorridorRatio; // = 0.02
     const Point2D leafA{anchor.x - tangent.x * hw, anchor.y - tangent.y * hw};
     const Point2D leafB{anchor.x + tangent.x * hw, anchor.y + tangent.y * hw};
 
     // Build the fresh leaf object (same shape as createMapFromSpec's leaf build).
     const QString leafObjId = nextObjectId(QStringLiteral("door"), m_nextObjectSerial++);
     DraftingObjectBuildResult leafBuilt = buildDraftingObject(
-        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, 0.02});
+        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, leafThickness});
     if (!leafBuilt.ok) {
         --m_nextObjectSerial; // roll back the serial bump on failure
         return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
@@ -3182,7 +3186,28 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     const auto plugKey = [](const std::string &room, const std::string &plug) {
         return room + std::string(1, '\x1f') + plug;
     };
-    constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
+    // SCALE COHERENCE (hub SCALE-POLICY): the 2D canvas corridor/door widths DERIVE from the dungeon's
+    // canvas size so a doubled dungeon stays proportionate (rooms in canvas units are NOT scaled by
+    // canvasPerAuthoredUnit, so we derive from the room geometry, not the scale factor). One third of the
+    // narrowest room's short edge: wide enough to read as a hallway, never wider than the wall it is carved
+    // into (leaves 2/3 of the edge as wall), and it tracks the rooms — double the rooms, double the corridor.
+    // For the M0 crypt this yields exactly the contract DOOR_W (entrance 30ft/3 = 10ft = 2 modules; pre-double
+    // 15ft/3 = 5ft = 1 module). Fallback to the historical 0.045 when there are no usable rooms (degenerate
+    // map) so an empty/roomless spec is unchanged.
+    double minRoomShortEdge = std::numeric_limits<double>::infinity();
+    for (const edi::drafting::NamedRoomSpec &r : spec.rooms) {
+        const double shortEdge = std::min(r.spec.width, r.spec.height);
+        if (shortEdge > 0.0) minRoomShortEdge = std::min(minRoomShortEdge, shortEdge);
+    }
+    const double kCorridorWidth =
+        std::isfinite(minRoomShortEdge) ? minRoomShortEdge / kRoomShortEdgePerCorridor
+                                        : kDefaultCorridorWidth; // walkable gap; also the doorway width
+    // Sibling thicknesses derived PROPORTIONALLY: the same ratio to the corridor width as the historical
+    // literals (0.02 / 0.045 and 0.015 / 0.045), now named in DraftingCanvasDims.h. At the legacy 0.045
+    // corridor these reproduce 0.02 / 0.015 exactly, so old maps at the historical size stay byte-identical;
+    // at any other size they scale with it.
+    const double kLeafThickness = kCorridorWidth * kDoorLeafToCorridorRatio;          // door-leaf band thickness
+    const double kCorridorWallThickness = kCorridorWidth * kCorridorWallToCorridorRatio; // corridor wall thickness
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
     // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so
@@ -3273,7 +3298,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
                 const Point2D b{placement.anchor.x + tangent.x * hw, placement.anchor.y + tangent.y * hw};
                 DraftingObjectBuildResult leaf = buildDraftingObject(
                     toStdString(nextObjectId(QStringLiteral("door"), m_nextObjectSerial++)),
-                    DraftingShapeKind::Wall, WallGeometry{a, b, 0.02});
+                    DraftingShapeKind::Wall, WallGeometry{a, b, kLeafThickness});
                 if (leaf.ok) {
                     leaf.object.metadata.toolProvenance = "door";
                     leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
@@ -3388,7 +3413,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             corridor.doorB = doorB->second.first;
             corridor.edgeB = doorB->second.second;
             corridor.width = kCorridorWidth; // mouth matches the carved doorway
-            corridor.wallThickness = 0.015;
+            corridor.wallThickness = kCorridorWallThickness;
             // Route AROUND every room except the two this connection joins (the
             // corridor is allowed to touch its own rooms at the doors).
             std::vector<CorridorObstacle> obstacles;
@@ -3423,7 +3448,7 @@ bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
     // Auto-fit: the grid fills ~80% of the board, centred — so any map renders
     // sensibly with no placement parameters (the cheap-authoring goal).
     const AsciiMap &map = parsed.map;
-    const double cell = 0.62 / std::max(map.rows, map.cols);
+    const double cell = kAsciiBoardFillFraction / std::max(map.rows, map.cols);
     const Point2D origin{(1.0 - map.cols * cell) / 2.0, (1.0 - map.rows * cell) / 2.0};
 
     const int firstSerial = m_nextObjectSerial;
@@ -4121,7 +4146,7 @@ bool DrawingDocumentController::duplicateSelectedObject()
         [](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
             DraftingObject copy = source;
             copy.id = newId;
-            copy.geometry = translateGeometry(source.geometry, 0.02, 0.02);
+            copy.geometry = translateGeometry(source.geometry, kCopyNudgeOffset, kCopyNudgeOffset);
             copy.bounds = computeBounds(copy.geometry);
             return copy;
         });
@@ -4174,7 +4199,7 @@ bool DrawingDocumentController::paste()
     // only applies the result and threads its serial counter through.
     const int serialBefore = m_nextObjectSerial;
     DraftingPasteResult plan = planDraftingPaste(
-        m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
+        m_clipboard, "paste", m_nextObjectSerial, kCopyNudgeOffset, kCopyNudgeOffset);
     m_nextObjectSerial = plan.nextSerial;
 
     // Atomic (user decision 2026-06-11): a paste lands whole or not at all,

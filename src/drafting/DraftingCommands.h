@@ -180,6 +180,14 @@ struct CreateBlockCommand {
     DraftingBlock block;
 };
 
+// Motif-library commands (M8, CORE). Same shape as CreateBlockCommand — the caller
+// pre-builds the normalized DraftingMotif (via buildMotifFromObjects) and the arm
+// delegates to addMotif (validate + append).  Commands are transient (not
+// serialised), so this adds no persistent-format cost.
+struct CreateMotifCommand {
+    DraftingMotif motif;
+};
+
 struct DeleteBlockCommand {
     DraftingBlockId blockId;
 };
@@ -225,7 +233,8 @@ using DraftingCommand = std::variant<
     DeleteConnectionCommand,
     CreateBlockCommand,
     DeleteBlockCommand,
-    CreateMapRoomCommand>;
+    CreateMapRoomCommand,
+    CreateMotifCommand>;
 
 struct DraftingCommandResult {
     bool ok = false;

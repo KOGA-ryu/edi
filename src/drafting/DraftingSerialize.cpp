@@ -740,6 +740,52 @@ DraftingBlock readBlock(const MsgPackValue &v)
     return block;
 }
 
+// --- motif library (M8-S1, CORE) ---------------------------------------------
+// A motif is name-keyed (no id, no assetRef).  `bounds` is DERIVED — like the
+// block's cached bounds it is NOT serialised and is RECOMPUTED on load from the
+// member objects.  The objects array reuses objectValue/readObject verbatim so
+// every geometry kind already round-trips without additional code.
+// Additive + tolerant: a file without a "motifs" key decodes to an empty library —
+// no version bump required (same precedent as blocks, rooms, plug/connection keys).
+
+MsgPackValue motifValue(const DraftingMotif &motif)
+{
+    std::vector<MsgPackValue> objects;
+    objects.reserve(motif.objects.size());
+    for (const DraftingObject &object : motif.objects) {
+        objects.push_back(objectValue(object));
+    }
+    return MsgPackValue::map({
+        {"name", MsgPackValue::text(motif.name)},
+        {"objects", MsgPackValue::array(std::move(objects))},
+    });
+}
+
+DraftingMotif readMotif(const MsgPackValue &v)
+{
+    DraftingMotif motif;
+    motif.name = asString(child(v, "name"), motif.name);
+    if (const MsgPackValue *objects = child(v, "objects");
+        objects && objects->type == MsgPackValue::Type::Array) {
+        for (const auto &objectRef : objects->arrayValue) {
+            // Tolerant: a malformed nested object is skipped (like a block member).
+            if (auto object = readObject(objectRef, kDraftingDocumentVersion)) {
+                motif.objects.push_back(std::move(*object));
+            }
+        }
+    }
+    // Recompute the cached union extent from decoded objects — the same rule as
+    // readBlock: never trust a stored box that was never written.
+    if (!motif.objects.empty()) {
+        Bounds2D bounds = motif.objects.front().bounds;
+        for (std::size_t i = 1; i < motif.objects.size(); ++i) {
+            bounds = includeBounds(bounds, motif.objects[i].bounds);
+        }
+        motif.bounds = bounds;
+    }
+    return motif;
+}
+
 } // namespace
 
 MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
@@ -780,6 +826,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         blocks.push_back(blockValue(block));
     }
 
+    std::vector<MsgPackValue> motifs;
+    motifs.reserve(document.motifs.size());
+    for (const auto &motif : document.motifs) {
+        motifs.push_back(motifValue(motif));
+    }
+
     std::vector<MsgPackValue> selected;
     selected.reserve(document.selectedObjectIds.size());
     for (const auto &id : document.selectedObjectIds) {
@@ -808,6 +860,7 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"connections", MsgPackValue::array(std::move(connections))},
         {"rooms", MsgPackValue::array(std::move(rooms))},
         {"blocks", MsgPackValue::array(std::move(blocks))},
+        {"motifs", MsgPackValue::array(std::move(motifs))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
         {"active_object_id", std::move(activeObject)},
     });
@@ -916,6 +969,17 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         for (const auto &block : blocks->arrayValue) {
             if (block.type == MsgPackValue::Type::Map) {
                 document.blocks.push_back(readBlock(block));
+            }
+        }
+    }
+
+    // Motif library (M8-S1, CORE): same tolerant additive read — a file without a
+    // "motifs" key (written before M8 or by older edi) decodes to an empty library.
+    if (const MsgPackValue *motifsValue = child(*documentValue, "motifs");
+        motifsValue && motifsValue->type == MsgPackValue::Type::Array) {
+        for (const auto &motifEntry : motifsValue->arrayValue) {
+            if (motifEntry.type == MsgPackValue::Type::Map) {
+                document.motifs.push_back(readMotif(motifEntry));
             }
         }
     }

@@ -10,9 +10,12 @@
 - **Queue (this run)**: M1 (delete-all-construction-lines) → M8 (motif library / flash sheet).
 
 ## Standing rules (carry into every brief)
-- ⛔ **REBASE GUARD** (hub, still on until ALL-CLEAR): builders rebase ONLY onto the LOCAL
-  `master` ref (`git rebase master`); NO `git fetch`, NO `origin/master` (stale `591e92c`,
-  corrupts the branch). Origin reconcile in flight.
+- **REBASE PRACTICE** (ALL-CLEAR 2026-06-17 — origin reconciled): builders rebase onto the
+  LOCAL `master` ref (`git rebase master`) — it is the planner-synced, always-current
+  integration line. The stale-origin corruption trap is GONE (origin/master fast-forwarded to
+  `17c716a`, all batch work; now a current backup). Standing practice UNCHANGED: target LOCAL
+  `master` (no ancient-conflict risk); `git fetch`/origin is no longer dangerous but local
+  remains the authoritative rebase target.
 - LEDGER is edi-ui's (master only) — never commit it here. Toolbelt: `edi-gate` + `bus-reply`.
 - edi-ui = merge owner (route green tips there). Painter/tool chrome = edi-ui seams.
 

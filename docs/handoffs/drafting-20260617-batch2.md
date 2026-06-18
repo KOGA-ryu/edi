@@ -9,6 +9,30 @@
 - **Department**: edi-drafting
 - **Queue (this run)**: M1 (delete-all-construction-lines) → M8 (motif library / flash sheet).
 
+## ⏻ POWER-DOWN CHECKPOINT (2026-06-17) — CLEAN, nothing in flight
+- **State:** clean. Worktree clean, NO slice in flight, no rebase active. `dept/drafting` tip
+  `889099d` (docs); local `master` (integration line) `6bb6c14`. All drafting work GREEN
+  (`edi-gate` 104/104) and merged or merging via edi-ui.
+- **DONE this program:** DR-01..15 feature bucket ✅ (merged) · M1 delete-construction-lines ✅ ·
+  M8 motif library (S1+S2) ✅ · DR-13 angular tool-arm ✅ (angular dim LIVE end-to-end) · M2
+  intersection nodes + Node snap (S1+S2+S3) ✅. Closeouts: `drafting-fill-side-channel`,
+  `drafting-cartography`, `drafting-feature-bucket`, `drafting-motif-library`,
+  `drafting-intersection-nodes` (+ ruling H2 recorded in `docs/architecture/edi-drafting.md`).
+- **NEXT (awaiting hub direction — named queue EXHAUSTED):** the rest of drafting batch-2 is
+  done/duplicate of the DR bucket; M4 tangent-circle (Apollonius) PARKED. No genuinely-new ready
+  drafting item. **Available in-charter follow-ups** (small): (a) snap-settings TOML persistence
+  (own slice — NO snap flag persists today); (b) absent-`"motifs"`-key serialize test hardening;
+  (c) M8-S3 motif transform-on-place fork (needs the oriented-stamping UX decision — user/edi-ui).
+- **edi-ui seams pending (theirs):** Angular arc painter + linear-painter guard + `isAngleField`
+  for the Angular offset field; Node snap inspector checkbox (`node_enabled` published); motif
+  placement chrome (routed to the user; controller API ready); the deferred tool/belt surfaces.
+- **RESUME recipe for a fresh session:** (1) read this handoff + `docs/architecture/edi-drafting.md`
+  + `~/dept-bus/PROTOCOL.md`. (2) Rebase target = LOCAL `master` ref (planner-synced; origin
+  reconciled, now a backup). (3) If the hub assigns a campaign → open it (reviewer gate first for
+  any persistent-format/representation question, e.g. DR-13/M8 pattern). (4) Else if told "take
+  the cleanups" → do (a)/(b)/(c) above as small builder slices. (5) Report green tips to `edi-ui`
+  (merge owner); bus-hub on milestones only.
+
 ## Standing rules (carry into every brief)
 - **REBASE PRACTICE** (ALL-CLEAR 2026-06-17 — origin reconciled): builders rebase onto the
   LOCAL `master` ref (`git rebase master`) — it is the planner-synced, always-current

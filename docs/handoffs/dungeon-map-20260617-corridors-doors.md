@@ -240,12 +240,28 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   branch stayed on the real line). → drove the HARDENED rule above + brief 025's absolute
   no-git-remote section.
 
-### Builder slice 025 (B2-CTX relation-aware context) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/025-builder-b2ctx-relation-context.md`
-- The settled gate-023 B2-CTX design: widen `DraftingInspectorInput` (+2 bools) + 2
-  precedence branches + `object_connection`/`object_plug` table rows; `selectConnection`
-  + `m_activeConnectionId`; 3 projection keys; unit + controller tests. ABSOLUTE no-git-
-  remote rule baked in. B2-3 (setPlugType) is next.
+### Builder slice 025 (B2-CTX relation-aware context) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/025-builder-b2ctx-relation-context.md`.
+  Commit `7380dc5`. edi-gate GREEN 102/102; **builder HONORED the no-rebase rule** (no
+  git surgery; 7380dc5 sits cleanly on branch, 73c0832 still ancestor, verified). Widened
+  `DraftingInspectorInput` (+2 bools) + 2 precedence branches (above kind, no regression)
+  + `object_connection`/`object_plug` rows; `selectConnection` + `m_activeConnectionId`
+  (cleared in 12 `begin*Pick`+selectObjectById+marquee+setSelectedToolId); 3 projection
+  keys (`has_connection_selection`,`active_connection_id` in `modelDocument` cache;
+  `active_object_is_plug` in the doc proj); unit + controller tests.
+- For edi-ui: contextIds `object_connection`{connection_summary,connection_verbs},
+  `object_plug`{plug_summary,plug_type,plug_verbs} (provisional, align w/ DM2-surfaces);
+  the 3 keys; row→`selectConnection` wiring. Builder flagged: `cancelPendingCreation`
+  does NOT clear `m_activeConnectionId` (Escape) — audit 028 checks if it's a gap.
+
+### Reviewer checkpoint audit of B2-CTX — DISPATCHED (parallel with 026)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/028-reviewer-b2ctx-audit.md`
+- Focus: no-regression to existing contexts, the mutual-exclusion invariant (12-site
+  clear completeness; the Escape gap), the 3 projection keys' cache-rebuild correctness.
+
+### Builder slice 026 (B2-4 delete plug/connection + cascade) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/026-builder-b2-4-delete-cascade.md` (the
+  double-prune ordering trap; defensive `plug:<id>` leaf cleanup). B2-5 (`027`) queued.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

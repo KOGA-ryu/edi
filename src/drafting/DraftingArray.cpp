@@ -423,6 +423,15 @@ DraftingArrayResult rotateCopiesDraftingObject(
     if (!std::isfinite(center.x) || !std::isfinite(center.y) || !std::isfinite(totalAngleDeg)) {
         return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry, "rotate-copies centre and angle must be finite");
     }
+    if (std::abs(totalAngleDeg) < 1e-6) {
+        // A near-zero total angle means every copy would sit at the same spoke
+        // (zero-step fan) — all copies coincide with the source, which is never
+        // useful and surprising to debug.  The setter now stores 0.0 faithfully,
+        // so the op is the right place to catch this: the user sees a clear
+        // rejection message instead of a silently-stacked rosette.
+        return DraftingArrayResult::rejected(DraftingResultCode::InvalidGeometry,
+            "rotate-copies total angle is too small (degenerate ring)");
+    }
     if (std::holds_alternative<GuideGeometry>(source.geometry)) {
         // transformGeometry leaves a guide unchanged (an infinite axis-aligned line
         // cannot rotate about a pivot), so every copy would be identical — reject,

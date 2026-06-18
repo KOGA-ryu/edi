@@ -3494,6 +3494,18 @@ int main(int argc, char **argv)
         DrawingDocumentController emptyRosette;
         assert(!emptyRosette.beginRotateCopiesCenterPick());
         assert(!emptyRosette.isAwaitingPointCapture());
+
+        // Setter must store faithfully — no silent swallow of small values.
+        // Before the fix, |angle| < 1.0 was ignored and the spin diverged from
+        // the stored value.
+        DrawingDocumentController setterCheck;
+        setterCheck.setRotateCopiesTotalAngle(0.0);
+        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.0));
+        setterCheck.setRotateCopiesTotalAngle(0.5);
+        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
+        // Non-finite must still be ignored (prior value preserved).
+        setterCheck.setRotateCopiesTotalAngle(std::numeric_limits<double>::quiet_NaN());
+        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
     }
 
     // Kaleidoscope: arming + the captured centre reflects the source across

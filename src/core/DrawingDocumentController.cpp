@@ -3251,6 +3251,11 @@ bool DrawingDocumentController::deleteAllGuides()
     return applyCommandAndEmit(DeleteAllGuidesCommand{});
 }
 
+bool DrawingDocumentController::deleteAllConstructionLines()
+{
+    return applyCommandAndEmit(DeleteAllConstructionLinesCommand{});
+}
+
 bool DrawingDocumentController::mergeDuplicateGuides()
 {
     return applyCommandAndEmit(MergeDuplicateGuidesCommand{});

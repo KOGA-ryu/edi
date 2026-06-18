@@ -4829,5 +4829,62 @@ int main(int argc, char **argv)
         }
     }
 
+    // M1: deleteAllConstructionLines — clears exactly the ConstructionLine-kind
+    // objects in one undoable command, leaving every other kind byte-identical.
+    {
+        DrawingDocumentController clCtl;
+
+        // Build a mixed document: Line + Circle + 2 ConstructionLines.
+        clCtl.setSelectedToolId(QStringLiteral("line_tool"));
+        clCtl.clickCanvasNormalized(0.1, 0.1);
+        clCtl.clickCanvasNormalized(0.4, 0.4);
+
+        clCtl.setSelectedToolId(QStringLiteral("circle_tool"));
+        clCtl.clickCanvasNormalized(0.7, 0.7);
+        clCtl.clickCanvasNormalized(0.9, 0.7); // radius 0.2
+
+        clCtl.setSelectedToolId(QStringLiteral("horizontal_construction_line_tool"));
+        clCtl.clickCanvasNormalized(0.5, 0.3); // horizontal ConstructionLine
+
+        clCtl.setSelectedToolId(QStringLiteral("vertical_construction_line_tool"));
+        clCtl.clickCanvasNormalized(0.6, 0.5); // vertical ConstructionLine
+
+        const QVariantList before = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(before.size() == 4);
+
+        // Capture the ids and kinds of the two non-construction objects.
+        const QString lineId   = before[0].toMap().value(QStringLiteral("id")).toString();
+        const QString circleId = before[1].toMap().value(QStringLiteral("id")).toString();
+        assert(before[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(before[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+        assert(before[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        assert(before[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+
+        // Delete all construction lines.
+        assert(clCtl.deleteAllConstructionLines());
+
+        const QVariantList after = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(after.size() == 2); // only the Line and Circle remain
+
+        // Remaining objects are byte-identical (same ids, same kinds).
+        assert(after[0].toMap().value(QStringLiteral("id")).toString() == lineId);
+        assert(after[1].toMap().value(QStringLiteral("id")).toString() == circleId);
+        assert(after[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        assert(after[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+
+        // One undo step restores all four objects.
+        assert(clCtl.undo());
+        const QVariantList restored = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
+        assert(restored.size() == 4);
+        assert(restored[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        assert(restored[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+
+        // Calling deleteAllConstructionLines on a doc with NO construction lines
+        // is a no-op: does not crash, object count unchanged.
+        assert(clCtl.deleteAllConstructionLines()); // undone — all 4 back, then delete again
+        assert(clCtl.deleteAllConstructionLines()); // doc now has no CL — second call is a no-op
+        assert(clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
+    }
+
     return 0;
 }

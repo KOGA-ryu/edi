@@ -48,12 +48,13 @@ struct CryptConnDim {
     std::string_view type;
 };
 
-// --- the single place the doubled-crypt geometry lives -------------------------
-// (user directive 2026-06-18; formerly in the build function body)
+// --- the single place the BASE (S=1) crypt geometry lives ---------------------
+// (user directive 2026-06-18; scale knob S is a separate reviewer-gated slice,
+// brief 046+, pending gate 045 — do NOT add the scale parameter here yet)
 
 constexpr CryptRoomDim kCryptRooms[] = {
-    {"entrance", {0.0,  10.0}, 30.0, 30.0, "stone"},
-    {"crypt",    {70.0,  0.0}, 50.0, 50.0, "stone"},
+    {"entrance", { 0.0, 5.0}, 15.0, 15.0, "stone"},
+    {"crypt",    {35.0, 0.0}, 25.0, 25.0, "stone"},
 };
 
 constexpr CryptPlugDim kCryptPlugs[] = {
@@ -71,9 +72,9 @@ constexpr CryptConnDim kCryptConns[] = {
 //   W edge SW→NW  length = height → at = height/2   (West = SW at bottom)
 //   N edge NW→NE  length = width  → at = width/2
 //   S edge SE→SW  length = width  → at = width/2
-// Result for the doubled crypt:
-//   entrance East  h=30 → at=15  → world anchor x=30, y=10+15=25  ✓
-//   crypt    West  h=50 → at=25  → world anchor x=70, y=50−25=25  ✓  (colinear)
+// Result for the base (S=1) crypt:
+//   entrance East  h=15 → at=7.5  → world anchor x=15, y=5+7.5=12.5   ✓
+//   crypt    West  h=25 → at=12.5 → world anchor x=35, y=25−12.5=12.5 ✓  (colinear)
 constexpr double edgeMidpointAt(const CryptRoomDim &room,
                                 edi::drafting::RoomEdge edge) noexcept
 {

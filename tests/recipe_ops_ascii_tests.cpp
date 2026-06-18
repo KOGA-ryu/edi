@@ -97,20 +97,22 @@ int main()
         assert(empty.text.find("TOP PROJECTION") != std::string::npos);
     }
 
-    // ---- A custom-craftsman Script op is NOT refused (unlike the uncompiled/
-    // unresolved cases above): its shape is a Python proof_mesh the ASCII
-    // vocabulary cannot rasterize, so this projection simply draws nothing for
-    // it — the craftsman's proof is the OBJ mesh tier. A lone Script renders
-    // like an empty stream; beside a box, the box is unaffected. ----
+    // ---- M1 (roadmap): a Script op now draws a unit-bbox OUTLINE as a
+    // placement marker — the craftsman's real proof is the OBJ mesh (the ASCII
+    // layer can't access the Python proof_mesh dimensions). A lone Script
+    // renders the outline (non-empty beyond the title); beside a box, the two
+    // renders differ because the Script draws its border over the scene. ----
     {
         ScriptOp twist;
         twist.scriptId = "twisted_column";
         twist.name = "twist";
         twist.params = {{"sides", "6"}};
+        // Lone Script: NOT refused, and the bbox outline IS visible now.
         const AsciiRenderResult lone =
             renderOpsProjection({RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
         assert(lone.ok); // proved, not refused
         assert(lone.text.find("FRONT PROJECTION") != std::string::npos);
+        assert(lone.text.find("█") != std::string::npos); // bbox border is visible
 
         AddBoxOp slab;
         slab.name = "slab";
@@ -120,7 +122,35 @@ int main()
         const AsciiRenderResult boxAndScript =
             renderOpsProjection({RecipeOp{slab}, RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
         assert(withBox.ok && boxAndScript.ok);
-        assert(withBox.text == boxAndScript.text); // the Script adds nothing
+        // The Script's unit bbox draws border edges over the scene — the
+        // renders now differ (the Script is no longer a visual no-op).
+        assert(withBox.text != boxAndScript.text);
+    }
+
+    // ---- M1: ScriptOp at a known placement renders a non-empty bbox in ALL
+    // THREE projections. Front: x/z rectangle; side: y/z rectangle;
+    // top: x/y rectangle. ----
+    {
+        ScriptOp marker;
+        marker.scriptId = "nfold_star";
+        marker.name = "star.marker";
+        marker.x = 3.0;
+        marker.y = 1.0;
+        marker.z = 2.0;
+        const AsciiRenderResult front =
+            renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Front, 20, 12);
+        assert(front.ok);
+        assert(front.text.find("█") != std::string::npos); // x/z outline present
+
+        const AsciiRenderResult side =
+            renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Side, 20, 12);
+        assert(side.ok);
+        assert(side.text.find("█") != std::string::npos); // y/z outline present
+
+        const AsciiRenderResult top =
+            renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Top, 20, 12);
+        assert(top.ok);
+        assert(top.text.find("█") != std::string::npos); // x/y outline present
     }
 
     // ---- Top-projection subset golden. The doric top golden above is 100%

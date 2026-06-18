@@ -362,7 +362,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         } else if (guide.dashStyle == QStringLiteral("dot")) {
             guideStyle = Qt::DotLine;
         }
-        QPen guidePen(guideColor, selected ? 2.0 : 1.25, guideStyle);
+        QPen guidePen(guideColor, selected ? kGuideSelectedPenPx : kGuidePenPx, guideStyle);
         guidePen.setCapStyle(Qt::RoundCap);
         painter.save();
         painter.setPen(guidePen);
@@ -389,7 +389,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         if (!line.ok) {
             return;
         }
-        QPen constructionPen(selected ? context.palette.selection : context.palette.construction, selected ? 2 : 1, Qt::DotLine);
+        QPen constructionPen(selected ? context.palette.selection : context.palette.construction, selected ? kConstructionSelectedPenPx : kConstructionPenPx, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.setBrush(Qt::NoBrush);
@@ -424,13 +424,13 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
             const QString text = dimension.label;
             const QRect textBounds = painter.fontMetrics().boundingRect(text);
             QRectF labelRect(
-                label.x() - textBounds.width() / 2.0 - 6.0,
-                label.y() - textBounds.height() - 8.0,
-                textBounds.width() + 12.0,
-                textBounds.height() + 8.0);
+                label.x() - textBounds.width() / 2.0 - kDimLabelPadXPx,
+                label.y() - textBounds.height() - kDimLabelTopOffsetPx,
+                textBounds.width() + kDimLabelPadWidthPx,
+                textBounds.height() + kDimLabelPadHeightPx);
             painter.setPen(Qt::NoPen);
             painter.setBrush(withAlpha(context.palette.backdrop, selected ? 230 : 190));
-            painter.drawRoundedRect(labelRect, 4.0, 4.0);
+            painter.drawRoundedRect(labelRect, kDimLabelCornerRadiusPx, kDimLabelCornerRadiusPx);
             painter.setPen(dimensionColor);
             painter.drawText(labelRect, Qt::AlignCenter, text);
         }
@@ -494,7 +494,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
             fill.setAlphaF(style.strokeOpacity);
         }
         painter.setBrush(fill);
-        painter.drawEllipse(point, 4.0, 4.0);
+        painter.drawEllipse(point, kPointFillRadiusPx, kPointFillRadiusPx);
     } else if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine &line = item.line;
         if (!line.ok) {
@@ -646,15 +646,15 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     if (context.plotDiagnostics && summary.plotBlocked && summary.bounds.ok) {
         QRectF warningRect = drawing_canvas::boundsToScreenRect(
             context.board, summary.bounds.x, summary.bounds.y, summary.bounds.width, summary.bounds.height);
-        if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
-            warningRect = warningRect.adjusted(-6.0, -6.0, 6.0, 6.0);
+        if (warningRect.width() < kPlotWarnBoxMinPx || warningRect.height() < kPlotWarnBoxMinPx) {
+            warningRect = warningRect.adjusted(-kPlotWarnBoxAdjustPx, -kPlotWarnBoxAdjustPx, kPlotWarnBoxAdjustPx, kPlotWarnBoxAdjustPx);
         }
-        painter.setPen(QPen(context.palette.safetyWarning, 1.5, Qt::DashLine));
+        painter.setPen(QPen(context.palette.safetyWarning, kPlotWarnBoxPenPx, Qt::DashLine));
         painter.setBrush(withAlpha(context.palette.safetyWarning, 24));
         painter.drawRect(warningRect);
         if (!summary.plotWarningKind.isEmpty()) {
             painter.setPen(context.palette.safetyWarning);
-            painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), summary.plotWarningKind);
+            painter.drawText(warningRect.topLeft() + QPointF(kPlotWarnLabelOffsetPx, -kPlotWarnLabelOffsetPx), summary.plotWarningKind);
         }
     }
 
@@ -666,7 +666,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
     painter.save();
-    QPen pen(context.palette.preview, 2, Qt::DashLine);
+    QPen pen(context.palette.preview, kPreviewPenPx, Qt::DashLine);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -688,7 +688,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             painter.restore();
             return;
         }
-        QPen constructionPen(context.palette.preview, 1.5, Qt::DotLine);
+        QPen constructionPen(context.palette.preview, kPreviewConstructionPenPx, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.drawLine(screenLine(context, line));

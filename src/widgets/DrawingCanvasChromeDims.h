@@ -46,4 +46,41 @@ inline constexpr double kDimLeaderPenPx = 2.0;
 inline constexpr double kDimCrossHalfPx = 6.0;
 inline constexpr double kDimLabelOffsetPx = 6.0;
 
+// Dimension LABEL pill: the backing rounded-rect that sits behind the committed
+// dimension's text. Padding X is added to each side of the text width, padding Y
+// to its height; the label is lifted by the top offset so it floats just above
+// the anchor; the corner radius rounds the pill. (X padding is applied as half
+// on the left + the full width padding, so the text stays centred.)
+inline constexpr double kDimLabelPadXPx = 6.0;
+inline constexpr double kDimLabelPadWidthPx = 12.0;
+inline constexpr double kDimLabelPadHeightPx = 8.0;
+inline constexpr double kDimLabelTopOffsetPx = 8.0;
+inline constexpr double kDimLabelCornerRadiusPx = 4.0;
+
+// Guide line pen widths in px: a heavier stroke when the guide is selected, a
+// lighter one otherwise.
+inline constexpr double kGuideSelectedPenPx = 2.0;
+inline constexpr double kGuidePenPx = 1.25;
+
+// Construction line pen widths in px (committed render): heavier when selected.
+inline constexpr double kConstructionSelectedPenPx = 2.0;
+inline constexpr double kConstructionPenPx = 1.0;
+
+// Point object: radius in px of the filled disc that IS the point's body.
+inline constexpr double kPointFillRadiusPx = 4.0;
+
+// Plot-diagnostic warning box: the minimum px size below which the box is
+// inflated, the px amount each edge is adjusted outward when inflated, the pen
+// width in px of the dashed warning outline, and the px offset of the warning
+// label text off the box's top-left corner.
+inline constexpr double kPlotWarnBoxMinPx = 12.0;
+inline constexpr double kPlotWarnBoxAdjustPx = 6.0;
+inline constexpr double kPlotWarnBoxPenPx = 1.5;
+inline constexpr double kPlotWarnLabelOffsetPx = 6.0;
+
+// Preview chrome pen widths in px: the dashed live-preview outline, and the
+// lighter dotted construction-line preview.
+inline constexpr double kPreviewPenPx = 2.0;
+inline constexpr double kPreviewConstructionPenPx = 1.5;
+
 } // namespace drawing_canvas

@@ -118,6 +118,14 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
 - USER INVOCATION (the dial): `edi --generate-crypt /tmp/m0/crypt.toon --scale <S>` —
   one flag; generator bakes S into feet + writes `scale:S`; render daemon → realizer
   reads meta → PNG auto-opens. NO TOON hand-edit. (CLI wiring = edi-ui, app/main.cpp.)
+- ✅ DEMO LOCKED (blender-lab reply 043): realizer is HEADER-DRIVEN (reads `scale:` from
+  the TOON, no --scale needed); S=1/2/4 → /tmp/m0/crypt_S{1,2,4}.png (OptiX/5090);
+  their reviewer audited dims-as-data CLEAN. Fork (c) live end-to-end.
+- UX QUESTION raised to hub: the 3 renders look ~identical in composition (camera
+  auto-frames the span ⇒ scale-invariant view; only absolute size changes). Offered the
+  user a FIXED-scale reference (6 ft figure / 5 ft grid / fixed prop) so the dial is
+  VISIBLE, vs keep the auto-framed view. Awaiting the user's call.
+- Standing rule now CODIFIED in CLAUDE.md (hard rule). Dept honors via data tables.
 
 ## STANDING RULE (2026-06-18, USER) — every dimension is DATA
 Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.

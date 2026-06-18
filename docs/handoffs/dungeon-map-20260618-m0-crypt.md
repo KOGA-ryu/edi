@@ -126,6 +126,13 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
   user a FIXED-scale reference (6 ft figure / 5 ft grid / fixed prop) so the dial is
   VISIBLE, vs keep the auto-framed view. Awaiting the user's call.
 - Standing rule now CODIFIED in CLAUDE.md (hard rule). Dept honors via data tables.
+- SCALE-VISIBILITY answered (user): BOTH a fixed 6 ft figure + a 5 ft grid floor, as
+  TOGGLEABLE realizer SCENE OVERLAYS (blender-lab's domain). OFF THE WIRE — pure
+  presentation reference, not map-doc content ⇒ neutral contract UNAFFECTED, no
+  dungeon-map action. (Correct layered-law placement: the realizer adds reference
+  geometry; edi records none of it.)
+- BUILDER 047 IN PROGRESS (working tree, uncommitted): buildCryptMapSpec(double scale)
+  + kCryptBlocks present; awaiting its commit + reply, then reviewer diff-audit.
 
 ## STANDING RULE (2026-06-18, USER) — every dimension is DATA
 Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.

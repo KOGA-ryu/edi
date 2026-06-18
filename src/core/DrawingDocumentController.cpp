@@ -834,8 +834,9 @@ void DrawingDocumentController::setWallThickness(double thickness)
 {
     // A zero/invalid thickness would be an invisible band, so fall back to the
     // 0.1 default (not "off") — a wall always has a visible width.
-    m_wallThickness = std::isfinite(thickness) && thickness > 0.0 ? std::min(thickness, 1.0)
-                                                                  : edi::drafting::kDefaultWallToolThickness;
+    m_wallThickness = std::isfinite(thickness) && thickness > 0.0
+                          ? std::min(thickness, edi::drafting::kMaxWallToolThickness)
+                          : edi::drafting::kDefaultWallToolThickness;
 }
 
 double DrawingDocumentController::wallThickness() const

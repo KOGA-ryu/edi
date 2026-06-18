@@ -40,4 +40,7 @@ inline constexpr double kDefaultRoomWallThickness = 0.1;
 // tool and the room spec are separate concepts, so keep separate data — if one default shifts later they
 // must not be conflated.
 inline constexpr double kDefaultWallToolThickness = 0.1;
+
+// The maximum thickness the wall tool accepts (canvas units); larger inputs clamp to this. A dimension bound.
+inline constexpr double kMaxWallToolThickness = 1.0;
 } // namespace edi::drafting

@@ -50,6 +50,14 @@ take MASTER's version and DROP our hunks (do NOT re-apply) — this is folded in
 briefs from DR-06 on. (Historical note: dept/drafting carries +33 LEDGER lines across 5
 pre-policy commits; the hub/edi-ui discard these at integration.)
 
+## ▶ RESUMED 2026-06-17 — staged live test of the new toolbelt + Sonnet builder
+- New protocol absorbed: `edi-gate` (build+ctest+scan, auto-excludes shell golden),
+  `bus-reply`/`bus-cat`/`bus-next`; model tiering (builder=Sonnet → brief PRECISELY,
+  re-prime fresh windows). LEDGER is edi-ui's on master only (already adopted).
+- DR-11+fix (`db71c1b`) still NOT merged (master `5712648`); per hub, build DR-12 on
+  `dept/drafting` anyway (edi-ui integrates separately). DR-12 deps DR-01 ✅ + DR-04 ✅
+  (both on master). Opened DR-12 as the live-test slice (pure op, well-scoped for Sonnet).
+
 ## ⏸ PAUSED — HUB CONTEXT SWAP (2026-06-17) — clean checkpoint
 - **State:** clean. Worktree clean, no builder mid-task. `dept/drafting` tip `11d8cea`
   (docs); last CODE tip `db71c1b` (DR-11 + canonical-mirror rect fix).
@@ -376,9 +384,17 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   reflection now corrected (`−r`); dungeon-map consumes `mirrorGeometry`; position unaffected,
   axis-aligned rects unchanged. A fix dungeon-map wants.
 
+### DR-12 — array-along-curve (PURE op) — builder BRIEFED 2026-06-17 (live toolbelt test)
+- Brief: `~/dept-bus/edi-drafting/briefs/026-DR12-array-along-curve-builder.md` (fresh Sonnet
+  builder — precise brief, fresh-window re-prime, concrete test numbers). Deps DR-01 ✅ + DR-04
+  ✅. Built on `dept/drafting` regardless of the DR-11 merge state (edi-ui integrates
+  separately). Uses the new toolbelt: builder runs `edi-gate` + replies via `bus-reply`.
+- When green + replied → bus-hub the result (staged live-test of the tooling). Reviewer
+  optional (per hub); planner reviews the report + edi-gate is the safety net.
+
 ## Open questions / blockers
-- (none blocking — DR-11+fix batch reported to edi-ui + hub-flagged; DR-12 held until
-  the batch merge-confirms, per the post-merge sequencing)
+- (none blocking — DR-12 in build via fresh Sonnet builder; DR-11+fix still pending edi-ui
+  merge, non-blocking)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

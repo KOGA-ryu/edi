@@ -392,9 +392,24 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - When green + replied → bus-hub the result (staged live-test of the tooling). Reviewer
   optional (per hub); planner reviews the report + edi-gate is the safety net.
 
+### DR-12 — CLOSED 2026-06-17 ✅ (SHA `e111398`, GREEN 101/101 via edi-gate) — LIVE-TOOLBELT TEST PASS
+- Reply: `~/dept-bus/edi-drafting/replies/026-DR12-array-along-curve-builder.md`. Fresh
+  Sonnet builder, precise brief → clean result: `arrayAlongCurve` (pure op) with
+  `curveArcLength`/`curveStationPoint`/`curveTangentDeg` helpers; Line/Polyline/Arc via
+  `pointAlongEntity`, Spline via a local `walkPath` on `sampleSpline` (pointAlongEntity's
+  walker isn't accessible); tangent via `transformGeometry(pivot=station)`; Polygon
+  rejected (not in brief). Tests: line centers 0/0.5/1.0, 45°→rotationDeg 45, arc stations
+  on-arc, 3 rejections. Rebase clean (9 commits replayed). `edi-gate` GREEN, `bus-reply`
+  used — the new toolbelt worked end-to-end.
+- **Minor follow-up noted (not blocking):** the Spline path branch has no NUMERIC test
+  (builder judged a known-sample assertion over-speccing). Add a spline-path test in a
+  later cleanup; the walk mirrors the tested line/arc algorithm.
+- **Live-test verdict:** PASS — precise brief + Sonnet builder + edi-gate + bus-reply +
+  planner review all exercised; builder context OK (no recycle needed).
+
 ## Open questions / blockers
-- (none blocking — DR-12 in build via fresh Sonnet builder; DR-11+fix still pending edi-ui
-  merge, non-blocking)
+- (none blocking — DR-12 green on dept/drafting. DR-11+fix+DR-12 (tip e111398) all await
+  edi-ui merge, non-blocking; integration is the hub/edi-ui's to resume post-swap.)
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

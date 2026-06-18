@@ -405,16 +405,16 @@ plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspecto
   the B2-3 duplicate + B2-4 orphan for authored plugs. **On land → batch-2 FULLY COMPLETE
   → CLOSEOUT.**
 
-### CLOSEOUT plan (after 036)
-1. Light-verify 036 (one tag + authored-plug tests; behavior-preserving render).
-2. Write `docs/closeouts/dungeon-map-20260617-corridors-doors.md` — freeze the interactive-
-   authoring boundary, the verbs/keys/contexts, the ratified decisions (independent
-   corridors, B2-3 included, batch-3 scope), the PARKED items (auto anchor-sync, the
-   snapshot-m_activeConnectionId refactor), and the carried NOTES (locked-layer delete,
-   `door_leaf_type`/`active_plug_type` edi-ui key).
-3. Update the edi-ui chrome contract with the `active_plug_type` note.
-4. Hand the FINAL green tip to edi-ui to merge (onto current `17c716a`+).
-5. bus-hub the CLOSEOUT to the hub; the batch is done.
+### ✅ CLOSEOUT — 2026-06-17 — BATCH-2 COMPLETE
+- 036 (`693eac0`) DONE — render pixel-identical, authored-plug set/delete tested. Closeout
+  green-gate: full edi-gate GREEN, all 7 verbs present, tree clean.
+- **Closeout frozen:** `docs/closeouts/dungeon-map-20260617-corridors-doors.md` (the
+  interactive-authoring boundary, verbs/keys/contexts, the 6 ratified decisions, parked
+  items, carried NOTES, the audit record, the rebase-incident→fleet-practice).
+- **Final green tip handed to edi-ui** to merge onto `17c716a`+ (with the `active_plug_type`
+  chrome-contract note).
+- **bus-hub'd the CLOSEOUT.** Campaign CLOSED. Mandate intact (neutral, no generation).
+- **Next dungeon-map work awaits a hub brief.** The tool-first stop-line holds.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

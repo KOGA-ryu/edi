@@ -5372,6 +5372,50 @@ int main(int argc, char **argv)
         assert(!model.value(QStringLiteral("active_object_is_plug")).toBool());
     }
 
+    // Brief 037: active_plug_type projection key.
+    // Three cases: plug active → type string; plain object active → ""; no selection → "".
+    {
+        // Case 1: a plug whose type is "window" is active → active_plug_type == "window".
+        // beginPlugPick places a Point marker; the marker is auto-selected (plugObjCtl
+        // above shows this). We then call setPlugType to change it to "window" (which
+        // also re-selects the leaf, not the marker), then use beginPlugPick again to
+        // place and select a fresh plug of type "window" directly via the type field.
+        // Simpler: place a plug, call setPlugType to "window", then manually select the
+        // plug marker via its id to confirm the type is reflected.
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick();
+        ctl.clickCanvasNormalized(0.5, 0.5); // places marker, auto-selects it
+        // Grab the plug id from the document.
+        assert(ctl.draftingDocument().plugs.size() == 1);
+        const std::string plugId = ctl.draftingDocument().plugs[0].id;
+
+        // setPlugType to "window" (the marker stays; a leaf is minted or replaced).
+        assert(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
+        // After setPlugType, the leaf (not the marker) may be selected. Re-select the
+        // plug marker so active_object_is_plug == true and active_plug_type is visible.
+        const std::string anchorObjId = ctl.draftingDocument().plugs[0].anchorObjectId;
+        ctl.selectObjectById(QString::fromStdString(anchorObjId));
+
+        const QVariantMap model1 = ctl.modelDocument();
+        assert(model1.value(QStringLiteral("active_object_is_plug")).toBool());
+        assert(model1.value(QStringLiteral("active_plug_type")).toString()
+               == QStringLiteral("window"));
+
+        // Case 2: a plain (non-plug) Wall object is active → active_plug_type == "".
+        DrawingDocumentController plainCtl2;
+        plainCtl2.setSelectedToolId(QStringLiteral("wall_tool"));
+        plainCtl2.clickCanvasNormalized(0.3, 0.3);
+        plainCtl2.clickCanvasNormalized(0.7, 0.3); // create a wall
+        const QVariantMap model2 = plainCtl2.modelDocument();
+        assert(!model2.value(QStringLiteral("active_object_is_plug")).toBool());
+        assert(model2.value(QStringLiteral("active_plug_type")).toString().isEmpty());
+
+        // Case 3: no selection → active_plug_type == "".
+        DrawingDocumentController emptyCtl;
+        const QVariantMap model3 = emptyCtl.modelDocument();
+        assert(model3.value(QStringLiteral("active_plug_type")).toString().isEmpty());
+    }
+
     // --- B2-4: deleteConnection + deletePlug -----------------------------------
     //
     // Fixture shared across all four cases (repeated inline — DrawingDocumentController

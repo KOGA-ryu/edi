@@ -1922,9 +1922,12 @@ bool DrawingDocumentController::beginRotateCopiesCenterPick()
 
 void DrawingDocumentController::setRotateCopiesTotalAngle(double totalAngleDeg)
 {
-    // The fan angle the copies span. Clamp to a sensible non-zero range; an invalid
-    // value leaves the current angle untouched (like the fillet radius setter).
-    if (std::isfinite(totalAngleDeg) && std::abs(totalAngleDeg) >= 1.0) {
+    // Store ANY finite value (including 0.0 and small fractions) so the spin
+    // widget and the controller's backing field never diverge.  Validation of
+    // whether the angle is large enough to form a non-degenerate fan is the
+    // op's job (rotateCopiesDraftingObject rejects |angle| < 1e-6), not the
+    // setter's — the setter is a dumb store. Non-finite stays unwritten.
+    if (std::isfinite(totalAngleDeg)) {
         m_rotateCopiesTotalAngleDeg = std::clamp(totalAngleDeg, -360.0, 360.0);
     }
 }

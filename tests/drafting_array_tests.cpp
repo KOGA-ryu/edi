@@ -239,6 +239,16 @@ int main()
         auto guideRosette = rotateCopiesDraftingObject(guideSrc, {"g1"}, {0.5, 0.5}, 360.0);
         assert(!guideRosette.ok);
         assert(guideRosette.code == DraftingResultCode::InvalidGeometry);
+
+        // DR-10-fix: degenerate near-zero total angle must reject.
+        // The setter now stores 0.0 faithfully, so the op must gate it — all copies
+        // would otherwise coincide with each other and the source (zero-step fan).
+        auto zeroAngle = rotateCopiesDraftingObject(square, {"z1"}, {0.5, 0.5}, 0.0);
+        assert(!zeroAngle.ok);
+        assert(zeroAngle.code == DraftingResultCode::InvalidGeometry);
+        // A non-zero angle (however tight) is the user's choice and must still accept.
+        auto tightFan = rotateCopiesDraftingObject(square, {"t1"}, {0.5, 0.5}, 0.5);
+        assert(tightFan.ok);
     }
 
     // Array along a curve: K copies whose bounds-centre lands on evenly

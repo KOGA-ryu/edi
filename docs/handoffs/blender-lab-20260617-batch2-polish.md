@@ -117,8 +117,17 @@ edge-offset-then-intersect (kills the 1/cos_half reflex singularity) + post-hoc 
 (polyskel buggy, no dep-free option, proof tier needs good-mesh-or-clear-refusal). Validate:
 keep `prism_inset_too_large` + add `prism_inset_reflex_pinch` (inset ≥ 0.5·min adjacent edge).
 
+### RD1 — SHIPPED 2026-06-17 (`6310c30`, Sonnet; spot-check)
+ScriptOp now renders a ±0.5 unit-box OUTLINE (lineH/lineV, not fill — won't clobber co-placed
+ops) in front/side/top + BoundsEstimator frames it. doric ASCII previews byte-identical (no
+Script), 4 OBJ goldens unchanged, edi-gate GREEN (102/102), new M1 ascii test. M1 Script-
+visibility closed. (P4+P4b merged to master `fa8afb2` by edi-ui.)
+
+### RD2 — builder briefed 2026-06-17 (`briefs/037`)
+`exportRecipeStreamDiffToToon(before, after)` — diff two resolved streams' shared
+`recipeOpsToConfig` flat keys → TOON deltas (`op.4.height: 2 -> 3`); refuse unresolved by
+name; never JSON. In RecipeOpsStore. `--recipe-diff` CLI verb is edi-ui's (flag).
+
 ## Next (autonomous)
-- Bundle P4+P4b → rebase local master 70aae99 → edi-gate → bus edi-ui green tip → **RD1**
-  (ScriptOp ASCII bbox proof, roadmap M1, builder).
-- Then RD2 (recipe semantic-diff → TOON, builder), P5 (sweep miter), P6 (non-convex inset —
-  use `docs/inset-research.md`), P7 (bounds tightness). Then batch-2 CLOSEOUT.
+- RD2 (in flight) → P5 (sweep miter) → P6 (non-convex inset, use `docs/inset-research.md`)
+  → P7 (bounds tightness) → batch-2 CLOSEOUT. Rebase each on LOCAL master; bus edi-ui green tips.

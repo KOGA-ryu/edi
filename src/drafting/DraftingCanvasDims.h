@@ -22,4 +22,16 @@ inline constexpr double kDoorLeafToCorridorRatio = 0.02 / 0.045;
 
 // A corridor wall's thickness as a fraction of the corridor width (same scaling rationale).
 inline constexpr double kCorridorWallToCorridorRatio = 0.015 / 0.045;
+
+// The small offset a pasted/duplicated copy is nudged by (canvas units, both x and y) so it does not
+// land exactly on its source and become invisible. A spacing dimension -> named data.
+inline constexpr double kCopyNudgeOffset = 0.02;
+
+// The ascii-map auto-fit fills this fraction of the unit board (~80% visual with margins), so any map
+// renders centered with breathing room. A fit/padding dimension -> named data.
+inline constexpr double kAsciiBoardFillFraction = 0.62;
+
+// The default room wall thickness when a RoomSpec does not author one (canvas units). The historical
+// default, now named.
+inline constexpr double kDefaultRoomWallThickness = 0.1;
 } // namespace edi::drafting

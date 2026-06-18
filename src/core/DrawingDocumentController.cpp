@@ -3447,7 +3447,7 @@ bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
     // Auto-fit: the grid fills ~80% of the board, centred — so any map renders
     // sensibly with no placement parameters (the cheap-authoring goal).
     const AsciiMap &map = parsed.map;
-    const double cell = 0.62 / std::max(map.rows, map.cols);
+    const double cell = kAsciiBoardFillFraction / std::max(map.rows, map.cols);
     const Point2D origin{(1.0 - map.cols * cell) / 2.0, (1.0 - map.rows * cell) / 2.0};
 
     const int firstSerial = m_nextObjectSerial;
@@ -4145,7 +4145,7 @@ bool DrawingDocumentController::duplicateSelectedObject()
         [](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
             DraftingObject copy = source;
             copy.id = newId;
-            copy.geometry = translateGeometry(source.geometry, 0.02, 0.02);
+            copy.geometry = translateGeometry(source.geometry, kCopyNudgeOffset, kCopyNudgeOffset);
             copy.bounds = computeBounds(copy.geometry);
             return copy;
         });
@@ -4198,7 +4198,7 @@ bool DrawingDocumentController::paste()
     // only applies the result and threads its serial counter through.
     const int serialBefore = m_nextObjectSerial;
     DraftingPasteResult plan = planDraftingPaste(
-        m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
+        m_clipboard, "paste", m_nextObjectSerial, kCopyNudgeOffset, kCopyNudgeOffset);
     m_nextObjectSerial = plan.nextSerial;
 
     // Atomic (user decision 2026-06-11): a paste lands whole or not at all,

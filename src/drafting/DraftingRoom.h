@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingDocument.h"
 
 #include <functional>
@@ -81,7 +82,7 @@ struct RoomSpec {
     Point2D origin;
     double width = 0.0;
     double height = 0.0;
-    double wallThickness = 0.1;
+    double wallThickness = kDefaultRoomWallThickness;
     std::string wallMaterial = "stone"; // neutral tag carried on every wall
     std::vector<RoomOpening> openings;
     std::vector<RoomPlugSpec> plugs;

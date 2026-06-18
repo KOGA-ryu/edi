@@ -123,11 +123,20 @@ ops) in front/side/top + BoundsEstimator frames it. doric ASCII previews byte-id
 Script), 4 OBJ goldens unchanged, edi-gate GREEN (102/102), new M1 ascii test. M1 Script-
 visibility closed. (P4+P4b merged to master `fa8afb2` by edi-ui.)
 
-### RD2 — builder briefed 2026-06-17 (`briefs/037`)
+### RD2 — SHIPPED 2026-06-17 (`28a2a83`, Sonnet; spot-check)
 `exportRecipeStreamDiffToToon(before, after)` — diff two resolved streams' shared
-`recipeOpsToConfig` flat keys → TOON deltas (`op.4.height: 2 -> 3`); refuse unresolved by
-name; never JSON. In RecipeOpsStore. `--recipe-diff` CLI verb is edi-ui's (flag).
+`recipeOpsToConfig` flat keys → TOON deltas (`op.0.height: 2 -> 3`, `(added)`/`(removed)`);
+refuse unresolved by name; never JSON; key-parity (the diff key IS the TOML key). 7 pinned
+tests, edi-gate 103/103, 4 OBJ goldens byte-identical. `--recipe-diff` CLI flagged edi-ui.
+M6 semantic-diff closed. (RD1 merged to master `2878803`.)
+
+## Queue REORDER (planner, autonomous): P6 before P5
+P6's algorithm research is DONE (`docs/inset-research.md`); P5 (miter) needs research. So:
+**P6 (inset, builder) NOW** + **P5-miter research (researcher) in PARALLEL** → then P5
+(builder, with research) → P7 → closeout. Keeps the builder fed AND de-risks the hardest item.
+
+### P6 — builder briefed 2026-06-17 (`briefs/038`); P5-miter research — researcher briefed (`briefs/039`)
 
 ## Next (autonomous)
-- RD2 (in flight) → P5 (sweep miter) → P6 (non-convex inset, use `docs/inset-research.md`)
-  → P7 (bounds tightness) → batch-2 CLOSEOUT. Rebase each on LOCAL master; bus edi-ui green tips.
+- P6 (non-convex inset, edge-offset-then-intersect per research) + P5-miter research (parallel)
+  → P5 (sweep miter) → P7 (bounds tightness) → batch-2 CLOSEOUT. Rebase LOCAL master; bus tips.

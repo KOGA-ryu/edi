@@ -9,9 +9,9 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| drafting-20260617-batch2 | edi-drafting | builder | open — DR bucket (DR-01..15) COMPLETE; batch-2: M1 + M8-S1 (motif record/serialize) on master @fa8afb2, M8-S2 in flight. ⚠ DR-13 angular needs drafting's AngularDimension tool-kind + 2-line-pick controller arm (escalated; chrome already landed pending it). edi-ui chrome: DR-11 DONE, DR-13 chrome landed, DR-14/15/motif + DR-13 arc-painter still queued | [docs/handoffs/drafting-20260617-batch2.md](drafting-20260617-batch2.md) | edi-drafting-planner |
+| drafting-20260617-batch2 | edi-drafting | builder | open — DR bucket (DR-01..15) COMPLETE; batch-2: M1 + M8 motif library COMPLETE (S1 record/serialize + S2 placeMotif/capture) on master @2878803. ⚠ DR-13 angular needs drafting's AngularDimension tool-kind + 2-line-pick controller arm (escalated; chrome already landed pending it). edi-ui chrome: DR-11 DONE, DR-13 chrome landed, DR-14/15/motif + DR-13 arc-painter still queued | [docs/handoffs/drafting-20260617-batch2.md](drafting-20260617-batch2.md) | edi-drafting-planner |
 | ui-20260617-master-integration | edi-ui | builder ⏸ PAUSED @a6bbf4b | chrome batch-1: DR-10/DM-10/DM-14 DONE+green (caafe9f/0acba08/a6bbf4b); DM-15 BLOCKED on cross-dept projection gap (has_block_instance_selection + instance_id); reviewer audit PENDING; batch-2 (DM-01/DM-11+golden) not started. RESUME: REBALANCE merges (blender-lab batch-1 + drafting) per hub. See handoff PAUSED CHECKPOINT. | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
-| blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (P1/P2/P3/P3b spine closures watertight+oriented on master @2473a84; P4 non-linear taper in flight) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
+| blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (P1..P4b spine taper + RD1 ScriptOp bbox on master @2878803; RD2 recipe TOON diff in flight) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
 
 ## Conventions
 

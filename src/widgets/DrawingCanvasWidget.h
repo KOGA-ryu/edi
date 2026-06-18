@@ -32,8 +32,10 @@ public:
     // ON TOP of the canvas, so the auto-fit must frame content into the visible
     // sub-rectangle (widget minus these insets) rather than under a panel. Pure
     // DATA — the shell owns panel geometry and pushes it here; the canvas stays
-    // ignorant of which panels exist. A change re-fits so framing stays correct
-    // as panels open/close/resize.
+    // ignorant of which panels exist. STORE-ONLY: setting insets does NOT re-fit
+    // (re-fitting on every overlay open/close/resize would yank a user's panned/
+    // zoomed view); it just records the occlusion + repaints. The deliberate fit
+    // (fitDocumentInView, on load/reset) reads the current insets when it runs.
     void setViewInsets(const QMarginsF &insets);
     QMarginsF viewInsets() const { return m_viewInsets; }
     bool plotPreviewVisible() const;

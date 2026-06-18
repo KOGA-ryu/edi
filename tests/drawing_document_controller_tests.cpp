@@ -5161,6 +5161,9 @@ int main(int argc, char **argv)
             assert(!angCtl4.isAwaitingPointCapture());
             // planAngularDimension rejects parallel lines — no new object.
             assert(objectCount(angCtl4) == before4);
+        }
+    }
+
     // --- 024 coverage: plug-A deleted between clicks -------------------------
     // Arm the connection tool, complete the first click (plug A stored), then
     // DELETE plug A's marker before the second click. The second click should

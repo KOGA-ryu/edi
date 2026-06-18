@@ -7,13 +7,13 @@
 namespace edi::io {
 
 // All coordinates are in AUTHORED FEET on the 5 ft grid (1 tile = 5 ft).
-// The layout is hardcoded by mandate: the goal is to PROVE the seam, not to
-// run a generation algorithm.  A real algorithm is a future M1+ milestone.
+// The layout is hardcoded by mandate (user directive 2026-06-18, "doubled crypt"):
+// the goal is to PROVE the seam, not to run a generation algorithm.
 //
-// Placement rationale (socket contract §3):
-//   entrance 15×15 @ (0,0)  — 3×3 tiles, origin = NW corner
-//   crypt    20×20 @ (35,25) — 4×4 tiles, origin = NW corner
-//   gap between them: 35 - 15 = 20 ft (4 tiles) — enough for the corridor.
+// Placement (socket contract §3, doubled geometry):
+//   entrance 30×30 @ (0,10)  — 6×6 tiles, origin = NW corner
+//   crypt    50×50 @ (70,0)  — 10×10 tiles, origin = NW corner
+//   gap between them: 70 − 30 = 40 ft (8 tiles) — room for the corridor.
 //
 // Plug-position rule (socket contract §1): the realizer derives every
 // doorway centre as the MIDPOINT of the named room edge.  The generator
@@ -23,55 +23,54 @@ namespace edi::io {
 // Edges run clockwise — N(NW→NE) · E(NE→SE) · S(SE→SW) · W(SW→NW) —
 // and `at` is measured from each edge's first-named (start) corner.
 //
-//   entrance East edge: NE=(15,0) → SE=(15,15)  length=15  midpoint y=7.5
-//     at = 7.5 − 0 = 7.5 from NE    world anchor = (15, 7.5)
-//   crypt    West edge: SW=(35,45) → NW=(35,25)  length=20  midpoint y=35
-//     at = 45 − 35 = 10 from SW     world anchor = (35, 35)
+//   entrance East edge: NE=(30,10) → SE=(30,40)  length=30  midpoint y=25
+//     at = 25 − 10 = 15 from NE    world anchor = (30, 25)
+//   crypt    West edge: SW=(70,50) → NW=(70,0)   length=50  midpoint y=25
+//     at = 50 − 25 = 25 from SW    world anchor = (70, 25)
 //
-// The two plug midpoints have world y=7.5 and y=35 — non-colinear — so
-// the realizer routes an L-shaped corridor (exercises corridor_l + the full
-// set of 10 piece types that the 5090 gate needed).
+// Both plug midpoints share world y=25 — COLINEAR — so the realizer routes
+// a straight corridor (corridor_straight piece type, no bend needed).
 edi::drafting::MapSpec buildCryptMapSpec()
 {
     using namespace edi::drafting;
 
-    // ---- entrance chamber (3×3 tiles = 15×15 ft) ---------------------------
+    // ---- entrance chamber (6×6 tiles = 30×30 ft) ---------------------------
     NamedRoomSpec entrance;
     entrance.name = "entrance";
-    entrance.spec.origin = {0.0, 0.0};
-    entrance.spec.width  = 15.0;
-    entrance.spec.height = 15.0;
+    entrance.spec.origin = {0.0, 10.0};
+    entrance.spec.width  = 30.0;
+    entrance.spec.height = 30.0;
     entrance.spec.wallMaterial = "stone";
 
-    // East edge NE(15,0)→SE(15,15); midpoint at y=7.5; at = 7.5 − 0 = 7.5.
+    // East edge NE(30,10)→SE(30,40); midpoint at y=25; at = 25 − 10 = 15.
     RoomPlugSpec entrancePlug;
     entrancePlug.edge  = RoomEdge::East;
-    entrancePlug.at    = 7.5;
+    entrancePlug.at    = 15.0;
     entrancePlug.name  = "to_crypt";
     entrancePlug.type  = "door";
     entrancePlug.flags = {"crypt"}; // neutral theme tag (carried verbatim to TOON)
     entrance.spec.plugs.push_back(entrancePlug);
 
-    // ---- crypt chamber (4×4 tiles = 20×20 ft) ------------------------------
+    // ---- crypt chamber (10×10 tiles = 50×50 ft) ----------------------------
     NamedRoomSpec crypt;
     crypt.name = "crypt";
-    crypt.spec.origin = {35.0, 25.0};
-    crypt.spec.width  = 20.0;
-    crypt.spec.height = 20.0;
+    crypt.spec.origin = {70.0, 0.0};
+    crypt.spec.width  = 50.0;
+    crypt.spec.height = 50.0;
     crypt.spec.wallMaterial = "stone";
 
-    // West edge SW(35,45)→NW(35,25); midpoint at y=35; at = 45 − 35 = 10.
+    // West edge SW(70,50)→NW(70,0); midpoint at y=25; at = 50 − 25 = 25.
     RoomPlugSpec cryptPlug;
     cryptPlug.edge  = RoomEdge::West;
-    cryptPlug.at    = 10.0;
+    cryptPlug.at    = 25.0;
     cryptPlug.name  = "to_entrance";
     cryptPlug.type  = "door";
     cryptPlug.flags = {"crypt"};
     crypt.spec.plugs.push_back(cryptPlug);
 
-    // ---- connection (one L-corridor; plug midpoints non-colinear) ----------
-    // The realizer handles the bend: corridor_l piece type + two CORRIDOR_END
-    // sockets that snap to each doorway_frame (piece type table, contract §4).
+    // ---- connection (one straight corridor; plug midpoints colinear y=25) --
+    // Colinear midpoints → realizer routes corridor_straight (no bend);
+    // the L-bend variant (corridor_l) is exercised when midpoints differ.
     MapConnectionSpec connection;
     connection.from = {"entrance", "to_crypt"};
     connection.to   = {"crypt",    "to_entrance"};

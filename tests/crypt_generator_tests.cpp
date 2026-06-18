@@ -9,9 +9,9 @@
 //   integration (wiring --generate-crypt into main.cpp) is an edi-ui step that
 //   follows once the seam is proven here.
 //
-// The golden string must match the fixture samples/crypt_m0/crypt.toon
-// (rooms + plugs + connections sections); that file was the realizer's proven
-// input for the 5090 render that passed the M0 gate.
+// Golden contract: the rooms/plugs/connections sections must match the fixture
+// ~/dept-bus/dungeon-map/crypt_doubled.toon (the realizer's target input).
+// The blocks section has 0 items in G1 (props are G2).
 
 #include "core/DrawingCore.h"
 #include "drafting/DraftingDocument.h"
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
     assert(spec.rooms.size() == 2);
     assert(spec.rooms[0].name == "entrance");
-    assert(spec.rooms[1].name  == "crypt");
+    assert(spec.rooms[1].name == "crypt");
     assert(spec.connections.size() == 1);
     assert(spec.blocks.empty()); // G1 — props are G2
 
@@ -59,15 +59,15 @@ int main(int argc, char **argv)
     // anchors correctly against the room footprints.
     const std::string toon = edi::io::exportMapToToon(doc, "crypt");
 
-    // Step 4 — Pin the golden TOON contract.
+    // Step 4 — Pin the golden TOON contract (the "doubled crypt" geometry).
     //
     // Rooms/plugs/connections sections must be BYTE-IDENTICAL to the
-    // fixture samples/crypt_m0/crypt.toon (the realizer's proven input).
+    // fixture crypt_doubled.toon (the realizer's target input).
     // The blocks section is G1-specific (0 items; the fixture has 3).
     //
-    // Number formatting: %g — 0→"0", 7.5→"7.5", 15→"15", 20→"20",
-    //   25→"25", 35→"35"; coordinate cells quoted because they contain commas.
-    // The plug flag "crypt" has no delimiters, so it stays bare (not quoted).
+    // Number formatting via %g: 0→"0", 10→"10", 25→"25", 30→"30",
+    //   50→"50", 70→"70"; coordinate cells are quoted (they contain commas).
+    // The plug flag "crypt" has no delimiters → stays bare (not quoted).
     // connected=true/false is emitted directly (not via cell()).
     const std::string expected =
         "kind: map\n"
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
         "units: feet\n"
         "\n"
         "rooms[2]{name,origin,size,material}:\n"
-        "  entrance,\"0,0\",\"15,15\",stone\n"
-        "  crypt,\"35,25\",\"20,20\",stone\n"
+        "  entrance,\"0,10\",\"30,30\",stone\n"
+        "  crypt,\"70,0\",\"50,50\",stone\n"
         "\n"
         "plugs[2]{room,name,edge,type,connected,flags}:\n"
         "  entrance,to_crypt,E,door,true,crypt\n"
@@ -91,30 +91,32 @@ int main(int argc, char **argv)
 
     // Step 5 — Geometry sanity: verify the two plug anchors.
     //
-    // entrance East-edge midpoint:  world (15, 7.5)
-    //   East edge NE(15,0)→SE(15,15); at=7.5 → point {15+0*7.5, 0+1*7.5}
-    // crypt    West-edge midpoint:  world (35, 35)
-    //   West edge SW(35,45)→NW(35,25); at=10 → point {35+0*10, 45−1*10}
+    // entrance East-edge midpoint: world (30, 25)
+    //   East edge NE(30,10)→SE(30,40); at=15 → {30+0*15, 10+1*15} = (30,25)
+    // crypt    West-edge midpoint: world (70, 25)
+    //   West edge SW(70,50)→NW(70,0);  at=25 → {70+0*25, 50−1*25} = (70,25)
     //
-    // Non-colinear (y=7.5 vs y=35) → realizer routes an L-shaped corridor.
+    // COLINEAR at y=25 → realizer routes a STRAIGHT corridor (no bend).
     for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
         if (plug.name == "entrance.to_crypt") {
-            assert(std::abs(plug.anchor.x - 15.0) < 1e-9);
-            assert(std::abs(plug.anchor.y -  7.5) < 1e-9);
+            assert(std::abs(plug.anchor.x - 30.0) < 1e-9);
+            assert(std::abs(plug.anchor.y - 25.0) < 1e-9);
         } else if (plug.name == "crypt.to_entrance") {
-            assert(std::abs(plug.anchor.x - 35.0) < 1e-9);
-            assert(std::abs(plug.anchor.y - 35.0) < 1e-9);
+            assert(std::abs(plug.anchor.x - 70.0) < 1e-9);
+            assert(std::abs(plug.anchor.y - 25.0) < 1e-9);
         }
     }
 
-    // Confirm non-colinear: the two y-values differ by more than a tile.
-    double yEntrance = 0.0;
-    double yCrypt    = 0.0;
+    // Confirm colinear: both y-values equal 25 (straight corridor, no bend).
+    double yEntrance = -1.0;
+    double yCrypt    = -1.0;
     for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
-        if (plug.name == "entrance.to_crypt")  { yEntrance = plug.anchor.y; }
-        if (plug.name == "crypt.to_entrance")   { yCrypt    = plug.anchor.y; }
+        if (plug.name == "entrance.to_crypt") { yEntrance = plug.anchor.y; }
+        if (plug.name == "crypt.to_entrance") { yCrypt    = plug.anchor.y; }
     }
-    assert(std::abs(yEntrance - yCrypt) > 1.0); // 7.5 vs 35 → well above threshold
+    assert(std::abs(yEntrance - 25.0) < 1e-9); // entrance midpoint at y=25
+    assert(std::abs(yCrypt    - 25.0) < 1e-9); // crypt    midpoint at y=25
+    assert(std::abs(yEntrance - yCrypt) < 1e-9); // colinear → straight corridor
 
     return 0;
 }

@@ -271,9 +271,25 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
 - → **Fix slice `029` written, QUEUED next after B2-4** (small; fixes the bug + unblocks
   `object_plug`/B2-3). The reviewer-at-checkpoint earned its keep: green gate ≠ invariant.
 
-### Builder slice 026 (B2-4 delete plug/connection + cascade) — DISPATCHED
-- Brief: `~/dept-bus/edi-dungeon-map/briefs/026-builder-b2-4-delete-cascade.md` (the
-  double-prune ordering trap; defensive `plug:<id>` leaf cleanup). B2-5 (`027`) queued.
+### Builder slice 026 (B2-4 delete plug/connection + cascade) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/026-builder-b2-4-delete-cascade.md`. Commit
+  `01c7d3b`. edi-gate GREEN 102/102; no-rebase honored (verified clean, 73c0832 ancestor).
+  `deleteConnection` (edge + corridor; plugs/leaves stay, v1) + `deletePlug` (DeletePlug
+  FIRST then DeleteObject for marker/leaf/corridors → marker-prune is a no-op). Defensive
+  `plug:<id>` leaf cleanup (works pre/post B2-3).
+- Builder FLAG (folded into 029): the delete verbs leave `m_activeConnectionId` STALE
+  (pointing at a deleted connection) → `has_connection_selection` true for a dead id.
+
+### Reviewer checkpoint audit of B2-4 — DISPATCHED (030, parallel with 029)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/030-reviewer-b2-4-audit.md`
+- Focus: gather-before-mutate completeness (all connections naming the plug), the
+  double-prune safety, no dangling/orphaned corridor, one-undo full restore.
+
+### Builder slice 029 (m_activeConnectionId hygiene — EXPANDED) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/029-builder-b2ctx-mutex-fix.md`
+- Now covers BOTH the audit-028 bug (clear `m_activeConnectionId` at top of
+  `clickCanvasNormalized`) AND the B2-4 flag (validate-or-clear in the delete verbs).
+  Must land before B2-3. B2-5 (`027`) queued after.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

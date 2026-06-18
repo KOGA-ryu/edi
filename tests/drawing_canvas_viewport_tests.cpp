@@ -195,5 +195,51 @@ int main()
         assert(near(mappedClamped.y(), anchor.y()));
     }
 
+    // DM-01 computeFitView: a content box should frame centered with the padding
+    // margin on every side. Use a square grid + square widget so the math is clean.
+    {
+        const DrawingCanvasViewportInput fitInput{
+            .widgetWidth = 400.0,
+            .widgetHeight = 400.0,
+            .gridWidth = 1.0,
+            .gridHeight = 1.0,
+            .paddingPx = 40.0,
+        };
+        // The whole canvas [0,1] x [0,1] as content: framing it must center the
+        // box and fill the padded viewport. availWidth = 400 - 2*40 = 320; the
+        // fit-rect (at zoom 1) is 400 - 40 = 360 wide, so zoom = 320/360.
+        const DrawingCanvasViewportInput framed = computeFitView(fitInput, 0.0, 0.0, 1.0, 1.0);
+        const QRectF board = viewportBoardRect(framed);
+        // Box center (0.5,0.5) lands at the viewport center.
+        const QPointF center = canvasToScreen(board, 0.5, 0.5);
+        assert(near(center.x(), 200.0));
+        assert(near(center.y(), 200.0));
+        // The framed box spans exactly the padded width (top-left corner at the
+        // padding margin, bottom-right at widget - padding).
+        const QPointF topLeft = canvasToScreen(board, 0.0, 0.0);
+        const QPointF bottomRight = canvasToScreen(board, 1.0, 1.0);
+        assert(near(topLeft.x(), 40.0));
+        assert(near(topLeft.y(), 40.0));
+        assert(near(bottomRight.x(), 360.0));
+        assert(near(bottomRight.y(), 360.0));
+
+        // A sub-region (the right half) frames just that half, still centered.
+        const DrawingCanvasViewportInput half = computeFitView(fitInput, 0.5, 0.0, 0.5, 1.0);
+        const QRectF halfBoard = viewportBoardRect(half);
+        const QPointF halfCenter = canvasToScreen(halfBoard, 0.75, 0.5);
+        assert(near(halfCenter.x(), 200.0));
+        assert(near(halfCenter.y(), 200.0));
+
+        // A degenerate (zero-area) box is a no-op: zoom + pan are untouched.
+        DrawingCanvasViewportInput preset = fitInput;
+        preset.zoom = 3.0;
+        preset.panXPx = 11.0;
+        preset.panYPx = -5.0;
+        const DrawingCanvasViewportInput unchanged = computeFitView(preset, 0.2, 0.2, 0.0, 0.0);
+        assert(near(unchanged.zoom, 3.0));
+        assert(near(unchanged.panXPx, 11.0));
+        assert(near(unchanged.panYPx, -5.0));
+    }
+
     return 0;
 }

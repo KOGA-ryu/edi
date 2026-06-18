@@ -21,6 +21,7 @@
 #include "io/SettingsStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextSessionStore.h"
+#include "widgets/DrawingCanvasWidget.h"
 #include "widgets/EdiShellWindow.h"
 
 namespace {
@@ -335,6 +336,15 @@ int main(int argc, char **argv)
                 // Record the same scale on the document so the engine export recovers feet.
                 const bool ok = controller->createMapFromSpec(parsed.spec, kCanvasPerFoot);
                 QTextStream(stdout) << "map-file: " << (ok ? "generated" : "rejected by builder") << '\n';
+                // DM-01: frame the freshly-loaded map so it renders whole, not
+                // clipped. View-only (no model mutation), so it can't loop. The
+                // snapshot settle below re-fits after any workspace switch sizes
+                // the canvas — this covers the interactive/no-snapshot path.
+                if (ok) {
+                    if (auto *canvas = window.findChild<DrawingCanvasWidget *>()) {
+                        canvas->fitDocumentInView();
+                    }
+                }
             }
         }
     }
@@ -408,6 +418,13 @@ int main(int argc, char **argv)
                 QTextStream(stdout) << "paint-bench: " << frames << " frames, "
                                     << elapsed << " ms total, "
                                     << (static_cast<double>(elapsed) / frames) << " ms/frame\n";
+            }
+            // DM-01: re-fit AFTER the layout settles. The canvas only knows its
+            // real pixel size once the splitter/workspace has been sized, so the
+            // authoritative framing for the captured image happens here, right
+            // before the grab. View-only — no model edit, no modelChanged loop.
+            if (auto *canvas = window.findChild<DrawingCanvasWidget *>()) {
+                canvas->fitDocumentInView();
             }
             runRenderProof(app, window,
                            parser.value(snapshotOption), parser.values(probeOption));

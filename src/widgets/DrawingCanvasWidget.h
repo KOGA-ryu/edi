@@ -22,6 +22,11 @@ public:
     void setPlotPreviewVisible(bool visible);
     void zoomAtCenter(double factor);
     void resetView(); // zoom 1, pan 0 — which IS fit-to-board by layout
+    // DM-01: frame the whole document (every object's union bounds) in the
+    // viewport. A view-only transform — it reads computeDocumentBounds() and
+    // applies a pan/zoom, never touching the model, so it cannot loop modelChanged.
+    // An empty document (nullopt bounds) is a no-op, leaving the view as-is.
+    void fitDocumentInView();
     bool plotPreviewVisible() const;
     // Re-theme the canvas chrome (board, grid, snap markers...). Object
     // stroke colors are document data and are untouched by this.

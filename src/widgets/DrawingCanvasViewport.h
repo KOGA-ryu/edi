@@ -30,6 +30,16 @@ QRectF viewportBoardRect(const DrawingCanvasViewportInput &input);
 // Returns a new input whose zoom is scaled by factor (clamped) and whose pan is
 // solved so the canvas point currently under anchorPx stays under anchorPx.
 DrawingCanvasViewportInput zoomViewportAtPoint(const DrawingCanvasViewportInput &input, double factor, const QPointF &anchorPx);
+// DM-01 view-auto-fit: given a content box in NORMALIZED canvas coords ([0,1] over
+// the grid — the same space documentObjectsBounds() reports), return a new input
+// whose zoom + pan FRAME that box centered in the viewport with `paddingPx` of
+// margin on every side. A degenerate (zero-area) box leaves zoom/pan untouched —
+// there is nothing to frame, so the caller's view is preserved. The zoom is
+// clamped to the viewport limits; a box larger than the limits allow simply
+// renders as large as the clamp permits, still centered.
+DrawingCanvasViewportInput computeFitView(const DrawingCanvasViewportInput &input,
+                                          double contentX, double contentY,
+                                          double contentWidth, double contentHeight);
 QPointF canvasToScreen(const QRectF &board, double x, double y);
 QRectF boundsToScreenRect(const QRectF &board, double x, double y, double width, double height);
 QPointF screenToCanvas(const QRectF &board, const QPointF &point);

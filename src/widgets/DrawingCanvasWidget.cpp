@@ -423,6 +423,26 @@ void DrawingCanvasWidget::resetView()
     update();
 }
 
+void DrawingCanvasWidget::fitDocumentInView()
+{
+    if (m_controller == nullptr) {
+        return;
+    }
+    // Object bounds live in the SAME normalized [0,1] canvas space the board maps
+    // (canvasToScreen multiplies by board width/height), so they feed computeFitView
+    // directly. nullopt = empty document = nothing to frame, so leave the view be.
+    const std::optional<edi::drafting::Bounds2D> bounds = m_controller->computeDocumentBounds();
+    if (!bounds) {
+        return;
+    }
+    const drawing_canvas::DrawingCanvasViewportInput framed = drawing_canvas::computeFitView(
+        viewportInput(), bounds->x, bounds->y, bounds->width, bounds->height);
+    m_zoom = framed.zoom;
+    m_pan = QPointF(framed.panXPx, framed.panYPx);
+    emit zoomChanged();
+    update();
+}
+
 bool DrawingCanvasWidget::event(QEvent *event)
 {
     // Trackpad pinch arrives as a native gesture, not a wheel event. The

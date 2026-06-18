@@ -276,6 +276,37 @@ def main() -> int:
     assert abs(end_extent - 0.5 * start_extent) < 1e-9, \
         f"taper_end=0.5 should halve the end cross-section: start {start_extent}, end {end_extent}"
 
+    # P4: taper_curve remaps the linear path-fraction t → t^taper_curve before
+    # the lerp. taper_curve=1.0 is t^1=t = LINEAR = byte-identical to BL-09.
+    # taper_curve=2.0 BACK-LOADS the narrowing: at the mid-path point (t=0.5)
+    # the curved fraction is 0.5^2=0.25, so scale there is lerp(1,0.5,0.25)=0.875
+    # vs the linear's lerp(1,0.5,0.5)=0.75 — the mid-loop is WIDER for curve=2.
+    linear_at_mid = 1.0 + (0.5 - 1.0) * 0.5    # lerp(1,0.5,0.5) = 0.75
+    curved_at_mid = 1.0 + (0.5 - 1.0) * (0.5 ** 2.0)  # lerp(1,0.5,0.25) = 0.875
+    assert curved_at_mid > linear_at_mid, "curve=2 should give a wider mid-section than linear"
+    # Confirm via actual vertex spans: path has 2 points (index 0 and 1); the
+    # sweep interpolates at k=0 (t=0) and k=1 (t=1). With a single-segment
+    # path the ONLY interior point is k=0 (scale=1, identical for both), so use
+    # a 3-point path to expose the mid-segment. Build a synthetic op directly.
+    import math as _math
+    fp3 = [{"x": 0.0, "y": 0.0}, {"x": 0.0, "y": 1.0},
+           {"x": 1.0, "y": 1.0}, {"x": 1.0, "y": 0.0}]
+    path3 = [{"x": 0.0, "y": 0.0}, {"x": 1.0, "y": 0.0}, {"x": 2.0, "y": 0.0}]
+    base_op = {"footprint": fp3, "path": path3, "x": 0.0, "y": 0.0,
+               "base_z": 0.0, "taper_end": 0.5, "inset": 0.0, "normal_offset": 0.0}
+    n_fp3 = 4  # 4 footprint points → 4 verts per loop
+    lin_verts = edi_craft._prism_world(dict(base_op, taper_curve=1.0))[0]
+    cur_verts = edi_craft._prism_world(dict(base_op, taper_curve=2.0))[0]
+    # Loop at k=1 (mid-path) is verts [n_fp3 .. 2*n_fp3-1]; extent by z-span.
+    lin_mid = extent(lin_verts[n_fp3: 2 * n_fp3])
+    cur_mid = extent(cur_verts[n_fp3: 2 * n_fp3])
+    assert cur_mid > lin_mid + 1e-9, \
+        f"curve=2.0 mid-loop must be wider than linear: linear={lin_mid}, curved={cur_mid}"
+    # taper_curve=1.0 exactly matches linear (byte-identical to BL-09 linear).
+    lin_verts2 = edi_craft._prism_world(dict(base_op, taper_curve=1.0))[0]
+    lin_ref   = edi_craft._prism_world(dict(base_op))[0]  # no taper_curve key → default 1.0
+    assert lin_verts2 == lin_ref, "taper_curve=1.0 must be byte-identical to omitting the key"
+
     # BL-10: inset shrinks the (straight) extrude's footprint; normal_offset
     # fattens the shell. Both 0 are byte-identical to the existing mesh.
     straight = edi_craft.parse_ops(

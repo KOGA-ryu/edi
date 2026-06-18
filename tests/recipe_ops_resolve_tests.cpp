@@ -730,7 +730,8 @@ int main()
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
         assert(lowered != nullptr); // the sweep reference is GONE, a prism stands
         assert(lowered->name == "cornice.run");
-        assert(near(lowered->taperEnd, 0.5)); // BL-09: the taper survived lowering
+        assert(near(lowered->taperEnd, 0.5));    // BL-09: the taper survived lowering
+        assert(near(lowered->taperCurve, 1.0)); // P4: default curve survives lowering
         assert(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
         assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
         // The path is the projected "cut" line: (0.2,0.2)->(0.5,0.6) on the 12x8 grid.
@@ -740,6 +741,26 @@ int main()
         assert(validateRecipeOps(r.stream.ops).ok);
         assert(recipeOpsResolved(r.stream));
         assert(std::get_if<AddSweepProfileOp>(&s.ops[0]) != nullptr); // input untouched (purity)
+    }
+
+    // ---- P4: taperCurve survives sweep→prism lowering. A non-default curve
+    // (e.g. 2.5) set on the sweep must appear verbatim on the lowered prism;
+    // it is a pure data copy, like taperEnd was in BL-09. ----
+    {
+        RecipeOpStream s;
+        AddSweepProfileOp curved;
+        curved.name = "cornice.curved";
+        curved.profile = "panel";
+        curved.path = "cut";
+        curved.taperEnd = 0.4;
+        curved.taperCurve = 2.5; // P4: non-linear back-loaded taper
+        s.ops.push_back(curved);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->taperEnd, 0.4));    // BL-09 taper end survived
+        assert(near(lowered->taperCurve, 2.5)); // P4 curve exponent survived
     }
 
     // ---- BL-08 refusals: a deleted/wrong-kind profile-or-path, and a

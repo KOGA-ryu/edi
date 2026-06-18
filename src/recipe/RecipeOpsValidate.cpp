@@ -70,6 +70,19 @@ void checkTaperEnd(std::vector<OpFinding> &findings, const std::string &name, do
     }
 }
 
+// P4: taperCurve is the exponent applied to the path-fraction t before lerping:
+// scale = lerp(1, taperEnd, t^taperCurve). Must be positive (taperCurve=0 would
+// reduce t^0=1 everywhere, erasing all taper regardless of taperEnd — a silent
+// footgun). Non-finite is always refused. Shared by the sweep and the prism it
+// lowers to, mirroring checkTaperEnd.
+void checkTaperCurve(std::vector<OpFinding> &findings, const std::string &name, double taperCurve)
+{
+    if (!(taperCurve > 0) || !std::isfinite(taperCurve)) {
+        add(findings, Severity::Error, "bad_taper_curve",
+            name + " taper_curve must be a positive, finite exponent.");
+    }
+}
+
 // The per-op checks, v0 codes and wording preserved. A visitor over the
 // variant — the same dispatch shape the drafting commands use.
 struct OpChecker {
@@ -263,6 +276,7 @@ struct OpChecker {
             }
         }
         checkTaperEnd(findings, op.name, op.taperEnd);
+        checkTaperCurve(findings, op.name, op.taperCurve); // P4
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -283,6 +297,7 @@ struct OpChecker {
                 op.name + " starts below z=0.");
         }
         checkTaperEnd(findings, op.name, op.taperEnd);
+        checkTaperCurve(findings, op.name, op.taperCurve); // P4
         checkMaterial(findings, op.name, op.material);
     }
 

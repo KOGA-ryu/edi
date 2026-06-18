@@ -1422,6 +1422,69 @@ int main()
         assert(negReport.ok);
     }
 
+    // ---- P4: taperCurve — non-linear taper exponent on BOTH AddPrismOp and
+    // AddSweepProfileOp. Default 1.0 (linear = behavior-preserving). The exponent
+    // t^taperCurve remaps the path-fraction before the taper lerp; 1.0 is the
+    // identity (t^1=t). Must be positive and finite (0 erases all taper silently).
+    // Round-trip, validate refusals (<=0 / non-finite / NaN), default 1.0. ----
+    {
+        // Default struct value is 1.0 on both ops.
+        AddPrismOp defPrism;
+        defPrism.name = "p"; defPrism.height = 1.0; defPrism.baseZ = 0.0;
+        defPrism.footprint = {{0,0},{1,0},{1,1}};
+        assert(near(defPrism.taperCurve, 1.0));
+
+        AddSweepProfileOp defSweep;
+        defSweep.name = "s"; defSweep.profile = "prof"; defSweep.path = "pth";
+        assert(near(defSweep.taperCurve, 1.0));
+
+        // A non-default taperCurve round-trips on AddPrismOp.
+        RecipeOpStream ps;
+        ps.id = "p4.zoo"; ps.name = "P4 Zoo";
+        AddPrismOp curved = defPrism;
+        curved.taperCurve = 2.5;
+        curved.taperEnd = 0.4;
+        ps.ops.push_back(curved);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.taper_curve = \"2.5\"") != std::string::npos);
+        const OpStreamParseResult pback = recipeOpsFromToml(pw.text, "p4.zoo");
+        assert(pback.ok && pback.stream.ops.size() == 1);
+        const auto *prismBack = std::get_if<AddPrismOp>(&pback.stream.ops[0]);
+        assert(prismBack != nullptr && near(prismBack->taperCurve, 2.5));
+
+        // Default 1.0 round-trips: the TOML has taper_curve = "1" and reads
+        // back as 1.0 — a pre-P4 stream that omits the key also parses to 1.0.
+        RecipeOpStream defaults;
+        defaults.id = "p4.def"; defaults.name = "P4 Defaults";
+        defaults.ops.push_back(defPrism);
+        const OpStreamTextResult dw = recipeOpsToToml(defaults);
+        assert(dw.ok);
+        assert(dw.text.find("op.0.taper_curve = \"1\"") != std::string::npos);
+        const auto *dback = std::get_if<AddPrismOp>(&recipeOpsFromToml(dw.text, "p4.def").stream.ops[0]);
+        assert(dback != nullptr && near(dback->taperCurve, 1.0));
+
+        // Validate refuses taperCurve <= 0 or non-finite.
+        auto checkBadCurve = [](AddPrismOp op, double curve) {
+            op.taperCurve = curve;
+            const OpValidationReport r = validateRecipeOps({RecipeOp{op}});
+            bool saw = false;
+            for (const OpFinding &f : r.findings) {
+                saw = saw || f.code == "bad_taper_curve";
+            }
+            assert(!r.ok && saw);
+        };
+        checkBadCurve(defPrism, 0.0);
+        checkBadCurve(defPrism, -1.0);
+        checkBadCurve(defPrism, std::numeric_limits<double>::infinity());
+        checkBadCurve(defPrism, std::numeric_limits<double>::quiet_NaN());
+
+        // Validate ACCEPTS taperCurve > 0 (e.g. 0.5 front-loads the narrowing).
+        AddPrismOp halfCurve = defPrism;
+        halfCurve.taperCurve = 0.5;
+        assert(validateRecipeOps({RecipeOp{halfCurve}}).ok);
+    }
+
     // ---- BL-06: partial-angle revolve sweepDegrees — a numeric field on BOTH
     // the lathe and the moulding it lowers to (it must survive lowering), with
     // 360 as the behavior-preserving default. Round-trip, default, validate

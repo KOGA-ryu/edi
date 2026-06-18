@@ -146,6 +146,12 @@ struct AddPrismOp {
     // path start to taperEnd at the path end (a shaft / spire). 1.0 = no taper
     // (the byte-preserving default). Ignored for a straight extrude (empty path).
     double taperEnd = 1.0;
+    // P4: non-linear taper exponent. The linear taper fraction t = cumLen/total
+    // is raised to this power before multiplying the lerp: t^taperCurve.
+    // 1.0 = linear (identity, byte-preserving). >1 back-loads the narrowing
+    // toward the path end (ogee / curved spire); <1 front-loads it. SURVIVES
+    // lowering. Positive and finite required (taperCurve=0 would erase all taper).
+    double taperCurve = 1.0;
     // BL-10: two cheap depth verbs. `inset` shrinks the footprint loop inward
     // (a recessed lip) before extruding/lofting; `normalOffset` fattens the
     // built shell along its normals (a uniform inflate, negative = shrink).
@@ -226,6 +232,8 @@ struct AddSweepProfileOp {
     // BL-09: taper — scale the profile from 1.0 at the path start to taperEnd at
     // the end. 1.0 = no taper (default). SURVIVES lowering onto AddPrismOp.
     double taperEnd = 1.0;
+    // P4: non-linear taper exponent (see AddPrismOp::taperCurve). SURVIVES lowering.
+    double taperCurve = 1.0;
 };
 
 struct CutFlutesOp {

@@ -411,6 +411,9 @@ def parse_ops(path: str) -> list[dict]:
                 # BL-09: taper scale at the path end (1.0 = none). Straight
                 # extrude (empty path) ignores it.
                 taper_end=_number(op_key, fields, consumed, "taper_end", 1.0),
+                # P4: non-linear taper exponent. t^taper_curve remaps the
+                # linear fraction before the lerp. 1.0 = linear (identity).
+                taper_curve=_number(op_key, fields, consumed, "taper_curve", 1.0),
                 # BL-10: inset shrinks the footprint inward; normal_offset
                 # inflates the shell along its normals. Both 0 = no change.
                 inset=_number(op_key, fields, consumed, "inset", 0.0),
@@ -984,6 +987,13 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
 
     taper = op.get("taper_end", 1.0)
     tapering = taper != 1.0
+    # P4: taper_curve is the power applied to the linear fraction t before
+    # the lerp: scale = lerp(1, taper, t^taper_curve). When taper_end==1.0
+    # tapering is False and we never reach the scale path, so the no-taper
+    # sweep stays byte-identical regardless of taper_curve. When taper_end
+    # differs from 1.0 and taper_curve==1.0, t^1.0==t and the result is
+    # identical to the BL-09 linear path.
+    taper_curve = op.get("taper_curve", 1.0)
     cx = sum(fx for fx, _ in fp) / n if tapering else 0.0  # footprint centroid
     cy = sum(fy for _, fy in fp) / n if tapering else 0.0
     # Cumulative path length per point, so the taper fraction tracks distance
@@ -1004,7 +1014,8 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
         length = math.hypot(tx, ty) or 1.0
         tx, ty = tx / length, ty / length
         nx, ny = -ty, tx  # in-plane normal to the path tangent
-        scale = 1.0 + (taper - 1.0) * (cumlen[k] / total)
+        t = (cumlen[k] / total) ** taper_curve  # P4: curved fraction (1.0 = linear)
+        scale = 1.0 + (taper - 1.0) * t
         for fx, fy in fp:
             if tapering:  # scale the cross-section about its centroid
                 fx, fy = cx + scale * (fx - cx), cy + scale * (fy - cy)

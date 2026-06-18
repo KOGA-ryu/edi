@@ -94,14 +94,23 @@ realizer needs.
 
 ## 3. The M0 crypt the generator hardcodes (the slice)
 
-- **2 rooms**, 5 ft-aligned: entrance chamber + crypt chamber. RECOMMENDED:
-  entrance 15×15 @ (0,5), crypt 25×25 @ (35,0) — facing-edge midpoints colinear at
-  world y=12.5 ⇒ a STRAIGHT corridor (see §1 plug-position rule).
-- **1 plug per room** at the facing-edge midpoint (entrance East, crypt West) +
-  **1 connection** (type "corridor") joining them.
-- **2 block instances** in the crypt chamber: `crypt.sarcophagus` (a box prop) and
-  `crypt.brazier` (a prop + the scene light). Identity transform (scale 1, rot 0).
-- Hand-authored, not generated — proves the seam, not an algorithm.
+The generator REPRODUCES the proven dev fixture `samples/crypt_m0/crypt.toon`
+(rendered all-10 on the 5090) so the one-command chain generator→PNG yields the full
+gate render. Layout (5 ft-aligned):
+- **entrance** 15×15 @ (0,0), material stone. **crypt** 20×20 @ (35,25), material stone.
+- **1 plug per room** at its facing-edge MIDPOINT, type "door", flags `[crypt]`:
+  entrance `to_crypt` on **E** (anchor world (15,7.5)); crypt `to_entrance` on **W**
+  (anchor world (35,35)). The midpoints are NON-colinear (7.5 vs 35) ⇒ the realizer
+  routes an **L corridor** (`corridor_l`), which — together with the stair block —
+  is what makes the render exercise all 10 piece types (a straight slice yields 8/10).
+- **1 connection** `entrance.to_crypt ↔ crypt.to_entrance`, type "corridor".
+- **3 block instances** in the crypt (identity transform): `crypt.sarcophagus` @
+  (45,35) + `crypt.brazier` @ (40,40) (the 2 PROPS + the scene light) and
+  `crypt.stair` @ (36,35) (the STAIR piece, delivered as a block per §2). 2 props +
+  1 light + 1 structural-stair-block.
+- Hand-authored, not generated — proves the seam, not an algorithm. Target: the
+  generator's `exportMapToToon` output equals the fixture's rooms/plugs/connections/
+  blocks rows (a drop-in for `samples/crypt_m0/crypt.toon`).
 
 ---
 

@@ -160,11 +160,22 @@ Replaced `_inset_polygon` with edge-offset-then-intersect + refuse(None)/fallbac
 research formula** (denom). edi-gate 103/103, 4 OBJ goldens byte-identical (inset=0 identity).
 Riskiest geometry + a corrected formula → full Opus audit before merge.
 
-### P7 — builder briefed (`briefs/042`) — runs WHILE P6 is audited (independent: bounds_of, not
-the inset/miter mesh). Tighten `bounds_of` for helix (z-lift) + swept prism (path extent). OBJ
-goldens unaffected (bounds_of is preview-framing, not obj_lines).
+### P6 — SHIPPED 2026-06-17 (`c0fce01`, Sonnet; Opus audit `replies/041`: SHIP, clean)
+Reviewer independently re-derived the line-intersection formula (builder's correction RIGHT —
+the research had a real sign flip), probed refuse/fallback across many reflex configs (no
+false-accept, no over-reject), verified the validate guard + fallback (no leak) + byte-identity
++ identity early-out. Riskiest item, verified sound. **Doc nit fixed:** `docs/inset-research.md`
+§4 denom corrected (was sign-flipped) so a future reader can't re-introduce the bug.
+
+### P7 — SHIPPED 2026-06-17 (`replies/042`, Sonnet; spot-check)
+`bounds_of` helix branch now scans `_moulding_world` verts (exact, drift-proof z-lift + radius);
+straight branch keeps the formula verbatim (byte-identical doric); swept prism already tight
+since BL-08 (added a regression test). OBJ goldens unaffected (preview-framing only). 103/103.
+
+### P5 — builder briefed 2026-06-17 (`briefs/043`) — the FINAL batch-2 slice (on verified P6)
+Bisector miter frame in `_swept_prism_world` per `docs/miter-research.md`. **Regenerates
+`swept_profile.obj`** (90° corner → miter_scale √2). Sharp-corner refusal.
 
 ## Next (autonomous)
-- P6 audit (reviewer) + P7 (builder) in PARALLEL → then **P5 (sweep miter, on VERIFIED P6;
-  research-ready; regen swept_profile.obj)** → batch-2 CLOSEOUT. P5 stacks on P6 (same
-  `_swept_prism_world`) so it waits for P6's audit. Rebase LOCAL master; bus edi-ui green tips.
+- P5 (miter) → batch-2 CLOSEOUT (all 8 deferred + 3 roadmap-depth items done). Bus edi-ui;
+  rebase LOCAL master.

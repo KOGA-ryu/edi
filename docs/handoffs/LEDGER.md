@@ -9,7 +9,7 @@ update it when a gate opens, advances, blocks, or closes.
 
 | Campaign id | Department | Gate | Status | Handoff doc | Session id |
 | --- | --- | --- | --- | --- | --- |
-| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..12 on master @f8bed78; DR-10/11 surfaced → edi-ui chrome owed; DR-13 angular-dim painter seam is edi-ui's, rides eventual Angular tool wiring) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
+| drafting-20260617-feature-bucket | edi-drafting | builder | open (DR-01..13 + DR-10-fix on master @20ff64f; DR-14 in flight; edi-ui chrome owed: DR-10/11 surfaces done, DR-13 angular-dim PAINTER seam pending Angular tool wiring) | [docs/handoffs/drafting-20260617-feature-bucket.md](drafting-20260617-feature-bucket.md) | edi-drafting-planner |
 | ui-20260617-master-integration | edi-ui | builder ⏸ PAUSED @a6bbf4b | chrome batch-1: DR-10/DM-10/DM-14 DONE+green (caafe9f/0acba08/a6bbf4b); DM-15 BLOCKED on cross-dept projection gap (has_block_instance_selection + instance_id); reviewer audit PENDING; batch-2 (DM-01/DM-11+golden) not started. RESUME: REBALANCE merges (blender-lab batch-1 + drafting) per hub. See handoff PAUSED CHECKPOINT. | [docs/handoffs/ui-20260617-master-integration.md](ui-20260617-master-integration.md) | edi-ui-planner |
 | blender-lab-20260617-feature-batch | edi-blender-lab | builder | open (full batch incl P1/P2 boolean-proof merged to master @88452bb; rebase + next batch) | [docs/handoffs/blender-lab-20260617-feature-batch.md](blender-lab-20260617-feature-batch.md) | edi-blender-lab-planner |
 

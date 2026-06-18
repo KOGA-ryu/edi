@@ -97,7 +97,28 @@ watertight AND oriented, locked by asserts.**
 
 ## REBASE GUARD (standing, hub fleet-infra)
 origin/master is STALE/frozen. Rebase ONLY onto LOCAL `master` ref (no `git fetch`, never
-origin/master). In EVERY slice brief. Local master is the real line (was 73c0832 → 1a9a7df
-after P3 merge).
-- Then P4 per-axis taper, RD1 ScriptOp ASCII bbox, RD2 recipe TOON diff, P5/P6 hard
-  geometry, P7 bounds tightness. Bus edi-ui the next green tip after each accepted slice.
+origin/master). In EVERY slice brief. Local master is the real line (73c0832 → 1a9a7df (P3)
+→ 2473a84 (P3b) → 70aae99 (DR-01..15 + more); rebase onto whatever it currently is).
+
+## AUTONOMOUS run (user call) — run the queue ahead; bus-hub only on milestones
+### P4 — SHIPPED 2026-06-17 (`2d2f02b`, Sonnet; spot-check)
+Non-linear taper `taperCurve` (default 1.0 = linear = byte-identical). `t → t**taper_curve`
+remap; survives lowering; bad_taper_curve validate; additive `taper_curve="1"` golden; 4 OBJ
+byte-identical; smoke pins curved≠linear. Accepted on green gate + spot-check.
+### P4b — SHIPPED 2026-06-17 (`d78f75c`, Sonnet; spot-check)
+Per-axis taper `taperEndY` (0-sentinel = follow taperEnd → uniform = byte-identical). Per-axis
+sx/sy scale about centroid; early-out enters when EITHER axis tapers; 0 allowed in validate
+(sentinel); additive `taper_end_y="0"` golden; 4 OBJ byte-identical; smoke pins X/Y asymmetry.
+**→ the deferred "per-axis / non-linear taper" item is now FULLY CLOSED (P4 + P4b).**
+### RD-inset — SHIPPED 2026-06-17 (`e50e976`, researcher, docs-only)
+`docs/inset-research.md` — P6 de-risked. Recommendation: replace `_inset_polygon` with
+edge-offset-then-intersect (kills the 1/cos_half reflex singularity) + post-hoc refuse
+(shoelace sign-flip / self-intersection → None → fallback). Straight-skeleton REJECTED
+(polyskel buggy, no dep-free option, proof tier needs good-mesh-or-clear-refusal). Validate:
+keep `prism_inset_too_large` + add `prism_inset_reflex_pinch` (inset ≥ 0.5·min adjacent edge).
+
+## Next (autonomous)
+- Bundle P4+P4b → rebase local master 70aae99 → edi-gate → bus edi-ui green tip → **RD1**
+  (ScriptOp ASCII bbox proof, roadmap M1, builder).
+- Then RD2 (recipe semantic-diff → TOON, builder), P5 (sweep miter), P6 (non-convex inset —
+  use `docs/inset-research.md`), P7 (bounds tightness). Then batch-2 CLOSEOUT.

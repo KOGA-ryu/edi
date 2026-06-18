@@ -407,9 +407,23 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
 - **Live-test verdict:** PASS — precise brief + Sonnet builder + edi-gate + bus-reply +
   planner review all exercised; builder context OK (no recycle needed).
 
+### DR-13 — angular dimension — opened at the REVIEWER GATE 2026-06-17 (representation)
+- Brief: `~/dept-bus/edi-drafting/briefs/027-DR13-angular-representation-reviewer.md`.
+  **Why a gate, not straight to the Sonnet builder:** the representation is genuinely
+  unsettled. `DimensionGeometry` persists only `{kind,a,b,offset}` (5 scalars); an angular
+  dim needs vertex(2)+2 rays(2)+arc-radius(1)=5 dof, but the ratified "store two ray
+  endpoints as a/b, no new field" leaves only `offset` for the vertex+2nd-ray and CAN'T
+  encode the vertex. A Sonnet builder must not improvise a PERSISTENT format. Reviewer
+  (Opus, on-target, 183k — no recycle) settles the exact `{a,b,offset}` encoding + how the
+  renderer recovers the vertex/angle + feasibility of "no new field" (escalate to hub if
+  infeasible) + bounded slices. Then I brief the builder precisely.
+- Fleet/ctx (resume duty): dept-status checked; my reviewer opus/183k OK, builder
+  sonnet/fresh OK. (Researcher off-target but idle — converges at next use.)
+
 ## Open questions / blockers
-- (none blocking — DR-12 green on dept/drafting. DR-11+fix+DR-12 (tip e111398) all await
-  edi-ui merge, non-blocking; integration is the hub/edi-ui's to resume post-swap.)
+- DR-13 angular-dimension REPRESENTATION under reviewer gate — may surface that "no new
+  DimensionGeometry field" is infeasible (→ a scope escalation to re-open the ratified fork).
+- DR-11+fix+DR-12 (tip `e111398`) verified, await edi-ui pull (non-blocking).
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

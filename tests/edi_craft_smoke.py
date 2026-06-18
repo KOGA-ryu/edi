@@ -307,6 +307,46 @@ def main() -> int:
     lin_ref   = edi_craft._prism_world(dict(base_op))[0]  # no taper_curve key → default 1.0
     assert lin_verts2 == lin_ref, "taper_curve=1.0 must be byte-identical to omitting the key"
 
+    # P4b: per-axis (asymmetric) taper. taper_end=1.0 (no local-X taper) +
+    # taper_end_y=0.5 (local-Y narrows to half) → the cross-section is anisotropic.
+    # In _swept_prism_world the footprint's local-X (fx) maps to the in-plane
+    # normal direction and local-Y (fy) maps to WORLD Z (the height dimension).
+    # So taper_end_y=0.5 halves the world-Z span of the end loop while
+    # taper_end=1.0 leaves the normal-direction span unchanged.
+    asym_op = {"footprint": fp3, "path": path3, "x": 0.0, "y": 0.0,
+               "base_z": 0.0, "taper_end": 1.0, "taper_end_y": 0.5,
+               "inset": 0.0, "normal_offset": 0.0}
+    asym_verts = edi_craft._prism_world(asym_op)[0]
+    end_loop = asym_verts[-n_fp3:]
+    start_loop = asym_verts[:n_fp3]
+    # extent() measures world-Z span (= local-Y of the footprint, controlled by sy).
+    # taper_end_y=0.5 → sy=0.5 at t=1 → end Z span ≈ half of start Z span.
+    assert abs(extent(end_loop) - 0.5 * extent(start_loop)) < 1e-9, \
+        f"taper_end_y=0.5 should halve Z-extent at end: start={extent(start_loop)}, end={extent(end_loop)}"
+    # World-Y span (= footprint local-X, controlled by sx).
+    # taper_end=1.0 → sx=1.0 → end world-Y span == start world-Y span.
+    def wy_extent(loop):
+        return max(v[1] for v in loop) - min(v[1] for v in loop)
+    assert abs(wy_extent(end_loop) - wy_extent(start_loop)) < 1e-9, \
+        f"taper_end=1.0 should leave normal-dir span unchanged: start={wy_extent(start_loop)}, end={wy_extent(end_loop)}"
+    # Sanity: taper_end_y does change the Z span (asymmetry is real).
+    uniform_taper = {"footprint": fp3, "path": path3, "x": 0.0, "y": 0.0,
+                     "base_z": 0.0, "taper_end": 0.5, "taper_end_y": 0.0,
+                     "inset": 0.0, "normal_offset": 0.0}
+    unif_verts = edi_craft._prism_world(uniform_taper)[0]
+    unif_end = unif_verts[-n_fp3:]
+    # Uniform taper (taper_end_y=0 → sentinel → follow taper_end=0.5):
+    # both Z and Y spans halved; asymmetric op has only Z halved.
+    assert abs(wy_extent(unif_end) - 0.5 * wy_extent(unif_verts[:n_fp3])) < 1e-9, \
+        "uniform taper should also halve the normal-direction span"
+    # taper_end_y=0 (default sentinel) is byte-identical to omitting the key.
+    uniform_op = dict(base_op, taper_end=1.0)  # no taper → base reference
+    sentinel_op = dict(uniform_op, taper_end_y=0.0)  # explicit sentinel
+    uniform_verts = edi_craft._prism_world(uniform_op)[0]
+    sentinel_verts = edi_craft._prism_world(sentinel_op)[0]
+    assert sentinel_verts == uniform_verts, \
+        "taper_end_y=0 (sentinel) must be byte-identical to no taper_end_y key"
+
     # BL-10: inset shrinks the (straight) extrude's footprint; normal_offset
     # fattens the shell. Both 0 are byte-identical to the existing mesh.
     straight = edi_craft.parse_ops(

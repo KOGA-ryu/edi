@@ -1485,6 +1485,60 @@ int main()
         assert(validateRecipeOps({RecipeOp{halfCurve}}).ok);
     }
 
+    // ---- P4b: taperEndY — per-axis Y taper with a 0-sentinel (default 0 =
+    // follow taperEnd = uniform). 0 is ALLOWED (it's the sentinel, not a
+    // degenerate scale); only < 0 and non-finite are refused. ----
+    {
+        AddPrismOp defPrism;
+        defPrism.name = "q"; defPrism.height = 1.0; defPrism.baseZ = 0.0;
+        defPrism.footprint = {{0,0},{1,0},{1,1}};
+        assert(near(defPrism.taperEndY, 0.0)); // default is the sentinel
+
+        // Non-default taperEndY round-trips.
+        RecipeOpStream ps;
+        ps.id = "p4b.zoo"; ps.name = "P4b Zoo";
+        AddPrismOp asym = defPrism;
+        asym.taperEndY = 0.3; // Y narrows more aggressively than X
+        ps.ops.push_back(asym);
+        const OpStreamTextResult pw = recipeOpsToToml(ps);
+        assert(pw.ok);
+        assert(pw.text.find("op.0.taper_end_y = \"0.3\"") != std::string::npos);
+        const OpStreamParseResult pback = recipeOpsFromToml(pw.text, "p4b.zoo");
+        assert(pback.ok && pback.stream.ops.size() == 1);
+        const auto *back = std::get_if<AddPrismOp>(&pback.stream.ops[0]);
+        assert(back != nullptr && near(back->taperEndY, 0.3));
+
+        // Default 0 round-trips as "0" in TOML, reads back as 0.0.
+        RecipeOpStream ds;
+        ds.id = "p4b.def"; ds.name = "P4b Defaults";
+        ds.ops.push_back(defPrism);
+        const OpStreamTextResult dw = recipeOpsToToml(ds);
+        assert(dw.ok);
+        assert(dw.text.find("op.0.taper_end_y = \"0\"") != std::string::npos);
+        const auto *dback = std::get_if<AddPrismOp>(&recipeOpsFromToml(dw.text, "p4b.def").stream.ops[0]);
+        assert(dback != nullptr && near(dback->taperEndY, 0.0));
+
+        // Validate: 0 (sentinel) and positive values are ACCEPTED.
+        assert(validateRecipeOps({RecipeOp{defPrism}}).ok);     // 0 accepted
+        AddPrismOp posY = defPrism; posY.taperEndY = 0.5;
+        assert(validateRecipeOps({RecipeOp{posY}}).ok);          // 0.5 accepted
+
+        // Validate: negative and non-finite are REFUSED with bad_taper_end_y.
+        auto checkBadY = [](AddPrismOp op, double y) {
+            op.taperEndY = y;
+            const OpValidationReport r = validateRecipeOps({RecipeOp{op}});
+            bool saw = false;
+            for (const OpFinding &f : r.findings) {
+                saw = saw || f.code == "bad_taper_end_y";
+            }
+            assert(!r.ok && saw);
+        };
+        checkBadY(defPrism, -0.1);
+        checkBadY(defPrism, -1.0);
+        checkBadY(defPrism, std::numeric_limits<double>::infinity());
+        checkBadY(defPrism, std::numeric_limits<double>::quiet_NaN());
+    }
+
     // ---- BL-06: partial-angle revolve sweepDegrees — a numeric field on BOTH
     // the lathe and the moulding it lowers to (it must survive lowering), with
     // 360 as the behavior-preserving default. Round-trip, default, validate

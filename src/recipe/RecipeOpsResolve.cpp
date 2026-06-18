@@ -246,6 +246,7 @@ OpResolveResult resolveRecipeOps(const RecipeOpStream &stream,
         lowered.material = swept->material;
         lowered.taperEnd = swept->taperEnd;     // BL-09: the taper survives lowering
         lowered.taperCurve = swept->taperCurve; // P4: the curve exponent survives too
+        lowered.taperEndY = swept->taperEndY;   // P4b: the Y-axis scale survives too
         // height stays 0 — the path, not a straight rise, defines the solid.
         lowered.footprint.reserve(footprint.points.size());
         for (const edi::drafting::Point2D &point : footprint.points) {

@@ -83,6 +83,19 @@ void checkTaperCurve(std::vector<OpFinding> &findings, const std::string &name, 
     }
 }
 
+// P4b: taperEndY is a per-axis Y end scale with a special sentinel: 0.0 means
+// "follow taperEnd" (uniform taper). 0 is therefore ALLOWED — it is not a
+// degenerate scale here because the mesh builder interprets it as "not set".
+// Only NEGATIVE values (which can't be a scale or a sentinel) and non-finite
+// values are refused. Shared by the sweep and the prism it lowers to.
+void checkTaperEndY(std::vector<OpFinding> &findings, const std::string &name, double taperEndY)
+{
+    if (taperEndY < 0 || !std::isfinite(taperEndY)) {
+        add(findings, Severity::Error, "bad_taper_end_y",
+            name + " taper_end_y must be non-negative and finite (0 = follow taper_end).");
+    }
+}
+
 // The per-op checks, v0 codes and wording preserved. A visitor over the
 // variant — the same dispatch shape the drafting commands use.
 struct OpChecker {
@@ -276,7 +289,8 @@ struct OpChecker {
             }
         }
         checkTaperEnd(findings, op.name, op.taperEnd);
-        checkTaperCurve(findings, op.name, op.taperCurve); // P4
+        checkTaperCurve(findings, op.name, op.taperCurve);  // P4
+        checkTaperEndY(findings, op.name, op.taperEndY);    // P4b
         checkMaterial(findings, op.name, op.material);
     }
 
@@ -297,7 +311,8 @@ struct OpChecker {
                 op.name + " starts below z=0.");
         }
         checkTaperEnd(findings, op.name, op.taperEnd);
-        checkTaperCurve(findings, op.name, op.taperCurve); // P4
+        checkTaperCurve(findings, op.name, op.taperCurve);  // P4
+        checkTaperEndY(findings, op.name, op.taperEndY);    // P4b
         checkMaterial(findings, op.name, op.material);
     }
 

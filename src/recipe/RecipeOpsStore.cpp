@@ -154,6 +154,7 @@ struct OpWriter {
         put("material", op.material);
         put("taper_end", op.taperEnd);
         put("taper_curve", op.taperCurve); // P4: non-linear exponent (1.0 = linear)
+        put("taper_end_y", op.taperEndY); // P4b: Y-axis end scale (0.0 = follow taperEnd)
         put("inset", op.inset);
         put("normal_offset", op.normalOffset);
         // The footprint is a contiguous indexed run footprint.i.{x,y}, the same
@@ -241,6 +242,7 @@ struct OpWriter {
         put("material", op.material);
         put("taper_end", op.taperEnd);
         put("taper_curve", op.taperCurve); // P4: non-linear exponent; survives lowering
+        put("taper_end_y", op.taperEndY); // P4b: Y-axis end scale; survives lowering
     }
 
     void operator()(const CutFlutesOp &op) const
@@ -881,8 +883,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
-                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)   // BL-09; default 1
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)    // BL-09; default 1
                 || !reader.bindableNumber(prefix, "taper_curve", op.taperCurve, false) // P4; default 1
+                || !reader.bindableNumber(prefix, "taper_end_y", op.taperEndY, false)  // P4b; default 0
                 || !reader.bindableNumber(prefix, "inset", op.inset, false)            // BL-10; default 0
                 || !reader.bindableNumber(prefix, "normal_offset", op.normalOffset, false)
                 || !readPrismPointRun(reader, prefix, "footprint", op.footprint)
@@ -950,8 +953,9 @@ OpStreamParseResult recipeOpsFromToml(const std::string &text, const std::string
                 || !reader.bindableNumber(prefix, "x", op.x, false)
                 || !reader.bindableNumber(prefix, "y", op.y, false)
                 || !reader.optionalTextDefault(prefix + ".material", op.material)
-                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)     // BL-09
-                || !reader.bindableNumber(prefix, "taper_curve", op.taperCurve, false)) { // P4
+                || !reader.bindableNumber(prefix, "taper_end", op.taperEnd, false)      // BL-09
+                || !reader.bindableNumber(prefix, "taper_curve", op.taperCurve, false)  // P4
+                || !reader.bindableNumber(prefix, "taper_end_y", op.taperEndY, false)) { // P4b
                 result.message = reader.error;
                 return result;
             }

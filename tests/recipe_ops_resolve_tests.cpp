@@ -761,6 +761,26 @@ int main()
         assert(lowered != nullptr);
         assert(near(lowered->taperEnd, 0.4));    // BL-09 taper end survived
         assert(near(lowered->taperCurve, 2.5)); // P4 curve exponent survived
+        assert(near(lowered->taperEndY, 0.0));  // P4b default sentinel survived
+    }
+
+    // ---- P4b: taperEndY survives sweep→prism lowering. The per-axis Y scale
+    // is a pure data copy, like taperEnd (BL-09) and taperCurve (P4). ----
+    {
+        RecipeOpStream s;
+        AddSweepProfileOp asym;
+        asym.name = "blade.run";
+        asym.profile = "panel";
+        asym.path = "cut";
+        asym.taperEnd = 0.8;   // X narrows to 80 %
+        asym.taperEndY = 0.2;  // Y narrows to 20 % (asymmetric)
+        s.ops.push_back(asym);
+        const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
+        assert(r.ok);
+        const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
+        assert(lowered != nullptr);
+        assert(near(lowered->taperEnd, 0.8));   // X taper survived
+        assert(near(lowered->taperEndY, 0.2)); // Y taper survived
     }
 
     // ---- BL-08 refusals: a deleted/wrong-kind profile-or-path, and a

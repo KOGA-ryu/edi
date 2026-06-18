@@ -414,6 +414,9 @@ def parse_ops(path: str) -> list[dict]:
                 # P4: non-linear taper exponent. t^taper_curve remaps the
                 # linear fraction before the lerp. 1.0 = linear (identity).
                 taper_curve=_number(op_key, fields, consumed, "taper_curve", 1.0),
+                # P4b: per-axis Y end scale. 0.0 = follow taper_end (uniform,
+                # default). When > 0 the Y axis narrows to this scale independently.
+                taper_end_y=_number(op_key, fields, consumed, "taper_end_y", 0.0),
                 # BL-10: inset shrinks the footprint inward; normal_offset
                 # inflates the shell along its normals. Both 0 = no change.
                 inset=_number(op_key, fields, consumed, "inset", 0.0),
@@ -986,14 +989,22 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
     ox, oy, base_z = op["x"], op["y"], op["base_z"]
 
     taper = op.get("taper_end", 1.0)
-    tapering = taper != 1.0
+    taper_end_y = op.get("taper_end_y", 0.0)
+    # P4b early-out: skip scaling entirely when there is NEITHER X-taper NOR
+    # Y-taper. X has no taper when taper_end==1.0. Y has no taper when
+    # taper_end_y<=0 (sentinel = follow X, and X is 1.0) OR taper_end_y==1.0
+    # (explicit 1.0 = identity). Both conditions must hold to skip; if only one
+    # axis has a real taper, we must enter the per-axis scale path.
+    no_x_taper = (taper == 1.0)
+    no_y_taper = (taper_end_y <= 0 or taper_end_y == 1.0)
+    tapering = not (no_x_taper and no_y_taper)
     # P4: taper_curve is the power applied to the linear fraction t before
-    # the lerp: scale = lerp(1, taper, t^taper_curve). When taper_end==1.0
-    # tapering is False and we never reach the scale path, so the no-taper
-    # sweep stays byte-identical regardless of taper_curve. When taper_end
-    # differs from 1.0 and taper_curve==1.0, t^1.0==t and the result is
-    # identical to the BL-09 linear path.
+    # the lerp: scale = lerp(1, end, t^taper_curve). The SAME curved fraction
+    # is used for BOTH axes — taper_curve shapes the overall taper profile.
     taper_curve = op.get("taper_curve", 1.0)
+    # P4b: resolve the sentinel — when taper_end_y <= 0 ("follow"), the Y
+    # end scale matches X (uniform taper, existing behavior).
+    ey = taper_end_y if taper_end_y > 0 else taper
     cx = sum(fx for fx, _ in fp) / n if tapering else 0.0  # footprint centroid
     cy = sum(fy for _, fy in fp) / n if tapering else 0.0
     # Cumulative path length per point, so the taper fraction tracks distance
@@ -1015,10 +1026,11 @@ def _swept_prism_world(op: dict) -> tuple[list, list]:
         tx, ty = tx / length, ty / length
         nx, ny = -ty, tx  # in-plane normal to the path tangent
         t = (cumlen[k] / total) ** taper_curve  # P4: curved fraction (1.0 = linear)
-        scale = 1.0 + (taper - 1.0) * t
+        sx = 1.0 + (taper - 1.0) * t   # P4b: per-axis X scale
+        sy = 1.0 + (ey - 1.0) * t      # P4b: per-axis Y scale
         for fx, fy in fp:
-            if tapering:  # scale the cross-section about its centroid
-                fx, fy = cx + scale * (fx - cx), cy + scale * (fy - cy)
+            if tapering:  # scale the cross-section about its centroid, per axis
+                fx, fy = cx + sx * (fx - cx), cy + sy * (fy - cy)
             loops.append((ox + px + fx * nx, oy + py + fx * ny, base_z + fy))
 
     verts = list(loops)

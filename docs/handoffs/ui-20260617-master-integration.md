@@ -54,6 +54,16 @@ block-instance transform verb — all wired, reviewer-accepted, on master @`13d6
 — `setVisible(false)` was guarded on `isVisible()` (false offscreen); dropped the guard,
 commit `13d6f96`.) DM-03 interior features reuse existing point editing — no new chrome.
 
+### Chrome batch-3 — DONE + audited ACCEPT
+- DR-11 kaleidoscope (`e35c74e`): button + axis spin + center pick. ACCEPT, signal-safe, live
+  end-to-end. **NIT (future polish):** `axisCountSpin` shares `m_arrayCount` with the radial-array
+  `arrayCountSpin` — write-coupled, not display-coupled (editing one leaves the other's on-screen
+  value stale in the same Duplicate fold). Acceptable per spec; the "proper" fix (a separate
+  kaleidoscope axis-count) is a controller change = edi-drafting's. Surfaced to user as a look call.
+- DR-13 angular belt cell + combo (`c498c9c`): ACCEPT, KEEP. The controller arm is DEAD (drafting
+  owes `DraftingToolKind::AngularDimension` + 2-line-pick arm → escalated, drafting building it) but
+  the cell is provably benign (clean silent reject). Combo entry is live. Golden untouched.
+
 ### Still open — drafting chrome backlog
 1. **DR-13 angular-dim PAINTER seam:** edi-ui's, rides the eventual Angular-tool chrome (combo
    entry + belt cell + arc painter).

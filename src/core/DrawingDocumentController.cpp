@@ -45,6 +45,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -3182,7 +3183,26 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     const auto plugKey = [](const std::string &room, const std::string &plug) {
         return room + std::string(1, '\x1f') + plug;
     };
-    constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
+    // SCALE COHERENCE (hub SCALE-POLICY): the 2D canvas corridor/door widths DERIVE from the dungeon's
+    // canvas size so a doubled dungeon stays proportionate (rooms in canvas units are NOT scaled by
+    // canvasPerAuthoredUnit, so we derive from the room geometry, not the scale factor). One third of the
+    // narrowest room's short edge: wide enough to read as a hallway, never wider than the wall it is carved
+    // into (leaves 2/3 of the edge as wall), and it tracks the rooms — double the rooms, double the corridor.
+    // For the M0 crypt this yields exactly the contract DOOR_W (entrance 30ft/3 = 10ft = 2 modules; pre-double
+    // 15ft/3 = 5ft = 1 module). Fallback to the historical 0.045 when there are no usable rooms (degenerate
+    // map) so an empty/roomless spec is unchanged.
+    double minRoomShortEdge = std::numeric_limits<double>::infinity();
+    for (const edi::drafting::NamedRoomSpec &r : spec.rooms) {
+        const double shortEdge = std::min(r.spec.width, r.spec.height);
+        if (shortEdge > 0.0) minRoomShortEdge = std::min(minRoomShortEdge, shortEdge);
+    }
+    const double kCorridorWidth =
+        std::isfinite(minRoomShortEdge) ? minRoomShortEdge / 3.0 : 0.045; // walkable gap; also the doorway width
+    // Sibling thicknesses derived PROPORTIONALLY: the same ratio to the corridor width as the historical
+    // literals (0.02 / 0.045 and 0.015 / 0.045). At the legacy 0.045 corridor these reproduce 0.02 / 0.015
+    // exactly, so old maps at the historical size stay byte-identical; at any other size they scale with it.
+    const double kLeafThickness = kCorridorWidth * (0.02 / 0.045);          // door-leaf band thickness
+    const double kCorridorWallThickness = kCorridorWidth * (0.015 / 0.045); // corridor wall thickness
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
     // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so
@@ -3273,7 +3293,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
                 const Point2D b{placement.anchor.x + tangent.x * hw, placement.anchor.y + tangent.y * hw};
                 DraftingObjectBuildResult leaf = buildDraftingObject(
                     toStdString(nextObjectId(QStringLiteral("door"), m_nextObjectSerial++)),
-                    DraftingShapeKind::Wall, WallGeometry{a, b, 0.02});
+                    DraftingShapeKind::Wall, WallGeometry{a, b, kLeafThickness});
                 if (leaf.ok) {
                     leaf.object.metadata.toolProvenance = "door";
                     leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
@@ -3388,7 +3408,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             corridor.doorB = doorB->second.first;
             corridor.edgeB = doorB->second.second;
             corridor.width = kCorridorWidth; // mouth matches the carved doorway
-            corridor.wallThickness = 0.015;
+            corridor.wallThickness = kCorridorWallThickness;
             // Route AROUND every room except the two this connection joins (the
             // corridor is allowed to touch its own rooms at the doors).
             std::vector<CorridorObstacle> obstacles;

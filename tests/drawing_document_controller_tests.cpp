@@ -4134,6 +4134,65 @@ int main(int argc, char **argv)
         assert(mapController.draftingDocument().connections.empty());
     }
 
+    // 044 PROPORTIONALITY (hub SCALE-POLICY invariant): createMapFromSpec DERIVES its
+    // corridor/door widths from the dungeon's room geometry (min room short edge / 3),
+    // NOT from a hardcoded literal — so a dungeon with every room doubled gets a door
+    // leaf (and corridor) exactly 2x thicker. Rooms are canvas units NOT scaled by
+    // canvasPerAuthoredUnit, hence the derivation tracks room geometry. We read the
+    // door-leaf WallGeometry thickness because both the leaf and the corridor wall band
+    // derive from the same kCorridorWidth.
+    {
+        const auto buildTwoRoomMap = [](double scale) {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec a;
+            a.name = "a";
+            a.spec.origin = {0.0 * scale, 0.0 * scale};
+            a.spec.width = 0.4 * scale;
+            a.spec.height = 0.4 * scale;
+            a.spec.wallThickness = 0.02;
+            a.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2 * scale, "door", "door"}};
+            edi::drafting::NamedRoomSpec b;
+            b.name = "b";
+            b.spec.origin = {0.6 * scale, 0.0 * scale};
+            b.spec.width = 0.4 * scale;
+            b.spec.height = 0.4 * scale;
+            b.spec.wallThickness = 0.02;
+            b.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2 * scale, "door", "door"}};
+            map.rooms = {a, b};
+            edi::drafting::MapConnectionSpec corridor;
+            corridor.from = {"a", "door"};
+            corridor.to = {"b", "door"};
+            corridor.type = "corridor";
+            map.connections = {corridor};
+            return map;
+        };
+        // Read the door-leaf WallGeometry thickness off the first "door"-provenance object.
+        const auto doorLeafThickness = [](const DrawingDocumentController &ctl) {
+            for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+                if (o.metadata.toolProvenance != "door") {
+                    continue;
+                }
+                const auto *wall = std::get_if<edi::drafting::WallGeometry>(&o.geometry);
+                assert(wall != nullptr);
+                return wall->thickness;
+            }
+            assert(false && "expected a door leaf");
+            return 0.0;
+        };
+
+        DrawingDocumentController baseCtl;
+        assert(baseCtl.createMapFromSpec(buildTwoRoomMap(1.0)));
+        const double baseThickness = doorLeafThickness(baseCtl);
+
+        DrawingDocumentController doubledCtl;
+        assert(doubledCtl.createMapFromSpec(buildTwoRoomMap(2.0)));
+        const double doubledThickness = doorLeafThickness(doubledCtl);
+
+        // Doubling every room origin + size doubles the derived door/corridor width.
+        assert(baseThickness > 0.0);
+        assert(nearlyEqual(doubledThickness, 2.0 * baseThickness));
+    }
+
     // DM-03: interior features realize as ordinary tagged Point objects. The
     // room-local AUTHORED-FEET offset is scaled by canvasPerAuthoredUnit and added
     // to the room's CANVAS origin (the origin is not re-scaled).

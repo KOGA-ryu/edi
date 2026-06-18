@@ -118,6 +118,7 @@ public:
     bool midpointSnapEnabled() const;
     bool centerSnapEnabled() const;
     bool intersectionSnapEnabled() const;
+    bool nodeSnapEnabled() const;
     bool guideSnapEnabled() const;
     bool guideMoveSnapEnabled() const;
     bool objectSnapPriorityBeforeGrid() const;
@@ -160,6 +161,7 @@ public:
     void setMidpointSnapEnabled(bool enabled);
     void setCenterSnapEnabled(bool enabled);
     void setIntersectionSnapEnabled(bool enabled);
+    void setNodeSnapEnabled(bool enabled);
     void setGuideSnapEnabled(bool enabled);
     void setGuideMoveSnapEnabled(bool enabled);
     void setObjectSnapPriorityBeforeGrid(bool enabled);

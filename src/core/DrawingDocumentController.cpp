@@ -967,6 +967,16 @@ void DrawingDocumentController::setIntersectionSnapEnabled(bool enabled)
     setSnapFlag(&DraftingSnapSettings::intersectionEnabled, enabled);
 }
 
+bool DrawingDocumentController::nodeSnapEnabled() const
+{
+    return m_snapSettings.nodeEnabled;
+}
+
+void DrawingDocumentController::setNodeSnapEnabled(bool enabled)
+{
+    setSnapFlag(&DraftingSnapSettings::nodeEnabled, enabled);
+}
+
 void DrawingDocumentController::setGuideSnapEnabled(bool enabled)
 {
     if (m_snapSettings.guideEnabled == enabled) {

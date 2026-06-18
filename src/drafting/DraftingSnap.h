@@ -26,7 +26,8 @@ enum class DraftingSnapSourceKind {
     Quadrant,     // the 0/90/180/270° cardinal points on a circle/arc perimeter
     OnCurve,      // the nearest projection of the cursor onto a curve (lowest priority)
     Tangent,      // RELATIVE: a contact point where a line from the anchor touches a circle/arc
-    Perpendicular // RELATIVE: the foot of the perpendicular from the anchor onto a line/edge
+    Perpendicular, // RELATIVE: the foot of the perpendicular from the anchor onto a line/edge
+    Node           // a standalone Point object (incl. materialized intersection nodes)
 };
 
 struct DraftingSnapSettings {
@@ -43,6 +44,7 @@ struct DraftingSnapSettings {
     bool onCurveEnabled = true;
     bool tangentEnabled = true;
     bool perpendicularEnabled = true;
+    bool nodeEnabled = true; // standalone Point objects and materialized intersection nodes
     double gridStep = 1.0 / 16.0;
     double gridStepX = 0.0;
     double gridStepY = 0.0;

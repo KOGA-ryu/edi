@@ -1,5 +1,6 @@
 #include "drafting/DraftingSnap.h"
 #include "drafting/DraftingGrid.h"
+#include "drafting/DraftingGeometry.h" // computeBounds (for Node snap test's isectPt)
 #include "drafting/DraftingStore.h"
 
 #include <cassert>
@@ -470,6 +471,87 @@ int main()
         for (const DraftingSnapCandidate &c : relativeSnapCandidatesForDocument(perpDoc, {0.9, 0.9})) {
             assert(c.sourceKind != DraftingSnapSourceKind::Perpendicular);
         }
+    }
+
+    // ── M2-S3: Node snap source ──────────────────────────────────────────────
+    // A standalone Point (incl. materialized intersection nodes) should snap as
+    // DraftingSnapSourceKind::Node so tools can distinguish a geometry node from
+    // a line end. The implementation emits Node BEFORE Endpoint for PointGeometry
+    // so that when both flags are on, Endpoint wins via the `<=` last-wins rule
+    // in nearestObjectSnap (existing behaviour preserved). Node is exclusively
+    // visible when endpointEnabled=false.
+    {
+        DraftingDocument nodeDoc = makeDraftingDocument("node_doc");
+
+        // --- 1. A cursor near a standalone Point resolves Node when
+        //        endpointEnabled=false, nodeEnabled=true. ----------------------
+        assert(addObject(nodeDoc, object("node_pt", DraftingShapeKind::Point,
+                                          PointGeometry{{0.5, 0.5}})).ok);
+
+        DraftingSnapSettings nodeSettings;
+        nodeSettings.objectSnapEnabled = true;
+        nodeSettings.objectTolerance   = 0.05;
+        nodeSettings.endpointEnabled   = false; // suppress Endpoint so Node surfaces
+        nodeSettings.nodeEnabled       = true;
+
+        DraftingSnapResult nodeSnap = resolveSnap({0.51, 0.49}, nodeDoc, nodeSettings);
+        assert(nodeSnap.kind       == DraftingSnapKind::Object);
+        assert(nodeSnap.sourceKind == DraftingSnapSourceKind::Node);
+        assert(nodeSnap.sourceObjectId == "node_pt");
+        assert(nearlyEqual(nodeSnap.point.x, 0.5));
+        assert(nearlyEqual(nodeSnap.point.y, 0.5));
+
+        // --- 2. nodeEnabled=false → no snap from the Point at all
+        //        (endpointEnabled also off, so no Endpoint shadow either). -----
+        DraftingSnapSettings suppressNode = nodeSettings;
+        suppressNode.nodeEnabled = false;
+        DraftingSnapResult noSnap = resolveSnap({0.51, 0.49}, nodeDoc, suppressNode);
+        assert(noSnap.kind != DraftingSnapKind::Object);
+
+        // --- 3. When BOTH endpointEnabled and nodeEnabled are on, Endpoint wins
+        //        (the `<=` last-wins rule: Node is emitted first, Endpoint second,
+        //        so Endpoint replaces Node at equal distance). -------------------
+        DraftingSnapSettings bothEnabled = nodeSettings;
+        bothEnabled.endpointEnabled = true;
+        bothEnabled.nodeEnabled     = true;
+        DraftingSnapResult endpointWins = resolveSnap({0.51, 0.49}, nodeDoc, bothEnabled);
+        assert(endpointWins.kind       == DraftingSnapKind::Object);
+        assert(endpointWins.sourceKind == DraftingSnapSourceKind::Endpoint);
+
+        // --- 4. A Line endpoint at the SAME position beats a Point's Node
+        //        (priority preserved). Point added first so its candidates come
+        //        before the Line's in the flat list; Line.Endpoint is last → wins.
+        //
+        //        Document order: node_pt (0.5,0.5) is already in nodeDoc;
+        //        add a line whose START endpoint lands at (0.5,0.5). -----------
+        assert(addObject(nodeDoc, object("priority_line", DraftingShapeKind::Line,
+                                          LineGeometry{{0.5, 0.5}, {0.9, 0.5}})).ok);
+
+        DraftingSnapSettings prioritySettings;
+        prioritySettings.objectSnapEnabled = true;
+        prioritySettings.objectTolerance   = 0.05;
+        prioritySettings.endpointEnabled   = true;  // Line emits Endpoint
+        prioritySettings.nodeEnabled       = true;  // Point emits Node (and Endpoint)
+        // Candidates in document order: [Point.Node, Point.Endpoint, Line.Endpoint]
+        // With `<=` (last equal-distance wins): Line.Endpoint (from priority_line).
+        DraftingSnapResult linePriority = resolveSnap({0.5, 0.5}, nodeDoc, prioritySettings);
+        assert(linePriority.kind           == DraftingSnapKind::Object);
+        assert(linePriority.sourceKind     == DraftingSnapSourceKind::Endpoint);
+        assert(linePriority.sourceObjectId == "priority_line");
+
+        // --- 5. A materialized intersection Point (toolProvenance="intersection")
+        //        uses the same PointGeometry → same Node snap path. --------------
+        DraftingDocument isectDoc = makeDraftingDocument("isect_doc");
+        DraftingObject isectPt = makeDraftingObject("isect_1", DraftingShapeKind::Point,
+                                     DraftingGeometry{PointGeometry{{0.3, 0.7}}});
+        isectPt.metadata.toolProvenance = "intersection";
+        isectPt.bounds = computeBounds(isectPt.geometry);
+        assert(addObject(isectDoc, isectPt).ok);
+
+        DraftingSnapResult isectSnap = resolveSnap({0.31, 0.71}, isectDoc, nodeSettings);
+        assert(isectSnap.kind       == DraftingSnapKind::Object);
+        assert(isectSnap.sourceKind == DraftingSnapSourceKind::Node);
+        assert(isectSnap.sourceObjectId == "isect_1");
     }
 
     return 0;

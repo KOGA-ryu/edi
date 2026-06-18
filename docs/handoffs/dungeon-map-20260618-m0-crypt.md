@@ -105,10 +105,19 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
   unified CLI, none yet]; (b) base feet + `scale` meta, realizer uniform-multiplies;
   (c) scaled feet + `scale` meta, realizer scales only its constants. **Rec = (c)**;
   open to (b) if blender-lab finds uniform-multiply simpler.
-- GATES IN FLIGHT: reviewer 045 (settle mechanism) + blender-lab coord 046 (realizer
-  half + fork pick + S=4 render now). Builder redirected to finish the data-table sweep
-  at BASE S=1 (NOT 60/100); the scale-param is a gated follow-up slice.
-- Contract impact (if b/c): additive/tolerant `scale:` header meta (default 1).
+- SETTLED: reviewer 045 = wire (c) scaled feet + FENCED `scale` meta (advisory; feet
+  authoritative; no double-scale). blender-lab 046 = fork (c) LIVE @4ee013e (tile=5
+  fixed, envelope×S, light S² via wire area, S=1/2/4 rendered /tmp/m0/crypt_S{1,2,4}.png).
+  Base S=1=15/25 confirmed (1d0a487) ⇒ today=S=4=60/100 on-grid (reviewer base-BLOCKER
+  was stale). Grid: integer S preserves grid; non-integer permitted (accept, no snap).
+  Design+contract frozen @9fe0a80.
+- IN FLIGHT: builder 047 (G2 blocks [MapSpec::blocks now on master] + scale param +
+  scale-meta; tests S=1/2/4 vs goldens crypt_base/doubled/doubled2.toon). edi-ui coord
+  048 (the user-facing `--generate-crypt <out> --scale <S>` CLI flag; fires after 047
+  lands on master). Demo set locked for blender-lab.
+- USER INVOCATION (the dial): `edi --generate-crypt /tmp/m0/crypt.toon --scale <S>` —
+  one flag; generator bakes S into feet + writes `scale:S`; render daemon → realizer
+  reads meta → PNG auto-opens. NO TOON hand-edit. (CLI wiring = edi-ui, app/main.cpp.)
 
 ## STANDING RULE (2026-06-18, USER) — every dimension is DATA
 Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.

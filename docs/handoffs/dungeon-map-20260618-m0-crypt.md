@@ -92,6 +92,24 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
 - The crypt props (G2): `crypt.sarcophagus` @ (45,10), `crypt.brazier` @ (40,5) —
   both inside the crypt footprint x∈[35,55] y∈[0,20] → room "crypt".
 
+## FEATURE (2026-06-18, hub brief 044): SCALE KNOB S — supersedes manual doublings
+- One number S scales the whole crypt (rooms+corridor+light) coherently; user dials
+  x1/x2/x4. Base data tables = ORIGINAL at S=1; **S=4 reproduces today** (60/100).
+- Base S=1: entrance 15×15 @ (0,5), crypt 25×25 @ (35,0), blocks (47.5,12.5)/(41,6)/
+  (38,4). Goldens: `~/dept-bus/dungeon-map/crypt_base.toon` (S=1),
+  `crypt_doubled2.toon` (S=4). (crypt_doubled.toon = S=2.)
+- Generator half: `buildCryptMapSpec(double scale=1.0)` multiplies base-table dims by
+  S; plug `at` re-derives from scaled room dims (free). S is a PARAMETER (standing-rule
+  compliant). Design: `docs/dungeon-map-scale-knob-design.md`.
+- THE FORK (how S reaches the realizer, wire neutral): (a) out-of-band param [needs a
+  unified CLI, none yet]; (b) base feet + `scale` meta, realizer uniform-multiplies;
+  (c) scaled feet + `scale` meta, realizer scales only its constants. **Rec = (c)**;
+  open to (b) if blender-lab finds uniform-multiply simpler.
+- GATES IN FLIGHT: reviewer 045 (settle mechanism) + blender-lab coord 046 (realizer
+  half + fork pick + S=4 render now). Builder redirected to finish the data-table sweep
+  at BASE S=1 (NOT 60/100); the scale-param is a gated follow-up slice.
+- Contract impact (if b/c): additive/tolerant `scale:` header meta (default 1).
+
 ## STANDING RULE (2026-06-18, USER) — every dimension is DATA
 Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.
 NO magic dimension literals in logic; every dimension is a named field in a spec/

@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingMotifOps.h"
 #include "drafting/DraftingCorridor.h"
@@ -2227,8 +2228,8 @@ std::vector<DraftingObject> DrawingDocumentController::buildTaggedCorridorWalls(
     spec.edgeA         = toRoomEdge(edgeStrA);
     spec.doorB         = anchorB;
     spec.edgeB         = toRoomEdge(edgeStrB);
-    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
-    spec.wallThickness = 0.015;
+    spec.width         = kDefaultCorridorWidth;  // walkable gap — both now reference the same
+    spec.wallThickness = kDefaultCorridorWidth * kCorridorWallToCorridorRatio; // named spine as createMapFromSpec
 
     // Obstacles: every room except the two containing the anchors.  Mirrors the
     // authored path in createMapFromSpec (which skips request.from/to rooms so
@@ -2581,14 +2582,15 @@ bool DrawingDocumentController::setPlugType(const QString &plugId, const QString
     // Tangent along the wall: horizontal for N/S walls, vertical for E/W walls.
     const bool isNorthSouth = (edgeStr == "N" || edgeStr == "S");
     const Point2D tangent   = isNorthSouth ? Point2D{1.0, 0.0} : Point2D{0.0, 1.0};
-    constexpr double hw = 0.0225; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double hw = kDefaultCorridorWidth / 2.0; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double leafThickness = kDefaultCorridorWidth * kDoorLeafToCorridorRatio; // = 0.02
     const Point2D leafA{anchor.x - tangent.x * hw, anchor.y - tangent.y * hw};
     const Point2D leafB{anchor.x + tangent.x * hw, anchor.y + tangent.y * hw};
 
     // Build the fresh leaf object (same shape as createMapFromSpec's leaf build).
     const QString leafObjId = nextObjectId(QStringLiteral("door"), m_nextObjectSerial++);
     DraftingObjectBuildResult leafBuilt = buildDraftingObject(
-        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, 0.02});
+        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, leafThickness});
     if (!leafBuilt.ok) {
         --m_nextObjectSerial; // roll back the serial bump on failure
         return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
@@ -3197,12 +3199,14 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         if (shortEdge > 0.0) minRoomShortEdge = std::min(minRoomShortEdge, shortEdge);
     }
     const double kCorridorWidth =
-        std::isfinite(minRoomShortEdge) ? minRoomShortEdge / 3.0 : 0.045; // walkable gap; also the doorway width
+        std::isfinite(minRoomShortEdge) ? minRoomShortEdge / kRoomShortEdgePerCorridor
+                                        : kDefaultCorridorWidth; // walkable gap; also the doorway width
     // Sibling thicknesses derived PROPORTIONALLY: the same ratio to the corridor width as the historical
-    // literals (0.02 / 0.045 and 0.015 / 0.045). At the legacy 0.045 corridor these reproduce 0.02 / 0.015
-    // exactly, so old maps at the historical size stay byte-identical; at any other size they scale with it.
-    const double kLeafThickness = kCorridorWidth * (0.02 / 0.045);          // door-leaf band thickness
-    const double kCorridorWallThickness = kCorridorWidth * (0.015 / 0.045); // corridor wall thickness
+    // literals (0.02 / 0.045 and 0.015 / 0.045), now named in DraftingCanvasDims.h. At the legacy 0.045
+    // corridor these reproduce 0.02 / 0.015 exactly, so old maps at the historical size stay byte-identical;
+    // at any other size they scale with it.
+    const double kLeafThickness = kCorridorWidth * kDoorLeafToCorridorRatio;          // door-leaf band thickness
+    const double kCorridorWallThickness = kCorridorWidth * kCorridorWallToCorridorRatio; // corridor wall thickness
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
     // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so

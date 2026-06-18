@@ -27,12 +27,25 @@
   `deleteAllConstructionLines()` mirroring `deleteAllGuides()` (`:3249`). Commands aren't
   serialized → contained. Sonnet, single slice.
 
-### M8 — motif library (flash sheet) — REVIEWER GATE opened 2026-06-17 (parallel to M1)
-- Brief: `~/dept-bus/edi-drafting/briefs/033-M8-motif-representation-reviewer.md`. M8 is an L
-  touching the PERSISTENT format (a motif record in the MessagePack envelope) with a
-  representation FORK (document-level vs sidecar). Reviewer (Opus) settles the motif-record
-  home + serialization + the FLATTEN-on-place decision + the transform-on-place fork, BEFORE a
-  Sonnet builder touches the format (same discipline as DR-13). Runs in parallel with M1.
+### M8 — motif library (flash sheet) — REVIEWER GATE SETTLED 2026-06-17
+- Reply: `~/dept-bus/edi-drafting/replies/008-M8-motif-representation.md`. **SETTLED:**
+  `DraftingMotif{name, vector<DraftingObject> objects, Bounds2D bounds}` — a document-level CORE
+  field on `DraftingDocument` (beside objects/layers, NOT the map region); a deliberate TWIN of
+  the map-owned `DraftingBlock` minus `id`/`assetRef`/Seam-B (name-keyed, no id mint). Serialize
+  = additive `"motifs"` key, no version bump, reuse the `DraftingObject` codec, default-empty
+  when absent. FLATTEN-on-place via the EXISTING plural `CreateObjectsCommand` (no new place
+  arm); capture EXCLUDES guides, INCLUDES construction lines. Capture rides a transient
+  `CreateMotifCommand`.
+- **S3 transform-on-place: DEFERRED behind a fork** (planner accepts the reviewer rec — S2
+  ships translate-only; oriented stamping decided after S2, gated on the placement-UX cost).
+- **Hub RECORD (scope, sent):** `DraftingMotif` is an INTENTIONAL core twin of the map-owned
+  `DraftingBlock` — conscious duplication, NO shared base now (revisit only if a 3rd consumer
+  appears). Recorded with the hub re: the H2 boundary; not a fork re-open.
+- **M8-S1 brief WRITTEN + ready** (`~/dept-bus/edi-drafting/briefs/034-M8-S1-motif-capture-builder.md`):
+  struct+field, `buildMotifFromObjects`/`addMotif` (mirror block ops), `CreateMotifCommand`,
+  `"motifs"` serialize + round-trip. QUEUED behind M1 (single builder) — FIRE when M1 lands.
+- M8-S2 (place/FLATTEN + `MotifPlacement` intent) follows S1; reviewer diff-audit on S1 (it
+  touches the persistent format) before/with S2.
 
 ## Open questions / blockers
 - M8 motif-record representation — under reviewer gate (document vs sidecar + serialize shape).

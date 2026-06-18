@@ -53,11 +53,26 @@
   mixed-doc test pins (only CLs removed, others byte-identical, one undo, no-CL no-op). Rejected
   an over-general `DeleteAllOfKindCommand` (YAGNI). Accepted inline; reported `eeba231` to edi-ui.
 
-### M8-S1 — motif record+capture+serialize — builder FIRED 2026-06-17 (brief 034)
-- Now running (builder free after M1). Stacks on M1 on dept/drafting. Reviewer diff-audit
-  planned after S1 (persistent-format slice). Then M8-S2 (place/FLATTEN + MotifPlacement intent).
+### M8-S1 — DONE 2026-06-17 ✅ (SHA `940c4d1`, GREEN 103/103) → S1 audit + S2 in parallel
+- Reply: `~/dept-bus/edi-drafting/replies/034-M8-S1-motif-capture-builder.md`. `DraftingMotif` +
+  `motifs` field (CORE, beside objects — H2 respected, not the map region); `DraftingMotifOps`
+  (build/add/remove/indexByName); `CreateMotifCommand`; serialize `"motifs"` key (additive,
+  reuse object codec) + round-trip + absent-key tests. Name-keyed (no id-mint). `removeMotif`
+  added (needed for tests); `DeleteMotifCommand` deferred to when a verb needs it. Reported
+  `940c4d1` to edi-ui.
+- **PARALLEL (run-ahead):** reviewer **diff-audits S1** (persistent-format checkpoint — serialize
+  symmetry/round-trip/additive-tolerance/H2; brief 035) WHILE the builder builds **M8-S2**
+  (place/FLATTEN + `MotifPlacement` intent; brief 036). S2 uses the struct, not the serialize,
+  so it's independent of the audit. (DG/MotifDG context OK — no recycles.)
+- **DEFERRED:** S3 transform-on-place (behind the fork).
+
+## DG (DraftingMotif) DESIGN NOTE
+DraftingMotif is core-owned, name-keyed, FLATTEN-on-place — a deliberate twin of the map block
+(hub-recorded). Place = fresh ordinary objects (new ids via m_nextObjectSerial), one
+CreateObjectsCommand = one undo.
 
 ## Open questions / blockers
+- M8-S1 persistent-format audit in flight (backstop on the new `"motifs"` serialize key).
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

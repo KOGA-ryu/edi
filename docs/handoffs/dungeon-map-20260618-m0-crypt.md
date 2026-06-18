@@ -133,6 +133,13 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
   geometry; edi records none of it.)
 - BUILDER 047 IN PROGRESS (working tree, uncommitted): buildCryptMapSpec(double scale)
   + kCryptBlocks present; awaiting its commit + reply, then reviewer diff-audit.
+- QUEUED (brief 049, doorbell HELD until 047 lands): corridor magic-dim sweep — drafting
+  flagged 3 DORMANT bare literals in OUR module (DraftingCorridor.h:21-22 width=0.06/
+  wallThickness=0.02; .cpp:177 margin=0.06). Fix = named constexpr (kDefaultCorridorWidth/
+  WallThickness in .h, kCorridorRouteMargin in .cpp anon ns), behavior-preserving (every
+  caller overrides; same values). Per the CLAUDE.md no-hardcoded-dims hard rule. NOT
+  editing DraftingCanvasDims.h (drafting's file). Hold doorbell to avoid racing 047 in
+  the shared worktree/build dir.
 
 ## STANDING RULE (2026-06-18, USER) — every dimension is DATA
 Source: `~/dept-bus/SCALE-POLICY.md` (HARD RULE / invariant 0) + PROTOCOL final section.

@@ -1,0 +1,19 @@
+kind: map
+title: crypt
+units: feet
+
+rooms[2]{name,origin,size,material}:
+  entrance,"0,0","15,15",stone
+  crypt,"35,25","20,20",stone
+
+plugs[2]{room,name,edge,type,connected,flags}:
+  entrance,to_crypt,E,door,true,crypt
+  crypt,to_entrance,W,door,true,crypt
+
+connections[1]{from,to,type}:
+  entrance.to_crypt,crypt.to_entrance,corridor
+
+blocks[3]{room,asset,origin,scale,rotation}:
+  crypt,crypt.sarcophagus,"45,35",1,0
+  crypt,crypt.brazier,"40,40",1,0
+  crypt,crypt.stair,"36,35",1,0

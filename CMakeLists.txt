@@ -433,6 +433,10 @@ find_package(Python3 3.11 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
     add_test(NAME edi_craft_dry_run_smoke
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_craft_smoke.py)
+    # The M0 realizer's pure tier (TOON parse + greybox plan + OBJ proof). The
+    # bpy/OptiX render half needs a GPU and is exercised in Blender, not ctest.
+    add_test(NAME edi_realize_smoke
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_realize_smoke.py)
 else()
     message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
 endif()

@@ -9,6 +9,30 @@
 - **Department**: edi-drafting
 - **Queue (this run)**: M1 (delete-all-construction-lines) → M8 (motif library / flash sheet).
 
+## ⏻ POWER-DOWN CHECKPOINT (2026-06-17) — CLEAN, nothing in flight
+- **State:** clean. Worktree clean, NO slice in flight, no rebase active. `dept/drafting` tip
+  `889099d` (docs); local `master` (integration line) `6bb6c14`. All drafting work GREEN
+  (`edi-gate` 104/104) and merged or merging via edi-ui.
+- **DONE this program:** DR-01..15 feature bucket ✅ (merged) · M1 delete-construction-lines ✅ ·
+  M8 motif library (S1+S2) ✅ · DR-13 angular tool-arm ✅ (angular dim LIVE end-to-end) · M2
+  intersection nodes + Node snap (S1+S2+S3) ✅. Closeouts: `drafting-fill-side-channel`,
+  `drafting-cartography`, `drafting-feature-bucket`, `drafting-motif-library`,
+  `drafting-intersection-nodes` (+ ruling H2 recorded in `docs/architecture/edi-drafting.md`).
+- **NEXT (awaiting hub direction — named queue EXHAUSTED):** the rest of drafting batch-2 is
+  done/duplicate of the DR bucket; M4 tangent-circle (Apollonius) PARKED. No genuinely-new ready
+  drafting item. **Available in-charter follow-ups** (small): (a) snap-settings TOML persistence
+  (own slice — NO snap flag persists today); (b) absent-`"motifs"`-key serialize test hardening;
+  (c) M8-S3 motif transform-on-place fork (needs the oriented-stamping UX decision — user/edi-ui).
+- **edi-ui seams pending (theirs):** Angular arc painter + linear-painter guard + `isAngleField`
+  for the Angular offset field; Node snap inspector checkbox (`node_enabled` published); motif
+  placement chrome (routed to the user; controller API ready); the deferred tool/belt surfaces.
+- **RESUME recipe for a fresh session:** (1) read this handoff + `docs/architecture/edi-drafting.md`
+  + `~/dept-bus/PROTOCOL.md`. (2) Rebase target = LOCAL `master` ref (planner-synced; origin
+  reconciled, now a backup). (3) If the hub assigns a campaign → open it (reviewer gate first for
+  any persistent-format/representation question, e.g. DR-13/M8 pattern). (4) Else if told "take
+  the cleanups" → do (a)/(b)/(c) above as small builder slices. (5) Report green tips to `edi-ui`
+  (merge owner); bus-hub on milestones only.
+
 ## Standing rules (carry into every brief)
 - **REBASE PRACTICE** (ALL-CLEAR 2026-06-17 — origin reconciled): builders rebase onto the
   LOCAL `master` ref (`git rebase master`) — it is the planner-synced, always-current
@@ -139,13 +163,69 @@ CreateObjectsCommand = one undo.
   TOML persistence: mirror IF snap flags persist, else note deferred (DR-02/03 flags aren't
   persisted either). Inspector checkbox = edi-ui. Anchors confirmed.
 
+### M2-S3 — CLOSED 2026-06-17 ✅ (SHA `9e52c61`, GREEN 104/104) → M2 COMPLETE
+- `Node` snap kind + `nodeEnabled` + emission for Point objects (dropped intersection nodes +
+  standalone Points snap); controller getter/setter via `setSnapFlag`; projection `node_enabled`.
+  **Precedence:** Node emitted BEFORE Endpoint so Endpoint shadows it (the `<=` last-wins rule) —
+  Node surfaces only when endpoint off (same discipline as DR-02 OnCurve); documented + tested.
+  **TOML: snap flags are NOT persisted at all** → node-only would be inconsistent → deferred (own
+  slice). Diff +113/−1, all my files. Accepted inline. Reported `9e52c61` to edi-ui.
+- **M2 COMPLETE** (S1+S2+S3). Closeout: `docs/closeouts/drafting-intersection-nodes.md`.
+
+## ✅ NAMED BATCH-2 QUEUE EXHAUSTED 2026-06-17
+- Completed this run: M1 (delete-construction-lines), M8 (motif library, S1+S2), DR-13 angular
+  tool-arm (→ angular dim LIVE end-to-end), M2 (intersection nodes + Node snap, S1+S2+S3).
+- **Remaining drafting batch-2 (ROADMAPS-DRAFT.md M0-M8) is DONE or DUPLICATE:** M0=fill-svg ✅,
+  M3≈DR-05/06 ✅, M4 = circle-3pt (DR-05 ✅) + tangent-circle (PARKED — L, needs an Apollonius
+  solver), M5≈DR-10/11 ✅, M6=DR-07/08/09 ✅, M7=DR-13/14 ✅. No genuinely-new ready drafting item left.
+- **Available in-charter follow-ups (small, deferred):** (a) snap-settings TOML persistence (own
+  slice); (b) absent-`"motifs"`-key serialize test hardening; (c) the M8-S3 motif transform-on-place
+  fork (needs the oriented-stamping UX decision — user/edi-ui).
+- **Reported to hub** (queue-exhausted scope decision): awaiting the next campaign / a fresh
+  roadmap pull, OR direction to take the cleanups. NOT inventing a large feature without direction.
+
 ## Open questions / blockers
-- M2-S3 in build → completes M2. After M2: next batch-2/3 item (M4 tangent-circle stays parked;
-  the rest of drafting batch-2 overlaps the done DR bucket — likely move to a fresh roadmap pull).
-- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test; snap-flag TOML
-  persistence is its own slice if not already present (M2-S3 will report which).
+- Awaiting hub direction: next campaign vs the deferred cleanups (a/b/c above). Parked: M4
+  tangent-circle (Apollonius), M8-S3 transform fork.
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next
 - M1 lands → spot-check + report green tip to edi-ui. M8 gate settles → brief M8 Slice 1
   (capture + serialize) to the builder. Continue the batch-2 queue ahead.
+
+## M0 SUPPORT (2026-06-18) — HOLD READY
+- Mode: drafting is the SUPPORT dept for the M0 crypt slice (~/dept-bus/M0-CRYPT-SLICE.md).
+  dungeon-map builds the generator → MapSpec → createMapFromSpec; blender-lab realizes/renders.
+- My scope if bussed: MapSpec / RoomSpec / DraftingRoom struct tweaks + createMapFromSpec assist
+  (src/core, src/drafting). dungeon-map will bus the exact need; I do NOT pre-build.
+- State: dept/drafting rebased onto LOCAL master (tip 297d5a6, base b3e2932), edi-gate GREEN 104/104.
+- READINESS NOTE (reported to hub): block-instance machinery EXISTS (DraftingBlock+assetRef in
+  DraftingMapTypes.h; placeBlockInstance/defineBlockFromSelection controller verbs in DrawingCore.h),
+  but MapSpec (DraftingRoom.h:119) has NO field to DECLARE a block instance (asset_ref + transform)
+  for createMapFromSpec to stamp. RoomFeature carries only neutral type/name → realized as a bare
+  Point marker. The crypt's sarcophagus + brazier (asset_ref crypt.sarcophagus / crypt.brazier+light)
+  will most likely need a MapSpec block-instance authoring field + a createMapFromSpec stamp arm
+  reusing placeBlockInstance's flatten path. Pre-scoped; awaiting the dungeon-map bus to brief builder.
+- RESUME: re-read this section + ~/dept-bus/M0-CRYPT-SLICE.md + bus log tail; check
+  ~/dept-bus/edi-drafting/briefs|replies + ~/dept-bus/drafting/replies for any M0 brief; hold if none.
+
+### M0 PROPS FIELD — DELIVERED (2026-06-18), awaiting hub merge
+- ASK: dungeon-map coordination 040 → hub RATIFIED additive MapSpec block-instance field for the M0
+  crypt props (sarcophagus + brazier). SETTLED shape with dungeon-map (reply 042).
+- SHAPE: `MapBlockSpec{assetRef, position(ABSOLUTE authored feet), rotationDeg=0, scale=1, name}` +
+  `MapSpec::blocks` (DraftingRoom.h). createMapFromSpec stamps each as a Point marker carrying
+  `BlockPlacementMetadata{assetRef, instanceId off m_nextObjectSerial, rotationDeg, scale}` (blockId
+  empty). Reuses existing serialize (block_placement, additive, no version bump) + MapToonExport
+  (groups by instanceId) — no new codec. H2 clean (struct pure in src/drafting, realization in src/core).
+- COMMITS on dept/drafting (rebased on local master 15a5c19): 6f68618 (field + stamp arm + tests),
+  896edf0 (direct e2e createMapFromSpec→exportMapToToon TOON-row test, empty-blockId carrier).
+- GATE: edi-gate GREEN 104/104, scan clean, tip 896edf0.
+- REVIEW: edi-drafting-reviewer ACCEPT-WITH-NIT (briefs/042 audit). Nit = missing direct TOON seam
+  assertion → CLOSED by 896edf0. HIGH cross-dept confidence the props seam holds end-to-end.
+- MERGE: master owned by integration hub (edi-ui, /home/kogaRyu/edi worktree) per M0 INTEGRATION
+  clause — reported tip 896edf0 ready (bus-hub). NOT self-merged. Once on local master, bus dungeon-map
+  the SHA (reply 043 staged at ~/dept-bus/drafting/replies/043-mapblockspec-LIVE-on-branch.md).
+- DEFERRED follow-ups (NOT M0 blockers, only if dungeon-map asks): (1) MapBlockSpec `flags`/tags vector
+  + blocks[] TOON column (their side); (2) .map.toml parser arm for `blocks`; (3) out-of-room prop
+  policy (empty room cell is safe today). Open PIN to confirm: position is ABSOLUTE authored feet, not
+  room-local — one-line change if generator needs room-local.

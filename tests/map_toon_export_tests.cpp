@@ -208,5 +208,50 @@ int main()
         assert(toon.find("  a,recipe.urn,\"5,5\",1.5,45\n") != std::string::npos);
     }
 
+    // 043: the M0 props critical path — an EMPTY-blockId carrier (a MapSpec-level
+    // MapBlockSpec realizes as a definition-less marker: no blockId, just an assetRef
+    // + instanceId) must reach the blocks[] row UNCHANGED. The export groups on
+    // instanceId and never touches blockId (verified in MapToonExport.cpp), so empty
+    // blockId is transparent here — but commit 0a4df63's reviewer flagged that the
+    // existing cases all carry a NON-empty blockId, so this is proven only by
+    // transitivity. This case asserts the seam DIRECTLY, the way blender-lab's
+    // realizer reads it. We hand-build the document (Path B): wiring Path A through
+    // the controller would force a CMake link of MapToonExport into the controller
+    // test target, which the brief forbids.
+    {
+        DraftingDocument doc = makeDraftingDocument("crypt");
+        // Non-1.0 scale so origin's authored round-trip is observable: authored =
+        // canvas / 0.5. 0.5 is exact in binary, so authored(canvas) is exact.
+        const double scale = 0.5;
+        doc.canvasPerAuthoredUnit = scale;
+        doc.rooms.push_back(DraftingMapRoom{"tomb", {0.0, 0.0}, 20.0, 20.0, "stone"});
+
+        // The authored-feet origin we expect back out: (6,8) feet -> stored as canvas
+        // (3,4). The two flattened objects share an instanceId; their bounds union
+        // centres at canvas (3,4) -> divides by 0.5 back to feet (6,8). The cross-dept
+        // pin: the exported origin must be the AUTHORED value (6,8), not canvas (3,4).
+        const auto placed = [](const std::string &id, Point2D p) {
+            DraftingObject o = makeDraftingObject(id, DraftingShapeKind::Point, PointGeometry{p});
+            o.bounds = computeBounds(o.geometry);
+            o.metadata.blockPlacement.blockId = ""; // DEFINITION-LESS: the M0 carrier
+            o.metadata.blockPlacement.assetRef = "crypt.sarcophagus";
+            o.metadata.blockPlacement.instanceId = "blockinst_0043";
+            o.metadata.blockPlacement.rotationDeg = 90.0; // non-identity -> proves plumbing
+            o.metadata.blockPlacement.scale = 2.0;
+            return o;
+        };
+        doc.objects.push_back(placed("instance_0043a", {2.0, 3.0}));
+        doc.objects.push_back(placed("instance_0043b", {4.0, 5.0})); // centre canvas (3,4)
+
+        const std::string toon = edi::io::exportMapToToon(doc, "crypt");
+        // Exactly one block row despite empty blockId — grouping keys on instanceId.
+        assert(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
+        // room resolved by containment (tomb), asset = the raw ref, origin = AUTHORED
+        // feet (6,8) NOT canvas (3,4), scale 2, rotation 90.
+        assert(toon.find("  tomb,crypt.sarcophagus,\"6,8\",2,90\n") != std::string::npos);
+        // The canvas value must NOT leak into the row (would be "3,4" if unscaled).
+        assert(toon.find("\"3,4\"") == std::string::npos);
+    }
+
     return 0;
 }

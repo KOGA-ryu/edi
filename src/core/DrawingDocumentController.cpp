@@ -822,7 +822,9 @@ void DrawingDocumentController::setFixedRadius(double radius)
     // (gesture-sized), never a rejected build later. Clamped to the unit
     // document space so the stored state always equals the radius the build
     // actually stamps (resolveToolRadius clamps the same way).
-    m_fixedRadius = std::isfinite(radius) && radius > 0.0 ? std::min(radius, 1.0) : 0.0;
+    m_fixedRadius = std::isfinite(radius) && radius > 0.0
+                        ? std::min(radius, edi::drafting::kCanvasBoardExtent)
+                        : 0.0;
 }
 
 double DrawingDocumentController::fixedRadius() const
@@ -835,7 +837,7 @@ void DrawingDocumentController::setWallThickness(double thickness)
     // A zero/invalid thickness would be an invisible band, so fall back to the
     // 0.1 default (not "off") — a wall always has a visible width.
     m_wallThickness = std::isfinite(thickness) && thickness > 0.0
-                          ? std::min(thickness, edi::drafting::kMaxWallToolThickness)
+                          ? std::min(thickness, edi::drafting::kCanvasBoardExtent)
                           : edi::drafting::kDefaultWallToolThickness;
 }
 
@@ -849,7 +851,7 @@ void DrawingDocumentController::setFilletRadius(double radius)
     // Unlike fixedRadius, 0 is not a meaningful fillet (a zero arc), so an
     // invalid value leaves the current radius untouched rather than disabling.
     if (std::isfinite(radius) && radius > 0.0) {
-        m_filletRadius = std::min(radius, 1.0);
+        m_filletRadius = std::min(radius, edi::drafting::kCanvasBoardExtent);
     }
 }
 
@@ -863,7 +865,7 @@ void DrawingDocumentController::setChamferSetback(double setback)
     // Like the fillet radius: 0 is not a meaningful chamfer (no bevel), so an
     // invalid value leaves the current setback untouched rather than disabling.
     if (std::isfinite(setback) && setback > 0.0) {
-        m_chamferSetback = std::min(setback, 1.0);
+        m_chamferSetback = std::min(setback, edi::drafting::kCanvasBoardExtent);
     }
 }
 
@@ -916,7 +918,9 @@ void DrawingDocumentController::setArraySpacingX(double spacing)
     // input is normalized away (std::clamp on NaN would be UB), and the
     // magnitude clamps to the unit document space — the same range the
     // spins can represent, so state and UI cannot disagree.
-    m_arraySpacingX = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+    m_arraySpacingX = std::isfinite(spacing)
+                          ? std::clamp(spacing, -edi::drafting::kCanvasBoardExtent, edi::drafting::kCanvasBoardExtent)
+                          : 0.0;
 }
 
 double DrawingDocumentController::arraySpacingX() const
@@ -926,7 +930,9 @@ double DrawingDocumentController::arraySpacingX() const
 
 void DrawingDocumentController::setArraySpacingY(double spacing)
 {
-    m_arraySpacingY = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+    m_arraySpacingY = std::isfinite(spacing)
+                          ? std::clamp(spacing, -edi::drafting::kCanvasBoardExtent, edi::drafting::kCanvasBoardExtent)
+                          : 0.0;
 }
 
 double DrawingDocumentController::arraySpacingY() const

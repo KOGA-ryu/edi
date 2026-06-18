@@ -142,7 +142,16 @@ struct BoundsEstimator {
     // (edi_craft.py ~:440) folds the label point into its frame — the C++ and
     // Python framing rigs intentionally differ; do NOT change behavior to match.
     void operator()(const AddLabelOp &) const {}
-    void operator()(const ScriptOp &) const {}
+
+    // M1 (roadmap): a custom craftsman's TRUE bounds come from its Python
+    // proof_mesh, which the C++ ASCII layer cannot access. A ±0.5 unit cube
+    // at the placement is the placeholder extent — just enough to frame the
+    // canvas so the Script marker is never clipped by the default bounds.
+    void operator()(const ScriptOp &op) const
+    {
+        include(op.x - 0.5, op.x + 0.5, op.y - 0.5, op.y + 0.5, op.z - 0.5, op.z + 0.5);
+    }
+
     // AddPrism (BL-03) is a buildable carrier whose proof tier is the OBJ mesh
     // (BL-04), not 2D ASCII — like ScriptOp it frames nothing here.
     void operator()(const AddPrismOp &) const {}
@@ -491,11 +500,37 @@ struct ProjectionDrawer {
 
     void operator()(const AddLabelOp &) const {} // labels are Blender-side text
 
-    // A custom craftsman's shape is computed by its Python proof_mesh (an
-    // arbitrary loft/twist the ASCII vocabulary cannot rasterize), so this
-    // schematic draws nothing for it — the craftsman's proof is the OBJ mesh
-    // tier (edi_craft --obj-out), not this 2D projection.
-    void operator()(const ScriptOp &) const {}
+    // M1 (roadmap): unit-bbox placeholder at the op's placement. A custom
+    // craftsman's real shape is its Python proof_mesh — the C++ ASCII layer
+    // has no access to the manifest dimensions — so a ±0.5 cube is the
+    // placement marker. OBJ (edi_craft --obj-out) is the real proof tier.
+    // The four edge lines (not a filled rect) avoid clobbering any other op
+    // that may have drawn inside this placeholder region.
+    void operator()(const ScriptOp &op) const
+    {
+        // drawOutline maps two world corners to canvas and draws the 4 bounding
+        // edges using lineH/lineV — the same axis-aligned primitives that
+        // drawCylinderElevation and the flute markers use.
+        const auto drawOutline = [&](double h0, double h1, double v0, double v1) {
+            const auto a = mapper(h0, v0);
+            const auto b = mapper(h1, v1);
+            const int xa = std::min(a.first, b.first);
+            const int xb = std::max(a.first, b.first);
+            const int ya = std::min(a.second, b.second);
+            const int yb = std::max(a.second, b.second);
+            canvas.lineH(ya, xa, xb, glyphs.border);
+            canvas.lineH(yb, xa, xb, glyphs.border);
+            canvas.lineV(xa, ya, yb, glyphs.border);
+            canvas.lineV(xb, ya, yb, glyphs.border);
+        };
+        if (projection == AsciiProjection::Front) {
+            drawOutline(op.x - 0.5, op.x + 0.5, op.z - 0.5, op.z + 0.5);
+        } else if (projection == AsciiProjection::Side) {
+            drawOutline(op.y - 0.5, op.y + 0.5, op.z - 0.5, op.z + 0.5);
+        } else { // Top
+            drawOutline(op.x - 0.5, op.x + 0.5, op.y - 0.5, op.y + 0.5);
+        }
+    }
 
     // AddPrism (BL-03): the lowered extrude carrier. Like ScriptOp its proof is
     // the OBJ mesh (BL-04), not a 2D silhouette, so this draws nothing — and,

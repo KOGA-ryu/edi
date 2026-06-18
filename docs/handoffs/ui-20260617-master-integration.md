@@ -38,11 +38,25 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
   incl edi_shell_window_tests**; **dropped the `EXCLUDE` in `~/dept-bus/bin/edi-gate`** (full
   suite runs). Re-exclude only if the golden drifts on a NEW box.
 
+### Chrome batches — BOTH DONE + AUDITED ACCEPT
+- **Batch-1** DR-10 toggle / DM-10 fill button / DM-14 spins (`caafe9f`/`0acba08`/`a6bbf4b`) —
+  reviewer ACCEPT no MUST-FIX. H1 golden re-blessed to capture the DM-14 spins.
+- **Batch-2** DM-11 map-browser plugs/connections (`125c449`) + DM-01 view-auto-fit (`00a1ff4`)
+  — reviewer ACCEPT no MUST-FIX. Map workspace renders framed + full graph readout
+  (`/tmp/cb2_map.png`); default drafting golden untouched (map workspace has no committed
+  golden — nothing to re-bless). Optional nits (deferred): browser shows qualified `room.plug`
+  name (kept — clearer in a flat list); trivial `findRoom` DRY into DraftingMapQuery (cross-dept).
+
 ### Still open
-1. **Chrome batch-2 (IN PROGRESS):** DM-01 auto-fit (`computeFitView` ← `computeDocumentBounds`,
-   which IS on master) + DM-11 map-browser plugs/connections sections in `buildMapBrowserPanel`
-   (uses `DraftingMapQuery::deriveEdge`/`plugIsConnected`) → **co-bless the `map` workspace
-   golden** in that change.
+1. **DM-15 chrome — BLOCKED, escalated to hub:** needs core projection plumbing edi-ui must NOT
+   add — a `has_block_instance_selection` bool + the selected object's `instance_id` projected in
+   `src/core/DrawingDocumentProjection.cpp` (+ `activeObjectProjection` in `ShellWidgetHelpers.cpp`).
+   dungeon-map dept is CLOSED, so the hub must route it (drafting owns src/core, or re-open a
+   dungeon-map sliver). Then the DM-15 inspector verb is a quick edi-ui follow-up.
+2. **DR-13 angular-dim PAINTER seam:** edi-ui's, rides the eventual Angular-tool chrome (combo
+   entry + belt cell + arc painter).
+3. **Remaining drafting surfaces to audit/wire:** DR-11 kaleidoscope, DR-07/08/09 modify verbs,
+   DR-14 (in flight) — assess the chrome backlog next.
 2. **DM-15 cross-dept GAP (blocks the DM-15 chrome slice):** needs core plumbing edi-ui must NOT
    add — drafting/dungeon-map owe, in `DrawingDocumentProjection.cpp` (+ `activeObjectProjection`
    in `ShellWidgetHelpers.cpp`): a `has_block_instance_selection` bool AND the selected object's

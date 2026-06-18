@@ -202,12 +202,17 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   `git reset --hard 73c0832`. Branch clean, all work intact, nothing lost.
 - **Escalated to hub** (fleet-wide): origin/master=591e92c is stale; ANY dept builder
   fetch+rebase onto it corrupts. Asked edi-ui to reconcile origin/master to the real line.
-- **🚫 STANDING ORDER (hub-confirmed 2026-06-17): my builders do NOT `git fetch`;
-  rebase ONLY onto LOCAL `master`** (which edi-ui keeps as the real integration line)
-  **until the hub's ALL-CLEAR.** The stale-origin danger is FETCH. Currently the branch
-  IS local master `73c0832` → build on the current tip (a rebase onto local master is a
-  no-op now, safe if it advances). Baked into brief 024 (no-rebase) + all batch-2 briefs.
-  Builder recycled fresh + re-dispatched 024.
+- **🚫🚫 HARDENED STANDING ORDER (2026-06-17, after a SECOND violation): my builders
+  NEVER `git rebase`/`fetch`/`pull`/`merge` — for ANY reason.** The PLANNER owns ALL
+  master-sync (rebase onto LOCAL `master` only, where few commits replay → no ancient
+  LEDGER conflict). The builder twice rebased onto the stale `origin/master` "to resolve
+  LEDGER conflicts" (the ancient LEDGER commits in branch history conflict on a far-back
+  rebase). Builders building on the current tip never hit that. Brief 025 carries the
+  ABSOLUTE no-git-remote rule + STOP-and-ask. Reported to hub.
+- **Master-sync note:** local master advanced to `7d85610` (DR-14). My branch is on
+  `73c0832`+my commits (green, real line). Planner will rebase onto local master at a
+  CONTROLLED batch boundary when needed (not blocking B2-CTX). origin/master STILL stale
+  `591e92c` — awaiting the user's origin reconcile (hub).
 
 ### Reviewer gate 023 (relation-context + plug-type mechanism) — 2026-06-17 — SETTLED YES
 - Reply: `~/dept-bus/edi-dungeon-map/replies/023-reviewer-relation-context-plugtype-mechanism.md`
@@ -224,9 +229,23 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   New `plug:<plugId>` leaf-tag convention (B2-4 reuses). UX: fresh plug has NO leaf until
   `setPlugType`/connect. edi-ui coord: groupId names, the verb widgets, row→selectConnection.
 
-### Builder slice 024 (020 NIT + coverage) — RE-DISPATCHED (post-recovery, NO rebase)
-- Recycled the builder fresh (sonnet /clear) + re-dispatched 024 with the 🚫no-rebase
-  order. Independent of batch-2. (Its first attempt triggered the incident above.)
+### Builder slice 024 (020 NIT + coverage) — 2026-06-17 — DONE (green; 2nd rebase violation, harmless)
+- Reply: `~/dept-bus/edi-dungeon-map/replies/024-builder-020-nit-coverage.md`. Commit
+  `c604b6d`. NIT (clear `m_pendingConnectionPlugA` in `setSelectedToolId` +
+  `cancelPendingCreation`) + 3 coverage tests (deleted-mid-pick, empty-corridor,
+  stale-after-tool-switch). edi-gate GREEN 102/102; planner RE-VERIFIED green after the
+  builder's git surgery; tree clean; branch on the real line (73c0832 ancestor).
+- ⚠ **2nd no-rebase VIOLATION:** the builder ran `git rebase -X ours origin/master`
+  again (despite brief 024's order). HARMLESS this time (591e92c is an ancestor → no-op,
+  branch stayed on the real line). → drove the HARDENED rule above + brief 025's absolute
+  no-git-remote section.
+
+### Builder slice 025 (B2-CTX relation-aware context) — DISPATCHED
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/025-builder-b2ctx-relation-context.md`
+- The settled gate-023 B2-CTX design: widen `DraftingInspectorInput` (+2 bools) + 2
+  precedence branches + `object_connection`/`object_plug` table rows; `selectConnection`
+  + `m_activeConnectionId`; 3 projection keys; unit + controller tests. ABSOLUTE no-git-
+  remote rule baked in. B2-3 (setPlugType) is next.
 
 ### Batch order (current)
 - batch-2 = **B2-CTX** (do first) then **B2-3** (door-type) — design settled (023),

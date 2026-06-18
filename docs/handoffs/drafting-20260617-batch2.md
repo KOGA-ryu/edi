@@ -139,11 +139,30 @@ CreateObjectsCommand = one undo.
   TOML persistence: mirror IF snap flags persist, else note deferred (DR-02/03 flags aren't
   persisted either). Inspector checkbox = edi-ui. Anchors confirmed.
 
+### M2-S3 — CLOSED 2026-06-17 ✅ (SHA `9e52c61`, GREEN 104/104) → M2 COMPLETE
+- `Node` snap kind + `nodeEnabled` + emission for Point objects (dropped intersection nodes +
+  standalone Points snap); controller getter/setter via `setSnapFlag`; projection `node_enabled`.
+  **Precedence:** Node emitted BEFORE Endpoint so Endpoint shadows it (the `<=` last-wins rule) —
+  Node surfaces only when endpoint off (same discipline as DR-02 OnCurve); documented + tested.
+  **TOML: snap flags are NOT persisted at all** → node-only would be inconsistent → deferred (own
+  slice). Diff +113/−1, all my files. Accepted inline. Reported `9e52c61` to edi-ui.
+- **M2 COMPLETE** (S1+S2+S3). Closeout: `docs/closeouts/drafting-intersection-nodes.md`.
+
+## ✅ NAMED BATCH-2 QUEUE EXHAUSTED 2026-06-17
+- Completed this run: M1 (delete-construction-lines), M8 (motif library, S1+S2), DR-13 angular
+  tool-arm (→ angular dim LIVE end-to-end), M2 (intersection nodes + Node snap, S1+S2+S3).
+- **Remaining drafting batch-2 (ROADMAPS-DRAFT.md M0-M8) is DONE or DUPLICATE:** M0=fill-svg ✅,
+  M3≈DR-05/06 ✅, M4 = circle-3pt (DR-05 ✅) + tangent-circle (PARKED — L, needs an Apollonius
+  solver), M5≈DR-10/11 ✅, M6=DR-07/08/09 ✅, M7=DR-13/14 ✅. No genuinely-new ready drafting item left.
+- **Available in-charter follow-ups (small, deferred):** (a) snap-settings TOML persistence (own
+  slice); (b) absent-`"motifs"`-key serialize test hardening; (c) the M8-S3 motif transform-on-place
+  fork (needs the oriented-stamping UX decision — user/edi-ui).
+- **Reported to hub** (queue-exhausted scope decision): awaiting the next campaign / a fresh
+  roadmap pull, OR direction to take the cleanups. NOT inventing a large feature without direction.
+
 ## Open questions / blockers
-- M2-S3 in build → completes M2. After M2: next batch-2/3 item (M4 tangent-circle stays parked;
-  the rest of drafting batch-2 overlaps the done DR bucket — likely move to a fresh roadmap pull).
-- Deferred (non-blocking): harden the absent-`"motifs"`-key serialize test; snap-flag TOML
-  persistence is its own slice if not already present (M2-S3 will report which).
+- Awaiting hub direction: next campaign vs the deferred cleanups (a/b/c above). Parked: M4
+  tangent-circle (Apollonius), M8-S3 transform fork.
 - (Not pausing for the dogfood/use-report fork — user chose autonomous.)
 
 ## Next

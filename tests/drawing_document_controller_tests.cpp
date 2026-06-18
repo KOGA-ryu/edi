@@ -4732,5 +4732,70 @@ int main(int argc, char **argv)
         assert(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
     }
 
+    // DM-15 block-instance projection keys (brief 021).
+    // has_block_instance_selection and instance_id are PURE projection derives:
+    // they read the active object's blockPlacement.instanceId and surface it
+    // to the inspector so it can (a) show the "Block instance" section only when
+    // relevant and (b) pass the right id to transformBlockInstance().
+    //
+    // Three sub-cases mirror the acceptance criteria in brief 021:
+    //   A) block-instance object active  → true / non-empty id
+    //   B) ordinary object active        → false / ""
+    //   C) nothing selected              → false / ""
+    {
+        // Set up: one ordinary point, one block instance (a single point block
+        // placed at 0.7,0.7). After placeBlockInstance the placed objects are
+        // selected and the last one is the active object.
+        DrawingDocumentController projCtl;
+        projCtl.setSelectedToolId("point_tool");
+        projCtl.clickCanvasNormalized(0.1, 0.1); // ordinary point
+        const std::string ordinaryId = projCtl.draftingDocument().objects.back().id;
+
+        projCtl.selectObjectsInBoundsNormalized(0.05, 0.05, 0.15, 0.15);
+        assert(projCtl.defineBlockFromSelection("dot"));
+        const QString blkId = QString::fromStdString(projCtl.draftingDocument().blocks.front().id);
+
+        assert(projCtl.placeBlockInstance(blkId, 0.7, 0.7));
+
+        // Capture the shared instance id from the document.
+        std::string placedInstanceId;
+        for (const edi::drafting::DraftingObject &o : projCtl.draftingDocument().objects) {
+            if (!o.metadata.blockPlacement.instanceId.empty()) {
+                placedInstanceId = o.metadata.blockPlacement.instanceId;
+                break;
+            }
+        }
+        assert(!placedInstanceId.empty());
+
+        // Case A: the active object IS a block-instance placement → keys are
+        // true and the instance id.  placeBlockInstance auto-selects the stamped
+        // objects, so one of them is already active.
+        {
+            const QVariantMap model = projCtl.modelDocument();
+            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == true);
+            assert(model.value(QStringLiteral("instance_id")).toString()
+                   == QString::fromStdString(placedInstanceId));
+        }
+
+        // Case B: select the ordinary point (non-placement) → keys revert to
+        // false / "".
+        assert(projCtl.selectObjectById(QString::fromStdString(ordinaryId)));
+        {
+            const QVariantMap model = projCtl.modelDocument();
+            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
+            assert(model.value(QStringLiteral("instance_id")).toString().isEmpty());
+        }
+
+        // Case C: deselect everything (empty selection, no active object) →
+        // keys are false / "".
+        projCtl.selectObjectsInBoundsNormalized(0.99, 0.99, 1.0, 1.0); // empty region
+        assert(projCtl.draftingDocument().selectedObjectIds.empty());
+        {
+            const QVariantMap model = projCtl.modelDocument();
+            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
+            assert(model.value(QStringLiteral("instance_id")).toString().isEmpty());
+        }
+    }
+
     return 0;
 }

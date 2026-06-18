@@ -3285,8 +3285,14 @@ int main(int argc, char **argv)
         assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
         assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
 
-        // Fill: per-object colour + opacity (no layer inheritance), clamped to
-        // [0,1], surfaced via own_fill_*. Default 0 keeps every shape unfilled.
+        // Fill: gated by kind — only Rectangle/Circle/Ellipse/Polygon carry a fill
+        // that the painter/SVG actually renders.  Open kinds (Line, Arc, …) are
+        // rejected at the setter so no invisible "write-only" fill state can build up.
+        // Add a Circle to this controller (away from the existing line) and select it.
+        styleController.setSelectedToolId(QStringLiteral("circle_tool"));
+        styleController.clickCanvasNormalized(0.5, 0.1); // center
+        styleController.clickCanvasNormalized(0.7, 0.1); // edge → radius 0.2
+        // circle_tool auto-selects the new object
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.0);
         assert(styleController.setSelectedObjectFillColor(QStringLiteral("#2244aa")));
         assert(styleController.setSelectedObjectFillOpacity(0.6));
@@ -3295,13 +3301,27 @@ int main(int argc, char **argv)
         assert(styled.value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
         assert(styleController.setSelectedObjectFillOpacity(5.0)); // clamps high
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 1.0);
-        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected by the gate
+        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected
         assert(!styleController.setSelectedObjectFillOpacity(std::numeric_limits<double>::quiet_NaN())); // non-finite rejected
-        // No-op guard: re-setting the value already in place is accepted but must
-        // NOT push an undo step — so the undo below restores 0.6, not 1.0.
-        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp: a no-op
+        // No-op guard: re-setting the value already in place must NOT push an undo step —
+        // so the undo below restores 0.6, not 1.0.
+        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp
         assert(styleController.undo());
         assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
+
+        // DR-15: fill setters on an open kind (Line) return false; object.fill unchanged.
+        // Re-select the diagonal line created at the top of this block.
+        styleController.setSelectedToolId(QStringLiteral("select_move"));
+        styleController.clickCanvasNormalized(0.3, 0.3); // midpoint of the (0.2,0.2)→(0.8,0.8) line
+        const QVariantMap lineBeforeFill = activeProjection();
+        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("#aabbcc")));
+        assert(!styleController.setSelectedObjectFillOpacity(0.7));
+        const QVariantMap lineAfterFill = activeProjection();
+        // fill state must be byte-identical after the rejected calls
+        assert(lineAfterFill.value(QStringLiteral("own_fill_color"))
+            == lineBeforeFill.value(QStringLiteral("own_fill_color")));
+        assert(lineAfterFill.value(QStringLiteral("own_fill_opacity"))
+            == lineBeforeFill.value(QStringLiteral("own_fill_opacity")));
     }
 
     // #30 parametric arrays: option state (count + spacings) drives repeat

@@ -399,6 +399,13 @@ public:
     // for every gathered object. Returns false when the plug id is unknown.
     // One undo restores the plug, its connections, and all associated rendered objects.
     bool deletePlug(const QString &plugId);
+    // B2-3: set a plug's neutral type and re-mint its door leaf. ONE bracket:
+    // UpdatePlugCommand (updates plug.type in the graph) + optional DeleteObjectCommand
+    // for the existing "plug:<plugId>"-tagged leaf + CreateObjectCommand for a fresh
+    // leaf (thin Wall band across the doorway, wallVisual.type = wallTypeForPlugType(type),
+    // toolProvenance = "door", tag "plug:<plugId>"). Returns false when the plug id is
+    // unknown. One undo reverts BOTH the type change and the leaf swap atomically.
+    bool setPlugType(const QString &plugId, const QString &type);
     // B2-5: replace a connection's rendered corridor geometry with a freshly routed
     // one that follows the two plugs' CURRENT anchor positions (reads the live marker
     // geometry, not the stale plug.anchor snapshot). ONE bracket: delete old walls

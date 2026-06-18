@@ -2348,6 +2348,94 @@ bool DrawingDocumentController::rerouteConnection(const QString &connId)
     return true;
 }
 
+// B2-3: set plug type + re-mint door leaf ──────────────────────────────────────
+// Sets a plug's neutral type tag and replaces its rendered door-leaf object so
+// the visual matches the new type. Pure-type authoring: anchor and connections
+// are untouched. One bracket = one undo step (type + leaf swap together).
+bool DrawingDocumentController::setPlugType(const QString &plugId, const QString &type)
+{
+    const std::string id   = toStdString(plugId);
+    const std::string kind = toStdString(type);
+
+    const auto idx = plugIndexById(m_document, id);
+    if (!idx) {
+        return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("plug does not exist"));
+    }
+    const DraftingPlug &plug = m_document.plugs[*idx];
+
+    // ── GATHER existing leaf (before any mutation) ────────────────────────────
+    // The leaf is a Wall object tagged "plug:<plugId>" minted by a previous
+    // setPlugType (or by createMapFromSpec for authored plugs — though that path
+    // does NOT add the tag; see note below). Gather FIRST like B2-4 delete.
+    const std::string leafTag = "plug:" + id;
+    std::string existingLeafId;
+    for (const DraftingObject &obj : m_document.objects) {
+        for (const std::string &tag : obj.metadata.tags) {
+            if (tag == leafTag) { existingLeafId = obj.id; break; }
+        }
+        if (!existingLeafId.empty()) { break; }
+    }
+
+    // ── DERIVE leaf geometry ──────────────────────────────────────────────────
+    // The leaf is a thin Wall band across the doorway.  Read the CURRENT anchor
+    // position from the marker's live geometry (same live-read pattern as B2-5
+    // buildTaggedCorridorWalls — the stale plug.anchor cache is not reliable
+    // after a move).  Fall back to plug.anchor when the marker is missing.
+    const DraftingObject *marker = findObject(m_document, plug.anchorObjectId);
+    const auto *ptGeom = marker ? std::get_if<PointGeometry>(&marker->geometry) : nullptr;
+    const Point2D anchor = ptGeom ? ptGeom->point : plug.anchor;
+
+    // Edge: look up the room that contains the anchor, then derive the nearest
+    // wall side.  Open-space plugs (no enclosing room) fall back to "N".
+    std::string edgeStr = "N";
+    for (const DraftingMapRoom &room : m_document.rooms) {
+        if (boundsContainsPoint(Bounds2D{room.origin.x, room.origin.y, room.width, room.height},
+                                anchor)) {
+            edgeStr = deriveEdge(room, anchor);
+            break;
+        }
+    }
+    // Tangent along the wall: horizontal for N/S walls, vertical for E/W walls.
+    const bool isNorthSouth = (edgeStr == "N" || edgeStr == "S");
+    const Point2D tangent   = isNorthSouth ? Point2D{1.0, 0.0} : Point2D{0.0, 1.0};
+    constexpr double hw = 0.0225; // kCorridorWidth / 2.0 (0.045 / 2)
+    const Point2D leafA{anchor.x - tangent.x * hw, anchor.y - tangent.y * hw};
+    const Point2D leafB{anchor.x + tangent.x * hw, anchor.y + tangent.y * hw};
+
+    // Build the fresh leaf object (same shape as createMapFromSpec's leaf build).
+    const QString leafObjId = nextObjectId(QStringLiteral("door"), m_nextObjectSerial++);
+    DraftingObjectBuildResult leafBuilt = buildDraftingObject(
+        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, 0.02});
+    if (!leafBuilt.ok) {
+        --m_nextObjectSerial; // roll back the serial bump on failure
+        return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
+                          leafBuilt.code,
+                          drawing_core::qStringFromStdString(leafBuilt.message));
+    }
+    leafBuilt.object.bounds                    = computeBounds(leafBuilt.object.geometry);
+    leafBuilt.object.metadata.toolProvenance   = "door";
+    leafBuilt.object.metadata.wallVisual.type  = wallTypeForPlugType(kind);
+    // Tag "plug:<plugId>" so future setPlugType calls can find and replace this leaf.
+    leafBuilt.object.metadata.tags.push_back(leafTag);
+
+    // ── ONE BRACKET ───────────────────────────────────────────────────────────
+    // A. UpdatePlugCommand — sets plug.type in the graph record.
+    // B. DeleteObjectCommand for the old leaf (if gathered; skipped on first call).
+    // C. CreateObjectCommand for the fresh leaf.
+    // One Ctrl+Z reverts BOTH the type change and the leaf swap atomically.
+    beginEdit();
+    applyDraftingCommand(m_document, UpdatePlugCommand{id, kind});   // A
+    if (!existingLeafId.empty()) {
+        applyDraftingCommand(m_document, DeleteObjectCommand{existingLeafId}); // B
+    }
+    applyDraftingCommand(m_document, CreateObjectCommand{leafBuilt.object}); // C
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring
@@ -2911,15 +2999,8 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
-    const auto wallTypeForPlugType = [](const std::string &type) {
-        if (type == "window") {
-            return WallType::Window;
-        }
-        if (type == "secret") {
-            return WallType::Secret;
-        }
-        return WallType::Door;
-    };
+    // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so
+    // setPlugType shares the IDENTICAL mapping — one place if a new variant lands.
 
     // A plug with a CONNECTION gets a real opening (doorway) carved in its wall so
     // the corridor flows through, not into a solid wall. An UNCONNECTED plug — a

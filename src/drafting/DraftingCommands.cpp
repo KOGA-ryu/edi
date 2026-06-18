@@ -343,6 +343,8 @@ DraftingCommandResult applyDraftingCommand(DraftingDocument &document, const Dra
             return fromStoreResult(declareConnection(document, typedCommand.connection));
         } else if constexpr (std::is_same_v<Command, DeleteConnectionCommand>) {
             return fromStoreResult(undeclareConnection(document, typedCommand.connectionId));
+        } else if constexpr (std::is_same_v<Command, UpdatePlugCommand>) {
+            return fromStoreResult(updatePlug(document, typedCommand.plugId, typedCommand.type));
         } else if constexpr (std::is_same_v<Command, CreateBlockCommand>) {
             return fromStoreResult(addBlock(document, typedCommand.block));
         } else if constexpr (std::is_same_v<Command, DeleteBlockCommand>) {

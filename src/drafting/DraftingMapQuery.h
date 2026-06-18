@@ -18,6 +18,16 @@ namespace edi::drafting {
 // +y south). Returns "N"/"E"/"S"/"W".
 std::string deriveEdge(const DraftingMapRoom &room, Point2D anchor);
 
+// Render-only mapping: a plug's neutral type string → WallType for the door leaf
+// it renders. "window" → Window; "secret" → Secret; anything else (door/portal/
+// threshold/…) → Door. The set is intentionally open on the left (new neutral
+// type tags remain valid — they just render as a door until the painter gains a
+// new branch). "Render-only" means this function decides visual appearance only;
+// it never assigns game rules (Seam B owns those).
+// Promoted from a local lambda in createMapFromSpec (B2-3) so setPlugType can
+// share the IDENTICAL mapping — one place to change if a new visual variant lands.
+WallType wallTypeForPlugType(const std::string &type);
+
 // A plug is `connected` iff some declared connection names it (by plug id). Pure
 // derivation over the document's connection list — no stored flag.
 bool plugIsConnected(const std::vector<DraftingDeclaredConnection> &connections,

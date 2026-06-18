@@ -5421,5 +5421,109 @@ int main(int argc, char **argv)
         assert(ctl.draftingDocument().connections.size() == 1);
     }
 
+    // --- Brief 033: B2-3 setPlugType ------------------------------------------
+    // setPlugType updates plug.type AND creates/replaces the door leaf (a thin Wall
+    // tagged "plug:<plugId>") in ONE bracket (one undo step).
+
+    {
+        // (1) First setPlugType call on a fresh interactive plug: no pre-existing leaf →
+        // mints one.  Second call REPLACES the leaf (old leaf gone, new leaf with new type).
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const QString pId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const std::string leafTag = "plug:" + pId.toStdString();
+
+        // First setPlugType → "window".
+        assert(ctl.setPlugType(pId, QStringLiteral("window")));
+        assert(ctl.draftingDocument().plugs[0].type == "window");
+
+        // Exactly one Wall with the leaf tag must exist, and it must be Window type.
+        std::vector<std::string> leafIds;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafIds.push_back(obj.id); break; }
+            }
+        }
+        assert(leafIds.size() == 1); // exactly one leaf
+        // Retrieve the leaf and verify its WallVisual type.
+        const edi::drafting::DraftingObject *leafObj = nullptr;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == leafIds[0]) { leafObj = &obj; break; }
+        }
+        assert(leafObj != nullptr);
+        assert(leafObj->kind == edi::drafting::DraftingShapeKind::Wall);
+        assert(leafObj->metadata.wallVisual.type == edi::drafting::WallType::Window);
+        assert(leafObj->metadata.toolProvenance == "door");
+
+        // Second setPlugType → "secret": old leaf gone, new leaf present, type Secret.
+        const std::string firstLeafId = leafIds[0];
+        assert(ctl.setPlugType(pId, QStringLiteral("secret")));
+        assert(ctl.draftingDocument().plugs[0].type == "secret");
+
+        // Count leaves after second call — still exactly one.
+        leafIds.clear();
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == leafTag) { leafIds.push_back(obj.id); break; }
+            }
+        }
+        assert(leafIds.size() == 1);                   // still ONE leaf
+        assert(leafIds[0] != firstLeafId);             // fresh id (old leaf replaced)
+        // Find and check the new leaf.
+        const edi::drafting::DraftingObject *newLeaf = nullptr;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == leafIds[0]) { newLeaf = &obj; break; }
+        }
+        assert(newLeaf != nullptr);
+        assert(newLeaf->metadata.wallVisual.type == edi::drafting::WallType::Secret);
+    }
+
+    {
+        // (2) ONE undo after setPlugType reverts BOTH the type change AND the leaf.
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const QString pId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const std::string leafTag = "plug:" + pId.toStdString();
+
+        // Apply once (window).
+        assert(ctl.setPlugType(pId, QStringLiteral("window")));
+        const std::string windowLeafId = [&] {
+            for (const auto &obj : ctl.draftingDocument().objects) {
+                for (const auto &t : obj.metadata.tags) {
+                    if (t == leafTag) return obj.id;
+                }
+            }
+            return std::string{};
+        }();
+        assert(!windowLeafId.empty());
+
+        // Undo: plug.type reverts to "door" (the default placed by placePlugAtPoint)
+        // and the window leaf disappears.
+        assert(ctl.undo());
+        assert(ctl.draftingDocument().plugs[0].type == "door");
+        bool leafGone = true;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            if (obj.id == windowLeafId) { leafGone = false; break; }
+        }
+        assert(leafGone);
+        // No leaf tag should remain at all (leaf was created by setPlugType, not
+        // by placePlugAtPoint — placePlugAtPoint creates no leaf).
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            for (const auto &tag : obj.metadata.tags) {
+                assert(tag != leafTag); // no leaf should exist after undo
+            }
+        }
+    }
+
+    {
+        // (3) Unknown plug id → returns false, document unchanged.
+        DrawingDocumentController ctl;
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
+        const std::size_t objsBefore = ctl.draftingDocument().objects.size();
+        assert(!ctl.setPlugType(QStringLiteral("no-such-plug"), QStringLiteral("window")));
+        assert(ctl.draftingDocument().objects.size() == objsBefore);
+        assert(ctl.draftingDocument().plugs[0].type == "door"); // unchanged
+    }
+
     return 0;
 }

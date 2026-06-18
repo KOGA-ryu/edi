@@ -25,4 +25,19 @@ bool plugIsConnected(const std::vector<DraftingDeclaredConnection> &connections,
     return false;
 }
 
+WallType wallTypeForPlugType(const std::string &type)
+{
+    // Render-only: "window" and "secret" get their own visual; every other neutral
+    // type tag (door/portal/threshold/…) falls through to Door.  The intentionally
+    // open vocabulary means adding a new neutral type is a no-op here — it renders
+    // as a door (the most-common default) until a new visual branch is wanted.
+    if (type == "window") {
+        return WallType::Window;
+    }
+    if (type == "secret") {
+        return WallType::Secret;
+    }
+    return WallType::Door;
+}
+
 } // namespace edi::drafting

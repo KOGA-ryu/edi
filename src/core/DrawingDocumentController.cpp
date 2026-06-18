@@ -3710,7 +3710,18 @@ void DrawingDocumentController::cancelPendingCreation()
     m_previewObject.reset();
     m_pointCapture.reset();
     m_pendingConnectionPlugA.clear(); // symmetry with setSelectedToolId: force-cancel clears both
-    emit pointerChanged(); // view state, not a mutation
+    // B2-CTX: Escape ends any connection selection for the same reason as a tool
+    // switch — the inspector context the user was looking at is stale once the
+    // canvas is force-cancelled. The clear keeps the "any focus-shift ends the
+    // connection selection" invariant uniform across all exit paths.
+    // If a connection WAS selected, modelChanged must fire so the projection
+    // cache (has_connection_selection) refreshes to false immediately.
+    const bool hadConnectionSelection = !m_activeConnectionId.empty();
+    m_activeConnectionId.clear();
+    emit pointerChanged(); // pointer capture state changed
+    if (hadConnectionSelection) {
+        emit modelChanged(); // projection key has_connection_selection changed
+    }
 }
 
 bool DrawingDocumentController::deleteSelectedObject()

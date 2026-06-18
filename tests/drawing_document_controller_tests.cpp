@@ -5243,6 +5243,41 @@ int main(int argc, char **argv)
         assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
+    // --- Brief 032: cancelPendingCreation clears m_activeConnectionId -----------
+    // Escape (cancelPendingCreation) must end any connection selection so the
+    // "any focus-shift ends the connection selection" invariant holds uniformly.
+    // Sequence: arm a pick (sets m_pointCapture) → selectConnection (sets
+    // m_activeConnectionId while m_pointCapture is still live) → cancelPendingCreation
+    // clears both and emits modelChanged so the projection cache refreshes.
+    // Note: beginPlugPick DOES clear m_activeConnectionId, so we call
+    // selectConnection AFTER beginPlugPick to put both states live simultaneously.
+    {
+        DrawingDocumentController ctl;
+
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
+        ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
+        const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
+        const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
+        assert(ctl.connectPlugs(aId, bId));
+        const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
+
+        // Arm a plug-pick (sets m_pointCapture; also clears m_activeConnectionId —
+        // that is correct behaviour for the begin*Pick family).
+        ctl.beginPlugPick();
+
+        // NOW set the connection selection while the point-capture is armed.
+        // selectConnection does not touch m_pointCapture, so both states are live.
+        ctl.selectConnection(cId);
+        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+
+        // Escape — cancelPendingCreation sees m_pointCapture (doesn't early-return),
+        // clears both m_pointCapture and m_activeConnectionId, then emits modelChanged
+        // because hadConnectionSelection was true.
+        ctl.cancelPendingCreation();
+        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+    }
+
     // --- Brief 027: B2-5 rerouteConnection -----------------------------------
     // The reroute verb replaces a connection's corridor walls with freshly-routed
     // ones that follow the two plugs' CURRENT anchor marker positions.
@@ -5315,6 +5350,36 @@ int main(int argc, char **argv)
             }
             assert(!clash);
         }
+
+        // ── HEADLINE ASSERTION: the rerouted corridor FOLLOWS the moved anchor ──
+        // The corridorWalls geometry is WallGeometry{a, b, thickness}. The first
+        // wall segment's vertex `a` is at doorA ± (width/2) in the perpendicular
+        // direction — max offset hw = 0.0225 from the anchor point.  We assert
+        // that at least one endpoint of any new corridor wall is within epsilon
+        // (0.03 > hw) of the moved anchor (0.1, 0.1).
+        // A regression where buildTaggedCorridorWalls read the stale plug.anchor
+        // snapshot (0.3, 0.3) instead of the live marker geometry (0.1, 0.1)
+        // would produce wall vertices near (0.3, 0.3) and FAIL this assertion.
+        constexpr double kEpsilon = 0.03;
+        const edi::drafting::Point2D movedAnchorPt{0.1, 0.1};
+        bool corridorNearMovedAnchor = false;
+        for (const auto &obj : ctl.draftingDocument().objects) {
+            bool isNewWall = false;
+            for (const auto &tag : obj.metadata.tags) {
+                if (tag == connTag) { isNewWall = true; break; }
+            }
+            if (!isNewWall) { continue; }
+            const auto *wall = std::get_if<edi::drafting::WallGeometry>(&obj.geometry);
+            if (!wall) { continue; }
+            const auto withinEps = [&](const edi::drafting::Point2D &p) {
+                return std::hypot(p.x - movedAnchorPt.x, p.y - movedAnchorPt.y) < kEpsilon;
+            };
+            if (withinEps(wall->a) || withinEps(wall->b)) {
+                corridorNearMovedAnchor = true;
+                break;
+            }
+        }
+        assert(corridorNearMovedAnchor); // corridor must start at the moved anchor
 
         // Total object count is unchanged (same number of corridor walls) or
         // may differ — but at minimum the reroute produced at least one wall.

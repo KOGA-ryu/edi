@@ -14,7 +14,17 @@
 
 ## Reviewer findings (prioritized worst-first)
 
-### P1 — Canvas chrome marker/handle pixels (highest traffic; edi-ui chrome) — SLICE 1
+### P1 — Canvas chrome marker/handle pixels (highest traffic; edi-ui chrome) — ✅ DONE `fa26860`
+DONE: the audited literals → `src/widgets/DrawingCanvasChromeDims.h` (named
+`k…Px` consts, byte-identical, golden 0-diff). The builder flagged MORE
+view-dimension literals in the SAME file, left out of scope as **P1b** (a clean
+follow-up): the dimension label-rect paddings (`6.0/8.0/12.0` + `4.0` corner
+radius ~L426-432), committed-dim rounded-rect radius, point fill radius `4.0`,
+the plot-diagnostic warning box (`12.0` min / `6.0` adjust / `1.5` pen / `24`
+alpha→NB alpha is non-dim), preview/construction pen widths, guide pen widths,
+rectangle inset `2.0×` factors. Fold these into `DrawingCanvasChromeDims.h` next.
+
+#### (original audit detail — P1) — SLICE 1
 `src/widgets/DrawingCanvasObjectPainter.cpp`:
 - L78 arrow `headLength = 11.0`; L95 handle outline pen `2`; L153/158/159 snap
   marker pen `1.0` / dot radius `3.0` / crosshair `5.0`; L373/379 guide-label
@@ -58,5 +68,5 @@
   duplication — separate layers; leave as-is.
 
 ## Next
-- SLICE 1 (P1 canvas chrome) dispatched to edi-ui-builder — behavior-preserving.
+- P1 ✅ DONE (fa26860). P1b (remaining same-file view dims, listed above) queued.
 - SLICE 2 (P2 shell layout → ShellTheme tokens) + SLICE 3 (P3 QSS) queued.

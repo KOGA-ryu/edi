@@ -45,6 +45,8 @@ _(append one row per merge: tip, what, edi-gate result)_
 | 2026-06-18 ~14:10 | blender-lab | `03b8cc1` → merge `ac3bf96` | M0 REALIZER (tools/blender/edi_realize.py + smoke test + sample evidence). Two-tier bpy: pure parse_toon/plan_greybox (GPU-free, ctest #100) + Blender OptiX render. | GREEN 105/105 + scan |
 | 2026-06-18 ~14:15 | drafting (support) | `366f23c` → merge `fb6ca25` | M0 PROPS SUPPORT: MapBlockSpec carrier on MapSpec (DraftingRoom.h) + createMapFromSpec block-stamp arm + e2e TOON-row assertion. The field the generator needs to place crypt props. | GREEN 105/105 + scan |
 | 2026-06-18 ~15:1x | drafting (COHERENCE) | `3ab8033` → merge `4273171` | no-magic-dims sweep: retire hardcoded kCorridorWidth=0.045 (corridor width DERIVES from room scale) + DraftingCanvasDims.h core spine naming canvas/door/wall dims. src/core+src/drafting only, disjoint from the fit slice. | GREEN 105/105 + scan |
+| 2026-06-18 ~15:35 | edi-ui (P1 sweep) | `fa26860` (own) | P1 canvas-chrome dim-literal sweep → src/widgets/DrawingCanvasChromeDims.h (named k…Px, byte-identical, golden 0-diff). | GREEN 105/105 + scan |
+| 2026-06-18 ~15:40 | drafting (no-magic-dims) | `ee5bf15` → merge `1254bcb` | 050+051 kCanvasBoardExtent: one named source for the radius/setback/thickness/spacing max-clamp 1.0. Sweep COMPLETE (map/canvas path). NIT comment verified survived. | GREEN 105/105 + scan |
 
 ## SCALE-POLICY slice (edi-ui PRIMARY — `~/dept-bus/SCALE-POLICY.md`)
 The user's scale directive: the 2D canvas must FIT THE SCREEN at any dungeon size.

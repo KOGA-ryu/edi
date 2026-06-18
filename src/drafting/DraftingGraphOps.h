@@ -23,6 +23,14 @@ std::optional<std::size_t> plugIndexById(const DraftingDocument &document, const
 std::optional<std::size_t> connectionIndexById(const DraftingDocument &document, const DraftingConnectionId &id);
 // Map rooms are keyed by NAME (unique within a map — what plugs reference).
 std::optional<std::size_t> mapRoomIndexByName(const DraftingDocument &document, const std::string &name);
+// Interactive authoring (B2-2 connection tool): find the plug whose anchorObjectId
+// matches the given document object id, or nullopt when no plug anchors to it.
+// Used to resolve a canvas hit-test objectId back to the plug that rides on it:
+// the user clicks a plug marker, hitTestDocument returns the marker's objectId,
+// and this function maps it to the plug so the connection tool can refer to the
+// plug record by id rather than carrying raw coordinates.
+std::optional<DraftingPlugId> plugAtAnchorObject(const DraftingDocument &document,
+                                                  const DraftingObjectId &objectId);
 
 // Mutations.
 DraftingStoreResult addPlug(DraftingDocument &document, DraftingPlug plug);

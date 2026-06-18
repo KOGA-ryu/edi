@@ -4606,5 +4606,131 @@ int main(int argc, char **argv)
         assert(!emptyCtl.isAwaitingPointCapture());
     }
 
+    // B2-1: interactive plug-placement tool.
+    // beginPlugPick() arms a PlugPlacement capture; a canvas click mints exactly one
+    // Point marker + one DraftingPlug in one undo step; one undo removes both.
+    {
+        DrawingDocumentController plugCtl;
+
+        // Arming: prompt set, document untouched — same up-front test as other
+        // pick tools (region fill, block instance).
+        assert(plugCtl.beginPlugPick());
+        assert(plugCtl.isAwaitingPointCapture());
+        assert(plugCtl.pointCapturePrompt() == QStringLiteral("Click a wall to place a plug"));
+        const std::uint64_t revBefore = plugCtl.draftingDocument().revision;
+        assert(plugCtl.draftingDocument().plugs.empty());
+        assert(plugCtl.draftingDocument().objects.empty());
+
+        // A click at (0.5, 0.5): capture consumed, one marker + one plug created,
+        // revision bumped. objectSnapEnabled is false on a fresh controller, so the
+        // click lands at the raw canvas coordinate with no snap interference.
+        plugCtl.clickCanvasNormalized(0.5, 0.5);
+        assert(!plugCtl.isAwaitingPointCapture()); // capture consumed
+        {
+            const edi::drafting::DraftingDocument &doc = plugCtl.draftingDocument();
+            assert(doc.plugs.size() == 1);
+            assert(doc.objects.size() == 1); // the anchor Point marker
+            assert(doc.revision > revBefore);
+
+            const edi::drafting::DraftingPlug &plug = doc.plugs.front();
+            assert(plug.type == "door"); // default neutral type — no game rule
+            // anchor cache matches the click position (no snap offset).
+            assert(nearlyEqual(plug.anchor.x, 0.5) && nearlyEqual(plug.anchor.y, 0.5));
+
+            // The plug anchors to the minted Point marker.
+            const edi::drafting::DraftingObject *marker =
+                edi::drafting::findObject(doc, plug.anchorObjectId);
+            assert(marker != nullptr);
+            assert(marker->kind == edi::drafting::DraftingShapeKind::Point);
+            assert(marker->metadata.toolProvenance == "plug");
+        }
+
+        // One undo removes BOTH marker and plug — they are in one undo step.
+        assert(plugCtl.undo());
+        assert(plugCtl.draftingDocument().plugs.empty());
+        assert(plugCtl.draftingDocument().objects.empty());
+    }
+
+    // B2-2: interactive connection tool — two-click capture + on-demand corridor.
+    // beginConnectionPick() arms a PlugConnect capture; first click stores plug A and
+    // advances the prompt; second click (on a DIFFERENT plug) declares one connection
+    // and emits corridor walls all tagged "connection:<connId>"; one undo removes the
+    // connection AND all corridor objects; a same-plug second click refuses with no change.
+    {
+        DrawingDocumentController connCtl;
+
+        // Place two plugs at known canvas positions (objectSnap disabled on a fresh
+        // controller, so no snapping — markers land at exactly these coordinates).
+        connCtl.beginPlugPick();
+        connCtl.clickCanvasNormalized(0.3, 0.3); // plug A anchor at (0.3, 0.3)
+        connCtl.beginPlugPick();
+        connCtl.clickCanvasNormalized(0.7, 0.7); // plug B anchor at (0.7, 0.7)
+
+        {
+            const edi::drafting::DraftingDocument &doc = connCtl.draftingDocument();
+            assert(doc.plugs.size() == 2);
+        }
+        const std::uint64_t revAfterPlugs   = connCtl.draftingDocument().revision;
+        const int           markersAfterPlug = static_cast<int>(connCtl.draftingDocument().objects.size()); // 2
+
+        // Arm the connection tool.
+        assert(connCtl.beginConnectionPick());
+        assert(connCtl.isAwaitingPointCapture());
+        assert(connCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
+        // Arming must NOT touch the document.
+        assert(connCtl.draftingDocument().revision == revAfterPlugs);
+
+        // First click on plug A's marker — prompt advances, no connection yet.
+        connCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(connCtl.isAwaitingPointCapture()); // still armed for second click
+        assert(connCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
+        assert(connCtl.draftingDocument().connections.empty()); // not yet connected
+
+        // Second click on SAME plug A — refuse, tool disarms, no change.
+        connCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(!connCtl.isAwaitingPointCapture()); // tool disarmed on refusal
+        assert(connCtl.draftingDocument().connections.empty()); // still no connection
+        // Document content must be unchanged (refusal = edit-status only, no object change).
+        assert(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
+
+        // Re-arm and complete the full two-click flow.
+        assert(connCtl.beginConnectionPick());
+        connCtl.clickCanvasNormalized(0.3, 0.3); // first click → plug A stored
+        connCtl.clickCanvasNormalized(0.7, 0.7); // second click → plug B → connect!
+
+        assert(!connCtl.isAwaitingPointCapture()); // capture consumed
+        {
+            const edi::drafting::DraftingDocument &doc = connCtl.draftingDocument();
+            assert(doc.connections.size() == 1); // one connection declared
+
+            const edi::drafting::DraftingDeclaredConnection &conn = doc.connections.front();
+            // The connection references the two minted plug ids.
+            assert(conn.plugA == doc.plugs[0].id && conn.plugB == doc.plugs[1].id);
+
+            // Every emitted corridor wall carries tag "connection:<connId>". The tag is
+            // the neutral open-vocabulary breadcrumb (like "feature:<type>") — no new
+            // metadata field, no codec change — so delete/re-route can filter by it.
+            const std::string expectedTag = "connection:" + conn.id;
+            int taggedWallCount = 0;
+            for (const edi::drafting::DraftingObject &obj : doc.objects) {
+                for (const std::string &tag : obj.metadata.tags) {
+                    if (tag == expectedTag) {
+                        ++taggedWallCount;
+                        break;
+                    }
+                }
+            }
+            // corridorWalls() produces 2*segments walls; for two distinct door points
+            // the minimum centerline has >=2 segments → >=4 tagged walls.
+            assert(taggedWallCount > 0);
+        }
+
+        // One undo removes the connection AND all corridor objects in one step,
+        // leaving only the two plug markers (the atomicity proof).
+        assert(connCtl.undo());
+        assert(connCtl.draftingDocument().connections.empty());
+        assert(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
+    }
+
     return 0;
 }

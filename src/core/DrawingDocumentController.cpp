@@ -14,10 +14,12 @@
 #include "drafting/DraftingConstructionOps.h"
 #include "drafting/DraftingDimensionOps.h"
 #include "drafting/DraftingGeometry.h"
+#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject, plugIndexById (B2-1/B2-2)
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
 #include "drafting/DraftingLayerOps.h"
+#include "drafting/DraftingMapQuery.h"  // deriveEdge (B2-2 corridor routing)
 #include "drafting/DraftingMetadata.h"
 #include "drafting/DraftingMirror.h"
 #include "drafting/DraftingModify.h"
@@ -1894,6 +1896,173 @@ bool DrawingDocumentController::fillEnclosedRegion(Point2D seed)
     return true;
 }
 
+// --- Map-authoring tools (B2-1 + B2-2 interactive authoring) ------------------
+
+bool DrawingDocumentController::beginPlugPick()
+{
+    // Arm a pick-a-point capture for interactive plug placement. Unlike block
+    // instance (which guards that the block exists) or region fill (which guards
+    // that rooms exist), plug placement has no up-front precondition — any canvas
+    // point is a valid anchor. The click path runs resolveSnap() BEFORE calling
+    // resolvePointCapture(), so snapping to a wall endpoint/edge is free.
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugPlacement,
+                                         QStringLiteral("Click a wall to place a plug")};
+    emit pointerChanged(); // view state: prompt appears, document is untouched
+    return true;
+}
+
+bool DrawingDocumentController::placePlugAtPoint(Point2D p)
+{
+    // Mint a Point marker as the plug's anchor. The marker carries toolProvenance
+    // "plug" so the canvas painter and inspector recognise it as a plug site
+    // (consistent with DraftingRoom.cpp's plug marker emission at line ~165).
+    DraftingObjectBuildResult markerBuilt = buildDraftingObject(
+        toStdString(nextObjectId(QStringLiteral("marker"), m_nextObjectSerial++)),
+        DraftingShapeKind::Point, PointGeometry{p});
+    if (!markerBuilt.ok) {
+        --m_nextObjectSerial;
+        return finishEdit(QStringLiteral("plug"), QStringLiteral("plug"), false,
+                          markerBuilt.code,
+                          drawing_core::qStringFromStdString(markerBuilt.message));
+    }
+    markerBuilt.object.bounds = computeBounds(markerBuilt.object.geometry);
+    markerBuilt.object.metadata.toolProvenance = "plug"; // matches DraftingRoom's marker
+
+    // Mint the plug record anchored to the marker just built. The name defaults to
+    // the minted plug id (an opaque but stable neutral label — the user can relabel
+    // through the inspector). Type defaults to "door" (the most common case; B2-3
+    // setPlugType changes it). anchor caches p for Seam C export + corridor routing.
+    DraftingPlug plug;
+    plug.id          = toStdString(nextObjectId(QStringLiteral("plug"), m_nextObjectSerial++));
+    plug.anchorObjectId = markerBuilt.object.id;
+    plug.name        = plug.id;  // neutral minted label; user relabels via inspector
+    plug.type        = "door";   // default neutral type (no game rule — Seam B owns that)
+    plug.anchor      = p;        // cache for Seam C export and corridor routing
+
+    // createObjectsAndSelect({marker}, {plug}, {}, {}) — ONE undo step. The marker
+    // must land before addPlug validates anchorObjectId exists (objects → plugs order).
+    return createObjectsAndSelect({std::move(markerBuilt.object)}, {std::move(plug)}, {}, {});
+}
+
+bool DrawingDocumentController::beginConnectionPick()
+{
+    // Arm the two-stage PlugConnect capture. m_pendingConnectionPlugA carries plug A
+    // across the first-click/second-click gap, mirroring m_pendingBlockId. Clearing
+    // it here resets any half-finished pick left over from a previous beginConnectionPick
+    // that was never completed (e.g. user switched tools mid-flow).
+    m_pendingConnectionPlugA.clear();
+    m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugConnect,
+                                         QStringLiteral("Click the first plug")};
+    emit pointerChanged();
+    return true;
+}
+
+bool DrawingDocumentController::connectPlugs(const QString &plugAId, const QString &plugBId)
+{
+    const std::string aId = toStdString(plugAId);
+    const std::string bId = toStdString(plugBId);
+
+    // Validate: both plugs must exist and be distinct.
+    const std::optional<std::size_t> aIdx = plugIndexById(m_document, aId);
+    const std::optional<std::size_t> bIdx = plugIndexById(m_document, bId);
+    if (!aIdx || !bIdx || aId == bId) {
+        return finishEdit(QStringLiteral("connection"), QStringLiteral("plug"), false,
+                          DraftingResultCode::ObjectNotFound,
+                          QStringLiteral("both plugs must exist and be distinct"));
+    }
+    const DraftingPlug &plugA = m_document.plugs[*aIdx];
+    const DraftingPlug &plugB = m_document.plugs[*bIdx];
+
+    // Mint the connection id BEFORE corridor routing: the id must be on the record
+    // AND baked into every corridor wall's tag ("connection:<connId>") so that delete
+    // and re-route (B2-4/5) can filter walls by the tag without a separate join table.
+    DraftingDeclaredConnection connection;
+    connection.id   = toStdString(nextObjectId(QStringLiteral("conn"), m_nextObjectSerial++));
+    connection.plugA = aId;
+    connection.plugB = bId;
+    connection.type  = "corridor"; // neutral role tag — carries no game rule (Seam B)
+
+    // Derive each plug's wall edge: find the room whose authored footprint contains
+    // the plug anchor (boundsContainsPoint over DraftingMapRoom.origin/width/height),
+    // then map the nearest side to a RoomEdge so the corridor leaves each door
+    // perpendicular to its wall. Falls back to North when no room encloses the plug
+    // (interactive plug placed in open space — rare, corridor still routes via fallback).
+    const auto roomEdgeForPlug =
+        [&](const DraftingPlug &plug) -> std::pair<const DraftingMapRoom *, std::string> {
+        for (const DraftingMapRoom &room : m_document.rooms) {
+            if (boundsContainsPoint(Bounds2D{room.origin.x, room.origin.y, room.width, room.height},
+                                    plug.anchor)) {
+                return {&room, deriveEdge(room, plug.anchor)};
+            }
+        }
+        return {nullptr, "N"}; // open-space fallback: North stub, corridor still routes
+    };
+
+    // "N"/"E"/"S"/"W" string returned by deriveEdge → RoomEdge enum for CorridorSpec.
+    // The four values are the full set deriveEdge ever returns (closed enum in DraftingRoom.h).
+    const auto toRoomEdge = [](const std::string &s) {
+        if (s == "E") { return RoomEdge::East;  }
+        if (s == "S") { return RoomEdge::South; }
+        if (s == "W") { return RoomEdge::West;  }
+        return RoomEdge::North;
+    };
+
+    const auto [roomA, edgeStrA] = roomEdgeForPlug(plugA);
+    const auto [roomB, edgeStrB] = roomEdgeForPlug(plugB);
+
+    CorridorSpec spec;
+    spec.doorA         = plugA.anchor;
+    spec.edgeA         = toRoomEdge(edgeStrA);
+    spec.doorB         = plugB.anchor;
+    spec.edgeB         = toRoomEdge(edgeStrB);
+    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
+    spec.wallThickness = 0.015;
+
+    // Obstacles: every room EXCEPT the two the plugs sit in (a corridor is allowed
+    // to originate from its own rooms at the door openings). Mirrors the authored
+    // path in createMapFromSpec (which skips request.from/to rooms in its obstacle loop).
+    std::vector<CorridorObstacle> obstacles;
+    for (const DraftingMapRoom &room : m_document.rooms) {
+        if (&room == roomA || &room == roomB) {
+            continue;
+        }
+        obstacles.push_back({room.origin, room.width, room.height});
+    }
+
+    const std::string connId = connection.id;
+    std::vector<DraftingObject> corridorObjects = corridorWalls(
+        routeCorridorCenterline(spec, obstacles),
+        spec.width, spec.wallThickness,
+        [this]() {
+            return toStdString(nextObjectId(QStringLiteral("corridor"), m_nextObjectSerial++));
+        });
+
+    // Stamp each corridor wall with the neutral provenance tag "connection:<connId>".
+    // This is the same open-vocabulary breadcrumb pattern as "feature:<type>" on
+    // feature markers (createMapFromSpec line ~2497) — NO new metadata field, NO codec
+    // change. The tag rides persist/undo/projection for free; delete (B2-4) and
+    // re-route (B2-5) gather the corridor by filtering objects with this tag.
+    // toolProvenance = "corridor" is already set by corridorWalls() itself.
+    for (DraftingObject &wall : corridorObjects) {
+        wall.metadata.tags.push_back("connection:" + connId);
+    }
+
+    // One bracket: corridor walls + declared connection = one undo step.
+    // createObjectsAndSelect requires a non-empty objects vector; if no corridor was
+    // produced (degenerate case: doors at identical positions collapsing the centerline
+    // to a single point), fall back to an inline bracket that records just the
+    // connection so the graph stays consistent even without rendered geometry.
+    if (!corridorObjects.empty()) {
+        return createObjectsAndSelect(std::move(corridorObjects), {}, {std::move(connection)}, {});
+    }
+    // Fallback: no corridor geometry; still record the neutral graph edge.
+    beginEdit();
+    applyDraftingCommand(m_document, DeclareConnectionCommand{std::move(connection)});
+    commitEdit(/*selectionOnly=*/false);
+    emit modelChanged();
+    return true;
+}
+
 bool DrawingDocumentController::runRadialArrayAtCenter(Point2D center)
 {
     // The centre is now PICKED, not the drawable centre — the user can ring
@@ -2312,6 +2481,55 @@ void DrawingDocumentController::resolvePointCapture(Point2D point)
     case PointCaptureIntent::RegionFill:
         fillEnclosedRegion(point);
         break;
+    case PointCaptureIntent::PlugPlacement:
+        // Single-click: mint anchor marker + plug at the snapped point (B2-1).
+        placePlugAtPoint(point);
+        break;
+    case PointCaptureIntent::PlugConnect: {
+        // Two-stage pick (B2-2): first click stores plug A and re-arms for the
+        // second click; second click resolves plug B and calls connectPlugs(A,B).
+        // Hit-test finds the Point marker the plug anchors to; plugAtAnchorObject
+        // maps the marker objectId back to the plug id so the connection can be
+        // declared by id rather than by raw coordinate.
+        //
+        // The capture was reset at the top of this function (m_pointCapture.reset()).
+        // Re-setting it below re-enters the await loop for the next click.
+        const DraftingHitTestResult hit = hitTestDocument(m_document, point);
+        const std::optional<DraftingPlugId> plugId =
+            hit.ok ? plugAtAnchorObject(m_document, hit.objectId) : std::nullopt;
+
+        if (m_pendingConnectionPlugA.empty()) {
+            // First click: store plug A and re-arm for plug B.
+            if (plugId) {
+                m_pendingConnectionPlugA = *plugId;
+                m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugConnect,
+                                                      QStringLiteral("Click the second plug")};
+            } else {
+                // Miss (clicked empty space or a non-plug object): re-arm so the
+                // user can try again without re-pressing the tool button.
+                m_pointCapture = PendingPointCapture{PointCaptureIntent::PlugConnect,
+                                                      QStringLiteral("Click the first plug")};
+            }
+        } else {
+            // Second click: plug A is already stored.
+            if (plugId && *plugId != m_pendingConnectionPlugA) {
+                // Valid, distinct plug B → connect and disarm.
+                const QString a = QString::fromStdString(m_pendingConnectionPlugA);
+                const QString b = QString::fromStdString(*plugId);
+                m_pendingConnectionPlugA.clear();
+                connectPlugs(a, b);
+            } else {
+                // Miss or same-plug click → refuse and disarm the tool entirely
+                // (consistent with other two-click tools: a bad second click
+                // cancels the whole interaction rather than re-arming).
+                m_pendingConnectionPlugA.clear();
+                finishEdit(QStringLiteral("connection"), QStringLiteral("plug"), false,
+                           DraftingResultCode::ObjectNotFound,
+                           QStringLiteral("click a different plug to connect"));
+            }
+        }
+        break;
+    }
     }
     // The consumers emit modelChanged on success and on a surfaced failure, but
     // a silent early-out (null/locked source) would not — so refresh here to

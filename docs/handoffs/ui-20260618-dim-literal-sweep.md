@@ -14,15 +14,16 @@
 
 ## Reviewer findings (prioritized worst-first)
 
-### P1 — Canvas chrome marker/handle pixels (highest traffic; edi-ui chrome) — ✅ DONE `fa26860`
-DONE: the audited literals → `src/widgets/DrawingCanvasChromeDims.h` (named
-`k…Px` consts, byte-identical, golden 0-diff). The builder flagged MORE
-view-dimension literals in the SAME file, left out of scope as **P1b** (a clean
-follow-up): the dimension label-rect paddings (`6.0/8.0/12.0` + `4.0` corner
-radius ~L426-432), committed-dim rounded-rect radius, point fill radius `4.0`,
-the plot-diagnostic warning box (`12.0` min / `6.0` adjust / `1.5` pen / `24`
-alpha→NB alpha is non-dim), preview/construction pen widths, guide pen widths,
-rectangle inset `2.0×` factors. Fold these into `DrawingCanvasChromeDims.h` next.
+### P1 family — Canvas chrome/painter view-dimensions — ✅ COMPLETE
+`src/widgets/DrawingCanvasObjectPainter.cpp` is now FREE of magic dimension
+literals; all moved to `src/widgets/DrawingCanvasChromeDims.h` (named `k…Px`,
+byte-identical, golden 0-diff):
+- **P1** `fa26860` — marker/handle/arrow/snap/dim-tick px (the original audit list).
+- **P1b** `93a3e68` — dim label-rect paddings + corner radius, point fill radius,
+  plot-warning box, preview/construction/guide pen widths.
+- **P1c** `d5eac6f` — the selected-object stroke override (`kSelectedStrokePenPx`).
+Exempt/left (non-dimensions): colour alphas, shape RATIOS (`0.5/0.55`, the `2.0×`
+inset factor), epsilons/tolerances, the wall miter limit.
 
 #### (original audit detail — P1) — SLICE 1
 `src/widgets/DrawingCanvasObjectPainter.cpp`:
@@ -68,5 +69,7 @@ rectangle inset `2.0×` factors. Fold these into `DrawingCanvasChromeDims.h` nex
   duplication — separate layers; leave as-is.
 
 ## Next
-- P1 ✅ DONE (fa26860). P1b (remaining same-file view dims, listed above) queued.
-- SLICE 2 (P2 shell layout → ShellTheme tokens) + SLICE 3 (P3 QSS) queued.
+- P1 family ✅ COMPLETE (fa26860 + 93a3e68 + d5eac6f) — painter fully swept.
+- SLICE 2 (P2 shell layout → ShellTheme tokens) + SLICE 3 (P3 QSS) queued — HELD
+  pending direction: these touch theme/QSS and risk LOOK drift (the look is the
+  user's), so they need byte-identical care + a flag, not autonomous restyling.

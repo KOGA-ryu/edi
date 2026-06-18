@@ -192,3 +192,19 @@ CreateObjectsCommand = one undo.
 ## Next
 - M1 lands → spot-check + report green tip to edi-ui. M8 gate settles → brief M8 Slice 1
   (capture + serialize) to the builder. Continue the batch-2 queue ahead.
+
+## M0 SUPPORT (2026-06-18) — HOLD READY
+- Mode: drafting is the SUPPORT dept for the M0 crypt slice (~/dept-bus/M0-CRYPT-SLICE.md).
+  dungeon-map builds the generator → MapSpec → createMapFromSpec; blender-lab realizes/renders.
+- My scope if bussed: MapSpec / RoomSpec / DraftingRoom struct tweaks + createMapFromSpec assist
+  (src/core, src/drafting). dungeon-map will bus the exact need; I do NOT pre-build.
+- State: dept/drafting rebased onto LOCAL master (tip 297d5a6, base b3e2932), edi-gate GREEN 104/104.
+- READINESS NOTE (reported to hub): block-instance machinery EXISTS (DraftingBlock+assetRef in
+  DraftingMapTypes.h; placeBlockInstance/defineBlockFromSelection controller verbs in DrawingCore.h),
+  but MapSpec (DraftingRoom.h:119) has NO field to DECLARE a block instance (asset_ref + transform)
+  for createMapFromSpec to stamp. RoomFeature carries only neutral type/name → realized as a bare
+  Point marker. The crypt's sarcophagus + brazier (asset_ref crypt.sarcophagus / crypt.brazier+light)
+  will most likely need a MapSpec block-instance authoring field + a createMapFromSpec stamp arm
+  reusing placeBlockInstance's flatten path. Pre-scoped; awaiting the dungeon-map bus to brief builder.
+- RESUME: re-read this section + ~/dept-bus/M0-CRYPT-SLICE.md + bus log tail; check
+  ~/dept-bus/edi-drafting/briefs|replies + ~/dept-bus/drafting/replies for any M0 brief; hold if none.

@@ -43,8 +43,14 @@ TILE_FT = 5.0
 WALL_H = 12.0           # interior wall / ceiling height
 WALL_T = 0.6           # wall panel thickness
 FLOOR_T = 0.4          # floor / ceiling slab thickness
-CORRIDOR_W = TILE_FT   # DOOR_PLUG sized to one tile so plug->doorway->corridor line up
-DOOR_W = 4.0           # doorway clear opening (< CORRIDOR_W, leaves a frame)
+# Corridor width is REALIZER-AUTHORITATIVE (frozen socket contract §5 — it is not
+# on the wire; the generator doubles ROOMS in the TOON, the realizer doubles the
+# HALLWAY here). Doubled to 2 modules (10 ft) so a doubled crypt's corridor reads
+# at the same proportion as its doubled rooms. DOOR_W (< CORRIDOR_W) is the clear
+# opening, leaving a frame reveal; the wall opening rounds up to whole 5 ft
+# segments covering CORRIDOR_W (see has_door).
+CORRIDOR_W = 2 * TILE_FT  # 10 ft = 2 tiles (DOOR_PLUG spans 2 modules)
+DOOR_W = 8.0              # doorway clear opening (< CORRIDOR_W, leaves a frame)
 
 
 # --- The piece vocabulary (the 10 types + 2 props) ---------------------------
@@ -346,16 +352,19 @@ def plan_greybox(doc: MapDoc) -> list[Piece]:
         room_doors = doorways.get(room.name, [])
 
         def has_door(edge: str, center: float) -> bool:
-            # A door belongs to exactly one wall segment: the one whose
-            # half-open span [center-half, center+half) contains the door's
-            # position along the edge. Half-open so a door landing exactly on a
-            # tile boundary picks ONE segment, never both neighbours.
+            # A wall segment is left OPEN (returns True) iff its span overlaps the
+            # corridor CLEARANCE — the CORRIDOR_W-wide band centred on the plug.
+            # This makes the opening track the corridor width: a 5 ft corridor
+            # opens one 5 ft segment, a 10 ft corridor opens two, so the doorway
+            # never necks the corridor down. Strict `<`/`>` so a segment that only
+            # touches the clearance boundary stays solid.
             half = (tw if edge in ("N", "S") else th) / 2.0
+            clear = CORRIDOR_W / 2.0
             for (dx, dy, dedge) in room_doors:
                 if dedge != edge:
                     continue
                 pos = dx if edge in ("N", "S") else dy
-                if center - half <= pos < center + half:
+                if (center + half) > (pos - clear) and (center - half) < (pos + clear):
                     return True
             return False
 

@@ -47,16 +47,21 @@ edi-ui owns three standing duties (HUB kick `~/dept-bus/edi-ui/briefs/000-kick-e
   golden — nothing to re-bless). Optional nits (deferred): browser shows qualified `room.plug`
   name (kept — clearer in a flat list); trivial `findRoom` DRY into DraftingMapQuery (cross-dept).
 
-### Still open
-1. **DM-15 chrome — BLOCKED, escalated to hub:** needs core projection plumbing edi-ui must NOT
-   add — a `has_block_instance_selection` bool + the selected object's `instance_id` projected in
-   `src/core/DrawingDocumentProjection.cpp` (+ `activeObjectProjection` in `ShellWidgetHelpers.cpp`).
-   dungeon-map dept is CLOSED, so the hub must route it (drafting owns src/core, or re-open a
-   dungeon-map sliver). Then the DM-15 inspector verb is a quick edi-ui follow-up.
-2. **DR-13 angular-dim PAINTER seam:** edi-ui's, rides the eventual Angular-tool chrome (combo
+### DM chrome bucket — COMPLETE (all audited ACCEPT)
+DM-01 auto-fit, DM-10 region-fill button, DM-11 map browser, DM-14 placement spins, DM-15
+block-instance transform verb — all wired, reviewer-accepted, on master @`13d6f96`, full gate
+102/102. (DM-15: the reviewer's tautological-test nit, when fixed, exposed a sub-gate fragility
+— `setVisible(false)` was guarded on `isVisible()` (false offscreen); dropped the guard,
+commit `13d6f96`.) DM-03 interior features reuse existing point editing — no new chrome.
+
+### Still open — drafting chrome backlog
+1. **DR-13 angular-dim PAINTER seam:** edi-ui's, rides the eventual Angular-tool chrome (combo
    entry + belt cell + arc painter).
-3. **Remaining drafting surfaces to audit/wire:** DR-11 kaleidoscope, DR-07/08/09 modify verbs,
-   DR-14 (in flight) — assess the chrome backlog next.
+2. **DR-11 kaleidoscope / DR-07/08/09 modify verbs / DR-14/15 dim tools:** assess whether each
+   needs invocation chrome (belt cell / tool-option) per DR-surfaces; DR-10 done. Next chrome
+   batch once DR-15 lands (drafting bucket then complete).
+3. **origin/master reconcile:** frozen by hub (origin is a strict ancestor, FF-able, 276 behind);
+   awaiting user authorization to push.
 2. **DM-15 cross-dept GAP (blocks the DM-15 chrome slice):** needs core plumbing edi-ui must NOT
    add — drafting/dungeon-map owe, in `DrawingDocumentProjection.cpp` (+ `activeObjectProjection`
    in `ShellWidgetHelpers.cpp`): a `has_block_instance_selection` bool AND the selected object's

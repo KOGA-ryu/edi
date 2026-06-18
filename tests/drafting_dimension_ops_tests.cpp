@@ -132,5 +132,67 @@ int main()
     // draftingDimensionKindFromId round-trip for "angular" (S1).
     assert(draftingDimensionKindFromId("angular") == DimensionKind::Angular);
 
+    // DR-14: convenience planners over existing kinds -------------------------
+
+    // planRadialDimensionForCircle: kind=Diameter; stored |b-a|=radius;
+    // displayedDimensionLength doubles it to yield the diameter.
+    {
+        CircleGeometry unit{{0.0, 0.0}, 1.0};
+        auto plan = planRadialDimensionForCircle(unit);
+        assert(plan.ok);
+        assert(plan.geometry.kind == DimensionKind::Diameter);
+        assert(near(plan.geometry.a.x, 0.0) && near(plan.geometry.a.y, 0.0));
+        const double stored = std::hypot(plan.geometry.b.x - plan.geometry.a.x,
+                                         plan.geometry.b.y - plan.geometry.a.y);
+        assert(near(stored, 1.0));                               // stored == radius
+        assert(near(displayedDimensionLength(stored, DimensionKind::Diameter), 2.0)); // shown == diameter
+        // zero-radius rejects
+        assert(!planRadialDimensionForCircle(CircleGeometry{{0.0, 0.0}, 0.0}).ok);
+        assert(!planRadialDimensionForCircle(
+                   CircleGeometry{{0.0, 0.0}, std::numeric_limits<double>::infinity()}).ok);
+    }
+
+    // planRadialDimensionForArc: kind=Radius; b is ON the arc; |b-a|==radius.
+    {
+        ArcGeometry halfArc{{1.0, 2.0}, 3.0, 30.0, 90.0};
+        auto plan = planRadialDimensionForArc(halfArc);
+        assert(plan.ok);
+        assert(plan.geometry.kind == DimensionKind::Radius);
+        assert(near(plan.geometry.a.x, 1.0) && near(plan.geometry.a.y, 2.0));
+        const double dist = std::hypot(plan.geometry.b.x - plan.geometry.a.x,
+                                       plan.geometry.b.y - plan.geometry.a.y);
+        assert(near(dist, 3.0)); // |b-a| == radius, so b lies on the arc
+        // zero-radius rejects
+        assert(!planRadialDimensionForArc(ArcGeometry{{0.0, 0.0}, 0.0, 0.0, 90.0}).ok);
+    }
+
+    // planArcSweepDimension: kind=Angular; offset == signed sweep;
+    // dimensionMeasuredAngle returns offset.
+    {
+        // 0°→90° quarter arc
+        ArcGeometry q{{0.0, 0.0}, 2.0, 0.0, 90.0};
+        auto plan = planArcSweepDimension(q);
+        assert(plan.ok);
+        assert(plan.geometry.kind == DimensionKind::Angular);
+        assert(near(plan.geometry.offset, 90.0));
+        assert(near(dimensionMeasuredAngle(plan.geometry), 90.0));
+
+        // 30°→120° arc — sweep is still 90°
+        ArcGeometry shifted{{0.0, 0.0}, 1.0, 30.0, 120.0};
+        auto plan2 = planArcSweepDimension(shifted);
+        assert(plan2.ok);
+        assert(near(plan2.geometry.offset, 90.0));
+
+        // ray1 tip is at distance kDefaultAngularArc from center along startAngle
+        assert(near(std::hypot(plan.geometry.b.x - plan.geometry.a.x,
+                               plan.geometry.b.y - plan.geometry.a.y),
+                    kDefaultAngularArc));
+
+        // zero-radius rejects
+        assert(!planArcSweepDimension(ArcGeometry{{0.0, 0.0}, 0.0, 0.0, 90.0}).ok);
+        // zero-sweep rejects
+        assert(!planArcSweepDimension(ArcGeometry{{0.0, 0.0}, 1.0, 45.0, 45.0}).ok);
+    }
+
     return 0;
 }

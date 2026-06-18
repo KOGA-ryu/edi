@@ -133,4 +133,63 @@ DraftingDimensionPlan planAngularDimension(const LineGeometry &l1, const LineGeo
     return DraftingDimensionPlan::accepted(geo);
 }
 
+DraftingDimensionPlan planRadialDimensionForArc(const ArcGeometry &arc)
+{
+    if (!(arc.radius > 0.0) || !std::isfinite(arc.radius)) {
+        return DraftingDimensionPlan::rejected(DraftingResultCode::InvalidGeometry,
+            "arc radius must be positive and finite for a radial dimension");
+    }
+    // Place `b` at the arc's mid-sweep angle so the label sits naturally
+    // at the centre of the drawn arc rather than at either endpoint.
+    // arcPointAtAngle guarantees |b − a| == arc.radius exactly.
+    DimensionGeometry geo;
+    geo.kind   = DimensionKind::Radius;
+    geo.a      = arc.center;
+    geo.b      = arcPointAtAngle(arc.center, arc.radius, arcMidAngleDeg(arc));
+    geo.offset = 0.04;
+    return DraftingDimensionPlan::accepted(geo);
+}
+
+DraftingDimensionPlan planRadialDimensionForCircle(const CircleGeometry &circle)
+{
+    if (!(circle.radius > 0.0) || !std::isfinite(circle.radius)) {
+        return DraftingDimensionPlan::rejected(DraftingResultCode::InvalidGeometry,
+            "circle radius must be positive and finite for a diameter dimension");
+    }
+    // Store stored |b − a| = radius; the renderer calls displayedDimensionLength
+    // (kind=Diameter) which doubles it to produce the displayed diameter value.
+    // b is placed on the +X axis from the centre — a conventional diameter placement.
+    DimensionGeometry geo;
+    geo.kind   = DimensionKind::Diameter;
+    geo.a      = circle.center;
+    geo.b      = {circle.center.x + circle.radius, circle.center.y};
+    geo.offset = 0.04;
+    return DraftingDimensionPlan::accepted(geo);
+}
+
+DraftingDimensionPlan planArcSweepDimension(const ArcGeometry &arc)
+{
+    if (!(arc.radius > 0.0) || !std::isfinite(arc.radius)) {
+        return DraftingDimensionPlan::rejected(DraftingResultCode::InvalidGeometry,
+            "arc radius must be positive and finite for a sweep dimension");
+    }
+    const double sweep = arc.endAngleDeg - arc.startAngleDeg;
+    if (!std::isfinite(sweep) || std::abs(sweep) < 1e-9) {
+        return DraftingDimensionPlan::rejected(DraftingResultCode::InvalidGeometry,
+            "arc sweep must be non-zero for a sweep dimension");
+    }
+    // Reuses DimensionKind::Angular (DR-13 Candidate A encoding) so no new
+    // kind is needed.  dimensionMeasuredAngle of the result returns `offset`,
+    // which equals the arc's signed sweep in degrees.
+    //   a      = arc center (the "vertex" of the angle fan)
+    //   b      = point at distance kDefaultAngularArc along ray1 (toward arc start)
+    //   offset = signed sweep = endAngleDeg − startAngleDeg
+    DimensionGeometry geo;
+    geo.kind   = DimensionKind::Angular;
+    geo.a      = arc.center;
+    geo.b      = arcPointAtAngle(arc.center, kDefaultAngularArc, arc.startAngleDeg);
+    geo.offset = sweep;
+    return DraftingDimensionPlan::accepted(geo);
+}
+
 } // namespace edi::drafting

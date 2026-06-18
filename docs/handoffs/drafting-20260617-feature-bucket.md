@@ -476,9 +476,34 @@ pre-policy commits; the hub/edi-ui discard these at integration.)
   angle (`<1e-6`) with a visible code+message. Stacks on DR-13 (clean — DR-13 not yet on
   master, replays as branch-unique, no dup).
 
+- **MERGED (edi-ui):** DR-13 core on master @`0d2fdfa` (green). DR-01..13-core integrated.
+
+### DR-10-fix — CLOSED 2026-06-17 ✅ (SHA `346964c`, GREEN 102/102) — clean
+- Reply: `~/dept-bus/edi-drafting/replies/029-DR10fix-rotcopies-clamp-builder.md`. Setter drops
+  the silent `>=1.0` swallow (keeps isfinite+clamp); op rejects `|angle|<1e-6` degenerate ring
+  with `InvalidGeometry`. Tests pin both (setter stores 0.0/0.5 faithfully, NaN→prior; op
+  rejects 0.0, accepts 0.5). Rebase clean. Two-line fix, accepted inline (no audit needed).
+- Reported DR-10-fix (`346964c`) to edi-ui. **DR-14 HELD until edi-ui confirms this merge**
+  (tighter post-merge sequencing to avoid stale-base dups — the recurring race).
+- Context hygiene (reply boundary): builder sonnet/low/on-target (no cycle); researcher was
+  off-target (opus) → `dept-cycle`d to its sonnet target (idle, harmless, phase-in advanced).
+
+- **MERGED (edi-ui):** DR-10-fix on master @`20ff64f` (green). DR-01..13-core + DR-10-fix
+  integrated. DR-14 GO'd by edi-ui.
+
+### DR-14 — arc/radius/diameter/sweep dimensioning (PURE op) — builder BRIEFED 2026-06-17
+- Brief: `~/dept-bus/edi-drafting/briefs/030-DR14-arc-sweep-dim-builder.md`. Opened AFTER the
+  DR-10-fix merge-confirm (clean sequencing — builder rebases LATE onto the master ref with
+  DR-10-fix → no stale-base dup). 3 plan fns: `planRadialDimensionForArc` (Radius),
+  `planRadialDimensionForCircle` (Diameter), `planArcSweepDimension` (reuses DR-13 Angular,
+  offset=sweep). Planning conveniences over existing kinds — NO new DimensionKind. Pure op +
+  tests; Sonnet. Reviewer not needed (reuses settled kinds; planner spot-check on reply).
+
 ## Open questions / blockers
 - DR-13 painter ARC + `isAngleField("offset")` extension are edi-ui seams (flagged) — ride
   with the eventual Angular tool wiring.
+- After DR-14: DR-15 (fill authoring, ratified fill-selected-closed-object) is the LAST slice
+  → then the bucket closeout.
 
 ## Next
 - Builder implements DR-01; planner buses the green SHA to the hub so dungeon-map

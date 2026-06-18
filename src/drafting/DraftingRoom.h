@@ -114,11 +114,27 @@ struct NamedRoomSpec {
     RoomSpec spec;
 };
 
+// MapSpec-level declared PROP instance (M0 additive): a placement by asset_ref at a point —
+// NO DraftingBlock definition needed. These props have no in-edi geometry; they are pure asset
+// references (like a plug records a neutral type). edi RECORDS asset_ref + transform + position;
+// the realizer downstream owns the mesh. A deliberate TWIN of the saved DraftingBlock definition,
+// not a reuse (same H2 discipline as motif-vs-block).
+struct MapBlockSpec {
+    std::string assetRef;          // "<theme>.<piece>", e.g. "crypt.sarcophagus"
+    Point2D     position;          // placement CENTRE, ABSOLUTE authored feet (+x east / +y south)
+    double      rotationDeg = 0.0; // identity default; plumbs BlockPlacementMetadata.rotationDeg
+    double      scale       = 1.0; // identity default; plumbs BlockPlacementMetadata.scale
+    std::string name;             // optional label; stamped as a `name:<name>` tag
+};
+
 // A whole map: many named rooms in one coordinate space + the cross-room
 // connections between their plugs. The neutral authoring product of a .map.toml.
 struct MapSpec {
     std::vector<NamedRoomSpec> rooms;
     std::vector<MapConnectionSpec> connections;
+    // M0 additive: MapSpec-level prop instances (asset_ref placements). Default-empty,
+    // so every existing MapSpec stays byte-identical and behaviour-unchanged.
+    std::vector<MapBlockSpec> blocks;
 };
 
 // A plug the room emitted, paired with the marker object it rides on. The marker

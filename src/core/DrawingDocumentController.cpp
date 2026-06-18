@@ -3322,6 +3322,42 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         }
     }
 
+    // MapSpec-level prop instances (M0): one definition-less Point per MapBlockSpec.
+    // WHY a Point carrier with no DraftingBlock: the FLATTEN model needs >=1 object to
+    // carry an instance through undo/persist/projection, and a prop here is a pure
+    // asset_ref — the realizer builds the mesh from the asset, edi only RECORDS the
+    // asset + transform + position (exactly like RoomFeature carries a feature tag, but
+    // carrying a BlockPlacementMetadata instead). POSITION: a block is MapSpec-level,
+    // not room-local, so it has NO room origin to add to — its authored-feet centre is
+    // just scaled by canvasPerAuthoredUnit (the same authored→canvas scale the map uses).
+    // Both the instance id and the marker object id mint off the ONE document serial, so
+    // every id stays globally unique with no parallel counter (same discipline as plugs,
+    // door leaves, features, corridors, and the interactive placeBlockInstance).
+    for (const edi::drafting::MapBlockSpec &b : spec.blocks) {
+        const std::string instanceId =
+            toStdString(nextObjectId(QStringLiteral("blockinst"), m_nextObjectSerial++));
+        const Point2D at{b.position.x * canvasPerAuthoredUnit, b.position.y * canvasPerAuthoredUnit};
+        DraftingObjectBuildResult marker = buildDraftingObject(
+            toStdString(nextObjectId(QStringLiteral("block"), m_nextObjectSerial++)),
+            DraftingShapeKind::Point, PointGeometry{at});
+        if (!marker.ok) {
+            continue; // a Point never fails validation; defensive, like the door leaf
+        }
+        marker.object.bounds = computeBounds(marker.object.geometry);
+        // Stamp the placement: serialize (block_placement) + MapToonExport read these.
+        // blockId is left EMPTY — there is no DraftingBlock definition here; the codec
+        // and the TOON export tolerate an empty blockId (they group by instanceId / asset).
+        marker.object.metadata.blockPlacement.assetRef = b.assetRef;
+        marker.object.metadata.blockPlacement.instanceId = instanceId;
+        marker.object.metadata.blockPlacement.rotationDeg = b.rotationDeg;
+        marker.object.metadata.blockPlacement.scale = b.scale;
+        marker.object.metadata.toolProvenance = "block";
+        if (!b.name.empty()) {
+            marker.object.metadata.tags.push_back("name:" + b.name);
+        }
+        allObjects.push_back(std::move(marker.object));
+    }
+
     // Resolve cross-room connections to the minted plug ids (the parser already
     // guaranteed both endpoints exist; a miss here is defensive).
     std::vector<DraftingDeclaredConnection> connections;

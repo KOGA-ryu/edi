@@ -202,9 +202,12 @@ surfaces ← `edi-ui-integration-*`. **At each worker reply boundary: `dept-stat
   `git reset --hard 73c0832`. Branch clean, all work intact, nothing lost.
 - **Escalated to hub** (fleet-wide): origin/master=591e92c is stale; ANY dept builder
   fetch+rebase onto it corrupts. Asked edi-ui to reconcile origin/master to the real line.
-- **🚫 STANDING ORDER until the hub fixes the ref: my builders do NOT `git rebase`/`git
-  fetch`.** The dept branch IS the current master; build on the current tip. (Baked into
-  brief 024 + all batch-2 briefs.) Builder recycled fresh + re-dispatched 024.
+- **🚫 STANDING ORDER (hub-confirmed 2026-06-17): my builders do NOT `git fetch`;
+  rebase ONLY onto LOCAL `master`** (which edi-ui keeps as the real integration line)
+  **until the hub's ALL-CLEAR.** The stale-origin danger is FETCH. Currently the branch
+  IS local master `73c0832` → build on the current tip (a rebase onto local master is a
+  no-op now, safe if it advances). Baked into brief 024 (no-rebase) + all batch-2 briefs.
+  Builder recycled fresh + re-dispatched 024.
 
 ### Reviewer gate 023 (relation-context + plug-type mechanism) — 2026-06-17 — SETTLED YES
 - Reply: `~/dept-bus/edi-dungeon-map/replies/023-reviewer-relation-context-plugtype-mechanism.md`

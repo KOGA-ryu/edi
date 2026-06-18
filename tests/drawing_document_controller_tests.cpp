@@ -4809,5 +4809,124 @@ int main(int argc, char **argv)
         }
     }
 
+    // --- 024 coverage: plug-A deleted between clicks -------------------------
+    // Arm the connection tool, complete the first click (plug A stored), then
+    // DELETE plug A's marker before the second click. The second click should
+    // see that the stored plug id no longer exists (apply-time re-validation in
+    // connectPlugs) and refuse: no DeclaredConnection, capture cleared.
+    //
+    // This path exercises the "both plugs must exist" guard in connectPlugs — the
+    // gap between the first click (plug A recorded) and the second click (plug A
+    // gone from the graph due to its anchor marker being deleted).
+    {
+        DrawingDocumentController delBetweenCtl;
+
+        // Place plug A at (0.3, 0.3) and plug B at (0.7, 0.7).
+        delBetweenCtl.beginPlugPick();
+        delBetweenCtl.clickCanvasNormalized(0.3, 0.3); // plug A
+        delBetweenCtl.beginPlugPick();
+        delBetweenCtl.clickCanvasNormalized(0.7, 0.7); // plug B
+
+        // Capture the marker id for plug A (we will delete it next).
+        const std::string markerAId = delBetweenCtl.draftingDocument().plugs[0].anchorObjectId;
+
+        // Arm the connection tool and do the first click (plug A stored).
+        assert(delBetweenCtl.beginConnectionPick());
+        delBetweenCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(delBetweenCtl.isAwaitingPointCapture()); // re-armed for second click
+        assert(delBetweenCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
+
+        // Delete plug A's marker WHILE the connection tool is still armed.
+        // selectObjectById does not cancel the pending capture — only setSelectedToolId
+        // does — so the PlugConnect state survives the delete.
+        assert(delBetweenCtl.selectObjectById(QString::fromStdString(markerAId)));
+        assert(delBetweenCtl.deleteSelectedObject());
+        // The cascade removed plug A from the graph; only plug B remains.
+        assert(delBetweenCtl.draftingDocument().plugs.size() == 1);
+
+        // Second click on plug B — the stored plug A id now resolves to nullopt in
+        // connectPlugs (apply-time re-validation); the tool refuses and clears.
+        delBetweenCtl.clickCanvasNormalized(0.7, 0.7);
+        assert(!delBetweenCtl.isAwaitingPointCapture()); // disarmed
+        assert(delBetweenCtl.draftingDocument().connections.empty()); // no connection made
+    }
+
+    // --- 024 coverage: empty-corridor fallback (degenerate same-point plugs) --
+    // When both plug anchors collapse to the SAME coordinate, routeCorridorCenterline
+    // returns a degenerate (zero-length) centerline and corridorWalls produces NO wall
+    // objects. connectPlugs falls back to an inline bracket that records ONLY the
+    // DeclaredConnection, so the graph edge exists without rendered geometry.
+    // One undo must remove that connection (the fallback bracket is one undo step).
+    {
+        DrawingDocumentController degCtl;
+
+        // Place two plug markers at the EXACT same normalized position.
+        // Each call mints a distinct marker and a distinct plug, but both anchors
+        // land at (0.5, 0.5) — the degenerate case for the corridor router.
+        degCtl.beginPlugPick();
+        degCtl.clickCanvasNormalized(0.5, 0.5); // plug A anchor (0.5, 0.5)
+        degCtl.beginPlugPick();
+        degCtl.clickCanvasNormalized(0.5, 0.5); // plug B anchor (0.5, 0.5) — same point
+
+        assert(degCtl.draftingDocument().plugs.size() == 2);
+        const int markersCount = static_cast<int>(degCtl.draftingDocument().objects.size()); // 2
+
+        const QString degPlugAId = QString::fromStdString(degCtl.draftingDocument().plugs[0].id);
+        const QString degPlugBId = QString::fromStdString(degCtl.draftingDocument().plugs[1].id);
+
+        // Call connectPlugs directly (bypassing the hit-test click path — both
+        // markers are at the same pixel and hit-test would return only one of them).
+        assert(degCtl.connectPlugs(degPlugAId, degPlugBId));
+
+        // The fallback path: one DeclaredConnection exists, NO corridor walls added.
+        assert(degCtl.draftingDocument().connections.size() == 1);
+        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+
+        // One undo removes the connection (the fallback bracket is one undo step).
+        assert(degCtl.undo());
+        assert(degCtl.draftingDocument().connections.empty());
+        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+    }
+
+    // --- 024 coverage: stale-member cleared on tool switch (NIT fix) ----------
+    // After a tool switch the two-stage connection state (m_pendingConnectionPlugA)
+    // must be wiped — the fix lives in setSelectedToolId alongside m_pointCapture.reset().
+    // Sequence: arm → first click (plug A stored) → switch tool → re-arm → click:
+    // the click must be treated as the FIRST click (prompt becomes "second"), not
+    // immediately connected to the stale A.
+    {
+        DrawingDocumentController staleCtl;
+
+        // Place two plugs at known positions.
+        staleCtl.beginPlugPick();
+        staleCtl.clickCanvasNormalized(0.3, 0.3); // plug A
+        staleCtl.beginPlugPick();
+        staleCtl.clickCanvasNormalized(0.7, 0.7); // plug B
+
+        // Arm connection tool and store plug A via the first click.
+        assert(staleCtl.beginConnectionPick());
+        staleCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(staleCtl.isAwaitingPointCapture()); // re-armed for second click
+
+        // Switch to a different tool — cancels the pick AND (NIT fix) clears
+        // m_pendingConnectionPlugA so it cannot bleed into the next session.
+        // NOTE: the default tool id is "select_move"; beginConnectionPick does NOT
+        // change it, so we must switch to a GENUINELY DIFFERENT tool to avoid the
+        // early-return guard (if (m_selectedToolId == toolId) return;).
+        staleCtl.setSelectedToolId(QStringLiteral("rectangle_tool"));
+        assert(!staleCtl.isAwaitingPointCapture()); // capture cancelled by tool switch
+
+        // Re-arm the connection tool (also clears m_pendingConnectionPlugA for safety).
+        assert(staleCtl.beginConnectionPick());
+        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
+
+        // Clicking plug A is now the FIRST click (plug A was NOT left stale from
+        // before the tool switch). The tool re-arms for the second click.
+        staleCtl.clickCanvasNormalized(0.3, 0.3);
+        assert(staleCtl.isAwaitingPointCapture()); // still armed — waiting for second plug
+        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the second plug")); // FIRST click consumed
+        assert(staleCtl.draftingDocument().connections.empty()); // no premature connection
+    }
+
     return 0;
 }

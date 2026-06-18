@@ -758,6 +758,13 @@ void DrawingDocumentController::setSelectedToolId(const QString &toolId)
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_pointCapture.reset(); // switching tools cancels an armed point pick
+    // Clear the two-stage connection state too — m_pendingConnectionPlugA carries the
+    // first plug id across clicks, and setSelectedToolId already promises a clean slate
+    // for the new tool. Without this, a stale plug A from a half-finished connection
+    // would survive into the next beginConnectionPick window if beginConnectionPick were
+    // somehow skipped (latent footgun: beginConnectionPick also clears, so it is safe
+    // today, but defensive hygiene costs nothing and makes the invariant local here).
+    m_pendingConnectionPlugA.clear();
     m_lastGuideDragSnap.clear();
     m_lastEditStatus.clear();
     emit modelChanged();
@@ -3409,6 +3416,7 @@ void DrawingDocumentController::cancelPendingCreation()
     m_pendingCreation.reset();
     m_previewObject.reset();
     m_pointCapture.reset();
+    m_pendingConnectionPlugA.clear(); // symmetry with setSelectedToolId: force-cancel clears both
     emit pointerChanged(); // view state, not a mutation
 }
 

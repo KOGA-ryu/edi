@@ -57,6 +57,11 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
 - Dispatched: doubled TOON → blender-lab to render on 5090 (auto-opens on desktop);
   G1/G2 briefs re-retargeted to the doubled layout; builder rebuilding.
 - Contract commits: DOOR_W/double fold; bus-hub'd the hub.
+- ✅ DELIVERED (blender-lab reply 041): `/tmp/m0/crypt_doubled.png` (OptiX/5090, 3.4s,
+  1080p). Hallway widened in the realizer @d1f2ca1 (CORRIDOR_W→10, DOOR_W→8) + a
+  scale-robust fix: the doorway WALL OPENING now tracks CORRIDOR_W (two 5 ft segments
+  open for a 10 ft corridor) so the corridor enters full-width both ends. 9/10 types.
+  Milestone bus-hub'd. Contract lock confirmed on track (DOOR_W was realizer-side).
 
 ## Cross-dept: realizer confirmation — ALL 3 ASKS CONFIRMED (blender-lab reply 040)
 - Realizer adopts contract v1 as-is (no renegotiation). 2D→3D map-x→X/map-y→Y/+Z-up

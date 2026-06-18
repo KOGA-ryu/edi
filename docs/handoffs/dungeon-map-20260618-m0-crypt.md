@@ -20,9 +20,19 @@ doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
   2 props + drives the TOON export; (2) settling the socket contract.
 
 ## Gate order (kickoff mandate: CONTRACT FIRST)
-1. **Reviewer gate — socket contract.** brief 039 → reviewer. Settle the contract
-   (`docs/dungeon-map-m0-socket-contract.md`, PROPOSAL v0). **[IN FLIGHT — waiting on
-   reviewer reply 039; this gates firing G1.]**
+1. **Reviewer gate — socket contract. ✅ SETTLED → FROZEN (v1).** Reviewer reply 039
+   = "settled NO (not yet)" with 3 required doc edits (all folded) + reconciliation
+   against the ALREADY-MERGED realizer (`tools/blender/edi_realize.py`, master ac3bf96)
+   and the live exporter. KEY FACTS the freeze captured:
+   - plugs wire = **6 cols** `{room,name,edge,type,connected,flags}`; edge is the BARE
+     letter **N/E/S/W** (not words); `flags` ·-joined neutral tags (the live exporter).
+   - **Plug position rule (Blocker B):** position is NOT on the wire — the realizer
+     derives it as the room **edge MIDPOINT**; corridor straight if midpoints colinear
+     else one L (realizer handles both). Generator authors plugs at edge midpoints.
+   - **STAIR is a block asset_ref** `crypt.stair` (no elevation on the wire), not
+     graph-expanded — reconciled §2/§4.
+   - Greybox constants are REALIZER-AUTHORITATIVE (WALL_H=12, CORRIDOR_W=5, DOOR_W=4);
+     the false `kCorridorWidth` equivalence DELETED (§6). edi binds only §0+§1.
 2. **Fold verdict → freeze contract**, then bus-hub it to blender-lab + the hub so
    the realizer can build in parallel.
 3. **Builder batch — the generator:**

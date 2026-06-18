@@ -77,7 +77,12 @@ std::string plugKey(const std::string &room, const std::string &plug)
 // helpers decide what gets cell()-quoted (note: edge is emitted bare, like the
 // MapSpec path always did).
 
-void writeMapHeader(std::ostringstream &out, const std::string &title, const std::string &units)
+// `sceneScale` emits an advisory `scale: <S>` line after `units:`, ONLY when
+// sceneScale != 1.0.  Omitting it at S=1 keeps all existing TOON outputs byte-
+// identical (the realizer treats missing => 1).  THE FENCE: the exported FEET are
+// already scaled; the meta is for the realizer's greybox constants, not room dims.
+void writeMapHeader(std::ostringstream &out, const std::string &title,
+                    const std::string &units, double sceneScale = 1.0)
 {
     out << "kind: map\n";
     if (!title.empty()) {
@@ -86,7 +91,12 @@ void writeMapHeader(std::ostringstream &out, const std::string &title, const std
     if (!units.empty()) {
         out << "units: " << cell(units) << "\n";
     }
-    out << "\n";
+    if (sceneScale != 1.0) {
+        // advisory only — the reader scales its own greybox constants; it must
+        // NOT divide the room-feet back by S (they are already scaled feet).
+        out << "scale: " << num(sceneScale) << "\n";
+    }
+    out << "\n"; // blank section separator (always present, after scale: if any)
 }
 
 void writeRoomRow(std::ostringstream &out, const std::string &name,
@@ -206,7 +216,8 @@ std::pair<std::string, std::string> splitRoomPlug(const std::string &full)
 } // namespace
 
 std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
-                            const std::string &title, const std::string &units)
+                            const std::string &title, const std::string &units,
+                            double sceneScale)
 {
     // Authored units = canvas / scale. Guard a zero/invalid scale (treat as 1:1).
     const double scale = document.canvasPerAuthoredUnit > 0.0 ? document.canvasPerAuthoredUnit : 1.0;
@@ -221,7 +232,10 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     };
 
     std::ostringstream out;
-    writeMapHeader(out, title, units);
+    // Pass sceneScale so the header emits `scale: S` only when S != 1.0.
+    // The MapSpec overload calls writeMapHeader without sceneScale → default 1.0
+    // → no scale: line → all existing map_toon_export_tests stay byte-identical.
+    writeMapHeader(out, title, units, sceneScale);
 
     out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
     for (const auto &room : document.rooms) {

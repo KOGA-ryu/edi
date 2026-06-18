@@ -391,9 +391,30 @@ plug tool (B2-1) · connection tool + corridor (B2-2) · relation-aware inspecto
   IF the picker pre-selects; else write-only. Confirm UX → fold into the chrome-contract
   update at closeout.
 
-### Builder slice 034 (undo/redo both-true reconcile) — DISPATCHED
-- The last ratified batch-3 correctness item. After 034 + the B2-3 audit clear → batch-2
-  FULLY COMPLETE → closeout + final green tip to edi-ui.
+### Builder slice 034 (undo/redo both-true reconcile) — 2026-06-17 — DONE
+- Reply: `~/dept-bus/edi-dungeon-map/replies/034-builder-undo-both-true-fix.md`. Commit
+  `aa5af3e`. edi-gate GREEN 102/102; no-rebase honored. `reconcileActiveConnection()` in
+  undo() AND redo() before emit — TARGETED (clears only on restored-object-conflict OR
+  dangling-connection; benign connection-selections survive). 3 tests. Planner-verified
+  (small reconcile of audited selection hygiene; no re-audit). Noted: the long-term fix
+  (put `m_activeConnectionId` in the DocumentSnapshot) is a larger refactor, deferred.
+
+### Builder slice 036 (authored-leaf tag backfill — B2-3 audit bug) — DISPATCHED (LAST correctness item)
+- Brief: `~/dept-bus/edi-dungeon-map/briefs/036-builder-authored-leaf-tag-backfill.md`
+- Backfill `tags += "plug:<id>"` on authored leaves in `createMapFromSpec` → closes BOTH
+  the B2-3 duplicate + B2-4 orphan for authored plugs. **On land → batch-2 FULLY COMPLETE
+  → CLOSEOUT.**
+
+### CLOSEOUT plan (after 036)
+1. Light-verify 036 (one tag + authored-plug tests; behavior-preserving render).
+2. Write `docs/closeouts/dungeon-map-20260617-corridors-doors.md` — freeze the interactive-
+   authoring boundary, the verbs/keys/contexts, the ratified decisions (independent
+   corridors, B2-3 included, batch-3 scope), the PARKED items (auto anchor-sync, the
+   snapshot-m_activeConnectionId refactor), and the carried NOTES (locked-layer delete,
+   `door_leaf_type`/`active_plug_type` edi-ui key).
+3. Update the edi-ui chrome contract with the `active_plug_type` note.
+4. Hand the FINAL green tip to edi-ui to merge (onto current `17c716a`+).
+5. bus-hub the CLOSEOUT to the hub; the batch is done.
 
 ### ▶ AUTONOMOUS RUN (user call 2026-06-17)
 Run the queue ahead, NO per-slice hub wait. bus-hub ONLY on milestones (closeout,

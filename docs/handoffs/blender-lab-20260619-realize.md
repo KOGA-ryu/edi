@@ -165,6 +165,29 @@ closeout. One slice per commit, `claude:` + teaching body. Report each gate + SH
 - ✅ **DEPTH-FIRST MILESTONE COMPLETE** — one element (star6) went the whole loop:
   forge → bake (.blend) → mint (curated AssetRecord) → manifest (TOON) → instance (shared
   datablock) → render (GPU). The machine is proven on one shape.
-- NEXT: **R1d BREADTH** — the other five shapes (square/circle/hexagon/corner_l/ring) via the
-  IDENTICAL path (recipe TOML → `--asset-out` bake → catalog record → re-mint fixtures), then a
-  multi-shape instanced render (the visible payoff; give the demo map a light so it reads).
+- 2026-06-19: **R1d-1** CLOSED (reviewer ACCEPT, headless geometry proof) — all six tester shapes
+  forged+baked+curated (`samples/zoo/recipes/*.toml` + `meshes/*.blend`); star6 re-baked genuinely
+  6-pointed; ring verified a TRUE annulus (real hole); corner_l a TRUE concave L. `testerAssetCatalog`
+  = 6 records; re-minted fixtures `assets[6]`. SHA `6b3e7a4`, green 116/116.
+- 2026-06-19: **R1d-2** CLOSED (inline-verified) — `samples/zoo/tester_demo.toon` places all six
+  assets + a brazier light; rendered on OptiX/RTX-5090: `instances=6` all resolved, 3.5s,
+  `samples/zoo/tester_demo.{png,render.log}` (1920×1080, mean luma 87.7 — lit, real content). SHA `2284b61`.
+
+## ✅ CAMPAIGN COMPLETE — realize-by-instancing works end to end
+Six curated zoo assets (star6/square/circle/hexagon/corner_l/ring), each **built ONCE** by the
+forge → baked to a `.blend` → curated as an `AssetRecord` → exported in the TOON manifest →
+**INSTANCED** (shared datablock) at placements by the realizer → GPU-rendered. The greybox-regen
+realizer is now instance-FIRST with greybox FALLBACK (crypt byte-identical). The "build once, place
+many" machine is proven across the shape set.
+
+### Commit chain (dept/blender-lab, NOT pushed — hub owns the origin bridge)
+`fffce80` R1a · `cea97e0` R1b · `d23a6b4` R1c · `c7d6f19` R2a · `6314fb4` R2b · `6b3e7a4` R1d-1 ·
+`2284b61` R1d-2 (+ doc commits `aa63b9a`/`cc45e37`/`3d8d309` + this one). Baseline merge `667d195`.
+
+### Follow-ups (not blockers)
+- textureRefs are empty everywhere (art-forge pillar not built) → instances use a bronze placeholder
+  material; real materials await the art forge.
+- sockets skipped on the tester assets (optional first pass) — add when a connection use-case appears.
+- `.editzoo` vs `.edizoo` filename mismatch (cosmetic; realizer reads the `.toon`).
+- Replacing the OTHER greybox piece types (walls/floor/etc.) with curated instanced assets is the
+  natural continuation (the depth-first wall from the vision).

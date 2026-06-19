@@ -1015,6 +1015,11 @@ GREY_MATERIALS = {
     # inverted model: a distinct teal connector marker + a faint warm span-floor tint.
     "node": (0.15, 0.55, 0.62, 1.0),
     "span": (0.52, 0.47, 0.40, 1.0),
+    # instanced asset (R2b): a warm bronze/gold so a linked ornament reads against
+    # the grey room. A legible PLACEHOLDER — real art-forge textures are a future
+    # pillar; this is the default when an instance carries no texture refs and its
+    # linked mesh has no baked material.
+    "instance": (0.72, 0.52, 0.18, 1.0),
 }
 
 
@@ -1034,11 +1039,61 @@ def _bpy_material(bpy, key: str):
     return mat
 
 
-def build_scene(bpy, pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS):  # pragma: no cover — needs Blender
+def _instance_material(bpy, obj, mesh, textures: list, had_baked: bool):  # pragma: no cover — needs Blender
+    """Make an instanced placement legible WITHOUT corrupting the shared mesh.
+
+    The material caveat (realize-instancing.md Q1): a MaterialSlot's `link` is
+    'DATA' by default (the material rides on the shared mesh → every instance
+    shares it) or 'OBJECT' (a per-instance override that lives on the Object).
+    A SLOT itself is owned by the mesh's `materials` list (its length is shared
+    across all objects pointing at the mesh), so to override per-instance we:
+      1. ensure the (linked) shared mesh has ENOUGH empty slots — `mesh.materials
+         .append(None)` adds a slot referencing nothing, which does NOT touch the
+         geometry buffer, so it is safe on a linked datablock and harmless to the
+         other instances (their DATA-side material stays None);
+      2. flip THIS object's slots to `link='OBJECT'` and assign the placeholder
+         there — that override lives on the Object, not the shared mesh.
+    Note: the operator `material_slot_add` cannot do step 1 — it refuses to poll
+    on a linked-mesh object — so we go through the data API directly.
+
+    If the placement carries texture refs, one slot per name gets a placeholder
+    colour. If it carries none AND the asset arrived WITHOUT a baked material of
+    its own, fall back to a single distinct 'instance' material so the ornament
+    still reads against the grey room.
+
+    `had_baked` MUST be the link-time snapshot of `mesh.materials`, NOT a live
+    read here: the FIRST instance of a shared mesh grows that shared datablock's
+    slot list (the `append(None)` + 'OBJECT' override below) from 0→1, so a live
+    `mesh.materials` read on the 2nd/3rd/4th sibling would see a non-empty list
+    and wrongly skip the bronze fallback — leaving them bare. The snapshot is
+    captured once at link time (before any instance touches the slots), so every
+    textureless sibling decides independently and identically."""
+    names = list(textures)
+    if not names and not had_baked:
+        names = ["instance"]
+    if not names:
+        return  # mesh carries its own baked material — share it (do nothing).
+    # Grow the shared mesh's slot list to cover what this placement needs (None =
+    # an empty DATA slot; the per-instance colour goes on the OBJECT override).
+    while len(mesh.materials) < len(names):
+        mesh.materials.append(None)
+    for slot_i, name in enumerate(names):
+        slot = obj.material_slots[slot_i]
+        slot.link = "OBJECT"
+        # Each placeholder texture name maps to a distinct grey-table colour; an
+        # unknown name falls through _bpy_material to the 'stone' default.
+        slot.material = _bpy_material(bpy, name)
+
+
+def build_scene(bpy, pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS, asset_dir: str = ""):  # pragma: no cover — needs Blender
     """Instantiate every piece as a primitive. Returns the world-space bounds
     (minx,miny,minz,maxx,maxy,maxz) of the non-light geometry for camera framing.
     Each piece carries its own dims (from plan_greybox); `dims` here supplies the
-    scene-level tuning (light softness, world ambient)."""
+    scene-level tuning (light softness, world ambient).
+
+    `asset_dir` (R2b) is the base dir that an instance piece's catalog-relative
+    `mesh_ref` resolves against. Default "" ⇒ no instances expected ⇒ greybox only,
+    so a no-manifest crypt render is byte-identical to before this slice."""
     # Clear the default scene.
     if bpy.context.object and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
@@ -1051,7 +1106,87 @@ def build_scene(bpy, pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS):  # 
         bb[0] = min(bb[0], x - sx / 2.0); bb[1] = min(bb[1], y - sy / 2.0); bb[2] = min(bb[2], z - sz / 2.0)
         bb[3] = max(bb[3], x + sx / 2.0); bb[4] = max(bb[4], y + sy / 2.0); bb[5] = max(bb[5], z + sz / 2.0)
 
+    # Build-once cache: meshRef → [Mesh, ...]. The geometry is linked from the
+    # .blend EXACTLY ONCE per distinct ref; every placement then creates a tiny
+    # Object that references the cached datablock (bpy.data.objects.new(name,
+    # mesh)) — N objects, ONE vert/face buffer. This is the linked-duplicate
+    # (Alt+D) optimization at the API level, vs OBJ re-import which copies the
+    # mesh per placement and defeats build-once. Sibling cache: meshRef → local
+    # (min,max) bbox, computed once so the camera framing can grow to cover each
+    # placement's scaled extent without re-walking vertices per instance.
+    #
+    # baked_cache: meshRef → [bool, ...] — whether each linked mesh arrived WITH
+    # a baked material, snapshotted ONCE at link time. This MUST be captured
+    # before any placement runs, because the first instance's per-OBJECT material
+    # override grows the SHARED mesh's slot list (mesh.materials.append(None)) —
+    # so a live mesh.materials read on later siblings would see slots that the
+    # first instance added and wrongly conclude the asset shipped a material.
+    mesh_cache: dict = {}
+    bbox_cache: dict = {}
+    baked_cache: dict = {}
+
+    def _load_meshes(mesh_ref: str):
+        if mesh_ref in mesh_cache:
+            return mesh_cache[mesh_ref]
+        path = os.path.join(asset_dir, mesh_ref)
+        if not os.path.exists(path):
+            sys.stderr.write(f"WARNING: instance mesh not found, skipping: {path}\n")
+            mesh_cache[mesh_ref] = []
+            bbox_cache[mesh_ref] = []
+            baked_cache[mesh_ref] = []
+            return []
+        # link=True keeps ONE shared datablock backed by the external .blend; we
+        # link ALL meshes from the file (robust to multi-mesh assets).
+        with bpy.data.libraries.load(path, link=True) as (data_from, data_to):
+            data_to.meshes = list(data_from.meshes)
+        meshes = [m for m in data_to.meshes if m is not None]
+        mesh_cache[mesh_ref] = meshes
+        # Snapshot baked-material presence NOW, before any instance grows a slot.
+        baked_cache[mesh_ref] = [bool(m.materials) for m in meshes]
+        # LOCAL bbox per cached mesh, computed once.
+        boxes = []
+        for m in meshes:
+            xs = [v.co.x for v in m.vertices] or [0.0]
+            ys = [v.co.y for v in m.vertices] or [0.0]
+            zs = [v.co.z for v in m.vertices] or [0.0]
+            boxes.append((min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)))
+        bbox_cache[mesh_ref] = boxes
+        return meshes
+
     for p in pieces:
+        # Instance branch (R2b): build-once / place-many. Sits BEFORE the
+        # primitive path; the greybox/light/cylinder/sphere paths below are
+        # unchanged so a no-manifest render stays byte-identical.
+        if p.kind == "instance":
+            meshes = _load_meshes(p.mesh_ref)
+            if not meshes:
+                continue  # missing .blend already warned — skip, don't crash.
+            boxes = bbox_cache.get(p.mesh_ref, [])
+            baked = baked_cache.get(p.mesh_ref, [])
+            for i, mesh in enumerate(meshes):
+                obj = bpy.data.objects.new(f"{p.asset_ref}_{i}", mesh)
+                obj.location = (p.x, p.y, p.z)
+                obj.rotation_euler = (0.0, 0.0, math.radians(p.rot_deg))
+                # Per-instance transform lives on the OBJECT. NEVER
+                # transform_apply(scale=True) here — that bakes the scale into the
+                # SHARED mesh datablock and corrupts every other instance.
+                obj.scale = (p.sx, p.sy, p.sz)
+                # Link the OBJECT into the scene (every object needs this to
+                # render), then apply the per-instance material override.
+                bpy.context.collection.objects.link(obj)
+                _instance_material(bpy, obj, mesh, p.textures,
+                                   had_baked=baked[i] if i < len(baked) else bool(mesh.materials))
+                # Grow the scene bbox by the placement ± the mesh's local extent
+                # times the per-instance scale, so setup_camera frames the
+                # instanced geometry (approximate; rotation is ignored).
+                if i < len(boxes):
+                    mnx, mny, mnz, mxx, mxy, mxz = boxes[i]
+                    ex = max(abs(mnx), abs(mxx)) * 2.0 * p.sx
+                    ey = max(abs(mny), abs(mxy)) * 2.0 * p.sy
+                    ez = max(abs(mnz), abs(mxz)) * 2.0 * p.sz
+                    grow(p.x, p.y, p.z, ex, ey, ez)
+            continue
+
         if p.is_light:
             light_data = bpy.data.lights.new(name=f"{p.kind}_light", type="POINT")
             light_data.energy = p.light_energy
@@ -1220,7 +1355,7 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
     print(plan_summary(doc, pieces, assets))
     print("=" * 64)
 
-    bb = build_scene(bpy, pieces, dims)
+    bb = build_scene(bpy, pieces, dims, asset_dir or "")
     setup_camera(bpy, bb, dims)
     chosen, devreport = setup_optix(bpy, samples, dims)
     print(f"render engine: CYCLES   compute_device_type: {chosen}   cycles.device: GPU")

@@ -312,4 +312,38 @@ if demo_obj.count("o instance_") != n_blocks:
 if "star6_blend" not in demo_obj:
     fail("instance OBJ marker should be labelled with its meshRef")
 
+# --- 15. R2b: the instance-render contract's Blender-free surface -------------
+# build_scene's bpy body is pragma-no-cover (needs Blender — proven by the live
+# OptiX render under samples/zoo/), but two contract facts ARE checkable here:
+#  (a) the warm 'instance' placeholder material exists in the named DATA table, so
+#      a textureless instanced asset reads against the grey room; and
+#  (b) build_scene stays backward-compatible — `asset_dir` is an optional 4th
+#      param defaulting to "" (no manifest ⇒ greybox only ⇒ crypt byte-identical).
+import inspect  # noqa: E402
+
+if "instance" not in edi_realize.GREY_MATERIALS:
+    fail("R2b needs a distinct 'instance' placeholder material in GREY_MATERIALS")
+sig = inspect.signature(edi_realize.build_scene)
+if "asset_dir" not in sig.parameters:
+    fail("build_scene must accept asset_dir for instance .blend resolution")
+if sig.parameters["asset_dir"].default != "":
+    fail("build_scene asset_dir must default to '' (greybox-only fallback)")
+
+#  (c) the textureless-fallback decision must key off a LINK-TIME snapshot, not a
+#      live mesh.materials read. The first instance of a shared mesh grows that
+#      datablock's slot list 0->1 (the per-OBJECT override below), so a live read
+#      on the 2nd/3rd/4th sibling would see slots the first instance added and
+#      wrongly skip the bronze fallback — leaving those siblings bare. The fix
+#      threads a captured `had_baked: bool` into _instance_material; pin that the
+#      parameter exists (its absence is the regression) and that build_scene
+#      snapshots baked presence once at link time.
+imat_sig = inspect.signature(edi_realize._instance_material)
+if "had_baked" not in imat_sig.parameters:
+    fail("_instance_material must take a link-time had_baked snapshot, "
+         "NOT decide off live mesh.materials (the slot-growth poisons siblings)")
+build_src = inspect.getsource(edi_realize.build_scene)
+if "baked_cache" not in build_src:
+    fail("build_scene must snapshot baked-material presence at link time "
+         "(baked_cache), before any instance grows a slot")
+
 print("edi_realize smoke: ok")

@@ -151,6 +151,20 @@ closeout. One slice per commit, `claude:` + teaching body. Report each gate + SH
   `asset_0001,star6,ornament,meshes/star6.blend,"","",""`. NOTE for R2: catalog file is
   `.editzoo` while `AssetZooStore` default is `.edizoo` — realizer reads the `.toon` manifest,
   so unaffected; standardize later if it confuses.
-- NEXT: **depth-first to first INSTANCED render** — R2a (realizer `--manifest`/`--asset-dir`
-  + instance planning + greybox fallback) then R2b (bpy instance star6 + render proof) on a
-  small star6 demo map; THEN R1d breadth (other five) + the multi-shape render payoff.
+- 2026-06-19: **R2a** CLOSED (reviewer ACCEPT) — realizer pure tier parses the manifest
+  (`assets` arm), resolves placements → INSTANCE pieces, greybox FALLBACK preserved; `--manifest`
+  /`--asset-dir` CLI; `samples/zoo/star6_demo.toon` (4 placements); OBJ proof markers; smoke
+  proves the cross-language round-trip (the owed proof). SHA `c7d6f19`, green 116/116.
+- 2026-06-19: **R2b** CLOSED (reviewer SEND-BACK→fixed) — bpy effector: link mesh ONCE +
+  `objects.new(name,mesh)` shared datablock per placement, `obj.scale` (never transform_apply),
+  per-instance material via `link='OBJECT'`. Reviewer MUST-FIX: textureless-material trigger
+  read live `mesh.materials` (poisoned by instance 0's slot) → only 1/4 got the override; FIXED
+  by capturing the baked-material flag at LINK time → headless-verified 4/4 bronze, shared geom
+  untouched (32→32 verts). SHA `6314fb4` (amended). **FIRST INSTANCED RENDER**: OptiX/RTX-5090,
+  `instances=4`, 3.4s → `samples/zoo/star6_demo.{png,render.log}`.
+- ✅ **DEPTH-FIRST MILESTONE COMPLETE** — one element (star6) went the whole loop:
+  forge → bake (.blend) → mint (curated AssetRecord) → manifest (TOON) → instance (shared
+  datablock) → render (GPU). The machine is proven on one shape.
+- NEXT: **R1d BREADTH** — the other five shapes (square/circle/hexagon/corner_l/ring) via the
+  IDENTICAL path (recipe TOML → `--asset-out` bake → catalog record → re-mint fixtures), then a
+  multi-shape instanced render (the visible payoff; give the demo map a light so it reads).

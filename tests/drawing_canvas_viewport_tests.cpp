@@ -195,33 +195,36 @@ int main()
         assert(near(mappedClamped.y(), anchor.y()));
     }
 
-    // DM-01 computeFitView: a content box should frame centered with the padding
-    // margin on every side. Use a square grid + square widget so the math is clean.
+    // DM-01 / SCALE-POLICY computeFitView: a content box frames centered with a
+    // PROPORTIONAL breathing-room margin on every side. The fit margin is NO LONGER
+    // input.paddingPx (that stays the board's at-rest inset); it is a NAMED fraction
+    // of the visible shorter side — kViewportFitPaddingFraction (0.05/side). Square
+    // grid + square widget so the math is clean.
     {
         const DrawingCanvasViewportInput fitInput{
             .widgetWidth = 400.0,
             .widgetHeight = 400.0,
             .gridWidth = 1.0,
             .gridHeight = 1.0,
-            .paddingPx = 40.0,
+            .paddingPx = 40.0, // the AT-REST board inset; the fit derives its own margin
         };
-        // The whole canvas [0,1] x [0,1] as content: framing it must center the
-        // box and fill the padded viewport. availWidth = 400 - 2*40 = 320; the
-        // fit-rect (at zoom 1) is 400 - 40 = 360 wide, so zoom = 320/360.
+        // Fit margin = 0.05 * min(400,400) = 20 per side. availWidth = 400 - 2*20 = 360;
+        // the fit-rect (at zoom 1) is 400 - paddingPx(40) = 360 wide, so zoom = 360/360 = 1.
+        const double fitPad = kViewportFitPaddingFraction * 400.0; // 20
         const DrawingCanvasViewportInput framed = computeFitView(fitInput, 0.0, 0.0, 1.0, 1.0);
         const QRectF board = viewportBoardRect(framed);
         // Box center (0.5,0.5) lands at the viewport center.
         const QPointF center = canvasToScreen(board, 0.5, 0.5);
         assert(near(center.x(), 200.0));
         assert(near(center.y(), 200.0));
-        // The framed box spans exactly the padded width (top-left corner at the
-        // padding margin, bottom-right at widget - padding).
+        // The framed box spans exactly the padded width (top-left at the breathing-room
+        // margin, bottom-right at widget - margin).
         const QPointF topLeft = canvasToScreen(board, 0.0, 0.0);
         const QPointF bottomRight = canvasToScreen(board, 1.0, 1.0);
-        assert(near(topLeft.x(), 40.0));
-        assert(near(topLeft.y(), 40.0));
-        assert(near(bottomRight.x(), 360.0));
-        assert(near(bottomRight.y(), 360.0));
+        assert(near(topLeft.x(), fitPad));
+        assert(near(topLeft.y(), fitPad));
+        assert(near(bottomRight.x(), 400.0 - fitPad));
+        assert(near(bottomRight.y(), 400.0 - fitPad));
 
         // A sub-region (the right half) frames just that half, still centered.
         const DrawingCanvasViewportInput half = computeFitView(fitInput, 0.5, 0.0, 0.5, 1.0);
@@ -239,6 +242,63 @@ int main()
         assert(near(unchanged.zoom, 3.0));
         assert(near(unchanged.panXPx, 11.0));
         assert(near(unchanged.panYPx, -5.0));
+    }
+
+    // SCALE-POLICY overlay insets: the shell's floating right/bottom panels cover
+    // the canvas edges, so the fit must frame into the VISIBLE sub-rectangle, not
+    // the full widget — otherwise a dungeon lands under a panel (the map-workspace
+    // clipping bug). A right inset shifts the framed center LEFT and shrinks zoom.
+    {
+        DrawingCanvasViewportInput insetInput{
+            .widgetWidth = 400.0,
+            .widgetHeight = 400.0,
+            .gridWidth = 1.0,
+            .gridHeight = 1.0,
+            .paddingPx = 40.0,
+        };
+        insetInput.insetRightPx = 200.0; // the right half is occluded by a panel
+        // Visible rect is [0,200] x [0,400]; its center is x=100. The whole [0,1]
+        // box must center THERE, not at x=200 — the proof the dungeon clears the panel.
+        const DrawingCanvasViewportInput framed = computeFitView(insetInput, 0.0, 0.0, 1.0, 1.0);
+        const QRectF board = viewportBoardRect(framed);
+        const QPointF center = canvasToScreen(board, 0.5, 0.5);
+        assert(near(center.x(), 100.0));  // visible-rect center, not widget center
+        assert(near(center.y(), 200.0));
+        // And the box's right edge stays clear of the occluded region (x < 200).
+        const QPointF boxRight = canvasToScreen(board, 1.0, 0.5);
+        assert(boxRight.x() < 200.0);
+    }
+
+    // SCALE-POLICY fit floor: a dungeon far larger than the grid needs the fit to
+    // zoom out BELOW the interactive kViewportMinZoom to frame whole. computeFitView
+    // uses kViewportFitMinZoom (much lower), and the render transform honors it —
+    // while interactive zoom (zoomViewportAtPoint) still refuses to go below the
+    // interactive floor.
+    {
+        const DrawingCanvasViewportInput bigInput{
+            .widgetWidth = 400.0,
+            .widgetHeight = 400.0,
+            .gridWidth = 1.0,
+            .gridHeight = 1.0,
+            .paddingPx = 40.0,
+        };
+        // A box 20x the grid: fitting it needs zoom ~0.05 (20x smaller), well below
+        // the interactive floor of 0.2 — yet the whole box must still frame.
+        const DrawingCanvasViewportInput framed = computeFitView(bigInput, 0.0, 0.0, 20.0, 20.0);
+        assert(framed.zoom < kViewportMinZoom);   // below the interactive floor
+        assert(framed.zoom >= kViewportFitMinZoom); // but not below the fit floor
+        // The render transform (viewportBoardRect) must HONOR the sub-floor zoom,
+        // so the whole 20-unit box actually fits inside the widget.
+        const QRectF board = viewportBoardRect(framed);
+        const QPointF tl = canvasToScreen(board, 0.0, 0.0);
+        const QPointF br = canvasToScreen(board, 20.0, 20.0);
+        assert(tl.x() >= -1.0 && tl.y() >= -1.0);
+        assert(br.x() <= 401.0 && br.y() <= 401.0);
+        // Interactive zoom is unaffected: a wheel-out from base never drops below
+        // the interactive floor (the fit floor is a fit-only concession).
+        DrawingCanvasViewportInput base = bigInput;
+        const DrawingCanvasViewportInput wheeled = zoomViewportAtPoint(base, 0.0001, QPointF(200.0, 200.0));
+        assert(near(clampViewportZoom(wheeled.zoom), kViewportMinZoom));
     }
 
     return 0;

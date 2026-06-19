@@ -604,11 +604,14 @@ std::optional<DraftingObject> readObject(const MsgPackValue &v, int documentVers
 MsgPackValue plugValue(const DraftingPlug &plug)
 {
     std::vector<std::pair<std::string, MsgPackValue>> fields = {
-        {"id", MsgPackValue::text(plug.id)},
+        {"id",               MsgPackValue::text(plug.id)},
         {"anchor_object_id", MsgPackValue::text(plug.anchorObjectId)},
-        {"name", MsgPackValue::text(plug.name)},
-        {"type", MsgPackValue::text(plug.type)},
-        {"anchor", pointValue(plug.anchor)},
+        {"name",             MsgPackValue::text(plug.name)},
+        {"type",             MsgPackValue::text(plug.type)},
+        {"anchor",           pointValue(plug.anchor)},
+        // Additive + tolerant (slice 3f): same always-write + asInt(...,0) template
+        // as DraftingMapRoom::level (slice 3a). Missing ⇒ 0. No version bump.
+        {"level",            MsgPackValue::integer(plug.level)},
     };
     // Additive + tolerant, like wall_visual / asset_ref: emit `flags` ONLY when
     // non-empty, so every plug authored before DM-05 stays byte-identical and the
@@ -627,10 +630,10 @@ MsgPackValue plugValue(const DraftingPlug &plug)
 DraftingPlug readPlug(const MsgPackValue &v)
 {
     DraftingPlug plug;
-    plug.id = asString(child(v, "id"), plug.id);
+    plug.id             = asString(child(v, "id"),               plug.id);
     plug.anchorObjectId = asString(child(v, "anchor_object_id"), plug.anchorObjectId);
-    plug.name = asString(child(v, "name"), plug.name);
-    plug.type = asString(child(v, "type"), plug.type);
+    plug.name           = asString(child(v, "name"),             plug.name);
+    plug.type           = asString(child(v, "type"),             plug.type);
     // Tolerant: a plug without `flags` (every file before DM-05) decodes to an empty
     // vector — same shape as the `tags` read in readMetadata.
     if (const MsgPackValue *flags = child(v, "flags"); flags && flags->type == MsgPackValue::Type::Array) {
@@ -641,50 +644,103 @@ DraftingPlug readPlug(const MsgPackValue &v)
         }
     }
     plug.anchor = readPoint(child(v, "anchor"));
+    // Additive + tolerant (slice 3f): missing "level" ⇒ 0. Same asInt pattern as
+    // readMapRoom::level (slice 3a). std::int64_t → int: level is a small band.
+    plug.level  = static_cast<int>(asInt(child(v, "level"), plug.level));
     return plug;
 }
 
 MsgPackValue connectionValue(const DraftingDeclaredConnection &connection)
 {
     return MsgPackValue::map({
-        {"id", MsgPackValue::text(connection.id)},
+        {"id",     MsgPackValue::text(connection.id)},
         {"plug_a", MsgPackValue::text(connection.plugA)},
         {"plug_b", MsgPackValue::text(connection.plugB)},
-        {"type", MsgPackValue::text(connection.type)},
+        {"type",   MsgPackValue::text(connection.type)},
+        // Additive + tolerant (slice 3f): same always-write + asInt(...,0) template.
+        {"level",  MsgPackValue::integer(connection.level)},
     });
 }
 
 DraftingDeclaredConnection readConnection(const MsgPackValue &v)
 {
     DraftingDeclaredConnection connection;
-    connection.id = asString(child(v, "id"), connection.id);
+    connection.id    = asString(child(v, "id"),     connection.id);
     connection.plugA = asString(child(v, "plug_a"), connection.plugA);
     connection.plugB = asString(child(v, "plug_b"), connection.plugB);
-    connection.type = asString(child(v, "type"), connection.type);
+    connection.type  = asString(child(v, "type"),   connection.type);
+    // Additive + tolerant (slice 3f): missing "level" ⇒ 0.
+    connection.level = static_cast<int>(asInt(child(v, "level"), connection.level));
     return connection;
+}
+
+// Connector nodes (Phase-1 decision 1/11). Flat map; same additive discipline as
+// plugValue — a file without a "nodes" key decodes to an empty vector (no version
+// bump). radius is stored as a Double (it is a continuous measurement); id/type/name
+// as text. anchor is a 2-element array via pointValue, like DraftingPlug::anchor.
+MsgPackValue nodeValue(const DraftingNode &node)
+{
+    return MsgPackValue::map({
+        {"id",     MsgPackValue::text(node.id)},
+        {"anchor", pointValue(node.anchor)},
+        {"radius", MsgPackValue::number(node.radius)},
+        {"type",   MsgPackValue::text(node.type)},
+        {"name",   MsgPackValue::text(node.name)},
+    });
+}
+
+DraftingNode readNode(const MsgPackValue &v)
+{
+    DraftingNode node;
+    node.id     = asString(child(v, "id"),     node.id);
+    node.anchor = readPoint(child(v, "anchor"));
+    // Tolerant: missing "radius" (a file written before this field) falls back to
+    // kDefaultNodeRadius — the same default the struct field carries, so the
+    // round-trip is lossless for both old files and newly authored nodes.
+    node.radius = asDouble(child(v, "radius"), kDefaultNodeRadius);
+    node.type   = asString(child(v, "type"),   node.type);
+    node.name   = asString(child(v, "name"),   node.name);
+    return node;
 }
 
 // Named map rooms (Seam C): flat maps mirroring plugValue. Footprint is authored
 // (NW corner + size), stored directly — not derived, so it is read back verbatim.
 MsgPackValue mapRoomValue(const DraftingMapRoom &room)
 {
+    // `level` is written as an INTEGER tag so the round-trip preserves type
+    // (not Double). Readers that predate this field ignore the key; readers
+    // that know it apply asInt with a 0 fallback — the wall_visual additive
+    // pattern (no version bump required for field-tagged MessagePack maps).
     return MsgPackValue::map({
-        {"name", MsgPackValue::text(room.name)},
-        {"origin", pointValue(room.origin)},
-        {"width", MsgPackValue::number(room.width)},
-        {"height", MsgPackValue::number(room.height)},
-        {"material", MsgPackValue::text(room.material)},
+        {"name",       MsgPackValue::text(room.name)},
+        {"origin",     pointValue(room.origin)},
+        {"width",      MsgPackValue::number(room.width)},
+        {"height",     MsgPackValue::number(room.height)},
+        {"material",   MsgPackValue::text(room.material)},
+        {"level",      MsgPackValue::integer(room.level)},
+        // Stored as a NAME string (not an integer ordinal) so the file is readable
+        // and forward-compatible — the same discipline as wall_visual.type / role.
+        // roomDerivationFromName unknown ⇒ Placed, so a pre-3b file reads cleanly.
+        {"derivation", MsgPackValue::text(roomDerivationName(room.derivation))},
     });
 }
 
 DraftingMapRoom readMapRoom(const MsgPackValue &v)
 {
     DraftingMapRoom room;
-    room.name = asString(child(v, "name"), room.name);
-    room.origin = readPoint(child(v, "origin"));
-    room.width = asDouble(child(v, "width"), room.width);
-    room.height = asDouble(child(v, "height"), room.height);
+    room.name     = asString(child(v, "name"),     room.name);
+    room.origin   = readPoint(child(v, "origin"));
+    room.width    = asDouble(child(v, "width"),    room.width);
+    room.height   = asDouble(child(v, "height"),   room.height);
     room.material = asString(child(v, "material"), room.material);
+    // Additive + tolerant: a file written before slice 3a has no "level" key;
+    // asInt returns the fallback (0 = ground) — exactly the wall_visual pattern.
+    // std::int64_t → int: level is a small discrete band, no precision loss.
+    room.level      = static_cast<int>(asInt(child(v, "level"), room.level));
+    // Additive + tolerant (slice 3b): missing "derivation" key ⇒ "placed" ⇒ Placed.
+    // roomDerivationFromName already defaults unknown strings to Placed, so passing
+    // the fallback "placed" makes the two paths (key absent / key == "placed") identical.
+    room.derivation = roomDerivationFromName(asString(child(v, "derivation"), "placed"));
     return room;
 }
 
@@ -820,6 +876,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         rooms.push_back(mapRoomValue(room));
     }
 
+    std::vector<MsgPackValue> nodes;
+    nodes.reserve(document.nodes.size());
+    for (const auto &node : document.nodes) {
+        nodes.push_back(nodeValue(node));
+    }
+
     std::vector<MsgPackValue> blocks;
     blocks.reserve(document.blocks.size());
     for (const auto &block : document.blocks) {
@@ -854,11 +916,15 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"active_layer_id", MsgPackValue::text(document.activeLayerId)},
         {"revision", MsgPackValue::integer(static_cast<std::int64_t>(document.revision))},
         {"canvas_per_authored_unit", MsgPackValue::number(document.canvasPerAuthoredUnit)},
+        // Additive + tolerant: missing ⇒ "pick_one" ⇒ PickOne (same discipline as
+        // wall_visual.type / roomDerivation). Stored as a name string for readability.
+        {"overlap_policy", MsgPackValue::text(overlapPolicyName(document.overlapPolicy))},
         {"layers", MsgPackValue::array(std::move(layers))},
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
         {"connections", MsgPackValue::array(std::move(connections))},
-        {"rooms", MsgPackValue::array(std::move(rooms))},
+        {"rooms",  MsgPackValue::array(std::move(rooms))},
+        {"nodes",  MsgPackValue::array(std::move(nodes))},
         {"blocks", MsgPackValue::array(std::move(blocks))},
         {"motifs", MsgPackValue::array(std::move(motifs))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
@@ -906,6 +972,11 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
     document.revision = static_cast<std::uint64_t>(asInt(child(*documentValue, "revision"), 0));
     // Additive + tolerant: a file before Seam C has no scale and defaults to 1.0.
     document.canvasPerAuthoredUnit = asDouble(child(*documentValue, "canvas_per_authored_unit"), 1.0);
+    // Additive + tolerant (slice 3d): missing "overlap_policy" ⇒ "pick_one" ⇒ PickOne.
+    // overlapPolicyFromName already defaults unknown strings to PickOne, so both
+    // "key absent" and "key == pick_one" paths produce the same neutral result.
+    document.overlapPolicy = overlapPolicyFromName(
+        asString(child(*documentValue, "overlap_policy"), "pick_one"));
 
     if (const MsgPackValue *layers = child(*documentValue, "layers");
         layers && layers->type == MsgPackValue::Type::Array) {
@@ -958,6 +1029,17 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         for (const auto &room : rooms->arrayValue) {
             if (room.type == MsgPackValue::Type::Map) {
                 document.rooms.push_back(readMapRoom(room));
+            }
+        }
+    }
+
+    // Connector nodes (Phase-1 decision 1/11): same tolerant additive read — a file
+    // without a "nodes" key (every file before slice 3c) decodes to an empty vector.
+    if (const MsgPackValue *nodesValue = child(*documentValue, "nodes");
+        nodesValue && nodesValue->type == MsgPackValue::Type::Array) {
+        for (const auto &nodeEntry : nodesValue->arrayValue) {
+            if (nodeEntry.type == MsgPackValue::Type::Map) {
+                document.nodes.push_back(readNode(nodeEntry));
             }
         }
     }

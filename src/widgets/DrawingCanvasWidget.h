@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMarginsF>
 #include <QPixmap>
 #include <QString>
 #include <QVariantMap>
@@ -27,6 +28,16 @@ public:
     // applies a pan/zoom, never touching the model, so it cannot loop modelChanged.
     // An empty document (nullopt bounds) is a no-op, leaving the view as-is.
     void fitDocumentInView();
+    // Overlay occlusion the shell reports: the right/bottom feature panels float
+    // ON TOP of the canvas, so the auto-fit must frame content into the visible
+    // sub-rectangle (widget minus these insets) rather than under a panel. Pure
+    // DATA — the shell owns panel geometry and pushes it here; the canvas stays
+    // ignorant of which panels exist. STORE-ONLY: setting insets does NOT re-fit
+    // (re-fitting on every overlay open/close/resize would yank a user's panned/
+    // zoomed view); it just records the occlusion + repaints. The deliberate fit
+    // (fitDocumentInView, on load/reset) reads the current insets when it runs.
+    void setViewInsets(const QMarginsF &insets);
+    QMarginsF viewInsets() const { return m_viewInsets; }
     bool plotPreviewVisible() const;
     // Re-theme the canvas chrome (board, grid, snap markers...). Object
     // stroke colors are document data and are untouched by this.
@@ -100,4 +111,7 @@ private:
     double m_zoom = 1.0;
     QPointF m_pan;
     QPointF m_lastPanScreenPoint;
+    // Pixels of the canvas occluded by the shell's floating overlay panels, by
+    // edge. Default 0 = no overlays = fit fills the whole widget.
+    QMarginsF m_viewInsets;
 };

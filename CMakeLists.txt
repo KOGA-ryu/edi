@@ -92,6 +92,10 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingRegionFill.cpp
     src/drafting/DraftingMapQuery.h
     src/drafting/DraftingMapQuery.cpp
+    src/drafting/DraftingOverlap.h
+    src/drafting/DraftingOverlap.cpp
+    src/drafting/DraftingSpan.h
+    src/drafting/DraftingSpan.cpp
     src/drafting/DraftingBlockOps.h
     src/drafting/DraftingBlockOps.cpp
     src/drafting/DraftingMotifOps.h
@@ -203,6 +207,35 @@ target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 # docs/adding-a-drafting-tool.md.
 target_compile_options(edi_drafting_core PRIVATE -Werror=switch)
 
+# Pillar A — the asset zoo: a curated, cross-document library of reusable assets.
+# It persists with the shared MessagePack value codec + EDIM envelope, so it links
+# the format core. It deliberately does NOT depend on the drafting core: the zoo is
+# a catalog that outlives any one drawing, and an AssetRecord references geometry
+# only by opaque string id — keeping the backbone independent of the document.
+add_library(edi_zoo_core STATIC
+    src/zoo/AssetZoo.h
+    src/zoo/AssetZooOps.h
+    src/zoo/AssetZooOps.cpp
+    src/zoo/AssetZooSerialize.h
+    src/zoo/AssetZooSerialize.cpp
+)
+
+target_include_directories(edi_zoo_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(edi_zoo_core PUBLIC edi_format_core)
+
+add_library(edi_asset_link STATIC
+    src/assetlink/AssetLinkResolve.h
+    src/assetlink/AssetLinkResolve.cpp
+)
+target_include_directories(edi_asset_link PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# The asset-link bridge is the single, named meeting-point of two deliberately
+# isolated cores: it resolves a drawing's neutral assetRefs against the zoo
+# catalog. It links BOTH; neither core links the other.
+target_link_libraries(edi_asset_link PUBLIC edi_drafting_core edi_zoo_core)
+
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h
     src/recipe/RecipeMeasure.cpp
@@ -272,6 +305,8 @@ add_edi_contract_test(drafting_ascii_map_tests tests/drafting_ascii_map_tests.cp
 add_edi_contract_test(drafting_graph_ops_tests tests/drafting_graph_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_document_bounds_tests tests/drafting_document_bounds_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_map_query_tests tests/drafting_map_query_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_overlap_tests tests/drafting_overlap_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_span_tests tests/drafting_span_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_region_fill_tests tests/drafting_region_fill_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_block_ops_tests tests/drafting_block_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_motif_ops_tests tests/drafting_motif_ops_tests.cpp edi_drafting_core)
@@ -358,6 +393,8 @@ add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_test
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
+add_edi_contract_test(asset_zoo_tests tests/asset_zoo_tests.cpp edi_zoo_core)
+add_edi_contract_test(asset_link_resolve_tests tests/asset_link_resolve_tests.cpp edi_asset_link)
 add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
 target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)
 target_include_directories(belt_state_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -393,6 +430,9 @@ target_include_directories(shell_panels_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
 add_edi_contract_test(settings_store_tests tests/settings_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(settings_store_tests PRIVATE src/io/SettingsStore.cpp)
 target_include_directories(settings_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_edi_contract_test(asset_zoo_store_tests tests/asset_zoo_store_tests.cpp edi_zoo_core Qt6::Core)
+target_sources(asset_zoo_store_tests PRIVATE src/io/AssetZooStore.cpp src/io/SettingsStore.cpp)
+target_include_directories(asset_zoo_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_edi_contract_test(room_spec_store_tests tests/room_spec_store_tests.cpp edi_drafting_core edi_format_core)
 target_sources(room_spec_store_tests PRIVATE src/io/RoomSpecStore.cpp)
 target_include_directories(room_spec_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -402,6 +442,122 @@ target_include_directories(map_spec_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_edi_contract_test(map_toon_export_tests tests/map_toon_export_tests.cpp edi_drafting_core)
 target_sources(map_toon_export_tests PRIVATE src/io/MapToonExport.cpp)
 target_include_directories(map_toon_export_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# G1 crypt generator — full end-to-end chain test (buildCryptMapSpec ->
+# createMapFromSpec -> exportMapToToon).  Needs the controller sources
+# (same set as drawing_document_controller_tests) plus MapToonExport and
+# the new CryptGenerator module.  Uses QCoreApplication for the controller.
+add_executable(crypt_generator_tests
+    tests/crypt_generator_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
+)
+target_include_directories(crypt_generator_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(crypt_generator_tests PRIVATE
+    edi_drafting_core
+    Qt6::Core
+)
+add_test(NAME crypt_generator_tests COMMAND crypt_generator_tests)
+
+# Phase-1 CANARY: pins the reference-dungeon TOON (sha256 6c632293…, 1685 bytes)
+# and the DraftingObject count produced by createMapFromSpec byte-identically.
+# This test MUST remain green through every additive Phase-1 slice; a drift means
+# a new field's default is not neutral → halt and report (do NOT re-bless).
+# Same source set as crypt_generator_tests + RoomSpecStore (for parseMapSpecToml).
+# EDI_TESTS_DATA_DIR points to tests/data/ so the test locates dungeon.map.toml.
+add_executable(map_regression_lock_tests
+    tests/map_regression_lock_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/RoomSpecStore.h
+    src/io/RoomSpecStore.cpp
+)
+target_include_directories(map_regression_lock_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_compile_definitions(map_regression_lock_tests PRIVATE
+    EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+)
+target_link_libraries(map_regression_lock_tests PRIVATE
+    edi_drafting_core
+    edi_format_core
+    Qt6::Core
+)
+add_test(NAME map_regression_lock_tests COMMAND map_regression_lock_tests)
+
+# Phase-1 DETERMINISM GATE (brief 069): "same input → same dungeon".
+# Runs createMapFromSpec TWICE with the reference dungeon spec, exports both
+# documents via exportMapToToon (Seam C / document overload), then asserts
+# the two TOON strings are byte-identical and the two DraftingObject counts
+# are equal.  Owns the ordering-determinism invariant that the single-run
+# canary cannot catch.  Uses the same source set as map_regression_lock_tests.
+add_executable(map_determinism_tests
+    tests/map_determinism_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/RoomSpecStore.h
+    src/io/RoomSpecStore.cpp
+)
+target_include_directories(map_determinism_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_compile_definitions(map_determinism_tests PRIVATE
+    EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+)
+target_link_libraries(map_determinism_tests PRIVATE
+    edi_drafting_core
+    edi_format_core
+    Qt6::Core
+)
+add_test(NAME map_determinism_tests COMMAND map_determinism_tests)
+
+# Controller behavioral test for syncGraphForMovedObject (brief 052):
+# verifies that applyCommandAndEmit calls the anchor-resync after a geometry-
+# mutation command, closing the pre-052 drift bug where plug.anchor went stale
+# on interactive moves of a plug-anchored marker object.
+add_executable(drafting_graph_sync_tests
+    tests/drafting_graph_sync_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
+)
+target_include_directories(drafting_graph_sync_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(drafting_graph_sync_tests PRIVATE
+    edi_drafting_core
+    Qt6::Core
+)
+add_test(NAME drafting_graph_sync_tests COMMAND drafting_graph_sync_tests)
+
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -551,6 +707,7 @@ add_executable(edi_shell_window_tests
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h
@@ -605,6 +762,7 @@ add_executable(drawing_canvas_widget_tests
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h
@@ -649,6 +807,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/RoomSpecStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h
@@ -704,6 +864,7 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/widgets/DrawingCanvasProjectedStatus.cpp
     src/widgets/DrawingCanvasProjectedPointer.h
     src/widgets/DrawingCanvasProjectedPointer.cpp
+    src/widgets/DrawingCanvasChromeDims.h
     src/widgets/DrawingCanvasObjectPainter.h
     src/widgets/DrawingCanvasObjectPainter.cpp
     src/widgets/DrawingCanvasGestureState.h

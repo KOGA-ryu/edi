@@ -5,6 +5,7 @@
 #include "drafting/DraftingCommands.h"
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingAsciiMap.h"
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingBlockOps.h"
 #include "drafting/DraftingMotifOps.h"
 #include "drafting/DraftingCorridor.h"
@@ -15,7 +16,7 @@
 #include "drafting/DraftingConstructionOps.h"
 #include "drafting/DraftingDimensionOps.h"
 #include "drafting/DraftingGeometry.h"
-#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject, plugIndexById (B2-1/B2-2)
+#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject, plugIndexById (B2-1/B2-2); syncGraphForMovedObject (052)
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
@@ -45,6 +46,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
+#include <map>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -820,7 +823,9 @@ void DrawingDocumentController::setFixedRadius(double radius)
     // (gesture-sized), never a rejected build later. Clamped to the unit
     // document space so the stored state always equals the radius the build
     // actually stamps (resolveToolRadius clamps the same way).
-    m_fixedRadius = std::isfinite(radius) && radius > 0.0 ? std::min(radius, 1.0) : 0.0;
+    m_fixedRadius = std::isfinite(radius) && radius > 0.0
+                        ? std::min(radius, edi::drafting::kCanvasBoardExtent)
+                        : 0.0;
 }
 
 double DrawingDocumentController::fixedRadius() const
@@ -832,7 +837,9 @@ void DrawingDocumentController::setWallThickness(double thickness)
 {
     // A zero/invalid thickness would be an invisible band, so fall back to the
     // 0.1 default (not "off") — a wall always has a visible width.
-    m_wallThickness = std::isfinite(thickness) && thickness > 0.0 ? std::min(thickness, 1.0) : 0.1;
+    m_wallThickness = std::isfinite(thickness) && thickness > 0.0
+                          ? std::min(thickness, edi::drafting::kCanvasBoardExtent)
+                          : edi::drafting::kDefaultWallToolThickness;
 }
 
 double DrawingDocumentController::wallThickness() const
@@ -845,7 +852,7 @@ void DrawingDocumentController::setFilletRadius(double radius)
     // Unlike fixedRadius, 0 is not a meaningful fillet (a zero arc), so an
     // invalid value leaves the current radius untouched rather than disabling.
     if (std::isfinite(radius) && radius > 0.0) {
-        m_filletRadius = std::min(radius, 1.0);
+        m_filletRadius = std::min(radius, edi::drafting::kCanvasBoardExtent);
     }
 }
 
@@ -859,7 +866,7 @@ void DrawingDocumentController::setChamferSetback(double setback)
     // Like the fillet radius: 0 is not a meaningful chamfer (no bevel), so an
     // invalid value leaves the current setback untouched rather than disabling.
     if (std::isfinite(setback) && setback > 0.0) {
-        m_chamferSetback = std::min(setback, 1.0);
+        m_chamferSetback = std::min(setback, edi::drafting::kCanvasBoardExtent);
     }
 }
 
@@ -912,7 +919,9 @@ void DrawingDocumentController::setArraySpacingX(double spacing)
     // input is normalized away (std::clamp on NaN would be UB), and the
     // magnitude clamps to the unit document space — the same range the
     // spins can represent, so state and UI cannot disagree.
-    m_arraySpacingX = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+    m_arraySpacingX = std::isfinite(spacing)
+                          ? std::clamp(spacing, -edi::drafting::kCanvasBoardExtent, edi::drafting::kCanvasBoardExtent)
+                          : 0.0;
 }
 
 double DrawingDocumentController::arraySpacingX() const
@@ -922,7 +931,9 @@ double DrawingDocumentController::arraySpacingX() const
 
 void DrawingDocumentController::setArraySpacingY(double spacing)
 {
-    m_arraySpacingY = std::isfinite(spacing) ? std::clamp(spacing, -1.0, 1.0) : 0.0;
+    m_arraySpacingY = std::isfinite(spacing)
+                          ? std::clamp(spacing, -edi::drafting::kCanvasBoardExtent, edi::drafting::kCanvasBoardExtent)
+                          : 0.0;
 }
 
 double DrawingDocumentController::arraySpacingY() const
@@ -1358,6 +1369,46 @@ bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &comma
     if (!result.ok) {
         return false;
     }
+
+    // --- Anchor resync (Phase-1 decision 7 / brief 052) ----------------------
+    // After any geometry-mutation command, recompute the cached DraftingPlug::anchor
+    // for every plug that rides on one of the moved objects.  This retires the
+    // anchor-drift bug: DraftingPlug::anchor was seeded at plug-creation time and
+    // not re-synced on subsequent moves, so deriveEdge() (Seam C export) would pick
+    // the wrong wall edge if a plug marker was later repositioned.
+    //
+    // WHY std::visit with if constexpr, not an overload set?
+    //   The five geometry-mutation commands carry the objectId(s) in different
+    //   struct fields (or, for MoveSelectionCommand, implicitly in the selection
+    //   set).  std::visit dispatches at compile time; the inner if constexpr blocks
+    //   are erased for every unmatched command alternative, so the hot path for a
+    //   non-anchor object is: visit → match → syncGraphForMovedObject → scan plugs
+    //   in O(|plugs|) → early return false.  Total overhead is one scan over a short
+    //   vector (tens to low hundreds of plugs even for a large dungeon).
+    //
+    // WHY after applyDraftingCommand, not before?
+    //   The command mutates geometry; we need the NEW position.  Reading before
+    //   would give the old position (a no-op sync).
+    std::visit([this](const auto &cmd) {
+        using T = std::decay_t<decltype(cmd)>;
+        if constexpr (std::is_same_v<T, MoveSelectionCommand>) {
+            // MoveSelectionCommand moves ALL currently selected objects. The selection
+            // set is unchanged by the command, so m_document.selectedObjectIds is the
+            // same vector it was before — we just need to sync each moved id.
+            for (const DraftingObjectId &id : m_document.selectedObjectIds) {
+                syncGraphForMovedObject(m_document, id);
+            }
+        } else if constexpr (std::is_same_v<T, MoveObjectCommand>
+                             || std::is_same_v<T, UpdateGeometryCommand>
+                             || std::is_same_v<T, EditObjectHandleCommand>
+                             || std::is_same_v<T, NumericGeometryEditCommand>) {
+            // All four carry the moved object's id in the same named field.
+            syncGraphForMovedObject(m_document, cmd.objectId);
+        }
+        // All other command types (create, delete, selection, style, layer, graph)
+        // do not move existing geometry, so no anchor resync is needed.
+    }, command);
+    // -------------------------------------------------------------------------
 
     // The variant IS the classification: no serialize-and-diff needed to
     // know whether this was a selection command.
@@ -2226,8 +2277,8 @@ std::vector<DraftingObject> DrawingDocumentController::buildTaggedCorridorWalls(
     spec.edgeA         = toRoomEdge(edgeStrA);
     spec.doorB         = anchorB;
     spec.edgeB         = toRoomEdge(edgeStrB);
-    spec.width         = 0.045;  // walkable gap — consistent with createMapFromSpec
-    spec.wallThickness = 0.015;
+    spec.width         = kDefaultCorridorWidth;  // walkable gap — both now reference the same
+    spec.wallThickness = kDefaultCorridorWidth * kCorridorWallToCorridorRatio; // named spine as createMapFromSpec
 
     // Obstacles: every room except the two containing the anchors.  Mirrors the
     // authored path in createMapFromSpec (which skips request.from/to rooms so
@@ -2580,14 +2631,15 @@ bool DrawingDocumentController::setPlugType(const QString &plugId, const QString
     // Tangent along the wall: horizontal for N/S walls, vertical for E/W walls.
     const bool isNorthSouth = (edgeStr == "N" || edgeStr == "S");
     const Point2D tangent   = isNorthSouth ? Point2D{1.0, 0.0} : Point2D{0.0, 1.0};
-    constexpr double hw = 0.0225; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double hw = kDefaultCorridorWidth / 2.0; // kCorridorWidth / 2.0 (0.045 / 2)
+    const double leafThickness = kDefaultCorridorWidth * kDoorLeafToCorridorRatio; // = 0.02
     const Point2D leafA{anchor.x - tangent.x * hw, anchor.y - tangent.y * hw};
     const Point2D leafB{anchor.x + tangent.x * hw, anchor.y + tangent.y * hw};
 
     // Build the fresh leaf object (same shape as createMapFromSpec's leaf build).
     const QString leafObjId = nextObjectId(QStringLiteral("door"), m_nextObjectSerial++);
     DraftingObjectBuildResult leafBuilt = buildDraftingObject(
-        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, 0.02});
+        toStdString(leafObjId), DraftingShapeKind::Wall, WallGeometry{leafA, leafB, leafThickness});
     if (!leafBuilt.ok) {
         --m_nextObjectSerial; // roll back the serial bump on failure
         return finishEdit(QStringLiteral("plug_type"), QStringLiteral("plug"), false,
@@ -3182,7 +3234,28 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     const auto plugKey = [](const std::string &room, const std::string &plug) {
         return room + std::string(1, '\x1f') + plug;
     };
-    constexpr double kCorridorWidth = 0.045; // walkable gap; also the doorway width
+    // SCALE COHERENCE (hub SCALE-POLICY): the 2D canvas corridor/door widths DERIVE from the dungeon's
+    // canvas size so a doubled dungeon stays proportionate (rooms in canvas units are NOT scaled by
+    // canvasPerAuthoredUnit, so we derive from the room geometry, not the scale factor). One third of the
+    // narrowest room's short edge: wide enough to read as a hallway, never wider than the wall it is carved
+    // into (leaves 2/3 of the edge as wall), and it tracks the rooms — double the rooms, double the corridor.
+    // For the M0 crypt this yields exactly the contract DOOR_W (entrance 30ft/3 = 10ft = 2 modules; pre-double
+    // 15ft/3 = 5ft = 1 module). Fallback to the historical 0.045 when there are no usable rooms (degenerate
+    // map) so an empty/roomless spec is unchanged.
+    double minRoomShortEdge = std::numeric_limits<double>::infinity();
+    for (const edi::drafting::NamedRoomSpec &r : spec.rooms) {
+        const double shortEdge = std::min(r.spec.width, r.spec.height);
+        if (shortEdge > 0.0) minRoomShortEdge = std::min(minRoomShortEdge, shortEdge);
+    }
+    const double kCorridorWidth =
+        std::isfinite(minRoomShortEdge) ? minRoomShortEdge / kRoomShortEdgePerCorridor
+                                        : kDefaultCorridorWidth; // walkable gap; also the doorway width
+    // Sibling thicknesses derived PROPORTIONALLY: the same ratio to the corridor width as the historical
+    // literals (0.02 / 0.045 and 0.015 / 0.045), now named in DraftingCanvasDims.h. At the legacy 0.045
+    // corridor these reproduce 0.02 / 0.015 exactly, so old maps at the historical size stay byte-identical;
+    // at any other size they scale with it.
+    const double kLeafThickness = kCorridorWidth * kDoorLeafToCorridorRatio;          // door-leaf band thickness
+    const double kCorridorWallThickness = kCorridorWidth * kCorridorWallToCorridorRatio; // corridor wall thickness
     // A plug's neutral type chooses how its door leaf RENDERS (render-only, M1.3):
     // door/portal/threshold read as a door, window as a window, secret as secret.
     // B2-3: promoted to DraftingMapQuery::wallTypeForPlugType (free function) so
@@ -3209,7 +3282,20 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     std::unordered_map<std::string, std::pair<Point2D, RoomEdge>> doorByKey;
     // room name -> its footprint, so a corridor can route AROUND the rooms it does
     // not connect (v2 obstacle avoidance).
-    std::unordered_map<std::string, CorridorObstacle> roomRectByName;
+    //
+    // WHY std::map (ordered) and NOT std::unordered_map (hash-ordered)?
+    // Iteration order of an unordered_map is implementation-defined — it varies
+    // by platform, hash-seed, and insertion history.  The corridor builder iterates
+    // this container to assemble the obstacle list passed to routeCorridorCenterline;
+    // if that list arrives in a different order on two runs the A* grid construction
+    // (bounding-box expansion + cell-cost assignment) is still deterministic because
+    // every branch either commutes (`min`/`max`) or is idempotent (the first hit of
+    // kRoomCost wins and they all set the same value).  But proving that invariant
+    // holds through every future refactor is fragile.  std::map orders by key (room
+    // name, lexicographic) so EVERY run on the SAME spec produces the SAME obstacle
+    // list — "same input → same dungeon" is structurally guaranteed, not assumed.
+    // The O(log N) lookup/insert vs O(1) amortised is irrelevant (N ≤ ~50 rooms).
+    std::map<std::string, CorridorObstacle> roomRectByName;
 
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
         roomRectByName.emplace(room.name,
@@ -3273,7 +3359,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
                 const Point2D b{placement.anchor.x + tangent.x * hw, placement.anchor.y + tangent.y * hw};
                 DraftingObjectBuildResult leaf = buildDraftingObject(
                     toStdString(nextObjectId(QStringLiteral("door"), m_nextObjectSerial++)),
-                    DraftingShapeKind::Wall, WallGeometry{a, b, 0.02});
+                    DraftingShapeKind::Wall, WallGeometry{a, b, kLeafThickness});
                 if (leaf.ok) {
                     leaf.object.metadata.toolProvenance = "door";
                     leaf.object.metadata.wallVisual.type = wallTypeForPlugType(placement.type);
@@ -3322,6 +3408,42 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         }
     }
 
+    // MapSpec-level prop instances (M0): one definition-less Point per MapBlockSpec.
+    // WHY a Point carrier with no DraftingBlock: the FLATTEN model needs >=1 object to
+    // carry an instance through undo/persist/projection, and a prop here is a pure
+    // asset_ref — the realizer builds the mesh from the asset, edi only RECORDS the
+    // asset + transform + position (exactly like RoomFeature carries a feature tag, but
+    // carrying a BlockPlacementMetadata instead). POSITION: a block is MapSpec-level,
+    // not room-local, so it has NO room origin to add to — its authored-feet centre is
+    // just scaled by canvasPerAuthoredUnit (the same authored→canvas scale the map uses).
+    // Both the instance id and the marker object id mint off the ONE document serial, so
+    // every id stays globally unique with no parallel counter (same discipline as plugs,
+    // door leaves, features, corridors, and the interactive placeBlockInstance).
+    for (const edi::drafting::MapBlockSpec &b : spec.blocks) {
+        const std::string instanceId =
+            toStdString(nextObjectId(QStringLiteral("blockinst"), m_nextObjectSerial++));
+        const Point2D at{b.position.x * canvasPerAuthoredUnit, b.position.y * canvasPerAuthoredUnit};
+        DraftingObjectBuildResult marker = buildDraftingObject(
+            toStdString(nextObjectId(QStringLiteral("block"), m_nextObjectSerial++)),
+            DraftingShapeKind::Point, PointGeometry{at});
+        if (!marker.ok) {
+            continue; // a Point never fails validation; defensive, like the door leaf
+        }
+        marker.object.bounds = computeBounds(marker.object.geometry);
+        // Stamp the placement: serialize (block_placement) + MapToonExport read these.
+        // blockId is left EMPTY — there is no DraftingBlock definition here; the codec
+        // and the TOON export tolerate an empty blockId (they group by instanceId / asset).
+        marker.object.metadata.blockPlacement.assetRef = b.assetRef;
+        marker.object.metadata.blockPlacement.instanceId = instanceId;
+        marker.object.metadata.blockPlacement.rotationDeg = b.rotationDeg;
+        marker.object.metadata.blockPlacement.scale = b.scale;
+        marker.object.metadata.toolProvenance = "block";
+        if (!b.name.empty()) {
+            marker.object.metadata.tags.push_back("name:" + b.name);
+        }
+        allObjects.push_back(std::move(marker.object));
+    }
+
     // Resolve cross-room connections to the minted plug ids (the parser already
     // guaranteed both endpoints exist; a miss here is defensive).
     std::vector<DraftingDeclaredConnection> connections;
@@ -3352,7 +3474,7 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
             corridor.doorB = doorB->second.first;
             corridor.edgeB = doorB->second.second;
             corridor.width = kCorridorWidth; // mouth matches the carved doorway
-            corridor.wallThickness = 0.015;
+            corridor.wallThickness = kCorridorWallThickness;
             // Route AROUND every room except the two this connection joins (the
             // corridor is allowed to touch its own rooms at the doors).
             std::vector<CorridorObstacle> obstacles;
@@ -3387,7 +3509,7 @@ bool DrawingDocumentController::createMapFromAscii(const std::string &asciiText)
     // Auto-fit: the grid fills ~80% of the board, centred — so any map renders
     // sensibly with no placement parameters (the cheap-authoring goal).
     const AsciiMap &map = parsed.map;
-    const double cell = 0.62 / std::max(map.rows, map.cols);
+    const double cell = kAsciiBoardFillFraction / std::max(map.rows, map.cols);
     const Point2D origin{(1.0 - map.cols * cell) / 2.0, (1.0 - map.rows * cell) / 2.0};
 
     const int firstSerial = m_nextObjectSerial;
@@ -4085,7 +4207,7 @@ bool DrawingDocumentController::duplicateSelectedObject()
         [](const DraftingObject &source, const std::string &newId) -> std::optional<DraftingObject> {
             DraftingObject copy = source;
             copy.id = newId;
-            copy.geometry = translateGeometry(source.geometry, 0.02, 0.02);
+            copy.geometry = translateGeometry(source.geometry, kCopyNudgeOffset, kCopyNudgeOffset);
             copy.bounds = computeBounds(copy.geometry);
             return copy;
         });
@@ -4138,7 +4260,7 @@ bool DrawingDocumentController::paste()
     // only applies the result and threads its serial counter through.
     const int serialBefore = m_nextObjectSerial;
     DraftingPasteResult plan = planDraftingPaste(
-        m_clipboard, "paste", m_nextObjectSerial, 0.02, 0.02);
+        m_clipboard, "paste", m_nextObjectSerial, kCopyNudgeOffset, kCopyNudgeOffset);
     m_nextObjectSerial = plan.nextSerial;
 
     // Atomic (user decision 2026-06-11): a paste lands whole or not at all,

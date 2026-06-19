@@ -20,6 +20,10 @@
   to edi-ui with the consumer pattern (pre-select picker → `setPlugType`).
 - **FINAL GREEN TIP for edi-ui to merge: `450e95a`** (supersedes `980cc67` — adds
   active_plug_type). The last ratified slice; the dungeon-map tool-first program is COMPLETE.
+- **✅ INTEGRATED ON MASTER `f16efa2` (edi-ui, green).** active_plug_type in; the door-type
+  picker fully unblocked (edi-ui builds that chrome next session). **The dungeon-map
+  tool-first program is COMPLETE end-to-end on the integration line.** Dept stood down;
+  reactivation agenda (`syncGraphForMovedObject`, plug name/flags) parked for a user ask.
 
 ### `038` — reviewer backlog-exhaustion ASSESSMENT — 2026-06-17 — DONE: **EXHAUSTED, NOTHING-LEFT**
 - Reply: `~/dept-bus/edi-dungeon-map/replies/038-reviewer-backlog-exhaustion-assessment.md`

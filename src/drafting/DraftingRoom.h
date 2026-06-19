@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingDocument.h"
 
 #include <functional>
@@ -81,12 +82,30 @@ struct RoomSpec {
     Point2D origin;
     double width = 0.0;
     double height = 0.0;
-    double wallThickness = 0.1;
+    double wallThickness = kDefaultRoomWallThickness;
     std::string wallMaterial = "stone"; // neutral tag carried on every wall
     std::vector<RoomOpening> openings;
     std::vector<RoomPlugSpec> plugs;
     std::vector<RoomConnectionSpec> connections; // edges between plugs (by name)
     std::vector<RoomFeature> features;           // interior point markers (authored feet, room-local)
+
+    // Phase-1 decision 13: enclosure + per-edge wall presence.  These drive DRAWING
+    // only (which perimeter segments planDraftingRoom emits), like WallType varies the
+    // band; they carry NO game-rule semantics past Seam B.
+    //
+    // Default Enclosed + all-walls-present keeps every existing RoomSpec byte-for-byte
+    // identical to the current behaviour: planDraftingRoom still emits four solid walls
+    // for a plain rectangular room with no explicit edge-wall configuration.
+    //
+    // Phase-2 will make planDraftingRoom READ these fields; this slice adds the data
+    // spine only — no drawing-logic change means the canary stays byte-identical.
+    RoomKind kind  = RoomKind::Enclosed;
+    // Named per-edge booleans: named fields avoid index-order confusion
+    // (e.g. was index 0 North or East?) that an array would introduce.
+    bool wallN = true; // North (top) wall present?
+    bool wallE = true; // East  (right) wall present?
+    bool wallS = true; // South (bottom) wall present?
+    bool wallW = true; // West  (left) wall present?
 };
 
 // --- multi-room map authoring (a whole dungeon from one file) ----------------
@@ -114,11 +133,27 @@ struct NamedRoomSpec {
     RoomSpec spec;
 };
 
+// MapSpec-level declared PROP instance (M0 additive): a placement by asset_ref at a point —
+// NO DraftingBlock definition needed. These props have no in-edi geometry; they are pure asset
+// references (like a plug records a neutral type). edi RECORDS asset_ref + transform + position;
+// the realizer downstream owns the mesh. A deliberate TWIN of the saved DraftingBlock definition,
+// not a reuse (same H2 discipline as motif-vs-block).
+struct MapBlockSpec {
+    std::string assetRef;          // "<theme>.<piece>", e.g. "crypt.sarcophagus"
+    Point2D     position;          // placement CENTRE, ABSOLUTE authored feet (+x east / +y south)
+    double      rotationDeg = 0.0; // identity default; plumbs BlockPlacementMetadata.rotationDeg
+    double      scale       = 1.0; // identity default; plumbs BlockPlacementMetadata.scale
+    std::string name;             // optional label; stamped as a `name:<name>` tag
+};
+
 // A whole map: many named rooms in one coordinate space + the cross-room
 // connections between their plugs. The neutral authoring product of a .map.toml.
 struct MapSpec {
     std::vector<NamedRoomSpec> rooms;
     std::vector<MapConnectionSpec> connections;
+    // M0 additive: MapSpec-level prop instances (asset_ref placements). Default-empty,
+    // so every existing MapSpec stays byte-identical and behaviour-unchanged.
+    std::vector<MapBlockSpec> blocks;
 };
 
 // A plug the room emitted, paired with the marker object it rides on. The marker

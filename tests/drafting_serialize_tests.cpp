@@ -499,6 +499,304 @@ int main()
         assert(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
     }
 
+    // Phase-1 slice 3a — DraftingMapRoom::level (brief 055).
+    // Additive int, 0 = ground. Persisted in .edidraw MessagePack only; NOT on
+    // the TOON wire (Phase-2 item). Same discipline as wall_visual: field-tagged
+    // MsgPack map means readers that predate the key ignore it silently.
+    {
+        // --- Additive round-trip: level=2 survives encode → decode. ---
+        // WHY integer(), not number()? MsgPackValue::integer encodes as Int type so
+        // asInt() reads it back without a lossy double conversion. Same reason the
+        // serializer stores DraftingBlock ids as text, not numbers.
+        DraftingDocument lvlDoc = makeDraftingDocument("level-rt");
+        DraftingMapRoom upper;
+        upper.name     = "upper_crypt";
+        upper.origin   = {0.0, 0.0};
+        upper.width    = 10.0;
+        upper.height   = 8.0;
+        upper.material = "stone";
+        upper.level    = 2;
+        lvlDoc.rooms.push_back(upper);
+
+        // Value-layer round-trip.
+        auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
+        assert(vRestored.ok && vRestored.value);
+        assert(vRestored.value->rooms.size() == 1);
+        assert(vRestored.value->rooms[0].level == 2);
+
+        // Byte-layer round-trip (full MessagePack encode/decode path).
+        auto bRestored = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
+        assert(bRestored.ok && bRestored.value);
+        assert(bRestored.value->rooms.size() == 1);
+        assert(bRestored.value->rooms[0].level == 2);
+
+        // --- Forward-compat / tolerant-default: missing "level" key → 0. ---
+        // Simulates an older .edidraw file that has no "level" key in the room map.
+        // Strip the "level" key from the serialized room and re-decode — the reader
+        // must silently default to 0, exactly like stripping "rooms" above.
+        MsgPackValue docVal = draftingDocumentToValue(lvlDoc);
+        // Navigate: docVal → "document" → "rooms" → [0] → strip "level".
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms") continue;
+                if (docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &roomVal : docEntry.second.arrayValue) {
+                    auto &rm = roomVal.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "level") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noLevel = draftingDocumentFromValue(docVal);
+        assert(noLevel.ok && noLevel.value);
+        assert(noLevel.value->rooms.size() == 1);
+        // Missing key must yield the default (0), not garbage or an error.
+        assert(noLevel.value->rooms[0].level == 0);
+    }
+
+    // Phase-1 slice 3b — RoomDerivation enum + DraftingMapRoom::derivation (brief 056).
+    // Closed enum, serialized as a name string (same discipline as WallType / ObjectRole).
+    // Default Placed keeps every existing room byte-identical (COEXIST decision 1).
+    // NOT on the TOON wire this slice — Phase-2 item.
+    {
+        // --- Name↔enum round-trip for both enumerators + unknown → Placed. ---
+        // WHY name-string serialization? Integer ordinals break if the enum order
+        // is ever extended; name strings are stable and human-readable in the file.
+        // Unknown strings fall back to Placed so future enumerators are safe
+        // to add without bumping a format version.
+        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::Placed))
+               == RoomDerivation::Placed);
+        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::SpanDerived))
+               == RoomDerivation::SpanDerived);
+        assert(std::string(roomDerivationName(RoomDerivation::Placed)) == "placed");
+        assert(std::string(roomDerivationName(RoomDerivation::SpanDerived)) == "span_derived");
+        assert(roomDerivationFromName("unknown_future_value") == RoomDerivation::Placed);
+        assert(roomDerivationFromName("") == RoomDerivation::Placed);
+
+        // --- Additive round-trip: SpanDerived survives encode → decode. ---
+        DraftingDocument derivDoc = makeDraftingDocument("derivation-rt");
+        DraftingMapRoom span;
+        span.name       = "span_room";
+        span.origin     = {0.0, 0.0};
+        span.width      = 10.0;
+        span.height     = 8.0;
+        span.material   = "stone";
+        span.derivation = RoomDerivation::SpanDerived;
+        derivDoc.rooms.push_back(span);
+
+        // Value-layer round-trip.
+        auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(derivDoc));
+        assert(vRestored.ok && vRestored.value);
+        assert(vRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+
+        // Byte-layer round-trip (full MessagePack encode/decode path).
+        auto bRestored = decodeDraftingDocument(encodeDraftingDocument(derivDoc), "fixture");
+        assert(bRestored.ok && bRestored.value);
+        assert(bRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+
+        // --- Forward-compat: missing "derivation" key ⇒ Placed. ---
+        // Simulates an older .edidraw without this key (every file before slice 3b).
+        MsgPackValue docVal = draftingDocumentToValue(derivDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms") continue;
+                if (docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &roomVal : docEntry.second.arrayValue) {
+                    auto &rm = roomVal.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "derivation") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noDerivation = draftingDocumentFromValue(docVal);
+        assert(noDerivation.ok && noDerivation.value);
+        assert(noDerivation.value->rooms[0].derivation == RoomDerivation::Placed);
+    }
+
+    // Phase-1 slice 3c — DraftingNode round-trip + forward-compat (brief 061).
+    // Connector nodes are document-level data (not geometry variants). They ride the
+    // same additive "missing ⇒ empty" read discipline as plugs/blocks/rooms.
+    {
+        // --- Value + byte-layer round-trip: 2 nodes, all fields distinct. ---
+        DraftingDocument nodeDoc = makeDraftingDocument("nodes-rt");
+
+        DraftingNode nodeA;
+        nodeA.id     = "node_0001";
+        nodeA.anchor = {3.0, 7.0};
+        nodeA.radius = 1.5; // non-default, so the round-trip tests the field explicitly
+        nodeA.type   = "junction";
+        nodeA.name   = "cross_point";
+
+        DraftingNode nodeB;
+        nodeB.id     = "node_0002";
+        nodeB.anchor = {10.0, 2.5};
+        nodeB.radius = kDefaultNodeRadius; // default value also survives the round-trip
+        nodeB.type   = "anchor";
+        nodeB.name   = "entry_stub";
+
+        nodeDoc.nodes.push_back(nodeA);
+        nodeDoc.nodes.push_back(nodeB);
+
+        // Value layer.
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(nodeDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->nodes.size() == 2);
+        const DraftingNode &va = vr.value->nodes[0];
+        assert(va.id == "node_0001");
+        assert(va.anchor.x == 3.0 && va.anchor.y == 7.0);
+        assert(va.radius == 1.5);
+        assert(va.type == "junction");
+        assert(va.name == "cross_point");
+        const DraftingNode &vb = vr.value->nodes[1];
+        assert(vb.id == "node_0002");
+        assert(vb.radius == kDefaultNodeRadius);
+        assert(vb.type == "anchor");
+
+        // Byte layer (full MessagePack encode/decode path).
+        auto br = decodeDraftingDocument(encodeDraftingDocument(nodeDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->nodes.size() == 2);
+        assert(br.value->nodes[0].id == "node_0001");
+        assert(br.value->nodes[0].radius == 1.5);
+        assert(br.value->nodes[1].id == "node_0002");
+
+        // --- Forward-compat: missing "nodes" key ⇒ empty vector. ---
+        // Simulates every file written before slice 3c — they have no "nodes" key
+        // in the document map. Strip it and verify the read produces an empty list.
+        MsgPackValue docVal = draftingDocumentToValue(nodeDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            auto &dm = topEntry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "nodes") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto noNodes = draftingDocumentFromValue(docVal);
+        assert(noNodes.ok && noNodes.value);
+        assert(noNodes.value->nodes.empty());
+    }
+
+    // Phase-1 slice 3d — OverlapPolicy enum + document.overlapPolicy (brief 062).
+    // Document-level default field, additive, stored by name. Default PickOne keeps
+    // every existing map byte-identical. NOT on the TOON wire this slice.
+    {
+        // --- Name↔enum round-trip for all three values + unknown → PickOne. ---
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::PickOne))
+               == OverlapPolicy::PickOne);
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Merge))
+               == OverlapPolicy::Merge);
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Allow))
+               == OverlapPolicy::Allow);
+        assert(std::string(overlapPolicyName(OverlapPolicy::PickOne))  == "pick_one");
+        assert(std::string(overlapPolicyName(OverlapPolicy::Merge))    == "merge");
+        assert(std::string(overlapPolicyName(OverlapPolicy::Allow))    == "allow");
+        assert(overlapPolicyFromName("unknown_future_policy") == OverlapPolicy::PickOne);
+        assert(overlapPolicyFromName("") == OverlapPolicy::PickOne);
+
+        // --- Document round-trip: Merge survives value + byte layers. ---
+        DraftingDocument policyDoc = makeDraftingDocument("policy-rt");
+        policyDoc.overlapPolicy = OverlapPolicy::Merge;
+
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->overlapPolicy == OverlapPolicy::Merge);
+
+        auto br = decodeDraftingDocument(encodeDraftingDocument(policyDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->overlapPolicy == OverlapPolicy::Merge);
+
+        // --- Forward-compat: missing "overlap_policy" key ⇒ PickOne. ---
+        // Strip the key from the document map — simulates every .edidraw written
+        // before slice 3d. The read must produce PickOne silently.
+        MsgPackValue docVal = draftingDocumentToValue(policyDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            auto &dm = topEntry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "overlap_policy") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto noPolicy = draftingDocumentFromValue(docVal);
+        assert(noPolicy.ok && noPolicy.value);
+        assert(noPolicy.value->overlapPolicy == OverlapPolicy::PickOne);
+
+        // Allow round-trips correctly too.
+        policyDoc.overlapPolicy = OverlapPolicy::Allow;
+        auto ar = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
+        assert(ar.ok && ar.value && ar.value->overlapPolicy == OverlapPolicy::Allow);
+    }
+
+    // Phase-1 slice 3f — int level=0 on DraftingPlug + DraftingDeclaredConnection (brief 067).
+    // Same additive template as DraftingMapRoom::level (slice 3a): always-write +
+    // tolerant missing ⇒ 0. Three graph records (room/plug/connection) now carry level
+    // uniformly. NOT on the TOON wire; the reference dungeon TOON stays byte-identical.
+    {
+        // Build a document with one anchor object, one plug (level=3), and one
+        // connection (level=1) to verify both fields survive the round-trip.
+        DraftingDocument lvlDoc = makeDraftingDocument("plug-conn-level");
+        lvlDoc.objects.push_back(
+            makeObject("m.0", DraftingShapeKind::Point, PointGeometry{{0.0, 0.0}}, "default"));
+
+        DraftingPlug plug;
+        plug.id             = "plug_0001";
+        plug.anchorObjectId = "m.0";
+        plug.name           = "north_door";
+        plug.type           = "door";
+        plug.anchor         = {0.0, 0.0};
+        plug.level          = 3; // non-zero: proves the field is written and read back
+        lvlDoc.plugs.push_back(plug);
+
+        DraftingDeclaredConnection conn;
+        conn.id    = "conn_0001";
+        conn.plugA = "plug_0001";
+        conn.plugB = "plug_0001"; // self-loop legal at the data level
+        conn.type  = "corridor";
+        conn.level = 1;
+        lvlDoc.connections.push_back(conn);
+
+        // --- Value-layer round-trip ---
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->plugs.size() == 1);
+        assert(vr.value->plugs[0].level == 3);
+        assert(vr.value->connections.size() == 1);
+        assert(vr.value->connections[0].level == 1);
+
+        // --- Byte-layer round-trip ---
+        auto br = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->plugs[0].level == 3);
+        assert(br.value->connections[0].level == 1);
+
+        // --- Forward-compat: strip "level" from plug and connection maps ⇒ 0 each. ---
+        // Simulates an older .edidraw (every file before slice 3f has no "level" key
+        // in the plug or connection maps). Both must silently default to 0.
+        MsgPackValue docVal = draftingDocumentToValue(lvlDoc);
+        // Navigate into the document section and strip "level" from plugs+connections.
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                const bool isPlugs = (docEntry.first == "plugs");
+                const bool isConns = (docEntry.first == "connections");
+                if ((!isPlugs && !isConns) || docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &item : docEntry.second.arrayValue) {
+                    auto &rm = item.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "level") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noLevel = draftingDocumentFromValue(docVal);
+        assert(noLevel.ok && noLevel.value);
+        assert(noLevel.value->plugs[0].level      == 0); // missing ⇒ default 0
+        assert(noLevel.value->connections[0].level == 0);
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

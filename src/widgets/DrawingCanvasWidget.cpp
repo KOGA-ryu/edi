@@ -114,6 +114,15 @@ drawing_canvas::DrawingCanvasViewportInput DrawingCanvasWidget::viewportInput() 
     input.zoom = m_zoom;
     input.panXPx = m_pan.x();
     input.panYPx = m_pan.y();
+    // Breathing-room padding is derived in viewportInputFromModel (the single
+    // source for the board transform); we only layer the live view state on top.
+    // Overlay occlusion the shell pushed in (right/bottom panels float over the
+    // canvas): frame into the visible sub-rectangle so a dungeon never lands under
+    // a panel.
+    input.insetLeftPx = m_viewInsets.left();
+    input.insetTopPx = m_viewInsets.top();
+    input.insetRightPx = m_viewInsets.right();
+    input.insetBottomPx = m_viewInsets.bottom();
     return input;
 }
 
@@ -420,6 +429,19 @@ void DrawingCanvasWidget::resetView()
     m_zoom = 1.0;
     m_pan = QPointF();
     emit zoomChanged();
+    update();
+}
+
+void DrawingCanvasWidget::setViewInsets(const QMarginsF &insets)
+{
+    if (m_viewInsets == insets) {
+        return;
+    }
+    // Store only — DON'T re-fit. The fit is a deliberate action (load / reset);
+    // re-fitting on every overlay resize would yank a user's panned/zoomed view.
+    // The shell calls fitDocumentInView() itself once it has set the insets for a
+    // fresh load. A repaint keeps any inset-dependent chrome current.
+    m_viewInsets = insets;
     update();
 }
 

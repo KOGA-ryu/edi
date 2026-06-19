@@ -1,5 +1,6 @@
 #include "widgets/DrawingCanvasObjectPainter.h"
 
+#include "widgets/DrawingCanvasChromeDims.h"
 #include "widgets/DrawingCanvasProjectedObject.h"
 #include "widgets/DrawingCanvasValues.h"
 #include "widgets/DrawingCanvasViewport.h"
@@ -75,7 +76,7 @@ void drawRectangleShape(QPainter &painter, const DrawingCanvasObjectPainterConte
 // zoom — a head scaled with the geometry would vanish on a short line.
 void drawArrowHead(QPainter &painter, const QLineF &screen)
 {
-    constexpr double headLength = 11.0;
+    constexpr double headLength = kArrowHeadLengthPx;
     constexpr double headSpread = 0.45; // radians from the shaft, ~26 degrees
     const QPointF tip = screen.p2();
     const double shaftAngle = std::atan2(screen.p1().y() - tip.y(), screen.p1().x() - tip.x());
@@ -92,7 +93,7 @@ void drawSelectedHandles(QPainter &painter, const QVariantMap &object, const Dra
         return;
     }
 
-    painter.setPen(QPen(context.palette.handleOutline, 2));
+    painter.setPen(QPen(context.palette.handleOutline, kHandleOutlinePenPx));
     for (const DrawingCanvasProjectedHandle &handle : projectedHandles) {
         const QPointF point = drawing_canvas::canvasToScreen(context.board, handle.x, handle.y);
         if (handle.hasAnchor) {
@@ -150,13 +151,13 @@ void drawGuideIntersections(QPainter &painter, const std::vector<DrawingCanvasSc
     painter.save();
     QColor marker = context.palette.guideIntersection;
     marker.setAlpha(120);
-    painter.setPen(QPen(marker, 1.0));
+    painter.setPen(QPen(marker, kSnapMarkerPenPx));
     painter.setBrush(withAlpha(marker, 30));
     for (double x : vertical) {
         for (double y : horizontal) {
             const QPointF point = drawing_canvas::canvasToScreen(context.board, x, y);
-            painter.drawEllipse(point, 3.0, 3.0);
-            drawCrosshair(painter, point, 5.0);
+            painter.drawEllipse(point, kSnapDotRadiusPx, kSnapDotRadiusPx);
+            drawCrosshair(painter, point, kSnapCrosshairHalfPx);
         }
     }
     painter.restore();
@@ -361,7 +362,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         } else if (guide.dashStyle == QStringLiteral("dot")) {
             guideStyle = Qt::DotLine;
         }
-        QPen guidePen(guideColor, selected ? 2.0 : 1.25, guideStyle);
+        QPen guidePen(guideColor, selected ? kGuideSelectedPenPx : kGuidePenPx, guideStyle);
         guidePen.setCapStyle(Qt::RoundCap);
         painter.save();
         painter.setPen(guidePen);
@@ -370,13 +371,13 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
             painter.drawLine(drawing_canvas::canvasToScreen(context.board, 0.0, guide.position), drawing_canvas::canvasToScreen(context.board, 1.0, guide.position));
             if (guide.showLabel && !guide.label.isEmpty()) {
                 painter.setPen(guideColor);
-                painter.drawText(drawing_canvas::canvasToScreen(context.board, 0.0, guide.position) + QPointF(8.0, -6.0), guide.label);
+                painter.drawText(drawing_canvas::canvasToScreen(context.board, 0.0, guide.position) + QPointF(kGuideLabelOffsetXPx, kGuideLabelHorizLabelOffsetYPx), guide.label);
             }
         } else {
             painter.drawLine(drawing_canvas::canvasToScreen(context.board, guide.position, 0.0), drawing_canvas::canvasToScreen(context.board, guide.position, 1.0));
             if (guide.showLabel && !guide.label.isEmpty()) {
                 painter.setPen(guideColor);
-                painter.drawText(drawing_canvas::canvasToScreen(context.board, guide.position, 0.0) + QPointF(8.0, 16.0), guide.label);
+                painter.drawText(drawing_canvas::canvasToScreen(context.board, guide.position, 0.0) + QPointF(kGuideLabelOffsetXPx, kGuideLabelVertLabelOffsetYPx), guide.label);
             }
         }
         painter.restore();
@@ -388,7 +389,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         if (!line.ok) {
             return;
         }
-        QPen constructionPen(selected ? context.palette.selection : context.palette.construction, selected ? 2 : 1, Qt::DotLine);
+        QPen constructionPen(selected ? context.palette.selection : context.palette.construction, selected ? kConstructionSelectedPenPx : kConstructionPenPx, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.setBrush(Qt::NoBrush);
@@ -407,7 +408,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         const QPointF dimB = drawing_canvas::canvasToScreen(context.board, dimension.dimensionX2, dimension.dimensionY2);
         const QPointF label = drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY);
         const QColor dimensionColor = selected ? context.palette.selection : context.palette.dimension;
-        QPen dimensionPen(dimensionColor, selected ? 2.0 : 1.5);
+        QPen dimensionPen(dimensionColor, selected ? kDimLeaderPenPx : kDimTickPenPx);
         dimensionPen.setCapStyle(Qt::RoundCap);
         dimensionPen.setJoinStyle(Qt::RoundJoin);
         painter.setPen(dimensionPen);
@@ -415,21 +416,21 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
         painter.drawLine(a, dimA);
         painter.drawLine(b, dimB);
         painter.drawLine(dimA, dimB);
-        painter.drawLine(dimA + QPointF(-6.0, -6.0), dimA + QPointF(6.0, 6.0));
-        painter.drawLine(dimA + QPointF(-6.0, 6.0), dimA + QPointF(6.0, -6.0));
-        painter.drawLine(dimB + QPointF(-6.0, -6.0), dimB + QPointF(6.0, 6.0));
-        painter.drawLine(dimB + QPointF(-6.0, 6.0), dimB + QPointF(6.0, -6.0));
+        painter.drawLine(dimA + QPointF(-kDimCrossHalfPx, -kDimCrossHalfPx), dimA + QPointF(kDimCrossHalfPx, kDimCrossHalfPx));
+        painter.drawLine(dimA + QPointF(-kDimCrossHalfPx, kDimCrossHalfPx), dimA + QPointF(kDimCrossHalfPx, -kDimCrossHalfPx));
+        painter.drawLine(dimB + QPointF(-kDimCrossHalfPx, -kDimCrossHalfPx), dimB + QPointF(kDimCrossHalfPx, kDimCrossHalfPx));
+        painter.drawLine(dimB + QPointF(-kDimCrossHalfPx, kDimCrossHalfPx), dimB + QPointF(kDimCrossHalfPx, -kDimCrossHalfPx));
         if (dimension.showLabel) {
             const QString text = dimension.label;
             const QRect textBounds = painter.fontMetrics().boundingRect(text);
             QRectF labelRect(
-                label.x() - textBounds.width() / 2.0 - 6.0,
-                label.y() - textBounds.height() - 8.0,
-                textBounds.width() + 12.0,
-                textBounds.height() + 8.0);
+                label.x() - textBounds.width() / 2.0 - kDimLabelPadXPx,
+                label.y() - textBounds.height() - kDimLabelTopOffsetPx,
+                textBounds.width() + kDimLabelPadWidthPx,
+                textBounds.height() + kDimLabelPadHeightPx);
             painter.setPen(Qt::NoPen);
             painter.setBrush(withAlpha(context.palette.backdrop, selected ? 230 : 190));
-            painter.drawRoundedRect(labelRect, 4.0, 4.0);
+            painter.drawRoundedRect(labelRect, kDimLabelCornerRadiusPx, kDimLabelCornerRadiusPx);
             painter.setPen(dimensionColor);
             painter.drawText(labelRect, Qt::AlignCenter, text);
         }
@@ -439,7 +440,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     const DrawingCanvasProjectedStyle &style = item.style;
     QPen pen(
         selected ? context.palette.selection : QColor(style.strokeColor),
-        selected ? 3.0 : style.strokeWidth);
+        selected ? drawing_canvas::kSelectedStrokePenPx : style.strokeWidth);
     if (!selected) {
         // Per-object opacity rides as pen alpha. Selection stays fully
         // opaque on purpose: a near-invisible object must still light up
@@ -493,7 +494,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
             fill.setAlphaF(style.strokeOpacity);
         }
         painter.setBrush(fill);
-        painter.drawEllipse(point, 4.0, 4.0);
+        painter.drawEllipse(point, kPointFillRadiusPx, kPointFillRadiusPx);
     } else if (kind == QStringLiteral("line")) {
         const DrawingCanvasProjectedLine &line = item.line;
         if (!line.ok) {
@@ -645,15 +646,15 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
     if (context.plotDiagnostics && summary.plotBlocked && summary.bounds.ok) {
         QRectF warningRect = drawing_canvas::boundsToScreenRect(
             context.board, summary.bounds.x, summary.bounds.y, summary.bounds.width, summary.bounds.height);
-        if (warningRect.width() < 12.0 || warningRect.height() < 12.0) {
-            warningRect = warningRect.adjusted(-6.0, -6.0, 6.0, 6.0);
+        if (warningRect.width() < kPlotWarnBoxMinPx || warningRect.height() < kPlotWarnBoxMinPx) {
+            warningRect = warningRect.adjusted(-kPlotWarnBoxAdjustPx, -kPlotWarnBoxAdjustPx, kPlotWarnBoxAdjustPx, kPlotWarnBoxAdjustPx);
         }
-        painter.setPen(QPen(context.palette.safetyWarning, 1.5, Qt::DashLine));
+        painter.setPen(QPen(context.palette.safetyWarning, kPlotWarnBoxPenPx, Qt::DashLine));
         painter.setBrush(withAlpha(context.palette.safetyWarning, 24));
         painter.drawRect(warningRect);
         if (!summary.plotWarningKind.isEmpty()) {
             painter.setPen(context.palette.safetyWarning);
-            painter.drawText(warningRect.topLeft() + QPointF(6.0, -6.0), summary.plotWarningKind);
+            painter.drawText(warningRect.topLeft() + QPointF(kPlotWarnLabelOffsetPx, -kPlotWarnLabelOffsetPx), summary.plotWarningKind);
         }
     }
 
@@ -665,7 +666,7 @@ void drawSceneItem(QPainter &painter, const DrawingCanvasSceneItem &item, const 
 void drawPreviewObject(QPainter &painter, const QVariantMap &object, const DrawingCanvasObjectPainterContext &context)
 {
     painter.save();
-    QPen pen(context.palette.preview, 2, Qt::DashLine);
+    QPen pen(context.palette.preview, kPreviewPenPx, Qt::DashLine);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -687,7 +688,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
             painter.restore();
             return;
         }
-        QPen constructionPen(context.palette.preview, 1.5, Qt::DotLine);
+        QPen constructionPen(context.palette.preview, kPreviewConstructionPenPx, Qt::DotLine);
         constructionPen.setCapStyle(Qt::RoundCap);
         painter.setPen(constructionPen);
         painter.drawLine(screenLine(context, line));
@@ -704,7 +705,7 @@ void drawPreviewObject(QPainter &painter, const QVariantMap &object, const Drawi
         painter.drawLine(a, dimA);
         painter.drawLine(b, dimB);
         painter.drawLine(dimA, dimB);
-        painter.drawText(drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY) + QPointF(6.0, -6.0), dimension.label);
+        painter.drawText(drawing_canvas::canvasToScreen(context.board, dimension.labelX, dimension.labelY) + QPointF(kDimLabelOffsetPx, -kDimLabelOffsetPx), dimension.label);
     } else if (kind == QStringLiteral("rectangle")) {
         const DrawingCanvasProjectedRectangle rectangle = projectedRectangle(object);
         if (rectangle.ok) {

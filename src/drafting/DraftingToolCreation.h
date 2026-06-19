@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drafting/DraftingCanvasDims.h"
 #include "drafting/DraftingDocument.h"
 
 #include <string>
@@ -66,7 +67,7 @@ struct DraftingToolCreationRequest {
     // Carried like rectCornerRadius/fixedRadius — controller tool-option state
     // rides into the request. Default 0.1 so a fresh wall renders as a visible
     // band rather than a zero-width line.
-    double wallThickness = 0.1;
+    double wallThickness = kDefaultWallToolThickness;
     // Polyline tool: the accumulated click trail. Multi-click tools carry
     // their whole path here; start/end stay meaningful for two-click tools
     // only. Validation (>= 2 finite vertices) lives with the geometry.

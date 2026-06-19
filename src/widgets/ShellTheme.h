@@ -58,6 +58,88 @@ struct ShellTheme {
     int fontSizeBody = 12;
     int fontSizeTitle = 13;
     int fontSizeEditor = 13;
+
+    // Layout-dimension tokens (px). These are VIEW metrics — the structural
+    // sizes the shell's regions are built to — so they live here with the
+    // colors rather than in the pure drafting core. deriveShellTheme leaves
+    // them at these defaults (they do not vary with the four color inputs);
+    // a default-constructed ShellTheme is therefore the single source of
+    // truth for any call site that has no derived theme in hand. Each value
+    // is byte-identical to the literal it replaced (see the P2 commit) —
+    // naming a dimension does not restyle it. Honors the CLAUDE.md rule
+    // "no hardcoded dimensions — every dimension is DATA".
+
+    // Activity rail (left edge): fixed-width column of workspace buttons.
+    int railWidth = 52;        // EdiShellWindowPanels: rail->setFixedWidth
+    int railPadding = 8;       // rail layout contents margins
+    int railSpacing = 6;       // rail layout spacing
+
+    // Chrome bar (top): traffic lights, toggles, menus.
+    int chromeBarHeight = 42;     // titleBar->setFixedHeight
+    int chromeBarPaddingH = 10;   // titleBar layout horizontal margins
+    int chromeBarSpacing = 6;     // titleBar layout spacing
+    int chromeGroupSpacing = 8;   // gap after the traffic-light cluster
+
+    // Status bar (bottom): mode line + file/dirty marker.
+    int statusBarHeight = 28;     // statusBar->setFixedHeight
+    int statusBarPaddingH = 10;   // statusBar layout horizontal margins
+    int statusBarSpacing = 12;    // statusBar layout spacing
+
+    // Scrollable side-panel content well.
+    int panelPadding = 12;        // makeScrollablePanel content margins
+    int panelSpacing = 8;         // makeScrollablePanel content spacing
+
+    // Shared control metrics.
+    int buttonMinHeight = 30;     // makeRailButton min height (also the QSS
+                                  // 30px button rule — P3 will reference this)
+    int sectionSpacing = 4;       // makeCollapsibleSection layout spacing
+
+    // Panel-toggle icon: the frame+bar face the chrome toggles carry.
+    int panelToggleIconW = 16;    // setIconSize width
+    int panelToggleIconH = 14;    // setIconSize height
+
+    // Overlay resize grips (right/bottom panels): inner-edge hit strips.
+    int overlayGripHitPx = 4;     // edge inset so the band stays grabbable
+    int overlayGripBandPx = 8;    // band thickness (the 8px hit zone)
+
+    // Floating palette: the chromeless nub + content over the canvas.
+    int floatingPaletteGripW = 10;   // grab nub width
+    int floatingPaletteGripH = 28;   // grab nub height
+    int floatingPaletteSpacing = 3;  // gap between nub and content
+
+    // QSS dimension tokens (px). These were bare px literals baked into the
+    // stylesheet string in buildShellStyleSheet; P3 lifts them out so the
+    // sheet substitutes them the same way it substitutes colors. Each default
+    // is byte-identical to the literal it replaced — naming a dimension does
+    // NOT restyle it (the generated QSS is unchanged to the byte). Honors the
+    // CLAUDE.md rule "no hardcoded dimensions — every dimension is DATA."
+    // Named by USE; a field is shared across rules only where the dimension is
+    // semantically the same thing.
+
+    // Corner radii.
+    int controlRadius = 5;   // fields, buttons, menus, list well, error label
+    int popupRadius = 8;     // chrome popup frame (QFrame[chromePopup])
+    int pillRadius = 7;      // small round elements: toggle pill + traffic dots
+    int gripRadius = 3;      // scrollbar handle + floating-palette nub
+
+    // Chrome line weights.
+    int borderWidth = 1;     // the 1px hairline borders + QMenu separator line
+    int listAccentWidth = 2; // QListWidget selected-row left accent bar
+
+    // QMenu separator inset (margin: 4px 6px).
+    int separatorMarginV = 4;
+    int separatorMarginH = 6;
+
+    // Activity-rail button: the 32px content square (34px box with borders).
+    int railButtonSize = 32;
+
+    // Scrollbars: an 8px rail with a 24px minimum handle length.
+    int scrollBarThickness = 8;
+    int scrollBarHandleMin = 24;
+
+    // Toggle-switch indicator content box (28x14 box with 1px borders).
+    int toggleTrackW = 26;
+    int toggleTrackH = 12;
 };
 
 // Linear interpolate two #rrggbb colors by ratio in [0,1] (ratio 0 -> a, 1 -> b),

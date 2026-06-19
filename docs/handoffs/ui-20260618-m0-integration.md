@@ -42,7 +42,77 @@ _(append one row per merge: tip, what, edi-gate result)_
 
 | When | Dept | Tip merged | What | edi-gate |
 | --- | --- | --- | --- | --- |
-| — | — | — | (none yet — awaiting first green M0 tip) | — |
+| 2026-06-18 ~14:10 | blender-lab | `03b8cc1` → merge `ac3bf96` | M0 REALIZER (tools/blender/edi_realize.py + smoke test + sample evidence). Two-tier bpy: pure parse_toon/plan_greybox (GPU-free, ctest #100) + Blender OptiX render. | GREEN 105/105 + scan |
+| 2026-06-18 ~14:15 | drafting (support) | `366f23c` → merge `fb6ca25` | M0 PROPS SUPPORT: MapBlockSpec carrier on MapSpec (DraftingRoom.h) + createMapFromSpec block-stamp arm + e2e TOON-row assertion. The field the generator needs to place crypt props. | GREEN 105/105 + scan |
+| 2026-06-18 ~15:1x | drafting (COHERENCE) | `3ab8033` → merge `4273171` | no-magic-dims sweep: retire hardcoded kCorridorWidth=0.045 (corridor width DERIVES from room scale) + DraftingCanvasDims.h core spine naming canvas/door/wall dims. src/core+src/drafting only, disjoint from the fit slice. | GREEN 105/105 + scan |
+| 2026-06-18 ~15:35 | edi-ui (P1 sweep) | `fa26860` (own) | P1 canvas-chrome dim-literal sweep → src/widgets/DrawingCanvasChromeDims.h (named k…Px, byte-identical, golden 0-diff). | GREEN 105/105 + scan |
+| 2026-06-18 ~15:40 | drafting (no-magic-dims) | `ee5bf15` → merge `1254bcb` | 050+051 kCanvasBoardExtent: one named source for the radius/setback/thickness/spacing max-clamp 1.0. Sweep COMPLETE (map/canvas path). NIT comment verified survived. | GREEN 105/105 + scan |
+
+## SCALE-POLICY slice (edi-ui PRIMARY — `~/dept-bus/SCALE-POLICY.md`)
+The user's scale directive: the 2D canvas must FIT THE SCREEN at any dungeon size.
+- **`d5a5c40`** — added the **"no hardcoded dimensions" HARD RULE** to CLAUDE.md
+  (every dimension is named DATA; reviewer-enforced, no mechanical scan; exempt
+  epsilons/tolerances + unset 0.0). Green-gated.
+- **`6520a6d`** — canvas **auto-fit-to-content** for ANY dungeon size, all dims as
+  NAMED CONFIG: `kViewportFitPaddingFraction` (~10% breathing room, replaces the
+  magic 48px), `kViewportFitMinZoom` (fit-only floor so a 5× dungeon still frames
+  while interactive [0.2,16] is unchanged). Root-caused + fixed the MAP-workspace
+  right-panel clipping: the feature panels are OVERLAYS over a full-width canvas,
+  so the shell now pushes overlay occlusion to the canvas as view-insets and the
+  fit frames into the VISIBLE sub-rect. Verified single/doubled/5× in both
+  workspaces; default_shell golden 0-diff. **In edi-ui reviewer gate now** (also
+  doing the src/widgets dimension-literal sweep + the fit-padding coherence check
+  vs drafting's kAsciiBoardFillFraction).
+
+| 2026-06-18 ~16:xx | dungeon-map (GENERATOR) | `1b3d4ab` → merge `a0078bc` | M0 crypt generator: buildCryptMapSpec(double scale) + G2 props + exportMapToToon(sceneScale) advisory scale: header. Rebased clean on master, disjoint from edi-ui work. | GREEN 106/106 + scan |
+| 2026-06-18 ~16:xx | edi-ui (CLI) | `533d95e` (own) | `--generate-crypt <out> --scale <S>` in app/main.cpp (brief 048) + CryptGenerator in the edi target. The M0 one-command terminus. | GREEN 106/106 + scan |
+
+## M0 one-command chain — CORRECTED
+
+**Correction (2026-06-18, hub dogfood):** an earlier note here claimed
+`edi --generate-crypt --scale N` met the whole-chain gate. That was OVERSTATED —
+that handler is a **TOON terminus only**; it does NOT invoke the realizer. The
+first "M0 GATE MET" render was made by chaining the realizer SEPARATELY. The
+TOON/scale half is correct (S=1 omits the `scale:` header; S=2/S=4 produce the
+doubled 30×30/50×50 and 60×60/100×100 geometry), but one-command→PNG was not met.
+
+**Fix — `tools/m0/render-crypt.sh`** (the orchestration tier; keeps edi and
+Blender decoupled per the three-tier law — neither imports the other):
+```
+tools/m0/render-crypt.sh --out <png> [--scale S] [--reference] [--samples N]
+```
+tier 1 `edi --generate-crypt` (headless/offscreen) → TOON; tier 2 the bpy
+realizer → render. VERIFIED genuinely end-to-end from ONE command:
+`render-crypt.sh --out /tmp/m0/oneshot_s2.png --scale 2` →
+**Cycles OPTIX on NVIDIA GeForce RTX 5090 (GPU CONFIRMED, no CPU fallback)** →
+1920×1080 PNG in **3.2s** (GATE timing PASS <120s).
+
+**`--reference` status — REAL (resolved).** Merged blender-lab's realizer-with-
+reference (`dept/blender-lab` → master `f5a117b`, clean, edi-gate 106/106), per
+its contract `docs/realizer-invocation.md`. The wrapper threads ALL post-`--` args
+(`<toon>` `--render` `--scale=S` `--samples` `--reference`). **VERIFIED end-to-end
+from the single command WITH `--reference`:**
+```
+tools/m0/render-crypt.sh --out /tmp/m0/oneshot_ref_s2.png --scale 2 --reference
+```
+→ `reference overlay: ON (figure 6 ft FIXED + 5 ft floor checker)` → Cycles OPTIX
+on RTX 5090 (GPU CONFIRMED) → 1920×1080 PNG in **3.3s**. The render shows the 5 ft
+floor checker + the fixed red 6 ft human proxy (small against the doubled crypt —
+scale reads at a glance). `--scale` real; `--reference` real. **M0 one-command gate
+genuinely met.**
+
+## Pending coordination
+- **`--generate-crypt <out> --scale <S>` CLI** (dungeon-map brief 048): edi-ui
+  owns the ~20-line headless flag in app/main.cpp (mirrors --export-map). Replied
+  ACK (reply 048). BLOCKED until dungeon-map brief 047 lands buildCryptMapSpec(scale)
+  + exportMapToToon sceneScale on master — merge that first, then build the flag.
+
+**Realizer gate evidence verified on the merged line** (render.log L288–294):
+`compute_device_type: OPTIX`, `[X] OPTIX NVIDIA GeForce RTX 5090`,
+`GPU CONFIRMED: rendering on OPTIX device(s): ['NVIDIA GeForce RTX 5090']`
+(CUDA box unchecked → no CPU fallback), 128 samples Finished `Time:00:03.14`,
+peak `1553M` (~1.5 GB), `crypt.png` 1920×1080. All 4 gate criteria PASS for the
+realizer half. Blender 4.5.9 (box version) — edi_craft seam re-verified clean.
 
 ## Seam notes (for the final converge-check)
 - 2026-06-18 ~13:57 — dungeon-map pushed a socket-contract PROPOSAL (v0) on its
@@ -60,11 +130,33 @@ _(append one row per merge: tip, what, edi-gate result)_
     `map y→world −Y`, +Z up). Contract flags the realizer must confirm this
     matches its bpy build — watch for convergence before declaring the seam done.
 
+- 2026-06-18 ~14:20 — dungeon-map FROZE the contract v1 (`d79970e`, docs-only,
+  reconciled vs the merged realizer + live exporter). HELD (not merged) — will
+  ride in with the generator code on the same branch. The freeze CORRECTED the
+  handedness: `map-y → world Y` (the proposal's `−Y` was stale). It lists 3
+  realizer-confirm items.
+  - **HUB CROSS-CHECK (from the merged `edi_realize.py` on master)** — I can see
+    both halves, so I verified the 3 confirm items at the code level to de-risk
+    the re-render (blender-lab still owns the authoritative confirm):
+    1. Handedness: realizer uses `blk.x/blk.y` + `_plug_anchor` (edge midpoint)
+       directly as world coords, `location=(p.x,p.y,p.z)` (L288/421-438/600-608)
+       — NO negation. Frozen contract's `map-y→world Y` MATCHES. ✓
+    2. `crypt.stair`: `PIECE_STAIR` resolve exists (L433). ✓ (plausible)
+    3. Straight corridor: single-bend L-router degenerates to straight when
+       `start.y==end.y` (L458). ✓ (plausible)
+  - No TRUE divergence found between the frozen contract and the merged realizer.
+
 ## Open questions / blockers
-- None blocking. Watching: contract freeze (dungeon-map reviewer verdict) →
-  bus-hub to blender-lab; the handedness confirm; and the 5090/OptiX render-log
-  evidence (blender-lab). All dept-owned gate items — integration only confirms
-  the seam lines up + keeps master green.
+- None blocking. Watching: the GENERATOR code tip (merge it + the frozen-contract
+  docs together); blender-lab's formal ack of the 3 confirm items; then the
+  one-command whole-chain converge (the M0 finish line). All dept-owned gate
+  items — integration confirms the seam lines up + keeps master green.
 
 ## Next
-- Poll the hub inbox + dept branch tips for the first green M0 tip; merge it.
+- REALIZER merged ✓. Awaiting the GENERATOR (dungeon-map): hardcoded crypt
+  MapSpec → createMapFromSpec → Seam-B TOON. Merge when green.
+- THE CLOSING CONVERGE (gate criterion #4 — one-command whole chain): the
+  realizer ran on its own `samples/crypt_m0/crypt.toon`. Once the generator
+  lands, confirm the generator-emitted TOON feeds the realizer and renders —
+  i.e. the two halves agree on the wire + the 2D→3D handedness. That end-to-end
+  confirm is the M0 finish line; flag any divergence to both depts.

@@ -208,5 +208,205 @@ int main()
         assert(toon.find("  a,recipe.urn,\"5,5\",1.5,45\n") != std::string::npos);
     }
 
+    // 043: the M0 props critical path — an EMPTY-blockId carrier (a MapSpec-level
+    // MapBlockSpec realizes as a definition-less marker: no blockId, just an assetRef
+    // + instanceId) must reach the blocks[] row UNCHANGED. The export groups on
+    // instanceId and never touches blockId (verified in MapToonExport.cpp), so empty
+    // blockId is transparent here — but commit 0a4df63's reviewer flagged that the
+    // existing cases all carry a NON-empty blockId, so this is proven only by
+    // transitivity. This case asserts the seam DIRECTLY, the way blender-lab's
+    // realizer reads it. We hand-build the document (Path B): wiring Path A through
+    // the controller would force a CMake link of MapToonExport into the controller
+    // test target, which the brief forbids.
+    {
+        DraftingDocument doc = makeDraftingDocument("crypt");
+        // Non-1.0 scale so origin's authored round-trip is observable: authored =
+        // canvas / 0.5. 0.5 is exact in binary, so authored(canvas) is exact.
+        const double scale = 0.5;
+        doc.canvasPerAuthoredUnit = scale;
+        doc.rooms.push_back(DraftingMapRoom{"tomb", {0.0, 0.0}, 20.0, 20.0, "stone"});
+
+        // The authored-feet origin we expect back out: (6,8) feet -> stored as canvas
+        // (3,4). The two flattened objects share an instanceId; their bounds union
+        // centres at canvas (3,4) -> divides by 0.5 back to feet (6,8). The cross-dept
+        // pin: the exported origin must be the AUTHORED value (6,8), not canvas (3,4).
+        const auto placed = [](const std::string &id, Point2D p) {
+            DraftingObject o = makeDraftingObject(id, DraftingShapeKind::Point, PointGeometry{p});
+            o.bounds = computeBounds(o.geometry);
+            o.metadata.blockPlacement.blockId = ""; // DEFINITION-LESS: the M0 carrier
+            o.metadata.blockPlacement.assetRef = "crypt.sarcophagus";
+            o.metadata.blockPlacement.instanceId = "blockinst_0043";
+            o.metadata.blockPlacement.rotationDeg = 90.0; // non-identity -> proves plumbing
+            o.metadata.blockPlacement.scale = 2.0;
+            return o;
+        };
+        doc.objects.push_back(placed("instance_0043a", {2.0, 3.0}));
+        doc.objects.push_back(placed("instance_0043b", {4.0, 5.0})); // centre canvas (3,4)
+
+        const std::string toon = edi::io::exportMapToToon(doc, "crypt");
+        // Exactly one block row despite empty blockId — grouping keys on instanceId.
+        assert(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
+        // room resolved by containment (tomb), asset = the raw ref, origin = AUTHORED
+        // feet (6,8) NOT canvas (3,4), scale 2, rotation 90.
+        assert(toon.find("  tomb,crypt.sarcophagus,\"6,8\",2,90\n") != std::string::npos);
+        // The canvas value must NOT leak into the row (would be "3,4" if unscaled).
+        assert(toon.find("\"3,4\"") == std::string::npos);
+    }
+
+    // P2-A2 (brief 071): level column on rooms + plugs — CONDITIONAL per-section.
+    // Emitted only when some row has level != 0; appended LAST in the header.
+    {
+        // --- Level-bearing golden: at least one room and one plug carry non-zero level. ---
+        // Two rooms: ground (level 0) and upper (level 2).
+        // Two plugs: ground.south (level 0) and upper.north (level 1).
+        // canvasPerAuthoredUnit = 1.0 so authored == canvas.
+        DraftingDocument lvlDoc = makeDraftingDocument("level-test");
+        lvlDoc.canvasPerAuthoredUnit = 1.0;
+        lvlDoc.rooms.push_back(DraftingMapRoom{"ground", {0.0, 0.0}, 10.0, 10.0, "stone"});
+        DraftingMapRoom upper;
+        upper.name     = "upper";
+        upper.origin   = {0.0, 20.0};
+        upper.width    = 8.0;
+        upper.height   = 8.0;
+        upper.material = "stone";
+        upper.level    = 2;
+        lvlDoc.rooms.push_back(upper);
+
+        DraftingPlug pGround;
+        pGround.id     = "plug_0001";
+        pGround.name   = "ground.south";
+        pGround.anchor = {5.0, 10.0}; // S edge: y == origin.y + height = 0 + 10
+        pGround.type   = "door";
+        // level = 0 (default)
+        lvlDoc.plugs.push_back(pGround);
+
+        DraftingPlug pUpper;
+        pUpper.id     = "plug_0002";
+        pUpper.name   = "upper.north";
+        pUpper.anchor = {4.0, 20.0}; // N edge: y == origin.y = 20
+        pUpper.type   = "door";
+        pUpper.level  = 1;
+        lvlDoc.plugs.push_back(pUpper);
+
+        const std::string lvlToon = edi::io::exportMapToToon(lvlDoc, "level-test");
+
+        // Exact golden — pins every byte including the level column in LAST position.
+        // Rooms: both rows carry level (even the level-0 row). The presence of ANY
+        // non-zero level causes the column to appear for the WHOLE section.
+        // Plugs: same rule — both rows carry level once any plug is non-zero.
+        const std::string expectedLvl =
+            "kind: map\n"
+            "title: level-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[2]{name,origin,size,material,level}:\n"
+            "  ground,\"0,0\",\"10,10\",stone,0\n"
+            "  upper,\"0,20\",\"8,8\",stone,2\n"
+            "\n"
+            "plugs[2]{room,name,edge,type,connected,flags,level}:\n"
+            "  ground,south,S,door,false,\"\",0\n"
+            "  upper,north,N,door,false,\"\",1\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(lvlToon == expectedLvl);
+
+        // Column is LAST: level appears after material in rooms, after flags in plugs.
+        assert(lvlToon.find("{name,origin,size,material,level}") != std::string::npos);
+        assert(lvlToon.find("{room,name,edge,type,connected,flags,level}") != std::string::npos);
+
+        // --- All-level-0 document: rooms/plugs headers are BYTE-IDENTICAL to pre-A2. ---
+        // Conditional-emission guard: zero non-default values ⇒ no level column ⇒
+        // the export is unchanged from before this wire extension.
+        DraftingDocument zeroDoc = makeDraftingDocument("zero-level");
+        zeroDoc.canvasPerAuthoredUnit = 1.0;
+        zeroDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 5.0, 5.0, "stone"});
+        // (level defaults to 0)
+
+        const std::string zeroToon = edi::io::exportMapToToon(zeroDoc, "zero-level");
+        // No level column in rooms header.
+        assert(zeroToon.find("{name,origin,size,material,level}") == std::string::npos);
+        assert(zeroToon.find("{name,origin,size,material}") != std::string::npos);
+        // No level column in plugs header (0 plugs, but still no level keyword).
+        assert(zeroToon.find("flags,level") == std::string::npos);
+    }
+
+    // P2-A1 (brief 070): nodes[] section — CONDITIONAL, canonical position after
+    // connections, before blocks; header-as-truth; empty => section absent.
+    {
+        // --- 2-node golden: pins the exact wire bytes for two nodes. ---
+        // Node 1: named "junction_a", anchor (5, 3) authored feet, type "hub".
+        // Node 2: name empty -> falls back to id "node_0002"; anchor (10, 7.5); type empty.
+        // canvasPerAuthoredUnit = 1.0 so authored == canvas (simplifies the golden).
+        DraftingDocument nodeDoc = makeDraftingDocument("nodes-test");
+        nodeDoc.canvasPerAuthoredUnit = 1.0;
+        nodeDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 10.0, 10.0, "stone"});
+
+        DraftingNode n1;
+        n1.id     = "node_0001";
+        n1.name   = "junction_a";
+        n1.anchor = {5.0, 3.0};
+        n1.type   = "hub";
+        nodeDoc.nodes.push_back(n1);
+
+        DraftingNode n2;
+        n2.id     = "node_0002";
+        n2.name   = "";          // empty name -> id is the fallback label
+        n2.anchor = {10.0, 7.5};
+        n2.type   = "";          // empty type -> "" via cell()
+        nodeDoc.nodes.push_back(n2);
+
+        const std::string nodeToon = edi::io::exportMapToToon(nodeDoc, "nodes-test");
+
+        // Exact golden — pins every byte of the nodes[] section and its position.
+        // Sections: rooms · plugs(0) · connections(0) · nodes(2) · blocks(0).
+        // The realizer indexes by column NAME from the header, so the order inside
+        // the header ({name,anchor,type}) is stable — this is the byte contract.
+        const std::string expectedNodes =
+            "kind: map\n"
+            "title: nodes-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[1]{name,origin,size,material}:\n"
+            "  r,\"0,0\",\"10,10\",stone\n"
+            "\n"
+            "plugs[0]{room,name,edge,type,connected,flags}:\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "nodes[2]{name,anchor,type}:\n"
+            "  junction_a,\"5,3\",hub\n"       // named, typed
+            "  node_0002,\"10,7.5\",\"\"\n"    // id fallback; empty type -> ""
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(nodeToon == expectedNodes);
+
+        // Canonical position: nodes section appears AFTER connections and BEFORE blocks.
+        const std::size_t connPos  = nodeToon.find("connections[");
+        const std::size_t nodesPos = nodeToon.find("nodes[");
+        const std::size_t blocsPos = nodeToon.find("blocks[");
+        assert(connPos  != std::string::npos);
+        assert(nodesPos != std::string::npos);
+        assert(blocsPos != std::string::npos);
+        assert(connPos  < nodesPos && nodesPos < blocsPos);
+
+        // --- Node-LESS document: NO nodes[] section — not even a header line. ---
+        // Conditional-emission invariant: empty nodes -> section ABSENT -> same
+        // bytes as the pre-A1 export (legacy maps stay byte-identical).
+        DraftingDocument noNodeDoc = makeDraftingDocument("no-nodes");
+        noNodeDoc.canvasPerAuthoredUnit = 1.0;
+        noNodeDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 10.0, 10.0, "stone"});
+        // (nodes vector default-empty)
+
+        const std::string noNodeToon = edi::io::exportMapToToon(noNodeDoc, "no-nodes");
+        assert(noNodeToon.find("nodes[") == std::string::npos);
+        // And blocks section still immediately follows the connections blank line.
+        const std::size_t connEnd   = noNodeToon.find("connections[");
+        const std::size_t blocksPos = noNodeToon.find("blocks[");
+        assert(connEnd  != std::string::npos && blocksPos != std::string::npos);
+        assert(connEnd  < blocksPos); // no nodes[] in between
+    }
+
     return 0;
 }

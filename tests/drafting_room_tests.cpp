@@ -209,5 +209,54 @@ int main()
         assert(!planDraftingRoom(spec, counter()).ok);
     }
 
+    // Phase-1 slice 3e — RoomKind enum + per-edge wall presence (brief 065).
+    // Types and fields only; drawing logic honours them in Phase 2.
+    {
+        // --- roomKindName / roomKindFromName round-trip + unknown → Enclosed. ---
+        assert(roomKindFromName(roomKindName(RoomKind::Enclosed)) == RoomKind::Enclosed);
+        assert(roomKindFromName(roomKindName(RoomKind::Open))     == RoomKind::Open);
+        assert(std::string(roomKindName(RoomKind::Enclosed)) == "enclosed");
+        assert(std::string(roomKindName(RoomKind::Open))     == "open");
+        assert(roomKindFromName("unknown_future_kind") == RoomKind::Enclosed);
+        assert(roomKindFromName("") == RoomKind::Enclosed);
+
+        // --- Default RoomSpec: Enclosed + all four edge walls present. ---
+        // A default-constructed RoomSpec must be byte-identical to the pre-3e spec:
+        // planDraftingRoom still emits four walls for a plain rectangular room.
+        RoomSpec defaultSpec;
+        assert(defaultSpec.kind  == RoomKind::Enclosed);
+        assert(defaultSpec.wallN == true);
+        assert(defaultSpec.wallE == true);
+        assert(defaultSpec.wallS == true);
+        assert(defaultSpec.wallW == true);
+
+        // --- Behavior-preserving: planDraftingRoom on a default RoomSpec still
+        //     emits 4 walls (the new fields are inert this slice). ---
+        defaultSpec.origin = {0.0, 0.0};
+        defaultSpec.width  = 0.4;
+        defaultSpec.height = 0.2;
+        defaultSpec.wallThickness = 0.05;
+        const DraftingRoomPlan plan = planDraftingRoom(defaultSpec, counter());
+        assert(plan.ok);
+        // 4 solid perimeter walls — same as before the new fields existed.
+        assert(plan.objects.size() == 4);
+        for (const DraftingObject &wall : plan.objects) {
+            assert(wall.kind == DraftingShapeKind::Wall);
+        }
+
+        // --- RoomSpec can hold Open + suppressed edges without compile error.
+        //     (The values are recorded; planDraftingRoom ignores them until Phase 2.) ---
+        RoomSpec openSpec;
+        openSpec.kind  = RoomKind::Open;
+        openSpec.wallN = false;
+        openSpec.wallS = false;
+        // wallE and wallW still true by default.
+        assert(openSpec.kind  == RoomKind::Open);
+        assert(openSpec.wallN == false);
+        assert(openSpec.wallE == true);
+        assert(openSpec.wallS == false);
+        assert(openSpec.wallW == true);
+    }
+
     return 0;
 }

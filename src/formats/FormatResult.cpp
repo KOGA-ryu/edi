@@ -25,6 +25,8 @@ const char *formatResultCodeName(FormatResultCode code)
         return "empty_buffer";
     case FormatResultCode::InvalidRecordCount:
         return "invalid_record_count";
+    case FormatResultCode::IoError:
+        return "io_error";
     }
     return "unknown";
 }
@@ -57,6 +59,9 @@ FormatResultCode formatResultCodeFromName(const std::string &code)
     }
     if (code == "invalid_record_count" || code == "msgpack.record_count_range") {
         return FormatResultCode::InvalidRecordCount;
+    }
+    if (code == "io_error") {
+        return FormatResultCode::IoError;
     }
     return FormatResultCode::SyntaxError;
 }

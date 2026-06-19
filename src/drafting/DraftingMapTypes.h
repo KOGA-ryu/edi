@@ -24,6 +24,11 @@ using DraftingConnectionId = std::string;
 // saved group of objects; its id is minted and validated like an object id (one
 // monotonic serial, distinct "block_" prefix), so it reuses the same alias shape.
 using DraftingBlockId = std::string;
+// Connector-node handle (Phase-1 / inverted model, decision 1/11). A node is a
+// small labeled point minted as "node_NNNN"; the "node_" prefix is distinct from
+// plug_/block_/conn_ so highestDocumentIdSerial can scan all vectors without
+// ambiguity. Same opaque-string alias shape as the ids above.
+using DraftingNodeId = std::string;
 
 // N3: the legacy object "role" — a semantic tag the 3D/export pipeline reads
 // (a wall extrudes, a cutout subtracts, a collider is invisible but solid).
@@ -80,6 +85,37 @@ const char *wallTypeName(WallType type);
 // Inverse of wallTypeName; unknown names fall back to Solid.
 WallType wallTypeFromName(const std::string &name);
 
+// How a room's footprint is determined. Placed = classic room-as-rectangle (NW
+// origin + size, today's only model); SpanDerived = the inverted model where the
+// footprint is DERIVED from bounding connector nodes (Phase 2+). Closed enum so
+// the painter and exporter switch on it; the open vocabulary stays in neutral tags.
+// Default Placed keeps every existing room byte-identical — COEXIST (decision 1).
+enum class RoomDerivation { Placed, SpanDerived };
+const char *roomDerivationName(RoomDerivation d);          // "placed" / "span_derived"
+// Inverse of roomDerivationName; unknown names fall back to Placed (safe default).
+RoomDerivation roomDerivationFromName(const std::string &name);
+
+// A room's enclosure kind — drives DRAWING only (which perimeter segments
+// planDraftingRoom emits), mirroring how WallType varies the band visual.
+// NOT a game rule: whether an "open" room blocks movement is the engine's call.
+// Closed enum, default Enclosed so every existing room draws identically.
+// (Phase 2 will make planDraftingRoom honour kind and per-edge walls; this slice
+// adds the type + field only, with no drawing-logic change — data-spine first.)
+enum class RoomKind { Enclosed, Open };
+const char *roomKindName(RoomKind k);            // "enclosed" / "open"
+// Inverse of roomKindName; unknown strings fall back to Enclosed (safe default).
+RoomKind roomKindFromName(const std::string &name);
+
+// What the parser / controller should do when two room footprints overlap.
+// PickOne = keep the first (the current hard-reject becomes a pick, decision 12);
+// Merge = combine into a union footprint (Phase 3); Allow = record both as-is.
+// Default PickOne so every existing map is byte-identical (missing ⇒ PickOne).
+// Closed enum: the resolver switches on it; the open vocabulary stays in tags.
+enum class OverlapPolicy { PickOne, Merge, Allow };
+const char *overlapPolicyName(OverlapPolicy p);          // "pick_one"/"merge"/"allow"
+// Inverse of overlapPolicyName; unknown strings fall back to PickOne (safe default).
+OverlapPolicy overlapPolicyFromName(const std::string &name);
+
 // --- Map graph (Phase 2: plugs + declared connections) -----------------------
 // A plug is a NAMED, NEUTRAL attachment point — a door / portal / threshold
 // socket. It is not geometry of its own: it rides on an existing document object
@@ -100,15 +136,15 @@ struct DraftingPlug {
                                      // RECORDS them, assigns NO rule meaning (mandate):
                                      // no passable/weight/direction interpretation here.
     Point2D anchor;                  // cached gap-center, so draw/export need not re-derive
-    // TODO(dungeon-map): `anchor` is a cache computed at AUTHORING time (when the
-    // plug is created from its anchorObjectId's geometry) and is NOT re-synced when
-    // that anchoring object is later moved or edited. The Seam C export reads it —
-    // MapToonExport.cpp deriveEdge() picks the room side nearest `anchor` — so an
-    // interactive move of a plug-anchored object would DRIFT the exported edge while
-    // the live geometry has moved on. The real fix is a syncGraphForMovedObject()
-    // sibling to pruneGraphForRemovedObject() (recompute anchors for plugs whose
-    // anchorObjectId moved). DEFERRED: that is a feature, out of the cartography
-    // campaign's behavior-preserving mandate — recorded here, not built.
+    // `anchor` is seeded at plug-creation time and kept live by syncGraphForMovedObject()
+    // (DraftingGraphOps.h), which DrawingDocumentController::applyCommandAndEmit() calls
+    // after every geometry-mutation command.  deriveEdge() (MapToonExport.cpp) reads
+    // this field, so a moved plug anchor now exports the correct wall-edge.
+    // Ratified as Phase-1 decision 7 / brief 052.
+    // Discrete elevation band (Phase-1 decision 8/10). 0 = ground; same additive
+    // template as DraftingMapRoom::level (slice 3a). Every existing plug is level 0.
+    // NOT on the TOON wire this slice — Phase-2 "level + manifest" item.
+    int level = 0;
 };
 
 // A declared connection is a NEUTRAL edge: "plug A links to plug B". It references
@@ -121,6 +157,33 @@ struct DraftingDeclaredConnection {
     DraftingPlugId plugA;
     DraftingPlugId plugB;
     std::string type;                // neutral role tag, default empty ("corridor"/...)
+    // Discrete elevation band (Phase-1 decision 8/10). 0 = ground; same additive
+    // template as DraftingMapRoom::level and DraftingPlug::level (slice 3a/3f).
+    // A future vertical-transition connection will carry differing endpoint levels
+    // (NOT modelled this slice — default 0 keeps all existing connections identical).
+    // NOT on the TOON wire this slice — Phase-2 "level + manifest" item.
+    int level = 0;
+};
+
+// --- Connector node (Phase-1 decision 1/11: the inverted model) ----------------
+// A node is a SMALL LABELED POINT placed by the author at a corridor junction or
+// room corner. Spans between adjacent nodes become rooms in the SpanDerived model
+// (Phase 2). A node is document-level data — NOT a DraftingGeometry variant —
+// for the same reason DraftingPlug is not a shape: it is a relation / anchor point,
+// not a renderable object. It rides the same free undo + persistence as plugs/blocks.
+//
+// Default `radius` is a NAMED constant so no magic literal appears in the struct
+// definition (no-hardcoded-dims rule). It represents the visual footprint of the
+// node on the canvas — roughly a half-foot circle on a 5-foot-grid dungeon map,
+// large enough to hit-test but small enough not to obscure nearby walls.
+inline constexpr double kDefaultNodeRadius = 0.5; // canvas units (= 0.5 feet at scale 1:1)
+
+struct DraftingNode {
+    DraftingNodeId id;                      // opaque, minted ("node_0001")
+    Point2D anchor;                         // connector point, canvas units
+    double radius = kDefaultNodeRadius;     // authored visual footprint (DATA, not a magic literal)
+    std::string type;                       // neutral open vocab: "junction"/"anchor"/...
+    std::string name;                       // authored label
 };
 
 // A named room as a NEUTRAL map entity (Seam C). The document keeps walls + plugs
@@ -135,6 +198,17 @@ struct DraftingMapRoom {
     double width = 0.0;
     double height = 0.0;
     std::string material;            // neutral tag, e.g. "stone"
+    // Discrete elevation band — 0 = ground level. edi owns NO Z coordinate; this
+    // is a NEUTRAL INTEGER the realizer interprets (Phase-1 decision 8). Default
+    // keeps every existing room identical (missing ⇒ 0 on decode). NOT on the
+    // TOON wire yet — Phase-2 wire extension (brief 055: struct + .edidraw only).
+    int level = 0;
+    // How the footprint is determined (Phase-1 decision 1: COEXIST). Placed = the
+    // classic NW-origin + size rectangle (every existing room); SpanDerived = the
+    // inverted model where the footprint is derived from connector nodes (Phase 2+).
+    // Default Placed keeps existing documents byte-identical (missing ⇒ Placed).
+    // NOT on the TOON wire this slice — Phase-2 item (brief 056: struct + .edidraw).
+    RoomDerivation derivation = RoomDerivation::Placed;
 };
 
 // --- Block library (Phase C: the "flash sheet") ------------------------------

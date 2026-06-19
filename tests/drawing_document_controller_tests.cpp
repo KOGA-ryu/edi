@@ -4134,6 +4134,65 @@ int main(int argc, char **argv)
         assert(mapController.draftingDocument().connections.empty());
     }
 
+    // 044 PROPORTIONALITY (hub SCALE-POLICY invariant): createMapFromSpec DERIVES its
+    // corridor/door widths from the dungeon's room geometry (min room short edge / 3),
+    // NOT from a hardcoded literal — so a dungeon with every room doubled gets a door
+    // leaf (and corridor) exactly 2x thicker. Rooms are canvas units NOT scaled by
+    // canvasPerAuthoredUnit, hence the derivation tracks room geometry. We read the
+    // door-leaf WallGeometry thickness because both the leaf and the corridor wall band
+    // derive from the same kCorridorWidth.
+    {
+        const auto buildTwoRoomMap = [](double scale) {
+            edi::drafting::MapSpec map;
+            edi::drafting::NamedRoomSpec a;
+            a.name = "a";
+            a.spec.origin = {0.0 * scale, 0.0 * scale};
+            a.spec.width = 0.4 * scale;
+            a.spec.height = 0.4 * scale;
+            a.spec.wallThickness = 0.02;
+            a.spec.plugs = {{edi::drafting::RoomEdge::East, 0.2 * scale, "door", "door"}};
+            edi::drafting::NamedRoomSpec b;
+            b.name = "b";
+            b.spec.origin = {0.6 * scale, 0.0 * scale};
+            b.spec.width = 0.4 * scale;
+            b.spec.height = 0.4 * scale;
+            b.spec.wallThickness = 0.02;
+            b.spec.plugs = {{edi::drafting::RoomEdge::West, 0.2 * scale, "door", "door"}};
+            map.rooms = {a, b};
+            edi::drafting::MapConnectionSpec corridor;
+            corridor.from = {"a", "door"};
+            corridor.to = {"b", "door"};
+            corridor.type = "corridor";
+            map.connections = {corridor};
+            return map;
+        };
+        // Read the door-leaf WallGeometry thickness off the first "door"-provenance object.
+        const auto doorLeafThickness = [](const DrawingDocumentController &ctl) {
+            for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
+                if (o.metadata.toolProvenance != "door") {
+                    continue;
+                }
+                const auto *wall = std::get_if<edi::drafting::WallGeometry>(&o.geometry);
+                assert(wall != nullptr);
+                return wall->thickness;
+            }
+            assert(false && "expected a door leaf");
+            return 0.0;
+        };
+
+        DrawingDocumentController baseCtl;
+        assert(baseCtl.createMapFromSpec(buildTwoRoomMap(1.0)));
+        const double baseThickness = doorLeafThickness(baseCtl);
+
+        DrawingDocumentController doubledCtl;
+        assert(doubledCtl.createMapFromSpec(buildTwoRoomMap(2.0)));
+        const double doubledThickness = doorLeafThickness(doubledCtl);
+
+        // Doubling every room origin + size doubles the derived door/corridor width.
+        assert(baseThickness > 0.0);
+        assert(nearlyEqual(doubledThickness, 2.0 * baseThickness));
+    }
+
     // DM-03: interior features realize as ordinary tagged Point objects. The
     // room-local AUTHORED-FEET offset is scaled by canvasPerAuthoredUnit and added
     // to the room's CANVAS origin (the origin is not re-scaled).
@@ -4189,6 +4248,117 @@ int main(int argc, char **argv)
         // Undo collapses the features with the rest of the map.
         assert(featureController.undo());
         assert(featureController.draftingDocument().objects.empty());
+    }
+
+    // 041: MapSpec-level prop instances (MapBlockSpec) realize as definition-less
+    // Point markers carrying a BlockPlacementMetadata. A block is MapSpec-level, so its
+    // ABSOLUTE authored-feet position is scaled by canvasPerAuthoredUnit with NO room
+    // origin added. assetRef + instanceId + transform survive a serialize round-trip.
+    {
+        edi::drafting::MapSpec map;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.0, 0.0}; // canvas units; footprint spans [0,0.4] both axes
+        a.spec.width = 0.4;
+        a.spec.height = 0.4;
+        a.spec.wallThickness = 0.02;
+        map.rooms = {a};
+        // Two props: a sarcophagus with non-identity rotation/scale (proves plumbing),
+        // a brazier at identity with no name (proves the name tag is omitted when empty).
+        map.blocks = {
+            {"crypt.sarcophagus", {3.0, 4.0}, 90.0, 2.0, "lord_tomb"},
+            {"crypt.brazier", {5.0, 1.0}, 0.0, 1.0, ""},
+        };
+
+        DrawingDocumentController blockController;
+        const double scale = 0.02; // canvas per authored foot (non-1.0 proves scaling)
+        assert(blockController.createMapFromSpec(map, scale));
+        const edi::drafting::DraftingDocument &doc = blockController.draftingDocument();
+
+        int blockCount = 0;
+        std::string sarcophagusInstance;
+        std::string brazierInstance;
+        for (const edi::drafting::DraftingObject &o : doc.objects) {
+            if (o.metadata.blockPlacement.instanceId.empty()) {
+                continue;
+            }
+            ++blockCount;
+            assert(o.kind == edi::drafting::DraftingShapeKind::Point);
+            assert(o.metadata.toolProvenance == "block");
+            assert(o.metadata.blockPlacement.blockId.empty()); // no definition: pure asset ref
+            const auto tagHas = [&o](const std::string &t) {
+                return std::find(o.metadata.tags.begin(), o.metadata.tags.end(), t) != o.metadata.tags.end();
+            };
+            const auto point = std::get<edi::drafting::PointGeometry>(o.geometry).point;
+            if (o.metadata.blockPlacement.assetRef == "crypt.sarcophagus") {
+                sarcophagusInstance = o.metadata.blockPlacement.instanceId;
+                assert(nearlyEqual(point.x, 3.0 * scale)); // no room origin added
+                assert(nearlyEqual(point.y, 4.0 * scale));
+                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+                assert(tagHas("name:lord_tomb")); // named -> name:<name> tag
+            } else if (o.metadata.blockPlacement.assetRef == "crypt.brazier") {
+                brazierInstance = o.metadata.blockPlacement.instanceId;
+                assert(nearlyEqual(point.x, 5.0 * scale));
+                assert(nearlyEqual(point.y, 1.0 * scale));
+                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0)); // identity
+                assert(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
+                assert(o.metadata.tags.empty()); // no name -> no name: tag
+            }
+        }
+        assert(blockCount == 2);
+        assert(!sarcophagusInstance.empty() && !brazierInstance.empty());
+        assert(sarcophagusInstance != brazierInstance); // minted off the one serial
+
+        // ROUND-TRIP: the stamped placement survives encode/decode (block_placement
+        // already serializes when instance_id is non-empty — this confirms the data,
+        // no new codec). assetRef + instanceId + transform must come back byte-faithful.
+        const edi::formats::ByteBuffer bytes =
+            edi::drafting::encodeDraftingDocument(doc);
+        const auto reloaded = edi::drafting::decodeDraftingDocument(bytes, "blockroundtrip");
+        assert(reloaded.ok && reloaded.value);
+        int reloadedBlocks = 0;
+        for (const edi::drafting::DraftingObject &o : reloaded.value->objects) {
+            if (o.metadata.blockPlacement.instanceId.empty()) {
+                continue;
+            }
+            ++reloadedBlocks;
+            assert(o.metadata.blockPlacement.blockId.empty());
+            if (o.metadata.blockPlacement.assetRef == "crypt.sarcophagus") {
+                assert(o.metadata.blockPlacement.instanceId == sarcophagusInstance);
+                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+            } else if (o.metadata.blockPlacement.assetRef == "crypt.brazier") {
+                assert(o.metadata.blockPlacement.instanceId == brazierInstance);
+            }
+        }
+        assert(reloadedBlocks == 2);
+
+        // Undo collapses the props with the rest of the map.
+        assert(blockController.undo());
+        assert(blockController.draftingDocument().objects.empty());
+    }
+
+    // 041: a map with NO blocks adds no block markers (additive, behavior unchanged).
+    {
+        edi::drafting::MapSpec map;
+        edi::drafting::NamedRoomSpec a;
+        a.name = "a";
+        a.spec.origin = {0.0, 0.0};
+        a.spec.width = 0.4;
+        a.spec.height = 0.4;
+        a.spec.wallThickness = 0.02;
+        map.rooms = {a};
+
+        DrawingDocumentController plainBlockController;
+        assert(plainBlockController.createMapFromSpec(map));
+        int blockCount = 0;
+        for (const edi::drafting::DraftingObject &o : plainBlockController.draftingDocument().objects) {
+            if (!o.metadata.blockPlacement.instanceId.empty()) {
+                ++blockCount;
+            }
+        }
+        assert(blockCount == 0); // no blocks authored -> no block markers
     }
 
     // DM-03: a room with NO features adds no extra objects (behavior unchanged).

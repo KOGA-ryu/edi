@@ -3,6 +3,7 @@
 #include "drafting/DraftingGeometry.h" // includeBounds
 #include "drafting/DraftingMapQuery.h" // deriveEdge, plugIsConnected (shared with the map browser)
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <set>
@@ -11,6 +12,27 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+// CANONICAL TOON SECTION ORDER — owned here, the single source of truth.
+//
+// Document export (DraftingDocument overload) emits sections in this order:
+//   rooms · plugs · connections · nodes · blocks  [future: vertical after blocks]
+//
+// TWO INVARIANTS the realizer must obey:
+//   (a) INDEX BY NAME: the realizer reads every cell by its column name from the
+//       section header (e.g. {name,anchor,type}), never by zero-based index.  This
+//       means new columns can be appended, prepended, or reordered as long as the
+//       header is updated — backward-compatible for any reader that keys on names.
+//   (b) CONDITIONAL EMISSION: every NEW section (and every NEW column) is emitted
+//       ONLY when non-default data exists for it.  A section/column with all-default
+//       values is SILENTLY ABSENT.  This is the mechanism that lets the wire grow
+//       without ever breaking a legacy byte-identical export: an all-default map
+//       produces the same byte string before and after the wire extension.  The
+//       engine reader must therefore treat an absent section as "no entries of that
+//       kind", and must NOT expect every section to be present.
+//
+// ONE CANONICAL-ORDER OWNER: this file.  No other code declares the section order.
+// Concurrent builders adding new sections must coordinate here to avoid collision.
 
 namespace edi::io {
 namespace {
@@ -77,7 +99,12 @@ std::string plugKey(const std::string &room, const std::string &plug)
 // helpers decide what gets cell()-quoted (note: edge is emitted bare, like the
 // MapSpec path always did).
 
-void writeMapHeader(std::ostringstream &out, const std::string &title, const std::string &units)
+// `sceneScale` emits an advisory `scale: <S>` line after `units:`, ONLY when
+// sceneScale != 1.0.  Omitting it at S=1 keeps all existing TOON outputs byte-
+// identical (the realizer treats missing => 1).  THE FENCE: the exported FEET are
+// already scaled; the meta is for the realizer's greybox constants, not room dims.
+void writeMapHeader(std::ostringstream &out, const std::string &title,
+                    const std::string &units, double sceneScale = 1.0)
 {
     out << "kind: map\n";
     if (!title.empty()) {
@@ -86,7 +113,12 @@ void writeMapHeader(std::ostringstream &out, const std::string &title, const std
     if (!units.empty()) {
         out << "units: " << cell(units) << "\n";
     }
-    out << "\n";
+    if (sceneScale != 1.0) {
+        // advisory only — the reader scales its own greybox constants; it must
+        // NOT divide the room-feet back by S (they are already scaled feet).
+        out << "scale: " << num(sceneScale) << "\n";
+    }
+    out << "\n"; // blank section separator (always present, after scale: if any)
 }
 
 void writeRoomRow(std::ostringstream &out, const std::string &name,
@@ -134,6 +166,52 @@ void writeConnectionRow(std::ostringstream &out, const std::string &from,
 {
     out << "  " << cell(from)
         << "," << cell(to)
+        << "," << cell(type)
+        << "\n";
+}
+
+// Like writeRoomRow but with a `level` integer column APPENDED LAST.
+// Called only when at least one room has level != 0 (conditional-emission rule,
+// invariant b). Level is a plain integer — never contains a comma or quote, so
+// no cell() quoting is needed; stream it directly the way `blocks` streams scale.
+void writeRoomRowWithLevel(std::ostringstream &out, const std::string &name,
+                           const std::string &origin, const std::string &size,
+                           const std::string &material, int level)
+{
+    out << "  " << cell(name)
+        << "," << cell(origin)
+        << "," << cell(size)
+        << "," << cell(material)
+        << "," << level
+        << "\n";
+}
+
+// Like writePlugRow but with a `level` integer column APPENDED LAST.
+// Called only when at least one plug has level != 0 (conditional-emission rule).
+void writePlugRowWithLevel(std::ostringstream &out, const std::string &room,
+                           const std::string &name, const std::string &edge,
+                           const std::string &type, bool connected,
+                           const std::string &flags, int level)
+{
+    out << "  " << cell(room)
+        << "," << cell(name)
+        << "," << edge // bare: N/E/S/W/? never contain delimiters
+        << "," << cell(type)
+        << "," << (connected ? "true" : "false")
+        << "," << cell(flags)
+        << "," << level
+        << "\n";
+}
+
+// Node connector row: name (fall back to id if empty), anchor in authored feet
+// (quoted because x,y always carries a comma), type (empty -> "" via cell()).
+// Matches the byte shape of the other row helpers — two-space indent, cell() for
+// every string, \n at the end.
+void writeNodeRow(std::ostringstream &out, const std::string &name,
+                  const std::string &anchor, const std::string &type)
+{
+    out << "  " << cell(name)
+        << "," << cell(anchor)
         << "," << cell(type)
         << "\n";
 }
@@ -191,6 +269,7 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
 namespace {
 
 using edi::drafting::DraftingMapRoom;
+using edi::drafting::DraftingPlug; // needed for hasPlugLevel lambda + plug loop
 using edi::drafting::Point2D;
 
 // Split a globally-unique plug handle "room.plug" on its first '.'.
@@ -206,7 +285,8 @@ std::pair<std::string, std::string> splitRoomPlug(const std::string &full)
 } // namespace
 
 std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
-                            const std::string &title, const std::string &units)
+                            const std::string &title, const std::string &units,
+                            double sceneScale)
 {
     // Authored units = canvas / scale. Guard a zero/invalid scale (treat as 1:1).
     const double scale = document.canvasPerAuthoredUnit > 0.0 ? document.canvasPerAuthoredUnit : 1.0;
@@ -221,30 +301,67 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     };
 
     std::ostringstream out;
-    writeMapHeader(out, title, units);
+    // Pass sceneScale so the header emits `scale: S` only when S != 1.0.
+    // The MapSpec overload calls writeMapHeader without sceneScale → default 1.0
+    // → no scale: line → all existing map_toon_export_tests stay byte-identical.
+    writeMapHeader(out, title, units, sceneScale);
 
-    out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
-    for (const auto &room : document.rooms) {
-        writeRoomRow(out, room.name,
-                     authored(room.origin.x) + "," + authored(room.origin.y),
-                     authored(room.width) + "," + authored(room.height),
-                     room.material);
+    // Pre-scan: does ANY room / plug carry a non-zero level?  If so, the section
+    // gains the `level` column (appended LAST, canonical position).  If every value
+    // is 0 (all-default, the overwhelmingly common case), the section header and all
+    // rows are byte-identical to the pre-A2 export — the conditional-emission guard.
+    const bool hasRoomLevel = std::any_of(document.rooms.begin(), document.rooms.end(),
+        [](const DraftingMapRoom &r) { return r.level != 0; });
+    const bool hasPlugLevel = std::any_of(document.plugs.begin(), document.plugs.end(),
+        [](const DraftingPlug &p) { return p.level != 0; });
+
+    if (hasRoomLevel) {
+        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material,level}:\n";
+        for (const auto &room : document.rooms) {
+            writeRoomRowWithLevel(out, room.name,
+                                  authored(room.origin.x) + "," + authored(room.origin.y),
+                                  authored(room.width) + "," + authored(room.height),
+                                  room.material, room.level);
+        }
+    } else {
+        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
+        for (const auto &room : document.rooms) {
+            writeRoomRow(out, room.name,
+                         authored(room.origin.x) + "," + authored(room.origin.y),
+                         authored(room.width) + "," + authored(room.height),
+                         room.material);
+        }
     }
     out << "\n";
 
-    out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
-    for (const auto &plug : document.plugs) {
-        const auto [roomName, plugName] = splitRoomPlug(plug.name);
-        std::string edge = "?";
-        if (const DraftingMapRoom *room = findRoom(roomName)) {
-            edge = edi::drafting::deriveEdge(*room, plug.anchor);
+    if (hasPlugLevel) {
+        out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags,level}:\n";
+        for (const auto &plug : document.plugs) {
+            const auto [roomName, plugName] = splitRoomPlug(plug.name);
+            std::string edge = "?";
+            if (const DraftingMapRoom *room = findRoom(roomName)) {
+                edge = edi::drafting::deriveEdge(*room, plug.anchor);
+            }
+            const std::string type = plug.type.empty() ? "door" : plug.type;
+            writePlugRowWithLevel(out, roomName, plugName, edge, type,
+                                  edi::drafting::plugIsConnected(document.connections, plug.id),
+                                  joinFlags(plug.flags), plug.level);
         }
-        const std::string type = plug.type.empty() ? "door" : plug.type;
-        // Shared with the map browser: a plug is connected iff a declared connection
-        // names it (DraftingMapQuery — the single source so the two views never drift).
-        writePlugRow(out, roomName, plugName, edge, type,
-                     edi::drafting::plugIsConnected(document.connections, plug.id),
-                     joinFlags(plug.flags));
+    } else {
+        out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
+        for (const auto &plug : document.plugs) {
+            const auto [roomName, plugName] = splitRoomPlug(plug.name);
+            std::string edge = "?";
+            if (const DraftingMapRoom *room = findRoom(roomName)) {
+                edge = edi::drafting::deriveEdge(*room, plug.anchor);
+            }
+            const std::string type = plug.type.empty() ? "door" : plug.type;
+            // Shared with the map browser: a plug is connected iff a declared connection
+            // names it (DraftingMapQuery — the single source so the two views never drift).
+            writePlugRow(out, roomName, plugName, edge, type,
+                         edi::drafting::plugIsConnected(document.connections, plug.id),
+                         joinFlags(plug.flags));
+        }
     }
     out << "\n";
 
@@ -263,6 +380,30 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
                            plugNameById(connection.plugB), connection.type);
     }
     out << "\n";
+
+    // nodes[] section (canonical position: after connections, before blocks).
+    //
+    // CONDITIONAL EMISSION (invariant b): the section is written ONLY when
+    // document.nodes is non-empty.  An empty vector ⇒ no header, no blank line,
+    // nothing — so every legacy map (no nodes) stays byte-identical through this
+    // wire extension.  The engine reader must treat an absent `nodes[]` section
+    // as "zero nodes", not as an error.
+    //
+    // Column shape: {name,anchor,type}.  `name` falls back to `id` if the
+    // authored name is empty, so every row has a non-empty identity key.
+    // `anchor` is in AUTHORED FEET (canvas / canvasPerAuthoredUnit), quoted
+    // because the "x,y" form always contains a comma.  `type` is an open
+    // vocabulary tag edi does not interpret — empty is a valid value.
+    if (!document.nodes.empty()) {
+        out << "nodes[" << document.nodes.size() << "]{name,anchor,type}:\n";
+        for (const auto &node : document.nodes) {
+            const std::string label = node.name.empty() ? node.id : node.name;
+            writeNodeRow(out, label,
+                         authored(node.anchor.x) + "," + authored(node.anchor.y),
+                         node.type);
+        }
+        out << "\n";
+    }
 
     // Block instances: FLATTEN scattered each placement into N independent objects,
     // so re-form them by grouping on the BlockPlacementMetadata instanceId. The

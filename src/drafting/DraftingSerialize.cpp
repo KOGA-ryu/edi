@@ -664,6 +664,35 @@ DraftingDeclaredConnection readConnection(const MsgPackValue &v)
     return connection;
 }
 
+// Connector nodes (Phase-1 decision 1/11). Flat map; same additive discipline as
+// plugValue — a file without a "nodes" key decodes to an empty vector (no version
+// bump). radius is stored as a Double (it is a continuous measurement); id/type/name
+// as text. anchor is a 2-element array via pointValue, like DraftingPlug::anchor.
+MsgPackValue nodeValue(const DraftingNode &node)
+{
+    return MsgPackValue::map({
+        {"id",     MsgPackValue::text(node.id)},
+        {"anchor", pointValue(node.anchor)},
+        {"radius", MsgPackValue::number(node.radius)},
+        {"type",   MsgPackValue::text(node.type)},
+        {"name",   MsgPackValue::text(node.name)},
+    });
+}
+
+DraftingNode readNode(const MsgPackValue &v)
+{
+    DraftingNode node;
+    node.id     = asString(child(v, "id"),     node.id);
+    node.anchor = readPoint(child(v, "anchor"));
+    // Tolerant: missing "radius" (a file written before this field) falls back to
+    // kDefaultNodeRadius — the same default the struct field carries, so the
+    // round-trip is lossless for both old files and newly authored nodes.
+    node.radius = asDouble(child(v, "radius"), kDefaultNodeRadius);
+    node.type   = asString(child(v, "type"),   node.type);
+    node.name   = asString(child(v, "name"),   node.name);
+    return node;
+}
+
 // Named map rooms (Seam C): flat maps mirroring plugValue. Footprint is authored
 // (NW corner + size), stored directly — not derived, so it is read back verbatim.
 MsgPackValue mapRoomValue(const DraftingMapRoom &room)
@@ -837,6 +866,12 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         rooms.push_back(mapRoomValue(room));
     }
 
+    std::vector<MsgPackValue> nodes;
+    nodes.reserve(document.nodes.size());
+    for (const auto &node : document.nodes) {
+        nodes.push_back(nodeValue(node));
+    }
+
     std::vector<MsgPackValue> blocks;
     blocks.reserve(document.blocks.size());
     for (const auto &block : document.blocks) {
@@ -875,7 +910,8 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
         {"connections", MsgPackValue::array(std::move(connections))},
-        {"rooms", MsgPackValue::array(std::move(rooms))},
+        {"rooms",  MsgPackValue::array(std::move(rooms))},
+        {"nodes",  MsgPackValue::array(std::move(nodes))},
         {"blocks", MsgPackValue::array(std::move(blocks))},
         {"motifs", MsgPackValue::array(std::move(motifs))},
         {"selected_object_ids", MsgPackValue::array(std::move(selected))},
@@ -975,6 +1011,17 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
         for (const auto &room : rooms->arrayValue) {
             if (room.type == MsgPackValue::Type::Map) {
                 document.rooms.push_back(readMapRoom(room));
+            }
+        }
+    }
+
+    // Connector nodes (Phase-1 decision 1/11): same tolerant additive read — a file
+    // without a "nodes" key (every file before slice 3c) decodes to an empty vector.
+    if (const MsgPackValue *nodesValue = child(*documentValue, "nodes");
+        nodesValue && nodesValue->type == MsgPackValue::Type::Array) {
+        for (const auto &nodeEntry : nodesValue->arrayValue) {
+            if (nodeEntry.type == MsgPackValue::Type::Map) {
+                document.nodes.push_back(readNode(nodeEntry));
             }
         }
     }

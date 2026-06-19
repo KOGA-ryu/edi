@@ -108,6 +108,13 @@ int highestDocumentIdSerial(const DraftingDocument &document)
     for (const auto &block : document.blocks) {
         highest = std::max(highest, idTrailingSerial(block.id));
     }
+    // Phase-1 slice 3c: nodes carry minted ids ("node_NNNN") that share the same
+    // monotonic serial space as objects/plugs/blocks. Omitting this scan would let
+    // a freshly-opened document with nodes re-mint colliding ids (the C0/C2 lesson:
+    // EVERY id-bearing vector must be scanned — missing one is a silent collision).
+    for (const auto &node : document.nodes) {
+        highest = std::max(highest, idTrailingSerial(node.id));
+    }
     return highest;
 }
 

@@ -24,6 +24,11 @@ using DraftingConnectionId = std::string;
 // saved group of objects; its id is minted and validated like an object id (one
 // monotonic serial, distinct "block_" prefix), so it reuses the same alias shape.
 using DraftingBlockId = std::string;
+// Connector-node handle (Phase-1 / inverted model, decision 1/11). A node is a
+// small labeled point minted as "node_NNNN"; the "node_" prefix is distinct from
+// plug_/block_/conn_ so highestDocumentIdSerial can scan all vectors without
+// ambiguity. Same opaque-string alias shape as the ids above.
+using DraftingNodeId = std::string;
 
 // N3: the legacy object "role" — a semantic tag the 3D/export pipeline reads
 // (a wall extrudes, a cutout subtracts, a collider is invisible but solid).
@@ -127,6 +132,27 @@ struct DraftingDeclaredConnection {
     DraftingPlugId plugA;
     DraftingPlugId plugB;
     std::string type;                // neutral role tag, default empty ("corridor"/...)
+};
+
+// --- Connector node (Phase-1 decision 1/11: the inverted model) ----------------
+// A node is a SMALL LABELED POINT placed by the author at a corridor junction or
+// room corner. Spans between adjacent nodes become rooms in the SpanDerived model
+// (Phase 2). A node is document-level data — NOT a DraftingGeometry variant —
+// for the same reason DraftingPlug is not a shape: it is a relation / anchor point,
+// not a renderable object. It rides the same free undo + persistence as plugs/blocks.
+//
+// Default `radius` is a NAMED constant so no magic literal appears in the struct
+// definition (no-hardcoded-dims rule). It represents the visual footprint of the
+// node on the canvas — roughly a half-foot circle on a 5-foot-grid dungeon map,
+// large enough to hit-test but small enough not to obscure nearby walls.
+inline constexpr double kDefaultNodeRadius = 0.5; // canvas units (= 0.5 feet at scale 1:1)
+
+struct DraftingNode {
+    DraftingNodeId id;                      // opaque, minted ("node_0001")
+    Point2D anchor;                         // connector point, canvas units
+    double radius = kDefaultNodeRadius;     // authored visual footprint (DATA, not a magic literal)
+    std::string type;                       // neutral open vocab: "junction"/"anchor"/...
+    std::string name;                       // authored label
 };
 
 // A named room as a NEUTRAL map entity (Seam C). The document keeps walls + plugs

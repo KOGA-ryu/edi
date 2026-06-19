@@ -203,5 +203,33 @@ int main()
         assert(highestDocumentIdSerial(document) == 9); // plug still highest
     }
 
+    // Phase-1 slice 3c: node ids ("node_NNNN") must be included in the serial scan.
+    // If the scan missed nodes, reopening a document whose highest serial belongs to
+    // a node would re-mint that same number with a DIFFERENT prefix ("object_0011"
+    // collides with "node_0011" — same serial, different prefix = silent collision
+    // in id lookups that compare by prefix+number). This is the C0/C2 lesson: every
+    // id-bearing vector must participate in highestDocumentIdSerial.
+    {
+        DraftingDocument document = makeDraftingDocument("doc-nodes-serial");
+
+        // Node with serial 11 — should become the new highest.
+        DraftingNode node;
+        node.id = "node_0011";
+        document.nodes.push_back(node);
+        assert(highestDocumentIdSerial(document) == 11);
+
+        // Adding a lower-serial plug doesn't displace the node's serial.
+        DraftingPlug plug;
+        plug.id = "plug_0005";
+        document.plugs.push_back(plug);
+        assert(highestDocumentIdSerial(document) == 11); // node still highest
+
+        // A block with a higher serial takes the lead.
+        DraftingBlock block;
+        block.id = "block_0015";
+        document.blocks.push_back(block);
+        assert(highestDocumentIdSerial(document) == 15);
+    }
+
     return 0;
 }

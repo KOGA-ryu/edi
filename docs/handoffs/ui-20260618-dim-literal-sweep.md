@@ -70,6 +70,18 @@ inset factor), epsilons/tolerances, the wall miter limit.
 
 ## Next
 - P1 family ✅ COMPLETE (fa26860 + 93a3e68 + d5eac6f) — painter fully swept.
-- SLICE 2 (P2 shell layout → ShellTheme tokens) + SLICE 3 (P3 QSS) queued — HELD
-  pending direction: these touch theme/QSS and risk LOOK drift (the look is the
-  user's), so they need byte-identical care + a flag, not autonomous restyling.
+- P2 ✅ COMPLETE (66e4cc2) — shell-layout literals → ShellTheme layout tokens,
+  byte-identical, golden 0-diff.
+- P3 ✅ COMPLETE (672a9ee) — QSS dimension literals → 14 ShellTheme tokens,
+  byte-identical PROVEN (sha256-identical generated QSS), golden 0-diff,
+  buttonMinHeight reused (not duplicated).
+- **HUB FLAG (P3):** `pillRadius=7` is shared by the toggle pill + the
+  traffic-light circles (same value/intent). Split into toggleRadius/trafficRadius
+  only if independent tuning is wanted — not a wrong value, no change made.
+- **Remaining minor backlog (a future "every padding is DATA" slice):** P2b
+  (makeControlGrid spacing 6, panelToggleFace pixmap geometry 16/14 + drawRect),
+  the toggle KNOB (encoded as gradient ratios 0.385/0.615 = 10/26, not a px
+  literal — tokenizing = a restyle-shaped change, deferred), buildToolTipStyleSheet
+  literals (separate sheet), generic QSS paddings (4px 8px / 6px 12px / …), the
+  22px combo drop-down width, the 12px traffic-light square. All left LITERAL
+  intentionally — out of the audited scope, byte-identical-care needed.

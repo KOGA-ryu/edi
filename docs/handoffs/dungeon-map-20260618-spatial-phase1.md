@@ -30,11 +30,15 @@ rooms[12]·plugs[26]·connections[12]**. MUST stay byte-identical after every ad
 Drift ⇒ a default is non-neutral ⇒ HALT + flag hub (do NOT re-bless).
 
 ## ORDER (each: green on dept → edi-ui merges → edi-gate green)
-1. **Crypt/dungeon regression-lock GOLDEN** (the canary; pins TOON byte-identical + the
-   ~74 object count) — brief 051, FIRED. [IN FLIGHT]
+1. **Crypt/dungeon regression-lock GOLDEN** (the canary) — brief 051. **✅ DONE + MERGED**
+   (dept golden commit; edi-ui merged → master `7c42e9a` "Slice 1 canary golden merged +
+   verified"). The canary is live; later slices must keep it byte-identical.
 2. **`syncGraphForMovedObject`** — sibling to `pruneGraphForRemovedObject`
    (`src/drafting/DraftingGraphOps.{h,cpp}`; TODO at `DraftingMapTypes.h:108-109`).
-   Recompute plug anchors for moved anchor objects; retires the deriveEdge drift. [NEXT]
+   Recompute plug anchors for moved anchor objects; retires the deriveEdge drift.
+   **brief 052 FIRED** (was NOT built earlier — the brief had not been written; corrected).
+   Pure op (drafting-core REVIEWS) + controller wiring (dungeon-map) + tests + canary
+   byte-identical. After build → drafting-core review → edi-ui integrates. [IN FLIGHT]
 3. **Additive struct slices** (each additive + MsgPack round-trip + green; gate the
    drafting-core-touching ones through drafting-core review):
    - `int level = 0` on `DraftingMapRoom` (+ carry through plug/connection records).

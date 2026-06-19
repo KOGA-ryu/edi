@@ -8,6 +8,22 @@
 
 namespace edi::drafting {
 
+// CorridorSpec fallback defaults (canvas units).
+// DORMANT — every live caller (createMapFromSpec, tests) supplies its own width;
+// these exist only so a default-constructed CorridorSpec is well-formed.
+// Named per the no-hardcoded-dimensions rule: a dimension is DATA, never a bare
+// literal in a struct definition.
+//
+// NOTE: these are distinct from kDefaultCorridorWidth in DraftingCanvasDims.h
+// (that constant = 0.045 and governs the INTERACTIVE corridor tool / canvas
+// fallback). The CorridorSpec struct predates the canvas-dims unification and
+// carries its own historical defaults (0.06 / 0.02) — same behavior, separate
+// named data. If the values are ever unified, update this constant, not callers.
+// `kCorridorSpecDefaultWallThickness` is a SEPARATE dimension from the walkable
+// width even though the values happen to differ; they scale independently.
+inline constexpr double kCorridorSpecDefaultWidth         = 0.06;
+inline constexpr double kCorridorSpecDefaultWallThickness = 0.02;
+
 // Two door points to be joined by a corridor, each on a room wall whose edge gives
 // the outward normal (so the corridor can leave each door PERPENDICULAR to its
 // wall — the door-stub the research said other generators lack, free here because
@@ -18,8 +34,8 @@ struct CorridorSpec {
     RoomEdge edgeA = RoomEdge::North;
     Point2D doorB;
     RoomEdge edgeB = RoomEdge::North;
-    double width = 0.06;
-    double wallThickness = 0.02;
+    double width         = kCorridorSpecDefaultWidth;
+    double wallThickness = kCorridorSpecDefaultWallThickness;
 };
 
 // A room rectangle a corridor should route around (canvas units).

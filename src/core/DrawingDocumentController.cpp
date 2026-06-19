@@ -47,6 +47,7 @@
 #include <cctype>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -3281,7 +3282,20 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
     std::unordered_map<std::string, std::pair<Point2D, RoomEdge>> doorByKey;
     // room name -> its footprint, so a corridor can route AROUND the rooms it does
     // not connect (v2 obstacle avoidance).
-    std::unordered_map<std::string, CorridorObstacle> roomRectByName;
+    //
+    // WHY std::map (ordered) and NOT std::unordered_map (hash-ordered)?
+    // Iteration order of an unordered_map is implementation-defined — it varies
+    // by platform, hash-seed, and insertion history.  The corridor builder iterates
+    // this container to assemble the obstacle list passed to routeCorridorCenterline;
+    // if that list arrives in a different order on two runs the A* grid construction
+    // (bounding-box expansion + cell-cost assignment) is still deterministic because
+    // every branch either commutes (`min`/`max`) or is idempotent (the first hit of
+    // kRoomCost wins and they all set the same value).  But proving that invariant
+    // holds through every future refactor is fragile.  std::map orders by key (room
+    // name, lexicographic) so EVERY run on the SAME spec produces the SAME obstacle
+    // list — "same input → same dungeon" is structurally guaranteed, not assumed.
+    // The O(log N) lookup/insert vs O(1) amortised is irrelevant (N ≤ ~50 rooms).
+    std::map<std::string, CorridorObstacle> roomRectByName;
 
     for (const edi::drafting::NamedRoomSpec &room : spec.rooms) {
         roomRectByName.emplace(room.name,

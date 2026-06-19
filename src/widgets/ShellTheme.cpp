@@ -128,23 +128,23 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         #activityRail {
             background: @base@;
-            border-right: 1px solid @borderMajor@;
+            border-right: @borderWidth@px solid @borderMajor@;
         }
         #leftPanel, #rightPanel {
             background: @surface@;
-            border-right: 1px solid @borderMajor@;
-            border-left: 1px solid @borderMinor@;
+            border-right: @borderWidth@px solid @borderMajor@;
+            border-left: @borderWidth@px solid @borderMinor@;
         }
         #workspaceColumn {
             background: @base@;
         }
         #bottomPanel {
             background: @base@;
-            border-top: 1px solid @borderMajor@;
+            border-top: @borderWidth@px solid @borderMajor@;
         }
         #textEditorPanel {
             background: @base@;
-            border-top: 1px solid @borderMajor@;
+            border-top: @borderWidth@px solid @borderMajor@;
         }
         QScrollArea {
             background: transparent;
@@ -197,20 +197,20 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #geometryField {
             color: @text@;
             background: @control@;
-            border: 1px solid @borderMajor@;
-            border-radius: 5px;
+            border: @borderWidth@px solid @borderMajor@;
+            border-radius: @controlRadius@px;
             padding: 4px 6px;
         }
         #geometryField[editInvalid="true"] {
             color: @danger@;
             background: @surfaceRaised@;
-            border: 1px solid @danger@;
+            border: @borderWidth@px solid @danger@;
         }
         #editErrorLabel {
             color: @danger@;
             background: @surfaceRaised@;
-            border: 1px solid @danger@;
-            border-radius: 5px;
+            border: @borderWidth@px solid @danger@;
+            border-radius: @controlRadius@px;
             padding: 6px 8px;
         }
         /* Box math for the spec's 30px button: QSS min-height bounds the
@@ -219,8 +219,8 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QPushButton {
             color: @text@;
             background: transparent;
-            border: 1px solid transparent;
-            border-radius: 5px;
+            border: @borderWidth@px solid transparent;
+            border-radius: @controlRadius@px;
             padding: 4px 8px;
             min-height: 20px;
             text-align: left;
@@ -240,7 +240,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             border-color: transparent;
         }
         #railButton {
-            min-width: 32px;
+            min-width: @railButtonSize@px;
             text-align: center;
             padding-left: 6px;
             padding-right: 6px;
@@ -251,17 +251,17 @@ QString buildShellStyleSheet(const ShellTheme &t)
            Geometry lives here, not in setFixedSize: polish overwrites code
            geometry with sheet geometry (the traffic-light lesson). */
         #activityRail QPushButton {
-            min-width: 32px;
-            max-width: 32px;
-            min-height: 32px;
-            max-height: 32px;
+            min-width: @railButtonSize@px;
+            max-width: @railButtonSize@px;
+            min-height: @railButtonSize@px;
+            max-height: @railButtonSize@px;
             padding: 0;
         }
         QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
             color: @text@;
             background: @control@;
-            border: 1px solid @borderMajor@;
-            border-radius: 5px;
+            border: @borderWidth@px solid @borderMajor@;
+            border-radius: @controlRadius@px;
             padding: 4px 6px;
         }
         QComboBox {
@@ -284,12 +284,12 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QMenu {
             background: @surfaceRaised@;
             color: @text@;
-            border: 1px solid @borderMajor@;
+            border: @borderWidth@px solid @borderMajor@;
             padding: 4px;
         }
         QMenu::item {
             padding: 6px 12px;
-            border-radius: 5px;
+            border-radius: @controlRadius@px;
         }
         QMenu::item:selected {
             background: @rowSelected@;
@@ -299,16 +299,16 @@ QString buildShellStyleSheet(const ShellTheme &t)
             color: @disabled@;
         }
         QMenu::separator {
-            height: 1px;
+            height: @borderWidth@px;
             background: @borderMinor@;
-            margin: 4px 6px;
+            margin: @separatorMarginV@px @separatorMarginH@px;
         }
         /* Chrome popups carry per-feature objectNames (chromePopup_snap, …);
            the shared dynamic property is the stable selector. */
         QFrame[chromePopup="true"] {
             background: @surfaceRaised@;
-            border: 1px solid @borderMajor@;
-            border-radius: 8px;
+            border: @borderWidth@px solid @borderMajor@;
+            border-radius: @popupRadius@px;
         }
         #settingsWindow {
             background: @base@;
@@ -316,13 +316,13 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QListWidget {
             color: @text@;
             background: @surface@;
-            border: 1px solid @borderMinor@;
-            border-radius: 5px;
+            border: @borderWidth@px solid @borderMinor@;
+            border-radius: @controlRadius@px;
         }
         QListWidget::item {
             min-height: 24px;
             padding: 0px 6px;
-            border-left: 2px solid transparent;
+            border-left: @listAccentWidth@px solid transparent;
         }
         QListWidget::item:hover {
             background: @controlHover@;
@@ -330,7 +330,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QListWidget::item:selected {
             color: @text@;
             background: @rowSelected@;
-            border-left: 2px solid @accent@;
+            border-left: @listAccentWidth@px solid @accent@;
         }
         #objectListEmpty {
             color: @textFaint@;
@@ -363,9 +363,9 @@ QString buildShellStyleSheet(const ShellTheme &t)
            the spec allows plain QSS if it reads; a painted knob would need
            custom paint for one ornament. */
         QCheckBox::indicator {
-            width: 26px;
-            height: 12px;
-            border-radius: 7px;
+            width: @toggleTrackW@px;
+            height: @toggleTrackH@px;
+            border-radius: @pillRadius@px;
         }
         /* The knob is a 10px hard-stop gradient band (10/26 = 0.385 of the
            content box), clipped round by the pill radius at the track's
@@ -376,13 +376,13 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                 stop:0 @textFaint@, stop:0.385 @textFaint@,
                 stop:0.386 @control@, stop:1 @control@);
-            border: 1px solid @borderMajor@;
+            border: @borderWidth@px solid @borderMajor@;
         }
         QCheckBox::indicator:checked {
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                 stop:0 @accentSoft@, stop:0.614 @accentSoft@,
                 stop:0.615 @accent@, stop:1 @accent@);
-            border: 1px solid @borderFocus@;
+            border: @borderWidth@px solid @borderFocus@;
         }
         /* Disabled tracks must out-specify the state rules above (two
            pseudo-states beat one, regardless of order) — a bare
@@ -391,19 +391,19 @@ QString buildShellStyleSheet(const ShellTheme &t)
         QCheckBox::indicator:unchecked:disabled,
         QCheckBox::indicator:checked:disabled {
             background: @control@;
-            border: 1px solid @borderMinor@;
+            border: @borderWidth@px solid @borderMinor@;
         }
         /* Scrollbars: a quiet 8px rail — transparent track, token handle,
            no stepper buttons (zero-height add/sub-line), matching the
            1px-chrome density rule. */
         QScrollBar:vertical {
             background: transparent;
-            width: 8px;
+            width: @scrollBarThickness@px;
             margin: 0;
         }
         QScrollBar:horizontal {
             background: transparent;
-            height: 8px;
+            height: @scrollBarThickness@px;
             margin: 0;
         }
         /* QSS reads the slider's minimum LENGTH from min-height vertically
@@ -411,13 +411,13 @@ QString buildShellStyleSheet(const ShellTheme &t)
            horizontal handle free to shrink into an ungrabbable sliver. */
         QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
             background: @borderMajor@;
-            border-radius: 3px;
+            border-radius: @gripRadius@px;
         }
         QScrollBar::handle:vertical {
-            min-height: 24px;
+            min-height: @scrollBarHandleMin@px;
         }
         QScrollBar::handle:horizontal {
-            min-width: 24px;
+            min-width: @scrollBarHandleMin@px;
         }
         QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
             background: @accentSoft@;
@@ -477,18 +477,18 @@ QString buildShellStyleSheet(const ShellTheme &t)
         }
         #paletteGrip {
             background: @borderMajor@;
-            border-radius: 3px;
+            border-radius: @gripRadius@px;
         }
         #paletteGrip:hover {
             background: @accentSoft@;
         }
         #titleBar {
             background: @base@;
-            border-bottom: 1px solid @borderMajor@;
+            border-bottom: @borderWidth@px solid @borderMajor@;
         }
         #statusBar {
             background: @base@;
-            border-top: 1px solid @borderMajor@;
+            border-top: @borderWidth@px solid @borderMajor@;
         }
         #statusMode, #statusFile {
             color: @textMuted@;
@@ -502,7 +502,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton {
             background: transparent;
             border: none;
-            border-radius: 5px;
+            border-radius: @controlRadius@px;
             padding: 4px 8px;
             min-height: 22px; /* borderless: 22 content + 8 padding = the same 30px box */
             text-align: center;
@@ -523,10 +523,10 @@ QString buildShellStyleSheet(const ShellTheme &t)
         #titleBar QPushButton#toggleLeftPanel,
         #titleBar QPushButton#toggleBottomPanel,
         #titleBar QPushButton#toggleRightPanel {
-            min-width: 30px;
-            max-width: 30px;
-            min-height: 30px;
-            max-height: 30px;
+            min-width: @buttonMinHeight@px;
+            max-width: @buttonMinHeight@px;
+            min-height: @buttonMinHeight@px;
+            max-height: @buttonMinHeight@px;
             padding: 0;
         }
         #titleBar QPushButton[panelState="visible"] {
@@ -556,20 +556,20 @@ QString buildShellStyleSheet(const ShellTheme &t)
             max-width: 12px;
             min-height: 12px;
             max-height: 12px;
-            border-radius: 7px;
+            border-radius: @pillRadius@px;
             padding: 0;
         }
         #titleBar QPushButton#trafficClose {
             background: @trafficClose@;
-            border: 1px solid @trafficCloseEdge@;
+            border: @borderWidth@px solid @trafficCloseEdge@;
         }
         #titleBar QPushButton#trafficMinimize {
             background: @trafficMinimize@;
-            border: 1px solid @trafficMinimizeEdge@;
+            border: @borderWidth@px solid @trafficMinimizeEdge@;
         }
         #titleBar QPushButton#trafficZoom {
             background: @trafficZoom@;
-            border: 1px solid @trafficZoomEdge@;
+            border: @borderWidth@px solid @trafficZoomEdge@;
         }
     )");
 
@@ -611,6 +611,22 @@ QString buildShellStyleSheet(const ShellTheme &t)
         {"@fontSm@", QString::number(t.fontSizeSm)},
         {"@fontXs@", QString::number(t.fontSizeXs)},
         {"@fontTitle@", QString::number(t.fontSizeTitle)},
+        // Dimension tokens (P3): same named-marker mechanism as the colors,
+        // so the px values live in ShellTheme as DATA instead of baked literals.
+        {"@controlRadius@", QString::number(t.controlRadius)},
+        {"@popupRadius@", QString::number(t.popupRadius)},
+        {"@pillRadius@", QString::number(t.pillRadius)},
+        {"@gripRadius@", QString::number(t.gripRadius)},
+        {"@borderWidth@", QString::number(t.borderWidth)},
+        {"@listAccentWidth@", QString::number(t.listAccentWidth)},
+        {"@separatorMarginV@", QString::number(t.separatorMarginV)},
+        {"@separatorMarginH@", QString::number(t.separatorMarginH)},
+        {"@railButtonSize@", QString::number(t.railButtonSize)},
+        {"@scrollBarThickness@", QString::number(t.scrollBarThickness)},
+        {"@scrollBarHandleMin@", QString::number(t.scrollBarHandleMin)},
+        {"@toggleTrackW@", QString::number(t.toggleTrackW)},
+        {"@toggleTrackH@", QString::number(t.toggleTrackH)},
+        {"@buttonMinHeight@", QString::number(t.buttonMinHeight)},
     };
     for (const auto &[marker, value] : tokens) {
         sheet.replace(QLatin1String(marker), value);

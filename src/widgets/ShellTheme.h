@@ -106,6 +106,40 @@ struct ShellTheme {
     int floatingPaletteGripW = 10;   // grab nub width
     int floatingPaletteGripH = 28;   // grab nub height
     int floatingPaletteSpacing = 3;  // gap between nub and content
+
+    // QSS dimension tokens (px). These were bare px literals baked into the
+    // stylesheet string in buildShellStyleSheet; P3 lifts them out so the
+    // sheet substitutes them the same way it substitutes colors. Each default
+    // is byte-identical to the literal it replaced — naming a dimension does
+    // NOT restyle it (the generated QSS is unchanged to the byte). Honors the
+    // CLAUDE.md rule "no hardcoded dimensions — every dimension is DATA."
+    // Named by USE; a field is shared across rules only where the dimension is
+    // semantically the same thing.
+
+    // Corner radii.
+    int controlRadius = 5;   // fields, buttons, menus, list well, error label
+    int popupRadius = 8;     // chrome popup frame (QFrame[chromePopup])
+    int pillRadius = 7;      // small round elements: toggle pill + traffic dots
+    int gripRadius = 3;      // scrollbar handle + floating-palette nub
+
+    // Chrome line weights.
+    int borderWidth = 1;     // the 1px hairline borders + QMenu separator line
+    int listAccentWidth = 2; // QListWidget selected-row left accent bar
+
+    // QMenu separator inset (margin: 4px 6px).
+    int separatorMarginV = 4;
+    int separatorMarginH = 6;
+
+    // Activity-rail button: the 32px content square (34px box with borders).
+    int railButtonSize = 32;
+
+    // Scrollbars: an 8px rail with a 24px minimum handle length.
+    int scrollBarThickness = 8;
+    int scrollBarHandleMin = 24;
+
+    // Toggle-switch indicator content box (28x14 box with 1px borders).
+    int toggleTrackW = 26;
+    int toggleTrackH = 12;
 };
 
 // Linear interpolate two #rrggbb colors by ratio in [0,1] (ratio 0 -> a, 1 -> b),

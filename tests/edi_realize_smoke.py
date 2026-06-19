@@ -23,6 +23,9 @@ import edi_realize  # noqa: E402
 
 CRYPT = os.path.join(ROOT, "samples", "crypt_m0", "crypt.toon")
 MAPS = os.path.join(ROOT, "tests", "data", "maps")
+ZOO = os.path.join(ROOT, "samples", "zoo")
+MANIFEST = os.path.join(ZOO, "tester_zoo.manifest.toon")
+STAR6_DEMO = os.path.join(ZOO, "star6_demo.toon")
 
 
 def fail(msg):
@@ -243,5 +246,70 @@ if abs(node_pieces[0].sx - 5.0) > 1e-9:
 # back-compat: the OLD crypt (no nodes/levels) yields NO node pieces + level-0 only.
 if any(p.kind == "node" for p in edi_realize.plan_greybox(doc)):
     fail("node-less map must produce no node pieces")
+
+# --- 11. R2a: zoo-manifest parse round-trip (the cross-language contract loop) -
+# Closes the loop owed to R1a's reviewer: parse the SAME manifest fixture and
+# assert star6's fields decode back EXACTLY. If any column shifts, this fails.
+manifest = edi_realize.load_manifest(MANIFEST)
+if list(manifest.keys()) != ["asset_0001"]:
+    fail(f"manifest ids {list(manifest.keys())}")
+star6 = manifest["asset_0001"]
+if star6.id != "asset_0001":
+    fail(f"asset id {star6.id!r}")
+if star6.name != "star6":
+    fail(f"asset name {star6.name!r}")
+if star6.category != "ornament":
+    fail(f"asset category {star6.category!r}")
+if star6.meshRef != "meshes/star6.blend":
+    fail(f"asset meshRef {star6.meshRef!r}")
+if star6.proxyRef != "":
+    fail(f"asset proxyRef should be empty, got {star6.proxyRef!r}")
+if star6.textures != []:
+    fail(f"asset textures should be empty, got {star6.textures!r}")
+
+# --- 12. R2a: a placement resolves to a build-once INSTANCE piece -------------
+with open(STAR6_DEMO, encoding="utf-8") as fh:
+    demo = edi_realize.parse_toon(fh.read())
+n_blocks = len(demo.blocks)
+if n_blocks < 1:
+    fail("star6 demo should place at least one block")
+# WITH the manifest: every star6 placement becomes an instance carrying meshRef.
+inst_pieces = [p for p in edi_realize.plan_greybox(demo, assets=manifest)
+               if p.kind == "instance"]
+if len(inst_pieces) != n_blocks:
+    fail(f"expected {n_blocks} instance pieces, got {len(inst_pieces)}")
+if not all(p.mesh_ref == "meshes/star6.blend" for p in inst_pieces):
+    fail("an instance piece lost its resolved meshRef")
+if not all(p.asset_ref == "asset_0001" for p in inst_pieces):
+    fail("an instance piece lost its asset id")
+# the per-instance scale rides on sx/sy/sz (for obj.scale in R2b)
+demo_scales = sorted(b.scale for b in demo.blocks)
+if sorted(p.sx for p in inst_pieces) != demo_scales:
+    fail("instance per-placement scale should ride on sx/sy/sz")
+
+# --- 13. R2a fallback law: NO manifest ⇒ ZERO instance pieces -----------------
+# A star6 placement with no manifest falls back to the greybox path (unknown
+# prop), proving the no-manifest path is unchanged.
+nofb = edi_realize.plan_greybox(demo, assets=None)
+if any(p.kind == "instance" for p in nofb):
+    fail("no-manifest plan must produce zero instance pieces (fallback law)")
+if not any(p.kind == "prop" for p in nofb):
+    fail("unresolved star6 placement should fall back to a greybox prop")
+
+# --- 14. R2a regression: the crypt sample plans byte-identically (assets=None) -
+# The greybox FALLBACK LAW: passing assets=None must equal the default-arg plan.
+crypt_default = edi_realize.plan_greybox(doc)
+crypt_none = edi_realize.plan_greybox(doc, assets=None)
+if crypt_default != crypt_none:
+    fail("crypt plan must be byte-identical with assets=None vs default")
+if any(p.kind == "instance" for p in crypt_default):
+    fail("the crypt sample has no manifest and must yield no instance pieces")
+
+# the OBJ proof emits a labelled placeholder marker per instance piece
+demo_obj = edi_realize.pieces_to_obj(edi_realize.plan_greybox(demo, assets=manifest))
+if demo_obj.count("o instance_") != n_blocks:
+    fail(f"OBJ proof should mark {n_blocks} instances, got {demo_obj.count('o instance_')}")
+if "star6_blend" not in demo_obj:
+    fail("instance OBJ marker should be labelled with its meshRef")
 
 print("edi_realize smoke: ok")

@@ -31,6 +31,7 @@ to these coordinates" deterministically. bpy is only the final effector.
 from __future__ import annotations
 
 import math
+import os
 import sys
 from dataclasses import dataclass, field, replace
 from typing import Optional
@@ -114,6 +115,13 @@ class GreyboxDims:
     # `level * dims.feet_per_band` (= level * base_pitch * S) — one clean multiply,
     # no double-S. Default 14 ft > wall_h 12 so stacked floors never interpenetrate.
     feet_per_band: float = 14.0
+    # --- instanced assets (R2a). The pure tier CANNOT know a .blend's real bbox,
+    # so an instance placement carries no greybox box. These two named dims supply
+    # the only sizes the pure tier needs: where the instance origin sits above the
+    # floor, and how big the OBJ proof PLACEHOLDER marker cube is (a legible "here"
+    # marker — R2b replaces it with the linked mesh). Envelope lengths ⇒ scaled().
+    instance_base_z: float = 2.0   # instance origin lift above the floor
+    instance_marker_w: float = 3.0 # OBJ proof placeholder-marker cube edge
 
     def scaled(self, s: float) -> "GreyboxDims":
         """The single SCALE KNOB (dungeon-map brief 044): return a copy with every
@@ -153,6 +161,8 @@ class GreyboxDims:
             brazier_softness=L(self.brazier_softness),
             node_w=L(self.node_w), node_h=L(self.node_h),
             feet_per_band=L(self.feet_per_band),
+            instance_base_z=L(self.instance_base_z),
+            instance_marker_w=L(self.instance_marker_w),
         )
 
 
@@ -259,6 +269,26 @@ class Block:
 
 
 @dataclass
+class Asset:
+    """One CURATED zoo manifest entry (R1a's `assets[N]{...}:` export, Q3). The
+    realizer is the CONSUMER: a placement (`blocks[]` row) whose `asset` equals an
+    Asset `id` resolves to a build-once INSTANCE of `meshRef`; everything else
+    keeps the greybox path (the fallback law). `meshRef` is a catalog-relative
+    POSIX key (`meshes/star6.blend`) resolved against --asset-dir in R2b — here it
+    is carried opaquely (the catalog is index, not geometry)."""
+    id: str
+    name: str = ""
+    category: str = ""
+    meshRef: str = ""
+    proxyRef: str = ""
+    textures: list[str] = field(default_factory=list)
+    # Sockets parsed loosely this slice (R2a only needs id/name/category/meshRef/
+    # textures faithful — see the round-trip proof in edi_realize_smoke). Kept as
+    # the raw `·`-split run so a later slice can decode `name@x,y` without a reparse.
+    sockets: list[str] = field(default_factory=list)
+
+
+@dataclass
 class MapDoc:
     title: str = ""
     units: str = "feet"
@@ -277,11 +307,21 @@ class MapDoc:
     connections: list[Connection] = field(default_factory=list)
     nodes: list[Node] = field(default_factory=list)
     blocks: list[Block] = field(default_factory=list)
+    # CURATED zoo manifest (Q3). Normally empty on a MAP doc — the manifest is a
+    # SEPARATE TOON file (load_manifest) — but parse_toon decodes an `assets`
+    # section wherever it appears so the grammar stays one parser.
+    assets: list[Asset] = field(default_factory=list)
 
     def room(self, name: str) -> Optional[Room]:
         for r in self.rooms:
             if r.name == name:
                 return r
+        return None
+
+    def asset(self, asset_id: str) -> Optional[Asset]:
+        for a in self.assets:
+            if a.id == asset_id:
+                return a
         return None
 
 
@@ -305,6 +345,13 @@ class Piece:
     light_energy: float = 0.0
     material: str = "stone"
     shape: str = "box"   # box | cylinder
+    # --- instance fields (R2a). A kind=="instance" piece is the build-once bridge:
+    # it carries NO greybox box size (the .blend's real bbox is unknown in the pure
+    # tier) — only the resolved catalog-relative meshRef + the per-instance scale on
+    # sx/sy/sz, applied to obj.scale when R2b links the real datablock. Default ""
+    # ⇒ a normal greybox piece, so today's plan is byte-identical.
+    mesh_ref: str = ""           # resolved catalog-relative meshRef (e.g. meshes/star6.blend)
+    textures: list = field(default_factory=list)  # per-asset texture refs (R2b material override)
 
 
 # =============================================================================
@@ -453,7 +500,29 @@ def parse_toon(text: str) -> MapDoc:
                 room=col("room"), asset=col("asset"), x=bx, y=by,
                 scale=float(col("scale", "1") or "1"),
                 rotation=float(col("rotation", "0") or "0")))
+        elif section == "assets":
+            # The CURATED zoo manifest (Q3). Decode by COLUMN NAME (same `col`
+            # discipline). `textures`/`sockets` are `·`-joined runs — the same
+            # U+00B7 idiom plug `flags`/room `bounded_by` use; empty cell ⇒ [].
+            tex_raw = col("textures")
+            textures = [t for t in tex_raw.split("·") if t] if tex_raw else []
+            soc_raw = col("sockets")
+            sockets = [s for s in soc_raw.split("·") if s] if soc_raw else []
+            doc.assets.append(Asset(
+                id=col("id"), name=col("name"), category=col("category"),
+                meshRef=col("meshRef"), proxyRef=col("proxyRef"),
+                textures=textures, sockets=sockets))
     return doc
+
+
+def load_manifest(path: str) -> dict:
+    """Parse a SEPARATE zoo-manifest TOON file into a {id: Asset} map (R2a's
+    catalog→realizer bridge). A manifest is its own file (per the fixture layout),
+    not a section of the map; reusing parse_toon keeps ONE grammar. The returned
+    dict is what plan_greybox consumes to resolve a placement to an instance."""
+    with open(path, "r", encoding="utf-8") as fh:
+        doc = parse_toon(fh.read())
+    return {a.id: a for a in doc.assets}
 
 
 # =============================================================================
@@ -536,7 +605,8 @@ def _figure_spot(doc: MapDoc, dims: GreyboxDims) -> Optional[tuple[float, float]
 
 
 def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
-                 reference: bool = False, scale: float = 1.0) -> list[Piece]:
+                 reference: bool = False, scale: float = 1.0,
+                 assets: Optional[dict] = None) -> list[Piece]:
     """Resolve the whole map to greybox pieces. Deterministic + pure. Every
     dimension comes from `dims` (the realizer-owned table), never a literal.
 
@@ -545,7 +615,12 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
     dungeon's scale is visible at a glance (on for the greybox demo, off for art).
 
     `scale` (S) is needed ONLY for the per-level `levels[]` manifest elevations
-    (base feet × S); every other length already carries S via `dims`."""
+    (base feet × S); every other length already carries S via `dims`.
+
+    `assets` (R2a) is the OPTIONAL {asset_id: Asset} zoo manifest map. Default
+    None ⇒ today's behavior EXACTLY (the greybox fallback law). When provided, a
+    `blocks[]` row whose `asset` is a manifest id resolves to a build-once INSTANCE
+    piece (no greybox box) instead of a greybox prop; any other row is unchanged."""
     theme = _theme_of(doc)
     pieces: list[Piece] = []
 
@@ -723,6 +798,18 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
         # lower room exists; fall back to the footprint hit for nameless wires.
         broom = doc.room(blk.room) or _room_at(doc, blk.x, blk.y)
         bz = level_z(broom.level if broom is not None else 0)
+        # INSTANCE bridge (R2a): if a manifest is supplied AND this placement's
+        # asset is a curated id, plan a build-once instance — NOT a greybox box.
+        # The instance carries the resolved meshRef + the per-instance scale on
+        # sx/sy/sz (applied to obj.scale in R2b) + the placement rotation; the real
+        # geometry comes from the .blend in R2b, so no greybox envelope is fabricated.
+        asset = assets.get(blk.asset) if assets else None
+        if asset is not None:
+            pieces.append(Piece(
+                "instance", blk.asset, blk.x, blk.y, bz + dims.instance_base_z,
+                s, s, s, rot_deg=blk.rotation,
+                mesh_ref=asset.meshRef, textures=list(asset.textures)))
+            continue
         if piece == PIECE_BRAZIER:
             # Brazier: a short pedestal cylinder PLUS the room's only light. The
             # light energy SCALES with the area of the room the brazier sits in
@@ -835,23 +922,38 @@ def _route_corridor(ref, ax: float, ay: float, bx: float, by: float,
 # =============================================================================
 # OBJ proof tier (no bpy) — deterministic, what CI / the reviewer asserts
 # =============================================================================
-def pieces_to_obj(pieces: list[Piece]) -> str:
+def pieces_to_obj(pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS) -> str:
     """Emit the greybox as a Wavefront OBJ: one axis-aligned box per piece
     (cylinders are approximated by their bounding box — the proof is placement,
-    not roundness). Lights are skipped (no geometry)."""
+    not roundness). Lights are skipped (no geometry).
+
+    An INSTANCE piece (R2a) has no greybox box — the .blend's real bbox is unknown
+    in the pure tier — so it emits a small NAMED-size PLACEHOLDER marker cube at its
+    origin (sized from dims.instance_marker_w) and is LABELLED with its meshRef, so
+    the deterministic proof still shows WHERE each instance lands. R2b replaces the
+    marker with the real linked mesh; the OBJ tier stays a placement proof."""
     lines = ["# edi_realize greybox proof", "# one box per resolved piece"]
     vbase = 1
     for idx, p in enumerate(pieces):
         if p.is_light or (p.sx == 0 and p.sy == 0 and p.sz == 0):
             continue
-        hx, hy, hz = p.sx / 2.0, p.sy / 2.0, p.sz / 2.0
+        if p.kind == "instance":
+            # Placeholder marker: a named-size cube (× per-instance scale) at the
+            # placement, labelled with the meshRef so the proof is legible.
+            m = dims.instance_marker_w
+            hx = hy = hz = (m * max(p.sx, 0.0)) / 2.0
+            label = p.mesh_ref.replace("/", "_").replace(".", "_") or "instance"
+            obj_name = f"instance_{idx}_{label}"
+        else:
+            hx, hy, hz = p.sx / 2.0, p.sy / 2.0, p.sz / 2.0
+            obj_name = f"{p.kind}_{idx}_{p.asset_ref.replace('.', '_')}"
         corners = [
             (p.x - hx, p.y - hy, p.z - hz), (p.x + hx, p.y - hy, p.z - hz),
             (p.x + hx, p.y + hy, p.z - hz), (p.x - hx, p.y + hy, p.z - hz),
             (p.x - hx, p.y - hy, p.z + hz), (p.x + hx, p.y - hy, p.z + hz),
             (p.x + hx, p.y + hy, p.z + hz), (p.x - hx, p.y + hy, p.z + hz),
         ]
-        lines.append(f"o {p.kind}_{idx}_{p.asset_ref.replace('.', '_')}")
+        lines.append(f"o {obj_name}")
         for (vx, vy, vz) in corners:
             lines.append(f"v {vx:.4f} {vy:.4f} {vz:.4f}")
         faces = [(1, 2, 3, 4), (5, 6, 7, 8), (1, 2, 6, 5),
@@ -862,12 +964,17 @@ def pieces_to_obj(pieces: list[Piece]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
-    """A human/log summary: piece-type counts + the gate checklist."""
+def plan_summary(doc: MapDoc, pieces: list[Piece], assets: Optional[dict] = None) -> str:
+    """A human/log summary: piece-type counts + the gate checklist.
+
+    With a manifest (R2a) the summary also logs the instance/greybox SPLIT: an
+    `instances=` count plus the resolved vs unresolved asset refs, so the log shows
+    which placements became build-once instances and which fell back to greybox."""
     counts: dict[str, int] = {}
     for p in pieces:
         counts[p.kind] = counts.get(p.kind, 0) + 1
     lights = sum(1 for p in pieces if p.is_light)
+    instances = counts.get("instance", 0)
     present = [t for t in TEN_PIECE_TYPES if counts.get(t, 0) > 0]
     spans = sum(1 for r in doc.rooms if r.derivation.startswith("span"))
     open_rooms = sum(1 for r in doc.rooms if r.kind == "open")
@@ -875,7 +982,7 @@ def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
         f"map: {doc.title!r}  units={doc.units}",
         f"rooms={len(doc.rooms)} (span={spans} open={open_rooms}) "
         f"connections={len(doc.connections)} nodes={len(doc.nodes)} blocks={len(doc.blocks)}",
-        f"pieces={len(pieces)} lights={lights}",
+        f"pieces={len(pieces)} lights={lights} instances={instances}",
         "piece-type counts:",
     ]
     for k in sorted(counts):
@@ -884,6 +991,12 @@ def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
     missing = [t for t in TEN_PIECE_TYPES if t not in present]
     if missing:
         out.append(f"MISSING piece types: {missing}")
+    # The instance/greybox split (only meaningful when a manifest was supplied).
+    if assets:
+        resolved = sorted({p.asset_ref for p in pieces if p.kind == "instance"})
+        unresolved = sorted({b.asset for b in doc.blocks if b.asset not in assets})
+        out.append(f"manifest assets={len(assets)}  resolved={resolved}")
+        out.append(f"  unresolved (greybox fallback)={unresolved}")
     return "\n".join(out)
 
 
@@ -1068,20 +1181,29 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
     out_png = next((a.split("=", 1)[1] for a in argv if a.startswith("--render=")), None)
     cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
     reference = "--reference" in argv  # toggle the scale-reference overlay (off ⇒ art-clean)
+    # Zoo manifest bridge (R2a): --manifest names a SEPARATE zoo TOON; absent ⇒
+    # pure greybox (byte-identical). --asset-dir is parsed here so R2b's build can
+    # resolve meshRef→.blend, but R2a does NOT consume it in build_scene yet.
+    manifest_path = next((a.split("=", 1)[1] for a in argv if a.startswith("--manifest=")), None)
+    asset_dir = next((a.split("=", 1)[1] for a in argv if a.startswith("--asset-dir=")), None)
     if not map_path or not out_png:
         sys.stderr.write("usage: blender -b -P edi_realize.py -- <map.toon> --render=<out.png> "
-                         "[--scale=S] [--reference] [--samples=N]\n")
+                         "[--scale=S] [--reference] [--samples=N] "
+                         "[--manifest=zoo.toon] [--asset-dir=dir]\n")
         return 2
 
     with open(map_path, "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
+    assets = load_manifest(manifest_path) if manifest_path else None
+    if manifest_path and asset_dir is None:
+        asset_dir = os.path.dirname(os.path.abspath(manifest_path))
     # The single scale knob (brief 044): --scale CLI overrides the TOON `scale`
     # header meta; the chain threads ONE number. S scales the DATA table. A wire
     # `feet_per_band` meta overrides the base pitch BEFORE scaling.
     scale = float(cli_scale) if cli_scale is not None else doc.scale
     dims = _resolve_dims(doc, scale)
     samples = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--samples=")), str(dims.samples)))
-    pieces = plan_greybox(doc, dims, reference, scale)
+    pieces = plan_greybox(doc, dims, reference, scale, assets)
 
     nlevels = len({r.level for r in doc.rooms}) if doc.rooms else 1
     print("=" * 64)
@@ -1093,7 +1215,9 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
           f"feet_per_band={dims.feet_per_band:g} ft (Z=level*pitch)")
     print(f"reference overlay: {'ON' if reference else 'off'}  "
           f"(figure {dims.figure_h:g} ft FIXED + {dims.tile:g} ft floor checker)")
-    print(plan_summary(doc, pieces))
+    if manifest_path:
+        print(f"manifest: {manifest_path}  asset-dir: {asset_dir}")
+    print(plan_summary(doc, pieces, assets))
     print("=" * 64)
 
     bb = build_scene(bpy, pieces, dims)
@@ -1143,24 +1267,37 @@ def main(argv: list[str]) -> int:
     obj_out = next((a.split("=", 1)[1] for a in argv if a.startswith("--obj-out=")), None)
     cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
     reference = "--reference" in argv
+    # The zoo manifest bridge (R2a): --manifest names a SEPARATE zoo TOON file;
+    # absent ⇒ assets=None ⇒ pure greybox (byte-identical to today). --asset-dir
+    # (default = dirname of --manifest) is threaded for R2b's .blend resolution and
+    # is not consumed in the pure tier yet (the pure tier carries meshRef opaquely).
+    manifest_path = next((a.split("=", 1)[1] for a in argv if a.startswith("--manifest=")), None)
+    asset_dir = next((a.split("=", 1)[1] for a in argv if a.startswith("--asset-dir=")), None)
     paths = [a for a in argv if not a.startswith("--")]
     if not paths:
         sys.stderr.write(
             "usage:\n"
-            "  edi_realize.py <map.toon> [--scale=S] [--reference] [--obj-out=out.obj]   # pure proof\n"
-            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--scale=S] [--reference] [--samples=N]\n")
+            "  edi_realize.py <map.toon> [--scale=S] [--reference] [--obj-out=out.obj]\n"
+            "      [--manifest=zoo.toon] [--asset-dir=dir]                              # pure proof\n"
+            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--scale=S] [--reference]\n"
+            "      [--samples=N] [--manifest=zoo.toon] [--asset-dir=dir]\n")
         return 2
     with open(paths[0], "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
+    assets = load_manifest(manifest_path) if manifest_path else None
+    if manifest_path and asset_dir is None:
+        asset_dir = os.path.dirname(os.path.abspath(manifest_path))
     scale = float(cli_scale) if cli_scale is not None else doc.scale
     dims = _resolve_dims(doc, scale)
-    pieces = plan_greybox(doc, dims, reference, scale)
+    pieces = plan_greybox(doc, dims, reference, scale, assets)
     print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
           f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
-    print(plan_summary(doc, pieces))
+    if manifest_path:
+        print(f"manifest: {manifest_path}  asset-dir: {asset_dir}")
+    print(plan_summary(doc, pieces, assets))
     if obj_out:
         with open(obj_out, "w", encoding="utf-8") as fh:
-            fh.write(pieces_to_obj(pieces))
+            fh.write(pieces_to_obj(pieces, dims))
         print(f"wrote OBJ proof: {obj_out}  ({len(pieces)} pieces)")
     return 0
 

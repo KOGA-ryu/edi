@@ -1,0 +1,12 @@
+kind: map
+title: star6 demo
+units: feet
+
+rooms[1]{name,origin,size,material,floor}:
+  hall,"0,0","40,40",stone,true
+
+blocks[4]{room,asset,origin,scale,rotation}:
+  hall,asset_0001,"10,10",1,0
+  hall,asset_0001,"30,10",1,45
+  hall,asset_0001,"10,30",1.5,0
+  hall,asset_0001,"30,30",1,90

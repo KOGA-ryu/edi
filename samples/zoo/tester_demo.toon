@@ -1,0 +1,16 @@
+kind: map
+title: tester demo
+units: feet
+
+rooms[1]{name,origin,size,material,floor}:
+  hall,"0,0","60,40",stone,true
+
+blocks[8]{room,asset,origin,scale,rotation}:
+  hall,asset_0001,"10,15",4,0
+  hall,asset_0002,"25,15",3.5,15
+  hall,asset_0003,"40,15",3.5,0
+  hall,asset_0004,"10,25",3.5,30
+  hall,asset_0005,"25,25",3.5,45
+  hall,asset_0006,"40,25",4,0
+  hall,crypt.brazier,"50,20",1,0
+  hall,crypt.sarcophagus,"50,10",1,90

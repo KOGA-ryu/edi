@@ -289,10 +289,13 @@ Hierarchical, pipe-model-thinned, golden-angle distributed.
 
 ### D. CANOPY
 A clumped, gapped foliage mass — NOT a spherical lollipop.
-- **D1.** Canopy is **≥ 6 distinct clumps** (default 14), placed at OUTER branch
+- **D1.** Canopy is **≥ 6 distinct clumps** (default 72), placed at OUTER branch
   tips, with **visible gaps** between them — sky/branches show through.
-- **D2.** Bounding-sphere **fill ratio < 0.6**: the union of clumps fills less than
-  60% of its bounding sphere volume (irregular, not solid).
+- **D2.** Bounding-sphere **fill ratio `0.15 ≤ fill < 0.6`** (the reads-as-MASS
+  band): the union of clumps fills between 15% and 60% of its bounding sphere
+  volume. The lower bound rules out a near-empty crown that reads as decorated
+  tips (the OPPOSITE failure from a lollipop); the upper bound keeps it irregular,
+  not solid.
 - **D3.** Clump sizes **vary** (seeded jitter ≥ ±25%); no two clumps identical.
 - **D4.** Foliage sits in the **upper crown region only** (above
   `firstBranchHeight`), not skirting the bare bole.
@@ -331,7 +334,7 @@ do not advance until the gate passes from the review angles.
 | **L0 — FORM** | A tapered trunk + a placeholder blob crown reads as "tree" in silhouette. | `height`, `trunkRadius`, `taper`, `tubeSides`, `baseFlare`; ONE icosphere crown of `clumpSize`; NO branching yet. | **A (SILHOUETTE) A1+A4** — names "tree" at thumbnail; single vertical trunk. |
 | **L1 — ARMATURE** | The seeded recursive skeleton exists (nodes + parent links), drawn as bare tubes. | `seed`, `branchLevels`, `childrenPerNode`, `downAngle`, `rotateAngle`, `lengthRatio`, `segmentsPerBranch`, `firstBranchHeight`; skeleton + tube skin; no jitter, no canopy. | **C (BRANCHING) C1+C4** — ≥3 levels, golden-angle spiral. |
 | **L2 — BRANCHING + TAPER** | Pipe-model radii + per-segment taper + gentle curve → believable thickness hierarchy. | `pipeExponent`, refined `taper`, `curve`. | **C2+C3 and B2+B3** — child/parent radius 0.55-0.75; trunk taper 0.3-0.6; down-angle 30-55°. |
-| **L3 — CANOPY** | Clumped, gapped foliage at outer tips; lollipop is FORBIDDEN. | `clumpCount`, `clumpSize`, `leafSubdiv`, `leafMat`; clumps at outer branch tips. | **D (CANOPY) D1+D2+D4** — ≥6 clumps, fill < 0.6, upper crown only. |
+| **L3 — CANOPY** | Clumped, gapped foliage at outer tips; lollipop is FORBIDDEN. | `clumpCount`, `clumpSize`, `leafSubdiv`, `leafMat`; clumps at outer branch tips. | **D (CANOPY) D1+D2+D4** — ≥6 clumps, fill 0.15-0.6, upper crown only. |
 | **L4 — BARK / BASE** | Root flare + crown-ratio tuning + curve naturalism; materials assigned. | `baseFlare` tuned, `firstBranchHeight` tuned, `barkMat`; (optional grafted `crownRadius` envelope bias). | **B (PROPORTION) B1+B4** — LCR 0.40-0.65, base flare ≥1.3. |
 | **L5 — SEED-VARIATION + PAYOFF** | Jitter wired through; a forest of distinct-but-coherent instances; determinism proven. | `downAngleJitter`, `rotateJitter`, `lengthJitter`, `clumpJitter`; full seeded RNG. | **E (ASYM/VAR) E1+E2+E3** AND **F (HEALTH) all** — seeds differ, same-seed identical, budget + origin + dual-tier parity. |
 
@@ -405,8 +408,11 @@ no core touches the forge). The following are now part of the contract:
 - **A1 (trunk vertical):** fit a line to the trunk-ring centroids BELOW
   `firstBranchHeight·height`; measure its angle from +z (< ~15°).
 - **D2 (canopy fill):** pin the cheap proxy — `Σ(clump sphere volumes, not
-  overlap-deduped) ÷ crown-bounding-sphere volume < 0.6` (or a fixed-res voxel
-  occupancy). One definition, reproducible across reviewers.
+  overlap-deduped) ÷ crown-bounding-sphere volume`, held in the reads-as-MASS
+  BAND `0.15 ≤ fill < 0.6` (or a fixed-res voxel occupancy). The lower bound
+  enforces "actually a canopy" (a near-empty crown reads as decorated tips); the
+  upper bound rules out a solid lollipop. One definition, reproducible across
+  reviewers.
 - **F1 (manifold-ish):** concrete = no fully-duplicate verts beyond allowed join
   seams; every tube closed (2 cap faces per tube). `from_pydata` +
   `update(calc_edges=True)` succeeds.

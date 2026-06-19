@@ -10,11 +10,38 @@ each child's radius from its parent. The skeleton is SKINNED to tapered-tube
 (verts,faces) and the crown is clumped icospheres — ALL in pure Python, so the
 proof tier (proof_mesh) and the bpy tier (build) run the SAME generator.
 
-THIS FILE IS L2 (STRUCTURE) of the L0->L5 detail ladder. L0 built ONLY the
+THIS FILE IS L3 (CANOPY) of the L0->L5 detail ladder. L0 built ONLY the
 scaffold the silhouette test needed (a tapered trunk + one placeholder crown
 blob). L1 GREW the recursive self-similar SKELETON off the trunk and skinned each
-branch as a bare tapered tube. L2 makes that branching STRUCTURALLY BELIEVABLE —
-the three defects the L1 critique owned:
+branch as a bare tapered tube. L2 made that branching STRUCTURALLY BELIEVABLE
+(pipe-model radii, height budget, distributed primaries). L3 hangs FOLIAGE on the
+bare armature.
+
+L3 (CANOPY) — the anti-lollipop discipline. The forbidden read is a single
+spherical blob swept over the crown (the L0 placeholder). L3 instead places
+`clumpCount` DISCRETE low-poly icosphere blobs at the OUTER branch tips (the tips
+of the deepest branch level), each of radius `clumpSize`. Because the blobs sit
+at SEPARATED tips, GAPS arise naturally between them — sky and branches show
+through (rubric D1). The clumps fill the EXISTING crown volume rather than
+ballooning past it: each clump CENTRE is nudged INWARD along its branch by
+`clumpSize` so the blob's outer surface lands near the tip, not beyond it — this
+keeps the full-mesh XY width inside the A2 <=1.05 guard the L2 smoke locked. Only
+tips ABOVE `firstBranchHeight*height` get a clump, so the bare bole stays bare
+(D4). The fill proxy (doc 7) Sum(clump sphere volumes) / crown-bounding-sphere
+volume is held in the reads-as-MASS band 0.15 <= fill < 0.6 (D2): comfortably
+ABOVE empty (a near-empty crown reads as decorated tips, the OPPOSITE failure
+from a lollipop) and comfortably BELOW a solid mass (discrete blobs with gaps).
+Because A2 caps clumps growing OUTWARD, the fill is raised by clumpCount (more
+tips fill the INTERIOR volume — count barely moves A2) plus a moderate clumpSize.
+
+Params switched ON this level (added to L2's set): clumpCount, clumpSize,
+leafSubdiv (the canopy geometry). Still DEFERRED: clumpJitter + the per-clump
+SIZE/POSITION variation is L5 (clumps are DETERMINISTIC at L3 — no RNG, every
+clump is the same size and sits at a fixed tip); leafMat (the bark-vs-leaf
+material/colour distinction) is L4 — at L3 the gate is GEOMETRIC, grey clumps
+that read as a foliage MASS by SHAPE are correct.
+
+Earlier-level context — the three defects the L1 critique owned, fixed at L2:
 
   1. HEIGHT BUDGET. L1's children grew up-and-out off the parent tip, so the
      vertical extents STACKED additively and the crown top reached z ~= 15.4 for
@@ -40,11 +67,11 @@ the three defects the L1 critique owned:
      (top/base in 0.3-0.6); and each branch segment bends `curve/segments` deg in
      a consistent per-branch lean (deterministic, NO RNG — jitter is L5).
 
-Params switched ON this level (added to L1's set): pipeExponent, curve, and a
-refined taper. DEFERRED to later levels (parsed + IGNORED, so the schema is
-stable): clump* CANOPY = L3; baseFlare/crown-ratio tuning = L4; the *Jitter knobs
-+ seeded RNG = L5. seed is read but INERT until L5 — every angle is EXACT, there
-is NO jitter, so the armature is deterministic without touching random at all.
+L2's structure params (pipeExponent, curve, refined taper) remain LIVE. DEFERRED
+to later levels (parsed + IGNORED, so the schema is stable): baseFlare/crown-ratio
+tuning = L4; the *Jitter knobs + seeded RNG = L5. seed is read but INERT until
+L5 — every angle is EXACT, there is NO jitter, so the whole tree (armature AND
+canopy) is deterministic without touching random at all.
 
 The FULL 24-param MANIFEST is declared NOW (some params still ignored) so the
 recipe schema is stable across every level and saved recipes never churn.
@@ -98,8 +125,23 @@ MANIFEST = {
         {"key": "curve", "label": "Curve (deg)", "type": "number", "default": 15.0},
         {"key": "segmentsPerBranch", "label": "Segments / Branch", "type": "integer", "default": 4},
         {"key": "tubeSides", "label": "Tube Sides", "type": "integer", "default": 6},
-        {"key": "clumpCount", "label": "Clump Count", "type": "integer", "default": 14},
-        {"key": "clumpSize", "label": "Clump Size", "type": "number", "default": 0.55},
+        # CANOPY (L3): clumpCount discrete icosphere blobs of radius clumpSize at
+        # the OUTER (deepest-level) branch tips, leafSubdiv subdivisions each.
+        # clumpCount=72 / clumpSize=0.64 were chosen TOGETHER so the D2 fill proxy
+        # lands at ~0.27 (Sum(clump vols)/crown-sphere vol) — squarely in the
+        # reads-as-MASS band 0.15<=fill<0.6 against the ~crown radius — while the
+        # full-mesh XY width stays inside the A2 <=1.05 guard (A2~1.04). The L3
+        # critique: 14 clumps @0.55 gave fill~0.045 (~4.5%) — a near-EMPTY crown
+        # that read as decorated tips, the OPPOSITE failure from a lollipop. Since
+        # A2<=1.05 is the binding constraint (it caps clumps growing OUTWARD), the
+        # density comes from clumpCount (more tips fill the INTERIOR volume — the
+        # inward nudge keeps each blob in, so count barely moves A2) plus a modest
+        # clumpSize bump (size drives A2, so it stays moderate). There are 81
+        # eligible deepest-level tips, so 72 places a clump at nearly every one.
+        # clumpJitter stays OFF until L5 (clumps are deterministic at L3 — no
+        # per-clump size/pos jitter).
+        {"key": "clumpCount", "label": "Clump Count", "type": "integer", "default": 72},
+        {"key": "clumpSize", "label": "Clump Size", "type": "number", "default": 0.64},
         {"key": "clumpJitter", "label": "Clump Jitter (frac)", "type": "number", "default": 0.35},
         {"key": "leafSubdiv", "label": "Leaf Subdiv", "type": "integer", "default": 1},
         {"key": "baseFlare", "label": "Base Flare", "type": "number", "default": 1.6},
@@ -161,6 +203,17 @@ MIN_BRANCH_ELEVATION_RAD = math.radians(-20.0)
 # skeleton starts at the origin, so scaling about the origin keeps F3). This
 # constant is the target the fit drives toward; it is `height` itself.
 HEIGHT_BUDGET_TARGET_FRAC = 1.0
+
+# --- NAMED L3 (CANOPY) constants ---------------------------------------------
+# Each clump's CENTRE is pulled INWARD along its branch direction by this many
+# clumpSize-units (1.0 = a full clumpSize). WHY: a clump placed dead-on the
+# outermost tip would push its outer surface a full clumpSize PAST the bare
+# armature's bbox, breaking the A2 (XY width <= 1.05*height) guard the L2 smoke
+# locked. Nudging the centre back by one clumpSize lands the blob's outer
+# surface NEAR the tip — the clump fills the EXISTING crown volume instead of
+# ballooning it. (This is the anti-lollipop discipline made geometric: we are
+# DRAPING foliage on the existing silhouette, not swelling a sphere to fill one.)
+CLUMP_INWARD_NUDGE_FRAC = 1.0
 
 
 def _ring(cx, cy, cz, radius, sides):
@@ -488,19 +541,196 @@ def _branch_tube(branch, sides):
     return verts, faces
 
 
-def _local_mesh(params: dict):
-    """The L2 tree as local (verts, faces) with the trunk base at z=0.
+# --- The CANOPY: discrete foliage clumps at the outer tips --------------------
 
-    L2 = tapered trunk + the recursive branching ARMATURE skinned as bare tubes,
-    now with pipe-model radii, per-segment curve, and DISTRIBUTED primaries — and
-    fitted to the declared `height` budget. A bare winter-tree silhouette is the
-    correct L2 read; canopy returns at L3. seed is read for schema/determinism
-    plumbing but UNUSED until L5 (every angle is exact, no jitter)."""
+
+def _icosphere(cx, cy, cz, radius, subdiv):
+    """A cheap 'icosphere' as a recursively-subdivided OCTAHEDRON projected onto
+    a sphere of `radius`, centred at (cx,cy,cz). subdiv=0 is the bare 8-face
+    octahedron; each subdiv level splits every triangle into 4 (so subdiv=1 ->
+    32 tris). Pure Python, no bpy — one foliage CLUMP.
+
+    WHY a subdivided octahedron and not a true icosahedron: the octahedron's 6
+    seed verts sit on the axes, so the generator is a few lines and stays cheap.
+    At L3 a clump is one of `clumpCount` blobs; at leafSubdiv=1 each is 32 tris,
+    so 14 clumps ~= 450 tris — negligible against the ~8k armature (F2 budget).
+    This is the SAME generator the L0 placeholder crown used; L3 simply scatters
+    `clumpCount` of them at the outer tips instead of one big one over the crown.
+    """
+    subdiv = max(0, subdiv)
+
+    # Octahedron seed: 6 verts on the unit axes, 8 triangles.
+    base_verts = [
+        (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
+        (0.0, 0.0, 1.0), (0.0, 0.0, -1.0),
+    ]
+    base_faces = [
+        (0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4),
+        (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5),
+    ]
+
+    verts = [list(v) for v in base_verts]
+    faces = list(base_faces)
+    # Cache midpoints by an ordered-pair key so a shared edge yields ONE shared
+    # vertex (no cracks). A dict keyed by a sorted tuple is order-stable here —
+    # we only LOOK UP by key, never ITERATE the dict, so determinism holds (R3).
+    midcache = {}
+
+    def midpoint(a, b):
+        key = (a, b) if a < b else (b, a)
+        if key in midcache:
+            return midcache[key]
+        ax, ay, az = verts[a]
+        bx, by, bz = verts[b]
+        m = [(ax + bx) * 0.5, (ay + by) * 0.5, (az + bz) * 0.5]
+        idx = len(verts)
+        verts.append(m)
+        midcache[key] = idx
+        return idx
+
+    for _ in range(subdiv):
+        new_faces = []
+        for (a, b, c) in faces:
+            ab = midpoint(a, b)
+            bc = midpoint(b, c)
+            ca = midpoint(c, a)
+            new_faces.extend([(a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca)])
+        faces = new_faces
+
+    # Project every vert onto the sphere of `radius`, then offset to the centre.
+    out_verts = []
+    for (vx, vy, vz) in verts:
+        length = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
+        s = radius / length
+        out_verts.append((cx + vx * s, cy + vy * s, cz + vz * s))
+    return out_verts, [list(f) for f in faces]
+
+
+def _outer_tips(scaled_skel, first_branch_z):
+    """The OUTER branch tips eligible for a clump: the TIP node of every branch
+    at the DEEPEST level present, whose tip sits ABOVE first_branch_z (D4 — keep
+    the bole bare). Returns a list of (tip_xyz, inward_unit_dir) in the skeleton's
+    FIXED depth-first order, where inward_unit_dir points from the tip back toward
+    the branch (used to nudge the clump inward). `scaled_skel` is the skeleton
+    AFTER the height-budget position fit, so the tips are at their rendered xyz.
+
+    WHY the deepest level (not all leaf nodes): every branch recurses to the same
+    depth at L2, so the deepest-level branches ARE the outermost twigs — their
+    tips are the true crown perimeter. Filtering by z keeps any low twig that
+    droops below the bole cut from skirting the bare trunk (D4)."""
+    max_level = max((b["level"] for b in scaled_skel), default=0)
+    tips = []
+    for b in scaled_skel:
+        if b["level"] != max_level:
+            continue
+        nodes = b["nodes"]
+        tip = nodes[-1]
+        if tip[2] <= first_branch_z:
+            continue
+        prev = nodes[-2]
+        dx, dy, dz = prev[0] - tip[0], prev[1] - tip[1], prev[2] - tip[2]
+        dl = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
+        tips.append((tip, (dx / dl, dy / dl, dz / dl)))
+    return tips
+
+
+def _clump_centres(scaled_skel, params: dict, first_branch_z):
+    """The DETERMINISTIC centres of the canopy clumps: pick `clumpCount` of the
+    outer tips (a FIXED evenly-spread subset of the depth-first tip list when
+    there are more tips than clumps; all of them when fewer), then nudge each
+    centre INWARD along its branch by CLUMP_INWARD_NUDGE_FRAC*clumpSize so the
+    blob fills the existing crown instead of widening it past A2. Returns the list
+    of clump-centre (x,y,z). Pure + deterministic — no RNG (jitter is L5)."""
+    clump_count = max(1, int(float(params.get("clumpCount", 72))))
+    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+
+    tips = _outer_tips(scaled_skel, first_branch_z)
+    if not tips:
+        return []
+    n = len(tips)
+    if n > clump_count:
+        # Fixed evenly-spread subset across the depth-first order (NOT random):
+        # the i-th clump takes tip floor(i * n / clump_count), so the chosen tips
+        # fan around the whole crown rather than bunching in one DFS sub-branch.
+        chosen = [tips[(i * n) // clump_count] for i in range(clump_count)]
+    else:
+        chosen = tips  # fewer tips than clumps — place one at every tip
+
+    nudge = CLUMP_INWARD_NUDGE_FRAC * clump_size
+    centres = []
+    for (tip, indir) in chosen:
+        centres.append((tip[0] + indir[0] * nudge,
+                        tip[1] + indir[1] * nudge,
+                        tip[2] + indir[2] * nudge))
+    return centres
+
+
+def _fitted_skeleton(params: dict):
+    """The recursive skeleton AFTER the height-budget POSITION fit: scale every
+    node (x,y,z) about the origin so the natural z-extent lands at `height`. Radii
+    are left untouched (the fit is positions-only — see _local_mesh for the full
+    rationale; scaling radii would silently thin the trunk below the B2 band).
+
+    Factored out so _local_mesh (the skin pass) and canopy_clumps (the offline
+    canopy proof the smoke test reads) compute clumps off the SAME fitted tips."""
+    height = max(1e-3, float(params.get("height", 6.0)))
+    skel = _skeleton(params)
+    natural_zmax = max((n[2] for b in skel for n in b["nodes"]), default=height)
+    target = HEIGHT_BUDGET_TARGET_FRAC * height
+    pos_scale = target / natural_zmax if natural_zmax > 1e-9 else 1.0
+    for b in skel:
+        b["nodes"] = [(nx * pos_scale, ny * pos_scale, nz * pos_scale)
+                      for (nx, ny, nz) in b["nodes"]]
+    return skel
+
+
+def canopy_clumps(params: dict):
+    """A PURE helper the smoke test uses to assert the CANOPY offline, off the
+    SAME fitted skeleton the skin pass uses. Returns
+        (centres, clump_size, fill_ratio)
+    where `centres` is the list of clump-centre (x,y,z) (one per clump),
+    `clump_size` is each blob's radius, and `fill_ratio` is the PINNED D2 proxy
+    (doc 7): Sum(clump sphere volumes, NOT overlap-deduped) / crown-bounding-
+    sphere volume. The crown bounding sphere is centred on the centroid of the
+    clump centres with radius = max(dist(centroid, centre) + clump_size) — one
+    reproducible definition. 0.15 <= fill_ratio < 0.6 is the D2 BAND: above the
+    floor reads as a foliage MASS (not decorated tips), below the ceiling keeps
+    gaps (not a solid lollipop)."""
+    height = max(1e-3, float(params.get("height", 6.0)))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
+    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    skel = _fitted_skeleton(params)
+    centres = _clump_centres(skel, params, first_branch * height)
+    if not centres:
+        return [], clump_size, 0.0
+    cx = sum(c[0] for c in centres) / len(centres)
+    cy = sum(c[1] for c in centres) / len(centres)
+    cz = sum(c[2] for c in centres) / len(centres)
+    crown_r = max(math.dist((cx, cy, cz), c) + clump_size for c in centres)
+    crown_vol = (4.0 / 3.0) * math.pi * crown_r ** 3
+    clumps_vol = len(centres) * (4.0 / 3.0) * math.pi * clump_size ** 3
+    fill = clumps_vol / crown_vol if crown_vol > 1e-12 else 0.0
+    return centres, clump_size, fill
+
+
+def _local_mesh(params: dict):
+    """The L3 tree as local (verts, faces) with the trunk base at z=0.
+
+    L3 = tapered trunk + the recursive branching ARMATURE (pipe-model radii,
+    per-segment curve, distributed primaries, fitted to the `height` budget) WITH
+    a CANOPY: `clumpCount` discrete icosphere blobs draped on the outer tips.
+    The clumps read as a foliage MASS with gaps, NOT a single spherical lollipop.
+    seed is read for schema/determinism plumbing but UNUSED until L5 (every angle
+    AND every clump position is exact, no jitter)."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     base_flare = float(params.get("baseFlare", 1.6))
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
+    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
 
     # HEIGHT BUDGET FIT — POSITION-ONLY, computed BEFORE any skinning.
     #
@@ -517,15 +747,7 @@ def _local_mesh(params: dict):
     # only the spine here and assigning every tube's radii from the params/pipe-
     # model afterwards, BOTH invariants hold: the tree fits `height` AND the
     # trunk base radius is exactly `trunkRadius` (0.18/6 = 0.03, in B2 band).
-    skel = _skeleton(params)
-    natural_zmax = max((n[2] for b in skel for n in b["nodes"]), default=height)
-    target = HEIGHT_BUDGET_TARGET_FRAC * height
-    pos_scale = target / natural_zmax if natural_zmax > 1e-9 else 1.0
-    # Scale POSITIONS only (about the origin → base stays at z=0, F3). Radii are
-    # left exactly as the pipe model / taper produced them.
-    for b in skel:
-        b["nodes"] = [(nx * pos_scale, ny * pos_scale, nz * pos_scale)
-                      for (nx, ny, nz) in b["nodes"]]
+    skel = _fitted_skeleton(params)
 
     # The visible trunk is the dedicated flared/capped _trunk_mesh, built to the
     # SCALED trunk-top height (so it shares the spine's vertical compression) but
@@ -551,6 +773,19 @@ def _local_mesh(params: dict):
         offset = len(verts)
         verts.extend(b_verts)
         faces.extend([[i + offset for i in f] for f in b_faces])
+
+    # CANOPY (L3): drape one icosphere clump at each chosen outer tip. The
+    # skeleton `skel` is already height-fitted, so the tips are at their rendered
+    # xyz; clump centres are computed off THAT (D4 uses the SCALED first-branch
+    # cut). Each clump is its own closed blob that OVERLAPS the twig tube (R1 —
+    # no weld). Discrete blobs at separated tips => gaps (D1) and a low fill
+    # proxy (D2); the inward nudge keeps the XY width inside A2.
+    first_branch_z = first_branch * height
+    for (cx, cy, cz) in _clump_centres(skel, params, first_branch_z):
+        c_verts, c_faces = _icosphere(cx, cy, cz, clump_size, leaf_subdiv)
+        offset = len(verts)
+        verts.extend(c_verts)
+        faces.extend([[i + offset for i in f] for f in c_faces])
 
     return verts, faces
 

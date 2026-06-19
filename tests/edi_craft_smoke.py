@@ -695,19 +695,20 @@ def main() -> int:
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
-    # TREE L2 (STRUCTURE): the first ORGANIC craftsman, now STRUCTURALLY
-    # believable. L0 was the scaffold; L1 grew the recursive self-similar
-    # branching SKELETON off the trunk and skinned each branch as a bare tube. L2
-    # fixes the three defects the L1 critique owned: (1) the HEIGHT BUDGET — L1's
-    # crown top reached z~=15.4 for height=6 (2.57x); L2 bounds the recursion +
-    # uniformly fits the crown top to `height`; (2) DISTRIBUTED primaries along
-    # the trunk (kill the wishbone; activate firstBranchHeight); (3) PIPE-MODEL
-    # radii r_child=r_p*(1/n)^(1/e) + trunk taper into the B3 band + per-segment
-    # `curve`. The gate is C2+C3 (thinning 0.55-0.75, down-angle 30-55) and B2+B3
-    # (base r/height 0.02-0.05, trunk taper 0.3-0.6) PLUS the height budget, on
-    # top of L1's still-green C1+C4. Everything checkable offline from
-    # proof_mesh/skeleton is pinned here (renders cover A3/A4); dual-tier parity
-    # stays on the cheap-when-trivial checklist.
+    # TREE L3 (CANOPY): the first ORGANIC craftsman, now with FOLIAGE. L0 was the
+    # scaffold; L1 grew the recursive branching SKELETON; L2 made it structurally
+    # believable (pipe-model radii, height budget, distributed primaries). L3
+    # drapes `clumpCount` DISCRETE icosphere blobs on the OUTER (deepest-level)
+    # branch tips — a clumped, gapped foliage MASS, NOT a single spherical
+    # lollipop. The L3 gate is CANOPY D1+D2+D4: D1 (>=6 distinct clumps at outer
+    # tips, gaps between them), D2 (the PINNED fill proxy Sum(clump vols)/crown-
+    # sphere vol in the reads-as-MASS band 0.15<=fill<0.6), D4 (clumps in the UPPER crown only, above
+    # firstBranchHeight*height). The clumps fill the EXISTING crown — the A2
+    # full-mesh-width <=1.05 guard (now measured WITH the canopy) still holds, so
+    # the canopy did not silently re-widen the armature. All of L2's gates (C2+C3,
+    # B2+B3, height budget) and L1's (C1+C4) stay green on the unchanged skeleton.
+    # Everything checkable offline from proof_mesh/canopy_clumps is pinned here
+    # (renders cover the silhouette read); dual-tier parity stays on the checklist.
     assert "tree" in registry, "tree craftsman not discovered"
     # The tree manifest must declare ALL 24 params up front (schema stability
     # across L0->L5) and use only the C++-known types.
@@ -810,6 +811,51 @@ def main() -> int:
     assert crown_w_over_h <= 1.05, \
         f"A2: full-mesh crown XY width/max-z {crown_w_over_h:.3f} must be <= 1.05 " \
         f"(over-wide sprawl — width {crown_xy_width:.3f}, max-z {a2_max_z:.3f})"
+
+    # ---- L3 (CANOPY) gate: D1 + D2 + D4. The canopy is `clumpCount` discrete
+    # icosphere blobs at the OUTER tips — a foliage MASS with gaps, NOT a swept
+    # lollipop. canopy_clumps() returns the clump centres + the PINNED fill proxy
+    # off the SAME fitted skeleton the skin uses, so the gate reads the rendered
+    # canopy without re-parsing the mesh.
+    clump_centres, clump_size, d2_fill = tree.canopy_clumps(tree_ops[0]["params"])
+
+    # D1 — >=6 distinct clumps at the outer tips. The default clumpCount is 72.
+    clump_count_default = int(float(tree_defaults["clumpCount"]))
+    assert clump_count_default >= 6, \
+        f"D1: clumpCount default {clump_count_default} must be >=6"
+    assert len(clump_centres) >= 6, \
+        f"D1: need >=6 distinct canopy clumps, got {len(clump_centres)}"
+    # Distinct centres (no two clumps stacked on one tip) — the gaps are real.
+    assert len({(round(c[0], 6), round(c[1], 6), round(c[2], 6)) for c in clump_centres}) \
+        == len(clump_centres), "D1: canopy clumps must sit at DISTINCT tips (no overlap-stack)"
+
+    # D2 — the PINNED fill proxy in the reads-as-MASS BAND 0.15 <= fill < 0.6
+    # (doc 7). The lower bound is the L3 critique's fix: 14 clumps @0.55 gave
+    # fill~0.045 (~4.5%) — a near-EMPTY crown that read as decorated tips, the
+    # OPPOSITE failure from a lollipop, yet it slipped past the old <0.6-only
+    # gate. The upper bound keeps gaps (not a solid lollipop). The chosen defaults
+    # (72 clumps @0.64) land ~0.27, mid-band. The band locks BOTH failure modes
+    # offline: a future sparseness regression trips the floor, an inflation the
+    # ceiling.
+    assert 0.15 <= d2_fill < 0.6, \
+        f"D2: canopy fill proxy {d2_fill:.3f} must be in [0.15, 0.6) — reads as a " \
+        f"foliage MASS (above empty) AND clumped+gapped (below a lollipop)"
+
+    # D4 — foliage in the UPPER crown only: every clump centroid sits ABOVE
+    # firstBranchHeight*height so the bare bole is never skirted by leaves.
+    d4_cut = first_branch_frac * tree_height
+    min_clump_z = min(c[2] for c in clump_centres)
+    assert min_clump_z > d4_cut, \
+        f"D4: lowest clump centroid z {min_clump_z:.3f} must be ABOVE the bole cut {d4_cut:.3f}"
+
+    # The clumps must actually appear in the RENDERED mesh, not just the helper:
+    # icosphere blobs add verts ABOVE the bole cut. (The skeleton-only checks
+    # below would pass even if the canopy were never skinned — this guards the
+    # wiring in _local_mesh.) leafSubdiv=1 → 32 tris × clumpCount ≈ 450 tris.
+    canopy_min_tris = 8 * len(clump_centres)  # >=8 tris/clump even at subdiv=0
+    tris_with_canopy = sum(len(face) - 2 for face in tree_faces)
+    assert tris_with_canopy >= canopy_min_tris, \
+        f"canopy not skinned into the mesh: {tris_with_canopy} tris < {canopy_min_tris} expected from clumps"
 
     # C1 (BRANCHING gate) — >=3 visible branch LEVELS (trunk -> primary ->
     # secondary -> tertiary). skeleton_levels() returns the distinct levels; the

@@ -39,6 +39,13 @@ re-bless to hide it).
 | — | baseline | — | baseline 6c632293 | master @0d5ca60 GREEN 106/106 |
 | 2026-06-18 ~19:3x | **1. regression-lock golden (CANARY)** | `3e01ca7` → `5aa28d9` | ✅ byte-identical (test #107 + independent sha256) | GREEN 107/107 |
 | 2026-06-18 ~19:5x | **2. syncGraphForMovedObject** | `f4dbf8f` → `7e94407` | ✅ byte-identical (no map data changed) | GREEN 108/108 |
+| 2026-06-18 ~20:0x | **3a. additive int level=0 (DraftingMapRoom)** | `47136bb` → `c3e41da` | ✅ byte-identical (level=0 default IS neutral) | GREEN 108/108 |
+
+Slice 3a = the FIRST additive FIELD. Rides ONLY in struct + MessagePack
+(field-tagged, missing→0); MapToonExport UNTOUCHED, so the positional TOON wire is
+unchanged → canary byte-identical = the default is neutral. drafting-core
+CONSULT-CLEARED (no follow-up). **This is the template for every additive struct
+slice: MessagePack-additive + TOON-untouched-or-omit-at-default.**
 
 Slice 2 = pure DraftingGraphOps anchor-resync (move-counterpart of prune); retires
 the deriveEdge drift. Hot files touched (DraftingGraphOps, DraftingMapTypes.h

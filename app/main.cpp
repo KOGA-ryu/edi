@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QImage>
 #include <QProcess>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
@@ -16,6 +17,7 @@
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingSerialize.h"
+#include "io/AssetZooStore.h"
 #include "io/CryptGenerator.h"
 #include "io/MapToonExport.h"
 #include "io/RoomSpecStore.h"
@@ -24,6 +26,9 @@
 #include "io/TextSessionStore.h"
 #include "widgets/DrawingCanvasWidget.h"
 #include "widgets/EdiShellWindow.h"
+#include "zoo/AssetZoo.h"
+#include "zoo/ZooTesterCatalog.h"
+#include "zoo/ZooToonExport.h"
 
 namespace {
 
@@ -152,6 +157,16 @@ int main(int argc, char **argv)
                        "the TOON carries scaled feet + an advisory 'scale: S' header). Default 1."),
         QStringLiteral("S"),
         QStringLiteral("1"));
+    // Realize chain R1c: emit the curated tester-zoo fixtures (catalog + manifest)
+    // headless, mirroring --generate-crypt. Writes <dir>/tester_zoo.editzoo (the
+    // MessagePack catalog) + <dir>/tester_zoo.manifest.toon (the curated-only TOON
+    // the realizer reads), then exits — no window. The records come from the pure
+    // declarative testerAssetCatalog(); this seam only adds Qt persistence.
+    const QCommandLineOption mintTesterZooOption(
+        QStringLiteral("mint-tester-zoo"),
+        QStringLiteral("Mint the curated tester zoo to <dir>/tester_zoo.editzoo + "
+                       "tester_zoo.manifest.toon (realize chain R1c), then exit."),
+        QStringLiteral("dir"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
@@ -164,6 +179,7 @@ int main(int argc, char **argv)
     parser.addOption(exportMapOption);
     parser.addOption(generateCryptOption);
     parser.addOption(scaleOption);
+    parser.addOption(mintTesterZooOption);
     parser.addOption(workspaceOption);
     parser.process(app);
 
@@ -200,6 +216,56 @@ int main(int argc, char **argv)
         out.write(toon.data(), static_cast<qint64>(toon.size()));
         QTextStream(stdout) << "generate-crypt: wrote " << parser.value(generateCryptOption)
                             << " (scale " << scale << ", " << spec.rooms.size() << " rooms)\n";
+        return 0;
+    }
+
+    // Realize chain R1c terminus: mint the curated tester zoo to its sample
+    // fixtures, headless. The records are DATA (testerAssetCatalog, edi_zoo_core,
+    // Qt-free); this block only does the Qt persistence — the same pure/Qt split
+    // the codebase keeps everywhere. Two artifacts land side by side: the
+    // MessagePack catalog (round-trips via AssetZooStore) and the curated-only
+    // TOON manifest the realizer reads (exportZooToToon).
+    if (parser.isSet(mintTesterZooOption)) {
+        QTextStream err(stderr);
+        const QString dir = parser.value(mintTesterZooOption);
+
+        edi::zoo::AssetZoo zoo;
+        zoo.assets = edi::zoo::testerAssetCatalog();
+
+        // PRECONDITION: a record carrying a manifest reserved char would SILENTLY
+        // corrupt the TOON round-trip, so refuse to persist before writing anything
+        // (the recipeScriptParamKeyProblem precedent — validate at the boundary).
+        for (const edi::zoo::AssetRecord &record : zoo.assets) {
+            if (const auto problem = edi::zoo::zooManifestFieldProblem(record)) {
+                err << "mint-tester-zoo: record '" << QString::fromStdString(record.id)
+                    << "' is unfit for the manifest: " << QString::fromStdString(*problem) << '\n';
+                return 2;
+            }
+        }
+
+        const QString catalogPath = QDir(dir).filePath(QStringLiteral("tester_zoo.editzoo"));
+        const auto saved = edi::io::saveAssetZoo(catalogPath, zoo);
+        if (!saved.ok) {
+            err << "mint-tester-zoo: could not save catalog " << catalogPath << ": "
+                << QString::fromStdString(saved.message) << '\n';
+            return 2;
+        }
+
+        // The curated-only TOON manifest. QSaveFile (atomic temp-then-rename) keeps
+        // a half-written manifest from ever being committed as a fixture. UTF-8 is
+        // explicit — the manifest carries the `·` separator (U+00B7) in texture runs.
+        const std::string manifest = edi::zoo::exportZooToToon(zoo);
+        const QString manifestPath = QDir(dir).filePath(QStringLiteral("tester_zoo.manifest.toon"));
+        QSaveFile manifestFile(manifestPath);
+        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Text)
+            || manifestFile.write(manifest.data(), static_cast<qint64>(manifest.size())) < 0
+            || !manifestFile.commit()) {
+            err << "mint-tester-zoo: could not write manifest " << manifestPath << '\n';
+            return 2;
+        }
+
+        QTextStream(stdout) << "mint-tester-zoo: wrote " << catalogPath << " + " << manifestPath
+                            << " (" << zoo.assets.size() << " curated assets)\n";
         return 0;
     }
 

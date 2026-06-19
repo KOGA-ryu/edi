@@ -1,0 +1,4 @@
+kind: zoo
+
+assets[1]{id,name,category,meshRef,proxyRef,textures,sockets}:
+  asset_0001,star6,ornament,meshes/star6.blend,"","",""

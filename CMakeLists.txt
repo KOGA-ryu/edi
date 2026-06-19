@@ -220,6 +220,8 @@ add_library(edi_zoo_core STATIC
     src/zoo/AssetZooSerialize.cpp
     src/zoo/ZooToonExport.h
     src/zoo/ZooToonExport.cpp
+    src/zoo/ZooTesterCatalog.h
+    src/zoo/ZooTesterCatalog.cpp
 )
 
 target_include_directories(edi_zoo_core PUBLIC
@@ -397,6 +399,7 @@ add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cp
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
 add_edi_contract_test(asset_zoo_tests tests/asset_zoo_tests.cpp edi_zoo_core)
 add_edi_contract_test(zoo_toon_export_tests tests/zoo_toon_export_tests.cpp edi_zoo_core)
+add_edi_contract_test(zoo_tester_catalog_tests tests/zoo_tester_catalog_tests.cpp edi_zoo_core)
 add_edi_contract_test(asset_link_resolve_tests tests/asset_link_resolve_tests.cpp edi_asset_link)
 add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
 target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)
@@ -812,6 +815,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/MapToonExport.cpp
     src/io/CryptGenerator.h
     src/io/CryptGenerator.cpp
+    src/io/AssetZooStore.h
+    src/io/AssetZooStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h
@@ -893,6 +898,7 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         edi_drafting_core
         edi_recipe_core
         edi_scripting_core
+        edi_zoo_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets

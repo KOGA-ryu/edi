@@ -16,6 +16,7 @@
 #include "core/DrawingCore.h"
 #include "drafting/DraftingRoom.h"
 #include "drafting/DraftingSerialize.h"
+#include "io/CryptGenerator.h"
 #include "io/MapToonExport.h"
 #include "io/RoomSpecStore.h"
 #include "io/SettingsStore.h"
@@ -137,6 +138,20 @@ int main(int argc, char **argv)
                        "resolve to drafting) before --snapshot/--probe. Ignored by --export-map "
                        "(headless); 'settings' is UI-only and refused here."),
         QStringLiteral("mode"));
+    // The single user-facing SCALE knob: generate the hardcoded crypt straight to a
+    // Seam-B TOON, dialled by --scale (default 1). Headless terminus of the M0 chain
+    // (generator -> TOON -> realizer). --scale defaults to "1" (identity), not a magic
+    // dimension — it is the user parameter the whole chain reads.
+    const QCommandLineOption generateCryptOption(
+        QStringLiteral("generate-crypt"),
+        QStringLiteral("Generate the crypt MapSpec straight to a TOON map (Seam B) at --scale, then exit."),
+        QStringLiteral("toon-path"));
+    const QCommandLineOption scaleOption(
+        QStringLiteral("scale"),
+        QStringLiteral("Uniform scale S for --generate-crypt (multiplies every base dimension; "
+                       "the TOON carries scaled feet + an advisory 'scale: S' header). Default 1."),
+        QStringLiteral("S"),
+        QStringLiteral("1"));
     parser.addOption(snapshotOption);
     parser.addOption(probeOption);
     parser.addOption(paintBenchOption);
@@ -147,8 +162,46 @@ int main(int argc, char **argv)
     parser.addOption(asciiMapOption);
     parser.addOption(opsFileOption);
     parser.addOption(exportMapOption);
+    parser.addOption(generateCryptOption);
+    parser.addOption(scaleOption);
     parser.addOption(workspaceOption);
     parser.process(app);
+
+    // M0 one-command terminus: generate the crypt -> TOON at a user-dialled scale,
+    // headless (no window). Mirrors --export-map, but the SOURCE is the in-repo
+    // generator, not a file. The document is driven through a controller so the
+    // placed block instances (sarcophagus/brazier/stair) land in the blocks[] array,
+    // exactly like --export-map's .edidraw branch.
+    if (parser.isSet(generateCryptOption)) {
+        QTextStream err(stderr);
+        bool scaleOk = false;
+        const double scale = parser.value(scaleOption).toDouble(&scaleOk);
+        if (!scaleOk || !std::isfinite(scale) || scale <= 0.0) {
+            err << "generate-crypt: --scale must be a positive number (got '"
+                << parser.value(scaleOption) << "')\n";
+            return 2;
+        }
+        const edi::drafting::MapSpec spec = edi::io::buildCryptMapSpec(scale);
+        // canvasPerAuthoredUnit = 1.0 (identity): the document stores AUTHORED FEET
+        // directly; exportMapToToon's sceneScale carries S into the advisory header,
+        // so nothing is scaled twice (socket contract §0/§5 fence).
+        DrawingDocumentController controller;
+        if (!controller.createMapFromSpec(spec, 1.0)) {
+            err << "generate-crypt: builder rejected the crypt MapSpec\n";
+            return 2;
+        }
+        const std::string toon = edi::io::exportMapToToon(
+            controller.draftingDocument(), "crypt", "feet", scale);
+        QFile out(parser.value(generateCryptOption));
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            err << "generate-crypt: could not write " << parser.value(generateCryptOption) << '\n';
+            return 2;
+        }
+        out.write(toon.data(), static_cast<qint64>(toon.size()));
+        QTextStream(stdout) << "generate-crypt: wrote " << parser.value(generateCryptOption)
+                            << " (scale " << scale << ", " << spec.rooms.size() << " rooms)\n";
+        return 0;
+    }
 
     // Seam B export (Phase D): project a .map.toml straight to a TOON map document
     // the game engine reads, then exit — a headless CLI action that needs no

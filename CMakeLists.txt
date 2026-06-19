@@ -677,6 +677,8 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/RoomSpecStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/DrawingRecentFilesStore.h

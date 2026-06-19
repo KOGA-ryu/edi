@@ -617,6 +617,69 @@ int main()
         assert(noDerivation.value->rooms[0].derivation == RoomDerivation::Placed);
     }
 
+    // Phase-1 slice 3c — DraftingNode round-trip + forward-compat (brief 061).
+    // Connector nodes are document-level data (not geometry variants). They ride the
+    // same additive "missing ⇒ empty" read discipline as plugs/blocks/rooms.
+    {
+        // --- Value + byte-layer round-trip: 2 nodes, all fields distinct. ---
+        DraftingDocument nodeDoc = makeDraftingDocument("nodes-rt");
+
+        DraftingNode nodeA;
+        nodeA.id     = "node_0001";
+        nodeA.anchor = {3.0, 7.0};
+        nodeA.radius = 1.5; // non-default, so the round-trip tests the field explicitly
+        nodeA.type   = "junction";
+        nodeA.name   = "cross_point";
+
+        DraftingNode nodeB;
+        nodeB.id     = "node_0002";
+        nodeB.anchor = {10.0, 2.5};
+        nodeB.radius = kDefaultNodeRadius; // default value also survives the round-trip
+        nodeB.type   = "anchor";
+        nodeB.name   = "entry_stub";
+
+        nodeDoc.nodes.push_back(nodeA);
+        nodeDoc.nodes.push_back(nodeB);
+
+        // Value layer.
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(nodeDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->nodes.size() == 2);
+        const DraftingNode &va = vr.value->nodes[0];
+        assert(va.id == "node_0001");
+        assert(va.anchor.x == 3.0 && va.anchor.y == 7.0);
+        assert(va.radius == 1.5);
+        assert(va.type == "junction");
+        assert(va.name == "cross_point");
+        const DraftingNode &vb = vr.value->nodes[1];
+        assert(vb.id == "node_0002");
+        assert(vb.radius == kDefaultNodeRadius);
+        assert(vb.type == "anchor");
+
+        // Byte layer (full MessagePack encode/decode path).
+        auto br = decodeDraftingDocument(encodeDraftingDocument(nodeDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->nodes.size() == 2);
+        assert(br.value->nodes[0].id == "node_0001");
+        assert(br.value->nodes[0].radius == 1.5);
+        assert(br.value->nodes[1].id == "node_0002");
+
+        // --- Forward-compat: missing "nodes" key ⇒ empty vector. ---
+        // Simulates every file written before slice 3c — they have no "nodes" key
+        // in the document map. Strip it and verify the read produces an empty list.
+        MsgPackValue docVal = draftingDocumentToValue(nodeDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            auto &dm = topEntry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "nodes") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto noNodes = draftingDocumentFromValue(docVal);
+        assert(noNodes.ok && noNodes.value);
+        assert(noNodes.value->nodes.empty());
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

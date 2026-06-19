@@ -72,6 +72,10 @@ struct DraftingDocument {
     // Named map rooms (Seam C): the neutral footprints the engine export needs,
     // kept beside the graph so they ride the same free undo + persistence.
     std::vector<DraftingMapRoom> rooms;
+    // Connector nodes (Phase-1 decision 1/11 — inverted model). Small labeled points
+    // placed by the author; spans between adjacent nodes become rooms (Phase 2+).
+    // Additive: a file without a "nodes" key decodes to an empty vector (no bump).
+    std::vector<DraftingNode> nodes;
     // Block library rides inside the document too (same free undo as the graph).
     std::vector<DraftingBlock> blocks;
     std::vector<DraftingObjectId> selectedObjectIds;

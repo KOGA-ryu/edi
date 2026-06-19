@@ -107,7 +107,7 @@ MANIFEST = {
         {"key": "taper", "label": "Taper", "type": "number", "default": 0.85},
         {"key": "branchLevels", "label": "Branch Levels", "type": "integer", "default": 4},
         {"key": "childrenPerNode", "label": "Children / Node", "type": "integer", "default": 3},
-        {"key": "firstBranchHeight", "label": "First Branch Height (frac)", "type": "number", "default": 0.35},
+        {"key": "firstBranchHeight", "label": "First Branch Height (frac)", "type": "number", "default": 0.6},
         {"key": "downAngle", "label": "Down Angle (deg)", "type": "number", "default": 45.0},
         {"key": "downAngleJitter", "label": "Down Angle Jitter (deg)", "type": "number", "default": 12.0},
         {"key": "rotateAngle", "label": "Rotate Angle (deg)", "type": "number", "default": 137.5},
@@ -215,6 +215,24 @@ HEIGHT_BUDGET_TARGET_FRAC = 1.0
 # DRAPING foliage on the existing silhouette, not swelling a sphere to fill one.)
 CLUMP_INWARD_NUDGE_FRAC = 1.0
 
+# --- NAMED L4 (BARK / BASE) constants -----------------------------------------
+# ROOT-FLARE BUTTRESS. L0-L3 flared ONLY the very bottom ring by `baseFlare`, so
+# the base met the trunk in ONE abrupt step (radius halving from ring 0 to ring
+# 1). A real root buttress EASES: the trunk swells over the lowest stretch and
+# tapers smoothly into the bole. We spread the flare over the lowest
+# BUTTRESS_RINGS segments — the bottom ring carries the full `baseFlare`, and the
+# extra multiplier decays to 1.0 by the BUTTRESS_RINGS-th ring — so the base
+# reads as a flared root, not a stacked-disc step. The B4 gate (bottom ring ÷
+# next ring >= 1.3) still holds because the per-ring flare drop at the base is
+# the steepest part of the ease (see _trunk_mesh).
+BUTTRESS_RINGS = 2
+# How the buttress flare eases ring-to-ring: each ring up, the EXTRA flare (the
+# amount above 1.0) is multiplied by this, so the swell decays geometrically into
+# the trunk. 0.45 keeps the bottom-to-next drop steep enough for B4 (>=1.3) while
+# the second ring still carries a visible residual flare (a smooth root, not a
+# single ledge then bare trunk).
+BUTTRESS_EASE = 0.45
+
 
 def _ring(cx, cy, cz, radius, sides):
     """A horizontal ring of `sides` verts centred at (cx,cy,cz). Returned as a
@@ -229,10 +247,11 @@ def _ring(cx, cy, cz, radius, sides):
 def _trunk_mesh(height, trunk_radius, base_flare, segments, sides):
     """A tapered vertical trunk: `segments` stacked ring loops from z=0 to
     z=height, each ring's radius scaled by TRUNK_TAPER_PER_SEGMENT per segment so
-    the trunk narrows with height, and the very bottom ring widened by
-    `base_flare` (root buttress). Closed at the bottom AND the top (a cap ring) so
-    the trunk reads as a solid tube; branches overlap it (no weld, per R1).
-    Returns (verts, faces, top_radius).
+    the trunk narrows with height, and the lowest BUTTRESS_RINGS rings widened by
+    an EASED `base_flare` (a root buttress that swells at the very base and blends
+    smoothly into the trunk — see the buttress constants, L4). Closed at the
+    bottom AND the top (a cap ring) so the trunk reads as a solid tube; branches
+    overlap it (no weld, per R1). Returns (verts, faces, top_radius).
 
     L2 note: the trunk uses the dedicated TRUNK_TAPER_PER_SEGMENT (steeper than
     the param `taper`) so top/base lands in the B3 band (0.3-0.6) regardless of
@@ -244,9 +263,18 @@ def _trunk_mesh(height, trunk_radius, base_flare, segments, sides):
     radii = []
     radius = trunk_radius
     for seg in range(segments + 1):
-        # The base ring gets the flare multiplier; every higher ring tapers
-        # geometrically by the trunk per-segment retention.
-        flare = base_flare if seg == 0 else 1.0
+        # ROOT-FLARE BUTTRESS (L4): the flare is no longer a single bottom-ring
+        # step — it EASES over the lowest BUTTRESS_RINGS rings. The bottom ring
+        # carries the full `baseFlare`; each ring up multiplies the EXTRA flare
+        # (the part above 1.0) by BUTTRESS_EASE so the swell decays smoothly into
+        # the trunk's normal geometric taper. Rings beyond the buttress get flare
+        # 1.0 (pure taper), exactly as before. WHY ease the EXTRA (not the whole
+        # multiplier): the trunk taper is already applied via `radius`, so the
+        # flare must blend the SWELL only, leaving the underlying taper untouched.
+        if seg < BUTTRESS_RINGS:
+            flare = 1.0 + (base_flare - 1.0) * (BUTTRESS_EASE ** seg)
+        else:
+            flare = 1.0
         radii.append(max(1e-4, radius * flare))
         radius *= TRUNK_TAPER_PER_SEGMENT
 
@@ -397,7 +425,7 @@ def _skeleton(params: dict):
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     branch_levels = max(0, int(float(params.get("branchLevels", 4))))
     children_per_node = max(1, int(float(params.get("childrenPerNode", 3))))
-    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
     down_angle = math.radians(float(params.get("downAngle", 45.0)))
     rotate_angle = math.radians(float(params.get("rotateAngle", 137.5)))
     # Fallback mirrors the MANIFEST default (0.56): the sample recipe doesn't pin
@@ -641,7 +669,18 @@ def _clump_centres(scaled_skel, params: dict, first_branch_z):
     there are more tips than clumps; all of them when fewer), then nudge each
     centre INWARD along its branch by CLUMP_INWARD_NUDGE_FRAC*clumpSize so the
     blob fills the existing crown instead of widening it past A2. Returns the list
-    of clump-centre (x,y,z). Pure + deterministic — no RNG (jitter is L5)."""
+    of clump-centre (x,y,z). Pure + deterministic — no RNG (jitter is L5).
+
+    L4 (crown-ratio): the eligibility filter is applied TWICE around the inward
+    nudge. _outer_tips already drops any TIP below first_branch_z (D4 — keep the
+    bole bare). But the inward nudge moves a clump's CENTRE along its (often
+    arcing) branch, so a tip that cleared the cut can land its centre BELOW it.
+    Since D4 scores the foliage MASS by its CENTRES, we re-filter on the NUDGED
+    centre z here. At the old L3 bole cut (firstBranchHeight=0.35) every tip sat
+    well above the cut, so this drops nothing — behavior-preserving there. It only
+    bites once L4 raises firstBranchHeight (0.6) to grow a believable bole: the
+    higher cut then cleanly raises the foliage floor (lowering LCR into the
+    healthy 0.40-0.65 band) WITHOUT letting a drooped clump skirt the bole."""
     clump_count = max(1, int(float(params.get("clumpCount", 72))))
     clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
 
@@ -660,9 +699,14 @@ def _clump_centres(scaled_skel, params: dict, first_branch_z):
     nudge = CLUMP_INWARD_NUDGE_FRAC * clump_size
     centres = []
     for (tip, indir) in chosen:
+        cz = tip[2] + indir[2] * nudge
+        # D4 on the MASS centre: drop any clump whose nudged centre fell below the
+        # bole cut (the inward nudge can lower a drooped tip's centre past it).
+        if cz <= first_branch_z:
+            continue
         centres.append((tip[0] + indir[0] * nudge,
                         tip[1] + indir[1] * nudge,
-                        tip[2] + indir[2] * nudge))
+                        cz))
     return centres
 
 
@@ -698,7 +742,7 @@ def canopy_clumps(params: dict):
     floor reads as a foliage MASS (not decorated tips), below the ceiling keeps
     gaps (not a solid lollipop)."""
     height = max(1e-3, float(params.get("height", 6.0)))
-    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
     clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
     skel = _fitted_skeleton(params)
     centres = _clump_centres(skel, params, first_branch * height)
@@ -728,7 +772,7 @@ def _local_mesh(params: dict):
     base_flare = float(params.get("baseFlare", 1.6))
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
-    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
     clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
     leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
 
@@ -804,6 +848,54 @@ def skeleton_levels(params: dict):
     return sorted(levels)
 
 
+def face_split(params: dict):
+    """A PURE helper (no bpy) reporting the BARK/LEAF face boundary for L4's
+    material assignment. Returns (structural_face_count, canopy_face_count): the
+    number of STRUCTURAL faces (the trunk + every branch tube) followed by the
+    number of CANOPY faces (the icosphere clumps). The two sum to len(faces).
+
+    WHY a known boundary and not a per-face geometric test: _local_mesh builds
+    the mesh in a FIXED order — trunk first, then every branch tube, THEN every
+    canopy clump (it never interleaves). So face index `structural_face_count` is
+    exactly where the canopy begins. `build` slices on this index to set each
+    face's material_index — bark below it, leaf at/above it — WITHOUT re-deriving
+    geometry (the verts/faces still come from proof_mesh, so dual-tier parity F4
+    is untouched: the GEOMETRY is identical, only material_index differs, which
+    the OBJ proof never carries). Recomputing the split here from the SAME pure
+    generator (rather than threading a count out of _local_mesh) keeps proof_mesh
+    a clean (verts, faces) and lets the smoke assert the boundary offline."""
+    height = max(1e-3, float(params.get("height", 6.0)))
+    trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
+    base_flare = float(params.get("baseFlare", 1.6))
+    tube_sides = max(3, int(float(params.get("tubeSides", 6))))
+    segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
+    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
+
+    skel = _fitted_skeleton(params)
+    trunk_branch = next(b for b in skel if b["level"] == 0)
+    scaled_trunk_height = trunk_branch["nodes"][-1][2]
+
+    # Structural faces = the trunk mesh + every branch tube (level >= 1).
+    _tv, trunk_faces, _tr = _trunk_mesh(
+        scaled_trunk_height, trunk_radius, base_flare, segments, tube_sides)
+    structural = len(trunk_faces)
+    for branch in skel:
+        if branch["level"] == 0:
+            continue
+        _bv, b_faces = _branch_tube(branch, tube_sides)
+        structural += len(b_faces)
+
+    # Canopy faces = one icosphere per chosen clump centre.
+    first_branch_z = first_branch * height
+    canopy = 0
+    for (cx, cy, cz) in _clump_centres(skel, params, first_branch_z):
+        _cv, c_faces = _icosphere(cx, cy, cz, clump_size, leaf_subdiv)
+        canopy += len(c_faces)
+    return structural, canopy
+
+
 def proof_mesh(op: dict):
     """Pure (verts, faces) for the proof, placed at the op's x/y/z (base at z=0)."""
     verts, faces = _local_mesh(op.get("params", {}))
@@ -814,6 +906,17 @@ def proof_mesh(op: dict):
 
 
 def build(op: dict):  # pragma: no cover — exercised in Blender
+    """The bpy twin: GEOMETRY comes from proof_mesh (dual-tier parity F4, no
+    second generator, no RNG); L4 then adds the BARK/LEAF material distinction.
+
+    Two material slots are created — barkMat for the structural faces (trunk +
+    branch tubes) and leafMat for the canopy clump faces — and each face's
+    material_index is set per face_split's known boundary. The split is a pure
+    function of the SAME params, so the geometry stays byte-identical to the proof
+    (the OBJ proof carries no materials); only material_index, a per-face
+    attribute Blender stores alongside the unchanged verts/faces, differs. Both
+    keys are EXISTING MATERIALS keys (aged_stone bark / sandstone leaf, additive-
+    only — real green foliage awaits the art forge)."""
     import bpy
 
     verts, faces = proof_mesh(op)
@@ -823,4 +926,36 @@ def build(op: dict):  # pragma: no cover — exercised in Blender
     mesh.update(calc_edges=True)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
+
+    # Two material slots: slot 0 = bark (structural), slot 1 = leaf (canopy).
+    # Names mirror the MANIFEST defaults; the preview harness may map these names
+    # to legibility colors, but the BAKED key is the MATERIALS key. We enable
+    # nodes and set the Principled Base Color from the (existing) MATERIALS table
+    # so the baked asset renders a sensible shade in Cycles — same node wiring the
+    # arch ops use in edi_craft.build (additive: still EXISTING keys only).
+    import edi_craft  # the shared MATERIALS table (additive, existing keys only)
+    params = op.get("params", {})
+    bark_key = str(params.get("barkMat", "aged_stone"))
+    leaf_key = str(params.get("leafMat", "sandstone"))
+
+    def _mat(key):
+        mat = bpy.data.materials.new(key)
+        color = edi_craft.MATERIALS.get(key, (key, (0.6, 0.6, 0.6, 1.0)))[1]
+        mat.diffuse_color = color
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = color
+            bsdf.inputs["Roughness"].default_value = 0.68
+        return mat
+
+    mesh.materials.append(_mat(bark_key))  # index 0
+    mesh.materials.append(_mat(leaf_key))  # index 1
+
+    # Assign per the known structure->canopy boundary: faces [0, structural) are
+    # bark (index 0); faces [structural, end) are leaf (index 1).
+    structural, _canopy = face_split(params)
+    for i, poly in enumerate(mesh.polygons):
+        poly.material_index = 0 if i < structural else 1
+
     return obj

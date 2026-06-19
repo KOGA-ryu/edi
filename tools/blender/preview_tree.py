@@ -46,6 +46,17 @@ ANGLE_DIRS = {
     "top":          (0.0, 89.0),    # plan view — canopy gaps (L3+)
 }
 
+# PREVIEW-ONLY legibility colors (L4). The tree's build() assigns TWO material
+# slots whose names are the asset's bark/leaf MATERIALS keys (e.g. aged_stone /
+# sandstone — warm greys/tans that read alike in a render). This map repaints
+# those NAMED materials to distinguishable browns/greens so the render reads bark
+# vs canopy at a glance. It is a RENDER-TOOL nicety only — the BAKED asset still
+# carries the MATERIALS keys; we only change the preview material's display color.
+PREVIEW_MATERIAL_COLORS = {
+    "aged_stone": (0.32, 0.20, 0.11, 1.0),   # bark — warm brown
+    "sandstone":  (0.20, 0.42, 0.16, 1.0),   # foliage — leaf green (preview only)
+}
+
 
 def _arg(argv, prefix, default=None):
     return next((a.split("=", 1)[1] for a in argv if a.startswith(prefix)), default)
@@ -147,6 +158,20 @@ def main(argv):
     if built == 0:
         sys.stderr.write("recipe built no geometry\n")
         return 3
+
+    # L4 legibility: repaint the built bark/leaf materials to distinguishable
+    # preview colors (brown bark, green foliage). PREVIEW-ONLY — does not touch
+    # the baked asset's MATERIALS keys. We set both the viewport diffuse_color and
+    # (when node-based) the Principled Base Color so Cycles renders the contrast.
+    for mat in bpy.data.materials:
+        color = PREVIEW_MATERIAL_COLORS.get(mat.name)
+        if color is None:
+            continue
+        mat.diffuse_color = color
+        if getattr(mat, "use_nodes", False) and mat.node_tree is not None:
+            bsdf = mat.node_tree.nodes.get("Principled BSDF")
+            if bsdf is not None:
+                bsdf.inputs["Base Color"].default_value = color
 
     # A ground plane at z=0 so the trunk base reads as planted, plus a neutral
     # mid-grey world so the silhouette is legible from every angle.

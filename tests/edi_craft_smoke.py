@@ -695,20 +695,20 @@ def main() -> int:
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
-    # TREE L3 (CANOPY): the first ORGANIC craftsman, now with FOLIAGE. L0 was the
-    # scaffold; L1 grew the recursive branching SKELETON; L2 made it structurally
-    # believable (pipe-model radii, height budget, distributed primaries). L3
-    # drapes `clumpCount` DISCRETE icosphere blobs on the OUTER (deepest-level)
-    # branch tips — a clumped, gapped foliage MASS, NOT a single spherical
-    # lollipop. The L3 gate is CANOPY D1+D2+D4: D1 (>=6 distinct clumps at outer
-    # tips, gaps between them), D2 (the PINNED fill proxy Sum(clump vols)/crown-
-    # sphere vol in the reads-as-MASS band 0.15<=fill<0.6), D4 (clumps in the UPPER crown only, above
-    # firstBranchHeight*height). The clumps fill the EXISTING crown — the A2
-    # full-mesh-width <=1.05 guard (now measured WITH the canopy) still holds, so
-    # the canopy did not silently re-widen the armature. All of L2's gates (C2+C3,
+    # TREE L4 (BARK / BASE): the first ORGANIC craftsman, now PROPORTIONED. L0 was
+    # the scaffold; L1 grew the recursive branching SKELETON; L2 made it
+    # structurally believable (pipe-model radii, height budget, distributed
+    # primaries); L3 draped a clumped, gapped foliage MASS. L4 fixes the L3 read
+    # (short/thin trunk under a dominant crown): firstBranchHeight rises to 0.6 to
+    # grow a believable bole (B1 live crown ratio into the healthy 0.40-0.65 band),
+    # the root flare eases over a short multi-ring buttress (B4 >= 1.3, no abrupt
+    # step), and build() assigns a BARK/LEAF material split on the known face
+    # boundary (geometry still from proof_mesh — parity F4 intact). The L4 gate is
+    # PROPORTION B1+B4; the L3 gate (CANOPY D1+D2+D4) and all of L2's (C2+C3,
     # B2+B3, height budget) and L1's (C1+C4) stay green on the unchanged skeleton.
-    # Everything checkable offline from proof_mesh/canopy_clumps is pinned here
-    # (renders cover the silhouette read); dual-tier parity stays on the checklist.
+    # Everything checkable offline from proof_mesh/canopy_clumps/face_split is
+    # pinned here (renders cover the silhouette read); dual-tier parity stays on
+    # the checklist.
     assert "tree" in registry, "tree craftsman not discovered"
     # The tree manifest must declare ALL 24 params up front (schema stability
     # across L0->L5) and use only the C++-known types.
@@ -856,6 +856,57 @@ def main() -> int:
     tris_with_canopy = sum(len(face) - 2 for face in tree_faces)
     assert tris_with_canopy >= canopy_min_tris, \
         f"canopy not skinned into the mesh: {tris_with_canopy} tris < {canopy_min_tris} expected from clumps"
+
+    # ---- L4 (BARK / BASE) gate: B1 (live crown ratio) + B4 (base flare). L3
+    # gave a coherent canopy but the crown DOMINATED — the trunk read short/thin
+    # (LCR ~0.73, above the healthy band). L4 raises firstBranchHeight (0.6) to
+    # grow a believable bole, pulling the foliage MASS up so the LCR lands in the
+    # healthy 0.40-0.65 band, and eases the root flare over a short multi-ring
+    # buttress (rather than one abrupt step) while keeping B4 >= 1.3.
+
+    # B1 — LIVE CROWN RATIO: foliage vertical extent / total tree height in
+    # 0.40-0.65 (a healthy crown over a present bole). Foliage extent = the z-span
+    # of the canopy clumps (centre ± clump_size), off the SAME helper the skin
+    # uses. The default tunes toward a healthy mid-band ~0.50.
+    foliage_zs = [c[2] for c in clump_centres]
+    foliage_zmin = min(foliage_zs) - clump_size
+    foliage_zmax = max(foliage_zs) + clump_size
+    lcr = (foliage_zmax - foliage_zmin) / a2_max_z  # a2_max_z = max(tree_zs)
+    assert 0.40 <= lcr <= 0.65, \
+        f"B1: live crown ratio {lcr:.3f} must be in 0.40-0.65 (foliage extent " \
+        f"[{foliage_zmin:.3f}, {foliage_zmax:.3f}] / height {a2_max_z:.3f})"
+
+    # B4 — BASE FLARE: bottom ring radius / next ring radius >= 1.3 (root
+    # buttress). _trunk_mesh now eases the flare over BUTTRESS_RINGS rings; the
+    # steepest drop is bottom->next, so that ratio gates the buttress. Rebuild the
+    # trunk to read its first two ring radii (radius = max horizontal distance
+    # from the trunk axis x=y=0). This assertion was BUILT but never gated at L3.
+    b4_tube_sides = int(float(tree_ops[0]["params"].get("tubeSides", 6)))
+    b4_segments = int(float(tree_ops[0]["params"].get("segmentsPerBranch", 4)))
+    b4_base_flare = float(tree_ops[0]["params"].get("baseFlare", tree_defaults["baseFlare"]))
+    b4_trunk_radius = float(tree_ops[0]["params"]["trunkRadius"])
+    b4_tv, _b4_tf, _b4_tr = tree._trunk_mesh(
+        tree_height, b4_trunk_radius, b4_base_flare, b4_segments, b4_tube_sides)
+    b4_ring0 = max(math.hypot(v[0], v[1]) for v in b4_tv[:b4_tube_sides])
+    b4_ring1 = max(math.hypot(v[0], v[1]) for v in b4_tv[b4_tube_sides:2 * b4_tube_sides])
+    base_flare_ratio = b4_ring0 / b4_ring1
+    assert base_flare_ratio >= 1.3, \
+        f"B4: base flare (bottom ring {b4_ring0:.4f} / next ring {b4_ring1:.4f}) " \
+        f"= {base_flare_ratio:.3f} must be >= 1.3 (root buttress)"
+
+    # MATERIAL HINT (the bark/leaf half of L4): the pure face_split helper reports
+    # the structure->canopy face boundary build() slices on to assign material
+    # slots WITHOUT a second generator (geometry stays from proof_mesh — F4). The
+    # two counts must sum to the total face count (no face unclassified), and both
+    # halves must be non-empty (a real bark mass AND a real leaf mass).
+    struct_faces, canopy_faces = tree.face_split(tree_ops[0]["params"])
+    assert struct_faces + canopy_faces == len(tree_faces), \
+        f"face_split must partition all faces: {struct_faces}+{canopy_faces} != {len(tree_faces)}"
+    assert struct_faces > 0 and canopy_faces > 0, \
+        f"face_split halves must both be non-empty: bark {struct_faces}, leaf {canopy_faces}"
+    # The canopy half must match the icospheres actually skinned (>=8 faces/clump).
+    assert canopy_faces >= 8 * len(clump_centres), \
+        f"face_split canopy count {canopy_faces} < {8 * len(clump_centres)} (one ico per clump)"
 
     # C1 (BRANCHING gate) — >=3 visible branch LEVELS (trunk -> primary ->
     # secondary -> tertiary). skeleton_levels() returns the distinct levels; the

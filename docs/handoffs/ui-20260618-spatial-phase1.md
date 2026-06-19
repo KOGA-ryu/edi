@@ -72,6 +72,34 @@ real count at 0d5ca60). HALT protocol embedded in the test.
 - **Determinism** — sorted containers + seed; the existing `unordered_map`
   iteration in createMapFromSpec is a known non-determinism source; watch for it.
 
-## Next
-- Await dungeon-map's first green slice (the regression-lock golden); merge it,
-  confirm the canary, edi-gate, continue in order.
+## ✅ PHASE 1 COMPLETE (master 3ce29a3) — canary byte-identical through ALL slices.
+
+---
+
+# PHASE 2 — full breadth (sole integrator, hub relays SHAs)
+
+I merge each hub-pinged dept SHA **in order**, edi-gate, canary-gated. Critical path:
+- **P2-A WIRE EXTENSION** (dungeon-map = ONE column-order owner): header-as-truth —
+  add `nodes[]{name,anchor,type}` + rooms `derivation`/`bounded_by` + walls-mask +
+  kind + level (+ levels manifest). **THE SLICE I SCRUTINIZE HARDEST.**
+- **P2-B SPAN-ROOM GENERATOR** (dungeon-map + drafting): mint nodes + derive span
+  footprint (2-node widened-edge first).
+- **P2-C REALIZER** (blender-lab): first REAL inverted render on the 5090 = MILESTONE.
+- THEN breadth: dual-graph/subsume, per-edge wall rendering, overlap+merge+resolver,
+  DraftingVerticalFeature, .map.toml grammar, multi-floor camera.
+
+## CANARY PROTOCOL for Phase 2 (the wire changes)
+1. **Every slice:** re-export `tests/data/dungeon.map.toml` → MUST be `6c632293…`
+   (the node-less reference dungeon). Off-wire/additive slices keep it unchanged.
+2. **On the WIRE slice (P2-A):** a golden change is OK **only if ALL**: (a) DELIBERATE
+   — dungeon-map updated `tests/map_regression_lock_tests.cpp` expected TOON + sha
+   **in the same commit** with a stated wire-extension reason; (b) the **node-less
+   reference dungeon STILL emits byte-identical** (no spurious empty `nodes[]`,
+   default columns omitted — header-as-truth); (c) edi-gate GREEN. A golden FAILURE
+   without a same-commit deliberate update → **HALT + flag the hub**.
+3. If a deliberate wire change lands, **update the reference sha** below + record WHY.
+
+## Phase 2 merge log
+| When | Slice | dept SHA → merge | canary | edi-gate |
+| --- | --- | --- | --- | --- |
+| — | (Phase 2 baseline) | master `3ce29a3` | `6c632293` (node-less ref) | GREEN 110/110 |

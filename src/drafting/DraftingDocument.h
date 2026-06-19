@@ -86,6 +86,12 @@ struct DraftingDocument {
     // units; the engine export divides by this to recover the authored units (feet).
     // 1.0 means coordinates ARE the authored units (a hand-drawn doc / no map scale).
     double canvasPerAuthoredUnit = 1.0;
+    // Document-level overlap resolution policy (Phase-1 decision 3/12). PickOne =
+    // keep the first room when footprints overlap (today's effective behavior once
+    // the parse-error becomes a recoverable event in Phase 3); Merge = union
+    // footprint; Allow = record both. Default PickOne keeps existing maps identical.
+    // NOT on the TOON wire this slice — Phase-2 item. Persisted in .edidraw only.
+    OverlapPolicy overlapPolicy = OverlapPolicy::PickOne;
 };
 
 struct DraftingObjectBuildResult {

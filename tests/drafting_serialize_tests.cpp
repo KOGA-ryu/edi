@@ -680,6 +680,56 @@ int main()
         assert(noNodes.value->nodes.empty());
     }
 
+    // Phase-1 slice 3d — OverlapPolicy enum + document.overlapPolicy (brief 062).
+    // Document-level default field, additive, stored by name. Default PickOne keeps
+    // every existing map byte-identical. NOT on the TOON wire this slice.
+    {
+        // --- Name↔enum round-trip for all three values + unknown → PickOne. ---
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::PickOne))
+               == OverlapPolicy::PickOne);
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Merge))
+               == OverlapPolicy::Merge);
+        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Allow))
+               == OverlapPolicy::Allow);
+        assert(std::string(overlapPolicyName(OverlapPolicy::PickOne))  == "pick_one");
+        assert(std::string(overlapPolicyName(OverlapPolicy::Merge))    == "merge");
+        assert(std::string(overlapPolicyName(OverlapPolicy::Allow))    == "allow");
+        assert(overlapPolicyFromName("unknown_future_policy") == OverlapPolicy::PickOne);
+        assert(overlapPolicyFromName("") == OverlapPolicy::PickOne);
+
+        // --- Document round-trip: Merge survives value + byte layers. ---
+        DraftingDocument policyDoc = makeDraftingDocument("policy-rt");
+        policyDoc.overlapPolicy = OverlapPolicy::Merge;
+
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->overlapPolicy == OverlapPolicy::Merge);
+
+        auto br = decodeDraftingDocument(encodeDraftingDocument(policyDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->overlapPolicy == OverlapPolicy::Merge);
+
+        // --- Forward-compat: missing "overlap_policy" key ⇒ PickOne. ---
+        // Strip the key from the document map — simulates every .edidraw written
+        // before slice 3d. The read must produce PickOne silently.
+        MsgPackValue docVal = draftingDocumentToValue(policyDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            auto &dm = topEntry.second.mapValue;
+            for (auto it = dm.begin(); it != dm.end();) {
+                it = (it->first == "overlap_policy") ? dm.erase(it) : it + 1;
+            }
+        }
+        auto noPolicy = draftingDocumentFromValue(docVal);
+        assert(noPolicy.ok && noPolicy.value);
+        assert(noPolicy.value->overlapPolicy == OverlapPolicy::PickOne);
+
+        // Allow round-trips correctly too.
+        policyDoc.overlapPolicy = OverlapPolicy::Allow;
+        auto ar = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
+        assert(ar.ok && ar.value && ar.value->overlapPolicy == OverlapPolicy::Allow);
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

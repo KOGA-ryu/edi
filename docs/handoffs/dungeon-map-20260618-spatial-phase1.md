@@ -29,39 +29,32 @@ the wire extends ADDITIVELY; every dimension is DATA.
 rooms[12]·plugs[26]·connections[12]**. MUST stay byte-identical after every additive slice.
 Drift ⇒ a default is non-neutral ⇒ HALT + flag hub (do NOT re-bless).
 
-## ORDER (each: green on dept → edi-ui merges → edi-gate green)
-1. **Crypt/dungeon regression-lock GOLDEN** (the canary) — brief 051. **✅ DONE + MERGED**
-   (dept golden commit; edi-ui merged → master `7c42e9a` "Slice 1 canary golden merged +
-   verified"). The canary is live; later slices must keep it byte-identical.
-2. **`syncGraphForMovedObject`** — sibling to `pruneGraphForRemovedObject`
-   (`src/drafting/DraftingGraphOps.{h,cpp}`; TODO at `DraftingMapTypes.h:108-109`).
-   Recompute plug anchors for moved anchor objects; retires the deriveEdge drift.
-   **brief 052 FIRED** (was NOT built earlier — the brief had not been written; corrected).
-   Pure op + controller wiring + tests + canary byte-identical. **✅ BUILT + COMMITTED
-   `f4dbf8f`** (builder finished but its commit stuck; I green-gated 108/108 + canary
-   byte-identical and LANDED it). HANDED to edi-ui to merge (053); drafting-core review
-   consult fired concurrent (054). [awaiting edi-ui merge + drafting-core verdict]
-   PROCESS FIX: builder now commits WITHIN its build turn (no separate stuck step).
-3a. **`int level = 0` on DraftingMapRoom** — additive field + MessagePack (missing⇒0, NO
-   bump); NOT on the TOON wire (canary stays byte-identical). brief 055 FIRED (builds
-   linearly on Slice 2). drafting-core reviews (serialize spine) → edi-ui merges. [IN FLIGHT]
-3. **Additive struct slices** (each additive + MsgPack round-trip + green; gate the
-   drafting-core-touching ones through drafting-core review):
-   - `int level = 0` on `DraftingMapRoom` (+ carry through plug/connection records).
-   - `RoomDerivation` enum (COEXIST; Placed default) on the room record.
-   - `DraftingNode` connector vector (minted id, anchor, footprint/radius DATA, type/name)
-     + `highestDocumentIdSerial` checklist + prune/sync coverage.
-   - `OverlapPolicy` enum + pure `footprintsOverlap` primitive (src/drafting; drafting-core review).
-   - `RoomKind` enum + per-edge wall presence on `RoomSpec` (drafting-core review;
-     `planDraftingRoom` honors it later in Phase 2).
-   - carry `level` through plug & connection.
-   - determinism harness (sorted containers / seed / byte-stable golden) — Phase-1 gate.
+## SIMPLIFIED CADENCE (hub workflow fix, 2026-06-18) — what the planner does per slice
+The HUB now detects each builder commit + drives the edi-ui integration/merge. The planner
+does ONLY: **(1)** write the next builder brief as a REAL numbered `.md`; **(2)** C-u the
+builder input + fire its EXACT path (only when the builder is IDLE); **(3)** builder commits
+IN-TURN; **(4)** fire the drafting-core review brief. **HARD RULE: never fire a brief
+pointer unless that `.md` FILE EXISTS.** No more planner green-gate / edi-ui merge brief
+(the hub owns integration). Capture-pane to confirm each builder send submitted.
 
-## Integration contract (edi-ui SOLE integrator)
-Hot files: `DraftingMapTypes.h`, `DraftingRoom.h`, `DraftingSerialize.cpp`,
-`MapToonExport.cpp`, `createMapFromSpec`. I build each slice green on dept/dungeon-map,
-then bus edi-ui to merge (one at a time — no parallel hot-file builds). drafting-core
-reviews the core-touching slices BEFORE I hand them to edi-ui.
+## STATUS (master `cc95528`)
+- **Slice 1 GOLDEN canary** — ✅ MERGED. **Slice 2 syncGraphForMovedObject** — ✅ MERGED.
+  **3a `level`** — ✅ MERGED. **3b `RoomDerivation`** — ✅ MERGED. **3c `DraftingNode`** —
+  ✅ MERGED (all → master cc95528). drafting-core cleared 2/3a/3b/3c (all clean; node
+  id-recovery fence + the field/enum templates blessed).
+- **3d `OverlapPolicy` + pure `footprintsOverlap`** — ✅ COMMITTED `581e249`; hub merging;
+  drafting-core review fired (066).
+- **3e `RoomKind` + per-edge wall presence on RoomSpec** — brief 065, FIRING to builder. [IN FLIGHT]
+- **3f carry `level` through plug & connection** — NEXT.
+- **Determinism harness** (sorted containers / seed / byte-stable golden) — Phase-1 EXIT gate.
+
+Every slice: additive + DEFAULTS preserve behavior + OFF the TOON wire ⇒ the CANARY stays
+byte-identical (the hard gate). Persisted structs get an additive MessagePack round-trip
+(missing⇒default, NO version bump); RoomSpec (3e) is transient (not persisted) so no MsgPack.
+
+## Hot files (the hub serializes integration; drafting-core reviews the src/drafting-touching)
+`DraftingMapTypes.h`, `DraftingRoom.h`, `DraftingSerialize.cpp`, `MapToonExport.cpp`,
+`createMapFromSpec`.
 
 ## Planner-ahead protocol
 Keep 2–3 slices specced ahead. Every slice carries its acceptance (the canary stays

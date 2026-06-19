@@ -34,9 +34,24 @@ EXECUTION. Phase 1 data-spine COMPLETE on master (dec48db); my worktree rebased 
   come from — a new RoomSpec/span field, or a named default I own? (c) does the op take node ids + the doc, or
   just the two anchors (I prefer just anchors — keeps it a pure geometry primitive, the caller resolves ids)?
 
+## Built slices
+- **derive-span-footprint (P2-B, FIRST/critical path) — BUILT + reviewed CLEAN @ 3b62884.** New
+  `src/drafting/DraftingSpan.{h,cpp}` (edi_drafting_core, pure). LANDED API:
+  `struct SpanFootprint { Point2D origin; double width, height; bool axisAligned=true; }`;
+  `SpanFootprint deriveSpanFootprint(Point2D a, Point2D b, double bandWidth=kDefaultSpanBandWidth,
+  double endPad=kDefaultSpanEndPad)`. Named DATA: kDefaultSpanBandWidth=0.2, kDefaultSpanEndPad=0.05
+  (FALLBACKS — generator passes scene values), kSpanAxisEps=1e-9. ONE unified rotated-band→AABB formula
+  (tight for axis-aligned, valid loose bound for diagonal; axisAligned is classification, not a branch);
+  degenerate A==B → bandWidth box, NaN-free. edi-gate GREEN 111/111. Reviewer (Opus) CONSULT CLEAN, geometry
+  HIGH confidence. Signature + tip bussed to dungeon-map (they wire createMapFromSpec same-tick + include
+  3b62884 in the edi-ui merge ask). DEFERRED nits → polygon fast-follow: test tol 1e-9→1e-6; diagonal test
+  recomputes the formula (cases 1/2/5 are the independent oracle).
+  OPEN: the 0.2/0.05 default MAGNITUDES are placeholder fallbacks — dungeon-map confirms or passes explicit
+  span-spec values in P2-B.
+
 ## Status
-- Phase 1 review COMPLETE: 5 slices all CONSULT CLEAN (syncGraph, level, RoomDerivation, DraftingNode,
-  footprintsOverlap+OverlapPolicy). See drafting-20260618-phase1-review.md.
-- Phase 2: STANDING BY for dungeon-map's derive-span-footprint request. Will settle the API (open Qs above)
-  then brief edi-drafting-builder. No autonomous start before the request (dungeon-map sequences).
+- Phase 1 review COMPLETE: 5 slices all CONSULT CLEAN. See drafting-20260618-phase1-review.md.
+- Phase 2 next targets (await dungeon-map sequencing): planDraftingRoom per-edge walls, empty-batch wall-less
+  fix, overlap-pair scan + MERGE polygon (+ the deferred overlapRect/overlapArea companions + the span
+  polygon fast-follow). No autonomous start before each request.
 - Carryover: 050/051 (kCanvasBoardExtent) merged to master as part of Phase-1 integration.

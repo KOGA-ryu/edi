@@ -45,7 +45,14 @@ serialize defects, and stand by for dungeon-map review requests. Source: `~/dept
   2 minor follow-up nits (test brittleness at drafting_graph_ops_tests.cpp:312-318; bool means "touched" not
   "changed" — doc note). The op is a clean template for the remaining sibling slices.
 
+- **Slice 3a — additive `int level` on DraftingMapRoom @ 47136bb (dept/dungeon-map)** — CONSULT CLEAN, no
+  block, no follow-up. Serialize-spine TEMPLATE blessed: always-write `{"level", integer(...)}` +
+  tolerant `asInt(child(v,"level"), default0)` (missing⇒0), matches schema_version precedent; integer() not
+  number() (no cast risk); MapToonExport untouched (canary byte-identity); no version bump; level=neutral band,
+  0=exempt unset; round-trip + key-stripped forward-compat tests real. Reply:
+  ~/dept-bus/drafting/replies/058-level-field-consult-clean.md. Future additive-field slices cite this shape.
+
 ## Status
 - Standing by for the next handed slices: footprintsOverlap primitive, RoomSpec per-edge walls +
-  planDraftingRoom absent-edge emission, the MessagePack serialize spine. No autonomous builds on hot map files.
+  planDraftingRoom absent-edge emission, more additive serialize fields. No autonomous builds on hot map files.
 - Prior campaign (no-magic-dims) COMPLETE; 050/051 (kCanvasBoardExtent) await edi-ui/hub merge.

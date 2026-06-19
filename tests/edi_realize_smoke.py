@@ -203,4 +203,45 @@ if abs(h1 - D.figure_h) > 1e-9 or abs(h4 - D.figure_h) > 1e-9:
 if abs(h1 - h4) > 1e-9:
     fail("figure must NOT scale with S (that is what makes scale visible)")
 
+# --- 10. Phase-2 inverted model: golden parse of the 074-FINAL sample --------
+# The ratified maxed-out wire sample. Pins parse_toon against EVERY conditional
+# column/section so a refactor can't silently drop one. (dungeon-map brief 074.)
+with open(os.path.join(MAPS, "inverted_sample.toon"), encoding="utf-8") as fh:
+    inv = edi_realize.parse_toon(fh.read())
+if inv.feet_per_band != 12.0:
+    fail(f"feet_per_band meta {inv.feet_per_band}")
+if inv.levels != {0: 0.0, 1: 12.0}:
+    fail(f"levels manifest {inv.levels}")
+gh = inv.room("great_hall")
+if gh is None or gh.derivation != "span_derived" or gh.bounded_by != ["junction_a", "junction_b"]:
+    fail(f"span room fields {gh}")
+if gh.walls != "NESW" or gh.kind != "enclosed" or gh.level != 0:
+    fail(f"great_hall mask/kind/level {gh.walls}/{gh.kind}/{gh.level}")
+sc = inv.room("sky_court")
+if sc is None or sc.level != 1 or sc.kind != "open" or sc.walls != "N-S-" or sc.ceiling is not False:
+    fail(f"sky_court fields {sc}")
+if len(inv.nodes) != 2 or inv.nodes[0].radius != 2.5 or inv.nodes[0].name != "junction_a":
+    fail(f"nodes {inv.nodes}")
+if [p.level for p in inv.plugs] != [0, 1]:
+    fail(f"plug levels {[p.level for p in inv.plugs]}")
+# the inverted plan: nodes render small + a span-room + an open room; cross-level
+# connection lays NO flat corridor (it's a vertical transition).
+ipieces = edi_realize.plan_greybox(inv, edi_realize.DEFAULT_DIMS, scale=1.0)
+if not any(p.kind == "node" for p in ipieces):
+    fail("inverted plan should render connector nodes")
+icnt = counts(ipieces)
+if icnt.get(edi_realize.PIECE_CORRIDOR, 0) != 0:
+    fail("a cross-level connection must not lay a flat corridor")
+# floor stacking: the level-1 sky_court floor sits at elevation 12 (manifest).
+court_floor = [p for p in ipieces if p.kind == edi_realize.PIECE_FLOOR and p.z > 12.0]
+if not court_floor:
+    fail("level-1 room floor should be stacked at the manifest elevation (z>12)")
+# the unscaled node footprint = 2*radius (5.0) when the wire supplies radius.
+node_pieces = [p for p in ipieces if p.kind == "node"]
+if abs(node_pieces[0].sx - 5.0) > 1e-9:
+    fail(f"node footprint should be 2*radius=5.0, got {node_pieces[0].sx}")
+# back-compat: the OLD crypt (no nodes/levels) yields NO node pieces + level-0 only.
+if any(p.kind == "node" for p in edi_realize.plan_greybox(doc)):
+    fail("node-less map must produce no node pieces")
+
 print("edi_realize smoke: ok")

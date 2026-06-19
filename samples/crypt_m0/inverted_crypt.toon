@@ -1,0 +1,25 @@
+kind: map
+title: inverted_crypt
+units: feet
+feet_per_band: 16
+
+levels[2]{index,elevation}:
+  0,0
+  1,16
+
+rooms[4]{name,origin,size,material,level,derivation,bounded_by,walls,kind,ceiling,floor}:
+  grand_span,"0,0","120,50",stone,0,span_derived,n_w·n_e,NESW,enclosed,true,true
+  north_span,"40,50","40,90",stone,0,span_derived,n_e·n_n,NESW,enclosed,true,true
+  courtyard,"0,60","35,60",stone,0,placed,,----,open,false,true
+  upper_gallery,"0,0","50,40",stone,1,placed,,NESW,enclosed,true,true
+plugs[0]{room,name,edge,type,connected,flags}:
+connections[0]{from,to,type}:
+nodes[3]{name,anchor,type,radius}:
+  n_w,"22,25",junction,4
+  n_e,"98,25",junction,4
+  n_n,"60,110",anchor,4
+blocks[4]{room,asset,origin,scale,rotation}:
+  grand_span,crypt.brazier,"60,25",1,0
+  north_span,crypt.brazier,"60,95",1,0
+  upper_gallery,crypt.brazier,"25,20",1,0
+  grand_span,crypt.sarcophagus,"30,25",1,0

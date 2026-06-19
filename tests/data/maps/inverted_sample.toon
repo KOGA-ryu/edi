@@ -1,0 +1,22 @@
+kind: map
+title: inverted_sample
+units: feet
+feet_per_band: 12
+
+levels[2]{index,elevation}:
+  0,0
+  1,12
+
+rooms[2]{name,origin,size,material,level,derivation,bounded_by,walls,kind,ceiling,floor}:
+  great_hall,"0,0","40,20",stone,0,span_derived,junction_a·junction_b,NESW,enclosed,true,true
+  sky_court,"0,30","40,30",stone,1,placed,,N-S-,open,false,true
+plugs[2]{room,name,edge,type,connected,flags,level}:
+  great_hall,to_court,N,door,true,,0
+  sky_court,to_hall,S,door,true,,1
+connections[1]{from,to,type}:
+  great_hall.to_court,sky_court.to_hall,stair
+nodes[2]{name,anchor,type,radius}:
+  junction_a,"5,10",junction,2.5
+  junction_b,"35,10",junction,2.5
+blocks[1]{room,asset,origin,scale,rotation}:
+  great_hall,crypt.brazier,"20,10",1,0

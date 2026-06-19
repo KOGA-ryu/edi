@@ -104,6 +104,16 @@ class GreyboxDims:
     # 5 ft floor tiling (tile, §1), shown as a checker (more cells = bigger).
     figure_h: float = 6.0         # human reference height — NEVER scales with S
     figure_w: float = 1.4         # human proxy width — NEVER scales with S
+    # --- inverted model (Phase 2): connector NODE marker + floor pitch ---
+    # A connector is drawn SMALL (the wire carries no radius — realizer-owned).
+    # These scale with S like any envelope length.
+    node_w: float = 4.0           # connector marker footprint (small vs a room)
+    node_h: float = 3.0           # connector marker height (a low junction pad)
+    # Floor-to-floor pitch (FEET at S=1) when the wire omits feet_per_band. A
+    # normal envelope length: scaled() multiplies it by S, so world-Z is simply
+    # `level * dims.feet_per_band` (= level * base_pitch * S) — one clean multiply,
+    # no double-S. Default 14 ft > wall_h 12 so stacked floors never interpenetrate.
+    feet_per_band: float = 14.0
 
     def scaled(self, s: float) -> "GreyboxDims":
         """The single SCALE KNOB (dungeon-map brief 044): return a copy with every
@@ -141,12 +151,24 @@ class GreyboxDims:
             brazier_light_z=L(self.brazier_light_z), stair_h=L(self.stair_h),
             stair_z=L(self.stair_z), prop_default=T(self.prop_default),
             brazier_softness=L(self.brazier_softness),
+            node_w=L(self.node_w), node_h=L(self.node_h),
+            feet_per_band=L(self.feet_per_band),
         )
 
 
 # The default table the realizer reads (S=1). A caller scales it with .scaled(S)
 # and threads the result; the logic never sees a literal or the knob.
 DEFAULT_DIMS = GreyboxDims()
+
+
+def _resolve_dims(doc: "MapDoc", scale: float) -> "GreyboxDims":
+    """Build the effective scaled table: apply a wire `feet_per_band` meta to the
+    BASE pitch (if present), then scale the whole table by S. One place so both
+    entry points resolve dims identically."""
+    base = DEFAULT_DIMS
+    if doc.feet_per_band is not None:
+        base = replace(base, feet_per_band=doc.feet_per_band)
+    return base.scaled(scale)
 
 
 # --- The piece vocabulary (the 10 types + 2 props) ---------------------------
@@ -184,6 +206,16 @@ class Room:
     w: float
     h: float
     material: str = "stone"
+    # --- Phase 2 inverted-model fields (all CONDITIONAL on the wire; the default
+    # reproduces today's render byte-for-byte) ---
+    level: int = 0              # band index; world-Z = level * feet_per_band * S
+    derivation: str = "placed"  # "placed" (room-as-node) | "span" (the BIG room between connectors)
+    bounded_by: list[str] = field(default_factory=list)  # connector node names a span spans
+    # per-edge wall presence; None = "no walls column" ⇒ default by kind (see plan)
+    walls: Optional[str] = None  # 4-char NESW mask: present=letter, absent="-"
+    kind: str = "enclosed"      # "enclosed" | "open" — drives wall defaults (drawing hint only)
+    ceiling: bool = True
+    floor: bool = True
 
 
 @dataclass
@@ -194,6 +226,19 @@ class Plug:
     type: str            # door | ...
     connected: bool
     flags: list[str] = field(default_factory=list)
+    level: int = 0       # CONDITIONAL; inherits the room's band unless on a landing
+
+
+@dataclass
+class Node:
+    """A connector (junction/anchor) — the placed entity in the INVERTED model.
+    A labelled point with a small authored footprint: the realizer draws it SMALL,
+    sized from the wire `radius` (authored feet, 074-FINAL) or a realizer default."""
+    name: str
+    x: float
+    y: float
+    type: str = "junction"  # neutral hint (junction|anchor|portal-stub|stair-head|…)
+    radius: float = 0.0      # authored footprint radius (feet); 0 ⇒ realizer default node_w
 
 
 @dataclass
@@ -221,9 +266,16 @@ class MapDoc:
     # per-element widths, so the wire stays neutral. The realizer applies it to
     # its greybox table via GreyboxDims.scaled(). A --scale CLI arg overrides it.
     scale: float = 1.0
+    # CONDITIONAL multi-level pitch meta (ratified): floor-to-floor in FEET at S=1.
+    # None ⇒ single-level map ⇒ use the realizer default. world-Z = level*pitch*S.
+    feet_per_band: Optional[float] = None
+    # Advisory per-level elevation manifest (074-FINAL `levels[]{index,elevation}`):
+    # base feet at S=1, scaled by S. Empty ⇒ derive Z from feet_per_band uniformly.
+    levels: dict = field(default_factory=dict)
     rooms: list[Room] = field(default_factory=list)
     plugs: list[Plug] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
+    nodes: list[Node] = field(default_factory=list)
     blocks: list[Block] = field(default_factory=list)
 
     def room(self, name: str) -> Optional[Room]:
@@ -346,6 +398,11 @@ def parse_toon(text: str) -> MapDoc:
                     doc.scale = float(header_value(val))
                 except ValueError:
                     pass  # tolerate a malformed scale meta; default stays 1.0
+            elif key == "feet_per_band":
+                try:
+                    doc.feet_per_band = float(header_value(val))
+                except ValueError:
+                    pass  # malformed pitch meta ⇒ realizer default
             continue
 
         # A data row of the current section.
@@ -361,7 +418,18 @@ def parse_toon(text: str) -> MapDoc:
         if section == "rooms":
             ox, oy = _xy(col("origin"))
             w, h = _xy(col("size"))
-            doc.rooms.append(Room(col("name"), ox, oy, w, h, col("material", "stone")))
+            bb_raw = col("bounded_by")
+            bounded = [b for b in bb_raw.split("·") if b] if bb_raw else []
+            walls_raw = col("walls")  # 4-char NESW mask, or "" ⇒ None (default by kind)
+            doc.rooms.append(Room(
+                col("name"), ox, oy, w, h, col("material", "stone"),
+                level=int(col("level", "0") or "0"),
+                derivation=col("derivation", "placed") or "placed",
+                bounded_by=bounded,
+                walls=(walls_raw if walls_raw else None),
+                kind=col("kind", "enclosed") or "enclosed",
+                ceiling=col("ceiling", "true").lower() != "false",
+                floor=col("floor", "true").lower() != "false"))
         elif section == "plugs":
             flags_raw = col("flags")
             flags = [f for f in flags_raw.split("·") if f] if flags_raw else []
@@ -369,9 +437,16 @@ def parse_toon(text: str) -> MapDoc:
                 room=col("room"), name=col("name"), edge=col("edge", "?"),
                 type=col("type", "door"),
                 connected=col("connected", "false").lower() == "true",
-                flags=flags))
+                flags=flags,
+                level=int(col("level", "0") or "0")))
         elif section == "connections":
             doc.connections.append(Connection(col("from"), col("to"), col("type", "corridor")))
+        elif section == "nodes":
+            nx, ny = _xy(col("anchor"))
+            doc.nodes.append(Node(col("name"), nx, ny, col("type", "junction") or "junction",
+                                  radius=float(col("radius", "0") or "0")))
+        elif section == "levels":
+            doc.levels[int(col("index", "0") or "0")] = float(col("elevation", "0") or "0")
         elif section == "blocks":
             bx, by = _xy(col("origin"))
             doc.blocks.append(Block(
@@ -461,18 +536,29 @@ def _figure_spot(doc: MapDoc, dims: GreyboxDims) -> Optional[tuple[float, float]
 
 
 def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
-                 reference: bool = False) -> list[Piece]:
+                 reference: bool = False, scale: float = 1.0) -> list[Piece]:
     """Resolve the whole map to greybox pieces. Deterministic + pure. Every
     dimension comes from `dims` (the realizer-owned table), never a literal.
 
     `reference=True` adds the toggleable SCALE-REFERENCE overlay: a checker on the
     5 ft floor grid + a FIXED 6 ft human proxy that does NOT scale with S, so the
-    dungeon's scale is visible at a glance (on for the greybox demo, off for art)."""
+    dungeon's scale is visible at a glance (on for the greybox demo, off for art).
+
+    `scale` (S) is needed ONLY for the per-level `levels[]` manifest elevations
+    (base feet × S); every other length already carries S via `dims`."""
     theme = _theme_of(doc)
     pieces: list[Piece] = []
 
     def ref(piece: str) -> str:
         return f"{theme}.{piece}"
+
+    def level_z(level: int) -> float:
+        """World-Z of a band: the manifest elevation × S if the wire supplied one
+        (non-uniform spacing), else the uniform pitch (level * feet_per_band, which
+        already carries S via dims). 074-FINAL allows either source."""
+        if level in doc.levels:
+            return doc.levels[level] * scale
+        return level * dims.feet_per_band
 
     # Which (room, edge-segment) cells host a doorway — so we leave a gap in the
     # wall and drop a doorway_frame there instead of a solid panel.
@@ -490,19 +576,43 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
         ny = max(1, round(room.h / dims.tile))
         tw = room.w / nx
         th = room.h / ny
-        for ix in range(nx):
-            for iy in range(ny):
-                cx = room.ox + (ix + 0.5) * tw
-                cy = room.oy + (iy + 0.5) * th
-                # Reference overlay: checker the 5 ft floor grid so the tile count
-                # (= dungeon size) reads at a glance. Off ⇒ the room's material.
-                floor_mat = room.material
-                if reference:
-                    floor_mat = "ref_a" if (ix + iy) % 2 == 0 else "ref_b"
-                pieces.append(Piece(PIECE_FLOOR, ref(PIECE_FLOOR), cx, cy, dims.floor_t / 2.0,
-                                    tw, th, dims.floor_t, material=floor_mat))
-                pieces.append(Piece(PIECE_CEILING, ref(PIECE_CEILING), cx, cy, dims.wall_h - dims.floor_t / 2.0,
-                                    tw, th, dims.floor_t, material=room.material))
+        # Floor stacking: every piece of a level-N room rides at this Z (decision 9,
+        # Z = level elevation; level_z resolves the manifest or the uniform pitch).
+        zbase = level_z(room.level)
+        # Per-edge wall presence. Default by `kind` (open ⇒ no perimeter — drawing
+        # hint only); an explicit `walls` NESW mask overrides per edge. Span-rooms
+        # tint their floor so the inversion (small node ↔ big span) reads.
+        default_present = room.kind != "open"
+        order = "NESW"
+
+        def edge_present(e: str) -> bool:
+            if room.walls and len(room.walls) >= 4:
+                return room.walls[order.index(e)] != "-"
+            return default_present
+        span_tint = room.derivation.startswith("span")  # span_derived (074-FINAL)
+
+        if room.floor:
+            for ix in range(nx):
+                for iy in range(ny):
+                    cx = room.ox + (ix + 0.5) * tw
+                    cy = room.oy + (iy + 0.5) * th
+                    # Reference overlay checker > span tint > the room's material.
+                    if reference:
+                        floor_mat = "ref_a" if (ix + iy) % 2 == 0 else "ref_b"
+                    elif span_tint:
+                        floor_mat = "span"
+                    else:
+                        floor_mat = room.material
+                    pieces.append(Piece(PIECE_FLOOR, ref(PIECE_FLOOR), cx, cy, zbase + dims.floor_t / 2.0,
+                                        tw, th, dims.floor_t, material=floor_mat))
+        if room.ceiling:
+            for ix in range(nx):
+                for iy in range(ny):
+                    cx = room.ox + (ix + 0.5) * tw
+                    cy = room.oy + (iy + 0.5) * th
+                    pieces.append(Piece(PIECE_CEILING, ref(PIECE_CEILING),
+                                        cx, cy, zbase + dims.wall_h - dims.floor_t / 2.0,
+                                        tw, th, dims.floor_t, material=room.material))
 
         room_doors = doorways.get(room.name, [])
 
@@ -524,30 +634,29 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
             return False
 
         # Perimeter wall panels: one per tile edge segment, but the segment whose
-        # span contains a door is left OPEN (skipped). The doorway frame itself is
-        # NOT placed here — it is placed at the true plug ANCHOR below, so it
-        # coincides with the corridor mouth. (Placing it at the segment center
-        # detached it from the corridor by up to half a tile on even-tile-count
-        # edges — 10/20/40 ft rooms — leaving a visible hole; reviewer SHOULD-FIX 1.)
-        wz = dims.wall_h / 2.0
+        # span contains a door is left OPEN (skipped). An edge whose wall is ABSENT
+        # (open room / mask) emits no panels at all. The doorway frame itself is
+        # placed at the true plug ANCHOR below (coincides with the corridor mouth).
+        wz = zbase + dims.wall_h / 2.0
         corner_w = dims.wall_t * dims.corner_factor
         for ix in range(nx):
             cx = room.ox + (ix + 0.5) * tw
             for edge, ey in (("S", room.oy), ("N", room.oy + room.h)):
-                if not has_door(edge, cx):
+                if edge_present(edge) and not has_door(edge, cx):
                     pieces.append(Piece(PIECE_WALL, ref(PIECE_WALL), cx, ey, wz,
                                         tw, dims.wall_t, dims.wall_h, material=room.material))
         for iy in range(ny):
             cy = room.oy + (iy + 0.5) * th
             for edge, ex in (("W", room.ox), ("E", room.ox + room.w)):
-                if not has_door(edge, cy):
+                if edge_present(edge) and not has_door(edge, cy):
                     pieces.append(Piece(PIECE_WALL, ref(PIECE_WALL), ex, cy, wz,
                                         dims.wall_t, th, dims.wall_h, material=room.material))
 
-        # Doorway frames: one per plug, AT the plug anchor (= the corridor mouth),
-        # oriented by edge. Width door_w < the opening, so a frame reveal remains
-        # either side of the opening left by the skipped wall segment(s).
+        # Doorway frames: one per plug whose edge HAS a wall (an absent-wall edge is
+        # a bare threshold, no frame). At the plug anchor, oriented by edge.
         for (dx, dy, dedge) in room_doors:
+            if not edge_present(dedge):
+                continue
             if dedge in ("N", "S"):
                 pieces.append(Piece(PIECE_DOORWAY, ref(PIECE_DOORWAY), dx, dy, wz,
                                     dims.door_w, dims.wall_t, dims.wall_h, material=room.material))
@@ -555,18 +664,23 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
                 pieces.append(Piece(PIECE_DOORWAY, ref(PIECE_DOORWAY), dx, dy, wz,
                                     dims.wall_t, dims.door_w, dims.wall_h, material=room.material))
 
-        # Four wall corners.
-        for (cxr, cyr) in ((room.ox, room.oy), (room.ox + room.w, room.oy),
-                           (room.ox, room.oy + room.h), (room.ox + room.w, room.oy + room.h)):
-            pieces.append(Piece(PIECE_CORNER, ref(PIECE_CORNER), cxr, cyr, wz,
-                                corner_w, corner_w, dims.wall_h, material=room.material))
+        # Wall corners: only where the two adjoining edges both have walls (so an
+        # open room grows no floating corner posts). Corner→(edgeA,edgeB).
+        for (cxr, cyr, ea, eb) in ((room.ox, room.oy, "S", "W"),
+                                   (room.ox + room.w, room.oy, "S", "E"),
+                                   (room.ox, room.oy + room.h, "N", "W"),
+                                   (room.ox + room.w, room.oy + room.h, "N", "E")):
+            if edge_present(ea) and edge_present(eb):
+                pieces.append(Piece(PIECE_CORNER, ref(PIECE_CORNER), cxr, cyr, wz,
+                                    corner_w, corner_w, dims.wall_h, material=room.material))
 
-        # One free-standing column, inset one tile from a corner (CORNER_MOUNT
-        # greybox). The inset uses the room's own tile size (tw/th), already data.
-        pieces.append(Piece(PIECE_COLUMN, ref(PIECE_COLUMN),
-                            room.ox + tw, room.oy + th, dims.wall_h / 2.0,
-                            dims.column_w, dims.column_w, dims.wall_h,
-                            material=room.material, shape="cylinder"))
+        # One free-standing column (an enclosed-room interior feature; skipped for
+        # open areas). Inset one tile from a corner; the inset uses tw/th (data).
+        if default_present and room.floor:
+            pieces.append(Piece(PIECE_COLUMN, ref(PIECE_COLUMN),
+                                room.ox + tw, room.oy + th, zbase + dims.wall_h / 2.0,
+                                dims.column_w, dims.column_w, dims.wall_h,
+                                material=room.material, shape="cylinder"))
 
     # ---- Connections: route an axis-aligned L corridor between the plugs ----
     for conn in doc.connections:
@@ -575,45 +689,68 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
         if a is None or b is None:
             continue
         (ra, pa), (rb, pb) = a, b
+        # A cross-level connection (stair/ladder type or differing room bands) is a
+        # vertical transition — a future vertical[] feature; don't lay a flat
+        # corridor that would pierce the stacked floors. Same-level ⇒ route it.
+        if ra.level != rb.level:
+            continue
         ax, ay = _plug_anchor(ra, pa)
         bx, by = _plug_anchor(rb, pb)
-        pieces.extend(_route_corridor(ref, ax, ay, bx, by, dims))
+        pieces.extend(_route_corridor(ref, ax, ay, bx, by, dims, level_z(ra.level)))
+
+    # ---- Connector NODES: the placed entity in the INVERTED model -----------
+    # Drawn SMALL as a low teal junction pad at the anchor, so a span-room (big)
+    # reads against its connectors (small). The footprint is the authored wire
+    # `radius` (×2 = diameter) when present, else the realizer's small node_w.
+    # Conditional section ⇒ absent on a node-less map.
+    for node in doc.nodes:
+        nroom = _room_at(doc, node.x, node.y)
+        nz = level_z(nroom.level if nroom is not None else 0)
+        nw = (2.0 * node.radius) if node.radius > 0.0 else dims.node_w
+        pieces.append(Piece("node", f"node.{node.type}", node.x, node.y,
+                            nz + dims.node_h / 2.0,
+                            nw, nw, dims.node_h,
+                            material="node", shape="cylinder"))
 
     # ---- Blocks: props (sarcophagus / brazier / stair / ...) ----------------
     # Each prop's envelope comes from `dims`; the block's own `scale` (s) is the
-    # per-instance multiplier carried on the wire.
+    # per-instance multiplier carried on the wire. A prop rides its room's level.
     for blk in doc.blocks:
         piece = blk.asset.split(".", 1)[1] if "." in blk.asset else blk.asset
         s = max(0.1, blk.scale)
+        # Resolve the owning room BY NAME (the wire carries it) so a prop on a
+        # stacked upper floor gets the right level/area even when an XY-overlapping
+        # lower room exists; fall back to the footprint hit for nameless wires.
+        broom = doc.room(blk.room) or _room_at(doc, blk.x, blk.y)
+        bz = level_z(broom.level if broom is not None else 0)
         if piece == PIECE_BRAZIER:
             # Brazier: a short pedestal cylinder PLUS the room's only light. The
             # light energy SCALES with the area of the room the brazier sits in
             # (data density × area) so the room is lit edge-to-edge at any scale —
             # a fixed wattage goes dark as the room grows (1/d² falloff). Falls
             # back to the whole-map bbox area when the brazier is outside any room.
-            room = _room_at(doc, blk.x, blk.y)
-            area = (room.w * room.h) if room is not None else _map_area(doc)
+            area = (broom.w * broom.h) if broom is not None else _map_area(doc)
             energy = max(dims.light_min, dims.light_per_sqft * area) * s
-            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, bz + dims.prop_base_z * s,
                                 dims.brazier_w * s, dims.brazier_w * s, dims.brazier_h * s,
                                 rot_deg=blk.rotation, material="bronze", shape="cylinder"))
-            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, dims.brazier_light_z * s,
+            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, bz + dims.brazier_light_z * s,
                                 0.0, 0.0, 0.0, rot_deg=blk.rotation,
                                 is_light=True, light_energy=energy))
         elif piece == PIECE_SARCOPHAGUS:
             sl, sw, sh = dims.sarcophagus
-            pieces.append(Piece(PIECE_SARCOPHAGUS, blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+            pieces.append(Piece(PIECE_SARCOPHAGUS, blk.asset, blk.x, blk.y, bz + dims.prop_base_z * s,
                                 sl * s, sw * s, sh * s, rot_deg=blk.rotation,
                                 material="marble"))
         elif piece == PIECE_STAIR:
             # STAIR (+1 band): a stepped block placed at a threshold.
-            pieces.append(Piece(PIECE_STAIR, blk.asset, blk.x, blk.y, dims.stair_z * s,
+            pieces.append(Piece(PIECE_STAIR, blk.asset, blk.x, blk.y, bz + dims.stair_z * s,
                                 dims.corridor_w, dims.corridor_w, dims.stair_h * s,
                                 rot_deg=blk.rotation, material="stone"))
         else:
             # Unknown prop: a fallback greybox box so it still appears (and logs).
             pw, pd, ph = dims.prop_default
-            pieces.append(Piece("prop", blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+            pieces.append(Piece("prop", blk.asset, blk.x, blk.y, bz + dims.prop_base_z * s,
                                 pw * s, pd * s, ph * s, rot_deg=blk.rotation,
                                 material="stone"))
 
@@ -639,7 +776,7 @@ def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
 
 
 def _route_corridor(ref, ax: float, ay: float, bx: float, by: float,
-                    dims: GreyboxDims = DEFAULT_DIMS) -> list[Piece]:
+                    dims: GreyboxDims = DEFAULT_DIMS, z_base: float = 0.0) -> list[Piece]:
     """Lay a one-tile-wide L corridor: a horizontal leg then a vertical leg, with
     a corridor_l piece at the single bend and a corridor end_cap at each plug.
     A degenerate (already-colinear) route lays only straight pieces. Floor +
@@ -666,16 +803,16 @@ def _route_corridor(ref, ax: float, ay: float, bx: float, by: float,
             cy = y0 + (y1 - y0) * t0
             seg = dims.tile
             sx, sy = (seg, dims.corridor_w) if horiz else (dims.corridor_w, seg)
-            out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy, dims.floor_t / 2.0,
+            out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy, z_base + dims.floor_t / 2.0,
                              sx, sy, dims.floor_t, material="stone"))
             # flanking low walls
             if horiz:
                 for off in (-dims.corridor_w / 2.0, dims.corridor_w / 2.0):
-                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy + off, dims.wall_h / 2.0,
+                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy + off, z_base + dims.wall_h / 2.0,
                                      seg, dims.wall_t, dims.wall_h, material="stone"))
             else:
                 for off in (-dims.corridor_w / 2.0, dims.corridor_w / 2.0):
-                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx + off, cy, dims.wall_h / 2.0,
+                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx + off, cy, z_base + dims.wall_h / 2.0,
                                      dims.wall_t, seg, dims.wall_h, material="stone"))
 
     lay_leg(ax, ay, bend_x, bend_y)
@@ -684,13 +821,13 @@ def _route_corridor(ref, ax: float, ay: float, bx: float, by: float,
     # bend piece (only if the route actually turns — both legs longer than the
     # min-leg tolerance)
     if abs(bx - ax) > dims.min_leg and abs(by - ay) > dims.min_leg:
-        out.append(Piece(PIECE_CORRIDOR_L, ref(PIECE_CORRIDOR_L), bend_x, bend_y, dims.floor_t / 2.0,
+        out.append(Piece(PIECE_CORRIDOR_L, ref(PIECE_CORRIDOR_L), bend_x, bend_y, z_base + dims.floor_t / 2.0,
                          dims.corridor_w, dims.corridor_w, dims.floor_t, material="stone"))
 
     # end caps at both plug mouths
     endcap_w = dims.corridor_w * dims.endcap_factor
     for (ex, ey) in ((ax, ay), (bx, by)):
-        out.append(Piece(PIECE_ENDCAP, ref(PIECE_ENDCAP), ex, ey, dims.wall_h / 2.0,
+        out.append(Piece(PIECE_ENDCAP, ref(PIECE_ENDCAP), ex, ey, z_base + dims.wall_h / 2.0,
                          endcap_w, endcap_w, dims.wall_h, material="stone"))
     return out
 
@@ -732,9 +869,12 @@ def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
         counts[p.kind] = counts.get(p.kind, 0) + 1
     lights = sum(1 for p in pieces if p.is_light)
     present = [t for t in TEN_PIECE_TYPES if counts.get(t, 0) > 0]
+    spans = sum(1 for r in doc.rooms if r.derivation.startswith("span"))
+    open_rooms = sum(1 for r in doc.rooms if r.kind == "open")
     out = [
         f"map: {doc.title!r}  units={doc.units}",
-        f"rooms={len(doc.rooms)} connections={len(doc.connections)} blocks={len(doc.blocks)}",
+        f"rooms={len(doc.rooms)} (span={spans} open={open_rooms}) "
+        f"connections={len(doc.connections)} nodes={len(doc.nodes)} blocks={len(doc.blocks)}",
         f"pieces={len(pieces)} lights={lights}",
         "piece-type counts:",
     ]
@@ -759,6 +899,9 @@ GREY_MATERIALS = {
     "ref_a": (0.62, 0.60, 0.55, 1.0),
     "ref_b": (0.30, 0.29, 0.27, 1.0),
     "figure": (0.85, 0.18, 0.12, 1.0),  # red proxy — unmistakable against greybox
+    # inverted model: a distinct teal connector marker + a faint warm span-floor tint.
+    "node": (0.15, 0.55, 0.62, 1.0),
+    "span": (0.52, 0.47, 0.40, 1.0),
 }
 
 
@@ -933,17 +1076,21 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
     with open(map_path, "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
     # The single scale knob (brief 044): --scale CLI overrides the TOON `scale`
-    # header meta; the chain threads ONE number. S scales the DATA table.
+    # header meta; the chain threads ONE number. S scales the DATA table. A wire
+    # `feet_per_band` meta overrides the base pitch BEFORE scaling.
     scale = float(cli_scale) if cli_scale is not None else doc.scale
-    dims = DEFAULT_DIMS.scaled(scale)
+    dims = _resolve_dims(doc, scale)
     samples = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--samples=")), str(dims.samples)))
-    pieces = plan_greybox(doc, dims, reference)
+    pieces = plan_greybox(doc, dims, reference, scale)
 
+    nlevels = len({r.level for r in doc.rooms}) if doc.rooms else 1
     print("=" * 64)
     print("edi_realize — M0 crypt realizer")
     print(f"blender version: {bpy.app.version_string}")
     print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
           f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
+    print(f"inverted model: nodes={len(doc.nodes)} levels={nlevels} "
+          f"feet_per_band={dims.feet_per_band:g} ft (Z=level*pitch)")
     print(f"reference overlay: {'ON' if reference else 'off'}  "
           f"(figure {dims.figure_h:g} ft FIXED + {dims.tile:g} ft floor checker)")
     print(plan_summary(doc, pieces))
@@ -1006,8 +1153,8 @@ def main(argv: list[str]) -> int:
     with open(paths[0], "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
     scale = float(cli_scale) if cli_scale is not None else doc.scale
-    dims = DEFAULT_DIMS.scaled(scale)
-    pieces = plan_greybox(doc, dims, reference)
+    dims = _resolve_dims(doc, scale)
+    pieces = plan_greybox(doc, dims, reference, scale)
     print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
           f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
     print(plan_summary(doc, pieces))

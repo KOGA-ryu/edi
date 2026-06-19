@@ -36,7 +36,12 @@ re-bless to hide it).
 ## Merge log
 | When | Slice | dept tip → merge | canary (sha256 6c632293…?) | edi-gate |
 | --- | --- | --- | --- | --- |
-| — | — | — | baseline 6c632293 | master @0d5ca60 GREEN 106/106 |
+| — | baseline | — | baseline 6c632293 | master @0d5ca60 GREEN 106/106 |
+| 2026-06-18 ~19:3x | **1. regression-lock golden (CANARY)** | `3e01ca7` → `5aa28d9` | ✅ byte-identical (test #107 + independent sha256) | GREEN 107/107 |
+
+The canary (`tests/map_regression_lock_tests.cpp`, #107) now runs in every gate.
+Object count pinned at **170** (backlog's "~74" was an estimate; corrected to the
+real count at 0d5ca60). HALT protocol embedded in the test.
 
 ## Risks I own (from the backlog)
 - **TOON is positional** (no version line) — one non-neutral default breaks every

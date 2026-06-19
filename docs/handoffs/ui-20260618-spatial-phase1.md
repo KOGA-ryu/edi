@@ -45,6 +45,9 @@ re-bless to hide it).
 | 2026-06-18 ~20:3x | **3d. OverlapPolicy enum + footprintsOverlap primitive** | `581e249` → merge | ✅ byte-identical + reject-path fires (PickOne default) | GREEN |
 | 2026-06-18 ~20:4x | **3e. RoomKind enum + per-edge wall presence (RoomSpec)** | `81d42b3` → merge | ✅ byte-identical + object-count 170 (defaults neutral; not wired till Phase 2) | GREEN |
 | 2026-06-18 ~20:5x | **3f. level on DraftingPlug + DraftingDeclaredConnection** (LAST struct slice) | `7ca4b8f` → merge | ✅ byte-identical (level off the TOON wire, default 0) | GREEN |
+| 2026-06-18 ~21:0x | **3g. determinism gate + stabilize corridor-obstacle iteration** | `fd5579c` → merge | ✅ byte-identical (sort output-preserving) | GREEN 110/110, ZERO segfaults (arbiter) |
+
+**✅ PHASE-1 SLICE-3 COMPLETE** — canary 6c632293 byte-identical through ALL slices (1 golden / 2 sync / 3a-f structs / 3g determinism). Builder's 7-segfault flag resolved: a stale-build artifact; clean rebuild = full ctest 110/110, zero segfaults.
 
 Slice 3a = the FIRST additive FIELD. Rides ONLY in struct + MessagePack
 (field-tagged, missing→0); MapToonExport UNTOUCHED, so the positional TOON wire is

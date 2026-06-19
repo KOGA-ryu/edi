@@ -37,6 +37,15 @@ serialize defects, and stand by for dungeon-map review requests. Source: `~/dept
 - Order: crypt regression-lock golden FIRST, then `syncGraphForMovedObject`, then additive struct slices.
   Every slice: additive + MessagePack round-trip (no bump) + green gate + determinism harness.
 
+## Reviews delivered
+- **Slice 2 — `syncGraphForMovedObject` @ f4dbf8f (dept/dungeon-map)** — CONSULT CLEAN, FOLLOW-UP not block.
+  All 5 substrate concerns PASS (anchor accessor matches seed + canonical PointGeometry idiom; pure/Qt-free;
+  deterministic; zero wire/serialize surface / no version bump; no magic dims); wiring after-mutation/
+  before-commit, multi-plug + multi-select safe, undo clean. Reply: ~/dept-bus/drafting/replies/054-syncgraph-consult-clean.md.
+  2 minor follow-up nits (test brittleness at drafting_graph_ops_tests.cpp:312-318; bool means "touched" not
+  "changed" — doc note). The op is a clean template for the remaining sibling slices.
+
 ## Status
-- Standing by. No Phase 1 review request received yet. No autonomous builds on the hot map files.
+- Standing by for the next handed slices: footprintsOverlap primitive, RoomSpec per-edge walls +
+  planDraftingRoom absent-edge emission, the MessagePack serialize spine. No autonomous builds on hot map files.
 - Prior campaign (no-magic-dims) COMPLETE; 050/051 (kCanvasBoardExtent) await edi-ui/hub merge.

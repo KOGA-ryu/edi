@@ -668,23 +668,32 @@ DraftingDeclaredConnection readConnection(const MsgPackValue &v)
 // (NW corner + size), stored directly — not derived, so it is read back verbatim.
 MsgPackValue mapRoomValue(const DraftingMapRoom &room)
 {
+    // `level` is written as an INTEGER tag so the round-trip preserves type
+    // (not Double). Readers that predate this field ignore the key; readers
+    // that know it apply asInt with a 0 fallback — the wall_visual additive
+    // pattern (no version bump required for field-tagged MessagePack maps).
     return MsgPackValue::map({
         {"name", MsgPackValue::text(room.name)},
         {"origin", pointValue(room.origin)},
         {"width", MsgPackValue::number(room.width)},
         {"height", MsgPackValue::number(room.height)},
         {"material", MsgPackValue::text(room.material)},
+        {"level", MsgPackValue::integer(room.level)},
     });
 }
 
 DraftingMapRoom readMapRoom(const MsgPackValue &v)
 {
     DraftingMapRoom room;
-    room.name = asString(child(v, "name"), room.name);
-    room.origin = readPoint(child(v, "origin"));
-    room.width = asDouble(child(v, "width"), room.width);
-    room.height = asDouble(child(v, "height"), room.height);
+    room.name     = asString(child(v, "name"),     room.name);
+    room.origin   = readPoint(child(v, "origin"));
+    room.width    = asDouble(child(v, "width"),    room.width);
+    room.height   = asDouble(child(v, "height"),   room.height);
     room.material = asString(child(v, "material"), room.material);
+    // Additive + tolerant: a file written before slice 3a has no "level" key;
+    // asInt returns the fallback (0 = ground) — exactly the wall_visual pattern.
+    // std::int64_t → int: level is a small discrete band, no precision loss.
+    room.level    = static_cast<int>(asInt(child(v, "level"), room.level));
     return room;
 }
 

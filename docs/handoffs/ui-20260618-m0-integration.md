@@ -64,6 +64,17 @@ The user's scale directive: the 2D canvas must FIT THE SCREEN at any dungeon siz
   doing the src/widgets dimension-literal sweep + the fit-padding coherence check
   vs drafting's kAsciiBoardFillFraction).
 
+| 2026-06-18 ~16:xx | dungeon-map (GENERATOR) | `1b3d4ab` → merge `a0078bc` | M0 crypt generator: buildCryptMapSpec(double scale) + G2 props + exportMapToToon(sceneScale) advisory scale: header. Rebased clean on master, disjoint from edi-ui work. | GREEN 106/106 + scan |
+| 2026-06-18 ~16:xx | edi-ui (CLI) | `533d95e` (own) | `--generate-crypt <out> --scale <S>` in app/main.cpp (brief 048) + CryptGenerator in the edi target. The M0 one-command terminus. | GREEN 106/106 + scan |
+
+## ✅ M0 GATE MET — the one-command chain renders on the 5090
+`edi --generate-crypt /tmp/m0/crypt.toon --scale 2` → buildCryptMapSpec(2) →
+createMapFromSpec → exportMapToToon (scale: 2 header) → TOON → bpy realizer →
+**Cycles OPTIX on NVIDIA GeForce RTX 5090 (GPU CONFIRMED, no CPU fallback)** →
+1920×1080 crypt PNG in **2.97s**. All 4 M0 gate criteria PASS end-to-end. S=1
+omits the scale: header; S=2 matches the doubled-crypt fixture. The realizer +
+generator agree on the wire (the converge-check is GREEN).
+
 ## Pending coordination
 - **`--generate-crypt <out> --scale <S>` CLI** (dungeon-map brief 048): edi-ui
   owns the ~20-line headless flag in app/main.cpp (mirrors --export-map). Replied

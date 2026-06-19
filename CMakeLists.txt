@@ -460,6 +460,32 @@ target_link_libraries(map_regression_lock_tests PRIVATE
 )
 add_test(NAME map_regression_lock_tests COMMAND map_regression_lock_tests)
 
+# Controller behavioral test for syncGraphForMovedObject (brief 052):
+# verifies that applyCommandAndEmit calls the anchor-resync after a geometry-
+# mutation command, closing the pre-052 drift bug where plug.anchor went stale
+# on interactive moves of a plug-anchored marker object.
+add_executable(drafting_graph_sync_tests
+    tests/drafting_graph_sync_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/CryptGenerator.h
+    src/io/CryptGenerator.cpp
+)
+target_include_directories(drafting_graph_sync_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(drafting_graph_sync_tests PRIVATE
+    edi_drafting_core
+    Qt6::Core
+)
+add_test(NAME drafting_graph_sync_tests COMMAND drafting_graph_sync_tests)
+
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

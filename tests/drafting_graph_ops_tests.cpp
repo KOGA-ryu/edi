@@ -4,9 +4,12 @@
 // carries an empty graph, and the fields hold their values. S1 cases assert the
 // MUTATION OPS: add/remove plug, declare/undeclare connection, their validation,
 // the revision bump, and the removePlug → orphan-connection cascade.
+// S5 cases assert ANCHOR RESYNC: syncGraphForMovedObject keeps plug.anchor live
+// after a move, fixing the deriveEdge drift (Phase-1 decision 7 / brief 052).
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGraphOps.h"
-#include "drafting/DraftingStore.h" // removeObject — S4 cascade
+#include "drafting/DraftingMapQuery.h" // deriveEdge — verifies the drift fix
+#include "drafting/DraftingStore.h"    // removeObject — S4 cascade
 
 #include <cassert>
 #include <cstdint>
@@ -266,6 +269,104 @@ int main()
         const std::size_t revAfter = document.revision;
         assert(!updatePlug(document, "no_such_plug", "door").ok);
         assert(document.revision == revAfter); // no bump on rejection
+    }
+
+    // --- S5: syncGraphForMovedObject — anchor resync (Phase-1 decision 7) -----
+    //
+    // PROBLEM solved: DraftingPlug::anchor was seeded at creation time and NOT
+    // updated when the anchor object moved, so deriveEdge() (Seam C export) would
+    // return the wrong wall edge after an interactive reposition.  This section
+    // verifies the fix in isolation — pure ops, no Qt needed.
+    //
+    // Geometry: a 10×10 room at origin (0, 0).
+    //   N wall midpoint  = (5, 0)   → deriveEdge → "N"
+    //   E wall midpoint  = (10, 5)  → deriveEdge → "E"
+    //   S wall midpoint  = (5, 10)  → deriveEdge → "S"
+    //   W wall midpoint  = (0, 5)   → deriveEdge → "W"
+    {
+        DraftingDocument document = makeDraftingDocument("doc-sync");
+
+        // Room footprint: 10×10 at origin (0, 0).
+        DraftingMapRoom room;
+        room.name     = "test_room";
+        room.origin   = {0.0, 0.0};
+        room.width    = 10.0;
+        room.height   = 10.0;
+        room.material = "stone";
+
+        // Two Point markers: one that will be the plug anchor, one unrelated.
+        // Initial anchor position: North wall midpoint (5, 0).
+        DraftingObject markerA = makeDraftingObject(
+            "anchor.A", DraftingShapeKind::Point, PointGeometry{Point2D{5.0, 0.0}});
+        DraftingObject markerB = makeDraftingObject(
+            "anchor.B", DraftingShapeKind::Point, PointGeometry{Point2D{0.0, 5.0}});
+        document.objects.push_back(markerA);
+        document.objects.push_back(markerB);
+
+        // Plug A rides on markerA; plug B on markerB (second, independent plug).
+        DraftingPlug plugA;
+        plugA.id             = "plug_a";
+        plugA.anchorObjectId = "anchor.A";
+        plugA.name           = "north_door";
+        plugA.type           = "door";
+        plugA.anchor         = {5.0, 0.0}; // matches marker's initial position
+
+        DraftingPlug plugB;
+        plugB.id             = "plug_b";
+        plugB.anchorObjectId = "anchor.B";
+        plugB.name           = "west_door";
+        plugB.type           = "door";
+        plugB.anchor         = {0.0, 5.0};
+
+        assert(addPlug(document, plugA).ok);
+        assert(addPlug(document, plugB).ok);
+
+        // Before any move: syncGraphForMovedObject is a no-op for an object
+        // with no matching plug and returns false for an unknown id.
+        assert(!syncGraphForMovedObject(document, "nope"));
+        // Before move, anchor is already correct — still returns true (updated to
+        // same value) because plug.anchorObjectId matches.
+        // (We use markerB here — which HAS a plug — to show the "match but same
+        // value" path is indistinguishable from a real move.)
+        assert(syncGraphForMovedObject(document, "anchor.B")); // plug_b matched → true
+        assert(document.plugs[1].anchor.x == 0.0);             // anchor.B is at (0,5)
+        assert(document.plugs[1].anchor.y == 5.0);
+
+        // Verify BEFORE the move: deriveEdge(room, plug_a.anchor) → "N" (stale check).
+        assert(deriveEdge(room, document.plugs[0].anchor) == "N");
+
+        // "MOVE" markerA to East wall midpoint (10, 5) by directly updating its
+        // PointGeometry.  In the controller, this happens inside applyDraftingCommand;
+        // here we update it directly to test syncGraphForMovedObject in isolation.
+        DraftingObject *marker = findObject(document, "anchor.A");
+        assert(marker != nullptr);
+        marker->geometry = DraftingGeometry{PointGeometry{Point2D{10.0, 5.0}}};
+        // anchor.A is now at (10, 5) but plug_a.anchor still reads (5, 0) — STALE.
+
+        // Before sync: deriveEdge sees the stale anchor — still "N" (the drift bug).
+        assert(deriveEdge(room, document.plugs[0].anchor) == "N");
+
+        // Sync: syncGraphForMovedObject re-reads the live marker position and
+        // updates plug_a.anchor to (10, 5).
+        const std::uint64_t revBefore2 = document.revision;
+        assert(syncGraphForMovedObject(document, "anchor.A")); // plug_a matched → true
+        assert(document.revision == revBefore2); // NO revision bump (command owns it)
+
+        // plug_a.anchor now matches the marker's live position.
+        assert(document.plugs[0].anchor.x == 10.0);
+        assert(document.plugs[0].anchor.y == 5.0);
+
+        // After sync: deriveEdge sees the live anchor — "E" (the drift fix).
+        assert(deriveEdge(room, document.plugs[0].anchor) == "E");
+
+        // plug_b is anchored to a DIFFERENT object (anchor.B) — its anchor is untouched.
+        assert(document.plugs[1].anchor.x == 0.0);
+        assert(document.plugs[1].anchor.y == 5.0);
+
+        // Sync on an object with no plug → returns false (common case: a wall).
+        document.objects.push_back(
+            makeDraftingObject("wall.0", DraftingShapeKind::Rectangle, PointGeometry{}));
+        assert(!syncGraphForMovedObject(document, "wall.0"));
     }
 
     return 0;

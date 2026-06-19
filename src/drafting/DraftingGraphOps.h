@@ -56,4 +56,15 @@ DraftingStoreResult addMapRoom(DraftingDocument &document, DraftingMapRoom room)
 // anything was pruned. A document with no graph is a no-op (returns false).
 bool pruneGraphForRemovedObject(DraftingDocument &document, const DraftingObjectId &removedObjectId);
 
+// MOVE counterpart of pruneGraphForRemovedObject: when `movedObjectId`'s geometry
+// has changed (translate, handle-drag, numeric edit), recompute the cached
+// `DraftingPlug::anchor` of every plug riding on it, so `deriveEdge` and Seam C
+// export read the live position instead of the stale creation-time snapshot.
+// Retires the anchor-drift TODO that lived in DraftingDocument.h / DraftingGraphOps
+// (ratified as Phase-1 decision 7 / brief 052). Pure; no Qt; does NOT bump
+// document.revision (the geometry command that triggered the sync owns the bump).
+// Returns true if any plug anchor was updated; false when the object is unknown
+// or nothing is anchored to it (the common case for ordinary non-anchor objects).
+bool syncGraphForMovedObject(DraftingDocument &document, const DraftingObjectId &movedObjectId);
+
 } // namespace edi::drafting

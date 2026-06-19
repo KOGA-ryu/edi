@@ -16,7 +16,7 @@
 #include "drafting/DraftingConstructionOps.h"
 #include "drafting/DraftingDimensionOps.h"
 #include "drafting/DraftingGeometry.h"
-#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject, plugIndexById (B2-1/B2-2)
+#include "drafting/DraftingGraphOps.h"  // plugAtAnchorObject, plugIndexById (B2-1/B2-2); syncGraphForMovedObject (052)
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingGuideOps.h"
 #include "drafting/DraftingHitTest.h"
@@ -1368,6 +1368,46 @@ bool DrawingDocumentController::applyCommandAndEmit(const DraftingCommand &comma
     if (!result.ok) {
         return false;
     }
+
+    // --- Anchor resync (Phase-1 decision 7 / brief 052) ----------------------
+    // After any geometry-mutation command, recompute the cached DraftingPlug::anchor
+    // for every plug that rides on one of the moved objects.  This retires the
+    // anchor-drift bug: DraftingPlug::anchor was seeded at plug-creation time and
+    // not re-synced on subsequent moves, so deriveEdge() (Seam C export) would pick
+    // the wrong wall edge if a plug marker was later repositioned.
+    //
+    // WHY std::visit with if constexpr, not an overload set?
+    //   The five geometry-mutation commands carry the objectId(s) in different
+    //   struct fields (or, for MoveSelectionCommand, implicitly in the selection
+    //   set).  std::visit dispatches at compile time; the inner if constexpr blocks
+    //   are erased for every unmatched command alternative, so the hot path for a
+    //   non-anchor object is: visit → match → syncGraphForMovedObject → scan plugs
+    //   in O(|plugs|) → early return false.  Total overhead is one scan over a short
+    //   vector (tens to low hundreds of plugs even for a large dungeon).
+    //
+    // WHY after applyDraftingCommand, not before?
+    //   The command mutates geometry; we need the NEW position.  Reading before
+    //   would give the old position (a no-op sync).
+    std::visit([this](const auto &cmd) {
+        using T = std::decay_t<decltype(cmd)>;
+        if constexpr (std::is_same_v<T, MoveSelectionCommand>) {
+            // MoveSelectionCommand moves ALL currently selected objects. The selection
+            // set is unchanged by the command, so m_document.selectedObjectIds is the
+            // same vector it was before — we just need to sync each moved id.
+            for (const DraftingObjectId &id : m_document.selectedObjectIds) {
+                syncGraphForMovedObject(m_document, id);
+            }
+        } else if constexpr (std::is_same_v<T, MoveObjectCommand>
+                             || std::is_same_v<T, UpdateGeometryCommand>
+                             || std::is_same_v<T, EditObjectHandleCommand>
+                             || std::is_same_v<T, NumericGeometryEditCommand>) {
+            // All four carry the moved object's id in the same named field.
+            syncGraphForMovedObject(m_document, cmd.objectId);
+        }
+        // All other command types (create, delete, selection, style, layer, graph)
+        // do not move existing geometry, so no anchor resync is needed.
+    }, command);
+    // -------------------------------------------------------------------------
 
     // The variant IS the classification: no serialize-and-diff needed to
     // know whether this was a selection command.

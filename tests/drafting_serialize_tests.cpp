@@ -499,6 +499,63 @@ int main()
         assert(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
     }
 
+    // Phase-1 slice 3a — DraftingMapRoom::level (brief 055).
+    // Additive int, 0 = ground. Persisted in .edidraw MessagePack only; NOT on
+    // the TOON wire (Phase-2 item). Same discipline as wall_visual: field-tagged
+    // MsgPack map means readers that predate the key ignore it silently.
+    {
+        // --- Additive round-trip: level=2 survives encode → decode. ---
+        // WHY integer(), not number()? MsgPackValue::integer encodes as Int type so
+        // asInt() reads it back without a lossy double conversion. Same reason the
+        // serializer stores DraftingBlock ids as text, not numbers.
+        DraftingDocument lvlDoc = makeDraftingDocument("level-rt");
+        DraftingMapRoom upper;
+        upper.name     = "upper_crypt";
+        upper.origin   = {0.0, 0.0};
+        upper.width    = 10.0;
+        upper.height   = 8.0;
+        upper.material = "stone";
+        upper.level    = 2;
+        lvlDoc.rooms.push_back(upper);
+
+        // Value-layer round-trip.
+        auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
+        assert(vRestored.ok && vRestored.value);
+        assert(vRestored.value->rooms.size() == 1);
+        assert(vRestored.value->rooms[0].level == 2);
+
+        // Byte-layer round-trip (full MessagePack encode/decode path).
+        auto bRestored = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
+        assert(bRestored.ok && bRestored.value);
+        assert(bRestored.value->rooms.size() == 1);
+        assert(bRestored.value->rooms[0].level == 2);
+
+        // --- Forward-compat / tolerant-default: missing "level" key → 0. ---
+        // Simulates an older .edidraw file that has no "level" key in the room map.
+        // Strip the "level" key from the serialized room and re-decode — the reader
+        // must silently default to 0, exactly like stripping "rooms" above.
+        MsgPackValue docVal = draftingDocumentToValue(lvlDoc);
+        // Navigate: docVal → "document" → "rooms" → [0] → strip "level".
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms") continue;
+                if (docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &roomVal : docEntry.second.arrayValue) {
+                    auto &rm = roomVal.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "level") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noLevel = draftingDocumentFromValue(docVal);
+        assert(noLevel.ok && noLevel.value);
+        assert(noLevel.value->rooms.size() == 1);
+        // Missing key must yield the default (0), not garbage or an error.
+        assert(noLevel.value->rooms[0].level == 0);
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

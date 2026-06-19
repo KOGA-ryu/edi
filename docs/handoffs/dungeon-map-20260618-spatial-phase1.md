@@ -37,8 +37,14 @@ Drift ⇒ a default is non-neutral ⇒ HALT + flag hub (do NOT re-bless).
    (`src/drafting/DraftingGraphOps.{h,cpp}`; TODO at `DraftingMapTypes.h:108-109`).
    Recompute plug anchors for moved anchor objects; retires the deriveEdge drift.
    **brief 052 FIRED** (was NOT built earlier — the brief had not been written; corrected).
-   Pure op (drafting-core REVIEWS) + controller wiring (dungeon-map) + tests + canary
-   byte-identical. After build → drafting-core review → edi-ui integrates. [IN FLIGHT]
+   Pure op + controller wiring + tests + canary byte-identical. **✅ BUILT + COMMITTED
+   `f4dbf8f`** (builder finished but its commit stuck; I green-gated 108/108 + canary
+   byte-identical and LANDED it). HANDED to edi-ui to merge (053); drafting-core review
+   consult fired concurrent (054). [awaiting edi-ui merge + drafting-core verdict]
+   PROCESS FIX: builder now commits WITHIN its build turn (no separate stuck step).
+3a. **`int level = 0` on DraftingMapRoom** — additive field + MessagePack (missing⇒0, NO
+   bump); NOT on the TOON wire (canary stays byte-identical). brief 055 FIRED (builds
+   linearly on Slice 2). drafting-core reviews (serialize spine) → edi-ui merges. [IN FLIGHT]
 3. **Additive struct slices** (each additive + MsgPack round-trip + green; gate the
    drafting-core-touching ones through drafting-core review):
    - `int level = 0` on `DraftingMapRoom` (+ carry through plug/connection records).

@@ -131,6 +131,11 @@ struct DraftingMapRoom {
     double width = 0.0;
     double height = 0.0;
     std::string material;            // neutral tag, e.g. "stone"
+    // Discrete elevation band — 0 = ground level. edi owns NO Z coordinate; this
+    // is a NEUTRAL INTEGER the realizer interprets (Phase-1 decision 8). Default
+    // keeps every existing room identical (missing ⇒ 0 on decode). NOT on the
+    // TOON wire yet — Phase-2 wire extension (brief 055: struct + .edidraw only).
+    int level = 0;
 };
 
 // --- Block library (Phase C: the "flash sheet") ------------------------------

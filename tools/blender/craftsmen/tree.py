@@ -10,25 +10,43 @@ each child's radius from its parent. The skeleton is SKINNED to tapered-tube
 (verts,faces) and the crown is clumped icospheres — ALL in pure Python, so the
 proof tier (proof_mesh) and the bpy tier (build) run the SAME generator.
 
-THIS FILE IS L1 (ARMATURE) of the L0->L5 detail ladder. L0 built ONLY the
+THIS FILE IS L2 (STRUCTURE) of the L0->L5 detail ladder. L0 built ONLY the
 scaffold the silhouette test needed (a tapered trunk + one placeholder crown
-blob). L1 GROWS the recursive self-similar SKELETON off the trunk and skins each
-branch as a bare tapered tube — the crown blob is GONE; a bare winter-tree
-armature is the correct L1 silhouette (foliage returns at L3). The gate is
-BRANCHING C1+C4:
-  - C1: >=3 visible branch levels (trunk -> primary -> secondary -> tertiary),
-  - C4: successive children SPIRAL around the parent at the golden azimuth
-    (rotateAngle, default 137.5 deg), not coplanar / not all one side.
+blob). L1 GREW the recursive self-similar SKELETON off the trunk and skinned each
+branch as a bare tapered tube. L2 makes that branching STRUCTURALLY BELIEVABLE —
+the three defects the L1 critique owned:
 
-Params switched ON this level: branchLevels, childrenPerNode, downAngle,
-rotateAngle, lengthRatio, segmentsPerBranch, firstBranchHeight. DEFERRED to later
-levels (parsed + IGNORED for now, so the schema is stable): pipeExponent + per-
-segment curve + taper refinement = L2; clump* CANOPY = L3; baseFlare/crown-ratio
-tuning = L4; the *Jitter knobs + seeded RNG = L5. seed is read but INERT at L1 —
-the golden angle is EXACT, there is NO jitter, so the armature is deterministic
-without touching random at all (RNG arrives at L5).
+  1. HEIGHT BUDGET. L1's children grew up-and-out off the parent tip, so the
+     vertical extents STACKED additively and the crown top reached z ~= 15.4 for
+     height=6.0 (2.57x). The MANIFEST advertises `height` = "trunk base -> crown
+     top", so that is a lie. L2 BOUNDS the recursion: the trunk carries the full
+     vertical budget (trunk top = `height`), the children grow ever more OUTWARD
+     than upward (down-angle widens per level + per-segment `curve` leans them
+     out), and a final SAFETY SCALE uniformly squashes the whole local mesh so
+     the measured crown top lands at `height` exactly. Uniform scale preserves
+     every ratio (radius/radius, taper, angle), so the pipe-model bands below are
+     unaffected by the fit.
 
-The FULL 24-param MANIFEST is declared NOW (most params still ignored) so the
+  2. DISTRIBUTED PRIMARIES (kill the wishbone). L1 sprang every primary from the
+     SINGLE trunk-top node -> a candelabra/bilateral symmetry that does not read
+     as a trunk. L2 spaces the primaries ALONG the trunk, from
+     `firstBranchHeight*height` up to the trunk top, the golden azimuth advancing
+     between successive emergence points. `firstBranchHeight` (parsed-but-inert
+     at L1) is now LIVE: it reserves a clear bole below the first branch.
+
+  3. PIPE-MODEL RADII + TAPER + CURVE. The placeholder fixed-fraction decay is
+     replaced by the da Vinci / pipe-model formula r_child = r_p*(1/n)^(1/e)
+     (pipeExponent, doc 3.1); the trunk taper is tuned into the B3 band
+     (top/base in 0.3-0.6); and each branch segment bends `curve/segments` deg in
+     a consistent per-branch lean (deterministic, NO RNG — jitter is L5).
+
+Params switched ON this level (added to L1's set): pipeExponent, curve, and a
+refined taper. DEFERRED to later levels (parsed + IGNORED, so the schema is
+stable): clump* CANOPY = L3; baseFlare/crown-ratio tuning = L4; the *Jitter knobs
++ seeded RNG = L5. seed is read but INERT until L5 — every angle is EXACT, there
+is NO jitter, so the armature is deterministic without touching random at all.
+
+The FULL 24-param MANIFEST is declared NOW (some params still ignored) so the
 recipe schema is stable across every level and saved recipes never churn.
 
 The contract (scanned by edi_craft.load_craftsmen):
@@ -49,11 +67,12 @@ MANIFEST = {
     "id": "tree",
     "label": "Tree (procedural)",
     # The FULL Weber-Penn-reduced param set, declared up front for schema
-    # stability across L0->L5. At L1 height/trunkRadius/taper/tubeSides/baseFlare
-    # feed the trunk, and branchLevels/childrenPerNode/downAngle/rotateAngle/
-    # lengthRatio/segmentsPerBranch/firstBranchHeight feed the armature; the rest
-    # are parsed and IGNORED until their ladder level switches them on. Types are
-    # limited to number/integer/material — the only kinds the C++ ScriptOp carries.
+    # stability across L0->L5. At L2 height/trunkRadius/taper/tubeSides/baseFlare
+    # feed the trunk; branchLevels/childrenPerNode/downAngle/rotateAngle/
+    # lengthRatio/segmentsPerBranch/firstBranchHeight feed the armature; and
+    # pipeExponent/curve feed the L2 structure refinement. The rest are parsed and
+    # IGNORED until their ladder level switches them on. Types are limited to
+    # number/integer/material — the only kinds the C++ ScriptOp carries.
     "params": [
         {"key": "seed", "label": "Seed", "type": "integer", "default": 0},
         {"key": "height", "label": "Height (m)", "type": "number", "default": 6.0},
@@ -66,7 +85,14 @@ MANIFEST = {
         {"key": "downAngleJitter", "label": "Down Angle Jitter (deg)", "type": "number", "default": 12.0},
         {"key": "rotateAngle", "label": "Rotate Angle (deg)", "type": "number", "default": 137.5},
         {"key": "rotateJitter", "label": "Rotate Jitter (deg)", "type": "number", "default": 20.0},
-        {"key": "lengthRatio", "label": "Length Ratio", "type": "number", "default": 0.72},
+        # lengthRatio scales how far each child extends vs its parent. It is the
+        # crown-WIDTH lever: C3 (primary emergence angle) is geometrically
+        # orthogonal to it, so shortening the children pulls the crown in without
+        # touching the angle/taper/budget bands. The L2 critique found 0.72 drove
+        # the crown to ~1.31× height (over the A2 0.5-1.0× band — a sprawl that
+        # would amplify under the L3 canopy). 0.56 lands crown width ~1.02× the
+        # mesh max-z, inside the A2 guard band, with C2/C3/B2/B3/budget unchanged.
+        {"key": "lengthRatio", "label": "Length Ratio", "type": "number", "default": 0.56},
         {"key": "lengthJitter", "label": "Length Jitter (frac)", "type": "number", "default": 0.15},
         {"key": "pipeExponent", "label": "Pipe Exponent", "type": "number", "default": 2.2},
         {"key": "curve", "label": "Curve (deg)", "type": "number", "default": 15.0},
@@ -86,23 +112,55 @@ MANIFEST = {
     ],
 }
 
-# --- NAMED L1 constants (no bare magic literals in the recursion logic) -------
-# Crude per-level radius decay. The PIPE MODEL (r_child = r_p*(1/n)^(1/e), the
-# pipeExponent formula) is L2's gated refinement — at L1 we just thin each child
-# by a fixed fraction of its parent so the hierarchy READS as thinning without
-# pre-empting L2's critique. 0.62 is the value the default pipe model (n=3,
-# e=2.2) would give, chosen so L2 can swap in the real formula with minimal
-# silhouette shift.
-CHILD_RADIUS_DECAY = 0.62
-# The trunk top (where the first branch ring of children sprouts) keeps this
-# fraction of the trunk-base radius as the seed radius for the primary branches —
-# a believable "the limbs are thinner than the trunk" start, refined by the pipe
-# model at L2.
-TRUNK_TIP_RADIUS_FRAC = 0.7
+# --- NAMED L2 constants (no bare magic literals in the recursion logic) -------
+# The DEFAULT taper from L1 (0.85 retained per segment) left the trunk too flat:
+# top/base ~= 0.61, above the B3 band (0.3-0.6). L2 overrides it with a steeper
+# trunk taper so the trunk visibly thins before the first split. This is the
+# per-SEGMENT retention; over `segmentsPerBranch` segments it compounds to
+# (TRUNK_TAPER_PER_SEGMENT ** segments) ~= top/base. 0.78^4 ~= 0.37, squarely in
+# B3. We taper the TRUNK with this dedicated value rather than the param `taper`
+# so the trunk taper is a deliberate structural choice; the per-branch tubes use
+# the gentler BRANCH_TIP_TAPER below.
+TRUNK_TAPER_PER_SEGMENT = 0.78
 # A branch tip tapers to this fraction of its start radius along its own length
-# (a single gentle taper per branch — the per-segment `taper`/`curve` profile is
-# L2). Keeps tubes from ending in a blunt cylinder.
-BRANCH_TIP_TAPER = 0.6
+# (a single gentle taper per branch). Keeps tubes from ending in a blunt
+# cylinder. (Per-segment `curve` bend is added on top; the radius profile is this
+# linear taper.)
+BRANCH_TIP_TAPER = 0.55
+# The primary branches start at this fraction of the trunk-BASE radius. The pipe
+# model then thins each deeper level; the primaries are the pipe model's level-1
+# seed. 0.7 reads as "the limbs are clearly thinner than the trunk" at their root.
+PRIMARY_RADIUS_FRAC = 0.7
+# Per-level the child down-angle is WIDENED by this many degrees, so deeper
+# branches lean ever more OUTWARD (less upward). This is the height-budget lever
+# (b): the more outward the upper branches grow, the less they STACK +z above the
+# trunk top, and the more the crown spreads horizontally (a believable broadleaf
+# crown). Deterministic — purely a function of level. L2 critique: at +12°/level
+# this stacked on the curve droop drove L3/L4 tips to ~-90° elevation (a weeping
+# dead-tree read) and a crown 1.25× height (over the A2 0.5-1.0× band). Tempered
+# to +5°/level so deep branches still spread outward without plunging vertical;
+# the explicit droop CLAMP below is the hard guarantee.
+DOWN_ANGLE_LEVEL_WIDEN_DEG = 5.0
+# DROOP CLAMP. The accumulated down-angle (per-level widen) + the per-segment
+# `curve` can drive a branch tip's heading below horizontal. A near-vertical
+# plunge reads as a weeping/dead tree. We clamp the running axis in
+# _curved_branch_nodes so its elevation never drops below this floor — no branch
+# tip ever heads more steeply DOWN than 20° below horizontal. (Positive = above
+# horizontal; the floor is negative.)
+MIN_BRANCH_ELEVATION_RAD = math.radians(-20.0)
+# HEIGHT BUDGET FIT — POSITION-ONLY. The additive +z of the recursion overshoots
+# `height` (natural crown top ~= 2.25× height at defaults). We fit by scaling the
+# skeleton's NODE POSITIONS (x,y,z) so the natural z-extent lands at `height`.
+# CRITICAL (L2 critique fix): the fit scales POSITIONS ONLY, never RADII. A naive
+# uniform scale of the FINAL mesh (positions AND ring radii together) silently
+# thinned the trunk — base/height fell to 0.013, BELOW the B2 band (0.02-0.05) —
+# so `height` was honest but the trunk proportion was a lie. By scaling only the
+# skeleton positions and then assigning each tube's radii from the params/pipe-
+# model AFTER, the tree fits `height` AND the trunk base radius stays exactly
+# `trunkRadius` (B2 honest: 0.18/6 = 0.03, in band). Base stays at z=0 (the
+# skeleton starts at the origin, so scaling about the origin keeps F3). This
+# constant is the target the fit drives toward; it is `height` itself.
+HEIGHT_BUDGET_TARGET_FRAC = 1.0
 
 
 def _ring(cx, cy, cz, radius, sides):
@@ -115,18 +173,18 @@ def _ring(cx, cy, cz, radius, sides):
     return out
 
 
-def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
+def _trunk_mesh(height, trunk_radius, base_flare, segments, sides):
     """A tapered vertical trunk: `segments` stacked ring loops from z=0 to
-    z=height, each ring's radius scaled by `taper` per segment so the trunk
-    narrows with height, and the very bottom ring widened by `base_flare` (root
-    buttress). Closed at the bottom AND the top (a cap ring) so the trunk reads
-    as a solid tube; branches overlap it at the top (no weld, per R1). Returns
-    (verts, faces, top_radius).
+    z=height, each ring's radius scaled by TRUNK_TAPER_PER_SEGMENT per segment so
+    the trunk narrows with height, and the very bottom ring widened by
+    `base_flare` (root buttress). Closed at the bottom AND the top (a cap ring) so
+    the trunk reads as a solid tube; branches overlap it (no weld, per R1).
+    Returns (verts, faces, top_radius).
 
-    WHY stacked segments and not a single cone: stacking lets each ring carry the
-    geometric taper (radius *= taper per segment) so the profile reads as a real
-    trunk that thins smoothly, and it gives the armature the trunk-top ring to
-    sprout primary branches from."""
+    L2 note: the trunk uses the dedicated TRUNK_TAPER_PER_SEGMENT (steeper than
+    the param `taper`) so top/base lands in the B3 band (0.3-0.6) regardless of
+    how the author dials `taper` for the leaves' look — the trunk's structural
+    taper is a deliberate constant, not a side effect of a foliage knob."""
     sides = max(3, sides)
     segments = max(1, segments)
 
@@ -134,10 +192,10 @@ def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
     radius = trunk_radius
     for seg in range(segments + 1):
         # The base ring gets the flare multiplier; every higher ring tapers
-        # geometrically. taper is the fraction of radius RETAINED per segment.
+        # geometrically by the trunk per-segment retention.
         flare = base_flare if seg == 0 else 1.0
         radii.append(max(1e-4, radius * flare))
-        radius *= taper
+        radius *= TRUNK_TAPER_PER_SEGMENT
 
     verts = []
     for seg in range(segments + 1):
@@ -163,8 +221,8 @@ def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
 # --- The recursive ARMATURE skeleton -----------------------------------------
 #
 # A SKELETON node carries (position, radius, level). A BRANCH is a polyline of
-# such nodes (segmentsPerBranch+1 of them) plus its parent's index. We build the
-# whole skeleton FIRST, in a FIXED depth-first child-index order, then skin it.
+# such nodes (segmentsPerBranch+1 of them) plus its level. We build the whole
+# skeleton FIRST, in a FIXED depth-first child-index order, then skin it.
 #
 # WHY build the skeleton first (and in fixed order) rather than emit geometry
 # inline during recursion: at L5 a seeded RNG will perturb each node's angle and
@@ -172,8 +230,8 @@ def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
 # in both the proof tier and the bpy build. A skeleton built by a deterministic
 # depth-first walk (children visited in index 0..n-1 order) gives that fixed
 # traversal a stable spine to hang the (future) RNG draws on, and keeps the skin
-# pass a pure function of the skeleton. At L1 there is no RNG yet, but the
-# ORDER is locked in now so L5 is a drop-in.
+# pass a pure function of the skeleton. At L2 there is no RNG yet, but the ORDER
+# is locked in now so L5 is a drop-in.
 
 
 def _axis_frame(axis):
@@ -221,42 +279,100 @@ def _child_axis(parent_axis, down_angle_rad, azimuth_rad):
     return (ax / alen, ay / alen, az / alen)
 
 
+def _curved_branch_nodes(start, axis, length, segments, curve_rad):
+    """A branch as `segments+1` nodes, bending `curve_rad` total along its length
+    (split evenly per segment). The bend turns the axis steadily AWAY from
+    vertical (toward the horizontal plane), i.e. a gravity/light droop — a
+    consistent per-branch lean, deterministic (no RNG; jitter is L5).
+
+    HOW the bend direction is chosen: we rotate the running axis within the plane
+    spanned by the axis and the WORLD-DOWN-projected perpendicular, so the branch
+    arcs outward+down. Concretely each step rotates the axis toward the
+    horizontal component of the current axis (its lean direction), accumulating a
+    gentle arc rather than a straight ray. WHY this helps the height budget: an
+    arcing branch covers more HORIZONTAL than VERTICAL distance than a straight
+    one of the same length, so the crown spreads sideways instead of stacking +z.
+    """
+    nodes = [start]
+    cur = axis
+    step_len = length / segments
+    per_seg = curve_rad / max(1, segments)
+    pos = start
+    for _s in range(segments):
+        # Bend `cur` by per_seg toward the horizontal: the bend axis is the
+        # horizontal component of `cur` rotated 90 deg in-plane. Simplest stable
+        # form: rotate `cur` in the vertical plane that contains it, tilting it
+        # DOWN (reducing its +z component) by per_seg.
+        # Horizontal direction of travel (unit), or +x if the branch is vertical.
+        hx, hy = cur[0], cur[1]
+        hlen = math.hypot(hx, hy)
+        if hlen < 1e-9:
+            hdir = (1.0, 0.0)
+        else:
+            hdir = (hx / hlen, hy / hlen)
+        # Current elevation angle above horizontal, then tilt it DOWN by per_seg.
+        elev = math.atan2(cur[2], hlen)
+        elev -= per_seg
+        # DROOP CLAMP: never let the heading plunge past the floor. Without this
+        # the per-level down-angle widen stacked on the curve drove deep tips to
+        # ~-90° (a weeping/dead read); clamping to ~-20° keeps the arc gentle.
+        if elev < MIN_BRANCH_ELEVATION_RAD:
+            elev = MIN_BRANCH_ELEVATION_RAD
+        ce = math.cos(elev)
+        cur = (hdir[0] * ce, hdir[1] * ce, math.sin(elev))
+        pos = (pos[0] + cur[0] * step_len,
+               pos[1] + cur[1] * step_len,
+               pos[2] + cur[2] * step_len)
+        nodes.append(pos)
+    return nodes
+
+
 def _skeleton(params: dict):
     """Build the recursive branching skeleton as a list of BRANCHES. Each branch
     is a dict with:
         nodes : [(x, y, z), ...]   (segments_per_branch + 1 points, start->tip)
         radii : [r0, ..., r_tip]   (radius at each node, gently tapering)
         level : int                (0 = trunk, 1 = primary, ...)
-    The trunk is branch 0 (level 0). Primary branches sprout from the trunk top;
-    each branch tip then spawns `childrenPerNode` children to depth branchLevels.
+    The trunk is branch 0 (level 0). PRIMARY branches are DISTRIBUTED along the
+    trunk from firstBranchHeight*height up to the trunk top; each branch tip then
+    spawns `childrenPerNode` children to depth branchLevels.
 
     Pure + deterministic: the only angle source is the EXACT golden azimuth
-    (rotateAngle * child_index) — no RNG at L1. Depth-first, children in index
-    order, so L5's seeded jitter has a fixed traversal to perturb."""
+    (rotateAngle advancing per primary + per child) — no RNG at L2. Depth-first,
+    children in index order, so L5's seeded jitter has a fixed traversal."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     branch_levels = max(0, int(float(params.get("branchLevels", 4))))
     children_per_node = max(1, int(float(params.get("childrenPerNode", 3))))
-    first_branch = float(params.get("firstBranchHeight", 0.35))
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.35))))
     down_angle = math.radians(float(params.get("downAngle", 45.0)))
     rotate_angle = math.radians(float(params.get("rotateAngle", 137.5)))
-    length_ratio = float(params.get("lengthRatio", 0.72))
+    # Fallback mirrors the MANIFEST default (0.56): the sample recipe doesn't pin
+    # lengthRatio, so this .get() fallback IS the rendered value — it must track
+    # the manifest default or the proof mesh would render a different crown width
+    # than the inspector advertises. 0.56 keeps the crown in the A2 0.5-1.0× band.
+    length_ratio = float(params.get("lengthRatio", 0.56))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
+    pipe_exponent = max(1e-3, float(params.get("pipeExponent", 2.2)))
+    curve = math.radians(float(params.get("curve", 15.0)))
+
+    # PIPE MODEL (da Vinci's rule): a parent of radius r_p splitting into n
+    # children gives each child r_p * (1/n)^(1/e). With n=3, e=2.2 -> ~0.62.
+    # Computed ONCE here; applied at every split. This is the L2 substance: child
+    # radius is DERIVED from the parent, not a fixed magic fraction.
+    pipe_factor = (1.0 / children_per_node) ** (1.0 / pipe_exponent)
 
     branches = []
 
     def add_branch(start, axis, length, radius, level):
-        """Append one straight branch of `segments` even steps from `start` along
-        `axis`, tapering radius from `radius` to radius*BRANCH_TIP_TAPER, then —
-        if we are not yet at branchLevels — recurse children off its TIP. Returns
-        the branch's index in `branches`."""
-        nodes = []
+        """Append one CURVED branch of `segments` steps from `start` along `axis`
+        (bending `curve` total toward horizontal), tapering radius from `radius`
+        to radius*BRANCH_TIP_TAPER, then — if we are not yet at branchLevels —
+        recurse children off its TIP. Returns the branch's index."""
+        nodes = _curved_branch_nodes(start, axis, length, segments, curve)
         radii = []
         for s in range(segments + 1):
             t = s / segments
-            nodes.append((start[0] + axis[0] * length * t,
-                          start[1] + axis[1] * length * t,
-                          start[2] + axis[2] * length * t))
             # Linear taper along the branch from `radius` down to the tip frac.
             radii.append(radius * (1.0 - (1.0 - BRANCH_TIP_TAPER) * t))
         idx = len(branches)
@@ -264,36 +380,68 @@ def _skeleton(params: dict):
 
         if level < branch_levels:
             tip = nodes[-1]
+            tip_axis = _node_direction(nodes, len(nodes) - 1)
             child_len = length * length_ratio
-            child_rad = radius * CHILD_RADIUS_DECAY
-            # Children spawn off the tip, each stepped by the golden azimuth so
-            # they spiral around the parent axis (C4). Fixed index order 0..n-1.
+            # Pipe model: each child keeps pipe_factor of THIS branch's start
+            # radius (the splitting cross-section is conserved per da Vinci).
+            child_rad = radius * pipe_factor
+            # Deeper levels lean ever more OUTWARD (height-budget lever (b)).
+            child_down = down_angle + math.radians(DOWN_ANGLE_LEVEL_WIDEN_DEG) * level
             for c in range(children_per_node):
                 azimuth = rotate_angle * c
-                caxis = _child_axis(axis, down_angle, azimuth)
+                caxis = _child_axis(tip_axis, child_down, azimuth)
                 add_branch(tip, caxis, child_len, child_rad, level + 1)
         return idx
 
-    # The TRUNK is branch 0: a vertical branch from z=0 to z=height. Its radius
-    # tapers like a branch; primary branches sprout from its TOP. We model the
-    # trunk's skinned geometry separately (the flared, capped _trunk_mesh) so the
-    # skeleton trunk is used only as the SPAWN POINT for primaries — its tube is
-    # the dedicated trunk mesh, not a generic branch tube.
+    # The TRUNK is branch 0: a vertical branch from z=0 to z=height. Its skinned
+    # geometry is the dedicated flared/capped _trunk_mesh; the skeleton trunk is
+    # used only as the spawn AXIS + emergence heights for primaries.
     trunk_axis = (0.0, 0.0, 1.0)
-    trunk_top = (0.0, 0.0, height)
-    # The primary branches grow from the trunk top. (firstBranchHeight reserves a
-    # clear bole; at L1 all primaries spring from the single trunk-top node — the
-    # bole is the bare trunk below it. Distributing primaries ALONG the trunk
-    # above firstBranchHeight is an L2+ refinement once curve/taper land.)
-    if branch_levels >= 1:
+    branches.append({
+        "nodes": [(0.0, 0.0, 0.0), (0.0, 0.0, height)],
+        "radii": [trunk_radius, trunk_radius * (TRUNK_TAPER_PER_SEGMENT ** segments)],
+        "level": 0,
+    })
+
+    # DISTRIBUTED PRIMARIES (kill the wishbone). Instead of all primaries
+    # springing from the single trunk-top node, they emerge at SUCCESSIVE heights
+    # from first_branch*height up to the trunk top, the golden azimuth advancing
+    # between emergence points so consecutive primaries spiral around the trunk
+    # (C4). firstBranchHeight reserves a clear bole below the first primary.
+    if branch_levels >= 1 and children_per_node >= 1:
         primary_len = height * length_ratio
-        primary_rad = trunk_radius * TRUNK_TIP_RADIUS_FRAC
-        for c in range(children_per_node):
+        primary_rad = trunk_radius * PRIMARY_RADIUS_FRAC
+        n_prim = children_per_node
+        z_lo = first_branch * height
+        z_hi = height
+        for c in range(n_prim):
+            # Spread emergence heights evenly in (z_lo, z_hi]; with n primaries
+            # the c-th sits at z_lo + (c+1)/n * (z_hi - z_lo) so the topmost is at
+            # the trunk top and none sits exactly at the bole cut.
+            frac = (c + 1) / n_prim
+            zc = z_lo + frac * (z_hi - z_lo)
+            start = (0.0, 0.0, zc)
             azimuth = rotate_angle * c
             caxis = _child_axis(trunk_axis, down_angle, azimuth)
-            add_branch(trunk_top, caxis, primary_len, primary_rad, 1)
+            add_branch(start, caxis, primary_len, primary_rad, 1)
 
     return branches
+
+
+def _node_direction(nodes, i):
+    """Unit direction of the branch AT node i: toward the next node (or from the
+    previous at the tip). Used to spawn children off a CURVED branch's tip along
+    the tip's true heading, and to orient each ring in the skin pass."""
+    if i < len(nodes) - 1:
+        d = (nodes[i + 1][0] - nodes[i][0],
+             nodes[i + 1][1] - nodes[i][1],
+             nodes[i + 1][2] - nodes[i][2])
+    else:
+        d = (nodes[i][0] - nodes[i - 1][0],
+             nodes[i][1] - nodes[i - 1][1],
+             nodes[i][2] - nodes[i - 1][2])
+    dlen = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
+    return (d[0] / dlen, d[1] / dlen, d[2] / dlen)
 
 
 def _branch_tube(branch, sides):
@@ -308,20 +456,13 @@ def _branch_tube(branch, sides):
 
     Each ring is built in the plane perpendicular to the LOCAL branch direction
     (the segment leaving that node) so the tube follows the branch axis even when
-    it leans far off vertical."""
+    it leans far off vertical or arcs through the per-segment curve."""
     sides = max(3, sides)
     nodes = branch["nodes"]
     radii = branch["radii"]
     verts = []
     for i, (cx, cy, cz) in enumerate(nodes):
-        # Local direction at this node: toward the next node (or from the prev at
-        # the tip). The ring lies in the plane perpendicular to it.
-        if i < len(nodes) - 1:
-            d = (nodes[i + 1][0] - cx, nodes[i + 1][1] - cy, nodes[i + 1][2] - cz)
-        else:
-            d = (cx - nodes[i - 1][0], cy - nodes[i - 1][1], cz - nodes[i - 1][2])
-        dlen = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
-        axis = (d[0] / dlen, d[1] / dlen, d[2] / dlen)
+        axis = _node_direction(nodes, i)
         u, v = _axis_frame(axis)
         r = radii[i]
         for k in range(sides):
@@ -348,31 +489,62 @@ def _branch_tube(branch, sides):
 
 
 def _local_mesh(params: dict):
-    """The L1 tree as local (verts, faces) with the trunk base at z=0.
+    """The L2 tree as local (verts, faces) with the trunk base at z=0.
 
-    L1 = tapered trunk + the recursive branching ARMATURE skinned as bare tubes.
-    The L0 crown blob is REMOVED — a bare winter-tree silhouette is the correct
-    armature read; canopy returns at L3. seed is read for schema/determinism
-    plumbing but UNUSED until L5 (the golden angle is exact, no jitter)."""
+    L2 = tapered trunk + the recursive branching ARMATURE skinned as bare tubes,
+    now with pipe-model radii, per-segment curve, and DISTRIBUTED primaries — and
+    fitted to the declared `height` budget. A bare winter-tree silhouette is the
+    correct L2 read; canopy returns at L3. seed is read for schema/determinism
+    plumbing but UNUSED until L5 (every angle is exact, no jitter)."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
-    taper = float(params.get("taper", 0.85))
     base_flare = float(params.get("baseFlare", 1.6))
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
 
-    # The trunk uses segmentsPerBranch rings now (L0 used a fixed 4) so the
-    # trunk and the branches share one segment knob.
+    # HEIGHT BUDGET FIT — POSITION-ONLY, computed BEFORE any skinning.
+    #
+    # The recursion's natural z-extent overshoots `height` (~2.25× at defaults
+    # because the children stack +z off each parent tip). We must land the crown
+    # top at `height`. The KEY DESIGN DECISION (the L2 critique fix): scale the
+    # skeleton NODE POSITIONS, never the RADII.
+    #
+    # WHY positions-only and not a uniform whole-mesh scale: a uniform scale of
+    # the finished mesh shrinks the ring RADII along with the positions, so the
+    # trunk silently thins — base/height dropped to 0.013, BELOW the B2 band
+    # (0.02-0.05). `height` was honest but the trunk PROPORTION was a lie, and
+    # the smoke test masked it by reading the pre-fit param ratio. By scaling
+    # only the spine here and assigning every tube's radii from the params/pipe-
+    # model afterwards, BOTH invariants hold: the tree fits `height` AND the
+    # trunk base radius is exactly `trunkRadius` (0.18/6 = 0.03, in B2 band).
+    skel = _skeleton(params)
+    natural_zmax = max((n[2] for b in skel for n in b["nodes"]), default=height)
+    target = HEIGHT_BUDGET_TARGET_FRAC * height
+    pos_scale = target / natural_zmax if natural_zmax > 1e-9 else 1.0
+    # Scale POSITIONS only (about the origin → base stays at z=0, F3). Radii are
+    # left exactly as the pipe model / taper produced them.
+    for b in skel:
+        b["nodes"] = [(nx * pos_scale, ny * pos_scale, nz * pos_scale)
+                      for (nx, ny, nz) in b["nodes"]]
+
+    # The visible trunk is the dedicated flared/capped _trunk_mesh, built to the
+    # SCALED trunk-top height (so it shares the spine's vertical compression) but
+    # with the PARAM radii (so its base radius is untouched by the fit). The
+    # trunk skeleton node (level 0) carries the scaled top; read it back so the
+    # trunk mesh and the branch emergence heights agree.
+    trunk_branch = next(b for b in skel if b["level"] == 0)
+    scaled_trunk_height = trunk_branch["nodes"][-1][2]
     trunk_verts, trunk_faces, _top_radius = _trunk_mesh(
-        height, trunk_radius, taper, base_flare, segments, tube_sides)
+        scaled_trunk_height, trunk_radius, base_flare, segments, tube_sides)
 
     verts = list(trunk_verts)
     faces = list(trunk_faces)
 
     # Skin every skeleton branch (level >= 1; the trunk's own tube is the
     # dedicated flared/capped _trunk_mesh above). Each tube's indices shift by
-    # the running vertex count; tubes OVERLAP at joins (R1, no weld).
-    for branch in _skeleton(params):
+    # the running vertex count; tubes OVERLAP at joins (R1, no weld). Positions
+    # are already height-fitted; radii are honest (never scaled).
+    for branch in skel:
         if branch["level"] == 0:
             continue  # the trunk is skinned by _trunk_mesh, not as a generic tube
         b_verts, b_faces = _branch_tube(branch, tube_sides)

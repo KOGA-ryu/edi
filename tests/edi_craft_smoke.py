@@ -695,15 +695,19 @@ def main() -> int:
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
-    # TREE L1 (ARMATURE): the first ORGANIC craftsman, now GROWN. L0 was the
-    # scaffold (tapered trunk + ONE crown blob); L1 grows the recursive self-
-    # similar branching SKELETON off the trunk and skins each branch as a bare
-    # tapered tube — the crown blob is GONE (a bare winter-tree silhouette is the
-    # correct armature read; canopy returns at L3). The gate is BRANCHING C1+C4:
-    # >=3 visible branch levels, and successive children SPIRAL at the golden
-    # azimuth. Everything checkable offline from proof_mesh/skeleton is pinned
-    # here (renders cover A3/A4); F2 budget, F3 origin-at-base, A1 trunk-vertical,
-    # and dual-tier parity stay on the cheap-when-trivial checklist.
+    # TREE L2 (STRUCTURE): the first ORGANIC craftsman, now STRUCTURALLY
+    # believable. L0 was the scaffold; L1 grew the recursive self-similar
+    # branching SKELETON off the trunk and skinned each branch as a bare tube. L2
+    # fixes the three defects the L1 critique owned: (1) the HEIGHT BUDGET — L1's
+    # crown top reached z~=15.4 for height=6 (2.57x); L2 bounds the recursion +
+    # uniformly fits the crown top to `height`; (2) DISTRIBUTED primaries along
+    # the trunk (kill the wishbone; activate firstBranchHeight); (3) PIPE-MODEL
+    # radii r_child=r_p*(1/n)^(1/e) + trunk taper into the B3 band + per-segment
+    # `curve`. The gate is C2+C3 (thinning 0.55-0.75, down-angle 30-55) and B2+B3
+    # (base r/height 0.02-0.05, trunk taper 0.3-0.6) PLUS the height budget, on
+    # top of L1's still-green C1+C4. Everything checkable offline from
+    # proof_mesh/skeleton is pinned here (renders cover A3/A4); dual-tier parity
+    # stays on the cheap-when-trivial checklist.
     assert "tree" in registry, "tree craftsman not discovered"
     # The tree manifest must declare ALL 24 params up front (schema stability
     # across L0->L5) and use only the C++-known types.
@@ -736,23 +740,28 @@ def main() -> int:
     tree_zs = [v[2] for v in tree_verts]
     assert abs(min(tree_zs)) < 1e-6, f"tree base must sit at z=0 (F3), got z-min {min(tree_zs)}"
 
-    # F2 — poly budget: one tree at L1 defaults is FAR under the 25k-tri forest
+    # F2 — poly budget: one tree at L2 defaults is FAR under the 25k-tri forest
     # target (read the tri count from the proof, not a render). The branch fanout
-    # is the explosion risk (childrenPerNode^branchLevels) so this guard matters.
+    # is the explosion risk (childrenPerNode^branchLevels) and the per-segment
+    # curve adds rings, so this guard matters after L2.
     tree_tris = sum(len(face) - 2 for face in tree_faces)
     assert tree_tris < 25000, f"tree exceeds the 25k-tri budget (F2): {tree_tris}"
 
-    # A1 (sharpened) — trunk vertical: fit a line to the trunk-ring centroids
-    # BELOW firstBranchHeight*height and measure its angle from +z (< ~15°). The
-    # trunk verts are the ones below the crown band; their per-z-layer centroids
-    # must climb straight up. At L0 the trunk is dead-vertical, so the centroids
-    # are all at (0,0,z) — the fitted axis is exactly +z.
+    # A1 (sharpened) — trunk vertical: fit a line to the trunk-ring centroids and
+    # measure its angle from +z (< ~15°). The dedicated _trunk_mesh is built FIRST
+    # in _local_mesh, so the trunk's own ring verts are exactly the first
+    # (segments+1)*tubeSides verts — isolate THEM (the L2 branch tubes now droop
+    # with `curve` and would pollute a "below trunk_cut" slice with off-axis
+    # verts). Their per-z-layer centroids must climb straight up the +z axis.
     tree_height = float(tree_ops[0]["params"]["height"])
     # firstBranchHeight default is 0.35 (not in the sample → use the manifest default).
     first_branch_frac = float(tree_defaults["firstBranchHeight"])
     trunk_cut = first_branch_frac * tree_height
-    trunk_verts = [v for v in tree_verts if v[2] <= trunk_cut + 1e-9]
-    assert len(trunk_verts) >= 2, "no trunk verts below the first-branch height"
+    a1_tube_sides = int(float(tree_ops[0]["params"].get("tubeSides", 6)))
+    a1_segments = int(float(tree_ops[0]["params"].get("segmentsPerBranch", 4)))
+    n_trunk_verts = (a1_segments + 1) * a1_tube_sides
+    trunk_verts = tree_verts[:n_trunk_verts]
+    assert len(trunk_verts) >= 2, "no trunk verts to fit the trunk axis"
     # Group by z-layer, take each layer's xy-centroid, then fit a direction from
     # the lowest to the highest centroid (the trunk axis).
     layers = {}
@@ -783,6 +792,24 @@ def main() -> int:
     crown_width = max(crown_xs) - min(crown_xs)
     assert crown_width >= 0.4 * tree_height, \
         f"armature too narrow to read (A2): width {crown_width:.2f} vs height {tree_height}"
+
+    # A2 (UPPER bound) — the crown must not SPRAWL either. The L2 critique found
+    # lengthRatio=0.72 drove the FULL-mesh crown XY width to ~1.31× the mesh
+    # max-z (over the 0.5-1.0× band — a lollipop that the L3 canopy would only
+    # amplify). lengthRatio=0.56 pulls it into band; this guard LOCKS the band
+    # going into L3 so the canopy builder can't silently re-widen the armature.
+    # Width = the larger of the x-span and y-span over ALL tree_verts (the full
+    # mesh bbox, trunk included); divide by the mesh max-z. C3 (emergence angle)
+    # is orthogonal to lengthRatio, so this band is held purely by the length
+    # lever — no collateral on the angle/taper/budget bands measured below.
+    all_xs = [v[0] for v in tree_verts]
+    all_ys = [v[1] for v in tree_verts]
+    crown_xy_width = max(max(all_xs) - min(all_xs), max(all_ys) - min(all_ys))
+    a2_max_z = max(tree_zs)  # tree_zs already collected above (F3 check)
+    crown_w_over_h = crown_xy_width / a2_max_z
+    assert crown_w_over_h <= 1.05, \
+        f"A2: full-mesh crown XY width/max-z {crown_w_over_h:.3f} must be <= 1.05 " \
+        f"(over-wide sprawl — width {crown_xy_width:.3f}, max-z {a2_max_z:.3f})"
 
     # C1 (BRANCHING gate) — >=3 visible branch LEVELS (trunk -> primary ->
     # secondary -> tertiary). skeleton_levels() returns the distinct levels; the
@@ -817,10 +844,113 @@ def main() -> int:
         assert abs(step - rotate_angle) < 1e-6, \
             f"C4: successive primaries must step the golden angle {rotate_angle}, got {step:.3f}"
 
+    # ---- L2 (STRUCTURE) gate: height budget + pipe model + taper + distributed
+    # primaries. These are the defects the L1 critique owned; each is checkable
+    # offline from proof_mesh/skeleton, so pin the measured value to the rubric
+    # band so a regression names which band it broke.
+
+    # HEIGHT BUDGET (the headline L1 defect): the MANIFEST says `height` = "trunk
+    # base -> crown top". L1's crown top reached z~=15.4 for height=6 (2.57x). L2
+    # bounds the recursion (outward lean + curve) and uniformly fits the crown top
+    # to `height`, so the WHOLE tree fits its declared height within tolerance.
+    tree_zmax = max(tree_zs)
+    assert tree_zmax <= 1.15 * tree_height, \
+        f"height budget: crown top {tree_zmax:.3f} must be <= 1.15*height ({1.15*tree_height:.3f})"
+    # The fit should not crush the tree to a stump either — the crown should reach
+    # most of the declared height.
+    assert tree_zmax >= 0.85 * tree_height, \
+        f"height budget: crown top {tree_zmax:.3f} should reach >= 0.85*height ({0.85*tree_height:.3f})"
+
+    # C2 (pipe model) — child radius / parent radius for a 3-way split must land in
+    # 0.55-0.75 (matches (1/n)^(1/e), e~=2.0-2.3). Measure a secondary (level 2)
+    # start radius against its parent primary (level 1) start radius. They are NOT
+    # the same thickness as the parent (the placeholder fixed-fraction is gone).
+    secondaries = [b for b in skel if b["level"] == 2]
+    assert primaries and secondaries, "need primaries + secondaries to check the pipe model"
+    pipe_ratio = secondaries[0]["radii"][0] / primaries[0]["radii"][0]
+    assert 0.55 <= pipe_ratio <= 0.75, \
+        f"C2: pipe-model child/parent radius {pipe_ratio:.4f} must be in 0.55-0.75"
+
+    # B2 (HONEST) — trunk base radius / height in 0.02-0.05, MEASURED ON THE FINAL
+    # RENDERED MESH. The L1->L2 critique found the old gate read the raw PARAM
+    # ratio (trunkRadius/height), which the height fit then quietly violated: a
+    # uniform whole-mesh scale shrank the trunk radius along with the positions, so
+    # the RENDERED base/height was 0.013 (below band) while the gate passed on
+    # 0.030. The position-only fit keeps radii honest, but the gate must still read
+    # the MESH, not the param. The trunk base ring is the first `tubeSides` verts
+    # (the z≈0 ring of _trunk_mesh, which is built first in _local_mesh); its
+    # radius = the max horizontal distance from the trunk axis (x=y=0). Divide by
+    # the mesh's actual max z. This is the number that describes the rendered tree.
+    tree_trunk_radius = float(tree_ops[0]["params"]["trunkRadius"])
+    b2_tube_sides = int(float(tree_ops[0]["params"].get("tubeSides", 6)))
+    base_ring = tree_verts[:b2_tube_sides]
+    base_ring_r = max(math.hypot(v[0], v[1]) for v in base_ring)
+    base_r_over_h = base_ring_r / tree_zmax
+    assert 0.02 <= base_r_over_h <= 0.05, \
+        f"B2: FINAL-mesh trunk base-ring radius/max-z {base_r_over_h:.4f} " \
+        f"must be in 0.02-0.05 (base ring r={base_ring_r:.4f}, max z={tree_zmax:.3f})"
+
+    # B3 — trunk visibly TAPERS: top-of-trunk radius / base radius in 0.3-0.6. The
+    # trunk mesh's own radii carry this; rebuild it to read base + top radii. L1's
+    # was 0.61 (too flat); L2 steepens the trunk per-segment taper into band.
+    tree_tube_sides = int(float(tree_ops[0]["params"].get("tubeSides", 6)))
+    tree_segments = int(float(tree_ops[0]["params"].get("segmentsPerBranch", 4)))
+    tree_base_flare = float(tree_ops[0]["params"].get("baseFlare", tree_defaults["baseFlare"]))
+    _tv, _tf, trunk_top_r = tree._trunk_mesh(
+        tree_height, tree_trunk_radius, tree_base_flare, tree_segments, tree_tube_sides)
+    trunk_taper_ratio = trunk_top_r / tree_trunk_radius
+    assert 0.3 <= trunk_taper_ratio <= 0.6, \
+        f"B3: trunk top/base radius {trunk_taper_ratio:.4f} must be in 0.3-0.6"
+
+    # C3 — primary branch elevation (down) angle off the trunk in 30-55° (not
+    # horizontal shelves, not vertical brooms). Measure the angle of a primary's
+    # FIRST segment off the trunk's +z axis (the emergence angle — the per-segment
+    # curve bends the later segments further down, but C3 is about how the limb
+    # LEAVES the trunk).
+    def _down_angle_deg(branch):
+        s, t = branch["nodes"][0], branch["nodes"][1]
+        d = (t[0] - s[0], t[1] - s[1], t[2] - s[2])
+        dl = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
+        return math.degrees(math.acos(max(-1.0, min(1.0, d[2] / dl))))
+    prim_down = _down_angle_deg(primaries[0])
+    assert 30.0 <= prim_down <= 55.0, \
+        f"C3: primary down-angle {prim_down:.2f}° must be in 30-55°"
+
+    # DROOP CLAMP (L2 curve responsibility) — no branch tip may plunge near
+    # vertical. The L1->L2 critique found the per-level down-angle widen stacked on
+    # the curve droop drove L3/L4 tips to ~-90° elevation (a weeping/dead-tree
+    # read). L2 tempers the widen AND clamps the running axis so NO tip heads more
+    # steeply DOWN than ~20° below horizontal. Measure the elevation (angle above
+    # horizontal, negative = below) of every branch's final segment; the minimum
+    # must be >= -20° (a small epsilon for float error). Elevation is invariant
+    # under the uniform position fit, so the skeleton tips describe the rendered
+    # tips exactly.
+    def _tip_elev_deg(branch):
+        n = branch["nodes"]
+        d = (n[-1][0] - n[-2][0], n[-1][1] - n[-2][1], n[-1][2] - n[-2][2])
+        dl = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
+        return math.degrees(math.asin(max(-1.0, min(1.0, d[2] / dl))))
+    tip_elevs = [_tip_elev_deg(b) for b in skel if b["level"] >= 1]
+    min_tip_elev = min(tip_elevs)
+    assert min_tip_elev >= -20.0 - 1e-6, \
+        f"droop clamp: min branch-tip elevation {min_tip_elev:.2f}° plunges below " \
+        f"-20° (a weeping/dead-tree artifact)"
+
+    # DISTRIBUTED primaries (kill the wishbone): the primaries must emerge at MORE
+    # THAN ONE distinct height along the trunk (L1 sprang them all from the single
+    # trunk-top node). firstBranchHeight is now LIVE — the lowest primary sits at
+    # or above firstBranchHeight*height, leaving a clear bole below.
+    prim_start_z = sorted({round(b["nodes"][0][2], 4) for b in primaries})
+    assert len(prim_start_z) > 1, \
+        f"distributed primaries: need >1 distinct start height, got {prim_start_z}"
+    assert min(prim_start_z) >= first_branch_frac * tree_height - 1e-6, \
+        f"firstBranchHeight: lowest primary {min(prim_start_z):.3f} below the bole cut " \
+        f"{first_branch_frac * tree_height:.3f}"
+
     # F4 (dual-tier parity proxy): proof_mesh is deterministic — two calls give
     # identical (verts,faces). build() calls proof_mesh, so the bpy mesh shares
-    # the count; same-seed determinism (E2) holds for free at L1 (the golden
-    # angle is exact, NO RNG — jitter arrives at L5).
+    # the count; same-seed determinism (E2) holds for free at L2 (every angle is
+    # exact, NO RNG — jitter arrives at L5).
     v2, f2 = tree.proof_mesh(tree_ops[0])
     assert v2 == tree_verts and f2 == tree_faces, "tree proof_mesh is not deterministic"
 

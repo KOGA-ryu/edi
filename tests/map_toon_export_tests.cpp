@@ -253,6 +253,85 @@ int main()
         assert(toon.find("\"3,4\"") == std::string::npos);
     }
 
+    // P2-A2 (brief 071): level column on rooms + plugs — CONDITIONAL per-section.
+    // Emitted only when some row has level != 0; appended LAST in the header.
+    {
+        // --- Level-bearing golden: at least one room and one plug carry non-zero level. ---
+        // Two rooms: ground (level 0) and upper (level 2).
+        // Two plugs: ground.south (level 0) and upper.north (level 1).
+        // canvasPerAuthoredUnit = 1.0 so authored == canvas.
+        DraftingDocument lvlDoc = makeDraftingDocument("level-test");
+        lvlDoc.canvasPerAuthoredUnit = 1.0;
+        lvlDoc.rooms.push_back(DraftingMapRoom{"ground", {0.0, 0.0}, 10.0, 10.0, "stone"});
+        DraftingMapRoom upper;
+        upper.name     = "upper";
+        upper.origin   = {0.0, 20.0};
+        upper.width    = 8.0;
+        upper.height   = 8.0;
+        upper.material = "stone";
+        upper.level    = 2;
+        lvlDoc.rooms.push_back(upper);
+
+        DraftingPlug pGround;
+        pGround.id     = "plug_0001";
+        pGround.name   = "ground.south";
+        pGround.anchor = {5.0, 10.0}; // S edge: y == origin.y + height = 0 + 10
+        pGround.type   = "door";
+        // level = 0 (default)
+        lvlDoc.plugs.push_back(pGround);
+
+        DraftingPlug pUpper;
+        pUpper.id     = "plug_0002";
+        pUpper.name   = "upper.north";
+        pUpper.anchor = {4.0, 20.0}; // N edge: y == origin.y = 20
+        pUpper.type   = "door";
+        pUpper.level  = 1;
+        lvlDoc.plugs.push_back(pUpper);
+
+        const std::string lvlToon = edi::io::exportMapToToon(lvlDoc, "level-test");
+
+        // Exact golden — pins every byte including the level column in LAST position.
+        // Rooms: both rows carry level (even the level-0 row). The presence of ANY
+        // non-zero level causes the column to appear for the WHOLE section.
+        // Plugs: same rule — both rows carry level once any plug is non-zero.
+        const std::string expectedLvl =
+            "kind: map\n"
+            "title: level-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[2]{name,origin,size,material,level}:\n"
+            "  ground,\"0,0\",\"10,10\",stone,0\n"
+            "  upper,\"0,20\",\"8,8\",stone,2\n"
+            "\n"
+            "plugs[2]{room,name,edge,type,connected,flags,level}:\n"
+            "  ground,south,S,door,false,\"\",0\n"
+            "  upper,north,N,door,false,\"\",1\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(lvlToon == expectedLvl);
+
+        // Column is LAST: level appears after material in rooms, after flags in plugs.
+        assert(lvlToon.find("{name,origin,size,material,level}") != std::string::npos);
+        assert(lvlToon.find("{room,name,edge,type,connected,flags,level}") != std::string::npos);
+
+        // --- All-level-0 document: rooms/plugs headers are BYTE-IDENTICAL to pre-A2. ---
+        // Conditional-emission guard: zero non-default values ⇒ no level column ⇒
+        // the export is unchanged from before this wire extension.
+        DraftingDocument zeroDoc = makeDraftingDocument("zero-level");
+        zeroDoc.canvasPerAuthoredUnit = 1.0;
+        zeroDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 5.0, 5.0, "stone"});
+        // (level defaults to 0)
+
+        const std::string zeroToon = edi::io::exportMapToToon(zeroDoc, "zero-level");
+        // No level column in rooms header.
+        assert(zeroToon.find("{name,origin,size,material,level}") == std::string::npos);
+        assert(zeroToon.find("{name,origin,size,material}") != std::string::npos);
+        // No level column in plugs header (0 plugs, but still no level keyword).
+        assert(zeroToon.find("flags,level") == std::string::npos);
+    }
+
     // P2-A1 (brief 070): nodes[] section — CONDITIONAL, canonical position after
     // connections, before blocks; header-as-truth; empty => section absent.
     {

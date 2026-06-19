@@ -253,5 +253,81 @@ int main()
         assert(toon.find("\"3,4\"") == std::string::npos);
     }
 
+    // P2-A1 (brief 070): nodes[] section — CONDITIONAL, canonical position after
+    // connections, before blocks; header-as-truth; empty => section absent.
+    {
+        // --- 2-node golden: pins the exact wire bytes for two nodes. ---
+        // Node 1: named "junction_a", anchor (5, 3) authored feet, type "hub".
+        // Node 2: name empty -> falls back to id "node_0002"; anchor (10, 7.5); type empty.
+        // canvasPerAuthoredUnit = 1.0 so authored == canvas (simplifies the golden).
+        DraftingDocument nodeDoc = makeDraftingDocument("nodes-test");
+        nodeDoc.canvasPerAuthoredUnit = 1.0;
+        nodeDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 10.0, 10.0, "stone"});
+
+        DraftingNode n1;
+        n1.id     = "node_0001";
+        n1.name   = "junction_a";
+        n1.anchor = {5.0, 3.0};
+        n1.type   = "hub";
+        nodeDoc.nodes.push_back(n1);
+
+        DraftingNode n2;
+        n2.id     = "node_0002";
+        n2.name   = "";          // empty name -> id is the fallback label
+        n2.anchor = {10.0, 7.5};
+        n2.type   = "";          // empty type -> "" via cell()
+        nodeDoc.nodes.push_back(n2);
+
+        const std::string nodeToon = edi::io::exportMapToToon(nodeDoc, "nodes-test");
+
+        // Exact golden — pins every byte of the nodes[] section and its position.
+        // Sections: rooms · plugs(0) · connections(0) · nodes(2) · blocks(0).
+        // The realizer indexes by column NAME from the header, so the order inside
+        // the header ({name,anchor,type}) is stable — this is the byte contract.
+        const std::string expectedNodes =
+            "kind: map\n"
+            "title: nodes-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[1]{name,origin,size,material}:\n"
+            "  r,\"0,0\",\"10,10\",stone\n"
+            "\n"
+            "plugs[0]{room,name,edge,type,connected,flags}:\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "nodes[2]{name,anchor,type}:\n"
+            "  junction_a,\"5,3\",hub\n"       // named, typed
+            "  node_0002,\"10,7.5\",\"\"\n"    // id fallback; empty type -> ""
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(nodeToon == expectedNodes);
+
+        // Canonical position: nodes section appears AFTER connections and BEFORE blocks.
+        const std::size_t connPos  = nodeToon.find("connections[");
+        const std::size_t nodesPos = nodeToon.find("nodes[");
+        const std::size_t blocsPos = nodeToon.find("blocks[");
+        assert(connPos  != std::string::npos);
+        assert(nodesPos != std::string::npos);
+        assert(blocsPos != std::string::npos);
+        assert(connPos  < nodesPos && nodesPos < blocsPos);
+
+        // --- Node-LESS document: NO nodes[] section — not even a header line. ---
+        // Conditional-emission invariant: empty nodes -> section ABSENT -> same
+        // bytes as the pre-A1 export (legacy maps stay byte-identical).
+        DraftingDocument noNodeDoc = makeDraftingDocument("no-nodes");
+        noNodeDoc.canvasPerAuthoredUnit = 1.0;
+        noNodeDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 10.0, 10.0, "stone"});
+        // (nodes vector default-empty)
+
+        const std::string noNodeToon = edi::io::exportMapToToon(noNodeDoc, "no-nodes");
+        assert(noNodeToon.find("nodes[") == std::string::npos);
+        // And blocks section still immediately follows the connections blank line.
+        const std::size_t connEnd   = noNodeToon.find("connections[");
+        const std::size_t blocksPos = noNodeToon.find("blocks[");
+        assert(connEnd  != std::string::npos && blocksPos != std::string::npos);
+        assert(connEnd  < blocksPos); // no nodes[] in between
+    }
+
     return 0;
 }

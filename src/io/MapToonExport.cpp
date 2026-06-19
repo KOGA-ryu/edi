@@ -12,6 +12,27 @@
 #include <utility>
 #include <vector>
 
+// CANONICAL TOON SECTION ORDER — owned here, the single source of truth.
+//
+// Document export (DraftingDocument overload) emits sections in this order:
+//   rooms · plugs · connections · nodes · blocks  [future: vertical after blocks]
+//
+// TWO INVARIANTS the realizer must obey:
+//   (a) INDEX BY NAME: the realizer reads every cell by its column name from the
+//       section header (e.g. {name,anchor,type}), never by zero-based index.  This
+//       means new columns can be appended, prepended, or reordered as long as the
+//       header is updated — backward-compatible for any reader that keys on names.
+//   (b) CONDITIONAL EMISSION: every NEW section (and every NEW column) is emitted
+//       ONLY when non-default data exists for it.  A section/column with all-default
+//       values is SILENTLY ABSENT.  This is the mechanism that lets the wire grow
+//       without ever breaking a legacy byte-identical export: an all-default map
+//       produces the same byte string before and after the wire extension.  The
+//       engine reader must therefore treat an absent section as "no entries of that
+//       kind", and must NOT expect every section to be present.
+//
+// ONE CANONICAL-ORDER OWNER: this file.  No other code declares the section order.
+// Concurrent builders adding new sections must coordinate here to avoid collision.
+
 namespace edi::io {
 namespace {
 
@@ -148,6 +169,19 @@ void writeConnectionRow(std::ostringstream &out, const std::string &from,
         << "\n";
 }
 
+// Node connector row: name (fall back to id if empty), anchor in authored feet
+// (quoted because x,y always carries a comma), type (empty -> "" via cell()).
+// Matches the byte shape of the other row helpers — two-space indent, cell() for
+// every string, \n at the end.
+void writeNodeRow(std::ostringstream &out, const std::string &name,
+                  const std::string &anchor, const std::string &type)
+{
+    out << "  " << cell(name)
+        << "," << cell(anchor)
+        << "," << cell(type)
+        << "\n";
+}
+
 } // namespace
 
 std::string exportMapToToon(const MapSpec &spec, const std::string &title, const std::string &units)
@@ -277,6 +311,30 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
                            plugNameById(connection.plugB), connection.type);
     }
     out << "\n";
+
+    // nodes[] section (canonical position: after connections, before blocks).
+    //
+    // CONDITIONAL EMISSION (invariant b): the section is written ONLY when
+    // document.nodes is non-empty.  An empty vector ⇒ no header, no blank line,
+    // nothing — so every legacy map (no nodes) stays byte-identical through this
+    // wire extension.  The engine reader must treat an absent `nodes[]` section
+    // as "zero nodes", not as an error.
+    //
+    // Column shape: {name,anchor,type}.  `name` falls back to `id` if the
+    // authored name is empty, so every row has a non-empty identity key.
+    // `anchor` is in AUTHORED FEET (canvas / canvasPerAuthoredUnit), quoted
+    // because the "x,y" form always contains a comma.  `type` is an open
+    // vocabulary tag edi does not interpret — empty is a valid value.
+    if (!document.nodes.empty()) {
+        out << "nodes[" << document.nodes.size() << "]{name,anchor,type}:\n";
+        for (const auto &node : document.nodes) {
+            const std::string label = node.name.empty() ? node.id : node.name;
+            writeNodeRow(out, label,
+                         authored(node.anchor.x) + "," + authored(node.anchor.y),
+                         node.type);
+        }
+        out << "\n";
+    }
 
     // Block instances: FLATTEN scattered each placement into N independent objects,
     // so re-form them by grouping on the BlockPlacementMetadata instanceId. The

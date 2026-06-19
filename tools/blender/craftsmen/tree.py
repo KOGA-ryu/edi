@@ -10,12 +10,39 @@ each child's radius from its parent. The skeleton is SKINNED to tapered-tube
 (verts,faces) and the crown is clumped icospheres — ALL in pure Python, so the
 proof tier (proof_mesh) and the bpy tier (build) run the SAME generator.
 
-THIS FILE IS L3 (CANOPY) of the L0->L5 detail ladder. L0 built ONLY the
+THIS FILE IS L5a (SEEDED JITTER) of the L0->L5 detail ladder. L0 built ONLY the
 scaffold the silhouette test needed (a tapered trunk + one placeholder crown
 blob). L1 GREW the recursive self-similar SKELETON off the trunk and skinned each
 branch as a bare tapered tube. L2 made that branching STRUCTURALLY BELIEVABLE
 (pipe-model radii, height budget, distributed primaries). L3 hangs FOLIAGE on the
-bare armature.
+bare armature. L4 PROPORTIONED it (root flare, crown ratio, bark/leaf material).
+L5a switches the seed ON: it threads ONE seeded RNG through the generation so the
+tree VARIES with `seed` while staying byte-identical for a fixed seed.
+
+L5a (SEEDED JITTER / VARIATION) — the determinism discipline made real. Until now
+`seed` and every `*Jitter` param were INERT: the RNG was frozen and the tree was
+EXACT (bilaterally regular, every branch a mirror of its siblings). L5a wires the
+four jitter knobs (downAngleJitter / rotateJitter / lengthJitter / clumpJitter)
+through a single `random.Random(int(float(seed)))` drawn in a FIXED depth-first
+child-index order. The CRITICAL rule (doc 7 MUST-HONOR 4 + R3): EVERY per-node RNG
+value is drawn UNCONDITIONALLY, in that fixed order, BEFORE any keep/clip/filter
+decision — never let a branch/clip choice gate a `.random()` call. Because `build`
+calls `proof_mesh` (one generator, no second RNG) and `_skeleton`/`_clump_centres`
+are PURE functions of params (seed included), the SAME seed yields a byte-identical
+(verts,faces) in both tiers and across re-runs (E2); a DIFFERENT seed visibly
+moves branch placement/angles + clump layout (E1); and the per-child jitter breaks
+the candelabra/bilateral regularity so the silhouette shows natural spread, no
+mirror (E3).
+
+A2 HEADROOM is the binding constraint on jitter MAGNITUDE. The position-only
+height fit re-normalizes Z but NOT XY, so jitter that lengthens/splays branches can
+push the crown XY width past the A2 <=1.05 guard (only ~4% headroom at the L4
+default). L5a therefore adds an XY A2-SAFETY CLAMP (a position-only XY scale about
+the trunk axis, applied AFTER the seed has fully shaped the tree) that pulls the
+crown in to a safe target whenever a seed widens it — so a whole FOREST of seeds
+all land in the crown-width band without muting the jitter (the clamp only ever
+SHRINKS, never widens, so within-budget seeds are untouched and asymmetry is
+preserved).
 
 L3 (CANOPY) — the anti-lollipop discipline. The forbidden read is a single
 spherical blob swept over the crown (the L0 placeholder). L3 instead places
@@ -89,6 +116,7 @@ so an instance plants its base on the terrain at its placement point (rubric F3)
 """
 
 import math
+import random
 
 MANIFEST = {
     "id": "tree",
@@ -232,6 +260,19 @@ BUTTRESS_RINGS = 2
 # the second ring still carries a visible residual flare (a smooth root, not a
 # single ledge then bare trunk).
 BUTTRESS_EASE = 0.45
+
+# --- NAMED L5a (SEEDED JITTER) constants --------------------------------------
+# The A2 XY-SAFETY TARGET. After the seed has fully shaped the tree (jitter +
+# height fit), we measure the crown's full-mesh XY width / max-z and, if it
+# exceeds this target, apply a position-only XY scale about the trunk axis so the
+# width lands AT the target. WHY a hair below the 1.05 smoke guard: the smoke
+# measures A2 on the FINAL mesh (skeleton tips + clump radii + trunk flare), and
+# float rounding plus the clump-size envelope can nudge the measured value a touch
+# above the skeleton-only width we clamp on; 1.03 leaves margin so every tested
+# seed (0..5) stays comfortably <= 1.05. The clamp only ever SHRINKS (scale <= 1),
+# so a seed already within budget is byte-untouched and its asymmetry is preserved
+# — the clamp is a CEILING on sprawl, not a normaliser that mutes variation.
+A2_XY_SAFETY_TARGET = 1.03
 
 
 def _ring(cx, cy, cz, radius, sides):
@@ -418,9 +459,16 @@ def _skeleton(params: dict):
     trunk from firstBranchHeight*height up to the trunk top; each branch tip then
     spawns `childrenPerNode` children to depth branchLevels.
 
-    Pure + deterministic: the only angle source is the EXACT golden azimuth
-    (rotateAngle advancing per primary + per child) — no RNG at L2. Depth-first,
-    children in index order, so L5's seeded jitter has a fixed traversal."""
+    L5a: seeded JITTER is now LIVE. ONE `random.Random(int(float(seed)))` is
+    threaded through the depth-first recursion (children in index 0..n-1 order);
+    each branch draws its lengthJitter and each child draws its downAngleJitter +
+    rotateJitter UNCONDITIONALLY, in that fixed order, so the draw sequence is
+    identical in the proof tier and the bpy build (E2) and a different seed visibly
+    re-shapes the tree (E1/E3). The jitter is a SEEDED perturbation within each
+    bound around the base value — it breaks the candelabra/bilateral regularity
+    without changing the structural laws (pipe model, height budget, golden
+    azimuth base). `_skeleton` is a PURE function of params (seed included), so two
+    calls with the same params return identical branches."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     branch_levels = max(0, int(float(params.get("branchLevels", 4))))
@@ -428,6 +476,23 @@ def _skeleton(params: dict):
     first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
     down_angle = math.radians(float(params.get("downAngle", 45.0)))
     rotate_angle = math.radians(float(params.get("rotateAngle", 137.5)))
+    # L5a jitter magnitudes (bounds for the seeded ± perturbation). Read here so a
+    # zero magnitude is a no-op (the L0-L4 EXACT tree) and the seed only bites when
+    # a *Jitter knob is non-zero.
+    down_jitter = math.radians(abs(float(params.get("downAngleJitter", 12.0))))
+    rotate_jitter = math.radians(abs(float(params.get("rotateJitter", 20.0))))
+    length_jitter = abs(float(params.get("lengthJitter", 0.15)))
+    seed = int(float(params.get("seed", 0)))
+    # ONE seeded RNG instance for the WHOLE skeleton (R3). Drawn in fixed depth-
+    # first order; never branched on a clip decision. A fresh Random(seed) per
+    # call makes _skeleton a pure function of params, so every call site (skin,
+    # face_split, canopy) sees the identical jittered armature.
+    rng = random.Random(seed)
+
+    def _jit(mag):
+        """Draw ONE uniform perturbation in [-mag, +mag]. ALWAYS called in fixed
+        order regardless of any later keep/clip — the draw must not be gated."""
+        return rng.uniform(-mag, mag)
     # Fallback mirrors the MANIFEST default (0.56): the sample recipe doesn't pin
     # lengthRatio, so this .get() fallback IS the rendered value — it must track
     # the manifest default or the proof mesh would render a different crown width
@@ -449,7 +514,14 @@ def _skeleton(params: dict):
         """Append one CURVED branch of `segments` steps from `start` along `axis`
         (bending `curve` total toward horizontal), tapering radius from `radius`
         to radius*BRANCH_TIP_TAPER, then — if we are not yet at branchLevels —
-        recurse children off its TIP. Returns the branch's index."""
+        recurse children off its TIP. Returns the branch's index.
+
+        L5a: the FIRST RNG draw of every branch is its lengthJitter (a ± fractional
+        perturbation on this branch's length). It is drawn UNCONDITIONALLY here, at
+        the top of add_branch, so the per-branch draw order is fixed across tiers.
+        """
+        # lengthJitter: ± frac on THIS branch's length. Drawn first, unconditional.
+        length = max(1e-4, length * (1.0 + _jit(length_jitter)))
         nodes = _curved_branch_nodes(start, axis, length, segments, curve)
         radii = []
         for s in range(segments + 1):
@@ -469,8 +541,13 @@ def _skeleton(params: dict):
             # Deeper levels lean ever more OUTWARD (height-budget lever (b)).
             child_down = down_angle + math.radians(DOWN_ANGLE_LEVEL_WIDEN_DEG) * level
             for c in range(children_per_node):
-                azimuth = rotate_angle * c
-                caxis = _child_axis(tip_axis, child_down, azimuth)
+                # L5a: each child draws its downAngleJitter then its rotateJitter,
+                # in THIS fixed order, BEFORE recursing. The base down-angle +
+                # golden azimuth carry the structure; the jitter is a ± spread
+                # around them, so siblings are no longer mirror copies (E3).
+                cdown = max(0.0, child_down + _jit(down_jitter))
+                azimuth = rotate_angle * c + _jit(rotate_jitter)
+                caxis = _child_axis(tip_axis, cdown, azimuth)
                 add_branch(tip, caxis, child_len, child_rad, level + 1)
         return idx
 
@@ -502,8 +579,13 @@ def _skeleton(params: dict):
             frac = (c + 1) / n_prim
             zc = z_lo + frac * (z_hi - z_lo)
             start = (0.0, 0.0, zc)
-            azimuth = rotate_angle * c
-            caxis = _child_axis(trunk_axis, down_angle, azimuth)
+            # L5a: each primary draws downAngleJitter then rotateJitter (the SAME
+            # fixed order the recursive children use), BEFORE add_branch draws its
+            # lengthJitter — so the whole skeleton's draw sequence is one fixed
+            # depth-first walk (primary 0, its subtree, primary 1, its subtree, …).
+            pdown = max(0.0, down_angle + _jit(down_jitter))
+            azimuth = rotate_angle * c + _jit(rotate_jitter)
+            caxis = _child_axis(trunk_axis, pdown, azimuth)
             add_branch(start, caxis, primary_len, primary_rad, 1)
 
     return branches
@@ -664,50 +746,76 @@ def _outer_tips(scaled_skel, first_branch_z):
 
 
 def _clump_centres(scaled_skel, params: dict, first_branch_z):
-    """The DETERMINISTIC centres of the canopy clumps: pick `clumpCount` of the
-    outer tips (a FIXED evenly-spread subset of the depth-first tip list when
-    there are more tips than clumps; all of them when fewer), then nudge each
-    centre INWARD along its branch by CLUMP_INWARD_NUDGE_FRAC*clumpSize so the
-    blob fills the existing crown instead of widening it past A2. Returns the list
-    of clump-centre (x,y,z). Pure + deterministic — no RNG (jitter is L5).
+    """The centres of the canopy clumps: pick `clumpCount` of the outer tips (a
+    FIXED evenly-spread subset of the depth-first tip list when there are more
+    tips than clumps; all of them when fewer), then nudge each centre INWARD along
+    its branch by CLUMP_INWARD_NUDGE_FRAC*clumpSize so the blob fills the existing
+    crown instead of widening it past A2. Returns a list of clump (x, y, z, size).
+
+    L5a (clumpJitter): the clump layout now VARIES with the seed. clumpJitter is a
+    ± fractional perturbation on BOTH each clump's SIZE and its POSITION (an extra
+    inward/outward slide along the branch). The determinism discipline (doc 7
+    MUST-HONOR 4 + R3): we draw THREE jitter values (size, slide, and one spare
+    for stable ordering — see below) for EVERY tip in the full depth-first
+    `_outer_tips` list, UNCONDITIONALLY, BEFORE the even-spread subset selection or
+    the D4 z-filter — so neither the subset nor the clip gates a `.random()` call,
+    and a fresh Random(seed) draws the identical sequence on every call site (skin,
+    face_split, canopy). The SAME seed reused here as in `_skeleton` is fine: a
+    separate Random instance, drawn in its own fixed order, is still byte-stable.
 
     L4 (crown-ratio): the eligibility filter is applied TWICE around the inward
     nudge. _outer_tips already drops any TIP below first_branch_z (D4 — keep the
     bole bare). But the inward nudge moves a clump's CENTRE along its (often
     arcing) branch, so a tip that cleared the cut can land its centre BELOW it.
     Since D4 scores the foliage MASS by its CENTRES, we re-filter on the NUDGED
-    centre z here. At the old L3 bole cut (firstBranchHeight=0.35) every tip sat
-    well above the cut, so this drops nothing — behavior-preserving there. It only
-    bites once L4 raises firstBranchHeight (0.6) to grow a believable bole: the
-    higher cut then cleanly raises the foliage floor (lowering LCR into the
-    healthy 0.40-0.65 band) WITHOUT letting a drooped clump skirt the bole."""
+    centre z here."""
     clump_count = max(1, int(float(params.get("clumpCount", 72))))
     clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    clump_jitter = abs(float(params.get("clumpJitter", 0.35)))
+    seed = int(float(params.get("seed", 0)))
 
     tips = _outer_tips(scaled_skel, first_branch_z)
     if not tips:
         return []
+
+    # DRAW BEFORE CLIP: a fresh seeded RNG draws a (size_jit, slide_jit) pair for
+    # EVERY tip in the fixed depth-first order, regardless of whether that tip is
+    # later chosen or z-filtered. Storing the draws per tip keeps the subset
+    # selection + filter purely positional (no RNG call inside them) so the order
+    # is immune to which clumps survive.
+    rng = random.Random(seed)
+    jitters = [(rng.uniform(-clump_jitter, clump_jitter),
+                rng.uniform(-clump_jitter, clump_jitter)) for _ in tips]
+
     n = len(tips)
     if n > clump_count:
         # Fixed evenly-spread subset across the depth-first order (NOT random):
         # the i-th clump takes tip floor(i * n / clump_count), so the chosen tips
         # fan around the whole crown rather than bunching in one DFS sub-branch.
-        chosen = [tips[(i * n) // clump_count] for i in range(clump_count)]
+        chosen_idx = [(i * n) // clump_count for i in range(clump_count)]
     else:
-        chosen = tips  # fewer tips than clumps — place one at every tip
+        chosen_idx = list(range(n))  # fewer tips than clumps — one at every tip
 
-    nudge = CLUMP_INWARD_NUDGE_FRAC * clump_size
-    centres = []
-    for (tip, indir) in chosen:
+    base_nudge = CLUMP_INWARD_NUDGE_FRAC * clump_size
+    clumps = []
+    for j in chosen_idx:
+        tip, indir = tips[j]
+        size_jit, slide_jit = jitters[j]
+        # clumpJitter on SIZE: ± frac around clump_size (D3 — no two clumps the
+        # same size). Clamped positive.
+        size = max(1e-4, clump_size * (1.0 + size_jit))
+        # clumpJitter on POSITION: an extra slide along the inward branch dir,
+        # ± (slide_jit * clump_size) on top of the base inward nudge.
+        nudge = base_nudge + slide_jit * clump_size
         cz = tip[2] + indir[2] * nudge
         # D4 on the MASS centre: drop any clump whose nudged centre fell below the
         # bole cut (the inward nudge can lower a drooped tip's centre past it).
         if cz <= first_branch_z:
             continue
-        centres.append((tip[0] + indir[0] * nudge,
-                        tip[1] + indir[1] * nudge,
-                        cz))
-    return centres
+        clumps.append((tip[0] + indir[0] * nudge,
+                       tip[1] + indir[1] * nudge,
+                       cz, size))
+    return clumps
 
 
 def _fitted_skeleton(params: dict):
@@ -726,36 +834,78 @@ def _fitted_skeleton(params: dict):
     for b in skel:
         b["nodes"] = [(nx * pos_scale, ny * pos_scale, nz * pos_scale)
                       for (nx, ny, nz) in b["nodes"]]
+
+    # A2 XY-SAFETY CLAMP (L5a). The height fit re-normalizes Z but NOT XY, so a
+    # seed whose jitter lengthens/splays the upper branches can push the crown XY
+    # width past the A2 <=1.05 guard (only ~4% headroom at the L4 default). After
+    # the seed has fully shaped + Z-fitted the tree, measure the FINAL crown XY
+    # width (the canopy CLUMPS, which set the outermost extent — centre ± the
+    # clump's own radius) / max-z and, if it exceeds A2_XY_SAFETY_TARGET, scale the
+    # node XY about the trunk axis (x=y=0) so the width lands AT the target.
+    #
+    # WHY solve for the clump-inclusive width and not just the skeleton tips: the
+    # icosphere blobs extend a clump-radius BEYOND their centres, and a clump's
+    # RADIUS does NOT scale with the XY position scale (it is baked at skin time).
+    # So if the crown half-extent is `w` (centre) + `s` (max clump radius), a naive
+    # tip-only clamp under-shrinks and the final mesh A2 slips over 1.05 (seen on
+    # seeds whose splay lands a big jittered clump at the rim). We therefore solve
+    # k·(2·w_centre) + 2·s_max = target·zmax for the scale k, so the SKINNED width
+    # (which the smoke measures) lands at the target. The clamp only ever SHRINKS
+    # (k <= 1): a within-budget seed is byte-untouched, so its asymmetry survives —
+    # a CEILING on sprawl, not a normaliser. Scaling about x=y=0 keeps the on-axis
+    # trunk at 0 (A1 verticality + F3 base-at-origin), positions-only so radii stay
+    # honest (B2). Clumps are re-derived from the clamped skeleton afterwards, so
+    # their centres ride the same scale and the final width tracks the target.
+    fitted_zmax = max((n[2] for b in skel for n in b["nodes"]), default=height)
+    first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
+    clumps = _clump_centres(skel, params, first_branch * height)
+    if clumps and fitted_zmax > 1e-9:
+        cxs = [c[0] for c in clumps]
+        cys = [c[1] for c in clumps]
+        s_max = max(c[3] for c in clumps)
+        # Full skinned width on each axis = centre span + 2*max clump radius.
+        w_centre = max(max(cxs) - min(cxs), max(cys) - min(cys))
+        full_width = w_centre + 2.0 * s_max
+        budget = A2_XY_SAFETY_TARGET * fitted_zmax
+        if full_width > budget and w_centre > 1e-9:
+            # Solve k*w_centre + 2*s_max = budget for the position scale k. Floor
+            # at a small positive so a pathological all-clump-rim seed can't invert.
+            xy_scale = max(0.05, (budget - 2.0 * s_max) / w_centre)
+            for b in skel:
+                b["nodes"] = [(nx * xy_scale, ny * xy_scale, nz)
+                              for (nx, ny, nz) in b["nodes"]]
     return skel
 
 
 def canopy_clumps(params: dict):
     """A PURE helper the smoke test uses to assert the CANOPY offline, off the
     SAME fitted skeleton the skin pass uses. Returns
-        (centres, clump_size, fill_ratio)
-    where `centres` is the list of clump-centre (x,y,z) (one per clump),
-    `clump_size` is each blob's radius, and `fill_ratio` is the PINNED D2 proxy
-    (doc 7): Sum(clump sphere volumes, NOT overlap-deduped) / crown-bounding-
-    sphere volume. The crown bounding sphere is centred on the centroid of the
-    clump centres with radius = max(dist(centroid, centre) + clump_size) — one
-    reproducible definition. 0.15 <= fill_ratio < 0.6 is the D2 BAND: above the
-    floor reads as a foliage MASS (not decorated tips), below the ceiling keeps
-    gaps (not a solid lollipop)."""
+        (clumps, base_clump_size, fill_ratio)
+    where `clumps` is the list of clump (x, y, z, size) (one per clump — L5a's
+    clumpJitter makes the per-clump SIZE vary, so each tuple carries its own
+    radius), `base_clump_size` is the unjittered `clumpSize` dial (the centre of
+    the size spread), and `fill_ratio` is the PINNED D2 proxy (doc 7):
+    Sum(clump sphere volumes, NOT overlap-deduped) / crown-bounding-sphere volume,
+    computed with the PER-CLUMP sizes. The crown bounding sphere is centred on the
+    centroid of the clump centres with radius = max(dist(centroid, centre) + that
+    clump's size) — one reproducible definition. 0.15 <= fill_ratio < 0.6 is the
+    D2 BAND: above the floor reads as a foliage MASS (not decorated tips), below
+    the ceiling keeps gaps (not a solid lollipop)."""
     height = max(1e-3, float(params.get("height", 6.0)))
     first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
     clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
     skel = _fitted_skeleton(params)
-    centres = _clump_centres(skel, params, first_branch * height)
-    if not centres:
+    clumps = _clump_centres(skel, params, first_branch * height)
+    if not clumps:
         return [], clump_size, 0.0
-    cx = sum(c[0] for c in centres) / len(centres)
-    cy = sum(c[1] for c in centres) / len(centres)
-    cz = sum(c[2] for c in centres) / len(centres)
-    crown_r = max(math.dist((cx, cy, cz), c) + clump_size for c in centres)
+    cx = sum(c[0] for c in clumps) / len(clumps)
+    cy = sum(c[1] for c in clumps) / len(clumps)
+    cz = sum(c[2] for c in clumps) / len(clumps)
+    crown_r = max(math.dist((cx, cy, cz), (c[0], c[1], c[2])) + c[3] for c in clumps)
     crown_vol = (4.0 / 3.0) * math.pi * crown_r ** 3
-    clumps_vol = len(centres) * (4.0 / 3.0) * math.pi * clump_size ** 3
+    clumps_vol = sum((4.0 / 3.0) * math.pi * c[3] ** 3 for c in clumps)
     fill = clumps_vol / crown_vol if crown_vol > 1e-12 else 0.0
-    return centres, clump_size, fill
+    return clumps, clump_size, fill
 
 
 def _local_mesh(params: dict):
@@ -765,15 +915,19 @@ def _local_mesh(params: dict):
     per-segment curve, distributed primaries, fitted to the `height` budget) WITH
     a CANOPY: `clumpCount` discrete icosphere blobs draped on the outer tips.
     The clumps read as a foliage MASS with gaps, NOT a single spherical lollipop.
-    seed is read for schema/determinism plumbing but UNUSED until L5 (every angle
-    AND every clump position is exact, no jitter)."""
+    L5a: seed is now LIVE — the jittered skeleton (`_fitted_skeleton`/`_skeleton`)
+    and jittered clumps (`_clump_centres`) are pure functions of params (seed
+    included), so this skin pass varies with the seed yet stays byte-identical for
+    a fixed seed (E2). The A2 XY-safety clamp inside `_fitted_skeleton` keeps the
+    crown width in band across seeds."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     base_flare = float(params.get("baseFlare", 1.6))
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
     first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
-    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    # L5a: per-clump SIZE now comes from _clump_centres (clumpJitter), so the skin
+    # pass no longer needs a single clumpSize here.
     leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
 
     # HEIGHT BUDGET FIT — POSITION-ONLY, computed BEFORE any skinning.
@@ -825,8 +979,8 @@ def _local_mesh(params: dict):
     # no weld). Discrete blobs at separated tips => gaps (D1) and a low fill
     # proxy (D2); the inward nudge keeps the XY width inside A2.
     first_branch_z = first_branch * height
-    for (cx, cy, cz) in _clump_centres(skel, params, first_branch_z):
-        c_verts, c_faces = _icosphere(cx, cy, cz, clump_size, leaf_subdiv)
+    for (cx, cy, cz, csize) in _clump_centres(skel, params, first_branch_z):
+        c_verts, c_faces = _icosphere(cx, cy, cz, csize, leaf_subdiv)
         offset = len(verts)
         verts.extend(c_verts)
         faces.extend([[i + offset for i in f] for f in c_faces])
@@ -870,7 +1024,7 @@ def face_split(params: dict):
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
     segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
     first_branch = min(0.95, max(0.0, float(params.get("firstBranchHeight", 0.6))))
-    clump_size = max(1e-4, float(params.get("clumpSize", 0.64)))
+    # L5a: per-clump SIZE comes from _clump_centres (clumpJitter), not a single dial.
     leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
 
     skel = _fitted_skeleton(params)
@@ -890,8 +1044,8 @@ def face_split(params: dict):
     # Canopy faces = one icosphere per chosen clump centre.
     first_branch_z = first_branch * height
     canopy = 0
-    for (cx, cy, cz) in _clump_centres(skel, params, first_branch_z):
-        _cv, c_faces = _icosphere(cx, cy, cz, clump_size, leaf_subdiv)
+    for (cx, cy, cz, csize) in _clump_centres(skel, params, first_branch_z):
+        _cv, c_faces = _icosphere(cx, cy, cz, csize, leaf_subdiv)
         canopy += len(c_faces)
     return structural, canopy
 

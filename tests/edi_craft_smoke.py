@@ -921,8 +921,12 @@ def main() -> int:
     # golden azimuth (rotateAngle), not coplanar / not all one side. Take the
     # primary branches (level 1) sprouting off the trunk top and measure each
     # one's azimuth around the trunk's +z axis; successive primaries must step by
-    # ~rotateAngle. (At L1 there is no jitter, so the step is EXACT.)
+    # ~rotateAngle. L5a NOTE: rotateJitter now perturbs each primary's azimuth by
+    # ± rotateJitter, so the step is no longer EXACT — it is golden ± (up to)
+    # 2*rotateJitter (each endpoint jittered independently). The band keeps the
+    # gate's intent (a phyllotactic spiral, NOT coplanar) while admitting the seed.
     rotate_angle = float(tree_defaults["rotateAngle"])  # 137.5 (golden)
+    rotate_jitter_deg = float(tree_defaults["rotateJitter"])  # 20.0 (the L5a bound)
     skel = tree._skeleton(tree_ops[0]["params"])
     primaries = [b for b in skel if b["level"] == 1]
     assert len(primaries) >= 2, f"need >=2 primaries to measure spiral, got {len(primaries)}"
@@ -938,8 +942,10 @@ def main() -> int:
         f"C4: primaries are coplanar (duplicate azimuths): {prim_az}"
     for i in range(len(prim_az) - 1):
         step = (prim_az[i + 1] - prim_az[i]) % 360.0
-        assert abs(step - rotate_angle) < 1e-6, \
-            f"C4: successive primaries must step the golden angle {rotate_angle}, got {step:.3f}"
+        # Tolerance = base golden step ± 2*rotateJitter (both endpoints jittered).
+        assert abs(step - rotate_angle) <= 2.0 * rotate_jitter_deg + 1e-6, \
+            f"C4: successive primaries must step ~the golden angle {rotate_angle} " \
+            f"(±2*rotateJitter), got {step:.3f}"
 
     # ---- L2 (STRUCTURE) gate: height budget + pipe model + taper + distributed
     # primaries. These are the defects the L1 critique owned; each is checkable
@@ -1009,9 +1015,18 @@ def main() -> int:
         d = (t[0] - s[0], t[1] - s[1], t[2] - s[2])
         dl = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
         return math.degrees(math.acos(max(-1.0, min(1.0, d[2] / dl))))
+    # L5a: downAngleJitter perturbs each primary's emergence angle by ± its bound,
+    # so a single primary can sit up to downAngleJitter outside the structural
+    # 30-55° band while the DIAL (downAngle=45) stays centred in it. Gate the band
+    # widened by the jitter bound (the structural intent survives the seed), and
+    # separately pin that the base dial itself is in the rubric band.
+    down_angle_base = float(tree_defaults["downAngle"])       # 45.0
+    down_jitter_deg = float(tree_defaults["downAngleJitter"])  # 12.0 (the L5a bound)
+    assert 30.0 <= down_angle_base <= 55.0, \
+        f"C3: base downAngle dial {down_angle_base}° must be in 30-55°"
     prim_down = _down_angle_deg(primaries[0])
-    assert 30.0 <= prim_down <= 55.0, \
-        f"C3: primary down-angle {prim_down:.2f}° must be in 30-55°"
+    assert 30.0 - down_jitter_deg <= prim_down <= 55.0 + down_jitter_deg, \
+        f"C3: primary down-angle {prim_down:.2f}° must be in 30-55° (±downAngleJitter)"
 
     # DROOP CLAMP (L2 curve responsibility) — no branch tip may plunge near
     # vertical. The L1->L2 critique found the per-level down-angle widen stacked on
@@ -1050,6 +1065,80 @@ def main() -> int:
     # exact, NO RNG — jitter arrives at L5).
     v2, f2 = tree.proof_mesh(tree_ops[0])
     assert v2 == tree_verts and f2 == tree_faces, "tree proof_mesh is not deterministic"
+
+    # ---- TREE L5a (SEEDED JITTER / VARIATION): E gate = E1 + E2 + E3, plus the
+    # must-not-break bands re-checked across SEVERAL seeds.
+    #
+    # L5a turns the seed ON: ONE random.Random(int(float(seed))) is threaded
+    # through the generation in fixed depth-first order, drawing every per-node /
+    # per-clump jitter UNCONDITIONALLY before any keep/clip decision. The whole
+    # value of the asset is REPRODUCIBILITY, so the killer gate is E2: same seed →
+    # byte-identical mesh (proof tier == bpy tier, since build() calls proof_mesh);
+    # different seed → a visibly different tree (E1). The jitter breaks the
+    # candelabra/bilateral regularity (E3) — verified offline as a real angular
+    # spread among sibling primaries.
+    def _tree_op(seed):
+        # Same params as the committed sample, only the seed varies.
+        p = dict(tree_ops[0]["params"], seed=str(seed))
+        return {"type": "Script", "script": "tree", "name": "tree",
+                "x": 0.0, "y": 0.0, "z": 0.0, "params": p}
+
+    # E2 — DETERMINISM: proof_mesh(seed=K) called twice is byte-identical (the
+    # dual-tier killer; build() reuses proof_mesh so the bpy tier inherits it).
+    for k in (0, 1, 2, 3):
+        a_v, a_f = tree.proof_mesh(_tree_op(k))
+        b_v, b_f = tree.proof_mesh(_tree_op(k))
+        assert a_v == b_v and a_f == b_f, \
+            f"E2: tree proof_mesh(seed={k}) is not byte-identical across two calls"
+
+    # E1 — VARIATION: seed=1 vs seed=2 (all else equal) produce DIFFERENT meshes
+    # (different branch placement/angles + clump layout). The vertex lists must
+    # not be equal, and the vertex COUNT typically differs too (jitter changes how
+    # many clumps survive the D4 cut).
+    s1_v, _ = tree.proof_mesh(_tree_op(1))
+    s2_v, _ = tree.proof_mesh(_tree_op(2))
+    assert s1_v != s2_v, "E1: seed=1 and seed=2 must produce different trees"
+    # And seed=1 differs from the default seed=0 sample too (the seed actually bites).
+    assert s1_v != tree_verts, "E1: seed=1 must differ from the default seed=0 tree"
+
+    # E3 — NO SYMMETRY: the per-child downAngleJitter makes sibling primaries show
+    # a real angular SPREAD (not a mirror/candelabra). Measure the primary
+    # down-angles at a jittered seed; their spread must exceed a noise floor (the
+    # EXACT tree would have near-identical primary down-angles).
+    e3_skel = tree._skeleton(_tree_op(1)["params"])
+    e3_prims = [b for b in e3_skel if b["level"] == 1]
+    e3_downs = [_down_angle_deg(b) for b in e3_prims]
+    assert (max(e3_downs) - min(e3_downs)) > 1.0, \
+        f"E3: jittered primaries must spread in down-angle (mirror/candelabra), got {e3_downs}"
+
+    # MUST-NOT-BREAK across seeds 0..3: A2 <= 1.05, D2 fill band, height budget,
+    # F2 tri budget, D4 clumps above the bole. A seed that knocks any band out
+    # must fail here (the A2 XY-safety clamp is what keeps the crown width in band
+    # for every seed despite the jitter splaying the branches).
+    for k in range(4):
+        kp = _tree_op(k)["params"]
+        kv, kf = tree.proof_mesh(_tree_op(k))
+        kzs = [v[2] for v in kv]
+        kxs = [v[0] for v in kv]
+        kys = [v[1] for v in kv]
+        k_maxz = max(kzs)
+        k_a2 = max(max(kxs) - min(kxs), max(kys) - min(kys)) / k_maxz
+        assert k_a2 <= 1.05, f"L5a A2: seed={k} crown width/max-z {k_a2:.3f} > 1.05"
+        assert abs(min(kzs)) < 1e-6, f"L5a F3: seed={k} base must sit at z=0"
+        assert 0.85 * tree_height <= k_maxz <= 1.15 * tree_height, \
+            f"L5a height budget: seed={k} max-z {k_maxz:.3f} out of [0.85,1.15]*height"
+        k_tris = sum(len(face) - 2 for face in kf)
+        assert k_tris < 25000, f"L5a F2: seed={k} {k_tris} tris >= 25k"
+        k_clumps, _k_cs, k_fill = tree.canopy_clumps(kp)
+        assert 0.15 <= k_fill < 0.6, f"L5a D2: seed={k} fill {k_fill:.3f} out of [0.15,0.6)"
+        assert len(k_clumps) >= 6, f"L5a D1: seed={k} only {len(k_clumps)} clumps"
+        k_d4_cut = first_branch_frac * tree_height
+        assert min(c[2] for c in k_clumps) > k_d4_cut, \
+            f"L5a D4: seed={k} a clump centre fell below the bole cut {k_d4_cut:.3f}"
+        # D3 (clump size variation) — clumpJitter makes the per-clump sizes spread.
+        k_sizes = [c[3] for c in k_clumps]
+        assert (max(k_sizes) - min(k_sizes)) > 1e-6, \
+            f"L5a D3: seed={k} clump sizes must vary (clumpJitter)"
 
     # P5: bisector miter joints on _swept_prism_world.
     #

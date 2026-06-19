@@ -121,6 +121,11 @@ def main(argv):
             "<recipe.toml> --out=<prefix> [--samples=N] [--angles=front,threequarter,top]\n")
         return 2
     samples = int(_arg(argv, "--samples=", "24"))
+    # --seed=K (L5a): override every Script op's `seed` param so a SINGLE recipe
+    # can be rendered at several seeds for the E1/E3 variation read (same params,
+    # only the seed varies → visibly different but coherent trees). Omitted →
+    # the recipe's own seed (or the craftsman default) is used, unchanged.
+    seed_override = _arg(argv, "--seed=")
     angles_arg = _arg(argv, "--angles=", "front,threequarter,top")
     angles = [a.strip() for a in angles_arg.split(",") if a.strip()]
     for a in angles:
@@ -136,6 +141,12 @@ def main(argv):
     # the craftsmen directly rather than edi_craft.build so the scene carries ONLY
     # the asset meshes — no preview_sun/preview_camera rig to confuse the bbox.
     ops = edi_craft.parse_ops(recipe)
+    if seed_override is not None:
+        # Stamp the seed onto each Script op's param bag (params are flat string
+        # values in the edi TOML dialect, so the override is a string too).
+        for op in ops:
+            if op.get("type") == "Script":
+                op.setdefault("params", {})["seed"] = str(seed_override)
     custom = edi_craft.load_craftsmen(edi_craft.default_craftsmen_dir())
     builders = None  # built-in arch ops are not needed for the craftsman previews
     built = 0

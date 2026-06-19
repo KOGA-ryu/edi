@@ -218,6 +218,8 @@ add_library(edi_zoo_core STATIC
     src/zoo/AssetZooOps.cpp
     src/zoo/AssetZooSerialize.h
     src/zoo/AssetZooSerialize.cpp
+    src/zoo/ZooToonExport.h
+    src/zoo/ZooToonExport.cpp
 )
 
 target_include_directories(edi_zoo_core PUBLIC
@@ -394,6 +396,7 @@ add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_c
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
 add_edi_contract_test(asset_zoo_tests tests/asset_zoo_tests.cpp edi_zoo_core)
+add_edi_contract_test(zoo_toon_export_tests tests/zoo_toon_export_tests.cpp edi_zoo_core)
 add_edi_contract_test(asset_link_resolve_tests tests/asset_link_resolve_tests.cpp edi_asset_link)
 add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
 target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)

@@ -251,7 +251,14 @@ if any(p.kind == "node" for p in edi_realize.plan_greybox(doc)):
 # Closes the loop owed to R1a's reviewer: parse the SAME manifest fixture and
 # assert star6's fields decode back EXACTLY. If any column shifts, this fails.
 manifest = edi_realize.load_manifest(MANIFEST)
-if list(manifest.keys()) != ["asset_0001"]:
+# R1d-1 (breadth): the tester zoo now curates the SIX tester shapes in catalog
+# order. The round-trip contract this step guards is the COLUMN decode — pin the
+# full id roster, then assert star6's row decodes back EXACTLY (any shifted column
+# still fails here).
+if list(manifest.keys()) != [
+    "asset_0001", "asset_0002", "asset_0003",
+    "asset_0004", "asset_0005", "asset_0006",
+]:
     fail(f"manifest ids {list(manifest.keys())}")
 star6 = manifest["asset_0001"]
 if star6.id != "asset_0001":

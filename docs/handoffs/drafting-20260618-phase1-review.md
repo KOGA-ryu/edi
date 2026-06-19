@@ -60,7 +60,19 @@ serialize defects, and stand by for dungeon-map review requests. Source: `~/dept
   aggregate-init sites tolerate the trailing field (C++20). Reply: ~/dept-bus/drafting/replies/060-roomderivation-consult-clean.md.
   (Reviewed on Sonnet per the template-following tiering guidance.)
 
+- **Slice 3c — DraftingNode entity + id-recovery @ ec593fd (dept/dungeon-map)** — CONSULT CLEAN, no block,
+  no follow-up (audited on Opus — the C0/C2 id-recovery warranted it). NEW id-bearing vector `document.nodes`:
+  C0/C2 FENCE GENUINELY CLOSED (highestDocumentIdSerial loop scans nodes via idTrailingSerial; "node_NNNN"
+  format actually parses; serial-race recovery test proves it). Additive nodeValue/readNode exact inverses
+  (anchor x,y + radius + type + name; missing⇒empty; no version bump). kDefaultNodeRadius=0.5 named, struct
+  default == readNode fallback (no drift). Pure data beside plugs/blocks (correctly NO geometry/command/visit
+  arm). MapToonExport untouched. Additive struct member safe (no operator==/aggregate-init breakage; undo by
+  value). Tests real (value+byte round-trip, forward-compat, id-recovery). Reply:
+  ~/dept-bus/drafting/replies/064-draftingnode-consult-clean.md. The new-id-vector checklist is the template.
+
 ## Status
 - Standing by for the next handed slices: footprintsOverlap primitive, RoomSpec per-edge walls +
   planDraftingRoom absent-edge emission, more additive serialize fields. No autonomous builds on hot map files.
+- Tiering note: scalar/enum/data-vector additive slices that follow the blessed templates → Sonnet review;
+  escalate to Opus when a slice adds a std::visit/command arm, a controller helper, or a new id-recovery fence.
 - Prior campaign (no-magic-dims) COMPLETE; 050/051 (kCanvasBoardExtent) await edi-ui/hub merge.

@@ -707,11 +707,12 @@ DraftingNode readNode(const MsgPackValue &v)
 // (NW corner + size), stored directly — not derived, so it is read back verbatim.
 MsgPackValue mapRoomValue(const DraftingMapRoom &room)
 {
+    // Fields vector (like plugValue) so we can CONDITIONALLY append bounded_by.
     // `level` is written as an INTEGER tag so the round-trip preserves type
     // (not Double). Readers that predate this field ignore the key; readers
     // that know it apply asInt with a 0 fallback — the wall_visual additive
     // pattern (no version bump required for field-tagged MessagePack maps).
-    return MsgPackValue::map({
+    std::vector<std::pair<std::string, MsgPackValue>> fields = {
         {"name",       MsgPackValue::text(room.name)},
         {"origin",     pointValue(room.origin)},
         {"width",      MsgPackValue::number(room.width)},
@@ -722,7 +723,19 @@ MsgPackValue mapRoomValue(const DraftingMapRoom &room)
         // and forward-compatible — the same discipline as wall_visual.type / role.
         // roomDerivationFromName unknown ⇒ Placed, so a pre-3b file reads cleanly.
         {"derivation", MsgPackValue::text(roomDerivationName(room.derivation))},
-    });
+    };
+    // boundedBy: array of node-id strings, emitted ONLY when non-empty (like
+    // plug.flags) — every Placed room has an empty vector, so this key is absent
+    // from every Placed-room record.  Missing key on decode ⇒ empty vector.
+    if (!room.boundedBy.empty()) {
+        std::vector<MsgPackValue> ids;
+        ids.reserve(room.boundedBy.size());
+        for (const DraftingNodeId &id : room.boundedBy) {
+            ids.push_back(MsgPackValue::text(id));
+        }
+        fields.emplace_back("bounded_by", MsgPackValue::array(std::move(ids)));
+    }
+    return MsgPackValue::map(std::move(fields));
 }
 
 DraftingMapRoom readMapRoom(const MsgPackValue &v)
@@ -741,6 +754,17 @@ DraftingMapRoom readMapRoom(const MsgPackValue &v)
     // roomDerivationFromName already defaults unknown strings to Placed, so passing
     // the fallback "placed" makes the two paths (key absent / key == "placed") identical.
     room.derivation = roomDerivationFromName(asString(child(v, "derivation"), "placed"));
+    // Additive + tolerant (slice A3): missing "bounded_by" key ⇒ empty vector.
+    // Same read pattern as plug.flags — iterate the array if present; silently skip
+    // non-string items (defensive) so a malformed file never corrupts the room.
+    if (const MsgPackValue *bb = child(v, "bounded_by");
+            bb && bb->type == MsgPackValue::Type::Array) {
+        for (const MsgPackValue &item : bb->arrayValue) {
+            if (item.type == MsgPackValue::Type::String) {
+                room.boundedBy.push_back(item.stringValue);
+            }
+        }
+    }
     return room;
 }
 

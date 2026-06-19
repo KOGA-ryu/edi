@@ -375,9 +375,9 @@ int main()
             "\n"
             "connections[0]{from,to,type}:\n"
             "\n"
-            "nodes[2]{name,anchor,type}:\n"
-            "  junction_a,\"5,3\",hub\n"       // named, typed
-            "  node_0002,\"10,7.5\",\"\"\n"    // id fallback; empty type -> ""
+            "nodes[2]{name,anchor,type,radius}:\n"       // A3: radius always present
+            "  junction_a,\"5,3\",hub,0.5\n"             // named, typed, default radius
+            "  node_0002,\"10,7.5\",\"\",0.5\n"          // id fallback; empty type; radius
             "\n"
             "blocks[0]{room,asset,origin,scale,rotation}:\n";
         assert(nodeToon == expectedNodes);
@@ -406,6 +406,93 @@ int main()
         const std::size_t blocksPos = noNodeToon.find("blocks[");
         assert(connEnd  != std::string::npos && blocksPos != std::string::npos);
         assert(connEnd  < blocksPos); // no nodes[] in between
+    }
+
+    // P2-A3 (brief 075): inverted-model wire — nodes radius column + rooms
+    // derivation + bounded_by columns (CONDITIONAL per-section).
+    {
+        // Build a document with:
+        //   - 2 nodes with default radius (0.5) — verifies radius always appears
+        //   - 1 Placed room (level 0, no boundedBy) — all columns at their defaults
+        //   - 1 SpanDerived room with boundedBy = {node_A, node_B} — triggers both
+        //     derivation and bounded_by columns
+        // No level column (all rooms level 0).
+        // scale = 1.0 so canvas == authored (keeps the golden readable).
+        DraftingDocument invDoc = makeDraftingDocument("inverted-test");
+        invDoc.canvasPerAuthoredUnit = 1.0;
+
+        DraftingNode nA;
+        nA.id     = "node_0001";
+        nA.name   = "corner_a";
+        nA.anchor = {1.0, 1.0};
+        nA.type   = "hub";
+        // radius = kDefaultNodeRadius (0.5) by default
+        invDoc.nodes.push_back(nA);
+
+        DraftingNode nB;
+        nB.id     = "node_0002";
+        nB.name   = "corner_b";
+        nB.anchor = {4.0, 4.0};
+        nB.type   = "hub";
+        invDoc.nodes.push_back(nB);
+
+        // Placed room — derivation = Placed (default), boundedBy = {} (default).
+        invDoc.rooms.push_back(DraftingMapRoom{"placed_room", {0.0, 0.0}, 10.0, 5.0, "stone"});
+
+        // SpanDerived room with bounding nodes.
+        DraftingMapRoom spanRoom;
+        spanRoom.name       = "span_room";
+        spanRoom.origin     = {5.0, 5.0};
+        spanRoom.width      = 3.0;
+        spanRoom.height     = 3.0;
+        spanRoom.material   = "stone";
+        spanRoom.derivation = RoomDerivation::SpanDerived;
+        spanRoom.boundedBy  = {"node_0001", "node_0002"};
+        invDoc.rooms.push_back(spanRoom);
+
+        const std::string invToon = edi::io::exportMapToToon(invDoc, "inverted-test");
+
+        // Exact golden — pins every byte of the inverted-model wire.
+        // Canonical column order:
+        //   rooms: name,origin,size,material[,derivation][,bounded_by]  (no level: all 0)
+        //   nodes: name,anchor,type,radius  (radius always present in this section)
+        // bounded_by resolves node IDs to display names (corner_a·corner_b).
+        const std::string expectedInv =
+            "kind: map\n"
+            "title: inverted-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[2]{name,origin,size,material,derivation,bounded_by}:\n"
+            "  placed_room,\"0,0\",\"10,5\",stone,placed,\"\"\n"
+            "  span_room,\"5,5\",\"3,3\",stone,span_derived,corner_a·corner_b\n"
+            "\n"
+            "plugs[0]{room,name,edge,type,connected,flags}:\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "nodes[2]{name,anchor,type,radius}:\n"
+            "  corner_a,\"1,1\",hub,0.5\n"
+            "  corner_b,\"4,4\",hub,0.5\n"
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(invToon == expectedInv);
+
+        // bounded_by: node names joined with middle-dot, not ids.
+        assert(invToon.find("corner_a·corner_b") != std::string::npos);
+        assert(invToon.find("node_0001")          == std::string::npos); // id must not leak
+
+        // --- Placed-only / node-less guard: NO derivation/bounded_by/nodes columns. ---
+        DraftingDocument placedDoc = makeDraftingDocument("placed-only");
+        placedDoc.canvasPerAuthoredUnit = 1.0;
+        placedDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 5.0, 5.0, "stone"});
+        // (all rooms Placed, all boundedBy empty, no nodes)
+
+        const std::string placedToon = edi::io::exportMapToToon(placedDoc, "placed-only");
+        assert(placedToon.find("derivation") == std::string::npos);
+        assert(placedToon.find("bounded_by") == std::string::npos);
+        assert(placedToon.find("nodes[")     == std::string::npos);
+        // rooms section is byte-identical to pre-A3 (plain 4-column header).
+        assert(placedToon.find("{name,origin,size,material}") != std::string::npos);
     }
 
     return 0;

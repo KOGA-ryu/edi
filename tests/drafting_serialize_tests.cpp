@@ -933,6 +933,76 @@ int main()
         assert(ptGeo->point.x == 0.5 && ptGeo->point.y == 0.25);
     }
 
+    // P2-A3 (brief 075): DraftingMapRoom.boundedBy MessagePack round-trip.
+    // Additive field: node-id array written only when non-empty (like plug.flags);
+    // missing key decodes to empty vector (forward-compat, every Placed room).
+    {
+        // --- Value-layer round-trip: 2 bounding node ids survive encode→decode. ---
+        DraftingDocument bbDoc = makeDraftingDocument("bounded-by-test");
+        DraftingMapRoom spanRoom;
+        spanRoom.name       = "span";
+        spanRoom.origin     = {0.0, 0.0};
+        spanRoom.width      = 5.0;
+        spanRoom.height     = 5.0;
+        spanRoom.material   = "stone";
+        spanRoom.derivation = RoomDerivation::SpanDerived;
+        spanRoom.boundedBy  = {"node_0001", "node_0002"};
+        bbDoc.rooms.push_back(spanRoom);
+
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(bbDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->rooms.size() == 1);
+        assert(vr.value->rooms[0].boundedBy.size() == 2);
+        assert(vr.value->rooms[0].boundedBy[0] == "node_0001");
+        assert(vr.value->rooms[0].boundedBy[1] == "node_0002");
+
+        // --- Byte-layer round-trip ---
+        auto br = decodeDraftingDocument(encodeDraftingDocument(bbDoc), "bounded-by-test");
+        assert(br.ok && br.value);
+        assert(br.value->rooms[0].boundedBy.size() == 2);
+        assert(br.value->rooms[0].boundedBy[0] == "node_0001");
+        assert(br.value->rooms[0].boundedBy[1] == "node_0002");
+
+        // --- Forward-compat: missing "bounded_by" key decodes to empty. ---
+        // Strip the "bounded_by" key from the room map to simulate a pre-A3 file.
+        MsgPackValue docVal = draftingDocumentToValue(bbDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms" || docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &roomItem : docEntry.second.arrayValue) {
+                    auto &rm = roomItem.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "bounded_by") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noKey = draftingDocumentFromValue(docVal);
+        assert(noKey.ok && noKey.value);
+        assert(noKey.value->rooms[0].boundedBy.empty()); // missing key => empty
+
+        // --- Placed room: bounded_by key is ABSENT in the encoded output. ---
+        // (Conditional write: empty vector => key omitted, like plug.flags when empty.)
+        DraftingDocument placedDoc = makeDraftingDocument("placed-room");
+        placedDoc.rooms.push_back(DraftingMapRoom{"room", {0.0,0.0}, 4.0, 4.0, "stone"});
+        MsgPackValue placedVal = draftingDocumentToValue(placedDoc);
+        // Verify no "bounded_by" key appears anywhere in the document map value.
+        bool foundBoundedBy = false;
+        for (const auto &topEntry : placedVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (const auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms" || docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (const auto &roomItem : docEntry.second.arrayValue) {
+                    for (const auto &field : roomItem.mapValue) {
+                        if (field.first == "bounded_by") foundBoundedBy = true;
+                    }
+                }
+            }
+        }
+        assert(!foundBoundedBy); // empty boundedBy => key absent (byte-stable for Placed rooms)
+    }
+
     // M8-S1: absent "motifs" key → decodes to empty (backward-compat tolerance).
     {
         // A document with NO motifs produces a map without a "motifs" key when

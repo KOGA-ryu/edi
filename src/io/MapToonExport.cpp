@@ -204,15 +204,16 @@ void writePlugRowWithLevel(std::ostringstream &out, const std::string &room,
 }
 
 // Node connector row: name (fall back to id if empty), anchor in authored feet
-// (quoted because x,y always carries a comma), type (empty -> "" via cell()).
-// Matches the byte shape of the other row helpers — two-space indent, cell() for
-// every string, \n at the end.
+// (quoted because x,y always carries a comma), type (empty -> "" via cell()),
+// radius via num() (always present whenever the nodes[] section is emitted —
+// NOT a conditional column; every node has an authored radius, default 0.5).
 void writeNodeRow(std::ostringstream &out, const std::string &name,
-                  const std::string &anchor, const std::string &type)
+                  const std::string &anchor, const std::string &type, double radius)
 {
     out << "  " << cell(name)
         << "," << cell(anchor)
         << "," << cell(type)
+        << "," << num(radius)
         << "\n";
 }
 
@@ -269,8 +270,10 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
 namespace {
 
 using edi::drafting::DraftingMapRoom;
-using edi::drafting::DraftingPlug; // needed for hasPlugLevel lambda + plug loop
+using edi::drafting::DraftingPlug;      // needed for hasPlugLevel lambda + plug loop
 using edi::drafting::Point2D;
+using edi::drafting::RoomDerivation;    // needed for hasRoomDerivation lambda
+using edi::drafting::roomDerivationName; // needed for derivation column value
 
 // Split a globally-unique plug handle "room.plug" on its first '.'.
 std::pair<std::string, std::string> splitRoomPlug(const std::string &full)
@@ -306,31 +309,58 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     // → no scale: line → all existing map_toon_export_tests stay byte-identical.
     writeMapHeader(out, title, units, sceneScale);
 
-    // Pre-scan: does ANY room / plug carry a non-zero level?  If so, the section
-    // gains the `level` column (appended LAST, canonical position).  If every value
-    // is 0 (all-default, the overwhelmingly common case), the section header and all
-    // rows are byte-identical to the pre-A2 export — the conditional-emission guard.
-    const bool hasRoomLevel = std::any_of(document.rooms.begin(), document.rooms.end(),
+    // Pre-scan: which optional columns are needed for rooms and plugs?
+    // An optional column is emitted only when at least one row carries a
+    // non-default value (conditional-emission, invariant b from A1). Scanning
+    // once up-front keeps the header and every row consistent: once a column is
+    // "on", ALL rows emit it — including the default-valued rows — because TOON
+    // is a fixed-width table (every row must have the same number of cells).
+    const bool hasRoomLevel      = std::any_of(document.rooms.begin(), document.rooms.end(),
         [](const DraftingMapRoom &r) { return r.level != 0; });
-    const bool hasPlugLevel = std::any_of(document.plugs.begin(), document.plugs.end(),
+    const bool hasRoomDerivation = std::any_of(document.rooms.begin(), document.rooms.end(),
+        [](const DraftingMapRoom &r) { return r.derivation != RoomDerivation::Placed; });
+    const bool hasRoomBoundedBy  = std::any_of(document.rooms.begin(), document.rooms.end(),
+        [](const DraftingMapRoom &r) { return !r.boundedBy.empty(); });
+    const bool hasPlugLevel      = std::any_of(document.plugs.begin(), document.plugs.end(),
         [](const DraftingPlug &p) { return p.level != 0; });
 
-    if (hasRoomLevel) {
-        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material,level}:\n";
-        for (const auto &room : document.rooms) {
-            writeRoomRowWithLevel(out, room.name,
-                                  authored(room.origin.x) + "," + authored(room.origin.y),
-                                  authored(room.width) + "," + authored(room.height),
-                                  room.material, room.level);
+    // Node id → display name: used to resolve boundedBy ids to human-readable names
+    // for the `bounded_by` column.  The engine reads by name (header-as-truth); ids
+    // are edi's internal opaque handles, never surfaced in the TOON wire.
+    // Fall back to the id itself when the node has no authored name.
+    std::unordered_map<std::string, std::string> nodeDisplayName;
+    for (const auto &node : document.nodes) {
+        nodeDisplayName.emplace(node.id, node.name.empty() ? node.id : node.name);
+    }
+    // Resolve a room's boundedBy id vector to a middle-dot-joined name string —
+    // the same `·` separator joinFlags uses, so the TOON reader splits on dots.
+    const auto resolveBoundedBy = [&nodeDisplayName](const DraftingMapRoom &room) {
+        std::string joined;
+        for (std::size_t i = 0; i < room.boundedBy.size(); ++i) {
+            if (i != 0) joined += "·"; // U+00B7 MIDDLE DOT
+            const auto it = nodeDisplayName.find(room.boundedBy[i]);
+            joined += (it != nodeDisplayName.end()) ? it->second : room.boundedBy[i];
         }
-    } else {
-        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
-        for (const auto &room : document.rooms) {
-            writeRoomRow(out, room.name,
-                         authored(room.origin.x) + "," + authored(room.origin.y),
-                         authored(room.width) + "," + authored(room.height),
-                         room.material);
-        }
+        return joined;
+    };
+
+    // Rooms section — unified conditional header + rows.
+    // Canonical column order: name,origin,size,material[,level][,derivation][,bounded_by].
+    // Each optional column appears only when its pre-scan flag is true.
+    out << "rooms[" << document.rooms.size() << "]{name,origin,size,material";
+    if (hasRoomLevel)      out << ",level";
+    if (hasRoomDerivation) out << ",derivation";
+    if (hasRoomBoundedBy)  out << ",bounded_by";
+    out << "}:\n";
+    for (const auto &room : document.rooms) {
+        out << "  " << cell(room.name)
+            << "," << cell(authored(room.origin.x) + "," + authored(room.origin.y))
+            << "," << cell(authored(room.width) + "," + authored(room.height))
+            << "," << cell(room.material);
+        if (hasRoomLevel)      out << "," << room.level;
+        if (hasRoomDerivation) out << "," << roomDerivationName(room.derivation);
+        if (hasRoomBoundedBy)  out << "," << cell(resolveBoundedBy(room));
+        out << "\n";
     }
     out << "\n";
 
@@ -389,18 +419,21 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     // wire extension.  The engine reader must treat an absent `nodes[]` section
     // as "zero nodes", not as an error.
     //
-    // Column shape: {name,anchor,type}.  `name` falls back to `id` if the
+    // Column shape: {name,anchor,type,radius}.  `name` falls back to `id` if the
     // authored name is empty, so every row has a non-empty identity key.
     // `anchor` is in AUTHORED FEET (canvas / canvasPerAuthoredUnit), quoted
     // because the "x,y" form always contains a comma.  `type` is an open
     // vocabulary tag edi does not interpret — empty is a valid value.
+    // `radius` is the authored footprint radius via num() — NOT a conditional
+    // column; it is ALWAYS present when the section is emitted (every node has
+    // one, default 0.5).
     if (!document.nodes.empty()) {
-        out << "nodes[" << document.nodes.size() << "]{name,anchor,type}:\n";
+        out << "nodes[" << document.nodes.size() << "]{name,anchor,type,radius}:\n";
         for (const auto &node : document.nodes) {
             const std::string label = node.name.empty() ? node.id : node.name;
             writeNodeRow(out, label,
                          authored(node.anchor.x) + "," + authored(node.anchor.y),
-                         node.type);
+                         node.type, node.radius);
         }
         out << "\n";
     }

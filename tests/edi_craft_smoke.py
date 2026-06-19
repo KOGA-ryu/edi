@@ -893,6 +893,38 @@ def main() -> int:
         "has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio",
     )
 
+    # R1b: the --asset-out routing. The bake itself needs Blender (it imports
+    # bpy via build() and _bake_asset()), so ctest can only test that main()
+    # RUNS the build and THEN calls _bake_asset with the requested path — not the
+    # actual .blend write. Stub both bpy-bound functions: build → no-op, and
+    # _bake_asset → record the path it was handed.
+    real_build = edi_craft.build
+    real_bake = edi_craft._bake_asset
+    built = []
+    baked = []
+    edi_craft.build = lambda ops: built.append(ops)
+    edi_craft._bake_asset = lambda path: baked.append(path)
+    try:
+        rc = edi_craft.main(
+            ["edi_craft.py", "--asset-out=/tmp/x.blend",
+             os.path.join(SAMPLES, "doric_column_ops_compiled.toml")])
+    finally:
+        edi_craft.build = real_build
+        edi_craft._bake_asset = real_bake
+    assert rc == 0, f"--asset-out run should return 0, got {rc}"
+    assert len(built) == 1, "--asset-out must run the build (build stub did not fire)"
+    assert baked == ["/tmp/x.blend"], f"_bake_asset must be called with the asset path, got {baked}"
+
+    # The usage string advertises --asset-out (the lab/CLI reads it). A no-path
+    # invocation returns 2 and prints usage to stderr.
+    import io
+    import contextlib
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        usage_rc = edi_craft.main(["edi_craft.py"])
+    assert usage_rc == 2, f"no-path invocation should return 2, got {usage_rc}"
+    assert "--asset-out" in err.getvalue(), "usage string must advertise --asset-out"
+
     print("edi_craft smoke: ok")
     return 0
 

@@ -1729,6 +1729,38 @@ def build(ops: list[dict]) -> None:  # pragma: no cover — exercised in Blender
     print(f"edi_craft: built {len(ops)} ops.")
 
 
+def _bake_asset(path: str) -> None:  # pragma: no cover — needs Blender
+    # Build-once half of "build once, place many": after build(ops) has put the
+    # recipe's mesh into the current Blender file, persist JUST that mesh as a
+    # .blend library so the realizer can later `libraries.load` + instance it.
+    #
+    # WHY a .blend (not OBJ): libraries.write yields a LINKABLE datablock — the
+    # realizer links it once and stamps many instances that all share the one
+    # mesh. OBJ import would copy the geometry per placement, defeating the
+    # build-once intent; OBJ stays the headless proof tier, this is the artifact.
+    import bpy
+
+    # Datablock scoping is the boundary that keeps the asset clean. build() also
+    # leaves a preview rig (preview_sun light, preview_camera) and an add_label
+    # FONT curve in the scene, and it mints a material for EVERY MATERIALS key
+    # whether assigned or not. So do NOT scrape bpy.data.objects/materials
+    # wholesale — walk the built MESH objects and take only their datablocks:
+    #   - meshes: the .data of every MESH object (type filter drops light/camera/FONT)
+    #   - materials: only materials actually ASSIGNED to a built mesh's slots
+    meshes = {obj.data for obj in bpy.data.objects if obj.type == "MESH"}
+    materials = {
+        slot.material
+        for obj in bpy.data.objects if obj.type == "MESH"
+        for slot in obj.material_slots if slot.material
+    }
+    datablocks = meshes | materials
+
+    # fake_user=True so the otherwise-unreferenced asset mesh survives a later
+    # open/purge of the library file (S0 research realize-instancing.md Q2).
+    bpy.data.libraries.write(path, datablocks, fake_user=True)
+    print(f"edi_craft: baked asset {path} ({len(meshes)} meshes, {len(materials)} materials).")
+
+
 def main(argv: list[str]) -> int:
     # Inside Blender, script args follow "--"; standalone they are argv[1:].
     if "--" in argv:
@@ -1744,9 +1776,13 @@ def main(argv: list[str]) -> int:
             return 0
     dry_run = "--dry-run" in argv
     obj_out = next((arg.split("=", 1)[1] for arg in argv if arg.startswith("--obj-out=")), None)
+    # --asset-out rides the Blender build path (below): build(ops) once, then
+    # bake the built mesh datablocks to a reusable .blend = an asset's meshRef.
+    # It is additive — the --obj-out / --dry-run early exits still win ahead of it.
+    asset_out = next((arg.split("=", 1)[1] for arg in argv if arg.startswith("--asset-out=")), None)
     paths = [arg for arg in argv if not arg.startswith("--")]
     if len(paths) != 1:
-        print("usage: edi_craft.py [--dry-run] [--obj-out=<path>] <ops_compiled.toml>", file=sys.stderr)
+        print("usage: edi_craft.py [--dry-run] [--obj-out=<path>] [--asset-out=<path.blend>] <ops_compiled.toml>", file=sys.stderr)
         return 2
     ops = parse_ops(paths[0])
     if obj_out is not None:
@@ -1758,6 +1794,9 @@ def main(argv: list[str]) -> int:
         print("\n".join(plan_lines(ops)))
         return 0
     build(ops)
+    if asset_out is not None:
+        # Build-once: persist what build(ops) just made as a linkable artifact.
+        _bake_asset(asset_out)
     return 0
 
 

@@ -105,3 +105,4 @@ I merge each hub-pinged dept SHA **in order**, edi-gate, canary-gated. Critical 
 | — | (Phase 2 baseline) | master `3ce29a3` | `6c632293` (node-less ref) | GREEN 110/110 |
 | 2026-06-18 ~21:xx | **A1. nodes[] TOON section (conditional, WIRE)** | `426b379` → merge | ✅ NEUTRAL — `6c632293` unchanged (empty nodes[] omitted; 0 nodes[] in node-less ref) | GREEN |
 | 2026-06-18 ~21:xx | **A2. level column on rooms+plugs (conditional, WIRE)** | `5fa7583` → merge | ✅ NEUTRAL — `6c632293` unchanged (all-level-0 → column omitted; headers carry no ,level) | GREEN |
+| 2026-06-18 ~21:xx | **drafting deriveSpanFootprint op (P2-B unblock, off-wire)** | `3b62884` → merge | ✅ byte-identical (off-wire pure op) | GREEN |

@@ -2,6 +2,13 @@
 
 **Department:** edi-dungeon-map · **Branch:** dept/dungeon-map (rebased on local master)
 **Milestone:** `~/dept-bus/M0-CRYPT-SLICE.md` — prove generator → realizer → 5090 render.
+**STATUS: ✅ COMPLETE (2026-06-18).** `edi --generate-crypt <out> --scale <S>` is LIVE
+end-to-end (edi-ui 048c: one command → buildCryptMapSpec(S) → exportMapToToon scale:meta
+→ realizer → OptiX/RTX-5090 render ~3s). Generator (G1+G2+047 scale) on master; CLI
+wired; 047 reviewer audit CLEAN (050; the one follow-up — CLI threads one S to both
+calls — is satisfied by edi-ui's wiring). Socket contract frozen+fenced; scale-knob
+fork (c) header-driven; corridor magic-dim sweep (049) done. SUCCESSOR: Phase 1 spatial
+inversion (`dungeon-map-20260618-spatial-phase1.md`).
 **This dept owns:** the GENERATOR (hardcoded crypt MapSpec → createMapFromSpec → live
 doc + 2 block instances → Seam-B/C TOON) AND the **M0 SOCKET CONTRACT**.
 

@@ -3,6 +3,7 @@
 #include "drafting/DraftingGeometry.h" // includeBounds
 #include "drafting/DraftingMapQuery.h" // deriveEdge, plugIsConnected (shared with the map browser)
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <set>
@@ -169,6 +170,39 @@ void writeConnectionRow(std::ostringstream &out, const std::string &from,
         << "\n";
 }
 
+// Like writeRoomRow but with a `level` integer column APPENDED LAST.
+// Called only when at least one room has level != 0 (conditional-emission rule,
+// invariant b). Level is a plain integer — never contains a comma or quote, so
+// no cell() quoting is needed; stream it directly the way `blocks` streams scale.
+void writeRoomRowWithLevel(std::ostringstream &out, const std::string &name,
+                           const std::string &origin, const std::string &size,
+                           const std::string &material, int level)
+{
+    out << "  " << cell(name)
+        << "," << cell(origin)
+        << "," << cell(size)
+        << "," << cell(material)
+        << "," << level
+        << "\n";
+}
+
+// Like writePlugRow but with a `level` integer column APPENDED LAST.
+// Called only when at least one plug has level != 0 (conditional-emission rule).
+void writePlugRowWithLevel(std::ostringstream &out, const std::string &room,
+                           const std::string &name, const std::string &edge,
+                           const std::string &type, bool connected,
+                           const std::string &flags, int level)
+{
+    out << "  " << cell(room)
+        << "," << cell(name)
+        << "," << edge // bare: N/E/S/W/? never contain delimiters
+        << "," << cell(type)
+        << "," << (connected ? "true" : "false")
+        << "," << cell(flags)
+        << "," << level
+        << "\n";
+}
+
 // Node connector row: name (fall back to id if empty), anchor in authored feet
 // (quoted because x,y always carries a comma), type (empty -> "" via cell()).
 // Matches the byte shape of the other row helpers — two-space indent, cell() for
@@ -235,6 +269,7 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
 namespace {
 
 using edi::drafting::DraftingMapRoom;
+using edi::drafting::DraftingPlug; // needed for hasPlugLevel lambda + plug loop
 using edi::drafting::Point2D;
 
 // Split a globally-unique plug handle "room.plug" on its first '.'.
@@ -271,28 +306,62 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
     // → no scale: line → all existing map_toon_export_tests stay byte-identical.
     writeMapHeader(out, title, units, sceneScale);
 
-    out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
-    for (const auto &room : document.rooms) {
-        writeRoomRow(out, room.name,
-                     authored(room.origin.x) + "," + authored(room.origin.y),
-                     authored(room.width) + "," + authored(room.height),
-                     room.material);
+    // Pre-scan: does ANY room / plug carry a non-zero level?  If so, the section
+    // gains the `level` column (appended LAST, canonical position).  If every value
+    // is 0 (all-default, the overwhelmingly common case), the section header and all
+    // rows are byte-identical to the pre-A2 export — the conditional-emission guard.
+    const bool hasRoomLevel = std::any_of(document.rooms.begin(), document.rooms.end(),
+        [](const DraftingMapRoom &r) { return r.level != 0; });
+    const bool hasPlugLevel = std::any_of(document.plugs.begin(), document.plugs.end(),
+        [](const DraftingPlug &p) { return p.level != 0; });
+
+    if (hasRoomLevel) {
+        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material,level}:\n";
+        for (const auto &room : document.rooms) {
+            writeRoomRowWithLevel(out, room.name,
+                                  authored(room.origin.x) + "," + authored(room.origin.y),
+                                  authored(room.width) + "," + authored(room.height),
+                                  room.material, room.level);
+        }
+    } else {
+        out << "rooms[" << document.rooms.size() << "]{name,origin,size,material}:\n";
+        for (const auto &room : document.rooms) {
+            writeRoomRow(out, room.name,
+                         authored(room.origin.x) + "," + authored(room.origin.y),
+                         authored(room.width) + "," + authored(room.height),
+                         room.material);
+        }
     }
     out << "\n";
 
-    out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
-    for (const auto &plug : document.plugs) {
-        const auto [roomName, plugName] = splitRoomPlug(plug.name);
-        std::string edge = "?";
-        if (const DraftingMapRoom *room = findRoom(roomName)) {
-            edge = edi::drafting::deriveEdge(*room, plug.anchor);
+    if (hasPlugLevel) {
+        out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags,level}:\n";
+        for (const auto &plug : document.plugs) {
+            const auto [roomName, plugName] = splitRoomPlug(plug.name);
+            std::string edge = "?";
+            if (const DraftingMapRoom *room = findRoom(roomName)) {
+                edge = edi::drafting::deriveEdge(*room, plug.anchor);
+            }
+            const std::string type = plug.type.empty() ? "door" : plug.type;
+            writePlugRowWithLevel(out, roomName, plugName, edge, type,
+                                  edi::drafting::plugIsConnected(document.connections, plug.id),
+                                  joinFlags(plug.flags), plug.level);
         }
-        const std::string type = plug.type.empty() ? "door" : plug.type;
-        // Shared with the map browser: a plug is connected iff a declared connection
-        // names it (DraftingMapQuery — the single source so the two views never drift).
-        writePlugRow(out, roomName, plugName, edge, type,
-                     edi::drafting::plugIsConnected(document.connections, plug.id),
-                     joinFlags(plug.flags));
+    } else {
+        out << "plugs[" << document.plugs.size() << "]{room,name,edge,type,connected,flags}:\n";
+        for (const auto &plug : document.plugs) {
+            const auto [roomName, plugName] = splitRoomPlug(plug.name);
+            std::string edge = "?";
+            if (const DraftingMapRoom *room = findRoom(roomName)) {
+                edge = edi::drafting::deriveEdge(*room, plug.anchor);
+            }
+            const std::string type = plug.type.empty() ? "door" : plug.type;
+            // Shared with the map browser: a plug is connected iff a declared connection
+            // names it (DraftingMapQuery — the single source so the two views never drift).
+            writePlugRow(out, roomName, plugName, edge, type,
+                         edi::drafting::plugIsConnected(document.connections, plug.id),
+                         joinFlags(plug.flags));
+        }
     }
     out << "\n";
 

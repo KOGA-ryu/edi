@@ -1020,6 +1020,14 @@ GREY_MATERIALS = {
     # pillar; this is the default when an instance carries no texture refs and its
     # linked mesh has no baked material.
     "instance": (0.72, 0.52, 0.18, 1.0),
+    # forest (L5b): per-SLOT appearance for the tree asset. A tree's two baked
+    # material slots (slot0 structure/bark, slot1 canopy/leaf — the L4 face split)
+    # are overridden IN ORDER by a placement's textures=["bark_brown","leaf_green"],
+    # so the forest reads brown trunks + green canopy. APPEARANCE only (exempt from
+    # no-hardcoded-dims): this is the realizer's OWN render-tool palette, NOT the
+    # cross-language edi_craft MATERIALS table — purely additive, touches no core.
+    "bark_brown": (0.24, 0.15, 0.08, 1.0),
+    "leaf_green": (0.16, 0.42, 0.12, 1.0),
 }
 
 

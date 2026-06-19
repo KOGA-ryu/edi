@@ -1087,7 +1087,17 @@ def build(op: dict):  # pragma: no cover — exercised in Blender
     # nodes and set the Principled Base Color from the (existing) MATERIALS table
     # so the baked asset renders a sensible shade in Cycles — same node wiring the
     # arch ops use in edi_craft.build (additive: still EXISTING keys only).
-    import edi_craft  # the shared MATERIALS table (additive, existing keys only)
+    # The shared MATERIALS table (additive, existing keys only). edi_craft is the
+    # HOST: when this craftsman runs under `blender --python edi_craft.py` the host
+    # is the `__main__` module, NOT importable as `edi_craft` — so resolve it from
+    # sys.modules first (the live host), and only fall back to `import edi_craft`
+    # when the craftsman is driven by some OTHER entry point. WHY not just import:
+    # `import edi_craft` raised ModuleNotFoundError inside Blender (the script's
+    # module name is `__main__`), which the OBJ proof never hits but every bake does.
+    import sys
+    edi_craft = sys.modules.get("edi_craft") or sys.modules.get("__main__")
+    if not hasattr(edi_craft, "MATERIALS"):
+        import edi_craft  # standalone fallback (non-Blender host)
     params = op.get("params", {})
     bark_key = str(params.get("barkMat", "aged_stone"))
     leaf_key = str(params.get("leafMat", "sandstone"))

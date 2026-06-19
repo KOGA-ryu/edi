@@ -1,0 +1,29 @@
+kind: map
+title: forest demo
+units: feet
+
+rooms[1]{name,origin,size,material,floor}:
+  clearing,"0,0","120,90",stone,true
+
+blocks[21]{room,asset,origin,scale,rotation}:
+  clearing,asset_0007,"15,15",1.1,0
+  clearing,asset_0008,"35,12",1.3,40
+  clearing,asset_0009,"55,18",0.9,120
+  clearing,asset_0007,"78,14",1.0,200
+  clearing,asset_0008,"100,16",1.2,310
+  clearing,asset_0009,"20,38",1.4,75
+  clearing,asset_0007,"42,42",0.8,150
+  clearing,asset_0008,"63,36",1.1,260
+  clearing,asset_0009,"85,40",1.3,30
+  clearing,asset_0007,"105,44",0.9,90
+  clearing,asset_0008,"12,62",1.0,210
+  clearing,asset_0009,"33,68",1.2,340
+  clearing,asset_0007,"54,60",1.4,15
+  clearing,asset_0008,"75,66",0.85,170
+  clearing,asset_0009,"96,62",1.1,250
+  clearing,asset_0007,"28,80",1.3,55
+  clearing,asset_0008,"50,84",0.9,135
+  clearing,asset_0009,"70,78",1.2,295
+  clearing,asset_0007,"92,82",1.0,20
+  clearing,asset_0008,"110,76",1.15,100
+  clearing,crypt.brazier,"60,45",1,0

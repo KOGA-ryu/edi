@@ -1,9 +1,12 @@
 kind: zoo
 
-assets[6]{id,name,category,meshRef,proxyRef,textures,sockets}:
+assets[9]{id,name,category,meshRef,proxyRef,textures,sockets}:
   asset_0001,star6,ornament,meshes/star6.blend,"","",""
   asset_0002,square,floor,meshes/square.blend,"","",""
   asset_0003,circle,column,meshes/circle.blend,"","",""
   asset_0004,hexagon,column,meshes/hexagon.blend,"","",""
   asset_0005,corner_l,wall,meshes/corner_l.blend,"","",""
   asset_0006,ring,archway,meshes/ring.blend,"","",""
+  asset_0007,tree_a,tree,meshes/tree_a.blend,"",bark_brown·leaf_green,""
+  asset_0008,tree_b,tree,meshes/tree_b.blend,"",bark_brown·leaf_green,""
+  asset_0009,tree_c,tree,meshes/tree_c.blend,"",bark_brown·leaf_green,""

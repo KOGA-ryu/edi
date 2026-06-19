@@ -255,11 +255,18 @@ manifest = edi_realize.load_manifest(MANIFEST)
 # order. The round-trip contract this step guards is the COLUMN decode — pin the
 # full id roster, then assert star6's row decodes back EXACTLY (any shifted column
 # still fails here).
-if list(manifest.keys()) != [
+# Subset (presence) check, not exact-equality: the catalog grows over time (the 6
+# tester shapes + the L5b tree variants), so pin that the KNOWN ids are all present
+# rather than freezing the exact roster — the per-row decode below still catches a
+# shifted/dropped column.
+_expected_ids = {
     "asset_0001", "asset_0002", "asset_0003",
     "asset_0004", "asset_0005", "asset_0006",
-]:
-    fail(f"manifest ids {list(manifest.keys())}")
+    "asset_0007", "asset_0008", "asset_0009",
+}
+_missing = _expected_ids - set(manifest.keys())
+if _missing:
+    fail(f"manifest missing ids {sorted(_missing)} (got {list(manifest.keys())})")
 star6 = manifest["asset_0001"]
 if star6.id != "asset_0001":
     fail(f"asset id {star6.id!r}")
@@ -273,6 +280,17 @@ if star6.proxyRef != "":
     fail(f"asset proxyRef should be empty, got {star6.proxyRef!r}")
 if star6.textures != []:
     fail(f"asset textures should be empty, got {star6.textures!r}")
+
+# L5b tree row: confirm the `·`-joined textures cell round-trips through parse_toon
+# on the PYTHON side (the C++ catalog test pins the bytes; this guards the decode
+# the realizer's per-slot material override depends on).
+tree_a = manifest["asset_0007"]
+if tree_a.name != "tree_a" or tree_a.category != "tree":
+    fail(f"tree_a row {tree_a.name!r}/{tree_a.category!r}")
+if tree_a.meshRef != "meshes/tree_a.blend":
+    fail(f"tree_a meshRef {tree_a.meshRef!r}")
+if tree_a.textures != ["bark_brown", "leaf_green"]:
+    fail(f"tree_a textures should decode to [bark_brown, leaf_green], got {tree_a.textures!r}")
 
 # --- 12. R2a: a placement resolves to a build-once INSTANCE piece -------------
 with open(STAR6_DEMO, encoding="utf-8") as fh:

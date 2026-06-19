@@ -41,6 +41,7 @@ re-bless to hide it).
 | 2026-06-18 ~19:5x | **2. syncGraphForMovedObject** | `f4dbf8f` → `7e94407` | ✅ byte-identical (no map data changed) | GREEN 108/108 |
 | 2026-06-18 ~20:0x | **3a. additive int level=0 (DraftingMapRoom)** | `47136bb` → `c3e41da` | ✅ byte-identical (level=0 default IS neutral) | GREEN 108/108 |
 | 2026-06-18 ~20:1x | **3b. RoomDerivation enum (COEXIST) + derivation field** | `b4c028a` → `ab58a27` | ✅ byte-identical (Placed default neutral) | GREEN 108/108 |
+| 2026-06-18 ~20:2x | **3c. DraftingNode connector entity + id recovery** | `ec593fd` → `7fa3886` | ✅ byte-identical (off the TOON wire) | GREEN |
 
 Slice 3a = the FIRST additive FIELD. Rides ONLY in struct + MessagePack
 (field-tagged, missing→0); MapToonExport UNTOUCHED, so the positional TOON wire is

@@ -70,9 +70,23 @@ serialize defects, and stand by for dungeon-map review requests. Source: `~/dept
   value). Tests real (value+byte round-trip, forward-compat, id-recovery). Reply:
   ~/dept-bus/drafting/replies/064-draftingnode-consult-clean.md. The new-id-vector checklist is the template.
 
-## Status
-- Standing by for the next handed slices: footprintsOverlap primitive, RoomSpec per-edge walls +
-  planDraftingRoom absent-edge emission, more additive serialize fields. No autonomous builds on hot map files.
-- Tiering note: scalar/enum/data-vector additive slices that follow the blessed templates → Sonnet review;
-  escalate to Opus when a slice adds a std::visit/command arm, a controller helper, or a new id-recovery fence.
+- **Slice 3d — footprintsOverlap primitive + OverlapPolicy enum @ 581e249 (dept/dungeon-map)** — CONSULT CLEAN,
+  no block, no follow-up (Opus — geometry lift). Overlap semantics BYTE-FOR-BYTE PRESERVED: token-for-token
+  formula match vs old roomsOverlap; kFootprintOverlapEps=1e-9 (same value, named), strict-`<` minus-eps,
+  edge-touch⇒not-overlap. Parser reject unchanged (RoomSpecStore.cpp calls footprintsOverlap directly, same
+  A/B order + message + eps). Pure Qt-free in edi_drafting_core (DraftingOverlap.{h,cpp}); CMake wires .cpp +
+  drafting_overlap_tests correctly. OverlapPolicy {PickOne,Merge,Allow} mirrors template (unknown⇒PickOne;
+  additive overlap_policy field, no version bump). MapToonExport untouched. Tests real (9 AABB cases + policy
+  round-trip/forward-compat + retained parser-reject). overlapRect→optional<Rect>/overlapArea correctly
+  DEFERRED (Phase 2/3 merge geometry — WILL AUDIT then that they share footprintsOverlap's eps/closed-vs-open
+  convention). Reply: ~/dept-bus/drafting/replies/066-overlap-primitive-consult-clean.md.
+
+## Status — Phase-1 drafting-core audit targets: 4 of 4 core slices CLEARED
+- Done: syncGraphForMovedObject (slice 2), int level (3a), RoomDerivation (3b), DraftingNode (3c),
+  footprintsOverlap+OverlapPolicy (3d). ALL CONSULT CLEAN.
+- OUTSTANDING audit target: RoomSpec per-edge walls + planDraftingRoom absent-edge emission (Phase 2 item 5 —
+  the geometry-heavy one; baseline DraftingRoom.cpp ~78-116: today emits all 4 edges always). Keep on Opus.
+- WATCH for: the deferred overlapRect/overlapArea merge-geometry companions (audit eps convention).
+- No autonomous builds on hot map files. Tiering: template-following scalar/enum/vector additive slices →
+  Sonnet; escalate to Opus for geometry primitives, std::visit/command arms, controller helpers, id-recovery fences.
 - Prior campaign (no-magic-dims) COMPLETE; 050/051 (kCanvasBoardExtent) await edi-ui/hub merge.

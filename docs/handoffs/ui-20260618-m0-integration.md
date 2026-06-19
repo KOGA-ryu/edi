@@ -87,13 +87,19 @@ realizer → render. VERIFIED genuinely end-to-end from ONE command:
 **Cycles OPTIX on NVIDIA GeForce RTX 5090 (GPU CONFIRMED, no CPU fallback)** →
 1920×1080 PNG in **3.2s** (GATE timing PASS <120s).
 
-**`--reference` status:** the wrapper forwards `--scale` + `--reference` to the
-realizer. `--scale` is real now. `--reference` (the fixed-6ft-figure + floor-checker
-scale overlay) lives in blender-lab's realizer (`dept/blender-lab`, NOT yet on
-master), so on master's realizer it is currently a harmless no-op — it activates
-the moment blender-lab's realizer-with-`--reference` is merged. **Coordination
-requested with blender-lab** (rebase dept/blender-lab onto master + hand off the
-realizer-with-reference). Until then: one-command→PNG = DONE; `--reference` overlay = PENDING.
+**`--reference` status — REAL (resolved).** Merged blender-lab's realizer-with-
+reference (`dept/blender-lab` → master `f5a117b`, clean, edi-gate 106/106), per
+its contract `docs/realizer-invocation.md`. The wrapper threads ALL post-`--` args
+(`<toon>` `--render` `--scale=S` `--samples` `--reference`). **VERIFIED end-to-end
+from the single command WITH `--reference`:**
+```
+tools/m0/render-crypt.sh --out /tmp/m0/oneshot_ref_s2.png --scale 2 --reference
+```
+→ `reference overlay: ON (figure 6 ft FIXED + 5 ft floor checker)` → Cycles OPTIX
+on RTX 5090 (GPU CONFIRMED) → 1920×1080 PNG in **3.3s**. The render shows the 5 ft
+floor checker + the fixed red 6 ft human proxy (small against the doubled crypt —
+scale reads at a glance). `--scale` real; `--reference` real. **M0 one-command gate
+genuinely met.**
 
 ## Pending coordination
 - **`--generate-crypt <out> --scale <S>` CLI** (dungeon-map brief 048): edi-ui

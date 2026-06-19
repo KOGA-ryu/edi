@@ -633,10 +633,12 @@ def main() -> int:
     assert "nfold_star" in registry, "nfold_star craftsman not discovered"
     manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
     # Craftsmen are emitted sorted by id: nfold_star (n) < radial_petal (r) <
-    # twisted_column (t) — so 0/1/2 respectively.
+    # tree (tr) < twisted_column (tw) — so 0/1/2/3 respectively. (tree was added
+    # for the L0 form slice and lands between radial_petal and twisted_column.)
     assert 'craftsman.0.id = "nfold_star"' in manifest_toml
     assert 'craftsman.1.id = "radial_petal"' in manifest_toml
-    assert 'craftsman.2.id = "twisted_column"' in manifest_toml
+    assert 'craftsman.2.id = "tree"' in manifest_toml
+    assert 'craftsman.3.id = "twisted_column"' in manifest_toml
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,
@@ -692,6 +694,95 @@ def main() -> int:
         assert len(verts) == 4 * n and len(faces) == 2 + 2 * n, f"degenerate-k mesh malformed: {points}/{skip}"
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
+
+    # TREE L0 (FORM): the first ORGANIC craftsman. L0 is just the scaffold —
+    # a tapered vertical trunk + ONE crown blob — gated by the SILHOUETTE rubric
+    # (A1 trunk-vertical, A4 reads as a tree). Everything checkable offline from
+    # proof_mesh is pinned here (renders cover A4/A3); F2 budget, F3 origin-at-
+    # base, and A1 trunk-vertical are the cheap-when-trivial L0 checklist items.
+    assert "tree" in registry, "tree craftsman not discovered"
+    # The tree manifest must declare ALL 24 params up front (schema stability
+    # across L0->L5) and use only the C++-known types.
+    tree = registry["tree"]
+    tree_params = tree.MANIFEST["params"]
+    assert len(tree_params) == 24, f"tree manifest must declare all 24 params, got {len(tree_params)}"
+    for p in tree_params:
+        assert p["type"] in ("number", "integer", "material"), \
+            f"tree param {p['key']!r} has non-C++ type {p['type']!r}"
+    # Bark/leaf materials must default to EXISTING MATERIALS keys (additive-only:
+    # "bark"/"leaf" are NOT in the table).
+    tree_defaults = {p["key"]: p["default"] for p in tree_params}
+    assert tree_defaults["barkMat"] in edi_craft.MATERIALS, \
+        f"barkMat default {tree_defaults['barkMat']!r} not an existing material"
+    assert tree_defaults["leafMat"] in edi_craft.MATERIALS, \
+        f"leafMat default {tree_defaults['leafMat']!r} not an existing material"
+
+    tree_ops = edi_craft.parse_ops(
+        os.path.join(ROOT, "samples", "tree", "tree_ops_compiled.toml"))
+    tree_objs = edi_craft.obj_objects(tree_ops)
+    assert len(tree_objs) == 1 and tree_objs[0][0] == "tree", "tree sample did not render one object"
+    tree_verts, tree_faces = tree_objs[0][1], tree_objs[0][2]
+    assert tree_verts and tree_faces, "tree proof_mesh returned an empty mesh"
+    for face in tree_faces:
+        assert len(set(face)) >= 3, "degenerate tree face"
+        assert all(0 <= i < len(tree_verts) for i in face), "tree face references a missing vertex"
+
+    # F3 — origin at base: the lowest vertex sits at z≈0 (the sample places the
+    # op at z=0), so an instance plants its base on terrain.
+    tree_zs = [v[2] for v in tree_verts]
+    assert abs(min(tree_zs)) < 1e-6, f"tree base must sit at z=0 (F3), got z-min {min(tree_zs)}"
+
+    # F2 — poly budget: one tree at L0 defaults is FAR under the 25k-tri forest
+    # target (read the tri count from the proof, not a render).
+    tree_tris = sum(len(face) - 2 for face in tree_faces)
+    assert tree_tris < 25000, f"tree exceeds the 25k-tri budget (F2): {tree_tris}"
+
+    # A1 (sharpened) — trunk vertical: fit a line to the trunk-ring centroids
+    # BELOW firstBranchHeight*height and measure its angle from +z (< ~15°). The
+    # trunk verts are the ones below the crown band; their per-z-layer centroids
+    # must climb straight up. At L0 the trunk is dead-vertical, so the centroids
+    # are all at (0,0,z) — the fitted axis is exactly +z.
+    tree_height = float(tree_ops[0]["params"]["height"])
+    # firstBranchHeight default is 0.35 (not in the sample → use the manifest default).
+    first_branch_frac = float(tree_defaults["firstBranchHeight"])
+    trunk_cut = first_branch_frac * tree_height
+    trunk_verts = [v for v in tree_verts if v[2] <= trunk_cut + 1e-9]
+    assert len(trunk_verts) >= 2, "no trunk verts below the first-branch height"
+    # Group by z-layer, take each layer's xy-centroid, then fit a direction from
+    # the lowest to the highest centroid (the trunk axis).
+    layers = {}
+    for (vx, vy, vz) in trunk_verts:
+        key = round(vz, 6)
+        cx, cy, n = layers.get(key, (0.0, 0.0, 0))
+        layers[key] = (cx + vx, cy + vy, n + 1)
+    centroids = sorted(
+        ((z, sx / n, sy / n) for z, (sx, sy, n) in layers.items()), key=lambda t: t[0])
+    assert len(centroids) >= 2, "need >=2 trunk z-layers to fit an axis"
+    z_lo, x_lo, y_lo = centroids[0]
+    z_hi, x_hi, y_hi = centroids[-1]
+    dx, dy, dz = x_hi - x_lo, y_hi - y_lo, z_hi - z_lo
+    horiz = math.hypot(dx, dy)
+    trunk_angle_deg = math.degrees(math.atan2(horiz, abs(dz)))
+    assert trunk_angle_deg < 15.0, \
+        f"trunk axis must be within 15° of vertical (A1), got {trunk_angle_deg:.1f}°"
+
+    # A crown cluster must exist ABOVE the first-branch height (the silhouette's
+    # canopy mass — not a bare pole). At L0 this is the single crown blob.
+    crown_verts = [v for v in tree_verts if v[2] > trunk_cut + 1e-9]
+    assert len(crown_verts) >= 6, \
+        f"a crown cluster must exist above firstBranchHeight (got {len(crown_verts)} verts)"
+    # The crown must read at the rubric's width band (A2: crown width 0.5-1.0x
+    # height) — not a thin spike.
+    crown_xs = [v[0] for v in crown_verts]
+    crown_width = max(crown_xs) - min(crown_xs)
+    assert crown_width >= 0.4 * tree_height, \
+        f"crown too narrow to read (A2): width {crown_width:.2f} vs height {tree_height}"
+
+    # F4 (dual-tier parity proxy): proof_mesh is deterministic — two calls give
+    # identical (verts,faces). build() calls proof_mesh, so the bpy mesh shares
+    # the count; same-seed determinism (E2) is guaranteed for free at L0 (no RNG).
+    v2, f2 = tree.proof_mesh(tree_ops[0])
+    assert v2 == tree_verts and f2 == tree_faces, "tree proof_mesh is not deterministic"
 
     # P5: bisector miter joints on _swept_prism_world.
     #

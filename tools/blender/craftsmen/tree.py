@@ -10,13 +10,26 @@ each child's radius from its parent. The skeleton is SKINNED to tapered-tube
 (verts,faces) and the crown is clumped icospheres — ALL in pure Python, so the
 proof tier (proof_mesh) and the bpy tier (build) run the SAME generator.
 
-THIS FILE IS L0 (FORM) of the L0->L5 detail ladder. L0 builds ONLY the scaffold
-the silhouette test (rubric A1+A4) needs:
-  - a tapered vertical trunk (stacked ring segments, base z=0 -> z=height),
-  - ONE crude crown blob (a subdivided-octahedron "icosphere") in the upper crown.
-No branching, no seed jitter yet — branching arrives at L1, jitter at L5. The
-FULL 24-param MANIFEST is declared NOW (most params ignored at L0) so the recipe
-schema is stable across every level and the saved recipes never churn.
+THIS FILE IS L1 (ARMATURE) of the L0->L5 detail ladder. L0 built ONLY the
+scaffold the silhouette test needed (a tapered trunk + one placeholder crown
+blob). L1 GROWS the recursive self-similar SKELETON off the trunk and skins each
+branch as a bare tapered tube — the crown blob is GONE; a bare winter-tree
+armature is the correct L1 silhouette (foliage returns at L3). The gate is
+BRANCHING C1+C4:
+  - C1: >=3 visible branch levels (trunk -> primary -> secondary -> tertiary),
+  - C4: successive children SPIRAL around the parent at the golden azimuth
+    (rotateAngle, default 137.5 deg), not coplanar / not all one side.
+
+Params switched ON this level: branchLevels, childrenPerNode, downAngle,
+rotateAngle, lengthRatio, segmentsPerBranch, firstBranchHeight. DEFERRED to later
+levels (parsed + IGNORED for now, so the schema is stable): pipeExponent + per-
+segment curve + taper refinement = L2; clump* CANOPY = L3; baseFlare/crown-ratio
+tuning = L4; the *Jitter knobs + seeded RNG = L5. seed is read but INERT at L1 —
+the golden angle is EXACT, there is NO jitter, so the armature is deterministic
+without touching random at all (RNG arrives at L5).
+
+The FULL 24-param MANIFEST is declared NOW (most params still ignored) so the
+recipe schema is stable across every level and saved recipes never churn.
 
 The contract (scanned by edi_craft.load_craftsmen):
 - MANIFEST: id, label, params (key/label/type — only number/integer/material).
@@ -36,10 +49,11 @@ MANIFEST = {
     "id": "tree",
     "label": "Tree (procedural)",
     # The FULL Weber-Penn-reduced param set, declared up front for schema
-    # stability across L0->L5. At L0 only height/trunkRadius/taper/tubeSides/
-    # baseFlare/firstBranchHeight/clumpSize feed geometry; the rest are parsed
-    # and IGNORED until their ladder level switches them on. Types are limited to
-    # number/integer/material — the only kinds the C++ ScriptOp carries.
+    # stability across L0->L5. At L1 height/trunkRadius/taper/tubeSides/baseFlare
+    # feed the trunk, and branchLevels/childrenPerNode/downAngle/rotateAngle/
+    # lengthRatio/segmentsPerBranch/firstBranchHeight feed the armature; the rest
+    # are parsed and IGNORED until their ladder level switches them on. Types are
+    # limited to number/integer/material — the only kinds the C++ ScriptOp carries.
     "params": [
         {"key": "seed", "label": "Seed", "type": "integer", "default": 0},
         {"key": "height", "label": "Height (m)", "type": "number", "default": 6.0},
@@ -72,6 +86,24 @@ MANIFEST = {
     ],
 }
 
+# --- NAMED L1 constants (no bare magic literals in the recursion logic) -------
+# Crude per-level radius decay. The PIPE MODEL (r_child = r_p*(1/n)^(1/e), the
+# pipeExponent formula) is L2's gated refinement — at L1 we just thin each child
+# by a fixed fraction of its parent so the hierarchy READS as thinning without
+# pre-empting L2's critique. 0.62 is the value the default pipe model (n=3,
+# e=2.2) would give, chosen so L2 can swap in the real formula with minimal
+# silhouette shift.
+CHILD_RADIUS_DECAY = 0.62
+# The trunk top (where the first branch ring of children sprouts) keeps this
+# fraction of the trunk-base radius as the seed radius for the primary branches —
+# a believable "the limbs are thinner than the trunk" start, refined by the pipe
+# model at L2.
+TRUNK_TIP_RADIUS_FRAC = 0.7
+# A branch tip tapers to this fraction of its start radius along its own length
+# (a single gentle taper per branch — the per-segment `taper`/`curve` profile is
+# L2). Keeps tubes from ending in a blunt cylinder.
+BRANCH_TIP_TAPER = 0.6
+
 
 def _ring(cx, cy, cz, radius, sides):
     """A horizontal ring of `sides` verts centred at (cx,cy,cz). Returned as a
@@ -87,14 +119,14 @@ def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
     """A tapered vertical trunk: `segments` stacked ring loops from z=0 to
     z=height, each ring's radius scaled by `taper` per segment so the trunk
     narrows with height, and the very bottom ring widened by `base_flare` (root
-    buttress). Closed at the bottom; the OPEN top ring is where the crown sits
-    (the crown blob overlaps it — no weld needed, per the L0 'overlap, don't
-    weld' rule R1). Returns (verts, faces, top_radius).
+    buttress). Closed at the bottom AND the top (a cap ring) so the trunk reads
+    as a solid tube; branches overlap it at the top (no weld, per R1). Returns
+    (verts, faces, top_radius).
 
     WHY stacked segments and not a single cone: stacking lets each ring carry the
     geometric taper (radius *= taper per segment) so the profile reads as a real
-    trunk that thins smoothly, and it gives L1 the ring loops to graft branches
-    onto later without changing the L0 vertex layout."""
+    trunk that thins smoothly, and it gives the armature the trunk-top ring to
+    sprout primary branches from."""
     sides = max(3, sides)
     segments = max(1, segments)
 
@@ -122,116 +154,247 @@ def _trunk_mesh(height, trunk_radius, taper, base_flare, segments, sides):
         for i in range(sides):
             ni = (i + 1) % sides
             faces.append([base + i, base + ni, nxt + ni, nxt + i])
-    # NOTE: the top ring is left OPEN — the crown blob caps the silhouette there.
+    # Top cap (so the trunk is a closed tube now that no crown blob covers it).
+    top = segments * sides
+    faces.append(list(range(top, top + sides)))
     return verts, faces, radii[-1]
 
 
-def _icosphere(cx, cy, cz, radius, subdiv):
-    """A cheap 'icosphere' as a recursively-subdivided OCTAHEDRON projected onto
-    a sphere. subdiv=0 is the bare 8-face octahedron; each subdiv level splits
-    every triangle into 4 (so subdiv=1 -> 32 tris). Pure Python, no bpy.
+# --- The recursive ARMATURE skeleton -----------------------------------------
+#
+# A SKELETON node carries (position, radius, level). A BRANCH is a polyline of
+# such nodes (segmentsPerBranch+1 of them) plus its parent's index. We build the
+# whole skeleton FIRST, in a FIXED depth-first child-index order, then skin it.
+#
+# WHY build the skeleton first (and in fixed order) rather than emit geometry
+# inline during recursion: at L5 a seeded RNG will perturb each node's angle and
+# length. Determinism (rubric E2 + R3) demands the RNG be drawn in the SAME order
+# in both the proof tier and the bpy build. A skeleton built by a deterministic
+# depth-first walk (children visited in index 0..n-1 order) gives that fixed
+# traversal a stable spine to hang the (future) RNG draws on, and keeps the skin
+# pass a pure function of the skeleton. At L1 there is no RNG yet, but the
+# ORDER is locked in now so L5 is a drop-in.
 
-    WHY a subdivided octahedron and not a true icosahedron: the octahedron's 6
-    seed verts sit on the axes, so the generator is a few lines and stays cheap;
-    the projection-to-sphere step makes it read as a round blob either way. The
-    crown is a placeholder mass at L0 — L3 replaces this one blob with clumpCount
-    clumps at the branch tips."""
-    subdiv = max(0, subdiv)
 
-    # Octahedron seed: 6 verts on the unit axes, 8 triangles.
-    base_verts = [
-        (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0),
-        (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
-        (0.0, 0.0, 1.0), (0.0, 0.0, -1.0),
-    ]
-    base_faces = [
-        (0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4),
-        (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5),
-    ]
+def _axis_frame(axis):
+    """Given a unit `axis` direction, return two unit vectors (u, v) spanning the
+    plane perpendicular to it. Children are rotated within this frame by the
+    azimuth angle, then tilted toward `axis`. A stable choice of `up` avoids a
+    degenerate cross product when the axis is near-vertical."""
+    ax, ay, az = axis
+    # Pick a reference not parallel to the axis: +x unless the axis is ~+x/-x.
+    if abs(ax) < 0.9:
+        ref = (1.0, 0.0, 0.0)
+    else:
+        ref = (0.0, 1.0, 0.0)
+    # u = normalize(axis x ref)
+    ux = ay * ref[2] - az * ref[1]
+    uy = az * ref[0] - ax * ref[2]
+    uz = ax * ref[1] - ay * ref[0]
+    ulen = math.sqrt(ux * ux + uy * uy + uz * uz) or 1.0
+    u = (ux / ulen, uy / ulen, uz / ulen)
+    # v = axis x u (already unit since axis and u are orthonormal)
+    vx = ay * u[2] - az * u[1]
+    vy = az * u[0] - ax * u[2]
+    vz = ax * u[1] - ay * u[0]
+    return u, (vx, vy, vz)
 
-    verts = [list(v) for v in base_verts]
-    faces = list(base_faces)
-    # Cache midpoints by an ordered-pair key so a shared edge yields ONE shared
-    # vertex (no cracks). A dict keyed by a sorted tuple is order-stable here —
-    # we only LOOK UP by key, never ITERATE the dict, so determinism holds.
-    midcache = {}
 
-    def midpoint(a, b):
-        key = (a, b) if a < b else (b, a)
-        if key in midcache:
-            return midcache[key]
-        ax, ay, az = verts[a]
-        bx, by, bz = verts[b]
-        m = [(ax + bx) * 0.5, (ay + by) * 0.5, (az + bz) * 0.5]
-        idx = len(verts)
-        verts.append(m)
-        midcache[key] = idx
+def _child_axis(parent_axis, down_angle_rad, azimuth_rad):
+    """A child branch axis: take the parent axis, tilt it by `down_angle` toward a
+    direction in the perpendicular plane chosen by `azimuth`, and renormalise.
+
+    The azimuth picks a compass direction (u*cos + v*sin) in the plane normal to
+    the parent; tilting blends `cos(down)` of the parent axis with `sin(down)` of
+    that perpendicular direction. Successive children share the same down_angle
+    but step their azimuth by the golden angle, so they SPIRAL (C4)."""
+    u, v = _axis_frame(parent_axis)
+    # Perpendicular "lean" direction for this child's azimuth.
+    px = u[0] * math.cos(azimuth_rad) + v[0] * math.sin(azimuth_rad)
+    py = u[1] * math.cos(azimuth_rad) + v[1] * math.sin(azimuth_rad)
+    pz = u[2] * math.cos(azimuth_rad) + v[2] * math.sin(azimuth_rad)
+    c, s = math.cos(down_angle_rad), math.sin(down_angle_rad)
+    ax = parent_axis[0] * c + px * s
+    ay = parent_axis[1] * c + py * s
+    az = parent_axis[2] * c + pz * s
+    alen = math.sqrt(ax * ax + ay * ay + az * az) or 1.0
+    return (ax / alen, ay / alen, az / alen)
+
+
+def _skeleton(params: dict):
+    """Build the recursive branching skeleton as a list of BRANCHES. Each branch
+    is a dict with:
+        nodes : [(x, y, z), ...]   (segments_per_branch + 1 points, start->tip)
+        radii : [r0, ..., r_tip]   (radius at each node, gently tapering)
+        level : int                (0 = trunk, 1 = primary, ...)
+    The trunk is branch 0 (level 0). Primary branches sprout from the trunk top;
+    each branch tip then spawns `childrenPerNode` children to depth branchLevels.
+
+    Pure + deterministic: the only angle source is the EXACT golden azimuth
+    (rotateAngle * child_index) — no RNG at L1. Depth-first, children in index
+    order, so L5's seeded jitter has a fixed traversal to perturb."""
+    height = max(1e-3, float(params.get("height", 6.0)))
+    trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
+    branch_levels = max(0, int(float(params.get("branchLevels", 4))))
+    children_per_node = max(1, int(float(params.get("childrenPerNode", 3))))
+    first_branch = float(params.get("firstBranchHeight", 0.35))
+    down_angle = math.radians(float(params.get("downAngle", 45.0)))
+    rotate_angle = math.radians(float(params.get("rotateAngle", 137.5)))
+    length_ratio = float(params.get("lengthRatio", 0.72))
+    segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
+
+    branches = []
+
+    def add_branch(start, axis, length, radius, level):
+        """Append one straight branch of `segments` even steps from `start` along
+        `axis`, tapering radius from `radius` to radius*BRANCH_TIP_TAPER, then —
+        if we are not yet at branchLevels — recurse children off its TIP. Returns
+        the branch's index in `branches`."""
+        nodes = []
+        radii = []
+        for s in range(segments + 1):
+            t = s / segments
+            nodes.append((start[0] + axis[0] * length * t,
+                          start[1] + axis[1] * length * t,
+                          start[2] + axis[2] * length * t))
+            # Linear taper along the branch from `radius` down to the tip frac.
+            radii.append(radius * (1.0 - (1.0 - BRANCH_TIP_TAPER) * t))
+        idx = len(branches)
+        branches.append({"nodes": nodes, "radii": radii, "level": level})
+
+        if level < branch_levels:
+            tip = nodes[-1]
+            child_len = length * length_ratio
+            child_rad = radius * CHILD_RADIUS_DECAY
+            # Children spawn off the tip, each stepped by the golden azimuth so
+            # they spiral around the parent axis (C4). Fixed index order 0..n-1.
+            for c in range(children_per_node):
+                azimuth = rotate_angle * c
+                caxis = _child_axis(axis, down_angle, azimuth)
+                add_branch(tip, caxis, child_len, child_rad, level + 1)
         return idx
 
-    for _ in range(subdiv):
-        new_faces = []
-        for (a, b, c) in faces:
-            ab = midpoint(a, b)
-            bc = midpoint(b, c)
-            ca = midpoint(c, a)
-            new_faces.extend([(a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca)])
-        faces = new_faces
+    # The TRUNK is branch 0: a vertical branch from z=0 to z=height. Its radius
+    # tapers like a branch; primary branches sprout from its TOP. We model the
+    # trunk's skinned geometry separately (the flared, capped _trunk_mesh) so the
+    # skeleton trunk is used only as the SPAWN POINT for primaries — its tube is
+    # the dedicated trunk mesh, not a generic branch tube.
+    trunk_axis = (0.0, 0.0, 1.0)
+    trunk_top = (0.0, 0.0, height)
+    # The primary branches grow from the trunk top. (firstBranchHeight reserves a
+    # clear bole; at L1 all primaries spring from the single trunk-top node — the
+    # bole is the bare trunk below it. Distributing primaries ALONG the trunk
+    # above firstBranchHeight is an L2+ refinement once curve/taper land.)
+    if branch_levels >= 1:
+        primary_len = height * length_ratio
+        primary_rad = trunk_radius * TRUNK_TIP_RADIUS_FRAC
+        for c in range(children_per_node):
+            azimuth = rotate_angle * c
+            caxis = _child_axis(trunk_axis, down_angle, azimuth)
+            add_branch(trunk_top, caxis, primary_len, primary_rad, 1)
 
-    # Project every vert onto the sphere of `radius`, then offset to the centre.
-    out_verts = []
-    for (vx, vy, vz) in verts:
-        length = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
-        s = radius / length
-        out_verts.append((cx + vx * s, cy + vy * s, cz + vz * s))
-    return out_verts, [list(f) for f in faces]
+    return branches
+
+
+def _branch_tube(branch, sides):
+    """Skin one skeleton branch (a polyline of nodes + per-node radii) as a
+    closed, capped tapered tube: a ring of `sides` verts at each node, side quads
+    bridging consecutive rings, and a triangle fan cap at BOTH ends.
+
+    R1 (no weld): each branch is its own closed tube; where a child meets its
+    parent the tubes simply OVERLAP/interpenetrate (the overlap is hidden and
+    welding is an L4+ nicety). So every tube being individually closed keeps the
+    mesh 'manifold-ish' (F1) without the hard join topology.
+
+    Each ring is built in the plane perpendicular to the LOCAL branch direction
+    (the segment leaving that node) so the tube follows the branch axis even when
+    it leans far off vertical."""
+    sides = max(3, sides)
+    nodes = branch["nodes"]
+    radii = branch["radii"]
+    verts = []
+    for i, (cx, cy, cz) in enumerate(nodes):
+        # Local direction at this node: toward the next node (or from the prev at
+        # the tip). The ring lies in the plane perpendicular to it.
+        if i < len(nodes) - 1:
+            d = (nodes[i + 1][0] - cx, nodes[i + 1][1] - cy, nodes[i + 1][2] - cz)
+        else:
+            d = (cx - nodes[i - 1][0], cy - nodes[i - 1][1], cz - nodes[i - 1][2])
+        dlen = math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) or 1.0
+        axis = (d[0] / dlen, d[1] / dlen, d[2] / dlen)
+        u, v = _axis_frame(axis)
+        r = radii[i]
+        for k in range(sides):
+            ang = math.tau * k / sides
+            ex = u[0] * math.cos(ang) + v[0] * math.sin(ang)
+            ey = u[1] * math.cos(ang) + v[1] * math.sin(ang)
+            ez = u[2] * math.cos(ang) + v[2] * math.sin(ang)
+            verts.append((cx + ex * r, cy + ey * r, cz + ez * r))
+
+    faces = []
+    # Base cap (reversed so its normal points back down the branch).
+    faces.append(list(range(sides - 1, -1, -1)))
+    rings = len(nodes)
+    for seg in range(rings - 1):
+        base = seg * sides
+        nxt = (seg + 1) * sides
+        for k in range(sides):
+            nk = (k + 1) % sides
+            faces.append([base + k, base + nk, nxt + nk, nxt + k])
+    # Tip cap.
+    top = (rings - 1) * sides
+    faces.append(list(range(top, top + sides)))
+    return verts, faces
 
 
 def _local_mesh(params: dict):
-    """The L0 tree as local (verts, faces) with the trunk base at z=0.
+    """The L1 tree as local (verts, faces) with the trunk base at z=0.
 
-    L0 = tapered trunk + ONE crown blob. No branching, no RNG (seed is read for
-    schema/determinism plumbing but unused until L1+)."""
+    L1 = tapered trunk + the recursive branching ARMATURE skinned as bare tubes.
+    The L0 crown blob is REMOVED — a bare winter-tree silhouette is the correct
+    armature read; canopy returns at L3. seed is read for schema/determinism
+    plumbing but UNUSED until L5 (the golden angle is exact, no jitter)."""
     height = max(1e-3, float(params.get("height", 6.0)))
     trunk_radius = max(1e-4, float(params.get("trunkRadius", 0.18)))
     taper = float(params.get("taper", 0.85))
     base_flare = float(params.get("baseFlare", 1.6))
     tube_sides = max(3, int(float(params.get("tubeSides", 6))))
-    leaf_subdiv = max(0, int(float(params.get("leafSubdiv", 1))))
-    clump_size = max(1e-4, float(params.get("clumpSize", 0.55)))
-    first_branch = float(params.get("firstBranchHeight", 0.35))
+    segments = max(1, int(float(params.get("segmentsPerBranch", 4))))
 
-    # The L0 trunk uses a FIXED segment count (not segmentsPerBranch, which is a
-    # per-BRANCH knob arriving at L1) — enough rings to read as a smooth taper.
-    TRUNK_SEGMENTS = 4  # local: smooth-enough taper at L0 without per-level cost
-    trunk_verts, trunk_faces, top_radius = _trunk_mesh(
-        height, trunk_radius, taper, base_flare, TRUNK_SEGMENTS, tube_sides)
+    # The trunk uses segmentsPerBranch rings now (L0 used a fixed 4) so the
+    # trunk and the branches share one segment knob.
+    trunk_verts, trunk_faces, _top_radius = _trunk_mesh(
+        height, trunk_radius, taper, base_flare, segments, tube_sides)
 
-    # The crown blob fills the upper crown. Its RADIUS must read at the rubric's
-    # crown-width band (A2: crown width 0.5-1.0x height). clumpSize alone (0.55 m)
-    # is far too small for a 6 m tree, so derive a crown radius from height and
-    # let clumpSize MODULATE it — a named relationship, no bare magic literal.
-    CROWN_WIDTH_FRACTION = 0.6   # crown diameter ~0.6x height (mid of A2's 0.5-1.0 band)
-    CLUMP_SIZE_REFERENCE = 0.55  # the default clumpSize: ratio to it scales the crown
-    crown_radius = (height * CROWN_WIDTH_FRACTION * 0.5) * (clump_size / CLUMP_SIZE_REFERENCE)
+    verts = list(trunk_verts)
+    faces = list(trunk_faces)
 
-    # Centre the blob in the upper crown: sit its CENTRE so the crown spans from
-    # roughly firstBranchHeight*height up to the top, then nudge so the blob top
-    # is near the tree top. Centre = midpoint of (first-branch height, height),
-    # biased up toward the canopy.
-    crown_band_low = first_branch * height
-    crown_centre_z = (crown_band_low + height) * 0.5
-    # Lift so the crown's top reaches ~height (the blob caps the silhouette).
-    crown_centre_z = min(crown_centre_z + crown_radius * 0.5, height)
+    # Skin every skeleton branch (level >= 1; the trunk's own tube is the
+    # dedicated flared/capped _trunk_mesh above). Each tube's indices shift by
+    # the running vertex count; tubes OVERLAP at joins (R1, no weld).
+    for branch in _skeleton(params):
+        if branch["level"] == 0:
+            continue  # the trunk is skinned by _trunk_mesh, not as a generic tube
+        b_verts, b_faces = _branch_tube(branch, tube_sides)
+        offset = len(verts)
+        verts.extend(b_verts)
+        faces.extend([[i + offset for i in f] for f in b_faces])
 
-    crown_verts, crown_faces = _icosphere(
-        0.0, 0.0, crown_centre_z, crown_radius, leaf_subdiv)
-
-    # Concatenate: crown face indices shift by the trunk's vertex count (the two
-    # meshes overlap at the trunk top — intentional, no weld at L0, per R1).
-    offset = len(trunk_verts)
-    verts = list(trunk_verts) + list(crown_verts)
-    faces = list(trunk_faces) + [[i + offset for i in f] for f in crown_faces]
     return verts, faces
+
+
+def skeleton_levels(params: dict):
+    """A small PURE helper the smoke test uses to assert the armature structure
+    offline (C1: branch-level count) WITHOUT parsing the skinned mesh. Returns
+    the sorted list of distinct branch levels present (e.g. [0, 1, 2, 3, 4]).
+
+    Level 0 is the trunk spawn-axis (skinned as the dedicated trunk mesh); levels
+    1.. are the recursive branches. So len(...) - 1 >= 3 means >=3 branch levels
+    beyond the trunk (trunk -> primary -> secondary -> tertiary), the C1 gate."""
+    levels = {0}  # the trunk spawn axis always exists
+    for branch in _skeleton(params):
+        levels.add(branch["level"])
+    return sorted(levels)
 
 
 def proof_mesh(op: dict):

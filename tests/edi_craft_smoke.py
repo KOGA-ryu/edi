@@ -695,11 +695,15 @@ def main() -> int:
         for face in faces:
             assert len(set(face)) >= 3, f"degenerate face for {points}/{skip}"
 
-    # TREE L0 (FORM): the first ORGANIC craftsman. L0 is just the scaffold —
-    # a tapered vertical trunk + ONE crown blob — gated by the SILHOUETTE rubric
-    # (A1 trunk-vertical, A4 reads as a tree). Everything checkable offline from
-    # proof_mesh is pinned here (renders cover A4/A3); F2 budget, F3 origin-at-
-    # base, and A1 trunk-vertical are the cheap-when-trivial L0 checklist items.
+    # TREE L1 (ARMATURE): the first ORGANIC craftsman, now GROWN. L0 was the
+    # scaffold (tapered trunk + ONE crown blob); L1 grows the recursive self-
+    # similar branching SKELETON off the trunk and skins each branch as a bare
+    # tapered tube — the crown blob is GONE (a bare winter-tree silhouette is the
+    # correct armature read; canopy returns at L3). The gate is BRANCHING C1+C4:
+    # >=3 visible branch levels, and successive children SPIRAL at the golden
+    # azimuth. Everything checkable offline from proof_mesh/skeleton is pinned
+    # here (renders cover A3/A4); F2 budget, F3 origin-at-base, A1 trunk-vertical,
+    # and dual-tier parity stay on the cheap-when-trivial checklist.
     assert "tree" in registry, "tree craftsman not discovered"
     # The tree manifest must declare ALL 24 params up front (schema stability
     # across L0->L5) and use only the C++-known types.
@@ -732,8 +736,9 @@ def main() -> int:
     tree_zs = [v[2] for v in tree_verts]
     assert abs(min(tree_zs)) < 1e-6, f"tree base must sit at z=0 (F3), got z-min {min(tree_zs)}"
 
-    # F2 — poly budget: one tree at L0 defaults is FAR under the 25k-tri forest
-    # target (read the tri count from the proof, not a render).
+    # F2 — poly budget: one tree at L1 defaults is FAR under the 25k-tri forest
+    # target (read the tri count from the proof, not a render). The branch fanout
+    # is the explosion risk (childrenPerNode^branchLevels) so this guard matters.
     tree_tris = sum(len(face) - 2 for face in tree_faces)
     assert tree_tris < 25000, f"tree exceeds the 25k-tri budget (F2): {tree_tris}"
 
@@ -766,21 +771,56 @@ def main() -> int:
     assert trunk_angle_deg < 15.0, \
         f"trunk axis must be within 15° of vertical (A1), got {trunk_angle_deg:.1f}°"
 
-    # A crown cluster must exist ABOVE the first-branch height (the silhouette's
-    # canopy mass — not a bare pole). At L0 this is the single crown blob.
+    # Branch mass must exist ABOVE the first-branch height (the armature, not a
+    # bare pole). At L1 these are the recursive branch tubes, not a crown blob.
     crown_verts = [v for v in tree_verts if v[2] > trunk_cut + 1e-9]
     assert len(crown_verts) >= 6, \
-        f"a crown cluster must exist above firstBranchHeight (got {len(crown_verts)} verts)"
-    # The crown must read at the rubric's width band (A2: crown width 0.5-1.0x
-    # height) — not a thin spike.
+        f"a branch mass must exist above firstBranchHeight (got {len(crown_verts)} verts)"
+    # The armature must spread WIDE off the trunk axis (not a thin broom): the
+    # branch tips reach out, so the xy-extent up top must be a real fraction of
+    # the tree height.
     crown_xs = [v[0] for v in crown_verts]
     crown_width = max(crown_xs) - min(crown_xs)
     assert crown_width >= 0.4 * tree_height, \
-        f"crown too narrow to read (A2): width {crown_width:.2f} vs height {tree_height}"
+        f"armature too narrow to read (A2): width {crown_width:.2f} vs height {tree_height}"
+
+    # C1 (BRANCHING gate) — >=3 visible branch LEVELS (trunk -> primary ->
+    # secondary -> tertiary). skeleton_levels() returns the distinct levels; the
+    # trunk is level 0, so >=3 levels BEYOND it means the max level >= 3. The
+    # pure helper lets us check the hierarchy offline without parsing the skin.
+    levels = tree.skeleton_levels(tree_ops[0]["params"])
+    assert levels[0] == 0, f"skeleton must start at the trunk (level 0), got {levels}"
+    assert max(levels) >= 3, \
+        f"C1: need >=3 branch levels beyond the trunk, got levels {levels}"
+
+    # C4 (BRANCHING gate) — successive children SPIRAL around the parent at the
+    # golden azimuth (rotateAngle), not coplanar / not all one side. Take the
+    # primary branches (level 1) sprouting off the trunk top and measure each
+    # one's azimuth around the trunk's +z axis; successive primaries must step by
+    # ~rotateAngle. (At L1 there is no jitter, so the step is EXACT.)
+    rotate_angle = float(tree_defaults["rotateAngle"])  # 137.5 (golden)
+    skel = tree._skeleton(tree_ops[0]["params"])
+    primaries = [b for b in skel if b["level"] == 1]
+    assert len(primaries) >= 2, f"need >=2 primaries to measure spiral, got {len(primaries)}"
+
+    def _branch_azimuth(branch):
+        # Azimuth (deg, around +z) of the branch's start->tip direction.
+        s, t = branch["nodes"][0], branch["nodes"][-1]
+        return math.degrees(math.atan2(t[1] - s[1], t[0] - s[0])) % 360.0
+
+    prim_az = [_branch_azimuth(b) for b in primaries]
+    # Not coplanar / not all one side: the azimuths must actually differ.
+    assert len(set(round(a, 3) for a in prim_az)) == len(prim_az), \
+        f"C4: primaries are coplanar (duplicate azimuths): {prim_az}"
+    for i in range(len(prim_az) - 1):
+        step = (prim_az[i + 1] - prim_az[i]) % 360.0
+        assert abs(step - rotate_angle) < 1e-6, \
+            f"C4: successive primaries must step the golden angle {rotate_angle}, got {step:.3f}"
 
     # F4 (dual-tier parity proxy): proof_mesh is deterministic — two calls give
     # identical (verts,faces). build() calls proof_mesh, so the bpy mesh shares
-    # the count; same-seed determinism (E2) is guaranteed for free at L0 (no RNG).
+    # the count; same-seed determinism (E2) holds for free at L1 (the golden
+    # angle is exact, NO RNG — jitter arrives at L5).
     v2, f2 = tree.proof_mesh(tree_ops[0])
     assert v2 == tree_verts and f2 == tree_faces, "tree proof_mesh is not deterministic"
 

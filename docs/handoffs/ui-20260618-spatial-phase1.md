@@ -43,6 +43,7 @@ re-bless to hide it).
 | 2026-06-18 ~20:1x | **3b. RoomDerivation enum (COEXIST) + derivation field** | `b4c028a` → `ab58a27` | ✅ byte-identical (Placed default neutral) | GREEN 108/108 |
 | 2026-06-18 ~20:2x | **3c. DraftingNode connector entity + id recovery** | `ec593fd` → `7fa3886` | ✅ byte-identical (off the TOON wire) | GREEN |
 | 2026-06-18 ~20:3x | **3d. OverlapPolicy enum + footprintsOverlap primitive** | `581e249` → merge | ✅ byte-identical + reject-path fires (PickOne default) | GREEN |
+| 2026-06-18 ~20:4x | **3e. RoomKind enum + per-edge wall presence (RoomSpec)** | `81d42b3` → merge | ✅ byte-identical + object-count 170 (defaults neutral; not wired till Phase 2) | GREEN |
 
 Slice 3a = the FIRST additive FIELD. Rides ONLY in struct + MessagePack
 (field-tagged, missing→0); MapToonExport UNTOUCHED, so the positional TOON wire is

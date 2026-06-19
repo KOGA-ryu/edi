@@ -207,6 +207,25 @@ target_link_libraries(edi_drafting_core PUBLIC edi_format_core)
 # docs/adding-a-drafting-tool.md.
 target_compile_options(edi_drafting_core PRIVATE -Werror=switch)
 
+# Pillar A — the asset zoo: a curated, cross-document library of reusable assets.
+# It persists with the shared MessagePack value codec + EDIM envelope, so it links
+# the format core. It deliberately does NOT depend on the drafting core: the zoo is
+# a catalog that outlives any one drawing, and an AssetRecord references geometry
+# only by opaque string id — keeping the backbone independent of the document.
+add_library(edi_zoo_core STATIC
+    src/zoo/AssetZoo.h
+    src/zoo/AssetZooOps.h
+    src/zoo/AssetZooOps.cpp
+    src/zoo/AssetZooSerialize.h
+    src/zoo/AssetZooSerialize.cpp
+)
+
+target_include_directories(edi_zoo_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(edi_zoo_core PUBLIC edi_format_core)
+
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h
     src/recipe/RecipeMeasure.cpp
@@ -364,6 +383,7 @@ add_edi_contract_test(text_editor_commands_tests tests/text_editor_commands_test
 add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
+add_edi_contract_test(asset_zoo_tests tests/asset_zoo_tests.cpp edi_zoo_core)
 add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
 target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)
 target_include_directories(belt_state_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

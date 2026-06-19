@@ -226,6 +226,16 @@ target_include_directories(edi_zoo_core PUBLIC
 
 target_link_libraries(edi_zoo_core PUBLIC edi_format_core)
 
+add_library(edi_asset_link STATIC
+    src/assetlink/AssetLinkResolve.h
+    src/assetlink/AssetLinkResolve.cpp
+)
+target_include_directories(edi_asset_link PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# The asset-link bridge is the single, named meeting-point of two deliberately
+# isolated cores: it resolves a drawing's neutral assetRefs against the zoo
+# catalog. It links BOTH; neither core links the other.
+target_link_libraries(edi_asset_link PUBLIC edi_drafting_core edi_zoo_core)
+
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h
     src/recipe/RecipeMeasure.cpp
@@ -384,6 +394,7 @@ add_edi_contract_test(format_toml_tests tests/format_toml_tests.cpp edi_format_c
 add_edi_contract_test(format_messagepack_tests tests/format_messagepack_tests.cpp edi_format_core)
 add_edi_contract_test(format_messagepack_value_tests tests/format_messagepack_value_tests.cpp edi_format_core)
 add_edi_contract_test(asset_zoo_tests tests/asset_zoo_tests.cpp edi_zoo_core)
+add_edi_contract_test(asset_link_resolve_tests tests/asset_link_resolve_tests.cpp edi_asset_link)
 add_edi_contract_test(belt_state_tests tests/belt_state_tests.cpp)
 target_sources(belt_state_tests PRIVATE src/widgets/BeltState.cpp)
 target_include_directories(belt_state_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

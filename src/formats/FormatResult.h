@@ -17,7 +17,8 @@ enum class FormatResultCode {
     MissingSchema,
     UnsupportedVersion,
     EmptyBuffer,
-    InvalidRecordCount
+    InvalidRecordCount,
+    IoError
 };
 
 struct FormatMessage {

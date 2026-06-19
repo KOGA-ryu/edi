@@ -67,13 +67,33 @@ The user's scale directive: the 2D canvas must FIT THE SCREEN at any dungeon siz
 | 2026-06-18 ~16:xx | dungeon-map (GENERATOR) | `1b3d4ab` → merge `a0078bc` | M0 crypt generator: buildCryptMapSpec(double scale) + G2 props + exportMapToToon(sceneScale) advisory scale: header. Rebased clean on master, disjoint from edi-ui work. | GREEN 106/106 + scan |
 | 2026-06-18 ~16:xx | edi-ui (CLI) | `533d95e` (own) | `--generate-crypt <out> --scale <S>` in app/main.cpp (brief 048) + CryptGenerator in the edi target. The M0 one-command terminus. | GREEN 106/106 + scan |
 
-## ✅ M0 GATE MET — the one-command chain renders on the 5090
-`edi --generate-crypt /tmp/m0/crypt.toon --scale 2` → buildCryptMapSpec(2) →
-createMapFromSpec → exportMapToToon (scale: 2 header) → TOON → bpy realizer →
+## M0 one-command chain — CORRECTED
+
+**Correction (2026-06-18, hub dogfood):** an earlier note here claimed
+`edi --generate-crypt --scale N` met the whole-chain gate. That was OVERSTATED —
+that handler is a **TOON terminus only**; it does NOT invoke the realizer. The
+first "M0 GATE MET" render was made by chaining the realizer SEPARATELY. The
+TOON/scale half is correct (S=1 omits the `scale:` header; S=2/S=4 produce the
+doubled 30×30/50×50 and 60×60/100×100 geometry), but one-command→PNG was not met.
+
+**Fix — `tools/m0/render-crypt.sh`** (the orchestration tier; keeps edi and
+Blender decoupled per the three-tier law — neither imports the other):
+```
+tools/m0/render-crypt.sh --out <png> [--scale S] [--reference] [--samples N]
+```
+tier 1 `edi --generate-crypt` (headless/offscreen) → TOON; tier 2 the bpy
+realizer → render. VERIFIED genuinely end-to-end from ONE command:
+`render-crypt.sh --out /tmp/m0/oneshot_s2.png --scale 2` →
 **Cycles OPTIX on NVIDIA GeForce RTX 5090 (GPU CONFIRMED, no CPU fallback)** →
-1920×1080 crypt PNG in **2.97s**. All 4 M0 gate criteria PASS end-to-end. S=1
-omits the scale: header; S=2 matches the doubled-crypt fixture. The realizer +
-generator agree on the wire (the converge-check is GREEN).
+1920×1080 PNG in **3.2s** (GATE timing PASS <120s).
+
+**`--reference` status:** the wrapper forwards `--scale` + `--reference` to the
+realizer. `--scale` is real now. `--reference` (the fixed-6ft-figure + floor-checker
+scale overlay) lives in blender-lab's realizer (`dept/blender-lab`, NOT yet on
+master), so on master's realizer it is currently a harmless no-op — it activates
+the moment blender-lab's realizer-with-`--reference` is merged. **Coordination
+requested with blender-lab** (rebase dept/blender-lab onto master + hand off the
+realizer-with-reference). Until then: one-command→PNG = DONE; `--reference` overlay = PENDING.
 
 ## Pending coordination
 - **`--generate-crypt <out> --scale <S>` CLI** (dungeon-map brief 048): edi-ui

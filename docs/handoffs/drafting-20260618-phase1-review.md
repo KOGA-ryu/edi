@@ -52,6 +52,14 @@ serialize defects, and stand by for dungeon-map review requests. Source: `~/dept
   0=exempt unset; round-trip + key-stripped forward-compat tests real. Reply:
   ~/dept-bus/drafting/replies/058-level-field-consult-clean.md. Future additive-field slices cite this shape.
 
+- **Slice 3b — RoomDerivation enum @ b4c028a (dept/dungeon-map)** — CONSULT CLEAN, no block, NO deviation from
+  the WallType/3a templates. Closed enum {Placed, SpanDerived} mirrors ObjectRole/WallType (unknown⇒Placed,
+  free fns beside peers in DraftingGeometry.cpp); additive by-name serialize symmetric (always-write text +
+  read fromName(asString(...,"placed")), missing⇒Placed, no version bump); MapToonExport untouched; neutral
+  classification, no dim literal; name↔enum + value+byte round-trip + key-strip forward-compat tests real;
+  aggregate-init sites tolerate the trailing field (C++20). Reply: ~/dept-bus/drafting/replies/060-roomderivation-consult-clean.md.
+  (Reviewed on Sonnet per the template-following tiering guidance.)
+
 ## Status
 - Standing by for the next handed slices: footprintsOverlap primitive, RoomSpec per-edge walls +
   planDraftingRoom absent-edge emission, more additive serialize fields. No autonomous builds on hot map files.

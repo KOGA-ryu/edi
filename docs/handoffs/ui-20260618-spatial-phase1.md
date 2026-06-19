@@ -38,6 +38,12 @@ re-bless to hide it).
 | --- | --- | --- | --- | --- |
 | — | baseline | — | baseline 6c632293 | master @0d5ca60 GREEN 106/106 |
 | 2026-06-18 ~19:3x | **1. regression-lock golden (CANARY)** | `3e01ca7` → `5aa28d9` | ✅ byte-identical (test #107 + independent sha256) | GREEN 107/107 |
+| 2026-06-18 ~19:5x | **2. syncGraphForMovedObject** | `f4dbf8f` → `7e94407` | ✅ byte-identical (no map data changed) | GREEN 108/108 |
+
+Slice 2 = pure DraftingGraphOps anchor-resync (move-counterpart of prune); retires
+the deriveEdge drift. Hot files touched (DraftingGraphOps, DraftingMapTypes.h
+comment-only, controller move-path) — NO field/wire/bump. drafting-core
+CONSULT-CLEARED (5 substrate concerns pass; 2 non-blocking nits tracked dept-side).
 
 The canary (`tests/map_regression_lock_tests.cpp`, #107) now runs in every gate.
 Object count pinned at **170** (backlog's "~74" was an estimate; corrected to the

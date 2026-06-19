@@ -673,12 +673,16 @@ MsgPackValue mapRoomValue(const DraftingMapRoom &room)
     // that know it apply asInt with a 0 fallback — the wall_visual additive
     // pattern (no version bump required for field-tagged MessagePack maps).
     return MsgPackValue::map({
-        {"name", MsgPackValue::text(room.name)},
-        {"origin", pointValue(room.origin)},
-        {"width", MsgPackValue::number(room.width)},
-        {"height", MsgPackValue::number(room.height)},
-        {"material", MsgPackValue::text(room.material)},
-        {"level", MsgPackValue::integer(room.level)},
+        {"name",       MsgPackValue::text(room.name)},
+        {"origin",     pointValue(room.origin)},
+        {"width",      MsgPackValue::number(room.width)},
+        {"height",     MsgPackValue::number(room.height)},
+        {"material",   MsgPackValue::text(room.material)},
+        {"level",      MsgPackValue::integer(room.level)},
+        // Stored as a NAME string (not an integer ordinal) so the file is readable
+        // and forward-compatible — the same discipline as wall_visual.type / role.
+        // roomDerivationFromName unknown ⇒ Placed, so a pre-3b file reads cleanly.
+        {"derivation", MsgPackValue::text(roomDerivationName(room.derivation))},
     });
 }
 
@@ -693,7 +697,11 @@ DraftingMapRoom readMapRoom(const MsgPackValue &v)
     // Additive + tolerant: a file written before slice 3a has no "level" key;
     // asInt returns the fallback (0 = ground) — exactly the wall_visual pattern.
     // std::int64_t → int: level is a small discrete band, no precision loss.
-    room.level    = static_cast<int>(asInt(child(v, "level"), room.level));
+    room.level      = static_cast<int>(asInt(child(v, "level"), room.level));
+    // Additive + tolerant (slice 3b): missing "derivation" key ⇒ "placed" ⇒ Placed.
+    // roomDerivationFromName already defaults unknown strings to Placed, so passing
+    // the fallback "placed" makes the two paths (key absent / key == "placed") identical.
+    room.derivation = roomDerivationFromName(asString(child(v, "derivation"), "placed"));
     return room;
 }
 

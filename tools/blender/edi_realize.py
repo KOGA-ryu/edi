@@ -32,19 +32,121 @@ from __future__ import annotations
 
 import math
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
-# --- Grid + greybox constants (the M0 socket contract, in FEET) --------------
-# Grid module = 1 tile = 5 ft, min-corner origin (matches the brief + the
-# dungeon-map MapSpec). One Blender unit = one foot here; the brazier light
-# energy below is tuned for that scale.
-TILE_FT = 5.0
-WALL_H = 12.0           # interior wall / ceiling height
-WALL_T = 0.6           # wall panel thickness
-FLOOR_T = 0.4          # floor / ceiling slab thickness
-CORRIDOR_W = TILE_FT   # DOOR_PLUG sized to one tile so plug->doorway->corridor line up
-DOOR_W = 4.0           # doorway clear opening (< CORRIDOR_W, leaves a frame)
+# --- The realizer-OWNED greybox dimension table -----------------------------
+# HARD RULE (SCALE-POLICY invariant 0 / PROTOCOL §"no hardcoded dimensions"):
+# every greybox dimension is DATA in THIS table, never a magic literal in the
+# build logic. The values are realizer-AUTHORITATIVE (frozen socket contract §5 —
+# NOT on the TOON wire; the generator emits feet, the realizer owns the 3D
+# widths). A different theme/scale supplies a different GreyboxDims and the whole
+# greybox follows — that is how a doubled (or any-size) dungeon "just works".
+#
+# What is NOT in this table (and why it is exempt, per the rule):
+#   * pure-math fractions (½ for a midpoint, /2 for a half-extent),
+#   * unit-primitive bases (the size-1 cube/cylinder bpy builds then rescales),
+#   * tolerances (min_leg is the one length-tolerance and IS named, to be safe),
+#   * appearance that is not a dimension (material colours, roughness).
+# All FEET unless noted. Factors (corner/endcap) are named multipliers so the
+# derived dimension scales with its base (e.g. a thicker wall ⇒ thicker corner).
+@dataclass(frozen=True)
+class GreyboxDims:
+    # grid
+    tile: float = 5.0            # grid module = floor cell = wall-panel length
+    # structural heights / thicknesses
+    wall_h: float = 12.0         # interior wall + ceiling height
+    wall_t: float = 0.6          # wall-panel / corridor-wall thickness
+    floor_t: float = 0.4         # floor + ceiling slab thickness
+    # corridor + doorway (realizer-authoritative §5). These are the BASE (S=1)
+    # values — the ORIGINAL crypt. The single scale knob S (see scaled()) widens
+    # them in lockstep with the generator's rooms, so "double the crypt" is just
+    # S×2. The wall opening tracks corridor_w (see has_door); door_w (< corridor_w)
+    # is the clear opening that leaves a frame reveal.
+    corridor_w: float = 5.0      # corridor width = 1 tile at S=1
+    door_w: float = 4.0          # doorway clear opening (< corridor_w)
+    min_leg: float = 0.5         # shortest corridor leg worth laying (length tolerance)
+    # corner / column / endcap (factors derive from a base dimension)
+    corner_factor: float = 1.6   # wall_corner footprint = wall_t * this
+    column_w: float = 1.4        # free-standing column footprint
+    endcap_factor: float = 0.4   # corridor endcap footprint = corridor_w * this
+    # props — greybox envelopes (before each instance's own scale)
+    prop_base_z: float = 2.0     # prop centre height (sarcophagus/brazier base)
+    sarcophagus: tuple = (7.0, 3.0, 4.0)   # length, width, height
+    brazier_w: float = 2.0       # brazier pedestal footprint
+    brazier_h: float = 4.0       # brazier pedestal height
+    brazier_light_z: float = 5.0 # height of the brazier's light above the floor
+    stair_h: float = 3.0         # stair band height
+    stair_z: float = 1.5         # stair band centre height
+    prop_default: tuple = (3.0, 3.0, 4.0)  # unknown-asset fallback envelope
+    # camera framing — span multipliers (the "breathing room": offset the camera
+    # by a fraction of the geometry span so ANY dungeon size frames centred).
+    cam_off_x: float = 0.35
+    cam_off_y: float = 0.9
+    cam_off_z: float = 1.05
+    # render output
+    res_x: int = 1920
+    res_y: int = 1080
+    samples: int = 64
+    # lighting tuning (realizer-owned). The brazier is a POINT light: illuminance
+    # falls off as 1/d², so to keep a room lit EDGE-TO-EDGE at ANY size its energy
+    # must scale with the room's AREA (2× room ⇒ 2× distance ⇒ 4× energy = the
+    # area ratio). So energy is a DATA density (W per ft² of the lit room), never a
+    # fixed wattage — a 100×100 crypt then lights the same as a 20×20 one.
+    light_per_sqft: float = 7.2   # brazier power per ft² of its containing room
+    light_min: float = 2000.0     # floor so a tiny room is never black
+    brazier_softness: float = 0.6 # light radius (ft) — softens shadows
+    ambient_strength: float = 0.5 # world fill (dimensionless)
+    # --- scale-reference overlay (toggled on for the greybox DEMO, off for art) ---
+    # A FIXED human proxy: its size is a real-world constant and is DELIBERATELY
+    # excluded from scaled() — so as the dungeon grows (S↑) the 6 ft figure shrinks
+    # in frame and the scale reads instantly. The grid reference reuses the existing
+    # 5 ft floor tiling (tile, §1), shown as a checker (more cells = bigger).
+    figure_h: float = 6.0         # human reference height — NEVER scales with S
+    figure_w: float = 1.4         # human proxy width — NEVER scales with S
+
+    def scaled(self, s: float) -> "GreyboxDims":
+        """The single SCALE KNOB (dungeon-map brief 044): return a copy with every
+        LENGTH dimension × s, so one number scales the whole 3D greybox in lockstep
+        with the generator's scaled 2D rooms. S=1 = the original crypt; S=4 = the
+        twice-doubled one.
+
+        SCALE-INVARIANT (deliberately NOT × s):
+        * `tile` — the grid MODULE stays the neutral 5 ft (frozen contract §1); the
+          realizer tiles floors/walls on that fixed grid at every S, so a bigger
+          room gets MORE 5 ft cells, not bigger ones. (brief 046 scales the envelope
+          constants — corridor/door/wall/floor — but NOT the grid module.)
+        * `min_leg` — a length TOLERANCE, not an envelope dimension.
+        * `figure_h` / `figure_w` — the scale-reference human proxy is a FIXED
+          real-world constant; not scaling it is the WHOLE POINT (it shrinks in
+          frame as the dungeon grows, making S visible).
+        * the corner/endcap FACTORS (ratios), the span-relative camera offsets (the
+          camera auto-frames any span), the render resolution + samples, the world
+          fill, and — crucially — the brazier light DENSITY (W/ft²). The light's
+          intensity is density × the room's AREA; because the rooms arrive ALREADY
+          scaled on the wire (area ∝ s²), the light scales by s² for free — exactly
+          the inverse-square compensation that keeps a big room lit edge-to-edge.
+          Scaling the density too would over-light (s⁴)."""
+        if s == 1.0:
+            return self
+        L = lambda v: v * s                       # noqa: E731 — length field × s
+        T = lambda t: tuple(v * s for v in t)     # noqa: E731 — length tuple × s
+        return replace(
+            self,
+            wall_h=L(self.wall_h), wall_t=L(self.wall_t), floor_t=L(self.floor_t),
+            corridor_w=L(self.corridor_w), door_w=L(self.door_w),
+            column_w=L(self.column_w),
+            prop_base_z=L(self.prop_base_z), sarcophagus=T(self.sarcophagus),
+            brazier_w=L(self.brazier_w), brazier_h=L(self.brazier_h),
+            brazier_light_z=L(self.brazier_light_z), stair_h=L(self.stair_h),
+            stair_z=L(self.stair_z), prop_default=T(self.prop_default),
+            brazier_softness=L(self.brazier_softness),
+        )
+
+
+# The default table the realizer reads (S=1). A caller scales it with .scaled(S)
+# and threads the result; the logic never sees a literal or the knob.
+DEFAULT_DIMS = GreyboxDims()
 
 
 # --- The piece vocabulary (the 10 types + 2 props) ---------------------------
@@ -115,6 +217,10 @@ class Block:
 class MapDoc:
     title: str = ""
     units: str = "feet"
+    # Optional neutral scene-scale meta (dungeon-map brief 044): ONE number, not
+    # per-element widths, so the wire stays neutral. The realizer applies it to
+    # its greybox table via GreyboxDims.scaled(). A --scale CLI arg overrides it.
+    scale: float = 1.0
     rooms: list[Room] = field(default_factory=list)
     plugs: list[Plug] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
@@ -235,6 +341,11 @@ def parse_toon(text: str) -> MapDoc:
                 doc.title = header_value(val)
             elif key == "units":
                 doc.units = header_value(val)
+            elif key == "scale":
+                try:
+                    doc.scale = float(header_value(val))
+                except ValueError:
+                    pass  # tolerate a malformed scale meta; default stays 1.0
             continue
 
         # A data row of the current section.
@@ -310,8 +421,53 @@ def _find_plug(doc: MapDoc, handle: str) -> Optional[tuple[Room, Plug]]:
     return None
 
 
-def plan_greybox(doc: MapDoc) -> list[Piece]:
-    """Resolve the whole map to greybox pieces. Deterministic + pure."""
+def _room_at(doc: MapDoc, x: float, y: float) -> Optional[Room]:
+    """The room footprint containing world point (x,y), or None (e.g. a block in
+    a corridor). First match wins; rooms are axis-aligned, min-corner origin."""
+    for room in doc.rooms:
+        if room.ox <= x <= room.ox + room.w and room.oy <= y <= room.oy + room.h:
+            return room
+    return None
+
+
+def _map_area(doc: MapDoc) -> float:
+    """Area of the whole map's room bounding box (fallback light-scaling basis
+    when a brazier sits outside every room). 1.0 if there are no rooms."""
+    if not doc.rooms:
+        return 1.0
+    minx = min(r.ox for r in doc.rooms)
+    miny = min(r.oy for r in doc.rooms)
+    maxx = max(r.ox + r.w for r in doc.rooms)
+    maxy = max(r.oy + r.h for r in doc.rooms)
+    return max(1.0, (maxx - minx) * (maxy - miny))
+
+
+def _figure_spot(doc: MapDoc, dims: GreyboxDims) -> Optional[tuple[float, float]]:
+    """Where to stand the scale-reference figure: in a LIT room (one holding a
+    brazier) if any, else the largest room — offset two grid tiles off centre so
+    it doesn't sit inside the centre sarcophagus. None if there are no rooms."""
+    target = None
+    for blk in doc.blocks:
+        piece = blk.asset.split(".", 1)[1] if "." in blk.asset else blk.asset
+        if piece == PIECE_BRAZIER:
+            target = _room_at(doc, blk.x, blk.y)
+            if target is not None:
+                break
+    if target is None and doc.rooms:
+        target = max(doc.rooms, key=lambda r: r.w * r.h)
+    if target is None:
+        return None
+    return target.ox + target.w / 2.0 - 2.0 * dims.tile, target.oy + target.h / 2.0
+
+
+def plan_greybox(doc: MapDoc, dims: GreyboxDims = DEFAULT_DIMS,
+                 reference: bool = False) -> list[Piece]:
+    """Resolve the whole map to greybox pieces. Deterministic + pure. Every
+    dimension comes from `dims` (the realizer-owned table), never a literal.
+
+    `reference=True` adds the toggleable SCALE-REFERENCE overlay: a checker on the
+    5 ft floor grid + a FIXED 6 ft human proxy that does NOT scale with S, so the
+    dungeon's scale is visible at a glance (on for the greybox demo, off for art)."""
     theme = _theme_of(doc)
     pieces: list[Piece] = []
 
@@ -330,32 +486,40 @@ def plan_greybox(doc: MapDoc) -> list[Piece]:
 
     # ---- Rooms: floor + ceiling tiles, perimeter walls, corners, columns ----
     for room in doc.rooms:
-        nx = max(1, round(room.w / TILE_FT))
-        ny = max(1, round(room.h / TILE_FT))
+        nx = max(1, round(room.w / dims.tile))
+        ny = max(1, round(room.h / dims.tile))
         tw = room.w / nx
         th = room.h / ny
         for ix in range(nx):
             for iy in range(ny):
                 cx = room.ox + (ix + 0.5) * tw
                 cy = room.oy + (iy + 0.5) * th
-                pieces.append(Piece(PIECE_FLOOR, ref(PIECE_FLOOR), cx, cy, FLOOR_T / 2.0,
-                                    tw, th, FLOOR_T, material=room.material))
-                pieces.append(Piece(PIECE_CEILING, ref(PIECE_CEILING), cx, cy, WALL_H - FLOOR_T / 2.0,
-                                    tw, th, FLOOR_T, material=room.material))
+                # Reference overlay: checker the 5 ft floor grid so the tile count
+                # (= dungeon size) reads at a glance. Off ⇒ the room's material.
+                floor_mat = room.material
+                if reference:
+                    floor_mat = "ref_a" if (ix + iy) % 2 == 0 else "ref_b"
+                pieces.append(Piece(PIECE_FLOOR, ref(PIECE_FLOOR), cx, cy, dims.floor_t / 2.0,
+                                    tw, th, dims.floor_t, material=floor_mat))
+                pieces.append(Piece(PIECE_CEILING, ref(PIECE_CEILING), cx, cy, dims.wall_h - dims.floor_t / 2.0,
+                                    tw, th, dims.floor_t, material=room.material))
 
         room_doors = doorways.get(room.name, [])
 
         def has_door(edge: str, center: float) -> bool:
-            # A door belongs to exactly one wall segment: the one whose
-            # half-open span [center-half, center+half) contains the door's
-            # position along the edge. Half-open so a door landing exactly on a
-            # tile boundary picks ONE segment, never both neighbours.
+            # A wall segment is left OPEN (returns True) iff its span overlaps the
+            # corridor CLEARANCE — the corridor_w-wide band centred on the plug.
+            # This makes the opening track the corridor width: a 5 ft corridor
+            # opens one 5 ft segment, a 10 ft corridor opens two, so the doorway
+            # never necks the corridor down. Strict `<`/`>` so a segment that only
+            # touches the clearance boundary stays solid.
             half = (tw if edge in ("N", "S") else th) / 2.0
+            clear = dims.corridor_w / 2.0
             for (dx, dy, dedge) in room_doors:
                 if dedge != edge:
                     continue
                 pos = dx if edge in ("N", "S") else dy
-                if center - half <= pos < center + half:
+                if (center + half) > (pos - clear) and (center - half) < (pos + clear):
                     return True
             return False
 
@@ -365,41 +529,44 @@ def plan_greybox(doc: MapDoc) -> list[Piece]:
         # coincides with the corridor mouth. (Placing it at the segment center
         # detached it from the corridor by up to half a tile on even-tile-count
         # edges — 10/20/40 ft rooms — leaving a visible hole; reviewer SHOULD-FIX 1.)
-        wz = WALL_H / 2.0
+        wz = dims.wall_h / 2.0
+        corner_w = dims.wall_t * dims.corner_factor
         for ix in range(nx):
             cx = room.ox + (ix + 0.5) * tw
             for edge, ey in (("S", room.oy), ("N", room.oy + room.h)):
                 if not has_door(edge, cx):
                     pieces.append(Piece(PIECE_WALL, ref(PIECE_WALL), cx, ey, wz,
-                                        tw, WALL_T, WALL_H, material=room.material))
+                                        tw, dims.wall_t, dims.wall_h, material=room.material))
         for iy in range(ny):
             cy = room.oy + (iy + 0.5) * th
             for edge, ex in (("W", room.ox), ("E", room.ox + room.w)):
                 if not has_door(edge, cy):
                     pieces.append(Piece(PIECE_WALL, ref(PIECE_WALL), ex, cy, wz,
-                                        WALL_T, th, WALL_H, material=room.material))
+                                        dims.wall_t, th, dims.wall_h, material=room.material))
 
         # Doorway frames: one per plug, AT the plug anchor (= the corridor mouth),
-        # oriented by edge. Width DOOR_W < tile, so a frame reveal remains either
-        # side of the opening left by the skipped wall segment.
+        # oriented by edge. Width door_w < the opening, so a frame reveal remains
+        # either side of the opening left by the skipped wall segment(s).
         for (dx, dy, dedge) in room_doors:
             if dedge in ("N", "S"):
                 pieces.append(Piece(PIECE_DOORWAY, ref(PIECE_DOORWAY), dx, dy, wz,
-                                    DOOR_W, WALL_T, WALL_H, material=room.material))
+                                    dims.door_w, dims.wall_t, dims.wall_h, material=room.material))
             else:
                 pieces.append(Piece(PIECE_DOORWAY, ref(PIECE_DOORWAY), dx, dy, wz,
-                                    WALL_T, DOOR_W, WALL_H, material=room.material))
+                                    dims.wall_t, dims.door_w, dims.wall_h, material=room.material))
 
         # Four wall corners.
         for (cxr, cyr) in ((room.ox, room.oy), (room.ox + room.w, room.oy),
                            (room.ox, room.oy + room.h), (room.ox + room.w, room.oy + room.h)):
             pieces.append(Piece(PIECE_CORNER, ref(PIECE_CORNER), cxr, cyr, wz,
-                                WALL_T * 1.6, WALL_T * 1.6, WALL_H, material=room.material))
+                                corner_w, corner_w, dims.wall_h, material=room.material))
 
-        # One free-standing column, inset from a corner (CORNER_MOUNT greybox).
+        # One free-standing column, inset one tile from a corner (CORNER_MOUNT
+        # greybox). The inset uses the room's own tile size (tw/th), already data.
         pieces.append(Piece(PIECE_COLUMN, ref(PIECE_COLUMN),
-                            room.ox + tw, room.oy + th, WALL_H / 2.0,
-                            1.4, 1.4, WALL_H, material=room.material, shape="cylinder"))
+                            room.ox + tw, room.oy + th, dims.wall_h / 2.0,
+                            dims.column_w, dims.column_w, dims.wall_h,
+                            material=room.material, shape="cylinder"))
 
     # ---- Connections: route an axis-aligned L corridor between the plugs ----
     for conn in doc.connections:
@@ -410,39 +577,69 @@ def plan_greybox(doc: MapDoc) -> list[Piece]:
         (ra, pa), (rb, pb) = a, b
         ax, ay = _plug_anchor(ra, pa)
         bx, by = _plug_anchor(rb, pb)
-        pieces.extend(_route_corridor(ref, ax, ay, bx, by))
+        pieces.extend(_route_corridor(ref, ax, ay, bx, by, dims))
 
     # ---- Blocks: props (sarcophagus / brazier / stair / ...) ----------------
+    # Each prop's envelope comes from `dims`; the block's own `scale` (s) is the
+    # per-instance multiplier carried on the wire.
     for blk in doc.blocks:
         piece = blk.asset.split(".", 1)[1] if "." in blk.asset else blk.asset
         s = max(0.1, blk.scale)
         if piece == PIECE_BRAZIER:
-            # Brazier: a short pedestal cylinder PLUS the room's only light.
-            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, 2.0 * s,
-                                2.0 * s, 2.0 * s, 4.0 * s, rot_deg=blk.rotation,
-                                material="bronze", shape="cylinder"))
-            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, 5.0 * s,
+            # Brazier: a short pedestal cylinder PLUS the room's only light. The
+            # light energy SCALES with the area of the room the brazier sits in
+            # (data density × area) so the room is lit edge-to-edge at any scale —
+            # a fixed wattage goes dark as the room grows (1/d² falloff). Falls
+            # back to the whole-map bbox area when the brazier is outside any room.
+            room = _room_at(doc, blk.x, blk.y)
+            area = (room.w * room.h) if room is not None else _map_area(doc)
+            energy = max(dims.light_min, dims.light_per_sqft * area) * s
+            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+                                dims.brazier_w * s, dims.brazier_w * s, dims.brazier_h * s,
+                                rot_deg=blk.rotation, material="bronze", shape="cylinder"))
+            pieces.append(Piece(PIECE_BRAZIER, blk.asset, blk.x, blk.y, dims.brazier_light_z * s,
                                 0.0, 0.0, 0.0, rot_deg=blk.rotation,
-                                is_light=True, light_energy=18000.0 * s))
+                                is_light=True, light_energy=energy))
         elif piece == PIECE_SARCOPHAGUS:
-            pieces.append(Piece(PIECE_SARCOPHAGUS, blk.asset, blk.x, blk.y, 2.0 * s,
-                                7.0 * s, 3.0 * s, 4.0 * s, rot_deg=blk.rotation,
+            sl, sw, sh = dims.sarcophagus
+            pieces.append(Piece(PIECE_SARCOPHAGUS, blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+                                sl * s, sw * s, sh * s, rot_deg=blk.rotation,
                                 material="marble"))
         elif piece == PIECE_STAIR:
             # STAIR (+1 band): a stepped block placed at a threshold.
-            pieces.append(Piece(PIECE_STAIR, blk.asset, blk.x, blk.y, 1.5 * s,
-                                CORRIDOR_W, CORRIDOR_W, 3.0 * s, rot_deg=blk.rotation,
-                                material="stone"))
+            pieces.append(Piece(PIECE_STAIR, blk.asset, blk.x, blk.y, dims.stair_z * s,
+                                dims.corridor_w, dims.corridor_w, dims.stair_h * s,
+                                rot_deg=blk.rotation, material="stone"))
         else:
-            # Unknown prop: a unit greybox cube so it still appears (and logs).
-            pieces.append(Piece("prop", blk.asset, blk.x, blk.y, 2.0 * s,
-                                3.0 * s, 3.0 * s, 4.0 * s, rot_deg=blk.rotation,
+            # Unknown prop: a fallback greybox box so it still appears (and logs).
+            pw, pd, ph = dims.prop_default
+            pieces.append(Piece("prop", blk.asset, blk.x, blk.y, dims.prop_base_z * s,
+                                pw * s, pd * s, ph * s, rot_deg=blk.rotation,
                                 material="stone"))
+
+    # ---- Scale-reference figure (toggle): a FIXED 6 ft human proxy ----------
+    # Its size comes from dims.figure_* which scaled() NEVER touches, so it stays
+    # 6 ft as the dungeon grows — shrinking in frame to read the scale. Stands on
+    # the floor (lifted by the floor slab thickness) in a lit room. Two pieces:
+    # a body cylinder + a sphere head, sized so the total height == figure_h.
+    spot = _figure_spot(doc, dims) if reference else None
+    if spot is not None:
+        fx, fy = spot
+        head_d = dims.figure_w
+        body_h = max(head_d, dims.figure_h - head_d)  # body + head == figure_h
+        base = dims.floor_t  # stand on top of the floor slab
+        pieces.append(Piece("ref_figure", "ref.figure", fx, fy, base + body_h / 2.0,
+                            dims.figure_w, dims.figure_w, body_h,
+                            material="figure", shape="cylinder"))
+        pieces.append(Piece("ref_figure", "ref.figure", fx, fy, base + body_h + head_d / 2.0,
+                            head_d, head_d, head_d,
+                            material="figure", shape="sphere"))
 
     return pieces
 
 
-def _route_corridor(ref, ax: float, ay: float, bx: float, by: float) -> list[Piece]:
+def _route_corridor(ref, ax: float, ay: float, bx: float, by: float,
+                    dims: GreyboxDims = DEFAULT_DIMS) -> list[Piece]:
     """Lay a one-tile-wide L corridor: a horizontal leg then a vertical leg, with
     a corridor_l piece at the single bend and a corridor end_cap at each plug.
     A degenerate (already-colinear) route lays only straight pieces. Floor +
@@ -460,39 +657,41 @@ def _route_corridor(ref, ax: float, ay: float, bx: float, by: float) -> list[Pie
     def lay_leg(x0, y0, x1, y1):
         horiz = abs(x1 - x0) >= abs(y1 - y0)
         length = abs(x1 - x0) if horiz else abs(y1 - y0)
-        if length < 0.5:
+        if length < dims.min_leg:
             return
-        steps = max(1, round(length / TILE_FT))
+        steps = max(1, round(length / dims.tile))
         for s in range(steps):
             t0 = (s + 0.5) / steps
             cx = x0 + (x1 - x0) * t0
             cy = y0 + (y1 - y0) * t0
-            seg = TILE_FT
-            sx, sy = (seg, CORRIDOR_W) if horiz else (CORRIDOR_W, seg)
-            out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy, FLOOR_T / 2.0,
-                             sx, sy, FLOOR_T, material="stone"))
+            seg = dims.tile
+            sx, sy = (seg, dims.corridor_w) if horiz else (dims.corridor_w, seg)
+            out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy, dims.floor_t / 2.0,
+                             sx, sy, dims.floor_t, material="stone"))
             # flanking low walls
             if horiz:
-                for off in (-CORRIDOR_W / 2.0, CORRIDOR_W / 2.0):
-                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy + off, WALL_H / 2.0,
-                                     seg, WALL_T, WALL_H, material="stone"))
+                for off in (-dims.corridor_w / 2.0, dims.corridor_w / 2.0):
+                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx, cy + off, dims.wall_h / 2.0,
+                                     seg, dims.wall_t, dims.wall_h, material="stone"))
             else:
-                for off in (-CORRIDOR_W / 2.0, CORRIDOR_W / 2.0):
-                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx + off, cy, WALL_H / 2.0,
-                                     WALL_T, seg, WALL_H, material="stone"))
+                for off in (-dims.corridor_w / 2.0, dims.corridor_w / 2.0):
+                    out.append(Piece(PIECE_CORRIDOR, ref(PIECE_CORRIDOR), cx + off, cy, dims.wall_h / 2.0,
+                                     dims.wall_t, seg, dims.wall_h, material="stone"))
 
     lay_leg(ax, ay, bend_x, bend_y)
     lay_leg(bend_x, bend_y, bx, by)
 
-    # bend piece (only if the route actually turns)
-    if abs(bx - ax) > 0.5 and abs(by - ay) > 0.5:
-        out.append(Piece(PIECE_CORRIDOR_L, ref(PIECE_CORRIDOR_L), bend_x, bend_y, FLOOR_T / 2.0,
-                         CORRIDOR_W, CORRIDOR_W, FLOOR_T, material="stone"))
+    # bend piece (only if the route actually turns — both legs longer than the
+    # min-leg tolerance)
+    if abs(bx - ax) > dims.min_leg and abs(by - ay) > dims.min_leg:
+        out.append(Piece(PIECE_CORRIDOR_L, ref(PIECE_CORRIDOR_L), bend_x, bend_y, dims.floor_t / 2.0,
+                         dims.corridor_w, dims.corridor_w, dims.floor_t, material="stone"))
 
     # end caps at both plug mouths
+    endcap_w = dims.corridor_w * dims.endcap_factor
     for (ex, ey) in ((ax, ay), (bx, by)):
-        out.append(Piece(PIECE_ENDCAP, ref(PIECE_ENDCAP), ex, ey, WALL_H / 2.0,
-                         CORRIDOR_W * 0.4, CORRIDOR_W * 0.4, WALL_H, material="stone"))
+        out.append(Piece(PIECE_ENDCAP, ref(PIECE_ENDCAP), ex, ey, dims.wall_h / 2.0,
+                         endcap_w, endcap_w, dims.wall_h, material="stone"))
     return out
 
 
@@ -552,10 +751,14 @@ def plan_summary(doc: MapDoc, pieces: list[Piece]) -> str:
 # Blender tier (bpy) — build + Cycles OptiX render
 # =============================================================================
 GREY_MATERIALS = {
-    # name: (r,g,b,a) base color
+    # name: (r,g,b,a) base color (appearance, not dimensions)
     "stone": (0.46, 0.45, 0.42, 1.0),
     "marble": (0.80, 0.78, 0.74, 1.0),
     "bronze": (0.45, 0.30, 0.12, 1.0),
+    # scale-reference overlay: two greys for the floor checker + a vivid figure.
+    "ref_a": (0.62, 0.60, 0.55, 1.0),
+    "ref_b": (0.30, 0.29, 0.27, 1.0),
+    "figure": (0.85, 0.18, 0.12, 1.0),  # red proxy — unmistakable against greybox
 }
 
 
@@ -575,9 +778,11 @@ def _bpy_material(bpy, key: str):
     return mat
 
 
-def build_scene(bpy, pieces: list[Piece]):  # pragma: no cover — needs Blender
+def build_scene(bpy, pieces: list[Piece], dims: GreyboxDims = DEFAULT_DIMS):  # pragma: no cover — needs Blender
     """Instantiate every piece as a primitive. Returns the world-space bounds
-    (minx,miny,minz,maxx,maxy,maxz) of the non-light geometry for camera framing."""
+    (minx,miny,minz,maxx,maxy,maxz) of the non-light geometry for camera framing.
+    Each piece carries its own dims (from plan_greybox); `dims` here supplies the
+    scene-level tuning (light softness, world ambient)."""
     # Clear the default scene.
     if bpy.context.object and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
@@ -594,8 +799,8 @@ def build_scene(bpy, pieces: list[Piece]):  # pragma: no cover — needs Blender
         if p.is_light:
             light_data = bpy.data.lights.new(name=f"{p.kind}_light", type="POINT")
             light_data.energy = p.light_energy
-            light_data.color = (1.0, 0.7, 0.4)   # warm brazier glow
-            light_data.shadow_soft_size = 0.6
+            light_data.color = (1.0, 0.7, 0.4)   # warm brazier glow (appearance)
+            light_data.shadow_soft_size = dims.brazier_softness
             light_obj = bpy.data.objects.new(f"{p.kind}_light", light_data)
             light_obj.location = (p.x, p.y, p.z)
             bpy.context.collection.objects.link(light_obj)
@@ -603,6 +808,9 @@ def build_scene(bpy, pieces: list[Piece]):  # pragma: no cover — needs Blender
 
         if p.shape == "cylinder":
             bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.5, depth=1.0,
+                                                 location=(p.x, p.y, p.z))
+        elif p.shape == "sphere":
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=12, radius=0.5,
                                                  location=(p.x, p.y, p.z))
         else:
             bpy.ops.mesh.primitive_cube_add(size=1.0, location=(p.x, p.y, p.z))
@@ -628,14 +836,16 @@ def build_scene(bpy, pieces: list[Piece]):  # pragma: no cover — needs Blender
     world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
     if bg:
-        bg.inputs["Color"].default_value = (0.05, 0.06, 0.09, 1.0)  # cool moonlight
-        bg.inputs["Strength"].default_value = 0.5
+        bg.inputs["Color"].default_value = (0.05, 0.06, 0.09, 1.0)  # cool moonlight (appearance)
+        bg.inputs["Strength"].default_value = dims.ambient_strength
 
     return tuple(bb)
 
 
-def setup_camera(bpy, bb):  # pragma: no cover — needs Blender
-    """A 3/4 perspective looking down into the crypt, framing the whole bounds."""
+def setup_camera(bpy, bb, dims: GreyboxDims = DEFAULT_DIMS):  # pragma: no cover — needs Blender
+    """A 3/4 perspective looking down into the crypt, framing the whole bounds.
+    The camera offset is a fraction of the geometry SPAN (dims.cam_off_*), so any
+    dungeon size frames centred — the 3D half of the breathing room (SCALE-POLICY)."""
     cx = (bb[0] + bb[3]) / 2.0
     cy = (bb[1] + bb[4]) / 2.0
     cz = (bb[2] + bb[5]) / 2.0
@@ -645,7 +855,7 @@ def setup_camera(bpy, bb):  # pragma: no cover — needs Blender
     cam = bpy.data.objects.new("realize_cam", cam_data)
     bpy.context.collection.objects.link(cam)
     # Steep 3/4 dollhouse: high above and pulled back along -Y, aimed at centre.
-    cam.location = (cx + span * 0.35, cy - span * 0.9, cz + span * 1.05)
+    cam.location = (cx + span * dims.cam_off_x, cy - span * dims.cam_off_y, cz + span * dims.cam_off_z)
     direction = (cx - cam.location[0], cy - cam.location[1], cz - cam.location[2])
     # Point the camera: use a track-to via rotation from the direction vector.
     import mathutils
@@ -655,10 +865,11 @@ def setup_camera(bpy, bb):  # pragma: no cover — needs Blender
     return cam
 
 
-def setup_optix(bpy, samples: int):  # pragma: no cover — needs Blender
+def setup_optix(bpy, samples: int, dims: GreyboxDims = DEFAULT_DIMS):  # pragma: no cover — needs Blender
     """Configure Cycles + OptiX + the GPU. RAISES if no OptiX/CUDA GPU device is
     available (we refuse the silent CPU fallback the gate forbids). Returns a
-    list of (name, type, enabled) tuples for the render log."""
+    list of (name, type, enabled) tuples for the render log. Output resolution
+    comes from `dims` (the realizer-owned table)."""
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
 
@@ -693,8 +904,8 @@ def setup_optix(bpy, samples: int):  # pragma: no cover — needs Blender
 
     scene.cycles.samples = samples
     scene.cycles.use_denoising = True
-    scene.render.resolution_x = 1920
-    scene.render.resolution_y = 1080
+    scene.render.resolution_x = dims.res_x
+    scene.render.resolution_y = dims.res_y
     scene.render.resolution_percentage = 100
     return chosen_type, report
 
@@ -712,26 +923,37 @@ def run_in_blender(argv: list[str]) -> int:  # pragma: no cover — needs Blende
 
     map_path = next((a for a in argv if not a.startswith("--")), None)
     out_png = next((a.split("=", 1)[1] for a in argv if a.startswith("--render=")), None)
-    samples = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--samples=")), "64"))
+    cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
+    reference = "--reference" in argv  # toggle the scale-reference overlay (off ⇒ art-clean)
     if not map_path or not out_png:
-        sys.stderr.write("usage: blender -b -P edi_realize.py -- <map.toon> --render=<out.png> [--samples=N]\n")
+        sys.stderr.write("usage: blender -b -P edi_realize.py -- <map.toon> --render=<out.png> "
+                         "[--scale=S] [--reference] [--samples=N]\n")
         return 2
 
     with open(map_path, "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
-    pieces = plan_greybox(doc)
+    # The single scale knob (brief 044): --scale CLI overrides the TOON `scale`
+    # header meta; the chain threads ONE number. S scales the DATA table.
+    scale = float(cli_scale) if cli_scale is not None else doc.scale
+    dims = DEFAULT_DIMS.scaled(scale)
+    samples = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--samples=")), str(dims.samples)))
+    pieces = plan_greybox(doc, dims, reference)
 
     print("=" * 64)
     print("edi_realize — M0 crypt realizer")
     print(f"blender version: {bpy.app.version_string}")
+    print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
+          f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
+    print(f"reference overlay: {'ON' if reference else 'off'}  "
+          f"(figure {dims.figure_h:g} ft FIXED + {dims.tile:g} ft floor checker)")
     print(plan_summary(doc, pieces))
     print("=" * 64)
 
-    bb = build_scene(bpy, pieces)
-    setup_camera(bpy, bb)
-    chosen, devreport = setup_optix(bpy, samples)
+    bb = build_scene(bpy, pieces, dims)
+    setup_camera(bpy, bb, dims)
+    chosen, devreport = setup_optix(bpy, samples, dims)
     print(f"render engine: CYCLES   compute_device_type: {chosen}   cycles.device: GPU")
-    print(f"samples: {samples}   resolution: 1920x1080")
+    print(f"samples: {samples}   resolution: {dims.res_x}x{dims.res_y}")
     print("cycles devices:")
     for (name, dtype, enabled) in devreport:
         print(f"  [{'X' if enabled else ' '}] {dtype:6s} {name}")
@@ -772,16 +994,22 @@ def main(argv: list[str]) -> int:
 
     # Pure tier (no Blender): parse + plan + (--obj-out / summary).
     obj_out = next((a.split("=", 1)[1] for a in argv if a.startswith("--obj-out=")), None)
+    cli_scale = next((a.split("=", 1)[1] for a in argv if a.startswith("--scale=")), None)
+    reference = "--reference" in argv
     paths = [a for a in argv if not a.startswith("--")]
     if not paths:
         sys.stderr.write(
             "usage:\n"
-            "  edi_realize.py <map.toon> [--obj-out=out.obj]        # pure proof\n"
-            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--samples=N]\n")
+            "  edi_realize.py <map.toon> [--scale=S] [--reference] [--obj-out=out.obj]   # pure proof\n"
+            "  blender -b -P edi_realize.py -- <map.toon> --render=out.png [--scale=S] [--reference] [--samples=N]\n")
         return 2
     with open(paths[0], "r", encoding="utf-8") as fh:
         doc = parse_toon(fh.read())
-    pieces = plan_greybox(doc)
+    scale = float(cli_scale) if cli_scale is not None else doc.scale
+    dims = DEFAULT_DIMS.scaled(scale)
+    pieces = plan_greybox(doc, dims, reference)
+    print(f"scale S = {scale:g}  (corridor_w={dims.corridor_w:g} door_w={dims.door_w:g} "
+          f"wall_h={dims.wall_h:g} tile={dims.tile:g} ft)")
     print(plan_summary(doc, pieces))
     if obj_out:
         with open(obj_out, "w", encoding="utf-8") as fh:

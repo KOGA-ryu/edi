@@ -70,7 +70,7 @@ under `tests/data/maps/*.toon` have neither).
       detaching by half a tile on even-tile-count edges); (2) stock-map 8/10 reality
       pinned + gate claim re-scoped (socket table covers 10, crypt fixture yields 10);
       (3) L-router greybox limit documented (real routing is dungeon-map's domain).
-- [ ] G5 closeout + rebase LOCAL master + edi-gate (build/ctest/scan green).
+- [x] G5 closeout + rebase LOCAL master + edi-gate — closeout `docs/closeouts/blender-lab-m0-realizer.md`; rebased @03b8cc1; edi-gate GREEN (build + 105/105 + scan). Master FF is edi-ui's lane.
 
 ## GATE EVIDENCE (PASS)
 - PNG: `samples/crypt_m0/crypt.png` — 1920×1080, valid crypt: 2 rooms +
@@ -94,5 +94,11 @@ shape (quoting, `·`-joined flags U+00B7, optional flags column + blocks section
 - 2026-06-18 — G1–G3 built + verified; crypt rendered on OptiX/5090 in 3.4 s.
 - 2026-06-18 — G4 reviewer gate: no blockers, 3 SHOULD-FIX applied; green gate
   105/105 + scan clean. Proceeding to closeout + master integration.
-</content>
-</invoke>
+- 2026-06-18 — post-M0 follow-ups: doubled corridor (×2 then unified), then the
+  HARD RULE refactor — all greybox dims → realizer-owned `GreyboxDims` table; a
+  single SCALE knob S (`scaled(S)`, `--scale`/`scale:` header). FORK = (c): rooms
+  at literal scaled feet, S scales only the constants, `tile`=5 ft fixed (§1),
+  brazier light = density × wire room AREA (scales S² for free, edge-to-edge).
+  Reviewer audit: **DIMENSIONS-AS-DATA clean — yes**. S=1/2/4 rendered to /tmp/m0
+  (OptiX/5090). Commits 99724dd + 4ee013e. Green: smoke + scan. Fork pick + render
+  paths reported to edi-dungeon-map-planner (reply 042).

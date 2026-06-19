@@ -129,4 +129,78 @@ for name in ("hallway", "hub", "loop"):
     if len(got) != 8:
         fail(f"{name}: expected 8/10 stock coverage, got {len(got)}: {sorted(got)}")
 
+# --- 7. The single SCALE knob (brief 044) -----------------------------------
+D = edi_realize.DEFAULT_DIMS
+if D.scaled(1.0) is not D:
+    fail("scaled(1.0) should be identity (same object)")
+d2 = D.scaled(2.0)
+# every ENVELOPE LENGTH field doubles
+for fld in ("wall_h", "wall_t", "floor_t", "corridor_w", "door_w",
+            "column_w", "prop_base_z", "brazier_w", "brazier_h",
+            "brazier_light_z", "stair_h", "stair_z", "brazier_softness"):
+    if abs(getattr(d2, fld) - 2.0 * getattr(D, fld)) > 1e-9:
+        fail(f"scaled(2).{fld} should double")
+if d2.sarcophagus != tuple(2.0 * v for v in D.sarcophagus):
+    fail("scaled(2).sarcophagus tuple should double")
+# the grid MODULE (tile, contract §1), the length tolerance, and all
+# dimensionless / intensity / output fields are scale-INVARIANT
+for fld in ("tile", "min_leg", "corner_factor", "endcap_factor",
+            "cam_off_x", "cam_off_y", "cam_off_z", "res_x", "res_y", "samples",
+            "light_per_sqft", "light_min", "ambient_strength"):
+    if getattr(d2, fld) != getattr(D, fld):
+        fail(f"scaled(2).{fld} must stay scale-invariant")
+# corridor pieces actually widen under the scaled table
+w1 = [p for p in edi_realize.plan_greybox(doc, D) if p.kind == edi_realize.PIECE_CORRIDOR]
+w2 = [p for p in edi_realize.plan_greybox(doc, d2) if p.kind == edi_realize.PIECE_CORRIDOR]
+if not (w1 and w2) or not (max(p.sy for p in w2) > max(p.sy for p in w1)):
+    fail("scaled table should widen corridor pieces")
+
+# --- 8. Brazier light is area-driven, and table-scale-INVARIANT --------------
+# Energy = density × the containing room's AREA (so a big room is lit edge-to-
+# edge). Crucially it depends on the WIRE room size, NOT the table scale: the
+# rooms arrive already-scaled, so scaling the table must NOT also scale energy
+# (that would over-light). Pin both.
+crypt_room = doc.room("crypt")
+expect_energy = D.light_per_sqft * (crypt_room.w * crypt_room.h)
+light1 = [p for p in edi_realize.plan_greybox(doc, D) if p.is_light][0]
+if abs(light1.light_energy - expect_energy) > 1e-6:
+    fail(f"brazier energy {light1.light_energy} != density×area {expect_energy}")
+light2 = [p for p in edi_realize.plan_greybox(doc, d2) if p.is_light][0]
+if abs(light2.light_energy - light1.light_energy) > 1e-6:
+    fail("scaling the TABLE must not change the light (it rides wire room area)")
+
+# --- 9. The toggleable scale-reference overlay (figure + floor checker) ------
+# Default OFF: no figure pieces, plain floor material (back-compat — earlier
+# steps used reference=False implicitly).
+base = edi_realize.plan_greybox(doc, D)
+if any(p.kind == "ref_figure" for p in base):
+    fail("reference overlay must be OFF by default")
+if any(p.material in ("ref_a", "ref_b") for p in base):
+    fail("floor checker must be OFF by default")
+# ON: a figure appears and the floor is checkered.
+refp = edi_realize.plan_greybox(doc, D, reference=True)
+fig = [p for p in refp if p.kind == "ref_figure"]
+if len(fig) != 2:
+    fail(f"reference overlay should add a 2-piece figure, got {len(fig)}")
+if not any(p.material == "ref_a" for p in refp) or not any(p.material == "ref_b" for p in refp):
+    fail("reference overlay should checker the floor (ref_a + ref_b)")
+
+
+def figure_top(pieces):
+    f = [p for p in pieces if p.kind == "ref_figure"]
+    return max(p.z + p.sz / 2.0 for p in f)
+
+
+# THE POINT: the figure is FIXED at figure_h regardless of S (it does NOT scale).
+top1 = figure_top(edi_realize.plan_greybox(doc, D.scaled(1.0), reference=True))
+top4 = figure_top(edi_realize.plan_greybox(doc, D.scaled(4.0), reference=True))
+# top = floor_t (scales) + figure_h (fixed); subtract floor_t to compare the
+# figure's own height contribution — it must be identical at S=1 and S=4.
+h1 = top1 - D.scaled(1.0).floor_t
+h4 = top4 - D.scaled(4.0).floor_t
+if abs(h1 - D.figure_h) > 1e-9 or abs(h4 - D.figure_h) > 1e-9:
+    fail(f"figure height must equal figure_h at every S (got {h1}, {h4})")
+if abs(h1 - h4) > 1e-9:
+    fail("figure must NOT scale with S (that is what makes scale visible)")
+
 print("edi_realize smoke: ok")

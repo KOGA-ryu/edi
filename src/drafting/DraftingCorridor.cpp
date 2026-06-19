@@ -14,6 +14,13 @@ namespace {
 
 constexpr double kEps = 1e-9;
 
+// A* routing: padding (canvas units) added around the obstacle bounding box before
+// the path grid is built, so the corridor steers clear of room edges rather than
+// grazing them. A DISTINCT dimension from kDefaultCorridorWidth — same numeric value
+// today but different meaning (routing clearance vs. walkable gap); kept separate so
+// each can change independently without silently affecting the other.
+constexpr double kCorridorRouteMargin = 0.06;
+
 Point2D outwardNormal(RoomEdge edge)
 {
     switch (edge) {
@@ -174,7 +181,7 @@ std::vector<Point2D> routeCorridorCenterline(const CorridorSpec &spec,
         maxX = std::max(maxX, o.origin.x + o.width);
         maxY = std::max(maxY, o.origin.y + o.height);
     }
-    const double margin = 0.06;
+    const double margin = kCorridorRouteMargin;
     minX -= margin;
     minY -= margin;
     maxX += margin;

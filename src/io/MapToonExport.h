@@ -39,8 +39,15 @@ std::string exportMapToToon(const edi::drafting::MapSpec &spec,
 // Engine-reader contract: a block placed outside every room footprint emits an
 // EMPTY `room` cell, and a block with no linked asset emits an EMPTY `asset` cell —
 // the reader should tolerate empty cells in the blocks[] rows.
+//
+// `sceneScale` — emit ONE advisory `scale: <S>` header line only when sceneScale !=
+// 1.0 (OMIT at S=1 so all existing exports stay byte-identical; engine treats missing
+// => 1.0).  THE FENCE (socket contract §0/§5): the exported FEET are already scaled
+// and authoritative; the `scale:` line is advisory for the realizer's greybox
+// constants (CORRIDOR_W, WALL_H, ...) only.  Do NOT re-scale anything based on it.
 std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
                             const std::string &title = {},
-                            const std::string &units = "feet");
+                            const std::string &units = "feet",
+                            double sceneScale = 1.0);
 
 } // namespace edi::io

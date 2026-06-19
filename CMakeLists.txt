@@ -463,6 +463,38 @@ target_link_libraries(map_regression_lock_tests PRIVATE
 )
 add_test(NAME map_regression_lock_tests COMMAND map_regression_lock_tests)
 
+# Phase-1 DETERMINISM GATE (brief 069): "same input → same dungeon".
+# Runs createMapFromSpec TWICE with the reference dungeon spec, exports both
+# documents via exportMapToToon (Seam C / document overload), then asserts
+# the two TOON strings are byte-identical and the two DraftingObject counts
+# are equal.  Owns the ordering-determinism invariant that the single-run
+# canary cannot catch.  Uses the same source set as map_regression_lock_tests.
+add_executable(map_determinism_tests
+    tests/map_determinism_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/RoomSpecStore.h
+    src/io/RoomSpecStore.cpp
+)
+target_include_directories(map_determinism_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_compile_definitions(map_determinism_tests PRIVATE
+    EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+)
+target_link_libraries(map_determinism_tests PRIVATE
+    edi_drafting_core
+    edi_format_core
+    Qt6::Core
+)
+add_test(NAME map_determinism_tests COMMAND map_determinism_tests)
+
 # Controller behavioral test for syncGraphForMovedObject (brief 052):
 # verifies that applyCommandAndEmit calls the anchor-resync after a geometry-
 # mutation command, closing the pre-052 drift bug where plug.anchor went stale

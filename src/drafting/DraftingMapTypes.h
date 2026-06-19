@@ -95,6 +95,16 @@ const char *roomDerivationName(RoomDerivation d);          // "placed" / "span_d
 // Inverse of roomDerivationName; unknown names fall back to Placed (safe default).
 RoomDerivation roomDerivationFromName(const std::string &name);
 
+// What the parser / controller should do when two room footprints overlap.
+// PickOne = keep the first (the current hard-reject becomes a pick, decision 12);
+// Merge = combine into a union footprint (Phase 3); Allow = record both as-is.
+// Default PickOne so every existing map is byte-identical (missing ⇒ PickOne).
+// Closed enum: the resolver switches on it; the open vocabulary stays in tags.
+enum class OverlapPolicy { PickOne, Merge, Allow };
+const char *overlapPolicyName(OverlapPolicy p);          // "pick_one"/"merge"/"allow"
+// Inverse of overlapPolicyName; unknown strings fall back to PickOne (safe default).
+OverlapPolicy overlapPolicyFromName(const std::string &name);
+
 // --- Map graph (Phase 2: plugs + declared connections) -----------------------
 // A plug is a NAMED, NEUTRAL attachment point — a door / portal / threshold
 // socket. It is not geometry of its own: it rides on an existing document object

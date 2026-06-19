@@ -1,5 +1,7 @@
 #include "io/RoomSpecStore.h"
 
+#include "drafting/DraftingOverlap.h"
+
 #include "formats/TomlReader.h"
 
 #include <cctype>
@@ -250,18 +252,6 @@ std::optional<std::pair<std::string, std::string>> splitRoomPlug(const std::stri
     return std::make_pair(std::move(room), std::move(plug));
 }
 
-// Two room footprints overlap if their axis-aligned rectangles intersect in their
-// interiors (touching edges is fine — corridor-separated rooms never touch). Pure
-// spec-level AABB test: it catches a layout collision (a hand- or AI-authored
-// origin mistake) before any geometry is built.
-bool roomsOverlap(const RoomSpec &a, const RoomSpec &b)
-{
-    constexpr double eps = 1e-9;
-    const bool xOverlap = a.origin.x < b.origin.x + b.width - eps && b.origin.x < a.origin.x + a.width - eps;
-    const bool yOverlap = a.origin.y < b.origin.y + b.height - eps && b.origin.y < a.origin.y + a.height - eps;
-    return xOverlap && yOverlap;
-}
-
 } // namespace
 
 RoomSpecParseResult parseRoomSpecToml(const std::string &text, double canvasPerUnit)
@@ -383,7 +373,9 @@ MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUni
     // Footprints must not overlap — pure spec-level AABB, before any geometry.
     for (std::size_t a = 0; a < map.rooms.size(); ++a) {
         for (std::size_t b = a + 1; b < map.rooms.size(); ++b) {
-            if (roomsOverlap(map.rooms[a].spec, map.rooms[b].spec)) {
+            if (edi::drafting::footprintsOverlap(
+                    map.rooms[a].spec.origin, map.rooms[a].spec.width, map.rooms[a].spec.height,
+                    map.rooms[b].spec.origin, map.rooms[b].spec.width, map.rooms[b].spec.height)) {
                 out.message = "rooms '" + map.rooms[a].name + "' and '" + map.rooms[b].name + "' overlap";
                 return out;
             }

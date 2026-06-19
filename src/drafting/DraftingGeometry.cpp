@@ -298,6 +298,29 @@ RoomDerivation roomDerivationFromName(const std::string &name)
     return RoomDerivation::Placed;
 }
 
+// OverlapPolicy — same closed-enum + switch pattern as wallTypeName / roomDerivationName.
+const char *overlapPolicyName(OverlapPolicy p)
+{
+    switch (p) {
+    case OverlapPolicy::PickOne:
+        return "pick_one";
+    case OverlapPolicy::Merge:
+        return "merge";
+    case OverlapPolicy::Allow:
+        return "allow";
+    }
+    return "pick_one"; // defensive: unreachable on a well-formed enum
+}
+
+// Unknown strings fall back to PickOne — the safe default matching every existing
+// document (same "unknown ⇒ neutral default" discipline as roomDerivationFromName).
+OverlapPolicy overlapPolicyFromName(const std::string &name)
+{
+    if (name == "merge")   return OverlapPolicy::Merge;
+    if (name == "allow")   return OverlapPolicy::Allow;
+    return OverlapPolicy::PickOne;
+}
+
 const char *draftingResultCodeName(DraftingResultCode code)
 {
     switch (code) {

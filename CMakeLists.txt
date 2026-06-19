@@ -92,6 +92,8 @@ add_library(edi_drafting_core STATIC
     src/drafting/DraftingRegionFill.cpp
     src/drafting/DraftingMapQuery.h
     src/drafting/DraftingMapQuery.cpp
+    src/drafting/DraftingOverlap.h
+    src/drafting/DraftingOverlap.cpp
     src/drafting/DraftingBlockOps.h
     src/drafting/DraftingBlockOps.cpp
     src/drafting/DraftingMotifOps.h
@@ -272,6 +274,7 @@ add_edi_contract_test(drafting_ascii_map_tests tests/drafting_ascii_map_tests.cp
 add_edi_contract_test(drafting_graph_ops_tests tests/drafting_graph_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_document_bounds_tests tests/drafting_document_bounds_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_map_query_tests tests/drafting_map_query_tests.cpp edi_drafting_core)
+add_edi_contract_test(drafting_overlap_tests tests/drafting_overlap_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_region_fill_tests tests/drafting_region_fill_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_block_ops_tests tests/drafting_block_ops_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_motif_ops_tests tests/drafting_motif_ops_tests.cpp edi_drafting_core)

@@ -906,6 +906,9 @@ MsgPackValue draftingDocumentToValue(const DraftingDocument &document)
         {"active_layer_id", MsgPackValue::text(document.activeLayerId)},
         {"revision", MsgPackValue::integer(static_cast<std::int64_t>(document.revision))},
         {"canvas_per_authored_unit", MsgPackValue::number(document.canvasPerAuthoredUnit)},
+        // Additive + tolerant: missing ⇒ "pick_one" ⇒ PickOne (same discipline as
+        // wall_visual.type / roomDerivation). Stored as a name string for readability.
+        {"overlap_policy", MsgPackValue::text(overlapPolicyName(document.overlapPolicy))},
         {"layers", MsgPackValue::array(std::move(layers))},
         {"objects", MsgPackValue::array(std::move(objects))},
         {"plugs", MsgPackValue::array(std::move(plugs))},
@@ -959,6 +962,11 @@ FormatResult<DraftingDocument> draftingDocumentFromValue(const MsgPackValue &val
     document.revision = static_cast<std::uint64_t>(asInt(child(*documentValue, "revision"), 0));
     // Additive + tolerant: a file before Seam C has no scale and defaults to 1.0.
     document.canvasPerAuthoredUnit = asDouble(child(*documentValue, "canvas_per_authored_unit"), 1.0);
+    // Additive + tolerant (slice 3d): missing "overlap_policy" ⇒ "pick_one" ⇒ PickOne.
+    // overlapPolicyFromName already defaults unknown strings to PickOne, so both
+    // "key absent" and "key == pick_one" paths produce the same neutral result.
+    document.overlapPolicy = overlapPolicyFromName(
+        asString(child(*documentValue, "overlap_policy"), "pick_one"));
 
     if (const MsgPackValue *layers = child(*documentValue, "layers");
         layers && layers->type == MsgPackValue::Type::Array) {

@@ -41,4 +41,13 @@ bool addAsset(AssetZoo &zoo, AssetRecord record);
 bool curateAsset(AssetZoo &zoo, const AssetId &id, bool curated);
 bool removeAsset(AssetZoo &zoo, const AssetId &id);
 
+// Socket ops over a single record (uniqueness is WITHIN the record — two records
+// may each carry a "door" socket). addSocket mirrors addAsset: it rejects an empty
+// name or a name already on the record (returns false), else appends and returns true.
+bool addSocket(AssetRecord &record, AssetSocket socket);
+
+// Find a socket by name (nullptr if absent). NOTE: the returned pointer dangles if
+// record.sockets is later mutated (push/erase) — same caveat as findAsset.
+const AssetSocket *findSocket(const AssetRecord &record, const std::string &name);
+
 } // namespace edi::zoo

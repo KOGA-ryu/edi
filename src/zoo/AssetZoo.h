@@ -29,6 +29,16 @@ namespace edi::zoo {
 
 using AssetId = std::string; // opaque, minted "asset_0001" like object/block ids
 
+// A LOCAL-asset-space 2D point — the socket's attach position relative to the
+// asset's own origin, NOT a canvas/document coordinate. Deliberately a zoo-local
+// type (not the drafting core's Point2D) so edi_zoo_core stays Qt/drafting-free.
+struct Anchor2D { double x = 0.0; double y = 0.0; };
+
+// A named NEUTRAL attach point — the generator/placement connection point.
+// `type` is OPEN VOCAB (free-form string, e.g. "door"/"edge"), same neutrality
+// law as category/meshRef — edi records the label without interpreting it.
+struct AssetSocket { std::string name; std::string type; Anchor2D anchor; };
+
 struct AssetRecord {
     AssetId id;                           // catalog key; a drawing's assetRef resolves to this
     std::string name;                     // authored label, e.g. "crypt_wall"
@@ -37,9 +47,9 @@ struct AssetRecord {
     std::string proxyRef;                 // the 2D proxy symbol it places as (e.g. a block id); may be empty
     bool curated = false;                 // greenlight: only curated assets are "in" the zoo
     std::vector<std::string> textureRefs; // art-forge textures/materials applied to the asset
+    std::vector<AssetSocket> sockets;     // named attach points (local-space); additive, no version bump
     // DEFERRED (additive — added with NO version bump, the wall_visual pattern):
-    // sockets (named attach points, need Point2D) and the user-defined metadata
-    // "juice" grid.
+    // the user-defined metadata "juice" grid.
 };
 
 struct AssetZoo {

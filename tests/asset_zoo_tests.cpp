@@ -71,7 +71,8 @@ int main()
         assert(mintAssetId(zoo) == "asset_0003");
     }
 
-    // A full record round-trips through the EDIM envelope, every field preserved.
+    // A full record round-trips through the EDIM envelope, every field preserved —
+    // including sockets, field-by-field (name, type, anchor.x, anchor.y).
     {
         AssetZoo zoo;
         AssetRecord wall = makeAssetRecord(mintAssetId(zoo), "crypt_wall", "wall");
@@ -79,6 +80,8 @@ int main()
         wall.proxyRef = "block_0007";
         wall.curated = true;
         wall.textureRefs = {"stone_diffuse", "stone_normal"};
+        assert(addSocket(wall, AssetSocket{"north_door", "door", Anchor2D{1.5, -2.25}}));
+        assert(addSocket(wall, AssetSocket{"east_edge", "edge", Anchor2D{4.0, 3.75}}));
         assert(addAsset(zoo, wall));
 
         const ByteBuffer bytes = encodeAssetZoo(zoo);
@@ -95,6 +98,48 @@ int main()
         assert(got.textureRefs.size() == 2);
         assert(got.textureRefs[0] == "stone_diffuse");
         assert(got.textureRefs[1] == "stone_normal");
+
+        assert(got.sockets.size() == 2);
+        assert(got.sockets[0].name == "north_door");
+        assert(got.sockets[0].type == "door");
+        assert(got.sockets[0].anchor.x == 1.5);
+        assert(got.sockets[0].anchor.y == -2.25);
+        assert(got.sockets[1].name == "east_edge");
+        assert(got.sockets[1].type == "edge");
+        assert(got.sockets[1].anchor.x == 4.0);
+        assert(got.sockets[1].anchor.y == 3.75);
+    }
+
+    // A record with no sockets round-trips to an empty socket vector (tolerant —
+    // the missing/empty "sockets" key is never an error).
+    {
+        AssetZoo zoo;
+        assert(addAsset(zoo, makeAssetRecord(mintAssetId(zoo), "bare_wall", "wall")));
+        const ByteBuffer bytes = encodeAssetZoo(zoo);
+        const auto decoded = decodeAssetZoo(bytes, "no-sockets");
+        assert(decoded.ok && decoded.value);
+        assert(decoded.value->assets.front().sockets.empty());
+    }
+
+    // addSocket: empty name rejected; duplicate name (within the record) rejected,
+    // leaving the vector unchanged; a distinct name accepted.
+    {
+        AssetRecord record = makeAssetRecord("asset_0001", "crypt_wall", "wall");
+        assert(!addSocket(record, AssetSocket{"", "door", Anchor2D{0.0, 0.0}})); // empty name
+        assert(record.sockets.empty());
+        assert(addSocket(record, AssetSocket{"north_door", "door", Anchor2D{1.0, 2.0}}));
+        assert(record.sockets.size() == 1);
+        assert(!addSocket(record, AssetSocket{"north_door", "edge", Anchor2D{3.0, 4.0}})); // dup
+        assert(record.sockets.size() == 1);
+        assert(addSocket(record, AssetSocket{"east_edge", "edge", Anchor2D{3.0, 4.0}}));
+        assert(record.sockets.size() == 2);
+
+        // findSocket: hit by name, nullptr for an absent name.
+        const AssetSocket *hit = findSocket(record, "east_edge");
+        assert(hit != nullptr);
+        assert(hit->type == "edge");
+        assert(hit->anchor.x == 3.0);
+        assert(findSocket(record, "no_such_socket") == nullptr);
     }
 
     // An empty zoo round-trips to an empty zoo (the "no catalog yet" baseline).

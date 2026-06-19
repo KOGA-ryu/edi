@@ -120,4 +120,28 @@ bool removeAsset(AssetZoo &zoo, const AssetId &id)
     return true;
 }
 
+bool addSocket(AssetRecord &record, AssetSocket socket)
+{
+    // Same validate-then-mutate shape as addAsset: an unnamed socket or a name
+    // collision WITHIN this record is rejected rather than silently shadowing.
+    if (socket.name.empty()) {
+        return false;
+    }
+    if (findSocket(record, socket.name)) {
+        return false;
+    }
+    record.sockets.push_back(std::move(socket));
+    return true;
+}
+
+const AssetSocket *findSocket(const AssetRecord &record, const std::string &name)
+{
+    for (const AssetSocket &socket : record.sockets) {
+        if (socket.name == name) {
+            return &socket;
+        }
+    }
+    return nullptr;
+}
+
 } // namespace edi::zoo

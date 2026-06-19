@@ -26,6 +26,14 @@ std::int64_t asInt(const MsgPackValue *v, std::int64_t fallback)
     return fallback;
 }
 
+double asDouble(const MsgPackValue *v, double fallback)
+{
+    if (!v) return fallback;
+    if (v->type == MsgPackValue::Type::Double) return v->doubleValue;
+    if (v->type == MsgPackValue::Type::Int) return static_cast<double>(v->intValue);
+    return fallback;
+}
+
 bool asBool(const MsgPackValue *v, bool fallback)
 {
     if (v && v->type == MsgPackValue::Type::Bool) return v->boolValue;
@@ -50,6 +58,18 @@ MsgPackValue assetValue(const AssetRecord &asset)
     for (const std::string &ref : asset.textureRefs) {
         textures.push_back(MsgPackValue::text(ref));
     }
+    // sockets: an array of socket maps; the anchor is a 2-element [x,y] array,
+    // parity with drafting's pointValue (number() per element).
+    std::vector<MsgPackValue> sockets;
+    sockets.reserve(asset.sockets.size());
+    for (const AssetSocket &socket : asset.sockets) {
+        sockets.push_back(MsgPackValue::map({
+            {"name", MsgPackValue::text(socket.name)},
+            {"type", MsgPackValue::text(socket.type)},
+            {"anchor", MsgPackValue::array({MsgPackValue::number(socket.anchor.x),
+                                            MsgPackValue::number(socket.anchor.y)})},
+        }));
+    }
     return MsgPackValue::map({
         {"id", MsgPackValue::text(asset.id)},
         {"name", MsgPackValue::text(asset.name)},
@@ -58,6 +78,7 @@ MsgPackValue assetValue(const AssetRecord &asset)
         {"proxy_ref", MsgPackValue::text(asset.proxyRef)},
         {"curated", MsgPackValue::boolean(asset.curated)},
         {"texture_refs", MsgPackValue::array(std::move(textures))},
+        {"sockets", MsgPackValue::array(std::move(sockets))},
     });
 }
 
@@ -76,6 +97,26 @@ AssetRecord readAsset(const MsgPackValue &v)
             if (ref.type == MsgPackValue::Type::String) {
                 asset.textureRefs.push_back(ref.stringValue);
             }
+        }
+    }
+    // sockets: missing key => empty vector (additive). The anchor is read like
+    // drafting's readPoint — a 2-element array, else defaults to {0, 0}.
+    if (const MsgPackValue *sockets = child(v, "sockets");
+        sockets && sockets->type == MsgPackValue::Type::Array) {
+        for (const MsgPackValue &item : sockets->arrayValue) {
+            if (item.type != MsgPackValue::Type::Map) {
+                continue;
+            }
+            AssetSocket socket;
+            socket.name = asString(child(item, "name"), socket.name);
+            socket.type = asString(child(item, "type"), socket.type);
+            if (const MsgPackValue *anchor = child(item, "anchor");
+                anchor && anchor->type == MsgPackValue::Type::Array
+                && anchor->arrayValue.size() == 2) {
+                socket.anchor.x = asDouble(&anchor->arrayValue[0], 0.0);
+                socket.anchor.y = asDouble(&anchor->arrayValue[1], 0.0);
+            }
+            asset.sockets.push_back(std::move(socket));
         }
     }
     return asset;

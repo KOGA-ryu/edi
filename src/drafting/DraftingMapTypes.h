@@ -80,6 +80,16 @@ const char *wallTypeName(WallType type);
 // Inverse of wallTypeName; unknown names fall back to Solid.
 WallType wallTypeFromName(const std::string &name);
 
+// How a room's footprint is determined. Placed = classic room-as-rectangle (NW
+// origin + size, today's only model); SpanDerived = the inverted model where the
+// footprint is DERIVED from bounding connector nodes (Phase 2+). Closed enum so
+// the painter and exporter switch on it; the open vocabulary stays in neutral tags.
+// Default Placed keeps every existing room byte-identical — COEXIST (decision 1).
+enum class RoomDerivation { Placed, SpanDerived };
+const char *roomDerivationName(RoomDerivation d);          // "placed" / "span_derived"
+// Inverse of roomDerivationName; unknown names fall back to Placed (safe default).
+RoomDerivation roomDerivationFromName(const std::string &name);
+
 // --- Map graph (Phase 2: plugs + declared connections) -----------------------
 // A plug is a NAMED, NEUTRAL attachment point — a door / portal / threshold
 // socket. It is not geometry of its own: it rides on an existing document object
@@ -136,6 +146,12 @@ struct DraftingMapRoom {
     // keeps every existing room identical (missing ⇒ 0 on decode). NOT on the
     // TOON wire yet — Phase-2 wire extension (brief 055: struct + .edidraw only).
     int level = 0;
+    // How the footprint is determined (Phase-1 decision 1: COEXIST). Placed = the
+    // classic NW-origin + size rectangle (every existing room); SpanDerived = the
+    // inverted model where the footprint is derived from connector nodes (Phase 2+).
+    // Default Placed keeps existing documents byte-identical (missing ⇒ Placed).
+    // NOT on the TOON wire this slice — Phase-2 item (brief 056: struct + .edidraw).
+    RoomDerivation derivation = RoomDerivation::Placed;
 };
 
 // --- Block library (Phase C: the "flash sheet") ------------------------------

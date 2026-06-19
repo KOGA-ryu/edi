@@ -556,6 +556,67 @@ int main()
         assert(noLevel.value->rooms[0].level == 0);
     }
 
+    // Phase-1 slice 3b — RoomDerivation enum + DraftingMapRoom::derivation (brief 056).
+    // Closed enum, serialized as a name string (same discipline as WallType / ObjectRole).
+    // Default Placed keeps every existing room byte-identical (COEXIST decision 1).
+    // NOT on the TOON wire this slice — Phase-2 item.
+    {
+        // --- Name↔enum round-trip for both enumerators + unknown → Placed. ---
+        // WHY name-string serialization? Integer ordinals break if the enum order
+        // is ever extended; name strings are stable and human-readable in the file.
+        // Unknown strings fall back to Placed so future enumerators are safe
+        // to add without bumping a format version.
+        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::Placed))
+               == RoomDerivation::Placed);
+        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::SpanDerived))
+               == RoomDerivation::SpanDerived);
+        assert(std::string(roomDerivationName(RoomDerivation::Placed)) == "placed");
+        assert(std::string(roomDerivationName(RoomDerivation::SpanDerived)) == "span_derived");
+        assert(roomDerivationFromName("unknown_future_value") == RoomDerivation::Placed);
+        assert(roomDerivationFromName("") == RoomDerivation::Placed);
+
+        // --- Additive round-trip: SpanDerived survives encode → decode. ---
+        DraftingDocument derivDoc = makeDraftingDocument("derivation-rt");
+        DraftingMapRoom span;
+        span.name       = "span_room";
+        span.origin     = {0.0, 0.0};
+        span.width      = 10.0;
+        span.height     = 8.0;
+        span.material   = "stone";
+        span.derivation = RoomDerivation::SpanDerived;
+        derivDoc.rooms.push_back(span);
+
+        // Value-layer round-trip.
+        auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(derivDoc));
+        assert(vRestored.ok && vRestored.value);
+        assert(vRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+
+        // Byte-layer round-trip (full MessagePack encode/decode path).
+        auto bRestored = decodeDraftingDocument(encodeDraftingDocument(derivDoc), "fixture");
+        assert(bRestored.ok && bRestored.value);
+        assert(bRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+
+        // --- Forward-compat: missing "derivation" key ⇒ Placed. ---
+        // Simulates an older .edidraw without this key (every file before slice 3b).
+        MsgPackValue docVal = draftingDocumentToValue(derivDoc);
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                if (docEntry.first != "rooms") continue;
+                if (docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &roomVal : docEntry.second.arrayValue) {
+                    auto &rm = roomVal.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "derivation") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noDerivation = draftingDocumentFromValue(docVal);
+        assert(noDerivation.ok && noDerivation.value);
+        assert(noDerivation.value->rooms[0].derivation == RoomDerivation::Placed);
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

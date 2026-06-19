@@ -273,6 +273,31 @@ WallType wallTypeFromName(const std::string &name)
     return WallType::Solid;
 }
 
+// RoomDerivation — same closed-enum + switch pattern as wallTypeName/objectRoleName.
+// Names are snake_case strings so they survive copy-paste into TOON/TOML without
+// quoting and round-trip deterministically through the MessagePack string codec.
+const char *roomDerivationName(RoomDerivation d)
+{
+    switch (d) {
+    case RoomDerivation::Placed:
+        return "placed";
+    case RoomDerivation::SpanDerived:
+        return "span_derived";
+    }
+    return "placed"; // defensive: unreachable on a well-formed enum
+}
+
+// Unknown strings fall back to Placed — the safe default that matches EVERY file
+// written before this slice. This is the same "unknown ⇒ default" discipline
+// objectRoleFromName (None) and wallTypeFromName (Solid) use: a forward-compat
+// guarantee that a new enumerator added later decodes to a neutral state on old
+// readers rather than crashing or corrupting the document.
+RoomDerivation roomDerivationFromName(const std::string &name)
+{
+    if (name == "span_derived") return RoomDerivation::SpanDerived;
+    return RoomDerivation::Placed;
+}
+
 const char *draftingResultCodeName(DraftingResultCode code)
 {
     switch (code) {

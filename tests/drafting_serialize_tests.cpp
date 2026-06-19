@@ -730,6 +730,73 @@ int main()
         assert(ar.ok && ar.value && ar.value->overlapPolicy == OverlapPolicy::Allow);
     }
 
+    // Phase-1 slice 3f — int level=0 on DraftingPlug + DraftingDeclaredConnection (brief 067).
+    // Same additive template as DraftingMapRoom::level (slice 3a): always-write +
+    // tolerant missing ⇒ 0. Three graph records (room/plug/connection) now carry level
+    // uniformly. NOT on the TOON wire; the reference dungeon TOON stays byte-identical.
+    {
+        // Build a document with one anchor object, one plug (level=3), and one
+        // connection (level=1) to verify both fields survive the round-trip.
+        DraftingDocument lvlDoc = makeDraftingDocument("plug-conn-level");
+        lvlDoc.objects.push_back(
+            makeObject("m.0", DraftingShapeKind::Point, PointGeometry{{0.0, 0.0}}, "default"));
+
+        DraftingPlug plug;
+        plug.id             = "plug_0001";
+        plug.anchorObjectId = "m.0";
+        plug.name           = "north_door";
+        plug.type           = "door";
+        plug.anchor         = {0.0, 0.0};
+        plug.level          = 3; // non-zero: proves the field is written and read back
+        lvlDoc.plugs.push_back(plug);
+
+        DraftingDeclaredConnection conn;
+        conn.id    = "conn_0001";
+        conn.plugA = "plug_0001";
+        conn.plugB = "plug_0001"; // self-loop legal at the data level
+        conn.type  = "corridor";
+        conn.level = 1;
+        lvlDoc.connections.push_back(conn);
+
+        // --- Value-layer round-trip ---
+        auto vr = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
+        assert(vr.ok && vr.value);
+        assert(vr.value->plugs.size() == 1);
+        assert(vr.value->plugs[0].level == 3);
+        assert(vr.value->connections.size() == 1);
+        assert(vr.value->connections[0].level == 1);
+
+        // --- Byte-layer round-trip ---
+        auto br = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
+        assert(br.ok && br.value);
+        assert(br.value->plugs[0].level == 3);
+        assert(br.value->connections[0].level == 1);
+
+        // --- Forward-compat: strip "level" from plug and connection maps ⇒ 0 each. ---
+        // Simulates an older .edidraw (every file before slice 3f has no "level" key
+        // in the plug or connection maps). Both must silently default to 0.
+        MsgPackValue docVal = draftingDocumentToValue(lvlDoc);
+        // Navigate into the document section and strip "level" from plugs+connections.
+        for (auto &topEntry : docVal.mapValue) {
+            if (topEntry.first != "document") continue;
+            for (auto &docEntry : topEntry.second.mapValue) {
+                const bool isPlugs = (docEntry.first == "plugs");
+                const bool isConns = (docEntry.first == "connections");
+                if ((!isPlugs && !isConns) || docEntry.second.type != MsgPackValue::Type::Array) continue;
+                for (auto &item : docEntry.second.arrayValue) {
+                    auto &rm = item.mapValue;
+                    for (auto it = rm.begin(); it != rm.end();) {
+                        it = (it->first == "level") ? rm.erase(it) : it + 1;
+                    }
+                }
+            }
+        }
+        auto noLevel = draftingDocumentFromValue(docVal);
+        assert(noLevel.ok && noLevel.value);
+        assert(noLevel.value->plugs[0].level      == 0); // missing ⇒ default 0
+        assert(noLevel.value->connections[0].level == 0);
+    }
+
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
     // per-instance rotation/scale, additive-tolerant. A non-identity placement
     // carries both; an IDENTITY placement (rotation 0 / scale 1) emits NEITHER key,

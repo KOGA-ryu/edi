@@ -604,11 +604,14 @@ std::optional<DraftingObject> readObject(const MsgPackValue &v, int documentVers
 MsgPackValue plugValue(const DraftingPlug &plug)
 {
     std::vector<std::pair<std::string, MsgPackValue>> fields = {
-        {"id", MsgPackValue::text(plug.id)},
+        {"id",               MsgPackValue::text(plug.id)},
         {"anchor_object_id", MsgPackValue::text(plug.anchorObjectId)},
-        {"name", MsgPackValue::text(plug.name)},
-        {"type", MsgPackValue::text(plug.type)},
-        {"anchor", pointValue(plug.anchor)},
+        {"name",             MsgPackValue::text(plug.name)},
+        {"type",             MsgPackValue::text(plug.type)},
+        {"anchor",           pointValue(plug.anchor)},
+        // Additive + tolerant (slice 3f): same always-write + asInt(...,0) template
+        // as DraftingMapRoom::level (slice 3a). Missing ⇒ 0. No version bump.
+        {"level",            MsgPackValue::integer(plug.level)},
     };
     // Additive + tolerant, like wall_visual / asset_ref: emit `flags` ONLY when
     // non-empty, so every plug authored before DM-05 stays byte-identical and the
@@ -627,10 +630,10 @@ MsgPackValue plugValue(const DraftingPlug &plug)
 DraftingPlug readPlug(const MsgPackValue &v)
 {
     DraftingPlug plug;
-    plug.id = asString(child(v, "id"), plug.id);
+    plug.id             = asString(child(v, "id"),               plug.id);
     plug.anchorObjectId = asString(child(v, "anchor_object_id"), plug.anchorObjectId);
-    plug.name = asString(child(v, "name"), plug.name);
-    plug.type = asString(child(v, "type"), plug.type);
+    plug.name           = asString(child(v, "name"),             plug.name);
+    plug.type           = asString(child(v, "type"),             plug.type);
     // Tolerant: a plug without `flags` (every file before DM-05) decodes to an empty
     // vector — same shape as the `tags` read in readMetadata.
     if (const MsgPackValue *flags = child(v, "flags"); flags && flags->type == MsgPackValue::Type::Array) {
@@ -641,26 +644,33 @@ DraftingPlug readPlug(const MsgPackValue &v)
         }
     }
     plug.anchor = readPoint(child(v, "anchor"));
+    // Additive + tolerant (slice 3f): missing "level" ⇒ 0. Same asInt pattern as
+    // readMapRoom::level (slice 3a). std::int64_t → int: level is a small band.
+    plug.level  = static_cast<int>(asInt(child(v, "level"), plug.level));
     return plug;
 }
 
 MsgPackValue connectionValue(const DraftingDeclaredConnection &connection)
 {
     return MsgPackValue::map({
-        {"id", MsgPackValue::text(connection.id)},
+        {"id",     MsgPackValue::text(connection.id)},
         {"plug_a", MsgPackValue::text(connection.plugA)},
         {"plug_b", MsgPackValue::text(connection.plugB)},
-        {"type", MsgPackValue::text(connection.type)},
+        {"type",   MsgPackValue::text(connection.type)},
+        // Additive + tolerant (slice 3f): same always-write + asInt(...,0) template.
+        {"level",  MsgPackValue::integer(connection.level)},
     });
 }
 
 DraftingDeclaredConnection readConnection(const MsgPackValue &v)
 {
     DraftingDeclaredConnection connection;
-    connection.id = asString(child(v, "id"), connection.id);
+    connection.id    = asString(child(v, "id"),     connection.id);
     connection.plugA = asString(child(v, "plug_a"), connection.plugA);
     connection.plugB = asString(child(v, "plug_b"), connection.plugB);
-    connection.type = asString(child(v, "type"), connection.type);
+    connection.type  = asString(child(v, "type"),   connection.type);
+    // Additive + tolerant (slice 3f): missing "level" ⇒ 0.
+    connection.level = static_cast<int>(asInt(child(v, "level"), connection.level));
     return connection;
 }
 

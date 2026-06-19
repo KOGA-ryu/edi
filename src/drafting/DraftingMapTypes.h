@@ -141,6 +141,10 @@ struct DraftingPlug {
     // after every geometry-mutation command.  deriveEdge() (MapToonExport.cpp) reads
     // this field, so a moved plug anchor now exports the correct wall-edge.
     // Ratified as Phase-1 decision 7 / brief 052.
+    // Discrete elevation band (Phase-1 decision 8/10). 0 = ground; same additive
+    // template as DraftingMapRoom::level (slice 3a). Every existing plug is level 0.
+    // NOT on the TOON wire this slice — Phase-2 "level + manifest" item.
+    int level = 0;
 };
 
 // A declared connection is a NEUTRAL edge: "plug A links to plug B". It references
@@ -153,6 +157,12 @@ struct DraftingDeclaredConnection {
     DraftingPlugId plugA;
     DraftingPlugId plugB;
     std::string type;                // neutral role tag, default empty ("corridor"/...)
+    // Discrete elevation band (Phase-1 decision 8/10). 0 = ground; same additive
+    // template as DraftingMapRoom::level and DraftingPlug::level (slice 3a/3f).
+    // A future vertical-transition connection will carry differing endpoint levels
+    // (NOT modelled this slice — default 0 keeps all existing connections identical).
+    // NOT on the TOON wire this slice — Phase-2 "level + manifest" item.
+    int level = 0;
 };
 
 // --- Connector node (Phase-1 decision 1/11: the inverted model) ----------------

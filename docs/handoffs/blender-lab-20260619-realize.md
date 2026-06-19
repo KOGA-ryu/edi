@@ -124,6 +124,33 @@ scan + `edi_craft`/realize smoke; **render proof** for any realizer-OUTPUT chang
 closeout. One slice per commit, `claude:` + teaching body. Report each gate + SHA via
 `bus-hub blender-lab`.
 
+## Cross-slice contract (settled — R1c sets it, R2a/R2b consume it)
+- **meshRef** = a catalog-relative POSIX key, e.g. `meshes/star6.blend`. The realizer
+  resolves it against an `--asset-dir` (default = the manifest file's directory).
+- **Datablock load:** the realizer links ALL meshes from the `.blend` and instances
+  them as the placement's asset (robust to multi-mesh assets; star6 = one mesh named
+  `girih.star_mesh`). Share ONE datablock across placements via
+  `bpy.data.objects.new(name, mesh)` (proven live).
+- **Fixtures live under `samples/zoo/`:** `meshes/<shape>.blend` (baked artifacts),
+  `tester_zoo.editzoo` (MessagePack catalog via AssetZooStore), `tester_zoo.manifest.toon`
+  (exportZooToToon output the realizer reads).
+
 ## Status log
-- 2026-06-19: synced to master `c842554`; baseline green 114/114; plan posted to hub;
-  S0 research dispatched.
+- 2026-06-19: synced to master `c842554`; baseline green 114/114; plan posted; S0
+  research done (`docs/architecture/realize-instancing.md`).
+- 2026-06-19: **R1a** CLOSED — exportZooToToon + zooManifestFieldProblem (SHA `fffce80`,
+  green 115/115; reviewer MUST-FIX on byte-wise U+00B7 scan fixed). Plan/research docs
+  persisted `aa63b9a`.
+- 2026-06-19: **R1b** CLOSED — `edi_craft --asset-out` .blend bake (SHA `cea97e0`, green
+  115/115). VERIFIED LIVE on Blender 4.5.9: baked `samples/zoo/meshes/star6.blend`
+  (1 mesh, 138KB); links back + 3 instances share one datablock (build-once proven).
+- 2026-06-19: **R1c** CLOSED (depth-first) — curated star6 `AssetRecord` + `--mint-tester-zoo`
+  headless CLI + committed fixtures `samples/zoo/{meshes/star6.blend,tester_zoo.editzoo,
+  tester_zoo.manifest.toon}` (SHA `d23a6b4`, green 116/116). Reviewer ACCEPT; `.editzoo`
+  round-trip verified, manifest decodes through parse_toon grammar. Manifest:
+  `asset_0001,star6,ornament,meshes/star6.blend,"","",""`. NOTE for R2: catalog file is
+  `.editzoo` while `AssetZooStore` default is `.edizoo` — realizer reads the `.toon` manifest,
+  so unaffected; standardize later if it confuses.
+- NEXT: **depth-first to first INSTANCED render** — R2a (realizer `--manifest`/`--asset-dir`
+  + instance planning + greybox fallback) then R2b (bpy instance star6 + render proof) on a
+  small star6 demo map; THEN R1d breadth (other five) + the multi-shape render payoff.

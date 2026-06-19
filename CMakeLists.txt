@@ -428,6 +428,38 @@ target_link_libraries(crypt_generator_tests PRIVATE
 )
 add_test(NAME crypt_generator_tests COMMAND crypt_generator_tests)
 
+# Phase-1 CANARY: pins the reference-dungeon TOON (sha256 6c632293…, 1685 bytes)
+# and the DraftingObject count produced by createMapFromSpec byte-identically.
+# This test MUST remain green through every additive Phase-1 slice; a drift means
+# a new field's default is not neutral → halt and report (do NOT re-bless).
+# Same source set as crypt_generator_tests + RoomSpecStore (for parseMapSpecToml).
+# EDI_TESTS_DATA_DIR points to tests/data/ so the test locates dungeon.map.toml.
+add_executable(map_regression_lock_tests
+    tests/map_regression_lock_tests.cpp
+    src/core/DrawingCore.h
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+    src/io/MapToonExport.h
+    src/io/MapToonExport.cpp
+    src/io/RoomSpecStore.h
+    src/io/RoomSpecStore.cpp
+)
+target_include_directories(map_regression_lock_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_compile_definitions(map_regression_lock_tests PRIVATE
+    EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+)
+target_link_libraries(map_regression_lock_tests PRIVATE
+    edi_drafting_core
+    edi_format_core
+    Qt6::Core
+)
+add_test(NAME map_regression_lock_tests COMMAND map_regression_lock_tests)
+
 add_edi_contract_test(shell_layout_store_tests tests/shell_layout_store_tests.cpp edi_format_core Qt6::Core)
 target_sources(shell_layout_store_tests PRIVATE src/io/ShellLayoutStore.cpp src/io/SettingsStore.cpp src/widgets/ShellHost.cpp src/widgets/ShellPanels.cpp)
 target_include_directories(shell_layout_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

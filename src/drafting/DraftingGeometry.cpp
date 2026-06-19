@@ -298,6 +298,25 @@ RoomDerivation roomDerivationFromName(const std::string &name)
     return RoomDerivation::Placed;
 }
 
+// RoomKind — same closed-enum + switch pattern as wallTypeName / roomDerivationName.
+const char *roomKindName(RoomKind k)
+{
+    switch (k) {
+    case RoomKind::Enclosed:
+        return "enclosed";
+    case RoomKind::Open:
+        return "open";
+    }
+    return "enclosed"; // defensive: unreachable on a well-formed enum
+}
+
+// Unknown strings fall back to Enclosed — same "unknown ⇒ neutral default" discipline.
+RoomKind roomKindFromName(const std::string &name)
+{
+    if (name == "open") return RoomKind::Open;
+    return RoomKind::Enclosed;
+}
+
 // OverlapPolicy — same closed-enum + switch pattern as wallTypeName / roomDerivationName.
 const char *overlapPolicyName(OverlapPolicy p)
 {

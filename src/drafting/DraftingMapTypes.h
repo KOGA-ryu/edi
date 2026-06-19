@@ -95,6 +95,17 @@ const char *roomDerivationName(RoomDerivation d);          // "placed" / "span_d
 // Inverse of roomDerivationName; unknown names fall back to Placed (safe default).
 RoomDerivation roomDerivationFromName(const std::string &name);
 
+// A room's enclosure kind — drives DRAWING only (which perimeter segments
+// planDraftingRoom emits), mirroring how WallType varies the band visual.
+// NOT a game rule: whether an "open" room blocks movement is the engine's call.
+// Closed enum, default Enclosed so every existing room draws identically.
+// (Phase 2 will make planDraftingRoom honour kind and per-edge walls; this slice
+// adds the type + field only, with no drawing-logic change — data-spine first.)
+enum class RoomKind { Enclosed, Open };
+const char *roomKindName(RoomKind k);            // "enclosed" / "open"
+// Inverse of roomKindName; unknown strings fall back to Enclosed (safe default).
+RoomKind roomKindFromName(const std::string &name);
+
 // What the parser / controller should do when two room footprints overlap.
 // PickOne = keep the first (the current hard-reject becomes a pick, decision 12);
 // Merge = combine into a union footprint (Phase 3); Allow = record both as-is.

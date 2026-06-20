@@ -92,6 +92,26 @@ int runRenderProof(QApplication &app, EdiShellWindow &window,
 
 int main(int argc, char **argv)
 {
+    // Headless safety (D04): a QApplication aborts at construction if it cannot
+    // reach a display platform. But several modes here need no real display —
+    // the CLI export termini (--generate-crypt / --export-map / --mint-tester-zoo)
+    // write files and exit, and the render-proof (--snapshot / --probe) is
+    // explicitly designed for the offscreen plugin. So on a box with no display
+    // server — and no platform already chosen — fall back to "offscreen" instead
+    // of dying. We only do this where the absence of a display env var actually
+    // MEANS headless: X11/Wayland-style Unix. macOS and Windows reach their
+    // window server without DISPLAY/WAYLAND_DISPLAY, so forcing offscreen there
+    // would wrongly blind a real desktop session. An explicit QT_QPA_PLATFORM
+    // always wins (this is how the tests select offscreen), so this only fires
+    // when nothing was chosen and nothing is reachable.
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")
+        && qEnvironmentVariableIsEmpty("DISPLAY")
+        && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+#endif
+
     QApplication app(argc, argv);
 
     QCommandLineParser parser;

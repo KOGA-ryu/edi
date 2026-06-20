@@ -914,3 +914,12 @@ target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
         Qt6::Gui
         Qt6::Widgets
 )
+
+# D04: a headless CLI action must run with no display server and no platform
+# plugin chosen (main() falls back to offscreen instead of aborting). The script
+# strips DISPLAY/WAYLAND_DISPLAY/QT_QPA_PLATFORM so the fallback is exercised,
+# not an inherited offscreen from ctest.
+add_test(
+    NAME edi_headless_cli_smoke
+    COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/headless_cli_smoke.sh $<TARGET_FILE:${DRAFTSMAN_SHELL_TARGET_NAME}>
+)

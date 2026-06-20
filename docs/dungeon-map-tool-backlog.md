@@ -105,6 +105,20 @@ and the polish items below. A future generalization (if needed): export edi-edit
 *documents* (not just authored `.map.toml`), which would first store rooms/edges in the
 document — the heavier "real Seam B from the live doc" path.
 
+### Campaign — proving-ground neutral marker layer ✅ DONE (2026-06-19, M1–M4) · past the stop-line
+A NEUTRAL "first-playable proving-ground" map for the user's game-engine testing + its Seam B TOON
+export. Adds, ADDITIVELY (no version bump): markers = `RoomFeature` + `id` + `metadata`; a map-level
+`MapPatrolPath {id,waypoints,closed}`; a generic lock tag (`locked`+`key_id` typed on the connection,
+k/v in a chest marker's metadata). The Seam B (MapSpec) TOON gains conditional `markers[]`/`patrols[]`
++ connection lock columns; reference golden stays byte-identical. Authored `tests/data/provingground.map.toml`
+(spawn→two-turn corridor→dead-end branch→gated key alcove(gold_key)→npc+patrol→goal behind a locked
+door; ONE gold_key gates the goal door AND a chest). SHAs M1 `8f240b5` / M2 `68e3b94` / M3 `1f93288`
+/ M4 `a5a4f13`. Closeout + engine manifest: `docs/closeouts/dungeon-map-proving-ground.md`. Prior art:
+`docs/research/marker-patrol-lock-prior-art.md`. **Deferred:** lock on `DraftingDeclaredConnection` +
+conditional `.edidraw` codec (only when a live-document export needs it). **Triage (pre-existing, NOT
+this campaign):** drafting-core has a 7-test Release-build SEGFAULT (Debug clean) + `--export-map`
+aborts on CLI teardown after writing the file — both predate `e34e773`; flagged to the hub.
+
 ## Cross-cutting polish (fold in opportunistically)
 - **◻ P1 — view auto-fit** for authored maps (frame the whole map to the viewport;
   the snapshots are currently un-framed). High usability; do early, likely beside A2.

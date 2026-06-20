@@ -207,8 +207,13 @@ struct DraftingMapRoom {
     // classic NW-origin + size rectangle (every existing room); SpanDerived = the
     // inverted model where the footprint is derived from connector nodes (Phase 2+).
     // Default Placed keeps existing documents byte-identical (missing ⇒ Placed).
-    // NOT on the TOON wire this slice — Phase-2 item (brief 056: struct + .edidraw).
     RoomDerivation derivation = RoomDerivation::Placed;
+    // The connector nodes that BOUND this room's footprint — non-empty for
+    // SpanDerived rooms only.  Stored by node ID so the wire can resolve IDs to
+    // names (the engine always reads by name; IDs are an internal opaque handle).
+    // Empty for every Placed room, so the MessagePack key is omitted conditionally
+    // (like plug.flags) to keep all Placed-room documents byte-identical.
+    std::vector<DraftingNodeId> boundedBy;
 };
 
 // --- Block library (Phase C: the "flash sheet") ------------------------------

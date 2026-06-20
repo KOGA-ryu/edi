@@ -64,6 +64,15 @@ int main()
 
     assert(toon == expected);
 
+    // CONDITIONAL-ABSENCE PROOF (M3): the spec above has NO features, NO patrols, and
+    // NO locked connection — so the export must carry NO markers[]/patrols[] section
+    // and the connections header must stay exactly {from,to,type}. (The `expected`
+    // golden above already pins this byte-for-byte; these spell out the invariant.)
+    assert(toon.find("markers[") == std::string::npos);
+    assert(toon.find("patrols[") == std::string::npos);
+    assert(toon.find("{from,to,type}") != std::string::npos);
+    assert(toon.find("locked") == std::string::npos);
+
     // Title omitted -> no title line; units still present.
     const std::string noTitle = edi::io::exportMapToToon(spec);
     assert(noTitle.find("title:") == std::string::npos);
@@ -375,9 +384,9 @@ int main()
             "\n"
             "connections[0]{from,to,type}:\n"
             "\n"
-            "nodes[2]{name,anchor,type}:\n"
-            "  junction_a,\"5,3\",hub\n"       // named, typed
-            "  node_0002,\"10,7.5\",\"\"\n"    // id fallback; empty type -> ""
+            "nodes[2]{name,anchor,type,radius}:\n"       // A3: radius always present
+            "  junction_a,\"5,3\",hub,0.5\n"             // named, typed, default radius
+            "  node_0002,\"10,7.5\",\"\",0.5\n"          // id fallback; empty type; radius
             "\n"
             "blocks[0]{room,asset,origin,scale,rotation}:\n";
         assert(nodeToon == expectedNodes);
@@ -406,6 +415,223 @@ int main()
         const std::size_t blocksPos = noNodeToon.find("blocks[");
         assert(connEnd  != std::string::npos && blocksPos != std::string::npos);
         assert(connEnd  < blocksPos); // no nodes[] in between
+    }
+
+    // P2-A3 (brief 075): inverted-model wire — nodes radius column + rooms
+    // derivation + bounded_by columns (CONDITIONAL per-section).
+    {
+        // Build a document with:
+        //   - 2 nodes with default radius (0.5) — verifies radius always appears
+        //   - 1 Placed room (level 0, no boundedBy) — all columns at their defaults
+        //   - 1 SpanDerived room with boundedBy = {node_A, node_B} — triggers both
+        //     derivation and bounded_by columns
+        // No level column (all rooms level 0).
+        // scale = 1.0 so canvas == authored (keeps the golden readable).
+        DraftingDocument invDoc = makeDraftingDocument("inverted-test");
+        invDoc.canvasPerAuthoredUnit = 1.0;
+
+        DraftingNode nA;
+        nA.id     = "node_0001";
+        nA.name   = "corner_a";
+        nA.anchor = {1.0, 1.0};
+        nA.type   = "hub";
+        // radius = kDefaultNodeRadius (0.5) by default
+        invDoc.nodes.push_back(nA);
+
+        DraftingNode nB;
+        nB.id     = "node_0002";
+        nB.name   = "corner_b";
+        nB.anchor = {4.0, 4.0};
+        nB.type   = "hub";
+        invDoc.nodes.push_back(nB);
+
+        // Placed room — derivation = Placed (default), boundedBy = {} (default).
+        invDoc.rooms.push_back(DraftingMapRoom{"placed_room", {0.0, 0.0}, 10.0, 5.0, "stone"});
+
+        // SpanDerived room with bounding nodes.
+        DraftingMapRoom spanRoom;
+        spanRoom.name       = "span_room";
+        spanRoom.origin     = {5.0, 5.0};
+        spanRoom.width      = 3.0;
+        spanRoom.height     = 3.0;
+        spanRoom.material   = "stone";
+        spanRoom.derivation = RoomDerivation::SpanDerived;
+        spanRoom.boundedBy  = {"node_0001", "node_0002"};
+        invDoc.rooms.push_back(spanRoom);
+
+        const std::string invToon = edi::io::exportMapToToon(invDoc, "inverted-test");
+
+        // Exact golden — pins every byte of the inverted-model wire.
+        // Canonical column order:
+        //   rooms: name,origin,size,material[,derivation][,bounded_by]  (no level: all 0)
+        //   nodes: name,anchor,type,radius  (radius always present in this section)
+        // bounded_by resolves node IDs to display names (corner_a·corner_b).
+        const std::string expectedInv =
+            "kind: map\n"
+            "title: inverted-test\n"
+            "units: feet\n"
+            "\n"
+            "rooms[2]{name,origin,size,material,derivation,bounded_by}:\n"
+            "  placed_room,\"0,0\",\"10,5\",stone,placed,\"\"\n"
+            "  span_room,\"5,5\",\"3,3\",stone,span_derived,corner_a·corner_b\n"
+            "\n"
+            "plugs[0]{room,name,edge,type,connected,flags}:\n"
+            "\n"
+            "connections[0]{from,to,type}:\n"
+            "\n"
+            "nodes[2]{name,anchor,type,radius}:\n"
+            "  corner_a,\"1,1\",hub,0.5\n"
+            "  corner_b,\"4,4\",hub,0.5\n"
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        assert(invToon == expectedInv);
+
+        // bounded_by: node names joined with middle-dot, not ids.
+        assert(invToon.find("corner_a·corner_b") != std::string::npos);
+        assert(invToon.find("node_0001")          == std::string::npos); // id must not leak
+
+        // --- Placed-only / node-less guard: NO derivation/bounded_by/nodes columns. ---
+        DraftingDocument placedDoc = makeDraftingDocument("placed-only");
+        placedDoc.canvasPerAuthoredUnit = 1.0;
+        placedDoc.rooms.push_back(DraftingMapRoom{"r", {0.0, 0.0}, 5.0, 5.0, "stone"});
+        // (all rooms Placed, all boundedBy empty, no nodes)
+
+        const std::string placedToon = edi::io::exportMapToToon(placedDoc, "placed-only");
+        assert(placedToon.find("derivation") == std::string::npos);
+        assert(placedToon.find("bounded_by") == std::string::npos);
+        assert(placedToon.find("nodes[")     == std::string::npos);
+        // rooms section is byte-identical to pre-A3 (plain 4-column header).
+        assert(placedToon.find("{name,origin,size,material}") != std::string::npos);
+    }
+
+    // M3 (proving-ground): the Seam B MapSpec overload carries markers[], patrols[],
+    // and the conditional lock columns. Pins the EXACT bytes of all three.
+    {
+        MapSpec m;
+
+        NamedRoomSpec key;
+        key.name = "alcove";
+        key.spec.origin = {36.0, 20.0};
+        key.spec.width = 8.0;
+        key.spec.height = 8.0;
+        key.spec.wallMaterial = "stone";
+        key.spec.plugs.push_back(RoomPlugSpec{RoomEdge::South, 0.0, "gate", "portcullis"});
+        // a pickup marker, id gold_key, room-local feet (4,4), no metadata.
+        RoomFeature pickup;
+        pickup.type = "pickup";
+        pickup.id = "gold_key";
+        pickup.x = 4.0;
+        pickup.y = 4.0;
+        key.spec.features.push_back(pickup);
+        m.rooms.push_back(key);
+
+        NamedRoomSpec goal;
+        goal.name = "goal";
+        goal.spec.origin = {58.0, 44.0};
+        goal.spec.width = 18.0;
+        goal.spec.height = 14.0;
+        goal.spec.wallMaterial = "stone";
+        goal.spec.plugs.push_back(RoomPlugSpec{RoomEdge::North, 0.0, "entry", "door"});
+        // a chest marker whose lock rides metadata (key_id=gold_key, locked=true).
+        RoomFeature chest;
+        chest.type = "chest";
+        chest.id = "treasure";
+        chest.x = 13.0;
+        chest.y = 7.0;
+        chest.metadata = {{"locked", "true"}, {"key_id", "gold_key"}};
+        goal.spec.features.push_back(chest);
+        m.rooms.push_back(goal);
+
+        // the FINAL door connection: locked, key_id gold_key.
+        MapConnectionSpec lockedDoor;
+        lockedDoor.from = {"alcove", "gate"};
+        lockedDoor.to = {"goal", "entry"};
+        lockedDoor.type = "corridor";
+        lockedDoor.locked = true;
+        lockedDoor.keyId = "gold_key";
+        m.connections.push_back(lockedDoor);
+
+        // a closed patrol loop of 4 waypoints.
+        MapPatrolPath loop;
+        loop.id = "guard_loop";
+        loop.closed = true;
+        loop.waypoints = {{64.0, 8.0}, {74.0, 8.0}, {74.0, 16.0}, {64.0, 16.0}};
+        m.patrols.push_back(loop);
+
+        const std::string toon = edi::io::exportMapToToon(m, "pg");
+        const std::string expected =
+            "kind: map\n"
+            "title: pg\n"
+            "units: feet\n"
+            "\n"
+            "rooms[2]{name,origin,size,material}:\n"
+            "  alcove,\"36,20\",\"8,8\",stone\n"
+            "  goal,\"58,44\",\"18,14\",stone\n"
+            "\n"
+            "plugs[2]{room,name,edge,type,connected,flags}:\n"
+            "  alcove,gate,S,portcullis,true,\"\"\n"
+            "  goal,entry,N,door,true,\"\"\n"
+            "\n"
+            "connections[1]{from,to,type,locked,key_id}:\n"
+            "  alcove.gate,goal.entry,corridor,true,gold_key\n"
+            "\n"
+            "markers[2]{room,id,role,x,y,meta}:\n"
+            "  alcove,gold_key,pickup,\"4,4\",\"\"\n"
+            "  goal,treasure,chest,\"13,7\",locked=true·key_id=gold_key\n"
+            "\n"
+            "patrols[1]{id,closed,points}:\n"
+            "  guard_loop,true,\"64,8·74,8·74,16·64,16\"\n";
+        assert(toon == expected);
+
+        // The lock columns appear in the connections header ONLY because one is locked.
+        assert(toon.find("{from,to,type,locked,key_id}") != std::string::npos);
+        // meta is a middle-dot-joined key=value run.
+        assert(toon.find("locked=true·key_id=gold_key") != std::string::npos);
+        // patrol points are middle-dot-joined x,y pairs, quoted as one cell.
+        assert(toon.find("\"64,8·74,8·74,16·64,16\"") != std::string::npos);
+    }
+
+    // M3 conditional-column guard: a connection that is NOT locked and a room WITH a
+    // marker — the connections header must stay {from,to,type} (no lock columns)
+    // while markers[] still appears (each section's condition is independent).
+    {
+        MapSpec m;
+        NamedRoomSpec r;
+        r.name = "spawn";
+        r.spec.origin = {0.0, 0.0};
+        r.spec.width = 10.0;
+        r.spec.height = 10.0;
+        r.spec.wallMaterial = "stone";
+        r.spec.plugs.push_back(RoomPlugSpec{RoomEdge::East, 0.0, "out", "door"});
+        RoomFeature sp;
+        sp.type = "spawn";
+        sp.id = "player_spawn";
+        sp.x = 5.0;
+        sp.y = 5.0;
+        r.spec.features.push_back(sp);
+        m.rooms.push_back(r);
+
+        NamedRoomSpec r2;
+        r2.name = "hall";
+        r2.spec.origin = {20.0, 0.0};
+        r2.spec.width = 10.0;
+        r2.spec.height = 10.0;
+        r2.spec.wallMaterial = "stone";
+        r2.spec.plugs.push_back(RoomPlugSpec{RoomEdge::West, 0.0, "in", "door"});
+        m.rooms.push_back(r2);
+
+        MapConnectionSpec c;
+        c.from = {"spawn", "out"};
+        c.to = {"hall", "in"};
+        c.type = "corridor"; // NOT locked, no key
+        m.connections.push_back(c);
+
+        const std::string toon = edi::io::exportMapToToon(m, "g");
+        assert(toon.find("{from,to,type}") != std::string::npos);    // no lock columns
+        assert(toon.find("locked") == std::string::npos);            // not even the word
+        assert(toon.find("markers[1]{room,id,role,x,y,meta}") != std::string::npos);
+        assert(toon.find("  spawn,player_spawn,spawn,\"5,5\",\"\"\n") != std::string::npos);
+        assert(toon.find("patrols[") == std::string::npos);          // no patrols here
     }
 
     return 0;

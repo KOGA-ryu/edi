@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace edi::drafting {
@@ -73,6 +74,33 @@ struct RoomFeature {
     double y = 0.0;   // (south-positive, same axes as origin/width/height)
     std::string type; // neutral open-vocabulary tag, e.g. "rubble", "statue"
     std::string name; // authored label, optional
+    // NEUTRAL identity + free-form bag the ENGINE interprets — edi acts on NEITHER.
+    // `id` is a stable identifier: a pickup's id IS the door's key_id, and an npc
+    // marker references a patrol path BY id. Default "" ⇒ no behavioural change for
+    // any existing feature (RoomFeature is never MessagePack-serialized, so adding
+    // these can break no on-disk byte identity — they only widen the in-memory value).
+    std::string id;
+    // Free-form neutral k/v the engine reads, never edi: e.g. an npc's `patrol=<id>`
+    // or a chest's `key_id=gold_key`. A vector<pair> (not a map) because authoring is
+    // an ORDERED list and the count is tiny — the export joins it in author order, and
+    // an order-preserving container makes the TOON projection deterministic for free.
+    std::vector<std::pair<std::string, std::string>> metadata;
+};
+
+// A NEUTRAL patrol path recorded at MAP level (beside connections/blocks). This is
+// NOT a DraftingGeometry variant — like a plug or a node it is a RELATION/annotation,
+// not a renderable shape, so it lives as plain data the engine reads, never a drawn
+// primitive edi owns.
+//
+// CLOSED-LOOP INVARIANT: `closed == true` means the waypoints form a LOOP, and the
+// first waypoint is NOT repeated at the end — the ENGINE closes the loop (Tiled
+// polygon convention). edi records the ordered points and the closed flag; it does
+// NOT walk, step, or simulate the path. An npc marker references this path by `id`
+// through its `metadata` (patrol=<id>).
+struct MapPatrolPath {
+    std::string id;                 // referenced by an npc marker's metadata patrol=<id>
+    std::vector<Point2D> waypoints; // ordered; stored already-scaled to CANVAS units
+    bool closed = true;             // LOOP (default) vs open path — neutral geometry tag
 };
 
 // A rectangular room in CANVAS units (the grid projection maps these to physical
@@ -124,6 +152,17 @@ struct MapConnectionSpec {
     MapPlugRef from;
     MapPlugRef to;
     std::string type;
+    // NEUTRAL engine-interpreted TAGS — NOT a rule edi enforces. `locked` is the lock
+    // STATE the engine reads; `keyId` names which key opens it (matching a pickup
+    // marker's `id`). edi records the tag and simulates NOTHING: it still "lets"
+    // anything through because it never models movement. (The connection's older
+    // "deliberately no locked" guard meant no RULE; a TAG the engine interprets is
+    // squarely inside the mandate.) Defaults false/"" keep every existing connection
+    // unchanged. The DraftingDeclaredConnection document twin is DEFERRED (this
+    // campaign ships only the Seam B / MapSpec authoring path; the twin would need the
+    // fiddly conditional `.edidraw` codec proof).
+    bool locked = false;
+    std::string keyId;
 };
 
 // One room in a multi-room map, named so connections can find its plugs. The
@@ -154,6 +193,10 @@ struct MapSpec {
     // M0 additive: MapSpec-level prop instances (asset_ref placements). Default-empty,
     // so every existing MapSpec stays byte-identical and behaviour-unchanged.
     std::vector<MapBlockSpec> blocks;
+    // NEUTRAL patrol paths (an npc marker references one by id). Default-empty so any
+    // map without patrols projects identically. Lives at MAP level, beside blocks,
+    // because a patrol is a map-wide annotation, not a per-room shape.
+    std::vector<MapPatrolPath> patrols;
 };
 
 // A plug the room emitted, paired with the marker object it rides on. The marker

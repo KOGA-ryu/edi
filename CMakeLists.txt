@@ -448,6 +448,14 @@ target_include_directories(map_spec_store_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_edi_contract_test(map_toon_export_tests tests/map_toon_export_tests.cpp edi_drafting_core)
 target_sources(map_toon_export_tests PRIVATE src/io/MapToonExport.cpp)
 target_include_directories(map_toon_export_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# M4 proving-ground manifest: parse tests/data/provingground.map.toml -> exportMapToToon
+# and assert the full neutral manifest (markers/patrol/locks/dead_end + gold_key match).
+# Parser + exporter only (no controller/Qt). EDI_TESTS_DATA_DIR locates the fixture.
+add_edi_contract_test(map_provingground_manifest_tests tests/map_provingground_manifest_tests.cpp edi_drafting_core edi_format_core)
+target_sources(map_provingground_manifest_tests PRIVATE src/io/RoomSpecStore.cpp src/io/MapToonExport.cpp)
+target_include_directories(map_provingground_manifest_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(map_provingground_manifest_tests PRIVATE
+    EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
 # G1 crypt generator — full end-to-end chain test (buildCryptMapSpec ->
 # createMapFromSpec -> exportMapToToon).  Needs the controller sources
 # (same set as drawing_document_controller_tests) plus MapToonExport and

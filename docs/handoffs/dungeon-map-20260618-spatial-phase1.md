@@ -1,3 +1,36 @@
+# Campaign handoff — Spatial-model inversion (PHASE 1 ✅ COMPLETE · PHASE 2 in progress)
+
+## ⏸ POWER-DOWN CHECKPOINT (2026-06-18, end of session) — RESUME RECIPE
+**Phase 1 COMPLETE + merged (master `dec48db`).** Phase 2 (full breadth, I LEAD) underway:
+- **Wire extension (P2-A), conditional + canary-guarded (see `docs/dungeon-map-wire-schema.md`
+  — I own column order):** A1 `nodes[]` ✓ merged (426b379) · A2 `level` ✓ merged (5fa7583)
+  · **A3** nodes `radius` + rooms `derivation`/`bounded_by` + `DraftingMapRoom.boundedBy`
+  ✓ **COMMITTED 288571d** (hub merging). Clean tree, nothing uncommitted.
+- **P2-B span generator (brief `076`) — ARMED.** Fires on resume the moment BOTH: (a)
+  drafting's `deriveSpanFootprint` (`DraftingSpan.h`, tip `3b62884`, reviewer-CLEARED
+  high-confidence) is on LOCAL master (hub merging now); (b) A3 has landed (done). It adds
+  `MapNodeSpec`/`MapSpanSpec` to MapSpec + teaches `createMapFromSpec` to mint nodes +
+  derive span-rooms (AABB-first). Signature in 076.
+- **FIRST INVERTED RENDER is LIVE** — blender-lab P2-C built to my FINAL wire contract
+  (`074`), golden-tested the sample, rendered `/tmp/m0/inverted.png` @`07afe8f` (small
+  nodes + big span-rooms + wall-optional + Z-stacked floors). They await the P2-B
+  **generated** TOON to lock against.
+- **RESUME STEP 1:** confirm `DraftingSpan.h` on master + fire `076` (P2-B) to the idle
+  builder (exact path; capture-pane confirm). **STEP 2:** when P2-B lands, produce a
+  generated inverted TOON (P2-B's test builds one; run/extract it to a file) → bus
+  blender-lab to lock the render ⇒ closes generator→inverted-TOON→realizer→render.
+  **STEP 3:** continue the wire — A4 `walls`/`kind`/`ceiling`/`floor`, A5 `feet_per_band`
+  + `levels[]`; then `.map.toml` grammar, vertical features, dual-graph.
+- **CADENCE (hub workflow):** I fire builder slices (verify the `.md` EXISTS first; only
+  send when the builder is IDLE; capture-pane confirm). **The HUB relays each commit to
+  edi-ui — I do NOT hand to edi-ui.** Coordinate span-footprint w/ drafting, realizer-read
+  w/ blender-lab (both done for this round). Run the queue autonomously, no idle between
+  slices.
+- Open coordination files: `074` (wire contract FINAL → blender-lab), `076` (P2-B armed),
+  `073` (span request → drafting, answered by 3b62884).
+
+---
+
 # Campaign handoff — Spatial-model inversion, PHASE 1 (foundational data-spine)
 
 **Department:** edi-dungeon-map = **LEAD** (sequences + builds the data-spine on

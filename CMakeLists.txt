@@ -4,7 +4,11 @@ project(EDI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_AUTOMOC ON)
+# NOTE (D16): AUTOMOC is enabled PER-TARGET at the bottom of this file, NOT
+# globally. A global CMAKE_AUTOMOC made moc scan every translation unit in the
+# build — including the deliberately Qt-free cores (drafting/formats/zoo/recipe/
+# scripting), which declare no QObject and must never pay for moc. moc now runs
+# only on the handful of targets that actually compile a Q_OBJECT-bearing source.
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 include(CTest)
@@ -947,3 +951,20 @@ add_test(
     NAME edi_headless_cli_smoke
     COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/headless_cli_smoke.sh $<TARGET_FILE:${DRAFTSMAN_SHELL_TARGET_NAME}>
 )
+
+# D16: enable moc ONLY on the targets that COMPILE a Q_OBJECT-bearing source.
+# Q_OBJECT lives in: src/core/DrawingCore.h (DrawingDocumentController) +
+# src/io/DrawingDocumentStore.h — both in edi_controller_core; src/io/ProcessRunStore.h;
+# and the six src/widgets/*.h widgets. A target that merely LINKS one of these
+# (e.g. the map/controller tests linking edi_controller_core) gets the generated
+# meta-object symbols from the archive and needs no moc of its own — so it is
+# absent here. The Qt-free core libraries are absent too, on purpose: they own no
+# QObject and must not run moc. (Replaces the removed global CMAKE_AUTOMOC.)
+set_target_properties(
+    edi_controller_core
+    process_run_store_tests
+    belt_cross_widget_tests
+    edi_shell_window_tests
+    drawing_canvas_widget_tests
+    ${DRAFTSMAN_SHELL_TARGET_NAME}
+    PROPERTIES AUTOMOC ON)

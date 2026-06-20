@@ -67,6 +67,20 @@ std::vector<AssetRecord> testerAssetCatalog()
         {"tree_a", "tree", "meshes/tree_a.blend", "bark_brown", "leaf_green"},
         {"tree_b", "tree", "meshes/tree_b.blend", "bark_brown", "leaf_green"},
         {"tree_c", "tree", "meshes/tree_c.blend", "bark_brown", "leaf_green"},
+        // CONTAINER BATCH (game-asset library batch 1) — six pre-authored
+        // container craftsmen integrated through the SAME forge->bake->curate path:
+        // each is a single Script op invoking the craftsman at its MANIFEST
+        // defaults, baked once to meshes/<name>.blend, dual-tier parity confirmed
+        // (proof_mesh vert/face counts == baked mesh counts). They share one
+        // neutral category="container" and carry no texture override (the
+        // realizer's grey default reads fine — they are not slot-split like trees),
+        // so these rows ship 0 textures, keeping zooManifestFieldProblem nullopt.
+        {"barrel", "container", "meshes/barrel.blend", nullptr, nullptr},
+        {"crate", "container", "meshes/crate.blend", nullptr, nullptr},
+        {"chest", "container", "meshes/chest.blend", nullptr, nullptr},
+        {"sack", "container", "meshes/sack.blend", nullptr, nullptr},
+        {"pot", "container", "meshes/pot.blend", nullptr, nullptr},
+        {"bucket", "container", "meshes/bucket.blend", nullptr, nullptr},
     };
 
     int serial = 1; // serials are 1-based, dense, in catalog order

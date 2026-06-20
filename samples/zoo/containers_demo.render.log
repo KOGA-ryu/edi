@@ -1,0 +1,138 @@
+Blender 4.5.9 LTS (hash 8bf95cbd38d1 built 2026-04-21 01:31:15)
+Fra:1 Mem:11.87M (Peak 11.87M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | floor_tile_crypt.floor_tile
+Fra:1 Mem:11.87M (Peak 11.87M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | floor_tile_crypt.floor_tile.004
+Fra:1 Mem:11.87M (Peak 11.87M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | floor_tile_crypt.floor_tile.007
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | floor_tile_crypt.floor_tile.009
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.001
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.004
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.005
+Fra:1 Mem:11.88M (Peak 11.88M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.006
+Fra:1 Mem:11.89M (Peak 11.89M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.007
+Fra:1 Mem:11.89M (Peak 11.89M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.009
+Fra:1 Mem:11.89M (Peak 11.89M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.012
+Fra:1 Mem:11.89M (Peak 11.89M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_panel_crypt.wall_panel.013
+Fra:1 Mem:11.89M (Peak 11.89M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_corner_crypt.wall_corner
+Fra:1 Mem:11.90M (Peak 11.90M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_corner_crypt.wall_corner.001
+Fra:1 Mem:11.90M (Peak 11.90M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | wall_corner_crypt.wall_corner.003
+Fra:1 Mem:11.90M (Peak 11.90M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | asset_0010_0
+Fra:1 Mem:11.91M (Peak 11.91M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | asset_0012_0
+Fra:1 Mem:11.92M (Peak 11.92M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | asset_0013_0
+Fra:1 Mem:11.94M (Peak 11.94M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | asset_0014_0
+Fra:1 Mem:11.94M (Peak 11.94M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | brazier_crypt.brazier
+Fra:1 Mem:11.98M (Peak 11.98M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | brazier_light
+Fra:1 Mem:12.08M (Peak 12.08M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:10.64M (Peak 12.08M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:10.64M (Peak 12.08M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:10.64M (Peak 12.08M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:10.64M (Peak 12.08M) | Time:00:00.10 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:10.72M (Peak 38.74M) | Time:00:00.16 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:10.73M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:10.73M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:10.73M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:10.73M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:10.73M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.16 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH light 41/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH light 41/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH brazier_light 40/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH brazier_light 40/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH Cylinder.001 39/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Geometry BVH Cylinder.001 39/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.001 2/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.030 19/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.030 19/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.032 21/40 | Building BVH
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.031 20/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.034 23/40 | Building BVH
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.038 27/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.039 28/40 | Building BVH
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.16 | Mem:0.05M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH Cube.039 28/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.17 | Mem:0.04M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH bucket.a_mesh 38/40 | Building BVH
+Fra:1 Mem:10.76M (Peak 38.74M) | Time:00:00.17 | Mem:0.04M, Peak:0.05M | Scene, ViewLayer | Updating Geometry BVH bucket.a_mesh 38/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.05M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.040 29/40 | Building BVH
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.040 29/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.05M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.041 30/40 | Building BVH
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.05M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.041 30/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.042 31/40 | Building BVH
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cube.042 31/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cylinder 32/40 | Building BVH
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Geometry BVH Cylinder 32/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.07M, Peak:0.07M | Scene, ViewLayer | Updating Geometry BVH barrel.a_mesh 33/40 | Building BVH
+Fra:1 Mem:10.77M (Peak 38.74M) | Time:00:00.17 | Mem:0.07M, Peak:0.07M | Scene, ViewLayer | Updating Geometry BVH barrel.a_mesh 33/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.07M, Peak:0.07M | Scene, ViewLayer | Updating Geometry BVH crate.a_mesh 34/40 | Building BVH
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.07M, Peak:0.07M | Scene, ViewLayer | Updating Geometry BVH crate.a_mesh 34/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Geometry BVH chest.a_mesh 35/40 | Building BVH
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Geometry BVH chest.a_mesh 35/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Geometry BVH sack.a_mesh 36/40 | Building BVH
+Fra:1 Mem:10.78M (Peak 38.74M) | Time:00:00.17 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Geometry BVH sack.a_mesh 36/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.79M (Peak 38.74M) | Time:00:00.17 | Mem:0.09M, Peak:0.09M | Scene, ViewLayer | Updating Geometry BVH pot.a_mesh 37/40 | Building BVH
+Fra:1 Mem:10.79M (Peak 38.74M) | Time:00:00.17 | Mem:0.09M, Peak:0.09M | Scene, ViewLayer | Updating Geometry BVH pot.a_mesh 37/40 | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.17 | Mem:0.12M, Peak:0.17M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.17 | Mem:0.12M, Peak:0.17M | Scene, ViewLayer | Updating Scene BVH | Building OptiX acceleration structure
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.17 | Mem:0.13M, Peak:0.17M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:10.75M (Peak 38.74M) | Time:00:00.17 | Mem:0.13M, Peak:0.17M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.13M, Peak:0.17M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.20M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.20M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.20M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.20M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.20M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:10.82M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:10.83M (Peak 38.74M) | Time:00:00.17 | Mem:0.20M, Peak:0.28M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:10.83M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:10.83M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:10.83M (Peak 38.74M) | Time:00:00.17 | Mem:0.28M, Peak:0.28M | Scene, ViewLayer | Loading denoising kernels (may take a few minutes the first time)
+Fra:1 Mem:26.77M (Peak 38.74M) | Time:00:00.18 | Mem:1402.79M, Peak:1402.79M | Scene, ViewLayer | Sample 0/64
+Fra:1 Mem:177.07M (Peak 177.07M) | Time:00:00.19 | Remaining:00:00.91 | Mem:1553.08M, Peak:1553.08M | Scene, ViewLayer | Sample 1/64
+Fra:1 Mem:240.36M (Peak 335.28M) | Time:00:03.35 | Mem:1553.08M, Peak:1553.08M | Scene, ViewLayer | Sample 64/64
+Fra:1 Mem:240.36M (Peak 335.28M) | Time:00:03.35 | Mem:1553.08M, Peak:1553.08M | Scene, ViewLayer | Finished
+Saved: 'samples/zoo/containers_demo.png'
+Time: 00:03.57 (Saving: 00:00.15)
+
+BlenderMCP: cannot start server in background mode (blender -b) - commands would never execute
+BlenderMCP: run Blender with a GUI, or use a virtual display: xvfb-run -a blender
+BlenderMCP addon registered
+================================================================
+edi_realize — M0 crypt realizer
+blender version: 4.5.9 LTS
+scale S = 1  (corridor_w=5 door_w=4 wall_h=12 tile=5 ft)
+inverted model: nodes=0 levels=1 feet_per_band=14 ft (Z=level*pitch)
+reference overlay: off  (figure 6 ft FIXED + 5 ft floor checker)
+manifest: samples/zoo/tester_zoo.manifest.toon  asset-dir: samples/zoo
+map: 'containers demo'  units=feet
+rooms=1 (span=0 open=0) connections=0 nodes=0 blocks=7
+pieces=51 lights=1 instances=6
+piece-type counts:
+  brazier            2
+  ceiling_slab       12
+  column             1
+  floor_tile         12
+  instance           6
+  wall_corner        4
+  wall_panel         14
+structural piece types present: 5/10  -> ['floor_tile', 'wall_panel', 'wall_corner', 'ceiling_slab', 'column']
+MISSING piece types: ['doorway_frame', 'end_cap', 'corridor_straight', 'corridor_l', 'stair']
+manifest assets=15  resolved=['asset_0010', 'asset_0011', 'asset_0012', 'asset_0013', 'asset_0014', 'asset_0015']
+  unresolved (greybox fallback)=['crypt.brazier']
+================================================================
+render engine: CYCLES   compute_device_type: OPTIX   cycles.device: GPU
+samples: 64   resolution: 1920x1080
+cycles devices:
+  [ ] CUDA   NVIDIA GeForce RTX 5090
+  [ ] CPU    Intel Core i7-14700KF
+  [X] OPTIX  NVIDIA GeForce RTX 5090
+GPU CONFIRMED: rendering on OPTIX device(s): ['NVIDIA GeForce RTX 5090']
+render complete: samples/zoo/containers_demo.png   wall-time: 3.6s
+GATE timing: PASS (<120s)  actual 3.6s
+================================================================
+BlenderMCP server stopped
+BlenderMCP addon unregistered

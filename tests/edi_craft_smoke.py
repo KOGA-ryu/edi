@@ -632,13 +632,20 @@ def main() -> int:
     assert "radial_petal" in registry, "radial_petal craftsman not discovered"
     assert "nfold_star" in registry, "nfold_star craftsman not discovered"
     manifest_toml = edi_craft.craftsmen_manifest_toml(edi_craft.default_craftsmen_dir())
-    # Craftsmen are emitted sorted by id: nfold_star (n) < radial_petal (r) <
-    # tree (tr) < twisted_column (tw) — so 0/1/2/3 respectively. (tree was added
-    # for the L0 form slice and lands between radial_petal and twisted_column.)
-    assert 'craftsman.0.id = "nfold_star"' in manifest_toml
-    assert 'craftsman.1.id = "radial_petal"' in manifest_toml
-    assert 'craftsman.2.id = "tree"' in manifest_toml
-    assert 'craftsman.3.id = "twisted_column"' in manifest_toml
+    # Craftsmen are emitted sorted by id. The CONTAINER BATCH (game-asset library
+    # batch 1) added barrel/bucket/chest/crate/pot/sack, which interleave with the
+    # original four by alphabetical id: barrel(0) bucket(1) chest(2) crate(3)
+    # nfold_star(4) pot(5) radial_petal(6) sack(7) tree(8) twisted_column(9).
+    # We pin the original four at their POST-BATCH indices (so a re-sort/load drift
+    # is still caught) plus assert each new container id is present by NAME (the
+    # positional index of containers is not the contract — their presence is).
+    assert 'craftsman.4.id = "nfold_star"' in manifest_toml
+    assert 'craftsman.6.id = "radial_petal"' in manifest_toml
+    assert 'craftsman.8.id = "tree"' in manifest_toml
+    assert 'craftsman.9.id = "twisted_column"' in manifest_toml
+    for container in ("barrel", "bucket", "chest", "crate", "pot", "sack"):
+        assert f'id = "{container}"' in manifest_toml, \
+            f"container craftsman {container} not in manifest"
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,

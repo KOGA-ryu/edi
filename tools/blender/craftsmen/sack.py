@@ -22,6 +22,10 @@ import math
 import random
 
 
+# Silhouette-defining proportions, named rather than inline (the tree precedent).
+DRIFT_STEP_FRAC = 0.18   # per-ring lateral slump step, as a fraction of the body radius
+KNOT_HEIGHT_FRAC = 0.6   # the cinch knot rises this fraction of the neck radius above the top ring
+
 MANIFEST = {
     "id": "sack",
     "label": "Cloth Sack",
@@ -90,7 +94,7 @@ def _local_mesh(params: dict):
         wob = lump * (1.0 - 0.7 * t)
         ring_scale.append(1.0 + rng.uniform(-wob, wob))
         # lateral drift step, scaled by body radius and lumpiness
-        step = lump * body_r * 0.18
+        step = lump * body_r * DRIFT_STEP_FRAC
         drift_x += rng.uniform(-step, step)
         drift_y += rng.uniform(-step, step)
         # taper the accumulated lean back toward 0 at the very top (tight cinch)
@@ -129,7 +133,7 @@ def _local_mesh(params: dict):
     verts.append((lean_x[0], lean_y[0], 0.0))
     top_apex_idx = len(verts)
     # apex sits slightly above the top ring: the gathered cloth tied off
-    verts.append((lean_x[-1], lean_y[-1], height + neck_r * 0.6))
+    verts.append((lean_x[-1], lean_y[-1], height + neck_r * KNOT_HEIGHT_FRAC))
 
     faces = []
 

@@ -17,6 +17,11 @@ bucket. Same seed = byte-identical mesh; different seed = visibly different.
 import math
 import random
 
+# Silhouette-defining proportions, named so the bucket's shape is read from
+# constants rather than inline magic numbers (the tree's named-constant style).
+RIM_CAP_FRAC = 0.4       # rim thickness is capped at this fraction of the top radius
+ARCH_HEIGHT_FRAC = 0.9   # handle arch bows this fraction of the top radius over the mouth
+
 MANIFEST = {
     "id": "bucket",
     "label": "Bucket / Pail",
@@ -81,7 +86,7 @@ def _local_mesh(params: dict):
     # Keep the silhouette sane after jitter: a pail is wider at the lip, and the
     # rim/inset must not eat the whole mouth.
     top = max(top, bottom * 1.05)
-    rim_th = min(rim_th, top * 0.4)
+    rim_th = min(rim_th, top * RIM_CAP_FRAC)
     inner_top = max(1e-3, top - rim_th - wall_inset)
     inner_bottom = max(1e-3, bottom * (inner_top / top) - wall_inset)
     floor_z = min(bottom_recess, height * 0.5)  # recessed inner floor height
@@ -126,7 +131,7 @@ def _local_mesh(params: dict):
         tube_sides = 6  # hexagonal tube — cheap, reads round at prop scale
         # Hinge points sit on the outer lip on the +x / -x sides.
         span = top                              # half-distance hinge-to-hinge ~ radius
-        arch_h = top * 0.9                      # how high the arch bows over the mouth
+        arch_h = top * ARCH_HEIGHT_FRAC         # how high the arch bows over the mouth
         centerline = []
         for s in range(handle_seg + 1):
             t = s / handle_seg

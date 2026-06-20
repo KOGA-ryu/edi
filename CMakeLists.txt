@@ -612,6 +612,13 @@ if(Python3_FOUND)
     # function of the params (the REPRODUCIBLE gate). PIL is guarded inside.
     add_test(NAME girih_tile_smoke
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/girih_tile_smoke.py)
+    # The REAL bpy bake path: drives a headless Blender to build a recipe through
+    # edi_craft.build() and asserts the bpy mesh == proof_mesh (closing the
+    # proof_mesh<->Blender drift gap that every build()/_bake_asset pragma hides).
+    # GUARDED: SKIPs cleanly (exit 0) when Blender is absent, so ctest stays green
+    # on a Blender-less box; runs the real bake where Blender is on PATH.
+    add_test(NAME bpy_bake_smoke
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/bpy_bake_smoke.py)
 else()
     message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
 endif()

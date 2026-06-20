@@ -19,6 +19,10 @@ clones, while staying recognizably the same crate.
 import math
 import random
 
+# Silhouette-defining proportions, named rather than inline (the tree precedent).
+FRAME_CAP_FRAC = 0.45    # frame member thickness is capped at this fraction of the smallest dim
+PANEL_INSET_FRAC = 0.6   # panel inset is capped at this fraction of the frame thickness
+
 MANIFEST = {
     "id": "crate",
     "label": "Wooden Crate",
@@ -86,7 +90,7 @@ def _local_mesh(params: dict):
     # never gets rails thicker than half the box. Clamp to keep two opposite
     # rails from overlapping in the middle (leaves room for a real panel).
     smallest = min(width, depth, height)
-    t = min(frame, smallest * 0.45)
+    t = min(frame, smallest * FRAME_CAP_FRAC)
 
     # Centre the box on x/y, base on z=0 so it plants on the ground when placed.
     hx, hy = width * 0.5, depth * 0.5
@@ -119,7 +123,7 @@ def _local_mesh(params: dict):
     # by `inset` so a raised border surrounds a sunken face. Panel slab is `t`
     # thick so it has real depth (not a zero-volume sheet). Inset is clamped so a
     # panel never inverts on a small crate.
-    panel_inset = min(inset, t * 0.6)
+    panel_inset = min(inset, t * PANEL_INSET_FRAC)
 
     # Span of the framed window on each axis (between the rails).
     px0, px1 = x0 + t, x1 - t

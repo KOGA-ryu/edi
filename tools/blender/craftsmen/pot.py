@@ -19,6 +19,10 @@ import math
 import random
 
 
+# Silhouette-defining proportion, named rather than inline (the tree precedent).
+FOOT_INSET_FRAC = 0.82   # the underside base radius is this fraction of the foot radius
+
+
 MANIFEST = {
     "id": "pot",
     "label": "Ceramic Pot / Urn",
@@ -59,7 +63,7 @@ def _profile(params: dict, rng: random.Random):
         return (rng.random() - 0.5) * 0.10
 
     foot_r = foot * jr()
-    base_r = foot_r * 0.82          # the underside of the foot, slightly inset
+    base_r = foot_r * FOOT_INSET_FRAC  # the underside of the foot, slightly inset
     waist_r = max(1e-3, (foot + body) * 0.5 * jr())  # transition foot->belly
     body_r = body * jr()
     shoulder_r = max(1e-3, (body + neck) * 0.5 * jr())  # belly->neck taper

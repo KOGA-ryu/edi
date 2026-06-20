@@ -17,6 +17,9 @@ import math
 import random
 
 
+# Silhouette-defining proportion, named rather than inline (the tree precedent).
+BAND_LID_CLIMB_FRAC = 0.6   # straps climb this fraction up the lid past the body top
+
 MANIFEST = {
     "id": "chest",
     "label": "Treasure Chest",
@@ -137,7 +140,7 @@ def _local_mesh(params: dict):
     # spaced evenly across the width. Each band is a slim box bulging out past
     # the body faces in +/-Y; modeled as one box wider in Y than the body. ---
     if band_count > 0 and band_w > 0.0:
-        band_top = body_h + lid_h * 0.6   # bands climb partway up the lid
+        band_top = body_h + lid_h * BAND_LID_CLIMB_FRAC  # bands climb partway up the lid
         for j in range(band_count):
             # Centre each band at an even fraction across the width.
             frac = (j + 1) / (band_count + 1)

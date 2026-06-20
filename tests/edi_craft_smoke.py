@@ -647,6 +647,29 @@ def main() -> int:
         assert f'id = "{container}"' in manifest_toml, \
             f"container craftsman {container} not in manifest"
     assert 'param.2.key = "sides"' in manifest_toml, "craftsman param schema not emitted"
+
+    # CONTAINER BATCH GEOMETRY: presence in the manifest is not enough — each
+    # container's pure proof_mesh must render a well-formed, closed-enough mesh,
+    # so this block mirrors the tree/nfold_star geometry checks below. The
+    # containers are seeded, so a FIXED default op (manifest defaults, seed 0 at
+    # the origin) is deterministic. For each: non-empty verts AND faces, no
+    # degenerate face, every index in range, and origin-at-base (z-min ≈ 0 — the
+    # contract every game asset honours so an instance plants on terrain).
+    for container in ("barrel", "bucket", "chest", "crate", "pot", "sack"):
+        craftsman = registry[container]
+        default_op = {
+            "params": {p["key"]: p["default"] for p in craftsman.MANIFEST["params"]},
+            "x": 0.0, "y": 0.0, "z": 0.0,
+        }
+        c_verts, c_faces = craftsman.proof_mesh(default_op)
+        assert c_verts and c_faces, f"{container} proof_mesh returned an empty mesh"
+        for face in c_faces:
+            assert len(set(face)) >= 3, f"degenerate {container} face"
+            assert all(0 <= i < len(c_verts) for i in face), \
+                f"{container} face references a missing vertex"
+        c_zmin = min(v[2] for v in c_verts)
+        assert abs(c_zmin) < 1e-6, \
+            f"{container} base must sit at z=0 (origin-at-base), got z-min {c_zmin}"
     script_op = {"type": "Script", "script": "twisted_column", "name": "twist",
                  "x": 0.0, "y": 0.0, "z": 0.0,
                  "params": {"radius": "1", "height": "4", "sides": "6", "turns": "1", "rings": "8"}}
